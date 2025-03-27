@@ -12,7 +12,8 @@ import {
   SourceInfo,
   StructuredVersion,
 } from '../types/source';
-import { StructuredVersionRange } from './versions';
+import { Namespace, Namespaces } from './namespaces';
+import { StructuredVersionRange, Version, VersionUtils } from './versions';
 
 export class SourceFile implements SourceInfo {
   private readonly body: string;
@@ -32,7 +33,7 @@ export class SourceFile implements SourceInfo {
     Map<string, StructuredVersion>
   >;
 
-  private constructor(builder: SourceFile.Builder) {
+  constructor(builder: SourceFileBuilder) {
     this.body = builder.body;
     this.version = builder.version;
     this.namespace = builder.namespace;
@@ -50,8 +51,8 @@ export class SourceFile implements SourceInfo {
     this.oldVersionProvider = builder.oldVersionProvider!;
   }
 
-  static builder(): SourceFile.Builder {
-    return new SourceFile.Builder();
+  static builder(): SourceFileBuilder {
+    return new SourceFileBuilder();
   }
 
   getLengthWithComments(): number {
@@ -70,20 +71,36 @@ export class SourceFile implements SourceInfo {
     return this.namespace;
   }
 
-  isTrusted(): boolean {
+  get isTrusted(): boolean {
     return this.isTrusted;
   }
 
-  isFileBased(): boolean {
+  set isTrusted(value: boolean) {
+    this.isTrusted = value;
+  }
+
+  get isFileBased(): boolean {
     return this.isFileBased;
   }
 
-  isMocked(): boolean {
+  set isFileBased(value: boolean) {
+    this.isFileBased = value;
+  }
+
+  get isMocked(): boolean {
     return this.isMocked;
   }
 
-  supportsLongTopLevelIdentifier(): boolean {
+  set isMocked(value: boolean) {
+    this.isMocked = value;
+  }
+
+  get supportsLongTopLevelIdentifier(): boolean {
     return this.supportsLongTopLevelIdentifier || this.isFileBased;
+  }
+
+  set supportsLongTopLevelIdentifier(value: boolean) {
+    this.supportsLongTopLevelIdentifier = value;
   }
 
   getVersionProvider(): OldVersionProvider {
@@ -114,122 +131,122 @@ export class SourceFile implements SourceInfo {
     return this.knownName;
   }
 
-  copy(): Builder {
-    return new SourceFile.Builder().setSeed(this);
+  copy(): SourceFileBuilder {
+    return new SourceFileBuilder().setSeed(this);
+  }
+}
+
+export class SourceFileBuilder {
+  body: string = '';
+  version: Version = VersionUtils.CURRENT;
+  namespace: Namespace = Namespaces.EMPTY;
+  isTrusted: boolean = false;
+  isFileBased: boolean = false;
+  isMocked: boolean = false;
+  supportsLongTopLevelIdentifier: boolean = false;
+  allPackageId: string | null = null;
+  lengthWithComments?: number;
+  knownName: string = '';
+  referencedPackageVersions: Map<string, StructuredVersion> = new Map();
+  exportedPackageVersions: Map<IntPair, StructuredVersionRange> = new Map();
+  interfacePackageVersions: Map<IntPair, Map<string, StructuredVersion>> =
+    new Map();
+  oldVersionProvider?: OldVersionProvider;
+
+  build(): SourceFile {
+    console.assert(
+      this.isFileBased === this.isTrusted || !this.isFileBased,
+      'source cannot be file based and not trusted',
+    );
+    return new SourceFile(this);
   }
 
-  static Builder = class Builder {
-    body: string = '';
-    version: Version = Version.CURRENT;
-    namespace: Namespace = Namespaces.EMPTY;
-    isTrusted: boolean = false;
-    isFileBased: boolean = false;
-    isMocked: boolean = false;
-    supportsLongTopLevelIdentifier: boolean = false;
-    allPackageId: string | null = null;
-    lengthWithComments?: number;
-    knownName: string = '';
-    referencedPackageVersions: Map<string, StructuredVersion> = new Map();
-    exportedPackageVersions: Map<IntPair, StructuredVersionRange> = new Map();
-    interfacePackageVersions: Map<IntPair, Map<string, StructuredVersion>> =
-      new Map();
-    oldVersionProvider?: OldVersionProvider;
+  setSeed(sourceFile: SourceFile): this {
+    this.allPackageId = sourceFile.getAllPackageId();
+    this.isTrusted = sourceFile.isTrusted;
+    this.isFileBased = sourceFile.isFileBased;
+    this.namespace = sourceFile.getNamespace();
+    this.body = sourceFile.getBody();
+    this.version = sourceFile.getVersion();
+    this.knownName = sourceFile.getKnownName();
+    return this;
+  }
 
-    build(): SourceFile {
-      console.assert(
-        this.isFileBased === this.isTrusted || !this.isFileBased,
-        'source cannot be file based and not trusted',
-      );
-      return new SourceFile(this);
-    }
+  setBody(body: string): this {
+    this.body = body;
+    return this;
+  }
 
-    setSeed(sourceFile: SourceFile): this {
-      this.allPackageId = sourceFile.getAllPackageId();
-      this.isTrusted = sourceFile.isTrusted();
-      this.isFileBased = sourceFile.isFileBased();
-      this.namespace = sourceFile.getNamespace();
-      this.body = sourceFile.getBody();
-      this.version = sourceFile.getVersion();
-      this.knownName = sourceFile.getKnownName();
-      return this;
-    }
+  setVersion(version: Version): this {
+    this.version = version;
+    return this;
+  }
 
-    setBody(body: string): this {
-      this.body = body;
-      return this;
-    }
+  setReferencedPackageVersions(
+    referencedPackageVersions: Map<string, StructuredVersion>,
+  ): this {
+    this.referencedPackageVersions = new Map(referencedPackageVersions);
+    return this;
+  }
 
-    setVersion(version: Version): this {
-      this.version = version;
-      return this;
-    }
+  setExportedPackageVersions(
+    exportedPackageVersions: Map<IntPair, StructuredVersionRange>,
+  ): this {
+    this.exportedPackageVersions = new Map(exportedPackageVersions);
+    return this;
+  }
 
-    setReferencedPackageVersions(
-      referencedPackageVersions: Map<string, StructuredVersion>,
-    ): this {
-      this.referencedPackageVersions = new Map(referencedPackageVersions);
-      return this;
-    }
+  setInterfacePackageVersions(
+    interfacePackageVersions: Map<IntPair, Map<string, StructuredVersion>>,
+  ): this {
+    this.interfacePackageVersions = new Map(interfacePackageVersions);
+    return this;
+  }
 
-    setExportedPackageVersions(
-      exportedPackageVersions: Map<IntPair, StructuredVersionRange>,
-    ): this {
-      this.exportedPackageVersions = new Map(exportedPackageVersions);
-      return this;
-    }
+  setNamespace(namespace: Namespace): this {
+    this.namespace = namespace;
+    return this;
+  }
 
-    setInterfacePackageVersions(
-      interfacePackageVersions: Map<IntPair, Map<string, StructuredVersion>>,
-    ): this {
-      this.interfacePackageVersions = new Map(interfacePackageVersions);
-      return this;
-    }
+  setTrusted(isTrusted: boolean): this {
+    this.isTrusted = isTrusted;
+    return this;
+  }
 
-    setNamespace(namespace: Namespace): this {
-      this.namespace = namespace;
-      return this;
-    }
+  setFileBased(isFileBased: boolean): this {
+    this.isFileBased = isFileBased;
+    return this;
+  }
 
-    setTrusted(isTrusted: boolean): this {
-      this.isTrusted = isTrusted;
-      return this;
-    }
+  setMocked(isMocked: boolean): this {
+    this.isMocked = isMocked;
+    return this;
+  }
 
-    setFileBased(isFileBased: boolean): this {
-      this.isFileBased = isFileBased;
-      return this;
-    }
+  setSupportsLongTopLevelIdentifier(
+    supportsLongTopLevelIdentifier: boolean,
+  ): this {
+    this.supportsLongTopLevelIdentifier = supportsLongTopLevelIdentifier;
+    return this;
+  }
 
-    setMocked(isMocked: boolean): this {
-      this.isMocked = isMocked;
-      return this;
-    }
+  setAllPackageId(allPackageId: string): this {
+    this.allPackageId = allPackageId;
+    return this;
+  }
 
-    setSupportsLongTopLevelIdentifier(
-      supportsLongTopLevelIdentifier: boolean,
-    ): this {
-      this.supportsLongTopLevelIdentifier = supportsLongTopLevelIdentifier;
-      return this;
-    }
+  setLengthWithComments(lengthWithComments: number): this {
+    this.lengthWithComments = lengthWithComments;
+    return this;
+  }
 
-    setAllPackageId(allPackageId: string): this {
-      this.allPackageId = allPackageId;
-      return this;
-    }
+  setKnownName(knownName: string): this {
+    this.knownName = knownName;
+    return this;
+  }
 
-    setLengthWithComments(lengthWithComments: number): this {
-      this.lengthWithComments = lengthWithComments;
-      return this;
-    }
-
-    setKnownName(knownName: string): this {
-      this.knownName = knownName;
-      return this;
-    }
-
-    setOldVersionProvider(oldVersionProvider: OldVersionProvider): this {
-      this.oldVersionProvider = oldVersionProvider;
-      return this;
-    }
-  };
+  setOldVersionProvider(oldVersionProvider: OldVersionProvider): this {
+    this.oldVersionProvider = oldVersionProvider;
+    return this;
+  }
 }

@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "^1.0.0",
+    "@xmldom/xmldom": "^0.9.8",
     "antlr4ts": "^1.0.0",
     "ts-loader": "^9.5.2"
   },
