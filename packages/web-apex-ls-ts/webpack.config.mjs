@@ -1,6 +1,6 @@
-const path = require("path");
+import path from "path";
 
-module.exports = {
+export default {
   entry: "./src/index.ts",
   output: {
     filename: "bundle.js",
@@ -18,5 +18,5 @@ module.exports = {
       },
     ],
   },
-  target: "node",
+  target: "web",
 };
