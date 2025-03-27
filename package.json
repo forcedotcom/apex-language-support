@@ -5,6 +5,7 @@
   "scripts": {
     "test": "jest",
     "lint": "eslint --ext .ts,.mjs .",
+    "lint:fix": "eslint --ext .ts,.mjs . --fix",
     "build": "yarn workspaces run build"
   },
   "keywords": [],
