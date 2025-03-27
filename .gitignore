@@ -1,0 +1,48 @@
+# Node.js
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependency directories
+.DS_Store
+
+# Build output
+dist/
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE files
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Yarn
+.yarn/
+.yarnrc.yml
+
+# Lock files
+package-lock.json
+yarn.lock
+
+# Coverage
+coverage/
+
+# Miscellaneous
+*.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+
+# Webpack
+webpack-stats.json

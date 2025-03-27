@@ -1,0 +1,17 @@
+{
+  "name": "utilities",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "webpack"
+  },
+  "dependencies": {
+    "@apexdevtools/apex-parser": "^1.0.0",
+    "antlr4ts": "^1.0.0"
+  },
+  "devDependencies": {
+    "webpack": "^5.0.0",
+    "typescript": "^4.0.0"
+  }
+}
