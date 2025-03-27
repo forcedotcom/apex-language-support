@@ -2,16 +2,16 @@
  * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-// eslint-disable-next-line import/no-unresolved
+
 import typescriptEslintPlugin from '@typescript-eslint/eslint-plugin';
 import prettierPlugin from 'eslint-plugin-prettier';
 import importPlugin from 'eslint-plugin-import';
 import unusedImportsPlugin from 'eslint-plugin-unused-imports';
 import jsdocPlugin from 'eslint-plugin-jsdoc';
 import header from '@tony.ganchev/eslint-plugin-header';
-// eslint-disable-next-line import/no-unresolved
 import typescriptParser from '@typescript-eslint/parser';
 
 export default [
