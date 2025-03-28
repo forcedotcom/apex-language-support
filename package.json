@@ -6,7 +6,10 @@
     "test": "jest",
     "lint": "eslint --ext .ts,.mjs .",
     "lint:fix": "eslint --ext .ts,.mjs . --fix",
-    "build": "yarn workspaces run build"
+    "build": "npm run build:all",
+    "build:all": "npm workspaces run build",
+    "dev": "npm workspaces run dev",
+    "clean:webpack": "find ./packages -name 'webpack.config.*' -type f -delete"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +19,7 @@
     "@babel/plugin-transform-modules-commonjs": "^7.26.3",
     "@babel/preset-env": "^7.26.9",
     "@babel/preset-typescript": "^7.27.0",
+    "@rollup/plugin-typescript": "^11.1.5",
     "@tony.ganchev/eslint-plugin-header": "^3.1.2",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.14",
@@ -32,8 +36,7 @@
     "prettier": "^3.5.3",
     "ts-jest": "^29.3.0",
     "typescript": "^5.8.2",
-    "webpack": "^5.98.0",
-    "webpack-cli": "^6.0.1"
+    "vite": "^5.0.0"
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.0",
