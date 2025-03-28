@@ -5,41 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "wireit",
-    "dev": "wireit"
-  },
-  "wireit": {
-    "build": {
-      "command": "vite build",
-      "dependencies": [
-        "../apex-parser-ast:build",
-        "../custom-services:build"
-      ],
-      "files": [
-        "src/**/*.ts",
-        "tsconfig.json",
-        "vite.config.ts"
-      ],
-      "output": [
-        "dist/**"
-      ]
-    },
-    "dev": {
-      "command": "vite build --watch",
-      "service": true,
-      "dependencies": [
-        "../apex-parser-ast:dev",
-        "../custom-services:dev"
-      ],
-      "files": [
-        "src/**/*.ts",
-        "tsconfig.json",
-        "vite.config.ts"
-      ],
-      "output": [
-        "dist/**"
-      ]
-    }
+    "build": "vite build",
+    "dev": "vite build --watch"
   },
   "dependencies": {
     "apex-parser-ast": "1.0.0",

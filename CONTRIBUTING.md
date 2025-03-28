@@ -54,18 +54,9 @@ When creating new modules or modifying existing ones, ensure your code is proper
 
 ### Building
 
-This project uses [wireit](https://github.com/google/wireit) for smart incremental builds. Wireit only rebuilds what has changed, making development much faster.
-
 - Build all packages:
 
   ```bash
-  npm run build
-  ```
-
-- Build a specific package (will also build its dependencies):
-
-  ```bash
-  cd packages/custom-services
   npm run build
   ```
 
@@ -73,13 +64,6 @@ This project uses [wireit](https://github.com/google/wireit) for smart increment
   ```bash
   npm run dev
   ```
-
-Wireit automatically:
-
-- Tracks dependencies between packages
-- Only rebuilds what's necessary
-- Caches build results to avoid redundant work
-- Runs builds in parallel when possible
 
 ### Testing
 
