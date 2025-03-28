@@ -28,10 +28,6 @@ dist/
 .yarn/
 .yarnrc.yml
 
-# Lock files
-package-lock.json
-yarn.lock
-
 # Coverage
 coverage/
 
