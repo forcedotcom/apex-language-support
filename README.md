@@ -8,7 +8,7 @@ This project implements a Language Server Protocol (LSP) for Salesforce Apex, pr
 
 ## Packages
 
-- **utilities**: Core utilities and shared functionality used across packages
+- **apex-parser-ast**: Apex language parser and abstract syntax tree (AST) functionality
 - **custom-services**: Custom language server services beyond the LSP specification
 - **lsp-compliant-services**: Standard LSP-compliant services implementation
 - **extension-apex-ls-ts**: VS Code extension integration for the language server

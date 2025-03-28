@@ -14,7 +14,7 @@ This package implements custom services and capabilities for the Apex Language S
 
 ## Dependencies
 
-- `utilities`: Core utilities from this monorepo
+- `apex-parser-ast`: Apex language parser and AST functionality from this monorepo
 - `vscode-languageserver`: VSCode Language Server implementation
 - `vscode-languageserver-protocol`: LSP protocol definitions
 

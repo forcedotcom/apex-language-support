@@ -21,11 +21,11 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       external: [
+        'apex-parser-ast',
         '@apexdevtools/apex-parser',
         'antlr4ts',
         'vscode-languageserver',
         'vscode-languageserver-protocol',
-        'utilities',
         'custom-services',
       ],
       output: {

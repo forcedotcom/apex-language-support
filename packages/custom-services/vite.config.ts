@@ -25,7 +25,7 @@ export default defineConfig({
         'antlr4ts',
         'vscode-languageserver',
         'vscode-languageserver-protocol',
-        'utilities',
+        'apex-parser-ast',
       ],
       output: {
         preserveModules: true,
