@@ -5,8 +5,33 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "vite build",
-    "dev": "vite build --watch"
+    "build": "wireit",
+    "dev": "wireit"
+  },
+  "wireit": {
+    "build": {
+      "command": "vite build",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json",
+        "vite.config.ts"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "dev": {
+      "command": "vite build --watch",
+      "service": true,
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json",
+        "vite.config.ts"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    }
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.0",
