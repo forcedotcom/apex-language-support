@@ -6,10 +6,8 @@
     "test": "jest",
     "lint": "eslint --ext .ts,.mjs .",
     "lint:fix": "eslint --ext .ts,.mjs . --fix",
-    "build": "npm run build:all",
-    "build:all": "npm workspaces run build",
-    "dev": "npm workspaces run dev",
-    "clean:webpack": "find ./packages -name 'webpack.config.*' -type f -delete"
+    "build": "npm run build --workspaces",
+    "dev": "npm run dev --workspaces"
   },
   "keywords": [],
   "author": "",
