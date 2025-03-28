@@ -101,6 +101,72 @@ Wireit automatically:
   npm run lint:fix
   ```
 
+## Commit Guidelines
+
+This project follows [Conventional Commits](https://www.conventionalcommits.org/) to standardize commit messages and make the development history clear and readable.
+
+### Commit Format
+
+Each commit message consists of a **header**, a **body**, and a **footer**. The header has a specific format that includes a **type**, a **scope**, and a **subject**:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+Examples:
+
+```
+feat(apex-parser-ast): Add support for custom annotations
+
+fix(lsp-compliant-services): Correct hover information display
+
+docs(repo): Update README with new installation instructions
+```
+
+### Using the Commit Tool
+
+We've integrated Commitizen to help you format your commits correctly:
+
+```bash
+npm run commit
+```
+
+This will start an interactive prompt that guides you through creating a properly formatted commit message.
+
+### Commit Types
+
+- **feat**: A new feature
+- **fix**: A bug fix
+- **docs**: Documentation only changes
+- **style**: Changes that do not affect the meaning of the code (formatting, etc.)
+- **refactor**: A code change that neither fixes a bug nor adds a feature
+- **perf**: A code change that improves performance
+- **test**: Adding missing tests or correcting existing tests
+- **build**: Changes that affect the build system or external dependencies
+- **ci**: Changes to CI configuration files and scripts
+- **chore**: Other changes that don't modify src or test files
+- **revert**: Reverts a previous commit
+
+### Scopes
+
+The scope specifies the part of the codebase your change affects. For this project, valid scopes include:
+
+- **apex-parser-ast**: Changes to the parser/AST package
+- **custom-services**: Changes to custom language services
+- **lsp-compliant-services**: Changes to standard LSP services
+- **extension-apex-ls-ts**: Changes to VS Code extension integration
+- **web-apex-ls-ts**: Changes to web-based integration
+- **docs**: Documentation changes
+- **infra**: Infrastructure changes
+- **build**: Build system changes
+- **ci**: CI/CD changes
+- **deps**: Dependency updates
+- **repo**: Repository-level changes
+
 ## Code Style Guidelines
 
 This project follows these code style practices:

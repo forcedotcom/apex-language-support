@@ -14,7 +14,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'LSPCompliantServices',
+      name: 'ApexLspVscodeClient',
       fileName: 'index',
       formats: ['es'],
     },
@@ -23,12 +23,13 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       external: [
-        'apex-parser-ast',
-        '@apexdevtools/apex-parser',
-        'antlr4ts',
-        'vscode-languageserver',
-        'vscode-languageserver-protocol',
-        'custom-services',
+        'vscode',
+        'vscode-languageclient',
+        'vscode-languageclient/node',
+        'path',
+        'fs',
+        'child_process',
+        'node:*',
       ],
       output: {
         preserveModules: true,

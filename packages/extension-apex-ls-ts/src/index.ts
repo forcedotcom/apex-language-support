@@ -17,6 +17,7 @@ const connection = createConnection(ProposedFeatures.all);
 
 // Initialize server capabilities and properties
 connection.onInitialize(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   (params: InitializeParams): InitializeResult => ({
     capabilities: {
       textDocumentSync: 1, // Full synchronization

@@ -6,11 +6,18 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "wireit",
-    "dev": "wireit"
+    "dev": "wireit",
+    "clean": "rimraf dist .wireit",
+    "clean:all": "npm run clean && rimraf node_modules"
   },
   "wireit": {
     "build": {
       "command": "vite build",
+      "dependencies": [
+        "../apex-parser-ast:build",
+        "../custom-services:build",
+        "../lsp-compliant-services:build"
+      ],
       "files": [
         "src/**/*.ts",
         "tsconfig.json",
@@ -23,6 +30,11 @@
     "dev": {
       "command": "vite build --watch",
       "service": true,
+      "dependencies": [
+        "../apex-parser-ast:dev",
+        "../custom-services:dev",
+        "../lsp-compliant-services:dev"
+      ],
       "files": [
         "src/**/*.ts",
         "tsconfig.json",
@@ -34,8 +46,10 @@
     }
   },
   "dependencies": {
-    "vscode-languageserver": "^8.0.0",
-    "vscode-languageserver-protocol": "^3.17.5"
+    "apex-parser-ast": "1.0.0",
+    "custom-services": "1.0.0",
+    "lsp-compliant-services": "1.0.0",
+    "vscode-languageserver": "^8.0.0"
   },
   "devDependencies": {
     "typescript": "^4.0.0",

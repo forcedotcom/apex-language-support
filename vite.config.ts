@@ -5,11 +5,12 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { defineConfig } from 'vite';
-import { resolve } from 'path';
 import fs from 'fs';
 
+import { defineConfig } from 'vite';
+
 // Automatically detect and build all packages in the monorepo
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const packages = fs
   .readdirSync('./packages')
   .filter((dir) => fs.statSync(`./packages/${dir}`).isDirectory())

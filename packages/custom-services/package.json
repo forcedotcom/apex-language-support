@@ -6,7 +6,9 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "wireit",
-    "dev": "wireit"
+    "dev": "wireit",
+    "clean": "rimraf dist .wireit",
+    "clean:all": "npm run clean && rimraf node_modules"
   },
   "wireit": {
     "build": {

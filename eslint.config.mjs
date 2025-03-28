@@ -16,6 +16,8 @@ import typescriptParser from '@typescript-eslint/parser';
 
 export default [
   {
+    // Ignore all generated files and caches
+    ignores: ['**/.wireit/**', '**/dist/**', '**/node_modules/**', '**/*.d.ts'],
     files: ['**/*.ts', '**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2021,
@@ -38,7 +40,7 @@ export default [
     rules: {
       'prettier/prettier': 'error',
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error'],
+      '@typescript-eslint/no-unused-vars': ['error'], 
       'arrow-body-style': ['error', 'as-needed'],
       'jsdoc/check-alignment': 'warn',
       'jsdoc/check-indentation': 'warn',
