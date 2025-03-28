@@ -40,6 +40,16 @@ The project is organized as a monorepo using npm workspaces:
 - `packages/extension-apex-ls-ts`: VS Code extension integration
 - `packages/web-apex-ls-ts`: Web-based integration
 
+## TypeScript Declaration Files
+
+Each package generates TypeScript declaration files (`.d.ts`) to provide type information for consumers of the libraries. These declarations are:
+
+- Generated during the build process
+- Located in the `dist` directory of each package
+- Referenced by the `types` field in each package's `package.json`
+
+When creating new modules or modifying existing ones, ensure your code is properly typed so the declaration files are accurate and useful for consumers.
+
 ## Development Workflow
 
 ### Building

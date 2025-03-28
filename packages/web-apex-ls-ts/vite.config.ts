@@ -7,6 +7,7 @@
  */
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import typescript from '@rollup/plugin-typescript';
 
 export default defineConfig({
   build: {
@@ -27,6 +28,14 @@ export default defineConfig({
         preserveModulesRoot: 'src',
         entryFileNames: '[name].js',
       },
+      plugins: [
+        typescript({
+          tsconfig: './tsconfig.json',
+          declaration: true,
+          declarationDir: 'dist',
+          rootDir: 'src',
+        }),
+      ],
     },
   },
   resolve: {

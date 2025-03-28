@@ -7,12 +7,13 @@
  */
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import typescript from '@rollup/plugin-typescript';
 
 export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'ExtensionApexLSTS',
+      name: 'extension-apex-ls-ts',
       fileName: 'index',
       formats: ['es'],
     },
@@ -26,6 +27,14 @@ export default defineConfig({
         preserveModulesRoot: 'src',
         entryFileNames: '[name].js',
       },
+      plugins: [
+        typescript({
+          tsconfig: './tsconfig.json',
+          declaration: true,
+          declarationDir: 'dist',
+          rootDir: 'src',
+        }),
+      ],
     },
   },
   resolve: {
