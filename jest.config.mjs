@@ -6,19 +6,26 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { pathsToModuleNameMapper } from 'ts-jest';
+import { createRequire } from 'module';
 
-import { compilerOptions } from './tsconfig.json';
+const require = createRequire(import.meta.url);
+// Load tsconfig for reference, may be needed later
+require('./tsconfig.json');
 
 export default {
-  transform: {},
   extensionsToTreatAsEsm: ['.ts'],
   testEnvironment: 'node',
   testMatch: ['**/test/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   rootDir: './',
   roots: ['<rootDir>/packages'],
-  moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths || {}, {
-    prefix: '<rootDir>/',
-  }),
+  transform: {
+    '^.+\\.(ts|js)x?$': 'babel-jest',
+  },
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
+  transformIgnorePatterns: [
+    '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts)).+\\.js$',
+  ],
 };

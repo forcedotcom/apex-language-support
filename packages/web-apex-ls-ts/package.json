@@ -9,7 +9,7 @@
   "dependencies": {
     "ts-loader": "^9.5.2",
     "vscode-languageserver": "^8.0.0",
-    "vscode-languageserver-protocol": "^8.0.0"
+    "vscode-languageserver-protocol": "^3.17.5"
   },
   "devDependencies": {
     "typescript": "^4.0.0",
