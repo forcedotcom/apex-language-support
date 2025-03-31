@@ -20,7 +20,7 @@ export default defineConfig({
   // Common Vite configuration for all packages can go here
   build: {
     sourcemap: true,
-    minify: false,
+    minify: process.env.VITE_BUILD_DEBUG !== 'true',
   },
   optimizeDeps: {
     include: ['@apexdevtools/apex-parser', 'antlr4ts'],

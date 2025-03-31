@@ -8,8 +8,18 @@
     "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@salesforce/apex-lsp-extension": ["../extension-apex-ls-ts/src"],
+      "@salesforce/apex-lsp-vscode-client": ["../apex-lsp-vscode-client/src"]
+    },
+    "composite": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", ".vscode-test"]
-} 
+  "exclude": ["node_modules", ".vscode-test"],
+  "references": [
+    { "path": "../extension-apex-ls-ts" },
+    { "path": "../apex-lsp-vscode-client" }
+  ]
+}

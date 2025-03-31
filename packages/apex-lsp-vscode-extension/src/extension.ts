@@ -41,14 +41,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 function startLanguageServer(context: vscode.ExtensionContext) {
   // The server is implemented in Node
+  // For local development in monorepo, use the local path to extension-apex-ls-ts
   const serverModule = context.asAbsolutePath(
-    path.join(
-      'node_modules',
-      '@salesforce',
-      'apex-language-server',
-      'dist',
-      'server.js',
-    ),
+    path.join('..', 'extension-apex-ls-ts', 'dist', 'index.js'),
   );
 
   // If the extension is launched in debug mode then the debug server options are used
