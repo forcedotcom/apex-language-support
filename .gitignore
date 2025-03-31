@@ -24,10 +24,6 @@ dist/
 # macOS
 .DS_Store
 
-# Yarn
-.yarn/
-.yarnrc.yml
-
 # Coverage
 coverage/
 
