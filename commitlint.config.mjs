@@ -26,7 +26,6 @@ export default {
       ],
     ],
     'body-max-line-length': [2, 'always', 100],
-    'subject-case': [2, 'always', ['sentence-case']],
     'type-enum': [
       2,
       'always',
