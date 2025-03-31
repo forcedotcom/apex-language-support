@@ -62,3 +62,6 @@ connection.onHover(
 
 // Start listening for requests
 connection.listen();
+
+// Export the storage implementation for browsers
+export * from './storage/BrowserIndexedDBApexStorage.js';

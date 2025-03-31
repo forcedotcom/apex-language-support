@@ -37,3 +37,6 @@ connection.onInitialized(() => {
 
 // Listen on the connection
 connection.listen();
+
+// Export the storage implementation for Node.js
+export * from './storage/NodeFileSystemApexStorage.js';
