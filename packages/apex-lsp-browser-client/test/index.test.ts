@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-describe('extension-apex-ls-ts', () => {
+describe('apex-lsp-browser-client', () => {
   it('should be defined', () => {
     expect(true).toBe(true);
   });
