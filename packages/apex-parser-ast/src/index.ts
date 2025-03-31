@@ -6,4 +6,4 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// This file exports the public API for the apex-parser-ast package
+// This file exports the public API for the @salesforce/apex-lsp-parser-ast package

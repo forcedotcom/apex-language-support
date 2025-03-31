@@ -120,9 +120,9 @@ Each commit message consists of a **header**, a **body**, and a **footer**. The 
 Examples:
 
 ```
-feat(apex-parser-ast): Add support for custom annotations
+feat(apex-lsp-parser-ast): Add support for custom annotations
 
-fix(lsp-compliant-services): Correct hover information display
+fix(apex-lsp-compliant-services): Correct hover information display
 
 docs(repo): Update README with new installation instructions
 ```
@@ -155,11 +155,11 @@ This will start an interactive prompt that guides you through creating a properl
 
 The scope specifies the part of the codebase your change affects. For this project, valid scopes include:
 
-- **apex-parser-ast**: Changes to the parser/AST package
-- **custom-services**: Changes to custom language services
-- **lsp-compliant-services**: Changes to standard LSP services
-- **extension-apex-ls-ts**: Changes to VS Code extension integration
-- **web-apex-ls-ts**: Changes to web-based integration
+- **apex-lsp-parser-ast**: Changes to the parser/AST package
+- **apex-lsp-custom-services**: Changes to custom language services
+- **apex-lsp-compliant-services**: Changes to standard LSP services
+- **apex-lsp-extension**: Changes to VS Code extension integration
+- **apex-lsp-web**: Changes to web-based integration
 - **docs**: Documentation changes
 - **infra**: Infrastructure changes
 - **build**: Build system changes

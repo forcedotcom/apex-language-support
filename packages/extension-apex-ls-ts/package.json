@@ -1,5 +1,5 @@
 {
-  "name": "extension-apex-ls-ts",
+  "name": "@salesforce/apex-lsp-extension",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
@@ -46,9 +46,9 @@
     }
   },
   "dependencies": {
-    "apex-parser-ast": "1.0.0",
-    "custom-services": "1.0.0",
-    "lsp-compliant-services": "1.0.0",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-custom-services": "1.0.0",
+    "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "vscode-languageserver": "^8.0.0"
   },
   "devDependencies": {

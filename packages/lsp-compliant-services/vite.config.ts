@@ -14,7 +14,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'LSPCompliantServices',
+      name: '@salesforce/apex-lsp-compliant-services',
       fileName: 'index',
       formats: ['es'],
     },
@@ -23,12 +23,12 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       external: [
-        'apex-parser-ast',
+        '@salesforce/apex-lsp-parser-ast',
         '@apexdevtools/apex-parser',
         'antlr4ts',
         'vscode-languageserver',
         'vscode-languageserver-protocol',
-        'custom-services',
+        '@salesforce/apex-lsp-custom-services',
       ],
       output: {
         preserveModules: true,

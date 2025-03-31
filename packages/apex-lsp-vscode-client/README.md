@@ -5,7 +5,7 @@ A client library for connecting to the Apex Language Server in VSCode extensions
 ## Installation
 
 ```bash
-npm install @apex-ls/vscode-client
+npm install @salesforce/apex-lsp-vscode-client
 ```
 
 ## Usage
@@ -15,12 +15,17 @@ This client is designed to be used in VSCode extensions that want to integrate w
 ```typescript
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { ApexLspVscodeClient } from '@apex-ls/vscode-client';
+import { ApexLspVscodeClient } from '@salesforce/apex-lsp-vscode-client';
 
 export function activate(context: vscode.ExtensionContext) {
   // Get the path to the server module
   const serverModule = context.asAbsolutePath(
-    path.join('node_modules', 'apex-language-server', 'dist', 'server.js'),
+    path.join(
+      'node_modules',
+      '@salesforce/apex-language-server',
+      'dist',
+      'server.js',
+    ),
   );
 
   // Create a client to connect to the language server

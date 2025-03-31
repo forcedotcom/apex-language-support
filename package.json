@@ -1,5 +1,5 @@
 {
-  "name": "apex-language-server-ts",
+  "name": "@salesforce/apex-language-server",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {

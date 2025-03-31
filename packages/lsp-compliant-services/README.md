@@ -17,15 +17,15 @@ This package implements services that conform to the standard Language Server Pr
 
 ## Dependencies
 
-- `apex-parser-ast`: Apex language parser and AST functionality from this monorepo
-- `custom-services`: Custom services from this monorepo
+- `@salesforce/apex-lsp-parser-ast`: Apex language parser and AST functionality from this monorepo
+- `@salesforce/apex-lsp-custom-services`: Custom services from this monorepo
 - `vscode-languageserver`: VSCode Language Server implementation
 - `vscode-languageserver-protocol`: LSP protocol definitions
 
 ## Usage
 
 ```typescript
-import {} from /* specific services */ 'lsp-compliant-services';
+import {} from /* specific services */ '@salesforce/apex-lsp-compliant-services';
 
 // Use the imported services
 ```

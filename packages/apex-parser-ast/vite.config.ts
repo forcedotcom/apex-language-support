@@ -14,7 +14,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'apex-parser-ast',
+      name: '@salesforce/apex-lsp-parser-ast',
       fileName: 'index',
       formats: ['es'],
     },

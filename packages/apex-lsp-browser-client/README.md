@@ -5,7 +5,7 @@ A client library for connecting to the Apex Language Server in browser environme
 ## Installation
 
 ```bash
-npm install @apex-ls/browser-client
+npm install @salesforce/apex-lsp-browser-client
 ```
 
 ## Usage
@@ -13,7 +13,7 @@ npm install @apex-ls/browser-client
 This client is designed to connect to an Apex Language Server running in a web worker:
 
 ```typescript
-import { ApexLspBrowserClient } from '@apex-ls/browser-client';
+import { ApexLspBrowserClient } from '@salesforce/apex-lsp-browser-client';
 
 // Create a web worker running the Apex Language Server
 const worker = new Worker('/path/to/apex-language-server.js');

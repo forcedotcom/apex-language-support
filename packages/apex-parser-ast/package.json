@@ -1,5 +1,5 @@
 {
-  "name": "apex-parser-ast",
+  "name": "@salesforce/apex-lsp-parser-ast",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",

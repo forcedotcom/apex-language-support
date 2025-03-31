@@ -1,5 +1,5 @@
 {
-  "name": "@apex-ls/browser-client",
+  "name": "@salesforce/apex-lsp-browser-client",
   "version": "0.1.0",
   "description": "Browser client for the Apex Language Server",
   "type": "module",

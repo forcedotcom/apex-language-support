@@ -14,7 +14,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'CustomServices',
+      name: '@salesforce/apex-lsp-custom-services',
       fileName: 'index',
       formats: ['es'],
     },
@@ -27,7 +27,7 @@ export default defineConfig({
         'antlr4ts',
         'vscode-languageserver',
         'vscode-languageserver-protocol',
-        'apex-parser-ast',
+        '@salesforce/apex-lsp-parser-ast',
       ],
       output: {
         preserveModules: true,

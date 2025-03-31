@@ -1,5 +1,5 @@
 {
-  "name": "custom-services",
+  "name": "@salesforce/apex-lsp-custom-services",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
@@ -42,7 +42,7 @@
     }
   },
   "dependencies": {
-    "apex-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "vscode-languageserver": "^8.0.0",
     "vscode-languageserver-protocol": "^3.17.5"
   },

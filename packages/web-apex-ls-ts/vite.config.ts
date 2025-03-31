@@ -14,7 +14,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'WebApexLSTS',
+      name: '@salesforce/apex-lsp-web',
       fileName: 'index',
       formats: ['es'],
     },

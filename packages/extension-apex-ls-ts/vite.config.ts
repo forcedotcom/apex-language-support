@@ -14,7 +14,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'extension-apex-ls-ts',
+      name: '@salesforce/apex-lsp-extension',
       fileName: 'index',
       formats: ['es'],
     },

@@ -23,7 +23,7 @@ This project implements a Language Server Protocol (LSP) for Salesforce Apex, pr
 The `apex-lsp-browser-client` package provides a TypeScript client for connecting to the Apex Language Server in web-based environments. It handles communication with a language server running in a web worker.
 
 ```bash
-npm install @apex-ls/browser-client
+npm install @salesforce/apex-lsp-browser-client
 ```
 
 ### VSCode Client
@@ -31,7 +31,7 @@ npm install @apex-ls/browser-client
 The `apex-lsp-vscode-client` package provides a TypeScript client for creating VSCode extensions that connect to the Apex Language Server. It simplifies the setup and management of the language client in VSCode extensions.
 
 ```bash
-npm install @apex-ls/vscode-client
+npm install @salesforce/apex-lsp-vscode-client
 ```
 
 ## Requirements

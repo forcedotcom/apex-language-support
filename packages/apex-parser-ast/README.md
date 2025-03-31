@@ -19,7 +19,7 @@ This package provides parser utilities, AST generation, and analysis tools for A
 ## Usage
 
 ```typescript
-import {} from /* specific utilities */ 'apex-parser-ast';
+import {} from /* specific utilities */ '@salesforce/apex-lsp-parser-ast';
 
 // Use the imported utilities
 ```
