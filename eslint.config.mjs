@@ -40,7 +40,7 @@ export default [
     rules: {
       'prettier/prettier': 'error',
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error'], 
+      '@typescript-eslint/no-unused-vars': ['error'],
       'arrow-body-style': ['error', 'as-needed'],
       'jsdoc/check-alignment': 'warn',
       'jsdoc/check-indentation': 'warn',
@@ -60,7 +60,7 @@ export default [
           ' ',
         ],
       ],
-      quotes: ['error', 'single'],
+      quotes: ['error', 'single', { avoidEscape: true }],
       'unused-imports/no-unused-imports': 'error',
       // 'import/no-unresolved': 'error',
       'import/named': 'error',

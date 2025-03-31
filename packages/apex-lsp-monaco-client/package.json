@@ -1,0 +1,48 @@
+{
+  "name": "@salesforce/apex-lsp-monaco-client",
+  "version": "0.1.0",
+  "description": "Monaco editor integration for Apex Language Server",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "wireit",
+    "clean": "rimraf dist .wireit",
+    "dev": "vite",
+    "lint": "eslint src --ext ts",
+    "test": "jest"
+  },
+  "wireit": {
+    "build": {
+      "command": "tsc -p tsconfig.json",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
+      ],
+      "clean": "if-file-deleted"
+    }
+  },
+  "keywords": [
+    "apex",
+    "language server",
+    "monaco",
+    "editor"
+  ],
+  "author": "Salesforce",
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "@salesforce/apex-lsp-browser-client": "^0.1.0",
+    "monaco-editor": "^0.43.0",
+    "monaco-editor-webpack-plugin": "^7.1.0",
+    "vscode-languageclient": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^18.15.11",
+    "typescript": "^5.0.4",
+    "vite": "^4.3.9"
+  }
+}
