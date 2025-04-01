@@ -1,7 +1,6 @@
 {
-  "name": "@salesforce/apex-lsp-packages",
+  "name": "packages",
   "version": "1.0.0",
-  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "clean": "rimraf */dist */.wireit",
@@ -10,5 +9,5 @@
   "keywords": [],
   "author": "",
   "license": "BSD-3-Clause",
-  "description": ""
+  "description": "pjson to help manage packages"
 }
