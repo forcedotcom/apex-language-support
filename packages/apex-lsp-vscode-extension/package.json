@@ -69,12 +69,12 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "package": "vsce package",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./tsconfig.build.json",
     "compile:all": "npm run compile:deps && npm run compile",
     "compile:deps": "npm run compile:server && npm run compile:client",
     "compile:server": "cd ../extension-apex-ls-ts && npm run build",
     "compile:client": "cd ../apex-lsp-vscode-client && npm run build",
-    "watch": "tsc -watch -p ./",
+    "watch": "tsc -watch -p ./tsconfig.build.json",
     "watch:all": "concurrently \"cd ../extension-apex-ls-ts && npm run dev\" \"cd ../apex-lsp-vscode-client && npm run dev\" \"npm run watch\"",
     "lint": "eslint src --ext ts",
     "test": "jest"

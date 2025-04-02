@@ -16,7 +16,7 @@ export default defineConfig({
       entry: resolve(__dirname, 'src/index.ts'),
       name: '@salesforce/apex-lsp-extension',
       fileName: 'index',
-      formats: ['es'],
+      formats: ['cjs'],
     },
     outDir: 'dist',
     emptyOutDir: true,
@@ -27,6 +27,7 @@ export default defineConfig({
         preserveModules: true,
         preserveModulesRoot: 'src',
         entryFileNames: '[name].js',
+        format: 'cjs',
       },
       plugins: [
         typescript({

@@ -5,6 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
 import {
   createConnection,
   ProposedFeatures,
@@ -39,4 +40,4 @@ connection.onInitialized(() => {
 connection.listen();
 
 // Export the storage implementation for Node.js
-export * from './storage/NodeFileSystemApexStorage.js';
+export * from './storage/NodeFileSystemApexStorage';
