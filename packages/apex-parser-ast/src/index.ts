@@ -7,3 +7,22 @@
  */
 
 // This file exports the public API for the @salesforce/apex-lsp-parser-ast package
+
+// Export base listener
+export * from './parser/listeners/BaseApexParserListener.js';
+
+// Export structure listener
+export * from './parser/listeners/ApexStructureListener.js';
+
+// Export symbol collector listener
+export * from './parser/listeners/ApexSymbolCollectorListener.js';
+
+// Export type definitions
+export * from './types/typeInfo.js';
+export * from './types/symbol.js';
+export * from './types/qname.js';
+export * from './types/source.js';
+export * from './types/unitType.js';
+
+// Export compiler service
+export * from './parser/compilerService.js';

@@ -47,7 +47,8 @@
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/node": "^18.15.11",
-    "typescript": "^5.0.4",
-    "vite": "^4.3.9"
+    "typescript": "^5.0.2",
+    "vite": "^6.2.5",
+    "vite-plugin-dts": "^3.0.0-beta.2"
   }
 }

@@ -1,0 +1,35 @@
+name: Automerge
+
+on:
+  pull_request_target:
+    types:
+      - labeled
+      - unlabeled
+      - synchronize
+      - opened
+      - edited
+      - ready_for_review
+      - reopened
+      - unlocked
+  check_suite:
+    types:
+      - completed
+  status: ~
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]' || contains(github.event.pull_request.labels.*.name, 'automerge')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Automerge
+        uses: pascalgn/automerge-action@v0.15.6
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          MERGE_LABELS: 'automerge,dependencies'
+          MERGE_METHOD: 'squash'
+          MERGE_RETRIES: '6'
+          MERGE_RETRY_SLEEP: '10000'
+          MERGE_REQUIRED_APPROVALS: '1'

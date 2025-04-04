@@ -1,0 +1,12 @@
+# Default owners for everything
+* @forcedotcom/apex-language-support-maintainers
+
+# Package specific owners
+/packages/apex-parser-ast/ @forcedotcom/apex-language-support-maintainers
+/packages/lsp-compliant-services/ @forcedotcom/apex-language-support-maintainers
+/packages/custom-services/ @forcedotcom/apex-language-support-maintainers
+/packages/web-apex-ls-ts/ @forcedotcom/apex-language-support-maintainers
+/packages/extension-apex-ls-ts/ @forcedotcom/apex-language-support-maintainers
+
+# GitHub Actions
+/.github/ @forcedotcom/apex-language-support-maintainers 

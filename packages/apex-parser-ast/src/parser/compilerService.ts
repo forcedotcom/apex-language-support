@@ -15,6 +15,11 @@ import {
 } from '@apexdevtools/apex-parser';
 
 import { BaseApexParserListener } from './listeners/BaseApexParserListener.js';
+import {
+  ApexError,
+  ApexErrorListener,
+  ApexLexerErrorListener,
+} from './listeners/ApexErrorListener.js';
 
 /**
  * Result of a compilation process, containing any errors, warnings, and the final result.
@@ -22,7 +27,7 @@ import { BaseApexParserListener } from './listeners/BaseApexParserListener.js';
 export interface CompilationResult<T> {
   fileName: string;
   result: T | null;
-  errors: Error[];
+  errors: ApexError[];
   warnings: string[];
 }
 
@@ -43,23 +48,45 @@ export class CompilerService {
     listener: BaseApexParserListener<T>,
   ): CompilationResult<T> {
     try {
-      const compilationUnitContext = this.getCompilationUnit(fileContent);
+      // Create an error listener
+      const errorListener = new ApexErrorListener(fileName);
+
+      // Set it on the listener
+      listener.setErrorListener(errorListener);
+
+      // Parse the code and get the compilation unit
+      const compilationUnitContext = this.getCompilationUnit(
+        fileContent,
+        errorListener,
+      );
+
+      // Walk the parse tree with our listener
       const walker = new ParseTreeWalker();
       walker.walk(listener, compilationUnitContext);
 
-      // Return the result from the listener
+      // Return the result from the listener along with any errors/warnings
       return {
         fileName,
         result: listener.getResult(),
-        errors: [],
-        warnings: [],
+        errors: errorListener.getErrors(),
+        warnings: listener.getWarnings(),
       };
     } catch (error) {
+      // Create an error object for any unexpected errors
+      const errorObject: ApexError = {
+        type: 'semantic' as any, // Type assertion to avoid importing the enum
+        severity: 'error' as any, // Type assertion to avoid importing the enum
+        message: error instanceof Error ? error.message : String(error),
+        line: 0,
+        column: 0,
+        filePath: fileName,
+      };
+
       // Handle any errors during parsing
       return {
         fileName,
         result: null,
-        errors: [error instanceof Error ? error : new Error(String(error))],
+        errors: [errorObject],
         warnings: [],
       };
     }
@@ -80,14 +107,25 @@ export class CompilerService {
     // Process each file
     for (const file of files) {
       try {
-        const compilationUnitContext = this.getCompilationUnit(file.content);
-        const walker = new ParseTreeWalker();
+        // Create an error listener for this file
+        const errorListener = new ApexErrorListener(file.fileName);
+
+        // Parse the code and get the compilation unit
+        const compilationUnitContext = this.getCompilationUnit(
+          file.content,
+          errorListener,
+        );
+
         // Create a fresh listener for each file if needed
         const fileListener = listener.createNewInstance
           ? listener.createNewInstance()
           : listener;
 
+        // Set the error listener on the parser listener
+        fileListener.setErrorListener(errorListener);
+
         // Use the provided listener to walk the parse tree
+        const walker = new ParseTreeWalker();
         walker.walk(fileListener, compilationUnitContext);
 
         // Collect any file-specific warnings
@@ -103,15 +141,25 @@ export class CompilerService {
         results.push({
           fileName: file.fileName,
           result: fileListener.getResult(),
-          errors: [],
+          errors: errorListener.getErrors(),
           warnings,
         });
       } catch (error) {
+        // Create an error object for any unexpected errors
+        const errorObject: ApexError = {
+          type: 'semantic' as any, // Type assertion to avoid importing the enum
+          severity: 'error' as any, // Type assertion to avoid importing the enum
+          message: error instanceof Error ? error.message : String(error),
+          line: 0,
+          column: 0,
+          filePath: file.fileName,
+        };
+
         // Handle any errors during parsing for this file
         results.push({
           fileName: file.fileName,
           result: null,
-          errors: [error instanceof Error ? error : new Error(String(error))],
+          errors: [errorObject],
           warnings: [],
         });
       }
@@ -120,14 +168,28 @@ export class CompilerService {
     return results;
   }
 
-  private getCompilationUnit(source: string): CompilationUnitContext {
+  private getCompilationUnit(
+    source: string,
+    errorListener?: ApexErrorListener,
+  ): CompilationUnitContext {
     const inputStream = CharStreams.fromString(source);
     const lexer = new ApexLexer(inputStream);
     const tokenStream = new CommonTokenStream(lexer);
     const parser = new ApexParser(tokenStream);
 
-    // Set error handling strategy if needed
-    // parser.errorHandler = new BailErrorStrategy();
+    // Add our custom error listener if provided
+    if (errorListener) {
+      // Remove default error listeners that print to console
+      parser.removeErrorListeners();
+      lexer.removeErrorListeners();
+
+      // Add our custom error listener
+      parser.addErrorListener(errorListener);
+      // Create and add lexer-specific error listener
+      const lexerErrorListener = new ApexLexerErrorListener(errorListener);
+      lexer.addErrorListener(lexerErrorListener);
+    }
+
     // Parse the compilation unit
     const compilationUnitContext = parser.compilationUnit();
     return compilationUnitContext;
