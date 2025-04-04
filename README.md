@@ -1,4 +1,6 @@
-# Apex Language Server (TypeScript)
+# Apex Language Support
+
+# This repository is experimental - DO NOT USE
 
 A Language Server Protocol implementation for Salesforce Apex language, written in TypeScript.
 
