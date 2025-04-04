@@ -4,6 +4,13 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "description": "Apex parser and abstract syntax tree implementation for Salesforce Apex Language Server",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forcedotcom/apex-language-support.git",
+    "directory": "packages/apex-parser-ast"
+  },
   "scripts": {
     "build": "wireit",
     "dev": "wireit",

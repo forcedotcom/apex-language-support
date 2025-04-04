@@ -5,6 +5,11 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forcedotcom/apex-language-support.git",
+    "directory": "packages/apex-lsp-monaco-client"
+  },
   "scripts": {
     "build": "wireit",
     "clean": "rimraf dist .wireit",

@@ -6,8 +6,13 @@
     "clean": "rimraf */dist */.wireit",
     "clean:all": "npm run clean && rimraf */node_modules"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["salesforce", "apex", "language server", "lsp"],
+  "author": "Salesforce",
   "license": "BSD-3-Clause",
-  "description": "pjson to help manage packages"
+  "description": "Package manager for Salesforce Apex Language Server",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forcedotcom/apex-language-support.git",
+    "directory": "packages"
+  }
 }

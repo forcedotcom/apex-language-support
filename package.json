@@ -15,10 +15,18 @@
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:packages": "npm run clean --workspaces"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": ["salesforce", "apex", "language server", "lsp"],
+  "author": "Salesforce",
+  "license": "BSD-3-Clause",
+  "description": "Language Server Protocol implementation for Salesforce Apex",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forcedotcom/apex-language-support.git"
+  },
+  "bugs": {
+    "url": "https://github.com/forcedotcom/apex-language-support/issues"
+  },
+  "homepage": "https://github.com/forcedotcom/apex-language-support#readme",
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.26.3",
     "@babel/preset-env": "^7.26.9",
