@@ -11,9 +11,6 @@
 // Export base listener
 export * from './parser/listeners/BaseApexParserListener.js';
 
-// Export structure listener
-export * from './parser/listeners/ApexStructureListener.js';
-
 // Export symbol collector listener
 export * from './parser/listeners/ApexSymbolCollectorListener.js';
 
