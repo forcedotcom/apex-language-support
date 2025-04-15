@@ -8,9 +8,13 @@
 
 import {
   RESOURCE_PATHS,
+  RESOURCE_URIS,
   DEFAULT_SALESFORCE_VERSION,
   getSalesforceVersion,
   getStandardApexLibraryFilePath,
+  uriToNodePath,
+  uriToBrowserUrl,
+  joinUri,
 } from '../../src/utils/ResourceUtils.js';
 
 describe('ResourceUtils', () => {
@@ -22,6 +26,20 @@ describe('ResourceUtils', () => {
       );
       expect(RESOURCE_PATHS.VERSION_FILE_PATH).toBe(
         '/resources/StandardApexLibrary/.version.json',
+      );
+    });
+  });
+
+  describe('RESOURCE_URIS', () => {
+    it('should define URI constants', () => {
+      expect(RESOURCE_URIS.BASE_RESOURCES_URI).toBe(
+        'apex-resources:/resources',
+      );
+      expect(RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI).toBe(
+        'apex-resources:/resources/StandardApexLibrary',
+      );
+      expect(RESOURCE_URIS.VERSION_FILE_URI).toBe(
+        'apex-resources:/resources/StandardApexLibrary/.version.json',
       );
     });
   });
@@ -38,6 +56,75 @@ describe('ResourceUtils', () => {
     it('should return the path to a file in the StandardApexLibrary', () => {
       expect(getStandardApexLibraryFilePath('System/String.cls')).toBe(
         '/resources/StandardApexLibrary/System/String.cls',
+      );
+    });
+  });
+
+  describe('uriToNodePath', () => {
+    it('should convert a URI to a Node.js path without base path', () => {
+      expect(uriToNodePath('apex-resources:/path/to/resource')).toBe(
+        '/path/to/resource',
+      );
+    });
+
+    it('should convert a URI to a Node.js path with base path', () => {
+      expect(
+        uriToNodePath('apex-resources:/path/to/resource', '/base/dir'),
+      ).toBe('/base/dir/path/to/resource');
+    });
+
+    it('should throw an error for invalid URIs', () => {
+      expect(() => uriToNodePath('invalid-uri')).toThrow(
+        'Invalid apex-resources URI',
+      );
+    });
+  });
+
+  describe('uriToBrowserUrl', () => {
+    it('should convert a URI to a browser URL without base URL', () => {
+      expect(uriToBrowserUrl('apex-resources:/path/to/resource')).toBe(
+        '/path/to/resource',
+      );
+    });
+
+    it('should convert a URI to a browser URL with base URL', () => {
+      expect(
+        uriToBrowserUrl(
+          'apex-resources:/path/to/resource',
+          'https://example.com',
+        ),
+      ).toBe('https://example.com/path/to/resource');
+    });
+
+    it('should throw an error for invalid URIs', () => {
+      expect(() => uriToBrowserUrl('invalid-uri')).toThrow(
+        'Invalid apex-resources URI',
+      );
+    });
+  });
+
+  describe('joinUri', () => {
+    it('should join a base URI with a relative path', () => {
+      expect(joinUri('apex-resources:/base/path', 'relative/path')).toBe(
+        'apex-resources:/base/path/relative/path',
+      );
+    });
+
+    it('should handle base URIs with trailing slashes', () => {
+      expect(joinUri('apex-resources:/base/path/', 'relative/path')).toBe(
+        'apex-resources:/base/path/relative/path',
+      );
+    });
+
+    it('should handle relative paths with leading slashes', () => {
+      expect(joinUri('apex-resources:/base/path', '/relative/path')).toBe(
+        'apex-resources:/base/path/relative/path',
+      );
+    });
+
+    it('should throw an error for invalid URIs', () => {
+      expect(() => joinUri('invalid-uri', 'relative/path')).toThrow(
+        'Invalid apex-resources URI',
       );
     });
   });

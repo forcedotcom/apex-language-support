@@ -6,24 +6,24 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { RESOURCE_PATHS } from '../../src/utils/ResourceUtils.js';
+import { RESOURCE_URIS } from '../../src/utils/ResourceUtils.js';
 import {
   getSalesforceVersionPathNode,
   getSalesforceVersionPathBrowser,
 } from '../../src/utils/PlatformUtils.js';
 
-// Mock path module
-jest.mock('path', () => ({
-  join: jest.fn((...paths) => {
-    // Properly join paths without duplicating slashes
-    return paths.filter(Boolean).join('/');
-  }),
-  resolve: jest.fn(() => '/mock/current/dir'),
-}));
+// Mock process.cwd() for consistent testing
+const originalCwd = process.cwd;
+process.cwd = jest.fn().mockReturnValue('/mock/current/dir');
 
 describe('PlatformUtils', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    // Restore original process.cwd
+    process.cwd = originalCwd;
   });
 
   describe('getSalesforceVersionPathNode', () => {
@@ -40,9 +40,7 @@ describe('PlatformUtils', () => {
     it('should return the URL to the Salesforce version file without basePath', () => {
       const versionPath = getSalesforceVersionPathBrowser();
 
-      expect(versionPath).toBe(
-        `${RESOURCE_PATHS.STANDARD_APEX_LIBRARY_PATH}/.version.json`,
-      );
+      expect(versionPath).toBe('/resources/StandardApexLibrary/.version.json');
     });
 
     it('should return the URL to the Salesforce version file with basePath', () => {
@@ -50,7 +48,7 @@ describe('PlatformUtils', () => {
       const versionPath = getSalesforceVersionPathBrowser(basePath);
 
       expect(versionPath).toBe(
-        `${basePath}${RESOURCE_PATHS.VERSION_FILE_PATH}`,
+        '/custom/path/resources/StandardApexLibrary/.version.json',
       );
     });
   });
