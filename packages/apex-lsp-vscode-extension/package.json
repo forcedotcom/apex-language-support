@@ -82,7 +82,9 @@
     "watch": "tsc -watch -p ./tsconfig.build.json",
     "watch:all": "concurrently \"cd ../extension-apex-ls-ts && npm run dev\" \"cd ../apex-lsp-vscode-client && npm run dev\" \"npm run watch\"",
     "lint": "eslint src --ext ts",
-    "test": "jest"
+    "test": "wireit",
+    "test:coverage": "wireit",
+    "clean:coverage": "rimraf coverage"
   },
   "dependencies": {
     "@salesforce/apex-lsp-vscode-client": "^0.1.0",
@@ -106,5 +108,31 @@
   "workspaces": [
     "../extension-apex-ls-ts",
     "../apex-lsp-vscode-client"
-  ]
+  ],
+  "wireit": {
+    "test": {
+      "command": "jest",
+      "service": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "../../jest.config.mjs",
+        "../../babel.config.cjs"
+      ],
+      "output": []
+    },
+    "test:coverage": {
+      "command": "jest --coverage --coverageDirectory=./coverage",
+      "service": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "../../jest.config.mjs",
+        "../../babel.config.cjs"
+      ],
+      "output": [
+        "coverage/**"
+      ]
+    }
+  }
 }

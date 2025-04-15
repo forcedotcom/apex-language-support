@@ -15,7 +15,10 @@
     "build": "wireit",
     "dev": "wireit",
     "clean": "rimraf dist .wireit",
-    "clean:all": "npm run clean && rimraf node_modules"
+    "clean:all": "npm run clean && rimraf node_modules",
+    "test": "wireit",
+    "test:coverage": "wireit",
+    "clean:coverage": "rimraf coverage"
   },
   "wireit": {
     "build": {
@@ -47,6 +50,30 @@
       ],
       "output": [
         "dist/**"
+      ]
+    },
+    "test": {
+      "command": "jest",
+      "service": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "../../jest.config.mjs",
+        "../../babel.config.cjs"
+      ],
+      "output": []
+    },
+    "test:coverage": {
+      "command": "jest --coverage --coverageDirectory=./coverage",
+      "service": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "../../jest.config.mjs",
+        "../../babel.config.cjs"
+      ],
+      "output": [
+        "coverage/**"
       ]
     }
   },
