@@ -29,3 +29,6 @@ export * from './utils/ResourceUtils.js';
 
 // Export platform-specific utilities
 export * from './utils/PlatformUtils.js';
+
+// Export utils
+export * from './utils/AnnotationUtils.js';

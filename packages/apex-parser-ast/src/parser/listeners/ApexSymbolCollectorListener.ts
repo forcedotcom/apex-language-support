@@ -19,6 +19,7 @@ import {
   InterfaceMethodDeclarationContext,
   ModifierContext,
   ConstructorDeclarationContext,
+  AnnotationContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 
@@ -34,6 +35,8 @@ import {
   SymbolVisibility,
   TypeSymbol,
   VariableSymbol,
+  Annotation,
+  AnnotationParameter,
 } from '../../types/symbol.js';
 import {
   ClassModifierValidator,
@@ -56,6 +59,7 @@ export class ApexSymbolCollectorListener
   private currentMethodSymbol: MethodSymbol | null = null;
   private blockDepth: number = 0;
   private currentModifiers: SymbolModifiers = this.createDefaultModifiers();
+  private currentAnnotations: Annotation[] = [];
 
   /**
    * Get the collected symbol table
@@ -103,6 +107,105 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Reset the current annotations list
+   */
+  private resetAnnotations(): void {
+    this.currentAnnotations = [];
+  }
+
+  /**
+   * Get the current annotations
+   */
+  private getCurrentAnnotations(): Annotation[] {
+    return [...this.currentAnnotations];
+  }
+
+  /**
+   * Called when entering an annotation
+   * The parser will call this for each annotation it encounters
+   */
+  enterAnnotation(ctx: AnnotationContext): void {
+    try {
+      // Extract the annotation name (remove @ symbol)
+      const annotationText = ctx.text;
+      const nameWithoutAt = annotationText.startsWith('@')
+        ? annotationText.substring(1)
+        : annotationText;
+
+      // Extract the name part (before any parameters)
+      let name = nameWithoutAt;
+      const parameters: AnnotationParameter[] = [];
+
+      // Parse parameters if present
+      // Format examples: @isTest, @RestResource(urlMapping='/api/records')
+      const paramStart = nameWithoutAt.indexOf('(');
+      if (paramStart > 0) {
+        name = nameWithoutAt.substring(0, paramStart);
+
+        // Extract parameters string (between parentheses)
+        const paramEnd = nameWithoutAt.lastIndexOf(')');
+        if (paramEnd > paramStart) {
+          const paramsStr = nameWithoutAt.substring(paramStart + 1, paramEnd);
+
+          // Parse parameters (comma-separated)
+          const paramPairs = paramsStr.split(',');
+          for (const pair of paramPairs) {
+            const equalsPos = pair.indexOf('=');
+            if (equalsPos > 0) {
+              // Named parameter: key=value
+              const paramName = pair.substring(0, equalsPos).trim();
+              const paramValue = pair.substring(equalsPos + 1).trim();
+              parameters.push({
+                name: paramName,
+                value: this.cleanAnnotationValue(paramValue),
+              });
+            } else if (pair.trim()) {
+              // Positional parameter: just value
+              parameters.push({
+                value: this.cleanAnnotationValue(pair.trim()),
+              });
+            }
+          }
+        }
+      }
+
+      // Create and store the annotation
+      const annotation: Annotation = {
+        name,
+        location: this.getLocation(ctx),
+        parameters: parameters.length > 0 ? parameters : undefined,
+      };
+
+      this.currentAnnotations.push(annotation);
+
+      // Special case for @isTest annotation - set the isTestMethod flag
+      if (name.toLowerCase() === 'istest') {
+        this.currentModifiers.isTestMethod = true;
+      }
+    } catch (e) {
+      // Log parsing error but continue
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(
+        `Error parsing annotation: ${ctx.text}. ${errorMessage}`,
+        ctx,
+      );
+    }
+  }
+
+  /**
+   * Remove quotes around annotation values if present
+   */
+  private cleanAnnotationValue(value: string): string {
+    if (
+      (value.startsWith("'") && value.endsWith("'")) ||
+      (value.startsWith('"') && value.endsWith('"'))
+    ) {
+      return value.substring(1, value.length - 1);
+    }
+    return value;
+  }
+
+  /**
    * Called when entering a modifier
    * The parser will call this for each modifier it encounters
    */
@@ -131,6 +234,9 @@ export class ApexSymbolCollectorListener
     // Get current modifiers and reset for next declaration
     const modifiers = this.getCurrentModifiers();
 
+    // Get current annotations
+    const annotations = this.getCurrentAnnotations();
+
     // Validate class visibility modifiers
     ClassModifierValidator.validateClassVisibilityModifiers(
       className,
@@ -142,6 +248,7 @@ export class ApexSymbolCollectorListener
     );
 
     this.resetModifiers();
+    this.resetAnnotations();
 
     // Create type symbol
     const typeSymbol: TypeSymbol = {
@@ -151,6 +258,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       interfaces: [],
       parent: null,
+      annotations: annotations.length > 0 ? annotations : undefined,
     };
 
     // Add to symbol table and enter scope
@@ -183,6 +291,9 @@ export class ApexSymbolCollectorListener
     // Get current modifiers and reset for next declaration
     const modifiers = this.getCurrentModifiers();
 
+    // Get current annotations
+    const annotations = this.getCurrentAnnotations();
+
     // Validate interface visibility modifiers
     ClassModifierValidator.validateInterfaceVisibilityModifiers(
       interfaceName,
@@ -194,6 +305,7 @@ export class ApexSymbolCollectorListener
     );
 
     this.resetModifiers();
+    this.resetAnnotations();
 
     // Create type symbol
     const typeSymbol: TypeSymbol = {
@@ -203,6 +315,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       interfaces: [],
       parent: null,
+      annotations: annotations.length > 0 ? annotations : undefined,
     };
 
     // Add to symbol table and enter scope

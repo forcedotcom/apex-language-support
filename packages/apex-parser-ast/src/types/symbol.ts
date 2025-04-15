@@ -35,6 +35,28 @@ export enum SymbolVisibility {
 }
 
 /**
+ * Represents an Apex annotation
+ */
+export interface Annotation {
+  /** The name of the annotation (without @ symbol) */
+  name: string;
+  /** The source code location of the annotation */
+  location: SymbolLocation;
+  /** Optional parameters for the annotation */
+  parameters?: AnnotationParameter[];
+}
+
+/**
+ * Represents a parameter for an annotation
+ */
+export interface AnnotationParameter {
+  /** The name of the parameter, null for positional parameters */
+  name?: string;
+  /** The value of the parameter as a string */
+  value: string;
+}
+
+/**
  * Modifiers that can be applied to Apex symbols
  */
 export interface SymbolModifiers {
@@ -81,6 +103,8 @@ export interface TypeSymbol extends ApexSymbol {
   kind: SymbolKind.Class | SymbolKind.Interface | SymbolKind.Trigger;
   superClass?: string;
   interfaces: string[];
+  /** Annotations for this type */
+  annotations?: Annotation[];
 }
 
 /**
