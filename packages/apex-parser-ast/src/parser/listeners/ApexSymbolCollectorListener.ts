@@ -324,17 +324,45 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   ): void {
     if (!this.currentTypeSymbol) return;
 
-    // Check if method visibility is compatible with class visibility
+    // Methods cannot have wider visibility than their containing class
     if (
-      modifiers.visibility === SymbolVisibility.Global &&
-      this.currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global
+      // Private class can only have private methods
+      (this.currentTypeSymbol.modifiers.visibility ===
+        SymbolVisibility.Private &&
+        modifiers.visibility !== SymbolVisibility.Private) ||
+      // Default visibility class can have default or private methods
+      (this.currentTypeSymbol.modifiers.visibility ===
+        SymbolVisibility.Default &&
+        modifiers.visibility !== SymbolVisibility.Default &&
+        modifiers.visibility !== SymbolVisibility.Private) ||
+      // Protected class can have protected, default, or private methods
+      (this.currentTypeSymbol.modifiers.visibility ===
+        SymbolVisibility.Protected &&
+        modifiers.visibility !== SymbolVisibility.Protected &&
+        modifiers.visibility !== SymbolVisibility.Default &&
+        modifiers.visibility !== SymbolVisibility.Private) ||
+      // Public class can have public, protected, default, or private methods
+      (this.currentTypeSymbol.modifiers.visibility ===
+        SymbolVisibility.Public &&
+        modifiers.visibility === SymbolVisibility.Global)
     ) {
       this.addError(
-        `Method '${methodName}' cannot be declared as 'global' in a non-global class`,
+        `Method '${methodName}' cannot have wider visibility than its containing class`,
         ctx,
       );
-      // Downgrade the visibility to public
-      modifiers.visibility = SymbolVisibility.Public;
+      // Adjust to most permissive valid visibility for this class
+      const classVisibility = this.currentTypeSymbol.modifiers.visibility;
+
+      if (classVisibility === SymbolVisibility.Private) {
+        modifiers.visibility = SymbolVisibility.Private;
+      } else if (classVisibility === SymbolVisibility.Default) {
+        modifiers.visibility = SymbolVisibility.Default;
+      } else if (classVisibility === SymbolVisibility.Protected) {
+        modifiers.visibility = SymbolVisibility.Protected;
+      } else if (classVisibility === SymbolVisibility.Public) {
+        modifiers.visibility = SymbolVisibility.Public;
+      }
+      // Global class can have any visibility - no adjustment needed
     }
 
     // Check if webService is used with non-global visibility
@@ -1001,6 +1029,29 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   }
 
   /**
+   * Check if current class appears to be an inner class
+   * A class is an inner class if it's not directly in the global scope
+   */
+  private isInnerClass(): boolean {
+    // If we're currently processing a class and there's already a type symbol
+    // on the stack, this is likely an inner class
+    if (!this.currentTypeSymbol) {
+      return false;
+    }
+
+    // Check if there are class/interface symbols in the parent scopes
+    // This is a simplistic approach - a more robust approach would track nesting explicitly
+    const currentScope = this.symbolTable.getCurrentScope();
+    const parentScope = currentScope.parent;
+    if (!parentScope) {
+      return false;
+    }
+
+    // If the parent scope is not the global scope, this is likely an inner class
+    return parentScope.name !== 'global';
+  }
+
+  /**
    * Validate class visibility modifiers for semantic errors
    */
   private validateClassVisibilityModifiers(
@@ -1008,37 +1059,79 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     modifiers: SymbolModifiers,
     ctx: ParserRuleContext,
   ): void {
-    // Check if global is used with webService
-    if (
-      modifiers.visibility === SymbolVisibility.Global &&
-      modifiers.isWebService
-    ) {
-      this.addWarning(
-        `Class '${className}' has redundant 'global' modifier with 'webService'. 'webService' implies 'global'`,
-        ctx,
-      );
-    }
+    const isInner = this.isInnerClass();
 
-    // Check if webService is used with non-global visibility
-    if (
-      modifiers.isWebService &&
-      modifiers.visibility !== SymbolVisibility.Global
-    ) {
+    // webService modifier is not allowed on classes
+    if (modifiers.isWebService) {
       this.addError(
-        `Class '${className}' with 'webService' modifier must be declared as 'global'`,
+        `Class '${className}' cannot have 'webService' modifier. ` +
+          'This modifier is only valid for methods and properties',
         ctx,
       );
-      // Autocorrect the visibility to global
-      modifiers.visibility = SymbolVisibility.Global;
+      // Remove the invalid modifier
+      modifiers.isWebService = false;
     }
 
-    // Check if protected is used at class level (only valid for inner classes)
-    // This is approximate since we'd need more context to determine if this is an inner class
-    if (modifiers.visibility === SymbolVisibility.Protected) {
-      this.addWarning(
-        `Protected visibility modifier for class '${className}' is only valid for inner classes`,
-        ctx,
-      );
+    // Validate visibility for outer classes
+    if (!isInner) {
+      // Outer classes can only be public or default
+      if (modifiers.visibility === SymbolVisibility.Private) {
+        this.addError(
+          `Outer class '${className}' cannot be declared as 'private'. ` +
+            'Outer classes can only be public or default visibility',
+          ctx,
+        );
+        // Correct to default visibility
+        modifiers.visibility = SymbolVisibility.Default;
+      }
+
+      if (modifiers.visibility === SymbolVisibility.Protected) {
+        this.addError(
+          `Outer class '${className}' cannot be declared as 'protected'. ` +
+            'Outer classes can only be public or default visibility',
+          ctx,
+        );
+        // Correct to default visibility
+        modifiers.visibility = SymbolVisibility.Default;
+      }
+
+      if (modifiers.visibility === SymbolVisibility.Global) {
+        this.addError(
+          `Outer class '${className}' cannot be declared as 'global'. ` +
+            'Outer classes can only be public or default visibility',
+          ctx,
+        );
+        // Correct to public visibility
+        modifiers.visibility = SymbolVisibility.Public;
+      }
+    } else {
+      // For inner classes, all visibilities are allowed
+      // But check for visibility relative to outer class
+      if (this.currentTypeSymbol) {
+        // Check if inner class visibility is wider than outer class
+        if (
+          (this.currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Private &&
+            modifiers.visibility !== SymbolVisibility.Private) ||
+          (this.currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Default &&
+            modifiers.visibility !== SymbolVisibility.Default &&
+            modifiers.visibility !== SymbolVisibility.Private) ||
+          (this.currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Protected &&
+            modifiers.visibility === SymbolVisibility.Public) ||
+          (this.currentTypeSymbol.modifiers.visibility !==
+            SymbolVisibility.Global &&
+            modifiers.visibility === SymbolVisibility.Global)
+        ) {
+          this.addError(
+            `Inner class '${className}' cannot have wider visibility than its containing class`,
+            ctx,
+          );
+          // Adjust visibility to match containing class as a reasonable default
+          modifiers.visibility = this.currentTypeSymbol.modifiers.visibility;
+        }
+      }
     }
 
     // If there are abstract methods, the class must be declared abstract or interface
@@ -1053,14 +1146,66 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     modifiers: SymbolModifiers,
     ctx: ParserRuleContext,
   ): void {
-    // Interfaces cannot be private
-    if (modifiers.visibility === SymbolVisibility.Private) {
-      this.addError(
-        `Interface '${interfaceName}' cannot be declared as 'private'`,
-        ctx,
-      );
-      // Update to a more appropriate visibility
-      modifiers.visibility = SymbolVisibility.Public;
+    const isInner = this.isInnerClass();
+
+    if (!isInner) {
+      // Outer interfaces can only be public or default visibility
+      if (modifiers.visibility === SymbolVisibility.Private) {
+        this.addError(
+          `Interface '${interfaceName}' cannot be declared as 'private'. ` +
+            'Outer interfaces can only be public or default visibility',
+          ctx,
+        );
+        // Correct to default visibility
+        modifiers.visibility = SymbolVisibility.Default;
+      }
+
+      if (modifiers.visibility === SymbolVisibility.Protected) {
+        this.addError(
+          `Interface '${interfaceName}' cannot be declared as 'protected'. ` +
+            'Outer interfaces can only be public or default visibility',
+          ctx,
+        );
+        // Correct to default visibility
+        modifiers.visibility = SymbolVisibility.Default;
+      }
+
+      if (modifiers.visibility === SymbolVisibility.Global) {
+        this.addError(
+          `Interface '${interfaceName}' cannot be declared as 'global'. ` +
+            'Outer interfaces can only be public or default visibility',
+          ctx,
+        );
+        // Correct to public visibility
+        modifiers.visibility = SymbolVisibility.Public;
+      }
+    } else {
+      // Inner interfaces can follow inner class rules
+      if (this.currentTypeSymbol) {
+        // Check if inner interface visibility is wider than outer class/interface
+        if (
+          (this.currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Private &&
+            modifiers.visibility !== SymbolVisibility.Private) ||
+          (this.currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Default &&
+            modifiers.visibility !== SymbolVisibility.Default &&
+            modifiers.visibility !== SymbolVisibility.Private) ||
+          (this.currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Protected &&
+            modifiers.visibility === SymbolVisibility.Public) ||
+          (this.currentTypeSymbol.modifiers.visibility !==
+            SymbolVisibility.Global &&
+            modifiers.visibility === SymbolVisibility.Global)
+        ) {
+          this.addError(
+            `Inner interface '${interfaceName}' cannot have wider visibility than its containing type`,
+            ctx,
+          );
+          // Adjust visibility to match containing type as a reasonable default
+          modifiers.visibility = this.currentTypeSymbol.modifiers.visibility;
+        }
+      }
     }
 
     // Check for invalid modifiers on interfaces
@@ -1118,17 +1263,45 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       }
     }
 
-    // Global fields must be in global classes
+    // Field visibility cannot be wider than containing class visibility
     if (
-      modifiers.visibility === SymbolVisibility.Global &&
-      this.currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global
+      // Private class can only have private fields
+      (this.currentTypeSymbol.modifiers.visibility ===
+        SymbolVisibility.Private &&
+        modifiers.visibility !== SymbolVisibility.Private) ||
+      // Default visibility class can have default or private fields
+      (this.currentTypeSymbol.modifiers.visibility ===
+        SymbolVisibility.Default &&
+        modifiers.visibility !== SymbolVisibility.Default &&
+        modifiers.visibility !== SymbolVisibility.Private) ||
+      // Protected class can have protected, default, or private fields
+      (this.currentTypeSymbol.modifiers.visibility ===
+        SymbolVisibility.Protected &&
+        modifiers.visibility !== SymbolVisibility.Protected &&
+        modifiers.visibility !== SymbolVisibility.Default &&
+        modifiers.visibility !== SymbolVisibility.Private) ||
+      // Public class can have public, protected, default, or private fields
+      (this.currentTypeSymbol.modifiers.visibility ===
+        SymbolVisibility.Public &&
+        modifiers.visibility === SymbolVisibility.Global)
     ) {
       this.addError(
-        "Field with 'global' visibility must be in a global class or interface",
+        'Field cannot have wider visibility than its containing class',
         ctx,
       );
-      // Downgrade to public
-      modifiers.visibility = SymbolVisibility.Public;
+      // Adjust to most permissive valid visibility for this class
+      const classVisibility = this.currentTypeSymbol.modifiers.visibility;
+
+      if (classVisibility === SymbolVisibility.Private) {
+        modifiers.visibility = SymbolVisibility.Private;
+      } else if (classVisibility === SymbolVisibility.Default) {
+        modifiers.visibility = SymbolVisibility.Default;
+      } else if (classVisibility === SymbolVisibility.Protected) {
+        modifiers.visibility = SymbolVisibility.Protected;
+      } else if (classVisibility === SymbolVisibility.Public) {
+        modifiers.visibility = SymbolVisibility.Public;
+      }
+      // Global class can have any visibility - no adjustment needed
     }
 
     // WebService fields must be global
