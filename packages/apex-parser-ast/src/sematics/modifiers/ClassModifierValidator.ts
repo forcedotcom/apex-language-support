@@ -1,0 +1,204 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+import { ParserRuleContext } from 'antlr4ts';
+
+import {
+  SymbolModifiers,
+  SymbolVisibility,
+  TypeSymbol,
+} from '../../types/symbol.js';
+import { ErrorReporter } from './ErrorReporter.js';
+
+/**
+ * Static class providing validation logic for Apex class modifiers
+ */
+export class ClassModifierValidator {
+  /**
+   * Validate class visibility modifiers for semantic errors
+   */
+  public static validateClassVisibilityModifiers(
+    className: string,
+    modifiers: SymbolModifiers,
+    ctx: ParserRuleContext,
+    isInnerClass: boolean,
+    currentTypeSymbol: TypeSymbol | null,
+    errorReporter: ErrorReporter,
+  ): void {
+    // webService modifier is not allowed on classes
+    if (modifiers.isWebService) {
+      errorReporter.addError(
+        `Class '${className}' cannot have 'webService' modifier. ` +
+          'This modifier is only valid for methods and properties',
+        ctx,
+      );
+      // Remove the invalid modifier
+      modifiers.isWebService = false;
+    }
+
+    // Validate visibility for outer classes
+    if (!isInnerClass) {
+      // Outer classes can only be public or default
+      if (modifiers.visibility === SymbolVisibility.Private) {
+        errorReporter.addError(
+          `Outer class '${className}' cannot be declared as 'private'. ` +
+            'Outer classes can only be public or default visibility',
+          ctx,
+        );
+        // Correct to default visibility
+        modifiers.visibility = SymbolVisibility.Default;
+      }
+
+      if (modifiers.visibility === SymbolVisibility.Protected) {
+        errorReporter.addError(
+          `Outer class '${className}' cannot be declared as 'protected'. ` +
+            'Outer classes can only be public or default visibility',
+          ctx,
+        );
+        // Correct to default visibility
+        modifiers.visibility = SymbolVisibility.Default;
+      }
+
+      if (modifiers.visibility === SymbolVisibility.Global) {
+        errorReporter.addError(
+          `Outer class '${className}' cannot be declared as 'global'. ` +
+            'Outer classes can only be public or default visibility',
+          ctx,
+        );
+        // Correct to public visibility
+        modifiers.visibility = SymbolVisibility.Public;
+      }
+    } else {
+      // For inner classes, all visibilities are allowed
+      // But check for visibility relative to outer class
+      if (currentTypeSymbol) {
+        // Check if inner class visibility is wider than outer class
+        if (
+          (currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Private &&
+            modifiers.visibility !== SymbolVisibility.Private) ||
+          (currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Default &&
+            modifiers.visibility !== SymbolVisibility.Default &&
+            modifiers.visibility !== SymbolVisibility.Private) ||
+          (currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Protected &&
+            modifiers.visibility === SymbolVisibility.Public) ||
+          (currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global &&
+            modifiers.visibility === SymbolVisibility.Global)
+        ) {
+          errorReporter.addError(
+            `Inner class '${className}' cannot have wider visibility than its containing class`,
+            ctx,
+          );
+          // Adjust visibility to match containing class as a reasonable default
+          modifiers.visibility = currentTypeSymbol.modifiers.visibility;
+        }
+      }
+    }
+
+    // If there are abstract methods, the class must be declared abstract or interface
+    // This check would be more appropriately done as a post-processing step after all methods are collected
+  }
+
+  /**
+   * Validate interface visibility modifiers for semantic errors
+   */
+  public static validateInterfaceVisibilityModifiers(
+    interfaceName: string,
+    modifiers: SymbolModifiers,
+    ctx: ParserRuleContext,
+    isInnerInterface: boolean,
+    currentTypeSymbol: TypeSymbol | null,
+    errorReporter: ErrorReporter,
+  ): void {
+    if (!isInnerInterface) {
+      // Outer interfaces can only be public or default visibility
+      if (modifiers.visibility === SymbolVisibility.Private) {
+        errorReporter.addError(
+          `Interface '${interfaceName}' cannot be declared as 'private'. ` +
+            'Outer interfaces can only be public or default visibility',
+          ctx,
+        );
+        // Correct to default visibility
+        modifiers.visibility = SymbolVisibility.Default;
+      }
+
+      if (modifiers.visibility === SymbolVisibility.Protected) {
+        errorReporter.addError(
+          `Interface '${interfaceName}' cannot be declared as 'protected'. ` +
+            'Outer interfaces can only be public or default visibility',
+          ctx,
+        );
+        // Correct to default visibility
+        modifiers.visibility = SymbolVisibility.Default;
+      }
+
+      if (modifiers.visibility === SymbolVisibility.Global) {
+        errorReporter.addError(
+          `Interface '${interfaceName}' cannot be declared as 'global'. ` +
+            'Outer interfaces can only be public or default visibility',
+          ctx,
+        );
+        // Correct to public visibility
+        modifiers.visibility = SymbolVisibility.Public;
+      }
+    } else {
+      // Inner interfaces can follow inner class rules
+      if (currentTypeSymbol) {
+        // Check if inner interface visibility is wider than outer class/interface
+        if (
+          (currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Private &&
+            modifiers.visibility !== SymbolVisibility.Private) ||
+          (currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Default &&
+            modifiers.visibility !== SymbolVisibility.Default &&
+            modifiers.visibility !== SymbolVisibility.Private) ||
+          (currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Protected &&
+            modifiers.visibility === SymbolVisibility.Public) ||
+          (currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global &&
+            modifiers.visibility === SymbolVisibility.Global)
+        ) {
+          errorReporter.addError(
+            `Inner interface '${interfaceName}' cannot have wider visibility than its containing type`,
+            ctx,
+          );
+          // Adjust visibility to match containing type as a reasonable default
+          modifiers.visibility = currentTypeSymbol.modifiers.visibility;
+        }
+      }
+    }
+
+    // Check for invalid modifiers on interfaces
+    if (modifiers.isFinal) {
+      errorReporter.addError(
+        `Interface '${interfaceName}' cannot be declared as 'final'`,
+        ctx,
+      );
+      modifiers.isFinal = false;
+    }
+
+    if (modifiers.isVirtual) {
+      errorReporter.addError(
+        `Interface '${interfaceName}' cannot be declared as 'virtual'`,
+        ctx,
+      );
+      modifiers.isVirtual = false;
+    }
+
+    // Interfaces are implicitly abstract, so explicit abstract is redundant
+    if (modifiers.isAbstract) {
+      errorReporter.addWarning(
+        `Interface '${interfaceName}' has redundant 'abstract' modifier, interfaces are implicitly abstract`,
+        ctx,
+      );
+    }
+  }
+}

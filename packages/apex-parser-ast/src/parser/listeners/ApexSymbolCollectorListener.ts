@@ -35,12 +35,21 @@ import {
   TypeSymbol,
   VariableSymbol,
 } from '../../types/symbol.js';
+import {
+  ClassModifierValidator,
+  MethodModifierValidator,
+  FieldModifierValidator,
+  ErrorReporter,
+} from '../../sematics/modifiers/index.js';
 
 /**
  * A listener that collects symbols from Apex code and organizes them into symbol tables.
  * This listener builds a hierarchy of symbol scopes and tracks symbols defined in each scope.
  */
-export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTable> {
+export class ApexSymbolCollectorListener
+  extends BaseApexParserListener<SymbolTable>
+  implements ErrorReporter
+{
   private symbolTable: SymbolTable = new SymbolTable();
   private currentTypeSymbol: TypeSymbol | null = null;
   private currentMethodSymbol: MethodSymbol | null = null;
@@ -122,7 +131,14 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     const modifiers = this.getCurrentModifiers();
 
     // Validate class visibility modifiers
-    this.validateClassVisibilityModifiers(className, modifiers, ctx);
+    ClassModifierValidator.validateClassVisibilityModifiers(
+      className,
+      modifiers,
+      ctx,
+      this.isInnerClass(),
+      this.currentTypeSymbol,
+      this,
+    );
 
     this.resetModifiers();
 
@@ -166,7 +182,14 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     const modifiers = this.getCurrentModifiers();
 
     // Validate interface visibility modifiers
-    this.validateInterfaceVisibilityModifiers(interfaceName, modifiers, ctx);
+    ClassModifierValidator.validateInterfaceVisibilityModifiers(
+      interfaceName,
+      modifiers,
+      ctx,
+      this.isInnerClass(),
+      this.currentTypeSymbol,
+      this,
+    );
 
     this.resetModifiers();
 
@@ -221,11 +244,17 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
 
     // Check for method override conflicts
     if (modifiers.isOverride) {
-      this.validateMethodOverride(methodName, ctx);
+      MethodModifierValidator.validateMethodOverride(methodName, ctx, this);
     }
 
     // Validate method modifiers
-    this.validateMethodModifiers(methodName, modifiers, ctx);
+    MethodModifierValidator.validateMethodModifiers(
+      methodName,
+      modifiers,
+      ctx,
+      this.currentTypeSymbol,
+      this,
+    );
 
     // Check for duplicate method names in the current scope
     const existingSymbol =
@@ -261,179 +290,6 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   }
 
   /**
-   * Validate method modifiers for semantic errors
-   */
-  private validateMethodModifiers(
-    methodName: string,
-    modifiers: SymbolModifiers,
-    ctx: ParserRuleContext,
-  ): void {
-    // Validate method visibility first
-    this.validateMethodVisibilityModifiers(methodName, modifiers, ctx);
-
-    // Check for conflicting modifiers
-    if (modifiers.isAbstract && modifiers.isVirtual) {
-      this.addError(
-        `Method '${methodName}' cannot be both abstract and virtual`,
-        ctx,
-      );
-    }
-
-    if (modifiers.isAbstract && modifiers.isFinal) {
-      this.addError(
-        `Method '${methodName}' cannot be both abstract and final`,
-        ctx,
-      );
-    }
-
-    if (modifiers.isVirtual && modifiers.isFinal) {
-      this.addError(
-        `Method '${methodName}' cannot be both virtual and final`,
-        ctx,
-      );
-    }
-
-    if (modifiers.isAbstract && modifiers.isOverride) {
-      this.addError(
-        `Method '${methodName}' cannot be both abstract and override`,
-        ctx,
-      );
-    }
-
-    // Check for abstract methods in non-abstract classes
-    if (
-      modifiers.isAbstract &&
-      this.currentTypeSymbol &&
-      this.currentTypeSymbol.kind === SymbolKind.Class &&
-      !this.currentTypeSymbol.modifiers.isAbstract
-    ) {
-      this.addError(
-        `Abstract method '${methodName}' cannot be declared in non-abstract class`,
-        ctx,
-      );
-    }
-  }
-
-  /**
-   * Validate method visibility modifiers for semantic errors
-   */
-  private validateMethodVisibilityModifiers(
-    methodName: string,
-    modifiers: SymbolModifiers,
-    ctx: ParserRuleContext,
-  ): void {
-    if (!this.currentTypeSymbol) return;
-
-    // Methods cannot have wider visibility than their containing class
-    if (
-      // Private class can only have private methods
-      (this.currentTypeSymbol.modifiers.visibility ===
-        SymbolVisibility.Private &&
-        modifiers.visibility !== SymbolVisibility.Private) ||
-      // Default visibility class can have default or private methods
-      (this.currentTypeSymbol.modifiers.visibility ===
-        SymbolVisibility.Default &&
-        modifiers.visibility !== SymbolVisibility.Default &&
-        modifiers.visibility !== SymbolVisibility.Private) ||
-      // Protected class can have protected, default, or private methods
-      (this.currentTypeSymbol.modifiers.visibility ===
-        SymbolVisibility.Protected &&
-        modifiers.visibility !== SymbolVisibility.Protected &&
-        modifiers.visibility !== SymbolVisibility.Default &&
-        modifiers.visibility !== SymbolVisibility.Private) ||
-      // Public class can have public, protected, default, or private methods
-      (this.currentTypeSymbol.modifiers.visibility ===
-        SymbolVisibility.Public &&
-        modifiers.visibility === SymbolVisibility.Global)
-    ) {
-      this.addError(
-        `Method '${methodName}' cannot have wider visibility than its containing class`,
-        ctx,
-      );
-      // Adjust to most permissive valid visibility for this class
-      const classVisibility = this.currentTypeSymbol.modifiers.visibility;
-
-      if (classVisibility === SymbolVisibility.Private) {
-        modifiers.visibility = SymbolVisibility.Private;
-      } else if (classVisibility === SymbolVisibility.Default) {
-        modifiers.visibility = SymbolVisibility.Default;
-      } else if (classVisibility === SymbolVisibility.Protected) {
-        modifiers.visibility = SymbolVisibility.Protected;
-      } else if (classVisibility === SymbolVisibility.Public) {
-        modifiers.visibility = SymbolVisibility.Public;
-      }
-      // Global class can have any visibility - no adjustment needed
-    }
-
-    // Check if webService is used with non-global visibility
-    if (
-      modifiers.isWebService &&
-      modifiers.visibility !== SymbolVisibility.Global
-    ) {
-      this.addError(
-        `Method '${methodName}' with 'webService' modifier must be declared as 'global'`,
-        ctx,
-      );
-      // Autocorrect the visibility to global
-      modifiers.visibility = SymbolVisibility.Global;
-    }
-
-    // Check if webService is used in a non-global class
-    if (
-      modifiers.isWebService &&
-      this.currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global
-    ) {
-      this.addError(
-        `Method '${methodName}' with 'webService' modifier must be in a global class`,
-        ctx,
-      );
-    }
-
-    // Check for protected access with method overrides (must maintain same or less restrictive access)
-    if (
-      modifiers.isOverride &&
-      modifiers.visibility === SymbolVisibility.Private
-    ) {
-      this.addWarning(
-        `Override method '${methodName}' with 'private' visibility may not be correctly overriding a parent method`,
-        ctx,
-      );
-    }
-
-    // Virtual methods cannot be private
-    if (
-      modifiers.isVirtual &&
-      modifiers.visibility === SymbolVisibility.Private
-    ) {
-      this.addError(
-        `Virtual method '${methodName}' cannot be declared as 'private'`,
-        ctx,
-      );
-      // Upgrade to protected as a reasonable default
-      modifiers.visibility = SymbolVisibility.Protected;
-    }
-  }
-
-  /**
-   * Validate method override for semantic errors
-   */
-  private validateMethodOverride(
-    methodName: string,
-    ctx: ParserRuleContext,
-  ): void {
-    // In a real implementation, we would check that:
-    // 1. The parent class actually has a method with this name
-    // 2. The method signatures are compatible
-    // 3. The overridden method is virtual or abstract
-
-    // For now, just add a placeholder warning
-    this.addWarning(
-      `Override method '${methodName}' should ensure a parent class has a compatible virtual or abstract method`,
-      ctx,
-    );
-  }
-
-  /**
    * Called when exiting a method declaration
    */
   exitMethodDeclaration(): void {
@@ -458,10 +314,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     const modifiers = this.getCurrentModifiers();
 
     // Validate constructor visibility modifiers
-    this.validateConstructorVisibilityModifiers(
+    MethodModifierValidator.validateConstructorVisibilityModifiers(
       constructorName,
       modifiers,
       ctx,
+      this.currentTypeSymbol,
+      this,
     );
 
     this.resetModifiers();
@@ -504,78 +362,6 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   }
 
   /**
-   * Validate constructor visibility modifiers for semantic errors
-   */
-  private validateConstructorVisibilityModifiers(
-    constructorName: string,
-    modifiers: SymbolModifiers,
-    ctx: ParserRuleContext,
-  ): void {
-    if (!this.currentTypeSymbol) return;
-
-    // Constructor visibility must match or be more restrictive than the class
-    const classVisibility = this.currentTypeSymbol.modifiers.visibility;
-
-    // Constructor cannot be more visible than the class
-    if (
-      (classVisibility === SymbolVisibility.Private &&
-        modifiers.visibility !== SymbolVisibility.Private) ||
-      (classVisibility === SymbolVisibility.Protected &&
-        (modifiers.visibility === SymbolVisibility.Public ||
-          modifiers.visibility === SymbolVisibility.Global)) ||
-      (classVisibility === SymbolVisibility.Public &&
-        modifiers.visibility === SymbolVisibility.Global)
-    ) {
-      this.addError(
-        `Constructor for '${constructorName}' cannot be more visible than its class`,
-        ctx,
-      );
-      // Adjust visibility to match class
-      modifiers.visibility = classVisibility;
-    }
-
-    // Constructor cannot have certain modifiers
-    if (modifiers.isAbstract) {
-      this.addError(
-        `Constructor for '${constructorName}' cannot be declared as 'abstract'`,
-        ctx,
-      );
-      modifiers.isAbstract = false;
-    }
-
-    if (modifiers.isVirtual) {
-      this.addError(
-        `Constructor for '${constructorName}' cannot be declared as 'virtual'`,
-        ctx,
-      );
-      modifiers.isVirtual = false;
-    }
-
-    if (modifiers.isOverride) {
-      this.addError(
-        `Constructor for '${constructorName}' cannot be declared as 'override'`,
-        ctx,
-      );
-      modifiers.isOverride = false;
-    }
-
-    // WebService and global constructors must be in global classes
-    if (
-      modifiers.isWebService ||
-      modifiers.visibility === SymbolVisibility.Global
-    ) {
-      if (
-        this.currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global
-      ) {
-        this.addError(
-          `Constructor with '${modifiers.isWebService ? 'webService' : 'global'}' modifier must be in a global class`,
-          ctx,
-        );
-      }
-    }
-  }
-
-  /**
    * Called when exiting a constructor declaration
    */
   exitConstructorDeclaration(): void {
@@ -596,7 +382,11 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     const currentModifiers = this.getCurrentModifiers();
 
     // Validate interface method modifiers
-    this.validateInterfaceMethodModifiers(currentModifiers, ctx);
+    MethodModifierValidator.validateInterfaceMethodModifiers(
+      currentModifiers,
+      ctx,
+      this,
+    );
 
     // Interface methods have implicit modifiers
     this.resetModifiers();
@@ -648,78 +438,6 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
 
     // Store current method
     this.currentMethodSymbol = methodSymbol;
-  }
-
-  /**
-   * Validate interface method modifiers
-   */
-  private validateInterfaceMethodModifiers(
-    modifiers: SymbolModifiers,
-    ctx: ParserRuleContext,
-  ): void {
-    // Report errors for any explicit modifiers
-    if (modifiers.visibility !== SymbolVisibility.Default) {
-      this.addError(
-        `Interface method cannot be ${this.visibilityToString(modifiers.visibility)}`,
-        ctx,
-      );
-    }
-
-    if (modifiers.isStatic) {
-      this.addError(
-        "Modifier 'static' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isFinal) {
-      this.addError(
-        "Modifier 'final' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isAbstract) {
-      this.addError(
-        "Modifier 'abstract' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isVirtual) {
-      this.addError(
-        "Modifier 'virtual' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isOverride) {
-      this.addError(
-        "Modifier 'override' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isTransient) {
-      this.addError(
-        "Modifier 'transient' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isTestMethod) {
-      this.addError(
-        "Modifier 'testMethod' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isWebService) {
-      this.addError(
-        "Modifier 'webService' is not allowed on interface methods",
-        ctx,
-      );
-    }
   }
 
   /**
@@ -782,7 +500,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     const modifiers = this.getCurrentModifiers();
 
     // Validate field visibility modifiers (do this before creating individual property symbols)
-    this.validateFieldVisibilityModifiers(modifiers, ctx);
+    FieldModifierValidator.validateFieldVisibilityModifiers(
+      modifiers,
+      ctx,
+      this.currentTypeSymbol,
+      this,
+    );
 
     this.resetModifiers();
 
@@ -1011,24 +734,6 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   }
 
   /**
-   * Convert visibility enum to string representation
-   */
-  private visibilityToString(visibility: SymbolVisibility): string {
-    switch (visibility) {
-      case SymbolVisibility.Public:
-        return 'public';
-      case SymbolVisibility.Private:
-        return 'private';
-      case SymbolVisibility.Protected:
-        return 'protected';
-      case SymbolVisibility.Global:
-        return 'global';
-      default:
-        return 'default';
-    }
-  }
-
-  /**
    * Check if current class appears to be an inner class
    * A class is an inner class if it's not directly in the global scope
    */
@@ -1052,298 +757,21 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   }
 
   /**
-   * Validate class visibility modifiers for semantic errors
+   * Add a warning message to the list of warnings (public implementation of ErrorReporter interface)
    */
-  private validateClassVisibilityModifiers(
-    className: string,
-    modifiers: SymbolModifiers,
-    ctx: ParserRuleContext,
-  ): void {
-    const isInner = this.isInnerClass();
-
-    // webService modifier is not allowed on classes
-    if (modifiers.isWebService) {
-      this.addError(
-        `Class '${className}' cannot have 'webService' modifier. ` +
-          'This modifier is only valid for methods and properties',
-        ctx,
-      );
-      // Remove the invalid modifier
-      modifiers.isWebService = false;
-    }
-
-    // Validate visibility for outer classes
-    if (!isInner) {
-      // Outer classes can only be public or default
-      if (modifiers.visibility === SymbolVisibility.Private) {
-        this.addError(
-          `Outer class '${className}' cannot be declared as 'private'. ` +
-            'Outer classes can only be public or default visibility',
-          ctx,
-        );
-        // Correct to default visibility
-        modifiers.visibility = SymbolVisibility.Default;
-      }
-
-      if (modifiers.visibility === SymbolVisibility.Protected) {
-        this.addError(
-          `Outer class '${className}' cannot be declared as 'protected'. ` +
-            'Outer classes can only be public or default visibility',
-          ctx,
-        );
-        // Correct to default visibility
-        modifiers.visibility = SymbolVisibility.Default;
-      }
-
-      if (modifiers.visibility === SymbolVisibility.Global) {
-        this.addError(
-          `Outer class '${className}' cannot be declared as 'global'. ` +
-            'Outer classes can only be public or default visibility',
-          ctx,
-        );
-        // Correct to public visibility
-        modifiers.visibility = SymbolVisibility.Public;
-      }
-    } else {
-      // For inner classes, all visibilities are allowed
-      // But check for visibility relative to outer class
-      if (this.currentTypeSymbol) {
-        // Check if inner class visibility is wider than outer class
-        if (
-          (this.currentTypeSymbol.modifiers.visibility ===
-            SymbolVisibility.Private &&
-            modifiers.visibility !== SymbolVisibility.Private) ||
-          (this.currentTypeSymbol.modifiers.visibility ===
-            SymbolVisibility.Default &&
-            modifiers.visibility !== SymbolVisibility.Default &&
-            modifiers.visibility !== SymbolVisibility.Private) ||
-          (this.currentTypeSymbol.modifiers.visibility ===
-            SymbolVisibility.Protected &&
-            modifiers.visibility === SymbolVisibility.Public) ||
-          (this.currentTypeSymbol.modifiers.visibility !==
-            SymbolVisibility.Global &&
-            modifiers.visibility === SymbolVisibility.Global)
-        ) {
-          this.addError(
-            `Inner class '${className}' cannot have wider visibility than its containing class`,
-            ctx,
-          );
-          // Adjust visibility to match containing class as a reasonable default
-          modifiers.visibility = this.currentTypeSymbol.modifiers.visibility;
-        }
-      }
-    }
-
-    // If there are abstract methods, the class must be declared abstract or interface
-    // This check would be more appropriately done as a post-processing step after all methods are collected
+  public addWarning(message: string, context?: ParserRuleContext): void {
+    super.addWarning(message, context);
   }
 
   /**
-   * Validate interface visibility modifiers for semantic errors
+   * Add a semantic error through the error listener (public implementation of ErrorReporter interface)
    */
-  private validateInterfaceVisibilityModifiers(
-    interfaceName: string,
-    modifiers: SymbolModifiers,
-    ctx: ParserRuleContext,
+  public addError(
+    message: string,
+    context:
+      | ParserRuleContext
+      | { line: number; column: number; endLine?: number; endColumn?: number },
   ): void {
-    const isInner = this.isInnerClass();
-
-    if (!isInner) {
-      // Outer interfaces can only be public or default visibility
-      if (modifiers.visibility === SymbolVisibility.Private) {
-        this.addError(
-          `Interface '${interfaceName}' cannot be declared as 'private'. ` +
-            'Outer interfaces can only be public or default visibility',
-          ctx,
-        );
-        // Correct to default visibility
-        modifiers.visibility = SymbolVisibility.Default;
-      }
-
-      if (modifiers.visibility === SymbolVisibility.Protected) {
-        this.addError(
-          `Interface '${interfaceName}' cannot be declared as 'protected'. ` +
-            'Outer interfaces can only be public or default visibility',
-          ctx,
-        );
-        // Correct to default visibility
-        modifiers.visibility = SymbolVisibility.Default;
-      }
-
-      if (modifiers.visibility === SymbolVisibility.Global) {
-        this.addError(
-          `Interface '${interfaceName}' cannot be declared as 'global'. ` +
-            'Outer interfaces can only be public or default visibility',
-          ctx,
-        );
-        // Correct to public visibility
-        modifiers.visibility = SymbolVisibility.Public;
-      }
-    } else {
-      // Inner interfaces can follow inner class rules
-      if (this.currentTypeSymbol) {
-        // Check if inner interface visibility is wider than outer class/interface
-        if (
-          (this.currentTypeSymbol.modifiers.visibility ===
-            SymbolVisibility.Private &&
-            modifiers.visibility !== SymbolVisibility.Private) ||
-          (this.currentTypeSymbol.modifiers.visibility ===
-            SymbolVisibility.Default &&
-            modifiers.visibility !== SymbolVisibility.Default &&
-            modifiers.visibility !== SymbolVisibility.Private) ||
-          (this.currentTypeSymbol.modifiers.visibility ===
-            SymbolVisibility.Protected &&
-            modifiers.visibility === SymbolVisibility.Public) ||
-          (this.currentTypeSymbol.modifiers.visibility !==
-            SymbolVisibility.Global &&
-            modifiers.visibility === SymbolVisibility.Global)
-        ) {
-          this.addError(
-            `Inner interface '${interfaceName}' cannot have wider visibility than its containing type`,
-            ctx,
-          );
-          // Adjust visibility to match containing type as a reasonable default
-          modifiers.visibility = this.currentTypeSymbol.modifiers.visibility;
-        }
-      }
-    }
-
-    // Check for invalid modifiers on interfaces
-    if (modifiers.isFinal) {
-      this.addError(
-        `Interface '${interfaceName}' cannot be declared as 'final'`,
-        ctx,
-      );
-      modifiers.isFinal = false;
-    }
-
-    if (modifiers.isVirtual) {
-      this.addError(
-        `Interface '${interfaceName}' cannot be declared as 'virtual'`,
-        ctx,
-      );
-      modifiers.isVirtual = false;
-    }
-
-    // Interfaces are implicitly abstract, so explicit abstract is redundant
-    if (modifiers.isAbstract) {
-      this.addWarning(
-        `Interface '${interfaceName}' has redundant 'abstract' modifier, interfaces are implicitly abstract`,
-        ctx,
-      );
-    }
-  }
-
-  /**
-   * Validate field/property visibility modifiers for semantic errors
-   */
-  private validateFieldVisibilityModifiers(
-    modifiers: SymbolModifiers,
-    ctx: ParserRuleContext,
-  ): void {
-    if (!this.currentTypeSymbol) return;
-
-    const typeKind = this.currentTypeSymbol.kind;
-
-    // Fields in interfaces must be public and static
-    if (typeKind === SymbolKind.Interface) {
-      if (
-        modifiers.visibility !== SymbolVisibility.Public &&
-        modifiers.visibility !== SymbolVisibility.Default
-      ) {
-        this.addError('Interface fields must be public', ctx);
-        // Correct the visibility
-        modifiers.visibility = SymbolVisibility.Public;
-      }
-
-      if (!modifiers.isStatic) {
-        this.addError('Interface fields must be static', ctx);
-        // Correct the modifier
-        modifiers.isStatic = true;
-      }
-    }
-
-    // Field visibility cannot be wider than containing class visibility
-    if (
-      // Private class can only have private fields
-      (this.currentTypeSymbol.modifiers.visibility ===
-        SymbolVisibility.Private &&
-        modifiers.visibility !== SymbolVisibility.Private) ||
-      // Default visibility class can have default or private fields
-      (this.currentTypeSymbol.modifiers.visibility ===
-        SymbolVisibility.Default &&
-        modifiers.visibility !== SymbolVisibility.Default &&
-        modifiers.visibility !== SymbolVisibility.Private) ||
-      // Protected class can have protected, default, or private fields
-      (this.currentTypeSymbol.modifiers.visibility ===
-        SymbolVisibility.Protected &&
-        modifiers.visibility !== SymbolVisibility.Protected &&
-        modifiers.visibility !== SymbolVisibility.Default &&
-        modifiers.visibility !== SymbolVisibility.Private) ||
-      // Public class can have public, protected, default, or private fields
-      (this.currentTypeSymbol.modifiers.visibility ===
-        SymbolVisibility.Public &&
-        modifiers.visibility === SymbolVisibility.Global)
-    ) {
-      this.addError(
-        'Field cannot have wider visibility than its containing class',
-        ctx,
-      );
-      // Adjust to most permissive valid visibility for this class
-      const classVisibility = this.currentTypeSymbol.modifiers.visibility;
-
-      if (classVisibility === SymbolVisibility.Private) {
-        modifiers.visibility = SymbolVisibility.Private;
-      } else if (classVisibility === SymbolVisibility.Default) {
-        modifiers.visibility = SymbolVisibility.Default;
-      } else if (classVisibility === SymbolVisibility.Protected) {
-        modifiers.visibility = SymbolVisibility.Protected;
-      } else if (classVisibility === SymbolVisibility.Public) {
-        modifiers.visibility = SymbolVisibility.Public;
-      }
-      // Global class can have any visibility - no adjustment needed
-    }
-
-    // WebService fields must be global
-    if (
-      modifiers.isWebService &&
-      modifiers.visibility !== SymbolVisibility.Global
-    ) {
-      this.addError(
-        "Field with 'webService' modifier must be declared as 'global'",
-        ctx,
-      );
-      // Correct the visibility
-      modifiers.visibility = SymbolVisibility.Global;
-    }
-
-    // WebService fields must be in global classes
-    if (
-      modifiers.isWebService &&
-      this.currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global
-    ) {
-      this.addError(
-        "Field with 'webService' modifier must be in a global class",
-        ctx,
-      );
-    }
-
-    // Abstract fields are not allowed
-    if (modifiers.isAbstract) {
-      this.addError("Field cannot be declared as 'abstract'", ctx);
-      modifiers.isAbstract = false;
-    }
-
-    // Virtual fields are not allowed
-    if (modifiers.isVirtual) {
-      this.addError("Field cannot be declared as 'virtual'", ctx);
-      modifiers.isVirtual = false;
-    }
-
-    // Override fields are not allowed
-    if (modifiers.isOverride) {
-      this.addError("Field cannot be declared as 'override'", ctx);
-      modifiers.isOverride = false;
-    }
+    super.addError(message, context);
   }
 }
