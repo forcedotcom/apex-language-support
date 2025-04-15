@@ -11,6 +11,10 @@
     "url": "https://github.com/forcedotcom/apex-language-support.git",
     "directory": "packages/apex-parser-ast"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "wireit",
     "dev": "wireit",
@@ -22,6 +26,7 @@
       "command": "vite build",
       "files": [
         "src/**/*.ts",
+        "src/resources/**/*",
         "tsconfig.json",
         "vite.config.ts"
       ],
@@ -34,6 +39,7 @@
       "service": true,
       "files": [
         "src/**/*.ts",
+        "src/resources/**/*",
         "tsconfig.json",
         "vite.config.ts"
       ],

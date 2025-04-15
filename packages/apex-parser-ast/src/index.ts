@@ -23,3 +23,9 @@ export * from './types/unitType.js';
 
 // Export compiler service
 export * from './parser/compilerService.js';
+
+// Export resource utilities
+export * from './utils/ResourceUtils.js';
+
+// Export platform-specific utilities
+export * from './utils/PlatformUtils.js';
