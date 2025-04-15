@@ -31,22 +31,19 @@ export class FieldModifierValidator {
   ): void {
     const typeKind = currentTypeSymbol.kind;
 
-    // Fields in interfaces must be public and static
+    // Fields are not allowed in interfaces (only method declarations)
     if (typeKind === SymbolKind.Interface) {
-      if (
-        modifiers.visibility !== SymbolVisibility.Public &&
-        modifiers.visibility !== SymbolVisibility.Default
-      ) {
-        errorReporter.addError('Interface fields must be public', ctx);
-        // Correct the visibility
-        modifiers.visibility = SymbolVisibility.Public;
-      }
+      errorReporter.addError(
+        'Fields are not allowed in interfaces. Interfaces can only contain method declarations',
+        ctx,
+      );
+      return;
+    }
 
-      if (!modifiers.isStatic) {
-        errorReporter.addError('Interface fields must be static', ctx);
-        // Correct the modifier
-        modifiers.isStatic = true;
-      }
+    // Fields in concrete types cannot be abstract
+    if (typeKind === SymbolKind.Class && modifiers.isAbstract) {
+      errorReporter.addError("Field cannot be declared as 'abstract'", ctx);
+      modifiers.isAbstract = false;
     }
 
     // Field visibility cannot be wider than containing class visibility
@@ -108,12 +105,6 @@ export class FieldModifierValidator {
         "Field with 'webService' modifier must be in a global class",
         ctx,
       );
-    }
-
-    // Abstract fields are not allowed
-    if (modifiers.isAbstract) {
-      errorReporter.addError("Field cannot be declared as 'abstract'", ctx);
-      modifiers.isAbstract = false;
     }
 
     // Virtual fields are not allowed

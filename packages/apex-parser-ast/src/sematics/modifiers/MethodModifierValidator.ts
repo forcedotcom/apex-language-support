@@ -187,69 +187,44 @@ export class MethodModifierValidator {
     ctx: ParserRuleContext,
     errorReporter: ErrorReporter,
   ): void {
-    // Report errors for any explicit modifiers
+    // Interface methods cannot have any explicit modifiers
+
+    // Check for any explicit visibility modifiers
     if (modifiers.visibility !== SymbolVisibility.Default) {
       errorReporter.addError(
-        `Interface method cannot be ${this.visibilityToString(modifiers.visibility)}`,
+        'Interface methods cannot have explicit visibility modifiers',
         ctx,
       );
     }
 
-    if (modifiers.isStatic) {
+    // No modifiers are allowed on interface methods
+    const hasModifiers =
+      modifiers.isStatic ||
+      modifiers.isFinal ||
+      modifiers.isAbstract ||
+      modifiers.isVirtual ||
+      modifiers.isOverride ||
+      modifiers.isTransient ||
+      modifiers.isTestMethod ||
+      modifiers.isWebService;
+
+    if (hasModifiers) {
       errorReporter.addError(
-        "Modifier 'static' is not allowed on interface methods",
+        'Modifiers are not allowed on interface methods',
         ctx,
       );
     }
 
-    if (modifiers.isFinal) {
-      errorReporter.addError(
-        "Modifier 'final' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isAbstract) {
-      errorReporter.addError(
-        "Modifier 'abstract' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isVirtual) {
-      errorReporter.addError(
-        "Modifier 'virtual' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isOverride) {
-      errorReporter.addError(
-        "Modifier 'override' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isTransient) {
-      errorReporter.addError(
-        "Modifier 'transient' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isTestMethod) {
-      errorReporter.addError(
-        "Modifier 'testMethod' is not allowed on interface methods",
-        ctx,
-      );
-    }
-
-    if (modifiers.isWebService) {
-      errorReporter.addError(
-        "Modifier 'webService' is not allowed on interface methods",
-        ctx,
-      );
-    }
+    // Reset all modifiers - interface methods are implicitly public and abstract
+    modifiers.visibility = SymbolVisibility.Public;
+    modifiers.isAbstract = true;
+    modifiers.isStatic = false;
+    modifiers.isFinal = false;
+    modifiers.isVirtual = false;
+    modifiers.isOverride = false;
+    modifiers.isTransient = false;
+    modifiers.isTestMethod = false;
+    modifiers.isWebService = false;
   }
 
   /**

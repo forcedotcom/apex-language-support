@@ -31,7 +31,7 @@ describe('ApexSymbolCollectorListener', () => {
     listener = new ApexSymbolCollectorListener();
   });
 
-  describe('collectSymbols', () => {
+  describe('collect Class Symbols', () => {
     it('should collect class, method, property and parameter symbols', () => {
       // Sample Apex code with a class, methods, properties and parameters
       const fileContent = `
