@@ -68,9 +68,10 @@ const DEFAULT_OPTIONS: FQNOptions = {
 /**
  * Calculates the fully qualified name for an Apex symbol
  * @param symbol The symbol to calculate the FQN for
+ * @param options Options for FQN generation
  * @returns The fully qualified name as a string
  */
-export function calculateFQN(symbol: ApexSymbol): string {
+export function calculateFQN(symbol: ApexSymbol, options?: FQNOptions): string {
   // Start with the symbol name
   let fqn = symbol.name;
 
@@ -89,6 +90,15 @@ export function calculateFQN(symbol: ApexSymbol): string {
   // If there's a namespace in the parent chain, extract it
   if (symbol.parent && symbol.parent.namespace) {
     symbol.namespace = symbol.parent.namespace;
+  }
+  // If no namespace was found but a default namespace is provided, use it
+  else if (!symbol.namespace && options?.defaultNamespace) {
+    symbol.namespace = options.defaultNamespace;
+
+    // Only prepend the namespace for top-level symbols with no parent
+    if (!symbol.parent) {
+      fqn = `${options.defaultNamespace}.${fqn}`;
+    }
   }
 
   return fqn;

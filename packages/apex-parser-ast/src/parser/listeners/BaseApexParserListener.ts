@@ -35,6 +35,8 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
   }
   protected warnings: string[] = [];
   protected errorListener: ApexErrorListener | null = null;
+  /** The namespace of the current project, used for FQN calculation */
+  protected projectNamespace?: string;
 
   /**
    * Set the error listener for this parser listener
@@ -48,6 +50,21 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
    */
   getErrorListener(): ApexErrorListener | null {
     return this.errorListener;
+  }
+
+  /**
+   * Set the project namespace for this parser listener
+   * @param namespace The namespace of the current project
+   */
+  setProjectNamespace(namespace: string): void {
+    this.projectNamespace = namespace;
+  }
+
+  /**
+   * Get the project namespace for this parser listener
+   */
+  getProjectNamespace(): string | undefined {
+    return this.projectNamespace;
   }
 
   /**

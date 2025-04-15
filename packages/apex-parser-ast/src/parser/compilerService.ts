@@ -35,17 +35,29 @@ export interface CompilationResult<T> {
  * Service for parsing and compiling Apex code.
  */
 export class CompilerService {
+  private projectNamespace?: string;
+
+  /**
+   * Create a new CompilerService instance
+   * @param projectNamespace Optional namespace for the current project, used in FQN calculation
+   */
+  constructor(projectNamespace?: string) {
+    this.projectNamespace = projectNamespace;
+  }
+
   /**
    * Parse and compile a single Apex file.
    * @param fileContent The content of the Apex file to parse
    * @param fileName Optional filename for error reporting
    * @param listener The listener to use during parsing
+   * @param projectNamespace Optional namespace override for this compilation
    * @returns CompilationResult with the parsed result or errors
    */
   public compile<T>(
     fileContent: string,
     fileName: string = 'unknown.cls',
     listener: BaseApexParserListener<T>,
+    projectNamespace?: string,
   ): CompilationResult<T> {
     try {
       // Create an error listener
@@ -53,6 +65,12 @@ export class CompilerService {
 
       // Set it on the listener
       listener.setErrorListener(errorListener);
+
+      // Set the project namespace if provided or use the one from constructor
+      const namespace = projectNamespace || this.projectNamespace;
+      if (namespace && typeof listener.setProjectNamespace === 'function') {
+        listener.setProjectNamespace(namespace);
+      }
 
       // Parse the code and get the compilation unit
       const compilationUnitContext = this.getCompilationUnit(
@@ -96,13 +114,18 @@ export class CompilerService {
    * Parse and compile multiple Apex files.
    * @param files An array of file objects containing content and name
    * @param listener The listener to use during parsing
+   * @param projectNamespace Optional namespace override for this compilation
    * @returns Array of CompilationResult with the parsed result or errors for each file
    */
   public compileMultiple<T>(
     files: { content: string; fileName: string }[],
     listener: BaseApexParserListener<T>,
+    projectNamespace?: string,
   ): CompilationResult<T>[] {
     const results: CompilationResult<T>[] = [];
+
+    // Use the provided namespace or fall back to the one from constructor
+    const namespace = projectNamespace || this.projectNamespace;
 
     // Process each file
     for (const file of files) {
@@ -123,6 +146,14 @@ export class CompilerService {
 
         // Set the error listener on the parser listener
         fileListener.setErrorListener(errorListener);
+
+        // Set the project namespace if provided
+        if (
+          namespace &&
+          typeof fileListener.setProjectNamespace === 'function'
+        ) {
+          fileListener.setProjectNamespace(namespace);
+        }
 
         // Use the provided listener to walk the parse tree
         const walker = new ParseTreeWalker();

@@ -25,7 +25,6 @@ import { ParserRuleContext } from 'antlr4ts';
 import { BaseApexParserListener } from './BaseApexParserListener.js';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo.js';
 import {
-  ApexSymbol,
   EnumSymbol,
   MethodSymbol,
   SymbolKind,
@@ -151,6 +150,7 @@ export class ApexSymbolCollectorListener
       location,
       modifiers,
       interfaces: [],
+      parent: null,
     };
 
     // Add to symbol table and enter scope
@@ -202,6 +202,7 @@ export class ApexSymbolCollectorListener
       location,
       modifiers,
       interfaces: [],
+      parent: null,
     };
 
     // Add to symbol table and enter scope
@@ -572,6 +573,7 @@ export class ApexSymbolCollectorListener
       location,
       modifiers,
       values: [],
+      parent: null,
     };
 
     // Add to symbol table and enter enum scope
@@ -630,9 +632,8 @@ export class ApexSymbolCollectorListener
     // Get location
     const location = this.getLocation(ctx);
 
-    // Create variable symbol with parent fallback to undefined
-    const parent =
-      this.currentTypeSymbol || this.currentMethodSymbol || undefined;
+    // Create variable symbol with parent fallback to null
+    const parent = this.currentTypeSymbol || this.currentMethodSymbol || null;
 
     // Check for duplicate variable names in the current scope
     const existingSymbol = this.symbolTable.findSymbolInCurrentScope(varName);
@@ -780,28 +781,25 @@ export class ApexSymbolCollectorListener
   private addTypeSymbol(
     ctx: ParserRuleContext,
     name: string,
-    kind: SymbolKind,
+    kind: SymbolKind.Class | SymbolKind.Interface | SymbolKind.Trigger,
     modifiers: SymbolModifiers,
   ): TypeSymbol {
     const typeSymbol: TypeSymbol = {
       name,
       kind,
-      location: this.getLocationFromContext(ctx),
+      location: this.getLocation(ctx),
       modifiers,
       parent: this.currentTypeSymbol,
-      methods: [],
-      properties: [],
-      innerTypes: [],
+      interfaces: [],
     };
 
-    // Calculate and set the FQN
-    typeSymbol.fqn = calculateFQN(typeSymbol);
+    // Calculate and set the FQN using the project namespace
+    typeSymbol.fqn = calculateFQN(typeSymbol, {
+      defaultNamespace: this.projectNamespace,
+    });
 
-    if (this.currentTypeSymbol) {
-      this.currentTypeSymbol.innerTypes.push(typeSymbol);
-    } else {
-      this.symbolTable.addSymbol(typeSymbol);
-    }
+    // Add to symbol table
+    this.symbolTable.addSymbol(typeSymbol);
 
     return typeSymbol;
   }
@@ -810,22 +808,25 @@ export class ApexSymbolCollectorListener
     ctx: ParserRuleContext,
     name: string,
     modifiers: SymbolModifiers,
+    returnType: TypeInfo,
   ): MethodSymbol {
     const methodSymbol: MethodSymbol = {
       name,
       kind: SymbolKind.Method,
-      location: this.getLocationFromContext(ctx),
+      location: this.getLocation(ctx),
       modifiers,
       parent: this.currentTypeSymbol,
       parameters: [],
+      returnType,
     };
 
-    // Calculate and set the FQN
-    methodSymbol.fqn = calculateFQN(methodSymbol);
+    // Calculate and set the FQN using the project namespace
+    methodSymbol.fqn = calculateFQN(methodSymbol, {
+      defaultNamespace: this.projectNamespace,
+    });
 
-    if (this.currentTypeSymbol) {
-      this.currentTypeSymbol.methods.push(methodSymbol);
-    }
+    // Add to symbol table
+    this.symbolTable.addSymbol(methodSymbol);
 
     return methodSymbol;
   }
@@ -833,23 +834,26 @@ export class ApexSymbolCollectorListener
   private addPropertySymbol(
     ctx: ParserRuleContext,
     name: string,
-    kind: SymbolKind,
+    kind: SymbolKind.Property | SymbolKind.Variable | SymbolKind.EnumValue,
     modifiers: SymbolModifiers,
-  ): ApexSymbol {
-    const propertySymbol: ApexSymbol = {
+    type: TypeInfo,
+  ): VariableSymbol {
+    const propertySymbol: VariableSymbol = {
       name,
       kind,
-      location: this.getLocationFromContext(ctx),
+      location: this.getLocation(ctx),
       modifiers,
       parent: this.currentTypeSymbol,
+      type,
     };
 
-    // Calculate and set the FQN
-    propertySymbol.fqn = calculateFQN(propertySymbol);
+    // Calculate and set the FQN using the project namespace
+    propertySymbol.fqn = calculateFQN(propertySymbol, {
+      defaultNamespace: this.projectNamespace,
+    });
 
-    if (this.currentTypeSymbol) {
-      this.currentTypeSymbol.properties.push(propertySymbol);
-    }
+    // Add to symbol table
+    this.symbolTable.addSymbol(propertySymbol);
 
     return propertySymbol;
   }
