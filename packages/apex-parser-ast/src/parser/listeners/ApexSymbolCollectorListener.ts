@@ -44,6 +44,7 @@ import {
   FieldModifierValidator,
   ErrorReporter,
 } from '../../sematics/modifiers/index.js';
+import { AnnotationValidator } from '../../sematics/annotations/index.js';
 import { calculateFQN } from '../../utils/FQNUtils.js';
 
 /**
@@ -261,6 +262,11 @@ export class ApexSymbolCollectorListener
       annotations: annotations.length > 0 ? annotations : undefined,
     };
 
+    // Validate annotations
+    if (typeSymbol.annotations) {
+      AnnotationValidator.validateAnnotations(typeSymbol, ctx, this);
+    }
+
     // Add to symbol table and enter scope
     this.symbolTable.addSymbol(typeSymbol);
     this.symbolTable.enterScope(className);
@@ -317,6 +323,11 @@ export class ApexSymbolCollectorListener
       parent: null,
       annotations: annotations.length > 0 ? annotations : undefined,
     };
+
+    // Validate annotations
+    if (typeSymbol.annotations) {
+      AnnotationValidator.validateAnnotations(typeSymbol, ctx, this);
+    }
 
     // Add to symbol table and enter scope
     this.symbolTable.addSymbol(typeSymbol);

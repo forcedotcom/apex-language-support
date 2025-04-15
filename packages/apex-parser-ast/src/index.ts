@@ -32,3 +32,7 @@ export * from './utils/PlatformUtils.js';
 
 // Export utils
 export * from './utils/AnnotationUtils.js';
+
+// Export semantic validators
+export * from './sematics/modifiers/index.js';
+export * from './sematics/annotations/index.js';
