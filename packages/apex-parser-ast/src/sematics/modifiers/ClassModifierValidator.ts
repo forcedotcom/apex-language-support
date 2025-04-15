@@ -165,4 +165,32 @@ export class ClassModifierValidator {
       );
     }
   }
+
+  /**
+   * Validate inner class nesting and naming
+   */
+  public static validateInnerClassRules(
+    className: string,
+    ctx: ParserRuleContext,
+    outerClass: TypeSymbol,
+    isInnerOfInner: boolean,
+    errorReporter: ErrorReporter,
+  ): void {
+    // Check for inner class within inner class (not allowed)
+    if (isInnerOfInner) {
+      errorReporter.addError(
+        `Inner class '${className}' cannot be defined within another inner class. ` +
+          'Apex does not support nested inner classes.',
+        ctx,
+      );
+    }
+
+    // Check if inner class has the same name as the outer class
+    if (className === outerClass.name) {
+      errorReporter.addError(
+        `Inner class '${className}' cannot have the same name as its outer class '${outerClass.name}'.`,
+        ctx,
+      );
+    }
+  }
 }

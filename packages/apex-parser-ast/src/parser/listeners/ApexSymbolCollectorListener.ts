@@ -238,15 +238,38 @@ export class ApexSymbolCollectorListener
     // Get current annotations
     const annotations = this.getCurrentAnnotations();
 
+    // Check if this is an inner class based on whether we're already inside a class
+    const isInner = this.currentTypeSymbol !== null;
+
     // Validate class visibility modifiers
     ClassModifierValidator.validateClassVisibilityModifiers(
       className,
       modifiers,
       ctx,
-      this.isInnerClass(),
+      isInner,
       this.currentTypeSymbol,
       this,
     );
+
+    // Save current type symbol as potential parent before we enter a new scope
+    const parentTypeSymbol = this.currentTypeSymbol;
+
+    // If this is an inner class, validate additional inner class rules
+    if (isInner && parentTypeSymbol) {
+      // For nested inner classes, we need to check if the parent is an inner class
+      const isInnerOfInner =
+        parentTypeSymbol.parent !== null &&
+        parentTypeSymbol.parent.kind === SymbolKind.Class;
+
+      // Validate inner class nesting and naming rules
+      ClassModifierValidator.validateInnerClassRules(
+        className,
+        ctx,
+        parentTypeSymbol,
+        isInnerOfInner,
+        this,
+      );
+    }
 
     this.resetModifiers();
     this.resetAnnotations();
@@ -276,7 +299,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       superClass,
       interfaces,
-      parent: null,
+      parent: parentTypeSymbol, // Set parent correctly for inner classes
       annotations: annotations.length > 0 ? annotations : undefined,
     };
 
@@ -910,6 +933,28 @@ export class ApexSymbolCollectorListener
 
     // If the parent scope is not the global scope, this is likely an inner class
     return parentScope.name !== 'global';
+  }
+
+  /**
+   * Check if a symbol has a parent that is a class (meaning it's an inner class)
+   * @param symbol The symbol to check, defaults to the current type symbol if not provided
+   * @returns true if the symbol is an inner class, false otherwise
+   */
+  private hasClassParent(symbol?: TypeSymbol | null): boolean {
+    // Use the provided symbol or fall back to current type symbol
+    const symbolToCheck = symbol || this.currentTypeSymbol;
+
+    // If no symbol to check, return false
+    if (!symbolToCheck) {
+      return false;
+    }
+
+    // Get the parent of the symbol
+    const parent = symbolToCheck.parent;
+
+    // For inner class detection, we only need to check if the parent exists
+    // and is a class (indicating that the symbolToCheck is already an inner class)
+    return parent !== null && parent.kind === SymbolKind.Class;
   }
 
   /**
