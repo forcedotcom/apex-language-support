@@ -13,7 +13,7 @@ import {
   SymbolVisibility,
   TypeSymbol,
 } from '../../types/symbol.js';
-import { ErrorReporter } from './ErrorReporter.js';
+import { ErrorReporter } from '../../utils/ErrorReporter.js';
 
 /**
  * Static class providing validation logic for Apex method modifiers

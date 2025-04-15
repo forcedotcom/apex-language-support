@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-export { ErrorReporter } from './ErrorReporter.js';
+export { ErrorReporter } from '../../utils/ErrorReporter.js';
 export { ClassModifierValidator } from './ClassModifierValidator.js';
 export { MethodModifierValidator } from './MethodModifierValidator.js';
 export { FieldModifierValidator } from './FieldModifierValidator.js';

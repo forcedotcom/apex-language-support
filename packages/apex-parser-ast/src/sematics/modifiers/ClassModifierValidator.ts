@@ -13,7 +13,7 @@ import {
   SymbolVisibility,
   TypeSymbol,
 } from '../../types/symbol.js';
-import { ErrorReporter } from './ErrorReporter.js';
+import { ErrorReporter } from '../../utils/ErrorReporter.js';
 
 /**
  * Static class providing validation logic for Apex class modifiers
@@ -117,63 +117,27 @@ export class ClassModifierValidator {
     currentTypeSymbol: TypeSymbol | null,
     errorReporter: ErrorReporter,
   ): void {
-    if (!isInnerInterface) {
-      // Outer interfaces can only be public or default visibility
-      if (modifiers.visibility === SymbolVisibility.Private) {
-        errorReporter.addError(
-          `Interface '${interfaceName}' cannot be declared as 'private'. ` +
-            'Outer interfaces can only be public or default visibility',
-          ctx,
-        );
-        // Correct to default visibility
-        modifiers.visibility = SymbolVisibility.Default;
-      }
+    // Interfaces can only be top-level declarations
+    if (isInnerInterface) {
+      errorReporter.addError(
+        `Interface '${interfaceName}' cannot be declared as an inner interface. ` +
+          'Interfaces are only allowed as top-level declarations',
+        ctx,
+      );
+    }
 
-      if (modifiers.visibility === SymbolVisibility.Protected) {
-        errorReporter.addError(
-          `Interface '${interfaceName}' cannot be declared as 'protected'. ` +
-            'Outer interfaces can only be public or default visibility',
-          ctx,
-        );
-        // Correct to default visibility
-        modifiers.visibility = SymbolVisibility.Default;
-      }
-
-      if (modifiers.visibility === SymbolVisibility.Global) {
-        errorReporter.addError(
-          `Interface '${interfaceName}' cannot be declared as 'global'. ` +
-            'Outer interfaces can only be public or default visibility',
-          ctx,
-        );
-        // Correct to public visibility
-        modifiers.visibility = SymbolVisibility.Public;
-      }
-    } else {
-      // Inner interfaces can follow inner class rules
-      if (currentTypeSymbol) {
-        // Check if inner interface visibility is wider than outer class/interface
-        if (
-          (currentTypeSymbol.modifiers.visibility ===
-            SymbolVisibility.Private &&
-            modifiers.visibility !== SymbolVisibility.Private) ||
-          (currentTypeSymbol.modifiers.visibility ===
-            SymbolVisibility.Default &&
-            modifiers.visibility !== SymbolVisibility.Default &&
-            modifiers.visibility !== SymbolVisibility.Private) ||
-          (currentTypeSymbol.modifiers.visibility ===
-            SymbolVisibility.Protected &&
-            modifiers.visibility === SymbolVisibility.Public) ||
-          (currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global &&
-            modifiers.visibility === SymbolVisibility.Global)
-        ) {
-          errorReporter.addError(
-            `Inner interface '${interfaceName}' cannot have wider visibility than its containing type`,
-            ctx,
-          );
-          // Adjust visibility to match containing type as a reasonable default
-          modifiers.visibility = currentTypeSymbol.modifiers.visibility;
-        }
-      }
+    // Interfaces can only have public or global visibility
+    if (
+      modifiers.visibility !== SymbolVisibility.Public &&
+      modifiers.visibility !== SymbolVisibility.Global
+    ) {
+      errorReporter.addError(
+        `Interface '${interfaceName}' must be declared as 'public' or 'global'. ` +
+          'Other visibility modifiers are not allowed for interfaces',
+        ctx,
+      );
+      // Correct to public visibility
+      modifiers.visibility = SymbolVisibility.Public;
     }
 
     // Check for invalid modifiers on interfaces
