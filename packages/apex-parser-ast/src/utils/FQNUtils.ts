@@ -253,7 +253,8 @@ export function extractNamespace(
  * Check if a symbol is globally visible
  */
 export function isGlobalSymbol(symbol: any): boolean {
-  return symbol && symbol.visibility === 'global';
+  if (!symbol) return false;
+  return symbol.visibility === 'global';
 }
 
 /**
