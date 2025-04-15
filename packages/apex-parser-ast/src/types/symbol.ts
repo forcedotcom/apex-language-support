@@ -101,7 +101,18 @@ export interface ApexSymbol {
  */
 export interface TypeSymbol extends ApexSymbol {
   kind: SymbolKind.Class | SymbolKind.Interface | SymbolKind.Trigger;
+  /**
+   * The superclass that this class extends.
+   * Only applicable for classes (not interfaces or triggers).
+   * For example, in `public class Child extends Parent`, the superClass would be "Parent".
+   */
   superClass?: string;
+  /**
+   * The interfaces that this type implements or extends.
+   * - For classes: interfaces implemented by the class (e.g., `class C implements I1, I2`)
+   * - For interfaces: interfaces extended by the interface (e.g., `interface I extends I1, I2`)
+   * - For triggers: always an empty array
+   */
   interfaces: string[];
   /** Annotations for this type */
   annotations?: Annotation[];

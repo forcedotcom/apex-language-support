@@ -251,13 +251,31 @@ export class ApexSymbolCollectorListener
     this.resetModifiers();
     this.resetAnnotations();
 
+    // Extract superclass if it exists
+    let superClass: string | undefined;
+    if (ctx.EXTENDS() && ctx.typeRef()) {
+      superClass = this.getTextFromContext(ctx.typeRef()!);
+    }
+
+    // Extract implemented interfaces if they exist
+    const interfaces: string[] = [];
+    if (ctx.IMPLEMENTS() && ctx.typeList()) {
+      const typeList = ctx.typeList()!;
+      // TypeList contains an array of TypeRef nodes
+      for (let i = 0; i < typeList.typeRef().length; i++) {
+        const interfaceType = typeList.typeRef(i);
+        interfaces.push(this.getTextFromContext(interfaceType));
+      }
+    }
+
     // Create type symbol
     const typeSymbol: TypeSymbol = {
       name: className,
       kind: SymbolKind.Class,
       location,
       modifiers,
-      interfaces: [],
+      superClass,
+      interfaces,
       parent: null,
       annotations: annotations.length > 0 ? annotations : undefined,
     };
@@ -313,13 +331,24 @@ export class ApexSymbolCollectorListener
     this.resetModifiers();
     this.resetAnnotations();
 
+    // Extract extended interfaces if they exist
+    const interfaces: string[] = [];
+    if (ctx.EXTENDS() && ctx.typeList()) {
+      const typeList = ctx.typeList()!;
+      // TypeList contains an array of TypeRef nodes
+      for (let i = 0; i < typeList.typeRef().length; i++) {
+        const interfaceType = typeList.typeRef(i);
+        interfaces.push(this.getTextFromContext(interfaceType));
+      }
+    }
+
     // Create type symbol
     const typeSymbol: TypeSymbol = {
       name: interfaceName,
       kind: SymbolKind.Interface,
       location,
       modifiers,
-      interfaces: [],
+      interfaces,
       parent: null,
       annotations: annotations.length > 0 ? annotations : undefined,
     };

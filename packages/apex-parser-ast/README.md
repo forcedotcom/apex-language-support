@@ -57,6 +57,17 @@ The package provides comprehensive support for Apex annotations:
   - Extracting parameter values from annotations
   - Specialized functions for common annotations like `@isTest` and `@RestResource`
 
+### Inheritance Relationship Handling
+
+The parser captures inheritance relationships between types:
+
+- **Class Inheritance**: Correctly captures parent classes through the `extends` keyword
+- **Interface Implementation**: Records interfaces implemented by classes through the `implements` keyword
+- **Interface Extension**: Tracks interfaces extended by other interfaces
+- **Symbol Information**: Provides easy access to inheritance information through the `TypeSymbol` interface:
+  - `superClass`: The parent class that a class extends (if any)
+  - `interfaces`: Interfaces implemented by a class or extended by an interface
+
 ### Symbol Collection
 
 Collects and organizes symbols from Apex code into a hierarchical symbol table:
