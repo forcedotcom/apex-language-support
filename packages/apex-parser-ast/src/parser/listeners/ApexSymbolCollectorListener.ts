@@ -650,7 +650,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       type,
       parent,
-      // Cannot reliably access variableInitializer
+      // Variable initialization will be handled in the future
       initialValue: undefined,
     };
 
