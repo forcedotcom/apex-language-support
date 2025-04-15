@@ -25,6 +25,7 @@ import { ParserRuleContext } from 'antlr4ts';
 import { BaseApexParserListener } from './BaseApexParserListener.js';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo.js';
 import {
+  ApexSymbol,
   EnumSymbol,
   MethodSymbol,
   SymbolKind,
@@ -41,6 +42,7 @@ import {
   FieldModifierValidator,
   ErrorReporter,
 } from '../../sematics/modifiers/index.js';
+import { calculateFQN } from '../../utils/FQNUtils.js';
 
 /**
  * A listener that collects symbols from Apex code and organizes them into symbol tables.
@@ -773,5 +775,82 @@ export class ApexSymbolCollectorListener
       | { line: number; column: number; endLine?: number; endColumn?: number },
   ): void {
     super.addError(message, context);
+  }
+
+  private addTypeSymbol(
+    ctx: ParserRuleContext,
+    name: string,
+    kind: SymbolKind,
+    modifiers: SymbolModifiers,
+  ): TypeSymbol {
+    const typeSymbol: TypeSymbol = {
+      name,
+      kind,
+      location: this.getLocationFromContext(ctx),
+      modifiers,
+      parent: this.currentTypeSymbol,
+      methods: [],
+      properties: [],
+      innerTypes: [],
+    };
+
+    // Calculate and set the FQN
+    typeSymbol.fqn = calculateFQN(typeSymbol);
+
+    if (this.currentTypeSymbol) {
+      this.currentTypeSymbol.innerTypes.push(typeSymbol);
+    } else {
+      this.symbolTable.addSymbol(typeSymbol);
+    }
+
+    return typeSymbol;
+  }
+
+  private addMethodSymbol(
+    ctx: ParserRuleContext,
+    name: string,
+    modifiers: SymbolModifiers,
+  ): MethodSymbol {
+    const methodSymbol: MethodSymbol = {
+      name,
+      kind: SymbolKind.Method,
+      location: this.getLocationFromContext(ctx),
+      modifiers,
+      parent: this.currentTypeSymbol,
+      parameters: [],
+    };
+
+    // Calculate and set the FQN
+    methodSymbol.fqn = calculateFQN(methodSymbol);
+
+    if (this.currentTypeSymbol) {
+      this.currentTypeSymbol.methods.push(methodSymbol);
+    }
+
+    return methodSymbol;
+  }
+
+  private addPropertySymbol(
+    ctx: ParserRuleContext,
+    name: string,
+    kind: SymbolKind,
+    modifiers: SymbolModifiers,
+  ): ApexSymbol {
+    const propertySymbol: ApexSymbol = {
+      name,
+      kind,
+      location: this.getLocationFromContext(ctx),
+      modifiers,
+      parent: this.currentTypeSymbol,
+    };
+
+    // Calculate and set the FQN
+    propertySymbol.fqn = calculateFQN(propertySymbol);
+
+    if (this.currentTypeSymbol) {
+      this.currentTypeSymbol.properties.push(propertySymbol);
+    }
+
+    return propertySymbol;
   }
 }

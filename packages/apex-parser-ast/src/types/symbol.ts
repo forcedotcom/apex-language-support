@@ -67,7 +67,11 @@ export interface ApexSymbol {
   kind: SymbolKind;
   location: SymbolLocation;
   modifiers: SymbolModifiers;
-  parent?: ApexSymbol;
+  parent: ApexSymbol | null;
+  /** The fully qualified name of the symbol */
+  fqn?: string;
+  /** Namespace of the symbol, if applicable */
+  namespace?: string;
 }
 
 /**
