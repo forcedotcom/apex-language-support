@@ -11,15 +11,11 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@salesforce/apex-lsp-extension": ["../extension-apex-ls-ts/src"],
-      "@salesforce/apex-lsp-vscode-client": ["../apex-lsp-vscode-client/src"]
+      "@salesforce/apex-lsp-extension": ["../extension-apex-ls-ts/src"]
     },
     "composite": true
   },
   "include": ["src"],
   "exclude": ["node_modules", ".vscode-test"],
-  "references": [
-    { "path": "../extension-apex-ls-ts" },
-    { "path": "../apex-lsp-vscode-client" }
-  ]
+  "references": [{ "path": "../extension-apex-ls-ts" }]
 }

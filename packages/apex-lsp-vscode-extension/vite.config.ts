@@ -12,7 +12,13 @@ export default defineConfig({
     },
     outDir: 'dist',
     rollupOptions: {
-      external: ['vscode', 'path', 'vscode-languageclient/node'],
+      external: [
+        'vscode',
+        'path',
+        'fs',
+        'vscode-languageclient/node',
+        'node:process',
+      ],
       output: {
         sourcemap: true,
         // Ensure that the extension is compatible with VS Code's extension format
