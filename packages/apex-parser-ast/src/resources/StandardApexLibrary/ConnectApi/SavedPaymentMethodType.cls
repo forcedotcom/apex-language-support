@@ -1,9 +1,0 @@
-global enum SavedPaymentMethodType {
-AU_BECS_DEBIT,
-BACS_DEBIT,
-BANCONTACT,
-CARD,
-IDEAL,
-SEPA_DEBIT,
-US_BANK_ACCOUNT
-}

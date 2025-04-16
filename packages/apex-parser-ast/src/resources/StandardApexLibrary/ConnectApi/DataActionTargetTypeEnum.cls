@@ -1,6 +1,0 @@
-global enum DataActionTargetTypeEnum {
-CORE,
-INTERNAL_WEBHOOK,
-MARKETINGCLOUD,
-WEBHOOK
-}
