@@ -41,3 +41,5 @@ packages/*/coverage/
 webpack-stats.json
 .wireit
 .sfdx
+test-workspace
+/packages/apex-lsp-testbed/test-artifacts

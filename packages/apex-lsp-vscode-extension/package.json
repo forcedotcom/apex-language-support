@@ -19,7 +19,7 @@
     "Snippets"
   ],
   "activationEvents": [
-    "onLanguage:apex"
+    "*"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -86,15 +86,14 @@
     "package": "vsce package",
     "build": "wireit",
     "dev": "wireit",
-    "lint": "eslint src --ext ts",
+    "lint": "eslint src --ext ts --rule 'import/order: off' --rule '@typescript-eslint/no-unused-vars: [error, {argsIgnorePattern: \"^_\"}]'",
     "test": "wireit",
     "test:coverage": "wireit",
     "clean": "rimraf dist",
     "clean:coverage": "rimraf coverage"
   },
   "dependencies": {
-    "@salesforce/apex-lsp-vscode-client": "^0.1.0",
-    "vscode-languageclient": "^8.1.0"
+    "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.5",
@@ -115,15 +114,13 @@
     "vite": "^6.2.6"
   },
   "workspaces": [
-    "../extension-apex-ls-ts",
-    "../apex-lsp-vscode-client"
+    "../extension-apex-ls-ts"
   ],
   "wireit": {
     "build": {
       "command": "npm run clean && vite build",
       "dependencies": [
-        "../extension-apex-ls-ts:build",
-        "../apex-lsp-vscode-client:build"
+        "../extension-apex-ls-ts:build"
       ],
       "files": [
         "src/**/*.ts",
@@ -139,8 +136,7 @@
       "command": "tsc -watch -p ./tsconfig.build.json",
       "service": true,
       "dependencies": [
-        "../extension-apex-ls-ts:dev",
-        "../apex-lsp-vscode-client:dev"
+        "../extension-apex-ls-ts:dev"
       ]
     },
     "test": {
