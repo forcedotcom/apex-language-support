@@ -41,3 +41,7 @@ packages/*/coverage/
 webpack-stats.json
 .wireit
 .sfdx
+
+# IgnoreOnce
+resources/StandardApexLibrary/
+resources/StandardApexLibrary/**
