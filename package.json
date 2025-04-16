@@ -97,7 +97,8 @@
         "./packages/extension-apex-ls-ts:build",
         "./packages/web-apex-ls-ts:build",
         "./packages/apex-lsp-browser-client:build",
-        "./packages/apex-lsp-vscode-client:build"
+        "./packages/apex-lsp-vscode-client:build",
+        "./packages/apex-lsp-vscode-extension:build"
       ]
     },
     "dev": {
@@ -108,7 +109,8 @@
         "./packages/extension-apex-ls-ts:dev",
         "./packages/web-apex-ls-ts:dev",
         "./packages/apex-lsp-browser-client:dev",
-        "./packages/apex-lsp-vscode-client:dev"
+        "./packages/apex-lsp-vscode-client:dev",
+        "./packages/apex-lsp-vscode-extension:dev"
       ]
     },
     "test:packages": {
