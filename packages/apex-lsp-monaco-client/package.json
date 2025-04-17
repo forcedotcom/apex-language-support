@@ -15,7 +15,9 @@
     "clean": "rimraf dist .wireit",
     "dev": "vite",
     "lint": "eslint src --ext ts",
-    "test": "jest"
+    "test": "wireit",
+    "test:coverage": "wireit",
+    "clean:coverage": "rimraf coverage"
   },
   "wireit": {
     "build": {
@@ -28,6 +30,30 @@
         "dist/**"
       ],
       "clean": "if-file-deleted"
+    },
+    "test": {
+      "command": "jest",
+      "service": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "../../jest.config.mjs",
+        "../../babel.config.cjs"
+      ],
+      "output": []
+    },
+    "test:coverage": {
+      "command": "jest --coverage --coverageDirectory=./coverage",
+      "service": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "../../jest.config.mjs",
+        "../../babel.config.cjs"
+      ],
+      "output": [
+        "coverage/**"
+      ]
     }
   },
   "keywords": [
@@ -47,7 +73,8 @@
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/node": "^18.15.11",
-    "typescript": "^5.0.4",
-    "vite": "^6.2.6"
+    "typescript": "^5.8.2",
+    "vite": "^6.2.6",
+    "vite-plugin-dts": "^3.0.0-beta.2"
   }
 }

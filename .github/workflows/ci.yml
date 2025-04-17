@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: salesforcecli/github-workflows/.github/actions/setup-node@main
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Upload code coverage
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage/lcov.info
+          flags: unit
+
+  slack-notify:
+    name: Slack Notification
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Notify Slack
+        uses: salesforcecli/github-workflows/.github/actions/slack-notify@main
+        with:
+          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
+          slack-token: ${{ secrets.SLACK_BOT_TOKEN }}
+          status: ${{ needs.test.result }}

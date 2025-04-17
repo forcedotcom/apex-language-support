@@ -28,4 +28,26 @@ export default {
   transformIgnorePatterns: [
     '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts)).+\\.js$',
   ],
+
+  // Coverage configuration
+  collectCoverage: false, // Disabled by default, enabled by --coverage flag
+  coverageDirectory: '<rootDir>/coverage',
+  coverageReporters: ['text', 'lcov', 'clover', 'html', 'json'],
+  collectCoverageFrom: [
+    'packages/*/src/**/*.ts',
+    '!**/node_modules/**',
+    '!**/dist/**',
+    '!**/test/**',
+    '!**/*.d.ts',
+    '!**/index.ts',
+  ],
+  // Coverage thresholds (can be overridden for specific packages)
+  coverageThreshold: {
+    global: {
+      branches: 50,
+      functions: 50,
+      lines: 50,
+      statements: 50,
+    },
+  },
 };
