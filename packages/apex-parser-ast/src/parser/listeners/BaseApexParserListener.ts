@@ -8,6 +8,9 @@
 
 import { ApexParserListener } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
+import { ErrorNode } from 'antlr4ts/tree';
+
+import { ApexErrorListener } from './ApexErrorListener.js';
 
 /**
  * Base abstract class for all Apex parser listeners with typed result.
@@ -19,8 +22,50 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   exitEveryRule?(ctx: ParserRuleContext): void {}
   visitTerminal?(): void {}
-  visitErrorNode?(): void {}
+  visitErrorNode?(node: ErrorNode): void {
+    if (this.errorListener) {
+      // Extract location information from the error node
+      const token = node.symbol;
+      this.errorListener.semanticError(
+        `Invalid syntax: ${token.text}`,
+        token.line,
+        token.charPositionInLine,
+      );
+    }
+  }
   protected warnings: string[] = [];
+  protected errorListener: ApexErrorListener | null = null;
+  /** The namespace of the current project, used for FQN calculation */
+  protected projectNamespace?: string;
+
+  /**
+   * Set the error listener for this parser listener
+   */
+  setErrorListener(errorListener: ApexErrorListener): void {
+    this.errorListener = errorListener;
+  }
+
+  /**
+   * Get the error listener for this parser listener
+   */
+  getErrorListener(): ApexErrorListener | null {
+    return this.errorListener;
+  }
+
+  /**
+   * Set the project namespace for this parser listener
+   * @param namespace The namespace of the current project
+   */
+  setProjectNamespace(namespace: string): void {
+    this.projectNamespace = namespace;
+  }
+
+  /**
+   * Get the project namespace for this parser listener
+   */
+  getProjectNamespace(): string | undefined {
+    return this.projectNamespace;
+  }
 
   /**
    * Get the result of the parsing process.
@@ -36,18 +81,56 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
   }
 
   /**
-   * Add a warning message.
-   * @param message The warning message
-   * @param context Optional parser rule context for location information
+   * Add a warning message to the list of warnings
    */
   protected addWarning(message: string, context?: ParserRuleContext): void {
+    let warningMessage = message;
+
     if (context) {
-      const startToken = context.start;
-      const line = startToken.line;
-      const column = startToken.charPositionInLine;
-      this.warnings.push(`Line ${line}:${column} - ${message}`);
+      warningMessage += ` at line ${context.start.line}:${context.start.charPositionInLine}`;
+
+      // Also add to error listener if available
+      if (this.errorListener) {
+        this.errorListener.semanticWarning(
+          message,
+          context.start.line,
+          context.start.charPositionInLine,
+          context.stop?.line,
+          context.stop?.charPositionInLine,
+        );
+      }
+    }
+
+    this.warnings.push(warningMessage);
+  }
+
+  /**
+   * Add a semantic error through the error listener
+   */
+  protected addError(
+    message: string,
+    context:
+      | ParserRuleContext
+      | { line: number; column: number; endLine?: number; endColumn?: number },
+  ): void {
+    if (!this.errorListener) return;
+
+    if (context instanceof ParserRuleContext) {
+      this.errorListener.semanticError(
+        message,
+        context.start.line,
+        context.start.charPositionInLine,
+        context.stop?.line,
+        context.stop?.charPositionInLine,
+      );
     } else {
-      this.warnings.push(message);
+      this.errorListener.semanticError(
+        message,
+        context.line,
+        context.column,
+        context.endLine,
+        context.endColumn,
+      );
     }
   }
 
@@ -57,23 +140,6 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
    * Subclasses should override this method to provide proper instantiation.
    */
   createNewInstance?(): BaseApexParserListener<T>;
-
-  // Default empty implementations for all ApexParserListener methods
-  // Subclasses should override the relevant methods for their specific needs
-
-  enterCompilationUnit(): void {}
-  exitCompilationUnit(): void {}
-
-  enterTypeDeclaration(): void {}
-  exitTypeDeclaration(): void {}
-
-  enterModifier(): void {}
-  exitModifier(): void {}
-
-  enterClassOrInterfaceModifier(): void {}
-  exitClassOrInterfaceModifier(): void {}
-
-  // ... other methods from ApexParserListener would be defined here
 
   // Helper utility method for visiting/walking specific nodes as needed
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -88,5 +154,8 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
     context: ParserRuleContext,
   ): void {
     this.addWarning(`Syntax error: ${message}`, context);
+
+    // Also add to error listener
+    this.addError(`Syntax error: ${message}`, context);
   }
 }

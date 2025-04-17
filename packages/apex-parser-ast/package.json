@@ -11,17 +11,25 @@
     "url": "https://github.com/forcedotcom/apex-language-support.git",
     "directory": "packages/apex-parser-ast"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "wireit",
     "dev": "wireit",
+    "test": "wireit",
+    "test:coverage": "wireit",
     "clean": "rimraf dist .wireit",
-    "clean:all": "npm run clean && rimraf node_modules"
+    "clean:all": "npm run clean && rimraf node_modules",
+    "clean:coverage": "rimraf coverage"
   },
   "wireit": {
     "build": {
       "command": "vite build",
       "files": [
         "src/**/*.ts",
+        "src/resources/**/*",
         "tsconfig.json",
         "vite.config.ts"
       ],
@@ -34,11 +42,36 @@
       "service": true,
       "files": [
         "src/**/*.ts",
+        "src/resources/**/*",
         "tsconfig.json",
         "vite.config.ts"
       ],
       "output": [
         "dist/**"
+      ]
+    },
+    "test": {
+      "command": "jest --config=jest.config.cjs",
+      "service": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "jest.config.cjs",
+        "babel.config.cjs"
+      ],
+      "output": []
+    },
+    "test:coverage": {
+      "command": "jest --config=jest.config.cjs --coverage --coverageDirectory=./coverage",
+      "service": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "jest.config.cjs",
+        "babel.config.cjs"
+      ],
+      "output": [
+        "coverage/**"
       ]
     }
   },
@@ -47,7 +80,7 @@
     "antlr4ts": "0.5.0-alpha.4"
   },
   "devDependencies": {
-    "typescript": "^4.0.0",
+    "typescript": "^5.8.2",
     "vite": "^6.2.6",
     "@rollup/plugin-typescript": "^11.1.5"
   }

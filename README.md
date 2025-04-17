@@ -64,12 +64,66 @@ npm run dev
 # Run tests
 npm test
 
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests for a specific package
+npm run test:packages
+
+# Run tests with coverage for specific packages
+npm run test:coverage:packages
+
+# Generate a consolidated coverage report
+npm run test:coverage:report
+
 # Lint code
 npm run lint
 
 # Fix linting issues
 npm run lint:fix
 ```
+
+## Testing and Code Coverage
+
+This project includes comprehensive test coverage for all packages. Test coverage reports are generated using Jest and Istanbul.
+
+### Running Tests with Coverage
+
+```bash
+# Run all tests with coverage
+npm run test:coverage
+
+# Run tests with coverage for specific packages
+npm run test:coverage:packages
+
+# Generate a consolidated coverage report for the entire repository
+npm run test:coverage:report
+```
+
+### Coverage Reports
+
+After running the test coverage commands, coverage reports are available:
+
+- **Package-level reports**: Generated in each package's `coverage` directory
+- **Consolidated repository report**: Generated in the root `coverage` directory
+
+The coverage reports include:
+
+- HTML reports for interactive viewing (`coverage/lcov-report/index.html`)
+- LCOV reports for CI integration
+- Text summaries in the console
+- JSON coverage data for further processing
+
+### Coverage Thresholds
+
+Global coverage thresholds are set in the Jest configuration file:
+
+- Statements: 50%
+- Branches: 50%
+- Functions: 50%
+- Lines: 50%
+
+These thresholds can be adjusted per package as needed.
 
 ## License
 

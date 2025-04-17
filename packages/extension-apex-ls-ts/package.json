@@ -14,7 +14,10 @@
     "build": "wireit",
     "dev": "wireit",
     "clean": "rimraf dist .wireit",
-    "clean:all": "npm run clean && rimraf node_modules"
+    "clean:all": "npm run clean && rimraf node_modules",
+    "test": "wireit",
+    "test:coverage": "wireit",
+    "clean:coverage": "rimraf coverage"
   },
   "wireit": {
     "build": {
@@ -49,16 +52,41 @@
       "output": [
         "dist/**"
       ]
+    },
+    "test": {
+      "command": "jest",
+      "service": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "../../jest.config.mjs",
+        "../../babel.config.cjs"
+      ],
+      "output": []
+    },
+    "test:coverage": {
+      "command": "jest --coverage --coverageDirectory=./coverage",
+      "service": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "../../jest.config.mjs",
+        "../../babel.config.cjs"
+      ],
+      "output": [
+        "coverage/**"
+      ]
     }
   },
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@salesforce/apex-lsp-custom-services": "1.0.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
-    "vscode-languageserver": "^8.0.0"
+    "vscode-languageserver": "^8.0.0",
+    "@salesforce/apex-lsp-vscode-client": "*"
   },
   "devDependencies": {
-    "typescript": "^4.0.0",
+    "typescript": "^5.8.2",
     "vite": "^6.2.6",
     "@rollup/plugin-typescript": "^11.1.5"
   }
