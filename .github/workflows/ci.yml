@@ -38,15 +38,15 @@ jobs:
           name: coverage-report
           path: ./coverage 
 
-  slack-notify:
-    name: Slack Notification
-    needs: [test]
-    runs-on: ubuntu-latest
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: Notify Slack
-        uses: salesforcecli/github-workflows/.github/actions/slack-notify@main
-        with:
-          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
-          slack-token: ${{ secrets.SLACK_BOT_TOKEN }}
-          status: ${{ needs.test.result }}
+  # slack-notify:
+  #   name: Slack Notification
+  #   needs: [test]
+  #   runs-on: ubuntu-latest
+  #   if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   steps:
+  #     - name: Notify Slack
+  #       uses: salesforcecli/github-workflows/.github/actions/slack-notify@main
+  #       with:
+  #         channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
+  #         slack-token: ${{ secrets.IDEE_MAIN_SLACK_WEBHOOK }}
+  #         status: ${{ needs.test.result }}
