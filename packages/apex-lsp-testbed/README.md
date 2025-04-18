@@ -6,6 +6,12 @@ A testing framework for evaluating and comparing different implementations of Ap
 
 This package provides a unified interface for testing various Apex language server implementations (such as the demo mock server and jorje Java-based server) using the JSON-RPC protocol.
 
+## Prerequisites
+
+- Node.js 18 or later
+- npm 7 or later
+- Java 11 or later (required for the jorje server implementation)
+
 ## Installation
 
 ```bash
@@ -114,6 +120,16 @@ npm run start:jorje:debug:verbose
 ```
 
 When started with the `--suspend` flag, the Java process will wait for a debugger to attach before continuing execution. You can connect to the Java process with any JDWP-compatible debugger (like IntelliJ IDEA, Eclipse, or Visual Studio Code with Java extensions) using port 2739.
+
+### Common Java Debugging Issues
+
+1. **Java Version Compatibility**: Ensure you're using Java 11 or later. The launcher will check your Java version and provide an error message if it's incompatible.
+
+2. **Java Home Not Found**: If JAVA_HOME is not set, the system will attempt to locate a Java installation automatically. To avoid issues, explicitly set JAVA_HOME to point to a valid Java 11+ installation.
+
+3. **Permission Issues**: Ensure the Java executable has proper execute permissions, especially on macOS and Linux systems.
+
+4. **JAR File Not Found**: If the apex-jorje-lsp.jar file cannot be found, check that it exists in the expected location or provide a custom path using the --jarPath option.
 
 ### Debugging with IntelliJ IDEA
 

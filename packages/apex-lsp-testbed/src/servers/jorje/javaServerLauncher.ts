@@ -114,13 +114,19 @@ const getJavaHome = async (): Promise<string> => {
 
       // For macOS
       if (process.platform === 'darwin') {
-        const { stdout, stderr } = await asyncExec('/usr/libexec/java_home');
+        try {
+          const { stdout, stderr } = await asyncExec('/usr/libexec/java_home');
 
-        if (stderr && stderr.length > 0) {
-          throw new Error(stderr);
+          if (stderr && stderr.length > 0) {
+            throw new Error(`Error running /usr/libexec/java_home: ${stderr}`);
+          }
+
+          javaHome = stdout.trim();
+        } catch (e) {
+          throw new Error(
+            `Failed to locate Java on macOS: ${e instanceof Error ? e.message : String(e)}`,
+          );
         }
-
-        javaHome = stdout.trim();
       } else if (isWin) {
         // For Windows, try to find Java in Program Files
         const possiblePaths = [
@@ -131,16 +137,22 @@ const getJavaHome = async (): Promise<string> => {
 
         for (const basePath of possiblePaths) {
           if (fs.existsSync(basePath as string)) {
-            const dirs = fs.readdirSync(basePath as string);
-            // Look for JDK directories, prioritize newer versions
-            const jdkDirs = dirs
-              .filter((dir) => dir.startsWith('jdk'))
-              .sort()
-              .reverse();
+            try {
+              const dirs = fs.readdirSync(basePath as string);
+              // Look for JDK directories, prioritize newer versions
+              const jdkDirs = dirs
+                .filter((dir) => dir.startsWith('jdk'))
+                .sort()
+                .reverse();
 
-            if (jdkDirs.length > 0) {
-              javaHome = path.join(basePath as string, jdkDirs[0]);
-              break;
+              if (jdkDirs.length > 0) {
+                javaHome = path.join(basePath as string, jdkDirs[0]);
+                break;
+              }
+            } catch (e) {
+              console.warn(
+                `Error reading directory ${basePath}: ${e instanceof Error ? e.message : String(e)}`,
+              );
             }
           }
         }
@@ -162,16 +174,26 @@ const getJavaHome = async (): Promise<string> => {
     }
 
     if (!javaHome) {
+      const errorMessages = {
+        win32:
+          'Java runtime not found in Program Files. Please install JDK 11+ and set JAVA_HOME.',
+        darwin:
+          'Java runtime not found using /usr/libexec/java_home. Please install JDK 11+ and set JAVA_HOME.',
+        linux:
+          'Java runtime not found in common locations. Please install JDK 11+ and set JAVA_HOME.',
+      };
+
       throw new Error(
-        'Java runtime could not be located. Please set JAVA_HOME environment variable.',
+        errorMessages[process.platform as keyof typeof errorMessages] ||
+          'Java runtime could not be located. Please set JAVA_HOME environment variable.',
       );
     }
 
     return javaHome;
   } catch (error) {
+    console.error('Java home detection failed:', error);
     const errorMessage =
       'Failed to find Java runtime. Please install Java 11 or later and set JAVA_HOME environment variable.';
-    console.error(errorMessage, error);
     const e = new Error(errorMessage);
     e.stack = error instanceof Error ? error.stack : String(error);
     throw e;
@@ -191,29 +213,48 @@ const checkJavaVersion = async (javaHome: string): Promise<number> => {
     const match = versionRegExp.exec(output);
 
     if (!match) {
-      throw new Error('Could not determine Java version.');
+      throw new Error(
+        'Could not determine Java version from output: ' + output,
+      );
     }
 
     const versionString = match[1];
+    let majorVersion: number;
 
     // Handle different version formats: 1.8.x, 9.x, 10.x, etc.
     if (versionString.startsWith('1.')) {
-      // Older format: 1.8.x
-      return parseInt(versionString.substring(2, 3), 10);
+      // Old version format: 1.8.x
+      majorVersion = parseInt(versionString.substring(2, 3), 10);
     } else {
-      // Newer format: 11.x, 17.x, etc.
-      const dotIndex = versionString.indexOf('.');
-      if (dotIndex !== -1) {
-        return parseInt(versionString.substring(0, dotIndex), 10);
-      } else {
-        return parseInt(versionString, 10);
-      }
+      // New version format: 9.x, 10.x, etc.
+      majorVersion = parseInt(versionString.split('.')[0], 10);
     }
+
+    if (isNaN(majorVersion)) {
+      throw new Error(`Could not parse Java version from: ${versionString}`);
+    }
+
+    if (majorVersion < 11) {
+      throw new Error(
+        `Java version ${majorVersion} is not supported. Please install Java 11 or later.`,
+      );
+    }
+
+    return majorVersion;
   } catch (error) {
-    console.error(
-      `Failed to check Java version: ${error instanceof Error ? error.message : String(error)}`,
+    // Check if java executable exists
+    const javaExecutable = path.join(javaHome, 'bin', 'java');
+    if (!fs.existsSync(javaExecutable)) {
+      throw new Error(
+        `Java executable not found at path: ${javaExecutable}. Please check your Java installation.`,
+      );
+    }
+
+    console.error('Error checking Java version:', error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Failed to check Java version. Please ensure Java 11+ is installed. Error: ${errorMsg}`,
     );
-    throw error;
   }
 };
 
@@ -389,7 +430,7 @@ export const launchJavaServer = async (
 /**
  * Helper function to execute a command and return a promise
  */
-const asyncExec = (
+export const asyncExec = (
   command: string,
 ): Promise<{ stdout: string; stderr: string }> =>
   new Promise((resolve, reject) => {

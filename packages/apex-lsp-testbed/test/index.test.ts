@@ -7,7 +7,8 @@
  */
 
 describe('apex-lsp-testbed', () => {
-  it('should be defined', () => {
+  it('should run tests', () => {
+    // Basic test to ensure Jest is working properly
     expect(true).toBe(true);
   });
 });
