@@ -82,7 +82,7 @@
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@salesforce/apex-lsp-custom-services": "1.0.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
-    "vscode-languageserver": "^8.0.0",
+    "vscode-languageserver": "^9.0.1",
     "@salesforce/apex-lsp-vscode-client": "*"
   },
   "devDependencies": {
