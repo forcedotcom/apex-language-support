@@ -15,7 +15,9 @@ import {
   TextDocumentPositionParams,
   CompletionItem,
   Hover,
-} from 'vscode-languageserver/browser';
+  LogMessageNotification,
+  MessageType,
+} from 'vscode-languageserver/browser.js';
 
 // Create a connection for the server using BrowserMessageReader and BrowserMessageWriter
 const connection = createConnection(
@@ -23,19 +25,36 @@ const connection = createConnection(
   new BrowserMessageWriter(self),
 );
 
+// Server state
+let isShutdown = false;
+
 // Initialize server capabilities
 connection.onInitialize(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (params: InitializeParams): InitializeResult => ({
-    capabilities: {
-      textDocumentSync: 1, // Full text document sync
-      completionProvider: {
-        resolveProvider: true,
+  (params: InitializeParams): InitializeResult => {
+    connection.console.info('Apex Language Server initializing...');
+    // TODO: Add startup tasks here if needed
+    return {
+      capabilities: {
+        textDocumentSync: 1, // Full text document sync
+        completionProvider: {
+          resolveProvider: true,
+        },
+        hoverProvider: true,
       },
-      hoverProvider: true,
-    },
-  }),
+    };
+  },
 );
+
+// Handle initialized notification
+connection.onInitialized(() => {
+  connection.console.info('Apex Language Server initialized');
+  // Send notification to client that server is ready
+  connection.sendNotification(LogMessageNotification.type, {
+    type: MessageType.Info,
+    message: 'Apex Language Server is now running in the browser',
+  });
+});
 
 // Handle completion requests
 connection.onCompletion(
@@ -59,6 +78,29 @@ connection.onHover(
     },
   }),
 );
+
+// Handle shutdown request
+connection.onShutdown(() => {
+  connection.console.info('Apex Language Server shutting down...');
+  // Perform cleanup tasks, for now we'll just set a flag
+  isShutdown = true;
+  connection.console.info('Apex Language Server shutdown complete');
+});
+
+// Handle exit notification
+connection.onExit(() => {
+  connection.console.info('Apex Language Server exiting...');
+  if (!isShutdown) {
+    // If exit is called without prior shutdown, log a warning
+    connection.console.warn(
+      'Apex Language Server exiting without proper shutdown',
+    );
+  }
+  // In a browser environment, there's not much we can do to actually exit,
+  // but we can clean up resources
+  // If we were running in Node.js, we would call process.exit() here
+  connection.console.info('Apex Language Server exited');
+});
 
 // Start listening for requests
 connection.listen();
