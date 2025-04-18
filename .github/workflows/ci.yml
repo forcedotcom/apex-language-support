@@ -30,7 +30,7 @@ jobs:
         run: npm run build
 
       - name: Test
-        run: npm test
+        run: npm test:coverage
 
   slack-notify:
     name: Slack Notification
