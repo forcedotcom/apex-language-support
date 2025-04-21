@@ -86,7 +86,7 @@
     "@salesforce/apex-lsp-testbed": "*"
   },
   "devDependencies": {
-    "typescript": "^5.8.2",
+    "typescript": "^5.8.3",
     "vite": "^6.2.6",
     "@rollup/plugin-typescript": "^11.1.5"
   }
