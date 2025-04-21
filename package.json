@@ -12,6 +12,7 @@
     "lint:fix": "eslint --ext .ts,.mjs 'packages/*/src/**/*.ts' --fix",
     "build": "wireit",
     "build:debug": "cross-env VITE_BUILD_DEBUG=true npm run build",
+    "build:no-minify": "cross-env VITE_BUILD_DEBUG=true npm run build",
     "dev": "wireit",
     "prepare": "husky install",
     "commit": "git-cz",
@@ -97,7 +98,7 @@
         "./packages/extension-apex-ls-ts:build",
         "./packages/web-apex-ls-ts:build",
         "./packages/apex-lsp-browser-client:build",
-        "./packages/apex-lsp-vscode-client:build",
+        "./packages/apex-lsp-testbed:build",
         "./packages/apex-lsp-vscode-extension:build"
       ]
     },
@@ -109,7 +110,7 @@
         "./packages/extension-apex-ls-ts:dev",
         "./packages/web-apex-ls-ts:dev",
         "./packages/apex-lsp-browser-client:dev",
-        "./packages/apex-lsp-vscode-client:dev",
+        "./packages/apex-lsp-testbed:dev",
         "./packages/apex-lsp-vscode-extension:dev"
       ]
     },
@@ -121,7 +122,7 @@
         "./packages/extension-apex-ls-ts:test",
         "./packages/web-apex-ls-ts:test",
         "./packages/apex-lsp-browser-client:test",
-        "./packages/apex-lsp-vscode-client:test"
+        "./packages/apex-lsp-testbed:test"
       ]
     },
     "test:coverage:packages": {
@@ -132,7 +133,7 @@
         "./packages/extension-apex-ls-ts:test:coverage",
         "./packages/web-apex-ls-ts:test:coverage",
         "./packages/apex-lsp-browser-client:test:coverage",
-        "./packages/apex-lsp-vscode-client:test:coverage"
+        "./packages/apex-lsp-testbed:test:coverage"
       ]
     },
     "test:coverage:report": {

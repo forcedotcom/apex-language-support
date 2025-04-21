@@ -16,7 +16,7 @@ This project implements a Language Server Protocol (LSP) for Salesforce Apex, pr
 - **extension-apex-ls-ts**: VS Code extension integration for the language server
 - **web-apex-ls-ts**: Web-based integration for the language server
 - **apex-lsp-browser-client**: Client library for connecting to the Apex Language Server in browser environments
-- **apex-lsp-vscode-client**: Client library for connecting to the Apex Language Server in VSCode extensions
+- **apex-lsp-testbed**: Testbed for performance and qualitative analysis of various Apex language server implementations
 
 ## Client Libraries
 
@@ -28,12 +28,12 @@ The `apex-lsp-browser-client` package provides a TypeScript client for connectin
 npm install @salesforce/apex-lsp-browser-client
 ```
 
-### VSCode Client
+### Testbed
 
-The `apex-lsp-vscode-client` package provides a TypeScript client for creating VSCode extensions that connect to the Apex Language Server. It simplifies the setup and management of the language client in VSCode extensions.
+The `apex-lsp-testbed` package provides a testbed for performance and qualitative analysis of different Apex language server implementations.
 
 ```bash
-npm install @salesforce/apex-lsp-vscode-client
+npm install @salesforce/apex-lsp-testbed
 ```
 
 ## Requirements
