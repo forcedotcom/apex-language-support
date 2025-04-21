@@ -1,63 +1,180 @@
-# Testing apex-lsp-testbed
+# Apex LSP Data-Driven Tests
 
-This directory contains tests for the apex-lsp-testbed package. The test suite is designed to verify that the package functions as expected and integrates properly with VS Code and language server implementations.
+This directory contains data-driven LSP functional tests that allow for scripted testing of LSP protocol interactions.
 
 ## Test Structure
 
-The test suite is organized as follows:
+The LSP tests are structured as follows:
 
-- `index.test.ts` - Basic smoke test to ensure Jest is working properly
-- `mock-structure.test.ts` - Validates the package file structure without importing code
-- `vscode-compatibility.test.ts` - Tests VS Code integration via package.json settings
-- `servers/jorje/javaServerLauncher.test.ts` - Unit tests for the Java server launcher
-- `client/ApexJsonRpcClient.test.ts` - Unit tests for the JSON-RPC client
+- `scripts/` - JSON files containing LSP test scripts defining request/response sequences
+- `__snapshots__/` - Snapshot files for verification of LSP responses
+- `results/` - Logs and results from test runs
+- `lsp-functional-tests.test.ts` - Jest test runner for LSP scripts
 
-## Test Approach
+## How It Works
 
-The tests are designed to validate the package's functionality without relying on complex runtime dependencies like VS Code or Java. This is accomplished by:
+The LSP testing framework uses the following components:
 
-1. Mocking external dependencies (child_process, fs, etc.)
-2. Testing file structure rather than importing code directly when appropriate
-3. Using dynamic imports when needed to avoid dependency issues
-4. Using Jest's mocking capabilities to simulate runtime behavior
+1. **Test Scripts**: JSON files that define sequences of LSP requests and expected responses
+2. **Middleware**: A middleware layer that captures LSP requests and responses
+3. **Test Fixture**: Configures and runs scripts against an LSP server
+4. **Snapshot Testing**: Automated verification of responses against saved snapshots
 
-## Running Tests
+## Running the Tests
 
-To run the tests, use the following commands:
+To run the LSP tests:
 
 ```bash
 # Run all tests
 npm test
 
-# Run tests with coverage
-npm run test:coverage
+# Run with snapshot update
+UPDATE_SNAPSHOTS=true npm test
 
-# Run specific test files
-npx jest client/ApexJsonRpcClient.test.ts
+# Run only specific tests
+npm test -- --testNamePattern="Completion"
+
+# Specify a different server
+LSP_SERVER_PATH=path/to/server npm test
 ```
 
-## Mock Dependencies
+## Test Scripts
 
-The test suite uses several mock implementations:
+Test scripts are defined in JSON format and describe a sequence of LSP protocol interactions. Here's an example:
 
-- `mock-package.json` - Mock project for testing workspace handling
-- `mock-server.js` - Mock implementation of a language server for testing
+```json
+{
+  "name": "Completion Test",
+  "description": "Tests completion functionality",
+  "setup": {
+    "workspaceRoot": "test-artifacts/sample-project"
+  },
+  "steps": [
+    {
+      "description": "Initialize the language server",
+      "method": "initialize",
+      "params": { /* ... */ }
+    },
+    {
+      "description": "Open a document",
+      "method": "textDocument/didOpen", 
+      "params": { /* ... */ }
+    },
+    {
+      "description": "Request completion",
+      "method": "textDocument/completion",
+      "params": { /* ... */ },
+      "expectedResult": { /* optional */ }
+    }
+  ]
+}
+```
 
-## Adding Tests
+## Creating Test Scripts
 
-When adding new tests, follow these guidelines:
+Test scripts can be created manually or generated from captured LSP interactions:
 
-1. Follow the existing structure by placing tests in appropriate subdirectories
-2. Mock external dependencies to avoid runtime requirements
-3. Test functionality, not implementation details where possible
-4. Ensure tests are isolated and don't depend on global state
-5. Add appropriate documentation in test files
+### Manual Creation
 
-## Troubleshooting
+1. Create a JSON file in the `scripts/` directory
+2. Define the test structure with name, description, setup, and steps
+3. Add the LSP requests and optional expected responses
 
-If tests are failing, check the following:
+### Automatic Generation
 
-1. Ensure all dependencies are installed (`npm install`)
-2. Make sure Jest is configured properly
-3. Check if mock implementations need updating
-4. Verify that the package structure hasn't changed 
+The framework includes utilities to record LSP interactions and generate test scripts:
+
+```typescript
+import { RequestResponseCapturingMiddleware } from '../src/test-utils';
+import { generateTestScript } from '../src/test-utils/generateTestScript';
+
+// In your test/demo code:
+const middleware = new RequestResponseCapturingMiddleware();
+middleware.install(connection);
+
+// After your test operations:
+generateTestScript({
+  name: 'My Test',
+  description: 'Generated test script',
+  capturedRequests: middleware.getCapturedRequests(),
+  outputFile: 'scripts/generated-test.lsp-test.json'
+});
+```
+
+## Extending the Framework
+
+You can extend the framework by:
+
+1. Adding new test scripts for different LSP features
+2. Enhancing the middleware to capture more detailed information
+3. Creating custom comparison logic for response verification
+4. Adding test utilities for specific testing scenarios
+
+## Common LSP Test Patterns
+
+### Document Lifecycle Test
+
+Test opening, editing, and closing a document:
+
+```json
+{
+  "steps": [
+    /* Initialize server */
+    {
+      "description": "Open document",
+      "method": "textDocument/didOpen",
+      "params": { /* ... */ }
+    },
+    {
+      "description": "Edit document",
+      "method": "textDocument/didChange",
+      "params": { /* ... */ }
+    },
+    {
+      "description": "Close document",
+      "method": "textDocument/didClose",
+      "params": { /* ... */ }
+    }
+    /* Shutdown server */
+  ]
+}
+```
+
+### Feature Test
+
+Test a specific LSP feature:
+
+```json
+{
+  "steps": [
+    /* Initialize server and open document */
+    {
+      "description": "Request hover information",
+      "method": "textDocument/hover",
+      "params": { /* ... */ }
+    }
+    /* Close document and shutdown server */
+  ]
+}
+```
+
+### Error Handling Test
+
+Test server behavior with invalid requests:
+
+```json
+{
+  "steps": [
+    /* Initialize server */
+    {
+      "description": "Send invalid request",
+      "method": "textDocument/completion",
+      "params": { /* invalid params */ },
+      "expectedResult": {
+        "error": { /* error details */ }
+      }
+    }
+    /* Shutdown server */
+  ]
+}
+``` 

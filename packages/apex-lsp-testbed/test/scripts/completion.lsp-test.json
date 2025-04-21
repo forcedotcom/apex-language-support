@@ -1,0 +1,88 @@
+{
+  "name": "Completion Test",
+  "description": "Tests completion functionality in the Apex Language Server",
+  "setup": {
+    "workspaceRoot": "test-artifacts/sample-project",
+    "serverOptions": {
+      "enableSemanticErrors": true,
+      "logLevel": "INFO"
+    }
+  },
+  "steps": [
+    {
+      "description": "Initialize the language server",
+      "method": "initialize",
+      "params": {
+        "processId": null,
+        "clientInfo": {
+          "name": "Test Client",
+          "version": "1.0.0"
+        },
+        "rootUri": "file:///test-artifacts/sample-project",
+        "capabilities": {
+          "textDocument": {
+            "completion": {
+              "dynamicRegistration": true,
+              "completionItem": {
+                "snippetSupport": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "Send initialized notification",
+      "method": "initialized",
+      "params": {}
+    },
+    {
+      "description": "Open a document",
+      "method": "textDocument/didOpen",
+      "params": {
+        "textDocument": {
+          "uri": "file:///test-artifacts/sample-project/Test.cls",
+          "languageId": "apex",
+          "version": 1,
+          "text": "public class Test {\n    public void method() {\n        System.\n    }\n}"
+        }
+      }
+    },
+    {
+      "description": "Request completion at System.",
+      "method": "textDocument/completion",
+      "params": {
+        "textDocument": {
+          "uri": "file:///test-artifacts/sample-project/Test.cls"
+        },
+        "position": {
+          "line": 2,
+          "character": 16
+        }
+      },
+      "expectedResult": {
+        "isIncomplete": false,
+        "items": []
+      }
+    },
+    {
+      "description": "Close the document",
+      "method": "textDocument/didClose",
+      "params": {
+        "textDocument": {
+          "uri": "file:///test-artifacts/sample-project/Test.cls"
+        }
+      }
+    },
+    {
+      "description": "Shutdown the server",
+      "method": "shutdown",
+      "params": {}
+    },
+    {
+      "description": "Exit the server",
+      "method": "exit",
+      "params": {}
+    }
+  ]
+} 
