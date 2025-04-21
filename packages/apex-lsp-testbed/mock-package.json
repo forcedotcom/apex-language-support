@@ -1,0 +1,8 @@
+{
+  "name": "mock-apex-lsp-server",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "vscode-languageserver": "^9.0.1"
+  }
+}

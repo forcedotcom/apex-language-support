@@ -16,7 +16,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: salesforcecli/github-workflows/.github/actions/setup-node@main
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
       - name: Install dependencies
         run: npm ci
@@ -28,24 +30,23 @@ jobs:
         run: npm run build
 
       - name: Test
-        run: npm test
+        run: npm run test:coverage
 
-      - name: Upload code coverage
-        uses: codecov/codecov-action@v4
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage/lcov.info
-          flags: unit
+          name: coverage-report
+          path: ./coverage 
 
-  slack-notify:
-    name: Slack Notification
-    needs: [test]
-    runs-on: ubuntu-latest
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - name: Notify Slack
-        uses: salesforcecli/github-workflows/.github/actions/slack-notify@main
-        with:
-          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
-          slack-token: ${{ secrets.SLACK_BOT_TOKEN }}
-          status: ${{ needs.test.result }}
+  # slack-notify:
+  #   name: Slack Notification
+  #   needs: [test]
+  #   runs-on: ubuntu-latest
+  #   if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   steps:
+  #     - name: Notify Slack
+  #       uses: salesforcecli/github-workflows/.github/actions/slack-notify@main
+  #       with:
+  #         channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
+  #         slack-token: ${{ secrets.IDEE_MAIN_SLACK_WEBHOOK }}
+  #         status: ${{ needs.test.result }}
