@@ -31,6 +31,7 @@ interface CliOptions {
   interactive: boolean;
   workspace?: string; // Path to workspace or GitHub URL
   suspend: boolean; // Whether to suspend the Java process for debugging
+  tests?: string[]; // List of tests to run
 }
 
 // Define workspace configuration
@@ -106,6 +107,11 @@ function parseArgs(): CliOptions {
       options.workspace = args[++i];
     } else if (arg === '--suspend') {
       options.suspend = true;
+    } else if (arg === '--tests' || arg === '-t') {
+      const tests = args[++i];
+      if (tests) {
+        options.tests = tests.split(','); // Split by comma to get list of tests
+      }
     } else if (arg === '--help' || arg === '-h') {
       printHelp();
       process.exit(0);
@@ -134,6 +140,9 @@ function printHelp(): void {
   );
   console.log(
     '  --suspend                Suspend the Java process for debugging (JDWP port: 2739)',
+  );
+  console.log(
+    '  -t, --tests <tests>       Comma-separated list of tests to run',
   );
   console.log('  -h, --help               Show this help message');
   console.log('');
