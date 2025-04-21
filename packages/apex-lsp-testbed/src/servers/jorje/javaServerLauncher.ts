@@ -345,14 +345,13 @@ export const createJavaServerOptions = async (
     // Add memory settings
     args.push(`-Xmx${jvmMaxHeap}M`);
 
-    // Add debug settings if in debug mode
-    if (isDebugMode()) {
+    // Add debug settings if in debug mode or suspendStartup is true
+    if (isDebugMode() || suspendStartup) {
       args.push(
         '-Dtrace.protocol=false',
         `-Dapex.lsp.root.log.level=${logLevel}`,
-        `-agentlib:jdwp=transport=dt_socket,server=y,suspend=${
-          suspendStartup ? 'y' : 'n'
-        },address=*:${debugPort},quiet=y`,
+        // eslint-disable-next-line max-len
+        `-agentlib:jdwp=transport=dt_socket,server=y,suspend=${suspendStartup ? 'y' : 'n'},address=*:${debugPort},quiet=y`,
       );
     }
 

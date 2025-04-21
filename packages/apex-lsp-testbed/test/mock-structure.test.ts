@@ -19,7 +19,6 @@ describe('apex-lsp-testbed structure validation', () => {
   describe('File structure', () => {
     it('should have required source files', () => {
       // Main source files
-      expect(fs.existsSync(path.join(srcDir, 'index.ts'))).toBeTruthy();
       expect(fs.existsSync(path.join(srcDir, 'cli.ts'))).toBeTruthy();
 
       // Client files
@@ -43,13 +42,13 @@ describe('apex-lsp-testbed structure validation', () => {
       ).toBeTruthy();
     });
 
-    it('should have package.json with required fields', () => {
-      const packageJsonPath = path.join(rootDir, 'package.json');
+    it('should have packageon with required fields', () => {
+      const packageJsonPath = path.join(rootDir, 'packageon');
       expect(fs.existsSync(packageJsonPath)).toBeTruthy();
 
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
       expect(packageJson.name).toBe('@salesforce/apex-lsp-testbed');
-      expect(packageJson.main).toBe('dist/index.js');
+      expect(packageJson.main).toBe('dist/cli');
       expect(packageJson.scripts).toBeDefined();
       expect(packageJson.scripts.build).toBeDefined();
       expect(packageJson.scripts['start:jorje']).toBeDefined();
@@ -71,16 +70,14 @@ describe('apex-lsp-testbed structure validation', () => {
     it('should have a proper build configuration', () => {
       // Check for build config files
       expect(fs.existsSync(path.join(rootDir, 'vite.config.ts'))).toBeTruthy();
-      expect(fs.existsSync(path.join(rootDir, 'tsconfig.json'))).toBeTruthy();
+      expect(fs.existsSync(path.join(rootDir, 'tsconfigon'))).toBeTruthy();
     });
   });
 
   describe('Mock resources', () => {
     it('should have mock files for testing', () => {
-      expect(
-        fs.existsSync(path.join(rootDir, 'mock-package.json')),
-      ).toBeTruthy();
-      expect(fs.existsSync(path.join(rootDir, 'mock-server.js'))).toBeTruthy();
+      expect(fs.existsSync(path.join(rootDir, 'mock-packageon'))).toBeTruthy();
+      expect(fs.existsSync(path.join(rootDir, 'mock-server'))).toBeTruthy();
     });
   });
 });

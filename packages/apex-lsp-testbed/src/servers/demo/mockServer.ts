@@ -13,20 +13,21 @@ import {
   ApexJsonRpcClient,
   ConsoleLogger,
   JsonRpcClientOptions,
-} from '../../client/ApexJsonRpcClient.js';
+} from '../../client/ApexJsonRpcClient';
+import { RequestResponseCapturingMiddleware } from '../../test-utils/RequestResponseCapturingMiddleware';
 
 // Determine project root directory
 const findProjectRoot = () => {
   // Start from current working directory
   let currentDir = process.cwd();
 
-  // Look for package.json to identify project root
-  while (!fs.existsSync(path.join(currentDir, 'package.json'))) {
+  // Look for packageon to identify project root
+  while (!fs.existsSync(path.join(currentDir, 'packageon'))) {
     const parentDir = path.dirname(currentDir);
 
     // If we've reached the filesystem root, stop searching
     if (parentDir === currentDir) {
-      return process.cwd(); // Fallback to CWD if we can't find package.json
+      return process.cwd(); // Fallback to CWD if we can't find packageon
     }
 
     currentDir = parentDir;
@@ -44,12 +45,14 @@ findProjectRoot();
 export class ApexLanguageServerMock {
   private client: ApexJsonRpcClient;
   private logger: ConsoleLogger;
+  private middleware: RequestResponseCapturingMiddleware;
 
   /**
    * Creates a new mock server
    */
   constructor() {
     this.logger = new ConsoleLogger('ApexLspMockServer');
+    this.middleware = new RequestResponseCapturingMiddleware();
 
     // Find the server module path
     const serverPath = this.findServerPath();
@@ -63,6 +66,16 @@ export class ApexLanguageServerMock {
 
     // Create the client
     this.client = new ApexJsonRpcClient(clientOptions, this.logger);
+
+    // Install the middleware
+    const connection = this.client.getConnection();
+    if (connection) {
+      this.middleware.install(connection);
+    } else {
+      this.logger.error(
+        'Failed to install middleware: No connection established',
+      );
+    }
   }
 
   /**
@@ -181,6 +194,9 @@ export class ApexLanguageServerMock {
       }
 
       process.exit(1);
+    } finally {
+      // Uninstall the middleware
+      this.middleware.uninstall();
     }
   }
 

@@ -9,6 +9,7 @@
 import * as cp from 'child_process';
 import { EventEmitter } from 'events';
 
+import Benchmark from 'benchmark';
 import {
   MessageConnection,
   createMessageConnection,
@@ -17,14 +18,16 @@ import {
   Disposable,
   MessageReader,
   MessageWriter,
-} from 'vscode-jsonrpc/node.js';
+} from 'vscode-jsonrpc/node';
+
+import { ServerType } from '../utils/serverUtils';
 
 /**
  * Options for configuring the JSON-RPC client
  */
 export interface JsonRpcClientOptions {
   /**
-   * Path to Node.js executable
+   * Path to Node executable
    */
   nodePath?: string;
 
@@ -34,7 +37,7 @@ export interface JsonRpcClientOptions {
   serverPath: string;
 
   /**
-   * Arguments to pass to Node.js
+   * Arguments to pass to Node
    */
   nodeArgs?: string[];
 
@@ -58,6 +61,11 @@ export interface JsonRpcClientOptions {
    * These are passed as the 'initializeParams?: any;' field in the initialize request
    */
   initializeParams?: any;
+
+  /**
+   * The type of server to use (e.g., 'demo' or 'jorje')
+   */
+  serverType: ServerType;
 }
 
 /**
@@ -128,6 +136,7 @@ export class ApexJsonRpcClient {
   private logger: Logger;
   private serverCapabilities: any = null;
   private eventEmitter = new EventEmitter();
+  private serverType: ServerType;
 
   /**
    * Create a new JSON-RPC client for Apex Language Server
@@ -142,6 +151,7 @@ export class ApexJsonRpcClient {
       requestTimeout: 10000,
       ...options,
     };
+    this.serverType = options.serverType;
     this.logger = logger || new ConsoleLogger();
   }
 
@@ -422,25 +432,26 @@ export class ApexJsonRpcClient {
     // Log the working directory being used
     this.logger.debug(`Using working directory: ${workspacePath}`);
 
-    // If serverPath is a .js file, run with Node.js
-    if (serverPath.endsWith('.js')) {
-      return cp.spawn(
-        nodePath as string,
-        [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
-        {
+    switch (this.serverType) {
+      case 'demo':
+        return cp.spawn(
+          nodePath as string,
+          [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
+          {
+            env: { ...process.env, ...env },
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: workspacePath, // Set the current working directory
+          },
+        );
+      case 'jorje':
+        return cp.spawn(serverPath, serverArgs || [], {
           env: { ...process.env, ...env },
           stdio: ['pipe', 'pipe', 'pipe'],
           cwd: workspacePath, // Set the current working directory
-        },
-      );
+        });
+      default:
+        throw new Error(`unknown serverType: ${this.serverType}`);
     }
-
-    // Otherwise, run the executable directly
-    return cp.spawn(serverPath, serverArgs || [], {
-      env: { ...process.env, ...env },
-      stdio: ['pipe', 'pipe', 'pipe'],
-      cwd: workspacePath, // Set the current working directory
-    });
   }
 
   /**
@@ -568,6 +579,44 @@ export class ApexJsonRpcClient {
     } catch (error) {
       this.logger.error(`Failed to initialize server: ${error}`);
       throw error;
+    }
+  }
+
+  /**
+   * Run specified tests with optional benchmarking
+   * @param tests - List of test names to run
+   * @param benchmark - Whether to run with Benchmark
+   */
+  public async runTests(tests: string[], benchmark: boolean): Promise<void> {
+    if (benchmark) {
+      const suite = new Benchmark.Suite();
+
+      tests.forEach((test) => {
+        suite.add(test, () => {
+          // Call the test method dynamically
+          const method = this[test as keyof ApexJsonRpcClient] as Function;
+          if (typeof method === 'function') {
+            method.call(this);
+          }
+        });
+      });
+
+      suite
+        .on('cycle', (event: any) => {
+          this.logger.info(String(event.target));
+        })
+        .on('complete', () => {
+          this.logger.info('Fastest is ' + suite.filter('fastest').map('name'));
+        })
+        .run({ async: true });
+    } else {
+      // Run tests without benchmarking
+      tests.forEach((test) => {
+        const method = this[test as keyof ApexJsonRpcClient] as Function;
+        if (typeof method === 'function') {
+          method.call(this);
+        }
+      });
     }
   }
 }

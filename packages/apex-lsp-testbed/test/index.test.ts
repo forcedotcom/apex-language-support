@@ -16,7 +16,7 @@ const mockLanguageClient = {
 };
 
 // Define interface extensions for the client to include test-specific properties and methods
-declare module '../src/index.js' {
+declare module '../src/index' {
   interface ApexLspVscodeClient {
     handleInitialize(): Promise<{ capabilities: any }>;
     handleInitialized(): void;
@@ -35,7 +35,7 @@ declare module '../src/index.js' {
 }
 
 // Create a mock for ApexLspVscodeClient
-jest.mock('../src/index.js', () => {
+jest.mock('../src/index', () => {
   const ServerType = {
     Node: 'node',
     Java: 'java',
@@ -91,8 +91,8 @@ jest.mock('../src/index.js', () => {
   };
 });
 
-import { ApexLspVscodeClient, ServerType } from '../src/index.js';
-import type { ApexLspClientOptions } from '../src/index.js';
+import { ApexLspVscodeClient, ServerType } from '../src/index';
+import type { ApexLspClientOptions } from '../src/index';
 
 // Add mock for vscode after import to ensure it's properly mocked
 jest.mock('vscode', () => ({
@@ -143,7 +143,7 @@ describe('ApexLspVscodeClient', () => {
 
     // Client options
     mockOptions = {
-      serverModule: 'path/to/server/module.js',
+      serverModule: 'path/to/server/module',
       extensionName: 'apex-language-server',
       serverType: ServerType.Node,
     };

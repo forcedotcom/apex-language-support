@@ -43,3 +43,4 @@ webpack-stats.json
 .sfdx
 test-workspace
 /packages/apex-lsp-testbed/test-artifacts
+/test-artifacts

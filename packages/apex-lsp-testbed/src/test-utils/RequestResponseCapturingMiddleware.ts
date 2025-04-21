@@ -38,9 +38,9 @@ export class RequestResponseCapturingMiddleware {
 
     this.connection = connection;
     this.originalSendRequest = connection.sendRequest;
-
     // Replace the sendRequest method with our instrumented version
-    connection.sendRequest = this.createInstrumentedSendRequest();
+    connection.sendRequest =
+      this.createInstrumentedSendRequest() as typeof connection.sendRequest;
   }
 
   /**
@@ -51,7 +51,8 @@ export class RequestResponseCapturingMiddleware {
       return;
     }
 
-    this.connection.sendRequest = this.originalSendRequest;
+    this.connection.sendRequest = this
+      .originalSendRequest as typeof this.connection.sendRequest;
     this.connection = null;
     this.originalSendRequest = null;
   }

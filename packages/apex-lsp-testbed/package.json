@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "description": "Testbed for performance and qualitative analysis of various Apex language server implementations",
   "type": "commonjs",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/cli.js",
+  "module": "dist/cli.js",
+  "types": "dist/cli.d.ts",
   "repository": {
     "type": "git",
     "url": "https://github.com/forcedotcom/apex-language-support.git",
@@ -28,9 +28,9 @@
     "clean:coverage": "rimraf coverage",
     "start": "node ./dist/cli.js",
     "start:demo": "node ./dist/cli.js --server demo --interactive",
-    "start:jorje": "node ./dist/cli.js --server jorje --interactive",
+    "start:jorje": "node ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:demo:verbose": "node ./dist/cli.js --server demo --interactive --verbose",
-    "start:jorje:verbose": "node ./dist/cli.js --server jorje --interactive --verbose",
+    "start:jorje:verbose": "node ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:jorje:debug": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:jorje:debug:verbose": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:jorje:debug:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
@@ -95,16 +95,17 @@
     "vscode-languageserver-textdocument": "^1.0.8"
   },
   "devDependencies": {
-    "@rollup/plugin-typescript": "^11.1.5",
     "@types/benchmark": "^2.1.5",
     "@types/node": "^18.18.0",
     "@types/vscode": "^1.85.0",
     "benchmark": "^2.1.4",
     "glob": "^10.3.10",
     "jest": "^29.7.0",
+    "microtime": "^3.1.1",
     "ts-jest": "^29.3.2",
     "typescript": "^5.8.2",
-    "vite": "^6.2.6"
+    "vite": "^6.2.6",
+    "vite-plugin-dts": "^4.5.3"
   },
   "keywords": [
     "apex",

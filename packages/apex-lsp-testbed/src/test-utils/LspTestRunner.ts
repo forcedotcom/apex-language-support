@@ -91,7 +91,7 @@ export class LspTestRunner {
    */
   constructor(options: LspTestRunnerOptions) {
     this.options = {
-      scriptPattern: '*.lsp-test.json',
+      scriptPattern: '*.lsp-teston',
       parallel: false,
       maxParallel: 1,
       ...options,
@@ -206,7 +206,7 @@ export class LspTestRunner {
     if (this.options.outputDir) {
       const resultPath = path.join(
         this.options.outputDir,
-        `test-results-${new Date().toISOString().replace(/:/g, '-')}.json`,
+        `test-results-${new Date().toISOString().replace(/:/g, '-')}on`,
       );
       fs.writeFileSync(resultPath, JSON.stringify(summary, null, 2), 'utf8');
       console.log(`Test results written to ${resultPath}`);

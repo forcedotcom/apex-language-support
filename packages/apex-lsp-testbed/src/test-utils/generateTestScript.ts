@@ -103,7 +103,7 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   if (args.length < 3) {
     console.error(
-      'Usage: node generateTestScript.js <input-file> <output-file> <script-name> [script-description]',
+      'Usage: node generateTestScript <input-file> <output-file> <script-name> [script-description]',
     );
     process.exit(1);
   }

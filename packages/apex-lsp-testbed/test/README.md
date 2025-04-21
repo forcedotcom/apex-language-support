@@ -97,7 +97,7 @@ generateTestScript({
   name: 'My Test',
   description: 'Generated test script',
   capturedRequests: middleware.getCapturedRequests(),
-  outputFile: 'scripts/generated-test.lsp-test.json'
+  outputFile: 'scripts/generated-test.lsp-teston'
 });
 ```
 

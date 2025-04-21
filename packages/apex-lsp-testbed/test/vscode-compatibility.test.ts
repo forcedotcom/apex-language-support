@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 describe('VS Code Compatibility', () => {
-  const packageJsonPath = path.resolve(__dirname, '..', 'package.json');
+  const packageJsonPath = path.resolve(__dirname, '..', 'packageon');
   let packageJson: any;
 
   beforeAll(() => {
