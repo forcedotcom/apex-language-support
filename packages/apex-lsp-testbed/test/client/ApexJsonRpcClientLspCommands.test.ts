@@ -34,7 +34,7 @@ public class TestClass {
 
 describe('ApexJsonRpcClient LSP Commands', () => {
   // Define server types to test
-  const serverTypes = [{ type: 'jorje' }];
+  const serverTypes: ServerType[] = ['jorje'];
 
   // Default workspace path for testing
   // Can be overridden with environment variable APEX_TEST_WORKSPACE
@@ -43,7 +43,7 @@ describe('ApexJsonRpcClient LSP Commands', () => {
   const workspacePath = process.env.APEX_TEST_WORKSPACE || defaultWorkspace;
 
   // Dynamic test generation for each server type
-  serverTypes.forEach(({ type }) => {
+  serverTypes.forEach((type) => {
     describe(`${type} language server with workspace: ${workspacePath}`, () => {
       let client: ApexJsonRpcClient;
       let middleware: RequestResponseCapturingMiddleware;
@@ -120,8 +120,8 @@ describe('ApexJsonRpcClient LSP Commands', () => {
 
         // Configure client using improved configuration
         // Use the shared createClientOptions from utils
-        const clientOptions = createClientOptions(
-          type === 'jorje' ? ServerType.JORJE : ServerType.DEMO,
+        const clientOptions = await createClientOptions(
+          type,
           false, // verbose
           workspace,
         );
