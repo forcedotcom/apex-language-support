@@ -97,7 +97,7 @@ export async function createClientOptions(
 export function parseArgs(): CliOptions {
   const args = process.argv.slice(2);
   const options: CliOptions = {
-    serverType: 'demo', // Default server type
+    serverType: undefined as any, // Will be set below
     verbose: false,
     interactive: false,
     suspend: false, // Default to not suspending
@@ -114,8 +114,9 @@ export function parseArgs(): CliOptions {
         options.serverType = value as ServerType;
       } else {
         console.error(
-          `Invalid server type: ${value}. Using default: ${options.serverType}`,
+          `Invalid server type: ${value}. Must be 'demo' or 'jorje'.`,
         );
+        process.exit(1);
       }
     } else if (arg === '--verbose' || arg === '-v') {
       options.verbose = true;
@@ -135,6 +136,13 @@ export function parseArgs(): CliOptions {
     } else if (arg === '--help' || arg === '-h') {
       options.showHelp = true; // Set flag to show help instead of exiting
     }
+  }
+
+  if (!options.serverType) {
+    console.error(
+      "Error: --server <type> is required. Must be 'demo' or 'jorje'.",
+    );
+    process.exit(1);
   }
 
   return options;
