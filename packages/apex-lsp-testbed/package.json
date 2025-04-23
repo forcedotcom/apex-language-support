@@ -26,7 +26,6 @@
     "test": "wireit",
     "test:coverage": "wireit",
     "clean:coverage": "rimraf coverage",
-    "start": "node ./dist/cli.js",
     "start:demo": "node ./dist/cli.js --server demo --interactive",
     "start:jorje": "node ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:demo:verbose": "node ./dist/cli.js --server demo --interactive --verbose",

@@ -7,6 +7,7 @@
  */
 import { resolve } from 'path';
 import { copyFileSync, mkdirSync } from 'fs';
+
 import { globSync } from 'glob';
 import { defineConfig, Plugin } from 'vite';
 import dts from 'vite-plugin-dts';
@@ -76,6 +77,7 @@ export default defineConfig({
         preserveModules: true,
         preserveModulesRoot: 'src',
         entryFileNames: '[name].js',
+        chunkFileNames: '[name].js',
         format: 'cjs',
       },
     },
@@ -88,6 +90,8 @@ export default defineConfig({
     dts({
       entryRoot: 'src',
       outDir: 'dist',
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.test.ts'],
     }),
   ],
 });
