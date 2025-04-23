@@ -33,20 +33,16 @@ Result: {
     }
 }`;
 
-    const result = parser.parse(logContent);
+    const result = [...parser.parse(logContent).values()];
+    // Should have only one id (0), which will be the response (last message for id=0)
     expect(result).toHaveLength(1);
-    const pair = result[0];
-    expect('request' in pair).toBe(true);
-    if ('request' in pair) {
-      expect(pair.request.method).toBe('initialize');
-      expect(pair.request.id).toBe(0);
-      expect(pair.response?.method).toBe('initialize');
-      expect(pair.duration).toBe(1182);
-      expect(pair.request.params).toBeDefined();
-      expect(pair.request.params.processId).toBe(2979);
-      expect(pair.response).toBeDefined();
-      expect(pair.response?.result?.capabilities.textDocumentSync).toBe(1);
-    }
+    const msg = result[0];
+    expect(msg).toBeDefined();
+    expect(msg.type).toBe('response');
+    expect(msg.method).toBe('initialize');
+    expect(msg.id).toBe(0);
+    expect(msg.result).toBeDefined();
+    expect(msg.result.capabilities.textDocumentSync).toBe(1);
   });
 
   it('should parse notifications and telemetry events', () => {
@@ -68,28 +64,30 @@ Params: {
 
 [Trace - 10:20:05 AM] Received response 'initialize - (0)' in 1182ms.`;
 
-    const result = parser.parse(logContent);
+    const result = [...parser.parse(logContent).values()];
+    // Should have two messages: one notification, one response (id=0)
     expect(result).toHaveLength(2);
-    // Find notification and request/response pair
-    const notif = result.find(
-      (item) => 'type' in item && item.type === 'notification',
-    );
-    const pair = result.find(
-      (item) => 'request' in item && item.request.method === 'initialize',
-    );
+    // Find notification by negative id
+    const notif = result.find((item) => item.type === 'notification');
     expect(notif).toBeDefined();
-    expect(pair).toBeDefined();
-    if (notif && 'type' in notif && notif.type === 'notification') {
-      expect(notif.method).toBe('telemetry/event');
+    if (notif) {
       expect(notif.params).toBeDefined();
+      if (!notif.params) {
+        throw new Error(
+          'Notification params were not attached. Check parser logic.',
+        );
+      }
+      expect(notif.method).toBe('telemetry/event');
       expect(notif.params.properties.Feature).toBe(
         'ApexLanguageServerLauncher',
       );
     }
-    if (pair && 'request' in pair) {
-      expect(pair.request.method).toBe('initialize');
-      expect(pair.duration).toBe(1182);
-    }
+    // Check response
+    const response = result[0];
+    expect(response).toBeDefined();
+    expect(response.type).toBe('response');
+    expect(response.method).toBe('initialize');
+    expect(response.id).toBe(0);
   });
 
   it('should handle multiple request/response pairs', () => {
@@ -100,14 +98,15 @@ Params: {
 [Trace - 10:20:06 AM] Sending request 'textDocument/hover - (1)'.
 [Trace - 10:20:06 AM] Received response 'textDocument/hover - (1)' in 45ms.`;
 
-    const result = parser.parse(logContent);
-    // Only request/response pairs should be present
-    const pairs = result.filter((item) => 'request' in item);
-    expect(pairs).toHaveLength(2);
-    expect(pairs[0].request.method).toBe('initialize');
-    expect(pairs[1].request.method).toBe('textDocument/hover');
-    expect(pairs[0].duration).toBe(1182);
-    expect(pairs[1].duration).toBe(45);
+    const result = [...parser.parse(logContent).values()];
+    // Should have two messages: one for each id (0 and 1), both responses
+    expect(result).toHaveLength(2);
+    expect(result[0]).toBeDefined();
+    expect(result[0].type).toBe('response');
+    expect(result[0].method).toBe('initialize');
+    expect(result[1]).toBeDefined();
+    expect(result[1].type).toBe('response');
+    expect(result[1].method).toBe('textDocument/hover');
   });
 
   it('should handle malformed JSON gracefully', () => {
@@ -119,15 +118,31 @@ Params: {
 }
 
 [Trace - 10:20:05 AM] Received response 'initialize - (0)' in 1182ms.`;
+    const result = [...parser.parse(logContent).values()];
+    const msg = result[0];
+    expect(msg).toBeDefined();
+    expect(msg.type).toBe('response');
+    expect(msg.method).toBe('initialize');
+    expect(msg.params).toBeUndefined();
+  });
 
+  it('should parse a real trace log and write JSON output', async () => {
+    const fs = require('fs');
+    const path = require('path');
+    const logPath = path.resolve(__dirname, '../ls-sample-trace.log.txt');
+    const outPath = path.resolve(__dirname, '../ls-sample-trace.log.json');
+    const logContent = fs.readFileSync(logPath, 'utf8');
     const result = parser.parse(logContent);
-    const pair = result.find(
-      (item) => 'request' in item && item.request.method === 'initialize',
-    );
-    expect(pair).toBeDefined();
-    if (pair && 'request' in pair) {
-      expect(pair.request.params).toBeUndefined();
-      expect(pair.duration).toBe(1182);
+    // Convert Map to object for JSON output
+    const objResult = Object.fromEntries(result.entries());
+    fs.writeFileSync(outPath, JSON.stringify(objResult, null, 2), 'utf8');
+    // Basic assertion: result is a non-empty Map
+    expect(result.size).toBeGreaterThan(0);
+    // Optionally, check that all values are LSPMessage-like
+    for (const [, msg] of result.entries()) {
+      expect(msg).toHaveProperty('type');
+      expect(['request', 'response', 'notification']).toContain(msg.type);
+      expect(msg).toHaveProperty('method');
     }
   });
 });

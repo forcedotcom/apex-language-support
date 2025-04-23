@@ -68,24 +68,28 @@ export class LSPTraceParser {
     openBrackets: 0,
     closeBrackets: 0,
   };
+  private notificationId = -1;
+  private result: Map<number, LSPMessage> = new Map();
 
   /**
-   * Parses the LSP trace log content and returns structured message pairs and notifications as top-level items
+   * Parses the LSP trace log content and returns a map of id to LSPMessage.
    * @param logContent The content of the LSP trace log
-   * @returns Array of parsed LSP request/response pairs and notifications/telemetry as top-level items
+   * @returns Map<number, LSPMessage>
    */
-  parse(logContent: string): LSPTraceItem[] {
+  parse(logContent: string): Map<number, LSPMessage> {
+    this.result = new Map();
     this.messages = [];
     this.pendingRequests.clear();
     this.currentJson = [];
     this.parsingJson = false;
     this.currentMessageId = null;
     this.currentJsonType = null;
+    this.notificationId = -1;
     const lines = logContent.split('\n');
     for (const line of lines) {
       this.parseLine(line.trim());
     }
-    return this.messages;
+    return this.result;
   }
 
   private parseLine(line: string) {
@@ -158,6 +162,8 @@ export class LSPTraceParser {
 
     this.pendingRequests.set(messageId, requestPair);
     this.currentMessageId = messageId;
+    // Add request to result map immediately
+    this.result.set(messageId, requestPair.request);
     console.log(
       'Added request to pendingRequests:',
       this.pendingRequests.has(messageId),
@@ -181,6 +187,8 @@ export class LSPTraceParser {
       this.messages.push(requestPair);
       this.pendingRequests.delete(messageId);
       this.lastCompletedRequestPair = requestPair;
+      // Add response to result map immediately
+      this.result.set(messageId, requestPair.response);
       console.log('Processed response for request:', messageId);
     } else {
       console.log('No pending request found for response:', messageId);
@@ -192,8 +200,13 @@ export class LSPTraceParser {
       timestamp,
       type: 'notification',
       method,
+      id: this.notificationId--,
     };
     this.messages.push(notification);
+    // Set currentMessageId to this notification's id so Params JSON attaches correctly
+    this.currentMessageId = notification.id!;
+    // Add notification to result map immediately
+    this.result.set(notification.id!, notification);
   }
 
   private processJsonContent() {
@@ -211,10 +224,28 @@ export class LSPTraceParser {
       const jsonContent = JSON.parse(jsonStr);
       // Attach to pendingRequests if possible
       if (this.currentMessageId !== null) {
+        // If currentMessageId is negative, it's a notification
+        if (this.currentMessageId < 0 && this.currentJsonType === 'params') {
+          // Find the notification in messages and attach params
+          for (let i = this.messages.length - 1; i >= 0; i--) {
+            const msg = this.messages[i];
+            if (
+              'type' in msg &&
+              msg.type === 'notification' &&
+              msg.id === this.currentMessageId
+            ) {
+              (msg as LSPMessage).params = jsonContent;
+              return;
+            }
+          }
+        }
+        // Otherwise, handle requests/responses as before
         const pending = this.pendingRequests.get(this.currentMessageId);
         if (pending) {
           if (this.currentJsonType === 'params') {
             pending.request.params = jsonContent;
+            // Ensure the result map is updated with the latest request object (with params)
+            this.result.set(this.currentMessageId, pending.request);
           } else if (this.currentJsonType === 'result') {
             // Try to find the last response in the output array and attach result
             for (let i = this.messages.length - 1; i >= 0; i--) {
@@ -237,7 +268,7 @@ export class LSPTraceParser {
         this.lastCompletedRequestPair.response.result = jsonContent;
         return;
       }
-      // For notification Params, attach to the most recent notification without params
+      // For notification Params, attach to the most recent notification without params (legacy fallback)
       if (this.currentJsonType === 'params') {
         for (let i = this.messages.length - 1; i >= 0; i--) {
           const msg = this.messages[i];
