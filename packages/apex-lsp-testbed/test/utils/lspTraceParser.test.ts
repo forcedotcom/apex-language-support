@@ -145,4 +145,65 @@ Params: {
       expect(msg).toHaveProperty('method');
     }
   });
+
+  it('should parse a hover request, telemetry notification, and response (real log excerpt)', () => {
+    /* eslint-disable max-len */
+    const logContent = `
+[Trace - 10:23:10 AM] Sending request 'textDocument/hover - (17)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 2,
+        "character": 28
+    }
+}
+
+
+[Trace - 10:23:10 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 7
+    }
+}
+
+
+[Trace - 10:23:10 AM] Received response 'textDocument/hover - (17)' in 12ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "\`\`\`apex\\nString FileUtilities.createFile(String base64data, String filename, String recordId)\\n\`\`\`\\n"
+    } 
+}`;
+    /* eslint-enable max-len */
+    const result = parser.parse(logContent);
+    // Check request
+    const hoverReq = result.get(17);
+    expect(hoverReq).toBeDefined();
+    expect(hoverReq!.type).toBe('response');
+    expect(hoverReq!.method).toBe('textDocument/hover');
+    expect(hoverReq!.params).toBeDefined();
+    expect(hoverReq!.params.textDocument.uri).toContain('FileUtilities.cls');
+    expect(hoverReq!.params.position).toEqual({ line: 2, character: 28 });
+    // Check response (should be the same id, type 'response', and have result)
+    expect(hoverReq!.result).toBeDefined();
+    expect(hoverReq!.result.contents.kind).toBe('markdown');
+    expect(hoverReq!.result.contents.value).toContain(
+      'FileUtilities.createFile',
+    );
+    // Check notification (should be the only negative id)
+    const notif = Array.from(result.values()).find(
+      (m) => m.type === 'notification',
+    );
+    expect(notif).toBeDefined();
+    expect(notif!.method).toBe('telemetry/event');
+    expect(notif!.params).toBeDefined();
+    expect(notif!.params.properties.Feature).toBe('Hover');
+    expect(notif!.params.measures.ExecutionTime).toBe(7);
+  });
 });

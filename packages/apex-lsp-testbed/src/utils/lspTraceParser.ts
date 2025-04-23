@@ -55,18 +55,10 @@ export class LSPTraceParser {
     JSON_RESULT: /^Result: {/,
   };
 
-  private messages: LSPTraceItem[] = [];
-  private lastCompletedRequestId: number | null = null;
   private currentJson: string[] = [];
   private parsingJson = false;
   private currentMessageId: number | null = null;
   private currentJsonType: 'params' | 'result' | null = null;
-  private nestingLevel = {
-    openBraces: 0,
-    closeBraces: 0,
-    openBrackets: 0,
-    closeBrackets: 0,
-  };
   private notificationId = -1;
   private result: Map<number, LSPMessage> = new Map();
 
@@ -77,13 +69,11 @@ export class LSPTraceParser {
    */
   parse(logContent: string): Map<number, LSPMessage> {
     this.result = new Map();
-    this.messages = [];
     this.currentJson = [];
     this.parsingJson = false;
     this.currentMessageId = null;
     this.currentJsonType = null;
     this.notificationId = -1;
-    this.lastCompletedRequestId = null;
     const lines = logContent.split('\n');
     for (const line of lines) {
       this.parseLine(line.trim());
@@ -134,12 +124,10 @@ export class LSPTraceParser {
       this.parsingJson = true;
       this.currentJsonType = 'params';
       this.currentJson = [line.trim().replace(/^.*\{/, '{')];
-      console.log('Starting params JSON parsing, type:', this.currentJsonType);
     } else if (line.trim().startsWith('Result: {')) {
       this.parsingJson = true;
       this.currentJsonType = 'result';
       this.currentJson = [line.trim().replace(/^.*\{/, '{')];
-      console.log('Starting result JSON parsing, type:', this.currentJsonType);
     }
   }
 
@@ -158,19 +146,21 @@ export class LSPTraceParser {
 
   private handleResponse(match: RegExpMatchArray) {
     const [, timestamp, method, id, duration] = match;
-    const messageId = parseInt(id);
+    this.currentMessageId = parseInt(id);
     const response: LSPMessage = {
       timestamp,
       type: 'response',
       method,
-      id: messageId,
+      id: this.currentMessageId,
       performance: { duration: parseInt(duration) },
     };
-    this.result.set(messageId, {
-      ...this.result.get(messageId),
+    // Always update the result map for this id
+    const update = {
+      ...this.result.get(this.currentMessageId),
       ...response,
-    });
-    this.lastCompletedRequestId = messageId;
+    };
+
+    this.result.set(this.currentMessageId, update);
   }
 
   private handleNotification([, timestamp, method]: RegExpMatchArray) {
@@ -201,18 +191,6 @@ export class LSPTraceParser {
             msg.result = jsonContent;
           }
           this.result.set(this.currentMessageId, msg);
-          return;
-        }
-      }
-      // Fallback for result: try lastCompletedRequestId
-      if (
-        this.currentJsonType === 'result' &&
-        this.lastCompletedRequestId !== null
-      ) {
-        const msg = this.result.get(this.lastCompletedRequestId);
-        if (msg) {
-          msg.result = jsonContent;
-          this.result.set(this.lastCompletedRequestId, msg);
           return;
         }
       }
