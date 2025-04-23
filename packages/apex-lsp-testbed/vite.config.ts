@@ -7,13 +7,13 @@
  */
 import { resolve } from 'path';
 import { copyFileSync, mkdirSync } from 'fs';
-
 import { globSync } from 'glob';
-import { defineConfig, Plugin } from 'vite';
+import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
+import typescript from '@rollup/plugin-typescript';
 
 // Custom plugin to copy resources directory
-const copyResources = (): Plugin => ({
+const copyResources = () => ({
   name: 'copy-resources',
   closeBundle: () => {
     try {
@@ -46,7 +46,6 @@ const copyResources = (): Plugin => ({
 export default defineConfig({
   build: {
     lib: {
-      // Single entry point - cli.ts
       entry: resolve(__dirname, 'src/cli.ts'),
       formats: ['cjs'],
     },
@@ -79,6 +78,10 @@ export default defineConfig({
         entryFileNames: '[name].js',
         chunkFileNames: '[name].js',
         format: 'cjs',
+        sourcemapPathTransform: (relativeSourcePath) => {
+          // Ensure source maps point to the original TypeScript files
+          return relativeSourcePath.replace(/^\.\.\//, '');
+        },
       },
     },
   },

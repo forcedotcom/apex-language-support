@@ -26,10 +26,10 @@
     "test": "wireit",
     "test:coverage": "wireit",
     "clean:coverage": "rimraf coverage",
-    "start:demo": "node ./dist/cli.js --server demo --interactive",
-    "start:jorje": "node ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
-    "start:demo:verbose": "node ./dist/cli.js --server demo --interactive --verbose",
-    "start:jorje:verbose": "node ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
+    "start:demo": "node --enable-source-maps ./dist/cli.js --server demo --interactive",
+    "start:jorje": "node --enable-source-maps ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
+    "start:demo:verbose": "node --enable-source-maps ./dist/cli.js --server demo --interactive --verbose",
+    "start:jorje:verbose": "node --enable-source-maps ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:jorje:debug": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:jorje:debug:verbose": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:jorje:debug:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
@@ -94,6 +94,7 @@
     "vscode-languageserver-textdocument": "^1.0.8"
   },
   "devDependencies": {
+    "@rollup/plugin-typescript": "^12.1.2",
     "@types/benchmark": "^2.1.5",
     "@types/node": "^18.18.0",
     "@types/vscode": "^1.85.0",

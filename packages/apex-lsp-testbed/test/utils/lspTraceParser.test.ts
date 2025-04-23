@@ -35,14 +35,18 @@ Result: {
 
     const result = parser.parse(logContent);
     expect(result).toHaveLength(1);
-    expect(result[0].request.method).toBe('initialize');
-    expect(result[0].request.id).toBe(0);
-    expect(result[0].response?.method).toBe('initialize');
-    expect(result[0].duration).toBe(1182);
-    expect(result[0].request.params).toBeDefined();
-    expect(result[0].request.params.processId).toBe(2979);
-    expect(result[0].response?.result).toBeDefined();
-    expect(result[0].response?.result.capabilities.textDocumentSync).toBe(1);
+    const pair = result[0];
+    expect('request' in pair).toBe(true);
+    if ('request' in pair) {
+      expect(pair.request.method).toBe('initialize');
+      expect(pair.request.id).toBe(0);
+      expect(pair.response?.method).toBe('initialize');
+      expect(pair.duration).toBe(1182);
+      expect(pair.request.params).toBeDefined();
+      expect(pair.request.params.processId).toBe(2979);
+      expect(pair.response).toBeDefined();
+      expect(pair.response?.result?.capabilities.textDocumentSync).toBe(1);
+    }
   });
 
   it('should parse notifications and telemetry events', () => {
@@ -65,13 +69,27 @@ Params: {
 [Trace - 10:20:05 AM] Received response 'initialize - (0)' in 1182ms.`;
 
     const result = parser.parse(logContent);
-    expect(result).toHaveLength(1);
-    expect(result[0].telemetryEvents).toHaveLength(1);
-    expect(result[0].telemetryEvents[0].method).toBe('telemetry/event');
-    expect(result[0].telemetryEvents[0].params).toBeDefined();
-    expect(result[0].telemetryEvents[0].params.properties.Feature).toBe(
-      'ApexLanguageServerLauncher',
+    expect(result).toHaveLength(2);
+    // Find notification and request/response pair
+    const notif = result.find(
+      (item) => 'type' in item && item.type === 'notification',
     );
+    const pair = result.find(
+      (item) => 'request' in item && item.request.method === 'initialize',
+    );
+    expect(notif).toBeDefined();
+    expect(pair).toBeDefined();
+    if (notif && 'type' in notif && notif.type === 'notification') {
+      expect(notif.method).toBe('telemetry/event');
+      expect(notif.params).toBeDefined();
+      expect(notif.params.properties.Feature).toBe(
+        'ApexLanguageServerLauncher',
+      );
+    }
+    if (pair && 'request' in pair) {
+      expect(pair.request.method).toBe('initialize');
+      expect(pair.duration).toBe(1182);
+    }
   });
 
   it('should handle multiple request/response pairs', () => {
@@ -83,11 +101,13 @@ Params: {
 [Trace - 10:20:06 AM] Received response 'textDocument/hover - (1)' in 45ms.`;
 
     const result = parser.parse(logContent);
-    expect(result).toHaveLength(2);
-    expect(result[0].request.method).toBe('initialize');
-    expect(result[1].request.method).toBe('textDocument/hover');
-    expect(result[0].duration).toBe(1182);
-    expect(result[1].duration).toBe(45);
+    // Only request/response pairs should be present
+    const pairs = result.filter((item) => 'request' in item);
+    expect(pairs).toHaveLength(2);
+    expect(pairs[0].request.method).toBe('initialize');
+    expect(pairs[1].request.method).toBe('textDocument/hover');
+    expect(pairs[0].duration).toBe(1182);
+    expect(pairs[1].duration).toBe(45);
   });
 
   it('should handle malformed JSON gracefully', () => {
@@ -101,8 +121,13 @@ Params: {
 [Trace - 10:20:05 AM] Received response 'initialize - (0)' in 1182ms.`;
 
     const result = parser.parse(logContent);
-    expect(result).toHaveLength(1);
-    expect(result[0].request.params).toBeUndefined();
-    expect(result[0].duration).toBe(1182);
+    const pair = result.find(
+      (item) => 'request' in item && item.request.method === 'initialize',
+    );
+    expect(pair).toBeDefined();
+    if (pair && 'request' in pair) {
+      expect(pair.request.params).toBeUndefined();
+      expect(pair.duration).toBe(1182);
+    }
   });
 });

@@ -28,10 +28,10 @@ export interface LSPMessage {
 export interface LSPRequestResponsePair {
   request: LSPMessage;
   response: LSPMessage | null;
-  notifications: LSPMessage[];
-  telemetryEvents: LSPMessage[];
   duration: number | null;
 }
+
+export type LSPTraceItem = LSPRequestResponsePair | LSPMessage;
 
 export class LSPTraceParser {
   private static readonly MESSAGE_PATTERNS = {
@@ -56,7 +56,8 @@ export class LSPTraceParser {
   };
 
   private pendingRequests: Map<number, LSPRequestResponsePair> = new Map();
-  private messages: LSPRequestResponsePair[] = [];
+  private messages: LSPTraceItem[] = [];
+  private lastCompletedRequestPair: LSPRequestResponsePair | null = null;
   private currentJson: string[] = [];
   private parsingJson = false;
   private currentMessageId: number | null = null;
@@ -69,17 +70,21 @@ export class LSPTraceParser {
   };
 
   /**
-   * Parses the LSP trace log content and returns structured message pairs
+   * Parses the LSP trace log content and returns structured message pairs and notifications as top-level items
    * @param logContent The content of the LSP trace log
-   * @returns Array of parsed LSP request/response pairs with associated notifications and telemetry
+   * @returns Array of parsed LSP request/response pairs and notifications/telemetry as top-level items
    */
-  parse(logContent: string): LSPRequestResponsePair[] {
+  parse(logContent: string): LSPTraceItem[] {
+    this.messages = [];
+    this.pendingRequests.clear();
+    this.currentJson = [];
+    this.parsingJson = false;
+    this.currentMessageId = null;
+    this.currentJsonType = null;
     const lines = logContent.split('\n');
-
     for (const line of lines) {
       this.parseLine(line.trim());
     }
-
     return this.messages;
   }
 
@@ -148,8 +153,6 @@ export class LSPTraceParser {
         id: messageId,
       },
       response: null,
-      notifications: [],
-      telemetryEvents: [],
       duration: null,
     };
 
@@ -175,48 +178,22 @@ export class LSPTraceParser {
         id: messageId,
       };
       requestPair.duration = parseInt(duration);
-
       this.messages.push(requestPair);
       this.pendingRequests.delete(messageId);
+      this.lastCompletedRequestPair = requestPair;
       console.log('Processed response for request:', messageId);
     } else {
       console.log('No pending request found for response:', messageId);
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private handleNotification([_, timestamp, method]: RegExpMatchArray) {
+  private handleNotification([, timestamp, method]: RegExpMatchArray) {
     const notification: LSPMessage = {
       timestamp,
       type: 'notification',
       method,
     };
-
-    // If this is a telemetry notification, handle specially
-    if (method === 'telemetry/event') {
-      this.handleTelemetryNotification(notification);
-    } else {
-      // Add to the most recent request if one is pending
-      const currentRequest =
-        this.currentMessageId !== null
-          ? this.pendingRequests.get(this.currentMessageId)
-          : null;
-
-      if (currentRequest) {
-        currentRequest.notifications.push(notification);
-      }
-    }
-  }
-
-  private handleTelemetryNotification(notification: LSPMessage) {
-    const currentRequest =
-      this.currentMessageId !== null
-        ? this.pendingRequests.get(this.currentMessageId)
-        : null;
-
-    if (currentRequest) {
-      currentRequest.telemetryEvents.push(notification);
-    }
+    this.messages.push(notification);
   }
 
   private processJsonContent() {
@@ -232,21 +209,64 @@ export class LSPTraceParser {
         .replace(/\n\s*}/g, '}');
 
       const jsonContent = JSON.parse(jsonStr);
-      const currentRequest =
-        this.currentMessageId !== null
-          ? this.pendingRequests.get(this.currentMessageId)
-          : null;
-
-      if (currentRequest) {
-        console.log('Assigning JSON content to:', this.currentJsonType);
-        if (this.currentJsonType === 'params') {
-          currentRequest.request.params = jsonContent;
-        } else if (
-          this.currentJsonType === 'result' &&
-          currentRequest.response
-        ) {
-          currentRequest.response.result = jsonContent;
+      // Attach to pendingRequests if possible
+      if (this.currentMessageId !== null) {
+        const pending = this.pendingRequests.get(this.currentMessageId);
+        if (pending) {
+          if (this.currentJsonType === 'params') {
+            pending.request.params = jsonContent;
+          } else if (this.currentJsonType === 'result') {
+            // Try to find the last response in the output array and attach result
+            for (let i = this.messages.length - 1; i >= 0; i--) {
+              const msg = this.messages[i];
+              if ('request' in msg && msg.response) {
+                msg.response.result = jsonContent;
+                return;
+              }
+            }
+          }
+          return;
         }
+      }
+      // If not found in pendingRequests, try lastCompletedRequestPair for result
+      if (
+        this.currentJsonType === 'result' &&
+        this.lastCompletedRequestPair &&
+        this.lastCompletedRequestPair.response
+      ) {
+        this.lastCompletedRequestPair.response.result = jsonContent;
+        return;
+      }
+      // For notification Params, attach to the most recent notification without params
+      if (this.currentJsonType === 'params') {
+        for (let i = this.messages.length - 1; i >= 0; i--) {
+          const msg = this.messages[i];
+          if (
+            'type' in msg &&
+            msg.type === 'notification' &&
+            (msg as LSPMessage).params === undefined
+          ) {
+            (msg as LSPMessage).params = jsonContent;
+            return;
+          }
+        }
+      }
+      // Otherwise, fallback to previous logic for notifications
+      let target: LSPRequestResponsePair | LSPMessage | undefined;
+      if (this.messages.length > 0) {
+        for (let i = this.messages.length - 1; i >= 0; i--) {
+          const msg = this.messages[i];
+          if ('request' in msg) {
+            target = msg;
+            break;
+          } else if (msg.type === 'notification') {
+            target = msg;
+            break;
+          }
+        }
+      }
+      if (target && 'type' in target && target.type === 'notification') {
+        (target as LSPMessage).params = jsonContent;
       }
     } catch (e) {
       // Log the error but don't throw - we want to continue processing
