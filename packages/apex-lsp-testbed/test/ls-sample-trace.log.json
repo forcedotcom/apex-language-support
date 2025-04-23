@@ -4,138 +4,766 @@
     "type": "response",
     "method": "initialize",
     "id": 0,
-    "result": {
+    "params": {
+      "processId": 2979,
+      "clientInfo": {
+        "name": "Visual Studio Code",
+        "version": "1.99.3"
+      },
+      "locale": "en",
+      "rootPath": "/Users/peter.hale/git/dreamhouse-lwc",
+      "rootUri": "file:///Users/peter.hale/git/dreamhouse-lwc",
       "capabilities": {
-        "textDocumentSync": 1,
-        "hoverProvider": true,
-        "completionProvider": {
-          "resolveProvider": false,
-          "triggerCharacters": [
-            "."
+        "workspace": {
+          "applyEdit": true,
+          "workspaceEdit": {
+            "documentChanges": true,
+            "resourceOperations": [
+              "create",
+              "rename",
+              "delete"
+            ],
+            "failureHandling": "textOnlyTransactional",
+            "normalizesLineEndings": true,
+            "changeAnnotationSupport": {
+              "groupsOnLabel": true
+            }
+          },
+          "configuration": true,
+          "didChangeWatchedFiles": {
+            "dynamicRegistration": true,
+            "relativePatternSupport": true
+          },
+          "symbol": {
+            "dynamicRegistration": true,
+            "symbolKind": {
+              "valueSet": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26
+              ]
+            },
+            "tagSupport": {
+              "valueSet": [
+                1
+              ]
+            },
+            "resolveSupport": {
+              "properties": [
+                "location.range"
+              ]
+            }
+          },
+          "codeLens": {
+            "refreshSupport": true
+          },
+          "executeCommand": {
+            "dynamicRegistration": true
+          },
+          "didChangeConfiguration": {
+            "dynamicRegistration": true
+          },
+          "workspaceFolders": true,
+          "foldingRange": {
+            "refreshSupport": true
+          },
+          "semanticTokens": {
+            "refreshSupport": true
+          },
+          "fileOperations": {
+            "dynamicRegistration": true,
+            "didCreate": true,
+            "didRename": true,
+            "didDelete": true,
+            "willCreate": true,
+            "willRename": true,
+            "willDelete": true
+          },
+          "inlineValue": {
+            "refreshSupport": true
+          },
+          "inlayHint": {
+            "refreshSupport": true
+          },
+          "diagnostics": {
+            "refreshSupport": true
+          }
+        },
+        "textDocument": {
+          "publishDiagnostics": {
+            "relatedInformation": true,
+            "versionSupport": false,
+            "tagSupport": {
+              "valueSet": [
+                1,
+                2
+              ]
+            },
+            "codeDescriptionSupport": true,
+            "dataSupport": true
+          },
+          "synchronization": {
+            "dynamicRegistration": true,
+            "willSave": true,
+            "willSaveWaitUntil": true,
+            "didSave": true
+          },
+          "completion": {
+            "dynamicRegistration": true,
+            "contextSupport": true,
+            "completionItem": {
+              "snippetSupport": true,
+              "commitCharactersSupport": true,
+              "documentationFormat": [
+                "markdown",
+                "plaintext"
+              ],
+              "deprecatedSupport": true,
+              "preselectSupport": true,
+              "tagSupport": {
+                "valueSet": [
+                  1
+                ]
+              },
+              "insertReplaceSupport": true,
+              "resolveSupport": {
+                "properties": [
+                  "documentation",
+                  "detail",
+                  "additionalTextEdits"
+                ]
+              },
+              "insertTextModeSupport": {
+                "valueSet": [
+                  1,
+                  2
+                ]
+              },
+              "labelDetailsSupport": true
+            },
+            "insertTextMode": 2,
+            "completionItemKind": {
+              "valueSet": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25
+              ]
+            },
+            "completionList": {
+              "itemDefaults": [
+                "commitCharacters",
+                "editRange",
+                "insertTextFormat",
+                "insertTextMode",
+                "data"
+              ]
+            }
+          },
+          "hover": {
+            "dynamicRegistration": true,
+            "contentFormat": [
+              "markdown",
+              "plaintext"
+            ]
+          },
+          "signatureHelp": {
+            "dynamicRegistration": true,
+            "signatureInformation": {
+              "documentationFormat": [
+                "markdown",
+                "plaintext"
+              ],
+              "parameterInformation": {
+                "labelOffsetSupport": true
+              },
+              "activeParameterSupport": true
+            },
+            "contextSupport": true
+          },
+          "definition": {
+            "dynamicRegistration": true,
+            "linkSupport": true
+          },
+          "references": {
+            "dynamicRegistration": true
+          },
+          "documentHighlight": {
+            "dynamicRegistration": true
+          },
+          "documentSymbol": {
+            "dynamicRegistration": true,
+            "symbolKind": {
+              "valueSet": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26
+              ]
+            },
+            "hierarchicalDocumentSymbolSupport": true,
+            "tagSupport": {
+              "valueSet": [
+                1
+              ]
+            },
+            "labelSupport": true
+          },
+          "codeAction": {
+            "dynamicRegistration": true,
+            "isPreferredSupport": true,
+            "disabledSupport": true,
+            "dataSupport": true,
+            "resolveSupport": {
+              "properties": [
+                "edit"
+              ]
+            },
+            "codeActionLiteralSupport": {
+              "codeActionKind": {
+                "valueSet": [
+                  "",
+                  "quickfix",
+                  "refactor",
+                  "refactor.extract",
+                  "refactor.inline",
+                  "refactor.rewrite",
+                  "source",
+                  "source.organizeImports"
+                ]
+              }
+            },
+            "honorsChangeAnnotations": true
+          },
+          "codeLens": {
+            "dynamicRegistration": true
+          },
+          "formatting": {
+            "dynamicRegistration": true
+          },
+          "rangeFormatting": {
+            "dynamicRegistration": true,
+            "rangesSupport": true
+          },
+          "onTypeFormatting": {
+            "dynamicRegistration": true
+          },
+          "rename": {
+            "dynamicRegistration": true,
+            "prepareSupport": true,
+            "prepareSupportDefaultBehavior": 1,
+            "honorsChangeAnnotations": true
+          },
+          "documentLink": {
+            "dynamicRegistration": true,
+            "tooltipSupport": true
+          },
+          "typeDefinition": {
+            "dynamicRegistration": true,
+            "linkSupport": true
+          },
+          "implementation": {
+            "dynamicRegistration": true,
+            "linkSupport": true
+          },
+          "colorProvider": {
+            "dynamicRegistration": true
+          },
+          "foldingRange": {
+            "dynamicRegistration": true,
+            "rangeLimit": 5000,
+            "lineFoldingOnly": true,
+            "foldingRangeKind": {
+              "valueSet": [
+                "comment",
+                "imports",
+                "region"
+              ]
+            },
+            "foldingRange": {
+              "collapsedText": false
+            }
+          },
+          "declaration": {
+            "dynamicRegistration": true,
+            "linkSupport": true
+          },
+          "selectionRange": {
+            "dynamicRegistration": true
+          },
+          "callHierarchy": {
+            "dynamicRegistration": true
+          },
+          "semanticTokens": {
+            "dynamicRegistration": true,
+            "tokenTypes": [
+              "namespace",
+              "type",
+              "class",
+              "enum",
+              "interface",
+              "struct",
+              "typeParameter",
+              "parameter",
+              "variable",
+              "property",
+              "enumMember",
+              "event",
+              "function",
+              "method",
+              "macro",
+              "keyword",
+              "modifier",
+              "comment",
+              "string",
+              "number",
+              "regexp",
+              "operator",
+              "decorator"
+            ],
+            "tokenModifiers": [
+              "declaration",
+              "definition",
+              "readonly",
+              "static",
+              "deprecated",
+              "abstract",
+              "async",
+              "modification",
+              "documentation",
+              "defaultLibrary"
+            ],
+            "formats": [
+              "relative"
+            ],
+            "requests": {
+              "range": true,
+              "full": {
+                "delta": true
+              }
+            },
+            "multilineTokenSupport": false,
+            "overlappingTokenSupport": false,
+            "serverCancelSupport": true,
+            "augmentsSyntaxTokens": true
+          },
+          "linkedEditingRange": {
+            "dynamicRegistration": true
+          },
+          "typeHierarchy": {
+            "dynamicRegistration": true
+          },
+          "inlineValue": {
+            "dynamicRegistration": true
+          },
+          "inlayHint": {
+            "dynamicRegistration": true,
+            "resolveSupport": {
+              "properties": [
+                "tooltip",
+                "textEdits",
+                "label.tooltip",
+                "label.location",
+                "label.command"
+              ]
+            }
+          },
+          "diagnostic": {
+            "dynamicRegistration": true,
+            "relatedDocumentSupport": false
+          }
+        },
+        "window": {
+          "showMessage": {
+            "messageActionItem": {
+              "additionalPropertiesSupport": true
+            }
+          },
+          "showDocument": {
+            "support": true
+          },
+          "workDoneProgress": true
+        },
+        "general": {
+          "staleRequestSupport": {
+            "cancel": true,
+            "retryOnContentModified": [
+              "textDocument/semanticTokens/full",
+              "textDocument/semanticTokens/range",
+              "textDocument/semanticTokens/full/delta"
+            ]
+          },
+          "regularExpressions": {
+            "engine": "ECMAScript",
+            "version": "ES2020"
+          },
+          "markdown": {
+            "parser": "marked",
+            "version": "1.1.0"
+          },
+          "positionEncodings": [
+            "utf-16"
           ]
         },
-        "definitionProvider": true,
-        "referencesProvider": true,
-        "documentSymbolProvider": true,
-        "codeActionProvider": {
-          "codeActionKinds": [
-            "quickfix",
-            "refactor.extract"
-          ]
-        },
-        "codeLensProvider": {
-          "resolveProvider": false
-        },
-        "renameProvider": true
-      }
+        "notebookDocument": {
+          "synchronization": {
+            "dynamicRegistration": true,
+            "executionSummarySupport": true
+          }
+        }
+      },
+      "initializationOptions": {
+        "enableEmbeddedSoqlCompletion": true,
+        "enableErrorToTelemetry": false,
+        "enableSynchronizedInitJobs": true,
+        "apexActionClassDefModifiers": "withsharing,withoutsharing,inheritedsharing",
+        "apexActionClassAccessModifiers": "global,public",
+        "apexActionMethodDefModifiers": "static",
+        "apexActionMethodAccessModifiers": "global,public",
+        "apexActionPropDefModifiers": "static",
+        "apexActionPropAccessModifiers": "global,public",
+        "apexActionClassRestAnnotations": "RestResource",
+        "apexActionMethodRestAnnotations": "HttpDelete,HttpGet,HttpPatch,HttpPost,HttpPut",
+        "apexActionMethodAnnotations": "",
+        "apexOASClassAccessModifiers": "global,public",
+        "apexOASMethodAccessModifiers": "global,public",
+        "apexOASPropAccessModifiers": "global,public"
+      },
+      "trace": "verbose",
+      "workspaceFolders": [
+        {
+          "uri": "file:///Users/peter.hale/git/dreamhouse-lwc",
+          "name": "dreamhouse-lwc"
+        }
+      ]
+    },
+    "performance": {
+      "duration": 1182
     }
   },
   "1": {
     "timestamp": "10:20:05 AM",
     "type": "response",
     "method": "test/getTestMethods",
-    "id": 1
+    "id": 1,
+    "performance": {
+      "duration": 2
+    },
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class PagedResult {\n    @AuraEnabled\n    public Integer pageSize { get; set; }\n\n    @AuraEnabled\n    public Integer pageNumber { get; set; }\n\n    @AuraEnabled\n    public Integer totalItemCount { get; set; }\n\n    @AuraEnabled\n    public Object[] records { get; set; }\n}\n"
+      }
+    }
   },
   "2": {
     "timestamp": "10:20:08 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 2
+    "id": 2,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls"
+      }
+    },
+    "performance": {
+      "duration": 106
+    }
   },
   "3": {
     "timestamp": "10:20:08 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 3
+    "id": 3,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
+      }
+    },
+    "performance": {
+      "duration": 61
+    }
   },
   "4": {
     "timestamp": "10:20:08 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 4
+    "id": 4,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      }
+    },
+    "performance": {
+      "duration": 61
+    }
   },
   "5": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 5
+    "id": 5,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls"
+      }
+    },
+    "performance": {
+      "duration": 22
+    }
   },
   "6": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 6
+    "id": 6,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls"
+      }
+    },
+    "performance": {
+      "duration": 50
+    }
   },
   "7": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 7
+    "id": 7,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
+      }
+    },
+    "performance": {
+      "duration": 13
+    }
   },
   "8": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 8
+    "id": 8,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls"
+      }
+    },
+    "performance": {
+      "duration": 10
+    }
   },
   "9": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 9
+    "id": 9,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls"
+      }
+    },
+    "performance": {
+      "duration": 9
+    }
   },
   "10": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 10
+    "id": 10,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls"
+      }
+    },
+    "performance": {
+      "duration": 16
+    }
   },
   "11": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 11
+    "id": 11,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls"
+      }
+    },
+    "performance": {
+      "duration": 24
+    }
   },
   "12": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 12
+    "id": 12,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls"
+      }
+    },
+    "performance": {
+      "duration": 10
+    }
   },
   "13": {
     "timestamp": "10:22:11 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 13
+    "id": 13,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      }
+    },
+    "performance": {
+      "duration": 1
+    }
   },
   "14": {
     "timestamp": "10:22:11 AM",
     "type": "response",
     "method": "textDocument/codeAction",
-    "id": 14
+    "id": 14,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "range": {
+        "start": {
+          "line": 18,
+          "character": 30
+        },
+        "end": {
+          "line": 18,
+          "character": 30
+        }
+      },
+      "context": {
+        "diagnostics": [],
+        "triggerKind": 2
+      }
+    },
+    "performance": {
+      "duration": 8
+    }
   },
   "15": {
     "timestamp": "10:22:11 AM",
     "type": "response",
     "method": "textDocument/codeLens",
-    "id": 15
+    "id": 15,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      }
+    },
+    "performance": {
+      "duration": 3
+    }
   },
   "16": {
     "timestamp": "10:22:11 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 16
+    "id": 16,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      }
+    },
+    "performance": {
+      "duration": 2
+    }
   },
   "17": {
     "timestamp": "10:23:10 AM",
     "type": "response",
     "method": "textDocument/hover",
     "id": 17,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString FileUtilities.createFile(String base64data, String filename, String recordId)\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 2,
+        "character": 28
       }
+    },
+    "performance": {
+      "duration": 12
     }
   },
   "18": {
@@ -143,11 +771,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 18,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString FileUtilities.createFile(String base64data, String filename, String recordId)\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 2,
+        "character": 29
       }
+    },
+    "performance": {
+      "duration": 5
     }
   },
   "19": {
@@ -155,8 +789,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 19,
-    "result": {
-      "contents": ""
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 2,
+        "character": 14
+      }
+    },
+    "performance": {
+      "duration": 3
     }
   },
   "20": {
@@ -164,11 +807,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 20,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 3,
+        "character": 10
       }
+    },
+    "performance": {
+      "duration": 4
     }
   },
   "21": {
@@ -176,11 +825,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 21,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 4,
+        "character": 10
       }
+    },
+    "performance": {
+      "duration": 5
     }
   },
   "22": {
@@ -188,11 +843,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 22,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 5,
+        "character": 10
       }
+    },
+    "performance": {
+      "duration": 3
     }
   },
   "23": {
@@ -200,11 +861,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 23,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString recordId\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 5,
+        "character": 17
       }
+    },
+    "performance": {
+      "duration": 2
     }
   },
   "24": {
@@ -212,11 +879,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 24,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString recordId\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 5,
+        "character": 19
       }
+    },
+    "performance": {
+      "duration": 2
     }
   },
   "25": {
@@ -224,11 +897,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 25,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString recordId\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 5,
+        "character": 18
       }
+    },
+    "performance": {
+      "duration": 2
     }
   },
   "26": {
@@ -236,11 +915,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 26,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 21,
+        "character": 23
       }
+    },
+    "performance": {
+      "duration": 14
     }
   },
   "27": {
@@ -248,11 +933,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 27,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 21,
+        "character": 39
       }
+    },
+    "performance": {
+      "duration": 5
     }
   },
   "28": {
@@ -260,8 +951,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 28,
-    "result": {
-      "contents": ""
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 21,
+        "character": 63
+      }
+    },
+    "performance": {
+      "duration": 4
     }
   },
   "29": {
@@ -269,8 +969,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 29,
-    "result": {
-      "contents": ""
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 21,
+        "character": 64
+      }
+    },
+    "performance": {
+      "duration": 2
     }
   },
   "30": {
@@ -278,8 +987,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 30,
-    "result": {
-      "contents": ""
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 21,
+        "character": 65
+      }
+    },
+    "performance": {
+      "duration": 4
     }
   },
   "31": {
@@ -287,11 +1005,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 31,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 22,
+        "character": 24
       }
+    },
+    "performance": {
+      "duration": 5
     }
   },
   "32": {
@@ -299,11 +1023,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 32,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nId ContentDocumentLink.ContentDocumentId\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 22,
+        "character": 36
       }
+    },
+    "performance": {
+      "duration": 8
     }
   },
   "33": {
@@ -311,11 +1041,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 33,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nId ContentDocumentLink.ContentDocumentId\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 22,
+        "character": 38
       }
+    },
+    "performance": {
+      "duration": 6
     }
   },
   "34": {
@@ -323,11 +1059,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 34,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nId ContentDocumentLink.LinkedEntityId\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 23,
+        "character": 35
       }
+    },
+    "performance": {
+      "duration": 3
     }
   },
   "35": {
@@ -335,11 +1077,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 35,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 25,
+        "character": 29
       }
+    },
+    "performance": {
+      "duration": 4
     }
   },
   "36": {
@@ -347,11 +1095,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 36,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 25,
+        "character": 20
       }
+    },
+    "performance": {
+      "duration": 4
     }
   },
   "37": {
@@ -359,8 +1113,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 37,
-    "result": {
-      "contents": ""
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 25,
+        "character": 14
+      }
+    },
+    "performance": {
+      "duration": 3
     }
   },
   "38": {
@@ -368,11 +1131,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 38,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 24,
+        "character": 16
       }
+    },
+    "performance": {
+      "duration": 4
     }
   },
   "39": {
@@ -380,11 +1149,17 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 39,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 24,
+        "character": 30
       }
+    },
+    "performance": {
+      "duration": 2
     }
   },
   "40": {
@@ -392,18 +1167,27 @@
     "type": "response",
     "method": "textDocument/hover",
     "id": 40,
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString ContentDocumentLink.ShareType\n```\n"
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 24,
+        "character": 34
       }
+    },
+    "performance": {
+      "duration": 5
     }
   },
   "41": {
     "timestamp": "10:24:50 AM",
     "type": "response",
     "method": "shutdown",
-    "id": 41
+    "id": 41,
+    "performance": {
+      "duration": 159
+    }
   },
   "-1": {
     "timestamp": "10:20:05 AM",
@@ -484,6 +1268,31 @@
             "server": "verbose"
           }
         }
+      }
+    },
+    "result": {
+      "capabilities": {
+        "textDocumentSync": 1,
+        "hoverProvider": true,
+        "completionProvider": {
+          "resolveProvider": false,
+          "triggerCharacters": [
+            "."
+          ]
+        },
+        "definitionProvider": true,
+        "referencesProvider": true,
+        "documentSymbolProvider": true,
+        "codeActionProvider": {
+          "codeActionKinds": [
+            "quickfix",
+            "refactor.extract"
+          ]
+        },
+        "codeLensProvider": {
+          "resolveProvider": false
+        },
+        "renameProvider": true
       }
     }
   },
@@ -1313,6 +2122,12 @@
       "measures": {
         "ExecutionTime": 7
       }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString FileUtilities.createFile(String base64data, String filename, String recordId)\n```\n"
+      }
     }
   },
   "-64": {
@@ -1327,6 +2142,12 @@
       },
       "measures": {
         "ExecutionTime": 1
+      }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString FileUtilities.createFile(String base64data, String filename, String recordId)\n```\n"
       }
     }
   },
@@ -1343,6 +2164,9 @@
       "measures": {
         "ExecutionTime": 0
       }
+    },
+    "result": {
+      "contents": ""
     }
   },
   "-66": {
@@ -1357,6 +2181,12 @@
       },
       "measures": {
         "ExecutionTime": 1
+      }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString\n```\n"
       }
     }
   },
@@ -1373,6 +2203,12 @@
       "measures": {
         "ExecutionTime": 1
       }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString\n```\n"
+      }
     }
   },
   "-68": {
@@ -1387,6 +2223,12 @@
       },
       "measures": {
         "ExecutionTime": 0
+      }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString\n```\n"
       }
     }
   },
@@ -1403,6 +2245,12 @@
       "measures": {
         "ExecutionTime": 0
       }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString recordId\n```\n"
+      }
     }
   },
   "-70": {
@@ -1417,6 +2265,12 @@
       },
       "measures": {
         "ExecutionTime": 0
+      }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString recordId\n```\n"
       }
     }
   },
@@ -1433,6 +2287,12 @@
       "measures": {
         "ExecutionTime": 0
       }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString recordId\n```\n"
+      }
     }
   },
   "-72": {
@@ -1447,6 +2307,12 @@
       },
       "measures": {
         "ExecutionTime": 12
+      }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink\n```\n"
       }
     }
   },
@@ -1463,6 +2329,12 @@
       "measures": {
         "ExecutionTime": 1
       }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+      }
     }
   },
   "-74": {
@@ -1478,6 +2350,9 @@
       "measures": {
         "ExecutionTime": 1
       }
+    },
+    "result": {
+      "contents": ""
     }
   },
   "-75": {
@@ -1493,6 +2368,9 @@
       "measures": {
         "ExecutionTime": 0
       }
+    },
+    "result": {
+      "contents": ""
     }
   },
   "-76": {
@@ -1508,6 +2386,9 @@
       "measures": {
         "ExecutionTime": 0
       }
+    },
+    "result": {
+      "contents": ""
     }
   },
   "-77": {
@@ -1522,6 +2403,12 @@
       },
       "measures": {
         "ExecutionTime": 2
+      }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
       }
     }
   },
@@ -1538,6 +2425,12 @@
       "measures": {
         "ExecutionTime": 4
       }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nId ContentDocumentLink.ContentDocumentId\n```\n"
+      }
     }
   },
   "-79": {
@@ -1552,6 +2445,12 @@
       },
       "measures": {
         "ExecutionTime": 3
+      }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nId ContentDocumentLink.ContentDocumentId\n```\n"
       }
     }
   },
@@ -1568,6 +2467,12 @@
       "measures": {
         "ExecutionTime": 1
       }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nId ContentDocumentLink.LinkedEntityId\n```\n"
+      }
     }
   },
   "-81": {
@@ -1582,6 +2487,12 @@
       },
       "measures": {
         "ExecutionTime": 1
+      }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
       }
     }
   },
@@ -1598,6 +2509,12 @@
       "measures": {
         "ExecutionTime": 0
       }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+      }
     }
   },
   "-83": {
@@ -1613,6 +2530,9 @@
       "measures": {
         "ExecutionTime": 0
       }
+    },
+    "result": {
+      "contents": ""
     }
   },
   "-84": {
@@ -1627,6 +2547,12 @@
       },
       "measures": {
         "ExecutionTime": 1
+      }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
       }
     }
   },
@@ -1643,6 +2569,12 @@
       "measures": {
         "ExecutionTime": 0
       }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+      }
     }
   },
   "-86": {
@@ -1657,6 +2589,12 @@
       },
       "measures": {
         "ExecutionTime": 2
+      }
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString ContentDocumentLink.ShareType\n```\n"
       }
     }
   }
