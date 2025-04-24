@@ -21,7 +21,8 @@
     "clean:packages": "npm run clean --workspaces",
     "clean:coverage": "rimraf coverage packages/*/coverage",
     "semantic-release": "semantic-release",
-    "benchmark:lsp": "npm run -w @salesforce/apex-lsp-testbed build && npm run -w @salesforce/apex-lsp-testbed benchmark"
+    "benchmark": "npm run -w @salesforce/apex-lsp-testbed build && npm run -w @salesforce/apex-lsp-testbed benchmark",
+    "benchmark:ci": "npm run -w @salesforce/apex-lsp-testbed build && npm run -w @salesforce/apex-lsp-testbed benchmark && node packages/apex-lsp-testbed/scripts/convert-benchmark-results.js"
   },
   "keywords": [
     "salesforce",

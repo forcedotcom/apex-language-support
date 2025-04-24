@@ -44,3 +44,6 @@ webpack-stats.json
 test-workspace
 /packages/apex-lsp-testbed/test-artifacts
 /test-artifacts
+
+# Benchmark files
+benchmark-output.json
