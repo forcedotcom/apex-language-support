@@ -9,11 +9,7 @@
 import * as cp from 'child_process';
 import { EventEmitter } from 'events';
 
-import type {
-  MessageConnection,
-  MessageReader,
-  MessageWriter,
-} from 'vscode-jsonrpc';
+import { JSONRPCClient } from 'json-rpc-2.0';
 
 import { ServerType } from '../utils/serverUtils.js';
 
@@ -123,15 +119,14 @@ export class ConsoleLogger implements Logger {
  */
 export class ApexJsonRpcClient {
   private childProcess: cp.ChildProcess | null = null;
-  private connection: MessageConnection | null = null;
-  private messageReader: MessageReader | null = null;
-  private messageWriter: MessageWriter | null = null;
   private isInitialized: boolean = false;
   private options: JsonRpcClientOptions;
   private logger: Logger;
   private serverCapabilities: any = null;
   private eventEmitter = new EventEmitter();
   private serverType: ServerType;
+  // Add a field for the JSONRPCClient
+  private client: JSONRPCClient | null = null;
 
   /**
    * Create a new JSON-RPC client for Apex Language Server
@@ -155,60 +150,70 @@ export class ApexJsonRpcClient {
    * @returns Promise that resolves when server is initialized
    */
   public async start(): Promise<void> {
-    if (this.connection) {
+    if (this.client) {
       return;
     }
 
-    // Dynamically import vscode-jsonrpc/node for ESM compatibility
-    // @ts-expect-error: TypeScript cannot find types for this subpath, but it works at runtime
-    const vscodeJsonrpcNode = await import('vscode-jsonrpc/node');
+    this.logger.info('Starting server process...');
+    this.childProcess = this.startServerProcess();
 
-    try {
-      this.logger.info('Starting server process...');
-      this.childProcess = this.startServerProcess();
-
-      if (!this.childProcess.stdout || !this.childProcess.stdin) {
-        throw new Error('Server process failed to start with proper pipes');
-      }
-
-      // Create connection directly from Node streams
-      this.connection = vscodeJsonrpcNode.createMessageConnection(
-        this.childProcess.stdout,
-        this.childProcess.stdin,
-      );
-
-      this.childProcess.stderr?.on('data', (data) => {
-        this.logger.error(`Server stderr: ${data.toString()}`);
-      });
-
-      this.childProcess.on('exit', (code) => {
-        this.logger.info(`Server process exited with code ${code}`);
-        this.connection = null;
-        this.childProcess = null;
-        this.eventEmitter.emit('exit', code);
-      });
-
-      // Set up notification handlers
-      if (this.connection) {
-        this.connection.onNotification((method, params) => {
-          this.logger.debug(`Received notification: ${method}`);
-          this.eventEmitter.emit('notification', { method, params });
-          this.eventEmitter.emit(`notification:${method}`, params);
-        });
-
-        // Start listening
-        this.connection.listen();
-      }
-
-      // Initialize the server
-      await this.initialize();
-
-      this.logger.info('Server started and initialized successfully');
-    } catch (error) {
-      this.logger.error(`Failed to start server: ${error}`);
-      await this.stop();
-      throw error;
+    if (!this.childProcess.stdout || !this.childProcess.stdin) {
+      throw new Error('Server process failed to start with proper pipes');
     }
+
+    // Set up the JSON-RPC client
+    this.client = new JSONRPCClient((json) => {
+      this.childProcess!.stdin!.write(JSON.stringify(json) + '\n');
+      return Promise.resolve();
+    });
+
+    // Listen for responses from the server
+    let buffer = '';
+    let contentLength: number | null = null;
+    this.childProcess.stdout.on('data', (data: Buffer) => {
+      buffer += data.toString();
+      while (true) {
+        if (contentLength === null) {
+          // Try to parse headers
+          const headerEnd = buffer.indexOf('\r\n\r\n');
+          if (headerEnd === -1) break;
+          const header = buffer.slice(0, headerEnd);
+          const match = header.match(/Content-Length: (\d+)/i);
+          if (!match) {
+            this.logger.error('Missing Content-Length header in LSP message');
+            buffer = buffer.slice(headerEnd + 4);
+            continue;
+          }
+          contentLength = parseInt(match[1], 10);
+          buffer = buffer.slice(headerEnd + 4);
+        }
+        if (buffer.length < contentLength) break;
+        const message = buffer.slice(0, contentLength);
+        buffer = buffer.slice(contentLength);
+        try {
+          const json = JSON.parse(message);
+          this.client!.receive(json);
+        } catch (err) {
+          this.logger.error('Failed to parse server message:', err, message);
+        }
+        contentLength = null;
+      }
+    });
+
+    this.childProcess.stderr?.on('data', (data) => {
+      this.logger.error(`Server stderr: ${data.toString()}`);
+    });
+
+    this.childProcess.on('exit', (code) => {
+      this.logger.info(`Server process exited with code ${code}`);
+      this.client = null;
+      this.childProcess = null;
+      this.eventEmitter.emit('exit', code);
+    });
+
+    // Initialize the server (send initialize request, etc.)
+    await this.initialize();
+    this.logger.info('Server started and initialized successfully');
   }
 
   /**
@@ -217,18 +222,15 @@ export class ApexJsonRpcClient {
    */
   public async stop(): Promise<void> {
     try {
-      if (this.connection && this.isInitialized) {
-        await this.connection.sendRequest('shutdown', undefined);
-        this.connection.sendNotification('exit');
+      if (this.client && this.isInitialized) {
+        await this.client.request('shutdown', undefined);
+        this.client.notify('exit', undefined);
       }
     } catch (error) {
       this.logger.error(`Error during shutdown: ${error}`);
     }
 
-    if (this.connection) {
-      this.connection.dispose();
-      this.connection = null;
-    }
+    this.client = null;
 
     if (this.childProcess) {
       if (!this.childProcess.killed) {
@@ -272,26 +274,19 @@ export class ApexJsonRpcClient {
    * @returns Promise that resolves with the response
    */
   public async sendRequest<T>(method: string, params: any): Promise<T> {
-    if (!this.connection || !this.isInitialized) {
+    if (!this.client || !this.isInitialized) {
       throw new Error('Client not initialized');
     }
-
     this.logger.debug(`Sending request: ${method}`);
-    return this.connection.sendRequest(method, params);
+    return this.client.request(method, params) as Promise<T>;
   }
 
-  /**
-   * Send a notification to the language server
-   * @param method - Notification method
-   * @param params - Notification parameters
-   */
   public sendNotification(method: string, params: any): void {
-    if (!this.connection || !this.isInitialized) {
+    if (!this.client || !this.isInitialized) {
       throw new Error('Client not initialized');
     }
-
     this.logger.debug(`Sending notification: ${method}`);
-    this.connection.sendNotification(method, params);
+    this.client.notify(method, params);
   }
 
   /**
@@ -464,10 +459,9 @@ export class ApexJsonRpcClient {
    * @private
    */
   private async initialize(): Promise<void> {
-    if (!this.connection) {
-      throw new Error('Connection not established');
+    if (!this.client) {
+      throw new Error('Client not established');
     }
-
     try {
       const initializeParams = {
         processId: process.pid,
@@ -567,14 +561,14 @@ export class ApexJsonRpcClient {
       this.logger.debug(
         'Initialize params: ' + JSON.stringify(initializeParams, null, 2),
       );
-      const result = (await this.connection.sendRequest(
+      const result = (await this.client.request(
         'initialize',
         initializeParams,
       )) as { capabilities: any };
       this.serverCapabilities = result.capabilities;
 
       // Send initialized notification
-      this.connection.sendNotification('initialized', {});
+      this.client.notify('initialized', {});
 
       this.isInitialized = true;
       this.logger.debug(

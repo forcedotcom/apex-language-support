@@ -9,7 +9,6 @@
 import * as cp from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-// ESM-compatible __dirname
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);

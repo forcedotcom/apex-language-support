@@ -11,7 +11,7 @@ import { join } from 'path';
 import {
   createTestServer,
   ServerOptions as ServerOptions,
-} from '../../src/test-utils/serverFactory';
+} from '../../src/test-utils/serverFactory.js';
 
 describe.skip('LSP Request/Response Accuracy', () => {
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;

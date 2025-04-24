@@ -85,7 +85,7 @@
     }
   },
   "dependencies": {
-    "vscode-jsonrpc": "^8.2.0",
+    "json-rpc-2.0": "^1.7.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-protocol": "^3.17.5",

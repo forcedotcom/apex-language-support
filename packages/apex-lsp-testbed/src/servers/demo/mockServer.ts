@@ -69,14 +69,7 @@ export class ApexLanguageServerMock {
     this.client = new ApexJsonRpcClient(clientOptions, this.logger);
 
     // Install the middleware
-    const connection = this.client['connection'];
-    if (connection) {
-      this.middleware.install(connection);
-    } else {
-      this.logger.error(
-        'Failed to install middleware: No connection established',
-      );
-    }
+    this.middleware.installOnClient(this.client);
   }
 
   /**

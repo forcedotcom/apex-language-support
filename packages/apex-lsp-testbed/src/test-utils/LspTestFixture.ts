@@ -90,13 +90,8 @@ export class LspTestFixture {
    */
   public async setup(): Promise<void> {
     await this.client.start();
-
     // Install middleware after client is started
-    if (this.client['connection']) {
-      this.middleware.install(this.client['connection']);
-    } else {
-      throw new Error('Client connection not available');
-    }
+    this.middleware.installOnClient(this.client);
   }
 
   /**

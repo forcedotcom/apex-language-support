@@ -143,4 +143,56 @@ export class RequestResponseCapturingMiddleware {
         });
     };
   }
+
+  /**
+   * Install the middleware on an ApexJsonRpcClient (json-rpc-2.0 based)
+   * This wraps sendRequest and sendNotification to capture requests/responses
+   */
+  public installOnClient(client: any): void {
+    // Patch sendRequest
+    const origSendRequest = client.sendRequest?.bind(client);
+    if (origSendRequest) {
+      client.sendRequest = async (method: string, params: any) => {
+        const id = Date.now() + Math.random();
+        const timestamp = Date.now();
+        const pair: RequestResponsePair = {
+          id,
+          method,
+          request: params,
+          timestamp,
+        };
+        this.pendingRequests.set(id, pair);
+        try {
+          const response = await origSendRequest(method, params);
+          pair.response = response;
+          pair.duration = Date.now() - timestamp;
+          this.capturedRequests.push(pair);
+          this.pendingRequests.delete(id);
+          return response;
+        } catch (error) {
+          pair.error = error;
+          pair.duration = Date.now() - timestamp;
+          this.capturedRequests.push(pair);
+          this.pendingRequests.delete(id);
+          throw error;
+        }
+      };
+    }
+    // Patch sendNotification (capture as fire-and-forget)
+    const origSendNotification = client.sendNotification?.bind(client);
+    if (origSendNotification) {
+      client.sendNotification = (method: string, params: any) => {
+        const id = Date.now() + Math.random();
+        const timestamp = Date.now();
+        const pair: RequestResponsePair = {
+          id,
+          method,
+          request: params,
+          timestamp,
+        };
+        this.capturedRequests.push(pair);
+        origSendNotification(method, params);
+      };
+    }
+  }
 }
