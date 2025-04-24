@@ -76,19 +76,19 @@ export interface Logger {
    * Log an info message
    * @param message - Message to log
    */
-  info(message: string): void;
+  info(message: string, ...args: any[]): void;
 
   /**
    * Log an error message
    * @param message - Message to log
    */
-  error(message: string): void;
+  error(message: string, ...args: any[]): void;
 
   /**
    * Log a debug message
    * @param message - Message to log
    */
-  debug(message: string): void;
+  debug(message: string, ...args: any[]): void;
 }
 
 /**
@@ -101,24 +101,24 @@ export class ConsoleLogger implements Logger {
    * Log an info message
    * @param message - Message to log
    */
-  info(message: string): void {
-    console.log(`[${this.prefix}] INFO: ${message}`);
+  info(message: string, ...args: any[]): void {
+    console.log(`[${this.prefix}] INFO: ${message}`, ...args);
   }
 
   /**
    * Log an error message
    * @param message - Message to log
    */
-  error(message: string): void {
-    console.error(`[${this.prefix}] ERROR: ${message}`);
+  error(message: string, ...args: any[]): void {
+    console.error(`[${this.prefix}] ERROR: ${message}`, ...args);
   }
 
   /**
    * Log a debug message
    * @param message - Message to log
    */
-  debug(message: string): void {
-    console.debug(`[${this.prefix}] DEBUG: ${message}`);
+  debug(message: string, ...args: any[]): void {
+    console.debug(`[${this.prefix}] DEBUG: ${message}`, ...args);
   }
 }
 
