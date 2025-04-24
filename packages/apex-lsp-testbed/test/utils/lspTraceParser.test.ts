@@ -206,4 +206,68 @@ Result: {
     expect(notif!.params.properties.Feature).toBe('Hover');
     expect(notif!.params.measures.ExecutionTime).toBe(7);
   });
+
+  it('should parse textDocument notifications correctly', () => {
+    /* eslint-disable max-len */
+    const logContent = `
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\\nprivate class TestPropertyController {\\n    private final static String MOCK_PICTURE_NAME = 'MockPictureName';\\n\\n    public static void createProperties(Integer amount) {\\n        List<Property__c> properties = new List<Property__c>();\\n        for (Integer i = 0; i < amount; i++) {\\n            properties.add(\\n                new Property__c(\\n                    Name = 'Name ' + i,\\n                    Price__c = 20000,\\n                    Beds__c = 3,\\n                    Baths__c = 3\\n                )\\n            );\\n        }\\n        insert properties;\\n    }\\n\\n    @isTest\\n    static void testGetPagedPropertyList() {\\n        Profile standardUserProfile = [\\n            SELECT Name, Id\\n            FROM Profile\\n            WHERE\\n                UserType = 'Standard'\\n                AND PermissionsPrivacyDataAccess = FALSE\\n                AND PermissionsSubmitMacrosAllowed = TRUE\\n                AND PermissionsMassInlineEdit = TRUE\\n            LIMIT 1\\n        ];\\n        User testUser = new User(\\n            Alias = 'standt',\\n            Email = 'standarduser@testorg.com',\\n            EmailEncodingKey = 'UTF-8',\\n            LastName = 'Testing',\\n            LanguageLocaleKey = 'en_US',\\n            LocaleSidKey = 'en_US',\\n            ProfileId = standardUserProfile.Id,\\n            TimeZoneSidKey = 'America/Los_Angeles',\\n            UserName = 'standarduser@dreamhouse-testorg.com'\\n        );\\n        insert testUser;\\n        PermissionSet ps = [\\n            SELECT Id\\n            FROM PermissionSet\\n            WHERE Name = 'dreamhouse'\\n        ];\\n        insert new PermissionSetAssignment(\\n            AssigneeId = testUser.Id,\\n            PermissionSetId = ps.Id\\n        );\\n\\n        // Insert test properties as admin\\n        System.runAs(new User(Id = UserInfo.getUserId())) {\\n            TestPropertyController.createProperties(5);\\n        }\\n        // Read properties as test user\\n        System.runAs(testUser) {\\n            Test.startTest();\\n            PagedResult result = PropertyController.getPagedPropertyList(\\n                '',\\n                999999,\\n                0,\\n                0,\\n                10,\\n                1\\n            );\\n            Test.stopTest();\\n            Assert.areEqual(5, result.records.size());\\n        }\\n    }\\n\\n    @isTest\\n    static void testGetPicturesNoResults() {\\n        Property__c property = new Property__c(Name = 'Name');\\n        insert property;\\n\\n        Test.startTest();\\n        List<ContentVersion> items = PropertyController.getPictures(\\n            property.Id\\n        );\\n        Test.stopTest();\\n\\n        Assert.isNull(items);\\n    }\\n\\n    @isTest\\n    static void testGetPicturesWithResults() {\\n        Property__c property = new Property__c(Name = 'Name');\\n        insert property;\\n\\n        // Insert mock picture\\n        ContentVersion picture = new Contentversion();\\n        picture.Title = MOCK_PICTURE_NAME;\\n        picture.PathOnClient = 'picture.png';\\n        picture.Versiondata = EncodingUtil.base64Decode('MockValue');\\n        insert picture;\\n\\n        // Link picture to property record\\n        List<ContentDocument> documents = [\\n            SELECT Id, Title, LatestPublishedVersionId\\n            FROM ContentDocument\\n            LIMIT 1\\n        ];\\n        ContentDocumentLink link = new ContentDocumentLink();\\n        link.LinkedEntityId = property.Id;\\n        link.ContentDocumentId = documents[0].Id;\\n        link.shareType = 'V';\\n        insert link;\\n\\n        Test.startTest();\\n        List<ContentVersion> items = PropertyController.getPictures(\\n            property.Id\\n        );\\n        Test.stopTest();\\n\\n        Assert.areEqual(1, items.size());\\n        Assert.areEqual(MOCK_PICTURE_NAME, items[0].Title);\\n    }\\n}\\n"
+    }
+}`;
+    /* eslint-enable max-len */
+    const result = [...parser.parse(logContent).values()];
+    expect(result).toHaveLength(3);
+
+    // Check didClose notification
+    const didClose = result.find(
+      (msg) => msg.method === 'textDocument/didClose',
+    );
+    expect(didClose).toBeDefined();
+    expect(didClose?.type).toBe('notification');
+    expect(didClose?.params.textDocument.uri).toContain(
+      'TestSampleDataController.cls',
+    );
+
+    // Check publishDiagnostics notification
+    const publishDiagnostics = result.find(
+      (msg) => msg.method === 'textDocument/publishDiagnostics',
+    );
+    expect(publishDiagnostics).toBeDefined();
+    expect(publishDiagnostics?.type).toBe('notification');
+    expect(publishDiagnostics?.params.uri).toContain(
+      'TestSampleDataController.cls',
+    );
+    expect(publishDiagnostics?.params.diagnostics).toEqual([]);
+
+    // Check didOpen notification
+    const didOpen = result.find((msg) => msg.method === 'textDocument/didOpen');
+    expect(didOpen).toBeDefined();
+    expect(didOpen?.type).toBe('notification');
+    expect(didOpen?.params.textDocument.uri).toContain(
+      'TestPropertyController.cls',
+    );
+    expect(didOpen?.params.textDocument.languageId).toBe('apex');
+    expect(didOpen?.params.textDocument.version).toBe(1);
+    expect(didOpen?.params.textDocument.text).toBeDefined();
+  });
 });

@@ -43,9 +43,9 @@ export class LSPTraceParser {
     RESPONSE:
       /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] Received response '([^']+) - \((\d+)\)' in (\d+)ms/,
 
-    // Matches "[Trace - HH:MM:SS AM/PM] Received notification 'method'"
+    // Matches "[Trace - HH:MM:SS AM/PM] (Sending|Received) notification 'method'"
     NOTIFICATION:
-      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] Received notification '([^']+)'/,
+      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] (?:Sending|Received) notification '([^']+)'/,
 
     // Matches log lines with memory information
     MEMORY: /Total Memory \(MB\): (\d+).*Used Memory \(MB\): (\d+)/,
