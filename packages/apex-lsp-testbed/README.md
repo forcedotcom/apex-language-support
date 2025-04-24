@@ -99,6 +99,68 @@ When running in interactive mode (the default), the following commands are avail
 - `exit/quit` - Exit the program
 - `help` - Show this help
 
+## Benchmarking
+
+You can run performance benchmarks to compare different Apex language server implementations. The benchmark script measures:
+
+- Server startup time
+- Server shutdown time
+- Performance of LSP operations (completion, hover, document symbols)
+
+### Running Benchmarks
+
+To run the benchmarks:
+
+```bash
+# Make sure you've built the project first
+npm run build
+
+# Run the benchmark script
+npm run benchmark
+```
+
+This will:
+1. Start the Jorje server and run benchmarks
+2. Start the Demo server and run benchmarks
+3. Output the results to the `test-artifacts` folder:
+   - A timestamped file (`benchmark-results-YYYY-MM-DDTHH-MM-SS.txt`)
+   - A "latest results" file (`benchmark-results-latest.txt`)
+
+### Customizing Benchmarks
+
+You can customize the benchmark script (`scripts/benchmark-servers.js`) to:
+- Change the test workspace by modifying the `WORKSPACE_URL` constant
+- Modify which LSP operations are benchmarked by updating the `TESTS` array
+- Adjust output file locations in the `ARTIFACTS_DIR` and `OUTPUT_FILE` constants
+- Change the formatting of the results table by modifying the `generateResultsTable` function
+
+### Sample Benchmark Results
+
+The benchmark generates a markdown table with results like:
+
+```
+# Apex LSP Benchmark Results
+
+## Server Performance Comparison
+
+| Metric                    | Jorje        | Demo         | Ratio        |
+| ------------------------- | ------------ | ------------ | ------------ |
+| Startup (ms)              | 1866.00      | 1386.00      | 1.35         |
+| Shutdown (ms)             | 1579.00      | 1053.00      | 1.50         |
+| completion (ops/sec)      | 20.50        | 150.75       | 0.14         |
+| hover (ops/sec)           | 30.25        | 180.30       | 0.17         |
+| documentSymbol (ops/sec)  | 15.50        | 130.40       | 0.12         |
+
+## Test Configuration
+
+- Test workspace: https://github.com/trailheadapps/dreamhouse-lwc.git
+- Tests run: completion, hover, documentSymbol
+```
+
+Results are saved in the `test-artifacts` folder with both:
+- A timestamped file for historical tracking (`benchmark-results-YYYY-MM-DDTHH-MM-SS.txt`)
+- A consistent "latest results" file (`benchmark-results-latest.txt`) for easy reference
+
 ## Development
 
 To modify or extend the testbed:

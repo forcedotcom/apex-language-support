@@ -33,7 +33,8 @@
     "start:jorje:debug": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:jorje:debug:verbose": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:jorje:debug:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
-    "start:jorje:debug:verbose:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend"
+    "start:jorje:debug:verbose:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
+    "benchmark": "node scripts/benchmark-servers.js"
   },
   "wireit": {
     "build": {

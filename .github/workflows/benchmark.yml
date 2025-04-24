@@ -30,7 +30,7 @@ jobs:
         run: npm ci
         
       - name: Run performance benchmarks
-        run: npm run benchmark
+        run: npm run benchmark:lsp
         env:
           LSP_SERVER_PATH: 'mock-server.js'
       
