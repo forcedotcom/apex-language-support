@@ -37,7 +37,7 @@
   },
   "wireit": {
     "build": {
-      "command": "tsc && mkdir -p dist/resources && cp -r src/resources/* dist/resources/",
+      "command": "tsc --build --force && mkdir -p dist/resources && cp -r src/resources/* dist/resources/",
       "files": [
         "src/**/*.ts",
         "tsconfig.json",

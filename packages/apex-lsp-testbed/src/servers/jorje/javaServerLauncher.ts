@@ -9,6 +9,11 @@
 import * as cp from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+// ESM-compatible __dirname
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Define the Executable interface
 export interface Executable {
@@ -441,22 +446,3 @@ export const asyncExec = (
       }
     });
   });
-
-// Example usage for standalone mode
-if (require.main === module) {
-  (async () => {
-    try {
-      const server = await launchJavaServer();
-
-      // Handle SIGINT (Ctrl+C)
-      process.on('SIGINT', () => {
-        console.log('Stopping language server...');
-        server.kill();
-        process.exit(0);
-      });
-    } catch (error) {
-      console.error('Failed to start server:', error);
-      process.exit(1);
-    }
-  })();
-}

@@ -17,10 +17,6 @@ import type {
 
 import { ServerType } from '../utils/serverUtils.js';
 
-// Import node-specific runtime (MessageConnection, createMessageConnection, etc.)
-// Use require for CJS subpath import since ESM import fails with type declarations
-const vscodeJsonrpcNode = require('vscode-jsonrpc/node');
-
 /**
  * Options for configuring the JSON-RPC client
  */
@@ -162,6 +158,10 @@ export class ApexJsonRpcClient {
     if (this.connection) {
       return;
     }
+
+    // Dynamically import vscode-jsonrpc/node for ESM compatibility
+    // @ts-expect-error: TypeScript cannot find types for this subpath, but it works at runtime
+    const vscodeJsonrpcNode = await import('vscode-jsonrpc/node');
 
     try {
       this.logger.info('Starting server process...');
