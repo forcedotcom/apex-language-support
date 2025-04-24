@@ -78,6 +78,7 @@ Params: {
         );
       }
       expect(notif.method).toBe('telemetry/event');
+      expect(notif.direction).toBe('receive');
       expect(notif.params.properties.Feature).toBe(
         'ApexLanguageServerLauncher',
       );
@@ -213,13 +214,11 @@ Params: {
     }
 }
 
-
 [Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
 Params: {
     "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
     "diagnostics": []
 }
-
 
 [Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
 Params: {
@@ -240,6 +239,7 @@ Params: {
     );
     expect(didClose).toBeDefined();
     expect(didClose?.type).toBe('notification');
+    expect(didClose?.direction).toBe('send');
     expect(didClose?.params.textDocument.uri).toContain(
       'TestSampleDataController.cls',
     );
@@ -250,6 +250,7 @@ Params: {
     );
     expect(publishDiagnostics).toBeDefined();
     expect(publishDiagnostics?.type).toBe('notification');
+    expect(publishDiagnostics?.direction).toBe('receive');
     expect(publishDiagnostics?.params.uri).toContain(
       'TestSampleDataController.cls',
     );
@@ -259,6 +260,7 @@ Params: {
     const didOpen = result.find((msg) => msg.method === 'textDocument/didOpen');
     expect(didOpen).toBeDefined();
     expect(didOpen?.type).toBe('notification');
+    expect(didOpen?.direction).toBe('send');
     expect(didOpen?.params.textDocument.uri).toContain(
       'TestPropertyController.cls',
     );

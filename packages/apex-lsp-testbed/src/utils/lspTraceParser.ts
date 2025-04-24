@@ -6,12 +6,12 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 export interface LSPMessage {
-  timestamp: string;
   type: 'request' | 'response' | 'notification';
   method: string;
   id?: number;
   params?: any;
   result?: any;
+  direction?: 'send' | 'receive';
   telemetry?: {
     properties?: Record<string, string>;
     measures?: Record<string, number>;
@@ -45,7 +45,7 @@ export class LSPTraceParser {
 
     // Matches "[Trace - HH:MM:SS AM/PM] (Sending|Received) notification 'method'"
     NOTIFICATION:
-      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] (?:Sending|Received) notification '([^']+)'/,
+      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] (Sending|Received) notification '([^']+)'/,
 
     // Matches log lines with memory information
     MEMORY: /Total Memory \(MB\): (\d+).*Used Memory \(MB\): (\d+)/,
@@ -134,13 +134,12 @@ export class LSPTraceParser {
   }
 
   private handleRequest(match: RegExpMatchArray) {
-    const [, timestamp, method, id] = match;
+    const [, , method, id] = match;
     const originalId = parseInt(id);
     const serialId = this.nextSerialId++;
     this.originalIdToSerialId.set(originalId, serialId);
 
     const request: LSPMessage = {
-      timestamp,
       type: 'request',
       method,
       id: serialId,
@@ -150,7 +149,7 @@ export class LSPTraceParser {
   }
 
   private handleResponse(match: RegExpMatchArray) {
-    const [, timestamp, method, id, duration] = match;
+    const [, , method, id, duration] = match;
     const originalId = parseInt(id);
     const serialId = this.originalIdToSerialId.get(originalId);
     if (!serialId) {
@@ -163,7 +162,6 @@ export class LSPTraceParser {
     }
 
     const response: LSPMessage = {
-      timestamp,
       type: 'response',
       method,
       id: this.currentMessageId,
@@ -179,13 +177,17 @@ export class LSPTraceParser {
     this.result.set(this.currentMessageId, update);
   }
 
-  private handleNotification([, timestamp, method]: RegExpMatchArray) {
+  private handleNotification(match: RegExpMatchArray) {
+    const [, , direction, method] = match;
     const serialId = this.nextSerialId++;
+    const normalizedDirection = direction
+      .toLowerCase()
+      .replace(/ing$|d$/, '') as 'send' | 'receive';
     const notification: LSPMessage = {
-      timestamp,
       type: 'notification',
       method,
       id: serialId,
+      direction: normalizedDirection,
     };
     this.currentMessageId = serialId;
     this.result.set(serialId, notification);
