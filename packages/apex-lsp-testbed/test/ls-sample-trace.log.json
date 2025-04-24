@@ -1,9 +1,9 @@
 {
-  "0": {
+  "1": {
     "timestamp": "10:20:05 AM",
     "type": "response",
     "method": "initialize",
-    "id": 0,
+    "id": 1,
     "params": {
       "processId": 2979,
       "clientInfo": {
@@ -532,27 +532,13 @@
       }
     }
   },
-  "1": {
+  "2": {
     "timestamp": "10:20:05 AM",
     "type": "response",
     "method": "test/getTestMethods",
-    "id": 1,
+    "id": 2,
     "performance": {
       "duration": 2
-    }
-  },
-  "2": {
-    "timestamp": "10:20:08 AM",
-    "type": "response",
-    "method": "textDocument/documentSymbol",
-    "id": 2,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls"
-      }
-    },
-    "performance": {
-      "duration": 106
     }
   },
   "3": {
@@ -562,11 +548,11 @@
     "id": 3,
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls"
       }
     },
     "performance": {
-      "duration": 61
+      "duration": 106
     }
   },
   "4": {
@@ -576,7 +562,7 @@
     "id": 4,
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
       }
     },
     "performance": {
@@ -584,10 +570,24 @@
     }
   },
   "5": {
-    "timestamp": "10:20:09 AM",
+    "timestamp": "10:20:08 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
     "id": 5,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      }
+    },
+    "performance": {
+      "duration": 61
+    }
+  },
+  "6": {
+    "timestamp": "10:20:09 AM",
+    "type": "response",
+    "method": "textDocument/documentSymbol",
+    "id": 6,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls"
@@ -597,11 +597,11 @@
       "duration": 22
     }
   },
-  "6": {
+  "7": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 6,
+    "id": 7,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
       "diagnostics": [
@@ -653,11 +653,11 @@
       "duration": 50
     }
   },
-  "7": {
+  "8": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 7,
+    "id": 8,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
@@ -667,11 +667,11 @@
       "duration": 13
     }
   },
-  "8": {
+  "9": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 8,
+    "id": 9,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls"
@@ -681,11 +681,11 @@
       "duration": 10
     }
   },
-  "9": {
+  "10": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 9,
+    "id": 10,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls"
@@ -695,11 +695,11 @@
       "duration": 9
     }
   },
-  "10": {
+  "11": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 10,
+    "id": 11,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls"
@@ -709,11 +709,11 @@
       "duration": 16
     }
   },
-  "11": {
+  "12": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 11,
+    "id": 12,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls"
@@ -723,11 +723,11 @@
       "duration": 24
     }
   },
-  "12": {
+  "13": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 12,
+    "id": 13,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls"
@@ -737,11 +737,11 @@
       "duration": 10
     }
   },
-  "13": {
+  "14": {
     "timestamp": "10:22:11 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 13,
+    "id": 14,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -751,11 +751,11 @@
       "duration": 1
     }
   },
-  "14": {
+  "15": {
     "timestamp": "10:22:11 AM",
     "type": "response",
     "method": "textDocument/codeAction",
-    "id": 14,
+    "id": 15,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -779,11 +779,11 @@
       "duration": 8
     }
   },
-  "15": {
+  "16": {
     "timestamp": "10:22:11 AM",
     "type": "response",
     "method": "textDocument/codeLens",
-    "id": 15,
+    "id": 16,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -793,11 +793,11 @@
       "duration": 3
     }
   },
-  "16": {
+  "17": {
     "timestamp": "10:22:11 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 16,
+    "id": 17,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -807,11 +807,11 @@
       "duration": 2
     }
   },
-  "17": {
+  "18": {
     "timestamp": "10:23:10 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 17,
+    "id": 18,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -831,11 +831,11 @@
       }
     }
   },
-  "18": {
+  "19": {
     "timestamp": "10:23:10 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 18,
+    "id": 19,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -855,11 +855,11 @@
       }
     }
   },
-  "19": {
+  "20": {
     "timestamp": "10:23:13 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 19,
+    "id": 20,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -876,11 +876,11 @@
       "contents": ""
     }
   },
-  "20": {
+  "21": {
     "timestamp": "10:23:13 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 20,
+    "id": 21,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -900,11 +900,11 @@
       }
     }
   },
-  "21": {
+  "22": {
     "timestamp": "10:23:14 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 21,
+    "id": 22,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -924,11 +924,11 @@
       }
     }
   },
-  "22": {
+  "23": {
     "timestamp": "10:23:16 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 22,
+    "id": 23,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -948,11 +948,11 @@
       }
     }
   },
-  "23": {
+  "24": {
     "timestamp": "10:23:17 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 23,
+    "id": 24,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -972,11 +972,11 @@
       }
     }
   },
-  "24": {
+  "25": {
     "timestamp": "10:23:17 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 24,
+    "id": 25,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -996,11 +996,11 @@
       }
     }
   },
-  "25": {
+  "26": {
     "timestamp": "10:24:24 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 25,
+    "id": 26,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1020,11 +1020,11 @@
       }
     }
   },
-  "26": {
+  "27": {
     "timestamp": "10:24:25 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 26,
+    "id": 27,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1044,11 +1044,11 @@
       }
     }
   },
-  "27": {
+  "28": {
     "timestamp": "10:24:27 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 27,
+    "id": 28,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1068,11 +1068,11 @@
       }
     }
   },
-  "28": {
+  "29": {
     "timestamp": "10:24:28 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 28,
+    "id": 29,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1089,11 +1089,11 @@
       "contents": ""
     }
   },
-  "29": {
+  "30": {
     "timestamp": "10:24:28 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 29,
+    "id": 30,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1110,11 +1110,11 @@
       "contents": ""
     }
   },
-  "30": {
+  "31": {
     "timestamp": "10:24:29 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 30,
+    "id": 31,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1131,11 +1131,11 @@
       "contents": ""
     }
   },
-  "31": {
+  "32": {
     "timestamp": "10:24:31 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 31,
+    "id": 32,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1155,11 +1155,11 @@
       }
     }
   },
-  "32": {
+  "33": {
     "timestamp": "10:24:32 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 32,
+    "id": 33,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1179,11 +1179,11 @@
       }
     }
   },
-  "33": {
+  "34": {
     "timestamp": "10:24:33 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 33,
+    "id": 34,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1203,11 +1203,11 @@
       }
     }
   },
-  "34": {
+  "35": {
     "timestamp": "10:24:34 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 34,
+    "id": 35,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1227,32 +1227,8 @@
       }
     }
   },
-  "35": {
-    "timestamp": "10:24:35 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 35,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 25,
-        "character": 29
-      }
-    },
-    "performance": {
-      "duration": 4
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
-      }
-    }
-  },
   "36": {
-    "timestamp": "10:24:36 AM",
+    "timestamp": "10:24:35 AM",
     "type": "response",
     "method": "textDocument/hover",
     "id": 36,
@@ -1262,7 +1238,7 @@
       },
       "position": {
         "line": 25,
-        "character": 20
+        "character": 29
       }
     },
     "performance": {
@@ -1286,6 +1262,30 @@
       },
       "position": {
         "line": 25,
+        "character": 20
+      }
+    },
+    "performance": {
+      "duration": 4
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+      }
+    }
+  },
+  "38": {
+    "timestamp": "10:24:36 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 38,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 25,
         "character": 14
       }
     },
@@ -1296,11 +1296,11 @@
       "contents": ""
     }
   },
-  "38": {
+  "39": {
     "timestamp": "10:24:38 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 38,
+    "id": 39,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1320,11 +1320,11 @@
       }
     }
   },
-  "39": {
+  "40": {
     "timestamp": "10:24:39 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 39,
+    "id": 40,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1344,11 +1344,11 @@
       }
     }
   },
-  "40": {
+  "41": {
     "timestamp": "10:24:39 AM",
     "type": "response",
     "method": "textDocument/hover",
-    "id": 40,
+    "id": 41,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -1368,11 +1368,11 @@
       }
     }
   },
-  "41": {
+  "42": {
     "timestamp": "10:24:50 AM",
     "type": "response",
     "method": "shutdown",
-    "id": 41,
+    "id": 42,
     "performance": {
       "duration": 159
     }

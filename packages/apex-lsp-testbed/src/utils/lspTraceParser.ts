@@ -60,6 +60,8 @@ export class LSPTraceParser {
   private currentMessageId: number | null = null;
   private currentJsonType: 'params' | 'result' | null = null;
   private notificationId = -1;
+  private nextSerialId = 1;
+  private originalIdToSerialId: Map<number, number> = new Map();
   private result: Map<number, LSPMessage> = new Map();
 
   /**
@@ -133,20 +135,33 @@ export class LSPTraceParser {
 
   private handleRequest(match: RegExpMatchArray) {
     const [, timestamp, method, id] = match;
-    const messageId = parseInt(id);
+    const originalId = parseInt(id);
+    const serialId = this.nextSerialId++;
+    this.originalIdToSerialId.set(originalId, serialId);
+
     const request: LSPMessage = {
       timestamp,
       type: 'request',
       method,
-      id: messageId,
+      id: serialId,
     };
-    this.currentMessageId = messageId;
-    this.result.set(messageId, request);
+    this.currentMessageId = serialId;
+    this.result.set(serialId, request);
   }
 
   private handleResponse(match: RegExpMatchArray) {
     const [, timestamp, method, id, duration] = match;
-    this.currentMessageId = parseInt(id);
+    const originalId = parseInt(id);
+    const serialId = this.originalIdToSerialId.get(originalId);
+    if (!serialId) {
+      // If we haven't seen the request yet, create a new serial ID
+      const newSerialId = this.nextSerialId++;
+      this.originalIdToSerialId.set(originalId, newSerialId);
+      this.currentMessageId = newSerialId;
+    } else {
+      this.currentMessageId = serialId;
+    }
+
     const response: LSPMessage = {
       timestamp,
       type: 'response',
@@ -154,6 +169,7 @@ export class LSPTraceParser {
       id: this.currentMessageId,
       performance: { duration: parseInt(duration) },
     };
+
     // Always update the result map for this id
     const update = {
       ...this.result.get(this.currentMessageId),
