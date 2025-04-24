@@ -5,7 +5,6 @@
   "type": "commonjs",
   "main": "dist/cli.js",
   "types": "dist/cli.d.ts",
-  "module": "dist/cli.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/forcedotcom/apex-language-support.git",
