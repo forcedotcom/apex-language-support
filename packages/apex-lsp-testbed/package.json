@@ -2,8 +2,9 @@
   "name": "@salesforce/apex-lsp-testbed",
   "version": "0.1.0",
   "description": "Testbed for performance and qualitative analysis of various Apex language server implementations",
-  "type": "commonjs",
+  "type": "module",
   "main": "dist/cli.js",
+  "module": "dist/cli.js",
   "types": "dist/cli.d.ts",
   "repository": {
     "type": "git",

@@ -9,16 +9,17 @@
 import * as cp from 'child_process';
 import { EventEmitter } from 'events';
 
-import Benchmark from 'benchmark';
-import {
+import type {
   MessageConnection,
-  createMessageConnection,
   MessageReader,
   MessageWriter,
-  Disposable,
-} from 'vscode-jsonrpc/node';
+} from 'vscode-jsonrpc';
 
-import { ServerType } from '../utils/serverUtils';
+import { ServerType } from '../utils/serverUtils.js';
+
+// Import node-specific runtime (MessageConnection, createMessageConnection, etc.)
+// Use require for CJS subpath import since ESM import fails with type declarations
+const vscodeJsonrpcNode = require('vscode-jsonrpc/node');
 
 /**
  * Options for configuring the JSON-RPC client
@@ -171,7 +172,7 @@ export class ApexJsonRpcClient {
       }
 
       // Create connection directly from Node streams
-      this.connection = createMessageConnection(
+      this.connection = vscodeJsonrpcNode.createMessageConnection(
         this.childProcess.stdout,
         this.childProcess.stdin,
       );
@@ -188,14 +189,16 @@ export class ApexJsonRpcClient {
       });
 
       // Set up notification handlers
-      this.connection.onNotification((method, params) => {
-        this.logger.debug(`Received notification: ${method}`);
-        this.eventEmitter.emit('notification', { method, params });
-        this.eventEmitter.emit(`notification:${method}`, params);
-      });
+      if (this.connection) {
+        this.connection.onNotification((method, params) => {
+          this.logger.debug(`Received notification: ${method}`);
+          this.eventEmitter.emit('notification', { method, params });
+          this.eventEmitter.emit(`notification:${method}`, params);
+        });
 
-      // Start listening
-      this.connection.listen();
+        // Start listening
+        this.connection.listen();
+      }
 
       // Initialize the server
       await this.initialize();
@@ -249,11 +252,17 @@ export class ApexJsonRpcClient {
     callback: (params: unknown) => void,
   ): Disposable {
     this.eventEmitter.on(`notification:${method}`, callback);
-    return {
+    // Return a Disposable with dispose() and a dummy [Symbol.dispose] for compatibility
+    const disposable: any = {
       dispose: () => {
         this.eventEmitter.removeListener(`notification:${method}`, callback);
       },
     };
+    // Add [Symbol.dispose] if supported (for full Disposable compatibility)
+    if (typeof Symbol !== 'undefined' && Symbol.dispose) {
+      disposable[Symbol.dispose] = disposable.dispose;
+    }
+    return disposable;
   }
 
   /**
@@ -575,44 +584,6 @@ export class ApexJsonRpcClient {
     } catch (error) {
       this.logger.error(`Failed to initialize server: ${error}`);
       throw error;
-    }
-  }
-
-  /**
-   * Run specified tests with optional benchmarking
-   * @param tests - List of test names to run
-   * @param benchmark - Whether to run with Benchmark
-   */
-  public async runTests(tests: string[], benchmark: boolean): Promise<void> {
-    if (benchmark) {
-      const suite = new Benchmark.Suite();
-
-      tests.forEach((test) => {
-        suite.add(test, () => {
-          // Call the test method dynamically
-          const method = this[test as keyof ApexJsonRpcClient] as Function;
-          if (typeof method === 'function') {
-            method.call(this);
-          }
-        });
-      });
-
-      suite
-        .on('cycle', (event: any) => {
-          this.logger.info(String(event.target));
-        })
-        .on('complete', () => {
-          this.logger.info('Fastest is ' + suite.filter('fastest').map('name'));
-        })
-        .run({ async: true });
-    } else {
-      // Run tests without benchmarking
-      tests.forEach((test) => {
-        const method = this[test as keyof ApexJsonRpcClient] as Function;
-        if (typeof method === 'function') {
-          method.call(this);
-        }
-      });
     }
   }
 }

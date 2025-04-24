@@ -6,9 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as cp from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as cp from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 // Define the Executable interface
 export interface Executable {

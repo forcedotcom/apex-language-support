@@ -8,10 +8,10 @@
 
 import * as path from 'path';
 
-import { JsonRpcClientOptions } from '../client/ApexJsonRpcClient';
-import { WorkspaceConfig } from './workspaceUtils';
-import { code2ProtocolConverter, protocol2CodeConverter } from './uriUtils';
-import { createJavaServerOptions } from '../servers/jorje/javaServerLauncher';
+import { JsonRpcClientOptions } from '../client/ApexJsonRpcClient.js';
+import { WorkspaceConfig } from './workspaceUtils.js';
+import { code2ProtocolConverter, protocol2CodeConverter } from './uriUtils.js';
+import { createJavaServerOptions } from '../servers/jorje/javaServerLauncher.js';
 
 // Define server types as a string union
 export type ServerType = 'demo' | 'jorje';

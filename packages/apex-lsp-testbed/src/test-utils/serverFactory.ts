@@ -9,9 +9,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { ApexJsonRpcClient, ConsoleLogger } from '../client/ApexJsonRpcClient';
-import { createClientOptions, ServerType } from '../utils/serverUtils';
-import { WorkspaceConfig, prepareWorkspace } from '../utils/workspaceUtils';
+import {
+  ApexJsonRpcClient,
+  ConsoleLogger,
+} from '../client/ApexJsonRpcClient.js';
+import { createClientOptions, ServerType } from '../utils/serverUtils.js';
+import { WorkspaceConfig, prepareWorkspace } from '../utils/workspaceUtils.js';
 
 export interface ServerTestContext {
   client: ApexJsonRpcClient;

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { MessageConnection } from 'vscode-jsonrpc/node';
+import { MessageConnection } from 'vscode-jsonrpc';
 
 export interface RequestResponsePair {
   id: string | number;

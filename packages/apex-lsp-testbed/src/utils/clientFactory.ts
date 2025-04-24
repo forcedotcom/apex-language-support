@@ -10,8 +10,8 @@ import {
   ApexJsonRpcClient,
   ConsoleLogger,
   JsonRpcClientOptions,
-} from '../client/ApexJsonRpcClient';
-import { ServerType } from './serverUtils';
+} from '../client/ApexJsonRpcClient.js';
+import { ServerType } from './serverUtils.js';
 
 /**
  * Creates an appropriate client instance based on server type

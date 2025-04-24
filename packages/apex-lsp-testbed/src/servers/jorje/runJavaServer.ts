@@ -6,11 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as cp from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as readline from 'readline';
-import { ChildProcess } from 'child_process';
+import * as cp from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as readline from 'node:readline';
+import { ChildProcess } from 'node:child_process';
 
 // Constants
 const APEX_LANGUAGE_SERVER_MAIN = 'apex.jorje.lsp.ApexLanguageServerLauncher';

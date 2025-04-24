@@ -9,7 +9,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import type { LSPMessage } from '../../src/utils/lspTraceParser';
+import type { LSPMessage } from '../../src/utils/lspTraceParser.js';
 
 describe('LSP trace log data-driven tests', () => {
   // Load the JSON map of test cases

@@ -13,8 +13,8 @@ import {
   ApexJsonRpcClient,
   ConsoleLogger,
   JsonRpcClientOptions,
-} from '../../client/ApexJsonRpcClient';
-import { RequestResponseCapturingMiddleware } from '../../test-utils/RequestResponseCapturingMiddleware';
+} from '../../client/ApexJsonRpcClient.js';
+import { RequestResponseCapturingMiddleware } from '../../test-utils/RequestResponseCapturingMiddleware.js';
 
 // Determine project root directory
 const findProjectRoot = () => {
