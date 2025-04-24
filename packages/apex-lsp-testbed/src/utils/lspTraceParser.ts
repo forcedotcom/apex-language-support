@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 export interface LSPMessage {
-  type: 'request' | 'response' | 'notification';
+  type: 'request' | 'notification';
   method: string;
   id?: number;
   params?: any;
@@ -162,7 +162,7 @@ export class LSPTraceParser {
     }
 
     const response: LSPMessage = {
-      type: 'response',
+      type: 'request',
       method,
       id: this.currentMessageId,
       performance: { duration: parseInt(duration) },

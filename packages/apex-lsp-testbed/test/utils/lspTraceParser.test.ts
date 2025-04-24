@@ -38,7 +38,7 @@ Result: {
     expect(result).toHaveLength(1);
     const msg = result[0];
     expect(msg).toBeDefined();
-    expect(msg.type).toBe('response');
+    expect(msg.type).toBe('request');
     expect(msg.method).toBe('initialize');
     expect(msg.id).toBe(1);
     expect(msg.result).toBeDefined();
@@ -86,7 +86,7 @@ Params: {
     // Check response
     const response = result.find((item) => item.method === 'initialize');
     expect(response).toBeDefined();
-    expect(response!.type).toBe('response');
+    expect(response!.type).toBe('request');
     expect(response!.method).toBe('initialize');
     expect(response!.id).toBe(1);
   });
@@ -103,10 +103,10 @@ Params: {
     // Should have two messages: one for each id (0 and 1), both responses
     expect(result).toHaveLength(2);
     expect(result[0]).toBeDefined();
-    expect(result[0].type).toBe('response');
+    expect(result[0].type).toBe('request');
     expect(result[0].method).toBe('initialize');
     expect(result[1]).toBeDefined();
-    expect(result[1].type).toBe('response');
+    expect(result[1].type).toBe('request');
     expect(result[1].method).toBe('textDocument/hover');
   });
 
@@ -122,7 +122,7 @@ Params: {
     const result = [...parser.parse(logContent).values()];
     const msg = result[0];
     expect(msg).toBeDefined();
-    expect(msg.type).toBe('response');
+    expect(msg.type).toBe('request');
     expect(msg.method).toBe('initialize');
     expect(msg.params).toBeUndefined();
   });
@@ -184,12 +184,12 @@ Result: {
     // Check request/response (id=1)
     const hoverMsg = result.get(1);
     expect(hoverMsg).toBeDefined();
-    expect(hoverMsg!.type).toBe('response');
+    expect(hoverMsg!.type).toBe('request');
     expect(hoverMsg!.method).toBe('textDocument/hover');
     expect(hoverMsg!.params).toBeDefined();
     expect(hoverMsg!.params.textDocument.uri).toContain('FileUtilities.cls');
     expect(hoverMsg!.params.position).toEqual({ line: 2, character: 28 });
-    // Check response (should be the same id, type 'response', and have result)
+    // Check response (should be the same id, type 'request', and have result)
     expect(hoverMsg!.result).toBeDefined();
     expect(hoverMsg!.result.contents.kind).toBe('markdown');
     expect(hoverMsg!.result.contents.value).toContain(
