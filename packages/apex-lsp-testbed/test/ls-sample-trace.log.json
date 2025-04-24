@@ -534,18 +534,130 @@
   },
   "2": {
     "timestamp": "10:20:05 AM",
+    "type": "notification",
+    "method": "telemetry/event",
+    "id": 2,
+    "params": {
+      "properties": {
+        "Feature": "ApexLanguageServerLauncher",
+        "Exception": "None"
+      },
+      "measures": {
+        "ExecutionTime": 333,
+        "launchTime": 32,
+        "connectTime": 0,
+        "injectorTime": 187
+      }
+    }
+  },
+  "3": {
+    "timestamp": "10:20:05 AM",
+    "type": "notification",
+    "method": "telemetry/event",
+    "id": 3,
+    "params": {
+      "properties": {
+        "Feature": "ApexIndexer",
+        "Exception": "None"
+      },
+      "measures": {
+        "ExecutionTime": 86,
+        "calculateSourceOperationsTime": 40,
+        "Total Memory (MB)": 848,
+        "customObjectsTime": 0,
+        "getApexResourceFilesTime": 23,
+        "CustomObjects": 2,
+        "StandardObjects": 1307,
+        "standardObjectsTime": 13,
+        "Used Memory (MB)": 227,
+        "ErrorFiles": 6,
+        "apexFilesTime": 4,
+        "ApexFiles": 11
+      }
+    }
+  },
+  "4": {
+    "timestamp": "10:20:05 AM",
+    "type": "notification",
+    "method": "telemetry/event",
+    "id": 4,
+    "params": {
+      "properties": {
+        "isNewDb": "false",
+        "Feature": "ApexPrelude-startup",
+        "Exception": "None"
+      },
+      "measures": {
+        "ExecutionTime": 322,
+        "scannedApexStandardLibraryTime": 63,
+        "scanApexStandardLibraryIfNecessary-filteredSourceFilesTime": 63,
+        "scannedApexStandardLibraryFilteredSourceFilesTotal": 0,
+        "removedOldArtifactsTotal": 0,
+        "removedOldArtifactsTime": 4,
+        "scanApexStandardLibraryIfNecessary-updateSourceFilesTime": 0,
+        "scannedApexStandardLibrarySourceFilesTotal": 4720
+      }
+    }
+  },
+  "5": {
+    "timestamp": "10:20:05 AM",
+    "type": "notification",
+    "method": "telemetry/event",
+    "id": 5,
+    "params": {
+      "properties": {
+        "Feature": "ApexLanguageServer",
+        "Exception": "None"
+      },
+      "measures": {
+        "ExecutionTime": 331,
+        "serviceManager": 327
+      }
+    }
+  },
+  "6": {
+    "timestamp": "10:20:05 AM",
+    "type": "notification",
+    "method": "initialized",
+    "id": 6,
+    "params": {
+      "settings": {
+        "apex": {
+          "trace": {
+            "server": "verbose"
+          }
+        }
+      }
+    }
+  },
+  "7": {
+    "timestamp": "10:20:05 AM",
     "type": "response",
     "method": "test/getTestMethods",
-    "id": 2,
+    "id": 7,
     "performance": {
       "duration": 2
     }
   },
-  "3": {
+  "8": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/didOpen",
+    "id": 8,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class PagedResult {\n    @AuraEnabled\n    public Integer pageSize { get; set; }\n\n    @AuraEnabled\n    public Integer pageNumber { get; set; }\n\n    @AuraEnabled\n    public Integer totalItemCount { get; set; }\n\n    @AuraEnabled\n    public Object[] records { get; set; }\n}\n"
+      }
+    }
+  },
+  "9": {
     "timestamp": "10:20:08 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 3,
+    "id": 9,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls"
@@ -555,11 +667,71 @@
       "duration": 106
     }
   },
-  "4": {
+  "10": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "telemetry/event",
+    "id": 10,
+    "params": {
+      "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+      },
+      "measures": {
+        "ExecutionTime": 0
+      }
+    }
+  },
+  "11": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/publishDiagnostics",
+    "id": 11,
+    "params": {
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+      "diagnostics": []
+    }
+  },
+  "12": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/didClose",
+    "id": 12,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls"
+      }
+    }
+  },
+  "13": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/publishDiagnostics",
+    "id": 13,
+    "params": {
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+      "diagnostics": []
+    }
+  },
+  "14": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/didOpen",
+    "id": 14,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class PropertyController {\n    private static final Decimal DEFAULT_MAX_PRICE = 9999999;\n    private static final Integer DEFAULT_PAGE_SIZE = 9;\n\n    /**\n     * Endpoint that retrieves a paged and filtered list of properties\n     * @param searchKey String used for searching on property title, city and tags\n     * @param maxPrice Maximum price\n     * @param minBedrooms Minimum number of bedrooms\n     * @param minBathrooms Minimum number of bathrooms\n     * @param pageSize Number of properties per page\n     * @param pageNumber Page number\n     * @return PagedResult object holding the paged and filtered list of properties\n     */\n    @AuraEnabled(cacheable=true scope='global')\n    public static PagedResult getPagedPropertyList(\n        String searchKey,\n        Decimal maxPrice,\n        Integer minBedrooms,\n        Integer minBathrooms,\n        Integer pageSize,\n        Integer pageNumber\n    ) {\n        // Normalize inputs\n        Decimal safeMaxPrice = maxPrice ?? DEFAULT_MAX_PRICE;\n        Integer safeMinBedrooms = minBedrooms ?? 0;\n        Integer safeMinBathrooms = minBathrooms ?? 0;\n        Integer safePageSize = pageSize ?? DEFAULT_PAGE_SIZE;\n        Integer safePageNumber = pageNumber ?? 1;\n\n        String searchPattern = '%' + searchKey + '%';\n        Integer offset = (safePageNumber - 1) * safePageSize;\n\n        PagedResult result = new PagedResult();\n        result.pageSize = safePageSize;\n        result.pageNumber = safePageNumber;\n        result.totalItemCount = [\n            SELECT COUNT()\n            FROM Property__c\n            WHERE\n                (Name LIKE :searchPattern\n                OR City__c LIKE :searchPattern\n                OR Tags__c LIKE :searchPattern)\n                AND Price__c <= :safeMaxPrice\n                AND Beds__c >= :safeMinBedrooms\n                AND Baths__c >= :safeMinBathrooms\n        ];\n        result.records = [\n            SELECT\n                Id,\n                Name,\n                Address__c,\n                City__c,\n                State__c,\n                Description__c,\n                Price__c,\n                Baths__c,\n                Beds__c,\n                Thumbnail__c,\n                Location__Latitude__s,\n                Location__Longitude__s\n            FROM Property__c\n            WHERE\n                (Name LIKE :searchPattern\n                OR City__c LIKE :searchPattern\n                OR Tags__c LIKE :searchPattern)\n                AND Price__c <= :safeMaxPrice\n                AND Beds__c >= :safeMinBedrooms\n                AND Baths__c >= :safeMinBathrooms\n            WITH USER_MODE\n            ORDER BY Price__c\n            LIMIT :safePageSize\n            OFFSET :offset\n        ];\n        return result;\n    }\n\n    /**\n     * Endpoint that retrieves pictures associated with a property\n     * @param propertyId Property Id\n     * @return List of ContentVersion holding the pictures\n     */\n    @AuraEnabled(cacheable=true scope='global')\n    public static List<ContentVersion> getPictures(Id propertyId) {\n        List<ContentDocumentLink> links = [\n            SELECT Id, LinkedEntityId, ContentDocument.Title\n            FROM ContentDocumentLink\n            WHERE\n                LinkedEntityId = :propertyId\n                AND ContentDocument.FileType IN ('PNG', 'JPG', 'GIF')\n            WITH USER_MODE\n        ];\n\n        if (links.isEmpty()) {\n            return null;\n        }\n\n        Set<Id> contentIds = new Set<Id>();\n\n        for (ContentDocumentLink link : links) {\n            contentIds.add(link.ContentDocumentId);\n        }\n\n        return [\n            SELECT Id, Title\n            FROM ContentVersion\n            WHERE ContentDocumentId IN :contentIds AND IsLatest = TRUE\n            WITH USER_MODE\n            ORDER BY CreatedDate\n        ];\n    }\n}\n"
+      }
+    }
+  },
+  "15": {
     "timestamp": "10:20:08 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 4,
+    "id": 15,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
@@ -569,11 +741,71 @@
       "duration": 61
     }
   },
-  "5": {
+  "16": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/publishDiagnostics",
+    "id": 16,
+    "params": {
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
+      "diagnostics": []
+    }
+  },
+  "17": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "telemetry/event",
+    "id": 17,
+    "params": {
+      "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+      },
+      "measures": {
+        "ExecutionTime": 0
+      }
+    }
+  },
+  "18": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/didClose",
+    "id": 18,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
+      }
+    }
+  },
+  "19": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/publishDiagnostics",
+    "id": 19,
+    "params": {
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
+      "diagnostics": []
+    }
+  },
+  "20": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/didOpen",
+    "id": 20,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class FileUtilities {\n    @AuraEnabled\n    public static String createFile(\n        String base64data,\n        String filename,\n        String recordId\n    ) {\n        try {\n            ContentVersion contentVersion = new ContentVersion();\n            contentVersion.VersionData = EncodingUtil.base64Decode(base64data);\n            contentVersion.Title = filename;\n            contentVersion.PathOnClient = filename;\n            insert contentVersion;\n\n            contentVersion = [\n                SELECT ContentDocumentId\n                FROM ContentVersion\n                WHERE Id = :contentVersion.Id\n                WITH USER_MODE\n            ];\n\n            ContentDocumentLink contentDocumentLink = new ContentDocumentLink();\n            contentDocumentLink.ContentDocumentId = contentVersion.ContentDocumentId;\n            contentDocumentLink.LinkedEntityId = recordId;\n            contentDocumentLink.ShareType = 'V';\n            insert contentDocumentLink;\n\n            return contentDocumentLink.Id;\n        } catch (Exception e) {\n            throw new AuraHandledException('Error creating file: ' + e);\n        }\n    }\n\n    \n}"
+      }
+    }
+  },
+  "21": {
     "timestamp": "10:20:08 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 5,
+    "id": 21,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -583,11 +815,86 @@
       "duration": 61
     }
   },
-  "6": {
+  "22": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/publishDiagnostics",
+    "id": 22,
+    "params": {
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 29,
+              "character": 18
+            },
+            "end": {
+              "line": 29,
+              "character": 21
+            }
+          },
+          "severity": 2,
+          "message": "Invalid type: AuraHandledException"
+        }
+      ]
+    }
+  },
+  "23": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "telemetry/event",
+    "id": 23,
+    "params": {
+      "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+      },
+      "measures": {
+        "ExecutionTime": 0
+      }
+    }
+  },
+  "24": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/didClose",
+    "id": 24,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      }
+    }
+  },
+  "25": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/publishDiagnostics",
+    "id": 25,
+    "params": {
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+      "diagnostics": []
+    }
+  },
+  "26": {
+    "timestamp": "10:20:08 AM",
+    "type": "notification",
+    "method": "textDocument/didOpen",
+    "id": 26,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\nprivate class TestSampleDataController {\n    @isTest\n    static void importSampleData() {\n        Test.startTest();\n        SampleDataController.importSampleData();\n        Test.stopTest();\n\n        Integer propertyNumber = [SELECT COUNT() FROM Property__c];\n        Integer brokerNumber = [SELECT COUNT() FROM Broker__c];\n        Integer contactNumber = [SELECT COUNT() FROM Contact];\n\n        Assert.isTrue(propertyNumber > 0, 'Expected properties were created.');\n        Assert.isTrue(brokerNumber > 0, 'Expected brokers were created.');\n        Assert.isTrue(contactNumber > 0, 'Expected contacts were created.');\n    }\n}\n"
+      }
+    }
+  },
+  "27": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 6,
+    "id": 27,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls"
@@ -597,11 +904,71 @@
       "duration": 22
     }
   },
-  "7": {
+  "28": {
+    "timestamp": "10:20:09 AM",
+    "type": "notification",
+    "method": "textDocument/publishDiagnostics",
+    "id": 28,
+    "params": {
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+      "diagnostics": []
+    }
+  },
+  "29": {
+    "timestamp": "10:20:09 AM",
+    "type": "notification",
+    "method": "telemetry/event",
+    "id": 29,
+    "params": {
+      "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+      },
+      "measures": {
+        "ExecutionTime": 0
+      }
+    }
+  },
+  "30": {
+    "timestamp": "10:20:09 AM",
+    "type": "notification",
+    "method": "textDocument/didClose",
+    "id": 30,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls"
+      }
+    }
+  },
+  "31": {
+    "timestamp": "10:20:09 AM",
+    "type": "notification",
+    "method": "textDocument/publishDiagnostics",
+    "id": 31,
+    "params": {
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+      "diagnostics": []
+    }
+  },
+  "32": {
+    "timestamp": "10:20:09 AM",
+    "type": "notification",
+    "method": "textDocument/didOpen",
+    "id": 32,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\nprivate class TestPropertyController {\n    private final static String MOCK_PICTURE_NAME = 'MockPictureName';\n\n    public static void createProperties(Integer amount) {\n        List<Property__c> properties = new List<Property__c>();\n        for (Integer i = 0; i < amount; i++) {\n            properties.add(\n                new Property__c(\n                    Name = 'Name ' + i,\n                    Price__c = 20000,\n                    Beds__c = 3,\n                    Baths__c = 3\n                )\n            );\n        }\n        insert properties;\n    }\n\n    @isTest\n    static void testGetPagedPropertyList() {\n        Profile standardUserProfile = [\n            SELECT Name, Id\n            FROM Profile\n            WHERE\n                UserType = 'Standard'\n                AND PermissionsPrivacyDataAccess = FALSE\n                AND PermissionsSubmitMacrosAllowed = TRUE\n                AND PermissionsMassInlineEdit = TRUE\n            LIMIT 1\n        ];\n        User testUser = new User(\n            Alias = 'standt',\n            Email = 'standarduser@testorg.com',\n            EmailEncodingKey = 'UTF-8',\n            LastName = 'Testing',\n            LanguageLocaleKey = 'en_US',\n            LocaleSidKey = 'en_US',\n            ProfileId = standardUserProfile.Id,\n            TimeZoneSidKey = 'America/Los_Angeles',\n            UserName = 'standarduser@dreamhouse-testorg.com'\n        );\n        insert testUser;\n        PermissionSet ps = [\n            SELECT Id\n            FROM PermissionSet\n            WHERE Name = 'dreamhouse'\n        ];\n        insert new PermissionSetAssignment(\n            AssigneeId = testUser.Id,\n            PermissionSetId = ps.Id\n        );\n\n        // Insert test properties as admin\n        System.runAs(new User(Id = UserInfo.getUserId())) {\n            TestPropertyController.createProperties(5);\n        }\n        // Read properties as test user\n        System.runAs(testUser) {\n            Test.startTest();\n            PagedResult result = PropertyController.getPagedPropertyList(\n                '',\n                999999,\n                0,\n                0,\n                10,\n                1\n            );\n            Test.stopTest();\n            Assert.areEqual(5, result.records.size());\n        }\n    }\n\n    @isTest\n    static void testGetPicturesNoResults() {\n        Property__c property = new Property__c(Name = 'Name');\n        insert property;\n\n        Test.startTest();\n        List<ContentVersion> items = PropertyController.getPictures(\n            property.Id\n        );\n        Test.stopTest();\n\n        Assert.isNull(items);\n    }\n\n    @isTest\n    static void testGetPicturesWithResults() {\n        Property__c property = new Property__c(Name = 'Name');\n        insert property;\n\n        // Insert mock picture\n        ContentVersion picture = new Contentversion();\n        picture.Title = MOCK_PICTURE_NAME;\n        picture.PathOnClient = 'picture.png';\n        picture.Versiondata = EncodingUtil.base64Decode('MockValue');\n        insert picture;\n\n        // Link picture to property record\n        List<ContentDocument> documents = [\n            SELECT Id, Title, LatestPublishedVersionId\n            FROM ContentDocument\n            LIMIT 1\n        ];\n        ContentDocumentLink link = new ContentDocumentLink();\n        link.LinkedEntityId = property.Id;\n        link.ContentDocumentId = documents[0].Id;\n        link.shareType = 'V';\n        insert link;\n\n        Test.startTest();\n        List<ContentVersion> items = PropertyController.getPictures(\n            property.Id\n        );\n        Test.stopTest();\n\n        Assert.areEqual(1, items.size());\n        Assert.areEqual(MOCK_PICTURE_NAME, items[0].Title);\n    }\n}\n"
+      }
+    }
+  },
+  "33": {
     "timestamp": "10:20:09 AM",
     "type": "response",
     "method": "textDocument/documentSymbol",
-    "id": 7,
+    "id": 33,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
       "diagnostics": [
@@ -653,1138 +1020,47 @@
       "duration": 50
     }
   },
-  "8": {
-    "timestamp": "10:20:09 AM",
-    "type": "response",
-    "method": "textDocument/documentSymbol",
-    "id": 8,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
-      }
-    },
-    "performance": {
-      "duration": 13
-    }
-  },
-  "9": {
-    "timestamp": "10:20:09 AM",
-    "type": "response",
-    "method": "textDocument/documentSymbol",
-    "id": 9,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls"
-      }
-    },
-    "performance": {
-      "duration": 10
-    }
-  },
-  "10": {
-    "timestamp": "10:20:09 AM",
-    "type": "response",
-    "method": "textDocument/documentSymbol",
-    "id": 10,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls"
-      }
-    },
-    "performance": {
-      "duration": 9
-    }
-  },
-  "11": {
-    "timestamp": "10:20:09 AM",
-    "type": "response",
-    "method": "textDocument/documentSymbol",
-    "id": 11,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls"
-      }
-    },
-    "performance": {
-      "duration": 16
-    }
-  },
-  "12": {
-    "timestamp": "10:20:09 AM",
-    "type": "response",
-    "method": "textDocument/documentSymbol",
-    "id": 12,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls"
-      }
-    },
-    "performance": {
-      "duration": 24
-    }
-  },
-  "13": {
-    "timestamp": "10:20:09 AM",
-    "type": "response",
-    "method": "textDocument/documentSymbol",
-    "id": 13,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls"
-      }
-    },
-    "performance": {
-      "duration": 10
-    }
-  },
-  "14": {
-    "timestamp": "10:22:11 AM",
-    "type": "response",
-    "method": "textDocument/documentSymbol",
-    "id": 14,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      }
-    },
-    "performance": {
-      "duration": 1
-    }
-  },
-  "15": {
-    "timestamp": "10:22:11 AM",
-    "type": "response",
-    "method": "textDocument/codeAction",
-    "id": 15,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "range": {
-        "start": {
-          "line": 18,
-          "character": 30
-        },
-        "end": {
-          "line": 18,
-          "character": 30
-        }
-      },
-      "context": {
-        "diagnostics": [],
-        "triggerKind": 2
-      }
-    },
-    "performance": {
-      "duration": 8
-    }
-  },
-  "16": {
-    "timestamp": "10:22:11 AM",
-    "type": "response",
-    "method": "textDocument/codeLens",
-    "id": 16,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      }
-    },
-    "performance": {
-      "duration": 3
-    }
-  },
-  "17": {
-    "timestamp": "10:22:11 AM",
-    "type": "response",
-    "method": "textDocument/documentSymbol",
-    "id": 17,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      }
-    },
-    "performance": {
-      "duration": 2
-    }
-  },
-  "18": {
-    "timestamp": "10:23:10 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 18,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 2,
-        "character": 28
-      }
-    },
-    "performance": {
-      "duration": 12
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString FileUtilities.createFile(String base64data, String filename, String recordId)\n```\n"
-      }
-    }
-  },
-  "19": {
-    "timestamp": "10:23:10 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 19,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 2,
-        "character": 29
-      }
-    },
-    "performance": {
-      "duration": 5
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString FileUtilities.createFile(String base64data, String filename, String recordId)\n```\n"
-      }
-    }
-  },
-  "20": {
-    "timestamp": "10:23:13 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 20,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 2,
-        "character": 14
-      }
-    },
-    "performance": {
-      "duration": 3
-    },
-    "result": {
-      "contents": ""
-    }
-  },
-  "21": {
-    "timestamp": "10:23:13 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 21,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 3,
-        "character": 10
-      }
-    },
-    "performance": {
-      "duration": 4
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString\n```\n"
-      }
-    }
-  },
-  "22": {
-    "timestamp": "10:23:14 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 22,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 4,
-        "character": 10
-      }
-    },
-    "performance": {
-      "duration": 5
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString\n```\n"
-      }
-    }
-  },
-  "23": {
-    "timestamp": "10:23:16 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 23,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 5,
-        "character": 10
-      }
-    },
-    "performance": {
-      "duration": 3
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString\n```\n"
-      }
-    }
-  },
-  "24": {
-    "timestamp": "10:23:17 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 24,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 5,
-        "character": 17
-      }
-    },
-    "performance": {
-      "duration": 2
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString recordId\n```\n"
-      }
-    }
-  },
-  "25": {
-    "timestamp": "10:23:17 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 25,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 5,
-        "character": 19
-      }
-    },
-    "performance": {
-      "duration": 2
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString recordId\n```\n"
-      }
-    }
-  },
-  "26": {
-    "timestamp": "10:24:24 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 26,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 5,
-        "character": 18
-      }
-    },
-    "performance": {
-      "duration": 2
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString recordId\n```\n"
-      }
-    }
-  },
-  "27": {
-    "timestamp": "10:24:25 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 27,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 21,
-        "character": 23
-      }
-    },
-    "performance": {
-      "duration": 14
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink\n```\n"
-      }
-    }
-  },
-  "28": {
-    "timestamp": "10:24:27 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 28,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 21,
-        "character": 39
-      }
-    },
-    "performance": {
-      "duration": 5
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
-      }
-    }
-  },
-  "29": {
-    "timestamp": "10:24:28 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 29,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 21,
-        "character": 63
-      }
-    },
-    "performance": {
-      "duration": 4
-    },
-    "result": {
-      "contents": ""
-    }
-  },
-  "30": {
-    "timestamp": "10:24:28 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 30,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 21,
-        "character": 64
-      }
-    },
-    "performance": {
-      "duration": 2
-    },
-    "result": {
-      "contents": ""
-    }
-  },
-  "31": {
-    "timestamp": "10:24:29 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 31,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 21,
-        "character": 65
-      }
-    },
-    "performance": {
-      "duration": 4
-    },
-    "result": {
-      "contents": ""
-    }
-  },
-  "32": {
-    "timestamp": "10:24:31 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 32,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 22,
-        "character": 24
-      }
-    },
-    "performance": {
-      "duration": 5
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
-      }
-    }
-  },
-  "33": {
-    "timestamp": "10:24:32 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 33,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 22,
-        "character": 36
-      }
-    },
-    "performance": {
-      "duration": 8
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nId ContentDocumentLink.ContentDocumentId\n```\n"
-      }
-    }
-  },
   "34": {
-    "timestamp": "10:24:33 AM",
-    "type": "response",
-    "method": "textDocument/hover",
+    "timestamp": "10:20:09 AM",
+    "type": "notification",
+    "method": "telemetry/event",
     "id": 34,
     "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
       },
-      "position": {
-        "line": 22,
-        "character": 38
-      }
-    },
-    "performance": {
-      "duration": 6
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nId ContentDocumentLink.ContentDocumentId\n```\n"
+      "measures": {
+        "ExecutionTime": 0
       }
     }
   },
   "35": {
-    "timestamp": "10:24:34 AM",
-    "type": "response",
-    "method": "textDocument/hover",
+    "timestamp": "10:20:09 AM",
+    "type": "notification",
+    "method": "textDocument/didClose",
     "id": 35,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 23,
-        "character": 35
-      }
-    },
-    "performance": {
-      "duration": 3
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nId ContentDocumentLink.LinkedEntityId\n```\n"
-      }
-    }
-  },
-  "36": {
-    "timestamp": "10:24:35 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 36,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 25,
-        "character": 29
-      }
-    },
-    "performance": {
-      "duration": 4
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
-      }
-    }
-  },
-  "37": {
-    "timestamp": "10:24:36 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 37,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 25,
-        "character": 20
-      }
-    },
-    "performance": {
-      "duration": 4
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
-      }
-    }
-  },
-  "38": {
-    "timestamp": "10:24:36 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 38,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 25,
-        "character": 14
-      }
-    },
-    "performance": {
-      "duration": 3
-    },
-    "result": {
-      "contents": ""
-    }
-  },
-  "39": {
-    "timestamp": "10:24:38 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 39,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 24,
-        "character": 16
-      }
-    },
-    "performance": {
-      "duration": 4
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
-      }
-    }
-  },
-  "40": {
-    "timestamp": "10:24:39 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 40,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 24,
-        "character": 30
-      }
-    },
-    "performance": {
-      "duration": 2
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
-      }
-    }
-  },
-  "41": {
-    "timestamp": "10:24:39 AM",
-    "type": "response",
-    "method": "textDocument/hover",
-    "id": 41,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      },
-      "position": {
-        "line": 24,
-        "character": 34
-      }
-    },
-    "performance": {
-      "duration": 5
-    },
-    "result": {
-      "contents": {
-        "kind": "markdown",
-        "value": "```apex\nString ContentDocumentLink.ShareType\n```\n"
-      }
-    }
-  },
-  "42": {
-    "timestamp": "10:24:50 AM",
-    "type": "response",
-    "method": "shutdown",
-    "id": 42,
-    "performance": {
-      "duration": 159
-    }
-  },
-  "-1": {
-    "timestamp": "10:20:05 AM",
-    "type": "notification",
-    "method": "telemetry/event",
-    "id": -1,
-    "params": {
-      "properties": {
-        "Feature": "ApexLanguageServerLauncher",
-        "Exception": "None"
-      },
-      "measures": {
-        "ExecutionTime": 333,
-        "launchTime": 32,
-        "connectTime": 0,
-        "injectorTime": 187
-      }
-    }
-  },
-  "-2": {
-    "timestamp": "10:20:05 AM",
-    "type": "notification",
-    "method": "telemetry/event",
-    "id": -2,
-    "params": {
-      "properties": {
-        "Feature": "ApexIndexer",
-        "Exception": "None"
-      },
-      "measures": {
-        "ExecutionTime": 86,
-        "calculateSourceOperationsTime": 40,
-        "Total Memory (MB)": 848,
-        "customObjectsTime": 0,
-        "getApexResourceFilesTime": 23,
-        "CustomObjects": 2,
-        "StandardObjects": 1307,
-        "standardObjectsTime": 13,
-        "Used Memory (MB)": 227,
-        "ErrorFiles": 6,
-        "apexFilesTime": 4,
-        "ApexFiles": 11
-      }
-    }
-  },
-  "-3": {
-    "timestamp": "10:20:05 AM",
-    "type": "notification",
-    "method": "telemetry/event",
-    "id": -3,
-    "params": {
-      "properties": {
-        "isNewDb": "false",
-        "Feature": "ApexPrelude-startup",
-        "Exception": "None"
-      },
-      "measures": {
-        "ExecutionTime": 322,
-        "scannedApexStandardLibraryTime": 63,
-        "scanApexStandardLibraryIfNecessary-filteredSourceFilesTime": 63,
-        "scannedApexStandardLibraryFilteredSourceFilesTotal": 0,
-        "removedOldArtifactsTotal": 0,
-        "removedOldArtifactsTime": 4,
-        "scanApexStandardLibraryIfNecessary-updateSourceFilesTime": 0,
-        "scannedApexStandardLibrarySourceFilesTotal": 4720
-      }
-    }
-  },
-  "-4": {
-    "timestamp": "10:20:05 AM",
-    "type": "notification",
-    "method": "telemetry/event",
-    "id": -4,
-    "params": {
-      "properties": {
-        "Feature": "ApexLanguageServer",
-        "Exception": "None"
-      },
-      "measures": {
-        "ExecutionTime": 331,
-        "serviceManager": 327
-      }
-    }
-  },
-  "-5": {
-    "timestamp": "10:20:05 AM",
-    "type": "notification",
-    "method": "initialized",
-    "id": -5,
-    "params": {
-      "settings": {
-        "apex": {
-          "trace": {
-            "server": "verbose"
-          }
-        }
-      }
-    }
-  },
-  "-6": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/didOpen",
-    "id": -6,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
-        "languageId": "apex",
-        "version": 1,
-        "text": "public with sharing class PagedResult {\n    @AuraEnabled\n    public Integer pageSize { get; set; }\n\n    @AuraEnabled\n    public Integer pageNumber { get; set; }\n\n    @AuraEnabled\n    public Integer totalItemCount { get; set; }\n\n    @AuraEnabled\n    public Object[] records { get; set; }\n}\n"
-      }
-    }
-  },
-  "-7": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "telemetry/event",
-    "id": -7,
-    "params": {
-      "properties": {
-        "Feature": "Definition",
-        "Exception": "None"
-      },
-      "measures": {
-        "ExecutionTime": 0
-      }
-    }
-  },
-  "-8": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/publishDiagnostics",
-    "id": -8,
-    "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
-      "diagnostics": []
-    }
-  },
-  "-9": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/didClose",
-    "id": -9,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls"
-      }
-    }
-  },
-  "-10": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/publishDiagnostics",
-    "id": -10,
-    "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
-      "diagnostics": []
-    }
-  },
-  "-11": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/didOpen",
-    "id": -11,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
-        "languageId": "apex",
-        "version": 1,
-        "text": "public with sharing class PropertyController {\n    private static final Decimal DEFAULT_MAX_PRICE = 9999999;\n    private static final Integer DEFAULT_PAGE_SIZE = 9;\n\n    /**\n     * Endpoint that retrieves a paged and filtered list of properties\n     * @param searchKey String used for searching on property title, city and tags\n     * @param maxPrice Maximum price\n     * @param minBedrooms Minimum number of bedrooms\n     * @param minBathrooms Minimum number of bathrooms\n     * @param pageSize Number of properties per page\n     * @param pageNumber Page number\n     * @return PagedResult object holding the paged and filtered list of properties\n     */\n    @AuraEnabled(cacheable=true scope='global')\n    public static PagedResult getPagedPropertyList(\n        String searchKey,\n        Decimal maxPrice,\n        Integer minBedrooms,\n        Integer minBathrooms,\n        Integer pageSize,\n        Integer pageNumber\n    ) {\n        // Normalize inputs\n        Decimal safeMaxPrice = maxPrice ?? DEFAULT_MAX_PRICE;\n        Integer safeMinBedrooms = minBedrooms ?? 0;\n        Integer safeMinBathrooms = minBathrooms ?? 0;\n        Integer safePageSize = pageSize ?? DEFAULT_PAGE_SIZE;\n        Integer safePageNumber = pageNumber ?? 1;\n\n        String searchPattern = '%' + searchKey + '%';\n        Integer offset = (safePageNumber - 1) * safePageSize;\n\n        PagedResult result = new PagedResult();\n        result.pageSize = safePageSize;\n        result.pageNumber = safePageNumber;\n        result.totalItemCount = [\n            SELECT COUNT()\n            FROM Property__c\n            WHERE\n                (Name LIKE :searchPattern\n                OR City__c LIKE :searchPattern\n                OR Tags__c LIKE :searchPattern)\n                AND Price__c <= :safeMaxPrice\n                AND Beds__c >= :safeMinBedrooms\n                AND Baths__c >= :safeMinBathrooms\n        ];\n        result.records = [\n            SELECT\n                Id,\n                Name,\n                Address__c,\n                City__c,\n                State__c,\n                Description__c,\n                Price__c,\n                Baths__c,\n                Beds__c,\n                Thumbnail__c,\n                Location__Latitude__s,\n                Location__Longitude__s\n            FROM Property__c\n            WHERE\n                (Name LIKE :searchPattern\n                OR City__c LIKE :searchPattern\n                OR Tags__c LIKE :searchPattern)\n                AND Price__c <= :safeMaxPrice\n                AND Beds__c >= :safeMinBedrooms\n                AND Baths__c >= :safeMinBathrooms\n            WITH USER_MODE\n            ORDER BY Price__c\n            LIMIT :safePageSize\n            OFFSET :offset\n        ];\n        return result;\n    }\n\n    /**\n     * Endpoint that retrieves pictures associated with a property\n     * @param propertyId Property Id\n     * @return List of ContentVersion holding the pictures\n     */\n    @AuraEnabled(cacheable=true scope='global')\n    public static List<ContentVersion> getPictures(Id propertyId) {\n        List<ContentDocumentLink> links = [\n            SELECT Id, LinkedEntityId, ContentDocument.Title\n            FROM ContentDocumentLink\n            WHERE\n                LinkedEntityId = :propertyId\n                AND ContentDocument.FileType IN ('PNG', 'JPG', 'GIF')\n            WITH USER_MODE\n        ];\n\n        if (links.isEmpty()) {\n            return null;\n        }\n\n        Set<Id> contentIds = new Set<Id>();\n\n        for (ContentDocumentLink link : links) {\n            contentIds.add(link.ContentDocumentId);\n        }\n\n        return [\n            SELECT Id, Title\n            FROM ContentVersion\n            WHERE ContentDocumentId IN :contentIds AND IsLatest = TRUE\n            WITH USER_MODE\n            ORDER BY CreatedDate\n        ];\n    }\n}\n"
-      }
-    }
-  },
-  "-12": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/publishDiagnostics",
-    "id": -12,
-    "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
-      "diagnostics": []
-    }
-  },
-  "-13": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "telemetry/event",
-    "id": -13,
-    "params": {
-      "properties": {
-        "Feature": "Definition",
-        "Exception": "None"
-      },
-      "measures": {
-        "ExecutionTime": 0
-      }
-    }
-  },
-  "-14": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/didClose",
-    "id": -14,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
-      }
-    }
-  },
-  "-15": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/publishDiagnostics",
-    "id": -15,
-    "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
-      "diagnostics": []
-    }
-  },
-  "-16": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/didOpen",
-    "id": -16,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-        "languageId": "apex",
-        "version": 1,
-        "text": "public with sharing class FileUtilities {\n    @AuraEnabled\n    public static String createFile(\n        String base64data,\n        String filename,\n        String recordId\n    ) {\n        try {\n            ContentVersion contentVersion = new ContentVersion();\n            contentVersion.VersionData = EncodingUtil.base64Decode(base64data);\n            contentVersion.Title = filename;\n            contentVersion.PathOnClient = filename;\n            insert contentVersion;\n\n            contentVersion = [\n                SELECT ContentDocumentId\n                FROM ContentVersion\n                WHERE Id = :contentVersion.Id\n                WITH USER_MODE\n            ];\n\n            ContentDocumentLink contentDocumentLink = new ContentDocumentLink();\n            contentDocumentLink.ContentDocumentId = contentVersion.ContentDocumentId;\n            contentDocumentLink.LinkedEntityId = recordId;\n            contentDocumentLink.ShareType = 'V';\n            insert contentDocumentLink;\n\n            return contentDocumentLink.Id;\n        } catch (Exception e) {\n            throw new AuraHandledException('Error creating file: ' + e);\n        }\n    }\n\n    \n}"
-      }
-    }
-  },
-  "-17": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/publishDiagnostics",
-    "id": -17,
-    "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      "diagnostics": [
-        {
-          "range": {
-            "start": {
-              "line": 29,
-              "character": 18
-            },
-            "end": {
-              "line": 29,
-              "character": 21
-            }
-          },
-          "severity": 2,
-          "message": "Invalid type: AuraHandledException"
-        }
-      ]
-    }
-  },
-  "-18": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "telemetry/event",
-    "id": -18,
-    "params": {
-      "properties": {
-        "Feature": "Definition",
-        "Exception": "None"
-      },
-      "measures": {
-        "ExecutionTime": 0
-      }
-    }
-  },
-  "-19": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/didClose",
-    "id": -19,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
-      }
-    }
-  },
-  "-20": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/publishDiagnostics",
-    "id": -20,
-    "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      "diagnostics": []
-    }
-  },
-  "-21": {
-    "timestamp": "10:20:08 AM",
-    "type": "notification",
-    "method": "textDocument/didOpen",
-    "id": -21,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
-        "languageId": "apex",
-        "version": 1,
-        "text": "@isTest\nprivate class TestSampleDataController {\n    @isTest\n    static void importSampleData() {\n        Test.startTest();\n        SampleDataController.importSampleData();\n        Test.stopTest();\n\n        Integer propertyNumber = [SELECT COUNT() FROM Property__c];\n        Integer brokerNumber = [SELECT COUNT() FROM Broker__c];\n        Integer contactNumber = [SELECT COUNT() FROM Contact];\n\n        Assert.isTrue(propertyNumber > 0, 'Expected properties were created.');\n        Assert.isTrue(brokerNumber > 0, 'Expected brokers were created.');\n        Assert.isTrue(contactNumber > 0, 'Expected contacts were created.');\n    }\n}\n"
-      }
-    }
-  },
-  "-22": {
-    "timestamp": "10:20:09 AM",
-    "type": "notification",
-    "method": "textDocument/publishDiagnostics",
-    "id": -22,
-    "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
-      "diagnostics": []
-    }
-  },
-  "-23": {
-    "timestamp": "10:20:09 AM",
-    "type": "notification",
-    "method": "telemetry/event",
-    "id": -23,
-    "params": {
-      "properties": {
-        "Feature": "Definition",
-        "Exception": "None"
-      },
-      "measures": {
-        "ExecutionTime": 0
-      }
-    }
-  },
-  "-24": {
-    "timestamp": "10:20:09 AM",
-    "type": "notification",
-    "method": "textDocument/didClose",
-    "id": -24,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls"
-      }
-    }
-  },
-  "-25": {
-    "timestamp": "10:20:09 AM",
-    "type": "notification",
-    "method": "textDocument/publishDiagnostics",
-    "id": -25,
-    "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
-      "diagnostics": []
-    }
-  },
-  "-26": {
-    "timestamp": "10:20:09 AM",
-    "type": "notification",
-    "method": "textDocument/didOpen",
-    "id": -26,
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
-        "languageId": "apex",
-        "version": 1,
-        "text": "@isTest\nprivate class TestPropertyController {\n    private final static String MOCK_PICTURE_NAME = 'MockPictureName';\n\n    public static void createProperties(Integer amount) {\n        List<Property__c> properties = new List<Property__c>();\n        for (Integer i = 0; i < amount; i++) {\n            properties.add(\n                new Property__c(\n                    Name = 'Name ' + i,\n                    Price__c = 20000,\n                    Beds__c = 3,\n                    Baths__c = 3\n                )\n            );\n        }\n        insert properties;\n    }\n\n    @isTest\n    static void testGetPagedPropertyList() {\n        Profile standardUserProfile = [\n            SELECT Name, Id\n            FROM Profile\n            WHERE\n                UserType = 'Standard'\n                AND PermissionsPrivacyDataAccess = FALSE\n                AND PermissionsSubmitMacrosAllowed = TRUE\n                AND PermissionsMassInlineEdit = TRUE\n            LIMIT 1\n        ];\n        User testUser = new User(\n            Alias = 'standt',\n            Email = 'standarduser@testorg.com',\n            EmailEncodingKey = 'UTF-8',\n            LastName = 'Testing',\n            LanguageLocaleKey = 'en_US',\n            LocaleSidKey = 'en_US',\n            ProfileId = standardUserProfile.Id,\n            TimeZoneSidKey = 'America/Los_Angeles',\n            UserName = 'standarduser@dreamhouse-testorg.com'\n        );\n        insert testUser;\n        PermissionSet ps = [\n            SELECT Id\n            FROM PermissionSet\n            WHERE Name = 'dreamhouse'\n        ];\n        insert new PermissionSetAssignment(\n            AssigneeId = testUser.Id,\n            PermissionSetId = ps.Id\n        );\n\n        // Insert test properties as admin\n        System.runAs(new User(Id = UserInfo.getUserId())) {\n            TestPropertyController.createProperties(5);\n        }\n        // Read properties as test user\n        System.runAs(testUser) {\n            Test.startTest();\n            PagedResult result = PropertyController.getPagedPropertyList(\n                '',\n                999999,\n                0,\n                0,\n                10,\n                1\n            );\n            Test.stopTest();\n            Assert.areEqual(5, result.records.size());\n        }\n    }\n\n    @isTest\n    static void testGetPicturesNoResults() {\n        Property__c property = new Property__c(Name = 'Name');\n        insert property;\n\n        Test.startTest();\n        List<ContentVersion> items = PropertyController.getPictures(\n            property.Id\n        );\n        Test.stopTest();\n\n        Assert.isNull(items);\n    }\n\n    @isTest\n    static void testGetPicturesWithResults() {\n        Property__c property = new Property__c(Name = 'Name');\n        insert property;\n\n        // Insert mock picture\n        ContentVersion picture = new Contentversion();\n        picture.Title = MOCK_PICTURE_NAME;\n        picture.PathOnClient = 'picture.png';\n        picture.Versiondata = EncodingUtil.base64Decode('MockValue');\n        insert picture;\n\n        // Link picture to property record\n        List<ContentDocument> documents = [\n            SELECT Id, Title, LatestPublishedVersionId\n            FROM ContentDocument\n            LIMIT 1\n        ];\n        ContentDocumentLink link = new ContentDocumentLink();\n        link.LinkedEntityId = property.Id;\n        link.ContentDocumentId = documents[0].Id;\n        link.shareType = 'V';\n        insert link;\n\n        Test.startTest();\n        List<ContentVersion> items = PropertyController.getPictures(\n            property.Id\n        );\n        Test.stopTest();\n\n        Assert.areEqual(1, items.size());\n        Assert.areEqual(MOCK_PICTURE_NAME, items[0].Title);\n    }\n}\n"
-      }
-    }
-  },
-  "-27": {
-    "timestamp": "10:20:09 AM",
-    "type": "notification",
-    "method": "telemetry/event",
-    "id": -27,
-    "params": {
-      "properties": {
-        "Feature": "Definition",
-        "Exception": "None"
-      },
-      "measures": {
-        "ExecutionTime": 0
-      }
-    }
-  },
-  "-28": {
-    "timestamp": "10:20:09 AM",
-    "type": "notification",
-    "method": "textDocument/didClose",
-    "id": -28,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls"
       }
     }
   },
-  "-29": {
+  "36": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -29,
+    "id": 36,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
       "diagnostics": []
     }
   },
-  "-30": {
+  "37": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -30,
+    "id": 37,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
@@ -1794,21 +1070,35 @@
       }
     }
   },
-  "-31": {
+  "38": {
+    "timestamp": "10:20:09 AM",
+    "type": "response",
+    "method": "textDocument/documentSymbol",
+    "id": 38,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
+      }
+    },
+    "performance": {
+      "duration": 13
+    }
+  },
+  "39": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -31,
+    "id": 39,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
       "diagnostics": []
     }
   },
-  "-32": {
+  "40": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -32,
+    "id": 40,
     "params": {
       "properties": {
         "Feature": "Definition",
@@ -1819,32 +1109,32 @@
       }
     }
   },
-  "-33": {
+  "41": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -33,
+    "id": 41,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
       }
     }
   },
-  "-34": {
+  "42": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -34,
+    "id": 42,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
       "diagnostics": []
     }
   },
-  "-35": {
+  "43": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -35,
+    "id": 43,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
@@ -1854,11 +1144,25 @@
       }
     }
   },
-  "-36": {
+  "44": {
+    "timestamp": "10:20:09 AM",
+    "type": "response",
+    "method": "textDocument/documentSymbol",
+    "id": 44,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls"
+      }
+    },
+    "performance": {
+      "duration": 10
+    }
+  },
+  "45": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -36,
+    "id": 45,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
       "diagnostics": [
@@ -1879,11 +1183,11 @@
       ]
     }
   },
-  "-37": {
+  "46": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -37,
+    "id": 46,
     "params": {
       "properties": {
         "Feature": "Definition",
@@ -1894,32 +1198,32 @@
       }
     }
   },
-  "-38": {
+  "47": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -38,
+    "id": 47,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls"
       }
     }
   },
-  "-39": {
+  "48": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -39,
+    "id": 48,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
       "diagnostics": []
     }
   },
-  "-40": {
+  "49": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -40,
+    "id": 49,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
@@ -1929,21 +1233,35 @@
       }
     }
   },
-  "-41": {
+  "50": {
+    "timestamp": "10:20:09 AM",
+    "type": "response",
+    "method": "textDocument/documentSymbol",
+    "id": 50,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls"
+      }
+    },
+    "performance": {
+      "duration": 9
+    }
+  },
+  "51": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -41,
+    "id": 51,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
       "diagnostics": []
     }
   },
-  "-42": {
+  "52": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -42,
+    "id": 52,
     "params": {
       "properties": {
         "Feature": "Definition",
@@ -1954,32 +1272,32 @@
       }
     }
   },
-  "-43": {
+  "53": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -43,
+    "id": 53,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls"
       }
     }
   },
-  "-44": {
+  "54": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -44,
+    "id": 54,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
       "diagnostics": []
     }
   },
-  "-45": {
+  "55": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -45,
+    "id": 55,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
@@ -1989,21 +1307,35 @@
       }
     }
   },
-  "-46": {
+  "56": {
+    "timestamp": "10:20:09 AM",
+    "type": "response",
+    "method": "textDocument/documentSymbol",
+    "id": 56,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls"
+      }
+    },
+    "performance": {
+      "duration": 16
+    }
+  },
+  "57": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -46,
+    "id": 57,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
       "diagnostics": []
     }
   },
-  "-47": {
+  "58": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -47,
+    "id": 58,
     "params": {
       "properties": {
         "Feature": "Definition",
@@ -2014,32 +1346,32 @@
       }
     }
   },
-  "-48": {
+  "59": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -48,
+    "id": 59,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls"
       }
     }
   },
-  "-49": {
+  "60": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -49,
+    "id": 60,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
       "diagnostics": []
     }
   },
-  "-50": {
+  "61": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -50,
+    "id": 61,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
@@ -2049,21 +1381,35 @@
       }
     }
   },
-  "-51": {
+  "62": {
+    "timestamp": "10:20:09 AM",
+    "type": "response",
+    "method": "textDocument/documentSymbol",
+    "id": 62,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls"
+      }
+    },
+    "performance": {
+      "duration": 24
+    }
+  },
+  "63": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -51,
+    "id": 63,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
       "diagnostics": []
     }
   },
-  "-52": {
+  "64": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -52,
+    "id": 64,
     "params": {
       "properties": {
         "Feature": "Definition",
@@ -2074,32 +1420,32 @@
       }
     }
   },
-  "-53": {
+  "65": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -53,
+    "id": 65,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls"
       }
     }
   },
-  "-54": {
+  "66": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -54,
+    "id": 66,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
       "diagnostics": []
     }
   },
-  "-55": {
+  "67": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -55,
+    "id": 67,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
@@ -2109,11 +1455,25 @@
       }
     }
   },
-  "-56": {
+  "68": {
+    "timestamp": "10:20:09 AM",
+    "type": "response",
+    "method": "textDocument/documentSymbol",
+    "id": 68,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls"
+      }
+    },
+    "performance": {
+      "duration": 10
+    }
+  },
+  "69": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -56,
+    "id": 69,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
       "diagnostics": [
@@ -2162,11 +1522,11 @@
       ]
     }
   },
-  "-57": {
+  "70": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -57,
+    "id": 70,
     "params": {
       "properties": {
         "Feature": "Definition",
@@ -2177,32 +1537,32 @@
       }
     }
   },
-  "-58": {
+  "71": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -58,
+    "id": 71,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls"
       }
     }
   },
-  "-59": {
+  "72": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -59,
+    "id": 72,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
       "diagnostics": []
     }
   },
-  "-60": {
+  "73": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -60,
+    "id": 73,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
@@ -2212,21 +1572,21 @@
       }
     }
   },
-  "-61": {
+  "74": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -61,
+    "id": 74,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
       "diagnostics": []
     }
   },
-  "-62": {
+  "75": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -62,
+    "id": 75,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
@@ -2236,11 +1596,11 @@
       }
     }
   },
-  "-63": {
+  "76": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -63,
+    "id": 76,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
       "diagnostics": [
@@ -2289,11 +1649,11 @@
       ]
     }
   },
-  "-64": {
+  "77": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -64,
+    "id": 77,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
@@ -2303,21 +1663,21 @@
       }
     }
   },
-  "-65": {
+  "78": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -65,
+    "id": 78,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
       "diagnostics": []
     }
   },
-  "-66": {
+  "79": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -66,
+    "id": 79,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
@@ -2327,11 +1687,11 @@
       }
     }
   },
-  "-67": {
+  "80": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -67,
+    "id": 80,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
       "diagnostics": [
@@ -2352,11 +1712,11 @@
       ]
     }
   },
-  "-68": {
+  "81": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -68,
+    "id": 81,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
@@ -2366,11 +1726,11 @@
       }
     }
   },
-  "-69": {
+  "82": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -69,
+    "id": 82,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
@@ -2380,21 +1740,21 @@
       }
     }
   },
-  "-70": {
+  "83": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -70,
+    "id": 83,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
       "diagnostics": []
     }
   },
-  "-71": {
+  "84": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -71,
+    "id": 84,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
       "diagnostics": [
@@ -2443,11 +1803,11 @@
       ]
     }
   },
-  "-72": {
+  "85": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -72,
+    "id": 85,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
@@ -2457,11 +1817,11 @@
       }
     }
   },
-  "-73": {
+  "86": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -73,
+    "id": 86,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
@@ -2471,31 +1831,31 @@
       }
     }
   },
-  "-74": {
+  "87": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -74,
+    "id": 87,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
       "diagnostics": []
     }
   },
-  "-75": {
+  "88": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -75,
+    "id": 88,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
       "diagnostics": []
     }
   },
-  "-76": {
+  "89": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -76,
+    "id": 89,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
@@ -2505,11 +1865,11 @@
       }
     }
   },
-  "-77": {
+  "90": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -77,
+    "id": 90,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
       "diagnostics": [
@@ -2530,11 +1890,11 @@
       ]
     }
   },
-  "-78": {
+  "91": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -78,
+    "id": 91,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
@@ -2544,21 +1904,21 @@
       }
     }
   },
-  "-79": {
+  "92": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -79,
+    "id": 92,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
       "diagnostics": []
     }
   },
-  "-80": {
+  "93": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": -80,
+    "id": 93,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
@@ -2568,21 +1928,35 @@
       }
     }
   },
-  "-81": {
+  "94": {
     "timestamp": "10:20:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -81,
+    "id": 94,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
       "diagnostics": []
     }
   },
-  "-82": {
+  "95": {
+    "timestamp": "10:22:11 AM",
+    "type": "response",
+    "method": "textDocument/documentSymbol",
+    "id": 95,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      }
+    },
+    "performance": {
+      "duration": 1
+    }
+  },
+  "96": {
     "timestamp": "10:22:11 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -82,
+    "id": 96,
     "params": {
       "properties": {
         "Feature": "Definition",
@@ -2593,11 +1967,39 @@
       }
     }
   },
-  "-83": {
+  "97": {
+    "timestamp": "10:22:11 AM",
+    "type": "response",
+    "method": "textDocument/codeAction",
+    "id": 97,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "range": {
+        "start": {
+          "line": 18,
+          "character": 30
+        },
+        "end": {
+          "line": 18,
+          "character": 30
+        }
+      },
+      "context": {
+        "diagnostics": [],
+        "triggerKind": 2
+      }
+    },
+    "performance": {
+      "duration": 8
+    }
+  },
+  "98": {
     "timestamp": "10:22:11 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -83,
+    "id": 98,
     "params": {
       "properties": {
         "CodeActionName": "ApexCodeActions",
@@ -2609,11 +2011,39 @@
       }
     }
   },
-  "-84": {
+  "99": {
+    "timestamp": "10:22:11 AM",
+    "type": "response",
+    "method": "textDocument/codeLens",
+    "id": 99,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      }
+    },
+    "performance": {
+      "duration": 3
+    }
+  },
+  "100": {
+    "timestamp": "10:22:11 AM",
+    "type": "response",
+    "method": "textDocument/documentSymbol",
+    "id": 100,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      }
+    },
+    "performance": {
+      "duration": 2
+    }
+  },
+  "101": {
     "timestamp": "10:22:11 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -84,
+    "id": 101,
     "params": {
       "properties": {
         "Feature": "CodeLens",
@@ -2624,11 +2054,11 @@
       }
     }
   },
-  "-85": {
+  "102": {
     "timestamp": "10:22:11 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -85,
+    "id": 102,
     "params": {
       "properties": {
         "Feature": "Definition",
@@ -2639,221 +2069,245 @@
       }
     }
   },
-  "-86": {
+  "103": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -86,
+    "id": 103,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls"
       }
     }
   },
-  "-87": {
+  "104": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -87,
+    "id": 104,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
       "diagnostics": []
     }
   },
-  "-88": {
+  "105": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -88,
+    "id": 105,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls"
       }
     }
   },
-  "-89": {
+  "106": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -89,
+    "id": 106,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
       "diagnostics": []
     }
   },
-  "-90": {
+  "107": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -90,
+    "id": 107,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls"
       }
     }
   },
-  "-91": {
+  "108": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -91,
+    "id": 108,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
       "diagnostics": []
     }
   },
-  "-92": {
+  "109": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -92,
+    "id": 109,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls"
       }
     }
   },
-  "-93": {
+  "110": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -93,
+    "id": 110,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
       "diagnostics": []
     }
   },
-  "-94": {
+  "111": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -94,
+    "id": 111,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls"
       }
     }
   },
-  "-95": {
+  "112": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -95,
+    "id": 112,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
       "diagnostics": []
     }
   },
-  "-96": {
+  "113": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -96,
+    "id": 113,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
       }
     }
   },
-  "-97": {
+  "114": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -97,
+    "id": 114,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
       }
     }
   },
-  "-98": {
+  "115": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -98,
+    "id": 115,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
       "diagnostics": []
     }
   },
-  "-99": {
+  "116": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -99,
+    "id": 116,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
       "diagnostics": []
     }
   },
-  "-100": {
+  "117": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -100,
+    "id": 117,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls"
       }
     }
   },
-  "-101": {
+  "118": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -101,
+    "id": 118,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
       "diagnostics": []
     }
   },
-  "-102": {
+  "119": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -102,
+    "id": 119,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls"
       }
     }
   },
-  "-103": {
+  "120": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -103,
+    "id": 120,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
       "diagnostics": []
     }
   },
-  "-104": {
+  "121": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": -104,
+    "id": 121,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls"
       }
     }
   },
-  "-105": {
+  "122": {
     "timestamp": "10:23:09 AM",
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": -105,
+    "id": 122,
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
       "diagnostics": []
     }
   },
-  "-106": {
+  "123": {
+    "timestamp": "10:23:10 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 123,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 2,
+        "character": 28
+      }
+    },
+    "performance": {
+      "duration": 12
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString FileUtilities.createFile(String base64data, String filename, String recordId)\n```\n"
+      }
+    }
+  },
+  "124": {
     "timestamp": "10:23:10 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -106,
+    "id": 124,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -2864,11 +2318,35 @@
       }
     }
   },
-  "-107": {
+  "125": {
+    "timestamp": "10:23:10 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 125,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 2,
+        "character": 29
+      }
+    },
+    "performance": {
+      "duration": 5
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString FileUtilities.createFile(String base64data, String filename, String recordId)\n```\n"
+      }
+    }
+  },
+  "126": {
     "timestamp": "10:23:10 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -107,
+    "id": 126,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -2879,11 +2357,32 @@
       }
     }
   },
-  "-108": {
+  "127": {
+    "timestamp": "10:23:13 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 127,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 2,
+        "character": 14
+      }
+    },
+    "performance": {
+      "duration": 3
+    },
+    "result": {
+      "contents": ""
+    }
+  },
+  "128": {
     "timestamp": "10:23:13 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -108,
+    "id": 128,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -2894,11 +2393,35 @@
       }
     }
   },
-  "-109": {
+  "129": {
+    "timestamp": "10:23:13 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 129,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 3,
+        "character": 10
+      }
+    },
+    "performance": {
+      "duration": 4
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString\n```\n"
+      }
+    }
+  },
+  "130": {
     "timestamp": "10:23:13 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -109,
+    "id": 130,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -2909,11 +2432,35 @@
       }
     }
   },
-  "-110": {
+  "131": {
+    "timestamp": "10:23:14 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 131,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 4,
+        "character": 10
+      }
+    },
+    "performance": {
+      "duration": 5
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString\n```\n"
+      }
+    }
+  },
+  "132": {
     "timestamp": "10:23:14 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -110,
+    "id": 132,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -2924,11 +2471,35 @@
       }
     }
   },
-  "-111": {
+  "133": {
+    "timestamp": "10:23:16 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 133,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 5,
+        "character": 10
+      }
+    },
+    "performance": {
+      "duration": 3
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString\n```\n"
+      }
+    }
+  },
+  "134": {
     "timestamp": "10:23:16 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -111,
+    "id": 134,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -2939,11 +2510,35 @@
       }
     }
   },
-  "-112": {
+  "135": {
+    "timestamp": "10:23:17 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 135,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 5,
+        "character": 17
+      }
+    },
+    "performance": {
+      "duration": 2
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString recordId\n```\n"
+      }
+    }
+  },
+  "136": {
     "timestamp": "10:23:17 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -112,
+    "id": 136,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -2954,11 +2549,35 @@
       }
     }
   },
-  "-113": {
+  "137": {
+    "timestamp": "10:23:17 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 137,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 5,
+        "character": 19
+      }
+    },
+    "performance": {
+      "duration": 2
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString recordId\n```\n"
+      }
+    }
+  },
+  "138": {
     "timestamp": "10:23:17 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -113,
+    "id": 138,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -2969,11 +2588,35 @@
       }
     }
   },
-  "-114": {
+  "139": {
+    "timestamp": "10:24:24 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 139,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 5,
+        "character": 18
+      }
+    },
+    "performance": {
+      "duration": 2
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString recordId\n```\n"
+      }
+    }
+  },
+  "140": {
     "timestamp": "10:24:24 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -114,
+    "id": 140,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -2984,11 +2627,35 @@
       }
     }
   },
-  "-115": {
+  "141": {
+    "timestamp": "10:24:25 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 141,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 21,
+        "character": 23
+      }
+    },
+    "performance": {
+      "duration": 14
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink\n```\n"
+      }
+    }
+  },
+  "142": {
     "timestamp": "10:24:25 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -115,
+    "id": 142,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -2999,11 +2666,35 @@
       }
     }
   },
-  "-116": {
+  "143": {
+    "timestamp": "10:24:27 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 143,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 21,
+        "character": 39
+      }
+    },
+    "performance": {
+      "duration": 5
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+      }
+    }
+  },
+  "144": {
     "timestamp": "10:24:27 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -116,
+    "id": 144,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3014,11 +2705,32 @@
       }
     }
   },
-  "-117": {
+  "145": {
+    "timestamp": "10:24:28 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 145,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 21,
+        "character": 63
+      }
+    },
+    "performance": {
+      "duration": 4
+    },
+    "result": {
+      "contents": ""
+    }
+  },
+  "146": {
     "timestamp": "10:24:28 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -117,
+    "id": 146,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3029,11 +2741,32 @@
       }
     }
   },
-  "-118": {
+  "147": {
+    "timestamp": "10:24:28 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 147,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 21,
+        "character": 64
+      }
+    },
+    "performance": {
+      "duration": 2
+    },
+    "result": {
+      "contents": ""
+    }
+  },
+  "148": {
     "timestamp": "10:24:28 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -118,
+    "id": 148,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3044,11 +2777,32 @@
       }
     }
   },
-  "-119": {
+  "149": {
+    "timestamp": "10:24:29 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 149,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 21,
+        "character": 65
+      }
+    },
+    "performance": {
+      "duration": 4
+    },
+    "result": {
+      "contents": ""
+    }
+  },
+  "150": {
     "timestamp": "10:24:29 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -119,
+    "id": 150,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3059,11 +2813,35 @@
       }
     }
   },
-  "-120": {
+  "151": {
+    "timestamp": "10:24:31 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 151,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 22,
+        "character": 24
+      }
+    },
+    "performance": {
+      "duration": 5
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+      }
+    }
+  },
+  "152": {
     "timestamp": "10:24:31 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -120,
+    "id": 152,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3074,11 +2852,35 @@
       }
     }
   },
-  "-121": {
+  "153": {
+    "timestamp": "10:24:32 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 153,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 22,
+        "character": 36
+      }
+    },
+    "performance": {
+      "duration": 8
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nId ContentDocumentLink.ContentDocumentId\n```\n"
+      }
+    }
+  },
+  "154": {
     "timestamp": "10:24:32 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -121,
+    "id": 154,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3089,11 +2891,35 @@
       }
     }
   },
-  "-122": {
+  "155": {
+    "timestamp": "10:24:33 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 155,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 22,
+        "character": 38
+      }
+    },
+    "performance": {
+      "duration": 6
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nId ContentDocumentLink.ContentDocumentId\n```\n"
+      }
+    }
+  },
+  "156": {
     "timestamp": "10:24:33 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -122,
+    "id": 156,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3104,11 +2930,35 @@
       }
     }
   },
-  "-123": {
+  "157": {
+    "timestamp": "10:24:34 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 157,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 23,
+        "character": 35
+      }
+    },
+    "performance": {
+      "duration": 3
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nId ContentDocumentLink.LinkedEntityId\n```\n"
+      }
+    }
+  },
+  "158": {
     "timestamp": "10:24:34 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -123,
+    "id": 158,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3119,11 +2969,35 @@
       }
     }
   },
-  "-124": {
+  "159": {
+    "timestamp": "10:24:35 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 159,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 25,
+        "character": 29
+      }
+    },
+    "performance": {
+      "duration": 4
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+      }
+    }
+  },
+  "160": {
     "timestamp": "10:24:35 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -124,
+    "id": 160,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3134,11 +3008,35 @@
       }
     }
   },
-  "-125": {
+  "161": {
+    "timestamp": "10:24:36 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 161,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 25,
+        "character": 20
+      }
+    },
+    "performance": {
+      "duration": 4
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+      }
+    }
+  },
+  "162": {
     "timestamp": "10:24:36 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -125,
+    "id": 162,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3149,11 +3047,32 @@
       }
     }
   },
-  "-126": {
+  "163": {
+    "timestamp": "10:24:36 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 163,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 25,
+        "character": 14
+      }
+    },
+    "performance": {
+      "duration": 3
+    },
+    "result": {
+      "contents": ""
+    }
+  },
+  "164": {
     "timestamp": "10:24:36 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -126,
+    "id": 164,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3164,11 +3083,35 @@
       }
     }
   },
-  "-127": {
+  "165": {
+    "timestamp": "10:24:38 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 165,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 24,
+        "character": 16
+      }
+    },
+    "performance": {
+      "duration": 4
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+      }
+    }
+  },
+  "166": {
     "timestamp": "10:24:38 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -127,
+    "id": 166,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3179,11 +3122,35 @@
       }
     }
   },
-  "-128": {
+  "167": {
+    "timestamp": "10:24:39 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 167,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 24,
+        "character": 30
+      }
+    },
+    "performance": {
+      "duration": 2
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+      }
+    }
+  },
+  "168": {
     "timestamp": "10:24:39 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -128,
+    "id": 168,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3194,11 +3161,35 @@
       }
     }
   },
-  "-129": {
+  "169": {
+    "timestamp": "10:24:39 AM",
+    "type": "response",
+    "method": "textDocument/hover",
+    "id": 169,
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+      },
+      "position": {
+        "line": 24,
+        "character": 34
+      }
+    },
+    "performance": {
+      "duration": 5
+    },
+    "result": {
+      "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString ContentDocumentLink.ShareType\n```\n"
+      }
+    }
+  },
+  "170": {
     "timestamp": "10:24:39 AM",
     "type": "notification",
     "method": "telemetry/event",
-    "id": -129,
+    "id": 170,
     "params": {
       "properties": {
         "Feature": "Hover",
@@ -3207,6 +3198,15 @@
       "measures": {
         "ExecutionTime": 2
       }
+    }
+  },
+  "171": {
+    "timestamp": "10:24:50 AM",
+    "type": "response",
+    "method": "shutdown",
+    "id": 171,
+    "performance": {
+      "duration": 159
     }
   }
 }

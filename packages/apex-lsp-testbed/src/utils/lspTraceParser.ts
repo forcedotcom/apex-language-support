@@ -59,7 +59,6 @@ export class LSPTraceParser {
   private parsingJson = false;
   private currentMessageId: number | null = null;
   private currentJsonType: 'params' | 'result' | null = null;
-  private notificationId = -1;
   private nextSerialId = 1;
   private originalIdToSerialId: Map<number, number> = new Map();
   private result: Map<number, LSPMessage> = new Map();
@@ -75,7 +74,8 @@ export class LSPTraceParser {
     this.parsingJson = false;
     this.currentMessageId = null;
     this.currentJsonType = null;
-    this.notificationId = -1;
+    this.nextSerialId = 1;
+    this.originalIdToSerialId = new Map();
     const lines = logContent.split('\n');
     for (const line of lines) {
       this.parseLine(line.trim());
@@ -180,14 +180,15 @@ export class LSPTraceParser {
   }
 
   private handleNotification([, timestamp, method]: RegExpMatchArray) {
+    const serialId = this.nextSerialId++;
     const notification: LSPMessage = {
       timestamp,
       type: 'notification',
       method,
-      id: this.notificationId--,
+      id: serialId,
     };
-    this.currentMessageId = notification.id!;
-    this.result.set(notification.id!, notification);
+    this.currentMessageId = serialId;
+    this.result.set(serialId, notification);
   }
 
   private processJsonContent() {

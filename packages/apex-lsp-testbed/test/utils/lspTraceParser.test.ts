@@ -34,13 +34,13 @@ Result: {
 }`;
 
     const result = [...parser.parse(logContent).values()];
-    // Should have only one id (0), which will be the response (last message for id=0)
+    // Should have only one id (1), which will be the response (last message for id=1)
     expect(result).toHaveLength(1);
     const msg = result[0];
     expect(msg).toBeDefined();
     expect(msg.type).toBe('response');
     expect(msg.method).toBe('initialize');
-    expect(msg.id).toBe(0);
+    expect(msg.id).toBe(1);
     expect(msg.result).toBeDefined();
     expect(msg.result.capabilities.textDocumentSync).toBe(1);
   });
@@ -65,10 +65,10 @@ Params: {
 [Trace - 10:20:05 AM] Received response 'initialize - (0)' in 1182ms.`;
 
     const result = [...parser.parse(logContent).values()];
-    // Should have two messages: one notification, one response (id=0)
+    // Should have two messages: one notification (id=2), one response (id=1)
     expect(result).toHaveLength(2);
-    // Find notification by negative id
-    const notif = result.find((item) => item.type === 'notification');
+    // Find notification by method
+    const notif = result.find((item) => item.method === 'telemetry/event');
     expect(notif).toBeDefined();
     if (notif) {
       expect(notif.params).toBeDefined();
@@ -83,11 +83,11 @@ Params: {
       );
     }
     // Check response
-    const response = result[0];
+    const response = result.find((item) => item.method === 'initialize');
     expect(response).toBeDefined();
-    expect(response.type).toBe('response');
-    expect(response.method).toBe('initialize');
-    expect(response.id).toBe(0);
+    expect(response!.type).toBe('response');
+    expect(response!.method).toBe('initialize');
+    expect(response!.id).toBe(1);
   });
 
   it('should handle multiple request/response pairs', () => {
@@ -160,7 +160,6 @@ Params: {
     }
 }
 
-
 [Trace - 10:23:10 AM] Received notification 'telemetry/event'.
 Params: {
     "properties": {
@@ -172,7 +171,6 @@ Params: {
     }
 }
 
-
 [Trace - 10:23:10 AM] Received response 'textDocument/hover - (17)' in 12ms.
 Result: {
     "contents": {
@@ -182,24 +180,22 @@ Result: {
 }`;
     /* eslint-enable max-len */
     const result = parser.parse(logContent);
-    // Check request
-    const hoverReq = result.get(17);
-    expect(hoverReq).toBeDefined();
-    expect(hoverReq!.type).toBe('response');
-    expect(hoverReq!.method).toBe('textDocument/hover');
-    expect(hoverReq!.params).toBeDefined();
-    expect(hoverReq!.params.textDocument.uri).toContain('FileUtilities.cls');
-    expect(hoverReq!.params.position).toEqual({ line: 2, character: 28 });
+    // Check request/response (id=1)
+    const hoverMsg = result.get(1);
+    expect(hoverMsg).toBeDefined();
+    expect(hoverMsg!.type).toBe('response');
+    expect(hoverMsg!.method).toBe('textDocument/hover');
+    expect(hoverMsg!.params).toBeDefined();
+    expect(hoverMsg!.params.textDocument.uri).toContain('FileUtilities.cls');
+    expect(hoverMsg!.params.position).toEqual({ line: 2, character: 28 });
     // Check response (should be the same id, type 'response', and have result)
-    expect(hoverReq!.result).toBeDefined();
-    expect(hoverReq!.result.contents.kind).toBe('markdown');
-    expect(hoverReq!.result.contents.value).toContain(
+    expect(hoverMsg!.result).toBeDefined();
+    expect(hoverMsg!.result.contents.kind).toBe('markdown');
+    expect(hoverMsg!.result.contents.value).toContain(
       'FileUtilities.createFile',
     );
-    // Check notification (should be the only negative id)
-    const notif = Array.from(result.values()).find(
-      (m) => m.type === 'notification',
-    );
+    // Check notification (should be id=2)
+    const notif = result.get(2);
     expect(notif).toBeDefined();
     expect(notif!.method).toBe('telemetry/event');
     expect(notif!.params).toBeDefined();
