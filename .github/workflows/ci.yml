@@ -20,6 +20,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Run npm install
+        run: npm install
+
       - name: Install dependencies
         run: npm ci
 

@@ -54,7 +54,7 @@ The tests can be run against different language server implementations:
 The demo server is a mock implementation that simulates responses without actually analyzing code.
 It's fast and doesn't require any special setup, making it ideal for quick tests.
 
-### Jorje Server (woohoo!)
+### Jorje Server
 
 The jorje server is the real Apex language server implementation in Java. To use it:
 
