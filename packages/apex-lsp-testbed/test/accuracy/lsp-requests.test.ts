@@ -8,25 +8,35 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-import { LSPMessage } from '../../src/utils/lspTraceParser';
+import {
+  createTestServer,
+  ServerOptions as ServerOptions,
+} from '../../src/test-utils/serverFactory';
 
 describe('LSP Request/Response Accuracy', () => {
-  let logData: Record<string, LSPMessage> = {};
+  let serverContext: Awaited<ReturnType<typeof createTestServer>>;
+  let logData: Record<string, any> = {};
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    // Read the expected request/response pairs from the log file
     const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
     const rawData = readFileSync(logPath, 'utf8');
-    logData = JSON.parse(rawData) as Record<string, LSPMessage>;
+    logData = JSON.parse(rawData);
+
+    // Initialize the server
+    const options: ServerOptions = {
+      serverType: 'jorje',
+      verbose: true,
+      workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
+    };
+    serverContext = await createTestServer(options);
   });
 
-  // Helper to find matching response
-  const findMatchingResponse = (request: LSPMessage): LSPMessage | undefined =>
-    Object.values(logData).find(
-      (entry) =>
-        entry.type === 'request' &&
-        entry.id === request.id &&
-        entry.result !== undefined,
-    );
+  afterAll(async () => {
+    if (serverContext) {
+      await serverContext.cleanup();
+    }
+  });
 
   // Filter and test client-initiated requests
   test.each(
@@ -40,7 +50,11 @@ describe('LSP Request/Response Accuracy', () => {
       )
       .map((request) => [request.method, request]),
   )('LSP %s request/response matches snapshot', async (method, request) => {
-    const response = findMatchingResponse(request);
+    // Make the actual request to the server
+    const response = await serverContext.client.sendRequest(
+      request.method,
+      request.params,
+    );
 
     // Create a clean snapshot object with just the essential info
     const snapshotData = {
@@ -48,11 +62,9 @@ describe('LSP Request/Response Accuracy', () => {
         method: request.method,
         params: request.params,
       },
-      response: response
-        ? {
-            result: response.result,
-          }
-        : undefined,
+      response: {
+        result: response,
+      },
     };
 
     expect(snapshotData).toMatchSnapshot();

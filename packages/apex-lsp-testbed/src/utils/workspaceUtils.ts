@@ -26,6 +26,10 @@ export interface WorkspaceConfig {
  */
 export async function prepareWorkspace(
   workspacePath?: string,
+  options?: {
+    baseDir?: string;
+    isTemporary?: boolean;
+  },
 ): Promise<WorkspaceConfig | undefined> {
   if (!workspacePath) {
     return undefined;
@@ -38,7 +42,7 @@ export async function prepareWorkspace(
   const isGithubUrl = githubUrlRegex.test(workspacePath);
 
   if (isGithubUrl) {
-    return await cloneGitHubRepository(workspacePath);
+    return await cloneGitHubRepository(workspacePath, options);
   } else {
     // Use the local path
     const absPath = path.resolve(workspacePath);
@@ -57,7 +61,7 @@ export async function prepareWorkspace(
     return {
       rootUri: `file://${absPath}`,
       rootPath: absPath,
-      isTemporary: false,
+      isTemporary: options?.isTemporary || false,
     };
   }
 }
@@ -67,12 +71,16 @@ export async function prepareWorkspace(
  */
 export async function cloneGitHubRepository(
   repoUrl: string,
+  options?: {
+    baseDir?: string;
+    isTemporary?: boolean;
+  },
 ): Promise<WorkspaceConfig> {
   // Extract the repository name from the URL
   const repoName = path.basename(repoUrl, '.git');
 
   // Create test artifacts directory if it doesn't exist
-  const artifactsDir = path.resolve('test-artifacts');
+  const artifactsDir = path.resolve(options?.baseDir || 'test-artifacts');
   if (!fs.existsSync(artifactsDir)) {
     fs.mkdirSync(artifactsDir, { recursive: true });
   }
@@ -91,7 +99,7 @@ export async function cloneGitHubRepository(
     return {
       rootUri: `file://${repoDir}`,
       rootPath: repoDir,
-      isTemporary: true,
+      isTemporary: options?.isTemporary || true,
     };
   } catch (error) {
     throw new Error(

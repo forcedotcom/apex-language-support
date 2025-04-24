@@ -19,7 +19,7 @@ export interface ServerTestContext {
   cleanup: () => Promise<void>;
 }
 
-export interface ServerFactoryOptions {
+export interface ServerOptions {
   serverType: ServerType;
   workspacePath?: string;
   verbose?: boolean;
@@ -27,11 +27,59 @@ export interface ServerFactoryOptions {
 }
 
 /**
+ * Create a temporary test workspace with sample Apex code
+ * @param baseDir Base directory for the temporary workspace
+ * @returns Workspace configuration for the test workspace
+ */
+export async function createTestWorkspace(
+  baseDir: string,
+  folderOrGithubUri?: string,
+): Promise<WorkspaceConfig> {
+  if (folderOrGithubUri) {
+    const workspaceConfig = await prepareWorkspace(folderOrGithubUri, {
+      baseDir,
+    });
+    if (!workspaceConfig) {
+      throw new Error('Failed to prepare workspace');
+    }
+    return workspaceConfig;
+  }
+
+  const workspacePath = path.join(baseDir, `test-workspace-${Date.now()}`);
+  await fs.promises.mkdir(workspacePath, { recursive: true });
+
+  // Create a sample Apex class
+  const sampleCode = `
+public class TestClass {
+    private String greeting;
+    
+    public TestClass() {
+        this.greeting = 'Hello, World!';
+    }
+    
+    public String getGreeting() {
+        return this.greeting;
+    }
+}`;
+
+  await fs.promises.writeFile(
+    path.join(workspacePath, 'TestClass.cls'),
+    sampleCode.trim(),
+  );
+
+  return {
+    rootUri: `file://${workspacePath}`,
+    rootPath: workspacePath,
+    isTemporary: true,
+  };
+}
+
+/**
  * Creates and initializes a language server with workspace for testing
  * One-stop shop for getting a fully configured and running server
  */
 export async function createTestServer(
-  options: ServerFactoryOptions,
+  options: ServerOptions,
 ): Promise<ServerTestContext> {
   const logger = new ConsoleLogger(options.verbose ? 'VERBOSE' : 'ERROR');
 
@@ -95,35 +143,4 @@ export async function createTestServer(
     }
     throw error;
   }
-}
-
-/**
- * Create a temporary test workspace with sample Apex code
- * @param baseDir Base directory for the temporary workspace
- * @returns Path to the temporary workspace
- */
-export async function createTestWorkspace(baseDir: string): Promise<string> {
-  const workspacePath = path.join(baseDir, `test-workspace-${Date.now()}`);
-  await fs.promises.mkdir(workspacePath, { recursive: true });
-
-  // Create a sample Apex class
-  const sampleCode = `
-public class TestClass {
-    private String greeting;
-    
-    public TestClass() {
-        this.greeting = 'Hello, World!';
-    }
-    
-    public String getGreeting() {
-        return this.greeting;
-    }
-}`;
-
-  await fs.promises.writeFile(
-    path.join(workspacePath, 'TestClass.cls'),
-    sampleCode.trim(),
-  );
-
-  return workspacePath;
 }
