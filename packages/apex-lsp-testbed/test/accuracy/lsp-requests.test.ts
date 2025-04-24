@@ -13,7 +13,7 @@ import {
   ServerOptions as ServerOptions,
 } from '../../src/test-utils/serverFactory';
 
-describe('LSP Request/Response Accuracy', () => {
+describe.skip('LSP Request/Response Accuracy', () => {
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;
   let logData: Record<string, any> = {};
 

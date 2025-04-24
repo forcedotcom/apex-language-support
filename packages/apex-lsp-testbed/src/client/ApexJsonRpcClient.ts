@@ -13,11 +13,9 @@ import Benchmark from 'benchmark';
 import {
   MessageConnection,
   createMessageConnection,
-  StreamMessageReader,
-  StreamMessageWriter,
-  Disposable,
   MessageReader,
   MessageWriter,
+  Disposable,
 } from 'vscode-jsonrpc/node';
 
 import { ServerType } from '../utils/serverUtils';
@@ -172,8 +170,11 @@ export class ApexJsonRpcClient {
         throw new Error('Server process failed to start with proper pipes');
       }
 
-      this.messageReader = new StreamMessageReader(this.childProcess.stdout);
-      this.messageWriter = new StreamMessageWriter(this.childProcess.stdin);
+      // Create connection directly from Node streams
+      this.connection = createMessageConnection(
+        this.childProcess.stdout,
+        this.childProcess.stdin,
+      );
 
       this.childProcess.stderr?.on('data', (data) => {
         this.logger.error(`Server stderr: ${data.toString()}`);
@@ -185,11 +186,6 @@ export class ApexJsonRpcClient {
         this.childProcess = null;
         this.eventEmitter.emit('exit', code);
       });
-
-      this.connection = createMessageConnection(
-        this.messageReader,
-        this.messageWriter,
-      );
 
       // Set up notification handlers
       this.connection.onNotification((method, params) => {

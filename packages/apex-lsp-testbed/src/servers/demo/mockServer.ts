@@ -62,13 +62,14 @@ export class ApexLanguageServerMock {
       serverPath,
       nodeArgs: ['--nolazy'],
       env: process.env,
+      serverType: 'demo',
     };
 
     // Create the client
     this.client = new ApexJsonRpcClient(clientOptions, this.logger);
 
     // Install the middleware
-    const connection = this.client.getConnection();
+    const connection = this.client['connection'];
     if (connection) {
       this.middleware.install(connection);
     } else {

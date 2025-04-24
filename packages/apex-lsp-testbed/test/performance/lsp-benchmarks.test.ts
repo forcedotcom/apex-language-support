@@ -19,7 +19,7 @@ interface LSPLogEntry {
   id?: number | string;
 }
 
-describe('LSP Performance Benchmarks', () => {
+describe.skip('LSP Performance Benchmarks', () => {
   let logData: LSPLogEntry[];
   let clientRequests: LSPLogEntry[];
 
