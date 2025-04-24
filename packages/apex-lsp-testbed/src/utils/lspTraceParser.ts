@@ -6,12 +6,12 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 export interface LSPMessage {
-  timestamp: string;
-  type: 'request' | 'response' | 'notification';
+  type: 'request' | 'notification';
   method: string;
   id?: number;
   params?: any;
   result?: any;
+  direction?: 'send' | 'receive';
   telemetry?: {
     properties?: Record<string, string>;
     measures?: Record<string, number>;
@@ -43,9 +43,9 @@ export class LSPTraceParser {
     RESPONSE:
       /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] Received response '([^']+) - \((\d+)\)' in (\d+)ms/,
 
-    // Matches "[Trace - HH:MM:SS AM/PM] Received notification 'method'"
+    // Matches "[Trace - HH:MM:SS AM/PM] (Sending|Received) notification 'method'"
     NOTIFICATION:
-      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] Received notification '([^']+)'/,
+      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] (Sending|Received) notification '([^']+)'/,
 
     // Matches log lines with memory information
     MEMORY: /Total Memory \(MB\): (\d+).*Used Memory \(MB\): (\d+)/,
@@ -59,7 +59,8 @@ export class LSPTraceParser {
   private parsingJson = false;
   private currentMessageId: number | null = null;
   private currentJsonType: 'params' | 'result' | null = null;
-  private notificationId = -1;
+  private nextSerialId = 1;
+  private originalIdToSerialId: Map<number, number> = new Map();
   private result: Map<number, LSPMessage> = new Map();
 
   /**
@@ -73,7 +74,8 @@ export class LSPTraceParser {
     this.parsingJson = false;
     this.currentMessageId = null;
     this.currentJsonType = null;
-    this.notificationId = -1;
+    this.nextSerialId = 1;
+    this.originalIdToSerialId = new Map();
     const lines = logContent.split('\n');
     for (const line of lines) {
       this.parseLine(line.trim());
@@ -132,28 +134,40 @@ export class LSPTraceParser {
   }
 
   private handleRequest(match: RegExpMatchArray) {
-    const [, timestamp, method, id] = match;
-    const messageId = parseInt(id);
+    const [, , method, id] = match;
+    const originalId = parseInt(id);
+    const serialId = this.nextSerialId++;
+    this.originalIdToSerialId.set(originalId, serialId);
+
     const request: LSPMessage = {
-      timestamp,
       type: 'request',
       method,
-      id: messageId,
+      id: serialId,
     };
-    this.currentMessageId = messageId;
-    this.result.set(messageId, request);
+    this.currentMessageId = serialId;
+    this.result.set(serialId, request);
   }
 
   private handleResponse(match: RegExpMatchArray) {
-    const [, timestamp, method, id, duration] = match;
-    this.currentMessageId = parseInt(id);
+    const [, , method, id, duration] = match;
+    const originalId = parseInt(id);
+    const serialId = this.originalIdToSerialId.get(originalId);
+    if (!serialId) {
+      // If we haven't seen the request yet, create a new serial ID
+      const newSerialId = this.nextSerialId++;
+      this.originalIdToSerialId.set(originalId, newSerialId);
+      this.currentMessageId = newSerialId;
+    } else {
+      this.currentMessageId = serialId;
+    }
+
     const response: LSPMessage = {
-      timestamp,
-      type: 'response',
+      type: 'request',
       method,
       id: this.currentMessageId,
       performance: { duration: parseInt(duration) },
     };
+
     // Always update the result map for this id
     const update = {
       ...this.result.get(this.currentMessageId),
@@ -163,15 +177,20 @@ export class LSPTraceParser {
     this.result.set(this.currentMessageId, update);
   }
 
-  private handleNotification([, timestamp, method]: RegExpMatchArray) {
+  private handleNotification(match: RegExpMatchArray) {
+    const [, , direction, method] = match;
+    const serialId = this.nextSerialId++;
+    const normalizedDirection = direction
+      .toLowerCase()
+      .replace(/ing$|d$/, '') as 'send' | 'receive';
     const notification: LSPMessage = {
-      timestamp,
       type: 'notification',
       method,
-      id: this.notificationId--,
+      id: serialId,
+      direction: normalizedDirection,
     };
-    this.currentMessageId = notification.id!;
-    this.result.set(notification.id!, notification);
+    this.currentMessageId = serialId;
+    this.result.set(serialId, notification);
   }
 
   private processJsonContent() {

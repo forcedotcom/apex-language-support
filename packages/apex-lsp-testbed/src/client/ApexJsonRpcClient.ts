@@ -13,11 +13,9 @@ import Benchmark from 'benchmark';
 import {
   MessageConnection,
   createMessageConnection,
-  StreamMessageReader,
-  StreamMessageWriter,
-  Disposable,
   MessageReader,
   MessageWriter,
+  Disposable,
 } from 'vscode-jsonrpc/node';
 
 import { ServerType } from '../utils/serverUtils';
@@ -76,19 +74,19 @@ export interface Logger {
    * Log an info message
    * @param message - Message to log
    */
-  info(message: string): void;
+  info(message: string, ...args: any[]): void;
 
   /**
    * Log an error message
    * @param message - Message to log
    */
-  error(message: string): void;
+  error(message: string, ...args: any[]): void;
 
   /**
    * Log a debug message
    * @param message - Message to log
    */
-  debug(message: string): void;
+  debug(message: string, ...args: any[]): void;
 }
 
 /**
@@ -101,24 +99,24 @@ export class ConsoleLogger implements Logger {
    * Log an info message
    * @param message - Message to log
    */
-  info(message: string): void {
-    console.log(`[${this.prefix}] INFO: ${message}`);
+  info(message: string, ...args: any[]): void {
+    console.log(`[${this.prefix}] INFO: ${message}`, ...args);
   }
 
   /**
    * Log an error message
    * @param message - Message to log
    */
-  error(message: string): void {
-    console.error(`[${this.prefix}] ERROR: ${message}`);
+  error(message: string, ...args: any[]): void {
+    console.error(`[${this.prefix}] ERROR: ${message}`, ...args);
   }
 
   /**
    * Log a debug message
    * @param message - Message to log
    */
-  debug(message: string): void {
-    console.debug(`[${this.prefix}] DEBUG: ${message}`);
+  debug(message: string, ...args: any[]): void {
+    console.debug(`[${this.prefix}] DEBUG: ${message}`, ...args);
   }
 }
 
@@ -172,8 +170,11 @@ export class ApexJsonRpcClient {
         throw new Error('Server process failed to start with proper pipes');
       }
 
-      this.messageReader = new StreamMessageReader(this.childProcess.stdout);
-      this.messageWriter = new StreamMessageWriter(this.childProcess.stdin);
+      // Create connection directly from Node streams
+      this.connection = createMessageConnection(
+        this.childProcess.stdout,
+        this.childProcess.stdin,
+      );
 
       this.childProcess.stderr?.on('data', (data) => {
         this.logger.error(`Server stderr: ${data.toString()}`);
@@ -185,11 +186,6 @@ export class ApexJsonRpcClient {
         this.childProcess = null;
         this.eventEmitter.emit('exit', code);
       });
-
-      this.connection = createMessageConnection(
-        this.messageReader,
-        this.messageWriter,
-      );
 
       // Set up notification handlers
       this.connection.onNotification((method, params) => {
