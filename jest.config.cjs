@@ -7,10 +7,10 @@
  */
 
 const { createRequire } = require('module');
+const path = require('path');
 
-const require = createRequire(require.main.filename);
 // Load tsconfig for reference, may be needed later
-require('./tsconfig.json');
+require(path.resolve(__dirname, 'tsconfig.json'));
 
 module.exports = {
   extensionsToTreatAsEsm: ['.ts'],

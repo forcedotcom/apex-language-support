@@ -59,7 +59,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs",
+        "../../jest.config.cjs",
         "../../babel.config.cjs"
       ],
       "output": []
@@ -70,7 +70,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs",
+        "../../jest.config.cjs",
         "../../babel.config.cjs"
       ],
       "output": [

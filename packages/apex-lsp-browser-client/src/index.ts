@@ -13,8 +13,8 @@ import {
   Event,
   MessageReader as ProtocolMessageReader,
   MessageWriter as ProtocolMessageWriter,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, unused-imports/no-unused-imports
-  Message,
+  ErrorCodes,
+  ResponseError,
 } from 'vscode-languageserver-protocol';
 
 /**
@@ -43,9 +43,9 @@ export interface SimpleEvent<T> {
  */
 export interface MessageReader {
   listen: (callback: (message: any) => void) => Disposable;
-  onError: SimpleEvent<Error>;
-  onClose: SimpleEvent<void>;
-  onPartialMessage: SimpleEvent<PartialMessageInfo>;
+  onError: Event<Error>;
+  onClose: Event<void>;
+  onPartialMessage: Event<PartialMessageInfo>;
   dispose: () => void;
 }
 
@@ -54,8 +54,8 @@ export interface MessageReader {
  */
 export interface MessageWriter {
   write: (msg: any) => Promise<void>;
-  onError: SimpleEvent<Error>;
-  onClose: SimpleEvent<void>;
+  onError: Event<Error>;
+  onClose: Event<void>;
   end: () => void;
   dispose: () => void;
 }
@@ -137,7 +137,10 @@ export function createWorkerMessageReader(
   };
 
   worker.onerror = (event) => {
-    const error = new Error(`Worker error: ${event.message}`);
+    const error = new ResponseError(
+      ErrorCodes.InternalError,
+      `Worker error: ${event.message}`,
+    );
     onErrorCallbacks.forEach((cb) => cb(error));
   };
 
