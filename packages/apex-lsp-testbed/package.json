@@ -37,7 +37,7 @@
   },
   "wireit": {
     "build": {
-      "command": "tsc --build --force && mkdir -p dist/resources && cp -r src/resources/* dist/resources/",
+      "command": "tsc && mkdir -p dist/resources && cp -r src/resources/* dist/resources/",
       "files": [
         "src/**/*.ts",
         "tsconfig.json",
@@ -65,7 +65,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs"
+        "tsconfig.json"
       ],
       "output": []
     },
@@ -75,7 +75,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs"
+        "tsconfig.json"
       ],
       "output": [
         "coverage/**"

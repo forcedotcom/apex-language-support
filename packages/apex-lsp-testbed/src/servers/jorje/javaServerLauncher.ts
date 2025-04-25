@@ -9,10 +9,6 @@
 import * as cp from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Define the Executable interface
 export interface Executable {
@@ -198,9 +194,7 @@ const getJavaHome = async (): Promise<string> => {
     console.error('Java home detection failed:', error);
     const errorMessage =
       'Failed to find Java runtime. Please install Java 11 or later and set JAVA_HOME environment variable.';
-    const e = new Error(errorMessage);
-    e.stack = error instanceof Error ? error.stack : String(error);
-    throw e;
+    throw new Error(errorMessage);
   }
 };
 

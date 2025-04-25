@@ -25,9 +25,14 @@ export default {
 
   moduleNameMapper: {
     vscode: '<rootDir>/test/__mocks__/vscode.js',
-    // Strip .js extension for ESM module imports
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@salesforce/apex-lsp-testbed/src/servers/jorje/javaServerLauncher\\.js$':
+      '<rootDir>/test/__mocks__/javaServerLauncher.ts',
   },
+
+  transformIgnorePatterns: [
+    'node_modules/(?!(vscode-jsonrpc|vscode-languageserver-types|vscode-languageserver-protocol|vscode-languageserver-textdocument|vscode-languageserver)/)',
+  ],
 
   globals: {
     'ts-jest': {
