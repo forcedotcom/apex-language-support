@@ -6,11 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  RESOURCE_URIS,
-  uriToNodePath,
-  uriToBrowserUrl,
-} from './ResourceUtils.js';
+import { RESOURCE_URIS, uriToNodePath, uriToBrowserUrl } from './ResourceUtils';
 
 /**
  * Utility functions for platform-specific path operations

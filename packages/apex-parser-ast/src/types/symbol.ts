@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TypeInfo } from './typeInfo.js';
+import { TypeInfo } from './typeInfo';
 
 /**
  * Types of symbols that can be defined in Apex code

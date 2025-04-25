@@ -23,8 +23,8 @@ import {
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 
-import { BaseApexParserListener } from './BaseApexParserListener.js';
-import { TypeInfo, createPrimitiveType } from '../../types/typeInfo.js';
+import { BaseApexParserListener } from './BaseApexParserListener';
+import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import {
   EnumSymbol,
   MethodSymbol,
@@ -37,15 +37,15 @@ import {
   VariableSymbol,
   Annotation,
   AnnotationParameter,
-} from '../../types/symbol.js';
+} from '../../types/symbol';
 import {
   ClassModifierValidator,
   MethodModifierValidator,
   FieldModifierValidator,
   ErrorReporter,
-} from '../../sematics/modifiers/index.js';
-import { AnnotationValidator } from '../../sematics/annotations/index.js';
-import { calculateFQN } from '../../utils/FQNUtils.js';
+} from '../../sematics/modifiers/index';
+import { AnnotationValidator } from '../../sematics/annotations/index';
+import { calculateFQN } from '../../utils/FQNUtils';
 
 /**
  * A listener that collects symbols from Apex code and organizes them into symbol tables.

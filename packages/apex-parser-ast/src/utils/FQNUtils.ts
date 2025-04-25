@@ -10,7 +10,7 @@
  * Utilities for working with Fully Qualified Names (FQNs) in Apex
  */
 
-import { ApexSymbol, SymbolKind } from '../types/symbol.js';
+import { ApexSymbol, SymbolKind } from '../types/symbol';
 
 // List of known Salesforce built-in namespaces
 export const BUILT_IN_NAMESPACES = [

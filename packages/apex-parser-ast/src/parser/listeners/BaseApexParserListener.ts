@@ -10,7 +10,7 @@ import { ApexParserListener } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { ErrorNode } from 'antlr4ts/tree';
 
-import { ApexErrorListener } from './ApexErrorListener.js';
+import { ApexErrorListener } from './ApexErrorListener';
 
 /**
  * Base abstract class for all Apex parser listeners with typed result.

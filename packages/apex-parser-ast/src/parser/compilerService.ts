@@ -14,12 +14,12 @@ import {
   ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 
-import { BaseApexParserListener } from './listeners/BaseApexParserListener.js';
+import { BaseApexParserListener } from './listeners/BaseApexParserListener';
 import {
   ApexError,
   ApexErrorListener,
   ApexLexerErrorListener,
-} from './listeners/ApexErrorListener.js';
+} from './listeners/ApexErrorListener';
 
 /**
  * Result of a compilation process, containing any errors, warnings, and the final result.

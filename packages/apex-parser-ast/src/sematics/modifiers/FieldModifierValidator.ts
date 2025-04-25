@@ -13,8 +13,8 @@ import {
   SymbolModifiers,
   SymbolVisibility,
   TypeSymbol,
-} from '../../types/symbol.js';
-import { ErrorReporter } from '../../utils/ErrorReporter.js';
+} from '../../types/symbol';
+import { ErrorReporter } from '../../utils/ErrorReporter';
 
 /**
  * Static class providing validation logic for Apex field modifiers

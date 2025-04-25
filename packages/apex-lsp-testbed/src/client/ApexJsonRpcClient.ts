@@ -11,7 +11,7 @@ import { EventEmitter } from 'events';
 
 import { JSONRPCClient } from 'json-rpc-2.0';
 
-import { ServerType } from '../utils/serverUtils.js';
+import { ServerType } from '../utils/serverUtils';
 
 /**
  * Options for configuring the JSON-RPC client

@@ -9,30 +9,30 @@
 // This file exports the public API for the @salesforce/apex-lsp-parser-ast package
 
 // Export base listener
-export * from './parser/listeners/BaseApexParserListener.js';
+export * from './parser/listeners/BaseApexParserListener';
 
 // Export symbol collector listener
-export * from './parser/listeners/ApexSymbolCollectorListener.js';
+export * from './parser/listeners/ApexSymbolCollectorListener';
 
 // Export type definitions
-export * from './types/typeInfo.js';
-export * from './types/symbol.js';
-export * from './types/qname.js';
-export * from './types/source.js';
-export * from './types/unitType.js';
+export * from './types/typeInfo';
+export * from './types/symbol';
+export * from './types/qname';
+export * from './types/source';
+export * from './types/unitType';
 
 // Export compiler service
-export * from './parser/compilerService.js';
+export * from './parser/compilerService';
 
 // Export resource utilities
-export * from './utils/ResourceUtils.js';
+export * from './utils/ResourceUtils';
 
 // Export platform-specific utilities
-export * from './utils/PlatformUtils.js';
+export * from './utils/PlatformUtils';
 
 // Export utils
-export * from './utils/AnnotationUtils.js';
+export * from './utils/AnnotationUtils';
 
 // Export semantic validators
-export * from './sematics/modifiers/index.js';
-export * from './sematics/annotations/index.js';
+export * from './sematics/modifiers/index';
+export * from './sematics/annotations/index';

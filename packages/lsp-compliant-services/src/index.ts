@@ -7,6 +7,6 @@
  */
 
 // Export storage interfaces and classes
-export * from './storage/ApexStorageInterface.js';
-export * from './storage/ApexStorageManager.js';
+export * from './storage/ApexStorageInterface';
+export * from './storage/ApexStorageManager';
 export * from 'vscode-languageserver-protocol';
