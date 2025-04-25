@@ -9,7 +9,13 @@
 import * as cp from 'child_process';
 import { EventEmitter } from 'events';
 
-import { JSONRPCClient } from 'json-rpc-2.0';
+import {
+  createMessageConnection,
+  MessageConnection,
+  Logger as VscodeLogger,
+  ResponseError,
+} from 'vscode-jsonrpc';
+import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node';
 
 import { ServerType } from '../utils/serverUtils';
 
@@ -62,7 +68,7 @@ export interface JsonRpcClientOptions {
 /**
  * Logger interface for JSON-RPC client
  */
-export interface Logger {
+export interface Logger extends VscodeLogger {
   /**
    * Log an info message
    * @param message - Message to log
@@ -80,6 +86,18 @@ export interface Logger {
    * @param message - Message to log
    */
   debug(message: string, ...args: any[]): void;
+
+  /**
+   * Log a warning message
+   * @param message - Message to log
+   */
+  warn(message: string, ...args: any[]): void;
+
+  /**
+   * Log a message
+   * @param message - Message to log
+   */
+  log(message: string, ...args: any[]): void;
 }
 
 /**
@@ -111,6 +129,22 @@ export class ConsoleLogger implements Logger {
   debug(message: string, ...args: any[]): void {
     console.debug(`[${this.prefix}] DEBUG: ${message}`, ...args);
   }
+
+  /**
+   * Log a warning message
+   * @param message - Message to log
+   */
+  warn(message: string, ...args: any[]): void {
+    console.warn(`[${this.prefix}] WARN: ${message}`, ...args);
+  }
+
+  /**
+   * Log a message
+   * @param message - Message to log
+   */
+  log(message: string, ...args: any[]): void {
+    console.log(`[${this.prefix}] LOG: ${message}`, ...args);
+  }
 }
 
 /**
@@ -125,8 +159,7 @@ export class ApexJsonRpcClient {
   private serverCapabilities: any = null;
   private eventEmitter = new EventEmitter();
   private serverType: ServerType;
-  // Add a field for the JSONRPCClient
-  private client: JSONRPCClient | null = null;
+  private connection: MessageConnection | null = null;
 
   /**
    * Create a new JSON-RPC client for Apex Language Server
@@ -150,7 +183,7 @@ export class ApexJsonRpcClient {
    * @returns Promise that resolves when server is initialized
    */
   public async start(): Promise<void> {
-    if (this.client) {
+    if (this.connection) {
       return;
     }
 
@@ -161,44 +194,39 @@ export class ApexJsonRpcClient {
       throw new Error('Server process failed to start with proper pipes');
     }
 
-    // Set up the JSON-RPC client
-    this.client = new JSONRPCClient((json) => {
-      this.childProcess!.stdin!.write(JSON.stringify(json) + '\n');
-      return Promise.resolve();
+    // Create message reader and writer
+    const reader = new StreamMessageReader(this.childProcess.stdout);
+    const writer = new StreamMessageWriter(this.childProcess.stdin);
+
+    // Create the message connection
+    this.connection = createMessageConnection(reader, writer, this.logger);
+
+    // Set up notification handler
+    this.connection.onNotification((method, params) => {
+      this.eventEmitter.emit(`notification:${method}`, params);
     });
 
-    // Listen for responses from the server
-    let buffer = '';
-    let contentLength: number | null = null;
-    this.childProcess.stdout.on('data', (data: Buffer) => {
-      buffer += data.toString();
-      while (true) {
-        if (contentLength === null) {
-          // Try to parse headers
-          const headerEnd = buffer.indexOf('\r\n\r\n');
-          if (headerEnd === -1) break;
-          const header = buffer.slice(0, headerEnd);
-          const match = header.match(/Content-Length: (\d+)/i);
-          if (!match) {
-            this.logger.error('Missing Content-Length header in LSP message');
-            buffer = buffer.slice(headerEnd + 4);
-            continue;
-          }
-          contentLength = parseInt(match[1], 10);
-          buffer = buffer.slice(headerEnd + 4);
-        }
-        if (buffer.length < contentLength) break;
-        const message = buffer.slice(0, contentLength);
-        buffer = buffer.slice(contentLength);
-        try {
-          const json = JSON.parse(message);
-          this.client!.receive(json);
-        } catch (err) {
-          this.logger.error('Failed to parse server message:', err, message);
-        }
-        contentLength = null;
+    // Listen for errors
+    this.connection.onError((error) => {
+      if (error instanceof ResponseError) {
+        this.logger.error(
+          `Connection error: ${error.message} (code: ${error.code})`,
+        );
+      } else if (Array.isArray(error) && error[0] instanceof Error) {
+        this.logger.error(`Connection error: ${error[0].message}`);
+      } else {
+        this.logger.error('Connection error: Unknown error occurred');
       }
     });
+
+    // Listen for close
+    this.connection.onClose(() => {
+      this.logger.info('Connection closed');
+      this.cleanup();
+    });
+
+    // Start listening
+    this.connection.listen();
 
     this.childProcess.stderr?.on('data', (data) => {
       this.logger.error(`Server stderr: ${data.toString()}`);
@@ -206,31 +234,20 @@ export class ApexJsonRpcClient {
 
     this.childProcess.on('exit', (code) => {
       this.logger.info(`Server process exited with code ${code}`);
-      this.client = null;
-      this.childProcess = null;
+      this.cleanup();
       this.eventEmitter.emit('exit', code);
     });
 
-    // Initialize the server (send initialize request, etc.)
+    // Initialize the server
     await this.initialize();
     this.logger.info('Server started and initialized successfully');
   }
 
-  /**
-   * Stop the language server
-   * @returns Promise that resolves when server is stopped
-   */
-  public async stop(): Promise<void> {
-    try {
-      if (this.client && this.isInitialized) {
-        await this.client.request('shutdown', undefined);
-        this.client.notify('exit', undefined);
-      }
-    } catch (error) {
-      this.logger.error(`Error during shutdown: ${error}`);
+  private cleanup(): void {
+    if (this.connection) {
+      this.connection.dispose();
+      this.connection = null;
     }
-
-    this.client = null;
 
     if (this.childProcess) {
       if (!this.childProcess.killed) {
@@ -244,6 +261,23 @@ export class ApexJsonRpcClient {
   }
 
   /**
+   * Stop the language server
+   * @returns Promise that resolves when server is stopped
+   */
+  public async stop(): Promise<void> {
+    try {
+      if (this.connection && this.isInitialized) {
+        await this.connection.sendRequest('shutdown', undefined);
+        this.connection.sendNotification('exit', undefined);
+      }
+    } catch (error) {
+      this.logger.error(`Error during shutdown: ${error}`);
+    } finally {
+      this.cleanup();
+    }
+  }
+
+  /**
    * Register a listener for server notifications
    * @param method - Notification method to listen for
    * @param callback - Callback function
@@ -254,13 +288,11 @@ export class ApexJsonRpcClient {
     callback: (params: unknown) => void,
   ): Disposable {
     this.eventEmitter.on(`notification:${method}`, callback);
-    // Return a Disposable with dispose() and a dummy [Symbol.dispose] for compatibility
     const disposable: any = {
       dispose: () => {
         this.eventEmitter.removeListener(`notification:${method}`, callback);
       },
     };
-    // Add [Symbol.dispose] if supported (for full Disposable compatibility)
     if (typeof Symbol !== 'undefined' && Symbol.dispose) {
       disposable[Symbol.dispose] = disposable.dispose;
     }
@@ -274,19 +306,19 @@ export class ApexJsonRpcClient {
    * @returns Promise that resolves with the response
    */
   public async sendRequest<T>(method: string, params: any): Promise<T> {
-    if (!this.client || !this.isInitialized) {
+    if (!this.connection || !this.isInitialized) {
       throw new Error('Client not initialized');
     }
     this.logger.debug(`Sending request: ${method}`);
-    return this.client.request(method, params) as Promise<T>;
+    return this.connection.sendRequest(method, params) as Promise<T>;
   }
 
   public sendNotification(method: string, params: any): void {
-    if (!this.client || !this.isInitialized) {
+    if (!this.connection || !this.isInitialized) {
       throw new Error('Client not initialized');
     }
     this.logger.debug(`Sending notification: ${method}`);
-    this.client.notify(method, params);
+    this.connection.sendNotification(method, params);
   }
 
   /**
@@ -459,7 +491,7 @@ export class ApexJsonRpcClient {
    * @private
    */
   private async initialize(): Promise<void> {
-    if (!this.client) {
+    if (!this.connection) {
       throw new Error('Client not established');
     }
     try {
@@ -561,14 +593,14 @@ export class ApexJsonRpcClient {
       this.logger.debug(
         'Initialize params: ' + JSON.stringify(initializeParams, null, 2),
       );
-      const result = (await this.client.request(
+      const result = (await this.connection.sendRequest(
         'initialize',
         initializeParams,
       )) as { capabilities: any };
       this.serverCapabilities = result.capabilities;
 
       // Send initialized notification
-      this.client.notify('initialized', {});
+      this.connection.sendNotification('initialized', {});
 
       this.isInitialized = true;
       this.logger.debug(
