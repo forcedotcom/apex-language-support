@@ -128,10 +128,16 @@ Params: {
   });
 
   it('should parse a real trace log and write JSON output', async () => {
-    const fs = require('fs');
-    const path = require('path');
-    const logPath = path.resolve(__dirname, '../ls-sample-trace.log.txt');
-    const outPath = path.resolve(__dirname, '../ls-sample-trace.log.json');
+    const fs = await import('fs');
+    const path = await import('path');
+    const logPath = path.join(
+      process.cwd(),
+      'packages/apex-lsp-testbed/test/ls-sample-trace.log.txt',
+    );
+    const outPath = path.join(
+      process.cwd(),
+      'packages/apex-lsp-testbed/test/ls-sample-trace.log.json',
+    );
     const logContent = fs.readFileSync(logPath, 'utf8');
     const result = parser.parse(logContent);
     // Convert Map to object for JSON output

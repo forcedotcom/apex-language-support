@@ -8,6 +8,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+import { describe, expect, test } from '@jest/globals';
+
 import {
   createTestServer,
   ServerOptions as ServerOptions,

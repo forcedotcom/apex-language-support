@@ -60,24 +60,22 @@
       ]
     },
     "test": {
-      "command": "jest",
+      "command": "NODE_OPTIONS=--experimental-vm-modules jest --no-cache",
       "service": false,
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs",
-        "../../babel.config.cjs"
+        "../../jest.config.mjs"
       ],
       "output": []
     },
     "test:coverage": {
-      "command": "jest --coverage --coverageDirectory=./coverage",
+      "command": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --coverageDirectory=./coverage --no-cache",
       "service": false,
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs",
-        "../../babel.config.cjs"
+        "../../jest.config.mjs"
       ],
       "output": [
         "coverage/**"
@@ -92,6 +90,7 @@
     "vscode-languageserver-textdocument": "^1.0.8"
   },
   "devDependencies": {
+    "@jest/globals": "^29.7.0",
     "@types/benchmark": "^2.1.5",
     "@types/node": "^18.18.0",
     "@types/vscode": "^1.85.0",
