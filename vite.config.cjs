@@ -5,9 +5,9 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import fs from 'fs';
+const fs = require('fs');
 
-import { defineConfig } from 'vite';
+const { defineConfig } = require('vite');
 
 // Automatically detect and build all packages in the monorepo
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -16,7 +16,7 @@ const packages = fs
   .filter((dir) => fs.statSync(`./packages/${dir}`).isDirectory())
   .filter((dir) => fs.existsSync(`./packages/${dir}/package.json`));
 
-export default defineConfig({
+module.exports = defineConfig({
   // Common Vite configuration for all packages can go here
   build: {
     sourcemap: true,

@@ -1,7 +1,6 @@
 {
   "name": "@salesforce/apex-lsp-parser-ast",
   "version": "1.0.0",
-  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "description": "Apex parser and abstract syntax tree implementation for Salesforce Apex Language Server",
@@ -31,7 +30,7 @@
         "src/**/*.ts",
         "src/resources/**/*",
         "tsconfig.json",
-        "vite.config.ts"
+        "vite.config.cjs"
       ],
       "output": [
         "dist/**"
@@ -44,7 +43,7 @@
         "src/**/*.ts",
         "src/resources/**/*",
         "tsconfig.json",
-        "vite.config.ts"
+        "vite.config.cjs"
       ],
       "output": [
         "dist/**"

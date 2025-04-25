@@ -5,11 +5,11 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { resolve } from 'path';
-import { cpSync, existsSync, mkdirSync } from 'fs';
+const { resolve } = require('path');
+const { cpSync, existsSync, mkdirSync } = require('fs');
 
-import { defineConfig } from 'vite';
-import typescript from '@rollup/plugin-typescript';
+const { defineConfig } = require('vite');
+const typescript = require('@rollup/plugin-typescript');
 
 // Custom plugin to copy resources directory to dist
 const copyResources = () => {
@@ -39,7 +39,7 @@ const copyResources = () => {
   };
 };
 
-export default defineConfig({
+module.exports = defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),

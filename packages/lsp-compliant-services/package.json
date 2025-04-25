@@ -1,7 +1,6 @@
 {
   "name": "@salesforce/apex-lsp-compliant-services",
   "version": "1.0.0",
-  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "description": "LSP compliant services for Salesforce Apex Language Server",
@@ -30,7 +29,7 @@
       "files": [
         "src/**/*.ts",
         "tsconfig.json",
-        "vite.config.ts"
+        "vite.config.cjs"
       ],
       "output": [
         "dist/**"
@@ -46,7 +45,7 @@
       "files": [
         "src/**/*.ts",
         "tsconfig.json",
-        "vite.config.ts"
+        "vite.config.cjs"
       ],
       "output": [
         "dist/**"
@@ -58,7 +57,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs",
+        "../../jest.config.cjs",
         "../../babel.config.cjs"
       ],
       "output": []
@@ -69,7 +68,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs",
+        "../../jest.config.cjs",
         "../../babel.config.cjs"
       ],
       "output": [

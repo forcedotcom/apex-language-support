@@ -5,12 +5,12 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { resolve } from 'path';
+const { resolve } = require('path');
 
-import { defineConfig } from 'vite';
-import typescript from '@rollup/plugin-typescript';
+const { defineConfig } = require('vite');
+const typescript = require('@rollup/plugin-typescript');
 
-export default defineConfig({
+module.exports = defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),

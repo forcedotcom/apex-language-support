@@ -1,8 +1,8 @@
-import { defineConfig } from 'vite';
-import { resolve } from 'path';
-import typescript from '@rollup/plugin-typescript';
+const { defineConfig } = require('vite');
+const { resolve } = require('path');
+const typescript = require('@rollup/plugin-typescript');
 
-export default defineConfig({
+module.exports = defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/extension.ts'),

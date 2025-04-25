@@ -6,13 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { createRequire } from 'module';
+const { createRequire } = require('module');
 
-const require = createRequire(import.meta.url);
+const require = createRequire(require.main.filename);
 // Load tsconfig for reference, may be needed later
 require('./tsconfig.json');
 
-export default {
+module.exports = {
   extensionsToTreatAsEsm: ['.ts'],
   testEnvironment: 'node',
   testMatch: ['**/test/**/*.test.ts'],

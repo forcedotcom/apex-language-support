@@ -126,7 +126,7 @@
         "src/**/*.ts",
         "tsconfig.build.json",
         "tsconfig.json",
-        "vite.config.ts"
+        "vite.config.cjs"
       ],
       "output": [
         "dist/**"
@@ -145,7 +145,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs",
+        "../../jest.config.cjs",
         "../../babel.config.cjs"
       ],
       "output": []
@@ -156,7 +156,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs",
+        "../../jest.config.cjs",
         "../../babel.config.cjs"
       ],
       "output": [
