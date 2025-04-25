@@ -115,7 +115,7 @@ function registerRestartCommand(context: vscode.ExtensionContext): void {
  */
 function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
   const serverModule = context.asAbsolutePath(
-    path.join('..', 'extension-apex-ls-ts', 'dist', 'index.js'),
+    path.join('..', 'extension-apex-ls-ts', 'dist', 'index'),
   );
 
   outputChannel.appendLine(`Server module path: ${serverModule}`);

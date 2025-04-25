@@ -9,11 +9,11 @@
 import * as path from 'path';
 import * as fs from 'fs';
 
-import { ApexJsonRpcClient } from '../client/ApexJsonRpcClient.js';
+import { ApexJsonRpcClient } from '../client/ApexJsonRpcClient';
 import {
   RequestResponseCapturingMiddleware,
   RequestResponsePair,
-} from './RequestResponseCapturingMiddleware.js';
+} from './RequestResponseCapturingMiddleware';
 
 export interface LspTestStep {
   description: string;

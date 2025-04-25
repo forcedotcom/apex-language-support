@@ -12,8 +12,8 @@ import {
   isBuiltInFQN,
   getNamespaceFromFQN,
   isGlobalSymbol,
-} from '../../src/utils/FQNUtils.js';
-import { SymbolKind, SymbolVisibility } from '../../src/types/symbol.js';
+} from '../../src/utils/FQNUtils';
+import { SymbolKind, SymbolVisibility } from '../../src/types/symbol';
 
 describe('FQN Utilities', () => {
   describe('calculateFQN', () => {

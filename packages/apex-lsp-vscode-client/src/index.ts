@@ -11,7 +11,7 @@ import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
-} from 'vscode-languageclient/node.js';
+} from 'vscode-languageclient/node';
 
 // Define enum since it's not directly exported
 export enum TransportKind {
@@ -315,4 +315,4 @@ export class ApexLspVscodeClient {
 }
 
 // Export types from vscode-languageclient for convenience
-export * from 'vscode-languageclient/node.js';
+export * from 'vscode-languageclient/node';

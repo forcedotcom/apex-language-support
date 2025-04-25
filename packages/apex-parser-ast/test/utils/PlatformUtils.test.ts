@@ -6,11 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { RESOURCE_URIS } from '../../src/utils/ResourceUtils.js';
+import { RESOURCE_URIS } from '../../src/utils/ResourceUtils';
 import {
   getSalesforceVersionPathNode,
   getSalesforceVersionPathBrowser,
-} from '../../src/utils/PlatformUtils.js';
+} from '../../src/utils/PlatformUtils';
 
 // Mock process.cwd() for consistent testing
 const originalCwd = process.cwd;
@@ -27,7 +27,7 @@ describe('PlatformUtils', () => {
   });
 
   describe('getSalesforceVersionPathNode', () => {
-    it('should return the path to the Salesforce version file in Node.js', () => {
+    it('should return the path to the Salesforce version file in Node', () => {
       const versionPath = getSalesforceVersionPathNode();
 
       expect(versionPath).toBe(

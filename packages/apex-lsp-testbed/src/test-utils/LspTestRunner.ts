@@ -9,11 +9,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 
-import {
-  LspTestFixture,
-  LspTestScript,
-  LspTestResult,
-} from './LspTestFixture.js';
+import { LspTestFixture, LspTestScript, LspTestResult } from './LspTestFixture';
 
 /**
  * Options for the LSP test runner

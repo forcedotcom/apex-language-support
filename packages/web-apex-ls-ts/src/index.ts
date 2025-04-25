@@ -17,7 +17,7 @@ import {
   Hover,
   LogMessageNotification,
   MessageType,
-} from 'vscode-languageserver/browser.js';
+} from 'vscode-languageserver/browser';
 
 // Create a connection for the server using BrowserMessageReader and BrowserMessageWriter
 const connection = createConnection(
@@ -106,4 +106,4 @@ connection.onExit(() => {
 connection.listen();
 
 // Export the storage implementation for browsers
-export * from './storage/BrowserIndexedDBApexStorage.js';
+export * from './storage/BrowserIndexedDBApexStorage';

@@ -8,7 +8,7 @@
 
 import * as readline from 'readline';
 
-import { ApexJsonRpcClient } from '../client/ApexJsonRpcClient.js';
+import { ApexJsonRpcClient } from '../client/ApexJsonRpcClient';
 
 /**
  * Start interactive mode with a running client

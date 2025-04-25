@@ -5,7 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { LSPTraceParser } from '../../src/utils/lspTraceParser.js';
+import { LSPTraceParser } from '../../src/utils/lspTraceParser';
 
 describe('LSPTraceParser', () => {
   let parser: LSPTraceParser;
