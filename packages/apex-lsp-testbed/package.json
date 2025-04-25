@@ -58,7 +58,7 @@
       ]
     },
     "test": {
-      "command": "NODE_OPTIONS=--experimental-vm-modules jest --no-cache",
+      "command": "jest --no-cache",
       "service": false,
       "files": [
         "src/**/*.ts",
@@ -68,7 +68,7 @@
       "output": []
     },
     "test:coverage": {
-      "command": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --coverageDirectory=./coverage --no-cache",
+      "command": "jest --coverage --coverageDirectory=./coverage --no-cache",
       "service": false,
       "files": [
         "src/**/*.ts",

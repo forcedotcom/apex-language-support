@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { LSPTraceParser } from '../../src/utils/lspTraceParser';
+import fs from 'fs';
+import path from 'path';
 
 describe('LSPTraceParser', () => {
   let parser: LSPTraceParser;
@@ -128,8 +130,6 @@ Params: {
   });
 
   it('should parse a real trace log and write JSON output', async () => {
-    const fs = await import('fs');
-    const path = await import('path');
     const logPath = path.join(
       process.cwd(),
       'packages/apex-lsp-testbed/test/ls-sample-trace.log.txt',
