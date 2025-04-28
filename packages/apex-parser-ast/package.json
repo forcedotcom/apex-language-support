@@ -26,22 +26,18 @@
   },
   "wireit": {
     "build": {
-      "command": "vite build",
-      "dependencies": [
-        "compile"
-      ],
+      "command": "tsc --build",
       "files": [
         "src/**/*.ts",
         "src/resources/**/*",
-        "tsconfig.json",
-        "vite.config.cjs"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
       ]
     },
     "compile": {
-      "command": "tsc --project tsconfig.json",
+      "command": "tsc --build",
       "files": [
         "src/**/*.ts",
         "tsconfig.json"
@@ -51,40 +47,35 @@
       ]
     },
     "dev": {
-      "command": "vite build --watch",
+      "command": "tsc --build --watch",
       "service": true,
-      "dependencies": [
-        "compile"
-      ],
       "files": [
         "src/**/*.ts",
-        "src/resources/**/*",
-        "tsconfig.json",
-        "vite.config.cjs"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
       ]
     },
     "test": {
-      "command": "jest --config=jest.config.cjs",
+      "command": "jest",
       "service": false,
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "jest.config.cjs",
-        "babel.config.cjs"
+        "../../jest.config.cjs",
+        "../../babel.config.cjs"
       ],
       "output": []
     },
     "test:coverage": {
-      "command": "jest --config=jest.config.cjs --coverage --coverageDirectory=./coverage",
+      "command": "jest --coverage --coverageDirectory=./coverage",
       "service": false,
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "jest.config.cjs",
-        "babel.config.cjs"
+        "../../jest.config.cjs",
+        "../../babel.config.cjs"
       ],
       "output": [
         "coverage/**"
@@ -96,8 +87,6 @@
     "antlr4ts": "0.5.0-alpha.4"
   },
   "devDependencies": {
-    "typescript": "^5.8.2",
-    "vite": "^6.2.6",
-    "@rollup/plugin-typescript": "^11.1.5"
+    "typescript": "^5.8.2"
   }
 }

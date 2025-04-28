@@ -1,99 +1,92 @@
 {
   "name": "@salesforce/apex-lsp-testbed",
-  "version": "0.1.0",
-  "description": "Testbed for performance and qualitative analysis of various Apex language server implementations",
-  "main": "dist/cli.js",
-  "types": "dist/cli.d.ts",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "description": "Testbed for Salesforce Apex Language Server",
+  "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
     "url": "https://github.com/forcedotcom/apex-language-support.git",
     "directory": "packages/apex-lsp-testbed"
   },
-  "files": [
-    "dist",
-    "dist/resources",
-    "README.md",
-    "LICENSE"
-  ],
   "scripts": {
     "build": "wireit",
     "compile": "wireit",
     "dev": "wireit",
-    "prepublishOnly": "npm run build",
-    "clean": "rimraf dist .wireit",
-    "clean:all": "npm run clean && rimraf node_modules",
     "test": "wireit",
     "test:coverage": "wireit",
-    "clean:coverage": "rimraf coverage",
-    "start:demo": "node --enable-source-maps ./dist/cli.js --server demo --interactive",
-    "start:jorje": "node --enable-source-maps ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
-    "start:demo:verbose": "node --enable-source-maps ./dist/cli.js --server demo --interactive --verbose",
-    "start:jorje:verbose": "node --enable-source-maps ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
-    "start:jorje:debug": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
-    "start:jorje:debug:verbose": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
-    "start:jorje:debug:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
-    "start:jorje:debug:verbose:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend"
+    "clean": "rimraf dist .wireit",
+    "clean:all": "npm run clean && rimraf node_modules",
+    "clean:coverage": "rimraf coverage"
   },
   "wireit": {
     "build": {
+      "command": "tsc --build",
       "dependencies": [
-        "compile"
+        "../apex-parser-ast:build",
+        "../lsp-compliant-services:build",
+        "../web-apex-ls-ts:build"
       ],
-      "command": "vite build",
       "files": [
         "src/**/*.ts",
         "src/resources/**/*",
-        "tsconfig.json",
-        "vite.config.cjs"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
       ]
     },
     "compile": {
-      "command": "tsc --build tsconfig.json",
-      "clean": "if-file-deleted",
+      "command": "tsc --build",
+      "dependencies": [
+        "../apex-parser-ast:compile",
+        "../lsp-compliant-services:compile",
+        "../web-apex-ls-ts:compile"
+      ],
       "files": [
         "src/**/*.ts",
         "tsconfig.json"
       ],
       "output": [
-        "dist/**/*.js",
-        "dist/**/*.d.ts",
-        "dist/**/*.js.map",
-        "dist/**/*.d.ts.map",
-        "dist/.tsbuildinfo"
+        "dist/**"
       ]
     },
     "dev": {
       "command": "tsc --build --watch",
       "service": true,
+      "dependencies": [
+        "../apex-parser-ast:dev",
+        "../lsp-compliant-services:dev",
+        "../web-apex-ls-ts:dev"
+      ],
       "files": [
         "src/**/*.ts",
-        "tsconfig.json",
-        "src/resources/**/*"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
       ]
     },
     "test": {
-      "command": "jest --no-cache",
+      "command": "jest",
       "service": false,
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "tsconfig.json"
+        "../../jest.config.cjs",
+        "../../babel.config.cjs"
       ],
       "output": []
     },
     "test:coverage": {
-      "command": "jest --coverage --coverageDirectory=./coverage --no-cache",
+      "command": "jest --coverage --coverageDirectory=./coverage",
       "service": false,
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "tsconfig.json"
+        "../../jest.config.cjs",
+        "../../babel.config.cjs"
       ],
       "output": [
         "coverage/**"
@@ -101,87 +94,13 @@
     }
   },
   "dependencies": {
-    "vscode-jsonrpc": "^8.2.1",
-    "vscode-languageclient": "^9.0.1",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-compliant-services": "1.0.0",
+    "@salesforce/web-apex-ls-ts": "1.0.0",
     "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-protocol": "^3.17.5",
-    "vscode-languageserver-textdocument": "^1.0.8"
+    "vscode-languageserver-protocol": "^3.17.5"
   },
   "devDependencies": {
-    "@jest/globals": "^29.7.0",
-    "@types/benchmark": "^2.1.5",
-    "@types/node": "^18.18.0",
-    "@types/vscode": "^1.85.0",
-    "benchmark": "^2.1.4",
-    "glob": "^10.3.10",
-    "jest": "^29.7.0",
-    "microtime": "^3.1.1",
-    "ts-jest": "^29.3.2",
     "typescript": "^5.8.2"
-  },
-  "keywords": [
-    "apex",
-    "salesforce",
-    "language-server",
-    "lsp",
-    "testbed",
-    "performance"
-  ],
-  "author": "Salesforce",
-  "license": "BSD-3-Clause",
-  "publishConfig": {
-    "access": "public"
-  },
-  "engines": {
-    "vscode": "^1.85.0"
-  },
-  "contributes": {
-    "configuration": {
-      "title": "Apex Language Server",
-      "properties": {
-        "apex.server.type": {
-          "type": "string",
-          "enum": [
-            "node",
-            "java"
-          ],
-          "default": "node",
-          "description": "Specifies which type of language server to use. 'node' uses the Node.js-based server, 'java' uses the Java-based server (requires Java 11+)"
-        },
-        "apex.javaMemory": {
-          "type": "number",
-          "default": 4096,
-          "description": "Maximum memory allocation for the Java-based language server (in MB)"
-        },
-        "apex.enable-semantic-errors": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable semantic error reporting (Java server only)"
-        },
-        "apex.advanced.enable-completion-statistics": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable code completion statistics (Java server only)"
-        }
-      }
-    },
-    "commands": [
-      {
-        "command": "apex.server.start",
-        "title": "Apex: Start Language Server"
-      },
-      {
-        "command": "apex.server.stop",
-        "title": "Apex: Stop Language Server"
-      },
-      {
-        "command": "apex.server.restart",
-        "title": "Apex: Restart Language Server"
-      },
-      {
-        "command": "apex.server.switch",
-        "title": "Apex: Switch Language Server Type"
-      }
-    ]
   }
 }

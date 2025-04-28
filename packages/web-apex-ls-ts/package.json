@@ -1,9 +1,9 @@
 {
-  "name": "@salesforce/apex-lsp-web",
+  "name": "@salesforce/web-apex-ls-ts",
   "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "description": "Web implementation for Salesforce Apex Language Server",
+  "description": "Web-based Apex Language Server implementation in TypeScript",
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
@@ -22,27 +22,24 @@
   },
   "wireit": {
     "build": {
-      "command": "vite build",
+      "command": "tsc --build",
       "dependencies": [
         "../apex-parser-ast:build",
-        "../custom-services:build",
         "../lsp-compliant-services:build"
       ],
       "files": [
         "src/**/*.ts",
         "src/resources/**/*",
-        "tsconfig.json",
-        "vite.config.cjs"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
       ]
     },
     "compile": {
-      "command": "tsc --project tsconfig.json",
+      "command": "tsc --build",
       "dependencies": [
         "../apex-parser-ast:compile",
-        "../custom-services:compile",
         "../lsp-compliant-services:compile"
       ],
       "files": [
@@ -54,17 +51,15 @@
       ]
     },
     "dev": {
-      "command": "vite build --watch",
+      "command": "tsc --build --watch",
       "service": true,
       "dependencies": [
         "../apex-parser-ast:dev",
-        "../custom-services:dev",
         "../lsp-compliant-services:dev"
       ],
       "files": [
         "src/**/*.ts",
-        "tsconfig.json",
-        "vite.config.cjs"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
@@ -97,15 +92,11 @@
   },
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
-    "@salesforce/apex-lsp-custom-services": "1.0.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-protocol": "^3.17.0",
-    "vscode-languageserver-textdocument": "^1.0.8"
+    "vscode-languageserver-protocol": "^3.17.5"
   },
   "devDependencies": {
-    "typescript": "^5.8.2",
-    "vite": "^6.2.6",
-    "@rollup/plugin-typescript": "^11.1.5"
+    "typescript": "^5.8.2"
   }
 }
