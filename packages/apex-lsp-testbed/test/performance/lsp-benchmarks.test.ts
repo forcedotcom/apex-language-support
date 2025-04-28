@@ -24,7 +24,7 @@ describe.skip('LSP Performance Benchmarks', () => {
   let clientRequests: LSPLogEntry[];
 
   beforeAll(() => {
-    const logPath = join(__dirname, '../../fixtures/ls-sample-trace.log.json');
+    const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
     const rawData = readFileSync(logPath, 'utf8');
     logData = JSON.parse(rawData);
 

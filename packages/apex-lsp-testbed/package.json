@@ -125,6 +125,10 @@
   "devDependencies": {
     "typescript": "^5.8.2",
     "benchmark": "^2.1.4",
-    "@types/benchmark": "^2.1.5"
+    "@types/benchmark": "^2.1.5",
+    "@babel/core": "^7.24.0",
+    "@babel/preset-env": "^7.24.0",
+    "@babel/preset-typescript": "^7.24.0",
+    "babel-jest": "^29.7.0"
   }
 }

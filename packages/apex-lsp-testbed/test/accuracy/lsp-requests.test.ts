@@ -21,7 +21,7 @@ describe('LSP Request/Response Accuracy', () => {
 
   beforeAll(async () => {
     // Read the expected request/response pairs from the log file
-    const logPath = join(__dirname, '../../fixtures/ls-sample-trace.log.json');
+    const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
     const rawData = readFileSync(logPath, 'utf8');
     logData = JSON.parse(rawData);
 

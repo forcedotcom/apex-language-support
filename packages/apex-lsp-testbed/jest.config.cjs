@@ -1,18 +1,8 @@
 module.exports = {
-  preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/test'],
   transform: {
-    '^.+\\.tsx?$': [
-      'ts-jest',
-      {
-        useESM: false,
-        tsconfig: {
-          module: 'CommonJS',
-          moduleResolution: 'Node',
-        },
-      },
-    ],
+    '^.+\\.tsx?$': ['babel-jest'],
   },
   testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
@@ -30,13 +20,13 @@ module.exports = {
       '<rootDir>/test/__mocks__/javaServerLauncher.ts',
   },
 
-  transformIgnorePatterns: [
-    'node_modules/(?!(vscode-jsonrpc|vscode-languageserver-types|vscode-languageserver-protocol|vscode-languageserver-textdocument|vscode-languageserver)/)',
-  ],
+  // transformIgnorePatterns: [
+  //   'node_modules/(?!(vscode-jsonrpc|vscode-languageserver-types|vscode-languageserver-protocol|vscode-languageserver-textdocument|vscode-languageserver)/)',
+  // ],
 
-  globals: {
-    'ts-jest': {
-      useESM: true,
-    },
-  },
+  // globals: {
+  //   'ts-jest': {
+  //     useESM: false,
+  //   },
+  // },
 };
