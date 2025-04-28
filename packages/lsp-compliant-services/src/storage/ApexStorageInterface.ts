@@ -6,8 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { ApexClassInfo } from '@salesforce/apex-lsp-parser-ast/dist/parser/listeners/ApexStructureListener';
-import type { TypeInfo } from '@salesforce/apex-lsp-parser-ast/dist/types/typeInfo';
+import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for type references between Apex symbols

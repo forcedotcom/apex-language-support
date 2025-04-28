@@ -20,6 +20,7 @@ export * from './types/symbol';
 export * from './types/qname';
 export * from './types/source';
 export * from './types/unitType';
+export * from './types/classInfo';
 
 // Export compiler service
 export * from './parser/compilerService';

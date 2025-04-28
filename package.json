@@ -11,6 +11,7 @@
     "lint": "eslint --ext .ts,.mjs 'packages/*/src/**/*.ts'",
     "lint:fix": "eslint --ext .ts,.mjs 'packages/*/src/**/*.ts' --fix",
     "build": "wireit",
+    "compile": "wireit",
     "build:debug": "cross-env VITE_BUILD_DEBUG=true npm run build",
     "build:no-minify": "cross-env VITE_BUILD_DEBUG=true npm run build",
     "dev": "wireit",
@@ -98,6 +99,17 @@
         "./packages/web-apex-ls-ts:build",
         "./packages/apex-lsp-browser-client:build",
         "./packages/apex-lsp-testbed:build"
+      ]
+    },
+    "compile": {
+      "dependencies": [
+        "./packages/apex-parser-ast:compile",
+        "./packages/custom-services:compile",
+        "./packages/lsp-compliant-services:compile",
+        "./packages/extension-apex-ls-ts:compile",
+        "./packages/web-apex-ls-ts:compile",
+        "./packages/apex-lsp-browser-client:compile",
+        "./packages/apex-lsp-testbed:compile"
       ]
     },
     "dev": {

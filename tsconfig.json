@@ -8,6 +8,14 @@
     "skipLibCheck": true,
     "baseUrl": "./",
     "paths": {
+      "@salesforce/apex-lsp-parser-ast": ["packages/apex-parser-ast/src"],
+      "@salesforce/apex-lsp-parser-ast/*": ["packages/apex-parser-ast/src/*"],
+      "@salesforce/apex-lsp-compliant-services": [
+        "packages/lsp-compliant-services/src"
+      ],
+      "@salesforce/apex-lsp-compliant-services/*": [
+        "packages/lsp-compliant-services/src/*"
+      ],
       "*": ["packages/*/src"]
     },
     "resolveJsonModule": true,

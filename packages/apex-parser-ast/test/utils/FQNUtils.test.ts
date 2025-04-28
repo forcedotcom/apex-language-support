@@ -13,80 +13,114 @@ import {
   getNamespaceFromFQN,
   isGlobalSymbol,
 } from '../../src/utils/FQNUtils';
-import { SymbolKind, SymbolVisibility } from '../../src/types/symbol';
+import {
+  SymbolKind,
+  SymbolVisibility,
+  ApexSymbol,
+  SymbolModifiers,
+} from '../../src/types/symbol';
 
 describe('FQN Utilities', () => {
+  const createTestSymbol = (
+    name: string,
+    kind: SymbolKind,
+    parent: ApexSymbol | null = null,
+  ): ApexSymbol => ({
+    name,
+    kind,
+    modifiers: {
+      visibility: SymbolVisibility.Public,
+      isStatic: false,
+      isFinal: false,
+      isAbstract: false,
+      isVirtual: false,
+      isOverride: false,
+      isTransient: false,
+      isTestMethod: false,
+      isWebService: false,
+    },
+    parent,
+    location: {
+      startLine: 1,
+      startColumn: 1,
+      endLine: 1,
+      endColumn: 10,
+    },
+  });
+
   describe('calculateFQN', () => {
     it('should calculate simple FQN for a standalone symbol', () => {
-      const symbol = {
-        name: 'MyClass',
-        kind: SymbolKind.Class,
-        modifiers: { visibility: SymbolVisibility.Public },
-        parent: null,
-      };
-
-      expect(calculateFQN(symbol)).toBe('MyClass');
+      const symbol = createTestSymbol('TestClass', SymbolKind.Class);
+      expect(calculateFQN(symbol)).toBe('TestClass');
     });
 
     it('should calculate FQN for a symbol with parent', () => {
-      const parentSymbol = {
-        name: 'ParentClass',
-        kind: SymbolKind.Class,
-        modifiers: { visibility: SymbolVisibility.Public },
-        parent: null,
-      };
+      const parent = createTestSymbol('ParentClass', SymbolKind.Class);
+      const child = createTestSymbol('ChildMethod', SymbolKind.Method, parent);
+      expect(calculateFQN(child)).toBe('ParentClass.ChildMethod');
+    });
 
-      const childSymbol = {
-        name: 'ChildMethod',
-        kind: SymbolKind.Method,
-        modifiers: { visibility: SymbolVisibility.Public },
-        parent: parentSymbol,
-      };
+    it('should calculate FQN for a symbol with multiple parents', () => {
+      const grandparent = createTestSymbol(
+        'GrandparentClass',
+        SymbolKind.Class,
+      );
+      const parent = createTestSymbol(
+        'ParentClass',
+        SymbolKind.Class,
+        grandparent,
+      );
+      const child = createTestSymbol('ChildMethod', SymbolKind.Method, parent);
+      expect(calculateFQN(child)).toBe(
+        'GrandparentClass.ParentClass.ChildMethod',
+      );
+    });
 
+    it('should handle namespace in FQN', () => {
+      const symbol = createTestSymbol('MyClass', SymbolKind.Class);
+      symbol.namespace = 'TestNamespace';
+      expect(calculateFQN(symbol)).toBe('TestNamespace.MyClass');
+    });
+
+    it('should calculate FQN for a symbol with parent', () => {
+      const parentSymbol = createTestSymbol('ParentClass', SymbolKind.Class);
+      const childSymbol = createTestSymbol(
+        'ChildMethod',
+        SymbolKind.Method,
+        parentSymbol,
+      );
       expect(calculateFQN(childSymbol)).toBe('ParentClass.ChildMethod');
     });
 
     it('should calculate FQN with nested hierarchy', () => {
-      const grandparentSymbol = {
-        name: 'OuterClass',
-        kind: SymbolKind.Class,
-        modifiers: { visibility: SymbolVisibility.Public },
-        parent: null,
-      };
-
-      const parentSymbol = {
-        name: 'InnerClass',
-        kind: SymbolKind.Class,
-        modifiers: { visibility: SymbolVisibility.Private },
-        parent: grandparentSymbol,
-      };
-
-      const childSymbol = {
-        name: 'myMethod',
-        kind: SymbolKind.Method,
-        modifiers: { visibility: SymbolVisibility.Private },
-        parent: parentSymbol,
-      };
-
+      const grandparentSymbol = createTestSymbol(
+        'OuterClass',
+        SymbolKind.Class,
+      );
+      const parentSymbol = createTestSymbol(
+        'InnerClass',
+        SymbolKind.Class,
+        grandparentSymbol,
+      );
+      const childSymbol = createTestSymbol(
+        'myMethod',
+        SymbolKind.Method,
+        parentSymbol,
+      );
       expect(calculateFQN(childSymbol)).toBe('OuterClass.InnerClass.myMethod');
     });
 
     it('should not apply namespace if already inherited from parent', () => {
-      const parentWithNamespace = {
-        name: 'ParentClass',
-        kind: SymbolKind.Class,
-        modifiers: { visibility: SymbolVisibility.Public },
-        namespace: 'ExistingNamespace',
-        parent: null,
-      };
-
-      const childSymbol = {
-        name: 'ChildMethod',
-        kind: SymbolKind.Method,
-        modifiers: { visibility: SymbolVisibility.Public },
-        parent: parentWithNamespace,
-      };
-
+      const parentWithNamespace = createTestSymbol(
+        'ParentClass',
+        SymbolKind.Class,
+      );
+      parentWithNamespace.namespace = 'ExistingNamespace';
+      const childSymbol = createTestSymbol(
+        'ChildMethod',
+        SymbolKind.Method,
+        parentWithNamespace,
+      );
       expect(
         calculateFQN(childSymbol, { defaultNamespace: 'NewNamespace' }),
       ).toBe('ParentClass.ChildMethod');
@@ -94,13 +128,7 @@ describe('FQN Utilities', () => {
     });
 
     it('should apply namespace to top-level symbols when provided', () => {
-      const symbol = {
-        name: 'MyClass',
-        kind: SymbolKind.Class,
-        modifiers: { visibility: SymbolVisibility.Public },
-        parent: null,
-      };
-
+      const symbol = createTestSymbol('MyClass', SymbolKind.Class);
       expect(calculateFQN(symbol, { defaultNamespace: 'MyNamespace' })).toBe(
         'MyNamespace.MyClass',
       );
@@ -108,28 +136,18 @@ describe('FQN Utilities', () => {
     });
 
     it('should not apply namespace to child symbols even when provided', () => {
-      const parentSymbol = {
-        name: 'ParentClass',
-        kind: SymbolKind.Class,
-        modifiers: { visibility: SymbolVisibility.Public },
-        parent: null,
-      };
-
-      const childSymbol = {
-        name: 'ChildMethod',
-        kind: SymbolKind.Method,
-        modifiers: { visibility: SymbolVisibility.Public },
-        parent: parentSymbol,
-      };
-
+      const parentSymbol = createTestSymbol('ParentClass', SymbolKind.Class);
+      const childSymbol = createTestSymbol(
+        'ChildMethod',
+        SymbolKind.Method,
+        parentSymbol,
+      );
       expect(
         calculateFQN(parentSymbol, { defaultNamespace: 'MyNamespace' }),
       ).toBe('MyNamespace.ParentClass');
       expect(
         calculateFQN(childSymbol, { defaultNamespace: 'MyNamespace' }),
       ).toBe('ParentClass.ChildMethod');
-
-      // Child should inherit namespace from parent
       expect(childSymbol.namespace).toBe('MyNamespace');
     });
   });

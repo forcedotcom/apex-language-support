@@ -12,11 +12,12 @@
   },
   "scripts": {
     "build": "wireit",
+    "compile": "wireit",
     "dev": "wireit",
-    "clean": "rimraf dist .wireit",
-    "clean:all": "npm run clean && rimraf node_modules",
     "test": "wireit",
     "test:coverage": "wireit",
+    "clean": "rimraf dist .wireit",
+    "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage"
   },
   "wireit": {
@@ -29,8 +30,24 @@
       ],
       "files": [
         "src/**/*.ts",
+        "src/resources/**/*",
         "tsconfig.json",
-        "vite.config.ts"
+        "vite.config.cjs"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "compile": {
+      "command": "tsc --project tsconfig.json",
+      "dependencies": [
+        "../apex-parser-ast:compile",
+        "../custom-services:compile",
+        "../lsp-compliant-services:compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"

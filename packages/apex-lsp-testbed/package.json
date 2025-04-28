@@ -17,6 +17,7 @@
   ],
   "scripts": {
     "build": "wireit",
+    "compile": "wireit",
     "dev": "wireit",
     "prepublishOnly": "npm run build",
     "clean": "rimraf dist .wireit",
@@ -35,11 +36,22 @@
   },
   "wireit": {
     "build": {
-      "command": "tsc --build --force && mkdir -p dist/resources && cp -r src/resources/* dist/resources/",
+      "command": "vite build",
       "files": [
         "src/**/*.ts",
+        "src/resources/**/*",
         "tsconfig.json",
-        "src/resources/**/*"
+        "vite.config.cjs"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "compile": {
+      "command": "tsc --project tsconfig.json",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
