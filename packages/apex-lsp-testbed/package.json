@@ -36,6 +36,9 @@
   },
   "wireit": {
     "build": {
+      "dependencies": [
+        "compile"
+      ],
       "command": "vite build",
       "files": [
         "src/**/*.ts",
@@ -48,17 +51,22 @@
       ]
     },
     "compile": {
-      "command": "tsc --project tsconfig.json",
+      "command": "tsc --build tsconfig.json",
+      "clean": "if-file-deleted",
       "files": [
         "src/**/*.ts",
         "tsconfig.json"
       ],
       "output": [
-        "dist/**"
+        "dist/**/*.js",
+        "dist/**/*.d.ts",
+        "dist/**/*.js.map",
+        "dist/**/*.d.ts.map",
+        "dist/.tsbuildinfo"
       ]
     },
     "dev": {
-      "command": "tsc --watch",
+      "command": "tsc --build --watch",
       "service": true,
       "files": [
         "src/**/*.ts",

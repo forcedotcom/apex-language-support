@@ -1,7 +1,21 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "composite": true,
+    "rootDir": ".",
+    "baseUrl": ".",
+    "lib": ["ES2020", "WebWorker"],
+    "paths": {
+      "@salesforce/apex-lsp-parser-ast": ["../apex-parser-ast/src"],
+      "@salesforce/apex-lsp-compliant-services": [
+        "../lsp-compliant-services/src"
+      ]
+    }
   },
+  "references": [
+    { "path": "../apex-parser-ast" },
+    { "path": "../lsp-compliant-services" }
+  ],
   "include": ["src", "test"]
 }

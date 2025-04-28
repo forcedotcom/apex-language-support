@@ -27,6 +27,9 @@
   "wireit": {
     "build": {
       "command": "vite build",
+      "dependencies": [
+        "compile"
+      ],
       "files": [
         "src/**/*.ts",
         "src/resources/**/*",
@@ -50,6 +53,9 @@
     "dev": {
       "command": "vite build --watch",
       "service": true,
+      "dependencies": [
+        "compile"
+      ],
       "files": [
         "src/**/*.ts",
         "src/resources/**/*",
