@@ -89,11 +89,12 @@ export function calculateFQN(symbol: ApexSymbol, options?: FQNOptions): string {
 
   // Handle namespace
   if (symbol.namespace) {
+    // If symbol has its own namespace, use it
     fqn = `${symbol.namespace}.${fqn}`;
-  } else if (symbol.parent?.namespace) {
-    fqn = `${symbol.parent.namespace}.${fqn}`;
   } else if (options?.defaultNamespace && !symbol.parent) {
+    // Only apply default namespace to top-level symbols
     fqn = `${options.defaultNamespace}.${fqn}`;
+    symbol.namespace = options.defaultNamespace;
   }
 
   return fqn;
