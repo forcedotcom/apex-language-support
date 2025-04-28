@@ -5,9 +5,10 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { LSPTraceParser } from '../../src/utils/lspTraceParser';
 import fs from 'fs';
 import path from 'path';
+
+import { LSPTraceParser } from '../../src/utils/lspTraceParser';
 
 describe('LSPTraceParser', () => {
   let parser: LSPTraceParser;
@@ -130,14 +131,9 @@ Params: {
   });
 
   it('should parse a real trace log and write JSON output', async () => {
-    const logPath = path.join(
-      process.cwd(),
-      'packages/apex-lsp-testbed/test/ls-sample-trace.log.txt',
-    );
-    const outPath = path.join(
-      process.cwd(),
-      'packages/apex-lsp-testbed/test/ls-sample-trace.log.json',
-    );
+    const logPath = path.join(__dirname, '../ls-sample-trace.log.txt');
+    const outPath = path.join(__dirname, '../ls-sample-trace.log.json');
+
     const logContent = fs.readFileSync(logPath, 'utf8');
     const result = parser.parse(logContent);
     // Convert Map to object for JSON output
