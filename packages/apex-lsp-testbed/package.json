@@ -18,7 +18,15 @@
     "test:coverage": "wireit",
     "clean": "rimraf dist .wireit",
     "clean:all": "npm run clean && rimraf node_modules",
-    "clean:coverage": "rimraf coverage"
+    "clean:coverage": "rimraf coverage",
+    "start:demo": "node --enable-source-maps ./dist/cli.js --server demo --interactive",
+    "start:jorje": "node --enable-source-maps ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
+    "start:demo:verbose": "node --enable-source-maps ./dist/cli.js --server demo --interactive --verbose",
+    "start:jorje:verbose": "node --enable-source-maps ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
+    "start:jorje:debug": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
+    "start:jorje:debug:verbose": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
+    "start:jorje:debug:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
+    "start:jorje:debug:verbose:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend"
   },
   "wireit": {
     "build": {
@@ -38,7 +46,7 @@
       ]
     },
     "compile": {
-      "command": "tsc --build",
+      "command": "tsc --build && mkdir -p dist/resources && cp -r src/resources/* dist/resources/",
       "dependencies": [
         "../apex-parser-ast:compile",
         "../lsp-compliant-services:compile",
@@ -46,6 +54,7 @@
       ],
       "files": [
         "src/**/*.ts",
+        "src/resources/**/*",
         "tsconfig.json"
       ],
       "output": [
