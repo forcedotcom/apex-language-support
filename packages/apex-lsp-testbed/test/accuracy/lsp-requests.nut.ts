@@ -13,7 +13,7 @@ import { describe, expect, test } from '@jest/globals';
 import {
   createTestServer,
   ServerOptions as ServerOptions,
-} from '../../../src/test-utils/serverFactory';
+} from '../../src/test-utils/serverFactory';
 
 describe('LSP Request/Response Accuracy', () => {
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;
