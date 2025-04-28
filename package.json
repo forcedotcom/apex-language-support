@@ -8,6 +8,7 @@
     "test:packages": "wireit",
     "test:coverage:packages": "wireit",
     "test:coverage:report": "wireit",
+    "test:integration": "wireit",
     "lint": "eslint --ext .ts,.mjs 'packages/*/src/**/*.ts'",
     "lint:fix": "eslint --ext .ts,.mjs 'packages/*/src/**/*.ts' --fix",
     "build": "wireit",
@@ -156,6 +157,11 @@
       ],
       "output": [
         "coverage/**"
+      ]
+    },
+    "test:integration": {
+      "dependencies": [
+        "./packages/apex-lsp-testbed:test:integration"
       ]
     }
   },
