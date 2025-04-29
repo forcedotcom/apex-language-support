@@ -8,6 +8,7 @@
 
 import * as vscode from 'vscode';
 import {
+  InitializeResult,
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,

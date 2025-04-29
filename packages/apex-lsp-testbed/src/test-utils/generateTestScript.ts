@@ -9,8 +9,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { LspTestScript, LspTestStep } from './LspTestFixture';
-import { RequestResponsePair } from './RequestResponseCapturingMiddleware';
+import { LspTestScript, LspTestStep } from './LspTestFixture.js';
+import { RequestResponsePair } from './RequestResponseCapturingMiddleware.js';
 
 interface GenerateScriptOptions {
   /**

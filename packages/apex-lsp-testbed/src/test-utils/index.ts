@@ -7,9 +7,9 @@
  */
 
 // Export the test utilities
-export * from './RequestResponseCapturingMiddleware';
-export * from './LspTestFixture';
-export * from './LspTestRunner';
+export * from './RequestResponseCapturingMiddleware.js';
+export * from './LspTestFixture.js';
+export * from './LspTestRunner.js';
 
 // Export types for test scripts
 export interface LspTestStepBase {

@@ -6,37 +6,54 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 import Benchmark from 'benchmark';
 
+// Create equivalents for __dirname and __filename in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 interface LSPLogEntry {
   type: string;
-  direction: string;
+  direction?: string;
   method?: string;
   params?: any;
   result?: any;
   id?: number | string;
 }
 
-describe.skip('LSP Performance Benchmarks', () => {
+describe('LSP Performance Benchmarks', () => {
   let logData: LSPLogEntry[];
   let clientRequests: LSPLogEntry[];
 
   beforeAll(() => {
     const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
     const rawData = readFileSync(logPath, 'utf8');
-    logData = JSON.parse(rawData);
+    const jsonData = JSON.parse(rawData);
 
-    // Filter client-initiated requests
+    // Convert object with numeric keys to array
+    logData = Object.values(jsonData);
+
+    // Filter client-initiated requests - handle the actual log structure
     clientRequests = logData.filter(
-      (entry) =>
-        entry.type === 'request' &&
-        entry.direction === 'client-to-server' &&
-        entry.method,
+      (entry) => entry && entry.type === 'request' && entry.method,
     );
   });
 
+  // Basic test to validate data loading
+  it('should load LSP trace data correctly', () => {
+    expect(logData).toBeDefined();
+    expect(logData.length).toBeGreaterThan(0);
+    expect(clientRequests).toBeDefined();
+    expect(clientRequests.length).toBeGreaterThan(0);
+
+    console.log(`Loaded ${logData.length} log entries`);
+    console.log(`Found ${clientRequests.length} client requests`);
+  });
+
+  // Benchmark test with a longer timeout
   it('should benchmark LSP request handling', (done) => {
     const suite = new Benchmark.Suite();
 
@@ -76,5 +93,5 @@ describe.skip('LSP Performance Benchmarks', () => {
         done();
       })
       .run({ async: true });
-  });
+  }, 60000); // 60 second timeout
 });

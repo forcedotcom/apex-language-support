@@ -16,9 +16,9 @@ import {
   MessageReader,
   MessageWriter,
   Disposable,
-} from 'vscode-jsonrpc/node';
+} from 'vscode-jsonrpc';
 
-import { ServerType } from '../utils/serverUtils';
+import { ServerType } from '../utils/serverUtils.js';
 
 /**
  * Options for configuring the JSON-RPC client
@@ -171,6 +171,7 @@ export class ApexJsonRpcClient {
       }
 
       // Create connection directly from Node streams
+      // @ts-ignore - Node streams used directly
       this.connection = createMessageConnection(
         this.childProcess.stdout,
         this.childProcess.stdin,

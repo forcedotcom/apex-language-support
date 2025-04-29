@@ -9,6 +9,7 @@
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
 // Define the Executable interface
 export interface Executable {
@@ -275,6 +276,10 @@ const findJarFile = (customPath?: string, fallbackPath?: string): string => {
   // In CommonJS, __filename and __dirname are available as global variables
   // No need to use fileURLToPath(import.meta.url) or path.dirname
 
+  // For ES modules, we need to derive __dirname from import.meta.url
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
   // Check standard locations
   const possibleLocations = [
     // Relative to this file
@@ -442,18 +447,36 @@ export const asyncExec = (
     });
   });
 
-// Example usage for standalone mode
-if (require.main === module) {
+// ESM-compatible standalone execution checker
+const isRunningDirectly = () => {
+  if (import.meta && import.meta.url) {
+    const currentFilePath = fileURLToPath(import.meta.url);
+    const entryPoint = process.argv[1]
+      ? fileURLToPath(`file://${process.argv[1]}`)
+      : '';
+    return currentFilePath === entryPoint;
+  }
+  return false;
+};
+
+// Execute if this file is run directly
+if (isRunningDirectly()) {
   (async () => {
+    let server: cp.ChildProcess | null = null;
     try {
-      const server = await launchJavaServer();
+      console.log('Launching Java server in standalone mode...');
+      server = await launchJavaServer();
 
       // Handle SIGINT (Ctrl+C)
       process.on('SIGINT', () => {
         console.log('Stopping language server...');
-        server.kill();
+        if (server) {
+          server.kill();
+        }
         process.exit(0);
       });
+
+      console.log('Server running. Press Ctrl+C to stop.');
     } catch (error) {
       console.error('Failed to start server:', error);
       process.exit(1);

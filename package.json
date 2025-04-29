@@ -9,7 +9,7 @@
     "test:coverage:packages": "wireit",
     "test:coverage:report": "wireit",
     "lint": "eslint --ext .ts,.mjs 'packages/*/src/**/*.ts'",
-    "lint:fix": "eslint --ext .ts,.mjs 'packages/*/src/**/*.ts' --fix",
+    "lint:fix": "eslint --ext .ts,.mjs 'packages/*/src/**/*.ts' --ignore-pattern '**/*.d.ts' --fix",
     "build": "wireit",
     "build:debug": "cross-env VITE_BUILD_DEBUG=true npm run build",
     "build:no-minify": "cross-env VITE_BUILD_DEBUG=true npm run build",
