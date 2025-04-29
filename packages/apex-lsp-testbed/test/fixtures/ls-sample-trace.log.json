@@ -1504,51 +1504,9 @@
     "method": "textDocument/documentSymbol",
     "id": 33,
     "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
-      "diagnostics": [
-        {
-          "range": {
-            "start": {
-              "line": 8,
-              "character": 16
-            },
-            "end": {
-              "line": 8,
-              "character": 19
-            }
-          },
-          "severity": 2,
-          "message": "Field does not exist: Price__c on Property__c"
-        },
-        {
-          "range": {
-            "start": {
-              "line": 8,
-              "character": 16
-            },
-            "end": {
-              "line": 8,
-              "character": 19
-            }
-          },
-          "severity": 2,
-          "message": "Field does not exist: Beds__c on Property__c"
-        },
-        {
-          "range": {
-            "start": {
-              "line": 8,
-              "character": 16
-            },
-            "end": {
-              "line": 8,
-              "character": 19
-            }
-          },
-          "severity": 2,
-          "message": "Field does not exist: Baths__c on Property__c"
-        }
-      ]
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls"
+      }
     },
     "performance": {
       "duration": 50
@@ -1704,8 +1662,61 @@
   },
   "34": {
     "type": "notification",
-    "method": "telemetry/event",
+    "method": "textDocument/publishDiagnostics",
     "id": 34,
+    "direction": "receive",
+    "params": {
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+      "diagnostics": [
+        {
+          "range": {
+            "start": {
+              "line": 8,
+              "character": 16
+            },
+            "end": {
+              "line": 8,
+              "character": 19
+            }
+          },
+          "severity": 2,
+          "message": "Field does not exist: Price__c on Property__c"
+        },
+        {
+          "range": {
+            "start": {
+              "line": 8,
+              "character": 16
+            },
+            "end": {
+              "line": 8,
+              "character": 19
+            }
+          },
+          "severity": 2,
+          "message": "Field does not exist: Beds__c on Property__c"
+        },
+        {
+          "range": {
+            "start": {
+              "line": 8,
+              "character": 16
+            },
+            "end": {
+              "line": 8,
+              "character": 19
+            }
+          },
+          "severity": 2,
+          "message": "Field does not exist: Baths__c on Property__c"
+        }
+      ]
+    }
+  },
+  "35": {
+    "type": "notification",
+    "method": "telemetry/event",
+    "id": 35,
     "direction": "receive",
     "params": {
       "properties": {
@@ -1717,10 +1728,10 @@
       }
     }
   },
-  "35": {
+  "36": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 35,
+    "id": 36,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -1728,20 +1739,20 @@
       }
     }
   },
-  "36": {
+  "37": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 36,
+    "id": 37,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
       "diagnostics": []
     }
   },
-  "37": {
+  "38": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 37,
+    "id": 38,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -1752,10 +1763,10 @@
       }
     }
   },
-  "38": {
+  "39": {
     "type": "request",
     "method": "textDocument/documentSymbol",
-    "id": 38,
+    "id": 39,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
@@ -2061,20 +2072,20 @@
       }
     ]
   },
-  "39": {
+  "40": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 39,
+    "id": 40,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
       "diagnostics": []
     }
   },
-  "40": {
+  "41": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 40,
+    "id": 41,
     "direction": "receive",
     "params": {
       "properties": {
@@ -2086,10 +2097,10 @@
       }
     }
   },
-  "41": {
+  "42": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 41,
+    "id": 42,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -2097,20 +2108,20 @@
       }
     }
   },
-  "42": {
+  "43": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 42,
+    "id": 43,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
       "diagnostics": []
     }
   },
-  "43": {
+  "44": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 43,
+    "id": 44,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -2121,10 +2132,10 @@
       }
     }
   },
-  "44": {
+  "45": {
     "type": "request",
     "method": "textDocument/documentSymbol",
-    "id": 44,
+    "id": 45,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls"
@@ -2282,10 +2293,10 @@
       }
     ]
   },
-  "45": {
+  "46": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 45,
+    "id": 46,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
@@ -2307,10 +2318,10 @@
       ]
     }
   },
-  "46": {
+  "47": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 46,
+    "id": 47,
     "direction": "receive",
     "params": {
       "properties": {
@@ -2322,10 +2333,10 @@
       }
     }
   },
-  "47": {
+  "48": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 47,
+    "id": 48,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -2333,20 +2344,20 @@
       }
     }
   },
-  "48": {
+  "49": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 48,
+    "id": 49,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
       "diagnostics": []
     }
   },
-  "49": {
+  "50": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 49,
+    "id": 50,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -2357,10 +2368,10 @@
       }
     }
   },
-  "50": {
+  "51": {
     "type": "request",
     "method": "textDocument/documentSymbol",
-    "id": 50,
+    "id": 51,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls"
@@ -2738,20 +2749,20 @@
       }
     ]
   },
-  "51": {
+  "52": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 51,
+    "id": 52,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
       "diagnostics": []
     }
   },
-  "52": {
+  "53": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 52,
+    "id": 53,
     "direction": "receive",
     "params": {
       "properties": {
@@ -2763,10 +2774,10 @@
       }
     }
   },
-  "53": {
+  "54": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 53,
+    "id": 54,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -2774,20 +2785,20 @@
       }
     }
   },
-  "54": {
+  "55": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 54,
+    "id": 55,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
       "diagnostics": []
     }
   },
-  "55": {
+  "56": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 55,
+    "id": 56,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -2798,10 +2809,10 @@
       }
     }
   },
-  "56": {
+  "57": {
     "type": "request",
     "method": "textDocument/documentSymbol",
-    "id": 56,
+    "id": 57,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls"
@@ -2863,20 +2874,20 @@
       }
     ]
   },
-  "57": {
+  "58": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 57,
+    "id": 58,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
       "diagnostics": []
     }
   },
-  "58": {
+  "59": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 58,
+    "id": 59,
     "direction": "receive",
     "params": {
       "properties": {
@@ -2888,10 +2899,10 @@
       }
     }
   },
-  "59": {
+  "60": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 59,
+    "id": 60,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -2899,20 +2910,20 @@
       }
     }
   },
-  "60": {
+  "61": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 60,
+    "id": 61,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
       "diagnostics": []
     }
   },
-  "61": {
+  "62": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 61,
+    "id": 62,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -2923,10 +2934,10 @@
       }
     }
   },
-  "62": {
+  "63": {
     "type": "request",
     "method": "textDocument/documentSymbol",
-    "id": 62,
+    "id": 63,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls"
@@ -3036,20 +3047,20 @@
       }
     ]
   },
-  "63": {
+  "64": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 63,
+    "id": 64,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
       "diagnostics": []
     }
   },
-  "64": {
+  "65": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 64,
+    "id": 65,
     "direction": "receive",
     "params": {
       "properties": {
@@ -3061,10 +3072,10 @@
       }
     }
   },
-  "65": {
+  "66": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 65,
+    "id": 66,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3072,20 +3083,20 @@
       }
     }
   },
-  "66": {
+  "67": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 66,
+    "id": 67,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
       "diagnostics": []
     }
   },
-  "67": {
+  "68": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 67,
+    "id": 68,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3096,10 +3107,10 @@
       }
     }
   },
-  "68": {
+  "69": {
     "type": "request",
     "method": "textDocument/documentSymbol",
-    "id": 68,
+    "id": 69,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls"
@@ -3233,10 +3244,10 @@
       }
     ]
   },
-  "69": {
+  "70": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 69,
+    "id": 70,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
@@ -3286,10 +3297,10 @@
       ]
     }
   },
-  "70": {
+  "71": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 70,
+    "id": 71,
     "direction": "receive",
     "params": {
       "properties": {
@@ -3301,10 +3312,10 @@
       }
     }
   },
-  "71": {
+  "72": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 71,
+    "id": 72,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3312,20 +3323,20 @@
       }
     }
   },
-  "72": {
+  "73": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 72,
+    "id": 73,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
       "diagnostics": []
     }
   },
-  "73": {
+  "74": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 73,
+    "id": 74,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3336,20 +3347,20 @@
       }
     }
   },
-  "74": {
+  "75": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 74,
+    "id": 75,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
       "diagnostics": []
     }
   },
-  "75": {
+  "76": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 75,
+    "id": 76,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3360,10 +3371,10 @@
       }
     }
   },
-  "76": {
+  "77": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 76,
+    "id": 77,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
@@ -3413,10 +3424,10 @@
       ]
     }
   },
-  "77": {
+  "78": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 77,
+    "id": 78,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3427,20 +3438,20 @@
       }
     }
   },
-  "78": {
+  "79": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 78,
+    "id": 79,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
       "diagnostics": []
     }
   },
-  "79": {
+  "80": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 79,
+    "id": 80,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3451,10 +3462,10 @@
       }
     }
   },
-  "80": {
+  "81": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 80,
+    "id": 81,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
@@ -3476,10 +3487,10 @@
       ]
     }
   },
-  "81": {
+  "82": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 81,
+    "id": 82,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3490,10 +3501,10 @@
       }
     }
   },
-  "82": {
+  "83": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 82,
+    "id": 83,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3504,20 +3515,20 @@
       }
     }
   },
-  "83": {
+  "84": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 83,
+    "id": 84,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
       "diagnostics": []
     }
   },
-  "84": {
+  "85": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 84,
+    "id": 85,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
@@ -3567,10 +3578,10 @@
       ]
     }
   },
-  "85": {
+  "86": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 85,
+    "id": 86,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3581,10 +3592,10 @@
       }
     }
   },
-  "86": {
+  "87": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 86,
+    "id": 87,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3595,30 +3606,30 @@
       }
     }
   },
-  "87": {
-    "type": "notification",
-    "method": "textDocument/publishDiagnostics",
-    "id": 87,
-    "direction": "receive",
-    "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
-      "diagnostics": []
-    }
-  },
   "88": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
     "id": 88,
     "direction": "receive",
     "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
       "diagnostics": []
     }
   },
   "89": {
     "type": "notification",
-    "method": "textDocument/didOpen",
+    "method": "textDocument/publishDiagnostics",
     "id": 89,
+    "direction": "receive",
+    "params": {
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+      "diagnostics": []
+    }
+  },
+  "90": {
+    "type": "notification",
+    "method": "textDocument/didOpen",
+    "id": 90,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3629,10 +3640,10 @@
       }
     }
   },
-  "90": {
+  "91": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 90,
+    "id": 91,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
@@ -3654,10 +3665,10 @@
       ]
     }
   },
-  "91": {
+  "92": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 91,
+    "id": 92,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3668,20 +3679,20 @@
       }
     }
   },
-  "92": {
+  "93": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 92,
+    "id": 93,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
       "diagnostics": []
     }
   },
-  "93": {
+  "94": {
     "type": "notification",
     "method": "textDocument/didOpen",
-    "id": 93,
+    "id": 94,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3692,20 +3703,20 @@
       }
     }
   },
-  "94": {
+  "95": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 94,
+    "id": 95,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
       "diagnostics": []
     }
   },
-  "95": {
+  "96": {
     "type": "request",
     "method": "textDocument/documentSymbol",
-    "id": 95,
+    "id": 96,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -3767,10 +3778,10 @@
       }
     ]
   },
-  "96": {
+  "97": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 96,
+    "id": 97,
     "direction": "receive",
     "params": {
       "properties": {
@@ -3782,10 +3793,10 @@
       }
     }
   },
-  "97": {
+  "98": {
     "type": "request",
     "method": "textDocument/codeAction",
-    "id": 97,
+    "id": 98,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -3854,10 +3865,10 @@
       }
     ]
   },
-  "98": {
+  "99": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 98,
+    "id": 99,
     "direction": "receive",
     "params": {
       "properties": {
@@ -3870,10 +3881,10 @@
       }
     }
   },
-  "99": {
+  "100": {
     "type": "request",
     "method": "textDocument/codeLens",
-    "id": 99,
+    "id": 100,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -3935,20 +3946,20 @@
       }
     ]
   },
-  "100": {
+  "101": {
     "type": "request",
     "method": "textDocument/documentSymbol",
-    "id": 100,
+    "id": 101,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
       }
     }
   },
-  "101": {
+  "102": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 101,
+    "id": 102,
     "direction": "receive",
     "params": {
       "properties": {
@@ -3960,10 +3971,10 @@
       }
     }
   },
-  "102": {
+  "103": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 102,
+    "id": 103,
     "direction": "receive",
     "params": {
       "properties": {
@@ -3975,10 +3986,10 @@
       }
     }
   },
-  "103": {
+  "104": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 103,
+    "id": 104,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -3986,20 +3997,20 @@
       }
     }
   },
-  "104": {
+  "105": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 104,
+    "id": 105,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
       "diagnostics": []
     }
   },
-  "105": {
+  "106": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 105,
+    "id": 106,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -4007,20 +4018,20 @@
       }
     }
   },
-  "106": {
+  "107": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 106,
+    "id": 107,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
       "diagnostics": []
     }
   },
-  "107": {
+  "108": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 107,
+    "id": 108,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -4028,20 +4039,20 @@
       }
     }
   },
-  "108": {
+  "109": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 108,
+    "id": 109,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
       "diagnostics": []
     }
   },
-  "109": {
+  "110": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 109,
+    "id": 110,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -4049,20 +4060,20 @@
       }
     }
   },
-  "110": {
+  "111": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 110,
+    "id": 111,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
       "diagnostics": []
     }
   },
-  "111": {
+  "112": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 111,
+    "id": 112,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -4070,25 +4081,14 @@
       }
     }
   },
-  "112": {
+  "113": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 112,
+    "id": 113,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
       "diagnostics": []
-    }
-  },
-  "113": {
-    "type": "notification",
-    "method": "textDocument/didClose",
-    "id": 113,
-    "direction": "send",
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
-      }
     }
   },
   "114": {
@@ -4098,18 +4098,19 @@
     "direction": "send",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
       }
     }
   },
   "115": {
     "type": "notification",
-    "method": "textDocument/publishDiagnostics",
+    "method": "textDocument/didClose",
     "id": 115,
-    "direction": "receive",
+    "direction": "send",
     "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
-      "diagnostics": []
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
+      }
     }
   },
   "116": {
@@ -4118,14 +4119,24 @@
     "id": 116,
     "direction": "receive",
     "params": {
-      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
       "diagnostics": []
     }
   },
   "117": {
     "type": "notification",
-    "method": "textDocument/didClose",
+    "method": "textDocument/publishDiagnostics",
     "id": 117,
+    "direction": "receive",
+    "params": {
+      "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+      "diagnostics": []
+    }
+  },
+  "118": {
+    "type": "notification",
+    "method": "textDocument/didClose",
+    "id": 118,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -4133,20 +4144,20 @@
       }
     }
   },
-  "118": {
+  "119": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 118,
+    "id": 119,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
       "diagnostics": []
     }
   },
-  "119": {
+  "120": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 119,
+    "id": 120,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -4154,20 +4165,20 @@
       }
     }
   },
-  "120": {
+  "121": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 120,
+    "id": 121,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
       "diagnostics": []
     }
   },
-  "121": {
+  "122": {
     "type": "notification",
     "method": "textDocument/didClose",
-    "id": 121,
+    "id": 122,
     "direction": "send",
     "params": {
       "textDocument": {
@@ -4175,20 +4186,20 @@
       }
     }
   },
-  "122": {
+  "123": {
     "type": "notification",
     "method": "textDocument/publishDiagnostics",
-    "id": 122,
+    "id": 123,
     "direction": "receive",
     "params": {
       "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
       "diagnostics": []
     }
   },
-  "123": {
+  "124": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 123,
+    "id": 124,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4208,10 +4219,10 @@
       }
     }
   },
-  "124": {
+  "125": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 124,
+    "id": 125,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4223,10 +4234,10 @@
       }
     }
   },
-  "125": {
+  "126": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 125,
+    "id": 126,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4246,10 +4257,10 @@
       }
     }
   },
-  "126": {
+  "127": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 126,
+    "id": 127,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4261,10 +4272,10 @@
       }
     }
   },
-  "127": {
+  "128": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 127,
+    "id": 128,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4281,10 +4292,10 @@
       "contents": ""
     }
   },
-  "128": {
+  "129": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 128,
+    "id": 129,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4296,10 +4307,10 @@
       }
     }
   },
-  "129": {
+  "130": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 129,
+    "id": 130,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4319,10 +4330,10 @@
       }
     }
   },
-  "130": {
+  "131": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 130,
+    "id": 131,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4334,10 +4345,10 @@
       }
     }
   },
-  "131": {
+  "132": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 131,
+    "id": 132,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4357,10 +4368,10 @@
       }
     }
   },
-  "132": {
+  "133": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 132,
+    "id": 133,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4372,10 +4383,10 @@
       }
     }
   },
-  "133": {
+  "134": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 133,
+    "id": 134,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4395,10 +4406,10 @@
       }
     }
   },
-  "134": {
+  "135": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 134,
+    "id": 135,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4410,10 +4421,10 @@
       }
     }
   },
-  "135": {
+  "136": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 135,
+    "id": 136,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4433,10 +4444,10 @@
       }
     }
   },
-  "136": {
+  "137": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 136,
+    "id": 137,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4448,10 +4459,10 @@
       }
     }
   },
-  "137": {
+  "138": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 137,
+    "id": 138,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4471,10 +4482,10 @@
       }
     }
   },
-  "138": {
+  "139": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 138,
+    "id": 139,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4486,10 +4497,10 @@
       }
     }
   },
-  "139": {
+  "140": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 139,
+    "id": 140,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4509,10 +4520,10 @@
       }
     }
   },
-  "140": {
+  "141": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 140,
+    "id": 141,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4524,10 +4535,10 @@
       }
     }
   },
-  "141": {
+  "142": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 141,
+    "id": 142,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4547,10 +4558,10 @@
       }
     }
   },
-  "142": {
+  "143": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 142,
+    "id": 143,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4562,10 +4573,10 @@
       }
     }
   },
-  "143": {
+  "144": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 143,
+    "id": 144,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4585,10 +4596,10 @@
       }
     }
   },
-  "144": {
+  "145": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 144,
+    "id": 145,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4600,10 +4611,10 @@
       }
     }
   },
-  "145": {
+  "146": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 145,
+    "id": 146,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4620,10 +4631,10 @@
       "contents": ""
     }
   },
-  "146": {
+  "147": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 146,
+    "id": 147,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4635,10 +4646,10 @@
       }
     }
   },
-  "147": {
+  "148": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 147,
+    "id": 148,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4655,10 +4666,10 @@
       "contents": ""
     }
   },
-  "148": {
+  "149": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 148,
+    "id": 149,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4670,10 +4681,10 @@
       }
     }
   },
-  "149": {
+  "150": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 149,
+    "id": 150,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4690,10 +4701,10 @@
       "contents": ""
     }
   },
-  "150": {
+  "151": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 150,
+    "id": 151,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4705,10 +4716,10 @@
       }
     }
   },
-  "151": {
+  "152": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 151,
+    "id": 152,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4728,10 +4739,10 @@
       }
     }
   },
-  "152": {
+  "153": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 152,
+    "id": 153,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4743,10 +4754,10 @@
       }
     }
   },
-  "153": {
+  "154": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 153,
+    "id": 154,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4766,10 +4777,10 @@
       }
     }
   },
-  "154": {
+  "155": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 154,
+    "id": 155,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4781,10 +4792,10 @@
       }
     }
   },
-  "155": {
+  "156": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 155,
+    "id": 156,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4804,10 +4815,10 @@
       }
     }
   },
-  "156": {
+  "157": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 156,
+    "id": 157,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4819,10 +4830,10 @@
       }
     }
   },
-  "157": {
+  "158": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 157,
+    "id": 158,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4842,10 +4853,10 @@
       }
     }
   },
-  "158": {
+  "159": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 158,
+    "id": 159,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4857,10 +4868,10 @@
       }
     }
   },
-  "159": {
+  "160": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 159,
+    "id": 160,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4880,10 +4891,10 @@
       }
     }
   },
-  "160": {
+  "161": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 160,
+    "id": 161,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4895,10 +4906,10 @@
       }
     }
   },
-  "161": {
+  "162": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 161,
+    "id": 162,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4918,10 +4929,10 @@
       }
     }
   },
-  "162": {
+  "163": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 162,
+    "id": 163,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4933,10 +4944,10 @@
       }
     }
   },
-  "163": {
+  "164": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 163,
+    "id": 164,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4953,10 +4964,10 @@
       "contents": ""
     }
   },
-  "164": {
+  "165": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 164,
+    "id": 165,
     "direction": "receive",
     "params": {
       "properties": {
@@ -4968,10 +4979,10 @@
       }
     }
   },
-  "165": {
+  "166": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 165,
+    "id": 166,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -4991,10 +5002,10 @@
       }
     }
   },
-  "166": {
+  "167": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 166,
+    "id": 167,
     "direction": "receive",
     "params": {
       "properties": {
@@ -5006,10 +5017,10 @@
       }
     }
   },
-  "167": {
+  "168": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 167,
+    "id": 168,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -5029,10 +5040,10 @@
       }
     }
   },
-  "168": {
+  "169": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 168,
+    "id": 169,
     "direction": "receive",
     "params": {
       "properties": {
@@ -5044,10 +5055,10 @@
       }
     }
   },
-  "169": {
+  "170": {
     "type": "request",
     "method": "textDocument/hover",
-    "id": 169,
+    "id": 170,
     "params": {
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
@@ -5067,10 +5078,10 @@
       }
     }
   },
-  "170": {
+  "171": {
     "type": "notification",
     "method": "telemetry/event",
-    "id": 170,
+    "id": 171,
     "direction": "receive",
     "params": {
       "properties": {
@@ -5082,10 +5093,10 @@
       }
     }
   },
-  "171": {
+  "172": {
     "type": "request",
     "method": "shutdown",
-    "id": 171,
+    "id": 172,
     "performance": {
       "duration": 159
     }

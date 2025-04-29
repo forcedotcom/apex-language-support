@@ -3,7 +3,7 @@
 exports[`LSP Request/Response Accuracy LSP textDocument/codeAction request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/codeAction',
-  id: 97,
+  id: 98,
   params: [Object],
   performance: [Object],
   result: [Array]
@@ -89,7 +89,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/codeAction request/respo
 exports[`LSP Request/Response Accuracy LSP textDocument/codeLens request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/codeLens',
-  id: 99,
+  id: 100,
   params: [Object],
   performance: [Object],
   result: [Array]
@@ -946,7 +946,323 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
-  id: 38,
+  id: 33,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+} 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "kind": 8,
+          "name": "MOCK_PICTURE_NAME : String",
+          "range": {
+            "end": {
+              "character": 49,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 49,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "createProperties(Integer) : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 17,
+            },
+            "start": {
+              "character": 23,
+              "line": 4,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 39,
+              "line": 4,
+            },
+            "start": {
+              "character": 23,
+              "line": 4,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "testGetPagedPropertyList() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 71,
+            },
+            "start": {
+              "character": 16,
+              "line": 20,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 20,
+            },
+            "start": {
+              "character": 16,
+              "line": 20,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "testGetPicturesNoResults() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 85,
+            },
+            "start": {
+              "character": 16,
+              "line": 74,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 74,
+            },
+            "start": {
+              "character": 16,
+              "line": 74,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "testGetPicturesWithResults() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 119,
+            },
+            "start": {
+              "character": 16,
+              "line": 88,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 42,
+              "line": 88,
+            },
+            "start": {
+              "character": 16,
+              "line": 88,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "TestPropertyController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 120,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 36,
+          "line": 1,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "kind": 8,
+          "name": "MOCK_PICTURE_NAME : String",
+          "range": {
+            "end": {
+              "character": 49,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 49,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "createProperties(Integer) : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 17,
+            },
+            "start": {
+              "character": 23,
+              "line": 4,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 39,
+              "line": 4,
+            },
+            "start": {
+              "character": 23,
+              "line": 4,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "testGetPagedPropertyList() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 71,
+            },
+            "start": {
+              "character": 16,
+              "line": 20,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 20,
+            },
+            "start": {
+              "character": 16,
+              "line": 20,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "testGetPicturesNoResults() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 85,
+            },
+            "start": {
+              "character": 16,
+              "line": 74,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 74,
+            },
+            "start": {
+              "character": 16,
+              "line": 74,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "testGetPicturesWithResults() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 119,
+            },
+            "start": {
+              "character": 16,
+              "line": 88,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 42,
+              "line": 88,
+            },
+            "start": {
+              "character": 16,
+              "line": 88,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "TestPropertyController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 120,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 36,
+          "line": 1,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 39,
   params: [Object],
   performance: [Object],
   result: [Array]
@@ -1558,7 +1874,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
-  id: 44,
+  id: 45,
   params: [Object],
   performance: [Object],
   result: [Array]
@@ -1874,7 +2190,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
-  id: 50,
+  id: 51,
   params: [Object],
   performance: [Object],
   result: [Array]
@@ -2630,7 +2946,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
-  id: 56,
+  id: 57,
   params: [Object],
   performance: [Object],
   result: [Array]
@@ -2754,7 +3070,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
-  id: 62,
+  id: 63,
   params: [Object],
   performance: [Object],
   result: [Array]
@@ -2974,7 +3290,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
-  id: 68,
+  id: 69,
   params: [Object],
   performance: [Object],
   result: [Array]
@@ -3242,7 +3558,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
-  id: 95,
+  id: 96,
   params: [Object],
   performance: [Object],
   result: [Array]
@@ -3366,7 +3682,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
-  id: 100,
+  id: 101,
   params: [Object]
 } 1`] = `
 {
@@ -3437,7 +3753,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 123,
+  id: 124,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3479,7 +3795,7 @@ String FileUtilities.createFile(String base64data, String filename, String recor
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 125,
+  id: 126,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3521,7 +3837,7 @@ String FileUtilities.createFile(String base64data, String filename, String recor
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 127,
+  id: 128,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3551,7 +3867,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response m
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 129,
+  id: 130,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3593,7 +3909,7 @@ String
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 131,
+  id: 132,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3635,7 +3951,7 @@ String
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 133,
+  id: 134,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3677,7 +3993,7 @@ String
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 135,
+  id: 136,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3719,7 +4035,7 @@ String recordId
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 137,
+  id: 138,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3761,7 +4077,7 @@ String recordId
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 139,
+  id: 140,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3803,7 +4119,7 @@ String recordId
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 141,
+  id: 142,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3845,7 +4161,7 @@ ContentDocumentLink
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 143,
+  id: 144,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3881,7 +4197,7 @@ ContentDocumentLink contentDocumentLink
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 145,
+  id: 146,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3911,7 +4227,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response m
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 147,
+  id: 148,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3941,7 +4257,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response m
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 149,
+  id: 150,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -3971,7 +4287,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response m
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 151,
+  id: 152,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -4013,7 +4329,7 @@ ContentDocumentLink contentDocumentLink
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 153,
+  id: 154,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -4049,7 +4365,7 @@ Id ContentDocumentLink.ContentDocumentId
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 155,
+  id: 156,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -4085,7 +4401,7 @@ Id ContentDocumentLink.ContentDocumentId
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 157,
+  id: 158,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -4121,7 +4437,7 @@ Id ContentDocumentLink.LinkedEntityId
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 159,
+  id: 160,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -4163,7 +4479,7 @@ ContentDocumentLink contentDocumentLink
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 161,
+  id: 162,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -4205,7 +4521,7 @@ ContentDocumentLink contentDocumentLink
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 163,
+  id: 164,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -4235,7 +4551,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response m
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 165,
+  id: 166,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -4277,7 +4593,7 @@ ContentDocumentLink contentDocumentLink
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 167,
+  id: 168,
   params: [Object],
   performance: [Object],
   result: [Object]
@@ -4319,7 +4635,7 @@ ContentDocumentLink contentDocumentLink
 exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/hover',
-  id: 169,
+  id: 170,
   params: [Object],
   performance: [Object],
   result: [Object]

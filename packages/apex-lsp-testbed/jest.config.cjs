@@ -19,14 +19,4 @@ module.exports = {
     '^@salesforce/apex-lsp-testbed/src/servers/jorje/javaServerLauncher\\.js$':
       '<rootDir>/test/__mocks__/javaServerLauncher.ts',
   },
-
-  // transformIgnorePatterns: [
-  //   'node_modules/(?!(vscode-jsonrpc|vscode-languageserver-types|vscode-languageserver-protocol|vscode-languageserver-textdocument|vscode-languageserver)/)',
-  // ],
-
-  // globals: {
-  //   'ts-jest': {
-  //     useESM: false,
-  //   },
-  // },
 };
