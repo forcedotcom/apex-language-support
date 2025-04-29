@@ -87,6 +87,8 @@
     "antlr4ts": "0.5.0-alpha.4"
   },
   "devDependencies": {
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "@babel/preset-env": "^7.24.0",
+    "@babel/preset-typescript": "^7.23.3"
   }
 }

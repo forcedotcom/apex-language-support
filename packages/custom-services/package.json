@@ -23,22 +23,21 @@
   },
   "wireit": {
     "build": {
-      "command": "vite build",
+      "command": "tsc --build",
       "dependencies": [
         "../apex-parser-ast:build"
       ],
       "files": [
         "src/**/*.ts",
         "src/resources/**/*",
-        "tsconfig.json",
-        "vite.config.cjs"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
       ]
     },
     "compile": {
-      "command": "tsc --project tsconfig.json",
+      "command": "tsc --build",
       "dependencies": [
         "../apex-parser-ast:compile"
       ],
@@ -51,15 +50,14 @@
       ]
     },
     "dev": {
-      "command": "vite build --watch",
+      "command": "tsc --build --watch",
       "service": true,
       "dependencies": [
         "../apex-parser-ast:dev"
       ],
       "files": [
         "src/**/*.ts",
-        "tsconfig.json",
-        "vite.config.ts"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
@@ -96,8 +94,6 @@
     "vscode-languageserver-protocol": "^3.17.5"
   },
   "devDependencies": {
-    "typescript": "^5.8.2",
-    "vite": "^6.2.6",
-    "@rollup/plugin-typescript": "^11.1.5"
+    "typescript": "^5.8.2"
   }
 }

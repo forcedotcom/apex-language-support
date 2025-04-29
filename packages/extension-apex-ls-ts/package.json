@@ -22,29 +22,18 @@
   },
   "wireit": {
     "build": {
-      "command": "vite build",
-      "dependencies": [
-        "../apex-parser-ast:build",
-        "../custom-services:build",
-        "../lsp-compliant-services:build"
-      ],
+      "command": "tsc --build",
       "files": [
         "src/**/*.ts",
         "src/resources/**/*",
-        "tsconfig.json",
-        "vite.config.cjs"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
       ]
     },
     "compile": {
-      "command": "tsc --project tsconfig.json",
-      "dependencies": [
-        "../apex-parser-ast:compile",
-        "../custom-services:compile",
-        "../lsp-compliant-services:compile"
-      ],
+      "command": "tsc --build",
       "files": [
         "src/**/*.ts",
         "tsconfig.json"
@@ -54,17 +43,11 @@
       ]
     },
     "dev": {
-      "command": "vite build --watch",
+      "command": "tsc --build --watch",
       "service": true,
-      "dependencies": [
-        "../apex-parser-ast:dev",
-        "../custom-services:dev",
-        "../lsp-compliant-services:dev"
-      ],
       "files": [
         "src/**/*.ts",
-        "tsconfig.json",
-        "vite.config.ts"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
@@ -103,8 +86,6 @@
     "@salesforce/apex-lsp-testbed": "*"
   },
   "devDependencies": {
-    "typescript": "^5.8.2",
-    "vite": "^6.2.6",
-    "@rollup/plugin-typescript": "^11.1.5"
+    "typescript": "^5.8.2"
   }
 }

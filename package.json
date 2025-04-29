@@ -13,8 +13,8 @@
     "lint:fix": "eslint --ext .ts,.mjs 'packages/*/src/**/*.ts' --fix",
     "build": "wireit",
     "compile": "wireit",
-    "build:debug": "cross-env VITE_BUILD_DEBUG=true npm run build",
-    "build:no-minify": "cross-env VITE_BUILD_DEBUG=true npm run build",
+    "build:debug": "cross-env DEBUG=true npm run build",
+    "build:no-minify": "cross-env NO_MINIFY=true npm run build",
     "dev": "wireit",
     "prepare": "husky install",
     "commit": "git-cz",
@@ -55,7 +55,7 @@
     "@semantic-release/release-notes-generator": "^11.0.7",
     "@tony.ganchev/eslint-plugin-header": "^3.1.2",
     "@types/jest": "^29.5.14",
-    "@types/node": "^22.13.14",
+    "@types/node": "^20.11.30",
     "@typescript-eslint/eslint-plugin": "^8.28.0",
     "@typescript-eslint/parser": "^8.28.0",
     "axios": "^1.6.2",
@@ -79,7 +79,6 @@
     "semantic-release": "^22.0.12",
     "ts-jest": "^29.3.0",
     "typescript": "^5.8.2",
-    "vite": "^6.2.6",
     "wireit": "^0.14.4"
   },
   "dependencies": {

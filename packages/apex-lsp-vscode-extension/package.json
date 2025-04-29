@@ -110,33 +110,42 @@
     "eslint": "^8.18.0",
     "jest": "^29.5.0",
     "rimraf": "^5.0.5",
-    "typescript": "^4.9.5",
-    "vite": "^6.2.6"
+    "typescript": "^5.8.2"
   },
   "workspaces": [
     "../extension-apex-ls-ts"
   ],
   "wireit": {
     "build": {
-      "command": "npm run clean && vite build",
-      "dependencies": [
-        "../extension-apex-ls-ts:build"
-      ],
+      "command": "tsc --build",
       "files": [
         "src/**/*.ts",
-        "tsconfig.build.json",
-        "tsconfig.json",
-        "vite.config.cjs"
+        "src/resources/**/*",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "compile": {
+      "command": "tsc --build",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
       ]
     },
     "dev": {
-      "command": "tsc -watch -p ./tsconfig.build.json",
+      "command": "tsc --build --watch",
       "service": true,
-      "dependencies": [
-        "../extension-apex-ls-ts:dev"
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
       ]
     },
     "test": {

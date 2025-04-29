@@ -20,7 +20,15 @@ module.exports = {
   rootDir: './',
   roots: ['<rootDir>/packages'],
   transform: {
-    '^.+\\.(ts|js)x?$': 'babel-jest',
+    '^.+\\.(ts|js)x?$': [
+      'babel-jest',
+      {
+        presets: [
+          ['@babel/preset-env', { targets: { node: 'current' } }],
+          '@babel/preset-typescript',
+        ],
+      },
+    ],
   },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
