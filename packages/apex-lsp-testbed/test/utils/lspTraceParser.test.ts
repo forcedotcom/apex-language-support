@@ -348,4 +348,310 @@ Result: [
     expect(msg.result[0].children).toHaveLength(1);
     expect(msg.result[0].children[0].name).toBe('DEFAULT_MAX_PRICE : Decimal');
   });
+
+  it('should parse a sequence of real LSP trace records', () => {
+    /* eslint-disable max-len */
+    const logContent = `
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\\nprivate class TestPropertyController {\\n    private final static String MOCK_PICTURE_NAME = 'MockPictureName';\\n\\n    public static void createProperties(Integer amount) {\\n        List<Property__c> properties = new List<Property__c>();\\n        for (Integer i = 0; i < amount; i++) {\\n            properties.add(\\n                new Property__c(\\n                    Name = 'Name ' + i,\\n                    Price__c = 20000,\\n                    Beds__c = 3,\\n                    Baths__c = 3\\n                )\\n            );\\n        }\\n        insert properties;\\n    }\\n\\n    @isTest\\n    static void testGetPagedPropertyList() {\\n        Profile standardUserProfile = [\\n            SELECT Name, Id\\n            FROM Profile\\n            WHERE\\n                UserType = 'Standard'\\n                AND PermissionsPrivacyDataAccess = FALSE\\n                AND PermissionsSubmitMacrosAllowed = TRUE\\n                AND PermissionsMassInlineEdit = TRUE\\n            LIMIT 1\\n        ];\\n        User testUser = new User(\\n            Alias = 'standt',\\n            Email = 'standarduser@testorg.com',\\n            EmailEncodingKey = 'UTF-8',\\n            LastName = 'Testing',\\n            LanguageLocaleKey = 'en_US',\\n            LocaleSidKey = 'en_US',\\n            ProfileId = standardUserProfile.Id,\\n            TimeZoneSidKey = 'America/Los_Angeles',\\n            UserName = 'standarduser@dreamhouse-testorg.com'\\n        );\\n        insert testUser;\\n        PermissionSet ps = [\\n            SELECT Id\\n            FROM PermissionSet\\n            WHERE Name = 'dreamhouse'\\n        ];\\n        insert new PermissionSetAssignment(\\n            AssigneeId = testUser.Id,\\n            PermissionSetId = ps.Id\\n        );\\n\\n        // Insert test properties as admin\\n        System.runAs(new User(Id = UserInfo.getUserId())) {\\n            TestPropertyController.createProperties(5);\\n        }\\n        // Read properties as test user\\n        System.runAs(testUser) {\\n            Test.startTest();\\n            PagedResult result = PropertyController.getPagedPropertyList(\\n                '',\\n                999999,\\n                0,\\n                0,\\n                10,\\n                1\\n            );\\n            Test.stopTest();\\n            Assert.areEqual(5, result.records.size());\\n        }\\n    }\\n\\n    @isTest\\n    static void testGetPicturesNoResults() {\\n        Property__c property = new Property__c(Name = 'Name');\\n        insert property;\\n\\n        Test.startTest();\\n        List<ContentVersion> items = PropertyController.getPictures(\\n            property.Id\\n        );\\n        Test.stopTest();\\n\\n        Assert.isNull(items);\\n    }\\n\\n    @isTest\\n    static void testGetPicturesWithResults() {\\n        Property__c property = new Property__c(Name = 'Name');\\n        insert property;\\n\\n        // Insert mock picture\\n        ContentVersion picture = new Contentversion();\\n        picture.Title = MOCK_PICTURE_NAME;\\n        picture.PathOnClient = 'picture.png';\\n        picture.Versiondata = EncodingUtil.base64Decode('MockValue');\\n        insert picture;\\n\\n        // Link picture to property record\\n        List<ContentDocument> documents = [\\n            SELECT Id, Title, LatestPublishedVersionId\\n            FROM ContentDocument\\n            LIMIT 1\\n        ];\\n        ContentDocumentLink link = new ContentDocumentLink();\\n        link.LinkedEntityId = property.Id;\\n        link.ContentDocumentId = documents[0].Id;\\n        link.shareType = 'V';\\n        insert link;\\n\\n        Test.startTest();\\n        List<ContentVersion> items = PropertyController.getPictures(\\n            property.Id\\n        );\\n        Test.stopTest();\\n\\n        Assert.areEqual(1, items.size());\\n        Assert.areEqual(MOCK_PICTURE_NAME, items[0].Title);\\n    }\\n}\\n"
+    }
+}
+
+[Trace - 10:20:09 AM] Sending request 'textDocument/documentSymbol - (6)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls"
+    }
+}
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+    "diagnostics": [
+        {
+            "range": {
+                "start": {
+                    "line": 8,
+                    "character": 16
+                },
+                "end": {
+                    "line": 8,
+                    "character": 19
+                }
+            },
+            "severity": 2,
+            "message": "Field does not exist: Price__c on Property__c"
+        },
+        {
+            "range": {
+                "start": {
+                    "line": 8,
+                    "character": 16
+                },
+                "end": {
+                    "line": 8,
+                    "character": 19
+                }
+            },
+            "severity": 2,
+            "message": "Field does not exist: Beds__c on Property__c"
+        },
+        {
+            "range": {
+                "start": {
+                    "line": 8,
+                    "character": 16
+                },
+                "end": {
+                    "line": 8,
+                    "character": 19
+                }
+            },
+            "severity": 2,
+            "message": "Field does not exist: Baths__c on Property__c"
+        }
+    ]
+}
+
+[Trace - 10:20:09 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+[Trace - 10:20:09 AM] Received response 'textDocument/documentSymbol - (6)' in 50ms.
+Result: [
+    {
+        "name": "TestPropertyController",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 1,
+                "character": 14
+            },
+            "end": {
+                "line": 120,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 1,
+                "character": 14
+            },
+            "end": {
+                "line": 1,
+                "character": 36
+            }
+        },
+        "children": [
+            {
+                "name": "MOCK_PICTURE_NAME : String",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 2,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 49
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 2,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 49
+                    }
+                }
+            },
+            {
+                "name": "createProperties(Integer) : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 4,
+                        "character": 23
+                    },
+                    "end": {
+                        "line": 17,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 4,
+                        "character": 23
+                    },
+                    "end": {
+                        "line": 4,
+                        "character": 39
+                    }
+                }
+            },
+            {
+                "name": "testGetPagedPropertyList() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 20,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 71,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 20,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 20,
+                        "character": 40
+                    }
+                }
+            },
+            {
+                "name": "testGetPicturesNoResults() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 74,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 85,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 74,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 74,
+                        "character": 40
+                    }
+                }
+            },
+            {
+                "name": "testGetPicturesWithResults() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 88,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 119,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 88,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 88,
+                        "character": 42
+                    }
+                }
+            }
+        ]
+    }
+]
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls"
+    }
+}
+    
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+    "diagnostics": []
+}
+`;
+    /* eslint-enable max-len */
+
+    const result = [...parser.parse(logContent).values()];
+
+    // Verify the sequence of messages
+    expect(result).toHaveLength(6);
+
+    // Check didOpen notification
+    const didOpen = result[0];
+    expect(didOpen.type).toBe('notification');
+    expect(didOpen.method).toBe('textDocument/didOpen');
+    expect(didOpen.direction).toBe('send');
+    expect(didOpen.params).toBeDefined();
+    expect(didOpen.params.textDocument.uri).toBe(
+      'file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls',
+    );
+
+    // Check documentSymbol request
+    const docSymbol = result[1];
+    expect(docSymbol.type).toBe('request');
+    expect(docSymbol.method).toBe('textDocument/documentSymbol');
+    expect(docSymbol.id).toBe(2);
+    expect(docSymbol.params).toBeDefined();
+    expect(docSymbol.params.textDocument.uri).toBe(
+      'file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls',
+    );
+    expect(docSymbol.params.textDocument).not.toHaveProperty('diagnostices');
+    expect(docSymbol.type).toBe('request');
+    expect(docSymbol.method).toBe('textDocument/documentSymbol');
+    expect(docSymbol.result).toBeDefined();
+    expect(docSymbol.result[0].name).toBe('TestPropertyController');
+    expect(docSymbol.result[0].children).toHaveLength(5);
+
+    // Check publishDiagnostics notification
+    const diagnostics = result[2];
+    expect(diagnostics.type).toBe('notification');
+    expect(diagnostics.method).toBe('textDocument/publishDiagnostics');
+    expect(diagnostics.direction).toBe('receive');
+    expect(diagnostics.params).toBeDefined();
+    expect(diagnostics.params.diagnostics).toHaveLength(3);
+    expect(diagnostics.params.diagnostics[0].message).toBe(
+      'Field does not exist: Price__c on Property__c',
+    );
+
+    // Check telemetry notification
+    const telemetry = result[3];
+    expect(telemetry.type).toBe('notification');
+    expect(telemetry.method).toBe('telemetry/event');
+    expect(telemetry.direction).toBe('receive');
+    expect(telemetry.params).toBeDefined();
+    expect(telemetry.params.properties.Feature).toBe('Definition');
+
+    // Check documentSymbol response
+    const didClose = result[4];
+    expect(didClose.type).toBe('notification');
+    expect(didClose.method).toBe('textDocument/didClose');
+    expect(didClose.id).toBe(5);
+    expect(didClose.params).toBeDefined();
+    expect(didClose.params.textDocument.uri).toBe(
+      'file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls',
+    );
+  });
 });

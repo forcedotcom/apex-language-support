@@ -220,10 +220,11 @@ export class LSPTraceParser {
           }
         }
       }
-    } catch (e) {
-      console.error('Failed to parse JSON content:', e);
+    } catch {
+      // On JSON parse error, clear the current JSON state and don't set any params/result
       this.currentJson = [];
       this.currentJsonType = null;
+      // Don't set any params/result on the message, leaving them undefined
     }
   }
 }
