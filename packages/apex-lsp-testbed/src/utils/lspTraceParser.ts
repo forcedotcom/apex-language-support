@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 export interface LSPMessage {
-  type: 'request' | 'notification';
+  type: 'request' | 'notification' | 'response';
   method: string;
   id?: number;
   params?: any;
@@ -24,14 +24,6 @@ export interface LSPMessage {
     };
   };
 }
-
-export interface LSPRequestResponsePair {
-  request: LSPMessage;
-  response: LSPMessage | null;
-  duration: number | null;
-}
-
-export type LSPTraceItem = LSPRequestResponsePair | LSPMessage;
 
 export class LSPTraceParser {
   private static readonly MESSAGE_PATTERNS = {
@@ -130,6 +122,10 @@ export class LSPTraceParser {
       this.parsingJson = true;
       this.currentJsonType = 'result';
       this.currentJson = [line.trim().replace(/^.*\{/, '{')];
+    } else if (line.trim().startsWith('Result: [')) {
+      this.parsingJson = true;
+      this.currentJsonType = 'result';
+      this.currentJson = [line.trim().replace(/^Result: /, '')];
     }
   }
 
@@ -157,24 +153,25 @@ export class LSPTraceParser {
       const newSerialId = this.nextSerialId++;
       this.originalIdToSerialId.set(originalId, newSerialId);
       this.currentMessageId = newSerialId;
+      // Initialize the message in the result map
+      this.result.set(newSerialId, {
+        type: 'request',
+        method,
+        id: newSerialId,
+      });
     } else {
       this.currentMessageId = serialId;
     }
 
-    const response: LSPMessage = {
-      type: 'request',
-      method,
-      id: this.currentMessageId,
-      performance: { duration: parseInt(duration) },
-    };
+    // Get the existing request message
+    const request = this.result.get(this.currentMessageId);
+    if (!request) {
+      return; // Shouldn't happen, but just in case
+    }
 
-    // Always update the result map for this id
-    const update = {
-      ...this.result.get(this.currentMessageId),
-      ...response,
-    };
-
-    this.result.set(this.currentMessageId, update);
+    // Update the existing message with response information
+    request.performance = { duration: parseInt(duration) };
+    this.result.set(this.currentMessageId, request);
   }
 
   private handleNotification(match: RegExpMatchArray) {

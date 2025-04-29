@@ -8,24 +8,30 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-import { describe, expect, test } from '@jest/globals';
-
 import {
   createTestServer,
   ServerOptions as ServerOptions,
 } from '../../src/test-utils/serverFactory';
 
+// --- Load test data synchronously ---
+const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
+const rawData = readFileSync(logPath, 'utf8');
+const logData: Record<string, any> = JSON.parse(rawData);
+
+jest.setTimeout(10000);
+
+// Extract relevant request/response pairs
+const testData: [string, any][] = Object.values(logData)
+  .filter(
+    (entry) => entry.type === 'request' && /^textDocument/.test(entry.method),
+  )
+  // .filter((entry) => entry.id === 33)
+  .map((request) => [request.method, request]);
+
 describe('LSP Request/Response Accuracy', () => {
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;
-  let logData: Record<string, any> = {};
 
   beforeAll(async () => {
-    // Read the expected request/response pairs from the log file
-    const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
-    const rawData = readFileSync(logPath, 'utf8');
-    logData = JSON.parse(rawData);
-
-    // Initialize the server
     const options: ServerOptions = {
       serverType: 'jorje',
       verbose: true,
@@ -40,35 +46,24 @@ describe('LSP Request/Response Accuracy', () => {
     }
   });
 
-  // Filter and test client-initiated requests
-  test.each(
-    Object.values(logData)
-      .filter(
-        (entry) =>
-          entry.type === 'request' &&
-          entry.direction === 'send' &&
-          entry.method &&
-          entry.result === undefined,
-      )
-      .map((request) => [request.method, request]),
-  )('LSP %s request/response matches snapshot', async (method, request) => {
-    // Make the actual request to the server
-    const response = await serverContext.client.sendRequest(
-      request.method,
-      request.params,
-    );
+  it.each(testData)(
+    'LSP %s request/response matches snapshot for request %s',
+    async (method, request) => {
+      const actualResponse = await serverContext.client.sendRequest(
+        method,
+        request.params,
+      );
 
-    // Create a clean snapshot object with just the essential info
-    const snapshotData = {
-      request: {
-        method: request.method,
-        params: request.params,
-      },
-      response: {
-        result: response,
-      },
-    };
+      const snapshotData = {
+        request: {
+          method: request.method,
+          params: request.params,
+        },
+        expectedResponse: request?.result,
+        actualResponse,
+      };
 
-    expect(snapshotData).toMatchSnapshot();
-  });
+      expect(snapshotData).toMatchSnapshot();
+    },
+  );
 });

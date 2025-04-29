@@ -270,4 +270,82 @@ Params: {
     expect(didOpen?.params.textDocument.version).toBe(1);
     expect(didOpen?.params.textDocument.text).toBeDefined();
   });
+
+  it('should parse array responses correctly', () => {
+    const logContent = `
+[Trace - 10:20:08 AM] Sending request 'textDocument/documentSymbol - (3)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
+    }
+}
+
+[Trace - 10:20:08 AM] Received response 'textDocument/documentSymbol - (3)' in 61ms.
+Result: [
+    {
+        "name": "PropertyController",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 111,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 0,
+                "character": 44
+            }
+        },
+        "children": [
+            {
+                "name": "DEFAULT_MAX_PRICE : Decimal",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 1,
+                        "character": 33
+                    },
+                    "end": {
+                        "line": 1,
+                        "character": 50
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 1,
+                        "character": 33
+                    },
+                    "end": {
+                        "line": 1,
+                        "character": 50
+                    }
+                }
+            }
+        ]
+    }
+]`;
+
+    const result = [...parser.parse(logContent).values()];
+    expect(result).toHaveLength(1);
+    const msg = result[0];
+    expect(msg).toBeDefined();
+    expect(msg.type).toBe('request');
+    expect(msg.method).toBe('textDocument/documentSymbol');
+    expect(msg.id).toBe(1);
+    expect(Array.isArray(msg.result)).toBe(true);
+    expect(msg.result).toHaveLength(1);
+    expect(msg.result[0].name).toBe('PropertyController');
+    expect(msg.result[0].kind).toBe(5);
+    expect(msg.result[0].children).toHaveLength(1);
+    expect(msg.result[0].children[0].name).toBe('DEFAULT_MAX_PRICE : Decimal');
+  });
 });
