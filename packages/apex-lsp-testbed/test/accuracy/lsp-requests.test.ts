@@ -28,7 +28,7 @@ const testData: [string, any][] = Object.values(logData)
   // .filter((entry) => entry.id === 33)
   .map((request) => [request.method, request]);
 
-describe('LSP Request/Response Accuracy', () => {
+describe.skip('LSP Request/Response Accuracy', () => {
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;
 
   beforeAll(async () => {

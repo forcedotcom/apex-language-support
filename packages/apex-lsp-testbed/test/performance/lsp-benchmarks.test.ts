@@ -9,72 +9,110 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import Benchmark from 'benchmark';
+import {
+  createTestServer,
+  ServerOptions,
+} from 'packages/apex-lsp-testbed/src/test-utils/serverFactory';
 
-interface LSPLogEntry {
-  type: string;
-  direction: string;
-  method?: string;
-  params?: any;
-  result?: any;
-  id?: number | string;
-}
+// --- Load test data synchronously ---
+const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
+const rawData = readFileSync(logPath, 'utf8');
+const logData: Record<string, any> = JSON.parse(rawData);
 
-describe.skip('LSP Performance Benchmarks', () => {
-  let logData: LSPLogEntry[];
-  let clientRequests: LSPLogEntry[];
+jest.setTimeout(1000 * 60 * 10);
 
-  beforeAll(() => {
-    const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
-    const rawData = readFileSync(logPath, 'utf8');
-    logData = JSON.parse(rawData);
+// Extract relevant request/response pairs
+const testData: [string, any][] = Object.values(logData)
+  .filter(
+    (entry) => entry.type === 'request' && /^textDocument/.test(entry.method),
+  )
+  .reduce((acc: [string, any][], request) => {
+    // Only add if we haven't seen this method before
+    if (!acc.some(([method]) => method === request.method)) {
+      acc.push([request.method, request]);
+    }
+    return acc;
+  }, []);
 
-    // Filter client-initiated requests
-    clientRequests = logData.filter(
-      (entry) =>
-        entry.type === 'request' &&
-        entry.direction === 'client-to-server' &&
-        entry.method,
-    );
+describe('LSP Performance Benchmarks', () => {
+  let serverContext: Awaited<ReturnType<typeof createTestServer>>;
+
+  beforeAll(async () => {
+    const options: ServerOptions = {
+      serverType: 'jorje',
+      verbose: true,
+      workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
+    };
+    serverContext = await createTestServer(options);
+
+    // Wait for server to be ready
+    await new Promise((resolve) => setTimeout(resolve, 5000));
   });
 
-  it('should benchmark LSP request handling', (done) => {
-    const suite = new Benchmark.Suite();
+  afterAll(async () => {
+    if (serverContext) {
+      await serverContext.cleanup();
+    }
+  });
 
-    // Group requests by method for aggregate performance metrics
-    const requestsByMethod = clientRequests.reduce(
-      (acc, request) => {
-        const method = request.method as string;
-        if (!acc[method]) {
-          acc[method] = [];
-        }
-        acc[method].push(request);
-        return acc;
-      },
-      {} as Record<string, LSPLogEntry[]>,
-    );
+  it('should benchmark LSP request handling', async () => {
+    const suite = new Benchmark.Suite();
+    const requestTimeout = 10000; // 10 second timeout per request
+    const results: Record<string, Benchmark.Target> = {};
+
+    // Ensure client is started
+    await serverContext.client.start();
 
     // Add benchmark for each LSP method type
-    Object.entries(requestsByMethod).forEach(([method, requests]) => {
-      suite.add(`LSP ${method}`, {
+    testData.forEach(([method, request]) => {
+      suite.add(`LSP ${method} Id: ${request.id}`, {
         defer: true,
         fn: function (deferred: { resolve: () => void }) {
-          // Select a random request of this method type for variety
-          const request = requests[Math.floor(Math.random() * requests.length)];
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(
+              () =>
+                reject(
+                  new Error(`Request timed out after ${requestTimeout}ms`),
+                ),
+              requestTimeout,
+            );
+          });
 
-          // TODO: Replace with actual language server call
-          Promise.resolve(request).then(() => deferred.resolve());
+          const req = serverContext.client.sendRequest(method, request.params);
+
+          Promise.race([Promise.resolve(req), timeoutPromise])
+            .then(() => deferred.resolve())
+            .catch((error) => {
+              console.error(`Error in ${method}:`, error);
+              deferred.resolve(); // Resolve anyway to continue the benchmark
+            });
         },
       });
     });
 
-    suite
-      .on('cycle', function (event: Benchmark.Event) {
-        console.log(String(event.target));
-      })
-      .on('complete', function (this: Benchmark.Suite) {
-        console.log('Fastest method is ' + this.filter('fastest').map('name'));
-        done();
-      })
-      .run({ async: true });
+    return new Promise<void>((resolve) => {
+      suite
+        .on('cycle', function (event: Benchmark.Event) {
+          const benchmark = event.target as Benchmark.Target;
+          if (benchmark.name) {
+            results[benchmark.name] = benchmark;
+          }
+          console.log(String(benchmark));
+        })
+        .on('complete', function (this: Benchmark.Suite) {
+          console.log(
+            'Fastest method is ' + this.filter('fastest').map('name'),
+          );
+
+          // Write results to disk
+          const outputPath = join(__dirname, '../benchmark-results.json');
+          require('fs').writeFileSync(
+            outputPath,
+            JSON.stringify(results, null, 2),
+          );
+          resolve();
+        })
+        .run({ async: true });
+    });
   });
 });
