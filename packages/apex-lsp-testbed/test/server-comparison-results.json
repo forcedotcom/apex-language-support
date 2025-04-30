@@ -1,0 +1,50 @@
+[
+  {
+    "method": "textDocument/documentSymbol",
+    "serverId": "1",
+    "serverType": "jorje",
+    "hz": 10378.716977896642,
+    "stats": {
+      "rme": 2.511427798915907,
+      "mean": 0.00009635102316882531,
+      "deviation": 0.000010903558499645715,
+      "variance": 1.1888758795519632e-10
+    }
+  },
+  {
+    "method": "textDocument/codeAction",
+    "serverId": "2",
+    "serverType": "jorje",
+    "hz": 7585.941920876069,
+    "stats": {
+      "rme": 1.187136395142526,
+      "mean": 0.00013182278620510636,
+      "deviation": 0.000007185840025094718,
+      "variance": 5.163629686625327e-11
+    }
+  },
+  {
+    "method": "textDocument/codeLens",
+    "serverId": "3",
+    "serverType": "jorje",
+    "hz": 8445.488082305164,
+    "stats": {
+      "rme": 1.396619842974971,
+      "mean": 0.00011840641893689747,
+      "deviation": 0.00000782432009050188,
+      "variance": 6.121998487863134e-11
+    }
+  },
+  {
+    "method": "textDocument/hover",
+    "serverId": "4",
+    "serverType": "jorje",
+    "hz": 8731.704831396397,
+    "stats": {
+      "rme": 1.5736586350202264,
+      "mean": 0.00011452517226696924,
+      "deviation": 0.000008477442921689472,
+      "variance": 7.186703849050292e-11
+    }
+  }
+]

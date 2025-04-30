@@ -86,6 +86,52 @@ export async function createClientOptions(
         ...(workspace ? { workspacePath: workspace.rootPath } : {}),
       };
     }
+    case 'nodeServer': {
+      return {
+        serverType: 'nodeServer',
+        serverPath: path.join(
+          process.cwd().includes('packages/apex-lsp-testbed')
+            ? process.cwd()
+            : path.join(process.cwd(), 'packages', 'apex-lsp-testbed'),
+          'dist',
+          'servers',
+          'nodeServer',
+          'extensionServer',
+          'extensionLanguageServerHarness.js',
+        ),
+        nodeArgs: verbose ? ['--nolazy'] : [],
+        env: {
+          ...process.env,
+          APEX_LSP_DEBUG: verbose ? '1' : '0',
+          ...(workspace ? { APEX_LSP_WORKSPACE: workspace.rootPath } : {}),
+        },
+        initializeParams: initializationOptions,
+        ...(workspace ? { workspacePath: workspace.rootPath } : {}),
+      };
+    }
+    case 'webServer': {
+      return {
+        serverType: 'webServer',
+        serverPath: path.join(
+          process.cwd().includes('packages/apex-lsp-testbed')
+            ? process.cwd()
+            : path.join(process.cwd(), 'packages', 'apex-lsp-testbed'),
+          'dist',
+          'servers',
+          'nodeServer',
+          'webServer',
+          'webLanguageServerHarness.js',
+        ),
+        nodeArgs: verbose ? ['--nolazy'] : [],
+        env: {
+          ...process.env,
+          APEX_LSP_DEBUG: verbose ? '1' : '0',
+          ...(workspace ? { APEX_LSP_WORKSPACE: workspace.rootPath } : {}),
+        },
+        initializeParams: initializationOptions,
+        ...(workspace ? { workspacePath: workspace.rootPath } : {}),
+      };
+    }
     default:
       throw new Error(`Unknown server type: ${serverType}`);
   }
@@ -110,11 +156,16 @@ export function parseArgs(): CliOptions {
 
     if (arg === '--server' || arg === '-s') {
       const value = args[++i]?.toLowerCase();
-      if (value === 'demo' || value === 'jorje') {
+      if (
+        value === 'demo' ||
+        value === 'jorje' ||
+        value === 'nodeServer' ||
+        value === 'webServer'
+      ) {
         options.serverType = value as ServerType;
       } else {
         console.error(
-          `Invalid server type: ${value}. Must be 'demo' or 'jorje'.`,
+          `Invalid server type: ${value}. Must be 'demo', 'jorje', 'nodeServer', or 'webServer'.`,
         );
         process.exit(1);
       }
@@ -140,7 +191,7 @@ export function parseArgs(): CliOptions {
 
   if (!options.serverType) {
     console.error(
-      "Error: --server <type> is required. Must be 'demo' or 'jorje'.",
+      "Error: --server <type> is required. Must be 'demo', 'jorje', 'nodeServer', or 'webServer'.",
     );
     process.exit(1);
   }
@@ -158,7 +209,7 @@ export function printHelp(): void {
   console.log('');
   console.log('Options:');
   console.log(
-    '  -s, --server <type>      Server type to launch (demo or jorje)',
+    '  -s, --server <type>      Server type to launch (demo, jorje, nodeServer, or webServer)',
   );
   console.log('  -v, --verbose            Enable verbose logging');
   console.log('  -i, --interactive        Start in interactive mode');
@@ -193,4 +244,10 @@ export function printHelp(): void {
   console.log(
     '  npm run start:demo:verbose -- --workspace /path/to/apex/project',
   );
+  console.log('');
+  console.log('  # Start nodeServer with a local workspace');
+  console.log('  npm run start:node -- --workspace /path/to/apex/project');
+  console.log('');
+  console.log('  # Start webServer with verbose logging');
+  console.log('  npm run start:web:verbose');
 }

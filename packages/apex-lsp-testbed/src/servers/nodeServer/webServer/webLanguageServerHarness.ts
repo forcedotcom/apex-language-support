@@ -8,7 +8,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as cp from 'child_process';
 
 import {
   ApexJsonRpcClient,
@@ -93,36 +92,17 @@ export class WebLanguageServerHarness {
       'web-apex-ls-ts',
     );
 
-    const distPath = path.join(webLsPackagePath, 'dist', 'index.js');
+    const distPath = path.join(webLsPackagePath, 'dist', 'src', 'index.js');
 
     if (fs.existsSync(distPath)) {
       this.logger.info(`Found web-apex-ls-ts server at: ${distPath}`);
       return distPath;
     }
 
-    // If the built version doesn't exist, try to build it
-    this.logger.info(
-      'Built web-apex-ls-ts server not found, attempting to build it...',
-    );
-
-    try {
-      cp.execSync('npm run build', {
-        cwd: webLsPackagePath,
-        stdio: 'inherit',
-      });
-
-      if (fs.existsSync(distPath)) {
-        this.logger.info(`Built web-apex-ls-ts server at: ${distPath}`);
-        return distPath;
-      }
-    } catch (error) {
-      this.logger.error(`Failed to build web-apex-ls-ts: ${error}`);
-    }
-
-    // If we couldn't find or build the server, throw an error
+    // If we couldn't find the server, throw an error
     throw new Error(
-      'Could not find or build web-apex-ls-ts server. ' +
-        'Please ensure the package is built by running "npm run build" in the web-apex-ls-ts directory.',
+      'Could not find web-apex-ls-ts server. ' +
+        'Please ensure the package is built by running "npm run build" in the project root.',
     );
   }
 

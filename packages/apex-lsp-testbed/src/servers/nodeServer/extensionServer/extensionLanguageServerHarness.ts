@@ -8,7 +8,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as cp from 'child_process';
 
 import {
   ApexJsonRpcClient,
@@ -63,7 +62,7 @@ export class ExtensionApexLanguageServerHarness {
       serverPath,
       nodeArgs: ['--nolazy'],
       env: process.env,
-      serverType: 'jorje' as ServerType, // Using jorje as the type since we need a valid ServerType
+      serverType: 'nodeServer' as ServerType, // Using node as the type since we need a valid ServerType
     };
 
     // Create the client
@@ -93,36 +92,22 @@ export class ExtensionApexLanguageServerHarness {
       'extension-apex-ls-ts',
     );
 
-    const distPath = path.join(extensionLsPackagePath, 'dist', 'index.js');
+    const distPath = path.join(
+      extensionLsPackagePath,
+      'dist',
+      'src',
+      'index.js',
+    );
 
     if (fs.existsSync(distPath)) {
-      this.logger.info(`Found extension-apex-ls-ts server at: ${distPath}`);
+      this.logger.info(`Built extension-apex-ls-ts server at: ${distPath}`);
       return distPath;
     }
 
-    // If the built version doesn't exist, try to build it
-    this.logger.info(
-      'Built extension-apex-ls-ts server not found, attempting to build it...',
-    );
-
-    try {
-      cp.execSync('npm run build', {
-        cwd: extensionLsPackagePath,
-        stdio: 'inherit',
-      });
-
-      if (fs.existsSync(distPath)) {
-        this.logger.info(`Built extension-apex-ls-ts server at: ${distPath}`);
-        return distPath;
-      }
-    } catch (error) {
-      this.logger.error(`Failed to build extension-apex-ls-ts: ${error}`);
-    }
-
-    // If we couldn't find or build the server, throw an error
+    // If we couldn't find the server, throw an error
     throw new Error(
-      'Could not find or build extension-apex-ls-ts server. ' +
-        'Please ensure the package is built by running "npm run build" in the extension-apex-ls-ts directory.',
+      `Could not find extension-apex-ls-ts server. at ${distPath}. ` +
+        'Please ensure the package is built by running "npm run build" in the project root.',
     );
   }
 
