@@ -2,21 +2,95 @@
 
 # This repository is experimental - DO NOT USE
 
-A Language Server Protocol implementation for Salesforce Apex language, written in TypeScript.
+This repository contains a set of packages that collectively implement language support for Salesforce Apex, following the Language Server Protocol (LSP) specification.
 
-## Overview
+## Architecture Overview
 
-This project implements a Language Server Protocol (LSP) for Salesforce Apex, providing features such as code completion, hover information, and other IDE-like capabilities for Apex development. The project is structured as a monorepo with multiple packages, each serving a specific purpose in the language server ecosystem.
+The project is structured as a monorepo with several interconnected packages that serve different purposes in the language support ecosystem.
 
-## Packages
+```mermaid
+graph TD
+    subgraph "Core Components"
+        apex-parser-ast[apex-parser-ast]
+        custom-services[custom-services]
+        lsp-compliant-services[lsp-compliant-services]
+    end
+    
+    subgraph "Node.js Runtime"
+        extension-apex-ls-ts[extension-apex-ls-ts]
+        apex-lsp-vscode-extension[apex-lsp-vscode-extension]
+        apex-lsp-vscode-client[apex-lsp-vscode-client]
+    end
+    
+    subgraph "Browser Runtime"
+        web-apex-ls-ts[web-apex-ls-ts]
+        apex-lsp-browser-client[apex-lsp-browser-client]
+    end
+    
+    subgraph "Testing & Development"
+        apex-lsp-testbed[apex-lsp-testbed]
+    end
+    
+    %% Core dependencies
+    apex-parser-ast --> custom-services
+    apex-parser-ast --> lsp-compliant-services
+    
+    %% Node.js implementation
+    custom-services --> extension-apex-ls-ts
+    lsp-compliant-services --> extension-apex-ls-ts
+    extension-apex-ls-ts --> apex-lsp-vscode-client
+    apex-lsp-vscode-client --> apex-lsp-vscode-extension
+    
+    %% Browser implementation
+    custom-services --> web-apex-ls-ts
+    lsp-compliant-services --> web-apex-ls-ts
+    web-apex-ls-ts --> apex-lsp-browser-client
+    
+    %% Testing dependencies
+    extension-apex-ls-ts --> apex-lsp-testbed
+    web-apex-ls-ts --> apex-lsp-testbed
+    apex-lsp-vscode-client --> apex-lsp-testbed
+    apex-lsp-browser-client --> apex-lsp-testbed
+```
 
-- **apex-parser-ast**: Apex language parser and AST functionality
-- **custom-services**: Custom language server services beyond the LSP specification
-- **lsp-compliant-services**: Standard LSP-compliant services implementation
-- **apex-ls-browser**: Browser-based implementation for the language server
-- **apex-lsp-browser-client**: Client library for connecting to the Apex Language Server in browser environments
-- **apex-lsp-testbed**: Testbed for performance and qualitative analysis of various Apex language server implementations
-- **apex-ls-node**: Node.js implementation for the language server
+## Package Descriptions
+
+### Core Components
+
+- **apex-parser-ast**: Provides AST (Abstract Syntax Tree) parsing capabilities for Apex code
+- **custom-services**: Implements custom services beyond the standard LSP specification
+- **lsp-compliant-services**: Implements standard LSP services (completion, hover, etc.)
+
+### Node.js Runtime
+
+- **extension-apex-ls-ts**: TypeScript implementation of the Apex Language Server for Node.js
+- **apex-lsp-vscode-client**: VS Code specific client that communicates with the language server
+- **apex-lsp-vscode-extension**: The VS Code extension package that integrates with VS Code's extension API
+
+### Browser Runtime
+
+- **web-apex-ls-ts**: Browser-compatible implementation of the Apex Language Server
+- **apex-lsp-browser-client**: Browser-based client for the language server
+
+### Testing & Development
+
+- **apex-lsp-testbed**: Testing utilities and integration tests for the language server
+
+## Key Differences Between Node.js and Browser Implementations
+
+The repository maintains two parallel implementations of the language server:
+
+1. **Node.js implementation** (`extension-apex-ls-ts`):
+   - Runs in Node.js environment
+   - Uses file system for storage
+   - Designed for desktop IDE integration (VS Code)
+
+2. **Browser implementation** (`web-apex-ls-ts`):
+   - Runs in browser environment
+   - Uses IndexedDB for storage
+   - Designed for web-based editors
+
+Both implementations maintain feature parity by implementing the same set of LSP handlers and capabilities, allowing for a consistent experience across different environments.
 
 ## Client Libraries
 
