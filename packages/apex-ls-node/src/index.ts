@@ -11,29 +11,93 @@ import {
   ProposedFeatures,
   InitializeParams,
   InitializeResult,
+  TextDocumentPositionParams,
+  CompletionItem,
+  Hover,
+  LogMessageNotification,
+  MessageType,
 } from 'vscode-languageserver/node';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 const connection = createConnection(ProposedFeatures.all);
 
+// Server state
+let isShutdown = false;
+
 // Initialize server capabilities and properties
 connection.onInitialize(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (params: InitializeParams): InitializeResult => ({
-    capabilities: {
-      textDocumentSync: 1, // Full synchronization
-      completionProvider: {
-        resolveProvider: true,
-        triggerCharacters: ['.'],
+  (params: InitializeParams): InitializeResult => {
+    connection.console.info('Apex Language Server initializing...');
+    // TODO: Add startup tasks here if needed
+    return {
+      capabilities: {
+        textDocumentSync: 1, // Full synchronization
+        completionProvider: {
+          resolveProvider: true,
+          triggerCharacters: ['.'],
+        },
+        hoverProvider: true,
       },
-      hoverProvider: true,
-    },
-  }),
+    };
+  },
 );
 
 // Handle client connection
 connection.onInitialized(() => {
-  console.log('Language server initialized and connected to client.');
+  connection.console.info(
+    'Language server initialized and connected to client.',
+  );
+  // Send notification to client that server is ready
+  connection.sendNotification(LogMessageNotification.type, {
+    type: MessageType.Info,
+    message: 'Apex Language Server is now running in Node.js',
+  });
+});
+
+// Handle completion requests
+connection.onCompletion(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => [
+    {
+      label: 'ExampleCompletion',
+      kind: 1, // Text completion
+      data: 1,
+    },
+  ],
+);
+
+// Handle hover requests
+connection.onHover(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  (_textDocumentPosition: TextDocumentPositionParams): Hover => ({
+    contents: {
+      kind: 'markdown',
+      value: 'This is an example hover text.',
+    },
+  }),
+);
+
+// Handle shutdown request
+connection.onShutdown(() => {
+  connection.console.info('Apex Language Server shutting down...');
+  // Perform cleanup tasks, for now we'll just set a flag
+  isShutdown = true;
+  connection.console.info('Apex Language Server shutdown complete');
+});
+
+// Handle exit notification
+connection.onExit(() => {
+  connection.console.info('Apex Language Server exiting...');
+  if (!isShutdown) {
+    // If exit is called without prior shutdown, log a warning
+    connection.console.warn(
+      'Apex Language Server exiting without proper shutdown',
+    );
+  }
+  // In a Node.js environment, we could call process.exit() here,
+  // but we'll let the connection handle the exit
+  connection.console.info('Apex Language Server exited');
 });
 
 // Listen on the connection
