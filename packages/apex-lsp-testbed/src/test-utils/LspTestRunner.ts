@@ -91,7 +91,7 @@ export class LspTestRunner {
    */
   constructor(options: LspTestRunnerOptions) {
     this.options = {
-      scriptPattern: '*.lsp-teston',
+      scriptPattern: '*.lsp-test.json',
       parallel: false,
       maxParallel: 1,
       ...options,

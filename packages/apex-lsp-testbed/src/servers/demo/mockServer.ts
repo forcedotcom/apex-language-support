@@ -21,13 +21,13 @@ const findProjectRoot = () => {
   // Start from current working directory
   let currentDir = process.cwd();
 
-  // Look for packageon to identify project root
-  while (!fs.existsSync(path.join(currentDir, 'packageon'))) {
+  // Look for package.json to identify project root
+  while (!fs.existsSync(path.join(currentDir, 'package.json'))) {
     const parentDir = path.dirname(currentDir);
 
     // If we've reached the filesystem root, stop searching
     if (parentDir === currentDir) {
-      return process.cwd(); // Fallback to CWD if we can't find packageon
+      return process.cwd(); // Fallback to CWD if we can't find package.json
     }
 
     currentDir = parentDir;

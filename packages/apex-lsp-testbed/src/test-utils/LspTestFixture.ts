@@ -232,7 +232,7 @@ export class LspTestFixture {
     const sanitizedName = testName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const snapshotPath = path.join(
       this.snapshotDir,
-      `${sanitizedName}.snapshoton`,
+      `${sanitizedName}.snapshot.json`,
     );
 
     // Prepare the snapshot data
