@@ -206,7 +206,7 @@ export class LspTestRunner {
     if (this.options.outputDir) {
       const resultPath = path.join(
         this.options.outputDir,
-        `test-results-${new Date().toISOString().replace(/:/g, '-')}on`,
+        `test-results-${new Date().toISOString().replace(/:/g, '-')}.json`,
       );
       fs.writeFileSync(resultPath, JSON.stringify(summary, null, 2), 'utf8');
       console.log(`Test results written to ${resultPath}`);
