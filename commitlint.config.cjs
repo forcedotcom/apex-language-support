@@ -5,7 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-export default {
+module.exports = {
   extends: ['@commitlint/config-conventional'],
   rules: {
     'scope-enum': [

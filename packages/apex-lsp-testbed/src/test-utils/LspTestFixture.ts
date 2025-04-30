@@ -71,6 +71,7 @@ export class LspTestFixture {
     this.client = new ApexJsonRpcClient({
       serverPath,
       serverArgs: options.serverArgs || [],
+      serverType: 'demo',
     });
 
     this.middleware = new RequestResponseCapturingMiddleware();
@@ -89,13 +90,8 @@ export class LspTestFixture {
    */
   public async setup(): Promise<void> {
     await this.client.start();
-
     // Install middleware after client is started
-    if (this.client.getConnection()) {
-      this.middleware.install(this.client.getConnection());
-    } else {
-      throw new Error('Client connection not available');
-    }
+    this.middleware.installOnClient(this.client);
   }
 
   /**
@@ -262,19 +258,23 @@ export class LspTestFixture {
 
       // Compare captured requests with snapshot
       // This is a simplified comparison - you may need more sophisticated comparison
-      const currentRequests = capturedRequests.map((req) => ({
-        method: req.method,
-        request: req.request,
-        response: req.response,
-        error: req.error,
-      }));
+      const currentRequests = capturedRequests.map(
+        (req: RequestResponsePair) => ({
+          method: req.method,
+          request: req.request,
+          response: req.response,
+          error: req.error,
+        }),
+      );
 
-      const snapshotRequests = existingSnapshot.capturedRequests.map((req) => ({
-        method: req.method,
-        request: req.request,
-        response: req.response,
-        error: req.error,
-      }));
+      const snapshotRequests = existingSnapshot.capturedRequests.map(
+        (req: RequestResponsePair) => ({
+          method: req.method,
+          request: req.request,
+          response: req.response,
+          error: req.error,
+        }),
+      );
 
       const equal =
         JSON.stringify(currentRequests) === JSON.stringify(snapshotRequests);

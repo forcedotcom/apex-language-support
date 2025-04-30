@@ -9,13 +9,13 @@
 import {
   CompilerService,
   CompilationResult,
-} from '../../src/parser/compilerService.js';
-import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener.js';
+} from '../../src/parser/compilerService';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
   SymbolTable,
   SymbolKind,
   VariableSymbol,
-} from '../../src/types/symbol.js';
+} from '../../src/types/symbol';
 
 describe('Method Variable Declaration', () => {
   let compilerService: CompilerService;

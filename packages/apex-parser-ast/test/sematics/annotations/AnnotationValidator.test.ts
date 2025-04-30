@@ -15,9 +15,9 @@ import {
   SymbolModifiers,
   SymbolVisibility,
   TypeSymbol,
-} from '../../../src/types/symbol.js';
-import { AnnotationValidator } from '../../../src/sematics/annotations/index.js';
-import { ErrorReporter } from '../../../src/utils/ErrorReporter.js';
+} from '../../../src/types/symbol';
+import { AnnotationValidator } from '../../../src/sematics/annotations/index';
+import { ErrorReporter } from '../../../src/utils/ErrorReporter';
 
 // Mock error reporter for testing
 class MockErrorReporter implements ErrorReporter {

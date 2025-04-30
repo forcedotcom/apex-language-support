@@ -12,7 +12,7 @@ import {
   ApexSymbolCollectorListener,
   SymbolTable,
 } from '../../src';
-import { ErrorType } from '../../src/parser/listeners/ApexErrorListener.js';
+import { ErrorType } from '../../src/parser/listeners/ApexErrorListener';
 
 describe('Inner Class Validation', () => {
   let compilerService: CompilerService;

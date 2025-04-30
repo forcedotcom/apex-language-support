@@ -7,7 +7,7 @@ This directory contains the standalone implementation of the Salesforce Apex Lan
 ## Prerequisites
 
 - Java 11 or later
-- Node.js 14 or later
+- Node 14 or later
 - npm 6 or later
 
 ## Installation
@@ -50,10 +50,10 @@ The standalone server starts in interactive mode with a sample Apex class. Avail
 
 ### Programmatic Usage
 
-You can use the Apex Language Server programmatically in your Node.js applications:
+You can use the Apex Language Server programmatically in your Node applications:
 
 ```javascript
-import { createJavaServerOptions, launchJavaServer } from './standalone/javaServerLauncher.js';
+import { createJavaServerOptions, launchJavaServer } from './standalone/javaServerLauncher';
 
 // Launch the server with default options
 const server = await launchJavaServer();

@@ -6,9 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as cp from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as cp from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 // Define the Executable interface
 export interface Executable {
@@ -194,9 +194,7 @@ const getJavaHome = async (): Promise<string> => {
     console.error('Java home detection failed:', error);
     const errorMessage =
       'Failed to find Java runtime. Please install Java 11 or later and set JAVA_HOME environment variable.';
-    const e = new Error(errorMessage);
-    e.stack = error instanceof Error ? error.stack : String(error);
-    throw e;
+    throw new Error(errorMessage);
   }
 };
 
@@ -345,14 +343,13 @@ export const createJavaServerOptions = async (
     // Add memory settings
     args.push(`-Xmx${jvmMaxHeap}M`);
 
-    // Add debug settings if in debug mode
-    if (isDebugMode()) {
+    // Add debug settings if in debug mode or suspendStartup is true
+    if (isDebugMode() || suspendStartup) {
       args.push(
         '-Dtrace.protocol=false',
         `-Dapex.lsp.root.log.level=${logLevel}`,
-        `-agentlib:jdwp=transport=dt_socket,server=y,suspend=${
-          suspendStartup ? 'y' : 'n'
-        },address=*:${debugPort},quiet=y`,
+        // eslint-disable-next-line max-len
+        `-agentlib:jdwp=transport=dt_socket,server=y,suspend=${suspendStartup ? 'y' : 'n'},address=*:${debugPort},quiet=y`,
       );
     }
 
@@ -442,22 +439,3 @@ export const asyncExec = (
       }
     });
   });
-
-// Example usage for standalone mode
-if (require.main === module) {
-  (async () => {
-    try {
-      const server = await launchJavaServer();
-
-      // Handle SIGINT (Ctrl+C)
-      process.on('SIGINT', () => {
-        console.log('Stopping language server...');
-        server.kill();
-        process.exit(0);
-      });
-    } catch (error) {
-      console.error('Failed to start server:', error);
-      process.exit(1);
-    }
-  })();
-}

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Namespace } from '../sematics/namespaces.js';
+import { Namespace } from '../sematics/namespaces';
 
 /**
  * Interface representing information about an Apex type

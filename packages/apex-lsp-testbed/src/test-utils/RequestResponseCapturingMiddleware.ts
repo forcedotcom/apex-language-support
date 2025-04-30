@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { MessageConnection } from 'vscode-jsonrpc/node';
+import { MessageConnection } from 'vscode-jsonrpc';
 
 export interface RequestResponsePair {
   id: string | number;
@@ -38,9 +38,9 @@ export class RequestResponseCapturingMiddleware {
 
     this.connection = connection;
     this.originalSendRequest = connection.sendRequest;
-
     // Replace the sendRequest method with our instrumented version
-    connection.sendRequest = this.createInstrumentedSendRequest();
+    connection.sendRequest =
+      this.createInstrumentedSendRequest() as typeof connection.sendRequest;
   }
 
   /**
@@ -51,7 +51,8 @@ export class RequestResponseCapturingMiddleware {
       return;
     }
 
-    this.connection.sendRequest = this.originalSendRequest;
+    this.connection.sendRequest = this
+      .originalSendRequest as typeof this.connection.sendRequest;
     this.connection = null;
     this.originalSendRequest = null;
   }
@@ -141,5 +142,57 @@ export class RequestResponseCapturingMiddleware {
           throw error;
         });
     };
+  }
+
+  /**
+   * Install the middleware on an ApexJsonRpcClient (json-rpc-2.0 based)
+   * This wraps sendRequest and sendNotification to capture requests/responses
+   */
+  public installOnClient(client: any): void {
+    // Patch sendRequest
+    const origSendRequest = client.sendRequest?.bind(client);
+    if (origSendRequest) {
+      client.sendRequest = async (method: string, params: any) => {
+        const id = Date.now() + Math.random();
+        const timestamp = Date.now();
+        const pair: RequestResponsePair = {
+          id,
+          method,
+          request: params,
+          timestamp,
+        };
+        this.pendingRequests.set(id, pair);
+        try {
+          const response = await origSendRequest(method, params);
+          pair.response = response;
+          pair.duration = Date.now() - timestamp;
+          this.capturedRequests.push(pair);
+          this.pendingRequests.delete(id);
+          return response;
+        } catch (error) {
+          pair.error = error;
+          pair.duration = Date.now() - timestamp;
+          this.capturedRequests.push(pair);
+          this.pendingRequests.delete(id);
+          throw error;
+        }
+      };
+    }
+    // Patch sendNotification (capture as fire-and-forget)
+    const origSendNotification = client.sendNotification?.bind(client);
+    if (origSendNotification) {
+      client.sendNotification = (method: string, params: any) => {
+        const id = Date.now() + Math.random();
+        const timestamp = Date.now();
+        const pair: RequestResponsePair = {
+          id,
+          method,
+          request: params,
+          timestamp,
+        };
+        this.capturedRequests.push(pair);
+        origSendNotification(method, params);
+      };
+    }
   }
 }

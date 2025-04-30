@@ -13,8 +13,8 @@ import {
   SymbolKind,
   TypeSymbol,
   Annotation,
-} from '../../types/symbol.js';
-import { ErrorReporter } from '../../utils/ErrorReporter.js';
+} from '../../types/symbol';
+import { ErrorReporter } from '../../utils/ErrorReporter';
 
 /**
  * Types of targets where annotations can be applied

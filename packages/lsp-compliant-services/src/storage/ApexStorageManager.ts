@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { ApexStorageInterface } from './ApexStorageInterface.js';
+import type { ApexStorageInterface } from './ApexStorageInterface';
 
 /**
  * Factory type for creating storage implementations

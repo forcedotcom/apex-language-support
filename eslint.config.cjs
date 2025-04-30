@@ -6,15 +6,15 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import typescriptEslintPlugin from '@typescript-eslint/eslint-plugin';
-import prettierPlugin from 'eslint-plugin-prettier';
-import importPlugin from 'eslint-plugin-import';
-import unusedImportsPlugin from 'eslint-plugin-unused-imports';
-import jsdocPlugin from 'eslint-plugin-jsdoc';
-import header from '@tony.ganchev/eslint-plugin-header';
-import typescriptParser from '@typescript-eslint/parser';
+const typescriptEslintPlugin = require('@typescript-eslint/eslint-plugin');
+const prettierPlugin = require('eslint-plugin-prettier');
+const importPlugin = require('eslint-plugin-import');
+const unusedImportsPlugin = require('eslint-plugin-unused-imports');
+const jsdocPlugin = require('eslint-plugin-jsdoc');
+const header = require('@tony.ganchev/eslint-plugin-header');
+const typescriptParser = require('@typescript-eslint/parser');
 
-export default [
+module.exports = [
   {
     // Ignore all generated files and caches
     ignores: ['**/.wireit/**', '**/dist/**', '**/node_modules/**', '**/*.d.ts'],

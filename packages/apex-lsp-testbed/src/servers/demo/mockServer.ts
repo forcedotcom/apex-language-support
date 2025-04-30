@@ -13,7 +13,8 @@ import {
   ApexJsonRpcClient,
   ConsoleLogger,
   JsonRpcClientOptions,
-} from '../../client/ApexJsonRpcClient.js';
+} from '../../client/ApexJsonRpcClient';
+import { RequestResponseCapturingMiddleware } from '../../test-utils/RequestResponseCapturingMiddleware';
 
 // Determine project root directory
 const findProjectRoot = () => {
@@ -44,12 +45,14 @@ findProjectRoot();
 export class ApexLanguageServerMock {
   private client: ApexJsonRpcClient;
   private logger: ConsoleLogger;
+  private middleware: RequestResponseCapturingMiddleware;
 
   /**
    * Creates a new mock server
    */
   constructor() {
     this.logger = new ConsoleLogger('ApexLspMockServer');
+    this.middleware = new RequestResponseCapturingMiddleware();
 
     // Find the server module path
     const serverPath = this.findServerPath();
@@ -59,10 +62,14 @@ export class ApexLanguageServerMock {
       serverPath,
       nodeArgs: ['--nolazy'],
       env: process.env,
+      serverType: 'demo',
     };
 
     // Create the client
     this.client = new ApexJsonRpcClient(clientOptions, this.logger);
+
+    // Install the middleware
+    this.middleware.installOnClient(this.client);
   }
 
   /**
@@ -181,6 +188,9 @@ export class ApexLanguageServerMock {
       }
 
       process.exit(1);
+    } finally {
+      // Uninstall the middleware
+      this.middleware.uninstall();
     }
   }
 

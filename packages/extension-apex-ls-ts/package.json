@@ -12,42 +12,42 @@
   },
   "scripts": {
     "build": "wireit",
+    "compile": "wireit",
     "dev": "wireit",
-    "clean": "rimraf dist .wireit",
-    "clean:all": "npm run clean && rimraf node_modules",
     "test": "wireit",
     "test:coverage": "wireit",
+    "clean": "rimraf dist .wireit",
+    "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage"
   },
   "wireit": {
     "build": {
-      "command": "vite build",
-      "dependencies": [
-        "../apex-parser-ast:build",
-        "../custom-services:build",
-        "../lsp-compliant-services:build"
-      ],
+      "command": "tsc --build",
       "files": [
         "src/**/*.ts",
-        "tsconfig.json",
-        "vite.config.ts"
+        "src/resources/**/*",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "compile": {
+      "command": "tsc --build",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
       ]
     },
     "dev": {
-      "command": "vite build --watch",
+      "command": "tsc --build --watch",
       "service": true,
-      "dependencies": [
-        "../apex-parser-ast:dev",
-        "../custom-services:dev",
-        "../lsp-compliant-services:dev"
-      ],
       "files": [
         "src/**/*.ts",
-        "tsconfig.json",
-        "vite.config.ts"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
@@ -59,7 +59,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs",
+        "../../jest.config.cjs",
         "../../babel.config.cjs"
       ],
       "output": []
@@ -70,7 +70,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "../../jest.config.mjs",
+        "../../jest.config.cjs",
         "../../babel.config.cjs"
       ],
       "output": [
@@ -86,8 +86,6 @@
     "@salesforce/apex-lsp-testbed": "*"
   },
   "devDependencies": {
-    "typescript": "^5.8.2",
-    "vite": "^6.2.6",
-    "@rollup/plugin-typescript": "^11.1.5"
+    "typescript": "^5.8.2"
   }
 }

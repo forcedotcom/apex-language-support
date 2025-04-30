@@ -184,8 +184,9 @@ This package includes a lightweight JSON-RPC client for direct communication wit
 ```typescript
 import { ApexJsonRpcClient } from '@salesforce/apex-lsp-testbed';
 
-// Create a client
+// Create a client (serverType is required: 'demo' or 'jorje')
 const client = new ApexJsonRpcClient({
+  serverType: 'demo', // or 'jorje'
   serverPath: '/path/to/server.js'
 });
 

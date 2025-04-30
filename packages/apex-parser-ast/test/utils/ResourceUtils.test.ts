@@ -15,7 +15,7 @@ import {
   uriToNodePath,
   uriToBrowserUrl,
   joinUri,
-} from '../../src/utils/ResourceUtils.js';
+} from '../../src/utils/ResourceUtils';
 
 describe('ResourceUtils', () => {
   describe('RESOURCE_PATHS', () => {

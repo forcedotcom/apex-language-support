@@ -6,13 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { createRequire } from 'module';
+const { createRequire } = require('module');
+const path = require('path');
 
-const require = createRequire(import.meta.url);
 // Load tsconfig for reference, may be needed later
-require('./tsconfig.json');
+require(path.resolve(__dirname, 'tsconfig.json'));
 
-export default {
+module.exports = {
   extensionsToTreatAsEsm: ['.ts'],
   testEnvironment: 'node',
   testMatch: ['**/test/**/*.test.ts'],
@@ -20,7 +20,15 @@ export default {
   rootDir: './',
   roots: ['<rootDir>/packages'],
   transform: {
-    '^.+\\.(ts|js)x?$': 'babel-jest',
+    '^.+\\.(ts|js)x?$': [
+      'babel-jest',
+      {
+        presets: [
+          ['@babel/preset-env', { targets: { node: 'current' } }],
+          '@babel/preset-typescript',
+        ],
+      },
+    ],
   },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',

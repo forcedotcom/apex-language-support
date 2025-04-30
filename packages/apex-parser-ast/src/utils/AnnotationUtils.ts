@@ -11,7 +11,7 @@ import {
   ApexSymbol,
   SymbolKind,
   TypeSymbol,
-} from '../types/symbol.js';
+} from '../types/symbol';
 
 /**
  * Helper utilities for working with Apex annotations

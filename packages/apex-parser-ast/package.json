@@ -1,7 +1,6 @@
 {
   "name": "@salesforce/apex-lsp-parser-ast",
   "version": "1.0.0",
-  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "description": "Apex parser and abstract syntax tree implementation for Salesforce Apex Language Server",
@@ -17,6 +16,7 @@
   ],
   "scripts": {
     "build": "wireit",
+    "compile": "wireit",
     "dev": "wireit",
     "test": "wireit",
     "test:coverage": "wireit",
@@ -26,49 +26,56 @@
   },
   "wireit": {
     "build": {
-      "command": "vite build",
+      "command": "tsc --build",
       "files": [
         "src/**/*.ts",
         "src/resources/**/*",
-        "tsconfig.json",
-        "vite.config.ts"
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "compile": {
+      "command": "tsc --build",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
       ]
     },
     "dev": {
-      "command": "vite build --watch",
+      "command": "tsc --build --watch",
       "service": true,
       "files": [
         "src/**/*.ts",
-        "src/resources/**/*",
-        "tsconfig.json",
-        "vite.config.ts"
+        "tsconfig.json"
       ],
       "output": [
         "dist/**"
       ]
     },
     "test": {
-      "command": "jest --config=jest.config.cjs",
+      "command": "jest",
       "service": false,
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "jest.config.cjs",
-        "babel.config.cjs"
+        "../../jest.config.cjs",
+        "../../babel.config.cjs"
       ],
       "output": []
     },
     "test:coverage": {
-      "command": "jest --config=jest.config.cjs --coverage --coverageDirectory=./coverage",
+      "command": "jest --coverage --coverageDirectory=./coverage",
       "service": false,
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "jest.config.cjs",
-        "babel.config.cjs"
+        "../../jest.config.cjs",
+        "../../babel.config.cjs"
       ],
       "output": [
         "coverage/**"
@@ -81,7 +88,7 @@
   },
   "devDependencies": {
     "typescript": "^5.8.2",
-    "vite": "^6.2.6",
-    "@rollup/plugin-typescript": "^11.1.5"
+    "@babel/preset-env": "^7.24.0",
+    "@babel/preset-typescript": "^7.23.3"
   }
 }

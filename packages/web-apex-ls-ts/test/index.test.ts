@@ -9,7 +9,7 @@
 import {
   InitializeParams,
   InitializeResult,
-} from 'vscode-languageserver/browser.js';
+} from 'vscode-languageserver/browser';
 
 // Define handler types
 type InitializeHandler = (params: InitializeParams) => InitializeResult;
@@ -89,7 +89,7 @@ mockConnection.onExit.mockImplementation((handler: VoidHandler) => {
 (global as any).self = {};
 
 // Mock the LSP module
-jest.mock('vscode-languageserver/browser.js', () => ({
+jest.mock('vscode-languageserver/browser', () => ({
   createConnection: jest.fn(() => mockConnection),
   BrowserMessageReader: jest.fn(() => ({})),
   BrowserMessageWriter: jest.fn(() => ({})),

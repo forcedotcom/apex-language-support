@@ -9,18 +9,18 @@
 import {
   CompilerService,
   CompilationResult,
-} from '../../src/parser/compilerService.js';
-import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener.js';
+} from '../../src/parser/compilerService';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
   SymbolTable,
   SymbolKind,
   SymbolVisibility,
   MethodSymbol,
-} from '../../src/types/symbol.js';
+} from '../../src/types/symbol';
 import {
   ErrorType,
   ErrorSeverity,
-} from '../../src/parser/listeners/ApexErrorListener.js';
+} from '../../src/parser/listeners/ApexErrorListener';
 
 describe('ApexSymbolCollectorListener', () => {
   let compilerService: CompilerService;

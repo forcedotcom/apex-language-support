@@ -6,4 +6,4 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-export * from './AnnotationValidator.js';
+export * from './AnnotationValidator';

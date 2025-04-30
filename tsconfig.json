@@ -1,19 +1,18 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "baseUrl": "./",
+    "baseUrl": ".",
     "paths": {
-      "*": ["packages/*/src"]
-    },
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "declaration": true,
-    "declarationMap": true
+      "@salesforce/apex-lsp-parser-ast": ["./packages/apex-parser-ast/src"],
+      "@salesforce/apex-lsp-compliant-services": [
+        "./packages/lsp-compliant-services/src"
+      ],
+      "@salesforce/apex-lsp-testbed": ["./packages/apex-lsp-testbed/src"]
+    }
   },
-  "include": ["packages/*/src", "packages/*/test"]
+  "references": [
+    { "path": "./packages/apex-parser-ast" },
+    { "path": "./packages/lsp-compliant-services" },
+    { "path": "./packages/apex-lsp-testbed" }
+  ]
 }

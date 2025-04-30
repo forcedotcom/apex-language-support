@@ -1,7 +1,11 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "composite": true,
+    "rootDir": ".",
+    "noEmit": false
   },
-  "include": ["src", "test"]
+  "include": ["src", "test"],
+  "references": [{ "path": "../apex-parser-ast" }]
 }

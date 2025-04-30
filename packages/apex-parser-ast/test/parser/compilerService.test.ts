@@ -6,9 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CompilerService } from '../../src/parser/compilerService.js';
-import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener.js';
-import { SymbolTable, SymbolKind } from '../../src/types/symbol.js';
+import { CompilerService } from '../../src/parser/compilerService';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { SymbolTable, SymbolKind } from '../../src/types/symbol';
 
 describe('CompilerService Namespace Integration', () => {
   describe('Namespace Handling', () => {

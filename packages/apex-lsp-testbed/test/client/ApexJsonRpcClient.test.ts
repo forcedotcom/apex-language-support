@@ -66,11 +66,9 @@ class MockApexJsonRpcClient {
 }
 
 // Mock the actual implementation with our mock class
-jest.mock('../../src/client/ApexJsonRpcClient', () => {
-  return {
-    ApexJsonRpcClient: MockApexJsonRpcClient,
-  };
-});
+jest.mock('../../src/client/ApexJsonRpcClient', () => ({
+  ApexJsonRpcClient: MockApexJsonRpcClient,
+}));
 
 // Import our mock class
 const { ApexJsonRpcClient } = require('../../src/client/ApexJsonRpcClient');
@@ -104,7 +102,7 @@ describe('ApexJsonRpcClient', () => {
 
   describe('initialization', () => {
     it('should initialize with default options', () => {
-      const client = new ApexJsonRpcClient({ serverPath: 'mock-server.js' });
+      const client = new ApexJsonRpcClient({ serverPath: 'mock-server' });
       expect(client).toBeDefined();
     });
 
@@ -118,14 +116,14 @@ describe('ApexJsonRpcClient', () => {
   describe('start', () => {
     it('should spawn a process with the correct parameters', async () => {
       const client = new ApexJsonRpcClient({
-        serverPath: 'mock-server.js',
+        serverPath: 'mock-server',
         args: ['--arg1', '--arg2'],
       });
 
       await client.start();
 
       expect(cp.spawn).toHaveBeenCalledWith(
-        'mock-server.js',
+        'mock-server',
         ['--arg1', '--arg2'],
         expect.any(Object),
       );
@@ -134,7 +132,7 @@ describe('ApexJsonRpcClient', () => {
 
   describe('stop', () => {
     it('should kill the process when stop is called', async () => {
-      const client = new ApexJsonRpcClient({ serverPath: 'mock-server.js' });
+      const client = new ApexJsonRpcClient({ serverPath: 'mock-server' });
 
       // Start the client
       await client.start();
@@ -150,7 +148,7 @@ describe('ApexJsonRpcClient', () => {
     let client: typeof ApexJsonRpcClient;
 
     beforeEach(async () => {
-      client = new ApexJsonRpcClient({ serverPath: 'mock-server.js' });
+      client = new ApexJsonRpcClient({ serverPath: 'mock-server' });
       await client.start();
     });
 

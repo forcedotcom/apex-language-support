@@ -10,7 +10,7 @@
  * Utilities for working with Fully Qualified Names (FQNs) in Apex
  */
 
-import { ApexSymbol, SymbolKind } from '../types/symbol.js';
+import { ApexSymbol, SymbolKind } from '../types/symbol';
 
 // List of known Salesforce built-in namespaces
 export const BUILT_IN_NAMESPACES = [
@@ -87,18 +87,14 @@ export function calculateFQN(symbol: ApexSymbol, options?: FQNOptions): string {
     }
   }
 
-  // If there's a namespace in the parent chain, extract it
-  if (symbol.parent && symbol.parent.namespace) {
-    symbol.namespace = symbol.parent.namespace;
-  }
-  // If no namespace was found but a default namespace is provided, use it
-  else if (!symbol.namespace && options?.defaultNamespace) {
+  // Handle namespace
+  if (symbol.namespace) {
+    // If symbol has its own namespace, use it
+    fqn = `${symbol.namespace}.${fqn}`;
+  } else if (options?.defaultNamespace && !symbol.parent) {
+    // Only apply default namespace to top-level symbols
+    fqn = `${options.defaultNamespace}.${fqn}`;
     symbol.namespace = options.defaultNamespace;
-
-    // Only prepend the namespace for top-level symbols with no parent
-    if (!symbol.parent) {
-      fqn = `${options.defaultNamespace}.${fqn}`;
-    }
   }
 
   return fqn;

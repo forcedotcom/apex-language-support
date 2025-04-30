@@ -6,12 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { ApexClassInfo } from '@salesforce/apex-lsp-parser-ast/dist/parser/listeners/ApexStructureListener.js';
-import type { TypeInfo } from '@salesforce/apex-lsp-parser-ast/dist/types/typeInfo.js';
+import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
 import type {
   ApexReference,
   ApexStorageInterface,
-} from '@salesforce/apex-lsp-compliant-services/dist/storage/ApexStorageInterface.js';
+} from '@salesforce/apex-lsp-compliant-services';
 
 /**
  * Implementation of ApexStorageInterface for browser environments.
