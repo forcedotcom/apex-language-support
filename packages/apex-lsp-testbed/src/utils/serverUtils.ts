@@ -14,7 +14,7 @@ import { code2ProtocolConverter, protocol2CodeConverter } from './uriUtils';
 import { createJavaServerOptions } from '../servers/jorje/javaServerLauncher';
 
 // Define server types as a string union
-export type ServerType = 'demo' | 'jorje';
+export type ServerType = 'demo' | 'jorje' | 'nodeServer' | 'webServer';
 
 // Define CLI options interface
 export interface CliOptions {
