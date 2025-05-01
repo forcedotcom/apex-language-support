@@ -11,3 +11,6 @@ export {
   WebLanguageServerHarness,
   createWebLanguageServerHarness,
 } from './webLanguageServerHarness';
+
+// Export the runWebServer function
+export { runWebServer } from './runWebServer';

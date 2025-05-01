@@ -6,15 +6,21 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
+import { ServerType } from '../utils/serverUtils';
+import { WorkspaceConfig } from '../utils/workspaceUtils';
 
-import { ApexJsonRpcClient, ConsoleLogger } from '../client/ApexJsonRpcClient';
-import { createClientOptions, ServerType } from '../utils/serverUtils';
-import { WorkspaceConfig, prepareWorkspace } from '../utils/workspaceUtils';
+const fs = require('fs');
+const path = require('path');
+
+const {
+  ApexJsonRpcClient,
+  ConsoleLogger,
+} = require('../client/ApexJsonRpcClient');
+const { createClientOptions } = require('../utils/serverUtils');
+const { prepareWorkspace } = require('../utils/workspaceUtils');
 
 export interface ServerTestContext {
-  client: ApexJsonRpcClient;
+  client: typeof ApexJsonRpcClient;
   workspace: WorkspaceConfig | undefined;
   cleanup: () => Promise<void>;
 }
@@ -28,13 +34,11 @@ export interface ServerOptions {
 
 /**
  * Create a temporary test workspace with sample Apex code
- * @param baseDir Base directory for the temporary workspace
- * @returns Workspace configuration for the test workspace
+ * @param {string} baseDir Base directory for the temporary workspace
+ * @param {string} [folderOrGithubUri] Optional folder or GitHub URI
+ * @returns {Promise<WorkspaceConfig>} Workspace configuration for the test workspace
  */
-export async function createTestWorkspace(
-  baseDir: string,
-  folderOrGithubUri?: string,
-): Promise<WorkspaceConfig> {
+async function createTestWorkspace(baseDir: any, folderOrGithubUri: any) {
   if (folderOrGithubUri) {
     const workspaceConfig = await prepareWorkspace(folderOrGithubUri, {
       baseDir,
@@ -77,6 +81,8 @@ public class TestClass {
 /**
  * Creates and initializes a language server with workspace for testing
  * One-stop shop for getting a fully configured and running server
+ * @param {ServerOptions} options
+ * @returns {Promise<ServerTestContext>}
  */
 export async function createTestServer(
   options: ServerOptions,
@@ -144,3 +150,8 @@ export async function createTestServer(
     throw error;
   }
 }
+
+module.exports = {
+  createTestWorkspace,
+  createTestServer,
+};

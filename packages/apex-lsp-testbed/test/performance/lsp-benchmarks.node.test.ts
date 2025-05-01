@@ -35,7 +35,7 @@ const testData: [string, any][] = Object.values(logData)
     return acc;
   }, []);
 
-describe.skip('NodeServer LSP Performance Benchmarks', () => {
+describe('NodeServer LSP Performance Benchmarks', () => {
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;
 
   beforeAll(async () => {

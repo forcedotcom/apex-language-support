@@ -9,6 +9,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import Benchmark from 'benchmark';
+
 import {
   createTestServer,
   ServerOptions,

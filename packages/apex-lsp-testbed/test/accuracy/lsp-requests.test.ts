@@ -8,10 +8,11 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-import {
-  createTestServer,
-  ServerOptions as ServerOptions,
-} from '../../src/test-utils/serverFactory';
+import { ServerType } from '../../src/utils/serverUtils';
+
+// Import the test utils with a namespace to avoid conflicts
+const testUtils = require('../../src/test-utils/serverFactory');
+const { createTestServer } = testUtils;
 
 // --- Load test data synchronously ---
 const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
@@ -32,8 +33,8 @@ describe.skip('LSP Request/Response Accuracy', () => {
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;
 
   beforeAll(async () => {
-    const options: ServerOptions = {
-      serverType: 'jorje',
+    const options = {
+      serverType: 'jorje' as ServerType,
       verbose: true,
       workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
     };

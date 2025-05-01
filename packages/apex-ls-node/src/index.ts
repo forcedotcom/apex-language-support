@@ -5,8 +5,9 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
-import {
+const {
   createConnection,
   ProposedFeatures,
   InitializeParams,
@@ -16,7 +17,7 @@ import {
   Hover,
   LogMessageNotification,
   MessageType,
-} from 'vscode-languageserver/node';
+} = require('vscode-languageserver/node');
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 const connection = createConnection(ProposedFeatures.all);
@@ -26,8 +27,7 @@ let isShutdown = false;
 
 // Initialize server capabilities and properties
 connection.onInitialize(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (params: InitializeParams): InitializeResult => {
+  (params: typeof InitializeParams): typeof InitializeResult => {
     connection.console.info('Apex Language Server initializing...');
     // TODO: Add startup tasks here if needed
     return {
@@ -56,27 +56,21 @@ connection.onInitialized(() => {
 });
 
 // Handle completion requests
-connection.onCompletion(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => [
-    {
-      label: 'ExampleCompletion',
-      kind: 1, // Text completion
-      data: 1,
-    },
-  ],
-);
+connection.onCompletion((_textDocumentPosition: any) => [
+  {
+    label: 'ExampleCompletion',
+    kind: 1, // Text completion
+    data: 1,
+  },
+]);
 
 // Handle hover requests
-connection.onHover(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (_textDocumentPosition: TextDocumentPositionParams): Hover => ({
-    contents: {
-      kind: 'markdown',
-      value: 'This is an example hover text.',
-    },
-  }),
-);
+connection.onHover((_textDocumentPosition: any) => ({
+  contents: {
+    kind: 'markdown',
+    value: 'This is an example hover text.',
+  },
+}));
 
 // Handle shutdown request
 connection.onShutdown(() => {
@@ -104,4 +98,5 @@ connection.onExit(() => {
 connection.listen();
 
 // Export the storage implementation for Node.js
-export * from './storage/NodeFileSystemApexStorage';
+const NodeFileSystemStorage = require('./storage/NodeFileSystemApexStorage');
+module.exports = { ...NodeFileSystemStorage };

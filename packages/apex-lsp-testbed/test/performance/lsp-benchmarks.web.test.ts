@@ -5,40 +5,39 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { readFileSync } from 'fs';
-import { join } from 'path';
+const fs = require('fs');
+const path = require('path');
 
-import Benchmark from 'benchmark';
-import {
-  createTestServer,
-  ServerOptions,
-} from '../../src/test-utils/serverFactory';
+const Benchmark = require('benchmark');
+
+const { createTestServer } = require('../../src/test-utils/serverFactory');
 
 // --- Load test data synchronously ---
-const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
-const rawData = readFileSync(logPath, 'utf8');
-const logData: Record<string, any> = JSON.parse(rawData);
+const logPath = path.join(__dirname, '../fixtures/ls-sample-trace.log.json');
+const rawData = fs.readFileSync(logPath, 'utf8');
+const logData = JSON.parse(rawData);
 
 jest.setTimeout(1000 * 60 * 10);
 
 // Extract relevant request/response pairs
-const testData: [string, any][] = Object.values(logData)
+const testData = Object.values(logData)
   .filter(
-    (entry) => entry.type === 'request' && /^textDocument/.test(entry.method),
+    (entry: any) =>
+      entry.type === 'request' && /^textDocument/.test(entry.method),
   )
-  .reduce((acc: [string, any][], request) => {
+  .reduce((acc: any[], request: any) => {
     // Only add if we haven't seen this method before
-    if (!acc.some(([method]) => method === request.method)) {
+    if (!acc.some(([method]: [string, any]) => method === request.method)) {
       acc.push([request.method, request]);
     }
     return acc;
   }, []);
 
 describe.skip('WebServer LSP Performance Benchmarks', () => {
-  let serverContext: Awaited<ReturnType<typeof createTestServer>>;
+  let serverContext: { cleanup: any; client: any; workspace?: any };
 
   beforeAll(async () => {
-    const options: ServerOptions = {
+    const options = {
       serverType: 'webServer',
       verbose: true,
       workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
@@ -58,13 +57,16 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
   it('should benchmark WebServer LSP request handling', async () => {
     const suite = new Benchmark.Suite();
     const requestTimeout = 10000; // 10 second timeout per request
-    const results: Record<string, Benchmark.Target> = {};
+    const results: Record<string, unknown> = {};
 
     // Ensure client is started
     await serverContext.client.start();
-
     // Add benchmark for each LSP method type
-    testData.forEach(([method, request]) => {
+    (
+      testData as Array<
+        [string, { method: string; id: string; params: unknown }]
+      >
+    ).forEach(([method, request]) => {
       suite.add(`WebServer LSP ${method} Id: ${request.id}`, {
         defer: true,
         fn: function (deferred: { resolve: () => void }) {
@@ -92,20 +94,20 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
 
     return new Promise<void>((resolve) => {
       suite
-        .on('cycle', function (event: Benchmark.Event) {
-          const benchmark = event.target as Benchmark.Target;
+        .on('cycle', function (event: { target: any }) {
+          const benchmark = event.target;
           if (benchmark.name) {
-            results[benchmark.name] = benchmark;
+            (results as Record<string, unknown>)[benchmark.name] = benchmark;
           }
           console.log(String(benchmark));
         })
-        .on('complete', function (this: Benchmark.Suite) {
+        .on('complete', function (this: any) {
           console.log(
             'Fastest webServer method is ' + this.filter('fastest').map('name'),
           );
 
           // Write results to disk
-          const outputPath = join(
+          const outputPath = path.join(
             __dirname,
             '../webserver-benchmark-results.json',
           );

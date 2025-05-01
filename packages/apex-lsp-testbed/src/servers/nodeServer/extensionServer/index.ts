@@ -11,3 +11,6 @@ export {
   ExtensionApexLanguageServerHarness,
   createExtensionLanguageServerHarness,
 } from './extensionLanguageServerHarness';
+
+// Export the runExtensionServer function
+export { runExtensionServer } from './runExtensionServer';

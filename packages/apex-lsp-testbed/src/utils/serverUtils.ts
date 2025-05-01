@@ -7,6 +7,7 @@
  */
 
 import * as path from 'path';
+import * as fs from 'fs';
 
 import { JsonRpcClientOptions } from '../client/ApexJsonRpcClient';
 import { WorkspaceConfig } from './workspaceUtils';
@@ -26,6 +27,33 @@ export interface CliOptions {
   tests?: string[]; // List of tests to run
   benchmark: boolean; // Flag to enable benchmarking
   showHelp: boolean; // Flag to indicate if help was requested
+}
+
+/**
+ * Find the repository root path
+ */
+function findRepoRoot(currentPath: string): string {
+  // Keep going up directories until we find a package.json with the right name
+  // or until we hit the root directory
+  while (currentPath && currentPath !== '/') {
+    try {
+      const packageJsonPath = path.join(currentPath, 'package.json');
+      if (fs.existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(
+          fs.readFileSync(packageJsonPath, 'utf8'),
+        );
+        if (packageJson.name === '@salesforce/apex-language-server') {
+          return currentPath;
+        }
+      }
+    } catch {
+      // Ignore errors and continue searching
+    }
+    currentPath = path.dirname(currentPath);
+  }
+
+  // If we can't find it, return the current directory
+  return process.cwd();
 }
 
 export async function createClientOptions(
@@ -52,6 +80,9 @@ export async function createClientOptions(
         code2ProtocolConverter: code2ProtocolConverter,
       }
     : undefined;
+
+  // Find the root of the repository to use for absolute paths
+  const repoRoot = findRepoRoot(process.cwd());
 
   switch (serverType) {
     case 'demo':
@@ -90,14 +121,14 @@ export async function createClientOptions(
       return {
         serverType: 'nodeServer',
         serverPath: path.join(
-          process.cwd().includes('packages/apex-lsp-testbed')
-            ? process.cwd()
-            : path.join(process.cwd(), 'packages', 'apex-lsp-testbed'),
+          repoRoot,
+          'packages',
+          'apex-lsp-testbed',
           'dist',
           'servers',
           'nodeServer',
           'extensionServer',
-          'extensionLanguageServerHarness.js',
+          'runExtensionServer.js',
         ),
         nodeArgs: verbose ? ['--nolazy'] : [],
         env: {
@@ -113,14 +144,14 @@ export async function createClientOptions(
       return {
         serverType: 'webServer',
         serverPath: path.join(
-          process.cwd().includes('packages/apex-lsp-testbed')
-            ? process.cwd()
-            : path.join(process.cwd(), 'packages', 'apex-lsp-testbed'),
+          repoRoot,
+          'packages',
+          'apex-lsp-testbed',
           'dist',
           'servers',
           'nodeServer',
           'webServer',
-          'webLanguageServerHarness.js',
+          'runWebServer.js',
         ),
         nodeArgs: verbose ? ['--nolazy'] : [],
         env: {

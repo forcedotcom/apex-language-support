@@ -5,19 +5,20 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
-import {
+const {
   createConnection,
-  BrowserMessageReader,
-  BrowserMessageWriter,
   InitializeParams,
   InitializeResult,
   TextDocumentPositionParams,
   CompletionItem,
   Hover,
+  BrowserMessageReader,
+  BrowserMessageWriter,
   LogMessageNotification,
   MessageType,
-} from 'vscode-languageserver/browser';
+} = require('vscode-languageserver/browser');
 
 // Create a connection for the server using BrowserMessageReader and BrowserMessageWriter
 const connection = createConnection(
@@ -30,8 +31,7 @@ let isShutdown = false;
 
 // Initialize server capabilities
 connection.onInitialize(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (params: InitializeParams): InitializeResult => {
+  (params: typeof InitializeParams): typeof InitializeResult => {
     connection.console.info('Apex Language Server initializing...');
     // TODO: Add startup tasks here if needed
     return {
@@ -58,8 +58,9 @@ connection.onInitialized(() => {
 
 // Handle completion requests
 connection.onCompletion(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => [
+  (
+    _textDocumentPosition: typeof TextDocumentPositionParams,
+  ): (typeof CompletionItem)[] => [
     {
       label: 'ExampleCompletion',
       kind: 1, // Text completion
@@ -70,8 +71,7 @@ connection.onCompletion(
 
 // Handle hover requests
 connection.onHover(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (_textDocumentPosition: TextDocumentPositionParams): Hover => ({
+  (_textDocumentPosition: typeof TextDocumentPositionParams): typeof Hover => ({
     contents: {
       kind: 'markdown',
       value: 'This is an example hover text.',
@@ -106,4 +106,5 @@ connection.onExit(() => {
 connection.listen();
 
 // Export the storage implementation for browsers
-export * from './storage/BrowserIndexedDBApexStorage';
+const BrowserStorage = require('./storage/BrowserIndexedDBApexStorage');
+module.exports = { ...BrowserStorage };
