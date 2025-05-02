@@ -16,7 +16,7 @@
     "build:debug": "cross-env DEBUG=true npm run build",
     "build:no-minify": "cross-env NO_MINIFY=true npm run build",
     "dev": "wireit",
-    "prepare": "husky install",
+    "prepare": "husky",
     "commit": "git-cz",
     "clean": "rimraf packages/**/dist packages/**/.wireit",
     "clean:all": "npm run clean && rimraf node_modules",
@@ -92,55 +92,50 @@
   "wireit": {
     "build": {
       "dependencies": [
-        "./packages/apex-parser-ast:build",
+        "./packages/apex-ls-node:build",
         "./packages/custom-services:build",
         "./packages/lsp-compliant-services:build",
-        "./packages/extension-apex-ls-ts:build",
-        "./packages/web-apex-ls-ts:build",
+        "./packages/apex-ls-browser:build",
         "./packages/apex-lsp-browser-client:build",
         "./packages/apex-lsp-testbed:build"
       ]
     },
     "compile": {
       "dependencies": [
-        "./packages/apex-parser-ast:compile",
+        "./packages/apex-ls-node:compile",
         "./packages/custom-services:compile",
         "./packages/lsp-compliant-services:compile",
-        "./packages/extension-apex-ls-ts:compile",
-        "./packages/web-apex-ls-ts:compile",
+        "./packages/apex-ls-browser:compile",
         "./packages/apex-lsp-browser-client:compile",
         "./packages/apex-lsp-testbed:compile"
       ]
     },
     "dev": {
       "dependencies": [
-        "./packages/apex-parser-ast:dev",
+        "./packages/apex-ls-node:dev",
         "./packages/custom-services:dev",
         "./packages/lsp-compliant-services:dev",
-        "./packages/extension-apex-ls-ts:dev",
-        "./packages/web-apex-ls-ts:dev",
+        "./packages/apex-ls-browser:dev",
         "./packages/apex-lsp-browser-client:dev",
         "./packages/apex-lsp-testbed:dev"
       ]
     },
     "test:packages": {
       "dependencies": [
-        "./packages/apex-parser-ast:test",
+        "./packages/apex-ls-node:test",
         "./packages/custom-services:test",
         "./packages/lsp-compliant-services:test",
-        "./packages/extension-apex-ls-ts:test",
-        "./packages/web-apex-ls-ts:test",
+        "./packages/apex-ls-browser:test",
         "./packages/apex-lsp-browser-client:test",
         "./packages/apex-lsp-testbed:test"
       ]
     },
     "test:coverage:packages": {
       "dependencies": [
-        "./packages/apex-parser-ast:test:coverage",
+        "./packages/apex-ls-node:test:coverage",
         "./packages/custom-services:test:coverage",
         "./packages/lsp-compliant-services:test:coverage",
-        "./packages/extension-apex-ls-ts:test:coverage",
-        "./packages/web-apex-ls-ts:test:coverage",
+        "./packages/apex-ls-browser:test:coverage",
         "./packages/apex-lsp-browser-client:test:coverage",
         "./packages/apex-lsp-testbed:test:coverage"
       ]
