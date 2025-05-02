@@ -166,7 +166,7 @@ jest.mock('@salesforce/apex-lsp-compliant-services/src/handlers', () => ({
   processOnSaveDocument: mockProcessOnSaveDocument,
 }));
 
-describe('Web Apex Language Server', () => {
+describe('Apex Language Server Browser', () => {
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks();
