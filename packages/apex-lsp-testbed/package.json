@@ -35,7 +35,7 @@
       "dependencies": [
         "../apex-parser-ast:build",
         "../lsp-compliant-services:build",
-        "../web-apex-ls-ts:build"
+        "../apex-ls-browser:build"
       ],
       "files": [
         "src/**/*.ts",
@@ -51,7 +51,7 @@
       "dependencies": [
         "../apex-parser-ast:compile",
         "../lsp-compliant-services:compile",
-        "../web-apex-ls-ts:compile"
+        "../apex-ls-browser:compile"
       ],
       "files": [
         "src/**/*.ts",

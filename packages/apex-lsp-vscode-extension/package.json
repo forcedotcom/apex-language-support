@@ -93,6 +93,7 @@
     "clean:coverage": "rimraf coverage"
   },
   "dependencies": {
+    "@salesforce/apex-lsp-node": "1.0.0",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
@@ -113,7 +114,7 @@
     "typescript": "^5.8.2"
   },
   "workspaces": [
-    "../extension-apex-ls-ts"
+    "../apex-ls-node"
   ],
   "wireit": {
     "build": {

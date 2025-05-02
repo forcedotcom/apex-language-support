@@ -1,14 +1,14 @@
 {
-  "name": "@salesforce/web-apex-ls-ts",
+  "name": "@salesforce/apex-lsp-node",
   "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "description": "Web-based Apex Language Server implementation in TypeScript",
+  "description": "Node.js implementation for Salesforce Apex Language Server",
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
     "url": "https://github.com/forcedotcom/apex-language-support.git",
-    "directory": "packages/web-apex-ls-ts"
+    "directory": "packages/apex-ls-node"
   },
   "scripts": {
     "build": "wireit",
@@ -23,10 +23,6 @@
   "wireit": {
     "build": {
       "command": "tsc --build",
-      "dependencies": [
-        "../apex-parser-ast:build",
-        "../lsp-compliant-services:build"
-      ],
       "files": [
         "src/**/*.ts",
         "src/resources/**/*",
@@ -38,10 +34,6 @@
     },
     "compile": {
       "command": "tsc --build",
-      "dependencies": [
-        "../apex-parser-ast:compile",
-        "../lsp-compliant-services:compile"
-      ],
       "files": [
         "src/**/*.ts",
         "tsconfig.json"
@@ -53,10 +45,6 @@
     "dev": {
       "command": "tsc --build --watch",
       "service": true,
-      "dependencies": [
-        "../apex-parser-ast:dev",
-        "../lsp-compliant-services:dev"
-      ],
       "files": [
         "src/**/*.ts",
         "tsconfig.json"
@@ -92,9 +80,10 @@
   },
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-custom-services": "1.0.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-protocol": "^3.17.5"
+    "@salesforce/apex-lsp-testbed": "*"
   },
   "devDependencies": {
     "typescript": "^5.8.2"

@@ -11,11 +11,11 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@salesforce/apex-lsp-extension": ["../extension-apex-ls-ts/src"]
+      "@salesforce/apex-lsp-extension": ["../apex-ls-node/src"]
     },
     "composite": true
   },
   "include": ["src"],
   "exclude": ["node_modules", ".vscode-test"],
-  "references": [{ "path": "../extension-apex-ls-ts" }]
+  "references": [{ "path": "../apex-ls-node" }]
 }
