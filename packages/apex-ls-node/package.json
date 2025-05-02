@@ -1,14 +1,14 @@
 {
-  "name": "@salesforce/apex-lsp-extension",
+  "name": "@salesforce/apex-lsp-node",
   "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "description": "Extension implementation for Salesforce Apex Language Server",
+  "description": "Node.js implementation for Salesforce Apex Language Server",
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
     "url": "https://github.com/forcedotcom/apex-language-support.git",
-    "directory": "packages/extension-apex-ls-ts"
+    "directory": "packages/apex-ls-node"
   },
   "scripts": {
     "build": "wireit",

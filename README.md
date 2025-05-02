@@ -13,10 +13,10 @@ This project implements a Language Server Protocol (LSP) for Salesforce Apex, pr
 - **apex-parser-ast**: Apex language parser and AST functionality
 - **custom-services**: Custom language server services beyond the LSP specification
 - **lsp-compliant-services**: Standard LSP-compliant services implementation
-- **extension-apex-ls-ts**: VS Code extension integration for the language server
-- **web-apex-ls-ts**: Web-based integration for the language server
+- **apex-ls-browser**: Browser-based implementation for the language server
 - **apex-lsp-browser-client**: Client library for connecting to the Apex Language Server in browser environments
 - **apex-lsp-testbed**: Testbed for performance and qualitative analysis of various Apex language server implementations
+- **apex-ls-node**: Node.js implementation for the language server
 
 ## Client Libraries
 
