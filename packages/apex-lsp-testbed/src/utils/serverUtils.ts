@@ -123,14 +123,13 @@ export async function createClientOptions(
         serverPath: path.join(
           repoRoot,
           'packages',
-          'apex-lsp-testbed',
+          'apex-ls-node',
           'dist',
-          'servers',
-          'nodeServer',
-          'extensionServer',
-          'runExtensionServer.js',
+          'src',
+          'index.js',
         ),
         nodeArgs: verbose ? ['--nolazy'] : [],
+        serverArgs: ['--stdio'],
         env: {
           ...process.env,
           APEX_LSP_DEBUG: verbose ? '1' : '0',

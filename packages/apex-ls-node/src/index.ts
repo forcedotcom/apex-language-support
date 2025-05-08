@@ -17,10 +17,24 @@ const {
   Hover,
   LogMessageNotification,
   MessageType,
+  Connection,
 } = require('vscode-languageserver/node');
 
-// Create a connection for the server. The connection uses Node's IPC as a transport.
-const connection = createConnection(ProposedFeatures.all);
+// Create a connection for the server based on command line arguments
+let connection: typeof Connection;
+if (process.argv.includes('--stdio')) {
+  connection = createConnection(process.stdin, process.stdout);
+} else if (process.argv.includes('--node-ipc')) {
+  connection = createConnection(ProposedFeatures.all);
+} else if (process.argv.includes('--socket')) {
+  const socketIndex = process.argv.indexOf('--socket');
+  const port = parseInt(process.argv[socketIndex + 1], 10);
+  connection = createConnection(port);
+} else {
+  throw new Error(
+    'Connection type not specified. Use --stdio, --node-ipc, or --socket={number}',
+  );
+}
 
 // Server state
 let isShutdown = false;
