@@ -12,7 +12,7 @@ import * as path from 'path';
 import { createExtensionLanguageServerHarness } from './extensionLanguageServerHarness';
 
 /**
- * Find the extension-apex-ls-ts module path
+ * Find the apex-ls-node module path
  */
 function findExtensionServerPath(): string {
   // Start from current directory
@@ -66,11 +66,11 @@ function findExtensionServerPath(): string {
     process.exit(1);
   }
 
-  // Find extension-apex-ls-ts package
+  // Find apex-ls-node package
   const extensionServerPath = path.join(
     currentDir,
     'packages',
-    'extension-apex-ls-ts',
+    'apex-ls-node',
     'dist',
     'src',
     'index.js',
@@ -81,7 +81,7 @@ function findExtensionServerPath(): string {
       `Extension server module not found at: ${extensionServerPath}`,
     );
     console.error(
-      'Make sure to build the extension-apex-ls-ts package first with: npm run build',
+      'Make sure to build the apex-ls-node package first with: npm run build',
     );
     process.exit(1);
   }

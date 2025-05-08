@@ -38,7 +38,7 @@ const findProjectRoot = () => {
 };
 
 /**
- * Harness for testing the Node.js extension-apex-ls-ts language server
+ * Harness for testing the Node.js apex-ls-node language server
  */
 export class ExtensionApexLanguageServerHarness {
   private client: ApexJsonRpcClient;
@@ -47,7 +47,7 @@ export class ExtensionApexLanguageServerHarness {
   private projectRoot: string;
 
   /**
-   * Creates a new harness for the extension-apex-ls-ts language server
+   * Creates a new harness for the apex-ls-node language server
    */
   constructor() {
     this.logger = new ConsoleLogger('ExtensionLanguageServerHarness');
@@ -73,7 +73,7 @@ export class ExtensionApexLanguageServerHarness {
   }
 
   /**
-   * Find the path to the extension-apex-ls-ts language server module
+   * Find the path to the apex-ls-node language server module
    * @returns Path to the server module
    */
   private findServerPath(): string {
@@ -85,11 +85,11 @@ export class ExtensionApexLanguageServerHarness {
       return process.env.EXTENSION_LS_SERVER_PATH;
     }
 
-    // Look for the built server module in the extension-apex-ls-ts package
+    // Look for the built server module in the apex-ls-node package
     const extensionLsPackagePath = path.join(
       this.projectRoot,
       'packages',
-      'extension-apex-ls-ts',
+      'apex-ls-node',
     );
 
     const distPath = path.join(
@@ -100,13 +100,13 @@ export class ExtensionApexLanguageServerHarness {
     );
 
     if (fs.existsSync(distPath)) {
-      this.logger.info(`Built extension-apex-ls-ts server at: ${distPath}`);
+      this.logger.info(`Built apex-ls-node server at: ${distPath}`);
       return distPath;
     }
 
     // If we couldn't find the server, throw an error
     throw new Error(
-      `Could not find extension-apex-ls-ts server. at ${distPath}. ` +
+      `Could not find apex-ls-node server. at ${distPath}. ` +
         'Please ensure the package is built by running "npm run build" in the project root.',
     );
   }

@@ -41,8 +41,8 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish web-apex-ls-ts
-        working-directory: packages/web-apex-ls-ts
+      - name: Publish apex-ls-browser
+        working-directory: packages/apex-ls-browser
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

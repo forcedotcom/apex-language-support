@@ -97,7 +97,7 @@ jest.mock('vscode-languageserver/browser', () => ({
   MessageType: { Info: 1 },
 }));
 
-describe('web-apex-ls-ts', () => {
+describe('apex-ls-browser', () => {
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks();

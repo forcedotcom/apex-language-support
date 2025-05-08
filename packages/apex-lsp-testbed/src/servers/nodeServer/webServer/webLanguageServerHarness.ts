@@ -89,19 +89,19 @@ export class WebLanguageServerHarness {
     const webLsPackagePath = path.join(
       this.projectRoot,
       'packages',
-      'web-apex-ls-ts',
+      'apex-ls-browser',
     );
 
     const distPath = path.join(webLsPackagePath, 'dist', 'src', 'index.js');
 
     if (fs.existsSync(distPath)) {
-      this.logger.info(`Found web-apex-ls-ts server at: ${distPath}`);
+      this.logger.info(`Found apex-ls-browser server at: ${distPath}`);
       return distPath;
     }
 
     // If we couldn't find the server, throw an error
     throw new Error(
-      'Could not find web-apex-ls-ts server. ' +
+      'Could not find apex-ls-browser server. ' +
         'Please ensure the package is built by running "npm run build" in the project root.',
     );
   }

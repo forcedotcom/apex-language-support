@@ -70,7 +70,7 @@
       "dependencies": [
         "../apex-parser-ast:dev",
         "../lsp-compliant-services:dev",
-        "../web-apex-ls-ts:dev"
+        "../apex-ls-browser:dev"
       ],
       "files": [
         "src/**/*.ts",
@@ -119,7 +119,7 @@
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
-    "@salesforce/web-apex-ls-ts": "1.0.0",
+    "@salesforce/apex-ls-browser": "1.0.0",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-protocol": "^3.17.5",
     "vscode-jsonrpc": "^8.2.0"

@@ -17,13 +17,13 @@ graph TD
     end
     
     subgraph "Node.js Runtime"
-        extension-apex-ls-ts[extension-apex-ls-ts]
+        apex-ls-node[apex-ls-node]
         apex-lsp-vscode-extension[apex-lsp-vscode-extension]
         apex-lsp-vscode-client[apex-lsp-vscode-client]
     end
     
     subgraph "Browser Runtime"
-        web-apex-ls-ts[web-apex-ls-ts]
+        apex-ls-browser[apex-ls-browser]
         apex-lsp-browser-client[apex-lsp-browser-client]
     end
     
@@ -36,19 +36,19 @@ graph TD
     apex-parser-ast --> lsp-compliant-services
     
     %% Node.js implementation
-    custom-services --> extension-apex-ls-ts
-    lsp-compliant-services --> extension-apex-ls-ts
-    extension-apex-ls-ts --> apex-lsp-vscode-client
+    custom-services --> apex-ls-node
+    lsp-compliant-services --> apex-ls-node
+    apex-ls-node --> apex-lsp-vscode-client
     apex-lsp-vscode-client --> apex-lsp-vscode-extension
     
     %% Browser implementation
-    custom-services --> web-apex-ls-ts
-    lsp-compliant-services --> web-apex-ls-ts
-    web-apex-ls-ts --> apex-lsp-browser-client
+    custom-services --> apex-ls-browser
+    lsp-compliant-services --> apex-ls-browser
+    apex-ls-browser --> apex-lsp-browser-client
     
     %% Testing dependencies
-    extension-apex-ls-ts --> apex-lsp-testbed
-    web-apex-ls-ts --> apex-lsp-testbed
+    apex-ls-node --> apex-lsp-testbed
+    apex-ls-browser --> apex-lsp-testbed
     apex-lsp-vscode-client --> apex-lsp-testbed
     apex-lsp-browser-client --> apex-lsp-testbed
 ```
@@ -63,13 +63,13 @@ graph TD
 
 ### Node.js Runtime
 
-- **extension-apex-ls-ts**: TypeScript implementation of the Apex Language Server for Node.js
+- **apex-ls-node**: TypeScript implementation of the Apex Language Server for Node.js
 - **apex-lsp-vscode-client**: VS Code specific client that communicates with the language server
 - **apex-lsp-vscode-extension**: The VS Code extension package that integrates with VS Code's extension API
 
 ### Browser Runtime
 
-- **web-apex-ls-ts**: Browser-compatible implementation of the Apex Language Server
+- **apex-ls-browser**: Browser-compatible implementation of the Apex Language Server
 - **apex-lsp-browser-client**: Browser-based client for the language server
 
 ### Testing & Development
@@ -80,12 +80,12 @@ graph TD
 
 The repository maintains two parallel implementations of the language server:
 
-1. **Node.js implementation** (`extension-apex-ls-ts`):
+1. **Node.js implementation** (`apex-ls-node`):
    - Runs in Node.js environment
    - Uses file system for storage
    - Designed for desktop IDE integration (VS Code)
 
-2. **Browser implementation** (`web-apex-ls-ts`):
+2. **Browser implementation** (`apex-ls-browser`):
    - Runs in browser environment
    - Uses IndexedDB for storage
    - Designed for web-based editors

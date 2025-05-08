@@ -24,7 +24,7 @@ This package can be integrated into web-based IDEs and code editors that support
 
 ```typescript
 // Example usage in a web application
-import * as WebApexLanguageServer from 'web-apex-ls-ts';
+import * as WebApexLanguageServer from 'apex-ls-browser';
 
 // Initialize and connect to the language server
 ```
