@@ -20,21 +20,22 @@ const logData = JSON.parse(rawData);
 jest.setTimeout(1000 * 60 * 10);
 
 // Extract relevant request/response pairs
-const testData = Object.values(logData)
+const testData = (Object.values(logData) as Array<{ type: string; method: string }>)
   .filter(
-    (entry: any) =>
+    (entry: { type: string; method: string }) =>
       entry.type === 'request' && /^textDocument/.test(entry.method),
   )
-  .reduce((acc: any[], request: any) => {
+  .reduce((acc: [string, unknown][], request: { method: string }) => {
     // Only add if we haven't seen this method before
-    if (!acc.some(([method]: [string, any]) => method === request.method)) {
+    if (!acc.some(([method]) => method === request.method)) {
       acc.push([request.method, request]);
     }
     return acc;
   }, []);
 
+// Skip test because of known issue with WebServer connection headers
 describe.skip('WebServer LSP Performance Benchmarks', () => {
-  let serverContext: { cleanup: any; client: any; workspace?: any };
+  let serverContext;
 
   beforeAll(async () => {
     const options = {
@@ -42,34 +43,37 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
       verbose: true,
       workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
     };
+    
+    // Create server and wait for initialization
     serverContext = await createTestServer(options);
-
-    // Wait for server to be ready
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    
+    // Wait for server to be properly initialized
+    await new Promise((resolve) => setTimeout(resolve, 10000));
   });
 
   afterAll(async () => {
-    if (serverContext) {
+    if (serverContext && serverContext.cleanup) {
       await serverContext.cleanup();
+      
+      // Additional delay to ensure proper connection termination
+      await new Promise((resolve) => setTimeout(resolve, 5000));
     }
   });
 
   it('should benchmark WebServer LSP request handling', async () => {
+    // Make sure client is started before running tests
+    if (!serverContext.client._isRunning) {
+      await serverContext.client.start();
+    }
+    
     const suite = new Benchmark.Suite();
     const requestTimeout = 10000; // 10 second timeout per request
-    const results: Record<string, unknown> = {};
-
-    // Ensure client is started
-    await serverContext.client.start();
+    const results = {};
     // Add benchmark for each LSP method type
-    (
-      testData as Array<
-        [string, { method: string; id: string; params: unknown }]
-      >
-    ).forEach(([method, request]) => {
+    (testData as [string, { method: string; id: string; params: unknown }][]).forEach(([method, request]) => {
       suite.add(`WebServer LSP ${method} Id: ${request.id}`, {
         defer: true,
-        fn: function (deferred: { resolve: () => void }) {
+        fn: function (deferred) {
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(
               () =>
@@ -94,14 +98,14 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
 
     return new Promise<void>((resolve) => {
       suite
-        .on('cycle', function (event: { target: any }) {
+        .on('cycle', function (event) {
           const benchmark = event.target;
           if (benchmark.name) {
-            (results as Record<string, unknown>)[benchmark.name] = benchmark;
+            results[benchmark.name] = benchmark;
           }
           console.log(String(benchmark));
         })
-        .on('complete', function (this: any) {
+        .on('complete', function () {
           console.log(
             'Fastest webServer method is ' + this.filter('fastest').map('name'),
           );
@@ -112,7 +116,7 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
             '../webserver-benchmark-results.json',
           );
 
-          require('fs').writeFileSync(
+          fs.writeFileSync(
             outputPath,
             JSON.stringify(results, null, 2),
           );
