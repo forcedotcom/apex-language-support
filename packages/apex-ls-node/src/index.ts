@@ -17,11 +17,11 @@ import {
   DidSaveTextDocumentParams,
 } from 'vscode-languageserver/node';
 import {
-  processOnChangeDocument,
-  processOnCloseDocument,
-  processOnOpenDocument,
-  processOnSaveDocument,
-} from '@salesforce/apex-lsp-compliant-services/src/handlers';
+  dispatchProcessOnChangeDocument,
+  dispatchProcessOnCloseDocument,
+  dispatchProcessOnOpenDocument,
+  dispatchProcessOnSaveDocument,
+} from '@salesforce/apex-lsp-compliant-services';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 const connection = createConnection(ProposedFeatures.all);
@@ -57,7 +57,7 @@ connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
     `Extension Apex Language Server opened and processed document: ${params}`,
   );
 
-  processOnOpenDocument(params, connection);
+  dispatchProcessOnOpenDocument(params);
 });
 
 connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
@@ -67,7 +67,7 @@ connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
     `Extension Apex Language Server changed and processed document: ${params}`,
   );
 
-  processOnChangeDocument(params, connection);
+  dispatchProcessOnChangeDocument(params);
 });
 
 connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
@@ -77,7 +77,7 @@ connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
     `Extension Apex Language Server closed document: ${params}`,
   );
 
-  processOnCloseDocument(params, connection);
+  dispatchProcessOnCloseDocument(params);
 });
 
 connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
@@ -87,7 +87,7 @@ connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
     `Extension Apex Language Server saved document: ${params}`,
   );
 
-  processOnSaveDocument(params, connection);
+  dispatchProcessOnSaveDocument(params);
 });
 
 // Export the storage implementation for Node.js

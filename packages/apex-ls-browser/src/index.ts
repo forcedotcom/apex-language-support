@@ -23,11 +23,11 @@ import {
   DidSaveTextDocumentParams,
 } from 'vscode-languageserver/browser';
 import {
-  processOnChangeDocument,
-  processOnCloseDocument,
-  processOnOpenDocument,
-  processOnSaveDocument,
-} from '@salesforce/apex-lsp-compliant-services/src/handlers';
+  dispatchProcessOnChangeDocument,
+  dispatchProcessOnCloseDocument,
+  dispatchProcessOnOpenDocument,
+  dispatchProcessOnSaveDocument,
+} from '@salesforce/apex-lsp-compliant-services';
 
 // Create a connection for the server using BrowserMessageReader and BrowserMessageWriter
 const connection = createConnection(
@@ -120,7 +120,7 @@ connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
     `Web Apex Language Server opened and processed document: ${params}`,
   );
 
-  processOnOpenDocument(params, connection);
+  dispatchProcessOnOpenDocument(params);
 });
 
 connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
@@ -130,7 +130,7 @@ connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
     `Web Apex Language Server changed and processed document: ${params}`,
   );
 
-  processOnChangeDocument(params, connection);
+  dispatchProcessOnChangeDocument(params);
 });
 
 connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
@@ -140,7 +140,7 @@ connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
     `Web Apex Language Server closed document: ${params}`,
   );
 
-  processOnCloseDocument(params, connection);
+  dispatchProcessOnCloseDocument(params);
 });
 
 connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
@@ -148,7 +148,7 @@ connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
   // Server will parse the document and update storage as needed
   connection.console.info(`Web Apex Language Server saved document: ${params}`);
 
-  processOnSaveDocument(params, connection);
+  dispatchProcessOnSaveDocument(params);
 });
 
 // Start listening for requests

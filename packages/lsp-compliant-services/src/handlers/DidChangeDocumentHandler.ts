@@ -5,15 +5,29 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { Connection, DidChangeTextDocumentParams } from 'vscode-languageserver';
+import { DidChangeTextDocumentParams } from 'vscode-languageserver';
 
-export const processOnChangeDocument = (
+import { Logger } from '../utils/Logger';
+import { dispatch } from '../utils/handlerUtil';
+
+// Visible for testing
+export const processOnChangeDocument = async (
   params: DidChangeTextDocumentParams,
-  connection: Connection,
-) => {
+): Promise<void> => {
   // Client opened a document
   // TODO: Server will parse the document and populate the corresponding local maps
-  connection.console.info(
+  const logger = Logger.getInstance();
+  logger.info(
     `Common Apex Language Server change document handler invoked with: ${params}`,
   );
+
+  // TODO: Implement the logic to process the document change
+  // This might involve updating the AST, type information, or other data structures
+  // based on the changes in the document
+  // You can access the document content using params.contentChanges
 };
+
+export const dispatchProcessOnChangeDocument = (
+  params: DidChangeTextDocumentParams,
+) =>
+  dispatch(processOnChangeDocument(params), 'Error processing document change');

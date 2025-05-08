@@ -154,16 +154,16 @@ jest.mock('vscode-languageserver/browser', () => ({
 }));
 
 // Mock the document processing functions
-const mockProcessOnOpenDocument = jest.fn();
-const mockProcessOnChangeDocument = jest.fn();
-const mockProcessOnCloseDocument = jest.fn();
-const mockProcessOnSaveDocument = jest.fn();
+const mockDispatchProcessOnOpenDocument = jest.fn();
+const mockDispatchProcessOnChangeDocument = jest.fn();
+const mockDispatchProcessOnCloseDocument = jest.fn();
+const mockDispatchProcessOnSaveDocument = jest.fn();
 
-jest.mock('@salesforce/apex-lsp-compliant-services/src/handlers', () => ({
-  processOnOpenDocument: mockProcessOnOpenDocument,
-  processOnChangeDocument: mockProcessOnChangeDocument,
-  processOnCloseDocument: mockProcessOnCloseDocument,
-  processOnSaveDocument: mockProcessOnSaveDocument,
+jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
+  dispatchProcessOnOpenDocument: mockDispatchProcessOnOpenDocument,
+  dispatchProcessOnChangeDocument: mockDispatchProcessOnChangeDocument,
+  dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
+  dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
 }));
 
 describe('Apex Language Server Browser', () => {
@@ -308,10 +308,7 @@ describe('Apex Language Server Browser', () => {
       );
 
       // Verify document processing
-      expect(mockProcessOnOpenDocument).toHaveBeenCalledWith(
-        params,
-        mockConnection,
-      );
+      expect(mockDispatchProcessOnOpenDocument).toHaveBeenCalledWith(params);
     });
 
     it('should handle document change events', () => {
@@ -338,10 +335,7 @@ describe('Apex Language Server Browser', () => {
       );
 
       // Verify document processing
-      expect(mockProcessOnChangeDocument).toHaveBeenCalledWith(
-        params,
-        mockConnection,
-      );
+      expect(mockDispatchProcessOnChangeDocument).toHaveBeenCalledWith(params);
     });
 
     it('should handle document close events', () => {
@@ -362,10 +356,7 @@ describe('Apex Language Server Browser', () => {
       );
 
       // Verify document processing
-      expect(mockProcessOnCloseDocument).toHaveBeenCalledWith(
-        params,
-        mockConnection,
-      );
+      expect(mockDispatchProcessOnCloseDocument).toHaveBeenCalledWith(params);
     });
 
     it('should handle document save events', () => {
@@ -386,10 +377,7 @@ describe('Apex Language Server Browser', () => {
       );
 
       // Verify document processing
-      expect(mockProcessOnSaveDocument).toHaveBeenCalledWith(
-        params,
-        mockConnection,
-      );
+      expect(mockDispatchProcessOnSaveDocument).toHaveBeenCalledWith(params);
     });
   });
 
