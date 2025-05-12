@@ -20,7 +20,9 @@ const logData = JSON.parse(rawData);
 jest.setTimeout(1000 * 60 * 10);
 
 // Extract relevant request/response pairs
-const testData = (Object.values(logData) as Array<{ type: string; method: string }>)
+const testData = (
+  Object.values(logData) as Array<{ type: string; method: string }>
+)
   .filter(
     (entry: { type: string; method: string }) =>
       entry.type === 'request' && /^textDocument/.test(entry.method),
