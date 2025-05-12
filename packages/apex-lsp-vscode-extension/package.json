@@ -104,7 +104,7 @@
     "@types/node": "^18.15.11",
     "@types/vscode": "^1.75.0",
     "@typescript-eslint/eslint-plugin": "^5.30.0",
-    "@typescript-eslint/parser": "^5.30.0",
+    "@typescript-eslint/parser": "^8.32.0",
     "@vscode/test-electron": "^2.1.5",
     "@vscode/vsce": "^2.15.0",
     "concurrently": "^8.2.2",
