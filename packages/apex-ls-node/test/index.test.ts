@@ -52,6 +52,7 @@ interface MockConnection {
   onDidChangeTextDocument: jest.Mock;
   onDidCloseTextDocument: jest.Mock;
   onDidSaveTextDocument: jest.Mock;
+  onDocumentSymbol: jest.Mock;
 }
 
 // Pre-create the mock connection with minimal properties
@@ -64,6 +65,7 @@ const mockConnection: MockConnection = {
   onDidChangeTextDocument: jest.fn(),
   onDidCloseTextDocument: jest.fn(),
   onDidSaveTextDocument: jest.fn(),
+  onDocumentSymbol: jest.fn(),
 };
 
 // Mock the LSP module

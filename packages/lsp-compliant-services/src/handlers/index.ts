@@ -10,3 +10,4 @@ export * from './DidOpenDocumentHandler';
 export * from './DidChangeDocumentHandler';
 export * from './DidCloseDocumentHandler';
 export * from './DidSaveDocumentHandler';
+export * from './DocumentSymbolHandler';

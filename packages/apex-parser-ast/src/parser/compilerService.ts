@@ -12,6 +12,7 @@ import {
   ApexParser,
   CompilationUnitContext,
   ParseTreeWalker,
+  TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
 
 import { BaseApexParserListener } from './listeners/BaseApexParserListener';
@@ -202,7 +203,7 @@ export class CompilerService {
   private getCompilationUnit(
     source: string,
     errorListener?: ApexErrorListener,
-  ): CompilationUnitContext {
+  ): CompilationUnitContext | TriggerUnitContext {
     const inputStream = CharStreams.fromString(source);
     const lexer = new ApexLexer(inputStream);
     const tokenStream = new CommonTokenStream(lexer);
@@ -221,8 +222,14 @@ export class CompilerService {
       lexer.addErrorListener(lexerErrorListener);
     }
 
-    // Parse the compilation unit
-    const compilationUnitContext = parser.compilationUnit();
+    // Check if this is a trigger file based on the file extension
+    const isTrigger =
+      errorListener?.getFilePath()?.endsWith('.trigger') ?? false;
+
+    // Parse the compilation unit or trigger based on file type
+    const compilationUnitContext = isTrigger
+      ? parser.triggerUnit()
+      : parser.compilationUnit();
     return compilationUnitContext;
   }
 }

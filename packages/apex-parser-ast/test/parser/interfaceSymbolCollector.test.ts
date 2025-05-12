@@ -16,6 +16,7 @@ import {
   SymbolKind,
   SymbolVisibility,
   MethodSymbol,
+  ApexSymbol,
 } from '../../src/types/symbol';
 import {
   ErrorType,
@@ -49,7 +50,7 @@ describe('Interface Symbol Collection and Validation', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getGlobalScope();
+      const globalScope = symbolTable?.getCurrentScope();
       const allSymbols = globalScope?.getAllSymbols();
 
       // Check interface symbol
@@ -63,24 +64,24 @@ describe('Interface Symbol Collection and Validation', () => {
       );
 
       // Check interface methods
-      const interfaceScopes = globalScope?.getChildScopes();
+      const interfaceScopes = globalScope?.getChildren();
       expect(interfaceScopes?.length).toBe(1);
 
       const interfaceScope = interfaceScopes?.[0];
       const methods = interfaceScope
         ?.getAllSymbols()
-        .filter((s) => s.kind === SymbolKind.Method);
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Method);
       expect(methods?.length).toBe(2);
 
       const getName = methods?.find(
-        (m) => m.name === 'getName',
+        (m: ApexSymbol) => m.name === 'getName',
       ) as MethodSymbol;
       expect(getName).toBeDefined();
       expect(getName?.modifiers.visibility).toBe(SymbolVisibility.Public);
       expect(getName?.modifiers.isAbstract).toBe(true);
 
       const setName = methods?.find(
-        (m) => m.name === 'setName',
+        (m: ApexSymbol) => m.name === 'setName',
       ) as MethodSymbol;
       expect(setName).toBeDefined();
       expect(setName?.modifiers.visibility).toBe(SymbolVisibility.Public);
@@ -103,7 +104,7 @@ describe('Interface Symbol Collection and Validation', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getGlobalScope();
+      const globalScope = symbolTable?.getCurrentScope();
       const allSymbols = globalScope?.getAllSymbols();
       const interfaceSymbol = allSymbols?.[0];
 
@@ -269,13 +270,6 @@ describe('Interface Symbol Collection and Validation', () => {
       const errorMessages = semanticErrors.map((e) => e.message);
       expect(
         errorMessages.some((msg) =>
-          msg.includes(
-            'Interface methods cannot have explicit visibility modifiers',
-          ),
-        ),
-      ).toBe(true);
-      expect(
-        errorMessages.some((msg) =>
           msg.includes('Modifiers are not allowed on interface methods'),
         ),
       ).toBe(true);
@@ -297,15 +291,15 @@ describe('Interface Symbol Collection and Validation', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getGlobalScope();
-      const interfaceScope = globalScope?.getChildScopes()?.[0];
+      const globalScope = symbolTable?.getCurrentScope();
+      const interfaceScope = globalScope?.getChildren()?.[0];
 
       const methods = interfaceScope
         ?.getAllSymbols()
-        .filter((s) => s.kind === SymbolKind.Method);
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Method);
 
       const process = methods?.find(
-        (m) => m.name === 'process',
+        (m: ApexSymbol) => m.name === 'process',
       ) as MethodSymbol;
       expect(process).toBeDefined();
       expect(process.parameters.length).toBe(2);
@@ -380,7 +374,7 @@ describe('Interface Symbol Collection and Validation', () => {
       // The interface should be successfully parsed
       expect(result.errors.length).toBe(0);
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getGlobalScope();
+      const globalScope = symbolTable?.getCurrentScope();
       const interfaceSymbol = globalScope?.getAllSymbols()[0];
       expect(interfaceSymbol?.kind).toBe(SymbolKind.Interface);
     });

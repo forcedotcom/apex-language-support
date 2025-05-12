@@ -16,11 +16,19 @@ import {
 import { ErrorReporter } from '../../utils/ErrorReporter';
 
 /**
- * Static class providing validation logic for Apex method modifiers
+ * Static class providing validation logic for Apex method modifiers.
+ * Handles validation of method visibility, abstract/virtual/final modifiers,
+ * and ensures proper modifier combinations.
  */
 export class MethodModifierValidator {
   /**
-   * Validate method modifiers for semantic errors
+   * Validates method modifiers for semantic errors.
+   * Checks for conflicting modifiers and ensures proper visibility rules.
+   * @param methodName The name of the method being validated
+   * @param modifiers The modifiers to validate
+   * @param ctx The parser context for error reporting
+   * @param currentTypeSymbol The type symbol containing the method
+   * @param errorReporter The error reporter to use for reporting validation errors
    */
   public static validateMethodModifiers(
     methodName: string,
@@ -84,7 +92,13 @@ export class MethodModifierValidator {
   }
 
   /**
-   * Validate method visibility modifiers for semantic errors
+   * Validates method visibility modifiers for semantic errors.
+   * Ensures method visibility is not wider than its containing class.
+   * @param methodName The name of the method being validated
+   * @param modifiers The modifiers to validate
+   * @param ctx The parser context for error reporting
+   * @param currentTypeSymbol The type symbol containing the method
+   * @param errorReporter The error reporter to use for reporting validation errors
    */
   public static validateMethodVisibilityModifiers(
     methodName: string,
@@ -266,7 +280,13 @@ export class MethodModifierValidator {
   }
 
   /**
-   * Validate constructor visibility modifiers for semantic errors
+   * Validates constructor visibility modifiers for semantic errors.
+   * Ensures constructor visibility matches or is more restrictive than the class.
+   * @param constructorName The name of the constructor being validated
+   * @param modifiers The modifiers to validate
+   * @param ctx The parser context for error reporting
+   * @param currentTypeSymbol The type symbol containing the constructor
+   * @param errorReporter The error reporter to use for reporting validation errors
    */
   public static validateConstructorVisibilityModifiers(
     constructorName: string,

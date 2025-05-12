@@ -11,6 +11,7 @@ import type {
   ApexReference,
   ApexStorageInterface,
 } from '@salesforce/apex-lsp-compliant-services';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 /**
  * Implementation of ApexStorageInterface for browser environments.
@@ -157,5 +158,10 @@ export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
     // In a real implementation, this would ensure all
     // pending changes are synced to storage
     console.log('Persisting data to browser storage');
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async getDocument(uri: string): Promise<TextDocument | null> {
+    throw new Error('Method not implemented.');
   }
 }

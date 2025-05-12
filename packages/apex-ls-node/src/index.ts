@@ -15,12 +15,14 @@ import {
   DidCloseTextDocumentParams,
   DidOpenTextDocumentParams,
   DidSaveTextDocumentParams,
+  DocumentSymbolParams,
 } from 'vscode-languageserver/node';
 import {
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
+  dispatchProcessOnDocumentSymbol,
 } from '@salesforce/apex-lsp-compliant-services';
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
@@ -37,6 +39,7 @@ connection.onInitialize(
         triggerCharacters: ['.'],
       },
       hoverProvider: true,
+      documentSymbolProvider: true,
     },
   }),
 );
@@ -44,6 +47,14 @@ connection.onInitialize(
 // Handle client connection
 connection.onInitialized(() => {
   console.log('Language server initialized and connected to client.');
+});
+
+// Handle document symbol requests
+connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
+  connection.console.info(
+    `Extension Apex Language Server processing document symbols: ${params}`,
+  );
+  return dispatchProcessOnDocumentSymbol(params);
 });
 
 // Listen on the connection
