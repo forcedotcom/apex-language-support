@@ -10,12 +10,16 @@
  * Generic utility function to handle async operations in a fire-and-forget pattern
  * @param operation - The async operation to execute
  * @param errorMessage - The error message to log if the operation fails
+ * @returns The result of the operation
  */
-export const dispatch = async (
-  operation: Promise<void>,
+export const dispatch = async <T>(
+  operation: Promise<T>,
   errorMessage: string,
-): Promise<void> => {
-  operation.catch((error: unknown) => {
+): Promise<T> => {
+  try {
+    return await operation;
+  } catch (error: unknown) {
     console.error(`${errorMessage}: ${error}`);
-  });
+    throw error;
+  }
 };

@@ -6,11 +6,15 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { promises as fs } from 'fs';
+
 import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
 import type {
   ApexReference,
   ApexStorageInterface,
 } from '@salesforce/apex-lsp-compliant-services';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+import { URI } from 'vscode-uri';
 
 /**
  * Implementation of ApexStorageInterface for Node.js environments (VSCode extension).
@@ -22,6 +26,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
   private astMap: Map<string, ApexClassInfo[]> = new Map();
   private typeInfoMap: Map<string, TypeInfo> = new Map();
   private references: ApexReference[] = [];
+  private documents: Map<string, TextDocument> = new Map();
   private initialized = false;
 
   /**
@@ -159,5 +164,41 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
     // In a real implementation, this would flush all in-memory
     // data to disk or database
     console.log('Persisting data to Node.js storage');
+  }
+
+  /**
+   * Get the text document for a given URI
+   * @param uri The URI of the document to retrieve
+   * @returns Promise resolving to the TextDocument or null if not found
+   */
+  async getDocument(uri: string): Promise<TextDocument | null> {
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    // Check if we have the document in memory
+    const cachedDoc = this.documents.get(uri);
+    if (cachedDoc) {
+      return cachedDoc;
+    }
+
+    try {
+      // Convert URI to file path
+      const filePath = URI.parse(uri).fsPath;
+
+      // Read file content
+      const content = await fs.readFile(filePath, 'utf-8');
+
+      // Create TextDocument
+      const document = TextDocument.create(uri, 'apex', 0, content);
+
+      // Cache the document
+      this.documents.set(uri, document);
+
+      return document;
+    } catch (error) {
+      console.error(`Error reading document ${uri}:`, error);
+      return null;
+    }
   }
 }

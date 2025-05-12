@@ -79,11 +79,13 @@
     }
   },
   "dependencies": {
-    "@salesforce/apex-lsp-parser-ast": "1.0.0",
-    "@salesforce/apex-lsp-custom-services": "1.0.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
+    "@salesforce/apex-lsp-custom-services": "1.0.0",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-testbed": "*",
     "vscode-languageserver": "^9.0.1",
-    "@salesforce/apex-lsp-testbed": "*"
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "vscode-uri": "^3.1.0"
   },
   "devDependencies": {
     "typescript": "^5.8.2"

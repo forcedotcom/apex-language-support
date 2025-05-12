@@ -31,9 +31,12 @@ module.exports = {
     ],
   },
   moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@salesforce/apex-lsp-parser-ast$':
+      '<rootDir>/packages/apex-parser-ast/src',
     '^@salesforce/apex-lsp-compliant-services$':
-      '<rootDir>/packages/lsp-compliant-services/dist/src/index.js',
-    '^(\.{1,2}/.*)\\.js$': '$1',
+      '<rootDir>/packages/lsp-compliant-services/src',
+    '^@salesforce/apex-lsp-testbed$': '<rootDir>/packages/apex-lsp-testbed/src',
   },
   transformIgnorePatterns: [
     '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts)).+\\.js$',

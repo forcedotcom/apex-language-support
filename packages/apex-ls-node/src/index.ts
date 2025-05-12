@@ -5,7 +5,6 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import {
   createConnection,
@@ -19,13 +18,14 @@ import {
   DidCloseTextDocumentParams,
   DidOpenTextDocumentParams,
   DidSaveTextDocumentParams,
-  createServerSocketTransport,
+  DocumentSymbolParams,
 } from 'vscode-languageserver/node';
 import {
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
+  dispatchProcessOnDocumentSymbol,
 } from '@salesforce/apex-lsp-compliant-services';
 
 // Create a connection for the server based on command line arguments
@@ -61,6 +61,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
         triggerCharacters: ['.'],
       },
       hoverProvider: true,
+      documentSymbolProvider: true,
     },
   };
 });
@@ -159,6 +160,15 @@ connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
 
   dispatchProcessOnSaveDocument(params);
 });
+
+// Handle document symbol requests
+connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
+  connection.console.info(
+    `Extension Apex Language Server processing document symbols: ${params}`,
+  );
+  return dispatchProcessOnDocumentSymbol(params);
+});
+
 
 // Export the storage implementation for Node.js
 const NodeFileSystemStorage = require('./storage/NodeFileSystemApexStorage');

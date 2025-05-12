@@ -14,7 +14,6 @@ import {
   ApexSymbolCollectorListener,
   SymbolTable,
   SymbolKind,
-  SymbolVisibility,
   TypeSymbol,
 } from '../../src';
 
@@ -46,7 +45,7 @@ describe('Inheritance Symbol Collection', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getGlobalScope();
+      const globalScope = symbolTable?.getCurrentScope();
       const allSymbols = globalScope?.getAllSymbols();
 
       // Check class symbol
@@ -77,7 +76,7 @@ describe('Inheritance Symbol Collection', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getGlobalScope();
+      const globalScope = symbolTable?.getCurrentScope();
       const allSymbols = globalScope?.getAllSymbols();
 
       // Check class symbol
@@ -110,7 +109,7 @@ describe('Inheritance Symbol Collection', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getGlobalScope();
+      const globalScope = symbolTable?.getCurrentScope();
       const allSymbols = globalScope?.getAllSymbols();
 
       // Check class symbol
@@ -143,7 +142,7 @@ describe('Inheritance Symbol Collection', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getGlobalScope();
+      const globalScope = symbolTable?.getCurrentScope();
       const allSymbols = globalScope?.getAllSymbols();
 
       // Check interface symbol

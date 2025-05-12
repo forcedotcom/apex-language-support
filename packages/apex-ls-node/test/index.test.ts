@@ -57,6 +57,7 @@ interface MockConnection {
   onShutdown: jest.Mock;
   onExit: jest.Mock;
   sendNotification: jest.Mock;
+  onDocumentSymbol: jest.Mock;
 }
 
 // Pre-create the mock connection with minimal properties
@@ -74,6 +75,7 @@ const mockConnection: MockConnection = {
   onShutdown: jest.fn(),
   onExit: jest.fn(),
   sendNotification: jest.fn(),
+  onDocumentSymbol: jest.fn(),
 };
 
 // Mock reader/writer for socket transport
