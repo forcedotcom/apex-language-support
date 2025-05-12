@@ -31,7 +31,9 @@ module.exports = {
     ],
   },
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@salesforce/apex-lsp-compliant-services$':
+      '<rootDir>/packages/lsp-compliant-services/dist/src/index.js',
+    '^(\.{1,2}/.*)\\.js$': '$1',
   },
   transformIgnorePatterns: [
     '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts)).+\\.js$',

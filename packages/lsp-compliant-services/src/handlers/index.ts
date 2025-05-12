@@ -6,8 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Export storage interfaces and classes
-export * from './storage/ApexStorageInterface';
-export * from './storage/ApexStorageManager';
-export * from 'vscode-languageserver-protocol';
-export * from './handlers/index';
+export * from './DidOpenDocumentHandler';
+export * from './DidChangeDocumentHandler';
+export * from './DidCloseDocumentHandler';
+export * from './DidSaveDocumentHandler';
