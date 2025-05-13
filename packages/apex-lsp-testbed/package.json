@@ -27,7 +27,9 @@
     "start:jorje:debug": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:jorje:debug:verbose": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:jorje:debug:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
-    "start:jorje:debug:verbose:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend"
+    "start:jorje:debug:verbose:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
+    "start:extension-server": "node --enable-source-maps ./dist/servers/nodeServer/extensionServer/extensionLsServerHarness.js",
+    "start:extension-server:debug": "node --enable-source-maps --inspect ./dist/servers/nodeServer/extensionServer/extensionLsServerHarness.js"
   },
   "wireit": {
     "build": {
@@ -68,7 +70,7 @@
       "dependencies": [
         "../apex-parser-ast:dev",
         "../lsp-compliant-services:dev",
-        "../web-apex-ls-ts:dev"
+        "../apex-ls-browser:dev"
       ],
       "files": [
         "src/**/*.ts",
@@ -117,7 +119,7 @@
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
-    "@salesforce/web-apex-ls-ts": "1.0.0",
+    "@salesforce/apex-ls-browser": "1.0.0",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-protocol": "^3.17.5",
     "vscode-jsonrpc": "^8.2.0"

@@ -6,14 +6,18 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ConsoleLogger } from './client/ApexJsonRpcClient';
-import { parseArgs, printHelp, createClientOptions } from './utils/serverUtils';
-import {
+const { ConsoleLogger } = require('./client/ApexJsonRpcClient');
+const {
+  parseArgs,
+  printHelp,
+  createClientOptions,
+} = require('./utils/serverUtils');
+const {
   prepareWorkspace,
   registerWorkspaceCleanup,
-} from './utils/workspaceUtils';
-import { createClient } from './utils/clientFactory';
-import { startInteractiveMode } from './utils/interactiveMode';
+} = require('./utils/workspaceUtils');
+const { createClient } = require('./utils/clientFactory');
+const { startInteractiveMode } = require('./utils/interactiveMode');
 
 /**
  * Main function

@@ -7,6 +7,7 @@
  */
 
 import * as path from 'path';
+import * as fs from 'fs';
 
 import { JsonRpcClientOptions } from '../client/ApexJsonRpcClient';
 import { WorkspaceConfig } from './workspaceUtils';
@@ -14,7 +15,7 @@ import { code2ProtocolConverter, protocol2CodeConverter } from './uriUtils';
 import { createJavaServerOptions } from '../servers/jorje/javaServerLauncher';
 
 // Define server types as a string union
-export type ServerType = 'demo' | 'jorje';
+export type ServerType = 'demo' | 'jorje' | 'nodeServer' | 'webServer';
 
 // Define CLI options interface
 export interface CliOptions {
@@ -26,6 +27,33 @@ export interface CliOptions {
   tests?: string[]; // List of tests to run
   benchmark: boolean; // Flag to enable benchmarking
   showHelp: boolean; // Flag to indicate if help was requested
+}
+
+/**
+ * Find the repository root path
+ */
+function findRepoRoot(currentPath: string): string {
+  // Keep going up directories until we find a package.json with the right name
+  // or until we hit the root directory
+  while (currentPath && currentPath !== '/') {
+    try {
+      const packageJsonPath = path.join(currentPath, 'package.json');
+      if (fs.existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(
+          fs.readFileSync(packageJsonPath, 'utf8'),
+        );
+        if (packageJson.name === '@salesforce/apex-language-server') {
+          return currentPath;
+        }
+      }
+    } catch {
+      // Ignore errors and continue searching
+    }
+    currentPath = path.dirname(currentPath);
+  }
+
+  // If we can't find it, return the current directory
+  return process.cwd();
 }
 
 export async function createClientOptions(
@@ -52,6 +80,9 @@ export async function createClientOptions(
         code2ProtocolConverter: code2ProtocolConverter,
       }
     : undefined;
+
+  // Find the root of the repository to use for absolute paths
+  const repoRoot = findRepoRoot(process.cwd());
 
   switch (serverType) {
     case 'demo':
@@ -86,6 +117,51 @@ export async function createClientOptions(
         ...(workspace ? { workspacePath: workspace.rootPath } : {}),
       };
     }
+    case 'nodeServer': {
+      return {
+        serverType: 'nodeServer',
+        serverPath: path.join(
+          repoRoot,
+          'packages',
+          'apex-ls-node',
+          'dist',
+          'src',
+          'index.js',
+        ),
+        nodeArgs: verbose ? ['--nolazy'] : [],
+        serverArgs: ['--stdio'],
+        env: {
+          ...process.env,
+          APEX_LSP_DEBUG: verbose ? '1' : '0',
+          ...(workspace ? { APEX_LSP_WORKSPACE: workspace.rootPath } : {}),
+        },
+        initializeParams: initializationOptions,
+        ...(workspace ? { workspacePath: workspace.rootPath } : {}),
+      };
+    }
+    case 'webServer': {
+      return {
+        serverType: 'webServer',
+        serverPath: path.join(
+          repoRoot,
+          'packages',
+          'apex-lsp-testbed',
+          'dist',
+          'servers',
+          'nodeServer',
+          'webServer',
+          'runWebServer.js',
+        ),
+        nodeArgs: verbose ? ['--nolazy'] : [],
+        env: {
+          ...process.env,
+          APEX_LSP_DEBUG: verbose ? '1' : '0',
+          ...(workspace ? { APEX_LSP_WORKSPACE: workspace.rootPath } : {}),
+        },
+        initializeParams: initializationOptions,
+        ...(workspace ? { workspacePath: workspace.rootPath } : {}),
+      };
+    }
     default:
       throw new Error(`Unknown server type: ${serverType}`);
   }
@@ -110,11 +186,16 @@ export function parseArgs(): CliOptions {
 
     if (arg === '--server' || arg === '-s') {
       const value = args[++i]?.toLowerCase();
-      if (value === 'demo' || value === 'jorje') {
+      if (
+        value === 'demo' ||
+        value === 'jorje' ||
+        value === 'nodeServer' ||
+        value === 'webServer'
+      ) {
         options.serverType = value as ServerType;
       } else {
         console.error(
-          `Invalid server type: ${value}. Must be 'demo' or 'jorje'.`,
+          `Invalid server type: ${value}. Must be 'demo', 'jorje', 'nodeServer', or 'webServer'.`,
         );
         process.exit(1);
       }
@@ -140,7 +221,7 @@ export function parseArgs(): CliOptions {
 
   if (!options.serverType) {
     console.error(
-      "Error: --server <type> is required. Must be 'demo' or 'jorje'.",
+      "Error: --server <type> is required. Must be 'demo', 'jorje', 'nodeServer', or 'webServer'.",
     );
     process.exit(1);
   }
@@ -158,7 +239,7 @@ export function printHelp(): void {
   console.log('');
   console.log('Options:');
   console.log(
-    '  -s, --server <type>      Server type to launch (demo or jorje)',
+    '  -s, --server <type>      Server type to launch (demo, jorje, nodeServer, or webServer)',
   );
   console.log('  -v, --verbose            Enable verbose logging');
   console.log('  -i, --interactive        Start in interactive mode');
@@ -193,4 +274,10 @@ export function printHelp(): void {
   console.log(
     '  npm run start:demo:verbose -- --workspace /path/to/apex/project',
   );
+  console.log('');
+  console.log('  # Start nodeServer with a local workspace');
+  console.log('  npm run start:node -- --workspace /path/to/apex/project');
+  console.log('');
+  console.log('  # Start webServer with verbose logging');
+  console.log('  npm run start:web:verbose');
 }

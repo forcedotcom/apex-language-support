@@ -32,9 +32,17 @@ npm run start:demo
 # Start with jorje server (Java implementation)
 npm run start:jorje
 
-# Enable verbose logging for either server
+# Start with nodeServer (Node.js implementation)
+npm run start:node
+
+# Start with webServer (Web implementation)
+npm run start:web
+
+# Enable verbose logging for any server
 npm run start:demo:verbose
 npm run start:jorje:verbose
+npm run start:node:verbose
+npm run start:web:verbose
 
 # Start the jorje server with debug suspend enabled (for Java debugging)
 npm run start:jorje:debug
@@ -51,6 +59,12 @@ npm run start:jorje -- --workspace /path/to/your/apex/project
 
 # Start demo server with a local workspace
 npm run start:demo -- --workspace /path/to/your/apex/project
+
+# Start nodeServer with a local workspace
+npm run start:node -- --workspace /path/to/your/apex/project
+
+# Start webServer with a local workspace
+npm run start:web -- --workspace /path/to/your/apex/project
 
 # Start jorje server with a GitHub repository as workspace
 npm run start:jorje -- --workspace https://github.com/username/repo.git
@@ -72,7 +86,7 @@ npm run start:jorje:verbose -- --workspace /path/to/your/apex/project
 Usage: apex-lsp-testbed [options]
 
 Options:
-  -s, --server <type>      Server type to launch (demo or jorje)
+  -s, --server <type>      Server type to launch (demo, jorje, nodeServer, or webServer)
   -v, --verbose            Enable verbose logging
   -i, --interactive        Start in interactive mode
   -w, --workspace <path>   Path to test workspace or GitHub URL
@@ -186,7 +200,7 @@ import { ApexJsonRpcClient } from '@salesforce/apex-lsp-testbed';
 
 // Create a client (serverType is required: 'demo' or 'jorje')
 const client = new ApexJsonRpcClient({
-  serverType: 'demo', // or 'jorje'
+  serverType: 'demo', // or 'jorje', 'nodeServer', 'webServer'
   serverPath: '/path/to/server.js'
 });
 

@@ -150,6 +150,7 @@ jest.mock('vscode-languageserver/browser', () => ({
   BrowserMessageReader: jest.fn(() => ({})),
   BrowserMessageWriter: jest.fn(() => ({})),
   LogMessageNotification: { type: 'logMessage' },
+  InitializedNotification: { type: 'initialized' },
   MessageType: { Info: 1 },
 }));
 
@@ -227,10 +228,13 @@ describe('Apex Language Server Browser', () => {
     expect(mockConnection.console.info).toHaveBeenCalledWith(
       'Apex Language Server initialized',
     );
-    expect(mockConnection.sendNotification).toHaveBeenCalledWith('logMessage', {
-      type: 1,
-      message: 'Apex Language Server is now running in the browser',
-    });
+    expect(mockConnection.sendNotification).toHaveBeenCalledWith(
+      'initialized',
+      {
+        type: 1,
+        message: 'Apex Language Server is now running in the browser',
+      },
+    );
   });
 
   it('should handle shutdown request', () => {

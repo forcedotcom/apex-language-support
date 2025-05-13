@@ -9,10 +9,11 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import Benchmark from 'benchmark';
+
 import {
   createTestServer,
   ServerOptions,
-} from 'packages/apex-lsp-testbed/src/test-utils/serverFactory';
+} from '../../src/test-utils/serverFactory';
 
 // --- Load test data synchronously ---
 const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
@@ -34,7 +35,7 @@ const testData: [string, any][] = Object.values(logData)
     return acc;
   }, []);
 
-describe.skip('LSP Performance Benchmarks', () => {
+describe.skip('Jorje LSP Performance Benchmarks', () => {
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;
 
   beforeAll(async () => {

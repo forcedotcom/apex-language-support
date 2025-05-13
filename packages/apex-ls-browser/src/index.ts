@@ -5,17 +5,18 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import {
   createConnection,
-  BrowserMessageReader,
-  BrowserMessageWriter,
   InitializeParams,
   InitializeResult,
   TextDocumentPositionParams,
   CompletionItem,
   Hover,
-  LogMessageNotification,
+  BrowserMessageReader,
+  BrowserMessageWriter,
+  InitializedNotification,
   MessageType,
   DidOpenTextDocumentParams,
   DidChangeTextDocumentParams,
@@ -39,28 +40,25 @@ const connection = createConnection(
 let isShutdown = false;
 
 // Initialize server capabilities
-connection.onInitialize(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (params: InitializeParams): InitializeResult => {
-    connection.console.info('Apex Language Server initializing...');
-    // TODO: Add startup tasks here if needed
-    return {
-      capabilities: {
-        textDocumentSync: 1, // Full text document sync
-        completionProvider: {
-          resolveProvider: true,
-        },
-        hoverProvider: true,
+connection.onInitialize((params: InitializeParams): InitializeResult => {
+  connection.console.info('Apex Language Server initializing...');
+  // TODO: Add startup tasks here if needed
+  return {
+    capabilities: {
+      textDocumentSync: 1, // Full text document sync
+      completionProvider: {
+        resolveProvider: true,
       },
-    };
-  },
-);
+      hoverProvider: true,
+    },
+  };
+});
 
 // Handle initialized notification
 connection.onInitialized(() => {
   connection.console.info('Apex Language Server initialized');
   // Send notification to client that server is ready
-  connection.sendNotification(LogMessageNotification.type, {
+  connection.sendNotification(InitializedNotification.type, {
     type: MessageType.Info,
     message: 'Apex Language Server is now running in the browser',
   });
@@ -68,7 +66,6 @@ connection.onInitialized(() => {
 
 // Handle completion requests
 connection.onCompletion(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => [
     {
       label: 'ExampleCompletion',
@@ -80,7 +77,6 @@ connection.onCompletion(
 
 // Handle hover requests
 connection.onHover(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   (_textDocumentPosition: TextDocumentPositionParams): Hover => ({
     contents: {
       kind: 'markdown',
@@ -155,4 +151,5 @@ connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
 connection.listen();
 
 // Export the storage implementation for browsers
-export * from './storage/BrowserIndexedDBApexStorage';
+const BrowserStorage = require('./storage/BrowserIndexedDBApexStorage');
+module.exports = { ...BrowserStorage };

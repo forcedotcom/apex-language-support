@@ -6,7 +6,7 @@
     "rootDir": ".",
     "noEmit": false
   },
-  "include": ["src", "test", "../web-apex-ls-ts/src/languageServer.ts"],
+  "include": ["src", "test", "../apex-ls-browser/src/languageServer.ts"],
   "references": [
     { "path": "../apex-parser-ast" },
     { "path": "../lsp-compliant-services" }

@@ -481,6 +481,26 @@ export class ApexJsonRpcClient {
           stdio: ['pipe', 'pipe', 'pipe'],
           cwd: workspacePath, // Set the current working directory
         });
+      case 'nodeServer':
+        return cp.spawn(
+          nodePath as string,
+          [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
+          {
+            env: { ...process.env, ...env },
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: workspacePath, // Set the current working directory
+          },
+        );
+      case 'webServer':
+        return cp.spawn(
+          nodePath as string,
+          [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
+          {
+            env: { ...process.env, ...env },
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: workspacePath, // Set the current working directory
+          },
+        );
       default:
         throw new Error(`unknown serverType: ${this.serverType}`);
     }
