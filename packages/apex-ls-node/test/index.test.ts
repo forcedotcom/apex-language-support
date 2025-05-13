@@ -52,6 +52,11 @@ interface MockConnection {
   onDidChangeTextDocument: jest.Mock;
   onDidCloseTextDocument: jest.Mock;
   onDidSaveTextDocument: jest.Mock;
+  onCompletion: jest.Mock;
+  onHover: jest.Mock;
+  onShutdown: jest.Mock;
+  onExit: jest.Mock;
+  sendNotification: jest.Mock;
 }
 
 // Pre-create the mock connection with minimal properties
@@ -64,12 +69,23 @@ const mockConnection: MockConnection = {
   onDidChangeTextDocument: jest.fn(),
   onDidCloseTextDocument: jest.fn(),
   onDidSaveTextDocument: jest.fn(),
+  onCompletion: jest.fn(),
+  onHover: jest.fn(),
+  onShutdown: jest.fn(),
+  onExit: jest.fn(),
+  sendNotification: jest.fn(),
 };
+
+// Mock reader/writer for socket transport
+const mockReader = { read: jest.fn() };
+const mockWriter = { write: jest.fn() };
 
 // Mock the LSP module
 jest.mock('vscode-languageserver/node', () => ({
+  // Handles all createConnection variants
   createConnection: jest.fn(() => mockConnection),
   ProposedFeatures: { all: jest.fn() },
+  createServerSocketTransport: jest.fn(() => [mockReader, mockWriter]),
 }));
 
 mockConnection.onDidOpenTextDocument.mockImplementation(
@@ -118,9 +134,16 @@ describe('Apex Language Server Node', () => {
     // Clear all mocks before each test
     jest.clearAllMocks();
 
+    // Mock process.argv to include the --stdio argument
+    const originalArgv = process.argv;
+    process.argv = [...originalArgv, '--stdio'];
+
     // Import the module to load the handlers
     jest.resetModules();
     require('../src/index');
+
+    // Restore original argv
+    process.argv = originalArgv;
   });
 
   it('should register all lifecycle handlers', () => {

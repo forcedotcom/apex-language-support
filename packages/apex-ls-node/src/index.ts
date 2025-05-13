@@ -19,6 +19,7 @@ import {
   DidCloseTextDocumentParams,
   DidOpenTextDocumentParams,
   DidSaveTextDocumentParams,
+  createServerSocketTransport,
 } from 'vscode-languageserver/node';
 import {
   dispatchProcessOnChangeDocument,
@@ -36,9 +37,9 @@ if (process.argv.includes('--stdio')) {
 } else if (process.argv.includes('--socket')) {
   const socketIndex = process.argv.indexOf('--socket');
   const port = parseInt(process.argv[socketIndex + 1], 10);
-  const net = require('net');
-  const socket = net.connect(port);
-  connection = createConnection(socket, socket);
+  // Create a socket connection using the proper transport
+  const [reader, writer] = createServerSocketTransport(port);
+  connection = createConnection(reader, writer);
 } else {
   throw new Error(
     'Connection type not specified. Use --stdio, --node-ipc, or --socket={number}',
