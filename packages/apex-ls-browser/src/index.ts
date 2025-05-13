@@ -18,7 +18,17 @@ import {
   BrowserMessageWriter,
   InitializedNotification,
   MessageType,
+  DidOpenTextDocumentParams,
+  DidChangeTextDocumentParams,
+  DidCloseTextDocumentParams,
+  DidSaveTextDocumentParams,
 } from 'vscode-languageserver/browser';
+import {
+  dispatchProcessOnChangeDocument,
+  dispatchProcessOnCloseDocument,
+  dispatchProcessOnOpenDocument,
+  dispatchProcessOnSaveDocument,
+} from '@salesforce/apex-lsp-compliant-services';
 
 // Create a connection for the server using BrowserMessageReader and BrowserMessageWriter
 const connection = createConnection(
@@ -96,6 +106,45 @@ connection.onExit(() => {
   // but we can clean up resources
   // If we were running in Node.js, we would call process.exit() here
   connection.console.info('Apex Language Server exited');
+});
+
+// Notifications
+connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
+  // Client opened a document
+  // Server will parse the document and populate the corresponding local maps
+  connection.console.info(
+    `Web Apex Language Server opened and processed document: ${params}`,
+  );
+
+  dispatchProcessOnOpenDocument(params);
+});
+
+connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
+  // Client changed a open document
+  // Server will parse the document and populate the corresponding local maps
+  connection.console.info(
+    `Web Apex Language Server changed and processed document: ${params}`,
+  );
+
+  dispatchProcessOnChangeDocument(params);
+});
+
+connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
+  // Client closed a open document
+  // Server will update the corresponding local maps
+  connection.console.info(
+    `Web Apex Language Server closed document: ${params}`,
+  );
+
+  dispatchProcessOnCloseDocument(params);
+});
+
+connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
+  // Client saved a document
+  // Server will parse the document and update storage as needed
+  connection.console.info(`Web Apex Language Server saved document: ${params}`);
+
+  dispatchProcessOnSaveDocument(params);
 });
 
 // Start listening for requests

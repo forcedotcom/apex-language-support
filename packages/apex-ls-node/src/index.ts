@@ -15,7 +15,17 @@ import {
   InitializedNotification,
   MessageType,
   Connection,
+  DidChangeTextDocumentParams,
+  DidCloseTextDocumentParams,
+  DidOpenTextDocumentParams,
+  DidSaveTextDocumentParams,
 } from 'vscode-languageserver/node';
+import {
+  dispatchProcessOnChangeDocument,
+  dispatchProcessOnCloseDocument,
+  dispatchProcessOnOpenDocument,
+  dispatchProcessOnSaveDocument,
+} from '@salesforce/apex-lsp-compliant-services';
 
 // Create a connection for the server based on command line arguments
 let connection: Connection;
@@ -107,6 +117,47 @@ connection.onExit(() => {
 
 // Listen on the connection
 connection.listen();
+
+// Notifications
+connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
+  // Client opened a document
+  // Server will parse the document and populate the corresponding local maps
+  connection.console.info(
+    `Extension Apex Language Server opened and processed document: ${params}`,
+  );
+
+  dispatchProcessOnOpenDocument(params);
+});
+
+connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
+  // Client changed a open document
+  // Server will parse the document and populate the corresponding local maps
+  connection.console.info(
+    `Extension Apex Language Server changed and processed document: ${params}`,
+  );
+
+  dispatchProcessOnChangeDocument(params);
+});
+
+connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
+  // Client closed a open document
+  // Server will update the corresponding local maps
+  connection.console.info(
+    `Extension Apex Language Server closed document: ${params}`,
+  );
+
+  dispatchProcessOnCloseDocument(params);
+});
+
+connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
+  // Client saved a document
+  // Server will parse the document and update storage as needed
+  connection.console.info(
+    `Extension Apex Language Server saved document: ${params}`,
+  );
+
+  dispatchProcessOnSaveDocument(params);
+});
 
 // Export the storage implementation for Node.js
 const NodeFileSystemStorage = require('./storage/NodeFileSystemApexStorage');
