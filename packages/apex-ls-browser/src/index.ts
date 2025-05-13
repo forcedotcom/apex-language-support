@@ -7,7 +7,7 @@
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-const {
+import {
   createConnection,
   InitializeParams,
   InitializeResult,
@@ -16,9 +16,9 @@ const {
   Hover,
   BrowserMessageReader,
   BrowserMessageWriter,
-  LogMessageNotification,
+  InitializedNotification,
   MessageType,
-} = require('vscode-languageserver/browser');
+} from 'vscode-languageserver/browser';
 
 // Create a connection for the server using BrowserMessageReader and BrowserMessageWriter
 const connection = createConnection(
@@ -30,27 +30,25 @@ const connection = createConnection(
 let isShutdown = false;
 
 // Initialize server capabilities
-connection.onInitialize(
-  (params: typeof InitializeParams): typeof InitializeResult => {
-    connection.console.info('Apex Language Server initializing...');
-    // TODO: Add startup tasks here if needed
-    return {
-      capabilities: {
-        textDocumentSync: 1, // Full text document sync
-        completionProvider: {
-          resolveProvider: true,
-        },
-        hoverProvider: true,
+connection.onInitialize((params: InitializeParams): InitializeResult => {
+  connection.console.info('Apex Language Server initializing...');
+  // TODO: Add startup tasks here if needed
+  return {
+    capabilities: {
+      textDocumentSync: 1, // Full text document sync
+      completionProvider: {
+        resolveProvider: true,
       },
-    };
-  },
-);
+      hoverProvider: true,
+    },
+  };
+});
 
 // Handle initialized notification
 connection.onInitialized(() => {
   connection.console.info('Apex Language Server initialized');
   // Send notification to client that server is ready
-  connection.sendNotification(LogMessageNotification.type, {
+  connection.sendNotification(InitializedNotification.type, {
     type: MessageType.Info,
     message: 'Apex Language Server is now running in the browser',
   });
@@ -58,9 +56,7 @@ connection.onInitialized(() => {
 
 // Handle completion requests
 connection.onCompletion(
-  (
-    _textDocumentPosition: typeof TextDocumentPositionParams,
-  ): (typeof CompletionItem)[] => [
+  (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => [
     {
       label: 'ExampleCompletion',
       kind: 1, // Text completion
@@ -71,7 +67,7 @@ connection.onCompletion(
 
 // Handle hover requests
 connection.onHover(
-  (_textDocumentPosition: typeof TextDocumentPositionParams): typeof Hover => ({
+  (_textDocumentPosition: TextDocumentPositionParams): Hover => ({
     contents: {
       kind: 'markdown',
       value: 'This is an example hover text.',

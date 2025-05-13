@@ -7,21 +7,18 @@
  */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-const {
+import {
   createConnection,
   ProposedFeatures,
   InitializeParams,
   InitializeResult,
-  TextDocumentPositionParams,
-  CompletionItem,
-  Hover,
-  LogMessageNotification,
+  InitializedNotification,
   MessageType,
   Connection,
-} = require('vscode-languageserver/node');
+} from 'vscode-languageserver/node';
 
 // Create a connection for the server based on command line arguments
-let connection: typeof Connection;
+let connection: Connection;
 if (process.argv.includes('--stdio')) {
   connection = createConnection(process.stdin, process.stdout);
 } else if (process.argv.includes('--node-ipc')) {
@@ -29,7 +26,9 @@ if (process.argv.includes('--stdio')) {
 } else if (process.argv.includes('--socket')) {
   const socketIndex = process.argv.indexOf('--socket');
   const port = parseInt(process.argv[socketIndex + 1], 10);
-  connection = createConnection(port);
+  const net = require('net');
+  const socket = net.connect(port);
+  connection = createConnection(socket, socket);
 } else {
   throw new Error(
     'Connection type not specified. Use --stdio, --node-ipc, or --socket={number}',
@@ -40,22 +39,20 @@ if (process.argv.includes('--stdio')) {
 let isShutdown = false;
 
 // Initialize server capabilities and properties
-connection.onInitialize(
-  (params: typeof InitializeParams): typeof InitializeResult => {
-    connection.console.info('Apex Language Server initializing...');
-    // TODO: Add startup tasks here if needed
-    return {
-      capabilities: {
-        textDocumentSync: 1, // Full synchronization
-        completionProvider: {
-          resolveProvider: true,
-          triggerCharacters: ['.'],
-        },
-        hoverProvider: true,
+connection.onInitialize((params: InitializeParams): InitializeResult => {
+  connection.console.info('Apex Language Server initializing...');
+  // TODO: Add startup tasks here if needed
+  return {
+    capabilities: {
+      textDocumentSync: 1, // Full synchronization
+      completionProvider: {
+        resolveProvider: true,
+        triggerCharacters: ['.'],
       },
-    };
-  },
-);
+      hoverProvider: true,
+    },
+  };
+});
 
 // Handle client connection
 connection.onInitialized(() => {
@@ -63,7 +60,7 @@ connection.onInitialized(() => {
     'Language server initialized and connected to client.',
   );
   // Send notification to client that server is ready
-  connection.sendNotification(LogMessageNotification.type, {
+  connection.sendNotification(InitializedNotification.type, {
     type: MessageType.Info,
     message: 'Apex Language Server is now running in Node.js',
   });
