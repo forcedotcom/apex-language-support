@@ -19,6 +19,7 @@ export * from './handlers/DidOpenDocumentHandler';
 export * from './handlers/DidChangeDocumentHandler';
 export * from './handlers/DidCloseDocumentHandler';
 export * from './handlers/DidSaveDocumentHandler';
+export * from './handlers/DocumentSymbolHandler';
 export * from './handlers/LogNotificationHandler';
 export {
   ApexReference,
