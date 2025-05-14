@@ -19,6 +19,7 @@ import {
   DidOpenTextDocumentParams,
   DidSaveTextDocumentParams,
   DocumentSymbolParams,
+  createServerSocketTransport,
 } from 'vscode-languageserver/node';
 import {
   dispatchProcessOnChangeDocument,
@@ -50,6 +51,7 @@ if (process.argv.includes('--stdio')) {
 let isShutdown = false;
 
 // Initialize server capabilities and properties
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   connection.console.info('Apex Language Server initializing...');
   // TODO: Add startup tasks here if needed
