@@ -80,6 +80,14 @@ connection.onInitialized(() => {
   });
 });
 
+// Handle document symbol requests
+connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
+  connection.console.info(
+    `Extension Apex Language Server processing document symbols: ${params}`,
+  );
+  return dispatchProcessOnDocumentSymbol(params);
+});
+
 // Handle completion requests
 connection.onCompletion((_textDocumentPosition: any) => [
   {
@@ -162,15 +170,6 @@ connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
 
   dispatchProcessOnSaveDocument(params);
 });
-
-// Handle document symbol requests
-connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-  connection.console.info(
-    `Extension Apex Language Server processing document symbols: ${params}`,
-  );
-  return dispatchProcessOnDocumentSymbol(params);
-});
-
 
 // Export the storage implementation for Node.js
 const NodeFileSystemStorage = require('./storage/NodeFileSystemApexStorage');
