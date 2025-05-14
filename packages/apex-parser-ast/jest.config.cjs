@@ -1,26 +1,22 @@
-/**
- * Jest configuration for apex-parser-ast package
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+const baseConfig = require('../../jest.config.cjs');
+
 module.exports = {
-  extensionsToTreatAsEsm: ['.ts'],
-  testEnvironment: 'node',
+  ...baseConfig,
+  rootDir: '.',
+  testMatch: ['**/test/**/*.test.ts'],
   transform: {
-    '^.+\\.(ts|js)x?$': [
-      'babel-jest',
-      {
-        // Point to the package-specific Babel config
-        configFile: './babel.config.cjs',
-      },
-    ],
+    '^.+\\.ts$': 'ts-jest',
   },
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-    // Map imports with .js extension to their TypeScript source
-    '(.+)\\.js': '$1',
+    '^@salesforce/apex-lsp-logging$':
+    '<rootDir>/../apex-lsp-logging/src/index.ts',
   },
-  transformIgnorePatterns: [
-    '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts)).+\\.js$',
-  ],
-  testMatch: ['**/test/**/*.test.ts'],
-  moduleFileExtensions: ['ts', 'js', 'json', 'node'],
 };

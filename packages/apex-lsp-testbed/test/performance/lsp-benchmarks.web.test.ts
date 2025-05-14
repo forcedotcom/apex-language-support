@@ -37,7 +37,7 @@ const testData = (
 
 // Skip test because of known issue with WebServer connection headers
 describe.skip('WebServer LSP Performance Benchmarks', () => {
-  let serverContext;
+  let serverContext: any;
 
   beforeAll(async () => {
     const options = {
@@ -45,10 +45,10 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
       verbose: true,
       workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
     };
-    
+
     // Create server and wait for initialization
     serverContext = await createTestServer(options);
-    
+
     // Wait for server to be properly initialized
     await new Promise((resolve) => setTimeout(resolve, 10000));
   });
@@ -56,7 +56,7 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
   afterAll(async () => {
     if (serverContext && serverContext.cleanup) {
       await serverContext.cleanup();
-      
+
       // Additional delay to ensure proper connection termination
       await new Promise((resolve) => setTimeout(resolve, 5000));
     }
@@ -67,15 +67,17 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
     if (!serverContext.client._isRunning) {
       await serverContext.client.start();
     }
-    
+
     const suite = new Benchmark.Suite();
     const requestTimeout = 10000; // 10 second timeout per request
-    const results = {};
+    const results: Record<string, any> = {};
     // Add benchmark for each LSP method type
-    (testData as [string, { method: string; id: string; params: unknown }][]).forEach(([method, request]) => {
+    (
+      testData as [string, { method: string; id: string; params: unknown }][]
+    ).forEach(([method, request]) => {
       suite.add(`WebServer LSP ${method} Id: ${request.id}`, {
         defer: true,
-        fn: function (deferred) {
+        fn: function (deferred: any) {
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(
               () =>
@@ -100,14 +102,14 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
 
     return new Promise<void>((resolve) => {
       suite
-        .on('cycle', function (event) {
+        .on('cycle', function (event: any) {
           const benchmark = event.target;
           if (benchmark.name) {
             results[benchmark.name] = benchmark;
           }
           console.log(String(benchmark));
         })
-        .on('complete', function () {
+        .on('complete', function (this: any) {
           console.log(
             'Fastest webServer method is ' + this.filter('fastest').map('name'),
           );
@@ -118,10 +120,7 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
             '../webserver-benchmark-results.json',
           );
 
-          fs.writeFileSync(
-            outputPath,
-            JSON.stringify(results, null, 2),
-          );
+          fs.writeFileSync(outputPath, JSON.stringify(results, null, 2));
           resolve();
         })
         .run({ async: true });

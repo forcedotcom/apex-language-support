@@ -2,27 +2,28 @@
   "name": "@salesforce/apex-language-server",
   "version": "1.0.0",
   "main": "index.js",
+  "packageManager": "npm@10.2.4",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "test": "jest",
-    "test:coverage": "jest --coverage",
-    "test:packages": "wireit",
-    "test:coverage:packages": "wireit",
-    "test:coverage:report": "wireit",
-    "test:integration": "wireit",
-    "lint": "eslint --ext .ts,.mjs 'packages/*/src/**/*.ts'",
-    "lint:fix": "eslint --ext .ts,.mjs 'packages/*/src/**/*.ts' --fix",
-    "build": "wireit",
-    "compile": "wireit",
-    "build:debug": "cross-env DEBUG=true npm run build",
-    "build:no-minify": "cross-env NO_MINIFY=true npm run build",
-    "dev": "wireit",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "test:packages": "turbo run test --filter=./packages/*",
+    "test:coverage:packages": "turbo run test:coverage --filter=./packages/*",
+    "test:coverage:report": "node scripts/merge-coverage.js",
+    "test:integration": "turbo run test:integration",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "compile": "turbo run compile",
     "prepare": "husky",
     "commit": "git-cz",
-    "clean": "rimraf packages/**/dist packages/**/.wireit",
+    "clean": "rimraf packages/**/dist packages/**/*.tsbuildinfo packages/**/bundle *.tsbuildinfo .turbo packages/**/.turbo coverage",
     "clean:all": "npm run clean && rimraf node_modules",
-    "clean:packages": "npm run clean --workspaces",
+    "clean:packages": "turbo run clean --filter=./packages/*",
     "clean:coverage": "rimraf coverage packages/*/coverage",
-    "semantic-release": "semantic-release"
+    "semantic-release": "semantic-release",
+    "bundle": "turbo run bundle"
   },
   "keywords": [
     "salesforce",
@@ -42,9 +43,6 @@
   },
   "homepage": "https://github.com/forcedotcom/apex-language-support#readme",
   "devDependencies": {
-    "@babel/plugin-transform-modules-commonjs": "^7.26.3",
-    "@babel/preset-env": "^7.26.9",
-    "@babel/preset-typescript": "^7.27.0",
     "@commitlint/cli": "^19.2.1",
     "@commitlint/config-conventional": "^19.1.0",
     "@rollup/plugin-typescript": "^11.1.5",
@@ -54,12 +52,13 @@
     "@semantic-release/npm": "^10.0.5",
     "@semantic-release/release-notes-generator": "^11.0.7",
     "@tony.ganchev/eslint-plugin-header": "^3.1.2",
+    "@types/benchmark": "^2.1.5",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.11.30",
     "@typescript-eslint/eslint-plugin": "^8.28.0",
     "@typescript-eslint/parser": "^8.28.0",
     "axios": "^1.6.2",
-    "babel-jest": "^29.7.0",
+    "benchmark": "^2.1.4",
     "commitizen": "^4.3.0",
     "cross-env": "^7.0.3",
     "cz-conventional-changelog": "^3.3.0",
@@ -78,8 +77,9 @@
     "rimraf": "^5.0.5",
     "semantic-release": "^22.0.12",
     "ts-jest": "^29.3.0",
-    "typescript": "^5.8.2",
-    "wireit": "^0.14.4"
+    "tsup": "^8.0.2",
+    "turbo": "^2.5.3",
+    "typescript": "^5.8.2"
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.0",
@@ -89,76 +89,6 @@
   "workspaces": [
     "packages/*"
   ],
-  "wireit": {
-    "build": {
-      "dependencies": [
-        "./packages/apex-ls-node:build",
-        "./packages/custom-services:build",
-        "./packages/lsp-compliant-services:build",
-        "./packages/apex-ls-browser:build",
-        "./packages/apex-lsp-browser-client:build",
-        "./packages/apex-lsp-testbed:build"
-      ]
-    },
-    "compile": {
-      "dependencies": [
-        "./packages/apex-ls-node:compile",
-        "./packages/custom-services:compile",
-        "./packages/lsp-compliant-services:compile",
-        "./packages/apex-ls-browser:compile",
-        "./packages/apex-lsp-browser-client:compile",
-        "./packages/apex-lsp-testbed:compile"
-      ]
-    },
-    "dev": {
-      "dependencies": [
-        "./packages/apex-ls-node:dev",
-        "./packages/custom-services:dev",
-        "./packages/lsp-compliant-services:dev",
-        "./packages/apex-ls-browser:dev",
-        "./packages/apex-lsp-browser-client:dev",
-        "./packages/apex-lsp-testbed:dev"
-      ]
-    },
-    "test:packages": {
-      "dependencies": [
-        "./packages/apex-ls-node:test",
-        "./packages/custom-services:test",
-        "./packages/lsp-compliant-services:test",
-        "./packages/apex-ls-browser:test",
-        "./packages/apex-lsp-browser-client:test",
-        "./packages/apex-lsp-testbed:test"
-      ]
-    },
-    "test:coverage:packages": {
-      "dependencies": [
-        "./packages/apex-ls-node:test:coverage",
-        "./packages/custom-services:test:coverage",
-        "./packages/lsp-compliant-services:test:coverage",
-        "./packages/apex-ls-browser:test:coverage",
-        "./packages/apex-lsp-browser-client:test:coverage",
-        "./packages/apex-lsp-testbed:test:coverage"
-      ]
-    },
-    "test:coverage:report": {
-      "command": "node scripts/merge-coverage.js",
-      "dependencies": [
-        "test:coverage:packages"
-      ],
-      "files": [
-        "scripts/merge-coverage.js",
-        "packages/*/coverage/coverage-final.json"
-      ],
-      "output": [
-        "coverage/**"
-      ]
-    },
-    "test:integration": {
-      "dependencies": [
-        "./packages/apex-lsp-testbed:test:integration"
-      ]
-    }
-  },
   "config": {
     "commitizen": {
       "path": "./node_modules/cz-conventional-changelog"

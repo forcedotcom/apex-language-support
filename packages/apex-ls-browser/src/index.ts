@@ -29,6 +29,12 @@ import {
   dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
 } from '@salesforce/apex-lsp-compliant-services';
+import {
+  setLogNotificationHandler,
+  getLogger,
+} from '@salesforce/apex-lsp-logging';
+
+import { BrowserLogNotificationHandler } from './utils/BrowserLogNotificationHandler';
 
 // Create a connection for the server using BrowserMessageReader and BrowserMessageWriter
 const connection = createConnection(
@@ -36,12 +42,18 @@ const connection = createConnection(
   new BrowserMessageWriter(self),
 );
 
+// Set up logging
+const logger = getLogger();
+setLogNotificationHandler(
+  BrowserLogNotificationHandler.getInstance(connection),
+);
+
 // Server state
 let isShutdown = false;
 
 // Initialize server capabilities
 connection.onInitialize((params: InitializeParams): InitializeResult => {
-  connection.console.info('Apex Language Server initializing...');
+  logger.info('Apex Language Server initializing...');
   // TODO: Add startup tasks here if needed
   return {
     capabilities: {
@@ -56,7 +68,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 
 // Handle initialized notification
 connection.onInitialized(() => {
-  connection.console.info('Apex Language Server initialized');
+  logger.info('Apex Language Server initialized');
   // Send notification to client that server is ready
   connection.sendNotification(InitializedNotification.type, {
     type: MessageType.Info,
@@ -87,33 +99,31 @@ connection.onHover(
 
 // Handle shutdown request
 connection.onShutdown(() => {
-  connection.console.info('Apex Language Server shutting down...');
+  logger.info('Apex Language Server shutting down...');
   // Perform cleanup tasks, for now we'll just set a flag
   isShutdown = true;
-  connection.console.info('Apex Language Server shutdown complete');
+  logger.info('Apex Language Server shutdown complete');
 });
 
 // Handle exit notification
 connection.onExit(() => {
-  connection.console.info('Apex Language Server exiting...');
+  logger.info('Apex Language Server exiting...');
   if (!isShutdown) {
     // If exit is called without prior shutdown, log a warning
-    connection.console.warn(
-      'Apex Language Server exiting without proper shutdown',
-    );
+    logger.warn('Apex Language Server exiting without proper shutdown');
   }
   // In a browser environment, there's not much we can do to actually exit,
   // but we can clean up resources
   // If we were running in Node.js, we would call process.exit() here
-  connection.console.info('Apex Language Server exited');
+  logger.info('Apex Language Server exited');
 });
 
 // Notifications
 connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
   // Client opened a document
   // Server will parse the document and populate the corresponding local maps
-  connection.console.info(
-    `Web Apex Language Server opened and processed document: ${params}`,
+  logger.info(
+    `Web Apex Language Server opened and processed document: ${JSON.stringify(params)}`,
   );
 
   dispatchProcessOnOpenDocument(params);
@@ -122,8 +132,8 @@ connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
 connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
   // Client changed a open document
   // Server will parse the document and populate the corresponding local maps
-  connection.console.info(
-    `Web Apex Language Server changed and processed document: ${params}`,
+  logger.info(
+    `Web Apex Language Server changed and processed document: ${JSON.stringify(params)}`,
   );
 
   dispatchProcessOnChangeDocument(params);
@@ -132,8 +142,8 @@ connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
 connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
   // Client closed a open document
   // Server will update the corresponding local maps
-  connection.console.info(
-    `Web Apex Language Server closed document: ${params}`,
+  logger.info(
+    `Web Apex Language Server closed document: ${JSON.stringify(params)}`,
   );
 
   dispatchProcessOnCloseDocument(params);
@@ -142,7 +152,9 @@ connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
 connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
   // Client saved a document
   // Server will parse the document and update storage as needed
-  connection.console.info(`Web Apex Language Server saved document: ${params}`);
+  logger.info(
+    `Web Apex Language Server saved document: ${JSON.stringify(params)}`,
+  );
 
   dispatchProcessOnSaveDocument(params);
 });

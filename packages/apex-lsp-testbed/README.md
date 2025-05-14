@@ -113,6 +113,17 @@ When running in interactive mode (the default), the following commands are avail
 - `exit/quit` - Exit the program
 - `help` - Show this help
 
+## Recent Changes
+
+- **Removed Babel References:**  
+  All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
+
+- **TypeScript Improvements:**  
+  Explicit types have been added to test files to resolve TypeScript errors. For example, in `test/performance/lsp-benchmarks.web.test.ts`, variables and parameters now have explicit `any` types.
+
+- **Jest Configuration:**  
+  Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
+
 ## Development
 
 To modify or extend the testbed:
@@ -197,21 +208,6 @@ This package includes a lightweight JSON-RPC client for direct communication wit
 
 ```typescript
 import { ApexJsonRpcClient } from '@salesforce/apex-lsp-testbed';
-
-// Create a client (serverType is required: 'demo' or 'jorje')
-const client = new ApexJsonRpcClient({
-  serverType: 'demo', // or 'jorje', 'nodeServer', 'webServer'
-  serverPath: '/path/to/server.js'
-});
-
-// Start the client
-await client.start();
-
-// Send requests
-const completions = await client.completion('file:///path/to/file.cls', 10, 15);
-
-// Clean up
-await client.stop();
 ```
 
 ## License

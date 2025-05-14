@@ -142,17 +142,31 @@ mockConnection.onDidSaveTextDocument.mockImplementation(
 
 // Mock browser-specific objects that don't exist in Node.js
 // Use type assertion to bypass type checking since we're just mocking
-(global as any).self = {};
+(global as any).self = {
+  postMessage: jest.fn(),
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn(),
+};
 
 // Mock the LSP module
-jest.mock('vscode-languageserver/browser', () => ({
-  createConnection: jest.fn(() => mockConnection),
-  BrowserMessageReader: jest.fn(() => ({})),
-  BrowserMessageWriter: jest.fn(() => ({})),
-  LogMessageNotification: { type: 'logMessage' },
-  InitializedNotification: { type: 'initialized' },
-  MessageType: { Info: 1 },
-}));
+jest.mock('vscode-languageserver/browser', () => {
+  const actual = jest.requireActual('vscode-languageserver');
+  return {
+    ...actual,
+    createConnection: jest.fn(() => mockConnection),
+    BrowserMessageReader: jest.fn(() => ({
+      listen: jest.fn(),
+      dispose: jest.fn(),
+    })),
+    BrowserMessageWriter: jest.fn(() => ({
+      write: jest.fn(),
+      dispose: jest.fn(),
+    })),
+    LogMessageNotification: { type: 'logMessage' },
+    InitializedNotification: { type: 'initialized' },
+    MessageType: { Info: 1 },
+  };
+});
 
 // Mock the document processing functions
 const mockDispatchProcessOnOpenDocument = jest.fn();
@@ -167,20 +181,74 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
 }));
 
+// Mock the logger abstraction
+const mockLogger = {
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  log: jest.fn(),
+};
+
+jest.mock('@salesforce/apex-lsp-logging', () => ({
+  LogMessageType: {
+    Error: 1,
+    Warning: 2,
+    Info: 3,
+    Log: 4,
+  },
+  LogMessageParams: jest.fn(),
+  LogNotificationHandler: jest.fn(),
+  setLogNotificationHandler: jest.fn(),
+  getLogger: () => mockLogger,
+  LogLevel: {
+    Error: 'error',
+    Warn: 'warn',
+    Info: 'info',
+    Debug: 'debug',
+  },
+  Logger: jest.fn(),
+  LogMessage: jest.fn(),
+}));
+
+// Import the BrowserLogNotificationHandler after mocking
+import { BrowserLogNotificationHandler } from '../src/utils/BrowserLogNotificationHandler';
+
 describe('Apex Language Server Browser', () => {
   beforeEach(() => {
-    // Clear all mocks before each test
+    // Reset all mocks
     jest.clearAllMocks();
 
-    // Reset handler storage
-    mockHandlers.initialize = null;
-    mockHandlers.initialized = null;
-    mockHandlers.shutdown = null;
-    mockHandlers.exit = null;
+    // Reset the singleton instance
+    (BrowserLogNotificationHandler as any).instance = undefined;
 
-    // Import the module to load the handlers
+    // Reset mock handlers
+    Object.keys(mockHandlers).forEach((key) => {
+      mockHandlers[key as keyof MockHandlerStore] = null;
+    });
+
+    // Reset mock connection
+    Object.keys(mockConnection).forEach((key) => {
+      if (typeof mockConnection[key as keyof MockConnection] === 'function') {
+        (mockConnection[key as keyof MockConnection] as jest.Mock).mockClear();
+      }
+    });
+
+    // Clear module cache and require the module
+    jest.isolateModules(() => {
+      // Mock the storage implementation
+      jest.mock('../src/storage/BrowserIndexedDBApexStorage', () => ({
+        // Add any storage methods that are used
+      }));
+
+      // Import the module to register the handlers
+      require('../src/index');
+    });
+  });
+
+  afterEach(() => {
+    // Clean up after each test
     jest.resetModules();
-    require('../src/index');
   });
 
   it('should register all lifecycle handlers', () => {
@@ -211,7 +279,7 @@ describe('Apex Language Server Browser', () => {
     expect(result.capabilities).toHaveProperty('hoverProvider', true);
 
     // Verify logging
-    expect(mockConnection.console.info).toHaveBeenCalledWith(
+    expect(mockLogger.info).toHaveBeenCalledWith(
       'Apex Language Server initializing...',
     );
   });
@@ -225,7 +293,7 @@ describe('Apex Language Server Browser', () => {
     initializedHandler();
 
     // Verify logging and notification
-    expect(mockConnection.console.info).toHaveBeenCalledWith(
+    expect(mockLogger.info).toHaveBeenCalledWith(
       'Apex Language Server initialized',
     );
     expect(mockConnection.sendNotification).toHaveBeenCalledWith(
@@ -246,10 +314,10 @@ describe('Apex Language Server Browser', () => {
     shutdownHandler();
 
     // Verify shutdown logging
-    expect(mockConnection.console.info).toHaveBeenCalledWith(
+    expect(mockLogger.info).toHaveBeenCalledWith(
       'Apex Language Server shutting down...',
     );
-    expect(mockConnection.console.info).toHaveBeenCalledWith(
+    expect(mockLogger.info).toHaveBeenCalledWith(
       'Apex Language Server shutdown complete',
     );
   });
@@ -263,7 +331,7 @@ describe('Apex Language Server Browser', () => {
     exitHandler();
 
     // Should warn about improper shutdown
-    expect(mockConnection.console.warn).toHaveBeenCalledWith(
+    expect(mockLogger.warn).toHaveBeenCalledWith(
       'Apex Language Server exiting without proper shutdown',
     );
   });
@@ -307,8 +375,8 @@ describe('Apex Language Server Browser', () => {
       onDidOpenTextDocumentHandler(params);
 
       // Verify logging
-      expect(mockConnection.console.info).toHaveBeenCalledWith(
-        `Web Apex Language Server opened and processed document: ${params}`,
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Web Apex Language Server opened and processed document: ${JSON.stringify(params)}`,
       );
 
       // Verify document processing
@@ -334,8 +402,8 @@ describe('Apex Language Server Browser', () => {
       onDidChangeTextDocumentHandler(params);
 
       // Verify logging
-      expect(mockConnection.console.info).toHaveBeenCalledWith(
-        `Web Apex Language Server changed and processed document: ${params}`,
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Web Apex Language Server changed and processed document: ${JSON.stringify(params)}`,
       );
 
       // Verify document processing
@@ -355,8 +423,8 @@ describe('Apex Language Server Browser', () => {
       onDidCloseTextDocumentHandler(params);
 
       // Verify logging
-      expect(mockConnection.console.info).toHaveBeenCalledWith(
-        `Web Apex Language Server closed document: ${params}`,
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Web Apex Language Server closed document: ${JSON.stringify(params)}`,
       );
 
       // Verify document processing
@@ -376,8 +444,8 @@ describe('Apex Language Server Browser', () => {
       onDidSaveTextDocumentHandler(params);
 
       // Verify logging
-      expect(mockConnection.console.info).toHaveBeenCalledWith(
-        `Web Apex Language Server saved document: ${params}`,
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Web Apex Language Server saved document: ${JSON.stringify(params)}`,
       );
 
       // Verify document processing

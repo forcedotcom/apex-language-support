@@ -82,14 +82,12 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run build",
-    "package": "vsce package",
-    "build": "wireit",
-    "dev": "wireit",
-    "lint": "eslint src --ext ts --rule 'import/order: off' --rule '@typescript-eslint/no-unused-vars: [error, {argsIgnorePattern: \"^_\"}]'",
-    "test": "wireit",
-    "test:coverage": "wireit",
-    "clean": "rimraf dist",
+    "compile": "tsc --build",
+    "bundle": "node ../../scripts/build-bundle.js",
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
+    "clean": "rimraf dist bundle *.tsbuildinfo .turbo",
+    "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage"
   },
   "dependencies": {
@@ -115,63 +113,5 @@
   },
   "workspaces": [
     "../apex-ls-node"
-  ],
-  "wireit": {
-    "build": {
-      "command": "tsc --build",
-      "files": [
-        "src/**/*.ts",
-        "src/resources/**/*",
-        "tsconfig.json"
-      ],
-      "output": [
-        "dist/**"
-      ]
-    },
-    "compile": {
-      "command": "tsc --build",
-      "files": [
-        "src/**/*.ts",
-        "tsconfig.json"
-      ],
-      "output": [
-        "dist/**"
-      ]
-    },
-    "dev": {
-      "command": "tsc --build --watch",
-      "service": true,
-      "files": [
-        "src/**/*.ts",
-        "tsconfig.json"
-      ],
-      "output": [
-        "dist/**"
-      ]
-    },
-    "test": {
-      "command": "jest",
-      "service": false,
-      "files": [
-        "src/**/*.ts",
-        "test/**/*.ts",
-        "../../jest.config.cjs",
-        "../../babel.config.cjs"
-      ],
-      "output": []
-    },
-    "test:coverage": {
-      "command": "jest --coverage --coverageDirectory=./coverage",
-      "service": false,
-      "files": [
-        "src/**/*.ts",
-        "test/**/*.ts",
-        "../../jest.config.cjs",
-        "../../babel.config.cjs"
-      ],
-      "output": [
-        "coverage/**"
-      ]
-    }
-  }
+  ]
 }

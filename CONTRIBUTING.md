@@ -6,8 +6,8 @@ Thank you for your interest in contributing to the Apex Language Server project!
 
 Before you begin, ensure your development environment meets these requirements:
 
-- **Node.js**: v16.0.0 or higher (v22.x recommended)
-- **npm**: v11.2.0 or higher
+- **Node.js**: v20.0.0 or higher (v22.x recommended)
+- **npm**: v10.2.0 or higher
 - Git
 
 ## Development Environment Setup

@@ -126,6 +126,17 @@ cd apex-language-server-ts
 npm install
 ```
 
+## Recent Changes
+
+- **Removed Babel References:**  
+  All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
+
+- **TypeScript Improvements:**  
+  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.web.test.ts`, variables and parameters now have explicit `any` types.
+
+- **Jest Configuration:**  
+  Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
+
 ## Development
 
 ```bash
@@ -178,8 +189,8 @@ npm run test:coverage:report
 
 After running the test coverage commands, coverage reports are available:
 
-- **Package-level reports**: Generated in each package's `coverage` directory
-- **Consolidated repository report**: Generated in the root `coverage` directory
+- **Package-level reports:** Generated in each package's `coverage` directory
+- **Consolidated repository report:** Generated in the root `coverage` directory
 
 The coverage reports include:
 

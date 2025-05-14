@@ -24,6 +24,7 @@ function getPackageCoverageFiles() {
     .map((dirent) => dirent.name);
 
   const coverageFiles = [];
+  const missingCoverage = [];
 
   for (const pkg of packages) {
     const coverageFile = path.join(
@@ -34,7 +35,21 @@ function getPackageCoverageFiles() {
     );
     if (fs.existsSync(coverageFile)) {
       coverageFiles.push(coverageFile);
+    } else {
+      // Check if package has tests
+      const testDir = path.join(packagesDir, pkg, 'test');
+      if (fs.existsSync(testDir)) {
+        missingCoverage.push(pkg);
+      }
     }
+  }
+
+  if (missingCoverage.length > 0) {
+    console.warn(
+      `Warning: The following packages have tests but no coverage reports: ${missingCoverage.join(
+        ', ',
+      )}`,
+    );
   }
 
   return coverageFiles;

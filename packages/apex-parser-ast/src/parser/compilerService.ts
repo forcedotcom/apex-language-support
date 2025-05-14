@@ -13,6 +13,7 @@ import {
   CompilationUnitContext,
   ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { BaseApexParserListener } from './listeners/BaseApexParserListener';
 import {
@@ -36,6 +37,7 @@ export interface CompilationResult<T> {
  */
 export class CompilerService {
   private projectNamespace?: string;
+  private readonly logger = getLogger();
 
   /**
    * Create a new CompilerService instance
@@ -43,6 +45,9 @@ export class CompilerService {
    */
   constructor(projectNamespace?: string) {
     this.projectNamespace = projectNamespace;
+    this.logger.debug(
+      `CompilerService initialized with namespace: ${projectNamespace || 'none'}`,
+    );
   }
 
   /**
@@ -59,6 +64,7 @@ export class CompilerService {
     listener: BaseApexParserListener<T>,
     projectNamespace?: string,
   ): CompilationResult<T> {
+    this.logger.debug(`Starting compilation of ${fileName}`);
     try {
       // Create an error listener
       const errorListener = new ApexErrorListener(fileName);
@@ -69,6 +75,7 @@ export class CompilerService {
       // Set the project namespace if provided or use the one from constructor
       const namespace = projectNamespace || this.projectNamespace;
       if (namespace && typeof listener.setProjectNamespace === 'function') {
+        this.logger.debug(`Setting project namespace to: ${namespace}`);
         listener.setProjectNamespace(namespace);
       }
 
@@ -82,25 +89,41 @@ export class CompilerService {
       const walker = new ParseTreeWalker();
       walker.walk(listener, compilationUnitContext);
 
-      // Return the result from the listener along with any errors/warnings
-      return {
+      const result = {
         fileName,
         result: listener.getResult(),
         errors: errorListener.getErrors(),
         warnings: listener.getWarnings(),
       };
+
+      if (result.errors.length > 0) {
+        this.logger.warn(
+          `Compilation completed with ${result.errors.length} errors in ${fileName}`,
+        );
+      } else if (result.warnings.length > 0) {
+        this.logger.info(
+          `Compilation completed with ${result.warnings.length} warnings in ${fileName}`,
+        );
+      } else {
+        this.logger.debug(`Compilation completed successfully for ${fileName}`);
+      }
+
+      return result;
     } catch (error) {
+      this.logger.error(
+        `Unexpected error during compilation of ${fileName}`,
+        error,
+      );
       // Create an error object for any unexpected errors
       const errorObject: ApexError = {
-        type: 'semantic' as any, // Type assertion to avoid importing the enum
-        severity: 'error' as any, // Type assertion to avoid importing the enum
+        type: 'semantic' as any,
+        severity: 'error' as any,
         message: error instanceof Error ? error.message : String(error),
         line: 0,
         column: 0,
         filePath: fileName,
       };
 
-      // Handle any errors during parsing
       return {
         fileName,
         result: null,
@@ -203,6 +226,7 @@ export class CompilerService {
     source: string,
     errorListener?: ApexErrorListener,
   ): CompilationUnitContext {
+    this.logger.debug('Creating compilation unit');
     const inputStream = CharStreams.fromString(source);
     const lexer = new ApexLexer(inputStream);
     const tokenStream = new CommonTokenStream(lexer);
@@ -210,6 +234,7 @@ export class CompilerService {
 
     // Add our custom error listener if provided
     if (errorListener) {
+      this.logger.debug('Setting up custom error listeners');
       // Remove default error listeners that print to console
       parser.removeErrorListeners();
       lexer.removeErrorListeners();
@@ -222,6 +247,7 @@ export class CompilerService {
     }
 
     // Parse the compilation unit
+    this.logger.debug('Parsing compilation unit');
     const compilationUnitContext = parser.compilationUnit();
     return compilationUnitContext;
   }
