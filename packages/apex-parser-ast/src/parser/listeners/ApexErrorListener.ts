@@ -50,10 +50,18 @@ export interface ApexError {
  */
 export class ApexErrorListener implements ANTLRErrorListener<Token> {
   private errors: ApexError[] = [];
-  private filePath?: string;
+  private filePath: string;
 
-  constructor(filePath?: string) {
+  constructor(filePath: string) {
     this.filePath = filePath;
+  }
+
+  /**
+   * Get the file path associated with this error listener
+   * @returns The file path
+   */
+  public getFilePath(): string {
+    return this.filePath;
   }
 
   /**

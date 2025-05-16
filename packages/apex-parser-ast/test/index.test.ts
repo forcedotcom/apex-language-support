@@ -53,6 +53,7 @@ describe('apex-parser-ast exports', () => {
 
     // Check that symbol table can be instantiated
     const symbolTable = new apexParserAst.SymbolTable();
-    expect(symbolTable.getGlobalScope()).toBeDefined();
+    expect(symbolTable.getCurrentScope()).toBeDefined();
+    expect(symbolTable.getCurrentScope().name).toBe('file');
   });
 });

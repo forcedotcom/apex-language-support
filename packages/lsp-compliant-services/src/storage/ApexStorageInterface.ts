@@ -7,6 +7,7 @@
  */
 
 import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 /**
  * Interface for type references between Apex symbols
@@ -113,4 +114,11 @@ export interface ApexStorageInterface {
    * @returns Promise resolving when persistence is complete
    */
   persist(): Promise<void>;
+
+  /**
+   * Get the text document for a given URI
+   * @param uri The URI of the document to retrieve
+   * @returns Promise resolving to the TextDocument or null if not found
+   */
+  getDocument(uri: string): Promise<TextDocument | null>;
 }
