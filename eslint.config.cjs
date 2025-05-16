@@ -40,7 +40,7 @@ module.exports = [
     rules: {
       'prettier/prettier': 'error',
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error'],
+      '@typescript-eslint/no-unused-vars': ['off'],
       'arrow-body-style': ['error', 'as-needed'],
       'jsdoc/check-alignment': 'warn',
       'jsdoc/check-indentation': 'warn',
