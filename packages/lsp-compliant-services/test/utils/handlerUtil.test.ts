@@ -20,25 +20,23 @@ describe('handlerUtil', () => {
   });
 
   describe('dispatch', () => {
-    it('should execute successful operation without logging', async () => {
-      const operation = Promise.resolve();
+    it('should return successful operation result', async () => {
+      const result = 'test result';
+      const operation = Promise.resolve(result);
       const errorMessage = 'Test error message';
 
-      await dispatch(operation, errorMessage);
+      const dispatchResult = await dispatch(operation, errorMessage);
 
+      expect(dispatchResult).toBe(result);
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
-    it('should log error when operation fails', async () => {
+    it('should log error and rethrow when operation fails', async () => {
       const error = new Error('Test error');
       const operation = Promise.reject(error);
       const errorMessage = 'Test error message';
 
-      await dispatch(operation, errorMessage);
-
-      // Wait for the next tick to allow the catch handler to execute
-      await new Promise(process.nextTick);
-
+      await expect(dispatch(operation, errorMessage)).rejects.toThrow(error);
       expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
       expect(consoleErrorSpy).toHaveBeenCalledWith(`${errorMessage}: ${error}`);
     });
@@ -48,54 +46,20 @@ describe('handlerUtil', () => {
       const operation = Promise.reject(error);
       const errorMessage = 'Test error message';
 
-      await dispatch(operation, errorMessage);
-
-      // Wait for the next tick to allow the catch handler to execute
-      await new Promise(process.nextTick);
-
+      await expect(dispatch(operation, errorMessage)).rejects.toBe(error);
       expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
       expect(consoleErrorSpy).toHaveBeenCalledWith(`${errorMessage}: ${error}`);
     });
 
-    it('should not block on error handling', async () => {
-      const error = new Error('Test error');
-      const operation = Promise.reject(error);
+    it('should handle complex return types', async () => {
+      const result = { data: 'test', count: 42 };
+      const operation = Promise.resolve(result);
       const errorMessage = 'Test error message';
 
-      const dispatchPromise = dispatch(operation, errorMessage);
+      const dispatchResult = await dispatch(operation, errorMessage);
 
-      // The dispatch function should resolve immediately
-      await expect(dispatchPromise).resolves.toBeUndefined();
-
-      // Wait for the next tick to allow the catch handler to execute
-      await new Promise(process.nextTick);
-
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(`${errorMessage}: ${error}`);
-    });
-
-    it('should handle multiple errors in sequence', async () => {
-      const error1 = new Error('First error');
-      const error2 = new Error('Second error');
-      const operation1 = Promise.reject(error1);
-      const operation2 = Promise.reject(error2);
-      const errorMessage = 'Test error message';
-
-      await dispatch(operation1, errorMessage);
-      await dispatch(operation2, errorMessage);
-
-      // Wait for the next tick to allow the catch handlers to execute
-      await new Promise(process.nextTick);
-
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
-        1,
-        `${errorMessage}: ${error1}`,
-      );
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
-        2,
-        `${errorMessage}: ${error2}`,
-      );
+      expect(dispatchResult).toEqual(result);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
   });
 });

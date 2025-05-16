@@ -12,6 +12,7 @@ import {
   ApexParser,
   CompilationUnitContext,
   ParseTreeWalker,
+  TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
@@ -124,6 +125,7 @@ export class CompilerService {
         filePath: fileName,
       };
 
+      // Handle any errors during parsing
       return {
         fileName,
         result: null,
@@ -225,7 +227,7 @@ export class CompilerService {
   private getCompilationUnit(
     source: string,
     errorListener?: ApexErrorListener,
-  ): CompilationUnitContext {
+  ): CompilationUnitContext | TriggerUnitContext {
     this.logger.debug('Creating compilation unit');
     const inputStream = CharStreams.fromString(source);
     const lexer = new ApexLexer(inputStream);
@@ -235,7 +237,6 @@ export class CompilerService {
     // Add our custom error listener if provided
     if (errorListener) {
       this.logger.debug('Setting up custom error listeners');
-      // Remove default error listeners that print to console
       parser.removeErrorListeners();
       lexer.removeErrorListeners();
 
@@ -246,9 +247,15 @@ export class CompilerService {
       lexer.addErrorListener(lexerErrorListener);
     }
 
-    // Parse the compilation unit
+    // Check if this is a trigger file based on the file extension
+    const isTrigger =
+      errorListener?.getFilePath()?.endsWith('.trigger') ?? false;
+
+    // Parse the compilation unit or trigger based on file type
     this.logger.debug('Parsing compilation unit');
-    const compilationUnitContext = parser.compilationUnit();
+    const compilationUnitContext = isTrigger
+      ? parser.triggerUnit()
+      : parser.compilationUnit();
     return compilationUnitContext;
   }
 }

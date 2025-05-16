@@ -94,6 +94,8 @@ export interface ApexSymbol {
   fqn?: string;
   /** Namespace of the symbol, if applicable */
   namespace?: string;
+  /** Annotations for this symbol */
+  annotations?: Annotation[];
 }
 
 /**
@@ -126,6 +128,8 @@ export interface MethodSymbol extends ApexSymbol {
   returnType: TypeInfo;
   parameters: VariableSymbol[];
   isConstructor?: boolean;
+  /** Annotations for this method */
+  annotations?: Annotation[];
 }
 
 /**
@@ -150,111 +154,160 @@ export interface EnumSymbol extends ApexSymbol {
 }
 
 /**
- * Represents a scope in which symbols are defined
+ * Represents a scope in which symbols are defined within a source file.
+ * Maintains a hierarchy of scopes and provides symbol lookup functionality.
  */
 export class SymbolScope {
   private symbols: Map<string, ApexSymbol> = new Map();
-  private childScopes: SymbolScope[] = [];
-
-  constructor(
-    public readonly name: string,
-    public readonly parent?: SymbolScope,
-  ) {}
+  private children: SymbolScope[] = [];
 
   /**
-   * Add a symbol to this scope
+   * Creates a new symbol scope.
+   * @param name The name of the scope
+   * @param parent The parent scope, if any
+   */
+  constructor(
+    public readonly name: string,
+    public readonly parent: SymbolScope | null = null,
+  ) {
+    if (parent) {
+      parent.children.push(this);
+    }
+  }
+
+  /**
+   * Add a symbol to this scope.
+   * @param symbol The symbol to add
    */
   addSymbol(symbol: ApexSymbol): void {
     this.symbols.set(symbol.name, symbol);
   }
 
   /**
-   * Create a child scope
-   */
-  createChildScope(name: string): SymbolScope {
-    const childScope = new SymbolScope(name, this);
-    this.childScopes.push(childScope);
-    return childScope;
-  }
-
-  /**
-   * Get a symbol by name from this scope
+   * Get a symbol by name from this scope.
+   * @param name The name of the symbol to find
+   * @returns The symbol if found, undefined otherwise
    */
   getSymbol(name: string): ApexSymbol | undefined {
     return this.symbols.get(name);
   }
 
   /**
-   * Get all symbols in this scope
+   * Get all symbols in this scope.
+   * @returns Array of all symbols in this scope
    */
   getAllSymbols(): ApexSymbol[] {
     return Array.from(this.symbols.values());
   }
 
   /**
-   * Get child scopes
+   * Get child scopes of this scope.
+   * @returns Array of child scopes
    */
-  getChildScopes(): SymbolScope[] {
-    return this.childScopes;
+  getChildren(): SymbolScope[] {
+    return this.children;
   }
 }
 
 /**
- * Symbol table for all symbols in a compilation unit
+ * Symbol table representing all symbols in a source file.
+ * Maintains a hierarchy of scopes and provides symbol lookup functionality.
  */
 export class SymbolTable {
-  private globalScope: SymbolScope = new SymbolScope('global');
-  private currentScope: SymbolScope = this.globalScope;
+  private root: SymbolScope;
+  private current: SymbolScope;
 
   /**
-   * Add a symbol to the current scope
+   * Creates a new symbol table.
+   * Initializes with a root scope named 'file'.
+   */
+  constructor() {
+    // Create root scope for the file
+    this.root = new SymbolScope('file');
+    this.current = this.root;
+  }
+
+  /**
+   * Add a symbol to the current scope.
+   * @param symbol The symbol to add
    */
   addSymbol(symbol: ApexSymbol): void {
-    this.currentScope.addSymbol(symbol);
+    this.current.addSymbol(symbol);
   }
 
   /**
-   * Enter a new scope
+   * Enter a new scope.
+   * Creates a new scope as a child of the current scope.
+   * @param name The name of the new scope
    */
   enterScope(name: string): void {
-    this.currentScope = this.currentScope.createChildScope(name);
+    this.current = new SymbolScope(name, this.current);
   }
 
   /**
-   * Exit the current scope and return to the parent scope
+   * Exit the current scope and return to the parent scope.
+   * Does nothing if already at the root scope.
    */
   exitScope(): void {
-    if (this.currentScope.parent) {
-      this.currentScope = this.currentScope.parent;
+    if (this.current.parent) {
+      this.current = this.current.parent;
     }
   }
 
   /**
-   * Get the current scope
+   * Get the current scope.
+   * @returns The current scope
    */
   getCurrentScope(): SymbolScope {
-    return this.currentScope;
+    return this.current;
   }
 
   /**
-   * Get the global scope
+   * Get the parent scope of the current scope.
+   * @returns The parent scope, or null if at root
    */
-  getGlobalScope(): SymbolScope {
-    return this.globalScope;
+  getParentScope(): SymbolScope | null {
+    return this.current.parent;
   }
 
   /**
-   * Find a symbol in the current scope only (doesn't check parent scopes)
+   * Find a symbol in the current scope only.
+   * @param name The name of the symbol to find
+   * @returns The symbol if found in current scope, undefined otherwise
    */
   findSymbolInCurrentScope(name: string): ApexSymbol | undefined {
-    return this.currentScope.getSymbol(name);
+    return this.current.getSymbol(name);
   }
 
   /**
-   * Lookup a symbol by name, searching through nested scopes
+   * Find a scope by name, searching through all scopes.
+   * @param name The name of the scope to find
+   * @returns The scope if found, undefined otherwise
+   */
+  findScopeByName(name: string): SymbolScope | undefined {
+    const search = (scope: SymbolScope): SymbolScope | undefined => {
+      if (scope.name === name) {
+        return scope;
+      }
+      for (const child of scope.getChildren()) {
+        const found = search(child);
+        if (found) {
+          return found;
+        }
+      }
+      return undefined;
+    };
+    return search(this.root);
+  }
+
+  /**
+   * Lookup a symbol by name, searching through nested scopes.
+   * Searches from current scope up through parent scopes.
+   * @param name The name of the symbol to find
+   * @returns The symbol if found, undefined otherwise
    */
   lookup(name: string): ApexSymbol | undefined {
-    let scope: SymbolScope | undefined = this.currentScope;
+    let scope: SymbolScope | null = this.current;
 
     while (scope) {
       const symbol = scope.getSymbol(name);

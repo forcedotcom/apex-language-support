@@ -29,7 +29,7 @@ describe('CompilerService Namespace Integration', () => {
 
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
-      const globalScope = symbolTable.getGlobalScope();
+      const globalScope = symbolTable.getCurrentScope();
       const classSymbol = globalScope
         .getAllSymbols()
         .find((s) => s.name === 'MyClass');
@@ -58,7 +58,7 @@ describe('CompilerService Namespace Integration', () => {
 
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
-      const globalScope = symbolTable.getGlobalScope();
+      const globalScope = symbolTable.getCurrentScope();
       const classSymbol = globalScope
         .getAllSymbols()
         .find((s) => s.name === 'MyClass');
@@ -71,7 +71,7 @@ describe('CompilerService Namespace Integration', () => {
 
       // Check method symbols as well
       const scopeForClass = globalScope
-        .getChildScopes()
+        .getChildren()
         .find((s) => s.name === 'MyClass');
       const methodSymbol = scopeForClass
         ?.getAllSymbols()
@@ -105,7 +105,7 @@ describe('CompilerService Namespace Integration', () => {
 
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
-      const globalScope = symbolTable.getGlobalScope();
+      const globalScope = symbolTable.getCurrentScope();
       const classSymbol = globalScope
         .getAllSymbols()
         .find((s) => s.name === 'MyClass');
@@ -150,7 +150,7 @@ describe('CompilerService Namespace Integration', () => {
       // Check symbols from first file
       const firstResult = results[0];
       const firstSymbolTable = firstResult.result as SymbolTable;
-      const firstGlobalScope = firstSymbolTable.getGlobalScope();
+      const firstGlobalScope = firstSymbolTable.getCurrentScope();
       const firstClass = firstGlobalScope
         .getAllSymbols()
         .find((s) => s.name === 'FirstClass');
@@ -163,7 +163,7 @@ describe('CompilerService Namespace Integration', () => {
       // Check symbols from second file
       const secondResult = results[1];
       const secondSymbolTable = secondResult.result as SymbolTable;
-      const secondGlobalScope = secondSymbolTable.getGlobalScope();
+      const secondGlobalScope = secondSymbolTable.getCurrentScope();
       const secondClass = secondGlobalScope
         .getAllSymbols()
         .find((s) => s.name === 'SecondClass');
@@ -204,7 +204,7 @@ describe('CompilerService Namespace Integration', () => {
 
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
-      const globalScope = symbolTable.getGlobalScope();
+      const globalScope = symbolTable.getCurrentScope();
       const classSymbol = globalScope
         .getAllSymbols()
         .find((s) => s.name === 'MyClass');

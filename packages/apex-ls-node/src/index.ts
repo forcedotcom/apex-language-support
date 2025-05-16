@@ -5,7 +5,6 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import {
   createConnection,
@@ -19,6 +18,7 @@ import {
   DidCloseTextDocumentParams,
   DidOpenTextDocumentParams,
   DidSaveTextDocumentParams,
+  DocumentSymbolParams,
   createServerSocketTransport,
 } from 'vscode-languageserver/node';
 import {
@@ -26,6 +26,7 @@ import {
   dispatchProcessOnCloseDocument,
   dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
+  dispatchProcessOnDocumentSymbol,
 } from '@salesforce/apex-lsp-compliant-services';
 import {
   setLogNotificationHandler,
@@ -60,6 +61,7 @@ setLogNotificationHandler(NodeLogNotificationHandler.getInstance(connection));
 let isShutdown = false;
 
 // Initialize server capabilities and properties
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   logger.info('Apex Language Server initializing...');
   // TODO: Add startup tasks here if needed
@@ -71,6 +73,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
         triggerCharacters: ['.'],
       },
       hoverProvider: true,
+      documentSymbolProvider: true,
     },
   };
 });
@@ -83,6 +86,14 @@ connection.onInitialized(() => {
     type: MessageType.Info,
     message: 'Apex Language Server is now running in Node.js',
   });
+});
+
+// Handle document symbol requests
+connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
+  connection.console.info(
+    `Extension Apex Language Server processing document symbols: ${params}`,
+  );
+  return dispatchProcessOnDocumentSymbol(params);
 });
 
 // Handle completion requests

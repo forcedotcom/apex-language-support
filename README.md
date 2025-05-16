@@ -78,7 +78,7 @@ graph TD
 
 ## Key Differences Between Node.js and Browser Implementations
 
-The repository maintains two parallel implementations of the language server:
+The repository provides two parallel implementations of the language server:
 
 1. **Node.js implementation** (`apex-ls-node`):
    - Runs in Node.js environment

@@ -49,7 +49,7 @@ import {
 } from '@salesforce/apex-lsp-compliant-services';
 
 // For Node.js (VS Code Extension)
-import { NodeFileSystemApexStorage } from '@salesforce/apex-lsp-extension';
+import { NodeFileSystemApexStorage } from '@salesforce/apex-lsp-node';
 
 // Or for Browser
 // import { BrowserIndexedDBApexStorage } from '@salesforce/apex-lsp-web';
