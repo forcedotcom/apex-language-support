@@ -1,37 +1,24 @@
-/**
- * Jest configuration for apex-ls-node package
- */
+const baseConfig = require('../../jest.config.cjs');
+
 module.exports = {
-  extensionsToTreatAsEsm: ['.ts'],
-  testEnvironment: 'node',
-  transform: {
-    '^.+\\.(ts|js)x?$': [
-      'babel-jest',
-      {
-        presets: [
-          ['@babel/preset-env', { targets: { node: 'current' } }],
-          '@babel/preset-typescript',
-        ],
-      },
-    ],
-  },
+  ...baseConfig,
+  rootDir: '.',
+  testMatch: ['**/test/**/*.test.ts'],
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-    // Map imports with .js extension to their TypeScript source
-    '(.+)\\.js': '$1',
-    // Map workspace packages
+    ...baseConfig.moduleNameMapper,
+    '^@salesforce/apex-lsp-logging$':
+      '<rootDir>/../apex-lsp-logging/src/index.ts',
     '^@salesforce/apex-lsp-parser-ast$':
       '<rootDir>/../apex-parser-ast/src/index.ts',
-    '^@salesforce/apex-lsp-custom-services$':
-      '<rootDir>/../custom-services/src/index.ts',
     '^@salesforce/apex-lsp-compliant-services$':
       '<rootDir>/../lsp-compliant-services/src/index.ts',
-    '^@salesforce/apex-lsp-testbed$':
-      '<rootDir>/../apex-lsp-testbed/src/index.ts',
+    '^@salesforce/apex-lsp-custom-services$':
+      '<rootDir>/../custom-services/src/index.ts',
+    '^@salesforce/apex-ls-node$': '<rootDir>/src/index.ts',
+    '^@salesforce/apex-ls-browser$':
+      '<rootDir>/../apex-ls-browser/src/index.ts',
+    '^@salesforce/apex-lsp-browser-client$':
+      '<rootDir>/../apex-lsp-browser-client/src/index.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
-  transformIgnorePatterns: [
-    '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts)).+\\.js$',
-  ],
-  testMatch: ['**/test/**/*.test.ts'],
-  moduleFileExtensions: ['ts', 'js', 'json', 'node'],
 };

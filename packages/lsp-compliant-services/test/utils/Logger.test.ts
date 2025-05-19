@@ -6,7 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Logger, LogLevel } from '../../src/utils/Logger';
+import { Logger } from '../../src/utils/Logger';
+import { LogLevel } from '@salesforce/apex-lsp-logging';
 
 describe('Logger', () => {
   let logger: Logger;

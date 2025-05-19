@@ -61,6 +61,7 @@ export class ExtensionApexLanguageServerHarness {
     const clientOptions: JsonRpcClientOptions = {
       serverPath,
       nodeArgs: ['--nolazy'],
+      serverArgs: ['--stdio'],
       env: process.env,
       serverType: 'nodeServer' as ServerType, // Using node as the type since we need a valid ServerType
     };
@@ -88,16 +89,11 @@ export class ExtensionApexLanguageServerHarness {
     // Look for the built server module in the apex-ls-node package
     const extensionLsPackagePath = path.join(
       this.projectRoot,
-      'packages',
+      '..',
       'apex-ls-node',
     );
 
-    const distPath = path.join(
-      extensionLsPackagePath,
-      'dist',
-      'src',
-      'index.js',
-    );
+    const distPath = path.join(extensionLsPackagePath, 'dist', 'index.js');
 
     if (fs.existsSync(distPath)) {
       this.logger.info(`Built apex-ls-node server at: ${distPath}`);

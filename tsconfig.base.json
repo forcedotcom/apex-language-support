@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "module": "CommonJS",
-    "lib": ["ES2020"],
+    "lib": ["ES2022"],
     "moduleResolution": "node",
     "esModuleInterop": true,
     "strict": true,
@@ -11,19 +11,9 @@
     "declaration": true,
     "sourceMap": true,
     "composite": true,
-    "incremental": true,
     "declarationMap": true,
     "inlineSources": true,
-    "baseUrl": ".",
-    "paths": {
-      "@salesforce/apex-lsp-parser-ast": ["packages/apex-parser-ast/src"],
-      "@salesforce/apex-lsp-parser-ast/*": ["packages/apex-parser-ast/src/*"],
-      "@salesforce/apex-lsp-compliant-services": [
-        "packages/lsp-compliant-services/src"
-      ],
-      "@salesforce/apex-lsp-compliant-services/*": [
-        "packages/lsp-compliant-services/src/*"
-      ]
-    }
-  }
+    "baseUrl": "."
+  },
+  "exclude": ["node_modules", "dist", "bundle"]
 }

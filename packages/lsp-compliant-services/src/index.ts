@@ -9,16 +9,16 @@
 // Export storage interfaces and classes
 export * from './storage/ApexStorageInterface';
 export * from './storage/ApexStorageManager';
-
-// Export document symbol provider
 export * from './documentSymbol/ApexDocumentSymbolProvider';
 
-// Export LSP protocol types
-export * from 'vscode-languageserver-protocol';
-export * from './handlers/index';
-
+// Export LSP handlers
 export * from './handlers/DidOpenDocumentHandler';
 export * from './handlers/DidChangeDocumentHandler';
 export * from './handlers/DidCloseDocumentHandler';
 export * from './handlers/DidSaveDocumentHandler';
 export * from './handlers/DocumentSymbolHandler';
+export * from './handlers/LogNotificationHandler';
+export {
+  ApexReference,
+  ApexStorageInterface,
+} from './storage/ApexStorageInterface';

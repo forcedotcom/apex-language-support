@@ -28,6 +28,12 @@ import {
   dispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol,
 } from '@salesforce/apex-lsp-compliant-services';
+import {
+  setLogNotificationHandler,
+  getLogger,
+} from '@salesforce/apex-lsp-logging';
+
+import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
 
 // Create a connection for the server based on command line arguments
 let connection: Connection;
@@ -47,13 +53,17 @@ if (process.argv.includes('--stdio')) {
   );
 }
 
+// Set up logging
+const logger = getLogger();
+setLogNotificationHandler(NodeLogNotificationHandler.getInstance(connection));
+
 // Server state
 let isShutdown = false;
 
 // Initialize server capabilities and properties
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 connection.onInitialize((params: InitializeParams): InitializeResult => {
-  connection.console.info('Apex Language Server initializing...');
+  logger.info('Apex Language Server initializing...');
   // TODO: Add startup tasks here if needed
   return {
     capabilities: {
@@ -70,9 +80,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 
 // Handle client connection
 connection.onInitialized(() => {
-  connection.console.info(
-    'Language server initialized and connected to client.',
-  );
+  logger.info('Language server initialized and connected to client.');
   // Send notification to client that server is ready
   connection.sendNotification(InitializedNotification.type, {
     type: MessageType.Info,
@@ -107,24 +115,22 @@ connection.onHover((_textDocumentPosition: any) => ({
 
 // Handle shutdown request
 connection.onShutdown(() => {
-  connection.console.info('Apex Language Server shutting down...');
+  logger.info('Apex Language Server shutting down...');
   // Perform cleanup tasks, for now we'll just set a flag
   isShutdown = true;
-  connection.console.info('Apex Language Server shutdown complete');
+  logger.info('Apex Language Server shutdown complete');
 });
 
 // Handle exit notification
 connection.onExit(() => {
-  connection.console.info('Apex Language Server exiting...');
+  logger.info('Apex Language Server exiting...');
   if (!isShutdown) {
     // If exit is called without prior shutdown, log a warning
-    connection.console.warn(
-      'Apex Language Server exiting without proper shutdown',
-    );
+    logger.warn('Apex Language Server exiting without proper shutdown');
   }
   // In a Node.js environment, we could call process.exit() here,
   // but we'll let the connection handle the exit
-  connection.console.info('Apex Language Server exited');
+  logger.info('Apex Language Server exited');
 });
 
 // Listen on the connection
@@ -134,8 +140,8 @@ connection.listen();
 connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
   // Client opened a document
   // Server will parse the document and populate the corresponding local maps
-  connection.console.info(
-    `Extension Apex Language Server opened and processed document: ${params}`,
+  logger.info(
+    `Extension Apex Language Server opened and processed document: ${JSON.stringify(params)}`,
   );
 
   dispatchProcessOnOpenDocument(params);
@@ -144,8 +150,8 @@ connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
 connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
   // Client changed a open document
   // Server will parse the document and populate the corresponding local maps
-  connection.console.info(
-    `Extension Apex Language Server changed and processed document: ${params}`,
+  logger.info(
+    `Extension Apex Language Server changed and processed document: ${JSON.stringify(params)}`,
   );
 
   dispatchProcessOnChangeDocument(params);
@@ -154,8 +160,8 @@ connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
 connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
   // Client closed a open document
   // Server will update the corresponding local maps
-  connection.console.info(
-    `Extension Apex Language Server closed document: ${params}`,
+  logger.info(
+    `Extension Apex Language Server closed document: ${JSON.stringify(params)}`,
   );
 
   dispatchProcessOnCloseDocument(params);
@@ -164,8 +170,8 @@ connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
 connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
   // Client saved a document
   // Server will parse the document and update storage as needed
-  connection.console.info(
-    `Extension Apex Language Server saved document: ${params}`,
+  logger.info(
+    `Extension Apex Language Server saved document: ${JSON.stringify(params)}`,
   );
 
   dispatchProcessOnSaveDocument(params);

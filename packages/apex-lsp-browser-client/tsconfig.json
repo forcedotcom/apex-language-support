@@ -1,11 +1,29 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "target": "ES2020"
+    "composite": true,
+    "rootDir": "src",
+    "declaration": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "lib": ["ES2020", "WebWorker"],
+    "strict": true,
+    "paths": {
+      "@salesforce/apex-lsp-parser-ast": ["../apex-parser-ast/src"],
+      "@salesforce/apex-lsp-parser-ast/*": ["../apex-parser-ast/src/*"],
+      "@salesforce/apex-lsp-compliant-services": [
+        "../lsp-compliant-services/src"
+      ],
+      "@salesforce/apex-lsp-compliant-services/*": [
+        "../lsp-compliant-services/src/*"
+      ]
+    }
   },
-  "include": ["src"]
-} 
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "bundle"],
+  "references": [
+    { "path": "../apex-parser-ast" },
+    { "path": "../lsp-compliant-services" }
+  ]
+}
