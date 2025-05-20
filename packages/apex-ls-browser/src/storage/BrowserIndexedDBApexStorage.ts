@@ -12,6 +12,8 @@ import type {
   ApexStorageInterface,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { HashMap } from 'data-structure-typed';
+
 import { getLogger } from '@salesforce/apex-lsp-logging';
 /**
  * Implementation of ApexStorageInterface for browser environments.
@@ -20,10 +22,11 @@ import { getLogger } from '@salesforce/apex-lsp-logging';
  */
 export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
   // In-memory storage for the no-op implementation
-  private astMap: Map<string, ApexClassInfo[]> = new Map();
+  private initialized: boolean = false;
+  private astMap: HashMap<string, ApexClassInfo[], [string, ApexClassInfo[]]> =
+    new HashMap();
   private typeInfoMap: Map<string, TypeInfo> = new Map();
   private references: ApexReference[] = [];
-  private initialized = false;
   private readonly logger = getLogger();
   /**
    * Initialize the storage system

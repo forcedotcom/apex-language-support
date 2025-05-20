@@ -159,7 +159,7 @@ export interface EnumSymbol extends ApexSymbol {
  */
 export class SymbolScope {
   private symbols: Map<string, ApexSymbol> = new Map();
-  private children: SymbolScope[] = [];
+  private children: Array<SymbolScope> = [];
 
   /**
    * Creates a new symbol scope.
