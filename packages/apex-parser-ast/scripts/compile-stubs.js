@@ -1,16 +1,18 @@
 const fs = require('fs');
 const path = require('path');
-const { CompilerService } = require('../dist/parser/compilerService');
-const {
-  ApexSymbolCollectorListener,
-} = require('../dist/parser/listeners/ApexSymbolCollectorListener');
+const { CompilerService, ApexSymbolCollectorListener } = require('../bundle');
 
 /**
  * Find all Apex files in a directory recursively
  * @param {string} dir Directory to search in
+ * @param {string[]} [specificFiles] Optional list of specific files to process
  * @returns {string[]} Array of file paths
  */
-function findApexFiles(dir) {
+function findApexFiles(dir, specificFiles = null) {
+  if (specificFiles) {
+    return specificFiles.map((file) => path.join(dir, file));
+  }
+
   const files = [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
 
@@ -42,8 +44,9 @@ function parseApexFile(filePath, namespace) {
 
 /**
  * Main function to compile all stub files
+ * @param {string[]} [specificFiles] Optional list of specific files to process
  */
-async function compileStubs() {
+async function compileStubs(specificFiles = null) {
   const sourceDir = path.join(
     __dirname,
     '../src/resources/StandardApexLibrary',
@@ -54,6 +57,10 @@ async function compileStubs() {
   );
 
   console.log('Starting compilation of stub files...');
+  if (specificFiles) {
+    console.log('Processing specific files:');
+    specificFiles.forEach((file) => console.log(`- ${file}`));
+  }
 
   // Create output directory if it doesn't exist
   if (!fs.existsSync(outputDir)) {
@@ -61,7 +68,7 @@ async function compileStubs() {
   }
 
   // Find all Apex files
-  const files = findApexFiles(sourceDir);
+  const files = findApexFiles(sourceDir, specificFiles);
   console.log(`Found ${files.length} Apex files to compile`);
 
   const results = {
@@ -133,5 +140,9 @@ async function compileStubs() {
   }
 }
 
+// Check if specific files were provided as command line arguments
+const specificFiles =
+  process.argv.slice(2).length > 0 ? process.argv.slice(2) : null;
+
 // Run the compilation
-compileStubs().catch(console.error);
+compileStubs(specificFiles).catch(console.error);
