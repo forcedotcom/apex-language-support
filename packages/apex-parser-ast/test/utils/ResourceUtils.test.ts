@@ -9,7 +9,6 @@
 import {
   RESOURCE_PATHS,
   RESOURCE_URIS,
-  DEFAULT_SALESFORCE_VERSION,
   getSalesforceVersion,
   getStandardApexLibraryFilePath,
   uriToNodePath,

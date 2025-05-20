@@ -7,7 +7,6 @@
  */
 
 import {
-  TypeInfo,
   createPrimitiveType,
   createCollectionType,
   createArrayType,

@@ -6,7 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { RESOURCE_URIS } from '../../src/utils/ResourceUtils';
 import {
   getSalesforceVersionPathNode,
   getSalesforceVersionPathBrowser,

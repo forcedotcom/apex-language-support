@@ -45,6 +45,12 @@ describe('FQN Utilities', () => {
       endLine: 1,
       endColumn: 10,
     },
+    key: {
+      prefix: kind,
+      name,
+      path: parent ? [...parent.key.path, name] : [name],
+    },
+    parentKey: parent ? parent.key : null,
   });
 
   describe('calculateFQN', () => {
