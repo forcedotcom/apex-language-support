@@ -1,0 +1,109 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+import {
+  DidChangeTextDocumentParams,
+  DidOpenTextDocumentParams,
+} from 'vscode-languageserver-protocol';
+import {
+  CompilerService,
+  ApexSymbolCollectorListener,
+  SymbolTable,
+} from '@salesforce/apex-lsp-parser-ast';
+import { TextDocuments } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+
+import {
+  ApexStorageInterface,
+  ApexReference,
+} from '../storage/ApexStorageInterface';
+
+/**
+ * Interface for Apex references upserters
+ */
+export interface ApexReferencesUpserter {
+  /**
+   * Upserts the references for the given document
+   * @param params DidOpenTextDocumentParams
+   */
+  upsertReferences(
+    params: DidOpenTextDocumentParams | DidChangeTextDocumentParams,
+    documents: TextDocuments<TextDocument>,
+  ): Promise<void>;
+}
+
+/**
+ * Implementation of Apex references upserter
+ */
+export class DefaultApexReferencesUpserter implements ApexReferencesUpserter {
+  private compilerService: CompilerService;
+
+  constructor(private readonly storage: ApexStorageInterface) {
+    this.compilerService = new CompilerService();
+  }
+
+  /**
+   * Upserts the references for the given document
+   * @param params DidOpenTextDocumentParams
+   */
+  async upsertReferences(
+    params: DidOpenTextDocumentParams | DidChangeTextDocumentParams,
+    documents: TextDocuments<TextDocument>,
+  ): Promise<void> {
+    try {
+      const documentUri = params.textDocument.uri;
+      const document = documents.get(documentUri);
+
+      if (!document) {
+        console.error('Document not found:', documentUri);
+        return;
+      }
+
+      // Create a symbol collector listener
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+
+      // Parse the document
+      const result = this.compilerService.compile(
+        document.getText(),
+        documentUri,
+        listener,
+      );
+
+      if (result.errors.length > 0) {
+        console.error('Errors parsing document:', result.errors);
+        return;
+      }
+
+      // Get the symbol table from the listener
+      const symbolTable = listener.getResult();
+
+      // Get all symbols from the global scope
+      const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
+
+      // Process each global symbol
+      for (const symbol of globalSymbols) {
+        console.log('madhur symbol:', symbol);
+        const reference: ApexReference = {
+          sourceFile: documentUri,
+          targetSymbol: symbol.name,
+          line: symbol.location.startLine,
+          column: symbol.location.startColumn,
+          referenceType: 'type-reference',
+        };
+        const references: ApexReference[] = await this.storage.getReferences(
+          symbol.name,
+        );
+        references.push(reference);
+        await this.storage.setReferences(symbol.name, references);
+      }
+    } catch (error) {
+      console.error('Error populating definitions:', error);
+    }
+  }
+}

@@ -9,6 +9,7 @@
 // Export storage interfaces and classes
 export * from './storage/ApexStorageInterface';
 export * from './storage/ApexStorageManager';
+export * from './storage/ApexStorage';
 
 // Export document symbol provider
 export * from './documentSymbol/ApexDocumentSymbolProvider';

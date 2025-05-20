@@ -13,6 +13,9 @@ import {
   DidChangeTextDocumentParams,
   DidCloseTextDocumentParams,
   DidSaveTextDocumentParams,
+  WillSaveTextDocumentParams,
+  TextEdit,
+  MessageType,
 } from 'vscode-languageserver/browser';
 
 // Define handler types
@@ -26,6 +29,12 @@ type OnDidCloseTextDocumentHandler = (
   params: DidCloseTextDocumentParams,
 ) => void;
 type OnDidSaveTextDocumentHandler = (params: DidSaveTextDocumentParams) => void;
+type OnWillSaveTextDocumentHandler = (
+  params: WillSaveTextDocumentParams,
+) => void;
+type OnWillSaveTextDocumentWaitUntilHandler = (
+  params: WillSaveTextDocumentParams,
+) => Promise<TextEdit[]>;
 
 // Define mock handlers type
 interface MockHandlerStore {
@@ -37,6 +46,8 @@ interface MockHandlerStore {
   onDidChangeTextDocument: OnDidChangeTextDocumentHandler | null;
   onDidCloseTextDocument: OnDidCloseTextDocumentHandler | null;
   onDidSaveTextDocument: OnDidSaveTextDocumentHandler | null;
+  onWillSaveTextDocument: OnWillSaveTextDocumentHandler | null;
+  onWillSaveTextDocumentWaitUntil: OnWillSaveTextDocumentWaitUntilHandler | null;
 }
 
 // Store mock handlers
@@ -49,6 +60,8 @@ const mockHandlers: MockHandlerStore = {
   onDidChangeTextDocument: null,
   onDidCloseTextDocument: null,
   onDidSaveTextDocument: null,
+  onWillSaveTextDocument: null,
+  onWillSaveTextDocumentWaitUntil: null,
 };
 
 // Set up the mock connection with proper type safety
@@ -72,6 +85,8 @@ interface MockConnection {
   onDidChangeTextDocument: jest.Mock;
   onDidCloseTextDocument: jest.Mock;
   onDidSaveTextDocument: jest.Mock;
+  onWillSaveTextDocument: jest.Mock;
+  onWillSaveTextDocumentWaitUntil: jest.Mock;
 }
 
 // Pre-create the mock connection with minimal properties
@@ -89,6 +104,8 @@ const mockConnection: MockConnection = {
   onDidChangeTextDocument: jest.fn(),
   onDidCloseTextDocument: jest.fn(),
   onDidSaveTextDocument: jest.fn(),
+  onWillSaveTextDocument: jest.fn(),
+  onWillSaveTextDocumentWaitUntil: jest.fn(),
 };
 
 // Then set up the handler-capturing logic
@@ -140,6 +157,20 @@ mockConnection.onDidSaveTextDocument.mockImplementation(
   },
 );
 
+mockConnection.onWillSaveTextDocument.mockImplementation(
+  (handler: OnWillSaveTextDocumentHandler) => {
+    mockHandlers.onWillSaveTextDocument = handler;
+    return mockConnection;
+  },
+);
+
+mockConnection.onWillSaveTextDocumentWaitUntil.mockImplementation(
+  (handler: OnWillSaveTextDocumentWaitUntilHandler) => {
+    mockHandlers.onWillSaveTextDocumentWaitUntil = handler;
+    return mockConnection;
+  },
+);
+
 // Mock browser-specific objects that don't exist in Node.js
 // Use type assertion to bypass type checking since we're just mocking
 (global as any).self = {};
@@ -151,8 +182,36 @@ jest.mock('vscode-languageserver/browser', () => ({
   BrowserMessageWriter: jest.fn(() => ({})),
   LogMessageNotification: { type: 'logMessage' },
   InitializedNotification: { type: 'initialized' },
-  MessageType: { Info: 1 },
+  MessageType: {
+    Info: 3,
+    Warning: 2,
+    Error: 1,
+  },
+  TextDocuments: jest.fn().mockImplementation(() => mockDocuments),
+  ProposedFeatures: {
+    all: {},
+  },
+  TextDocument: jest.fn(),
+  InitializeResult: jest.fn(),
 }));
+
+// Mock TextDocument
+jest.mock('vscode-languageserver-textdocument', () => ({
+  TextDocument: jest.fn(),
+}));
+
+// Mock TextDocuments
+const mockDocuments = {
+  listen: jest.fn(),
+  get: jest.fn(),
+  set: jest.fn(),
+  delete: jest.fn(),
+  all: jest.fn(),
+  onDidChangeContent: jest.fn(),
+  onDidClose: jest.fn(),
+  onDidOpen: jest.fn(),
+  onDidSave: jest.fn(),
+};
 
 // Mock the document processing functions
 const mockDispatchProcessOnOpenDocument = jest.fn();
@@ -165,6 +224,12 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   dispatchProcessOnChangeDocument: mockDispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
   dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
+  ApexStorageManager: {
+    getInstance: jest.fn().mockReturnValue({
+      getStorage: jest.fn(),
+      initialize: jest.fn(),
+    }),
+  },
 }));
 
 describe('Apex Language Server Browser', () => {
@@ -194,6 +259,8 @@ describe('Apex Language Server Browser', () => {
     expect(mockConnection.onDidChangeTextDocument).toHaveBeenCalled();
     expect(mockConnection.onDidCloseTextDocument).toHaveBeenCalled();
     expect(mockConnection.onDidSaveTextDocument).toHaveBeenCalled();
+    expect(mockConnection.onWillSaveTextDocument).toHaveBeenCalled();
+    expect(mockConnection.onWillSaveTextDocumentWaitUntil).toHaveBeenCalled();
   });
 
   it('should return proper capabilities on initialize', () => {
@@ -206,7 +273,14 @@ describe('Apex Language Server Browser', () => {
 
     // Verify capabilities
     expect(result).toHaveProperty('capabilities');
-    expect(result.capabilities).toHaveProperty('textDocumentSync', 1);
+    expect(result.capabilities).toHaveProperty('textDocumentSync');
+    expect(result.capabilities.textDocumentSync).toEqual({
+      openClose: true,
+      change: 1,
+      save: true,
+      willSave: true,
+      willSaveWaitUntil: true,
+    });
     expect(result.capabilities).toHaveProperty('completionProvider');
     expect(result.capabilities).toHaveProperty('hoverProvider', true);
 
@@ -231,7 +305,7 @@ describe('Apex Language Server Browser', () => {
     expect(mockConnection.sendNotification).toHaveBeenCalledWith(
       'initialized',
       {
-        type: 1,
+        type: MessageType.Info,
         message: 'Apex Language Server is now running in the browser',
       },
     );
@@ -312,7 +386,10 @@ describe('Apex Language Server Browser', () => {
       );
 
       // Verify document processing
-      expect(mockDispatchProcessOnOpenDocument).toHaveBeenCalledWith(params);
+      expect(mockDispatchProcessOnOpenDocument).toHaveBeenCalledWith(
+        params,
+        mockDocuments,
+      );
     });
 
     it('should handle document change events', () => {
@@ -328,7 +405,7 @@ describe('Apex Language Server Browser', () => {
         ],
       };
 
-      // Call the onDidOpenTextDocument handler
+      // Call the onDidChangeTextDocument handler
       const onDidChangeTextDocumentHandler =
         mockHandlers.onDidChangeTextDocument as OnDidChangeTextDocumentHandler;
       onDidChangeTextDocumentHandler(params);
@@ -339,7 +416,10 @@ describe('Apex Language Server Browser', () => {
       );
 
       // Verify document processing
-      expect(mockDispatchProcessOnChangeDocument).toHaveBeenCalledWith(params);
+      expect(mockDispatchProcessOnChangeDocument).toHaveBeenCalledWith(
+        params,
+        mockDocuments,
+      );
     });
 
     it('should handle document close events', () => {
@@ -361,6 +441,47 @@ describe('Apex Language Server Browser', () => {
 
       // Verify document processing
       expect(mockDispatchProcessOnCloseDocument).toHaveBeenCalledWith(params);
+    });
+
+    it('should handle document will save events', () => {
+      const params: WillSaveTextDocumentParams = {
+        textDocument: {
+          uri: 'file:///test.apex',
+        },
+        reason: 1, // Manual save
+      };
+
+      // Call the onWillSaveTextDocument handler
+      const onWillSaveTextDocumentHandler =
+        mockHandlers.onWillSaveTextDocument as OnWillSaveTextDocumentHandler;
+      onWillSaveTextDocumentHandler(params);
+
+      // Verify logging
+      expect(mockConnection.console.info).toHaveBeenCalledWith(
+        `Web Apex Language Server will save document: ${params}`,
+      );
+    });
+
+    it('should handle document will save wait until events', async () => {
+      const params: WillSaveTextDocumentParams = {
+        textDocument: {
+          uri: 'file:///test.apex',
+        },
+        reason: 1, // Manual save
+      };
+
+      // Call the onWillSaveTextDocumentWaitUntil handler
+      const onWillSaveTextDocumentWaitUntilHandler =
+        mockHandlers.onWillSaveTextDocumentWaitUntil as OnWillSaveTextDocumentWaitUntilHandler;
+      const edits = await onWillSaveTextDocumentWaitUntilHandler(params);
+
+      // Verify logging
+      expect(mockConnection.console.info).toHaveBeenCalledWith(
+        `Web Apex Language Server will save wait until document: ${params}`,
+      );
+
+      // Verify returned edits
+      expect(edits).toEqual([]);
     });
 
     it('should handle document save events', () => {

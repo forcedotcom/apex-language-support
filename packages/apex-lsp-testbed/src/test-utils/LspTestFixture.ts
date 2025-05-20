@@ -156,7 +156,7 @@ export class LspTestFixture {
   ): Promise<LspTestResult['steps'][0]> {
     try {
       // Send the request via the client
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      
       const response = await this.client.sendRequest(step.method, step.params);
 
       // Get the captured request-response pair

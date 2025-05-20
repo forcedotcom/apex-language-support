@@ -20,6 +20,11 @@ export const processOnCloseDocument = async (
   logger.info(
     `Common Apex Language Server close document handler invoked with: ${params}`,
   );
+
+  // TODO: Implement the logic to process the document close
+  // This might involve updating the AST, type information, or other data structures
+  // based on the changes in the document
+  // You can access the document content using params.contentChanges
 };
 
 export const dispatchProcessOnCloseDocument = (

@@ -21,7 +21,6 @@ jest.mock('../../src/utils/handlerUtil');
 describe('DidSaveDocumentHandler', () => {
   let mockLogger: jest.Mocked<Logger>;
   let mockDispatch: jest.MockedFunction<typeof dispatch>;
-
   beforeEach(() => {
     mockLogger = {
       getInstance: jest.fn().mockReturnThis(),
@@ -42,6 +41,21 @@ describe('DidSaveDocumentHandler', () => {
 
   describe('processOnSaveDocument', () => {
     it('should log info message with document save params', async () => {
+      const params: DidSaveTextDocumentParams = {
+        textDocument: {
+          uri: 'file:///test.apex',
+        },
+      };
+
+      await processOnSaveDocument(params);
+
+      expect(mockLogger.info).toHaveBeenCalledTimes(1);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Common Apex Language Server save document handler invoked with: ${params}`,
+      );
+    });
+
+    it('should log when document already exists', async () => {
       const params: DidSaveTextDocumentParams = {
         textDocument: {
           uri: 'file:///test.apex',

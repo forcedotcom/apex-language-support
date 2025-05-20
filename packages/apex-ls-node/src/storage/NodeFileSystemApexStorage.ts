@@ -201,4 +201,38 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
       return null;
     }
   }
+
+  async getHover(symbolName: string): Promise<string | undefined> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setHover(symbolName: string, hoverText: string): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  async getDefinition(symbolName: string): Promise<ApexReference | undefined> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setDefinition(
+    symbolName: string,
+    definition: ApexReference,
+  ): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  async getReferences(symbolName: string): Promise<ApexReference[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setReferences(
+    symbolName: string,
+    references: ApexReference[],
+  ): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setDocument(uri: string, document: TextDocument): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
 }

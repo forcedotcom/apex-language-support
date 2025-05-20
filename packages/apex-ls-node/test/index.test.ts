@@ -78,16 +78,34 @@ const mockConnection: MockConnection = {
   onDocumentSymbol: jest.fn(),
 };
 
-// Mock reader/writer for socket transport
-const mockReader = { read: jest.fn() };
-const mockWriter = { write: jest.fn() };
+// Mock TextDocuments
+const mockDocuments = {
+  listen: jest.fn(),
+  get: jest.fn(),
+  set: jest.fn(),
+  delete: jest.fn(),
+  all: jest.fn(),
+  onDidChangeContent: jest.fn(),
+  onDidClose: jest.fn(),
+  onDidOpen: jest.fn(),
+  onDidSave: jest.fn(),
+};
 
 // Mock the LSP module
 jest.mock('vscode-languageserver/node', () => ({
-  // Handles all createConnection variants
   createConnection: jest.fn(() => mockConnection),
-  ProposedFeatures: { all: jest.fn() },
-  createServerSocketTransport: jest.fn(() => [mockReader, mockWriter]),
+  ProposedFeatures: {
+    all: {},
+  },
+  TextDocuments: jest.fn().mockImplementation(() => mockDocuments),
+  TextDocument: jest.fn(),
+  InitializeResult: jest.fn(),
+  InitializedNotification: {
+    type: 'initialized',
+  },
+  MessageType: {
+    Info: 1,
+  },
 }));
 
 mockConnection.onDidOpenTextDocument.mockImplementation(
@@ -125,10 +143,28 @@ const mockDispatchProcessOnCloseDocument = jest.fn();
 const mockDispatchProcessOnSaveDocument = jest.fn();
 
 jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
+  ApexStorageManager: {
+    getInstance: jest.fn().mockReturnValue({
+      getStorage: jest.fn(),
+      initialize: jest.fn(),
+    }),
+  },
+  ApexStorage: {
+    getInstance: jest.fn().mockReturnValue({
+      getDocument: jest.fn(),
+      setDocument: jest.fn(),
+      deleteDocument: jest.fn(),
+      getDefinition: jest.fn(),
+      setDefinition: jest.fn(),
+      getReferences: jest.fn(),
+      setReferences: jest.fn(),
+    }),
+  },
   dispatchProcessOnOpenDocument: mockDispatchProcessOnOpenDocument,
   dispatchProcessOnChangeDocument: mockDispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
   dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
+  dispatchProcessOnDocumentSymbol: jest.fn(),
 }));
 
 describe('Apex Language Server Node', () => {
@@ -158,12 +194,13 @@ describe('Apex Language Server Node', () => {
 
   describe('Document Handlers', () => {
     it('should handle document open events', () => {
-      const params: DidOpenTextDocumentParams = {
+      // Arrange
+      const params = {
         textDocument: {
           uri: 'file:///test.apex',
-          languageId: 'apex',
+          text: 'class TestClass {}',
           version: 1,
-          text: 'class Test {}',
+          languageId: 'apex',
         },
       };
 
@@ -178,20 +215,20 @@ describe('Apex Language Server Node', () => {
       );
 
       // Verify document processing
-      expect(mockDispatchProcessOnOpenDocument).toHaveBeenCalledWith(params);
+      expect(mockDispatchProcessOnOpenDocument).toHaveBeenCalledWith(
+        params,
+        mockDocuments,
+      );
     });
 
     it('should handle document change events', () => {
-      const params: DidChangeTextDocumentParams = {
+      // Arrange
+      const params = {
         textDocument: {
           uri: 'file:///test.apex',
           version: 2,
         },
-        contentChanges: [
-          {
-            text: 'class Test { public void method() {} }',
-          },
-        ],
+        contentChanges: [{ text: 'class TestClass {}' }],
       };
 
       // Call the onDidChangeTextDocument handler
@@ -199,17 +236,21 @@ describe('Apex Language Server Node', () => {
         mockHandlers.onDidChangeTextDocument as OnDidChangeTextDocumentHandler;
       onDidChangeTextDocumentHandler(params);
 
-      // Verify logging
+      // Assert
       expect(mockConnection.console.info).toHaveBeenCalledWith(
         `Extension Apex Language Server changed and processed document: ${params}`,
       );
 
       // Verify document processing
-      expect(mockDispatchProcessOnChangeDocument).toHaveBeenCalledWith(params);
+      expect(mockDispatchProcessOnChangeDocument).toHaveBeenCalledWith(
+        params,
+        mockDocuments,
+      );
     });
 
     it('should handle document close events', () => {
-      const params: DidCloseTextDocumentParams = {
+      // Arrange
+      const params = {
         textDocument: {
           uri: 'file:///test.apex',
         },
@@ -220,7 +261,7 @@ describe('Apex Language Server Node', () => {
         mockHandlers.onDidCloseTextDocument as OnDidCloseTextDocumentHandler;
       onDidCloseTextDocumentHandler(params);
 
-      // Verify logging
+      // Assert
       expect(mockConnection.console.info).toHaveBeenCalledWith(
         `Extension Apex Language Server closed document: ${params}`,
       );
@@ -230,7 +271,8 @@ describe('Apex Language Server Node', () => {
     });
 
     it('should handle document save events', () => {
-      const params: DidSaveTextDocumentParams = {
+      // Arrange
+      const params = {
         textDocument: {
           uri: 'file:///test.apex',
         },
@@ -241,7 +283,7 @@ describe('Apex Language Server Node', () => {
         mockHandlers.onDidSaveTextDocument as OnDidSaveTextDocumentHandler;
       onDidSaveTextDocumentHandler(params);
 
-      // Verify logging
+      // Assert
       expect(mockConnection.console.info).toHaveBeenCalledWith(
         `Extension Apex Language Server saved document: ${params}`,
       );

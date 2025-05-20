@@ -5,14 +5,22 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { DidChangeTextDocumentParams } from 'vscode-languageserver';
+import {
+  DidChangeTextDocumentParams,
+  TextDocuments,
+} from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { Logger } from '../utils/Logger';
 import { dispatch } from '../utils/handlerUtil';
+import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
+import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
 
 // Visible for testing
 export const processOnChangeDocument = async (
   params: DidChangeTextDocumentParams,
+  documents: TextDocuments<TextDocument>,
 ): Promise<void> => {
   // Client opened a document
   // TODO: Server will parse the document and populate the corresponding local maps
@@ -25,9 +33,26 @@ export const processOnChangeDocument = async (
   // This might involve updating the AST, type information, or other data structures
   // based on the changes in the document
   // You can access the document content using params.contentChanges
+
+  // Get the storage manager instance
+  const storageManager = ApexStorageManager.getInstance();
+  const storage = storageManager.getStorage();
+
+  // Create the definition provider
+  const definitionUpserter = new DefaultApexDefinitionUpserter(storage);
+  const referencesUpserter = new DefaultApexReferencesUpserter(storage);
+
+  // Upsert the definitions
+  await definitionUpserter.upsertDefinition(params, documents);
+  // Upsert the references
+  await referencesUpserter.upsertReferences(params, documents);
 };
 
 export const dispatchProcessOnChangeDocument = (
   params: DidChangeTextDocumentParams,
+  documents: TextDocuments<TextDocument>,
 ) =>
-  dispatch(processOnChangeDocument(params), 'Error processing document change');
+  dispatch(
+    processOnChangeDocument(params, documents),
+    'Error processing document change',
+  );

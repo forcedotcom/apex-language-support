@@ -9,32 +9,39 @@
 
 import {
   createConnection,
-  InitializeParams,
-  InitializeResult,
-  TextDocumentPositionParams,
-  CompletionItem,
-  Hover,
   BrowserMessageReader,
   BrowserMessageWriter,
-  InitializedNotification,
-  MessageType,
-  DidOpenTextDocumentParams,
+  CompletionItem,
   DidChangeTextDocumentParams,
   DidCloseTextDocumentParams,
+  DidOpenTextDocumentParams,
   DidSaveTextDocumentParams,
+  Hover,
+  InitializedNotification,
+  InitializeParams,
+  InitializeResult,
+  MessageType,
+  TextDocumentPositionParams,
+  TextDocuments,
+  WillSaveTextDocumentParams,
+  TextEdit,
 } from 'vscode-languageserver/browser';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
+  ApexStorageManager,
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
 } from '@salesforce/apex-lsp-compliant-services';
+import { ApexStorage } from '@salesforce/apex-lsp-compliant-services/src/storage/ApexStorage';
 
-// Create a connection for the server using BrowserMessageReader and BrowserMessageWriter
-const connection = createConnection(
-  new BrowserMessageReader(self),
-  new BrowserMessageWriter(self),
-);
+/* browser specific setup code */
+
+const messageReader = new BrowserMessageReader(self);
+const messageWriter = new BrowserMessageWriter(self);
+
+const connection = createConnection(messageReader, messageWriter);
 
 // Server state
 let isShutdown = false;
@@ -45,7 +52,13 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
   // TODO: Add startup tasks here if needed
   return {
     capabilities: {
-      textDocumentSync: 1, // Full text document sync
+      textDocumentSync: {
+        openClose: true,
+        change: 1, // Full text document sync
+        save: true,
+        willSave: true, // Enable willSave support
+        willSaveWaitUntil: true, // Enable willSaveWaitUntil support
+      },
       completionProvider: {
         resolveProvider: true,
       },
@@ -108,6 +121,19 @@ connection.onExit(() => {
   connection.console.info('Apex Language Server exited');
 });
 
+// Track open, change and close text document events
+const documents = new TextDocuments(TextDocument);
+documents.listen(connection);
+
+// Initialize storage
+const storageManager = ApexStorageManager.getInstance({
+  storageFactory: (options) => ApexStorage.getInstance(),
+  storageOptions: {
+    /* your options */
+  },
+});
+storageManager.initialize();
+
 // Notifications
 connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
   // Client opened a document
@@ -116,7 +142,7 @@ connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
     `Web Apex Language Server opened and processed document: ${params}`,
   );
 
-  dispatchProcessOnOpenDocument(params);
+  dispatchProcessOnOpenDocument(params, documents);
 });
 
 connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
@@ -126,7 +152,7 @@ connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
     `Web Apex Language Server changed and processed document: ${params}`,
   );
 
-  dispatchProcessOnChangeDocument(params);
+  dispatchProcessOnChangeDocument(params, documents);
 });
 
 connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
@@ -138,6 +164,33 @@ connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
 
   dispatchProcessOnCloseDocument(params);
 });
+
+// Handle will save notification
+connection.onWillSaveTextDocument((params: WillSaveTextDocumentParams) => {
+  // Client is about to save a document
+  // Server can perform any necessary pre-save operations
+  connection.console.info(
+    `Web Apex Language Server will save document: ${params}`,
+  );
+});
+
+// Handle will save wait until request
+connection.onWillSaveTextDocumentWaitUntil(
+  async (params: WillSaveTextDocumentParams): Promise<TextEdit[]> => {
+    // Client is about to save a document and waiting for any edits
+    // Server can return edits that will be applied before saving
+    connection.console.info(
+      `Web Apex Language Server will save wait until document: ${params}`,
+    );
+
+    // Example: Return an empty array of edits
+    // In a real implementation, you might want to:
+    // 1. Format the document
+    // 2. Fix common issues
+    // 3. Apply any necessary transformations
+    return [];
+  },
+);
 
 connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
   // Client saved a document

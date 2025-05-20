@@ -20,6 +20,7 @@ import {
   DidSaveTextDocumentParams,
   DocumentSymbolParams,
   createServerSocketTransport,
+  TextDocuments,
 } from 'vscode-languageserver/node';
 import {
   dispatchProcessOnChangeDocument,
@@ -27,7 +28,10 @@ import {
   dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol,
+  ApexStorageManager,
+  ApexStorage,
 } from '@salesforce/apex-lsp-compliant-services';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 // Create a connection for the server based on command line arguments
 let connection: Connection;
@@ -49,9 +53,19 @@ if (process.argv.includes('--stdio')) {
 
 // Server state
 let isShutdown = false;
+const documents = new TextDocuments(TextDocument);
+documents.listen(connection);
+
+// Initialize storage
+const storageManager = ApexStorageManager.getInstance({
+  storageFactory: (options) => ApexStorage.getInstance(),
+  storageOptions: {
+    /* your options */
+  },
+});
+storageManager.initialize();
 
 // Initialize server capabilities and properties
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   connection.console.info('Apex Language Server initializing...');
   // TODO: Add startup tasks here if needed
@@ -138,7 +152,7 @@ connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
     `Extension Apex Language Server opened and processed document: ${params}`,
   );
 
-  dispatchProcessOnOpenDocument(params);
+  dispatchProcessOnOpenDocument(params, documents);
 });
 
 connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
@@ -148,7 +162,7 @@ connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
     `Extension Apex Language Server changed and processed document: ${params}`,
   );
 
-  dispatchProcessOnChangeDocument(params);
+  dispatchProcessOnChangeDocument(params, documents);
 });
 
 connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {

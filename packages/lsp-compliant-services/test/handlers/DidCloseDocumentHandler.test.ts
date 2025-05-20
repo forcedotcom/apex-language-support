@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DidCloseTextDocumentParams } from 'vscode-languageserver';
+import {
+  DidCloseTextDocumentParams,
+  TextDocuments,
+} from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { Logger } from '../../src/utils/Logger';
 import { dispatch } from '../../src/utils/handlerUtil';
@@ -21,7 +25,7 @@ jest.mock('../../src/utils/handlerUtil');
 describe('DidCloseDocumentHandler', () => {
   let mockLogger: jest.Mocked<Logger>;
   let mockDispatch: jest.MockedFunction<typeof dispatch>;
-
+  let mockDocuments: jest.Mocked<TextDocuments<TextDocument>>;
   beforeEach(() => {
     mockLogger = {
       getInstance: jest.fn().mockReturnThis(),
@@ -34,6 +38,9 @@ describe('DidCloseDocumentHandler', () => {
 
     (Logger.getInstance as jest.Mock).mockReturnValue(mockLogger);
     mockDispatch = dispatch as jest.MockedFunction<typeof dispatch>;
+    mockDocuments = {
+      get: jest.fn(),
+    } as unknown as jest.Mocked<TextDocuments<TextDocument>>;
   });
 
   afterEach(() => {
@@ -47,6 +54,26 @@ describe('DidCloseDocumentHandler', () => {
           uri: 'file:///test.apex',
         },
       };
+
+      mockDocuments.get.mockReturnValue(undefined);
+
+      await processOnCloseDocument(params);
+
+      expect(mockLogger.info).toHaveBeenCalledTimes(1);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Common Apex Language Server close document handler invoked with: ${params}`,
+      );
+    });
+
+    it('should log when document already exists', async () => {
+      const params: DidCloseTextDocumentParams = {
+        textDocument: {
+          uri: 'file:///test.apex',
+        },
+      };
+
+      const existingDoc = { uri: params.textDocument.uri } as TextDocument;
+      mockDocuments.get.mockReturnValue(existingDoc);
 
       await processOnCloseDocument(params);
 

@@ -20,6 +20,11 @@ export const processOnSaveDocument = async (
   logger.info(
     `Common Apex Language Server save document handler invoked with: ${params}`,
   );
+
+  // TODO: Implement the logic to process the document save
+  // This might involve updating the AST, type information, or other data structures
+  // based on the changes in the document
+  // You can access the document content using params.contentChanges
 };
 
 export const dispatchProcessOnSaveDocument = (

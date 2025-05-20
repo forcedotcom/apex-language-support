@@ -142,7 +142,7 @@ export class MockApexJsonRpcClient extends ApexJsonRpcClient {
   /**
    * Mock completion request
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  
   private mockCompletion(params: any): any {
     return [
       {
@@ -175,7 +175,7 @@ export class MockApexJsonRpcClient extends ApexJsonRpcClient {
   /**
    * Mock hover request
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  
   private mockHover(params: any): any {
     return {
       contents: {
@@ -198,7 +198,7 @@ export class MockApexJsonRpcClient extends ApexJsonRpcClient {
   /**
    * Mock document symbol request
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  
   private mockDocumentSymbol(params: any): any {
     return [
       {
