@@ -22,6 +22,8 @@
   "scripts": {
     "compile": "tsc --build",
     "bundle": "node ../../scripts/build-bundle.js",
+    "compile:stubs": "node scripts/compile-stubs.js",
+    "test:stubs": "node scripts/test-compile-stubs.js",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf dist bundle *.tsbuildinfo .turbo",
@@ -43,6 +45,7 @@
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.5",
     "prettier": "^3.5.3",
+    "glob": "^10.3.10",
     "jest": "^29.5.0",
     "rimraf": "^5.0.0",
     "ts-jest": "^29.1.0",
