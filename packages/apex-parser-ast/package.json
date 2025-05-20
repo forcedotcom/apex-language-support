@@ -24,6 +24,7 @@
     "bundle": "node ../../scripts/build-bundle.js",
     "compile:stubs": "node scripts/compile-stubs.js",
     "test:stubs": "node scripts/test-compile-stubs.js",
+    "test:a:stub": "node scripts/test-compile-stubs.js ConnectApi/CommerceSearchTopProductType.cls",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf dist bundle *.tsbuildinfo .turbo",

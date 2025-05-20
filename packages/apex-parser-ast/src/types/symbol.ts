@@ -6,8 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TypeInfo } from './typeInfo';
 import { HashMap, DoublyLinkedList } from 'data-structure-typed';
+
+import { TypeInfo } from './typeInfo';
 
 /**
  * Types of symbols that can be defined in Apex code
@@ -474,15 +475,59 @@ export class SymbolTable {
    * Convert the symbol table to a JSON-serializable format
    */
   toJSON() {
+    type CleanedSymbol = Omit<ApexSymbol, 'parent'> & {
+      values?: Array<Omit<VariableSymbol, 'parent'>>;
+    };
+
+    const cleanSymbol = (symbol: ApexSymbol): CleanedSymbol => {
+      // Create a new object without the parent reference
+      const { parent, ...rest } = symbol;
+      const cleaned = { ...rest } as CleanedSymbol;
+
+      // Handle enum values
+      if (symbol.kind === SymbolKind.Enum) {
+        const enumSymbol = symbol as EnumSymbol;
+        if (enumSymbol.values) {
+          // Create a new array of cleaned values
+          cleaned.values = enumSymbol.values.map((value) => {
+            // Create a new object without the parent reference
+            const { parent: valueParent, ...valueRest } = value;
+            return valueRest;
+          });
+        }
+      }
+
+      return cleaned;
+    };
+
+    // Convert HashMap entries to plain arrays
+    const symbolEntries = Array.from(this.symbolMap.entries());
+    const scopeEntries = Array.from(this.scopeMap.entries());
+
+    // Create a new object with cleaned symbols
+    const cleanedSymbols = symbolEntries.map(([key, symbol]) => ({
+      key,
+      symbol: symbol ? cleanSymbol(symbol) : undefined,
+    }));
+
+    // Create a new object with cleaned scopes
+    const cleanedScopes = scopeEntries.map(([key, scope]) => ({
+      key,
+      scope: scope
+        ? {
+            key: scope.getKey(),
+            symbols: Array.from(scope.getAllSymbols()).map((symbol) => ({
+              name: symbol.name,
+              key: symbol.key,
+            })),
+            children: scope.getChildren().map((child) => child.getKey()),
+          }
+        : undefined,
+    }));
+
     return {
-      symbols: Array.from(this.symbolMap.entries()).map(([key, symbol]) => ({
-        key,
-        symbol: {
-          ...symbol,
-          parent: undefined, // Remove parent reference for serialization
-        },
-      })),
-      scopes: Array.from(this.scopeMap.entries()),
+      symbols: cleanedSymbols,
+      scopes: cleanedScopes,
     };
   }
 

@@ -1,6 +1,10 @@
 const fs = require('fs');
 const path = require('path');
-const { CompilerService, ApexSymbolCollectorListener } = require('../bundle');
+const {
+  CompilerService,
+  ApexSymbolCollectorListener,
+  RuntimeSymbol,
+} = require('../bundle');
 
 /**
  * Find all Apex files in a directory recursively
@@ -101,9 +105,66 @@ async function compileStubs(specificFiles = null) {
         fs.mkdirSync(outputDirPath, { recursive: true });
       }
 
+      // Wrap symbols in RuntimeSymbol for proper handling of runtime references
+      const symbolTable = result.result;
+      const symbols = symbolTable.symbolMap.values();
+      const runtimeSymbols = {};
+      for (const symbol of symbols) {
+        // For enum symbols, we need to wrap their values too
+        if (symbol.kind === 'enum' && symbol.values) {
+          const wrappedValues = symbol.values.map(
+            (value) => new RuntimeSymbol(value, symbolTable),
+          );
+          symbol.values = wrappedValues;
+        }
+        runtimeSymbols[symbol.key.name] = new RuntimeSymbol(
+          symbol,
+          symbolTable,
+        );
+      }
+
+      // Create a clean version of the symbol table for serialization
+      const cleanSymbolTable = {
+        symbols: Object.entries(runtimeSymbols).map(([key, runtimeSymbol]) => {
+          // Get the underlying symbol without the RuntimeSymbol wrapper
+          const symbol = runtimeSymbol.symbol;
+          // Create a new object without the parent reference
+          const { parent, ...rest } = symbol;
+
+          // Handle enum values separately
+          if (symbol.kind === 'enum' && symbol.values) {
+            const cleanValues = symbol.values.map((value) => {
+              // Get the underlying value without the RuntimeSymbol wrapper
+              const valueSymbol = value.symbol;
+              const { parent: valueParent, ...valueRest } = valueSymbol;
+              return valueRest;
+            });
+            return {
+              key,
+              symbol: {
+                ...rest,
+                values: cleanValues,
+              },
+            };
+          }
+
+          return {
+            key,
+            symbol: rest,
+          };
+        }),
+        scopes: symbolTable.toJSON().scopes,
+      };
+
+      // Debug log the structure
+      console.log(
+        'Symbol structure:',
+        JSON.stringify(cleanSymbolTable.symbols[0], null, 2),
+      );
+
       // Save the result
       const output = {
-        symbolTable: result.result,
+        symbolTable: cleanSymbolTable,
         namespace,
         errors: result.errors,
         warnings: result.warnings,
