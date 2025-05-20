@@ -6,14 +6,14 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  IntPair,
-  OldVersionProvider,
-  SourceInfo,
-  StructuredVersion,
-} from '../types/source';
+import { IntPair, OldVersionProvider, SourceInfo } from '../types/source';
 import { Namespace, Namespaces } from './namespaces';
-import { StructuredVersionRange, Version, VersionUtils } from './versions';
+import {
+  StructuredVersion,
+  StructuredVersionRange,
+  Version,
+  VersionUtils,
+} from './versions';
 
 export class SourceFile implements SourceInfo {
   private readonly body: string;
@@ -23,15 +23,16 @@ export class SourceFile implements SourceInfo {
   private readonly lengthWithComments: number;
   private readonly knownName: string;
   private readonly oldVersionProvider: OldVersionProvider;
-  private readonly referencedPackageVersions: Map<string, StructuredVersion>;
+  private readonly referencedPackageVersions: Map<string, StructuredVersion> =
+    new Map();
   private readonly exportedPackageVersions: Map<
-    IntPair,
+    string,
     StructuredVersionRange
-  >;
+  > = new Map();
   private readonly interfacePackageVersions: Map<
-    IntPair,
+    string,
     Map<string, StructuredVersion>
-  >;
+  > = new Map();
 
   constructor(builder: SourceFileBuilder) {
     this.body = builder.body;
@@ -45,10 +46,25 @@ export class SourceFile implements SourceInfo {
     this.allPackageId = builder.allPackageId;
     this.lengthWithComments = builder.lengthWithComments ?? this.body.length;
     this.knownName = builder.knownName;
-    this.referencedPackageVersions = builder.referencedPackageVersions;
-    this.exportedPackageVersions = builder.exportedPackageVersions;
-    this.interfacePackageVersions = builder.interfacePackageVersions;
     this.oldVersionProvider = builder.oldVersionProvider!;
+
+    if (builder._referencedPackageVersions) {
+      builder._referencedPackageVersions.forEach((value, key) => {
+        this.referencedPackageVersions.set(key, value);
+      });
+    }
+    if (builder._exportedPackageVersions) {
+      builder._exportedPackageVersions.forEach((value, key) => {
+        const [major, minor] = key;
+        this.exportedPackageVersions.set(`${major},${minor}`, value);
+      });
+    }
+    if (builder._interfacePackageVersions) {
+      builder._interfacePackageVersions.forEach((value, key) => {
+        const [major, minor] = key;
+        this.interfacePackageVersions.set(`${major},${minor}`, value);
+      });
+    }
   }
 
   static builder(): SourceFileBuilder {
@@ -108,15 +124,25 @@ export class SourceFile implements SourceInfo {
   }
 
   getReferencedPackageVersions(): Map<string, StructuredVersion> {
-    return this.referencedPackageVersions;
+    return new Map(this.referencedPackageVersions);
   }
 
   getExportedPackageVersions(): Map<IntPair, StructuredVersionRange> {
-    return this.exportedPackageVersions;
+    const result = new Map<IntPair, StructuredVersionRange>();
+    this.exportedPackageVersions.forEach((value, key) => {
+      const [major, minor] = key.split(',').map(Number);
+      result.set([major, minor], value);
+    });
+    return result;
   }
 
   getInterfacePackageVersions(): Map<IntPair, Map<string, StructuredVersion>> {
-    return this.interfacePackageVersions;
+    const result = new Map<IntPair, Map<string, StructuredVersion>>();
+    this.interfacePackageVersions.forEach((value, key) => {
+      const [major, minor] = key.split(',').map(Number);
+      result.set([major, minor], new Map(value));
+    });
+    return result;
   }
 
   getAllPackageId(): string | null {
@@ -134,6 +160,38 @@ export class SourceFile implements SourceInfo {
   copy(): SourceFileBuilder {
     return new SourceFileBuilder().setSeed(this);
   }
+
+  setReferencedPackageVersions(
+    referencedPackageVersions: Map<string, StructuredVersion>,
+  ): this {
+    this.referencedPackageVersions.clear();
+    referencedPackageVersions.forEach((value, key) => {
+      this.referencedPackageVersions.set(key, value);
+    });
+    return this;
+  }
+
+  setExportedPackageVersions(
+    exportedPackageVersions: Map<IntPair, StructuredVersionRange>,
+  ): this {
+    this.exportedPackageVersions.clear();
+    exportedPackageVersions.forEach((value, key) => {
+      const [major, minor] = key;
+      this.exportedPackageVersions.set(`${major},${minor}`, value);
+    });
+    return this;
+  }
+
+  setInterfacePackageVersions(
+    interfacePackageVersions: Map<IntPair, Map<string, StructuredVersion>>,
+  ): this {
+    this.interfacePackageVersions.clear();
+    interfacePackageVersions.forEach((value, key) => {
+      const [major, minor] = key;
+      this.interfacePackageVersions.set(`${major},${minor}`, new Map(value));
+    });
+    return this;
+  }
 }
 
 export class SourceFileBuilder {
@@ -147,11 +205,10 @@ export class SourceFileBuilder {
   allPackageId: string | null = null;
   lengthWithComments?: number;
   knownName: string = '';
-  referencedPackageVersions: Map<string, StructuredVersion> = new Map();
-  exportedPackageVersions: Map<IntPair, StructuredVersionRange> = new Map();
-  interfacePackageVersions: Map<IntPair, Map<string, StructuredVersion>> =
-    new Map();
   oldVersionProvider?: OldVersionProvider;
+  _referencedPackageVersions?: Map<string, StructuredVersion>;
+  _exportedPackageVersions?: Map<IntPair, StructuredVersionRange>;
+  _interfacePackageVersions?: Map<IntPair, Map<string, StructuredVersion>>;
 
   build(): SourceFile {
     console.assert(
@@ -185,21 +242,21 @@ export class SourceFileBuilder {
   setReferencedPackageVersions(
     referencedPackageVersions: Map<string, StructuredVersion>,
   ): this {
-    this.referencedPackageVersions = new Map(referencedPackageVersions);
+    this._referencedPackageVersions = new Map(referencedPackageVersions);
     return this;
   }
 
   setExportedPackageVersions(
     exportedPackageVersions: Map<IntPair, StructuredVersionRange>,
   ): this {
-    this.exportedPackageVersions = new Map(exportedPackageVersions);
+    this._exportedPackageVersions = new Map(exportedPackageVersions);
     return this;
   }
 
   setInterfacePackageVersions(
     interfacePackageVersions: Map<IntPair, Map<string, StructuredVersion>>,
   ): this {
-    this.interfacePackageVersions = new Map(interfacePackageVersions);
+    this._interfacePackageVersions = new Map(interfacePackageVersions);
     return this;
   }
 
