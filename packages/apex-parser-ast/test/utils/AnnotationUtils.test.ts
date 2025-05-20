@@ -8,7 +8,6 @@
 
 import {
   Annotation,
-  ApexSymbol,
   SymbolKind,
   SymbolLocation,
   SymbolModifiers,
@@ -49,6 +48,12 @@ describe('AnnotationUtils', () => {
         modifiers: sampleModifiers,
         parent: null,
         interfaces: [],
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'TestClass',
+          path: ['TestClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'isTest',
@@ -69,6 +74,12 @@ describe('AnnotationUtils', () => {
         modifiers: sampleModifiers,
         parent: null,
         interfaces: [],
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'RegularClass',
+          path: ['RegularClass'],
+        },
+        parentKey: null,
       };
 
       expect(AnnotationUtils.hasAnnotation(classSymbol, 'isTest')).toBe(false);
@@ -83,6 +94,12 @@ describe('AnnotationUtils', () => {
         modifiers: sampleModifiers,
         parent: null,
         interfaces: [],
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'TestClass',
+          path: ['TestClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'IsTest',
@@ -117,6 +134,12 @@ describe('AnnotationUtils', () => {
         modifiers: sampleModifiers,
         parent: null,
         interfaces: [],
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'ApiClass',
+          path: ['ApiClass'],
+        },
+        parentKey: null,
         annotations: [restAnnotation],
       };
 
@@ -134,6 +157,12 @@ describe('AnnotationUtils', () => {
         modifiers: sampleModifiers,
         parent: null,
         interfaces: [],
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'ApiClass',
+          path: ['ApiClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'AuraEnabled',
@@ -233,6 +262,12 @@ describe('AnnotationUtils', () => {
         modifiers: sampleModifiers,
         parent: null,
         interfaces: [],
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'TestClass',
+          path: ['TestClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'isTest',
@@ -255,6 +290,12 @@ describe('AnnotationUtils', () => {
         modifiers: sampleModifiers,
         parent: null,
         interfaces: [],
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'ApiClass',
+          path: ['ApiClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'RestResource',
@@ -277,6 +318,12 @@ describe('AnnotationUtils', () => {
         modifiers: sampleModifiers,
         parent: null,
         interfaces: [],
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'ApiClass',
+          path: ['ApiClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'RestResource',

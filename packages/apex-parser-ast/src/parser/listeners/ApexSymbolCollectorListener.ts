@@ -48,6 +48,7 @@ import {
   ClassModifierValidator,
   ErrorReporter,
 } from '../../sematics/modifiers/index';
+
 interface SemanticError {
   type: 'semantic';
   severity: 'error' | 'warning';
@@ -297,6 +298,9 @@ export class ApexSymbolCollectorListener
       // Store the current class symbol
       this.currentTypeSymbol = classSymbol;
 
+      // Add symbol to current scope
+      this.symbolTable.addSymbol(classSymbol);
+
       // Enter class scope
       this.symbolTable.enterScope(name);
       this.logger.info(`Entered class scope: ${name}`);
@@ -369,6 +373,9 @@ export class ApexSymbolCollectorListener
 
       // Store the current interface symbol
       this.currentTypeSymbol = interfaceSymbol;
+
+      // Add symbol to current scope
+      this.symbolTable.addSymbol(interfaceSymbol);
 
       // Enter interface scope
       this.symbolTable.enterScope(name);
@@ -497,63 +504,56 @@ export class ApexSymbolCollectorListener
    * @param ctx The parser context for the constructor declaration.
    */
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
-    if (!this.currentTypeSymbol) return;
+    try {
+      const name = this.currentTypeSymbol?.name ?? 'unknownConstructor';
 
-    // Modifiers are collected by enterModifier before this is called
-    const constructorName = this.currentTypeSymbol.name;
+      // Check for duplicate constructor
+      if (this.currentTypeSymbol) {
+        const currentScope = this.symbolTable.getCurrentScope();
+        const existingSymbols = currentScope.getAllSymbols();
+        const duplicateConstructor = existingSymbols.find(
+          (s) =>
+            s.kind === SymbolKind.Method &&
+            s.name === name &&
+            (s as MethodSymbol).isConstructor,
+        );
 
-    // Get location
-    const location = this.getLocation(ctx);
+        if (duplicateConstructor) {
+          this.addError(`Duplicate constructor declaration: ${name}`, ctx);
+          return;
+        }
+      }
 
-    // Get current modifiers and reset for next declaration
-    const modifiers = this.getCurrentModifiers();
+      const modifiers = this.getCurrentModifiers();
+      const location = this.getLocation(ctx);
+      const parent = this.currentTypeSymbol;
+      const parentKey = parent ? parent.key : null;
+      const key = {
+        prefix: SymbolKind.Method,
+        name,
+        path: this.getCurrentPath(),
+      };
 
-    // Validate constructor visibility modifiers
-    MethodModifierValidator.validateConstructorVisibilityModifiers(
-      constructorName,
-      modifiers,
-      ctx,
-      this.currentTypeSymbol,
-      this,
-    );
+      const constructorSymbol: MethodSymbol = {
+        name,
+        kind: SymbolKind.Method,
+        location,
+        modifiers,
+        returnType: createPrimitiveType('void'),
+        parameters: [],
+        parent,
+        key,
+        parentKey,
+        isConstructor: true,
+      };
 
-    this.resetModifiers();
-
-    // Check for duplicate constructor declarations
-    const existingSymbol =
-      this.symbolTable.findSymbolInCurrentScope(constructorName);
-    if (
-      existingSymbol &&
-      existingSymbol.kind === SymbolKind.Method &&
-      (existingSymbol as MethodSymbol).isConstructor
-    ) {
-      // Report a semantic error for duplicate constructor declaration
-      this.addError(
-        `Duplicate constructor declaration in class '${constructorName}'`,
-        ctx,
-      );
+      this.currentMethodSymbol = constructorSymbol;
+      this.symbolTable.addSymbol(constructorSymbol);
+      this.symbolTable.enterScope(name);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in constructor: ${errorMessage}`, ctx);
     }
-
-    // Create constructor symbol (as a method with the same name as the class)
-    const constructorSymbol: MethodSymbol = {
-      name: constructorName,
-      kind: SymbolKind.Method,
-      location,
-      modifiers,
-      returnType: createPrimitiveType(this.currentTypeSymbol.name),
-      parameters: [],
-      parent: this.currentTypeSymbol,
-      isConstructor: true,
-    };
-
-    // Add to symbol table and enter constructor scope
-    this.symbolTable.addSymbol(constructorSymbol);
-    this.symbolTable.enterScope(constructorName);
-
-    // Store current method as the constructor
-    this.currentMethodSymbol = constructorSymbol;
-
-    // Parameters will be processed in enterFormalParameter
   }
 
   /**
@@ -629,6 +629,9 @@ export class ApexSymbolCollectorListener
       // Store the current method symbol
       this.currentMethodSymbol = methodSymbol;
 
+      // Add method symbol to current scope
+      this.symbolTable.addSymbol(methodSymbol);
+
       // Enter method scope
       this.symbolTable.enterScope(name);
       this.logger.info(`Entered interface method scope: ${name}`);
@@ -658,34 +661,38 @@ export class ApexSymbolCollectorListener
    * Called when entering a formal parameter (method parameter)
    */
   enterFormalParameter(ctx: FormalParameterContext): void {
-    if (!this.currentMethodSymbol) return;
+    try {
+      const name = ctx.id()?.text ?? 'unknownParameter';
+      const type = this.createTypeInfo(ctx.typeRef()?.text ?? 'Object');
+      const modifiers = this.getCurrentModifiers();
+      const location = this.getLocation(ctx);
+      const parent = this.currentMethodSymbol;
+      const parentKey = parent ? parent.key : null;
+      const key = {
+        prefix: SymbolKind.Parameter,
+        name,
+        path: this.getCurrentPath(),
+      };
 
-    const paramName = ctx.id()?.text ?? 'unknownParam';
-    const paramTypeText = ctx.typeRef()
-      ? this.getTextFromContext(ctx.typeRef())
-      : 'Object';
-    const paramType = this.createTypeInfo(paramTypeText);
+      const paramSymbol: VariableSymbol = {
+        name,
+        kind: SymbolKind.Parameter,
+        location,
+        modifiers,
+        type,
+        parent,
+        key,
+        parentKey,
+      };
 
-    // Get location
-    const location = this.getLocation(ctx);
-
-    // Parameters have default modifiers
-    this.resetModifiers();
-    const modifiers = this.getCurrentModifiers();
-
-    // Create parameter symbol
-    const paramSymbol: VariableSymbol = {
-      name: paramName,
-      kind: SymbolKind.Parameter,
-      location,
-      modifiers,
-      type: paramType,
-      parent: this.currentMethodSymbol,
-    };
-
-    // Add to current method's parameters and symbol table
-    this.currentMethodSymbol.parameters.push(paramSymbol);
-    this.symbolTable.addSymbol(paramSymbol);
+      if (this.currentMethodSymbol) {
+        this.currentMethodSymbol.parameters.push(paramSymbol);
+      }
+      this.symbolTable.addSymbol(paramSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in parameter: ${errorMessage}`, ctx);
+    }
   }
 
   /**
@@ -723,25 +730,45 @@ export class ApexSymbolCollectorListener
    * Called when entering a local variable declaration
    */
   enterLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): void {
-    // Get current modifiers and reset for next declaration
-    const modifiers = this.getCurrentModifiers();
-    this.resetModifiers();
+    try {
+      // Get current modifiers and reset for next declaration
+      const modifiers = this.getCurrentModifiers();
+      this.resetModifiers();
 
-    // Get the type
-    const varTypeText = ctx.typeRef()
-      ? this.getTextFromContext(ctx.typeRef())
-      : 'Object';
-    const varType = this.createTypeInfo(varTypeText);
+      // Get the type
+      const varTypeText = ctx.typeRef()
+        ? this.getTextFromContext(ctx.typeRef())
+        : 'Object';
+      const varType = this.createTypeInfo(varTypeText);
 
-    // Process each variable declared
-    const variableDeclarators = ctx.variableDeclarators().variableDeclarator();
-    for (const declarator of variableDeclarators) {
-      // Always process the variable in the current scope
-      this.processVariableDeclarator(
-        declarator,
-        varType,
-        modifiers,
-        SymbolKind.Variable,
+      // Process each variable declared
+      const variableDeclarators = ctx
+        .variableDeclarators()
+        .variableDeclarator();
+      for (const declarator of variableDeclarators) {
+        const name = declarator.id()?.text ?? 'unknownVariable';
+
+        // Check for duplicate variable in current scope
+        const currentScope = this.symbolTable.getCurrentScope();
+        const existingSymbol = currentScope.getSymbol(name);
+        if (existingSymbol) {
+          this.addError(`Duplicate variable declaration: ${name}`, declarator);
+          continue;
+        }
+
+        // Always process the variable in the current scope
+        this.processVariableDeclarator(
+          declarator,
+          varType,
+          modifiers,
+          SymbolKind.Variable,
+        );
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(
+        `Error in local variable declaration: ${errorMessage}`,
+        ctx,
       );
     }
   }
@@ -752,42 +779,36 @@ export class ApexSymbolCollectorListener
   enterEnumDeclaration(ctx: EnumDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownEnum';
-      this.logger.info(`Entering enum declaration: ${name}`);
-
-      // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
-      const annotations = this.getCurrentAnnotations();
+      const location = this.getLocation(ctx);
+      const parent = this.currentTypeSymbol;
+      const parentKey = parent ? parent.key : null;
+      const key = {
+        prefix: SymbolKind.Enum,
+        name,
+        path: this.getCurrentPath(),
+      };
 
-      // Create enum symbol
       const enumSymbol: EnumSymbol = {
         name,
         kind: SymbolKind.Enum,
-        location: this.getLocation(ctx),
+        location,
         modifiers,
         values: [],
-        parent: this.currentTypeSymbol,
+        interfaces: [], // Required by TypeSymbol
+        superClass: undefined, // Optional in TypeSymbol
+        parent,
+        key,
+        parentKey,
+        annotations: this.getCurrentAnnotations(),
       };
 
-      // Add annotations to the enum symbol
-      if (annotations.length > 0) {
-        enumSymbol.annotations = annotations;
-      }
-
-      // Add to current scope
-      const currentScope = this.symbolTable.getCurrentScope();
-      currentScope.addSymbol(enumSymbol);
-      this.logger.info(
-        `Added enum symbol: ${name} to scope: ${currentScope.name}`,
-      );
-
-      // Enter enum scope
+      this.currentTypeSymbol = enumSymbol;
+      this.symbolTable.addSymbol(enumSymbol);
       this.symbolTable.enterScope(name);
-
-      // Reset annotations for the next symbol
-      this.resetAnnotations();
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error in enum declaration: ${errorMessage}`, ctx);
+      this.addError(`Error in enum: ${errorMessage}`, ctx);
     }
   }
 
@@ -796,41 +817,41 @@ export class ApexSymbolCollectorListener
    */
   enterEnumConstants(ctx: EnumConstantsContext): void {
     try {
-      // Get the enum symbol from the current scope
-      const parentScope = this.symbolTable.getParentScope();
-      const currentScope = this.symbolTable.getCurrentScope();
-      if (!parentScope) {
-        this.addError('Enum constants found outside of enum declaration', ctx);
-        return;
-      }
-      const enumSymbol = parentScope
-        .getAllSymbols()
-        .find(
-          (s) => s.kind === SymbolKind.Enum && s.name === currentScope.name,
-        ) as EnumSymbol;
+      const enumType = this.createTypeInfo(
+        this.currentTypeSymbol?.name ?? 'Object',
+      );
+      const enumSymbol = this.currentTypeSymbol as EnumSymbol | null;
 
       if (!enumSymbol || enumSymbol.kind !== SymbolKind.Enum) {
         this.addError('Enum constants found outside of enum declaration', ctx);
         return;
       }
 
-      // Get all enum constant IDs
-      const ids = ctx.id();
-      for (const id of ids) {
-        const valueName = id.text;
-
-        const valueSymbol: VariableSymbol = {
-          name: valueName,
-          kind: SymbolKind.EnumValue,
-          location: this.getLocation(id),
-          modifiers: this.createDefaultModifiers(),
-          type: createPrimitiveType(enumSymbol.name),
-          parent: enumSymbol,
+      for (const id of ctx.id()) {
+        const name = id.text;
+        const modifiers = this.getCurrentModifiers();
+        const location = this.getLocation(id);
+        const parent = enumSymbol;
+        const parentKey = parent.key;
+        const key = {
+          prefix: SymbolKind.EnumValue,
+          name,
+          path: this.getCurrentPath(),
         };
 
-        // Add to symbol table and enum values
-        this.symbolTable.addSymbol(valueSymbol);
+        const valueSymbol: VariableSymbol = {
+          name,
+          kind: SymbolKind.EnumValue,
+          location,
+          modifiers,
+          type: enumType,
+          parent,
+          key,
+          parentKey,
+        };
+
         enumSymbol.values.push(valueSymbol);
+        this.symbolTable.addSymbol(valueSymbol);
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -850,24 +871,35 @@ export class ApexSymbolCollectorListener
    * Called when entering a block
    */
   enterBlock(ctx: BlockContext): void {
-    this.blockDepth++;
+    try {
+      this.blockDepth++;
+      const name = `block${this.blockDepth}`;
+      const modifiers = this.getCurrentModifiers();
+      const location = this.getLocation(ctx);
+      const parent = this.currentTypeSymbol || this.currentMethodSymbol;
+      const parentKey = parent ? parent.key : null;
+      const key = {
+        prefix: SymbolKind.Method,
+        name,
+        path: this.getCurrentPath(),
+      };
 
-    // Create a new scope for all blocks
-    const scopeName = `block_${ctx.start.line}_${ctx.start.charPositionInLine}`;
-    this.symbolTable.enterScope(scopeName);
-    this.logger.info(`Entered block scope: ${scopeName}`);
+      const blockSymbol: ApexSymbol = {
+        name,
+        kind: SymbolKind.Method,
+        location,
+        modifiers,
+        parent,
+        key,
+        parentKey,
+      };
 
-    // Create a block symbol to represent this scope
-    const blockSymbol: ApexSymbol = {
-      name: scopeName,
-      kind: SymbolKind.Method, // Use Method kind to represent a block scope
-      location: this.getLocation(ctx),
-      modifiers: this.createDefaultModifiers(),
-      parent: this.currentMethodSymbol || this.currentTypeSymbol,
-    };
-
-    // Add block symbol to current scope
-    this.symbolTable.addSymbol(blockSymbol);
+      this.symbolTable.enterScope(name, 'block');
+      this.symbolTable.addSymbol(blockSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in block: ${errorMessage}`, ctx);
+    }
   }
 
   /**
@@ -891,39 +923,31 @@ export class ApexSymbolCollectorListener
     kind: SymbolKind.Property | SymbolKind.Variable | SymbolKind.EnumValue,
   ): void {
     try {
-      const name = ctx.id()?.text ?? 'unknown';
-      this.logger.info(
-        `Processing variable declarator: ${name}, kind: ${kind}, in scope: ${this.symbolTable.getCurrentScope().name}`,
-      );
-
-      // Check for duplicate variable declaration in current scope
-      const existingSymbol = this.symbolTable.findSymbolInCurrentScope(name);
-      if (existingSymbol) {
-        this.addError(`Duplicate variable declaration: ${name}`, ctx);
-        return;
-      }
-
-      // Get location
+      const name = ctx.id()?.text ?? 'unknownVariable';
       const location = this.getLocation(ctx);
+      const parent = this.currentTypeSymbol || this.currentMethodSymbol;
+      const parentKey = parent ? parent.key : null;
+      const key = {
+        prefix: kind,
+        name,
+        path: this.getCurrentPath(),
+      };
 
-      // Create variable symbol
       const variableSymbol: VariableSymbol = {
         name,
         kind,
         location,
         modifiers,
         type,
-        parent: this.currentMethodSymbol || this.currentTypeSymbol,
+        parent,
+        key,
+        parentKey,
       };
 
-      // Add to symbol table in the current scope (which could be a block scope)
       this.symbolTable.addSymbol(variableSymbol);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(
-        `Error processing variable declarator: ${errorMessage}`,
-        ctx,
-      );
+      this.addError(`Error in variable: ${errorMessage}`, ctx);
     }
   }
 
@@ -1008,20 +1032,15 @@ export class ApexSymbolCollectorListener
    * @returns true if the symbol is an inner class, false otherwise
    */
   private hasClassParent(symbol?: TypeSymbol | null): boolean {
-    // Use the provided symbol or fall back to current type symbol
-    const symbolToCheck = symbol || this.currentTypeSymbol;
-
-    // If no symbol to check, return false
-    if (!symbolToCheck) {
+    if (!symbol) {
       return false;
     }
-
-    // Get the parent of the symbol
-    const parent = symbolToCheck.parent;
-
-    // For inner class detection, we need to check if the parent exists
-    // and is a class (indicating that the symbolToCheck is an inner class)
-    return parent !== null && parent.kind === SymbolKind.Class;
+    const parent = symbol.parent;
+    return (
+      parent !== null &&
+      parent !== undefined &&
+      parent.kind === SymbolKind.Class
+    );
   }
 
   /**
@@ -1117,23 +1136,26 @@ export class ApexSymbolCollectorListener
     kind: SymbolKind.Class | SymbolKind.Interface | SymbolKind.Trigger,
     modifiers: SymbolModifiers,
   ): TypeSymbol {
-    this.logger.info(`Adding type symbol: ${name}, kind: ${kind}`);
+    const location = this.getLocation(ctx);
+    const parent = this.currentTypeSymbol;
+    const parentKey = parent ? parent.key : null;
+    const key = {
+      prefix: kind,
+      name,
+      path: this.getCurrentPath(),
+    };
+
     const typeSymbol: TypeSymbol = {
       name,
       kind,
-      location: this.getLocation(ctx),
+      location,
       modifiers,
       interfaces: [],
-      parent: this.currentTypeSymbol,
+      parent,
+      key,
+      parentKey,
       annotations: this.getCurrentAnnotations(),
     };
-
-    // Add the type symbol to the current scope
-    const currentScope = this.symbolTable.getCurrentScope();
-    currentScope.addSymbol(typeSymbol);
-    this.logger.info(
-      `Added type symbol: ${name} to scope: ${currentScope.name}`,
-    );
 
     return typeSymbol;
   }
@@ -1144,29 +1166,28 @@ export class ApexSymbolCollectorListener
     modifiers: SymbolModifiers,
     returnType: TypeInfo,
   ): MethodSymbol {
-    this.logger.info(
-      `Adding method symbol: ${name}, return type: ${returnType.name}`,
-    );
+    const location = this.getLocation(ctx);
+    const parent = this.currentTypeSymbol;
+    const parentKey = parent ? parent.key : null;
+    const key = {
+      prefix: SymbolKind.Method,
+      name,
+      path: this.getCurrentPath(),
+    };
+
     const methodSymbol: MethodSymbol = {
       name,
       kind: SymbolKind.Method,
-      location: this.getLocation(ctx),
+      location,
       modifiers,
       returnType,
       parameters: [],
-      parent: this.currentTypeSymbol,
+      parent,
+      key,
+      parentKey,
       isConstructor: false,
       annotations: this.getCurrentAnnotations(),
     };
-
-    // Add the method symbol to the current type scope
-    if (this.currentTypeSymbol) {
-      const typeScope = this.symbolTable.getCurrentScope();
-      typeScope.addSymbol(methodSymbol);
-      this.logger.info(
-        `Added method symbol: ${name} to scope: ${this.currentTypeSymbol.name}`,
-      );
-    }
 
     return methodSymbol;
   }
@@ -1177,28 +1198,37 @@ export class ApexSymbolCollectorListener
     kind: SymbolKind.Property | SymbolKind.Variable | SymbolKind.EnumValue,
     type: TypeInfo,
   ): VariableSymbol {
-    this.logger.info(
-      `Adding property symbol: ${name}, kind: ${kind}, type: ${type.name}`,
-    );
+    const location = this.getLocation(ctx);
+    const parent = this.currentTypeSymbol || this.currentMethodSymbol;
+    const parentKey = parent ? parent.key : null;
+    const key = {
+      prefix: kind,
+      name,
+      path: this.getCurrentPath(),
+    };
+
     const propertySymbol: VariableSymbol = {
       name,
       kind,
-      location: this.getLocation(ctx),
-      modifiers: this.createDefaultModifiers(),
+      location,
+      modifiers: this.getCurrentModifiers(),
       type,
-      parent: this.currentTypeSymbol,
+      parent,
+      key,
+      parentKey,
     };
 
-    // Add the property symbol to the current type scope
-    if (this.currentTypeSymbol) {
-      const typeScope = this.symbolTable.getCurrentScope();
-      typeScope.addSymbol(propertySymbol);
-      this.logger.info(
-        `Added property symbol: ${name} to scope: ${this.currentTypeSymbol.name}`,
-      );
-    }
-
     return propertySymbol;
+  }
+
+  private getCurrentPath(): string[] {
+    const path: string[] = [];
+    let current = this.currentTypeSymbol;
+    while (current) {
+      path.unshift(current.name);
+      current = current.parent as TypeSymbol | null;
+    }
+    return path;
   }
 
   /**
@@ -1221,6 +1251,9 @@ export class ApexSymbolCollectorListener
 
       // Store the current type symbol
       this.currentTypeSymbol = triggerSymbol;
+
+      // Add symbol to current scope
+      this.symbolTable.addSymbol(triggerSymbol);
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
@@ -1262,6 +1295,9 @@ export class ApexSymbolCollectorListener
 
       // Store the current type symbol
       this.currentTypeSymbol = triggerSymbol;
+
+      // Add symbol to current scope
+      this.symbolTable.addSymbol(triggerSymbol);
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
