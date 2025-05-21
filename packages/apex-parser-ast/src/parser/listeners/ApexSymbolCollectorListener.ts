@@ -442,9 +442,27 @@ export class ApexSymbolCollectorListener
       if (this.currentTypeSymbol) {
         const currentScope = this.symbolTable.getCurrentScope();
         const existingSymbols = currentScope.getAllSymbols();
-        const duplicateMethod = existingSymbols.find(
-          (s) => s.kind === SymbolKind.Method && s.name === name,
-        );
+
+        // Get the parameter types for the current method
+        const currentParamTypes =
+          ctx
+            .formalParameters()
+            ?.formalParameterList()
+            ?.formalParameter()
+            ?.map((param) => this.getTextFromContext(param.typeRef()))
+            .join(',') || '';
+
+        const duplicateMethod = existingSymbols.find((s) => {
+          if (s.kind !== SymbolKind.Method || s.name !== name) {
+            return false;
+          }
+          const methodSymbol = s as MethodSymbol;
+          const existingParamTypes =
+            methodSymbol.parameters
+              ?.map((param) => param.type.originalTypeString)
+              .join(',') || '';
+          return existingParamTypes === currentParamTypes;
+        });
 
         if (duplicateMethod) {
           this.addError(`Duplicate method declaration: ${name}`, ctx);
