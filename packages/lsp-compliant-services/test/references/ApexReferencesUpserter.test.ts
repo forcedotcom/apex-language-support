@@ -5,7 +5,6 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { DidOpenTextDocumentParams } from 'vscode-languageserver-protocol';
 import {
   CompilerService,
   ApexSymbolCollectorListener,
@@ -14,6 +13,8 @@ import {
   ErrorSeverity,
   ErrorType,
 } from '@salesforce/apex-lsp-parser-ast';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { DefaultApexReferencesUpserter } from '../../src/references/ApexReferencesUpserter';
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
@@ -94,31 +95,33 @@ describe('DefaultApexReferencesPopulator', () => {
 
   it('should populate references for new document', async () => {
     // Arrange
-    const params: DidOpenTextDocumentParams = {
-      textDocument: {
+    const event: TextDocumentChangeEvent<TextDocument> = {
+      document: {
         uri: 'file:///test.apex',
-        text: 'class TestClass {}',
+        getText: () => 'class TestClass {}',
         version: 1,
         languageId: 'apex',
+        positionAt: () => ({ line: 0, character: 0 }),
+        offsetAt: () => 0,
+        lineCount: 1,
       },
     };
 
     mockStorage.getDocument.mockResolvedValue(null);
     mockCompilerService.compile.mockReturnValue({
       errors: [],
-      fileName: params.textDocument.uri,
+      fileName: event.document.uri,
       result: null,
       warnings: [],
     });
 
     // Act
-    await upserter.upsertReferences(params, mockDocuments as any);
+    await upserter.upsertReferences(event);
 
     // Assert
-    expect(mockDocuments.get).toHaveBeenCalledWith(params.textDocument.uri);
     expect(mockCompilerService.compile).toHaveBeenCalledWith(
-      params.textDocument.text,
-      params.textDocument.uri,
+      event.document.getText(),
+      event.document.uri,
       mockListener,
     );
     expect(mockStorage.getReferences).toHaveBeenCalledWith('TestClass');
@@ -126,7 +129,7 @@ describe('DefaultApexReferencesPopulator', () => {
       'TestClass',
       expect.arrayContaining([
         expect.objectContaining({
-          sourceFile: params.textDocument.uri,
+          sourceFile: event.document.uri,
           targetSymbol: 'TestClass',
           line: 1,
           column: 0,
@@ -138,12 +141,15 @@ describe('DefaultApexReferencesPopulator', () => {
 
   it('should handle compilation errors', async () => {
     // Arrange
-    const params: DidOpenTextDocumentParams = {
-      textDocument: {
+    const event: TextDocumentChangeEvent<TextDocument> = {
+      document: {
         uri: 'file:///test.apex',
-        text: 'invalid code',
+        getText: () => 'invalid code',
         version: 1,
         languageId: 'apex',
+        positionAt: () => ({ line: 0, character: 0 }),
+        offsetAt: () => 0,
+        lineCount: 1,
       },
     };
 
@@ -158,16 +164,15 @@ describe('DefaultApexReferencesPopulator', () => {
           severity: ErrorSeverity.Error,
         },
       ],
-      fileName: params.textDocument.uri,
+      fileName: event.document.uri,
       result: null,
       warnings: [],
     });
 
     // Act
-    await upserter.upsertReferences(params, mockDocuments as any);
+    await upserter.upsertReferences(event);
 
     // Assert
-    expect(mockDocuments.get).toHaveBeenCalledWith(params.textDocument.uri);
     expect(mockCompilerService.compile).toHaveBeenCalled();
     expect(mockStorage.getReferences).not.toHaveBeenCalled();
     expect(mockStorage.setReferences).not.toHaveBeenCalled();
@@ -175,19 +180,22 @@ describe('DefaultApexReferencesPopulator', () => {
 
   it('should correctly store references in storage map', async () => {
     // Arrange
-    const params: DidOpenTextDocumentParams = {
-      textDocument: {
+    const event: TextDocumentChangeEvent<TextDocument> = {
+      document: {
         uri: 'file:///test.apex',
-        text: 'class TestClass { void testMethod() { TestClass t; } }',
+        getText: () => 'class TestClass { void testMethod() { TestClass t; } }',
         version: 1,
         languageId: 'apex',
+        positionAt: () => ({ line: 0, character: 0 }),
+        offsetAt: () => 0,
+        lineCount: 1,
       },
     };
 
     mockStorage.getDocument.mockResolvedValue(null);
     mockCompilerService.compile.mockReturnValue({
       errors: [],
-      fileName: params.textDocument.uri,
+      fileName: event.document.uri,
       result: null,
       warnings: [],
     });
@@ -212,7 +220,7 @@ describe('DefaultApexReferencesPopulator', () => {
     } as unknown as SymbolScope);
 
     // Act
-    await upserter.upsertReferences(params, mockDocuments as any);
+    await upserter.upsertReferences(event);
 
     // Assert
     expect(mockStorage.setReferences).toHaveBeenCalledTimes(2);
@@ -222,7 +230,7 @@ describe('DefaultApexReferencesPopulator', () => {
       'TestClass',
       expect.arrayContaining([
         expect.objectContaining({
-          sourceFile: params.textDocument.uri,
+          sourceFile: event.document.uri,
           targetSymbol: 'TestClass',
           line: 1,
           column: 0,
@@ -236,7 +244,7 @@ describe('DefaultApexReferencesPopulator', () => {
       'testMethod',
       expect.arrayContaining([
         expect.objectContaining({
-          sourceFile: params.textDocument.uri,
+          sourceFile: event.document.uri,
           targetSymbol: 'testMethod',
           line: 1,
           column: 20,

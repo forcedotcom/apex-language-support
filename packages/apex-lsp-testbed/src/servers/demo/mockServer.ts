@@ -182,7 +182,6 @@ export class ApexLanguageServerMock {
       // Ensure client is stopped
       try {
         await this.client.stop();
-        
       } catch (_) {
         // Ignore errors during shutdown
       }

@@ -6,11 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  DidChangeTextDocumentParams,
-  TextDocumentContentChangeEvent,
-  TextDocuments,
-} from 'vscode-languageserver';
+import { TextDocumentChangeEvent, TextDocuments } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
@@ -78,139 +74,144 @@ describe('DidChangeDocumentHandler', () => {
 
   describe('processOnChangeDocument', () => {
     it('should log info message with document change params', async () => {
-      const params: DidChangeTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
           version: 2,
+          languageId: 'apex',
+          getText: () => 'test content',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
-        contentChanges: [
-          {
-            text: 'test content',
-          },
-        ],
       };
 
       mockDocuments.get.mockReturnValue(undefined);
 
-      await processOnChangeDocument(params, mockDocuments as any);
+      await processOnChangeDocument(event);
 
       expect(mockLogger.info).toHaveBeenCalledTimes(1);
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server change document handler invoked with: ${params}`,
+        `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });
 
     it('should log when document already exists', async () => {
-      const params: DidChangeTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
           version: 2,
+          languageId: 'apex',
+          getText: () => 'test content',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
-        contentChanges: [
-          {
-            text: 'test content',
-          },
-        ],
       };
 
-      const existingDoc = { uri: params.textDocument.uri } as TextDocument;
+      const existingDoc = { uri: event.document.uri } as TextDocument;
       mockDocuments.get.mockReturnValue(existingDoc);
 
-      await processOnChangeDocument(params, mockDocuments as any);
+      await processOnChangeDocument(event);
 
       expect(mockLogger.info).toHaveBeenCalledTimes(1);
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server change document handler invoked with: ${params}`,
+        `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });
 
     it('should handle empty content changes', async () => {
-      const params: DidChangeTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
           version: 1,
+          languageId: 'apex',
+          getText: () => 'test content',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
-        contentChanges: [],
       };
 
       mockDocuments.get.mockReturnValue(undefined);
 
-      await processOnChangeDocument(params, mockDocuments as any);
+      await processOnChangeDocument(event);
 
       expect(mockLogger.info).toHaveBeenCalledTimes(1);
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server change document handler invoked with: ${params}`,
+        `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });
 
     it('should handle multiple content changes', async () => {
-      const params: DidChangeTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
           version: 1,
+          languageId: 'apex',
+          getText: () => 'test content',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
-        contentChanges: [
-          {
-            text: 'first change',
-          } as TextDocumentContentChangeEvent,
-          {
-            text: 'second change',
-          } as TextDocumentContentChangeEvent,
-        ],
       };
 
       mockDocuments.get.mockReturnValue(undefined);
 
-      await processOnChangeDocument(params, mockDocuments as any);
+      await processOnChangeDocument(event);
 
       expect(mockLogger.info).toHaveBeenCalledTimes(1);
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server change document handler invoked with: ${params}`,
+        `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });
   });
 
   describe('dispatchProcessOnChangeDocument', () => {
     it('should dispatch processOnChangeDocument with correct params', () => {
-      const params: DidChangeTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
           version: 1,
+          languageId: 'apex',
+          getText: () => 'test content',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
-        contentChanges: [
-          {
-            text: 'test content',
-          } as TextDocumentContentChangeEvent,
-        ],
       };
 
-      dispatchProcessOnChangeDocument(params, mockDocuments as any);
+      dispatchProcessOnChangeDocument(event);
 
       expect(mockDispatch).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(
-        processOnChangeDocument(params, mockDocuments as any),
+        processOnChangeDocument(event),
         'Error processing document change',
       );
     });
 
     it('should handle dispatch error', async () => {
-      const params: DidChangeTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
           version: 1,
+          languageId: 'apex',
+          getText: () => 'test content',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
-        contentChanges: [],
       };
 
       const error = new Error('Test error');
       mockDispatch.mockRejectedValueOnce(error);
 
-      await expect(
-        dispatchProcessOnChangeDocument(params, mockDocuments as any),
-      ).rejects.toThrow(error);
+      await expect(dispatchProcessOnChangeDocument(event)).rejects.toThrow(
+        error,
+      );
       expect(mockDispatch).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(
-        processOnChangeDocument(params, mockDocuments as any),
+        processOnChangeDocument(event),
         'Error processing document change',
       );
     });

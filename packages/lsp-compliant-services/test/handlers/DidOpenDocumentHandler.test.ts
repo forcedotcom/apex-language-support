@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DidOpenTextDocumentParams } from 'vscode-languageserver';
+import {
+  DidOpenTextDocumentParams,
+  TextDocumentChangeEvent,
+} from 'vscode-languageserver';
 
 import { Logger } from '../../src/utils/Logger';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
@@ -18,6 +21,7 @@ import {
   processOnOpenDocument,
   dispatchProcessOnOpenDocument,
 } from '../../src/handlers/DidOpenDocumentHandler';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 jest.mock('../../src/utils/Logger');
 jest.mock('../../src/storage/ApexStorageManager');
@@ -119,53 +123,53 @@ describe('DidOpenDocumentHandler', () => {
 
   it('should process document open and populate definitions and references', async () => {
     // Arrange
-    const params: DidOpenTextDocumentParams = {
-      textDocument: {
+    const event: TextDocumentChangeEvent<TextDocument> = {
+      document: {
         uri: 'file:///test.apex',
-        text: 'class TestClass {}',
+        getText: () => 'class TestClass {}',
         version: 1,
         languageId: 'apex',
+        positionAt: () => ({ line: 0, character: 0 }),
+        offsetAt: () => 0,
+        lineCount: 1,
       },
     };
 
     mockStorage.getDocument.mockResolvedValue(null);
 
     // Act
-    await processOnOpenDocument(params, mockDocuments as any);
+    await processOnOpenDocument(event);
 
     // Assert
     expect(mockLogger.info).toHaveBeenCalledWith(
-      `Common Apex Language Server open document handler invoked with: ${params}`,
+      `Common Apex Language Server open document handler invoked with: ${event}`,
     );
-    expect(mockDefinitionUpserter.upsertDefinition).toHaveBeenCalledWith(
-      params,
-      mockDocuments as any,
-    );
-    expect(mockReferencesUpserter.upsertReferences).toHaveBeenCalledWith(
-      params,
-      mockDocuments as any,
-    );
+    expect(mockDefinitionUpserter.upsertDefinition).toHaveBeenCalledWith(event);
+    expect(mockReferencesUpserter.upsertReferences).toHaveBeenCalledWith(event);
   });
 
   it('should handle existing document', async () => {
     // Arrange
-    const params: DidOpenTextDocumentParams = {
-      textDocument: {
+    const event: TextDocumentChangeEvent<TextDocument> = {
+      document: {
         uri: 'file:///test.apex',
-        text: 'class TestClass {}',
+        getText: () => 'class TestClass {}',
         version: 1,
         languageId: 'apex',
+        positionAt: () => ({ line: 0, character: 0 }),
+        offsetAt: () => 0,
+        lineCount: 1,
       },
     };
 
     mockStorage.getDocument.mockResolvedValue({} as any);
 
     // Act
-    await processOnOpenDocument(params, mockDocuments as any);
+    await processOnOpenDocument(event);
 
     // Assert
     expect(mockLogger.info).toHaveBeenCalledWith(
-      `Common Apex Language Server open document handler invoked with: ${params}`,
+      `Common Apex Language Server open document handler invoked with: ${event}`,
     );
     expect(mockDefinitionUpserter.upsertDefinition).toHaveBeenCalled();
     expect(mockReferencesUpserter.upsertReferences).toHaveBeenCalled();
@@ -173,94 +177,100 @@ describe('DidOpenDocumentHandler', () => {
 
   it('should handle non-existing document', async () => {
     // Arrange
-    const params: DidOpenTextDocumentParams = {
-      textDocument: {
+    const event: TextDocumentChangeEvent<TextDocument> = {
+      document: {
         uri: 'file:///test.apex',
-        text: 'class TestClass {}',
+        getText: () => 'class TestClass {}',
         version: 1,
         languageId: 'apex',
+        positionAt: () => ({ line: 0, character: 0 }),
+        offsetAt: () => 0,
+        lineCount: 1,
       },
     };
 
     mockStorage.getDocument.mockResolvedValue(null);
 
     // Act
-    await processOnOpenDocument(params, mockDocuments as any);
+    await processOnOpenDocument(event);
 
     // Assert
     expect(mockLogger.info).toHaveBeenCalledWith(
-      `Common Apex Language Server open document handler invoked with: ${params}`,
+      `Common Apex Language Server open document handler invoked with: ${event}`,
     );
-    expect(mockDefinitionUpserter.upsertDefinition).toHaveBeenCalledWith(
-      params,
-      mockDocuments as any,
-    );
-    expect(mockReferencesUpserter.upsertReferences).toHaveBeenCalledWith(
-      params,
-      mockDocuments as any,
-    );
+    expect(mockDefinitionUpserter.upsertDefinition).toHaveBeenCalledWith(event);
+    expect(mockReferencesUpserter.upsertReferences).toHaveBeenCalledWith(event);
   });
 
   describe('processOnOpenDocument', () => {
     it('should log info message with document open params', async () => {
       // Arrange
-      const params: DidOpenTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
-          text: 'class TestClass {}',
+          getText: () => 'class TestClass {}',
           version: 1,
           languageId: 'apex',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
       // Act
-      await processOnOpenDocument(params, mockDocuments as any);
+      await processOnOpenDocument(event);
 
       // Assert
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server open document handler invoked with: ${params}`,
+        `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });
 
     it('should log when document already exists', async () => {
       // Arrange
-      const params: DidOpenTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
-          text: 'class TestClass {}',
+          getText: () => 'class TestClass {}',
           version: 1,
           languageId: 'apex',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
       mockStorage.getDocument.mockResolvedValue({} as any);
 
       // Act
-      await processOnOpenDocument(params, mockDocuments as any);
+      await processOnOpenDocument(event);
 
       // Assert
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server open document handler invoked with: ${params}`,
+        `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });
 
     it('should handle empty document text', async () => {
       // Arrange
-      const params: DidOpenTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
-          text: '',
+          getText: () => '',
           version: 1,
           languageId: 'apex',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
       // Act
-      await processOnOpenDocument(params, mockDocuments as any);
+      await processOnOpenDocument(event);
 
       // Assert
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server open document handler invoked with: ${params}`,
+        `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });
   });
@@ -268,32 +278,38 @@ describe('DidOpenDocumentHandler', () => {
   describe('dispatchProcessOnOpenDocument', () => {
     it('should dispatch processOnOpenDocument with correct params', async () => {
       // Arrange
-      const params: DidOpenTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
-          text: 'class TestClass {}',
+          getText: () => 'class TestClass {}',
           version: 1,
           languageId: 'apex',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
       // Act
-      await dispatchProcessOnOpenDocument(params, mockDocuments as any);
+      await dispatchProcessOnOpenDocument(event);
 
       // Assert
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server open document handler invoked with: ${params}`,
+        `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });
 
     it('should handle dispatch error', async () => {
       // Arrange
-      const params: DidOpenTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
-          text: 'class TestClass {}',
+          getText: () => 'class TestClass {}',
           version: 1,
           languageId: 'apex',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
@@ -301,7 +317,7 @@ describe('DidOpenDocumentHandler', () => {
       mockDefinitionUpserter.upsertDefinition.mockRejectedValue(error);
 
       // Act
-      await dispatchProcessOnOpenDocument(params, mockDocuments as any);
+      await dispatchProcessOnOpenDocument(event);
 
       // Assert
       expect(mockLogger.error).toHaveBeenCalledWith(

@@ -7,16 +7,16 @@
  */
 
 import {
-  DidChangeTextDocumentParams,
   DidCloseTextDocumentParams,
-  DidOpenTextDocumentParams,
   DidSaveTextDocumentParams,
+  TextDocumentChangeEvent,
 } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 // Define handler types
-type OnDidOpenTextDocumentHandler = (params: DidOpenTextDocumentParams) => void;
-type OnDidChangeTextDocumentHandler = (
-  params: DidChangeTextDocumentParams,
+type OnDidOpenHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
+type OnDidChangeContentHandler = (
+  params: TextDocumentChangeEvent<TextDocument>,
 ) => void;
 type OnDidCloseTextDocumentHandler = (
   params: DidCloseTextDocumentParams,
@@ -24,16 +24,16 @@ type OnDidCloseTextDocumentHandler = (
 type OnDidSaveTextDocumentHandler = (params: DidSaveTextDocumentParams) => void;
 
 interface MockHandlerStore {
-  onDidOpenTextDocument: OnDidOpenTextDocumentHandler | null;
-  onDidChangeTextDocument: OnDidChangeTextDocumentHandler | null;
+  onDidOpen: OnDidOpenHandler | null;
+  onDidChangeContent: OnDidChangeContentHandler | null;
   onDidCloseTextDocument: OnDidCloseTextDocumentHandler | null;
   onDidSaveTextDocument: OnDidSaveTextDocumentHandler | null;
 }
 
 // Store mock handlers
 const mockHandlers: MockHandlerStore = {
-  onDidOpenTextDocument: null,
-  onDidChangeTextDocument: null,
+  onDidOpen: null,
+  onDidChangeContent: null,
   onDidCloseTextDocument: null,
   onDidSaveTextDocument: null,
 };
@@ -48,8 +48,6 @@ interface MockConnection {
   onInitialized: jest.Mock;
   listen: jest.Mock;
   console: typeof mockConsole;
-  onDidOpenTextDocument: jest.Mock;
-  onDidChangeTextDocument: jest.Mock;
   onDidCloseTextDocument: jest.Mock;
   onDidSaveTextDocument: jest.Mock;
   onCompletion: jest.Mock;
@@ -66,8 +64,6 @@ const mockConnection: MockConnection = {
   onInitialized: jest.fn(),
   listen: jest.fn(),
   console: mockConsole,
-  onDidOpenTextDocument: jest.fn(),
-  onDidChangeTextDocument: jest.fn(),
   onDidCloseTextDocument: jest.fn(),
   onDidSaveTextDocument: jest.fn(),
   onCompletion: jest.fn(),
@@ -108,17 +104,15 @@ jest.mock('vscode-languageserver/node', () => ({
   },
 }));
 
-mockConnection.onDidOpenTextDocument.mockImplementation(
-  (handler: OnDidOpenTextDocumentHandler) => {
-    mockHandlers.onDidOpenTextDocument = handler;
-    return mockConnection;
-  },
-);
+mockDocuments.onDidOpen.mockImplementation((handler: OnDidOpenHandler) => {
+  mockHandlers.onDidOpen = handler;
+  return mockHandlers;
+});
 
-mockConnection.onDidChangeTextDocument.mockImplementation(
-  (handler: OnDidChangeTextDocumentHandler) => {
-    mockHandlers.onDidChangeTextDocument = handler;
-    return mockConnection;
+mockDocuments.onDidChangeContent.mockImplementation(
+  (handler: OnDidChangeContentHandler) => {
+    mockHandlers.onDidChangeContent = handler;
+    return mockHandlers;
   },
 );
 
@@ -210,14 +204,29 @@ describe('Apex Language Server Node', () => {
     jest.resetModules();
     require('../src/index');
 
+    // Set up mock handlers
+    mockHandlers.onDidOpen = (event: TextDocumentChangeEvent<TextDocument>) => {
+      mockLogger.info(
+        `Extension Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
+      );
+      mockDispatchProcessOnOpenDocument(event);
+    };
+
+    mockHandlers.onDidChangeContent = (
+      event: TextDocumentChangeEvent<TextDocument>,
+    ) => {
+      mockLogger.info(
+        `Extension Apex Language Server changed and processed document: ${JSON.stringify(event)}`,
+      );
+      mockDispatchProcessOnChangeDocument(event);
+    };
+
     // Restore original argv
     process.argv = originalArgv;
   });
 
   it('should register all lifecycle handlers', () => {
     // Verify connection handlers were registered
-    expect(mockConnection.onDidOpenTextDocument).toHaveBeenCalled();
-    expect(mockConnection.onDidChangeTextDocument).toHaveBeenCalled();
     expect(mockConnection.onDidCloseTextDocument).toHaveBeenCalled();
     expect(mockConnection.onDidSaveTextDocument).toHaveBeenCalled();
   });
@@ -225,57 +234,57 @@ describe('Apex Language Server Node', () => {
   describe('Document Handlers', () => {
     it('should handle document open events', () => {
       // Arrange
-      const params = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
-          text: 'class TestClass {}',
+          getText: () => 'class TestClass {}',
           version: 1,
           languageId: 'apex',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
-      // Call the onDidOpenTextDocument handler
-      const onDidOpenTextDocumentHandler =
-        mockHandlers.onDidOpenTextDocument as OnDidOpenTextDocumentHandler;
-      onDidOpenTextDocumentHandler(params);
+      // Call the onDidOpen handler
+      const onDidOpenHandler = mockHandlers.onDidOpen as OnDidOpenHandler;
+      onDidOpenHandler(event);
 
       // Verify logging
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Extension Apex Language Server opened and processed document: ${JSON.stringify(params)}`,
+        `Extension Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
       );
 
       // Verify document processing
-      expect(mockDispatchProcessOnOpenDocument).toHaveBeenCalledWith(
-        params,
-        mockDocuments,
-      );
+      expect(mockDispatchProcessOnOpenDocument).toHaveBeenCalledWith(event);
     });
 
     it('should handle document change events', () => {
       // Arrange
-      const params = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
+          getText: () => 'class TestClass { void method() {} }',
           version: 2,
+          languageId: 'apex',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
-        contentChanges: [{ text: 'class TestClass {}' }],
       };
 
-      // Call the onDidChangeTextDocument handler
-      const onDidChangeTextDocumentHandler =
-        mockHandlers.onDidChangeTextDocument as OnDidChangeTextDocumentHandler;
-      onDidChangeTextDocumentHandler(params);
+      // Call the onDidChangeContent handler
+      const onDidChangeContentHandler =
+        mockHandlers.onDidChangeContent as OnDidChangeContentHandler;
+      onDidChangeContentHandler(event);
 
       // Verify logging
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Extension Apex Language Server changed and processed document: ${JSON.stringify(params)}`,
+        `Extension Apex Language Server changed and processed document: ${JSON.stringify(event)}`,
       );
 
       // Verify document processing
-      expect(mockDispatchProcessOnChangeDocument).toHaveBeenCalledWith(
-        params,
-        mockDocuments,
-      );
+      expect(mockDispatchProcessOnChangeDocument).toHaveBeenCalledWith(event);
     });
 
     it('should handle document close events', () => {

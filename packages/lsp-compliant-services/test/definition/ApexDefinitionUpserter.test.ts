@@ -5,7 +5,6 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { DidOpenTextDocumentParams } from 'vscode-languageserver-protocol';
 import {
   CompilerService,
   ApexSymbolCollectorListener,
@@ -14,6 +13,8 @@ import {
   ErrorType,
   ErrorSeverity,
 } from '@salesforce/apex-lsp-parser-ast';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { DefaultApexDefinitionUpserter } from '../../src/definition/ApexDefinitionUpserter';
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
@@ -93,12 +94,15 @@ describe('DefaultApexDefinitionPopulator', () => {
 
   it('should populate definitions for new document', async () => {
     // Arrange
-    const params: DidOpenTextDocumentParams = {
-      textDocument: {
+    const event: TextDocumentChangeEvent<TextDocument> = {
+      document: {
         uri: 'file:///test.apex',
-        text: 'class TestClass {}',
+        getText: () => 'class TestClass {}',
         version: 1,
         languageId: 'apex',
+        positionAt: () => ({ line: 0, character: 0 }),
+        offsetAt: () => 0,
+        lineCount: 1,
       },
     };
 
@@ -111,19 +115,18 @@ describe('DefaultApexDefinitionPopulator', () => {
     });
 
     // Act
-    await populator.upsertDefinition(params, mockDocuments as any);
+    await populator.upsertDefinition(event);
 
     // Assert
-    expect(mockDocuments.get).toHaveBeenCalledWith(params.textDocument.uri);
     expect(mockCompilerService.compile).toHaveBeenCalledWith(
-      params.textDocument.text,
-      params.textDocument.uri,
+      event.document.getText(),
+      event.document.uri,
       mockListener,
     );
     expect(mockStorage.setDefinition).toHaveBeenCalledWith(
       'TestClass',
       expect.objectContaining({
-        sourceFile: params.textDocument.uri,
+        sourceFile: event.document.uri,
         targetSymbol: 'TestClass',
         line: 1,
         column: 0,
@@ -134,12 +137,15 @@ describe('DefaultApexDefinitionPopulator', () => {
 
   it('should handle compilation errors', async () => {
     // Arrange
-    const params: DidOpenTextDocumentParams = {
-      textDocument: {
+    const event: TextDocumentChangeEvent<TextDocument> = {
+      document: {
         uri: 'file:///test.apex',
-        text: 'invalid code',
+        getText: () => 'invalid code',
         version: 1,
         languageId: 'apex',
+        positionAt: () => ({ line: 0, character: 0 }),
+        offsetAt: () => 0,
+        lineCount: 1,
       },
     };
 
@@ -160,29 +166,31 @@ describe('DefaultApexDefinitionPopulator', () => {
     });
 
     // Act
-    await populator.upsertDefinition(params, mockDocuments as any);
+    await populator.upsertDefinition(event);
 
     // Assert
-    expect(mockDocuments.get).toHaveBeenCalledWith(params.textDocument.uri);
     expect(mockCompilerService.compile).toHaveBeenCalled();
     expect(mockStorage.setDefinition).not.toHaveBeenCalled();
   });
 
   it('should correctly store definitions in storage map', async () => {
     // Arrange
-    const params: DidOpenTextDocumentParams = {
-      textDocument: {
+    const event: TextDocumentChangeEvent<TextDocument> = {
+      document: {
         uri: 'file:///test.apex',
-        text: 'class TestClass { void testMethod() { } }',
+        getText: () => 'class TestClass { void testMethod() { } }',
         version: 1,
         languageId: 'apex',
+        positionAt: () => ({ line: 0, character: 0 }),
+        offsetAt: () => 0,
+        lineCount: 1,
       },
     };
 
     mockStorage.getDocument.mockResolvedValue(null);
     mockCompilerService.compile.mockReturnValue({
       errors: [],
-      fileName: params.textDocument.uri,
+      fileName: event.document.uri,
       result: null,
       warnings: [],
     });
@@ -207,7 +215,7 @@ describe('DefaultApexDefinitionPopulator', () => {
     } as unknown as SymbolScope);
 
     // Act
-    await populator.upsertDefinition(params, mockDocuments as any);
+    await populator.upsertDefinition(event);
 
     // Assert
     expect(mockStorage.setDefinition).toHaveBeenCalledTimes(2);
@@ -216,7 +224,7 @@ describe('DefaultApexDefinitionPopulator', () => {
     expect(mockStorage.setDefinition).toHaveBeenCalledWith(
       'TestClass',
       expect.objectContaining({
-        sourceFile: params.textDocument.uri,
+        sourceFile: event.document.uri,
         targetSymbol: 'TestClass',
         line: 1,
         column: 0,
@@ -228,7 +236,7 @@ describe('DefaultApexDefinitionPopulator', () => {
     expect(mockStorage.setDefinition).toHaveBeenCalledWith(
       'testMethod',
       expect.objectContaining({
-        sourceFile: params.textDocument.uri,
+        sourceFile: event.document.uri,
         targetSymbol: 'testMethod',
         line: 1,
         column: 20,

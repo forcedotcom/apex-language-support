@@ -14,13 +14,12 @@ import {
   InitializedNotification,
   MessageType,
   Connection,
-  DidChangeTextDocumentParams,
   DidCloseTextDocumentParams,
-  DidOpenTextDocumentParams,
   DidSaveTextDocumentParams,
   DocumentSymbolParams,
   createServerSocketTransport,
   TextDocuments,
+  TextDocumentChangeEvent,
 } from 'vscode-languageserver/node';
 import {
   dispatchProcessOnChangeDocument,
@@ -81,12 +80,18 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
   // TODO: Add startup tasks here if needed
   return {
     capabilities: {
-      textDocumentSync: 1, // Full synchronization
+      textDocumentSync: {
+        openClose: true,
+        change: 1, // Full text document sync
+        save: true,
+        willSave: false, // Enable willSave support
+        willSaveWaitUntil: false, // Enable willSaveWaitUntil support
+      },
       completionProvider: {
-        resolveProvider: true,
+        resolveProvider: false,
         triggerCharacters: ['.'],
       },
-      hoverProvider: true,
+      hoverProvider: false,
       documentSymbolProvider: true,
     },
   };
@@ -151,24 +156,24 @@ connection.onExit(() => {
 connection.listen();
 
 // Notifications
-connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
+documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client opened a document
   // Server will parse the document and populate the corresponding local maps
   logger.info(
-    `Extension Apex Language Server opened and processed document: ${JSON.stringify(params)}`,
+    `Extension Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
   );
 
-  dispatchProcessOnOpenDocument(params, documents);
+  dispatchProcessOnOpenDocument(event);
 });
 
-connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
+documents.onDidChangeContent((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client changed a open document
   // Server will parse the document and populate the corresponding local maps
   logger.info(
-    `Extension Apex Language Server changed and processed document: ${JSON.stringify(params)}`,
+    `Extension Apex Language Server changed and processed document: ${JSON.stringify(event)}`,
   );
 
-  dispatchProcessOnChangeDocument(params, documents);
+  dispatchProcessOnChangeDocument(event);
 });
 
 connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {

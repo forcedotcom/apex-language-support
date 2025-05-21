@@ -7,15 +7,11 @@
  */
 
 import {
-  DidChangeTextDocumentParams,
-  DidOpenTextDocumentParams,
-} from 'vscode-languageserver-protocol';
-import {
   CompilerService,
   ApexSymbolCollectorListener,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
-import { TextDocuments } from 'vscode-languageserver';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import {
@@ -31,10 +27,7 @@ export interface ApexReferencesUpserter {
    * Upserts the references for the given document
    * @param params DidOpenTextDocumentParams
    */
-  upsertReferences(
-    params: DidOpenTextDocumentParams | DidChangeTextDocumentParams,
-    documents: TextDocuments<TextDocument>,
-  ): Promise<void>;
+  upsertReferences(event: TextDocumentChangeEvent<TextDocument>): Promise<void>;
 }
 
 /**
@@ -52,12 +45,11 @@ export class DefaultApexReferencesUpserter implements ApexReferencesUpserter {
    * @param params DidOpenTextDocumentParams
    */
   async upsertReferences(
-    params: DidOpenTextDocumentParams | DidChangeTextDocumentParams,
-    documents: TextDocuments<TextDocument>,
+    event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<void> {
     try {
-      const documentUri = params.textDocument.uri;
-      const document = documents.get(documentUri);
+      const documentUri = event.document.uri;
+      const document = event.document;
 
       if (!document) {
         console.error('Document not found:', documentUri);

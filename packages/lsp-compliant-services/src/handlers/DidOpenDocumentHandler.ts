@@ -5,10 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import {
-  DidOpenTextDocumentParams,
-  TextDocuments,
-} from 'vscode-languageserver';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { Logger } from '../utils/Logger';
@@ -19,26 +16,25 @@ import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpser
 
 // Visible for testing
 export const processOnOpenDocument = async (
-  params: DidOpenTextDocumentParams,
-  documents: TextDocuments<TextDocument>,
+  event: TextDocumentChangeEvent<TextDocument>,
 ): Promise<void> => {
   // Client opened a document
   const logger = Logger.getInstance();
   logger.info(
-    `Common Apex Language Server open document handler invoked with: ${params}`,
+    `Common Apex Language Server open document handler invoked with: ${event}`,
   );
 
   // Get the storage manager instance
   const storageManager = ApexStorageManager.getInstance();
   const storage = storageManager.getStorage();
 
-  const document = documents.get(params.textDocument.uri);
+  const document = event.document;
   // Set the document in the storage
   // Document is currently being used by DocumentSymbolProvider
   if (!document) {
-    logger.error(`Document not found for URI: ${params.textDocument.uri}`);
+    logger.error(`Document not found for URI: ${event.document.uri}`);
   } else {
-    await storage.setDocument(params.textDocument.uri, document);
+    await storage.setDocument(event.document.uri, document);
   }
 
   // Create the definition provider
@@ -46,16 +42,11 @@ export const processOnOpenDocument = async (
   const referencesUpserter = new DefaultApexReferencesUpserter(storage);
 
   // Upsert the definitions
-  await definitionUpserter.upsertDefinition(params, documents);
+  await definitionUpserter.upsertDefinition(event);
   // Upsert the references
-  await referencesUpserter.upsertReferences(params, documents);
+  await referencesUpserter.upsertReferences(event);
 };
 
 export const dispatchProcessOnOpenDocument = (
-  params: DidOpenTextDocumentParams,
-  documents: TextDocuments<TextDocument>,
-) =>
-  dispatch(
-    processOnOpenDocument(params, documents),
-    'Error processing document open',
-  );
+  event: TextDocumentChangeEvent<TextDocument>,
+) => dispatch(processOnOpenDocument(event), 'Error processing document open');

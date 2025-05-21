@@ -12,9 +12,7 @@ import {
   BrowserMessageReader,
   BrowserMessageWriter,
   CompletionItem,
-  DidChangeTextDocumentParams,
   DidCloseTextDocumentParams,
-  DidOpenTextDocumentParams,
   DidSaveTextDocumentParams,
   Hover,
   InitializedNotification,
@@ -23,8 +21,7 @@ import {
   MessageType,
   TextDocumentPositionParams,
   TextDocuments,
-  WillSaveTextDocumentParams,
-  TextEdit,
+  TextDocumentChangeEvent,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -68,13 +65,13 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
         openClose: true,
         change: 1, // Full text document sync
         save: true,
-        willSave: true, // Enable willSave support
-        willSaveWaitUntil: true, // Enable willSaveWaitUntil support
+        willSave: false, // Enable willSave support
+        willSaveWaitUntil: false, // Enable willSaveWaitUntil support
       },
       completionProvider: {
-        resolveProvider: true,
+        resolveProvider: false,
       },
-      hoverProvider: true,
+      hoverProvider: false,
     },
   };
 });
@@ -145,24 +142,24 @@ const storageManager = ApexStorageManager.getInstance({
 storageManager.initialize();
 
 // Notifications
-connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
+documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client opened a document
   // Server will parse the document and populate the corresponding local maps
   logger.info(
-    `Web Apex Language Server opened and processed document: ${JSON.stringify(params)}`,
+    `Web Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
   );
 
-  dispatchProcessOnOpenDocument(params, documents);
+  dispatchProcessOnOpenDocument(event);
 });
 
-connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
+documents.onDidChangeContent((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client changed a open document
   // Server will parse the document and populate the corresponding local maps
   logger.info(
-    `Web Apex Language Server changed and processed document: ${JSON.stringify(params)}`,
+    `Web Apex Language Server changed and processed document: ${JSON.stringify(event)}`,
   );
 
-  dispatchProcessOnChangeDocument(params, documents);
+  dispatchProcessOnChangeDocument(event);
 });
 
 connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
@@ -174,33 +171,6 @@ connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
 
   dispatchProcessOnCloseDocument(params);
 });
-
-// Handle will save notification
-connection.onWillSaveTextDocument((params: WillSaveTextDocumentParams) => {
-  // Client is about to save a document
-  // Server can perform any necessary pre-save operations
-  connection.console.info(
-    `Web Apex Language Server will save document: ${params}`,
-  );
-});
-
-// Handle will save wait until request
-connection.onWillSaveTextDocumentWaitUntil(
-  async (params: WillSaveTextDocumentParams): Promise<TextEdit[]> => {
-    // Client is about to save a document and waiting for any edits
-    // Server can return edits that will be applied before saving
-    connection.console.info(
-      `Web Apex Language Server will save wait until document: ${params}`,
-    );
-
-    // Example: Return an empty array of edits
-    // In a real implementation, you might want to:
-    // 1. Format the document
-    // 2. Fix common issues
-    // 3. Apply any necessary transformations
-    return [];
-  },
-);
 
 connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
   // Client saved a document
