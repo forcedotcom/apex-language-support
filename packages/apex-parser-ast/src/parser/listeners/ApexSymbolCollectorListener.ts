@@ -25,6 +25,7 @@ import {
   TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
@@ -64,6 +65,7 @@ export class ApexSymbolCollectorListener
   extends BaseApexParserListener<SymbolTable>
   implements ErrorReporter
 {
+  private readonly logger;
   private symbolTable: SymbolTable;
   private currentTypeSymbol: TypeSymbol | null = null;
   private currentMethodSymbol: MethodSymbol | null = null;
@@ -80,6 +82,7 @@ export class ApexSymbolCollectorListener
    */
   constructor(symbolTable?: SymbolTable) {
     super();
+    this.logger = getLogger();
     this.symbolTable = symbolTable || new SymbolTable();
     // Initialize the file scope
     this.symbolTable.enterScope('file');
@@ -226,7 +229,7 @@ export class ApexSymbolCollectorListener
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownClass';
-      console.log(`Entering class declaration: ${name}`);
+      this.logger.debug(`Entering class declaration: ${name}`);
 
       // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
@@ -300,7 +303,7 @@ export class ApexSymbolCollectorListener
 
       // Enter class scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered class scope: ${name}`);
+      this.logger.debug(`Entered class scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -316,7 +319,7 @@ export class ApexSymbolCollectorListener
   exitClassDeclaration(): void {
     // Exit the class scope
     const currentScope = this.symbolTable.getCurrentScope();
-    console.log(`Exiting class scope: ${currentScope.name}`);
+    this.logger.debug(`Exiting class scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
 
     // Clear current type symbol
@@ -329,7 +332,7 @@ export class ApexSymbolCollectorListener
   enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownInterface';
-      console.log(`Entering interface declaration: ${name}`);
+      this.logger.debug(`Entering interface declaration: ${name}`);
 
       // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
@@ -376,7 +379,7 @@ export class ApexSymbolCollectorListener
 
       // Enter interface scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered interface scope: ${name}`);
+      this.logger.debug(`Entered interface scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -403,7 +406,7 @@ export class ApexSymbolCollectorListener
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownMethod';
-      console.log(
+      this.logger.debug(
         `Entering method declaration: ${name} in class: ${this.currentTypeSymbol?.name}`,
       );
 
@@ -489,7 +492,7 @@ export class ApexSymbolCollectorListener
 
       // Enter method scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered method scope: ${name}`);
+      this.logger.debug(`Entered method scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -506,7 +509,7 @@ export class ApexSymbolCollectorListener
   exitMethodDeclaration(): void {
     // Exit method scope
     const currentScope = this.symbolTable.getCurrentScope();
-    console.log(`Exiting method scope: ${currentScope.name}`);
+    this.logger.debug(`Exiting method scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
 
     // Clear current method symbol
@@ -649,7 +652,7 @@ export class ApexSymbolCollectorListener
 
       // Enter method scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered interface method scope: ${name}`);
+      this.logger.debug(`Entered interface method scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -716,7 +719,7 @@ export class ApexSymbolCollectorListener
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
     try {
       const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
-      console.log(
+      this.logger.debug(
         `Entering field declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
       );
 
@@ -923,7 +926,7 @@ export class ApexSymbolCollectorListener
   exitBlock(): void {
     // Exit block scope
     const currentScope = this.symbolTable.getCurrentScope();
-    console.log(`Exiting block scope: ${currentScope.name}`);
+    this.logger.debug(`Exiting block scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
     this.blockDepth--;
   }
@@ -1272,7 +1275,7 @@ export class ApexSymbolCollectorListener
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered trigger scope: ${name}`);
+      this.logger.debug(`Entered trigger scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -1316,7 +1319,7 @@ export class ApexSymbolCollectorListener
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered trigger scope: ${name}`);
+      this.logger.debug(`Entered trigger scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
