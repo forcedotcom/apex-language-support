@@ -29,6 +29,7 @@ import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
+import { Namespace, Namespaces } from '../../sematics/namespaces';
 import {
   EnumSymbol,
   MethodSymbol,
@@ -529,12 +530,31 @@ export class ApexSymbolCollectorListener
       if (this.currentTypeSymbol) {
         const currentScope = this.symbolTable.getCurrentScope();
         const existingSymbols = currentScope.getAllSymbols();
-        const duplicateConstructor = existingSymbols.find(
-          (s) =>
-            s.kind === SymbolKind.Method &&
-            s.name === name &&
-            (s as MethodSymbol).isConstructor,
-        );
+
+        // Get the parameter types for the current constructor
+        const currentParamTypes =
+          ctx
+            .formalParameters()
+            ?.formalParameterList()
+            ?.formalParameter()
+            ?.map((param) => this.getTextFromContext(param.typeRef()))
+            .join(',') || '';
+
+        const duplicateConstructor = existingSymbols.find((s) => {
+          if (
+            s.kind !== SymbolKind.Method ||
+            s.name !== name ||
+            !(s as MethodSymbol).isConstructor
+          ) {
+            return false;
+          }
+          const methodSymbol = s as MethodSymbol;
+          const existingParamTypes =
+            methodSymbol.parameters
+              ?.map((param) => param.type.originalTypeString)
+              .join(',') || '';
+          return existingParamTypes === currentParamTypes;
+        });
 
         if (duplicateConstructor) {
           this.addError(`Duplicate constructor declaration: ${name}`, ctx);
@@ -1039,8 +1059,45 @@ export class ApexSymbolCollectorListener
    * Create a TypeInfo object from a type string
    */
   private createTypeInfo(typeString: string): TypeInfo {
-    // For simplicity, we'll just create a primitive type
-    // A more complete implementation would parse complex types
+    this.logger.debug(`createTypeInfo called with typeString: ${typeString}`);
+
+    // Handle qualified type names (e.g., System.PageReference)
+    if (typeString.includes('.')) {
+      const [namespace, typeName] = typeString.split('.');
+      this.logger.debug(
+        `Processing qualified type - namespace: ${namespace}, typeName: ${typeName}`,
+      );
+
+      // Use predefined namespaces for built-in types
+      if (namespace === 'System') {
+        this.logger.debug('Using Namespaces.SYSTEM for System namespace type');
+        return {
+          name: typeName,
+          isArray: false,
+          isCollection: false,
+          isPrimitive: false,
+          namespace: Namespaces.SYSTEM,
+          originalTypeString: typeString,
+          getNamespace: () => Namespaces.SYSTEM,
+        };
+      }
+      // For other namespaces, create a new namespace instance
+      this.logger.debug(
+        'Creating new namespace instance for non-System namespace',
+      );
+      return {
+        name: typeName,
+        isArray: false,
+        isCollection: false,
+        isPrimitive: false,
+        namespace: new Namespace(namespace, ''),
+        originalTypeString: typeString,
+        getNamespace: () => new Namespace(namespace, ''),
+      };
+    }
+
+    // For simple types, use createPrimitiveType
+    this.logger.debug('Using createPrimitiveType for simple type');
     return createPrimitiveType(typeString);
   }
 

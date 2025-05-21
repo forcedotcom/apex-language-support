@@ -6,11 +6,18 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { LogLevel } from '@salesforce/apex-lsp-logging';
+
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { SymbolTable, SymbolKind } from '../../src/types/symbol';
+import { SymbolTable, SymbolKind, MethodSymbol } from '../../src/types/symbol';
+import { TestLogger } from '../utils/testLogger';
 
 describe('CompilerService Namespace Integration', () => {
+  // Set up debug logging for all tests in this suite
+  const logger = TestLogger.getInstance();
+  logger.setLogLevel(LogLevel.Debug);
+
   describe('Namespace Handling', () => {
     it('should process code without namespace', () => {
       const service = new CompilerService();
@@ -214,6 +221,148 @@ describe('CompilerService Namespace Integration', () => {
 
       // TODO: Implement namespace handling in FQN calculation
       // expect(classSymbol?.namespace).toBe('MyProject');
+    });
+  });
+
+  describe('System Namespace Types', () => {
+    it('should handle System namespace types in method signatures', () => {
+      const service = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+      const logger = TestLogger.getInstance();
+
+      const code = `
+      global class IdeaStandardController {
+        global void addFields(List<String> fieldNames) { }
+        global System.PageReference cancel() { }
+        global System.PageReference delete() { }
+        global System.PageReference edit() { }
+        global Boolean equals(Object obj) { }
+        global List<IdeaComment> getCommentList() { }
+        global String getId() { }
+        global SObject getRecord() { }
+        global Integer hashCode() { }
+        global System.PageReference save() { }
+        global String toString() { }
+        global System.PageReference view() { }
+      }
+      `;
+
+      const result = service.compile(
+        code,
+        'IdeaStandardController.cls',
+        listener,
+      );
+
+      // Log compilation errors with details
+      if (result.errors.length > 0) {
+        logger.info('\nCompilation Errors:');
+        result.errors.forEach((error, index) => {
+          logger.info(`\nError ${index + 1}:`);
+          logger.info('Message:', error.message);
+          logger.info('Line:', error.line);
+          logger.info('Column:', error.column);
+          logger.info('File:', error.filePath);
+          logger.info('Type:', error.type);
+          logger.info('Severity:', error.severity);
+          // Add context around the error
+          const errorLine = code.split('\n')[error.line - 1];
+          logger.info('Error Context:', errorLine);
+          logger.info(' '.repeat(error.column) + '^');
+        });
+      }
+
+      // Log symbol table information
+      const symbolTable = result.result as SymbolTable;
+      logger.info('\nSymbol Table:');
+      logger.info(
+        'Global Scope Symbols:',
+        symbolTable
+          .getCurrentScope()
+          .getAllSymbols()
+          .map((s) => ({
+            name: s.name,
+            kind: s.kind,
+            namespace: s.namespace,
+          })),
+      );
+
+      // Get the class scope and verify methods
+      const classScope = symbolTable
+        .getCurrentScope()
+        .getChildren()
+        .find((s) => s.name === 'IdeaStandardController');
+
+      if (classScope) {
+        logger.info('\nClass Methods:');
+        classScope
+          .getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Method)
+          .forEach((method) => {
+            const methodSymbol = method as MethodSymbol;
+            logger.info(`\nMethod: ${methodSymbol.name}`);
+            logger.info('Return Type:', {
+              name: methodSymbol.returnType.name,
+              namespace: methodSymbol.returnType.namespace?.global,
+              originalTypeString: methodSymbol.returnType.originalTypeString,
+            });
+          });
+      }
+
+      // Verify compilation succeeds
+      expect(result.errors.length).toBe(0);
+
+      // Get the symbol table and find our class
+      const globalScope = symbolTable.getCurrentScope();
+      const classSymbol = globalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'IdeaStandardController');
+
+      // Check that symbol exists
+      expect(classSymbol).toBeDefined();
+
+      const methods =
+        classScope
+          ?.getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Method) ?? [];
+
+      // Verify we have the expected methods
+      expect(methods.length).toBe(11);
+
+      // Verify each method has the correct return type
+      const methodReturnTypes = {
+        addFields: { name: 'void', namespace: null },
+        cancel: { name: 'PageReference', namespace: 'System' },
+        delete: { name: 'PageReference', namespace: 'System' },
+        edit: { name: 'PageReference', namespace: 'System' },
+        equals: { name: 'Boolean', namespace: null },
+        getCommentList: { name: 'List', namespace: null },
+        getId: { name: 'String', namespace: null },
+        getRecord: { name: 'SObject', namespace: null },
+        hashCode: { name: 'Integer', namespace: null },
+        save: { name: 'PageReference', namespace: 'System' },
+        toString: { name: 'String', namespace: null },
+        view: { name: 'PageReference', namespace: 'System' },
+      };
+
+      Object.entries(methodReturnTypes).forEach(([name, expectedType]) => {
+        const method = methods.find((m) => m.name === name) as MethodSymbol;
+        logger.info(`\nVerifying method: ${name}`);
+        logger.info('Expected:', expectedType);
+        logger.info('Actual:', {
+          name: method.returnType.name,
+          namespace: method.returnType.namespace?.global,
+        });
+
+        expect(method).toBeDefined();
+        expect(method.returnType.name).toBe(expectedType.name);
+        if (expectedType.namespace) {
+          expect(method.returnType.namespace?.global).toBe(
+            expectedType.namespace,
+          );
+        } else {
+          expect(method.returnType.namespace).toBeNull();
+        }
+      });
     });
   });
 });

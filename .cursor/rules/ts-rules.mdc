@@ -41,6 +41,7 @@ The application we are working on uses the following tech stack:
 - Use strong typing and avoid 'any'
 - Restate what the objective is of what you are being asked to change clearly in a short summary.
 - 'Promise.all()' and other standard techniques to optimize performance when working with large datasets
+- When adding calls to Logger, found here, when message is complex, such as string templates, JSON.stringify, etc. use the provider form of the log message to avoid unnecessary string construction unless needed
 
 ## Coding Standards
 

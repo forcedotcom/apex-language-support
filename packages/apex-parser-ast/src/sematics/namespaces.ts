@@ -25,7 +25,9 @@ export class Namespace {
   }
 
   static isEmptyOrNull(namespace: Namespace | null): boolean {
-    return namespace == null || namespace.equals(Namespaces.EMPTY);
+    return (
+      namespace == null || (namespace.global === '' && namespace.module === '')
+    );
   }
 
   static equals(left: TypeInfo, right: TypeInfo): boolean {

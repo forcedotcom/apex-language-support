@@ -41,37 +41,41 @@ export class Logger implements LoggerInterface {
    * @param message - The message to log
    * @param error - Optional error object to include in the log
    */
-  public error(message: string, error?: unknown): void {
-    const errorMessage = error ? `${message}: ${error}` : message;
+  public error(message: string | (() => string), error?: unknown): void {
+    const actualMessage = typeof message === 'function' ? message() : message;
+    const errorMessage = error ? `${actualMessage}: ${error}` : actualMessage;
     console.error(errorMessage);
-    this.loggingBridge.log(LogLevel.Error, message, error);
+    this.loggingBridge.log(LogLevel.Error, actualMessage, error);
   }
 
   /**
    * Log a warning message
    * @param message - The message to log
    */
-  public warn(message: string): void {
-    console.warn(message);
-    this.loggingBridge.log(LogLevel.Warn, message);
+  public warn(message: string | (() => string)): void {
+    const actualMessage = typeof message === 'function' ? message() : message;
+    console.warn(actualMessage);
+    this.loggingBridge.log(LogLevel.Warn, actualMessage);
   }
 
   /**
    * Log an info message
    * @param message - The message to log
    */
-  public info(message: string): void {
-    console.info(message);
-    this.loggingBridge.log(LogLevel.Info, message);
+  public info(message: string | (() => string)): void {
+    const actualMessage = typeof message === 'function' ? message() : message;
+    console.info(actualMessage);
+    this.loggingBridge.log(LogLevel.Info, actualMessage);
   }
 
   /**
    * Log a debug message
    * @param message - The message to log
    */
-  public debug(message: string): void {
-    console.log(message);
-    this.loggingBridge.log(LogLevel.Debug, message);
+  public debug(message: string | (() => string)): void {
+    const actualMessage = typeof message === 'function' ? message() : message;
+    console.log(actualMessage);
+    this.loggingBridge.log(LogLevel.Debug, actualMessage);
   }
 
   /**
@@ -80,19 +84,24 @@ export class Logger implements LoggerInterface {
    * @param message - The message to log
    * @param error - Optional error object to include in the log
    */
-  public log(level: LogLevel, message: string, error?: unknown): void {
+  public log(
+    level: LogLevel,
+    message: string | (() => string),
+    error?: unknown,
+  ): void {
+    const actualMessage = typeof message === 'function' ? message() : message;
     switch (level) {
       case LogLevel.Error:
-        this.error(message, error);
+        this.error(actualMessage, error);
         break;
       case LogLevel.Warn:
-        this.warn(message);
+        this.warn(actualMessage);
         break;
       case LogLevel.Info:
-        this.info(message);
+        this.info(actualMessage);
         break;
       case LogLevel.Debug:
-        this.debug(message);
+        this.debug(actualMessage);
         break;
     }
   }

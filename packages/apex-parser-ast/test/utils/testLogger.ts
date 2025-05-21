@@ -49,36 +49,44 @@ export class TestLogger implements Logger {
   /**
    * Log a debug message
    */
-  public debug(message: string, ...args: unknown[]): void {
+  public debug(message: string | (() => string), ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.Debug)) {
-      this.logger.debug(message, ...args);
+      const actualMessage = typeof message === 'function' ? message() : message;
+      this.logger.debug(actualMessage, ...args);
     }
   }
 
   /**
    * Log an info message
    */
-  public info(message: string, ...args: unknown[]): void {
+  public info(message: string | (() => string), ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.Info)) {
-      this.logger.info(message, ...args);
+      const actualMessage = typeof message === 'function' ? message() : message;
+      this.logger.info(actualMessage, ...args);
     }
   }
 
   /**
    * Log a warning message
    */
-  public warn(message: string, ...args: unknown[]): void {
+  public warn(message: string | (() => string), ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.Warn)) {
-      this.logger.warn(message, ...args);
+      const actualMessage = typeof message === 'function' ? message() : message;
+      this.logger.warn(actualMessage, ...args);
     }
   }
 
   /**
    * Log an error message
    */
-  public error(message: string, error?: unknown, ...args: unknown[]): void {
+  public error(
+    message: string | (() => string),
+    error?: unknown,
+    ...args: unknown[]
+  ): void {
     if (this.shouldLog(LogLevel.Error)) {
-      this.logger.error(message, error, ...args);
+      const actualMessage = typeof message === 'function' ? message() : message;
+      this.logger.error(actualMessage, error, ...args);
     }
   }
 
@@ -87,12 +95,13 @@ export class TestLogger implements Logger {
    */
   public log(
     level: LogLevel,
-    message: string,
+    message: string | (() => string),
     error?: unknown,
     ...args: unknown[]
   ): void {
     if (this.shouldLog(level)) {
-      this.logger.log(level, message, error, ...args);
+      const actualMessage = typeof message === 'function' ? message() : message;
+      this.logger.log(level, actualMessage, error, ...args);
     }
   }
 

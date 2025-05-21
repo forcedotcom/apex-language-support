@@ -55,6 +55,23 @@ describe('Logger', () => {
       expect(consoleSpy.error).toHaveBeenCalledTimes(1);
       expect(consoleSpy.error).toHaveBeenCalledWith(`${message}: ${error}`);
     });
+
+    it('should evaluate message provider function', () => {
+      const messageProvider = () => 'Test error message';
+      logger.error(messageProvider);
+      expect(consoleSpy.error).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.error).toHaveBeenCalledWith('Test error message');
+    });
+
+    it('should evaluate message provider function with error object', () => {
+      const messageProvider = () => 'Test error message';
+      const error = new Error('Test error');
+      logger.error(messageProvider, error);
+      expect(consoleSpy.error).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.error).toHaveBeenCalledWith(
+        `Test error message: ${error}`,
+      );
+    });
   });
 
   describe('warn', () => {
@@ -63,6 +80,13 @@ describe('Logger', () => {
       logger.warn(message);
       expect(consoleSpy.warn).toHaveBeenCalledTimes(1);
       expect(consoleSpy.warn).toHaveBeenCalledWith(message);
+    });
+
+    it('should evaluate message provider function', () => {
+      const messageProvider = () => 'Test warning message';
+      logger.warn(messageProvider);
+      expect(consoleSpy.warn).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.warn).toHaveBeenCalledWith('Test warning message');
     });
   });
 
@@ -73,6 +97,13 @@ describe('Logger', () => {
       expect(consoleSpy.info).toHaveBeenCalledTimes(1);
       expect(consoleSpy.info).toHaveBeenCalledWith(message);
     });
+
+    it('should evaluate message provider function', () => {
+      const messageProvider = () => 'Test info message';
+      logger.info(messageProvider);
+      expect(consoleSpy.info).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.info).toHaveBeenCalledWith('Test info message');
+    });
   });
 
   describe('debug', () => {
@@ -81,6 +112,13 @@ describe('Logger', () => {
       logger.debug(message);
       expect(consoleSpy.log).toHaveBeenCalledTimes(1);
       expect(consoleSpy.log).toHaveBeenCalledWith(message);
+    });
+
+    it('should evaluate message provider function', () => {
+      const messageProvider = () => 'Test debug message';
+      logger.debug(messageProvider);
+      expect(consoleSpy.log).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.log).toHaveBeenCalledWith('Test debug message');
     });
   });
 
@@ -119,6 +157,44 @@ describe('Logger', () => {
       logger.log(LogLevel.Error, message, error);
       expect(consoleSpy.error).toHaveBeenCalledTimes(1);
       expect(consoleSpy.error).toHaveBeenCalledWith(`${message}: ${error}`);
+    });
+
+    it('should evaluate message provider function for error level', () => {
+      const messageProvider = () => 'Test error message';
+      logger.log(LogLevel.Error, messageProvider);
+      expect(consoleSpy.error).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.error).toHaveBeenCalledWith('Test error message');
+    });
+
+    it('should evaluate message provider function for warning level', () => {
+      const messageProvider = () => 'Test warning message';
+      logger.log(LogLevel.Warn, messageProvider);
+      expect(consoleSpy.warn).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.warn).toHaveBeenCalledWith('Test warning message');
+    });
+
+    it('should evaluate message provider function for info level', () => {
+      const messageProvider = () => 'Test info message';
+      logger.log(LogLevel.Info, messageProvider);
+      expect(consoleSpy.info).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.info).toHaveBeenCalledWith('Test info message');
+    });
+
+    it('should evaluate message provider function for debug level', () => {
+      const messageProvider = () => 'Test debug message';
+      logger.log(LogLevel.Debug, messageProvider);
+      expect(consoleSpy.log).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.log).toHaveBeenCalledWith('Test debug message');
+    });
+
+    it('should evaluate message provider function with error object', () => {
+      const messageProvider = () => 'Test error message';
+      const error = new Error('Test error');
+      logger.log(LogLevel.Error, messageProvider, error);
+      expect(consoleSpy.error).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.error).toHaveBeenCalledWith(
+        `Test error message: ${error}`,
+      );
     });
   });
 });
