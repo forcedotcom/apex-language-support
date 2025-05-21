@@ -52,6 +52,7 @@ test-workspace
 
 # tsup generated files
 tsup.config.*.mjs
+/packages/apex-parser-ast/test/generator/test-files
 
 # Extension directory
 extension/

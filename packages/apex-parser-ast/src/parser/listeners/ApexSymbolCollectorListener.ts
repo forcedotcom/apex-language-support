@@ -425,9 +425,7 @@ export class ApexSymbolCollectorListener
       }
 
       // Get the return type
-      const returnType = this.createTypeInfo(
-        this.getTextFromContext(ctx.typeRef()!),
-      );
+      const returnType = this.getReturnType(ctx);
 
       // Check for method override
       if (modifiers.isOverride) {
@@ -647,9 +645,7 @@ export class ApexSymbolCollectorListener
       };
 
       // Get the return type
-      const returnType = this.createTypeInfo(
-        this.getTextFromContext(ctx.typeRef()!),
-      );
+      const returnType = this.getReturnType(ctx);
 
       // Create a new method symbol
       const methodSymbol = this.createMethodSymbol(
@@ -1053,6 +1049,20 @@ export class ApexSymbolCollectorListener
   private getTextFromContext(ctx: any): string {
     if (!ctx) return '';
     return ctx.text || '';
+  }
+
+  /**
+   * Get the return type from a method declaration context
+   * Handles both typeRef and VOID cases
+   */
+  private getReturnType(
+    ctx: MethodDeclarationContext | InterfaceMethodDeclarationContext,
+  ): TypeInfo {
+    if (ctx.typeRef()) {
+      return this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
+    }
+    // Handle VOID case
+    return createPrimitiveType('void');
   }
 
   /**
