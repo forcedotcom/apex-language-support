@@ -1,0 +1,295 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+import * as fs from 'fs';
+import * as path from 'path';
+
+import {
+  CompilerService,
+  ApexSymbolCollectorListener,
+  RuntimeSymbol,
+  SymbolTable,
+  SymbolKind,
+  VariableSymbol,
+  EnumSymbol,
+} from '../index';
+
+interface CompilationResult {
+  result: SymbolTable | null;
+  errors: any[];
+  warnings: any[];
+}
+
+interface RuntimeSymbols {
+  [key: string]: RuntimeSymbol;
+}
+
+interface CleanSymbol {
+  key: string;
+  symbol: any; // Changed to match TypeScript generation needs
+}
+
+interface CleanSymbolTable {
+  symbols: CleanSymbol[];
+  scopes: any[];
+}
+
+interface CompilationOutput {
+  symbolTable: CleanSymbolTable;
+  namespace: string;
+  errors: any[];
+  warnings: any[];
+}
+
+interface CompilationResults {
+  total: number;
+  successful: number;
+  failed: number;
+  errors: Array<{
+    file: string;
+    error: string;
+  }>;
+}
+
+/**
+ * Find all Apex files in a directory recursively
+ * @param dir Directory to search in
+ * @param specificFiles Optional list of specific files to process
+ * @returns Array of file paths
+ */
+function findApexFiles(
+  dir: string,
+  specificFiles: string[] | null = null,
+): string[] {
+  if (specificFiles) {
+    return specificFiles.map((file) => path.join(dir, file));
+  }
+
+  const files: string[] = [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...findApexFiles(fullPath));
+    } else if (entry.name.endsWith('.cls')) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
+/**
+ * Parse an Apex file and collect symbols
+ * @param filePath Path to the Apex file
+ * @param namespace Namespace for the file
+ * @returns Compilation result
+ */
+function parseApexFile(filePath: string, namespace: string): CompilationResult {
+  const content = fs.readFileSync(filePath, 'utf8');
+  const listener = new ApexSymbolCollectorListener();
+  const compiler = new CompilerService(namespace);
+
+  return compiler.compile(content, filePath, listener, namespace);
+}
+
+/**
+ * Main function to compile all stub files
+ * @param specificFiles Optional list of specific files to process
+ * @param sourceDir Optional source directory path
+ * @param outputDir Optional output directory path
+ */
+export async function compileStubs(
+  specificFiles: string[] | null = null,
+  sourceDir?: string,
+  outputDir?: string,
+): Promise<void> {
+  const defaultSourceDir = path.join(
+    __dirname,
+    '../../src/resources/StandardApexLibrary',
+  );
+  const defaultOutputDir = path.join(
+    __dirname,
+    '../../dist/resources/StandardApexLibrary',
+  );
+
+  const finalSourceDir = sourceDir || defaultSourceDir;
+  const finalOutputDir = outputDir || defaultOutputDir;
+
+  console.log('Starting compilation of stub files...');
+  if (specificFiles) {
+    console.log('Processing specific files:');
+    specificFiles.forEach((file) => console.log(`- ${file}`));
+  }
+
+  // Create output directory if it doesn't exist
+  if (!fs.existsSync(finalOutputDir)) {
+    fs.mkdirSync(finalOutputDir, { recursive: true });
+  }
+
+  // Find all Apex files
+  const files = findApexFiles(finalSourceDir, specificFiles);
+  console.log(`Found ${files.length} Apex files to compile`);
+
+  const results: CompilationResults = {
+    total: files.length,
+    successful: 0,
+    failed: 0,
+    errors: [],
+  };
+
+  // Process each file
+  for (const file of files) {
+    try {
+      // Get namespace from parent directory name
+      const namespace = path.basename(path.dirname(file));
+      console.log(`\nProcessing ${file} (namespace: ${namespace})`);
+
+      // Parse the file
+      const result = parseApexFile(file, namespace);
+
+      // Create output path
+      const relativePath = path.relative(finalSourceDir, file);
+      const outputPath = path.join(
+        finalOutputDir,
+        relativePath.replace('.cls', '.ast.json'),
+      );
+
+      // Create output directory if it doesn't exist
+      const outputDirPath = path.dirname(outputPath);
+      if (!fs.existsSync(outputDirPath)) {
+        fs.mkdirSync(outputDirPath, { recursive: true });
+      }
+
+      if (!result.result) {
+        throw new Error('Compilation failed: No symbol table generated');
+      }
+
+      // Wrap symbols in RuntimeSymbol for proper handling of runtime references
+      const symbolTable = result.result;
+      const symbols = Array.from(symbolTable.getCurrentScope().getAllSymbols());
+      const runtimeSymbols: RuntimeSymbols = {};
+      for (const symbol of symbols) {
+        // For enum symbols, we need to wrap their values too
+        if (symbol.kind === SymbolKind.Enum) {
+          const enumSymbol = symbol as EnumSymbol;
+          if (enumSymbol.values) {
+            // Create a clean copy of values without parent references
+            const cleanValues = enumSymbol.values.map(
+              (value: VariableSymbol) => {
+                const { parent, ...rest } = value;
+                return rest;
+              },
+            );
+            // Store the clean values
+            enumSymbol.values = cleanValues;
+          }
+        }
+        runtimeSymbols[symbol.key.name] = new RuntimeSymbol(
+          symbol,
+          symbolTable,
+        );
+      }
+
+      // Create a clean version of the symbol table for serialization
+      const cleanSymbolTable: CleanSymbolTable = {
+        symbols: Object.entries(runtimeSymbols).map(([key, runtimeSymbol]) => {
+          // Get the underlying symbol without the RuntimeSymbol wrapper
+          const symbol = runtimeSymbol.symbol;
+          // Create a new object without the parent reference and other circular references
+          const { parent, ...rest } = symbol;
+
+          // Handle enum values separately
+          if (symbol.kind === SymbolKind.Enum) {
+            const enumSymbol = symbol as EnumSymbol;
+            if (enumSymbol.values) {
+              return {
+                key,
+                symbol: {
+                  ...rest,
+                  kind: 'Enum', // Ensure consistent casing
+                  values: enumSymbol.values,
+                },
+              };
+            }
+          }
+
+          return {
+            key,
+            symbol: {
+              ...rest,
+              kind: symbol.kind === SymbolKind.Enum ? 'Enum' : rest.kind, // Ensure consistent casing
+            },
+          };
+        }),
+        scopes: symbolTable.toJSON().scopes,
+      };
+
+      // Debug log the structure
+      console.log(
+        'Symbol structure:',
+        JSON.stringify(cleanSymbolTable.symbols[0], null, 2),
+      );
+
+      // Save the result
+      const output: CompilationOutput = {
+        symbolTable: cleanSymbolTable,
+        namespace,
+        errors: result.errors,
+        warnings: result.warnings,
+      };
+
+      // Check if there are any compilation errors
+      if (result.errors && result.errors.length > 0) {
+        throw new Error(
+          `Compilation failed: ${result.errors.map((e) => e.message || e).join(', ')}`,
+        );
+      }
+
+      // Ensure the output directory exists
+      if (!fs.existsSync(outputDirPath)) {
+        fs.mkdirSync(outputDirPath, { recursive: true });
+      }
+
+      fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
+      console.log(`✓ Compiled ${relativePath}`);
+
+      results.successful++;
+    } catch (error) {
+      console.error(`✗ Failed to compile ${file}:`, error);
+      results.failed++;
+      results.errors.push({
+        file,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  // Save compilation summary
+  const summaryPath = path.join(finalOutputDir, 'compilation-summary.json');
+  fs.writeFileSync(summaryPath, JSON.stringify(results, null, 2));
+
+  console.log('\nCompilation Summary:');
+  console.log(`Total files: ${results.total}`);
+  console.log(`Successful: ${results.successful}`);
+  console.log(`Failed: ${results.failed}`);
+
+  if (results.failed > 0) {
+    console.log('\nErrors:');
+    results.errors.forEach((e) => {
+      console.log(`- ${e.file}: ${e.error}`);
+    });
+  }
+}
+
+// Only run if this file is being executed directly
+if (require.main === module) {
+  const specificFiles =
+    process.argv.slice(2).length > 0 ? process.argv.slice(2) : null;
+  compileStubs(specificFiles).catch(console.error);
+}

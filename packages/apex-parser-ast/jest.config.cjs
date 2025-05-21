@@ -11,12 +11,15 @@ const baseConfig = require('../../jest.config.cjs');
 module.exports = {
   ...baseConfig,
   rootDir: '.',
-  testMatch: ['**/test/**/*.test.ts'],
+  testMatch: [
+    '**/test/**/*.test.ts',
+    '**/test/**/generate-Standard-Apex-Library.ts',
+  ],
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
   moduleNameMapper: {
     '^@salesforce/apex-lsp-logging$':
-    '<rootDir>/../apex-lsp-logging/src/index.ts',
+      '<rootDir>/../apex-lsp-logging/src/index.ts',
   },
 };

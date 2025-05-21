@@ -52,11 +52,11 @@ export class ClassModifierValidator {
 
     // Validate visibility for outer classes
     if (!isInnerClass) {
-      // Outer classes can only be public or default
+      // Outer classes can only be public, global, or default
       if (modifiers.visibility === SymbolVisibility.Private) {
         errorReporter.addError(
           `Outer class '${className}' cannot be declared as 'private'. ` +
-            'Outer classes can only be public or default visibility',
+            'Outer classes can only be public, global, or default visibility',
           ctx,
         );
         // Correct to default visibility
@@ -66,21 +66,11 @@ export class ClassModifierValidator {
       if (modifiers.visibility === SymbolVisibility.Protected) {
         errorReporter.addError(
           `Outer class '${className}' cannot be declared as 'protected'. ` +
-            'Outer classes can only be public or default visibility',
+            'Outer classes can only be public, global, or default visibility',
           ctx,
         );
         // Correct to default visibility
         modifiers.visibility = SymbolVisibility.Default;
-      }
-
-      if (modifiers.visibility === SymbolVisibility.Global) {
-        errorReporter.addError(
-          `Outer class '${className}' cannot be declared as 'global'. ` +
-            'Outer classes can only be public or default visibility',
-          ctx,
-        );
-        // Correct to public visibility
-        modifiers.visibility = SymbolVisibility.Public;
       }
     } else {
       // For inner classes, all visibilities are allowed

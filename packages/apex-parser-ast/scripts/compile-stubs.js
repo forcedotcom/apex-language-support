@@ -4,7 +4,7 @@ const {
   CompilerService,
   ApexSymbolCollectorListener,
   RuntimeSymbol,
-} = require('../bundle');
+} = require('../dist');
 
 /**
  * Find all Apex files in a directory recursively
@@ -128,15 +128,19 @@ async function compileStubs(specificFiles = null) {
         symbols: Object.entries(runtimeSymbols).map(([key, runtimeSymbol]) => {
           // Get the underlying symbol without the RuntimeSymbol wrapper
           const symbol = runtimeSymbol.symbol;
-          // Create a new object without the parent reference
-          const { parent, ...rest } = symbol;
+          // Create a new object without the parent reference and other circular references
+          const { parent, parameters, ...rest } = symbol;
 
           // Handle enum values separately
           if (symbol.kind === 'enum' && symbol.values) {
             const cleanValues = symbol.values.map((value) => {
               // Get the underlying value without the RuntimeSymbol wrapper
               const valueSymbol = value.symbol;
-              const { parent: valueParent, ...valueRest } = valueSymbol;
+              const {
+                parent: valueParent,
+                parameters: valueParameters,
+                ...valueRest
+              } = valueSymbol;
               return valueRest;
             });
             return {
