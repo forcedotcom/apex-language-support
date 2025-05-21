@@ -43,7 +43,6 @@ import {
   ApexSymbol,
 } from '../../types/symbol';
 import {
-  MethodModifierValidator,
   ClassModifierValidator,
   ErrorReporter,
 } from '../../sematics/modifiers/index';

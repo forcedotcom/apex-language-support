@@ -22,9 +22,7 @@
   "scripts": {
     "compile": "tsc --build",
     "bundle": "node ../../scripts/build-bundle.js",
-    "compile:stubs": "node scripts/compile-stubs.js",
-    "test:stubs": "node scripts/test-compile-stubs.js",
-    "test:a:stub": "node scripts/test-compile-stubs.js ConnectApi/CommerceSearchTopProductType.cls",
+    "generate:stubs": "jest test/generator/generate-Standard-Apex-Library.ts",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf dist bundle *.tsbuildinfo .turbo",
