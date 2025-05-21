@@ -365,4 +365,91 @@ describe('CompilerService Namespace Integration', () => {
       });
     });
   });
+
+  describe('Case Insensitivity', () => {
+    it('should handle case-insensitive keywords and identifiers', () => {
+      const service = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+
+      // Test code with mixed case keywords and identifiers
+      const code = `
+      PUBLIC CLASS MixedCaseClass {
+        PRIVATE String myVariable;
+        PUBLIC VOID myMethod() {
+          IF (myVariable != null) {
+            myVariable = 'test';
+          }
+        }
+      }
+      `;
+
+      const result = service.compile(code, 'MixedCaseClass.cls', listener);
+
+      // Verify compilation succeeds
+      expect(result.errors.length).toBe(0);
+
+      // Get the symbol table and find our class
+      const symbolTable = result.result as SymbolTable;
+      const globalScope = symbolTable.getCurrentScope();
+      const classSymbol = globalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'MixedCaseClass');
+
+      // Check that symbol exists
+      expect(classSymbol).toBeDefined();
+
+      // Get the class scope and verify methods
+      const classScope = globalScope
+        .getChildren()
+        .find((s) => s.name === 'MixedCaseClass');
+
+      // Verify we have the expected method
+      const methods =
+        classScope
+          ?.getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Method) ?? [];
+
+      expect(methods.length).toBe(1);
+      expect(methods[0].name).toBe('myMethod');
+
+      // Verify the method has the correct return type
+      const methodSymbol = methods[0] as MethodSymbol;
+      expect(methodSymbol.returnType.name).toBe('void');
+    });
+
+    it('should handle case-insensitive SOQL keywords', () => {
+      const service = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+
+      // Test code with mixed case SOQL keywords
+      const code = `
+      public class SOQLCaseTest {
+        public void queryTest() {
+          List<Account> accounts = [
+            SELECT Id, Name 
+            FROM Account 
+            WHERE Name LIKE 'Test%' 
+            ORDER BY Name 
+            LIMIT 10
+          ];
+        }
+      }
+      `;
+
+      const result = service.compile(code, 'SOQLCaseTest.cls', listener);
+
+      // Verify compilation succeeds
+      expect(result.errors.length).toBe(0);
+
+      // Get the symbol table and find our class
+      const symbolTable = result.result as SymbolTable;
+      const globalScope = symbolTable.getCurrentScope();
+      const classSymbol = globalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'SOQLCaseTest');
+
+      // Check that symbol exists
+      expect(classSymbol).toBeDefined();
+    });
+  });
 });
