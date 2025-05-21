@@ -6,8 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-export * from './DidOpenDocumentHandler';
-export * from './DidChangeDocumentHandler';
-export * from './DidCloseDocumentHandler';
-export * from './DidSaveDocumentHandler';
-export * from './DocumentSymbolHandler';
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  testMatch: ['**/test/**/*.test.ts'],
+  moduleFileExtensions: ['ts', 'js', 'json', 'node'],
+  rootDir: '.',
+  transform: {
+    '^.+\\.ts$': 'ts-jest',
+  },
+};

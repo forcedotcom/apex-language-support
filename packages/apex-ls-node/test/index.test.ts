@@ -167,6 +167,36 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   dispatchProcessOnDocumentSymbol: jest.fn(),
 }));
 
+// Mock the logger abstraction
+const mockLogger = {
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  log: jest.fn(),
+};
+
+jest.mock('@salesforce/apex-lsp-logging', () => ({
+  LogMessageType: {
+    Error: 1,
+    Warning: 2,
+    Info: 3,
+    Log: 4,
+  },
+  LogMessageParams: jest.fn(),
+  LogNotificationHandler: jest.fn(),
+  setLogNotificationHandler: jest.fn(),
+  getLogger: () => mockLogger,
+  LogLevel: {
+    Error: 'error',
+    Warn: 'warn',
+    Info: 'info',
+    Debug: 'debug',
+  },
+  Logger: jest.fn(),
+  LogMessage: jest.fn(),
+}));
+
 describe('Apex Language Server Node', () => {
   beforeEach(() => {
     // Clear all mocks before each test
@@ -210,8 +240,8 @@ describe('Apex Language Server Node', () => {
       onDidOpenTextDocumentHandler(params);
 
       // Verify logging
-      expect(mockConnection.console.info).toHaveBeenCalledWith(
-        `Extension Apex Language Server opened and processed document: ${params}`,
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Extension Apex Language Server opened and processed document: ${JSON.stringify(params)}`,
       );
 
       // Verify document processing
@@ -236,9 +266,9 @@ describe('Apex Language Server Node', () => {
         mockHandlers.onDidChangeTextDocument as OnDidChangeTextDocumentHandler;
       onDidChangeTextDocumentHandler(params);
 
-      // Assert
-      expect(mockConnection.console.info).toHaveBeenCalledWith(
-        `Extension Apex Language Server changed and processed document: ${params}`,
+      // Verify logging
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Extension Apex Language Server changed and processed document: ${JSON.stringify(params)}`,
       );
 
       // Verify document processing
@@ -261,9 +291,9 @@ describe('Apex Language Server Node', () => {
         mockHandlers.onDidCloseTextDocument as OnDidCloseTextDocumentHandler;
       onDidCloseTextDocumentHandler(params);
 
-      // Assert
-      expect(mockConnection.console.info).toHaveBeenCalledWith(
-        `Extension Apex Language Server closed document: ${params}`,
+      // Verify logging
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Extension Apex Language Server closed document: ${JSON.stringify(params)}`,
       );
 
       // Verify document processing
@@ -283,9 +313,9 @@ describe('Apex Language Server Node', () => {
         mockHandlers.onDidSaveTextDocument as OnDidSaveTextDocumentHandler;
       onDidSaveTextDocumentHandler(params);
 
-      // Assert
-      expect(mockConnection.console.info).toHaveBeenCalledWith(
-        `Extension Apex Language Server saved document: ${params}`,
+      // Verify logging
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Extension Apex Language Server saved document: ${JSON.stringify(params)}`,
       );
 
       // Verify document processing

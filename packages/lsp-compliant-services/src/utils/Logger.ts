@@ -6,26 +6,23 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-/**
- * Log levels supported by the logger
- */
-export enum LogLevel {
-  Error = 'error',
-  Warn = 'warn',
-  Info = 'info',
-  Debug = 'debug',
-}
+import {
+  LogLevel,
+  Logger as LoggerInterface,
+} from '@salesforce/apex-lsp-logging';
+
+import { LoggingBridge } from './LoggingBridge';
 
 /**
- * Currently using console.error, console.warn, console.info, and console.log
- * TODO: W-18467153 Replace with a more sophisticated logging library
  * Logger class that handles logging for lsp-compliant-services
+ * Logs are sent to both the console and the language client via LSP notifications
  */
-export class Logger {
+export class Logger implements LoggerInterface {
   private static instance: Logger;
+  private readonly loggingBridge: LoggingBridge;
 
   private constructor() {
-    // Private constructor to prevent instantiation
+    this.loggingBridge = LoggingBridge.getInstance();
   }
 
   /**
@@ -47,6 +44,7 @@ export class Logger {
   public error(message: string, error?: unknown): void {
     const errorMessage = error ? `${message}: ${error}` : message;
     console.error(errorMessage);
+    this.loggingBridge.log(LogLevel.Error, message, error);
   }
 
   /**
@@ -55,6 +53,7 @@ export class Logger {
    */
   public warn(message: string): void {
     console.warn(message);
+    this.loggingBridge.log(LogLevel.Warn, message);
   }
 
   /**
@@ -63,6 +62,7 @@ export class Logger {
    */
   public info(message: string): void {
     console.info(message);
+    this.loggingBridge.log(LogLevel.Info, message);
   }
 
   /**
@@ -71,6 +71,7 @@ export class Logger {
    */
   public debug(message: string): void {
     console.log(message);
+    this.loggingBridge.log(LogLevel.Debug, message);
   }
 
   /**
