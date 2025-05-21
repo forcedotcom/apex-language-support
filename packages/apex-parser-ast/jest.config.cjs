@@ -22,4 +22,5 @@ module.exports = {
     '^@salesforce/apex-lsp-logging$':
       '<rootDir>/../apex-lsp-logging/src/index.ts',
   },
+  setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
 };

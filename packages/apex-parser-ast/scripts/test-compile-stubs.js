@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const { glob } = require('glob');
+const { getLogger } = require('@salesforce/apex-lsp-logging');
 
 /**
  * Get test files based on glob pattern or default to core System classes
@@ -63,9 +64,16 @@ async function testCompileStubs() {
   // Get test files based on pattern
   const testFiles = await getTestFiles(pattern);
 
-  console.log('Starting compilation test...');
-  console.log('Testing files:');
-  testFiles.forEach((file) => console.log(`- ${file}`));
+  const logger = getLogger();
+
+  if (!testFiles || testFiles.length === 0) {
+    logger.info('Falling back to default test files');
+    testFiles = defaultTestFiles;
+  }
+
+  logger.info('Starting compilation test...');
+  logger.info('Testing files:');
+  testFiles.forEach((file) => logger.info(`- ${file}`));
 
   try {
     // Verify source directory exists
@@ -75,12 +83,12 @@ async function testCompileStubs() {
 
     // Clean output directory if it exists
     if (fs.existsSync(outputDir)) {
-      console.log('\nCleaning existing output directory...');
+      logger.info('\nCleaning existing output directory...');
       fs.rmSync(outputDir, { recursive: true, force: true });
     }
 
     // Run the compilation script with specific files
-    console.log('\nRunning compilation script...');
+    logger.info('\nRunning compilation script...');
     execSync(`node scripts/compile-stubs.js ${testFiles.join(' ')}`, {
       stdio: 'inherit',
       cwd: path.join(__dirname, '..'), // Set working directory to package root
@@ -99,11 +107,11 @@ async function testCompileStubs() {
 
     // Read and verify summary
     const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
-    console.log('\nVerifying compilation summary:');
-    console.log(JSON.stringify(summary, null, 2));
+    logger.info('\nVerifying compilation summary:');
+    logger.info(JSON.stringify(summary, null, 2));
 
     // Verify test files were compiled
-    console.log('\nVerifying test files:');
+    logger.info('\nVerifying test files:');
     for (const testFile of testFiles) {
       const outputFile = testFile.replace('.cls', '.ast.json');
       const filePath = path.join(outputDir, outputFile);
@@ -129,14 +137,14 @@ async function testCompileStubs() {
         );
       }
 
-      console.log(`✓ ${outputFile} verified`);
+      logger.info(`✓ ${outputFile} verified`);
     }
 
     // Check for errors
     if (summary.failed > 0) {
-      console.warn('\nWARNING: Some files failed to compile:');
+      logger.warn('\nWARNING: Some files failed to compile:');
       summary.errors.forEach((e) => {
-        console.warn(`- ${e.file}: ${e.error}`);
+        logger.warn(`- ${e.file}: ${e.error}`);
       });
       throw new Error('Compilation completed with errors');
     }
@@ -152,9 +160,9 @@ async function testCompileStubs() {
       );
     }
 
-    console.log('\nTest completed successfully!');
+    logger.info('\nTest completed successfully!');
   } catch (error) {
-    console.error('\nTest failed:', error);
+    logger.error('\nTest failed:', error);
     process.exit(1);
   }
 }

@@ -5,6 +5,7 @@ const {
   ApexSymbolCollectorListener,
   RuntimeSymbol,
 } = require('../dist');
+const { getLogger } = require('@salesforce/apex-lsp-logging');
 
 /**
  * Find all Apex files in a directory recursively
@@ -51,6 +52,7 @@ function parseApexFile(filePath, namespace) {
  * @param {string[]} [specificFiles] Optional list of specific files to process
  */
 async function compileStubs(specificFiles = null) {
+  const logger = getLogger();
   const sourceDir = path.join(
     __dirname,
     '../src/resources/StandardApexLibrary',
@@ -60,10 +62,10 @@ async function compileStubs(specificFiles = null) {
     '../dist/resources/StandardApexLibrary',
   );
 
-  console.log('Starting compilation of stub files...');
+  logger.info('Starting compilation of stub files...');
   if (specificFiles) {
-    console.log('Processing specific files:');
-    specificFiles.forEach((file) => console.log(`- ${file}`));
+    logger.info('Processing specific files:');
+    specificFiles.forEach((file) => logger.info(`- ${file}`));
   }
 
   // Create output directory if it doesn't exist
@@ -73,7 +75,7 @@ async function compileStubs(specificFiles = null) {
 
   // Find all Apex files
   const files = findApexFiles(sourceDir, specificFiles);
-  console.log(`Found ${files.length} Apex files to compile`);
+  logger.info(`Found ${files.length} Apex files to compile`);
 
   const results = {
     total: files.length,
@@ -87,7 +89,7 @@ async function compileStubs(specificFiles = null) {
     try {
       // Get namespace from parent directory name
       const namespace = path.basename(path.dirname(file));
-      console.log(`\nProcessing ${file} (namespace: ${namespace})`);
+      logger.info(`\nProcessing ${file} (namespace: ${namespace})`);
 
       // Parse the file
       const result = parseApexFile(file, namespace);
@@ -161,7 +163,7 @@ async function compileStubs(specificFiles = null) {
       };
 
       // Debug log the structure
-      console.log(
+      logger.info(
         'Symbol structure:',
         JSON.stringify(cleanSymbolTable.symbols[0], null, 2),
       );
@@ -175,15 +177,15 @@ async function compileStubs(specificFiles = null) {
       };
 
       fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
-      console.log(`✓ Compiled ${relativePath}`);
+      logger.info(`✓ Compiled ${relativePath}`);
 
       results.successful++;
     } catch (error) {
-      console.error(`✗ Failed to compile ${file}:`, error);
+      logger.error(`✗ Failed to compile ${file}:`, error);
       results.failed++;
       results.errors.push({
         file,
-        error: error.message,
+        error: String(error),
       });
     }
   }
@@ -192,15 +194,15 @@ async function compileStubs(specificFiles = null) {
   const summaryPath = path.join(outputDir, 'compilation-summary.json');
   fs.writeFileSync(summaryPath, JSON.stringify(results, null, 2));
 
-  console.log('\nCompilation Summary:');
-  console.log(`Total files: ${results.total}`);
-  console.log(`Successful: ${results.successful}`);
-  console.log(`Failed: ${results.failed}`);
+  logger.info('\nCompilation Summary:');
+  logger.info(`Total files: ${results.total}`);
+  logger.info(`Successful: ${results.successful}`);
+  logger.info(`Failed: ${results.failed}`);
 
   if (results.failed > 0) {
-    console.log('\nErrors:');
+    logger.error('\nErrors:');
     results.errors.forEach((e) => {
-      console.log(`- ${e.file}: ${e.error}`);
+      logger.error(`- ${e.file}: ${e.error}`);
     });
   }
 }
