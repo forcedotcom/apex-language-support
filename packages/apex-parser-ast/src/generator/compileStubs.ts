@@ -16,6 +16,8 @@ import {
   SymbolKind,
   VariableSymbol,
   EnumSymbol,
+  MethodSymbol,
+  ApexSymbol,
 } from '../index';
 
 interface CompilationResult {
@@ -174,6 +176,31 @@ export async function compileStubs(
       const symbolTable = result.result;
       const symbols = Array.from(symbolTable.getCurrentScope().getAllSymbols());
       const runtimeSymbols: RuntimeSymbols = {};
+      const classMethods: { [key: string]: MethodSymbol[] } = {};
+
+      // First pass: collect all class symbols and their scopes
+      const classScopes = new Map<string, any>();
+      for (const symbol of symbols) {
+        if (symbol.kind === SymbolKind.Class) {
+          // Find the scope for this class
+          const scope = symbolTable.findScopeByName(symbol.name);
+          if (scope) {
+            classScopes.set(symbol.key.name, scope);
+          }
+        }
+      }
+
+      // Second pass: collect methods from class scopes
+      for (const [className, scope] of classScopes) {
+        const methods = (Array.from(scope.getAllSymbols()) as ApexSymbol[])
+          .filter((s) => s.kind === SymbolKind.Method)
+          .map((s) => s as MethodSymbol);
+        if (methods.length > 0) {
+          classMethods[className] = methods;
+        }
+      }
+
+      // Third pass: create runtime symbols
       for (const symbol of symbols) {
         // For enum symbols, we need to wrap their values too
         if (symbol.kind === SymbolKind.Enum) {
@@ -190,6 +217,7 @@ export async function compileStubs(
             enumSymbol.values = cleanValues;
           }
         }
+
         runtimeSymbols[symbol.key.name] = new RuntimeSymbol(
           symbol,
           symbolTable,
@@ -201,40 +229,69 @@ export async function compileStubs(
         symbols: Object.entries(runtimeSymbols).map(([key, runtimeSymbol]) => {
           // Get the underlying symbol without the RuntimeSymbol wrapper
           const symbol = runtimeSymbol.symbol;
-          // Create a new object without the parent reference and other circular references
-          const { parent, ...rest } = symbol;
 
-          // Handle enum values separately
-          if (symbol.kind === SymbolKind.Enum) {
-            const enumSymbol = symbol as EnumSymbol;
-            if (enumSymbol.values) {
-              return {
-                key,
-                symbol: {
-                  ...rest,
-                  kind: 'Enum', // Ensure consistent casing
-                  values: enumSymbol.values,
-                },
-              };
-            }
-          }
-
-          return {
+          // Create a clean copy of the symbol without circular references
+          const cleanSymbol = {
             key,
             symbol: {
-              ...rest,
-              kind: symbol.kind === SymbolKind.Enum ? 'Enum' : rest.kind, // Ensure consistent casing
+              kind:
+                symbol.kind === SymbolKind.Enum
+                  ? 'Enum'
+                  : symbol.kind === SymbolKind.Class
+                    ? 'Class'
+                    : symbol.kind === SymbolKind.Method
+                      ? 'Method'
+                      : symbol.kind,
+              name: symbol.key.name,
+              location: symbol.location,
+              modifiers: symbol.modifiers,
+              annotations: symbol.annotations,
+              ...(symbol.kind === SymbolKind.Class && {
+                methods:
+                  classMethods[symbol.key.name]?.map((method) => ({
+                    name: method.name,
+                    kind: 'Method',
+                    location: method.location,
+                    modifiers: method.modifiers,
+                    parameters: method.parameters?.map((param) => ({
+                      name: param.name,
+                      type: param.type,
+                      modifiers: param.modifiers,
+                    })),
+                    returnType: method.returnType,
+                  })) || [],
+              }),
+              ...(symbol.kind === SymbolKind.Method && {
+                parameters: (symbol as MethodSymbol).parameters?.map(
+                  (param) => ({
+                    name: param.name,
+                    type: param.type,
+                    modifiers: param.modifiers,
+                  }),
+                ),
+                returnType: (symbol as MethodSymbol).returnType,
+              }),
+              ...(symbol.kind === SymbolKind.Enum && {
+                values: (symbol as EnumSymbol).values?.map((value) => ({
+                  name: value.name,
+                  type: value.type,
+                  location: value.location,
+                })),
+              }),
             },
           };
-        }),
-        scopes: symbolTable.toJSON().scopes,
-      };
 
-      // Debug log the structure
-      console.log(
-        'Symbol structure:',
-        JSON.stringify(cleanSymbolTable.symbols[0], null, 2),
-      );
+          return cleanSymbol;
+        }),
+        scopes: symbolTable.toJSON().scopes.map((scope) => ({
+          name: scope.key,
+          symbols:
+            scope.scope?.symbols.map((symbol) => ({
+              name: symbol.name,
+              key: symbol.key.name,
+            })) || [],
+        })),
+      };
 
       // Save the result
       const output: CompilationOutput = {

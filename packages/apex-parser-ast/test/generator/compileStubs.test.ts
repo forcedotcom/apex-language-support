@@ -222,4 +222,46 @@ describe('compileStubs', () => {
     expect(Array.isArray(summary.errors)).toBe(true);
     expect(summary.errors.length).toBe(1);
   });
+
+  it('should compile standard library ConnectedAppPlugin class', async () => {
+    const sourcePath = path.join(
+      __dirname,
+      '../../src/resources/StandardApexLibrary/Auth/ConnectedAppPlugin.cls',
+    );
+    const outputPath = path.join(outputDir, 'Auth/ConnectedAppPlugin.ast.json');
+
+    // Run compilation
+    await compileStubs(
+      ['Auth/ConnectedAppPlugin.cls'],
+      path.join(__dirname, '../../src/resources/StandardApexLibrary'),
+      outputDir,
+    );
+
+    // Verify output
+    expect(fs.existsSync(outputPath)).toBe(true);
+
+    const output = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+    expect(output.namespace).toBe('Auth');
+    expect(Array.isArray(output.symbolTable.symbols)).toBe(true);
+
+    // Verify the class symbol exists
+    const classSymbol = output.symbolTable.symbols.find(
+      (s: any) => s.key === 'ConnectedAppPlugin',
+    );
+    expect(classSymbol).toBeDefined();
+    expect(classSymbol.symbol.kind).toBe('Class');
+    expect(classSymbol.symbol.modifiers.visibility).toBe('global');
+
+    // Verify methods exist
+    const methods = classSymbol.symbol.methods;
+    expect(methods).toBeDefined();
+    expect(methods.length).toBeGreaterThan(0);
+
+    // Verify specific methods
+    const methodNames = methods.map((m: any) => m.name);
+    expect(methodNames).toContain('authorize');
+    expect(methodNames).toContain('customAttributes');
+    expect(methodNames).toContain('modifySAMLResponse');
+    expect(methodNames).toContain('refresh');
+  });
 });
