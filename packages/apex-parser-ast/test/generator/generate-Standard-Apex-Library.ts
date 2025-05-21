@@ -9,9 +9,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { LogLevel } from '@salesforce/apex-lsp-logging';
+
 import { compileStubs } from '../../src/generator/compileStubs';
+import { TestLogger } from '../utils/testLogger';
 
 describe('Standard Apex Library Generation', () => {
+  // Set up debug logging for all tests in this suite
+  const logger = TestLogger.getInstance();
+  logger.setLogLevel(LogLevel.Debug);
+
   it('should generate the Standard Apex Library', async () => {
     const sourceDir = path.join(
       __dirname,
@@ -22,9 +29,9 @@ describe('Standard Apex Library Generation', () => {
       '../../dist/resources/StandardApexLibrary',
     );
 
-    console.log('Generating Standard Apex Library...');
-    console.log(`Source directory: ${sourceDir}`);
-    console.log(`Output directory: ${outputDir}`);
+    logger.info('Generating Standard Apex Library...');
+    logger.info(`Source directory: ${sourceDir}`);
+    logger.info(`Output directory: ${outputDir}`);
 
     // Use compileStubs to process all files
     await compileStubs(null, sourceDir, outputDir);
@@ -33,10 +40,10 @@ describe('Standard Apex Library Generation', () => {
     const summaryPath = path.join(outputDir, 'compilation-summary.json');
     const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
 
-    console.log('\nCompilation Summary:');
-    console.log(`Total files: ${summary.total}`);
-    console.log(`Successful: ${summary.successful}`);
-    console.log(`Failed: ${summary.failed}`);
+    logger.info('\nCompilation Summary:');
+    logger.info(`Total files: ${summary.total}`);
+    logger.info(`Successful: ${summary.successful}`);
+    logger.info(`Failed: ${summary.failed}`);
 
     // Verify the results
     expect(summary.failed).toBe(0);
