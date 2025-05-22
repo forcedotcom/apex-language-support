@@ -15,7 +15,7 @@
       "@salesforce/apex-lsp-logging/*": ["../apex-lsp-logging/src/*"]
     }
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "bundle"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"],
+  "exclude": ["node_modules", "dist", "bundle", "**/*.test.ts", "**/*.spec.ts"],
   "references": [{ "path": "../apex-lsp-logging" }]
 }

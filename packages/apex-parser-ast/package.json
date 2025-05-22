@@ -20,7 +20,7 @@
     "README.md"
   ],
   "scripts": {
-    "compile": "tsc --build",
+    "compile": "tsc --build && tsup --config tsup.config.ts",
     "bundle": "node ../../scripts/build-bundle.js",
     "generate:stubs": "jest test/generator/generate-Standard-Apex-Library.ts",
     "test": "jest",
@@ -40,10 +40,12 @@
     "@typescript-eslint/eslint-plugin": "^5.0.0",
     "@typescript-eslint/parser": "^5.0.0",
     "eslint": "^8.0.0",
+    "fflate": "^0.8.1",
     "glob": "^10.3.10",
     "jest": "^29.5.0",
     "rimraf": "^5.0.0",
     "ts-jest": "^29.1.0",
+    "tsup": "^8.0.2",
     "typescript": "^5.8.2"
   }
 }
