@@ -19,7 +19,10 @@ import {
 } from '../../src/handlers/DidChangeDocumentHandler';
 
 jest.mock('../../src/utils/Logger');
-jest.mock('../../src/utils/handlerUtil');
+jest.mock('../../src/utils/handlerUtil', () => ({
+  ...jest.requireActual('../../src/utils/handlerUtil'),
+  dispatch: jest.fn(),
+}));
 jest.mock('../../src/storage/ApexStorageManager');
 jest.mock('../../src/definition/ApexDefinitionUpserter');
 jest.mock('../../src/references/ApexReferencesUpserter');

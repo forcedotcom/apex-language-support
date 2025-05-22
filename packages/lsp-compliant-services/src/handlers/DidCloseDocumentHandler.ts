@@ -5,20 +5,21 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { DidCloseTextDocumentParams } from 'vscode-languageserver';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { Logger } from '../utils/Logger';
 import { dispatch } from '../utils/handlerUtil';
 
 // Visible for testing
 export const processOnCloseDocument = async (
-  params: DidCloseTextDocumentParams,
+  event: TextDocumentChangeEvent<TextDocument>,
 ): Promise<void> => {
   // Client opened a document
   // TODO: Server will parse the document and populate the corresponding local maps
   const logger = Logger.getInstance();
   logger.info(
-    `Common Apex Language Server close document handler invoked with: ${params}`,
+    `Common Apex Language Server close document handler invoked with: ${event}`,
   );
 
   // TODO: Implement the logic to process the document close
@@ -28,6 +29,5 @@ export const processOnCloseDocument = async (
 };
 
 export const dispatchProcessOnCloseDocument = (
-  params: DidCloseTextDocumentParams,
-) =>
-  dispatch(processOnCloseDocument(params), 'Error processing document close');
+  event: TextDocumentChangeEvent<TextDocument>,
+) => dispatch(processOnCloseDocument(event), 'Error processing document close');

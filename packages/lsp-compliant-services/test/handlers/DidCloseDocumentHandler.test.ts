@@ -6,10 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  DidCloseTextDocumentParams,
-  TextDocuments,
-} from 'vscode-languageserver';
+import { TextDocumentChangeEvent, TextDocuments } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { Logger } from '../../src/utils/Logger';
@@ -49,74 +46,98 @@ describe('DidCloseDocumentHandler', () => {
 
   describe('processOnCloseDocument', () => {
     it('should log info message with document close params', async () => {
-      const params: DidCloseTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'class TestClass {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
       mockDocuments.get.mockReturnValue(undefined);
 
-      await processOnCloseDocument(params);
+      await processOnCloseDocument(event);
 
       expect(mockLogger.info).toHaveBeenCalledTimes(1);
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server close document handler invoked with: ${params}`,
+        `Common Apex Language Server close document handler invoked with: ${event}`,
       );
     });
 
     it('should log when document already exists', async () => {
-      const params: DidCloseTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'class TestClass {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
-      const existingDoc = { uri: params.textDocument.uri } as TextDocument;
+      const existingDoc = { uri: event.document.uri } as TextDocument;
       mockDocuments.get.mockReturnValue(existingDoc);
 
-      await processOnCloseDocument(params);
+      await processOnCloseDocument(event);
 
       expect(mockLogger.info).toHaveBeenCalledTimes(1);
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server close document handler invoked with: ${params}`,
+        `Common Apex Language Server close document handler invoked with: ${event}`,
       );
     });
   });
 
   describe('dispatchProcessOnCloseDocument', () => {
     it('should dispatch processOnCloseDocument with correct params', () => {
-      const params: DidCloseTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'class TestClass {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
-      dispatchProcessOnCloseDocument(params);
+      dispatchProcessOnCloseDocument(event);
 
       expect(mockDispatch).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(
-        processOnCloseDocument(params),
+        processOnCloseDocument(event),
         'Error processing document close',
       );
     });
 
     it('should handle dispatch error', async () => {
-      const params: DidCloseTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'class TestClass {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
       const error = new Error('Test error');
       mockDispatch.mockRejectedValueOnce(error);
 
-      await expect(dispatchProcessOnCloseDocument(params)).rejects.toThrow(
+      await expect(dispatchProcessOnCloseDocument(event)).rejects.toThrow(
         error,
       );
       expect(mockDispatch).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(
-        processOnCloseDocument(params),
+        processOnCloseDocument(event),
         'Error processing document close',
       );
     });

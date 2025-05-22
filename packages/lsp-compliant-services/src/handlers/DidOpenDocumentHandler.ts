@@ -5,11 +5,16 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { TextDocumentChangeEvent } from 'vscode-languageserver';
+import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import {
+  CompilerService,
+  SymbolTable,
+  ApexSymbolCollectorListener,
+} from '@salesforce/apex-lsp-parser-ast';
 
 import { Logger } from '../utils/Logger';
-import { dispatch } from '../utils/handlerUtil';
+import { dispatch, getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
 import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
@@ -17,7 +22,7 @@ import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpser
 // Visible for testing
 export const processOnOpenDocument = async (
   event: TextDocumentChangeEvent<TextDocument>,
-): Promise<void> => {
+): Promise<Diagnostic[] | undefined> => {
   // Client opened a document
   const logger = Logger.getInstance();
   logger.info(
@@ -29,22 +34,53 @@ export const processOnOpenDocument = async (
   const storage = storageManager.getStorage();
 
   const document = event.document;
-  // Set the document in the storage
-  // Document is currently being used by DocumentSymbolProvider
-  if (!document) {
-    logger.error(`Document not found for URI: ${event.document.uri}`);
-  } else {
-    await storage.setDocument(event.document.uri, document);
+
+  // Create a symbol collector listener
+  const table = new SymbolTable();
+  const listener = new ApexSymbolCollectorListener(table);
+  const compilerService = new CompilerService();
+
+  // Parse the document
+  const result = compilerService.compile(
+    document.getText(),
+    document.uri,
+    listener,
+  );
+
+  if (result.errors.length > 0) {
+    logger.error('Errors parsing document:', result.errors);
+    const diagnostics = getDiagnosticsFromErrors(result.errors);
+    return diagnostics;
   }
 
+  // Get the symbol table from the listener
+  const symbolTable = listener.getResult();
+
+  // Get all symbols from the global scope
+  const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
+
   // Create the definition provider
-  const definitionUpserter = new DefaultApexDefinitionUpserter(storage);
-  const referencesUpserter = new DefaultApexReferencesUpserter(storage);
+  const definitionUpserter = new DefaultApexDefinitionUpserter(
+    storage,
+    globalSymbols,
+  );
+
+  // Create the references provider
+  const referencesUpserter = new DefaultApexReferencesUpserter(
+    storage,
+    globalSymbols,
+  );
 
   // Upsert the definitions
-  await definitionUpserter.upsertDefinition(event);
+  dispatch(
+    definitionUpserter.upsertDefinition(event),
+    'Error upserting definitions',
+  );
   // Upsert the references
-  await referencesUpserter.upsertReferences(event);
+  dispatch(
+    referencesUpserter.upsertReferences(event),
+    'Error upserting references',
+  );
 };
 
 export const dispatchProcessOnOpenDocument = (

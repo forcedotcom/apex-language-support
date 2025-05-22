@@ -6,13 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  CompilerService,
-  ApexSymbolCollectorListener,
-  SymbolTable,
-} from '@salesforce/apex-lsp-parser-ast';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { getLogger } from '@salesforce/apex-lsp-logging';
+import { ApexSymbol } from '@salesforce/apex-lsp-parser-ast';
 
 import {
   ApexStorageInterface,
@@ -34,10 +31,13 @@ export interface ApexDefinitionUpserter {
  * Implementation of Apex definition upserter
  */
 export class DefaultApexDefinitionUpserter implements ApexDefinitionUpserter {
-  private compilerService: CompilerService;
+  private readonly logger = getLogger();
+  private readonly storage: ApexStorageInterface;
+  private readonly globalSymbols: ApexSymbol[];
 
-  constructor(private readonly storage: ApexStorageInterface) {
-    this.compilerService = new CompilerService();
+  constructor(storage: ApexStorageInterface, globalSymbols: ApexSymbol[]) {
+    this.storage = storage;
+    this.globalSymbols = globalSymbols;
   }
 
   /**
@@ -49,36 +49,9 @@ export class DefaultApexDefinitionUpserter implements ApexDefinitionUpserter {
   ): Promise<void> {
     try {
       const documentUri = event.document.uri;
-      const document = event.document;
-
-      if (!document) {
-        console.error('Document not found:', documentUri);
-        return;
-      }
-      // Create a symbol collector listener
-      const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
-
-      // Parse the document
-      const result = this.compilerService.compile(
-        document.getText(),
-        documentUri,
-        listener,
-      );
-
-      if (result.errors.length > 0) {
-        console.error('Errors parsing document:', result.errors);
-        return;
-      }
-
-      // Get the symbol table from the listener
-      const symbolTable = listener.getResult();
-
-      // Get all symbols from the global scope
-      const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
 
       // Process each global symbol
-      for (const symbol of globalSymbols) {
+      for (const symbol of this.globalSymbols) {
         const reference: ApexReference = {
           sourceFile: documentUri,
           targetSymbol: symbol.name,
@@ -89,7 +62,7 @@ export class DefaultApexDefinitionUpserter implements ApexDefinitionUpserter {
         await this.storage.setDefinition(symbol.name, reference);
       }
     } catch (error) {
-      console.error('Error populating definitions:', error);
+      this.logger.error('Error populating definitions:', error);
     }
   }
 }

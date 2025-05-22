@@ -8,6 +8,16 @@
 
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import {
+  CompilerService,
+  SymbolTable,
+  ApexSymbolCollectorListener,
+  ApexSymbol,
+  SymbolKind,
+  SymbolVisibility,
+  ErrorType,
+  ErrorSeverity,
+} from '@salesforce/apex-lsp-parser-ast';
 
 import { Logger } from '../../src/utils/Logger';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
@@ -24,26 +34,11 @@ jest.mock('../../src/utils/Logger');
 jest.mock('../../src/storage/ApexStorageManager');
 jest.mock('../../src/definition/ApexDefinitionUpserter');
 jest.mock('../../src/references/ApexReferencesUpserter');
-jest.mock('../../src/utils/handlerUtil');
-
-// Mock TextDocuments
-const mockDocuments = {
-  listen: jest.fn(),
-  get: jest.fn().mockImplementation((uri: string) => {
-    if (uri === 'file:///test.apex') {
-      return {
-        content: 'class TestClass {}',
-      };
-    }
-  }),
-  set: jest.fn(),
-  delete: jest.fn(),
-  all: jest.fn(),
-  onDidChangeContent: jest.fn(),
-  onDidClose: jest.fn(),
-  onDidOpen: jest.fn(),
-  onDidSave: jest.fn(),
-};
+jest.mock('../../src/utils/handlerUtil', () => ({
+  ...jest.requireActual('../../src/utils/handlerUtil'),
+  dispatch: jest.fn(),
+}));
+jest.mock('@salesforce/apex-lsp-parser-ast');
 
 describe('DidOpenDocumentHandler', () => {
   let mockStorage: jest.Mocked<ApexStorageInterface>;
@@ -51,6 +46,10 @@ describe('DidOpenDocumentHandler', () => {
   let mockStorageManager: jest.Mocked<ApexStorageManager>;
   let mockDefinitionUpserter: jest.Mocked<DefaultApexDefinitionUpserter>;
   let mockReferencesUpserter: jest.Mocked<DefaultApexReferencesUpserter>;
+  let mockCompilerService: jest.Mocked<CompilerService>;
+  let mockSymbolTable: jest.Mocked<SymbolTable>;
+  let mockListener: jest.Mocked<ApexSymbolCollectorListener>;
+  let mockGlobalSymbols: ApexSymbol[];
 
   beforeEach(() => {
     // Reset mocks
@@ -81,6 +80,49 @@ describe('DidOpenDocumentHandler', () => {
       }),
     } as unknown as jest.Mocked<ApexStorageManager>;
 
+    // Setup mock symbols
+    mockGlobalSymbols = [
+      {
+        name: 'TestClass',
+        location: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 10 },
+        kind: SymbolKind.Class,
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isOverride: false,
+          isVirtual: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        parent: null,
+      },
+    ];
+
+    // Setup mock symbol table
+    mockSymbolTable = {
+      getCurrentScope: jest.fn().mockReturnValue({
+        getAllSymbols: jest.fn().mockReturnValue(mockGlobalSymbols),
+      }),
+    } as unknown as jest.Mocked<SymbolTable>;
+
+    // Setup mock listener
+    mockListener = {
+      getResult: jest.fn().mockReturnValue(mockSymbolTable),
+    } as unknown as jest.Mocked<ApexSymbolCollectorListener>;
+
+    // Setup mock compiler service
+    mockCompilerService = {
+      compile: jest.fn().mockReturnValue({
+        errors: [],
+        fileName: '',
+        result: undefined,
+        warnings: [],
+      }),
+    } as unknown as jest.Mocked<CompilerService>;
+
     // Setup mock upserters
     mockDefinitionUpserter = {
       upsertDefinition: jest.fn().mockResolvedValue(undefined),
@@ -98,7 +140,13 @@ describe('DidOpenDocumentHandler', () => {
       getStorage: jest.fn().mockReturnValue(mockStorage),
     });
 
-    // Mock populator constructors
+    // Mock constructor implementations
+    (CompilerService as jest.Mock).mockImplementation(
+      () => mockCompilerService,
+    );
+    (ApexSymbolCollectorListener as jest.Mock).mockImplementation(
+      () => mockListener,
+    );
     (DefaultApexDefinitionUpserter as jest.Mock).mockImplementation(
       () => mockDefinitionUpserter,
     );
@@ -132,8 +180,6 @@ describe('DidOpenDocumentHandler', () => {
       },
     };
 
-    mockStorage.getDocument.mockResolvedValue(null);
-
     // Act
     await processOnOpenDocument(event);
 
@@ -141,16 +187,21 @@ describe('DidOpenDocumentHandler', () => {
     expect(mockLogger.info).toHaveBeenCalledWith(
       `Common Apex Language Server open document handler invoked with: ${event}`,
     );
+    expect(mockCompilerService.compile).toHaveBeenCalledWith(
+      event.document.getText(),
+      event.document.uri,
+      mockListener,
+    );
     expect(mockDefinitionUpserter.upsertDefinition).toHaveBeenCalledWith(event);
     expect(mockReferencesUpserter.upsertReferences).toHaveBeenCalledWith(event);
   });
 
-  it('should handle existing document', async () => {
+  it('should handle compilation errors', async () => {
     // Arrange
     const event: TextDocumentChangeEvent<TextDocument> = {
       document: {
         uri: 'file:///test.apex',
-        getText: () => 'class TestClass {}',
+        getText: () => 'invalid code',
         version: 1,
         languageId: 'apex',
         positionAt: () => ({ line: 0, character: 0 }),
@@ -159,44 +210,46 @@ describe('DidOpenDocumentHandler', () => {
       },
     };
 
-    mockStorage.getDocument.mockResolvedValue({} as any);
+    mockCompilerService.compile.mockReturnValue({
+      errors: [
+        {
+          message: 'Compilation error',
+          line: 1,
+          column: 0,
+          type: ErrorType.Semantic,
+          severity: ErrorSeverity.Error,
+        },
+      ],
+      fileName: '',
+      result: undefined,
+      warnings: [],
+    });
 
     // Act
-    await processOnOpenDocument(event);
+    const result = await processOnOpenDocument(event);
 
     // Assert
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      `Common Apex Language Server open document handler invoked with: ${event}`,
-    );
-    expect(mockDefinitionUpserter.upsertDefinition).toHaveBeenCalled();
-    expect(mockReferencesUpserter.upsertReferences).toHaveBeenCalled();
-  });
-
-  it('should handle non-existing document', async () => {
-    // Arrange
-    const event: TextDocumentChangeEvent<TextDocument> = {
-      document: {
-        uri: 'file:///test.apex',
-        getText: () => 'class TestClass {}',
-        version: 1,
-        languageId: 'apex',
-        positionAt: () => ({ line: 0, character: 0 }),
-        offsetAt: () => 0,
-        lineCount: 1,
+    expect(mockLogger.error).toHaveBeenCalledWith('Errors parsing document:', [
+      {
+        message: 'Compilation error',
+        line: 1,
+        column: 0,
+        type: ErrorType.Semantic,
+        severity: ErrorSeverity.Error,
       },
-    };
-
-    mockStorage.getDocument.mockResolvedValue(null);
-
-    // Act
-    await processOnOpenDocument(event);
-
-    // Assert
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      `Common Apex Language Server open document handler invoked with: ${event}`,
-    );
-    expect(mockDefinitionUpserter.upsertDefinition).toHaveBeenCalledWith(event);
-    expect(mockReferencesUpserter.upsertReferences).toHaveBeenCalledWith(event);
+    ]);
+    expect(result).toEqual([
+      {
+        message: 'Compilation error',
+        range: {
+          start: { line: 1, character: 0 },
+          end: { line: 1, character: 0 },
+        },
+        severity: 1,
+      },
+    ]);
+    expect(mockDefinitionUpserter.upsertDefinition).not.toHaveBeenCalled();
+    expect(mockReferencesUpserter.upsertReferences).not.toHaveBeenCalled();
   });
 
   describe('processOnOpenDocument', () => {
@@ -318,7 +371,7 @@ describe('DidOpenDocumentHandler', () => {
 
       // Assert
       expect(mockLogger.error).toHaveBeenCalledWith(
-        'Error processing document open',
+        'Error upserting definitions',
         error,
       );
     });
