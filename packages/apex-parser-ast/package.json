@@ -20,7 +20,7 @@
     "README.md"
   ],
   "scripts": {
-    "compile": "tsc --build && tsup --config tsup.config.ts",
+    "compile": "tsc --build",
     "bundle": "node ../../scripts/build-bundle.js",
     "generate:stubs": "jest test/generator/generate-Standard-Apex-Library.ts",
     "test": "jest",
