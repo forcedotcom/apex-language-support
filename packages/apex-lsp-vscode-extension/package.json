@@ -87,7 +87,7 @@
     "bundle": "node ../../scripts/build-bundle.js",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf dist bundle *.tsbuildinfo .turbo",
+    "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage"
   },

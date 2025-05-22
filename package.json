@@ -18,10 +18,8 @@
     "compile": "turbo run compile",
     "prepare": "husky",
     "commit": "git-cz",
-    "clean": "rimraf packages/**/dist packages/**/*.tsbuildinfo packages/**/bundle *.tsbuildinfo .turbo packages/**/.turbo coverage",
-    "clean:all": "npm run clean && rimraf node_modules",
-    "clean:packages": "turbo run clean --filter=./packages/*",
-    "clean:coverage": "rimraf coverage packages/*/coverage",
+    "clean": "turbo run clean && rimraf coverage .turbo",
+    "clean:all": "turbo run clean:all && rimraf coverage .turbo node_modules",
     "semantic-release": "semantic-release",
     "bundle": "turbo run bundle"
   },

@@ -20,9 +20,8 @@
     "bundle": "node ../../scripts/build-bundle.js",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf dist bundle .wireit *.tsbuildinfo .turbo",
+    "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage",
     "clean:all": "npm run clean && rimraf node_modules",
-    "clean:coverage": "rimraf coverage",
     "dev": "tsc --build --watch"
   },
   "dependencies": {

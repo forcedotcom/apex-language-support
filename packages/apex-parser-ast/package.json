@@ -25,9 +25,8 @@
     "generate:stubs": "jest test/generator/generate-Standard-Apex-Library.ts",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf dist bundle *.tsbuildinfo .turbo",
-    "clean:all": "npm run clean && rimraf node_modules",
-    "clean:coverage": "rimraf coverage"
+    "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage",
+    "clean:all": "npm run clean && rimraf node_modules"
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.0",
