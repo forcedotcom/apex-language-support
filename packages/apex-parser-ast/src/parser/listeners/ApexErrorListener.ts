@@ -73,7 +73,6 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
     line: number,
     charPositionInLine: number,
     msg: string,
-    
     e: RecognitionException | undefined,
   ): void {
     // Add the syntax error to our collection
@@ -197,7 +196,6 @@ export class ApexLexerErrorListener implements ANTLRErrorListener<number> {
     line: number,
     charPositionInLine: number,
     msg: string,
-    
     e: RecognitionException | undefined,
   ): void {
     // Delegate to the parser error listener

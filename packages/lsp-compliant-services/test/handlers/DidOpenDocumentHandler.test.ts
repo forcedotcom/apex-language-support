@@ -6,10 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  DidOpenTextDocumentParams,
-  TextDocumentChangeEvent,
-} from 'vscode-languageserver';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { Logger } from '../../src/utils/Logger';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
@@ -21,7 +19,6 @@ import {
   processOnOpenDocument,
   dispatchProcessOnOpenDocument,
 } from '../../src/handlers/DidOpenDocumentHandler';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 
 jest.mock('../../src/utils/Logger');
 jest.mock('../../src/storage/ApexStorageManager');

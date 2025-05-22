@@ -185,7 +185,6 @@ function createClientOptions(
 function handleClientError(
   error: Error,
   message: any,
-  
   _count: number | undefined,
 ): { action: ErrorAction } {
   outputChannel.appendLine(

@@ -142,7 +142,7 @@ export class MockApexJsonRpcClient extends ApexJsonRpcClient {
   /**
    * Mock completion request
    */
-  
+
   private mockCompletion(params: any): any {
     return [
       {
@@ -175,7 +175,7 @@ export class MockApexJsonRpcClient extends ApexJsonRpcClient {
   /**
    * Mock hover request
    */
-  
+
   private mockHover(params: any): any {
     return {
       contents: {
@@ -198,7 +198,7 @@ export class MockApexJsonRpcClient extends ApexJsonRpcClient {
   /**
    * Mock document symbol request
    */
-  
+
   private mockDocumentSymbol(params: any): any {
     return [
       {
