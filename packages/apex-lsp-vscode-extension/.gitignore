@@ -3,4 +3,6 @@ dist
 node_modules
 *.vsix
 .vscode-test/
-*.tsbuildinfo 
+*.tsbuildinfo
+.vscode/
+grammars/ 

@@ -10,4 +10,5 @@ vsc-extension-quickstart.md
 **/*.ts
 **/jest.config.js
 **/node_modules/**
-!node_modules/@salesforce/apex-language-server/** 
+!node_modules/@salesforce/apex-language-server/**
+!grammars/** 
