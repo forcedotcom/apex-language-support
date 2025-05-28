@@ -20,6 +20,7 @@
     "README.md"
   ],
   "scripts": {
+    "precompile": "node scripts/generate-zip.js",
     "compile": "tsc --build",
     "bundle": "node ../../scripts/build-bundle.js",
     "generate:stubs": "jest test/generator/generate-Standard-Apex-Library.ts",

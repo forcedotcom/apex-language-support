@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
 import path, { join } from 'node:path';
 import { zipSync } from 'fflate';
 
@@ -36,6 +36,26 @@ async function generateZip() {
     await mkdir(path.join('src', 'generated'), { recursive: true });
     // Create resources directory for distribution
     await mkdir(path.join('dist', 'resources'), { recursive: true });
+
+    // Clean up old zipLoader files
+    const oldLoaderPaths = [
+      path.join('src', 'generated', 'zipLoader.ts'),
+      path.join('dist', 'generated', 'zipLoader.js'),
+      path.join('dist', 'generated', 'zipLoader.d.ts'),
+      path.join('dist', 'generated', 'zipLoader.js.map'),
+    ];
+
+    for (const oldPath of oldLoaderPaths) {
+      try {
+        await unlink(oldPath);
+        console.log(`Cleaned up old file: ${oldPath}`);
+      } catch (error) {
+        // Ignore errors if file doesn't exist
+        if (error.code !== 'ENOENT') {
+          console.error(`Error cleaning up ${oldPath}:`, error);
+        }
+      }
+    }
 
     // Get all files from the StandardApexLibrary directory
     const files = await getAllFiles(
@@ -71,7 +91,7 @@ async function generateZip() {
 export const zipData = Buffer.from('${base64Data}', 'base64');
 `;
     await writeFile(
-      path.join('src', 'generated', 'zipLoader.ts'),
+      path.join('src', 'generated', 'apexSrcLoader.ts'),
       zipLoaderContent,
     );
 
