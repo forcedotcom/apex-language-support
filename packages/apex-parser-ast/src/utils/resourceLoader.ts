@@ -7,7 +7,7 @@
  */
 import { unzipSync } from 'fflate';
 
-import { zipData } from '../generated/zipLoader';
+import { zipData } from '../generated/apexSrcLoader';
 
 export class ResourceLoader {
   private static instance: ResourceLoader;
