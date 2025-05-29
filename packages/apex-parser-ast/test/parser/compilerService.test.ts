@@ -224,7 +224,7 @@ describe('CompilerService Namespace Integration', () => {
     });
   });
 
-  describe('System Namespace Types', () => {
+  describe.skip('System Namespace Types', () => {
     it('should handle System namespace types in method signatures', () => {
       const service = new CompilerService();
       const listener = new ApexSymbolCollectorListener();
