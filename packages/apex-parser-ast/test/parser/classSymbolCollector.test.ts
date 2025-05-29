@@ -341,7 +341,7 @@ describe('ApexSymbolCollectorListener', () => {
       );
       const fileContent = `
         public class BlocksTest {
-          public void testMethod() {
+          public void m1() {
             Integer outerVar = 10;
             
             if (outerVar > 5) {
@@ -373,7 +373,7 @@ describe('ApexSymbolCollectorListener', () => {
       // Navigate to method scope
       const classScope = globalScope?.getChildren()[0];
       const methodScope = classScope?.getChildren()[0];
-      expect(methodScope?.name).toBe('testMethod');
+      expect(methodScope?.name).toBe('m1');
       logger.debug('Method scope retrieved');
 
       // Helper to recursively collect all variables from all block scopes

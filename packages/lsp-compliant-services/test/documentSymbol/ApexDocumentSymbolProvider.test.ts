@@ -55,7 +55,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
     it('should correctly parse a simple Apex class', async () => {
       const validApex = `
                 public class TestClass {
-                    public String testMethod() {
+                    public String m1() {
                         return 'test';
                     }
                 }

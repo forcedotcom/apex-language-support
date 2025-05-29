@@ -31,7 +31,7 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
           private String name;
           
           @isTest
-          public static void testMethod() {
+          public static void m1() {
             // Test method implementation
           }
         }
@@ -53,13 +53,13 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
       expect(classSymbol?.annotations?.[0].name).toBe('isTest');
 
       const classScope = globalScope?.getChildren()[0];
-      const testMethod = classScope
+      const m1 = classScope
         ?.getAllSymbols()
-        .find((s) => s.name === 'testMethod') as MethodSymbol;
+        .find((s) => s.name === 'm1') as MethodSymbol;
 
-      expect(testMethod?.annotations).toBeDefined();
-      expect(testMethod?.annotations?.length).toBe(1);
-      expect(testMethod?.annotations?.[0].name).toBe('isTest');
+      expect(m1?.annotations).toBeDefined();
+      expect(m1?.annotations?.length).toBe(1);
+      expect(m1?.annotations?.[0].name).toBe('isTest');
     });
 
     it('should handle annotation parameters', () => {
@@ -103,7 +103,7 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
     it('should create scopes for nested blocks', () => {
       const fileContent = `
         public class TestClass {
-          public void testMethod() {
+          public void m1() {
             Integer x = 1;
             {
               Integer y = 2;
