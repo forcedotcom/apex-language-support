@@ -65,6 +65,15 @@ describe('Method Variable Declaration', () => {
         listener,
       );
 
+      console.log(
+        'Test 1 Errors:',
+        result.errors.map((e) => ({
+          message: e.message,
+          line: e.line,
+          column: e.column,
+        })),
+      );
+
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
@@ -135,6 +144,15 @@ describe('Method Variable Declaration', () => {
         fileContent,
         'BlocksTest.cls',
         listener,
+      );
+
+      console.log(
+        'Test 2 Errors:',
+        result.errors.map((e) => ({
+          message: e.message,
+          line: e.line,
+          column: e.column,
+        })),
       );
 
       expect(result.errors.length).toBe(0);
