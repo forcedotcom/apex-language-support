@@ -6,16 +6,36 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { unzipSync } from 'fflate';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { zipData } from '../generated/apexSrcLoader';
 
+export interface ResourceLoaderOptions {
+  loadMode?: 'lazy' | 'full';
+}
+
+interface FileContent {
+  decoded: boolean;
+  contents: string | Uint8Array;
+  originalPath: string;
+}
+
+function isDecodedContent(contents: string | Uint8Array): contents is string {
+  return typeof contents === 'string';
+}
+
 export class ResourceLoader {
   private static instance: ResourceLoader;
-  private fileMap: Map<string, string> = new Map();
-  private pathMap: Map<string, string> = new Map(); // Maps lowercase paths to original paths
+  private fileMap: Map<string, FileContent> = new Map();
   private initialized = false;
+  private loadMode: 'lazy' | 'full' = 'full';
+  private readonly logger = getLogger();
 
-  private constructor() {}
+  private constructor(options?: ResourceLoaderOptions) {
+    if (options?.loadMode) {
+      this.loadMode = options.loadMode;
+    }
+  }
 
   public async initialize(): Promise<void> {
     if (this.initialized) {
@@ -26,53 +46,63 @@ export class ResourceLoader {
       // Unzip the contents
       const files = unzipSync(zipData);
 
-      console.log(`Raw zip entries: ${Object.keys(files).length}`);
+      this.logger.debug(() => `Raw zip entries: ${Object.keys(files).length}`);
 
       // Convert each file to string and store in map
       let processedFiles = 0;
-      for (const [path, data] of Object.entries(files)) {
-        // Skip directories and non-class files
-        if (path.endsWith('/') || !path.endsWith('.cls')) {
-          continue;
-        }
+      Object.entries(files)
+        .filter(([path]) => path.endsWith('.cls'))
+        .forEach(([path, data]) => {
+          const lowerPath = path.toLowerCase();
+          if (this.loadMode === 'full') {
+            this.fileMap.set(lowerPath, {
+              decoded: true,
+              contents: new TextDecoder().decode(data),
+              originalPath: path,
+            });
+          } else {
+            this.fileMap.set(lowerPath, {
+              decoded: false,
+              contents: data,
+              originalPath: path,
+            });
+          }
+          processedFiles++;
+        });
 
-        const lowerPath = path.toLowerCase();
-        this.fileMap.set(path, new TextDecoder().decode(data));
-        this.pathMap.set(lowerPath, path);
-        processedFiles++;
-      }
-
-      console.log(`Processed files: ${processedFiles}`);
+      this.logger.debug(() => `Processed files: ${processedFiles}`);
 
       // Calculate and log statistics
       const dirStats = new Map<string, number>();
       let totalFiles = 0;
 
-      for (const path of this.fileMap.keys()) {
-        const dir = path.split('/').slice(0, -1).join('/') || '(root)';
+      for (const [lowerPath, content] of this.fileMap.entries()) {
+        const dir = lowerPath.split('/').slice(0, -1).join('/') || '(root)';
         dirStats.set(dir, (dirStats.get(dir) || 0) + 1);
         totalFiles++;
       }
 
-      console.log('\nResource Loading Statistics:');
-      console.log('---------------------------');
-      console.log(`Total files loaded: ${totalFiles}`);
-      console.log('\nFiles per directory:');
+      this.logger.info(
+        () => '\nResource Loading Statistics:\n---------------------------',
+      );
+      this.logger.info(() => `Total files loaded: ${totalFiles}`);
+      this.logger.info(() => `Loading mode: ${this.loadMode}`);
+      this.logger.info(() => '\nFiles per directory:');
       for (const [dir, count] of dirStats.entries()) {
-        console.log(`  ${dir}: ${count} files`);
+        this.logger.info(() => `  ${dir}: ${count} files`);
       }
-      console.log('---------------------------\n');
+      this.logger.info(() => '---------------------------\n');
 
       this.initialized = true;
     } catch (error) {
-      console.error('Failed to initialize resource loader:', error);
+      this.logger.error('Failed to initialize resource loader:', error);
       throw error;
     }
   }
 
-  public static getInstance(): ResourceLoader {
+  public static getInstance(options?: ResourceLoaderOptions): ResourceLoader {
     if (!ResourceLoader.instance) {
-      ResourceLoader.instance = new ResourceLoader();
+      ResourceLoader.instance = new ResourceLoader(options);
     }
     return ResourceLoader.instance;
   }
@@ -84,8 +114,23 @@ export class ResourceLoader {
       );
     }
     const lowerPath = path.toLowerCase();
-    const originalPath = this.pathMap.get(lowerPath);
-    return originalPath ? this.fileMap.get(originalPath) : undefined;
+    const fileContent = this.fileMap.get(lowerPath);
+    if (!fileContent) {
+      return undefined;
+    }
+
+    if (isDecodedContent(fileContent.contents)) {
+      return fileContent.contents;
+    } else {
+      // Decode on demand
+      const decoded = new TextDecoder().decode(fileContent.contents);
+      this.fileMap.set(lowerPath, {
+        ...fileContent,
+        decoded: true,
+        contents: decoded,
+      });
+      return decoded;
+    }
   }
 
   public getAllFiles(): Map<string, string> {
@@ -94,6 +139,17 @@ export class ResourceLoader {
         'ResourceLoader not initialized. Call initialize() first.',
       );
     }
-    return this.fileMap;
+    const result = new Map<string, string>();
+    for (const [lowerPath, content] of this.fileMap.entries()) {
+      if (isDecodedContent(content.contents)) {
+        result.set(content.originalPath, content.contents);
+      } else {
+        result.set(
+          content.originalPath,
+          new TextDecoder().decode(content.contents),
+        );
+      }
+    }
+    return result;
   }
 }
