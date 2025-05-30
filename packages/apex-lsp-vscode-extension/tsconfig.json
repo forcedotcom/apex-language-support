@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2020",
+    "outDir": "./dist",
+    "lib": ["ES2020"],
+    "sourceMap": true,
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@salesforce/apex-lsp-extension": ["../apex-ls-node/src"]
+    },
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "inlineSources": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "bundle", "**/*.test.ts", "test/**/*"],
+  "references": [{ "path": "../apex-ls-node" }]
+}
