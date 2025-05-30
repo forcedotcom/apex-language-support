@@ -19,5 +19,8 @@
     "type": "git",
     "url": "https://github.com/forcedotcom/apex-language-support.git",
     "directory": "packages"
+  },
+  "dependencies": {
+    "vscode-languageserver-textdocument": "^1.0.12"
   }
 }

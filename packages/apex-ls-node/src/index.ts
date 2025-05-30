@@ -14,12 +14,11 @@ import {
   InitializedNotification,
   MessageType,
   Connection,
-  DidChangeTextDocumentParams,
-  DidCloseTextDocumentParams,
-  DidOpenTextDocumentParams,
-  DidSaveTextDocumentParams,
   DocumentSymbolParams,
   createServerSocketTransport,
+  TextDocuments,
+  TextDocumentChangeEvent,
+  Diagnostic,
 } from 'vscode-languageserver/node';
 import {
   dispatchProcessOnChangeDocument,
@@ -27,7 +26,10 @@ import {
   dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol,
+  ApexStorageManager,
+  ApexStorage,
 } from '@salesforce/apex-lsp-compliant-services';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   setLogNotificationHandler,
   getLogger,
@@ -59,20 +61,35 @@ setLogNotificationHandler(NodeLogNotificationHandler.getInstance(connection));
 
 // Server state
 let isShutdown = false;
+const documents = new TextDocuments(TextDocument);
+
+// Initialize storage
+const storageManager = ApexStorageManager.getInstance({
+  storageFactory: (options) => ApexStorage.getInstance(),
+  storageOptions: {
+    /* your options */
+  },
+});
+storageManager.initialize();
 
 // Initialize server capabilities and properties
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   logger.info('Apex Language Server initializing...');
   // TODO: Add startup tasks here if needed
   return {
     capabilities: {
-      textDocumentSync: 1, // Full synchronization
+      textDocumentSync: {
+        openClose: true,
+        change: 1, // Full text document sync
+        save: true,
+        willSave: false, // Enable willSave support
+        willSaveWaitUntil: false, // Enable willSaveWaitUntil support
+      },
       completionProvider: {
-        resolveProvider: true,
+        resolveProvider: false,
         triggerCharacters: ['.'],
       },
-      hoverProvider: true,
+      hoverProvider: false,
       documentSymbolProvider: true,
     },
   };
@@ -133,49 +150,70 @@ connection.onExit(() => {
   logger.info('Apex Language Server exited');
 });
 
-// Listen on the connection
-connection.listen();
+// Helper function to handle diagnostics
+const handleDiagnostics = (
+  uri: string,
+  diagnostics: Diagnostic[] | undefined,
+) => {
+  if (diagnostics) {
+    connection.sendDiagnostics({
+      uri,
+      diagnostics,
+    });
+  }
+};
 
 // Notifications
-connection.onDidOpenTextDocument((params: DidOpenTextDocumentParams) => {
+documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client opened a document
   // Server will parse the document and populate the corresponding local maps
   logger.info(
-    `Extension Apex Language Server opened and processed document: ${JSON.stringify(params)}`,
+    `Extension Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
   );
 
-  dispatchProcessOnOpenDocument(params);
+  dispatchProcessOnOpenDocument(event).then((diagnostics) =>
+    handleDiagnostics(event.document.uri, diagnostics),
+  );
 });
 
-connection.onDidChangeTextDocument((params: DidChangeTextDocumentParams) => {
+documents.onDidChangeContent((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client changed a open document
   // Server will parse the document and populate the corresponding local maps
   logger.info(
-    `Extension Apex Language Server changed and processed document: ${JSON.stringify(params)}`,
+    `Extension Apex Language Server changed and processed document: ${JSON.stringify(event)}`,
   );
 
-  dispatchProcessOnChangeDocument(params);
+  dispatchProcessOnChangeDocument(event).then((diagnostics) =>
+    handleDiagnostics(event.document.uri, diagnostics),
+  );
 });
 
-connection.onDidCloseTextDocument((params: DidCloseTextDocumentParams) => {
+documents.onDidClose((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client closed a open document
   // Server will update the corresponding local maps
   logger.info(
-    `Extension Apex Language Server closed document: ${JSON.stringify(params)}`,
+    `Extension Apex Language Server closed document: ${JSON.stringify(event)}`,
   );
 
-  dispatchProcessOnCloseDocument(params);
+  dispatchProcessOnCloseDocument(event);
 });
 
-connection.onDidSaveTextDocument((params: DidSaveTextDocumentParams) => {
+documents.onDidSave((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client saved a document
   // Server will parse the document and update storage as needed
   logger.info(
-    `Extension Apex Language Server saved document: ${JSON.stringify(params)}`,
+    `Extension Apex Language Server saved document: ${JSON.stringify(event)}`,
   );
 
-  dispatchProcessOnSaveDocument(params);
+  dispatchProcessOnSaveDocument(event);
 });
+
+// Make the text document manager listen on the connection
+// for open, change and close text document events
+documents.listen(connection);
+
+// Listen on the connection
+connection.listen();
 
 // Export the storage implementation for Node.js
 const NodeFileSystemStorage = require('./storage/NodeFileSystemApexStorage');

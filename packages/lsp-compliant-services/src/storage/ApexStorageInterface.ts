@@ -121,4 +121,41 @@ export interface ApexStorageInterface {
    * @returns Promise resolving to the TextDocument or null if not found
    */
   getDocument(uri: string): Promise<TextDocument | null>;
+
+  /**
+   * Set a document for a given URI
+   * @param uri The URI of the document to set
+   * @param document The TextDocument to store
+   * @returns Promise resolving to success boolean
+   */
+  setDocument(uri: string, document: TextDocument): Promise<boolean>;
+
+  /**
+   * Set a definition for a given symbol
+   * @param symbolName The name of the symbol to set the definition for
+   * @param definition The ApexReference to store as the definition
+   * @returns Promise resolving to success boolean
+   */
+  setDefinition(
+    symbolName: string,
+    definition: ApexReference,
+  ): Promise<boolean>;
+
+  /**
+   * Set references for a given symbol
+   * @param symbolName The name of the symbol to set references for
+   * @param references The ApexReference[] to store as references
+   * @returns Promise resolving to success boolean
+   */
+  setReferences(
+    symbolName: string,
+    references: ApexReference[],
+  ): Promise<boolean>;
+
+  /**
+   * Get references for a given symbol
+   * @param symbolName The name of the symbol to get references for
+   * @returns Promise resolving to array of references
+   */
+  getReferences(symbolName: string): Promise<ApexReference[]>;
 }

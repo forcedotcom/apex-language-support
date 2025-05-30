@@ -19,6 +19,7 @@ import {
   ApexSymbolCollectorListener,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 
@@ -56,6 +57,7 @@ export class DefaultApexDocumentSymbolProvider
   async provideDocumentSymbols(
     params: DocumentSymbolParams,
   ): Promise<DocumentSymbol[] | SymbolInformation[] | null> {
+    const logger = getLogger();
     try {
       const documentUri = params.textDocument.uri;
       const document = await this.storage.getDocument(documentUri);
@@ -76,7 +78,7 @@ export class DefaultApexDocumentSymbolProvider
       );
 
       if (result.errors.length > 0) {
-        console.error('Errors parsing document:', result.errors);
+        logger.error('Errors parsing document:', result.errors);
         return null;
       }
 
@@ -134,7 +136,7 @@ export class DefaultApexDocumentSymbolProvider
 
       return symbols;
     } catch (error) {
-      console.error('Error providing document symbols:', error);
+      logger.error('Error providing document symbols:', error);
       return null;
     }
   }
@@ -143,7 +145,8 @@ export class DefaultApexDocumentSymbolProvider
    * Maps Apex symbol kinds to LSP symbol kinds
    */
   private mapSymbolKind(kind: string): SymbolKind {
-    console.log('Mapping symbol kind:', kind);
+    const logger = getLogger();
+    logger.info(`Mapping symbol kind: ${kind}`);
     let mappedKind: SymbolKind;
     switch (kind.toLowerCase()) {
       case 'class':
@@ -174,10 +177,10 @@ export class DefaultApexDocumentSymbolProvider
         mappedKind = SymbolKind.Class; // 5 (treating triggers as classes)
         break;
       default:
-        console.warn('Unknown symbol kind:', kind);
+        logger.warn(`Unknown symbol kind: ${kind}`);
         mappedKind = SymbolKind.Variable; // 13
     }
-    console.log('Mapped to:', mappedKind, '(expected Class to be 5)');
+    logger.info(`Mapped to: ${mappedKind} (expected Class to be 5)`);
     return mappedKind;
   }
 
@@ -188,9 +191,11 @@ export class DefaultApexDocumentSymbolProvider
     const children: DocumentSymbol[] = [];
     const childSymbols = scope.getAllSymbols();
     // Debug log: print all child symbol names and kinds for this scope
-    console.log(
-      `collectChildren for parentKind=${parentKind}, scope=${scope.name}, childSymbols=`,
-      childSymbols.map((s: any) => ({ name: s.name, kind: s.kind })),
+    const logger = getLogger();
+    logger.info(
+      `collectChildren for parentKind=${parentKind}, scope=${scope.name}, childSymbols=${childSymbols.map(
+        (s: any) => ({ name: s.name, kind: s.kind }),
+      )}`,
     );
     for (const childSymbol of childSymbols) {
       // For interfaces, only include methods

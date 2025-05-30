@@ -15,6 +15,7 @@ import type {
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 /**
  * Implementation of ApexStorageInterface for Node.js environments (VSCode extension).
@@ -28,7 +29,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
   private references: ApexReference[] = [];
   private documents: Map<string, TextDocument> = new Map();
   private initialized = false;
-
+  private readonly logger = getLogger();
   /**
    * Initialize the storage system
    * @param options Configuration options for storage
@@ -39,7 +40,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
     // - Initialize database connections
     // - Load existing data into memory
 
-    console.log('Initializing Node.js storage with options:', options);
+    this.logger.info(`Initializing Node.js storage with options: ${options}`);
     this.initialized = true;
   }
 
@@ -52,7 +53,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
     // - Save any pending data
     // - Close database connections
 
-    console.log('Shutting down Node.js storage');
+    this.logger.info('Shutting down Node.js storage');
     this.initialized = false;
   }
 
@@ -163,7 +164,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
 
     // In a real implementation, this would flush all in-memory
     // data to disk or database
-    console.log('Persisting data to Node.js storage');
+    this.logger.info('Persisting data to Node.js storage');
   }
 
   /**
@@ -197,8 +198,42 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
 
       return document;
     } catch (error) {
-      console.error(`Error reading document ${uri}:`, error);
+      this.logger.error(`Error reading document ${uri}:`, error);
       return null;
     }
+  }
+
+  async getHover(symbolName: string): Promise<string | undefined> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setHover(symbolName: string, hoverText: string): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  async getDefinition(symbolName: string): Promise<ApexReference | undefined> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setDefinition(
+    symbolName: string,
+    definition: ApexReference,
+  ): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  async getReferences(symbolName: string): Promise<ApexReference[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setReferences(
+    symbolName: string,
+    references: ApexReference[],
+  ): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setDocument(uri: string, document: TextDocument): Promise<boolean> {
+    throw new Error('Method not implemented.');
   }
 }

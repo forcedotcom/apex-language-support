@@ -185,7 +185,6 @@ function createClientOptions(
 function handleClientError(
   error: Error,
   message: any,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _count: number | undefined,
 ): { action: ErrorAction } {
   outputChannel.appendLine(

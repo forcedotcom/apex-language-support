@@ -6,6 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { DiagnosticSeverity } from 'vscode-languageserver';
+import { ApexError } from '@salesforce/apex-lsp-parser-ast';
+
+import { Logger } from './Logger';
+
 /**
  * Generic utility function to handle async operations in a fire-and-forget pattern
  * @param operation - The async operation to execute
@@ -19,7 +24,28 @@ export const dispatch = async <T>(
   try {
     return await operation;
   } catch (error: unknown) {
-    console.error(`${errorMessage}: ${error}`);
+    Logger.getInstance().error(`${errorMessage}: ${error}`);
     throw error;
   }
 };
+
+/**
+ * Converts Apex errors to diagnostics
+ * @param errors - The Apex errors to convert
+ * @returns The diagnostics
+ */
+export const getDiagnosticsFromErrors = (errors: ApexError[]) =>
+  errors.map((error) => ({
+    severity: DiagnosticSeverity.Error,
+    message: error.message,
+    range: {
+      start: {
+        line: error.line,
+        character: error.column,
+      },
+      end: {
+        line: error.endLine ?? error.line,
+        character: error.endColumn ?? error.column,
+      },
+    },
+  }));
