@@ -2,9 +2,19 @@
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["**/.env.*local"],
   "tasks": {
+    "precompile": {
+      "outputs": ["src/generated/**"]
+    },
     "compile": {
       "dependsOn": ["^compile"],
-      "outputs": ["dist/**", "*.tsbuildinfo"]
+      "outputs": ["dist/**", "*.tsbuildinfo"],
+      "inputs": ["src/**/*.ts", "src/generated/**"]
+    },
+    "apex-language-server-extension#compile": {
+      "dependsOn": [
+        "@salesforce/apex-lsp-parser-ast#precompile",
+        "@salesforce/apex-lsp-parser-ast#compile"
+      ]
     },
     "test": {
       "dependsOn": ["compile"],
