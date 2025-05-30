@@ -26,7 +26,7 @@
     "generate:stubs": "jest test/generator/generate-Standard-Apex-Library.ts",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage",
+    "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage src/generated",
     "clean:all": "npm run clean && rimraf node_modules"
   },
   "dependencies": {
