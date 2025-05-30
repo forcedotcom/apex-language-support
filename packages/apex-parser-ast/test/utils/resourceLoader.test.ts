@@ -5,6 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+import { CaseInsensitivePathMap } from '../../src/utils/CaseInsensitiveMap';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
 
 describe('ResourceLoader', () => {
@@ -109,7 +110,7 @@ describe('ResourceLoader', () => {
             `Available files:\n${Array.from(files.keys()).join('\n')}`,
         );
       }
-      expect(files).toBeInstanceOf(Map);
+      expect(files).toBeInstanceOf(CaseInsensitivePathMap);
       expect(files.size).toBeGreaterThan(0);
     });
   });
