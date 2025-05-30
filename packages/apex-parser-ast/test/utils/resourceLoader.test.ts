@@ -55,6 +55,26 @@ describe('ResourceLoader', () => {
       await loader.initialize();
     });
 
+    it('should handle different path formats consistently', () => {
+      const pathFormats = [
+        'System/System.cls',
+        'System\\System.cls',
+        'System/System',
+        'System\\System',
+        'System.System.cls',
+        'System.System',
+      ];
+
+      const firstContent = loader.getFile(pathFormats[0]);
+      expect(firstContent).toBeDefined();
+
+      // All other formats should return the same content
+      for (let i = 1; i < pathFormats.length; i++) {
+        const content = loader.getFile(pathFormats[i]);
+        expect(content).toBe(firstContent);
+      }
+    });
+
     it('should return undefined for non-existent files', () => {
       const result = loader.getFile('nonexistent.cls');
       expect(result).toBeUndefined();
