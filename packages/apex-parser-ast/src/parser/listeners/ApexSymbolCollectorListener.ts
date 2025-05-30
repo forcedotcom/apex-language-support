@@ -25,6 +25,7 @@ import {
   TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
@@ -47,7 +48,6 @@ import {
   ClassModifierValidator,
   ErrorReporter,
 } from '../../sematics/modifiers/index';
-
 interface SemanticError {
   type: 'semantic';
   severity: 'error' | 'warning';
@@ -74,6 +74,7 @@ export class ApexSymbolCollectorListener
   private currentFilePath: string = '';
   private semanticErrors: SemanticError[] = [];
   private semanticWarnings: SemanticError[] = [];
+  private readonly logger = getLogger();
 
   /**
    * Creates a new instance of the ApexSymbolCollectorListener.
@@ -227,7 +228,7 @@ export class ApexSymbolCollectorListener
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownClass';
-      console.log(`Entering class declaration: ${name}`);
+      this.logger.info(`Entering class declaration: ${name}`);
 
       // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
@@ -298,7 +299,7 @@ export class ApexSymbolCollectorListener
 
       // Enter class scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered class scope: ${name}`);
+      this.logger.info(`Entered class scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -314,7 +315,7 @@ export class ApexSymbolCollectorListener
   exitClassDeclaration(): void {
     // Exit the class scope
     const currentScope = this.symbolTable.getCurrentScope();
-    console.log(`Exiting class scope: ${currentScope.name}`);
+    this.logger.info(`Exiting class scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
 
     // Clear current type symbol
@@ -327,7 +328,7 @@ export class ApexSymbolCollectorListener
   enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownInterface';
-      console.log(`Entering interface declaration: ${name}`);
+      this.logger.info(`Entering interface declaration: ${name}`);
 
       // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
@@ -371,7 +372,7 @@ export class ApexSymbolCollectorListener
 
       // Enter interface scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered interface scope: ${name}`);
+      this.logger.info(`Entered interface scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -398,7 +399,7 @@ export class ApexSymbolCollectorListener
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownMethod';
-      console.log(
+      this.logger.info(
         `Entering method declaration: ${name} in class: ${this.currentTypeSymbol?.name}`,
       );
 
@@ -466,7 +467,7 @@ export class ApexSymbolCollectorListener
 
       // Enter method scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered method scope: ${name}`);
+      this.logger.info(`Entered method scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -483,7 +484,7 @@ export class ApexSymbolCollectorListener
   exitMethodDeclaration(): void {
     // Exit method scope
     const currentScope = this.symbolTable.getCurrentScope();
-    console.log(`Exiting method scope: ${currentScope.name}`);
+    this.logger.info(`Exiting method scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
 
     // Clear current method symbol
@@ -630,7 +631,7 @@ export class ApexSymbolCollectorListener
 
       // Enter method scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered interface method scope: ${name}`);
+      this.logger.info(`Entered interface method scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -693,7 +694,7 @@ export class ApexSymbolCollectorListener
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
     try {
       const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
-      console.log(
+      this.logger.info(
         `Entering field declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
       );
 
@@ -751,7 +752,7 @@ export class ApexSymbolCollectorListener
   enterEnumDeclaration(ctx: EnumDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownEnum';
-      console.log(`Entering enum declaration: ${name}`);
+      this.logger.info(`Entering enum declaration: ${name}`);
 
       // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
@@ -775,7 +776,9 @@ export class ApexSymbolCollectorListener
       // Add to current scope
       const currentScope = this.symbolTable.getCurrentScope();
       currentScope.addSymbol(enumSymbol);
-      console.log(`Added enum symbol: ${name} to scope: ${currentScope.name}`);
+      this.logger.info(
+        `Added enum symbol: ${name} to scope: ${currentScope.name}`,
+      );
 
       // Enter enum scope
       this.symbolTable.enterScope(name);
@@ -852,7 +855,7 @@ export class ApexSymbolCollectorListener
     // Create a new scope for all blocks
     const scopeName = `block_${ctx.start.line}_${ctx.start.charPositionInLine}`;
     this.symbolTable.enterScope(scopeName);
-    console.log(`Entered block scope: ${scopeName}`);
+    this.logger.info(`Entered block scope: ${scopeName}`);
 
     // Create a block symbol to represent this scope
     const blockSymbol: ApexSymbol = {
@@ -873,7 +876,7 @@ export class ApexSymbolCollectorListener
   exitBlock(): void {
     // Exit block scope
     const currentScope = this.symbolTable.getCurrentScope();
-    console.log(`Exiting block scope: ${currentScope.name}`);
+    this.logger.info(`Exiting block scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
     this.blockDepth--;
   }
@@ -889,7 +892,7 @@ export class ApexSymbolCollectorListener
   ): void {
     try {
       const name = ctx.id()?.text ?? 'unknown';
-      console.log(
+      this.logger.info(
         `Processing variable declarator: ${name}, kind: ${kind}, in scope: ${this.symbolTable.getCurrentScope().name}`,
       );
 
@@ -1114,7 +1117,7 @@ export class ApexSymbolCollectorListener
     kind: SymbolKind.Class | SymbolKind.Interface | SymbolKind.Trigger,
     modifiers: SymbolModifiers,
   ): TypeSymbol {
-    console.log(`Adding type symbol: ${name}, kind: ${kind}`);
+    this.logger.info(`Adding type symbol: ${name}, kind: ${kind}`);
     const typeSymbol: TypeSymbol = {
       name,
       kind,
@@ -1128,7 +1131,9 @@ export class ApexSymbolCollectorListener
     // Add the type symbol to the current scope
     const currentScope = this.symbolTable.getCurrentScope();
     currentScope.addSymbol(typeSymbol);
-    console.log(`Added type symbol: ${name} to scope: ${currentScope.name}`);
+    this.logger.info(
+      `Added type symbol: ${name} to scope: ${currentScope.name}`,
+    );
 
     return typeSymbol;
   }
@@ -1139,7 +1144,7 @@ export class ApexSymbolCollectorListener
     modifiers: SymbolModifiers,
     returnType: TypeInfo,
   ): MethodSymbol {
-    console.log(
+    this.logger.info(
       `Adding method symbol: ${name}, return type: ${returnType.name}`,
     );
     const methodSymbol: MethodSymbol = {
@@ -1158,7 +1163,7 @@ export class ApexSymbolCollectorListener
     if (this.currentTypeSymbol) {
       const typeScope = this.symbolTable.getCurrentScope();
       typeScope.addSymbol(methodSymbol);
-      console.log(
+      this.logger.info(
         `Added method symbol: ${name} to scope: ${this.currentTypeSymbol.name}`,
       );
     }
@@ -1172,7 +1177,7 @@ export class ApexSymbolCollectorListener
     kind: SymbolKind.Property | SymbolKind.Variable | SymbolKind.EnumValue,
     type: TypeInfo,
   ): VariableSymbol {
-    console.log(
+    this.logger.info(
       `Adding property symbol: ${name}, kind: ${kind}, type: ${type.name}`,
     );
     const propertySymbol: VariableSymbol = {
@@ -1188,7 +1193,7 @@ export class ApexSymbolCollectorListener
     if (this.currentTypeSymbol) {
       const typeScope = this.symbolTable.getCurrentScope();
       typeScope.addSymbol(propertySymbol);
-      console.log(
+      this.logger.info(
         `Added property symbol: ${name} to scope: ${this.currentTypeSymbol.name}`,
       );
     }
@@ -1219,7 +1224,7 @@ export class ApexSymbolCollectorListener
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered trigger scope: ${name}`);
+      this.logger.info(`Entered trigger scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -1260,7 +1265,7 @@ export class ApexSymbolCollectorListener
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
-      console.log(`Entered trigger scope: ${name}`);
+      this.logger.info(`Entered trigger scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();

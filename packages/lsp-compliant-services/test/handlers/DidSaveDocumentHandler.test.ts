@@ -6,7 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DidSaveTextDocumentParams } from 'vscode-languageserver';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { Logger } from '../../src/utils/Logger';
 import { dispatch } from '../../src/utils/handlerUtil';
@@ -21,7 +22,6 @@ jest.mock('../../src/utils/handlerUtil');
 describe('DidSaveDocumentHandler', () => {
   let mockLogger: jest.Mocked<Logger>;
   let mockDispatch: jest.MockedFunction<typeof dispatch>;
-
   beforeEach(() => {
     mockLogger = {
       getInstance: jest.fn().mockReturnThis(),
@@ -42,70 +42,112 @@ describe('DidSaveDocumentHandler', () => {
 
   describe('processOnSaveDocument', () => {
     it('should log info message with document save params', async () => {
-      const params: DidSaveTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'class TestClass {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
-      await processOnSaveDocument(params);
+      await processOnSaveDocument(event);
 
       expect(mockLogger.info).toHaveBeenCalledTimes(1);
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server save document handler invoked with: ${params}`,
+        `Common Apex Language Server save document handler invoked with: ${event}`,
+      );
+    });
+
+    it('should log when document already exists', async () => {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
+          uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'class TestClass {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
+        },
+      };
+
+      await processOnSaveDocument(event);
+
+      expect(mockLogger.info).toHaveBeenCalledTimes(1);
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Common Apex Language Server save document handler invoked with: ${event}`,
       );
     });
 
     it('should handle save with text', async () => {
-      const params: DidSaveTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'class TestClass {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
-        text: 'saved content',
       };
 
-      await processOnSaveDocument(params);
+      await processOnSaveDocument(event);
 
       expect(mockLogger.info).toHaveBeenCalledTimes(1);
       expect(mockLogger.info).toHaveBeenCalledWith(
-        `Common Apex Language Server save document handler invoked with: ${params}`,
+        `Common Apex Language Server save document handler invoked with: ${event}`,
       );
     });
   });
 
   describe('dispatchProcessOnSaveDocument', () => {
     it('should dispatch processOnSaveDocument with correct params', () => {
-      const params: DidSaveTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'class TestClass {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
-      dispatchProcessOnSaveDocument(params);
+      dispatchProcessOnSaveDocument(event);
 
       expect(mockDispatch).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(
-        processOnSaveDocument(params),
+        processOnSaveDocument(event),
         'Error processing document save',
       );
     });
 
     it('should handle dispatch error', async () => {
-      const params: DidSaveTextDocumentParams = {
-        textDocument: {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
           uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'class TestClass {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
         },
       };
 
       const error = new Error('Test error');
       mockDispatch.mockRejectedValueOnce(error);
 
-      await expect(dispatchProcessOnSaveDocument(params)).rejects.toThrow(
-        error,
-      );
+      await expect(dispatchProcessOnSaveDocument(event)).rejects.toThrow(error);
       expect(mockDispatch).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(
-        processOnSaveDocument(params),
+        processOnSaveDocument(event),
         'Error processing document save',
       );
     });

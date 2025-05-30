@@ -14,6 +14,9 @@ export * from './parser/listeners/BaseApexParserListener';
 // Export symbol collector listener
 export * from './parser/listeners/ApexSymbolCollectorListener';
 
+// Export error listener
+export * from './parser/listeners/ApexErrorListener';
+
 // Export type definitions
 export * from './types/typeInfo';
 export * from './types/symbol';

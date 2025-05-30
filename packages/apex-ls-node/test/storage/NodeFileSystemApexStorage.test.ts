@@ -25,31 +25,31 @@ jest.mock('fs', () => ({
   },
 }));
 
+// Mock the logger
+const mockLogger = {
+  info: jest.fn(),
+  error: jest.fn(),
+};
+
+jest.mock('@salesforce/apex-lsp-logging', () => ({
+  getLogger: jest.fn(() => mockLogger),
+}));
+
 describe('NodeFileSystemApexStorage', () => {
   let storage: NodeFileSystemApexStorage;
   const mockFs = fs as jest.Mocked<typeof fs>;
-  let mockConsoleLog: jest.SpyInstance;
-  let mockConsoleError: jest.SpyInstance;
 
   beforeEach(() => {
     storage = new NodeFileSystemApexStorage();
-    mockConsoleLog = jest.spyOn(console, 'log').mockImplementation();
-    mockConsoleError = jest.spyOn(console, 'error').mockImplementation();
     jest.clearAllMocks();
-  });
-
-  afterEach(() => {
-    mockConsoleLog.mockRestore();
-    mockConsoleError.mockRestore();
   });
 
   describe('initialize', () => {
     it('should initialize storage with options', async () => {
       const options = { test: 'option' };
       await storage.initialize(options);
-      expect(mockConsoleLog).toHaveBeenCalledWith(
-        'Initializing Node.js storage with options:',
-        options,
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        `Initializing Node.js storage with options: ${options}`,
       );
     });
   });
@@ -58,7 +58,7 @@ describe('NodeFileSystemApexStorage', () => {
     it('should shutdown storage', async () => {
       await storage.initialize();
       await storage.shutdown();
-      expect(mockConsoleLog).toHaveBeenCalledWith(
+      expect(mockLogger.info).toHaveBeenCalledWith(
         'Shutting down Node.js storage',
       );
     });
@@ -245,7 +245,7 @@ describe('NodeFileSystemApexStorage', () => {
     it('should persist data', async () => {
       await storage.initialize();
       await storage.persist();
-      expect(mockConsoleLog).toHaveBeenCalledWith(
+      expect(mockLogger.info).toHaveBeenCalledWith(
         'Persisting data to Node.js storage',
       );
     });
@@ -287,13 +287,14 @@ describe('NodeFileSystemApexStorage', () => {
     });
 
     it('should return null when file read fails', async () => {
+      const uri = 'file:///test.apex';
+      jest
+        .spyOn(fs, 'readFile')
+        .mockRejectedValueOnce(new Error('File not found'));
       await storage.initialize();
-      const uri = 'file:///test.cls';
-      mockFs.readFile.mockRejectedValueOnce(new Error('File not found'));
-
       const result = await storage.getDocument(uri);
       expect(result).toBeNull();
-      expect(mockConsoleError).toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalled();
     });
 
     it('should throw error when not initialized', async () => {

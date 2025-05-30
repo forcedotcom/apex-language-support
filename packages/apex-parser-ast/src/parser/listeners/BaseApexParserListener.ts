@@ -18,9 +18,8 @@ import { ApexErrorListener } from './ApexErrorListener';
  * @template T The type of result that will be produced by the listener
  */
 export abstract class BaseApexParserListener<T> implements ApexParserListener {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   enterEveryRule?(ctx: ParserRuleContext): void {}
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   exitEveryRule?(ctx: ParserRuleContext): void {}
   visitTerminal?(): void {}
   visitErrorNode?(node: ErrorNode): void {
@@ -148,7 +147,6 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
   createNewInstance?(): BaseApexParserListener<T>;
 
   // Helper utility method for visiting/walking specific nodes as needed
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected processNode(context: ParserRuleContext, nodeName: string): void {
     // Implement common node processing logic here
     // This can be used by subclasses to standardize node handling

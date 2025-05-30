@@ -182,7 +182,6 @@ export class ApexLanguageServerMock {
       // Ensure client is stopped
       try {
         await this.client.stop();
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (_) {
         // Ignore errors during shutdown
       }

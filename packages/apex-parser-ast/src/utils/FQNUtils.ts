@@ -58,7 +58,6 @@ export interface FQNOptions {
   normalizeCase?: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const DEFAULT_OPTIONS: FQNOptions = {
   innerClassDelimiter: '.',
   memberDelimiter: '.',

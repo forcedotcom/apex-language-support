@@ -12,7 +12,7 @@ import type {
   ApexStorageInterface,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-
+import { getLogger } from '@salesforce/apex-lsp-logging';
 /**
  * Implementation of ApexStorageInterface for browser environments.
  * This is a no-op implementation that doesn't actually persist data.
@@ -24,7 +24,7 @@ export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
   private typeInfoMap: Map<string, TypeInfo> = new Map();
   private references: ApexReference[] = [];
   private initialized = false;
-
+  private readonly logger = getLogger();
   /**
    * Initialize the storage system
    * @param options Configuration options for storage
@@ -35,7 +35,7 @@ export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
     // - Create object stores if needed
     // - Initialize caches
 
-    console.log('Initializing browser storage with options:', options);
+    this.logger.info(`Initializing browser storage with options: ${options}`);
     this.initialized = true;
   }
 
@@ -47,7 +47,7 @@ export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
     // - Close database connections
     // - Perform any final cleanup
 
-    console.log('Shutting down browser storage');
+    this.logger.info('Shutting down browser storage');
     this.initialized = false;
   }
 
@@ -157,11 +157,44 @@ export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
 
     // In a real implementation, this would ensure all
     // pending changes are synced to storage
-    console.log('Persisting data to browser storage');
+    this.logger.info('Persisting data to browser storage');
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getDocument(uri: string): Promise<TextDocument | null> {
+    throw new Error('Method not implemented.');
+  }
+
+  async getHover(symbolName: string): Promise<string | undefined> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setHover(symbolName: string, hoverText: string): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  async getDefinition(symbolName: string): Promise<ApexReference | undefined> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setDefinition(
+    symbolName: string,
+    definition: ApexReference,
+  ): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  async getReferences(symbolName: string): Promise<ApexReference[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setReferences(
+    symbolName: string,
+    references: ApexReference[],
+  ): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  async setDocument(uri: string, document: TextDocument): Promise<boolean> {
     throw new Error('Method not implemented.');
   }
 }
