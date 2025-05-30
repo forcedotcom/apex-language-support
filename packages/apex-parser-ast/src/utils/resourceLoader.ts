@@ -139,13 +139,13 @@ export class ResourceLoader {
     }
   }
 
-  public getAllFiles(): Map<string, string> {
+  public getAllFiles(): CaseInsensitivePathMap<string> {
     if (!this.initialized) {
       throw new Error(
         'ResourceLoader not initialized. Call initialize() first.',
       );
     }
-    const result = new Map<string, string>();
+    const result = new CaseInsensitivePathMap<string>();
     for (const [normalizedPath, content] of this.fileMap.entries()) {
       if (!content) continue;
       // Always return the original path format
