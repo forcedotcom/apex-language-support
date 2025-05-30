@@ -9,6 +9,7 @@ import { unzipSync } from 'fflate';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { zipData } from '../generated/apexSrcLoader';
+import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
@@ -26,7 +27,8 @@ function isDecodedContent(contents: string | Uint8Array): contents is string {
 
 export class ResourceLoader {
   private static instance: ResourceLoader;
-  private fileMap: Map<string, FileContent> = new Map();
+  private fileMap: CaseInsensitivePathMap<FileContent> =
+    new CaseInsensitivePathMap();
   private initialized = false;
   private loadMode: 'lazy' | 'full' = 'full';
   private readonly logger = getLogger();
@@ -53,15 +55,14 @@ export class ResourceLoader {
       Object.entries(files)
         .filter(([path]) => path.endsWith('.cls'))
         .forEach(([path, data]) => {
-          const lowerPath = path.toLowerCase();
           if (this.loadMode === 'full') {
-            this.fileMap.set(lowerPath, {
+            this.fileMap.set(path, {
               decoded: true,
               contents: new TextDecoder().decode(data),
               originalPath: path,
             });
           } else {
-            this.fileMap.set(lowerPath, {
+            this.fileMap.set(path, {
               decoded: false,
               contents: data,
               originalPath: path,
@@ -76,8 +77,14 @@ export class ResourceLoader {
       const dirStats = new Map<string, number>();
       let totalFiles = 0;
 
-      for (const [lowerPath, content] of this.fileMap.entries()) {
-        const dir = lowerPath.split('/').slice(0, -1).join('/') || '(root)';
+      for (const [normalizedPath, content] of this.fileMap.entries()) {
+        if (!content) continue;
+        // Use the original path for directory statistics to maintain compatibility
+        const dir =
+          content.originalPath
+            .split(/[\/\\]/)
+            .slice(0, -1)
+            .join('/') || '(root)';
         dirStats.set(dir, (dirStats.get(dir) || 0) + 1);
         totalFiles++;
       }
@@ -113,8 +120,7 @@ export class ResourceLoader {
         'ResourceLoader not initialized. Call initialize() first.',
       );
     }
-    const lowerPath = path.toLowerCase();
-    const fileContent = this.fileMap.get(lowerPath);
+    const fileContent = this.fileMap.get(path);
     if (!fileContent) {
       return undefined;
     }
@@ -124,7 +130,7 @@ export class ResourceLoader {
     } else {
       // Decode on demand
       const decoded = new TextDecoder().decode(fileContent.contents);
-      this.fileMap.set(lowerPath, {
+      this.fileMap.set(path, {
         ...fileContent,
         decoded: true,
         contents: decoded,
@@ -140,7 +146,9 @@ export class ResourceLoader {
       );
     }
     const result = new Map<string, string>();
-    for (const [lowerPath, content] of this.fileMap.entries()) {
+    for (const [normalizedPath, content] of this.fileMap.entries()) {
+      if (!content) continue;
+      // Always return the original path format
       if (isDecodedContent(content.contents)) {
         result.set(content.originalPath, content.contents);
       } else {
