@@ -109,18 +109,16 @@
   "scripts": {
     "precompile": "npm run copy:files",
     "compile": "tsc --build",
-    "bundle": "tsup src/extension.ts --format cjs --target chrome88 --out-dir dist --clean && shx mkdir -p dist/snippets && shx cp -R snippets/* dist/snippets/ && shx cp -R grammars dist/",
+    "bundle": "tsup src/extension.ts --format cjs --no-minify --target chrome88 --out-dir dist --clean --external vscode && shx mkdir -p dist/snippets && shx cp -R snippets/* dist/snippets/ && shx cp -R grammars dist/ && shx cp README.md language-configuration.json dist/ && shx cp package.json dist/ && shx cp LICENSE dist/ && node update-package.js",
     "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars . && shx mkdir -p out/snippets && shx cp -R snippets/* out/snippets/ && shx cp -R grammars out/",
-    "package": "npm run compile && npm run bundle && shx mkdir -p extension && shx cp -r dist out/grammars out/snippets language-configuration.json package.json README.md extension/ && cd extension && shx rm -rf node_modules && npm install --omit=dev && shx rm -rf node_modules",
+    "package": "npm run bundle && shx mkdir -p extension && cd dist && npx vsce package --out ../extension/apex-language-server-extension-web.vsix",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf dist out bundle *.tsbuildinfo .turbo grammars",
+    "clean": "rimraf dist out bundle *.tsbuildinfo .turbo grammars extension",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage"
   },
-  "dependencies": {
-    "vscode-uri": "^3.0.8"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.5",
     "@salesforce/apex-tmlanguage": "1.8.0",

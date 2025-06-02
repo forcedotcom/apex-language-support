@@ -1,8 +1,0 @@
-out
-dist
-node_modules
-*.vsix
-.vscode-test/
-*.tsbuildinfo
-.vscode/
-grammars/ 

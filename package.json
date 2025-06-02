@@ -18,12 +18,13 @@
     "compile": "turbo run compile",
     "prepare": "husky",
     "commit": "git-cz",
-    "clean": "rimraf packages/**/dist packages/**/*.tsbuildinfo packages/**/bundle *.tsbuildinfo .turbo packages/**/.turbo coverage",
+    "clean": "rimraf packages/**/dist packages/**/out packages/**/*.tsbuildinfo packages/**/bundle packages/**/extension *.tsbuildinfo .turbo packages/**/.turbo coverage dist out bundle",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:packages": "turbo run clean --filter=./packages/*",
     "clean:coverage": "rimraf coverage packages/*/coverage",
     "semantic-release": "semantic-release",
-    "bundle": "turbo run bundle"
+    "bundle": "turbo run bundle",
+    "package:packages": "turbo run package --filter=./packages/*"
   },
   "keywords": [
     "salesforce",
@@ -78,7 +79,7 @@
     "semantic-release": "^22.0.12",
     "ts-jest": "^29.3.0",
     "tsup": "^8.0.2",
-    "turbo": "^2.5.3",
+    "turbo": "^2.5.4",
     "typescript": "^5.8.2"
   },
   "dependencies": {
