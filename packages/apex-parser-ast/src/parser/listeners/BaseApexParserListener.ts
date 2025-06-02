@@ -10,16 +10,16 @@ import { ApexParserListener } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { ErrorNode } from 'antlr4ts/tree';
 
-import { ApexErrorListener } from './ApexErrorListener.js';
+import { ApexErrorListener } from './ApexErrorListener';
 
 /**
  * Base abstract class for all Apex parser listeners with typed result.
  * Extends the generated ApexParserListener with additional functionality.
+ * @template T The type of result that will be produced by the listener
  */
 export abstract class BaseApexParserListener<T> implements ApexParserListener {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   enterEveryRule?(ctx: ParserRuleContext): void {}
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   exitEveryRule?(ctx: ParserRuleContext): void {}
   visitTerminal?(): void {}
   visitErrorNode?(node: ErrorNode): void {
@@ -39,7 +39,8 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
   protected projectNamespace?: string;
 
   /**
-   * Set the error listener for this parser listener
+   * Set the error listener for this parser listener.
+   * @param errorListener The error listener to use for reporting errors
    */
   setErrorListener(errorListener: ApexErrorListener): void {
     this.errorListener = errorListener;
@@ -53,8 +54,9 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
   }
 
   /**
-   * Set the project namespace for this parser listener
-   * @param namespace The namespace of the current project
+   * Set the project namespace for this parser listener.
+   * Used for calculating fully qualified names.
+   * @param namespace The namespace to set
    */
   setProjectNamespace(namespace: string): void {
     this.projectNamespace = namespace;
@@ -70,11 +72,13 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
   /**
    * Get the result of the parsing process.
    * Implementation depends on the specific listener subclass.
+   * @returns The result of type T
    */
   abstract getResult(): T;
 
   /**
    * Get any warnings that occurred during parsing.
+   * @returns Array of warning messages
    */
   getWarnings(): string[] {
     return this.warnings;
@@ -138,11 +142,11 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
    * Create a new instance of this listener.
    * Used when processing multiple files to create a fresh listener for each file.
    * Subclasses should override this method to provide proper instantiation.
+   * @returns A new instance of the listener
    */
   createNewInstance?(): BaseApexParserListener<T>;
 
   // Helper utility method for visiting/walking specific nodes as needed
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected processNode(context: ParserRuleContext, nodeName: string): void {
     // Implement common node processing logic here
     // This can be used by subclasses to standardize node handling

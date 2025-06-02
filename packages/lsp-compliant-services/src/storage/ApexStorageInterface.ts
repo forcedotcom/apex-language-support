@@ -6,8 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { ApexClassInfo } from '@salesforce/apex-lsp-parser-ast/dist/parser/listeners/ApexStructureListener.js';
-import type { TypeInfo } from '@salesforce/apex-lsp-parser-ast/dist/types/typeInfo.js';
+import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 /**
  * Interface for type references between Apex symbols
@@ -114,4 +114,48 @@ export interface ApexStorageInterface {
    * @returns Promise resolving when persistence is complete
    */
   persist(): Promise<void>;
+
+  /**
+   * Get the text document for a given URI
+   * @param uri The URI of the document to retrieve
+   * @returns Promise resolving to the TextDocument or null if not found
+   */
+  getDocument(uri: string): Promise<TextDocument | null>;
+
+  /**
+   * Set a document for a given URI
+   * @param uri The URI of the document to set
+   * @param document The TextDocument to store
+   * @returns Promise resolving to success boolean
+   */
+  setDocument(uri: string, document: TextDocument): Promise<boolean>;
+
+  /**
+   * Set a definition for a given symbol
+   * @param symbolName The name of the symbol to set the definition for
+   * @param definition The ApexReference to store as the definition
+   * @returns Promise resolving to success boolean
+   */
+  setDefinition(
+    symbolName: string,
+    definition: ApexReference,
+  ): Promise<boolean>;
+
+  /**
+   * Set references for a given symbol
+   * @param symbolName The name of the symbol to set references for
+   * @param references The ApexReference[] to store as references
+   * @returns Promise resolving to success boolean
+   */
+  setReferences(
+    symbolName: string,
+    references: ApexReference[],
+  ): Promise<boolean>;
+
+  /**
+   * Get references for a given symbol
+   * @param symbolName The name of the symbol to get references for
+   * @returns Promise resolving to array of references
+   */
+  getReferences(symbolName: string): Promise<ApexReference[]>;
 }

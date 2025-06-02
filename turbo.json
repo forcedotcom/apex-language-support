@@ -1,0 +1,47 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
+  "tasks": {
+    "compile": {
+      "dependsOn": ["^compile"],
+      "outputs": ["dist/**", "*.tsbuildinfo"]
+    },
+    "test": {
+      "dependsOn": ["compile"],
+      "outputs": [],
+      "inputs": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+    },
+    "test:coverage": {
+      "dependsOn": ["compile"],
+      "outputs": ["coverage/**"],
+      "inputs": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+    },
+    "lint": {
+      "dependsOn": ["compile"],
+      "outputs": [],
+      "inputs": ["src/**/*.ts"]
+    },
+    "lint:fix": {
+      "dependsOn": ["compile"],
+      "outputs": [],
+      "inputs": ["src/**/*.ts"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "clean:coverage": {
+      "cache": false
+    },
+    "clean:all": {
+      "cache": false
+    },
+    "bundle": {
+      "dependsOn": ["^bundle"],
+      "outputs": ["dist/**"]
+    },
+    "package": {
+      "dependsOn": ["bundle"],
+      "outputs": ["extension/**"]
+    }
+  }
+}

@@ -6,8 +6,8 @@ Thank you for your interest in contributing to the Apex Language Server project!
 
 Before you begin, ensure your development environment meets these requirements:
 
-- **Node.js**: v16.0.0 or higher (v22.x recommended)
-- **npm**: v11.2.0 or higher
+- **Node.js**: v20.0.0 or higher (v22.x recommended)
+- **npm**: v10.2.0 or higher
 - Git
 
 ## Development Environment Setup
@@ -37,8 +37,8 @@ The project is organized as a monorepo using npm workspaces:
 - `packages/apex-parser-ast`: Apex language parser and AST functionality
 - `packages/custom-services`: Custom language server services
 - `packages/lsp-compliant-services`: Standard LSP-compliant services
-- `packages/extension-apex-ls-ts`: VS Code extension integration
-- `packages/web-apex-ls-ts`: Web-based integration
+- `packages/apex-ls-browser`: Browser-based implementation for the language server
+- `packages/apex-ls-node`: Node.js implementation for the language server
 
 ## TypeScript Declaration Files
 

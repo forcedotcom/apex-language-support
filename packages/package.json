@@ -3,10 +3,15 @@
   "version": "1.0.0",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "clean": "rimraf */dist */.wireit",
+    "clean": "rimraf */dist */.wireit */bundle",
     "clean:all": "npm run clean && rimraf */node_modules"
   },
-  "keywords": ["salesforce", "apex", "language server", "lsp"],
+  "keywords": [
+    "salesforce",
+    "apex",
+    "language server",
+    "lsp"
+  ],
   "author": "Salesforce",
   "license": "BSD-3-Clause",
   "description": "Package manager for Salesforce Apex Language Server",
@@ -14,5 +19,8 @@
     "type": "git",
     "url": "https://github.com/forcedotcom/apex-language-support.git",
     "directory": "packages"
+  },
+  "dependencies": {
+    "vscode-languageserver-textdocument": "^1.0.12"
   }
 }

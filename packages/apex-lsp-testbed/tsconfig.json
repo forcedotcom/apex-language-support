@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "composite": true,
+    "rootDir": "src",
+    "baseUrl": ".",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "bundle"],
+  "references": [
+    { "path": "../apex-parser-ast" },
+    { "path": "../lsp-compliant-services" }
+  ]
+}

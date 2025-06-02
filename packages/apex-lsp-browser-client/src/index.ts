@@ -6,62 +6,16 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Import from the main protocol package but don't use browser-specific imports
-// which may not be available directly
 import {
-  createMessageConnection as createProtocolMessageConnection,
-  Event,
-  MessageReader as ProtocolMessageReader,
-  MessageWriter as ProtocolMessageWriter,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars, unused-imports/no-unused-imports
-  Message,
-} from 'vscode-languageserver-protocol';
+  createMessageConnection,
+  MessageReader,
+  MessageWriter,
+  ResponseError,
+  ErrorCodes,
+} from 'vscode-jsonrpc/browser';
 
 /**
- * Connection strategy for message connections
- */
-export interface ConnectionStrategy {}
-
-// Event interface for partial message information
-export interface PartialMessageInfo {
-  messageToken: number;
-  waitingTime: number;
-}
-
-// Simple event implementation
-type Listener<T> = (e: T) => any;
-export interface Disposable {
-  dispose(): void;
-}
-
-export interface SimpleEvent<T> {
-  (listener: Listener<T>): Disposable;
-}
-
-/**
- * Message reader interface for worker communication
- */
-export interface MessageReader {
-  listen: (callback: (message: any) => void) => Disposable;
-  onError: SimpleEvent<Error>;
-  onClose: SimpleEvent<void>;
-  onPartialMessage: SimpleEvent<PartialMessageInfo>;
-  dispose: () => void;
-}
-
-/**
- * Message writer interface for worker communication
- */
-export interface MessageWriter {
-  write: (msg: any) => Promise<void>;
-  onError: SimpleEvent<Error>;
-  onClose: SimpleEvent<void>;
-  end: () => void;
-  dispose: () => void;
-}
-
-/**
- * Logger interface
+ * Logger interface for the Apex Language Server browser client
  */
 export interface Logger {
   error(message: string): void;
@@ -71,91 +25,34 @@ export interface Logger {
 }
 
 /**
- * Message connection interface
- */
-export interface MessageConnection {
-  listen(): void;
-  dispose(): void;
-}
-
-// Helper to adapt our simple event model to the protocol's Event
-function createEventAdapter<T, U = T>(
-  simpleEvent: SimpleEvent<T>,
-  adapter?: (data: T) => U,
-): Event<U> {
-  return function (listener: (e: U) => any): Disposable {
-    return simpleEvent((e) =>
-      listener(adapter ? adapter(e) : (e as unknown as U)),
-    );
-  };
-}
-
-/**
  * Creates a message reader that reads messages from a worker
  */
-export function createWorkerMessageReader(
-  worker: Worker,
-): ProtocolMessageReader {
-  // Create events
-  const onMessageCallbacks: Listener<any>[] = [];
-  const onErrorCallbacks: Listener<Error>[] = [];
-  const onCloseCallbacks: Listener<void>[] = [];
-
-  const onMessage: SimpleEvent<any> = (listener) => {
-    onMessageCallbacks.push(listener);
-    return {
-      dispose: () => {
-        const index = onMessageCallbacks.indexOf(listener);
-        if (index >= 0) onMessageCallbacks.splice(index, 1);
-      },
-    };
-  };
-
-  const onError: SimpleEvent<Error> = (listener) => {
-    onErrorCallbacks.push(listener);
-    return {
-      dispose: () => {
-        const index = onErrorCallbacks.indexOf(listener);
-        if (index >= 0) onErrorCallbacks.splice(index, 1);
-      },
-    };
-  };
-
-  const onClose: SimpleEvent<void> = (listener) => {
-    onCloseCallbacks.push(listener);
-    return {
-      dispose: () => {
-        const index = onCloseCallbacks.indexOf(listener);
-        if (index >= 0) onCloseCallbacks.splice(index, 1);
-      },
-    };
-  };
-
-  // Set up worker listeners
-  worker.onmessage = (event) => {
-    onMessageCallbacks.forEach((cb) => cb(event.data));
-  };
-
-  worker.onerror = (event) => {
-    const error = new Error(`Worker error: ${event.message}`);
-    onErrorCallbacks.forEach((cb) => cb(error));
-  };
-
-  // Create appropriate event types for protocol
-  const errorEvent: Event<Error> = createEventAdapter(onError);
-  const closeEvent: Event<void> = createEventAdapter(onClose);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const partialMessageEvent: Event<PartialMessageInfo> = function (listener) {
-    // This never actually emits events
-    return { dispose: () => {} };
-  };
-
-  // Adapt to the protocol interface
+export function createWorkerMessageReader(worker: Worker): MessageReader {
   return {
-    listen: (callback) => onMessage(callback),
-    onError: errorEvent,
-    onClose: closeEvent,
-    onPartialMessage: partialMessageEvent,
+    listen: (callback) => {
+      worker.onmessage = (event) => callback(event.data);
+      return {
+        dispose: () => {
+          worker.onmessage = null;
+        },
+      };
+    },
+    onError: (listener) => {
+      worker.onerror = (event) => {
+        const error = new ResponseError(
+          ErrorCodes.InternalError,
+          `Worker error: ${event.message}`,
+        );
+        listener(error);
+      };
+      return {
+        dispose: () => {
+          worker.onerror = null;
+        },
+      };
+    },
+    onClose: () => ({ dispose: () => {} }),
+    onPartialMessage: () => ({ dispose: () => {} }),
     dispose: () => {
       worker.onmessage = null;
       worker.onerror = null;
@@ -166,44 +63,14 @@ export function createWorkerMessageReader(
 /**
  * Creates a message writer that writes messages to a worker
  */
-export function createWorkerMessageWriter(
-  worker: Worker,
-): ProtocolMessageWriter {
-  // Create events
-  const onErrorCallbacks: Listener<Error>[] = [];
-  const onCloseCallbacks: Listener<void>[] = [];
-
-  const onError: SimpleEvent<Error> = (listener) => {
-    onErrorCallbacks.push(listener);
-    return {
-      dispose: () => {
-        const index = onErrorCallbacks.indexOf(listener);
-        if (index >= 0) onErrorCallbacks.splice(index, 1);
-      },
-    };
-  };
-
-  const onClose: SimpleEvent<void> = (listener) => {
-    onCloseCallbacks.push(listener);
-    return {
-      dispose: () => {
-        const index = onCloseCallbacks.indexOf(listener);
-        if (index >= 0) onCloseCallbacks.splice(index, 1);
-      },
-    };
-  };
-
-  // Create events for protocol
-  const errorEvent: Event<Error> = createEventAdapter(onError);
-  const closeEvent: Event<void> = createEventAdapter(onClose);
-
+export function createWorkerMessageWriter(worker: Worker): MessageWriter {
   return {
     write: (msg) => {
       worker.postMessage(msg);
       return Promise.resolve();
     },
-    onError: errorEvent,
-    onClose: closeEvent,
+    onError: () => ({ dispose: () => {} }),
+    onClose: () => ({ dispose: () => {} }),
     end: () => {},
     dispose: () => {},
   };
@@ -212,55 +79,28 @@ export function createWorkerMessageWriter(
 /**
  * Creates a connection to the Apex Language Server running in a web worker
  */
-export function createApexLspConnection(
-  options: ApexLspClientOptions,
-): MessageConnection {
-  const reader = createWorkerMessageReader(options.worker);
-  const writer = createWorkerMessageWriter(options.worker);
-
-  return createMessageConnection(
-    reader,
-    writer,
-    options.logger,
-    options.connectionStrategy,
-  );
-}
-
-/**
- * Configuration options for the Apex Language Server browser client
- */
-export interface ApexLspClientOptions {
-  /**
-   * The Worker instance running the language server
-   */
-  worker: Worker;
-
-  /**
-   * Optional logger for the connection
-   */
-  logger?: Logger;
-
-  /**
-   * Optional connection strategy
-   */
-  connectionStrategy?: ConnectionStrategy;
+export function createApexLspConnection(worker: Worker, logger?: Logger) {
+  const reader = createWorkerMessageReader(worker);
+  const writer = createWorkerMessageWriter(worker);
+  return createMessageConnection(reader, writer, logger);
 }
 
 /**
  * Main class for the Apex Language Server browser client
  */
 export class ApexLspBrowserClient {
-  private connection: MessageConnection;
+  private connection: ReturnType<typeof createMessageConnection>;
   private worker: Worker;
 
   /**
    * Creates a new Apex LSP browser client
    *
-   * @param options The client options
+   * @param worker The Worker instance running the language server
+   * @param logger Optional logger for the connection
    */
-  constructor(options: ApexLspClientOptions) {
-    this.worker = options.worker;
-    this.connection = createApexLspConnection(options);
+  constructor(worker: Worker, logger?: Logger) {
+    this.worker = worker;
+    this.connection = createApexLspConnection(worker, logger);
     this.connection.listen();
   }
 
@@ -269,32 +109,17 @@ export class ApexLspBrowserClient {
    *
    * @returns The message connection to the language server
    */
-  getConnection(): MessageConnection {
+  getConnection() {
     return this.connection;
   }
 
   /**
    * Terminates the client and disposes resources
    */
-  dispose(): void {
+  dispose() {
     this.connection.dispose();
     this.worker.terminate();
   }
-}
-
-// Use the protocol's standard createMessageConnection
-export function createMessageConnection(
-  reader: ProtocolMessageReader,
-  writer: ProtocolMessageWriter,
-  logger?: Logger,
-  connectionStrategy?: ConnectionStrategy,
-): MessageConnection {
-  return createProtocolMessageConnection(
-    reader,
-    writer,
-    logger,
-    connectionStrategy,
-  );
 }
 
 // Re-export the LSP protocol for convenience

@@ -12,15 +12,24 @@ import {
   SymbolModifiers,
   SymbolVisibility,
   TypeSymbol,
-} from '../../types/symbol.js';
-import { ErrorReporter } from '../../utils/ErrorReporter.js';
+} from '../../types/symbol';
+import { ErrorReporter } from '../../utils/ErrorReporter';
 
 /**
- * Static class providing validation logic for Apex class modifiers
+ * Static class providing validation logic for Apex class modifiers.
+ * Handles validation of class visibility, abstract/final modifiers,
+ * and ensures proper modifier combinations for both outer and inner classes.
  */
 export class ClassModifierValidator {
   /**
-   * Validate class visibility modifiers for semantic errors
+   * Validates class visibility modifiers for semantic errors.
+   * Ensures proper visibility rules for both outer and inner classes.
+   * @param className The name of the class being validated
+   * @param modifiers The modifiers to validate
+   * @param ctx The parser context for error reporting
+   * @param isInnerClass Whether this is an inner class
+   * @param currentTypeSymbol The type symbol containing the class (for inner classes)
+   * @param errorReporter The error reporter to use for reporting validation errors
    */
   public static validateClassVisibilityModifiers(
     className: string,
@@ -161,34 +170,6 @@ export class ClassModifierValidator {
     if (modifiers.isAbstract) {
       errorReporter.addWarning(
         `Interface '${interfaceName}' has redundant 'abstract' modifier, interfaces are implicitly abstract`,
-        ctx,
-      );
-    }
-  }
-
-  /**
-   * Validate inner class nesting and naming
-   */
-  public static validateInnerClassRules(
-    className: string,
-    ctx: ParserRuleContext,
-    outerClass: TypeSymbol,
-    isInnerOfInner: boolean,
-    errorReporter: ErrorReporter,
-  ): void {
-    // Check for inner class within inner class (not allowed)
-    if (isInnerOfInner) {
-      errorReporter.addError(
-        `Inner class '${className}' cannot be defined within another inner class. ` +
-          'Apex does not support nested inner classes.',
-        ctx,
-      );
-    }
-
-    // Check if inner class has the same name as the outer class
-    if (className === outerClass.name) {
-      errorReporter.addError(
-        `Inner class '${className}' cannot have the same name as its outer class '${outerClass.name}'.`,
         ctx,
       );
     }

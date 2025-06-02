@@ -13,6 +13,10 @@ yarn-error.log*
 
 # Build output
 dist/
+out/
+
+# Bundled output
+bundle/
 
 # TypeScript
 *.tsbuildinfo
@@ -41,3 +45,18 @@ packages/*/coverage/
 webpack-stats.json
 .wireit
 .sfdx
+test-workspace
+/packages/apex-lsp-testbed/test-artifacts
+/test-artifacts
+.turbo
+
+# tsup generated files
+tsup.config.*.mjs
+
+# Extension directory
+extension/
+
+# VSCode Extension specific
+*.vsix
+.vscode-test/
+grammars/

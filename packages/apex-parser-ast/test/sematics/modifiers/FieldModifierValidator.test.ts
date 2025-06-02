@@ -7,7 +7,9 @@
  */
 
 import { ParserRuleContext } from 'antlr4ts';
+
 import { FieldModifierValidator } from '../../../src/sematics/modifiers/FieldModifierValidator';
+import { ErrorReporter } from '../../../src/utils/ErrorReporter';
 import {
   SymbolKind,
   SymbolModifiers,
@@ -19,11 +21,39 @@ import {
 class MockContext extends ParserRuleContext {}
 
 // Mock implementation for ErrorReporter
-class MockErrorReporter {
-  public errors: Array<{ message: string; ctx: ParserRuleContext }> = [];
+class MockErrorReporter implements ErrorReporter {
+  public errors: Array<{
+    message: string;
+    context:
+      | ParserRuleContext
+      | { line: number; column: number; endLine?: number; endColumn?: number };
+  }> = [];
+  public warnings: Array<{ message: string; context?: ParserRuleContext }> = [];
 
-  addError(message: string, ctx: ParserRuleContext): void {
-    this.errors.push({ message, ctx });
+  addError(
+    message: string,
+    context:
+      | ParserRuleContext
+      | { line: number; column: number; endLine?: number; endColumn?: number },
+  ): void {
+    this.errors.push({ message, context });
+  }
+
+  addWarning(message: string, context?: ParserRuleContext): void {
+    this.warnings.push({ message, context });
+  }
+
+  getErrors(): Array<{
+    message: string;
+    context:
+      | ParserRuleContext
+      | { line: number; column: number; endLine?: number; endColumn?: number };
+  }> {
+    return this.errors;
+  }
+
+  getWarnings(): Array<{ message: string; context?: ParserRuleContext }> {
+    return this.warnings;
   }
 }
 
@@ -51,7 +81,7 @@ describe('FieldModifierValidator', () => {
 
   beforeEach(() => {
     errorReporter = new MockErrorReporter();
-    ctx = new MockContext(null, -1);
+    ctx = new MockContext(undefined, -1);
   });
 
   test('should reject fields in interfaces', () => {

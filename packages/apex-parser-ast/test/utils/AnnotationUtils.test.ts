@@ -14,8 +14,8 @@ import {
   SymbolModifiers,
   SymbolVisibility,
   TypeSymbol,
-} from '../../src/types/symbol.js';
-import { AnnotationUtils } from '../../src/utils/AnnotationUtils.js';
+} from '../../src/types/symbol';
+import { AnnotationUtils } from '../../src/utils/AnnotationUtils';
 
 describe('AnnotationUtils', () => {
   // Create a sample location

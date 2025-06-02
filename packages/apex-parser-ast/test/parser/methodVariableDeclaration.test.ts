@@ -9,13 +9,15 @@
 import {
   CompilerService,
   CompilationResult,
-} from '../../src/parser/compilerService.js';
-import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener.js';
+} from '../../src/parser/compilerService';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
   SymbolTable,
   SymbolKind,
   VariableSymbol,
-} from '../../src/types/symbol.js';
+  SymbolScope,
+  ApexSymbol,
+} from '../../src/types/symbol';
 
 describe('Method Variable Declaration', () => {
   let compilerService: CompilerService;
@@ -25,6 +27,19 @@ describe('Method Variable Declaration', () => {
     compilerService = new CompilerService();
     listener = new ApexSymbolCollectorListener();
   });
+
+  // Helper function to recursively get all variables from all scopes
+  function getAllVariablesFromScopes(scopes: SymbolScope[]): VariableSymbol[] {
+    return scopes.flatMap((scope) => {
+      const variables = scope
+        .getAllSymbols()
+        .filter(
+          (s: ApexSymbol) => s.kind === SymbolKind.Variable,
+        ) as VariableSymbol[];
+      const childVariables = getAllVariablesFromScopes(scope.getChildren());
+      return [...variables, ...childVariables];
+    });
+  }
 
   describe('variable declaration', () => {
     it('should collect variables declared in method blocks', () => {
@@ -53,17 +68,18 @@ describe('Method Variable Declaration', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getGlobalScope();
-      const classScope = globalScope?.getChildScopes()[0];
-      const methodScope = classScope?.getChildScopes()[0];
+      const globalScope = symbolTable?.getCurrentScope();
+      const classScope = globalScope?.getChildren()[0];
+      const methodScope = classScope?.getChildren()[0];
 
       expect(methodScope?.name).toBe('testMethod');
 
-      // Check for variables
-      const variables = methodScope
-        ?.getAllSymbols()
-        .filter((s) => s.kind === SymbolKind.Variable)
-        .map((s) => s as VariableSymbol);
+      // Get all block scopes
+      const blockScopes = methodScope?.getChildren();
+      expect(blockScopes?.length).toBeGreaterThan(0);
+
+      // Get all variables from all block scopes, including nested ones
+      const variables = getAllVariablesFromScopes(blockScopes || []);
 
       expect(variables?.length).toBeGreaterThanOrEqual(6); // count, name, isActive, price, x, y, z
 
@@ -124,25 +140,21 @@ describe('Method Variable Declaration', () => {
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
-      const globalScope = symbolTable?.getGlobalScope();
-      const classScope = globalScope?.getChildScopes()[0];
-      const methodScope = classScope?.getChildScopes()[0];
+      const globalScope = symbolTable?.getCurrentScope();
+      const classScope = globalScope?.getChildren()[0];
+      const methodScope = classScope?.getChildren()[0];
 
-      // Check outer variable
-      const outerVar = methodScope
-        ?.getAllSymbols()
-        .find((s) => s.name === 'outerVar') as VariableSymbol;
-      expect(outerVar).toBeDefined();
-      expect(outerVar?.type.name).toBe('Integer');
-
-      // Check block scopes
-      const blockScopes = methodScope?.getChildScopes();
+      // Get all block scopes
+      const blockScopes = methodScope?.getChildren();
       expect(blockScopes?.length).toBeGreaterThan(0);
 
-      // Find inner variables in block scopes
-      const blockVariables = blockScopes?.flatMap((scope) =>
-        scope.getAllSymbols().filter((s) => s.kind === SymbolKind.Variable),
-      ) as VariableSymbol[];
+      // Get all variables from all block scopes, including nested ones
+      const blockVariables = getAllVariablesFromScopes(blockScopes || []);
+
+      // Find the outerVar variable
+      const outerVar = blockVariables.find((v) => v.name === 'outerVar');
+      expect(outerVar).toBeDefined();
+      expect(outerVar?.type.name).toBe('Integer');
 
       // Find the innerVar variable
       const innerVar = blockVariables.find((v) => v.name === 'innerVar');
@@ -155,11 +167,7 @@ describe('Method Variable Declaration', () => {
       expect(loopVar?.type.name).toBe('Double');
 
       // Find the loop counter variable
-      const i =
-        blockVariables.find((v) => v.name === 'i') ||
-        (methodScope
-          ?.getAllSymbols()
-          .find((s) => s.name === 'i') as VariableSymbol);
+      const i = blockVariables.find((v) => v.name === 'i');
       expect(i).toBeDefined();
       expect(i?.type.name).toBe('Integer');
     });

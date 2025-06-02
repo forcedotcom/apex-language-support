@@ -50,10 +50,18 @@ export interface ApexError {
  */
 export class ApexErrorListener implements ANTLRErrorListener<Token> {
   private errors: ApexError[] = [];
-  private filePath?: string;
+  private filePath: string;
 
-  constructor(filePath?: string) {
+  constructor(filePath: string) {
     this.filePath = filePath;
+  }
+
+  /**
+   * Get the file path associated with this error listener
+   * @returns The file path
+   */
+  public getFilePath(): string {
+    return this.filePath;
   }
 
   /**
@@ -65,7 +73,6 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
     line: number,
     charPositionInLine: number,
     msg: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     e: RecognitionException | undefined,
   ): void {
     // Add the syntax error to our collection
@@ -189,7 +196,6 @@ export class ApexLexerErrorListener implements ANTLRErrorListener<number> {
     line: number,
     charPositionInLine: number,
     msg: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     e: RecognitionException | undefined,
   ): void {
     // Delegate to the parser error listener

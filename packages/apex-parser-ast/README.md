@@ -12,6 +12,8 @@ This package provides parser utilities, AST generation, and analysis tools for A
 - Abstract syntax tree (AST) generation and manipulation
 - Annotation parsing and validation
 - Symbol collection and scope management
+- Namespace handling and FQN (Fully Qualified Name) resolution
+- Error handling and reporting
 
 ## Dependencies
 
@@ -25,12 +27,18 @@ import {
   ApexSymbolCollectorListener,
   AnnotationValidator,
   AnnotationUtils,
+  CompilerService,
 } from '@salesforce/apex-lsp-parser-ast';
 
-// Use the symbol collector to parse and analyze code
+// Use the compiler service to parse and analyze code
+const compiler = new CompilerService();
 const listener = new ApexSymbolCollectorListener();
-// ...parsing code...
-const symbolTable = listener.getResult();
+const result = compiler.compile(fileContent, fileName, listener);
+
+// Access the symbol table and any errors/warnings
+const symbolTable = result.result;
+const errors = result.errors;
+const warnings = result.warnings;
 
 // Use annotation utilities to work with annotations
 const isTestClass = AnnotationUtils.isTestClass(classSymbol);
@@ -41,6 +49,33 @@ AnnotationValidator.validateAnnotations(symbol, context, errorReporter);
 ```
 
 ## Features
+
+### Enhanced Error Handling
+
+The package now provides comprehensive error handling:
+
+- **Syntax Errors**: Captures and reports syntax errors during parsing
+- **Semantic Errors**: Detects and reports semantic issues in the code
+- **Warning System**: Supports both errors and warnings with different severity levels
+- **Structured Error Reporting**: Errors include file path, line number, column, and detailed messages
+
+### Improved Symbol Collection
+
+Enhanced symbol collection and scope management:
+
+- **Hierarchical Scopes**: Maintains a tree of symbol scopes for accurate symbol resolution
+- **Symbol Lookup**: Efficient symbol lookup through nested scopes
+- **Scope Navigation**: Easy navigation between parent and child scopes
+- **Symbol Table Management**: Comprehensive API for managing symbols and their relationships
+
+### Namespace Support
+
+Robust namespace handling:
+
+- **Global Namespaces**: Support for global namespace resolution
+- **Module Namespaces**: Handling of module-specific namespaces
+- **FQN Resolution**: Tools for resolving fully qualified names
+- **Namespace Validation**: Validation of namespace usage and relationships
 
 ### Annotation Support
 
@@ -67,15 +102,18 @@ The parser captures inheritance relationships between types:
 - **Symbol Information**: Provides easy access to inheritance information through the `TypeSymbol` interface:
   - `superClass`: The parent class that a class extends (if any)
   - `interfaces`: Interfaces implemented by a class or extended by an interface
+- **Ancestor Chain**: Utilities to get the complete chain of ancestors for any type
 
-### Symbol Collection
+## Recent Changes
 
-Collects and organizes symbols from Apex code into a hierarchical symbol table:
+- **Removed Babel References:**  
+  All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
 
-- Classes, interfaces, methods, properties
-- Variables across different scopes
-- Enums and enum values
-- Annotations and their parameters
+- **TypeScript Improvements:**  
+  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.web.test.ts`, variables and parameters now have explicit `any` types.
+
+- **Jest Configuration:**  
+  Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
 
 ## Development
 

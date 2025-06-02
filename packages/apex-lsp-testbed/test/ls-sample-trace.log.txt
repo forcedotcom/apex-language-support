@@ -1,0 +1,4660 @@
+[Trace - 10:20:04 AM] Sending request 'initialize - (0)'.
+Params: {
+    "processId": 2979,
+    "clientInfo": {
+        "name": "Visual Studio Code",
+        "version": "1.99.3"
+    },
+    "locale": "en",
+    "rootPath": "/Users/peter.hale/git/dreamhouse-lwc",
+    "rootUri": "file:///Users/peter.hale/git/dreamhouse-lwc",
+    "capabilities": {
+        "workspace": {
+            "applyEdit": true,
+            "workspaceEdit": {
+                "documentChanges": true,
+                "resourceOperations": [
+                    "create",
+                    "rename",
+                    "delete"
+                ],
+                "failureHandling": "textOnlyTransactional",
+                "normalizesLineEndings": true,
+                "changeAnnotationSupport": {
+                    "groupsOnLabel": true
+                }
+            },
+            "configuration": true,
+            "didChangeWatchedFiles": {
+                "dynamicRegistration": true,
+                "relativePatternSupport": true
+            },
+            "symbol": {
+                "dynamicRegistration": true,
+                "symbolKind": {
+                    "valueSet": [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22,
+                        23,
+                        24,
+                        25,
+                        26
+                    ]
+                },
+                "tagSupport": {
+                    "valueSet": [
+                        1
+                    ]
+                },
+                "resolveSupport": {
+                    "properties": [
+                        "location.range"
+                    ]
+                }
+            },
+            "codeLens": {
+                "refreshSupport": true
+            },
+            "executeCommand": {
+                "dynamicRegistration": true
+            },
+            "didChangeConfiguration": {
+                "dynamicRegistration": true
+            },
+            "workspaceFolders": true,
+            "foldingRange": {
+                "refreshSupport": true
+            },
+            "semanticTokens": {
+                "refreshSupport": true
+            },
+            "fileOperations": {
+                "dynamicRegistration": true,
+                "didCreate": true,
+                "didRename": true,
+                "didDelete": true,
+                "willCreate": true,
+                "willRename": true,
+                "willDelete": true
+            },
+            "inlineValue": {
+                "refreshSupport": true
+            },
+            "inlayHint": {
+                "refreshSupport": true
+            },
+            "diagnostics": {
+                "refreshSupport": true
+            }
+        },
+        "textDocument": {
+            "publishDiagnostics": {
+                "relatedInformation": true,
+                "versionSupport": false,
+                "tagSupport": {
+                    "valueSet": [
+                        1,
+                        2
+                    ]
+                },
+                "codeDescriptionSupport": true,
+                "dataSupport": true
+            },
+            "synchronization": {
+                "dynamicRegistration": true,
+                "willSave": true,
+                "willSaveWaitUntil": true,
+                "didSave": true
+            },
+            "completion": {
+                "dynamicRegistration": true,
+                "contextSupport": true,
+                "completionItem": {
+                    "snippetSupport": true,
+                    "commitCharactersSupport": true,
+                    "documentationFormat": [
+                        "markdown",
+                        "plaintext"
+                    ],
+                    "deprecatedSupport": true,
+                    "preselectSupport": true,
+                    "tagSupport": {
+                        "valueSet": [
+                            1
+                        ]
+                    },
+                    "insertReplaceSupport": true,
+                    "resolveSupport": {
+                        "properties": [
+                            "documentation",
+                            "detail",
+                            "additionalTextEdits"
+                        ]
+                    },
+                    "insertTextModeSupport": {
+                        "valueSet": [
+                            1,
+                            2
+                        ]
+                    },
+                    "labelDetailsSupport": true
+                },
+                "insertTextMode": 2,
+                "completionItemKind": {
+                    "valueSet": [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22,
+                        23,
+                        24,
+                        25
+                    ]
+                },
+                "completionList": {
+                    "itemDefaults": [
+                        "commitCharacters",
+                        "editRange",
+                        "insertTextFormat",
+                        "insertTextMode",
+                        "data"
+                    ]
+                }
+            },
+            "hover": {
+                "dynamicRegistration": true,
+                "contentFormat": [
+                    "markdown",
+                    "plaintext"
+                ]
+            },
+            "signatureHelp": {
+                "dynamicRegistration": true,
+                "signatureInformation": {
+                    "documentationFormat": [
+                        "markdown",
+                        "plaintext"
+                    ],
+                    "parameterInformation": {
+                        "labelOffsetSupport": true
+                    },
+                    "activeParameterSupport": true
+                },
+                "contextSupport": true
+            },
+            "definition": {
+                "dynamicRegistration": true,
+                "linkSupport": true
+            },
+            "references": {
+                "dynamicRegistration": true
+            },
+            "documentHighlight": {
+                "dynamicRegistration": true
+            },
+            "documentSymbol": {
+                "dynamicRegistration": true,
+                "symbolKind": {
+                    "valueSet": [
+                        1,
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        16,
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        22,
+                        23,
+                        24,
+                        25,
+                        26
+                    ]
+                },
+                "hierarchicalDocumentSymbolSupport": true,
+                "tagSupport": {
+                    "valueSet": [
+                        1
+                    ]
+                },
+                "labelSupport": true
+            },
+            "codeAction": {
+                "dynamicRegistration": true,
+                "isPreferredSupport": true,
+                "disabledSupport": true,
+                "dataSupport": true,
+                "resolveSupport": {
+                    "properties": [
+                        "edit"
+                    ]
+                },
+                "codeActionLiteralSupport": {
+                    "codeActionKind": {
+                        "valueSet": [
+                            "",
+                            "quickfix",
+                            "refactor",
+                            "refactor.extract",
+                            "refactor.inline",
+                            "refactor.rewrite",
+                            "source",
+                            "source.organizeImports"
+                        ]
+                    }
+                },
+                "honorsChangeAnnotations": true
+            },
+            "codeLens": {
+                "dynamicRegistration": true
+            },
+            "formatting": {
+                "dynamicRegistration": true
+            },
+            "rangeFormatting": {
+                "dynamicRegistration": true,
+                "rangesSupport": true
+            },
+            "onTypeFormatting": {
+                "dynamicRegistration": true
+            },
+            "rename": {
+                "dynamicRegistration": true,
+                "prepareSupport": true,
+                "prepareSupportDefaultBehavior": 1,
+                "honorsChangeAnnotations": true
+            },
+            "documentLink": {
+                "dynamicRegistration": true,
+                "tooltipSupport": true
+            },
+            "typeDefinition": {
+                "dynamicRegistration": true,
+                "linkSupport": true
+            },
+            "implementation": {
+                "dynamicRegistration": true,
+                "linkSupport": true
+            },
+            "colorProvider": {
+                "dynamicRegistration": true
+            },
+            "foldingRange": {
+                "dynamicRegistration": true,
+                "rangeLimit": 5000,
+                "lineFoldingOnly": true,
+                "foldingRangeKind": {
+                    "valueSet": [
+                        "comment",
+                        "imports",
+                        "region"
+                    ]
+                },
+                "foldingRange": {
+                    "collapsedText": false
+                }
+            },
+            "declaration": {
+                "dynamicRegistration": true,
+                "linkSupport": true
+            },
+            "selectionRange": {
+                "dynamicRegistration": true
+            },
+            "callHierarchy": {
+                "dynamicRegistration": true
+            },
+            "semanticTokens": {
+                "dynamicRegistration": true,
+                "tokenTypes": [
+                    "namespace",
+                    "type",
+                    "class",
+                    "enum",
+                    "interface",
+                    "struct",
+                    "typeParameter",
+                    "parameter",
+                    "variable",
+                    "property",
+                    "enumMember",
+                    "event",
+                    "function",
+                    "method",
+                    "macro",
+                    "keyword",
+                    "modifier",
+                    "comment",
+                    "string",
+                    "number",
+                    "regexp",
+                    "operator",
+                    "decorator"
+                ],
+                "tokenModifiers": [
+                    "declaration",
+                    "definition",
+                    "readonly",
+                    "static",
+                    "deprecated",
+                    "abstract",
+                    "async",
+                    "modification",
+                    "documentation",
+                    "defaultLibrary"
+                ],
+                "formats": [
+                    "relative"
+                ],
+                "requests": {
+                    "range": true,
+                    "full": {
+                        "delta": true
+                    }
+                },
+                "multilineTokenSupport": false,
+                "overlappingTokenSupport": false,
+                "serverCancelSupport": true,
+                "augmentsSyntaxTokens": true
+            },
+            "linkedEditingRange": {
+                "dynamicRegistration": true
+            },
+            "typeHierarchy": {
+                "dynamicRegistration": true
+            },
+            "inlineValue": {
+                "dynamicRegistration": true
+            },
+            "inlayHint": {
+                "dynamicRegistration": true,
+                "resolveSupport": {
+                    "properties": [
+                        "tooltip",
+                        "textEdits",
+                        "label.tooltip",
+                        "label.location",
+                        "label.command"
+                    ]
+                }
+            },
+            "diagnostic": {
+                "dynamicRegistration": true,
+                "relatedDocumentSupport": false
+            }
+        },
+        "window": {
+            "showMessage": {
+                "messageActionItem": {
+                    "additionalPropertiesSupport": true
+                }
+            },
+            "showDocument": {
+                "support": true
+            },
+            "workDoneProgress": true
+        },
+        "general": {
+            "staleRequestSupport": {
+                "cancel": true,
+                "retryOnContentModified": [
+                    "textDocument/semanticTokens/full",
+                    "textDocument/semanticTokens/range",
+                    "textDocument/semanticTokens/full/delta"
+                ]
+            },
+            "regularExpressions": {
+                "engine": "ECMAScript",
+                "version": "ES2020"
+            },
+            "markdown": {
+                "parser": "marked",
+                "version": "1.1.0"
+            },
+            "positionEncodings": [
+                "utf-16"
+            ]
+        },
+        "notebookDocument": {
+            "synchronization": {
+                "dynamicRegistration": true,
+                "executionSummarySupport": true
+            }
+        }
+    },
+    "initializationOptions": {
+        "enableEmbeddedSoqlCompletion": true,
+        "enableErrorToTelemetry": false,
+        "enableSynchronizedInitJobs": true,
+        "apexActionClassDefModifiers": "withsharing,withoutsharing,inheritedsharing",
+        "apexActionClassAccessModifiers": "global,public",
+        "apexActionMethodDefModifiers": "static",
+        "apexActionMethodAccessModifiers": "global,public",
+        "apexActionPropDefModifiers": "static",
+        "apexActionPropAccessModifiers": "global,public",
+        "apexActionClassRestAnnotations": "RestResource",
+        "apexActionMethodRestAnnotations": "HttpDelete,HttpGet,HttpPatch,HttpPost,HttpPut",
+        "apexActionMethodAnnotations": "",
+        "apexOASClassAccessModifiers": "global,public",
+        "apexOASMethodAccessModifiers": "global,public",
+        "apexOASPropAccessModifiers": "global,public"
+    },
+    "trace": "verbose",
+    "workspaceFolders": [
+        {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc",
+            "name": "dreamhouse-lwc"
+        }
+    ]
+}
+
+
+[Trace - 10:20:05 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "ApexLanguageServerLauncher",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 333,
+        "launchTime": 32,
+        "connectTime": 0,
+        "injectorTime": 187
+    }
+}
+
+
+10:20:05.595 [Apex Prelude Service STARTING] INFO  a.j.l.i.s.ApexPreludeManagedService - Scanning built-in and system Apex types.
+10:20:05.604 [Apex Prelude Service STARTING] INFO  a.j.l.i.s.ApexPreludeManagedService - Scanning built-in Apex types.
+10:20:05.605 [Apex Prelude Service STARTING] INFO  a.j.l.i.s.ApexPreludeManagedService - Collecting built-in standard types from jar
+10:20:05.746 [Apex Prelude Service STARTING] INFO  a.j.l.i.s.ApexPreludeManagedService - Done collecting built-in standard types from jar
+10:20:05.746 [Apex Prelude Service STARTING] INFO  a.j.l.i.s.ApexPreludeManagedService - Scanning Apex Standard Library.
+10:20:05.810 [Apex Prelude Service STARTING] INFO  a.j.l.i.s.ApexPreludeManagedService - Done scanning Apex Standard Library.
+10:20:05.811 [Apex Prelude Service STARTING] INFO  a.j.l.i.s.ApexPreludeManagedService - Starting ApexIndexer.
+10:20:05.811 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: Start indexer.
+10:20:05.813 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: Scanning user-defined types.
+10:20:05.814 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: Scanning workspace source.
+10:20:05.857 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: Building change list.
+10:20:05.898 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: No indexing changes found
+[Trace - 10:20:05 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "ApexIndexer",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 86,
+        "calculateSourceOperationsTime": 40,
+        "Total Memory (MB)": 848,
+        "customObjectsTime": 0,
+        "getApexResourceFilesTime": 23,
+        "CustomObjects": 2,
+        "StandardObjects": 1307,
+        "standardObjectsTime": 13,
+        "Used Memory (MB)": 227,
+        "ErrorFiles": 6,
+        "apexFilesTime": 4,
+        "ApexFiles": 11
+    }
+}
+
+
+10:20:05.917 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: StandardObjects: 1307
+10:20:05.917 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: CustomObjects: 2
+10:20:05.917 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: ApexFiles: 11
+10:20:05.917 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: ErrorFiles: 6
+10:20:05.917 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: Total Memory (MB): 848
+10:20:05.917 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: Used Memory (MB): 227
+10:20:05.917 [ApexIndexer STARTING] INFO  a.jorje.lsp.impl.index.ApexIndexer - ApexIndexer: Scanning user-defined types took 86 ms.
+10:20:05.917 [Apex Prelude Service STARTING] INFO  a.j.l.i.s.ApexPreludeManagedService - Scanning built-in and system Apex types took 322 ms.
+[Trace - 10:20:05 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "isNewDb": "false",
+        "Feature": "ApexPrelude-startup",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 322,
+        "scannedApexStandardLibraryTime": 63,
+        "scanApexStandardLibraryIfNecessary-filteredSourceFilesTime": 63,
+        "scannedApexStandardLibraryFilteredSourceFilesTotal": 0,
+        "removedOldArtifactsTotal": 0,
+        "removedOldArtifactsTime": 4,
+        "scanApexStandardLibraryIfNecessary-updateSourceFilesTime": 0,
+        "scannedApexStandardLibrarySourceFilesTotal": 4720
+    }
+}
+
+
+[Trace - 10:20:05 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "ApexLanguageServer",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 331,
+        "serviceManager": 327
+    }
+}
+
+
+[Trace - 10:20:05 AM] Received response 'initialize - (0)' in 1182ms.
+Result: {
+    "capabilities": {
+        "textDocumentSync": 1,
+        "hoverProvider": true,
+        "completionProvider": {
+            "resolveProvider": false,
+            "triggerCharacters": [
+                "."
+            ]
+        },
+        "definitionProvider": true,
+        "referencesProvider": true,
+        "documentSymbolProvider": true,
+        "codeActionProvider": {
+            "codeActionKinds": [
+                "quickfix",
+                "refactor.extract"
+            ]
+        },
+        "codeLensProvider": {
+            "resolveProvider": false
+        },
+        "renameProvider": true
+    }
+}
+
+
+[Trace - 10:20:05 AM] Sending notification 'initialized'.
+Params: {}
+
+
+[Trace - 10:20:05 AM] Sending notification 'workspace/didChangeConfiguration'.
+Params: {
+    "settings": {
+        "apex": {
+            "trace": {
+                "server": "verbose"
+            }
+        }
+    }
+}
+
+
+[Trace - 10:20:05 AM] Sending request 'test/getTestMethods - (1)'.
+[Trace - 10:20:05 AM] Received response 'test/getTestMethods - (1)' in 2ms.
+Result: [
+    {
+        "methodName": "blankAddress",
+        "definingType": "GeocodingServiceTest",
+        "location": {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
+            "range": {
+                "start": {
+                    "line": 36,
+                    "character": 16
+                },
+                "end": {
+                    "line": 36,
+                    "character": 28
+                }
+            }
+        }
+    },
+    {
+        "methodName": "createFileFailsWhenIncorrectBase64Data",
+        "definingType": "FileUtilitiesTest",
+        "location": {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+            "range": {
+                "start": {
+                    "line": 45,
+                    "character": 16
+                },
+                "end": {
+                    "line": 45,
+                    "character": 54
+                }
+            }
+        }
+    },
+    {
+        "methodName": "createFileFailsWhenIncorrectFilename",
+        "definingType": "FileUtilitiesTest",
+        "location": {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+            "range": {
+                "start": {
+                    "line": 69,
+                    "character": 16
+                },
+                "end": {
+                    "line": 69,
+                    "character": 52
+                }
+            }
+        }
+    },
+    {
+        "methodName": "createFileFailsWhenIncorrectRecordId",
+        "definingType": "FileUtilitiesTest",
+        "location": {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+            "range": {
+                "start": {
+                    "line": 24,
+                    "character": 16
+                },
+                "end": {
+                    "line": 24,
+                    "character": 52
+                }
+            }
+        }
+    },
+    {
+        "methodName": "createFileSucceedsWhenCorrectInput",
+        "definingType": "FileUtilitiesTest",
+        "location": {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+            "range": {
+                "start": {
+                    "line": 3,
+                    "character": 16
+                },
+                "end": {
+                    "line": 3,
+                    "character": 50
+                }
+            }
+        }
+    },
+    {
+        "methodName": "errorResponse",
+        "definingType": "GeocodingServiceTest",
+        "location": {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
+            "range": {
+                "start": {
+                    "line": 56,
+                    "character": 16
+                },
+                "end": {
+                    "line": 56,
+                    "character": 29
+                }
+            }
+        }
+    },
+    {
+        "methodName": "importSampleData",
+        "definingType": "TestSampleDataController",
+        "location": {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+            "range": {
+                "start": {
+                    "line": 3,
+                    "character": 16
+                },
+                "end": {
+                    "line": 3,
+                    "character": 32
+                }
+            }
+        }
+    },
+    {
+        "methodName": "successResponse",
+        "definingType": "GeocodingServiceTest",
+        "location": {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
+            "range": {
+                "start": {
+                    "line": 11,
+                    "character": 16
+                },
+                "end": {
+                    "line": 11,
+                    "character": 31
+                }
+            }
+        }
+    },
+    {
+        "methodName": "testGetPagedPropertyList",
+        "definingType": "TestPropertyController",
+        "location": {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+            "range": {
+                "start": {
+                    "line": 20,
+                    "character": 16
+                },
+                "end": {
+                    "line": 20,
+                    "character": 40
+                }
+            }
+        }
+    },
+    {
+        "methodName": "testGetPicturesNoResults",
+        "definingType": "TestPropertyController",
+        "location": {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+            "range": {
+                "start": {
+                    "line": 74,
+                    "character": 16
+                },
+                "end": {
+                    "line": 74,
+                    "character": 40
+                }
+            }
+        }
+    },
+    {
+        "methodName": "testGetPicturesWithResults",
+        "definingType": "TestPropertyController",
+        "location": {
+            "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+            "range": {
+                "start": {
+                    "line": 88,
+                    "character": 16
+                },
+                "end": {
+                    "line": 88,
+                    "character": 42
+                }
+            }
+        }
+    }
+]
+
+
+[Trace - 10:20:08 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class PagedResult {\n    @AuraEnabled\n    public Integer pageSize { get; set; }\n\n    @AuraEnabled\n    public Integer pageNumber { get; set; }\n\n    @AuraEnabled\n    public Integer totalItemCount { get; set; }\n\n    @AuraEnabled\n    public Object[] records { get; set; }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:08 AM] Sending request 'textDocument/documentSymbol - (2)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls"
+    }
+}
+
+
+Apr 23, 2025 10:20:08 AM apex.jorje.parser.impl.BaseApexLexer dedupe
+INFO: Deduped array ApexLexer.DFA22_transition. Found 7075545 shorts which is 13MB not including array overhead. Removed 6418975 shorts which is 12MB not counting array overhead. Took 5 ms.
+[Trace - 10:20:08 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:20:08 AM] Received response 'textDocument/documentSymbol - (2)' in 106ms.
+Result: [
+    {
+        "name": "PagedResult",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 12,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 0,
+                "character": 37
+            }
+        },
+        "children": [
+            {
+                "name": "pageSize : Integer",
+                "kind": 7,
+                "range": {
+                    "start": {
+                        "line": 2,
+                        "character": 19
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 27
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 2,
+                        "character": 19
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 27
+                    }
+                }
+            },
+            {
+                "name": "pageNumber : Integer",
+                "kind": 7,
+                "range": {
+                    "start": {
+                        "line": 5,
+                        "character": 19
+                    },
+                    "end": {
+                        "line": 5,
+                        "character": 29
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 5,
+                        "character": 19
+                    },
+                    "end": {
+                        "line": 5,
+                        "character": 29
+                    }
+                }
+            },
+            {
+                "name": "totalItemCount : Integer",
+                "kind": 7,
+                "range": {
+                    "start": {
+                        "line": 8,
+                        "character": 19
+                    },
+                    "end": {
+                        "line": 8,
+                        "character": 33
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 8,
+                        "character": 19
+                    },
+                    "end": {
+                        "line": 8,
+                        "character": 33
+                    }
+                }
+            },
+            {
+                "name": "records : List<Object>",
+                "kind": 7,
+                "range": {
+                    "start": {
+                        "line": 11,
+                        "character": 20
+                    },
+                    "end": {
+                        "line": 11,
+                        "character": 27
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 11,
+                        "character": 20
+                    },
+                    "end": {
+                        "line": 11,
+                        "character": 27
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:20:08 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:08 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls"
+    }
+}
+
+
+[Trace - 10:20:08 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:08 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class PropertyController {\n    private static final Decimal DEFAULT_MAX_PRICE = 9999999;\n    private static final Integer DEFAULT_PAGE_SIZE = 9;\n\n    /**\n     * Endpoint that retrieves a paged and filtered list of properties\n     * @param searchKey String used for searching on property title, city and tags\n     * @param maxPrice Maximum price\n     * @param minBedrooms Minimum number of bedrooms\n     * @param minBathrooms Minimum number of bathrooms\n     * @param pageSize Number of properties per page\n     * @param pageNumber Page number\n     * @return PagedResult object holding the paged and filtered list of properties\n     */\n    @AuraEnabled(cacheable=true scope='global')\n    public static PagedResult getPagedPropertyList(\n        String searchKey,\n        Decimal maxPrice,\n        Integer minBedrooms,\n        Integer minBathrooms,\n        Integer pageSize,\n        Integer pageNumber\n    ) {\n        // Normalize inputs\n        Decimal safeMaxPrice = maxPrice ?? DEFAULT_MAX_PRICE;\n        Integer safeMinBedrooms = minBedrooms ?? 0;\n        Integer safeMinBathrooms = minBathrooms ?? 0;\n        Integer safePageSize = pageSize ?? DEFAULT_PAGE_SIZE;\n        Integer safePageNumber = pageNumber ?? 1;\n\n        String searchPattern = '%' + searchKey + '%';\n        Integer offset = (safePageNumber - 1) * safePageSize;\n\n        PagedResult result = new PagedResult();\n        result.pageSize = safePageSize;\n        result.pageNumber = safePageNumber;\n        result.totalItemCount = [\n            SELECT COUNT()\n            FROM Property__c\n            WHERE\n                (Name LIKE :searchPattern\n                OR City__c LIKE :searchPattern\n                OR Tags__c LIKE :searchPattern)\n                AND Price__c <= :safeMaxPrice\n                AND Beds__c >= :safeMinBedrooms\n                AND Baths__c >= :safeMinBathrooms\n        ];\n        result.records = [\n            SELECT\n                Id,\n                Name,\n                Address__c,\n                City__c,\n                State__c,\n                Description__c,\n                Price__c,\n                Baths__c,\n                Beds__c,\n                Thumbnail__c,\n                Location__Latitude__s,\n                Location__Longitude__s\n            FROM Property__c\n            WHERE\n                (Name LIKE :searchPattern\n                OR City__c LIKE :searchPattern\n                OR Tags__c LIKE :searchPattern)\n                AND Price__c <= :safeMaxPrice\n                AND Beds__c >= :safeMinBedrooms\n                AND Baths__c >= :safeMinBathrooms\n            WITH USER_MODE\n            ORDER BY Price__c\n            LIMIT :safePageSize\n            OFFSET :offset\n        ];\n        return result;\n    }\n\n    /**\n     * Endpoint that retrieves pictures associated with a property\n     * @param propertyId Property Id\n     * @return List of ContentVersion holding the pictures\n     */\n    @AuraEnabled(cacheable=true scope='global')\n    public static List<ContentVersion> getPictures(Id propertyId) {\n        List<ContentDocumentLink> links = [\n            SELECT Id, LinkedEntityId, ContentDocument.Title\n            FROM ContentDocumentLink\n            WHERE\n                LinkedEntityId = :propertyId\n                AND ContentDocument.FileType IN ('PNG', 'JPG', 'GIF')\n            WITH USER_MODE\n        ];\n\n        if (links.isEmpty()) {\n            return null;\n        }\n\n        Set<Id> contentIds = new Set<Id>();\n\n        for (ContentDocumentLink link : links) {\n            contentIds.add(link.ContentDocumentId);\n        }\n\n        return [\n            SELECT Id, Title\n            FROM ContentVersion\n            WHERE ContentDocumentId IN :contentIds AND IsLatest = TRUE\n            WITH USER_MODE\n            ORDER BY CreatedDate\n        ];\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:08 AM] Sending request 'textDocument/documentSymbol - (3)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
+    }
+}
+
+
+[Trace - 10:20:08 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:08 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:20:08 AM] Received response 'textDocument/documentSymbol - (3)' in 61ms.
+Result: [
+    {
+        "name": "PropertyController",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 111,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 0,
+                "character": 44
+            }
+        },
+        "children": [
+            {
+                "name": "DEFAULT_MAX_PRICE : Decimal",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 1,
+                        "character": 33
+                    },
+                    "end": {
+                        "line": 1,
+                        "character": 50
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 1,
+                        "character": 33
+                    },
+                    "end": {
+                        "line": 1,
+                        "character": 50
+                    }
+                }
+            },
+            {
+                "name": "DEFAULT_PAGE_SIZE : Integer",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 2,
+                        "character": 33
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 50
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 2,
+                        "character": 33
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 50
+                    }
+                }
+            },
+            {
+                "name": "getPagedPropertyList(String, Decimal, Integer, Integer, Integer, Integer) : PagedResult",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 15,
+                        "character": 30
+                    },
+                    "end": {
+                        "line": 75,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 15,
+                        "character": 30
+                    },
+                    "end": {
+                        "line": 15,
+                        "character": 50
+                    }
+                }
+            },
+            {
+                "name": "getPictures(Id) : List<ContentVersion>",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 83,
+                        "character": 39
+                    },
+                    "end": {
+                        "line": 110,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 83,
+                        "character": 39
+                    },
+                    "end": {
+                        "line": 83,
+                        "character": 50
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:20:08 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
+    }
+}
+
+
+[Trace - 10:20:08 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:08 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class FileUtilities {\n    @AuraEnabled\n    public static String createFile(\n        String base64data,\n        String filename,\n        String recordId\n    ) {\n        try {\n            ContentVersion contentVersion = new ContentVersion();\n            contentVersion.VersionData = EncodingUtil.base64Decode(base64data);\n            contentVersion.Title = filename;\n            contentVersion.PathOnClient = filename;\n            insert contentVersion;\n\n            contentVersion = [\n                SELECT ContentDocumentId\n                FROM ContentVersion\n                WHERE Id = :contentVersion.Id\n                WITH USER_MODE\n            ];\n\n            ContentDocumentLink contentDocumentLink = new ContentDocumentLink();\n            contentDocumentLink.ContentDocumentId = contentVersion.ContentDocumentId;\n            contentDocumentLink.LinkedEntityId = recordId;\n            contentDocumentLink.ShareType = 'V';\n            insert contentDocumentLink;\n\n            return contentDocumentLink.Id;\n        } catch (Exception e) {\n            throw new AuraHandledException('Error creating file: ' + e);\n        }\n    }\n\n    \n}"
+    }
+}
+
+
+[Trace - 10:20:08 AM] Sending request 'textDocument/documentSymbol - (4)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    }
+}
+
+
+[Trace - 10:20:08 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+    "diagnostics": [
+        {
+            "range": {
+                "start": {
+                    "line": 29,
+                    "character": 18
+                },
+                "end": {
+                    "line": 29,
+                    "character": 21
+                }
+            },
+            "severity": 2,
+            "message": "Invalid type: AuraHandledException"
+        }
+    ]
+}
+
+
+[Trace - 10:20:08 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:20:08 AM] Received response 'textDocument/documentSymbol - (4)' in 61ms.
+Result: [
+    {
+        "name": "FileUtilities",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 34,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 0,
+                "character": 39
+            }
+        },
+        "children": [
+            {
+                "name": "createFile(String, String, String) : String",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 2,
+                        "character": 25
+                    },
+                    "end": {
+                        "line": 31,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 2,
+                        "character": 25
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 35
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:20:08 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    }
+}
+
+
+[Trace - 10:20:08 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:08 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\nprivate class TestSampleDataController {\n    @isTest\n    static void importSampleData() {\n        Test.startTest();\n        SampleDataController.importSampleData();\n        Test.stopTest();\n\n        Integer propertyNumber = [SELECT COUNT() FROM Property__c];\n        Integer brokerNumber = [SELECT COUNT() FROM Broker__c];\n        Integer contactNumber = [SELECT COUNT() FROM Contact];\n\n        Assert.isTrue(propertyNumber > 0, 'Expected properties were created.');\n        Assert.isTrue(brokerNumber > 0, 'Expected brokers were created.');\n        Assert.isTrue(contactNumber > 0, 'Expected contacts were created.');\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:08 AM] Sending request 'textDocument/documentSymbol - (5)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received response 'textDocument/documentSymbol - (5)' in 22ms.
+Result: [
+    {
+        "name": "TestSampleDataController",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 1,
+                "character": 14
+            },
+            "end": {
+                "line": 16,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 1,
+                "character": 14
+            },
+            "end": {
+                "line": 1,
+                "character": 38
+            }
+        },
+        "children": [
+            {
+                "name": "importSampleData() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 3,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 15,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 3,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 3,
+                        "character": 32
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\nprivate class TestPropertyController {\n    private final static String MOCK_PICTURE_NAME = 'MockPictureName';\n\n    public static void createProperties(Integer amount) {\n        List<Property__c> properties = new List<Property__c>();\n        for (Integer i = 0; i < amount; i++) {\n            properties.add(\n                new Property__c(\n                    Name = 'Name ' + i,\n                    Price__c = 20000,\n                    Beds__c = 3,\n                    Baths__c = 3\n                )\n            );\n        }\n        insert properties;\n    }\n\n    @isTest\n    static void testGetPagedPropertyList() {\n        Profile standardUserProfile = [\n            SELECT Name, Id\n            FROM Profile\n            WHERE\n                UserType = 'Standard'\n                AND PermissionsPrivacyDataAccess = FALSE\n                AND PermissionsSubmitMacrosAllowed = TRUE\n                AND PermissionsMassInlineEdit = TRUE\n            LIMIT 1\n        ];\n        User testUser = new User(\n            Alias = 'standt',\n            Email = 'standarduser@testorg.com',\n            EmailEncodingKey = 'UTF-8',\n            LastName = 'Testing',\n            LanguageLocaleKey = 'en_US',\n            LocaleSidKey = 'en_US',\n            ProfileId = standardUserProfile.Id,\n            TimeZoneSidKey = 'America/Los_Angeles',\n            UserName = 'standarduser@dreamhouse-testorg.com'\n        );\n        insert testUser;\n        PermissionSet ps = [\n            SELECT Id\n            FROM PermissionSet\n            WHERE Name = 'dreamhouse'\n        ];\n        insert new PermissionSetAssignment(\n            AssigneeId = testUser.Id,\n            PermissionSetId = ps.Id\n        );\n\n        // Insert test properties as admin\n        System.runAs(new User(Id = UserInfo.getUserId())) {\n            TestPropertyController.createProperties(5);\n        }\n        // Read properties as test user\n        System.runAs(testUser) {\n            Test.startTest();\n            PagedResult result = PropertyController.getPagedPropertyList(\n                '',\n                999999,\n                0,\n                0,\n                10,\n                1\n            );\n            Test.stopTest();\n            Assert.areEqual(5, result.records.size());\n        }\n    }\n\n    @isTest\n    static void testGetPicturesNoResults() {\n        Property__c property = new Property__c(Name = 'Name');\n        insert property;\n\n        Test.startTest();\n        List<ContentVersion> items = PropertyController.getPictures(\n            property.Id\n        );\n        Test.stopTest();\n\n        Assert.isNull(items);\n    }\n\n    @isTest\n    static void testGetPicturesWithResults() {\n        Property__c property = new Property__c(Name = 'Name');\n        insert property;\n\n        // Insert mock picture\n        ContentVersion picture = new Contentversion();\n        picture.Title = MOCK_PICTURE_NAME;\n        picture.PathOnClient = 'picture.png';\n        picture.Versiondata = EncodingUtil.base64Decode('MockValue');\n        insert picture;\n\n        // Link picture to property record\n        List<ContentDocument> documents = [\n            SELECT Id, Title, LatestPublishedVersionId\n            FROM ContentDocument\n            LIMIT 1\n        ];\n        ContentDocumentLink link = new ContentDocumentLink();\n        link.LinkedEntityId = property.Id;\n        link.ContentDocumentId = documents[0].Id;\n        link.shareType = 'V';\n        insert link;\n\n        Test.startTest();\n        List<ContentVersion> items = PropertyController.getPictures(\n            property.Id\n        );\n        Test.stopTest();\n\n        Assert.areEqual(1, items.size());\n        Assert.areEqual(MOCK_PICTURE_NAME, items[0].Title);\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Sending request 'textDocument/documentSymbol - (6)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+    "diagnostics": [
+        {
+            "range": {
+                "start": {
+                    "line": 8,
+                    "character": 16
+                },
+                "end": {
+                    "line": 8,
+                    "character": 19
+                }
+            },
+            "severity": 2,
+            "message": "Field does not exist: Price__c on Property__c"
+        },
+        {
+            "range": {
+                "start": {
+                    "line": 8,
+                    "character": 16
+                },
+                "end": {
+                    "line": 8,
+                    "character": 19
+                }
+            },
+            "severity": 2,
+            "message": "Field does not exist: Beds__c on Property__c"
+        },
+        {
+            "range": {
+                "start": {
+                    "line": 8,
+                    "character": 16
+                },
+                "end": {
+                    "line": 8,
+                    "character": 19
+                }
+            },
+            "severity": 2,
+            "message": "Field does not exist: Baths__c on Property__c"
+        }
+    ]
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received response 'textDocument/documentSymbol - (6)' in 50ms.
+Result: [
+    {
+        "name": "TestPropertyController",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 1,
+                "character": 14
+            },
+            "end": {
+                "line": 120,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 1,
+                "character": 14
+            },
+            "end": {
+                "line": 1,
+                "character": 36
+            }
+        },
+        "children": [
+            {
+                "name": "MOCK_PICTURE_NAME : String",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 2,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 49
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 2,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 49
+                    }
+                }
+            },
+            {
+                "name": "createProperties(Integer) : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 4,
+                        "character": 23
+                    },
+                    "end": {
+                        "line": 17,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 4,
+                        "character": 23
+                    },
+                    "end": {
+                        "line": 4,
+                        "character": 39
+                    }
+                }
+            },
+            {
+                "name": "testGetPagedPropertyList() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 20,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 71,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 20,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 20,
+                        "character": 40
+                    }
+                }
+            },
+            {
+                "name": "testGetPicturesNoResults() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 74,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 85,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 74,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 74,
+                        "character": 40
+                    }
+                }
+            },
+            {
+                "name": "testGetPicturesWithResults() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 88,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 119,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 88,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 88,
+                        "character": 42
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class GeocodingService {\n    private static final String BASE_URL = 'https://nominatim.openstreetmap.org/search?format=json';\n\n    @InvocableMethod(callout=true label='Geocode address')\n    public static List<Coordinates> geocodeAddresses(\n        List<GeocodingAddress> addresses\n    ) {\n        List<Coordinates> computedCoordinates = new List<Coordinates>();\n\n        for (GeocodingAddress address : addresses) {\n            String geocodingUrl = BASE_URL;\n            geocodingUrl += (String.isNotBlank(address.street))\n                ? '&street=' + address.street\n                : '';\n            geocodingUrl += (String.isNotBlank(address.city))\n                ? '&city=' + address.city\n                : '';\n            geocodingUrl += (String.isNotBlank(address.state))\n                ? '&state=' + address.state\n                : '';\n            geocodingUrl += (String.isNotBlank(address.country))\n                ? '&country=' + address.country\n                : '';\n            geocodingUrl += (String.isNotBlank(address.postalcode))\n                ? '&postalcode=' + address.postalcode\n                : '';\n\n            Coordinates coords = new Coordinates();\n            if (geocodingUrl != BASE_URL) {\n                Http http = new Http();\n                HttpRequest request = new HttpRequest();\n                request.setEndpoint(geocodingUrl);\n                request.setMethod('GET');\n                request.setHeader(\n                    'http-referer',\n                    URL.getOrgDomainUrl().toExternalForm()\n                );\n                HttpResponse response = http.send(request);\n                if (response.getStatusCode() == 200) {\n                    List<Coordinates> deserializedCoords = (List<Coordinates>) JSON.deserialize(\n                        response.getBody(),\n                        List<Coordinates>.class\n                    );\n                    coords = deserializedCoords[0];\n                }\n            }\n\n            computedCoordinates.add(coords);\n        }\n        return computedCoordinates;\n    }\n\n    public class GeocodingAddress {\n        @InvocableVariable\n        public String street;\n        @InvocableVariable\n        public String city;\n        @InvocableVariable\n        public String state;\n        @InvocableVariable\n        public String country;\n        @InvocableVariable\n        public String postalcode;\n    }\n\n    public class Coordinates {\n        @InvocableVariable\n        public Decimal lat;\n        @InvocableVariable\n        public Decimal lon;\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Sending request 'textDocument/documentSymbol - (7)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received response 'textDocument/documentSymbol - (7)' in 13ms.
+Result: [
+    {
+        "name": "GeocodingService",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 71,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 0,
+                "character": 42
+            }
+        },
+        "children": [
+            {
+                "name": "GeocodingAddress",
+                "kind": 5,
+                "range": {
+                    "start": {
+                        "line": 52,
+                        "character": 17
+                    },
+                    "end": {
+                        "line": 63,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 52,
+                        "character": 17
+                    },
+                    "end": {
+                        "line": 52,
+                        "character": 33
+                    }
+                },
+                "children": [
+                    {
+                        "name": "street : String",
+                        "kind": 8,
+                        "range": {
+                            "start": {
+                                "line": 54,
+                                "character": 22
+                            },
+                            "end": {
+                                "line": 54,
+                                "character": 28
+                            }
+                        },
+                        "selectionRange": {
+                            "start": {
+                                "line": 54,
+                                "character": 22
+                            },
+                            "end": {
+                                "line": 54,
+                                "character": 28
+                            }
+                        }
+                    },
+                    {
+                        "name": "city : String",
+                        "kind": 8,
+                        "range": {
+                            "start": {
+                                "line": 56,
+                                "character": 22
+                            },
+                            "end": {
+                                "line": 56,
+                                "character": 26
+                            }
+                        },
+                        "selectionRange": {
+                            "start": {
+                                "line": 56,
+                                "character": 22
+                            },
+                            "end": {
+                                "line": 56,
+                                "character": 26
+                            }
+                        }
+                    },
+                    {
+                        "name": "state : String",
+                        "kind": 8,
+                        "range": {
+                            "start": {
+                                "line": 58,
+                                "character": 22
+                            },
+                            "end": {
+                                "line": 58,
+                                "character": 27
+                            }
+                        },
+                        "selectionRange": {
+                            "start": {
+                                "line": 58,
+                                "character": 22
+                            },
+                            "end": {
+                                "line": 58,
+                                "character": 27
+                            }
+                        }
+                    },
+                    {
+                        "name": "country : String",
+                        "kind": 8,
+                        "range": {
+                            "start": {
+                                "line": 60,
+                                "character": 22
+                            },
+                            "end": {
+                                "line": 60,
+                                "character": 29
+                            }
+                        },
+                        "selectionRange": {
+                            "start": {
+                                "line": 60,
+                                "character": 22
+                            },
+                            "end": {
+                                "line": 60,
+                                "character": 29
+                            }
+                        }
+                    },
+                    {
+                        "name": "postalcode : String",
+                        "kind": 8,
+                        "range": {
+                            "start": {
+                                "line": 62,
+                                "character": 22
+                            },
+                            "end": {
+                                "line": 62,
+                                "character": 32
+                            }
+                        },
+                        "selectionRange": {
+                            "start": {
+                                "line": 62,
+                                "character": 22
+                            },
+                            "end": {
+                                "line": 62,
+                                "character": 32
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "name": "Coordinates",
+                "kind": 5,
+                "range": {
+                    "start": {
+                        "line": 65,
+                        "character": 17
+                    },
+                    "end": {
+                        "line": 70,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 65,
+                        "character": 17
+                    },
+                    "end": {
+                        "line": 65,
+                        "character": 28
+                    }
+                },
+                "children": [
+                    {
+                        "name": "lat : Decimal",
+                        "kind": 8,
+                        "range": {
+                            "start": {
+                                "line": 67,
+                                "character": 23
+                            },
+                            "end": {
+                                "line": 67,
+                                "character": 26
+                            }
+                        },
+                        "selectionRange": {
+                            "start": {
+                                "line": 67,
+                                "character": 23
+                            },
+                            "end": {
+                                "line": 67,
+                                "character": 26
+                            }
+                        }
+                    },
+                    {
+                        "name": "lon : Decimal",
+                        "kind": 8,
+                        "range": {
+                            "start": {
+                                "line": 69,
+                                "character": 23
+                            },
+                            "end": {
+                                "line": 69,
+                                "character": 26
+                            }
+                        },
+                        "selectionRange": {
+                            "start": {
+                                "line": 69,
+                                "character": 23
+                            },
+                            "end": {
+                                "line": 69,
+                                "character": 26
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "name": "BASE_URL : String",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 1,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 1,
+                        "character": 40
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 1,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 1,
+                        "character": 40
+                    }
+                }
+            },
+            {
+                "name": "geocodeAddresses(List<GeocodingService.GeocodingAddress>) : List<GeocodingService.Coordinates>",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 4,
+                        "character": 36
+                    },
+                    "end": {
+                        "line": 50,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 4,
+                        "character": 36
+                    },
+                    "end": {
+                        "line": 4,
+                        "character": 52
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class SampleDataController {\n    @AuraEnabled\n    public static void importSampleData() {\n        delete [SELECT Id FROM Case];\n        delete [SELECT Id FROM Property__c];\n        delete [SELECT Id FROM Broker__c];\n        delete [SELECT Id FROM Contact];\n\n        insertBrokers();\n        insertProperties();\n        insertContacts();\n    }\n\n    private static void insertBrokers() {\n        StaticResource brokersResource = [\n            SELECT Id, Body\n            FROM StaticResource\n            WHERE Name = 'sample_data_brokers'\n        ];\n        String brokersJSON = brokersResource.body.toString();\n        List<Broker__c> brokers = (List<Broker__c>) JSON.deserialize(\n            brokersJSON,\n            List<Broker__c>.class\n        );\n        insert brokers;\n    }\n\n    private static void insertProperties() {\n        StaticResource propertiesResource = [\n            SELECT Id, Body\n            FROM StaticResource\n            WHERE Name = 'sample_data_properties'\n        ];\n        String propertiesJSON = propertiesResource.body.toString();\n        List<Property__c> properties = (List<Property__c>) JSON.deserialize(\n            propertiesJSON,\n            List<Property__c>.class\n        );\n        randomizeDateListed(properties);\n        insert properties;\n    }\n\n    private static void insertContacts() {\n        StaticResource contactsResource = [\n            SELECT Id, Body\n            FROM StaticResource\n            WHERE Name = 'sample_data_contacts'\n        ];\n        String contactsJSON = contactsResource.body.toString();\n        List<Contact> contacts = (List<Contact>) JSON.deserialize(\n            contactsJSON,\n            List<Contact>.class\n        );\n        insert contacts;\n    }\n\n    private static void randomizeDateListed(List<Property__c> properties) {\n        for (Property__c property : properties) {\n            property.Date_Listed__c =\n                System.today() - Integer.valueof((Math.random() * 90));\n        }\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Sending request 'textDocument/documentSymbol - (8)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
+    "diagnostics": [
+        {
+            "range": {
+                "start": {
+                    "line": 58,
+                    "character": 21
+                },
+                "end": {
+                    "line": 58,
+                    "character": 35
+                }
+            },
+            "severity": 2,
+            "message": "Variable does not exist: Date_Listed__c"
+        }
+    ]
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received response 'textDocument/documentSymbol - (8)' in 10ms.
+Result: [
+    {
+        "name": "SampleDataController",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 62,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 0,
+                "character": 46
+            }
+        },
+        "children": [
+            {
+                "name": "importSampleData() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 2,
+                        "character": 23
+                    },
+                    "end": {
+                        "line": 11,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 2,
+                        "character": 23
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 39
+                    }
+                }
+            },
+            {
+                "name": "insertBrokers() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 13,
+                        "character": 24
+                    },
+                    "end": {
+                        "line": 25,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 13,
+                        "character": 24
+                    },
+                    "end": {
+                        "line": 13,
+                        "character": 37
+                    }
+                }
+            },
+            {
+                "name": "insertProperties() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 27,
+                        "character": 24
+                    },
+                    "end": {
+                        "line": 40,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 27,
+                        "character": 24
+                    },
+                    "end": {
+                        "line": 27,
+                        "character": 40
+                    }
+                }
+            },
+            {
+                "name": "insertContacts() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 42,
+                        "character": 24
+                    },
+                    "end": {
+                        "line": 54,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 42,
+                        "character": 24
+                    },
+                    "end": {
+                        "line": 42,
+                        "character": 38
+                    }
+                }
+            },
+            {
+                "name": "randomizeDateListed(List<Property__c>) : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 56,
+                        "character": 24
+                    },
+                    "end": {
+                        "line": 61,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 56,
+                        "character": 24
+                    },
+                    "end": {
+                        "line": 56,
+                        "character": 43
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\nprivate with sharing class GeocodingServiceTest {\n    private static final String STREET = 'Camino del Jueves 26';\n    private static final String CITY = 'Armilla';\n    private static final String POSTAL_CODE = '18100';\n    private static final String STATE = 'Granada';\n    private static final String COUNTRY = 'Spain';\n    private static final Decimal LATITUDE = 3.123;\n    private static final Decimal LONGITUDE = 31.333;\n\n    @isTest\n    static void successResponse() {\n        // GIVEN\n        GeocodingService.GeocodingAddress address = new GeocodingService.GeocodingAddress();\n        address.street = STREET;\n        address.city = CITY;\n        address.postalcode = POSTAL_CODE;\n        address.state = STATE;\n        address.country = COUNTRY;\n\n        Test.setMock(\n            HttpCalloutMock.class,\n            new OpenStreetMapHttpCalloutMockImpl()\n        );\n\n        // WHEN\n        List<GeocodingService.Coordinates> computedCoordinates = GeocodingService.geocodeAddresses(\n            new List<GeocodingService.GeocodingAddress>{ address }\n        );\n\n        // THEN\n        Assert.areEqual(1, computedCoordinates.size());\n        Assert.areEqual(LATITUDE, computedCoordinates[0].lat);\n        Assert.areEqual(LONGITUDE, computedCoordinates[0].lon);\n    }\n    @isTest\n    static void blankAddress() {\n        // GIVEN\n        GeocodingService.GeocodingAddress address = new GeocodingService.GeocodingAddress();\n\n        Test.setMock(\n            HttpCalloutMock.class,\n            new OpenStreetMapHttpCalloutMockImpl()\n        );\n\n        // WHEN\n        List<GeocodingService.Coordinates> computedCoordinates = GeocodingService.geocodeAddresses(\n            new List<GeocodingService.GeocodingAddress>{ address }\n        );\n\n        // THEN\n        Assert.areEqual(1, computedCoordinates.size());\n        Assert.isNull(computedCoordinates[0].lat);\n        Assert.isNull(computedCoordinates[0].lon);\n    }\n    @isTest\n    static void errorResponse() {\n        // GIVEN\n        GeocodingService.GeocodingAddress address = new GeocodingService.GeocodingAddress();\n        address.street = STREET;\n        address.city = CITY;\n        address.postalcode = POSTAL_CODE;\n        address.state = STATE;\n        address.country = COUNTRY;\n\n        Test.setMock(\n            HttpCalloutMock.class,\n            new OpenStreetMapHttpCalloutMockImplError()\n        );\n\n        // WHEN\n        List<GeocodingService.Coordinates> computedCoordinates = GeocodingService.geocodeAddresses(\n            new List<GeocodingService.GeocodingAddress>{ address }\n        );\n\n        // THEN\n        Assert.areEqual(1, computedCoordinates.size());\n        Assert.isNull(computedCoordinates[0].lat);\n        Assert.isNull(computedCoordinates[0].lon);\n    }\n\n    public class OpenStreetMapHttpCalloutMockImpl implements HttpCalloutMock {\n        public HTTPResponse respond(HTTPRequest req) {\n            HttpResponse res = new HttpResponse();\n            res.setHeader('Content-Type', 'application/json');\n            res.setBody('[{\"lat\": ' + LATITUDE + ',\"lon\": ' + LONGITUDE + '}]');\n            res.setStatusCode(200);\n            return res;\n        }\n    }\n\n    public class OpenStreetMapHttpCalloutMockImplError implements HttpCalloutMock {\n        public HTTPResponse respond(HTTPRequest req) {\n            HttpResponse res = new HttpResponse();\n            res.setHeader('Content-Type', 'application/json');\n            res.setStatusCode(400);\n            return res;\n        }\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Sending request 'textDocument/documentSymbol - (9)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received response 'textDocument/documentSymbol - (9)' in 9ms.
+Result: [
+    {
+        "name": "GeocodingServiceTest",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 1,
+                "character": 27
+            },
+            "end": {
+                "line": 99,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 1,
+                "character": 27
+            },
+            "end": {
+                "line": 1,
+                "character": 47
+            }
+        },
+        "children": [
+            {
+                "name": "OpenStreetMapHttpCalloutMockImpl",
+                "kind": 5,
+                "range": {
+                    "start": {
+                        "line": 81,
+                        "character": 17
+                    },
+                    "end": {
+                        "line": 89,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 81,
+                        "character": 17
+                    },
+                    "end": {
+                        "line": 81,
+                        "character": 49
+                    }
+                },
+                "children": [
+                    {
+                        "name": "respond(System.HttpRequest) : System.HttpResponse",
+                        "kind": 6,
+                        "range": {
+                            "start": {
+                                "line": 82,
+                                "character": 28
+                            },
+                            "end": {
+                                "line": 88,
+                                "character": 9
+                            }
+                        },
+                        "selectionRange": {
+                            "start": {
+                                "line": 82,
+                                "character": 28
+                            },
+                            "end": {
+                                "line": 82,
+                                "character": 35
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "name": "OpenStreetMapHttpCalloutMockImplError",
+                "kind": 5,
+                "range": {
+                    "start": {
+                        "line": 91,
+                        "character": 17
+                    },
+                    "end": {
+                        "line": 98,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 91,
+                        "character": 17
+                    },
+                    "end": {
+                        "line": 91,
+                        "character": 54
+                    }
+                },
+                "children": [
+                    {
+                        "name": "respond(System.HttpRequest) : System.HttpResponse",
+                        "kind": 6,
+                        "range": {
+                            "start": {
+                                "line": 92,
+                                "character": 28
+                            },
+                            "end": {
+                                "line": 97,
+                                "character": 9
+                            }
+                        },
+                        "selectionRange": {
+                            "start": {
+                                "line": 92,
+                                "character": 28
+                            },
+                            "end": {
+                                "line": 92,
+                                "character": 35
+                            }
+                        }
+                    }
+                ]
+            },
+            {
+                "name": "STREET : String",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 2,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 38
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 2,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 38
+                    }
+                }
+            },
+            {
+                "name": "CITY : String",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 3,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 3,
+                        "character": 36
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 3,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 3,
+                        "character": 36
+                    }
+                }
+            },
+            {
+                "name": "POSTAL_CODE : String",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 4,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 4,
+                        "character": 43
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 4,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 4,
+                        "character": 43
+                    }
+                }
+            },
+            {
+                "name": "STATE : String",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 5,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 5,
+                        "character": 37
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 5,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 5,
+                        "character": 37
+                    }
+                }
+            },
+            {
+                "name": "COUNTRY : String",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 6,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 6,
+                        "character": 39
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 6,
+                        "character": 32
+                    },
+                    "end": {
+                        "line": 6,
+                        "character": 39
+                    }
+                }
+            },
+            {
+                "name": "LATITUDE : Decimal",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 7,
+                        "character": 33
+                    },
+                    "end": {
+                        "line": 7,
+                        "character": 41
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 7,
+                        "character": 33
+                    },
+                    "end": {
+                        "line": 7,
+                        "character": 41
+                    }
+                }
+            },
+            {
+                "name": "LONGITUDE : Decimal",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 8,
+                        "character": 33
+                    },
+                    "end": {
+                        "line": 8,
+                        "character": 42
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 8,
+                        "character": 33
+                    },
+                    "end": {
+                        "line": 8,
+                        "character": 42
+                    }
+                }
+            },
+            {
+                "name": "successResponse() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 11,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 34,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 11,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 11,
+                        "character": 31
+                    }
+                }
+            },
+            {
+                "name": "blankAddress() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 36,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 54,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 36,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 36,
+                        "character": 28
+                    }
+                }
+            },
+            {
+                "name": "errorResponse() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 56,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 79,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 56,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 56,
+                        "character": 29
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "global interface MyInterface {\n\n    String x();\n}"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Sending request 'textDocument/documentSymbol - (10)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received response 'textDocument/documentSymbol - (10)' in 16ms.
+Result: [
+    {
+        "name": "MyInterface",
+        "kind": 11,
+        "range": {
+            "start": {
+                "line": 0,
+                "character": 17
+            },
+            "end": {
+                "line": 3,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 0,
+                "character": 17
+            },
+            "end": {
+                "line": 0,
+                "character": 28
+            }
+        },
+        "children": [
+            {
+                "name": "x() : String",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 2,
+                        "character": 11
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 12
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 2,
+                        "character": 11
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 12
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "global with sharing class MyWebService {\n    public String x;\n    private String y;\n    public MyWebService() {\n        Integer count = 5;\n        String name = 'test';\n        Boolean isActive = true;\n        \n        // Variable with no initialization\n        Double price;\n        \n        // Multiple variables in one statement\n        Integer x = 1, y = 2, z = 3;\n    }\n}"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Sending request 'textDocument/documentSymbol - (11)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received response 'textDocument/documentSymbol - (11)' in 24ms.
+Result: [
+    {
+        "name": "MyWebService",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 14,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 0,
+                "character": 38
+            }
+        },
+        "children": [
+            {
+                "name": "x : String",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 1,
+                        "character": 18
+                    },
+                    "end": {
+                        "line": 1,
+                        "character": 19
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 1,
+                        "character": 18
+                    },
+                    "end": {
+                        "line": 1,
+                        "character": 19
+                    }
+                }
+            },
+            {
+                "name": "y : String",
+                "kind": 8,
+                "range": {
+                    "start": {
+                        "line": 2,
+                        "character": 19
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 20
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 2,
+                        "character": 19
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 20
+                    }
+                }
+            },
+            {
+                "name": "MyWebService()",
+                "kind": 9,
+                "range": {
+                    "start": {
+                        "line": 3,
+                        "character": 11
+                    },
+                    "end": {
+                        "line": 13,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 3,
+                        "character": 11
+                    },
+                    "end": {
+                        "line": 3,
+                        "character": 23
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\nprivate with sharing class FileUtilitiesTest {\n    @isTest\n    static void createFileSucceedsWhenCorrectInput() {\n        // GIVEN\n        Property__c property = new Property__c();\n        insert property;\n\n        String base64Data = '/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAAAAAAAAAAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb';\n        String fileName = 'file.png';\n        String recordId = property.Id;\n\n        // WHEN\n        String contentDocumentLinkId = FileUtilities.createFile(\n            base64Data,\n            fileName,\n            recordId\n        );\n\n        // THEN\n        Assert.isNotNull(contentDocumentLinkId);\n    }\n\n    @isTest\n    static void createFileFailsWhenIncorrectRecordId() {\n        // GIVEN\n        String base64Data = '/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAAAAAAAAAAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb';\n        String fileName = 'file.png';\n        String recordId = 'INVALID_ID';\n\n        try {\n            // WHEN\n            String contentDocumentLinkId = FileUtilities.createFile(\n                base64Data,\n                fileName,\n                recordId\n            );\n            Assert.fail('Expected an AuraHandledException');\n        } catch (Exception e) {\n            // THEN\n            Assert.isInstanceOfType(e, AuraHandledException.class);\n        }\n    }\n\n    @isTest\n    static void createFileFailsWhenIncorrectBase64Data() {\n        // GIVEN\n        Property__c property = new Property__c();\n        insert property;\n\n        String base64Data = '';\n        String fileName = 'file.png';\n        String recordId = property.Id;\n\n        try {\n            // WHEN\n            String contentDocumentLinkId = FileUtilities.createFile(\n                base64Data,\n                fileName,\n                recordId\n            );\n            Assert.fail('Expected an AuraHandledException');\n        } catch (Exception e) {\n            // THEN\n            Assert.isInstanceOfType(e, AuraHandledException.class);\n        }\n    }\n\n    @isTest\n    static void createFileFailsWhenIncorrectFilename() {\n        // GIVEN\n        Property__c property = new Property__c();\n        insert property;\n\n        String base64Data = '/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAAAAAAAAAAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb';\n        String fileName = '';\n        String recordId = property.Id;\n\n        try {\n            // WHEN\n            String contentDocumentLinkId = FileUtilities.createFile(\n                base64Data,\n                fileName,\n                recordId\n            );\n            Assert.fail('Expected an AuraHandledException');\n        } catch (Exception e) {\n            // THEN\n            Assert.isInstanceOfType(e, AuraHandledException.class);\n        }\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Sending request 'textDocument/documentSymbol - (12)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+    "diagnostics": [
+        {
+            "range": {
+                "start": {
+                    "line": 40,
+                    "character": 39
+                },
+                "end": {
+                    "line": 40,
+                    "character": 65
+                }
+            },
+            "severity": 2,
+            "message": "Invalid type: AuraHandledException"
+        },
+        {
+            "range": {
+                "start": {
+                    "line": 64,
+                    "character": 39
+                },
+                "end": {
+                    "line": 64,
+                    "character": 65
+                }
+            },
+            "severity": 2,
+            "message": "Invalid type: AuraHandledException"
+        },
+        {
+            "range": {
+                "start": {
+                    "line": 88,
+                    "character": 39
+                },
+                "end": {
+                    "line": 88,
+                    "character": 65
+                }
+            },
+            "severity": 2,
+            "message": "Invalid type: AuraHandledException"
+        }
+    ]
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received response 'textDocument/documentSymbol - (12)' in 10ms.
+Result: [
+    {
+        "name": "FileUtilitiesTest",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 1,
+                "character": 27
+            },
+            "end": {
+                "line": 91,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 1,
+                "character": 27
+            },
+            "end": {
+                "line": 1,
+                "character": 44
+            }
+        },
+        "children": [
+            {
+                "name": "createFileSucceedsWhenCorrectInput() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 3,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 21,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 3,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 3,
+                        "character": 50
+                    }
+                }
+            },
+            {
+                "name": "createFileFailsWhenIncorrectRecordId() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 24,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 42,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 24,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 24,
+                        "character": 52
+                    }
+                }
+            },
+            {
+                "name": "createFileFailsWhenIncorrectBase64Data() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 45,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 66,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 45,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 45,
+                        "character": 54
+                    }
+                }
+            },
+            {
+                "name": "createFileFailsWhenIncorrectFilename() : void",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 69,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 90,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 69,
+                        "character": 16
+                    },
+                    "end": {
+                        "line": 69,
+                        "character": 52
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class PagedResult {\n    @AuraEnabled\n    public Integer pageSize { get; set; }\n\n    @AuraEnabled\n    public Integer pageNumber { get; set; }\n\n    @AuraEnabled\n    public Integer totalItemCount { get; set; }\n\n    @AuraEnabled\n    public Object[] records { get; set; }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\nprivate with sharing class FileUtilitiesTest {\n    @isTest\n    static void createFileSucceedsWhenCorrectInput() {\n        // GIVEN\n        Property__c property = new Property__c();\n        insert property;\n\n        String base64Data = '/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAAAAAAAAAAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb';\n        String fileName = 'file.png';\n        String recordId = property.Id;\n\n        // WHEN\n        String contentDocumentLinkId = FileUtilities.createFile(\n            base64Data,\n            fileName,\n            recordId\n        );\n\n        // THEN\n        Assert.isNotNull(contentDocumentLinkId);\n    }\n\n    @isTest\n    static void createFileFailsWhenIncorrectRecordId() {\n        // GIVEN\n        String base64Data = '/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAAAAAAAAAAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb';\n        String fileName = 'file.png';\n        String recordId = 'INVALID_ID';\n\n        try {\n            // WHEN\n            String contentDocumentLinkId = FileUtilities.createFile(\n                base64Data,\n                fileName,\n                recordId\n            );\n            Assert.fail('Expected an AuraHandledException');\n        } catch (Exception e) {\n            // THEN\n            Assert.isInstanceOfType(e, AuraHandledException.class);\n        }\n    }\n\n    @isTest\n    static void createFileFailsWhenIncorrectBase64Data() {\n        // GIVEN\n        Property__c property = new Property__c();\n        insert property;\n\n        String base64Data = '';\n        String fileName = 'file.png';\n        String recordId = property.Id;\n\n        try {\n            // WHEN\n            String contentDocumentLinkId = FileUtilities.createFile(\n                base64Data,\n                fileName,\n                recordId\n            );\n            Assert.fail('Expected an AuraHandledException');\n        } catch (Exception e) {\n            // THEN\n            Assert.isInstanceOfType(e, AuraHandledException.class);\n        }\n    }\n\n    @isTest\n    static void createFileFailsWhenIncorrectFilename() {\n        // GIVEN\n        Property__c property = new Property__c();\n        insert property;\n\n        String base64Data = '/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAAAAAAAAAAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb';\n        String fileName = '';\n        String recordId = property.Id;\n\n        try {\n            // WHEN\n            String contentDocumentLinkId = FileUtilities.createFile(\n                base64Data,\n                fileName,\n                recordId\n            );\n            Assert.fail('Expected an AuraHandledException');\n        } catch (Exception e) {\n            // THEN\n            Assert.isInstanceOfType(e, AuraHandledException.class);\n        }\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+    "diagnostics": [
+        {
+            "range": {
+                "start": {
+                    "line": 40,
+                    "character": 39
+                },
+                "end": {
+                    "line": 40,
+                    "character": 65
+                }
+            },
+            "severity": 2,
+            "message": "Invalid type: AuraHandledException"
+        },
+        {
+            "range": {
+                "start": {
+                    "line": 64,
+                    "character": 39
+                },
+                "end": {
+                    "line": 64,
+                    "character": 65
+                }
+            },
+            "severity": 2,
+            "message": "Invalid type: AuraHandledException"
+        },
+        {
+            "range": {
+                "start": {
+                    "line": 88,
+                    "character": 39
+                },
+                "end": {
+                    "line": 88,
+                    "character": 65
+                }
+            },
+            "severity": 2,
+            "message": "Invalid type: AuraHandledException"
+        }
+    ]
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "global with sharing class MyWebService {\n    public String x;\n    private String y;\n    public MyWebService() {\n        Integer count = 5;\n        String name = 'test';\n        Boolean isActive = true;\n        \n        // Variable with no initialization\n        Double price;\n        \n        // Multiple variables in one statement\n        Integer x = 1, y = 2, z = 3;\n    }\n}"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class FileUtilities {\n    @AuraEnabled\n    public static String createFile(\n        String base64data,\n        String filename,\n        String recordId\n    ) {\n        try {\n            ContentVersion contentVersion = new ContentVersion();\n            contentVersion.VersionData = EncodingUtil.base64Decode(base64data);\n            contentVersion.Title = filename;\n            contentVersion.PathOnClient = filename;\n            insert contentVersion;\n\n            contentVersion = [\n                SELECT ContentDocumentId\n                FROM ContentVersion\n                WHERE Id = :contentVersion.Id\n                WITH USER_MODE\n            ];\n\n            ContentDocumentLink contentDocumentLink = new ContentDocumentLink();\n            contentDocumentLink.ContentDocumentId = contentVersion.ContentDocumentId;\n            contentDocumentLink.LinkedEntityId = recordId;\n            contentDocumentLink.ShareType = 'V';\n            insert contentDocumentLink;\n\n            return contentDocumentLink.Id;\n        } catch (Exception e) {\n            throw new AuraHandledException('Error creating file: ' + e);\n        }\n    }\n\n    \n}"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+    "diagnostics": [
+        {
+            "range": {
+                "start": {
+                    "line": 29,
+                    "character": 18
+                },
+                "end": {
+                    "line": 29,
+                    "character": 21
+                }
+            },
+            "severity": 2,
+            "message": "Invalid type: AuraHandledException"
+        }
+    ]
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\nprivate class TestSampleDataController {\n    @isTest\n    static void importSampleData() {\n        Test.startTest();\n        SampleDataController.importSampleData();\n        Test.stopTest();\n\n        Integer propertyNumber = [SELECT COUNT() FROM Property__c];\n        Integer brokerNumber = [SELECT COUNT() FROM Broker__c];\n        Integer contactNumber = [SELECT COUNT() FROM Contact];\n\n        Assert.isTrue(propertyNumber > 0, 'Expected properties were created.');\n        Assert.isTrue(brokerNumber > 0, 'Expected brokers were created.');\n        Assert.isTrue(contactNumber > 0, 'Expected contacts were created.');\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\nprivate class TestPropertyController {\n    private final static String MOCK_PICTURE_NAME = 'MockPictureName';\n\n    public static void createProperties(Integer amount) {\n        List<Property__c> properties = new List<Property__c>();\n        for (Integer i = 0; i < amount; i++) {\n            properties.add(\n                new Property__c(\n                    Name = 'Name ' + i,\n                    Price__c = 20000,\n                    Beds__c = 3,\n                    Baths__c = 3\n                )\n            );\n        }\n        insert properties;\n    }\n\n    @isTest\n    static void testGetPagedPropertyList() {\n        Profile standardUserProfile = [\n            SELECT Name, Id\n            FROM Profile\n            WHERE\n                UserType = 'Standard'\n                AND PermissionsPrivacyDataAccess = FALSE\n                AND PermissionsSubmitMacrosAllowed = TRUE\n                AND PermissionsMassInlineEdit = TRUE\n            LIMIT 1\n        ];\n        User testUser = new User(\n            Alias = 'standt',\n            Email = 'standarduser@testorg.com',\n            EmailEncodingKey = 'UTF-8',\n            LastName = 'Testing',\n            LanguageLocaleKey = 'en_US',\n            LocaleSidKey = 'en_US',\n            ProfileId = standardUserProfile.Id,\n            TimeZoneSidKey = 'America/Los_Angeles',\n            UserName = 'standarduser@dreamhouse-testorg.com'\n        );\n        insert testUser;\n        PermissionSet ps = [\n            SELECT Id\n            FROM PermissionSet\n            WHERE Name = 'dreamhouse'\n        ];\n        insert new PermissionSetAssignment(\n            AssigneeId = testUser.Id,\n            PermissionSetId = ps.Id\n        );\n\n        // Insert test properties as admin\n        System.runAs(new User(Id = UserInfo.getUserId())) {\n            TestPropertyController.createProperties(5);\n        }\n        // Read properties as test user\n        System.runAs(testUser) {\n            Test.startTest();\n            PagedResult result = PropertyController.getPagedPropertyList(\n                '',\n                999999,\n                0,\n                0,\n                10,\n                1\n            );\n            Test.stopTest();\n            Assert.areEqual(5, result.records.size());\n        }\n    }\n\n    @isTest\n    static void testGetPicturesNoResults() {\n        Property__c property = new Property__c(Name = 'Name');\n        insert property;\n\n        Test.startTest();\n        List<ContentVersion> items = PropertyController.getPictures(\n            property.Id\n        );\n        Test.stopTest();\n\n        Assert.isNull(items);\n    }\n\n    @isTest\n    static void testGetPicturesWithResults() {\n        Property__c property = new Property__c(Name = 'Name');\n        insert property;\n\n        // Insert mock picture\n        ContentVersion picture = new Contentversion();\n        picture.Title = MOCK_PICTURE_NAME;\n        picture.PathOnClient = 'picture.png';\n        picture.Versiondata = EncodingUtil.base64Decode('MockValue');\n        insert picture;\n\n        // Link picture to property record\n        List<ContentDocument> documents = [\n            SELECT Id, Title, LatestPublishedVersionId\n            FROM ContentDocument\n            LIMIT 1\n        ];\n        ContentDocumentLink link = new ContentDocumentLink();\n        link.LinkedEntityId = property.Id;\n        link.ContentDocumentId = documents[0].Id;\n        link.shareType = 'V';\n        insert link;\n\n        Test.startTest();\n        List<ContentVersion> items = PropertyController.getPictures(\n            property.Id\n        );\n        Test.stopTest();\n\n        Assert.areEqual(1, items.size());\n        Assert.areEqual(MOCK_PICTURE_NAME, items[0].Title);\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+    "diagnostics": [
+        {
+            "range": {
+                "start": {
+                    "line": 8,
+                    "character": 16
+                },
+                "end": {
+                    "line": 8,
+                    "character": 19
+                }
+            },
+            "severity": 2,
+            "message": "Field does not exist: Price__c on Property__c"
+        },
+        {
+            "range": {
+                "start": {
+                    "line": 8,
+                    "character": 16
+                },
+                "end": {
+                    "line": 8,
+                    "character": 19
+                }
+            },
+            "severity": 2,
+            "message": "Field does not exist: Beds__c on Property__c"
+        },
+        {
+            "range": {
+                "start": {
+                    "line": 8,
+                    "character": 16
+                },
+                "end": {
+                    "line": 8,
+                    "character": 19
+                }
+            },
+            "severity": 2,
+            "message": "Field does not exist: Baths__c on Property__c"
+        }
+    ]
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class PropertyController {\n    private static final Decimal DEFAULT_MAX_PRICE = 9999999;\n    private static final Integer DEFAULT_PAGE_SIZE = 9;\n\n    /**\n     * Endpoint that retrieves a paged and filtered list of properties\n     * @param searchKey String used for searching on property title, city and tags\n     * @param maxPrice Maximum price\n     * @param minBedrooms Minimum number of bedrooms\n     * @param minBathrooms Minimum number of bathrooms\n     * @param pageSize Number of properties per page\n     * @param pageNumber Page number\n     * @return PagedResult object holding the paged and filtered list of properties\n     */\n    @AuraEnabled(cacheable=true scope='global')\n    public static PagedResult getPagedPropertyList(\n        String searchKey,\n        Decimal maxPrice,\n        Integer minBedrooms,\n        Integer minBathrooms,\n        Integer pageSize,\n        Integer pageNumber\n    ) {\n        // Normalize inputs\n        Decimal safeMaxPrice = maxPrice ?? DEFAULT_MAX_PRICE;\n        Integer safeMinBedrooms = minBedrooms ?? 0;\n        Integer safeMinBathrooms = minBathrooms ?? 0;\n        Integer safePageSize = pageSize ?? DEFAULT_PAGE_SIZE;\n        Integer safePageNumber = pageNumber ?? 1;\n\n        String searchPattern = '%' + searchKey + '%';\n        Integer offset = (safePageNumber - 1) * safePageSize;\n\n        PagedResult result = new PagedResult();\n        result.pageSize = safePageSize;\n        result.pageNumber = safePageNumber;\n        result.totalItemCount = [\n            SELECT COUNT()\n            FROM Property__c\n            WHERE\n                (Name LIKE :searchPattern\n                OR City__c LIKE :searchPattern\n                OR Tags__c LIKE :searchPattern)\n                AND Price__c <= :safeMaxPrice\n                AND Beds__c >= :safeMinBedrooms\n                AND Baths__c >= :safeMinBathrooms\n        ];\n        result.records = [\n            SELECT\n                Id,\n                Name,\n                Address__c,\n                City__c,\n                State__c,\n                Description__c,\n                Price__c,\n                Baths__c,\n                Beds__c,\n                Thumbnail__c,\n                Location__Latitude__s,\n                Location__Longitude__s\n            FROM Property__c\n            WHERE\n                (Name LIKE :searchPattern\n                OR City__c LIKE :searchPattern\n                OR Tags__c LIKE :searchPattern)\n                AND Price__c <= :safeMaxPrice\n                AND Beds__c >= :safeMinBedrooms\n                AND Baths__c >= :safeMinBathrooms\n            WITH USER_MODE\n            ORDER BY Price__c\n            LIMIT :safePageSize\n            OFFSET :offset\n        ];\n        return result;\n    }\n\n    /**\n     * Endpoint that retrieves pictures associated with a property\n     * @param propertyId Property Id\n     * @return List of ContentVersion holding the pictures\n     */\n    @AuraEnabled(cacheable=true scope='global')\n    public static List<ContentVersion> getPictures(Id propertyId) {\n        List<ContentDocumentLink> links = [\n            SELECT Id, LinkedEntityId, ContentDocument.Title\n            FROM ContentDocumentLink\n            WHERE\n                LinkedEntityId = :propertyId\n                AND ContentDocument.FileType IN ('PNG', 'JPG', 'GIF')\n            WITH USER_MODE\n        ];\n\n        if (links.isEmpty()) {\n            return null;\n        }\n\n        Set<Id> contentIds = new Set<Id>();\n\n        for (ContentDocumentLink link : links) {\n            contentIds.add(link.ContentDocumentId);\n        }\n\n        return [\n            SELECT Id, Title\n            FROM ContentVersion\n            WHERE ContentDocumentId IN :contentIds AND IsLatest = TRUE\n            WITH USER_MODE\n            ORDER BY CreatedDate\n        ];\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class GeocodingService {\n    private static final String BASE_URL = 'https://nominatim.openstreetmap.org/search?format=json';\n\n    @InvocableMethod(callout=true label='Geocode address')\n    public static List<Coordinates> geocodeAddresses(\n        List<GeocodingAddress> addresses\n    ) {\n        List<Coordinates> computedCoordinates = new List<Coordinates>();\n\n        for (GeocodingAddress address : addresses) {\n            String geocodingUrl = BASE_URL;\n            geocodingUrl += (String.isNotBlank(address.street))\n                ? '&street=' + address.street\n                : '';\n            geocodingUrl += (String.isNotBlank(address.city))\n                ? '&city=' + address.city\n                : '';\n            geocodingUrl += (String.isNotBlank(address.state))\n                ? '&state=' + address.state\n                : '';\n            geocodingUrl += (String.isNotBlank(address.country))\n                ? '&country=' + address.country\n                : '';\n            geocodingUrl += (String.isNotBlank(address.postalcode))\n                ? '&postalcode=' + address.postalcode\n                : '';\n\n            Coordinates coords = new Coordinates();\n            if (geocodingUrl != BASE_URL) {\n                Http http = new Http();\n                HttpRequest request = new HttpRequest();\n                request.setEndpoint(geocodingUrl);\n                request.setMethod('GET');\n                request.setHeader(\n                    'http-referer',\n                    URL.getOrgDomainUrl().toExternalForm()\n                );\n                HttpResponse response = http.send(request);\n                if (response.getStatusCode() == 200) {\n                    List<Coordinates> deserializedCoords = (List<Coordinates>) JSON.deserialize(\n                        response.getBody(),\n                        List<Coordinates>.class\n                    );\n                    coords = deserializedCoords[0];\n                }\n            }\n\n            computedCoordinates.add(coords);\n        }\n        return computedCoordinates;\n    }\n\n    public class GeocodingAddress {\n        @InvocableVariable\n        public String street;\n        @InvocableVariable\n        public String city;\n        @InvocableVariable\n        public String state;\n        @InvocableVariable\n        public String country;\n        @InvocableVariable\n        public String postalcode;\n    }\n\n    public class Coordinates {\n        @InvocableVariable\n        public Decimal lat;\n        @InvocableVariable\n        public Decimal lon;\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "public with sharing class SampleDataController {\n    @AuraEnabled\n    public static void importSampleData() {\n        delete [SELECT Id FROM Case];\n        delete [SELECT Id FROM Property__c];\n        delete [SELECT Id FROM Broker__c];\n        delete [SELECT Id FROM Contact];\n\n        insertBrokers();\n        insertProperties();\n        insertContacts();\n    }\n\n    private static void insertBrokers() {\n        StaticResource brokersResource = [\n            SELECT Id, Body\n            FROM StaticResource\n            WHERE Name = 'sample_data_brokers'\n        ];\n        String brokersJSON = brokersResource.body.toString();\n        List<Broker__c> brokers = (List<Broker__c>) JSON.deserialize(\n            brokersJSON,\n            List<Broker__c>.class\n        );\n        insert brokers;\n    }\n\n    private static void insertProperties() {\n        StaticResource propertiesResource = [\n            SELECT Id, Body\n            FROM StaticResource\n            WHERE Name = 'sample_data_properties'\n        ];\n        String propertiesJSON = propertiesResource.body.toString();\n        List<Property__c> properties = (List<Property__c>) JSON.deserialize(\n            propertiesJSON,\n            List<Property__c>.class\n        );\n        randomizeDateListed(properties);\n        insert properties;\n    }\n\n    private static void insertContacts() {\n        StaticResource contactsResource = [\n            SELECT Id, Body\n            FROM StaticResource\n            WHERE Name = 'sample_data_contacts'\n        ];\n        String contactsJSON = contactsResource.body.toString();\n        List<Contact> contacts = (List<Contact>) JSON.deserialize(\n            contactsJSON,\n            List<Contact>.class\n        );\n        insert contacts;\n    }\n\n    private static void randomizeDateListed(List<Property__c> properties) {\n        for (Property__c property : properties) {\n            property.Date_Listed__c =\n                System.today() - Integer.valueof((Math.random() * 90));\n        }\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
+    "diagnostics": [
+        {
+            "range": {
+                "start": {
+                    "line": 58,
+                    "character": 21
+                },
+                "end": {
+                    "line": 58,
+                    "character": 35
+                }
+            },
+            "severity": 2,
+            "message": "Variable does not exist: Date_Listed__c"
+        }
+    ]
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "@isTest\nprivate with sharing class GeocodingServiceTest {\n    private static final String STREET = 'Camino del Jueves 26';\n    private static final String CITY = 'Armilla';\n    private static final String POSTAL_CODE = '18100';\n    private static final String STATE = 'Granada';\n    private static final String COUNTRY = 'Spain';\n    private static final Decimal LATITUDE = 3.123;\n    private static final Decimal LONGITUDE = 31.333;\n\n    @isTest\n    static void successResponse() {\n        // GIVEN\n        GeocodingService.GeocodingAddress address = new GeocodingService.GeocodingAddress();\n        address.street = STREET;\n        address.city = CITY;\n        address.postalcode = POSTAL_CODE;\n        address.state = STATE;\n        address.country = COUNTRY;\n\n        Test.setMock(\n            HttpCalloutMock.class,\n            new OpenStreetMapHttpCalloutMockImpl()\n        );\n\n        // WHEN\n        List<GeocodingService.Coordinates> computedCoordinates = GeocodingService.geocodeAddresses(\n            new List<GeocodingService.GeocodingAddress>{ address }\n        );\n\n        // THEN\n        Assert.areEqual(1, computedCoordinates.size());\n        Assert.areEqual(LATITUDE, computedCoordinates[0].lat);\n        Assert.areEqual(LONGITUDE, computedCoordinates[0].lon);\n    }\n    @isTest\n    static void blankAddress() {\n        // GIVEN\n        GeocodingService.GeocodingAddress address = new GeocodingService.GeocodingAddress();\n\n        Test.setMock(\n            HttpCalloutMock.class,\n            new OpenStreetMapHttpCalloutMockImpl()\n        );\n\n        // WHEN\n        List<GeocodingService.Coordinates> computedCoordinates = GeocodingService.geocodeAddresses(\n            new List<GeocodingService.GeocodingAddress>{ address }\n        );\n\n        // THEN\n        Assert.areEqual(1, computedCoordinates.size());\n        Assert.isNull(computedCoordinates[0].lat);\n        Assert.isNull(computedCoordinates[0].lon);\n    }\n    @isTest\n    static void errorResponse() {\n        // GIVEN\n        GeocodingService.GeocodingAddress address = new GeocodingService.GeocodingAddress();\n        address.street = STREET;\n        address.city = CITY;\n        address.postalcode = POSTAL_CODE;\n        address.state = STATE;\n        address.country = COUNTRY;\n\n        Test.setMock(\n            HttpCalloutMock.class,\n            new OpenStreetMapHttpCalloutMockImplError()\n        );\n\n        // WHEN\n        List<GeocodingService.Coordinates> computedCoordinates = GeocodingService.geocodeAddresses(\n            new List<GeocodingService.GeocodingAddress>{ address }\n        );\n\n        // THEN\n        Assert.areEqual(1, computedCoordinates.size());\n        Assert.isNull(computedCoordinates[0].lat);\n        Assert.isNull(computedCoordinates[0].lon);\n    }\n\n    public class OpenStreetMapHttpCalloutMockImpl implements HttpCalloutMock {\n        public HTTPResponse respond(HTTPRequest req) {\n            HttpResponse res = new HttpResponse();\n            res.setHeader('Content-Type', 'application/json');\n            res.setBody('[{\"lat\": ' + LATITUDE + ',\"lon\": ' + LONGITUDE + '}]');\n            res.setStatusCode(200);\n            return res;\n        }\n    }\n\n    public class OpenStreetMapHttpCalloutMockImplError implements HttpCalloutMock {\n        public HTTPResponse respond(HTTPRequest req) {\n            HttpResponse res = new HttpResponse();\n            res.setHeader('Content-Type', 'application/json');\n            res.setStatusCode(400);\n            return res;\n        }\n    }\n}\n"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:20:09 AM] Sending notification 'textDocument/didOpen'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
+        "languageId": "apex",
+        "version": 1,
+        "text": "global interface MyInterface {\n\n    String x();\n}"
+    }
+}
+
+
+[Trace - 10:20:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:22:11 AM] Sending request 'textDocument/documentSymbol - (13)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    }
+}
+
+
+[Trace - 10:22:11 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:22:11 AM] Received response 'textDocument/documentSymbol - (13)' in 1ms.
+Result: [
+    {
+        "name": "FileUtilities",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 34,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 0,
+                "character": 39
+            }
+        },
+        "children": [
+            {
+                "name": "createFile(String, String, String) : String",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 2,
+                        "character": 25
+                    },
+                    "end": {
+                        "line": 31,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 2,
+                        "character": 25
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 35
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:22:11 AM] Sending request 'textDocument/codeAction - (14)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "range": {
+        "start": {
+            "line": 18,
+            "character": 30
+        },
+        "end": {
+            "line": 18,
+            "character": 30
+        }
+    },
+    "context": {
+        "diagnostics": [],
+        "triggerKind": 2
+    }
+}
+
+
+[Trace - 10:22:11 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "CodeActionName": "ApexCodeActions",
+        "Feature": "CodeAction",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 4
+    }
+}
+
+
+[Trace - 10:22:11 AM] Received response 'textDocument/codeAction - (14)' in 8ms.
+Result: [
+    {
+        "title": "Extract Variable",
+        "kind": "refactor.extract.variable",
+        "edit": {
+            "changes": {},
+            "documentChanges": [
+                {
+                    "textDocument": {
+                        "version": null,
+                        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+                    },
+                    "edits": [
+                        {
+                            "range": {
+                                "start": {
+                                    "line": 14,
+                                    "character": 0
+                                },
+                                "end": {
+                                    "line": 14,
+                                    "character": 0
+                                }
+                            },
+                            "newText": "            List<ContentVersion> v1 = [\n                SELECT ContentDocumentId\n                FROM ContentVersion\n                WHERE Id = :contentVersion.Id\n                WITH USER_MODE\n            ];\n"
+                        },
+                        {
+                            "range": {
+                                "start": {
+                                    "line": 14,
+                                    "character": 29
+                                },
+                                "end": {
+                                    "line": 19,
+                                    "character": 13
+                                }
+                            },
+                            "newText": "v1"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+]
+
+
+[Trace - 10:22:11 AM] Sending request 'textDocument/codeLens - (15)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    }
+}
+
+
+[Trace - 10:22:11 AM] Sending request 'textDocument/documentSymbol - (16)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    }
+}
+
+
+[Trace - 10:22:11 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "CodeLens",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:22:11 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Definition",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:22:11 AM] Received response 'textDocument/codeLens - (15)' in 3ms.
+Result: []
+
+
+[Trace - 10:22:11 AM] Received response 'textDocument/documentSymbol - (16)' in 2ms.
+Result: [
+    {
+        "name": "FileUtilities",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 34,
+                "character": 1
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 0,
+                "character": 39
+            }
+        },
+        "children": [
+            {
+                "name": "createFile(String, String, String) : String",
+                "kind": 6,
+                "range": {
+                    "start": {
+                        "line": 2,
+                        "character": 25
+                    },
+                    "end": {
+                        "line": 31,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 2,
+                        "character": 25
+                    },
+                    "end": {
+                        "line": 2,
+                        "character": 35
+                    }
+                }
+            }
+        ]
+    }
+]
+
+
+[Trace - 10:23:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls"
+    }
+}
+
+
+[Trace - 10:23:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:23:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls"
+    }
+}
+
+
+[Trace - 10:23:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:23:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls"
+    }
+}
+
+
+[Trace - 10:23:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:23:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls"
+    }
+}
+
+
+[Trace - 10:23:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:23:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls"
+    }
+}
+
+
+[Trace - 10:23:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:23:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls"
+    }
+}
+
+
+[Trace - 10:23:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls"
+    }
+}
+
+
+[Trace - 10:23:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:23:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:23:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls"
+    }
+}
+
+
+[Trace - 10:23:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:23:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls"
+    }
+}
+
+
+[Trace - 10:23:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:23:09 AM] Sending notification 'textDocument/didClose'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls"
+    }
+}
+
+
+[Trace - 10:23:09 AM] Received notification 'textDocument/publishDiagnostics'.
+Params: {
+    "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
+    "diagnostics": []
+}
+
+
+[Trace - 10:23:10 AM] Sending request 'textDocument/hover - (17)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 2,
+        "character": 28
+    }
+}
+
+
+[Trace - 10:23:10 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 7
+    }
+}
+
+
+[Trace - 10:23:10 AM] Received response 'textDocument/hover - (17)' in 12ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString FileUtilities.createFile(String base64data, String filename, String recordId)\n```\n"
+    }
+}
+
+
+[Trace - 10:23:10 AM] Sending request 'textDocument/hover - (18)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 2,
+        "character": 29
+    }
+}
+
+
+[Trace - 10:23:10 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 1
+    }
+}
+
+
+[Trace - 10:23:10 AM] Received response 'textDocument/hover - (18)' in 5ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString FileUtilities.createFile(String base64data, String filename, String recordId)\n```\n"
+    }
+}
+
+
+[Trace - 10:23:13 AM] Sending request 'textDocument/hover - (19)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 2,
+        "character": 14
+    }
+}
+
+
+[Trace - 10:23:13 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:23:13 AM] Received response 'textDocument/hover - (19)' in 3ms.
+Result: {
+    "contents": ""
+}
+
+
+[Trace - 10:23:13 AM] Sending request 'textDocument/hover - (20)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 3,
+        "character": 10
+    }
+}
+
+
+[Trace - 10:23:13 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 1
+    }
+}
+
+
+[Trace - 10:23:13 AM] Received response 'textDocument/hover - (20)' in 4ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString\n```\n"
+    }
+}
+
+
+[Trace - 10:23:14 AM] Sending request 'textDocument/hover - (21)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 4,
+        "character": 10
+    }
+}
+
+
+[Trace - 10:23:14 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 1
+    }
+}
+
+
+[Trace - 10:23:14 AM] Received response 'textDocument/hover - (21)' in 5ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString\n```\n"
+    }
+}
+
+
+[Trace - 10:23:16 AM] Sending request 'textDocument/hover - (22)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 5,
+        "character": 10
+    }
+}
+
+
+[Trace - 10:23:16 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:23:16 AM] Received response 'textDocument/hover - (22)' in 3ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString\n```\n"
+    }
+}
+
+
+[Trace - 10:23:17 AM] Sending request 'textDocument/hover - (23)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 5,
+        "character": 17
+    }
+}
+
+
+[Trace - 10:23:17 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:23:17 AM] Received response 'textDocument/hover - (23)' in 2ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString recordId\n```\n"
+    }
+}
+
+
+[Trace - 10:23:17 AM] Sending request 'textDocument/hover - (24)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 5,
+        "character": 19
+    }
+}
+
+
+[Trace - 10:23:17 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:23:17 AM] Received response 'textDocument/hover - (24)' in 2ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString recordId\n```\n"
+    }
+}
+
+
+[Trace - 10:24:24 AM] Sending request 'textDocument/hover - (25)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 5,
+        "character": 18
+    }
+}
+
+
+[Trace - 10:24:24 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:24:24 AM] Received response 'textDocument/hover - (25)' in 2ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString recordId\n```\n"
+    }
+}
+
+
+[Trace - 10:24:25 AM] Sending request 'textDocument/hover - (26)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 21,
+        "character": 23
+    }
+}
+
+
+[Trace - 10:24:25 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 12
+    }
+}
+
+
+[Trace - 10:24:25 AM] Received response 'textDocument/hover - (26)' in 14ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink\n```\n"
+    }
+}
+
+
+[Trace - 10:24:27 AM] Sending request 'textDocument/hover - (27)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 21,
+        "character": 39
+    }
+}
+
+
+[Trace - 10:24:27 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 1
+    }
+}
+
+
+[Trace - 10:24:27 AM] Received response 'textDocument/hover - (27)' in 5ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    }
+}
+
+
+[Trace - 10:24:28 AM] Sending request 'textDocument/hover - (28)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 21,
+        "character": 63
+    }
+}
+
+
+[Trace - 10:24:28 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 1
+    }
+}
+
+
+[Trace - 10:24:28 AM] Received response 'textDocument/hover - (28)' in 4ms.
+Result: {
+    "contents": ""
+}
+
+
+[Trace - 10:24:28 AM] Sending request 'textDocument/hover - (29)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 21,
+        "character": 64
+    }
+}
+
+
+[Trace - 10:24:28 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:24:28 AM] Received response 'textDocument/hover - (29)' in 2ms.
+Result: {
+    "contents": ""
+}
+
+
+[Trace - 10:24:29 AM] Sending request 'textDocument/hover - (30)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 21,
+        "character": 65
+    }
+}
+
+
+[Trace - 10:24:29 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:24:29 AM] Received response 'textDocument/hover - (30)' in 4ms.
+Result: {
+    "contents": ""
+}
+
+
+[Trace - 10:24:31 AM] Sending request 'textDocument/hover - (31)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 22,
+        "character": 24
+    }
+}
+
+
+[Trace - 10:24:31 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 2
+    }
+}
+
+
+[Trace - 10:24:31 AM] Received response 'textDocument/hover - (31)' in 5ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    }
+}
+
+
+[Trace - 10:24:32 AM] Sending request 'textDocument/hover - (32)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 22,
+        "character": 36
+    }
+}
+
+
+[Trace - 10:24:32 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 4
+    }
+}
+
+
+[Trace - 10:24:32 AM] Received response 'textDocument/hover - (32)' in 8ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nId ContentDocumentLink.ContentDocumentId\n```\n"
+    }
+}
+
+
+[Trace - 10:24:33 AM] Sending request 'textDocument/hover - (33)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 22,
+        "character": 38
+    }
+}
+
+
+[Trace - 10:24:33 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 3
+    }
+}
+
+
+[Trace - 10:24:33 AM] Received response 'textDocument/hover - (33)' in 6ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nId ContentDocumentLink.ContentDocumentId\n```\n"
+    }
+}
+
+
+[Trace - 10:24:34 AM] Sending request 'textDocument/hover - (34)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 23,
+        "character": 35
+    }
+}
+
+
+[Trace - 10:24:34 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 1
+    }
+}
+
+
+[Trace - 10:24:34 AM] Received response 'textDocument/hover - (34)' in 3ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nId ContentDocumentLink.LinkedEntityId\n```\n"
+    }
+}
+
+
+[Trace - 10:24:35 AM] Sending request 'textDocument/hover - (35)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 25,
+        "character": 29
+    }
+}
+
+
+[Trace - 10:24:35 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 1
+    }
+}
+
+
+[Trace - 10:24:35 AM] Received response 'textDocument/hover - (35)' in 4ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    }
+}
+
+
+[Trace - 10:24:36 AM] Sending request 'textDocument/hover - (36)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 25,
+        "character": 20
+    }
+}
+
+
+[Trace - 10:24:36 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:24:36 AM] Received response 'textDocument/hover - (36)' in 4ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    }
+}
+
+
+[Trace - 10:24:36 AM] Sending request 'textDocument/hover - (37)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 25,
+        "character": 14
+    }
+}
+
+
+[Trace - 10:24:36 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:24:36 AM] Received response 'textDocument/hover - (37)' in 3ms.
+Result: {
+    "contents": ""
+}
+
+
+[Trace - 10:24:38 AM] Sending request 'textDocument/hover - (38)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 24,
+        "character": 16
+    }
+}
+
+
+[Trace - 10:24:38 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 1
+    }
+}
+
+
+[Trace - 10:24:38 AM] Received response 'textDocument/hover - (38)' in 4ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    }
+}
+
+
+[Trace - 10:24:39 AM] Sending request 'textDocument/hover - (39)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 24,
+        "character": 30
+    }
+}
+
+
+[Trace - 10:24:39 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 0
+    }
+}
+
+
+[Trace - 10:24:39 AM] Received response 'textDocument/hover - (39)' in 2ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nContentDocumentLink contentDocumentLink\n```\n"
+    }
+}
+
+
+[Trace - 10:24:39 AM] Sending request 'textDocument/hover - (40)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls"
+    },
+    "position": {
+        "line": 24,
+        "character": 34
+    }
+}
+
+
+[Trace - 10:24:39 AM] Received notification 'telemetry/event'.
+Params: {
+    "properties": {
+        "Feature": "Hover",
+        "Exception": "None"
+    },
+    "measures": {
+        "ExecutionTime": 2
+    }
+}
+
+
+[Trace - 10:24:39 AM] Received response 'textDocument/hover - (40)' in 5ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "```apex\nString ContentDocumentLink.ShareType\n```\n"
+    }
+}
+
+
+[Trace - 10:24:50 AM] Sending request 'shutdown - (41)'.
+10:24:50.335 [Apex Prelude Service STOPPING] INFO  a.j.l.i.s.ApexPreludeManagedService - Prelude Service shutting down.
+[Trace - 10:24:50 AM] Received response 'shutdown - (41)' in 159ms.
+Result: {}
+
+
+[Trace - 10:24:50 AM] Sending notification 'exit'.
+No parameters provided.
+
+

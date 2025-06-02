@@ -1,0 +1,32 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "composite": true,
+    "rootDir": ".",
+    "baseUrl": ".",
+    "lib": ["ES2020", "WebWorker"],
+    "paths": {
+      "@salesforce/apex-lsp-logging": ["../apex-lsp-logging/src"],
+      "@salesforce/apex-lsp-logging/*": ["../apex-lsp-logging/src/*"],
+      "@salesforce/apex-lsp-parser-ast": ["../apex-parser-ast/src"],
+      "@salesforce/apex-lsp-parser-ast/*": ["../apex-parser-ast/src/*"],
+      "@salesforce/apex-lsp-compliant-services": [
+        "../lsp-compliant-services/src"
+      ],
+      "@salesforce/apex-lsp-compliant-services/*": [
+        "../lsp-compliant-services/src/*"
+      ],
+      "@salesforce/apex-lsp-custom-services": ["../custom-services/src"],
+      "@salesforce/apex-lsp-custom-services/*": ["../custom-services/src/*"]
+    }
+  },
+  "references": [
+    { "path": "../apex-lsp-logging" },
+    { "path": "../apex-parser-ast" },
+    { "path": "../lsp-compliant-services" },
+    { "path": "../custom-services" }
+  ],
+  "include": ["src", "test"],
+  "exclude": ["node_modules", "dist", "bundle"]
+}
