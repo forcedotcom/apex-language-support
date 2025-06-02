@@ -18,9 +18,6 @@
     "Linters",
     "Snippets"
   ],
-  "activationEvents": [
-    "*"
-  ],
   "main": "./dist/extension.js",
   "contributes": {
     "languages": [
@@ -47,16 +44,6 @@
           ".apex"
         ],
         "configuration": "./language-configuration.json"
-      },
-      {
-        "id": "soql",
-        "aliases": [
-          "SOQL",
-          "Salesforce Object Query Language"
-        ],
-        "extensions": [
-          ".soql"
-        ]
       }
     ],
     "grammars": [
@@ -122,21 +109,21 @@
   "scripts": {
     "precompile": "npm run copy:files",
     "compile": "tsc --build",
-    "bundle": "node ../../scripts/build-bundle.js",
-    "esbuild": "esbuild src/extension.ts --bundle --target=chrome88 --external:vscode --outfile=dist/extension.js",
+    "bundle": "tsup src/extension.ts --format cjs --target chrome88 --out-dir dist --clean && shx mkdir -p dist/snippets && shx cp -R snippets/* dist/snippets/ && shx cp -R grammars dist/",
+    "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars . && shx mkdir -p out/snippets && shx cp -R snippets/* out/snippets/ && shx cp -R grammars out/",
+    "package": "npm run compile && npm run bundle && shx mkdir -p extension && shx cp -r dist out/grammars out/snippets language-configuration.json package.json README.md extension/ && cd extension && shx rm -rf node_modules && npm install --omit=dev && shx rm -rf node_modules",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf dist bundle *.tsbuildinfo .turbo grammars",
+    "clean": "rimraf dist out bundle *.tsbuildinfo .turbo grammars",
     "clean:all": "npm run clean && rimraf node_modules",
-    "clean:coverage": "rimraf coverage",
-    "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars ."
+    "clean:coverage": "rimraf coverage"
   },
   "dependencies": {
-    "vscode-uri": "^3.0.8",
-    "@salesforce/apex-tmlanguage": "1.8.0"
+    "vscode-uri": "^3.0.8"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.5",
+    "@salesforce/apex-tmlanguage": "1.8.0",
     "@types/glob": "^7.2.0",
     "@types/jest": "^29.5.0",
     "@types/mocha": "^9.1.1",

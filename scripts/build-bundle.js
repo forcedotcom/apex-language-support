@@ -23,6 +23,7 @@ async function runBuild() {
       `npx tsc --project "${path.join(packageDir, 'tsconfig.json')}" --declaration --emitDeclarationOnly`,
       {
         stdio: 'inherit',
+        env: { ...process.env, NODE_OPTIONS: '--inspect=0' },
       },
     );
 

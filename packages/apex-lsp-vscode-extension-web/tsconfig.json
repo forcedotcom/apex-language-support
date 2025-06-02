@@ -3,7 +3,7 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "ES2020",
-    "outDir": "./dist",
+    "outDir": "./out",
     "lib": ["ES2020"],
     "sourceMap": true,
     "rootDir": "./src",
@@ -20,6 +20,23 @@
     "inlineSources": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "bundle", "**/*.test.ts", "test/**/*"],
-  "references": [{ "path": "../apex-ls-node" }]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "out",
+    "bundle",
+    "**/*.test.ts",
+    "test/**/*"
+  ],
+  "references": [{ "path": "../apex-ls-node" }],
+  "copyFiles": [
+    {
+      "from": "../../node_modules/@salesforce/apex-tmlanguage/grammars",
+      "to": "out/grammars"
+    },
+    {
+      "from": "snippets",
+      "to": "out/snippets"
+    }
+  ]
 }
