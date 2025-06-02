@@ -13,6 +13,7 @@ yarn-error.log*
 
 # Build output
 dist/
+out/
 
 # Bundled output
 bundle/
@@ -51,3 +52,11 @@ test-workspace
 
 # tsup generated files
 tsup.config.*.mjs
+
+# Extension directory
+extension/
+
+# VSCode Extension specific
+*.vsix
+.vscode-test/
+grammars/

@@ -38,6 +38,10 @@
     "bundle": {
       "dependsOn": ["^bundle"],
       "outputs": ["dist/**"]
+    },
+    "package": {
+      "dependsOn": ["bundle"],
+      "outputs": ["extension/**"]
     }
   }
 }
