@@ -20,13 +20,13 @@
     "README.md"
   ],
   "scripts": {
-    "precompile": "node scripts/generate-zip.js",
+    "precompile": "node scripts/generate-zip.mjs",
     "compile": "tsc --build",
     "bundle": "node ../../scripts/build-bundle.js",
     "generate:stubs": "jest test/generator/generate-Standard-Apex-Library.ts",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage src/generated/**/*",
+    "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage src/generated",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "eslint \"src/**/*.ts\" --ignore-pattern \"src/generated/**\"",
     "lint:fix": "eslint \"src/**/*.ts\" --ignore-pattern \"src/generated/**\" --fix"

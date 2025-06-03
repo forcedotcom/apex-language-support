@@ -6,7 +6,7 @@
       "outputs": ["src/generated/**"]
     },
     "compile": {
-      "dependsOn": ["^precompile", "^compile"],
+      "dependsOn": ["precompile", "^precompile", "^compile"],
       "outputs": ["dist/**", "*.tsbuildinfo"],
       "inputs": ["src/**/*.ts", "src/generated/**"]
     },
