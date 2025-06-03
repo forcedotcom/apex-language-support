@@ -44,7 +44,13 @@ jobs:
 
       - name: Determine Node Label
         id: node-label
-        run: echo "value=${{ matrix.node-version == 'lts/*' && 'lts' || matrix['node-version'] }}" >> $GITHUB_OUTPUT
+        shell: bash
+        run: |
+          if [ "${{ matrix.node-version }}" = "lts/*" ]; then
+            echo "value=lts" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ matrix.node-version }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
