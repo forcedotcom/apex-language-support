@@ -10,7 +10,10 @@
       "outputs": ["dist/**", "*.tsbuildinfo"],
       "inputs": ["src/**/*.ts", "src/generated/**"]
     },
-    "apex-language-server-extension#compile": {
+    "apex-language-server-extension-web#precompile": {
+      "dependsOn": ["@salesforce/apex-lsp-parser-ast#precompile"]
+    },
+    "apex-language-server-extension-web#compile": {
       "dependsOn": [
         "@salesforce/apex-lsp-parser-ast#precompile",
         "@salesforce/apex-lsp-parser-ast#compile"
