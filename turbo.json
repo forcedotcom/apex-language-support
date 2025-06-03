@@ -6,7 +6,7 @@
       "outputs": ["src/generated/**"]
     },
     "compile": {
-      "dependsOn": ["^compile"],
+      "dependsOn": ["^precompile", "^compile"],
       "outputs": ["dist/**", "*.tsbuildinfo"],
       "inputs": ["src/**/*.ts", "src/generated/**"]
     },
@@ -46,7 +46,7 @@
       "cache": false
     },
     "bundle": {
-      "dependsOn": ["^bundle"],
+      "dependsOn": ["^bundle", "compile"],
       "outputs": ["dist/**"]
     },
     "package": {

@@ -18,7 +18,7 @@
     "compile": "turbo run compile",
     "prepare": "husky",
     "commit": "git-cz",
-    "clean": "rimraf packages/**/dist packages/**/out packages/**/*.tsbuildinfo packages/**/bundle packages/**/extension *.tsbuildinfo .turbo packages/**/.turbo coverage dist out bundle",
+    "clean": "rimraf packages/**/dist packages/**/out packages/**/*.tsbuildinfo packages/**/bundle packages/**/extension *.tsbuildinfo .turbo packages/**/.turbo coverage dist out bundle packages/**/src/generated/**/*",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:packages": "turbo run clean --filter=./packages/*",
     "clean:coverage": "rimraf coverage packages/*/coverage",
