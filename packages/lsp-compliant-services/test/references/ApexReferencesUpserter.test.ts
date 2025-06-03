@@ -40,6 +40,8 @@ describe('DefaultApexReferencesUpserter', () => {
         name: 'TestClass',
         location: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 10 },
         kind: SymbolKind.Class,
+        key: { prefix: 'class', name: 'TestClass', path: ['TestClass'] },
+        parentKey: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -117,6 +119,8 @@ describe('DefaultApexReferencesUpserter', () => {
         name: 'TestClass',
         location: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 10 },
         kind: SymbolKind.Class,
+        key: { prefix: 'class', name: 'TestClass', path: ['TestClass'] },
+        parentKey: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -134,6 +138,12 @@ describe('DefaultApexReferencesUpserter', () => {
         name: 'testMethod',
         location: { startLine: 1, startColumn: 20, endLine: 1, endColumn: 29 },
         kind: SymbolKind.Method,
+        key: {
+          prefix: 'method',
+          name: 'testMethod',
+          path: ['TestClass', 'testMethod'],
+        },
+        parentKey: { prefix: 'class', name: 'TestClass', path: ['TestClass'] },
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
