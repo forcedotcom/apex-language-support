@@ -53,11 +53,198 @@ export function activate(context: vscode.ExtensionContext) {
   // Create and initialize status bar item
   const statusBarItem = createStatusBarItem(context);
 
+  // Register document symbol provider for outline view
+  const documentSymbolProvider =
+    vscode.languages.registerDocumentSymbolProvider(
+      { language: 'apex' },
+      new ApexDocumentSymbolProvider(),
+    );
+  context.subscriptions.push(documentSymbolProvider);
+
+  // Register folding range provider
+  const foldingRangeProvider = vscode.languages.registerFoldingRangeProvider(
+    { language: 'apex' },
+    new ApexFoldingRangeProvider(),
+  );
+  context.subscriptions.push(foldingRangeProvider);
+
   // First-time startup with some delay
   setTimeout(() => {
     serverStartRetries = 0;
     startLanguageServer(context, statusBarItem);
   }, 1000);
+}
+
+/**
+ * Apex Document Symbol Provider for outline view
+ */
+class ApexDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
+  async provideDocumentSymbols(
+    document: vscode.TextDocument,
+    token: vscode.CancellationToken,
+  ): Promise<vscode.SymbolInformation[] | vscode.DocumentSymbol[]> {
+    if (!client) {
+      return [];
+    }
+
+    try {
+      const symbols = await client.sendRequest('textDocument/documentSymbol', {
+        textDocument: { uri: document.uri.toString() },
+      });
+
+      if (!symbols || !Array.isArray(symbols)) {
+        return [];
+      }
+
+      // Convert LSP symbols to VS Code symbols
+      return symbols.map((symbol: any) => {
+        const range = new vscode.Range(
+          new vscode.Position(
+            symbol.range.start.line,
+            symbol.range.start.character,
+          ),
+          new vscode.Position(
+            symbol.range.end.line,
+            symbol.range.end.character,
+          ),
+        );
+
+        const selectionRange = new vscode.Range(
+          new vscode.Position(
+            symbol.selectionRange.start.line,
+            symbol.selectionRange.start.character,
+          ),
+          new vscode.Position(
+            symbol.selectionRange.end.line,
+            symbol.selectionRange.end.character,
+          ),
+        );
+
+        return new vscode.DocumentSymbol(
+          symbol.name,
+          symbol.detail || '',
+          this.getSymbolKind(symbol.kind),
+          range,
+          selectionRange,
+        );
+      });
+    } catch (error) {
+      outputChannel.appendLine(`Error getting document symbols: ${error}`);
+      return [];
+    }
+  }
+
+  private getSymbolKind(kind: number): vscode.SymbolKind {
+    switch (kind) {
+      case 1:
+        return vscode.SymbolKind.File;
+      case 2:
+        return vscode.SymbolKind.Module;
+      case 3:
+        return vscode.SymbolKind.Namespace;
+      case 4:
+        return vscode.SymbolKind.Package;
+      case 5:
+        return vscode.SymbolKind.Class;
+      case 6:
+        return vscode.SymbolKind.Method;
+      case 7:
+        return vscode.SymbolKind.Property;
+      case 8:
+        return vscode.SymbolKind.Field;
+      case 9:
+        return vscode.SymbolKind.Constructor;
+      case 10:
+        return vscode.SymbolKind.Enum;
+      case 11:
+        return vscode.SymbolKind.Interface;
+      case 12:
+        return vscode.SymbolKind.Function;
+      case 13:
+        return vscode.SymbolKind.Variable;
+      case 14:
+        return vscode.SymbolKind.Constant;
+      case 15:
+        return vscode.SymbolKind.String;
+      case 16:
+        return vscode.SymbolKind.Number;
+      case 17:
+        return vscode.SymbolKind.Boolean;
+      case 18:
+        return vscode.SymbolKind.Array;
+      case 19:
+        return vscode.SymbolKind.Object;
+      case 20:
+        return vscode.SymbolKind.Key;
+      case 21:
+        return vscode.SymbolKind.Null;
+      case 22:
+        return vscode.SymbolKind.EnumMember;
+      case 23:
+        return vscode.SymbolKind.Struct;
+      case 24:
+        return vscode.SymbolKind.Event;
+      case 25:
+        return vscode.SymbolKind.Operator;
+      case 26:
+        return vscode.SymbolKind.TypeParameter;
+      default:
+        return vscode.SymbolKind.Variable;
+    }
+  }
+}
+
+/**
+ * Apex Folding Range Provider for code folding
+ */
+class ApexFoldingRangeProvider implements vscode.FoldingRangeProvider {
+  async provideFoldingRanges(
+    document: vscode.TextDocument,
+    _context: vscode.FoldingContext,
+    _token: vscode.CancellationToken,
+  ): Promise<vscode.FoldingRange[]> {
+    if (!client) {
+      return [];
+    }
+
+    try {
+      const foldingRanges = await client.sendRequest(
+        'textDocument/foldingRange',
+        {
+          textDocument: { uri: document.uri.toString() },
+        },
+      );
+
+      if (!foldingRanges || !Array.isArray(foldingRanges)) {
+        return [];
+      }
+
+      return foldingRanges.map(
+        (range: any) =>
+          new vscode.FoldingRange(
+            range.startLine,
+            range.endLine,
+            this.getFoldingRangeKind(range.kind),
+          ),
+      );
+    } catch (error) {
+      outputChannel.appendLine(`Error getting folding ranges: ${error}`);
+      return [];
+    }
+  }
+
+  private getFoldingRangeKind(
+    kind?: string,
+  ): vscode.FoldingRangeKind | undefined {
+    switch (kind) {
+      case 'comment':
+        return vscode.FoldingRangeKind.Comment;
+      case 'region':
+        return vscode.FoldingRangeKind.Region;
+      default:
+        return undefined;
+    }
+  }
 }
 
 /**

@@ -1,13 +1,42 @@
+# Source files
+src/**
+test/**
+scripts/**
+
+# Development files
 .vscode/**
 .vscode-test/**
-src/**
 .gitignore
-.yarnrc
-vsc-extension-quickstart.md
-**/tsconfig.json
-**/tsconfig.*.json
-**/*.map
-**/*.ts
-**/jest.config.js
-**/node_modules/**
-!node_modules/@salesforce/apex-language-server/** 
+.eslintrc.json
+.eslintignore
+.prettierrc
+.prettierignore
+tsconfig.json
+tsconfig.*.json
+webpack.config.js
+jest.config.js
+.turbo/**
+
+# Node modules and build artifacts
+node_modules
+**/node_modules
+node_modules/**/*
+**/node_modules/**/*
+out/**
+dist/**
+coverage/**
+*.vsix
+*.log
+*.tsbuildinfo
+bundle/**
+
+# Parent directory files
+../../**/*
+../**/*
+extension/../../**/*
+extension/../**/*
+
+# Workspace files
+.idea/**
+*.iml
+.DS_Store
