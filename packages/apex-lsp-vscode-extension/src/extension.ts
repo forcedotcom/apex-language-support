@@ -25,7 +25,7 @@ import { RequestResponseInspector } from './middleware/requestResponseInspector'
 let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel;
 let serverStartRetries = 0;
-const MAX_RETRIES = 0;
+const MAX_RETRIES = 3;
 let lastRestartTime = 0;
 const COOLDOWN_PERIOD_MS = 30000; // 30 seconds cooldown between retry cycles
 let isStarting = false; // Flag to prevent multiple start attempts at once
@@ -301,8 +301,10 @@ function registerRestartCommand(context: vscode.ExtensionContext): void {
  * Creates server options for the language server
  */
 function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
+  // The server bundle is copied into 'extension/dist/server-bundle/' within the VSIX.
+  // context.asAbsolutePath('.') returns the root path of the installed extension.
   const serverModule = context.asAbsolutePath(
-    path.join('..', 'apex-ls-node', 'dist', 'index'),
+    path.join('extension', 'dist', 'server-bundle', 'index.js'),
   );
 
   outputChannel.appendLine(`Server module path: ${serverModule}`);

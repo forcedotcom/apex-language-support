@@ -17,6 +17,15 @@ async function runBuild() {
       );
     }
 
+    // Determine tsup config path
+    let tsupConfigPath = path.join(packageDir, 'tsup.config.ts');
+    if (!fs.existsSync(tsupConfigPath)) {
+      tsupConfigPath = path.resolve(__dirname, '../tsup.config.ts');
+      console.log(`Using root tsup.config.ts: ${tsupConfigPath}`);
+    } else {
+      console.log(`Using package-specific tsup.config.ts: ${tsupConfigPath}`);
+    }
+
     // First, generate declaration files using tsc
     console.log('Generating declaration files...');
     execSync(
@@ -31,7 +40,7 @@ async function runBuild() {
     console.log('Generating bundles...');
     await build({
       entry: entries,
-      config: path.resolve(__dirname, '../tsup.config.ts'),
+      config: tsupConfigPath,
       tsconfig: path.join(packageDir, 'tsconfig.json'),
       dts: false,
     });
