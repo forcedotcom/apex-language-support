@@ -23,11 +23,15 @@ export default defineConfig({
     };
   },
   external: [
-    // Common external dependencies
+    // VSCode dependencies
     'vscode',
+    'vscode-languageclient',
+    'vscode-languageserver-textdocument',
+    'vscode-uri',
     'vscode-languageserver',
     'vscode-languageserver/browser',
     'vscode-languageserver/node',
+    // Common external dependencies
     '@apexdevtools/apex-parser',
     'antlr4ts',
     // Internal dependencies

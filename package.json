@@ -24,7 +24,8 @@
     "clean:coverage": "rimraf coverage packages/*/coverage",
     "semantic-release": "semantic-release",
     "bundle": "turbo run bundle",
-    "package:packages": "turbo run package --filter=./packages/*"
+    "package:packages": "turbo run package --filter=./packages/*",
+    "package:vscode-extension": "npm run package --workspace=packages/apex-lsp-vscode-extension"
   },
   "keywords": [
     "salesforce",
