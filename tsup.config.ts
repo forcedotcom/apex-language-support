@@ -22,12 +22,18 @@ export default defineConfig({
       js: format === 'esm' ? '.mjs' : '.js',
     };
   },
+  noExternal: [
+    'vscode-languageclient',
+    'vscode-languageclient/node',
+    'vscode-languageserver-textdocument',
+    'vscode-uri',
+  ],
   external: [
     // VSCode dependencies
     'vscode',
-    'vscode-languageclient',
-    'vscode-languageserver-textdocument',
-    'vscode-uri',
+    // 'vscode-languageclient', // Now bundled
+    // 'vscode-languageserver-textdocument', // Now bundled
+    // 'vscode-uri', // Now bundled
     'vscode-languageserver',
     'vscode-languageserver/browser',
     'vscode-languageserver/node',
