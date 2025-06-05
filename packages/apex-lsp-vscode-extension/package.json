@@ -116,7 +116,7 @@
     "package:all": "npm run compile && npm run bundle && npm run package:vsix",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf dist bundle extension server-bundle *.tsbuildinfo .turbo grammars node_modules",
+    "clean": "rimraf dist bundle extension server-bundle *.tsbuildinfo .turbo coverage grammars node_modules",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage"
   },

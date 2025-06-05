@@ -42,10 +42,21 @@ class ActiveLogger implements Logger {
    * Logs a message with the specified level.
    * If an error is provided, its message is appended to the main message.
    * @param level The log level.
-   * @param message The primary message to log.
+   * @param messageOrProvider The primary message to log or a function that returns it.
    * @param error Optional error object.
+   * @param args Additional arguments (currently not used by this logger).
    */
-  public log(level: LogLevel, message: string, error?: unknown): void {
+  public log(
+    level: LogLevel,
+    messageOrProvider: string | (() => string),
+    error?: unknown,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: unknown[]
+  ): void {
+    const message =
+      typeof messageOrProvider === 'function'
+        ? messageOrProvider()
+        : messageOrProvider;
     const handler = getLogNotificationHandler();
     let fullMessage = message;
 
@@ -74,35 +85,52 @@ class ActiveLogger implements Logger {
 
   /**
    * Logs an error message.
-   * @param message The message to log.
+   * @param messageOrProvider The message to log or a function that returns it.
    * @param error Optional error object.
+   * @param args Additional arguments.
    */
-  public error(message: string, error?: unknown): void {
-    this.log(LogLevel.Error, message, error);
+  public error(
+    messageOrProvider: string | (() => string),
+    error?: unknown,
+    ...args: unknown[]
+  ): void {
+    this.log(LogLevel.Error, messageOrProvider, error, ...args);
   }
 
   /**
    * Logs a warning message.
-   * @param message The message to log.
+   * @param messageOrProvider The message to log or a function that returns it.
+   * @param args Additional arguments.
    */
-  public warn(message: string): void {
-    this.log(LogLevel.Warn, message);
+  public warn(
+    messageOrProvider: string | (() => string),
+    ...args: unknown[]
+  ): void {
+    this.log(LogLevel.Warn, messageOrProvider, undefined, ...args);
   }
 
   /**
    * Logs an info message.
-   * @param message The message to log.
+   * @param messageOrProvider The message to log or a function that returns it.
+   * @param args Additional arguments.
    */
-  public info(message: string): void {
-    this.log(LogLevel.Info, message);
+  public info(
+    messageOrProvider: string | (() => string),
+    ...args: unknown[]
+  ): void {
+    this.log(LogLevel.Info, messageOrProvider, undefined, ...args);
   }
 
   /**
    * Logs a debug message.
-   * @param message The message to log.
+   * @param messageOrProvider The message to log or a function that returns it.
+   * @param args Additional arguments.
    */
-  public debug(message: string): void {
-    this.log(LogLevel.Debug, message);
+  public debug(
+    messageOrProvider: string | (() => string),
+    ...args: unknown[]
+  ): void {
+    this.log(LogLevel.Debug, messageOrProvider, undefined, ...args);
   }
 }
 
@@ -124,4 +152,4 @@ export class ActiveLoggerFactory implements LoggerFactory {
     }
     return ActiveLoggerFactory.loggerInstance;
   }
-} 
+}
