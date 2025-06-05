@@ -153,7 +153,7 @@ export class RuntimeSymbol implements ApexSymbol {
 }
 
 /**
- * Represents a class, interface, or trigger
+ * Represents a class, interface, trigger or enum
  */
 export interface TypeSymbol extends ApexSymbol {
   kind:
