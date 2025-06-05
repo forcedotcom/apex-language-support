@@ -108,10 +108,10 @@
   },
   "scripts": {
     "precompile": "npm run copy:files",
-    "compile": "tsc --build",
+    "compile": "npm run clean && tsc --build",
     "bundle": "tsup src/extension.ts --format cjs --no-minify --target chrome88 --out-dir dist --clean --external vscode && shx mkdir -p dist/snippets && shx cp -R snippets/* dist/snippets/ && shx cp -R out/grammars dist/ && shx cp README.md language-configuration.json dist/ && shx cp package.json dist/ && shx cp LICENSE.txt dist/ && node update-package.js",
     "copy:files": "shx mkdir -p out/snippets out/grammars && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* out/grammars/ && shx cp -R snippets/* out/snippets/",
-    "package": "npm run bundle && shx mkdir -p extension && cd dist && npx vsce package --out ../extension/apex-language-server-extension-web.vsix",
+    "package": "npm run compile && npm run bundle && shx mkdir -p extension && cd dist && npx vsce package --out ../extension/apex-language-server-extension-web.vsix",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
     "clean": "rimraf dist out bundle *.tsbuildinfo .turbo grammars extension",
