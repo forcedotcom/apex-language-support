@@ -18,10 +18,6 @@
     "Linters",
     "Snippets"
   ],
-  "activationEvents": [
-    "onLanguage:apex",
-    "*"
-  ],
   "main": "./extension/dist/extension.js",
   "contributes": {
     "languages": [
@@ -107,17 +103,11 @@
           "id": "apexOutline",
           "name": "Apex Outline"
         }
-      ],
-      "apex-explorer": [
-        {
-          "id": "apexOutline",
-          "name": "Outline"
-        }
       ]
     }
   },
   "scripts": {
-    "precompile": "npm run copy:files",
+    "precompile": "npm install && npm run copy:files",
     "compile": "tsc --build",
     "copy-server-bundle": "shx rm -rf ./server-bundle && shx mkdir -p ./server-bundle && shx cp -R ../apex-ls-node/bundle/* ./server-bundle/",
     "bundle": "npm run copy-server-bundle && node ../../scripts/build-bundle.js && shx mkdir -p extension/dist/snippets && shx cp -R snippets/* extension/dist/snippets/ && shx cp -R grammars extension/dist/ && shx cp language-configuration.json extension/dist/ && shx cp bundle/extension.js extension/dist/extension.js && shx mkdir -p extension/dist/server-bundle && shx cp -R ./server-bundle/* extension/dist/server-bundle/",
@@ -126,7 +116,7 @@
     "package:all": "npm run compile && npm run bundle && npm run package:vsix",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf dist bundle extension server-bundle *.tsbuildinfo .turbo grammars",
+    "clean": "rimraf dist bundle extension server-bundle *.tsbuildinfo .turbo grammars node_modules",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage"
   },

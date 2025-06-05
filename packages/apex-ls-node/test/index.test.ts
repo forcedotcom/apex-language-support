@@ -53,6 +53,7 @@ interface MockConnection {
   sendNotification: jest.Mock;
   onDocumentSymbol: jest.Mock;
   sendDiagnostics: jest.Mock;
+  onFoldingRanges: jest.Mock;
 }
 
 // Pre-create the mock connection with minimal properties
@@ -70,6 +71,7 @@ const mockConnection: MockConnection = {
   sendNotification: jest.fn(),
   onDocumentSymbol: jest.fn(),
   sendDiagnostics: jest.fn(),
+  onFoldingRanges: jest.fn(),
 };
 
 // Mock TextDocuments
@@ -175,6 +177,7 @@ jest.mock('@salesforce/apex-lsp-logging', () => ({
   LogNotificationHandler: jest.fn(),
   setLogNotificationHandler: jest.fn(),
   getLogger: () => mockLogger,
+  setLoggerFactory: jest.fn(),
   LogLevel: {
     Error: 'error',
     Warn: 'warn',

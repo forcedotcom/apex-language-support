@@ -168,6 +168,24 @@ npm run lint
 npm run lint:fix
 ```
 
+### Build and Package VS Code Extension
+
+For a complete build and packaging of the VS Code extension, use the dedicated build script:
+
+```bash
+# Clean, build, and package the VS Code extension
+npm run build:package
+```
+
+This script performs the following steps:
+1. Cleans the root `node_modules` directory
+2. Installs fresh dependencies
+3. Cleans both `apex-ls-node` and `apex-lsp-vscode-extension` packages (including their `node_modules` directories)
+4. Compiles and builds the `apex-ls-node` package
+5. Packages the VS Code extension into a `.vsix` file (dependencies are automatically installed during the precompile step)
+
+The packaged extension will be available in the `packages/apex-lsp-vscode-extension` directory.
+
 ## Testing and Code Coverage
 
 This project includes comprehensive test coverage for all packages. Test coverage reports are generated using Jest and Istanbul.
