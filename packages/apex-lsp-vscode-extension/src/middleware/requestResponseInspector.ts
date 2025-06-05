@@ -22,24 +22,27 @@ export class RequestResponseInspector implements Middleware {
   }
 
   // We need to satisfy the Middleware interface
-  didOpen(
+  public didOpen = (
     document: vscode.TextDocument,
     next: (document: vscode.TextDocument) => Promise<void>,
-  ): Promise<void> {
+  ): Promise<void> => {
     if (!this.enabled) return next(document);
     this.channel.appendLine(`[LSP Request] didOpen: ${document.uri}`);
     return next(document);
-  }
+  };
 
-  didChange(params: any, next: (params: any) => Promise<void>): Promise<void> {
+  public didChange = (
+    params: any,
+    next: (params: any) => Promise<void>,
+  ): Promise<void> => {
     if (!this.enabled) return next(params);
     this.channel.appendLine(
       `[LSP Request] didChange: ${params.textDocument?.uri}`,
     );
     return next(params);
-  }
+  };
 
-  handleRequest(
+  public handleRequest = (
     method: string,
     params: any,
     token: vscode.CancellationToken,
@@ -48,7 +51,7 @@ export class RequestResponseInspector implements Middleware {
       params: any,
       token: vscode.CancellationToken,
     ) => Promise<any>,
-  ): Promise<any> {
+  ): Promise<any> => {
     if (!this.enabled) return next(method, params, token);
 
     this.channel.appendLine(`[LSP Request] Method: ${method}`);
@@ -74,7 +77,7 @@ export class RequestResponseInspector implements Middleware {
         );
         throw error;
       });
-  }
+  };
 
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
