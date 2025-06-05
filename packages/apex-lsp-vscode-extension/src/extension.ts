@@ -22,7 +22,7 @@ import {
 import { RequestResponseInspector } from './middleware/requestResponseInspector';
 
 // The client instance
-let client: LanguageClient | undefined;
+export let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel;
 let serverStartRetries = 0;
 const MAX_RETRIES = 3;
