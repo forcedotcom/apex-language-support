@@ -60,11 +60,23 @@ export class DefaultApexDocumentSymbolProvider
     const logger = getLogger();
     try {
       const documentUri = params.textDocument.uri;
+      logger.info(
+        `Attempting to get document from storage for URI: ${documentUri}`,
+      );
+
       const document = await this.storage.getDocument(documentUri);
 
       if (!document) {
+        logger.warn(`Document not found in storage for URI: ${documentUri}`);
         return null;
       }
+
+      logger.info(
+        `Document found in storage. Content length: ${document.getText().length}`,
+      );
+      logger.info(
+        `Document content preview: ${document.getText().substring(0, 100)}...`,
+      );
 
       // Create a symbol collector listener
       const table = new SymbolTable();
