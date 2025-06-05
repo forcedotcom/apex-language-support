@@ -53,198 +53,11 @@ export function activate(context: vscode.ExtensionContext) {
   // Create and initialize status bar item
   const statusBarItem = createStatusBarItem(context);
 
-  // Register document symbol provider for outline view
-  const documentSymbolProvider =
-    vscode.languages.registerDocumentSymbolProvider(
-      { language: 'apex' },
-      new ApexDocumentSymbolProvider(),
-    );
-  context.subscriptions.push(documentSymbolProvider);
-
-  // Register folding range provider
-  const foldingRangeProvider = vscode.languages.registerFoldingRangeProvider(
-    { language: 'apex' },
-    new ApexFoldingRangeProvider(),
-  );
-  context.subscriptions.push(foldingRangeProvider);
-
   // First-time startup with some delay
   setTimeout(() => {
     serverStartRetries = 0;
     startLanguageServer(context, statusBarItem);
   }, 1000);
-}
-
-/**
- * Apex Document Symbol Provider for outline view
- */
-class ApexDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
-  async provideDocumentSymbols(
-    document: vscode.TextDocument,
-    token: vscode.CancellationToken,
-  ): Promise<vscode.SymbolInformation[] | vscode.DocumentSymbol[]> {
-    if (!client) {
-      return [];
-    }
-
-    try {
-      const symbols = await client.sendRequest('textDocument/documentSymbol', {
-        textDocument: { uri: document.uri.toString() },
-      });
-
-      if (!symbols || !Array.isArray(symbols)) {
-        return [];
-      }
-
-      // Convert LSP symbols to VS Code symbols
-      return symbols.map((symbol: any) => {
-        const range = new vscode.Range(
-          new vscode.Position(
-            symbol.range.start.line,
-            symbol.range.start.character,
-          ),
-          new vscode.Position(
-            symbol.range.end.line,
-            symbol.range.end.character,
-          ),
-        );
-
-        const selectionRange = new vscode.Range(
-          new vscode.Position(
-            symbol.selectionRange.start.line,
-            symbol.selectionRange.start.character,
-          ),
-          new vscode.Position(
-            symbol.selectionRange.end.line,
-            symbol.selectionRange.end.character,
-          ),
-        );
-
-        return new vscode.DocumentSymbol(
-          symbol.name,
-          symbol.detail || '',
-          this.getSymbolKind(symbol.kind),
-          range,
-          selectionRange,
-        );
-      });
-    } catch (error) {
-      outputChannel.appendLine(`Error getting document symbols: ${error}`);
-      return [];
-    }
-  }
-
-  private getSymbolKind(kind: number): vscode.SymbolKind {
-    switch (kind) {
-      case 1:
-        return vscode.SymbolKind.File;
-      case 2:
-        return vscode.SymbolKind.Module;
-      case 3:
-        return vscode.SymbolKind.Namespace;
-      case 4:
-        return vscode.SymbolKind.Package;
-      case 5:
-        return vscode.SymbolKind.Class;
-      case 6:
-        return vscode.SymbolKind.Method;
-      case 7:
-        return vscode.SymbolKind.Property;
-      case 8:
-        return vscode.SymbolKind.Field;
-      case 9:
-        return vscode.SymbolKind.Constructor;
-      case 10:
-        return vscode.SymbolKind.Enum;
-      case 11:
-        return vscode.SymbolKind.Interface;
-      case 12:
-        return vscode.SymbolKind.Function;
-      case 13:
-        return vscode.SymbolKind.Variable;
-      case 14:
-        return vscode.SymbolKind.Constant;
-      case 15:
-        return vscode.SymbolKind.String;
-      case 16:
-        return vscode.SymbolKind.Number;
-      case 17:
-        return vscode.SymbolKind.Boolean;
-      case 18:
-        return vscode.SymbolKind.Array;
-      case 19:
-        return vscode.SymbolKind.Object;
-      case 20:
-        return vscode.SymbolKind.Key;
-      case 21:
-        return vscode.SymbolKind.Null;
-      case 22:
-        return vscode.SymbolKind.EnumMember;
-      case 23:
-        return vscode.SymbolKind.Struct;
-      case 24:
-        return vscode.SymbolKind.Event;
-      case 25:
-        return vscode.SymbolKind.Operator;
-      case 26:
-        return vscode.SymbolKind.TypeParameter;
-      default:
-        return vscode.SymbolKind.Variable;
-    }
-  }
-}
-
-/**
- * Apex Folding Range Provider for code folding
- */
-class ApexFoldingRangeProvider implements vscode.FoldingRangeProvider {
-  async provideFoldingRanges(
-    document: vscode.TextDocument,
-    _context: vscode.FoldingContext,
-    _token: vscode.CancellationToken,
-  ): Promise<vscode.FoldingRange[]> {
-    if (!client) {
-      return [];
-    }
-
-    try {
-      const foldingRanges = await client.sendRequest(
-        'textDocument/foldingRange',
-        {
-          textDocument: { uri: document.uri.toString() },
-        },
-      );
-
-      if (!foldingRanges || !Array.isArray(foldingRanges)) {
-        return [];
-      }
-
-      return foldingRanges.map(
-        (range: any) =>
-          new vscode.FoldingRange(
-            range.startLine,
-            range.endLine,
-            this.getFoldingRangeKind(range.kind),
-          ),
-      );
-    } catch (error) {
-      outputChannel.appendLine(`Error getting folding ranges: ${error}`);
-      return [];
-    }
-  }
-
-  private getFoldingRangeKind(
-    kind?: string,
-  ): vscode.FoldingRangeKind | undefined {
-    switch (kind) {
-      case 'comment':
-        return vscode.FoldingRangeKind.Comment;
-      case 'region':
-        return vscode.FoldingRangeKind.Region;
-      default:
-        return undefined;
-    }
-  }
 }
 
 /**
@@ -272,16 +85,16 @@ function createStatusBarItem(
 function registerRestartCommand(context: vscode.ExtensionContext): void {
   const restartCommand = vscode.commands.registerCommand(
     'apex.restart.server',
-    () => {
+    async () => {
       // Only allow manual restart if we're not already starting and we're outside cooldown period
       const now = Date.now();
       if (!isStarting && now - lastRestartTime > COOLDOWN_PERIOD_MS) {
         lastRestartTime = now;
         serverStartRetries = 0; // Reset retry counter on manual restart
         if (client) {
-          restartLanguageServer(context);
+          await restartLanguageServer(context);
         } else {
-          startLanguageServer(context);
+          await startLanguageServer(context);
         }
       } else {
         outputChannel.appendLine(
@@ -430,13 +243,8 @@ function handleAutoRestart(statusItem?: vscode.StatusBarItem): {
   );
 
   setTimeout(() => {
-    stopClientSafely(() => {
-      // Wait another second after stopping before restarting
-      setTimeout(() => {
-        // Use stored global context
-        startLanguageServer(globalContext, statusItem);
-      }, 1000);
-    });
+    // Use stored global context
+    startLanguageServer(globalContext, statusItem);
   }, delay);
 
   return { action: CloseAction.DoNotRestart }; // Don't restart immediately
@@ -462,38 +270,6 @@ function handleMaxRetriesExceeded(statusItem?: vscode.StatusBarItem): void {
         startLanguageServer(globalContext, statusItem);
       }
     });
-}
-
-/**
- * Safely stops the client with timeout protection
- */
-function stopClientSafely(onComplete: () => void): void {
-  if (client) {
-    try {
-      const stopPromise = client.stop();
-      // Set a timeout in case stop hangs
-      const timeoutPromise = new Promise((_resolve, reject) => {
-        setTimeout(() => reject(new Error('Client stop timed out')), 5000);
-      });
-
-      Promise.race([stopPromise, timeoutPromise])
-        .catch((err) => {
-          outputChannel.appendLine(
-            `Error or timeout stopping previous client: ${err}`,
-          );
-        })
-        .finally(() => {
-          client = undefined;
-          onComplete();
-        });
-    } catch (e) {
-      outputChannel.appendLine(`Exception during client stop: ${e}`);
-      client = undefined;
-      onComplete();
-    }
-  } else {
-    onComplete();
-  }
 }
 
 /**
@@ -562,7 +338,7 @@ function createAndStartClient(
 /**
  * Starts the language server
  */
-function startLanguageServer(
+async function startLanguageServer(
   context: vscode.ExtensionContext,
   statusItem?: vscode.StatusBarItem,
 ) {
@@ -578,15 +354,18 @@ function startLanguageServer(
       `[${new Date().toISOString()}] Starting language server (attempt ${serverStartRetries + 1})`,
     );
 
+    // Clean up previous client if it exists
+    if (client) {
+      await client.stop();
+      client = undefined;
+    }
+
     // Set up server and client components
     const serverOptions = createServerOptions(context);
     initializeInspector(context);
     const clientOptions = createClientOptions(statusItem);
 
-    // Clean up previous client if it exists
-    stopClientSafely(() => {
-      createAndStartClient(serverOptions, clientOptions, statusItem);
-    });
+    createAndStartClient(serverOptions, clientOptions, statusItem);
   } catch (error) {
     outputChannel.appendLine(`Error in startLanguageServer: ${error}`);
     vscode.window.showErrorMessage(
@@ -604,7 +383,7 @@ function startLanguageServer(
 /**
  * Restarts the language server
  */
-function restartLanguageServer(context: vscode.ExtensionContext) {
+async function restartLanguageServer(context: vscode.ExtensionContext) {
   outputChannel.appendLine(
     `Restarting Apex Language Server at ${new Date().toISOString()}...`,
   );
@@ -619,47 +398,23 @@ function restartLanguageServer(context: vscode.ExtensionContext) {
 
   if (client) {
     try {
-      client
-        .stop()
-        .then(() => {
-          client = undefined;
-          isStarting = false;
-          // Wait a moment before restarting
-          setTimeout(() => {
-            startLanguageServer(context);
-          }, 2000);
-        })
-        .catch((error) => {
-          outputChannel.appendLine(
-            `Error stopping server during restart: ${error}`,
-          );
-          client = undefined;
-          isStarting = false;
-          // Try to start anyway after a delay
-          setTimeout(() => {
-            startLanguageServer(context);
-          }, 2000);
-        });
-    } catch (e) {
-      outputChannel.appendLine(`Exception during restart: ${e}`);
-      client = undefined;
-      isStarting = false;
-      setTimeout(() => {
-        startLanguageServer(context);
-      }, 2000);
+      await client.stop();
+    } catch (error) {
+      outputChannel.appendLine(
+        `Error stopping server during restart: ${error}`,
+      );
     }
-  } else {
-    // If no client exists, just start a new one
-    isStarting = false;
-    startLanguageServer(context);
   }
+
+  // Use stored global context
+  await startLanguageServer(context);
+  isStarting = false;
 }
 
-export function deactivate(): Thenable<void> | undefined {
+export async function deactivate(): Promise<void> {
   outputChannel.appendLine('Deactivating Apex Language Server extension');
   isStarting = false;
-  if (!client) {
-    return undefined;
+  if (client) {
+    await client.stop();
   }
-  return client.stop();
 }
