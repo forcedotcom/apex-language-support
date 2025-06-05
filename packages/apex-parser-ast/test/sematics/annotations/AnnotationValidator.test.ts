@@ -7,9 +7,8 @@
  */
 
 import { ParserRuleContext } from 'antlr4ts';
+
 import {
-  Annotation,
-  ApexSymbol,
   SymbolKind,
   SymbolLocation,
   SymbolModifiers,
@@ -76,6 +75,12 @@ describe('AnnotationValidator', () => {
         modifiers,
         interfaces: [],
         parent: null,
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'TestClass',
+          path: ['TestClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'isTest',
@@ -97,6 +102,12 @@ describe('AnnotationValidator', () => {
         modifiers,
         interfaces: [],
         parent: null,
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'InvalidClass',
+          path: ['InvalidClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'HttpGet', // Only valid on methods
@@ -121,6 +132,12 @@ describe('AnnotationValidator', () => {
         modifiers,
         interfaces: [],
         parent: null,
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'ApiClass',
+          path: ['ApiClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'RestResource',
@@ -146,6 +163,12 @@ describe('AnnotationValidator', () => {
         modifiers,
         interfaces: [],
         parent: null,
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'TestClass',
+          path: ['TestClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'isTest',
@@ -176,6 +199,12 @@ describe('AnnotationValidator', () => {
         modifiers,
         interfaces: [],
         parent: null,
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'ApiClass',
+          path: ['ApiClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'RestResource',
@@ -203,6 +232,12 @@ describe('AnnotationValidator', () => {
         modifiers,
         interfaces: [],
         parent: null,
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'TestClass',
+          path: ['TestClass'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'isTest',
@@ -233,6 +268,12 @@ describe('AnnotationValidator', () => {
         modifiers,
         interfaces: [],
         parent: null,
+        key: {
+          prefix: SymbolKind.Class,
+          name: 'ApiEndpoint',
+          path: ['ApiEndpoint'],
+        },
+        parentKey: null,
         annotations: [
           {
             name: 'HttpGet',

@@ -44,34 +44,86 @@ export interface Logger {
    * Log an error message
    * @param message - The message to log
    * @param error - Optional error object to include in the log
+   * @param args - Additional arguments to include in the log
    */
-  error(message: string, error?: unknown): void;
+  error(message: string, error?: unknown, ...args: unknown[]): void;
+  /**
+   * Log an error message with lazy evaluation
+   * @param messageProvider - Function that returns the message to log
+   * @param error - Optional error object to include in the log
+   * @param args - Additional arguments to include in the log
+   */
+  error(
+    messageProvider: () => string,
+    error?: unknown,
+    ...args: unknown[]
+  ): void;
 
   /**
    * Log a warning message
    * @param message - The message to log
+   * @param args - Additional arguments to include in the log
    */
-  warn(message: string): void;
+  warn(message: string, ...args: unknown[]): void;
+  /**
+   * Log a warning message with lazy evaluation
+   * @param messageProvider - Function that returns the message to log
+   * @param args - Additional arguments to include in the log
+   */
+  warn(messageProvider: () => string, ...args: unknown[]): void;
 
   /**
    * Log an info message
    * @param message - The message to log
+   * @param args - Additional arguments to include in the log
    */
-  info(message: string): void;
+  info(message: string, ...args: unknown[]): void;
+  /**
+   * Log an info message with lazy evaluation
+   * @param messageProvider - Function that returns the message to log
+   * @param args - Additional arguments to include in the log
+   */
+  info(messageProvider: () => string, ...args: unknown[]): void;
 
   /**
    * Log a debug message
    * @param message - The message to log
+   * @param args - Additional arguments to include in the log
    */
-  debug(message: string): void;
+  debug(message: string, ...args: unknown[]): void;
+  /**
+   * Log a debug message with lazy evaluation
+   * @param messageProvider - Function that returns the message to log
+   * @param args - Additional arguments to include in the log
+   */
+  debug(messageProvider: () => string, ...args: unknown[]): void;
 
   /**
    * Log a message with the specified level
    * @param level - The log level
    * @param message - The message to log
    * @param error - Optional error object to include in the log
+   * @param args - Additional arguments to include in the log
    */
-  log(level: LogLevel, message: string, error?: unknown): void;
+  log(
+    level: LogLevel,
+    message: string,
+    error?: unknown,
+    ...args: unknown[]
+  ): void;
+  /**
+   * Log a message with the specified level and lazy evaluation
+   * @param level - The log level
+   * @param messageProvider - Function that returns the message to log
+   * @param error - Optional error object to include in the log
+   * @param args - Additional arguments to include in the log
+   */
+  log(
+    level: LogLevel,
+    messageProvider: () => string,
+    error?: unknown,
+    ...args: unknown[]
+  ): void;
 }
 
 /**
@@ -87,11 +139,20 @@ export interface LoggerFactory {
 
 // Default no-op logger implementation
 class NoOpLogger implements Logger {
-  public error(_message: string, _error?: unknown): void {}
-  public warn(_message: string): void {}
-  public info(_message: string): void {}
-  public debug(_message: string): void {}
-  public log(_level: LogLevel, _message: string, _error?: unknown): void {}
+  public error(
+    _message: string | (() => string),
+    _error?: unknown,
+    ..._args: unknown[]
+  ): void {}
+  public warn(_message: string | (() => string), ..._args: unknown[]): void {}
+  public info(_message: string | (() => string), ..._args: unknown[]): void {}
+  public debug(_message: string | (() => string), ..._args: unknown[]): void {}
+  public log(
+    _level: LogLevel,
+    _message: string | (() => string),
+    _error?: unknown,
+    ..._args: unknown[]
+  ): void {}
 }
 
 // Default no-op logger factory

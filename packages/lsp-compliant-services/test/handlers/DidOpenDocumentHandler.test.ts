@@ -86,6 +86,8 @@ describe('DidOpenDocumentHandler', () => {
         name: 'TestClass',
         location: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 10 },
         kind: SymbolKind.Class,
+        key: { prefix: 'class', name: 'TestClass', path: ['TestClass'] },
+        parentKey: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,

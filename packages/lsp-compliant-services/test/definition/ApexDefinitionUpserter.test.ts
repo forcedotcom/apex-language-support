@@ -39,6 +39,8 @@ describe('DefaultApexDefinitionPopulator', () => {
         name: 'TestClass',
         location: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 10 },
         kind: SymbolKind.Class,
+        key: { prefix: 'class', name: 'TestClass', path: ['TestClass'] },
+        parentKey: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -56,6 +58,12 @@ describe('DefaultApexDefinitionPopulator', () => {
         name: 'testMethod',
         location: { startLine: 1, startColumn: 20, endLine: 1, endColumn: 29 },
         kind: SymbolKind.Method,
+        key: {
+          prefix: 'method',
+          name: 'testMethod',
+          path: ['TestClass', 'testMethod'],
+        },
+        parentKey: { prefix: 'class', name: 'TestClass', path: ['TestClass'] },
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -175,6 +183,8 @@ describe('DefaultApexDefinitionPopulator', () => {
         name: 'UpdatedClass',
         location: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 12 },
         kind: SymbolKind.Class,
+        key: { prefix: 'class', name: 'UpdatedClass', path: ['UpdatedClass'] },
+        parentKey: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -242,6 +252,8 @@ describe('DefaultApexDefinitionPopulator', () => {
         name: 'FirstClass',
         location: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 11 },
         kind: SymbolKind.Class,
+        key: { prefix: 'class', name: 'FirstClass', path: ['FirstClass'] },
+        parentKey: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -262,6 +274,8 @@ describe('DefaultApexDefinitionPopulator', () => {
         name: 'SecondClass',
         location: { startLine: 1, startColumn: 0, endLine: 1, endColumn: 12 },
         kind: SymbolKind.Class,
+        key: { prefix: 'class', name: 'SecondClass', path: ['SecondClass'] },
+        parentKey: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,

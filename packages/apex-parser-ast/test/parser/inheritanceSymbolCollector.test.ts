@@ -30,7 +30,7 @@ describe('Inheritance Symbol Collection', () => {
     it('should capture the extends relationship for a class', () => {
       const fileContent = `
         public class ChildClass extends ParentClass {
-          public void testMethod() {
+          public void m1() {
             System.debug('This is a test');
           }
         }

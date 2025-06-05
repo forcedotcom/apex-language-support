@@ -45,7 +45,7 @@ describe('Method Variable Declaration', () => {
     it('should collect variables declared in method blocks', () => {
       const fileContent = `
         public class TestClass {
-          public void testMethod() {
+          public void m1() {
             Integer count = 5;
             String name = 'test';
             Boolean isActive = true;
@@ -65,6 +65,15 @@ describe('Method Variable Declaration', () => {
         listener,
       );
 
+      console.log(
+        'Test 1 Errors:',
+        result.errors.map((e) => ({
+          message: e.message,
+          line: e.line,
+          column: e.column,
+        })),
+      );
+
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
@@ -72,7 +81,7 @@ describe('Method Variable Declaration', () => {
       const classScope = globalScope?.getChildren()[0];
       const methodScope = classScope?.getChildren()[0];
 
-      expect(methodScope?.name).toBe('testMethod');
+      expect(methodScope?.name).toBe('m1');
 
       // Get all block scopes
       const blockScopes = methodScope?.getChildren();
@@ -117,7 +126,7 @@ describe('Method Variable Declaration', () => {
     it('should handle variables in nested blocks', () => {
       const fileContent = `
         public class BlocksTest {
-          public void testMethod() {
+          public void m1() {
             Integer outerVar = 10;
             
             if (outerVar > 5) {
@@ -135,6 +144,15 @@ describe('Method Variable Declaration', () => {
         fileContent,
         'BlocksTest.cls',
         listener,
+      );
+
+      console.log(
+        'Test 2 Errors:',
+        result.errors.map((e) => ({
+          message: e.message,
+          line: e.line,
+          column: e.column,
+        })),
       );
 
       expect(result.errors.length).toBe(0);

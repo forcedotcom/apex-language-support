@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { HashMap } from 'data-structure-typed';
+
 import { hash } from '../utils/utils';
 
 /**
@@ -77,8 +79,11 @@ interface Comparable<T> {
 }
 
 export class StructuredVersionRange {
-  private static readonly INTERNER: Map<string, StructuredVersionRange> =
-    new Map();
+  private static readonly INTERNER: HashMap<
+    string,
+    StructuredVersionRange,
+    [string, StructuredVersionRange]
+  > = new HashMap();
   private readonly minVersion: StructuredVersion;
   private readonly maxVersion: StructuredVersion;
 
@@ -227,15 +232,22 @@ export class VersionUtils {
   static readonly COMPILER_RELEASE: Version = Version.V210;
   static readonly POST_RELEASE: Version = Version.V212;
 
-  private static readonly FROM_INTERNAL: Map<string | Version, Version> =
-    new Map(
-      Object.entries(Version).map(([key, value]) => [
-        value,
-        Version[key as keyof typeof Version],
-      ]),
-    );
+  private static readonly FROM_INTERNAL: HashMap<
+    string | Version,
+    Version,
+    [string | Version, Version]
+  > = new HashMap(
+    Object.entries(Version).map(([key, value]) => [
+      value,
+      Version[key as keyof typeof Version],
+    ]),
+  );
 
-  private static readonly EXTERNAL_VERSIONS: Map<Version, number> = new Map([
+  private static readonly EXTERNAL_VERSIONS: HashMap<
+    Version,
+    number,
+    [Version, number]
+  > = new HashMap<Version, number, [Version, number]>([
     [Version.V140, 6],
     [Version.V142, 7],
     [Version.V144, 8],
@@ -296,7 +308,7 @@ export class VersionUtils {
     [Version.V252, 62],
     [Version.V254, 63],
     [Version.V256, 64],
-  ]);
+  ] as [Version, number][]);
 
   static fromInternal(version: number): Version | undefined {
     return this.FROM_INTERNAL.get(version);

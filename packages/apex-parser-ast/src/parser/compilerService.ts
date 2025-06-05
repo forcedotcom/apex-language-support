@@ -10,6 +10,7 @@ import { CharStreams, CommonTokenStream } from 'antlr4ts';
 import {
   ApexLexer,
   ApexParser,
+  CaseInsensitiveInputStream,
   CompilationUnitContext,
   ParseTreeWalker,
   TriggerUnitContext,
@@ -230,7 +231,7 @@ export class CompilerService {
   ): CompilationUnitContext | TriggerUnitContext {
     this.logger.debug('Creating compilation unit');
     const inputStream = CharStreams.fromString(source);
-    const lexer = new ApexLexer(inputStream);
+    const lexer = new ApexLexer(new CaseInsensitiveInputStream(inputStream));
     const tokenStream = new CommonTokenStream(lexer);
     const parser = new ApexParser(tokenStream);
 

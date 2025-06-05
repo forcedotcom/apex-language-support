@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { HashMap, DoublyLinkedList } from 'data-structure-typed';
+
 import { TypeInfo } from './typeInfo';
 
 /**
@@ -89,20 +91,76 @@ export interface ApexSymbol {
   kind: SymbolKind;
   location: SymbolLocation;
   modifiers: SymbolModifiers;
-  parent: ApexSymbol | null;
+  key: SymbolKey;
+  parentKey: SymbolKey | null;
   /** The fully qualified name of the symbol */
   fqn?: string;
   /** Namespace of the symbol, if applicable */
   namespace?: string;
   /** Annotations for this symbol */
   annotations?: Annotation[];
+  /** Runtime parent reference - not serialized */
+  parent?: ApexSymbol | null;
+}
+
+/**
+ * Runtime wrapper for ApexSymbol that maintains direct references
+ * while using keys for serialization
+ */
+export class RuntimeSymbol implements ApexSymbol {
+  private _parent: ApexSymbol | null = null;
+
+  constructor(
+    public readonly symbol: ApexSymbol,
+    private symbolTable: SymbolTable,
+  ) {}
+
+  get name() {
+    return this.symbol.name;
+  }
+  get kind() {
+    return this.symbol.kind;
+  }
+  get location() {
+    return this.symbol.location;
+  }
+  get modifiers() {
+    return this.symbol.modifiers;
+  }
+  get key() {
+    return this.symbol.key;
+  }
+  get parentKey() {
+    return this.symbol.parentKey;
+  }
+  get fqn() {
+    return this.symbol.fqn;
+  }
+  get namespace() {
+    return this.symbol.namespace;
+  }
+  get annotations() {
+    return this.symbol.annotations;
+  }
+
+  get parent(): ApexSymbol | null {
+    if (!this._parent && this.symbol.parentKey) {
+      const parent = this.symbolTable.lookupByKey(this.symbol.parentKey);
+      this._parent = parent || null;
+    }
+    return this._parent;
+  }
 }
 
 /**
  * Represents a class, interface, or trigger
  */
 export interface TypeSymbol extends ApexSymbol {
-  kind: SymbolKind.Class | SymbolKind.Interface | SymbolKind.Trigger;
+  kind:
+    | SymbolKind.Class
+    | SymbolKind.Interface
+    | SymbolKind.Trigger
+    | SymbolKind.Enum;
   /**
    * The superclass that this class extends.
    * Only applicable for classes (not interfaces or triggers).
@@ -114,6 +172,7 @@ export interface TypeSymbol extends ApexSymbol {
    * - For classes: interfaces implemented by the class (e.g., `class C implements I1, I2`)
    * - For interfaces: interfaces extended by the interface (e.g., `interface I extends I1, I2`)
    * - For triggers: always an empty array
+   * - For enums: always an empty array
    */
   interfaces: string[];
   /** Annotations for this type */
@@ -148,9 +207,21 @@ export interface VariableSymbol extends ApexSymbol {
 /**
  * Represents an enum type declaration
  */
-export interface EnumSymbol extends ApexSymbol {
+export interface EnumSymbol extends TypeSymbol {
   kind: SymbolKind.Enum;
   values: VariableSymbol[];
+}
+
+/**
+ * Represents a unique key for a symbol or scope in the symbol table
+ */
+export interface SymbolKey {
+  /** The type of scope (file, class, method, block) */
+  prefix: string;
+  /** The name of the symbol/scope */
+  name: string;
+  /** The hierarchical path to this symbol/scope */
+  path: string[];
 }
 
 /**
@@ -158,21 +229,57 @@ export interface EnumSymbol extends ApexSymbol {
  * Maintains a hierarchy of scopes and provides symbol lookup functionality.
  */
 export class SymbolScope {
-  private symbols: Map<string, ApexSymbol> = new Map();
-  private children: SymbolScope[] = [];
+  private symbols: HashMap<string, ApexSymbol> = new HashMap();
+  private children: DoublyLinkedList<SymbolScope> = new DoublyLinkedList();
+  private readonly key: SymbolKey;
 
   /**
    * Creates a new symbol scope.
    * @param name The name of the scope
    * @param parent The parent scope, if any
+   * @param scopeType The type of scope (file, class, method, block)
    */
   constructor(
     public readonly name: string,
     public readonly parent: SymbolScope | null = null,
+    private readonly scopeType: string = 'file',
   ) {
+    this.key = this.generateKey();
     if (parent) {
       parent.children.push(this);
     }
+  }
+
+  /**
+   * Get the unique key for this scope
+   */
+  getKey(): SymbolKey {
+    return this.key;
+  }
+
+  /**
+   * Generate a unique key for this scope
+   */
+  private generateKey(): SymbolKey {
+    const path = this.getPath();
+    return {
+      prefix: this.scopeType,
+      name: this.name,
+      path: path,
+    };
+  }
+
+  /**
+   * Get the hierarchical path to this scope
+   */
+  private getPath(): string[] {
+    const path: string[] = [];
+    let current: SymbolScope | null = this;
+    while (current) {
+      path.unshift(current.name);
+      current = current.parent;
+    }
+    return path;
   }
 
   /**
@@ -205,7 +312,21 @@ export class SymbolScope {
    * @returns Array of child scopes
    */
   getChildren(): SymbolScope[] {
-    return this.children;
+    return this.children.toArray();
+  }
+
+  /**
+   * Convert the scope to a JSON-serializable format
+   */
+  toJSON() {
+    return {
+      key: this.key,
+      symbols: Array.from(this.symbols.entries()).map(([name, symbol]) => ({
+        name,
+        key: (symbol as any).key,
+      })),
+      children: this.children.toArray().map((child) => child.key),
+    };
   }
 }
 
@@ -216,6 +337,8 @@ export class SymbolScope {
 export class SymbolTable {
   private root: SymbolScope;
   private current: SymbolScope;
+  private symbolMap: HashMap<string, ApexSymbol> = new HashMap();
+  private scopeMap: HashMap<string, SymbolScope> = new HashMap();
 
   /**
    * Creates a new symbol table.
@@ -223,8 +346,16 @@ export class SymbolTable {
    */
   constructor() {
     // Create root scope for the file
-    this.root = new SymbolScope('file');
+    this.root = new SymbolScope('file', null, 'file');
     this.current = this.root;
+    this.scopeMap.set(this.keyToString(this.root.getKey()), this.root);
+  }
+
+  /**
+   * Convert a SymbolKey to a string for use as a map key
+   */
+  private keyToString(key: SymbolKey): string {
+    return `${key.prefix}:${key.path.join('.')}`;
   }
 
   /**
@@ -232,16 +363,27 @@ export class SymbolTable {
    * @param symbol The symbol to add
    */
   addSymbol(symbol: ApexSymbol): void {
+    // Set parent reference if parentKey exists
+    if (symbol.parentKey) {
+      const parent = this.lookupByKey(symbol.parentKey);
+      if (parent) {
+        symbol.parent = parent;
+      }
+    }
     this.current.addSymbol(symbol);
+    this.symbolMap.set(this.keyToString(symbol.key), symbol);
   }
 
   /**
    * Enter a new scope.
    * Creates a new scope as a child of the current scope.
    * @param name The name of the new scope
+   * @param scopeType The type of scope (file, class, method, block)
    */
-  enterScope(name: string): void {
-    this.current = new SymbolScope(name, this.current);
+  enterScope(name: string, scopeType: string = 'block'): void {
+    const newScope = new SymbolScope(name, this.current, scopeType);
+    this.current = newScope;
+    this.scopeMap.set(this.keyToString(newScope.getKey()), newScope);
   }
 
   /**
@@ -318,5 +460,85 @@ export class SymbolTable {
     }
 
     return undefined;
+  }
+
+  /**
+   * Lookup a symbol by key
+   * @param key The key of the symbol to find
+   * @returns The symbol if found, undefined otherwise
+   */
+  lookupByKey(key: SymbolKey): ApexSymbol | undefined {
+    return this.symbolMap.get(this.keyToString(key));
+  }
+
+  /**
+   * Convert the symbol table to a JSON-serializable format
+   */
+  toJSON() {
+    type CleanedSymbol = Omit<ApexSymbol, 'parent'> & {
+      values?: Array<Omit<VariableSymbol, 'parent'>>;
+    };
+
+    const cleanSymbol = (symbol: ApexSymbol): CleanedSymbol => {
+      // Create a new object without the parent reference
+      const { parent, ...rest } = symbol;
+      const cleaned = { ...rest } as CleanedSymbol;
+
+      // Handle enum values
+      if (symbol.kind === SymbolKind.Enum) {
+        const enumSymbol = symbol as EnumSymbol;
+        if (enumSymbol.values) {
+          // Create a new array of cleaned values
+          cleaned.values = enumSymbol.values.map((value) => {
+            // Create a new object without the parent reference
+            const { parent: valueParent, ...valueRest } = value;
+            return valueRest;
+          });
+        }
+      }
+
+      return cleaned;
+    };
+
+    // Convert HashMap entries to plain arrays
+    const symbolEntries = Array.from(this.symbolMap.entries());
+    const scopeEntries = Array.from(this.scopeMap.entries());
+
+    // Create a new object with cleaned symbols
+    const cleanedSymbols = symbolEntries.map(([key, symbol]) => ({
+      key,
+      symbol: symbol ? cleanSymbol(symbol) : undefined,
+    }));
+
+    // Create a new object with cleaned scopes
+    const cleanedScopes = scopeEntries.map(([key, scope]) => ({
+      key,
+      scope: scope
+        ? {
+            key: scope.getKey(),
+            symbols: Array.from(scope.getAllSymbols()).map((symbol) => ({
+              name: symbol.name,
+              key: symbol.key,
+            })),
+            children: scope.getChildren().map((child) => child.getKey()),
+          }
+        : undefined,
+    }));
+
+    return {
+      symbols: cleanedSymbols,
+      scopes: cleanedScopes,
+    };
+  }
+
+  /**
+   * Create a new symbol table from a JSON representation
+   * @param json The JSON representation of a symbol table
+   * @returns A new symbol table
+   */
+  static fromJSON(json: any): SymbolTable {
+    const table = new SymbolTable();
+    // TODO: Implement reconstruction of symbol table from JSON
+    return table;
   }
 }
