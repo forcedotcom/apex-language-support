@@ -125,7 +125,6 @@ export async function createClientOptions(
           'packages',
           'apex-ls-node',
           'dist',
-          'src',
           'index.js',
         ),
         nodeArgs: verbose ? ['--nolazy'] : [],
@@ -189,10 +188,17 @@ export function parseArgs(): CliOptions {
       if (
         value === 'demo' ||
         value === 'jorje' ||
-        value === 'nodeServer' ||
-        value === 'webServer'
+        value === 'nodeserver' ||
+        value === 'webserver'
       ) {
-        options.serverType = value as ServerType;
+        // Map lowercase values back to correct case
+        const serverTypeMap: Record<string, ServerType> = {
+          demo: 'demo',
+          jorje: 'jorje',
+          nodeserver: 'nodeServer',
+          webserver: 'webServer',
+        };
+        options.serverType = serverTypeMap[value];
       } else {
         console.error(
           `Invalid server type: ${value}. Must be 'demo', 'jorje', 'nodeServer', or 'webServer'.`,

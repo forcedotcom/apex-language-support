@@ -29,7 +29,6 @@ import {
   dispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol,
   ApexStorageManager,
-  ApexStorage,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -40,6 +39,7 @@ import {
 
 import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
 import { ActiveLoggerFactory } from './utils/ActiveLoggerFactory';
+import { NodeFileSystemApexStorage } from './storage/NodeFileSystemApexStorage';
 
 // Set the logger factory early
 setLoggerFactory(new ActiveLoggerFactory());
@@ -72,7 +72,7 @@ const documents = new TextDocuments(TextDocument);
 
 // Initialize storage
 const storageManager = ApexStorageManager.getInstance({
-  storageFactory: (options) => ApexStorage.getInstance(),
+  storageFactory: (options) => new NodeFileSystemApexStorage(),
   storageOptions: {
     /* your options */
   },
