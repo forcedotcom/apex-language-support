@@ -19,8 +19,6 @@ import {
   TextDocuments,
   TextDocumentChangeEvent,
   Diagnostic,
-  FoldingRangeParams,
-  FoldingRange,
 } from 'vscode-languageserver/node';
 import {
   dispatchProcessOnChangeDocument,
@@ -98,7 +96,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       },
       hoverProvider: false,
       documentSymbolProvider: true,
-      foldingRangeProvider: true,
+      foldingRangeProvider: false, //todo: enable this
     },
   };
 });
@@ -137,6 +135,7 @@ connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
 });
 
 // Add a handler for folding ranges
+/*
 connection.onFoldingRanges(
   async (params: FoldingRangeParams): Promise<FoldingRange[] | null> => {
     logger.info(
@@ -148,7 +147,7 @@ connection.onFoldingRanges(
     // For now, returning an empty array to satisfy the request and stop the 'Unhandled method' error.
     return [];
   },
-);
+);*/
 
 // Handle completion requests
 connection.onCompletion((_textDocumentPosition: any) => [
