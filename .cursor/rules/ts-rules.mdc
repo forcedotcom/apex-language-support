@@ -44,6 +44,7 @@ The application we are working on uses the following tech stack:
 - When adding calls to Logger, found here, when message is complex, such as string templates, JSON.stringify, etc. use the provider form of the log message to avoid unnecessary string construction unless needed
 
 ## Coding Standards
+- Avoid usage of enums in any Typescript files, either by removing existing instances or avoiding adding new instances. Use string unions instead of enums.
 
 ### Naming Conventions
 
