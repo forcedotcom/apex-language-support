@@ -407,7 +407,10 @@ describe('DidOpenDocumentHandler', () => {
     const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
     const mockError = { message: 'Syntax error' } as any;
     const mockDiagnostic = {
-      range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } },
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 5 },
+      },
       message: 'Syntax error',
     };
 

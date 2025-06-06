@@ -67,4 +67,4 @@ export const mockVscode = {
   Disposable,
 };
 
-export default mockVscode; 
+export default mockVscode;

@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import * as vscode from 'vscode';
+
 import { activate, deactivate, client } from '../src/extension';
 
 jest.mock('vscode-languageclient/node', () => {
@@ -27,6 +28,7 @@ jest.mock('vscode-languageclient/node', () => {
 });
 
 // Must be imported after the mock
+// eslint-disable-next-line import/order
 import { LanguageClient } from 'vscode-languageclient/node';
 
 describe('Apex Language Server Extension', () => {
@@ -96,4 +98,4 @@ describe('Apex Language Server Extension', () => {
     // The client instance's stop method should have been called
     expect(client!.stop).toHaveBeenCalled();
   });
-}); 
+});
