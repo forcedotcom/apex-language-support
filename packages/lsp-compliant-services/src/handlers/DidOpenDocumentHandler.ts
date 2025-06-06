@@ -18,6 +18,7 @@ import { dispatch, getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
 import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
+import { ApexSettingsManager } from '../settings/ApexSettingsManager';
 
 // Visible for testing
 export const processOnOpenDocument = async (
@@ -25,7 +26,7 @@ export const processOnOpenDocument = async (
 ): Promise<Diagnostic[] | undefined> => {
   // Client opened a document
   const logger = Logger.getInstance();
-  logger.info(
+  logger.debug(
     `Common Apex Language Server open document handler invoked with: ${event}`,
   );
 
@@ -44,10 +45,18 @@ export const processOnOpenDocument = async (
   const compilerService = new CompilerService();
 
   // Parse the document
+  const settingsManager = ApexSettingsManager.getInstance();
+  const fileSize = document.getText().length;
+  const options = settingsManager.getCompilationOptions(
+    'documentOpen',
+    fileSize,
+  );
+
   const result = compilerService.compile(
     document.getText(),
     document.uri,
     listener,
+    options,
   );
 
   if (result.errors.length > 0) {

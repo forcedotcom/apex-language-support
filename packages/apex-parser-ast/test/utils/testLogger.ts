@@ -5,16 +5,20 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { getLogger, LogLevel, Logger } from '@salesforce/apex-lsp-logging';
+import {
+  getLogger,
+  LogLevel,
+  LoggerInterface,
+} from '@salesforce/apex-lsp-logging';
 
 /**
  * Test logger configuration for apex-parser-ast tests
  * This logger will output to the console during tests and can be configured
  * to show different log levels based on test needs
  */
-export class TestLogger implements Logger {
+export class TestLogger implements LoggerInterface {
   private static instance: TestLogger;
-  private logger: Logger;
+  private logger: LoggerInterface;
   private logLevel: LogLevel = LogLevel.Info;
 
   private constructor() {

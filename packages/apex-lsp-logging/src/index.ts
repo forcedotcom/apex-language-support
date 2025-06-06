@@ -6,8 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 export * from './notification';
 export {
   LogMessageType,
@@ -39,7 +37,7 @@ export interface LogMessage {
 /**
  * Interface for the logger implementation
  */
-export interface Logger {
+export interface LoggerInterface {
   /**
    * Log an error message
    * @param message - The message to log
@@ -134,11 +132,11 @@ export interface LoggerFactory {
    * Get a logger instance
    * @returns A logger instance
    */
-  getLogger(): Logger;
+  getLogger(): LoggerInterface;
 }
 
 // Default no-op logger implementation
-class NoOpLogger implements Logger {
+class NoOpLogger implements LoggerInterface {
   public error(
     _message: string | (() => string),
     _error?: unknown,
@@ -157,9 +155,9 @@ class NoOpLogger implements Logger {
 
 // Default no-op logger factory
 class NoOpLoggerFactory implements LoggerFactory {
-  private static instance: Logger = new NoOpLogger();
+  private static instance: LoggerInterface = new NoOpLogger();
 
-  public getLogger(): Logger {
+  public getLogger(): LoggerInterface {
     return NoOpLoggerFactory.instance;
   }
 }
@@ -185,4 +183,4 @@ export const getLoggerFactory = (): LoggerFactory => loggerFactory;
  * Get the current logger instance
  * @returns The current logger instance
  */
-export const getLogger = (): Logger => loggerFactory.getLogger();
+export const getLogger = (): LoggerInterface => loggerFactory.getLogger();

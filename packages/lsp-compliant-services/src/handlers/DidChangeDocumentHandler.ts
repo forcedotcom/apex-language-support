@@ -18,6 +18,7 @@ import { dispatch, getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
 import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
+import { ApexSettingsManager } from '../settings/ApexSettingsManager';
 
 // Visible for testing
 export const processOnChangeDocument = async (
@@ -25,7 +26,7 @@ export const processOnChangeDocument = async (
 ): Promise<Diagnostic[] | undefined> => {
   // Client opened a document
   const logger = Logger.getInstance();
-  logger.info(
+  logger.debug(
     `Common Apex Language Server change document handler invoked with: ${event}`,
   );
 
@@ -34,7 +35,7 @@ export const processOnChangeDocument = async (
   const storage = storageManager.getStorage();
   const document = event.document;
   if (!document) {
-    logger.error(`Document not found for URI: ${event.document.uri}`);
+    logger.error(() => `Document not found for URI: ${event.document.uri}`);
   }
 
   // Store the document in storage for later retrieval by other handlers
@@ -46,10 +47,18 @@ export const processOnChangeDocument = async (
   const compilerService = new CompilerService();
 
   // Parse the document
+  const settingsManager = ApexSettingsManager.getInstance();
+  const fileSize = document.getText().length;
+  const options = settingsManager.getCompilationOptions(
+    'documentChange',
+    fileSize,
+  );
+
   const result = compilerService.compile(
     document.getText(),
     document.uri,
     listener,
+    options,
   );
 
   if (result.errors.length > 0) {

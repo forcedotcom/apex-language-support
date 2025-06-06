@@ -7,7 +7,7 @@
  */
 
 import {
-  Logger,
+  LoggerInterface,
   LoggerFactory,
   LogLevel,
   LogMessageType,
@@ -37,7 +37,7 @@ function mapLogLevelToMessageType(level: LogLevel): LogMessageType {
  * An active logger implementation that sends log messages through the
  * configured LogNotificationHandler.
  */
-class ActiveLogger implements Logger {
+class ActiveLogger implements LoggerInterface {
   /**
    * Logs a message with the specified level.
    * If an error is provided, its message is appended to the main message.
@@ -140,13 +140,13 @@ class ActiveLogger implements Logger {
  * messages through the configured LogNotificationHandler.
  */
 export class ActiveLoggerFactory implements LoggerFactory {
-  private static loggerInstance: Logger | null = null;
+  private static loggerInstance: LoggerInterface | null = null;
 
   /**
    * Gets a singleton instance of the ActiveLogger.
    * @returns A Logger instance.
    */
-  public getLogger(): Logger {
+  public getLogger(): LoggerInterface {
     if (!ActiveLoggerFactory.loggerInstance) {
       ActiveLoggerFactory.loggerInstance = new ActiveLogger();
     }

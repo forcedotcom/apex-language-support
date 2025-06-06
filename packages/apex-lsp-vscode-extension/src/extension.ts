@@ -166,6 +166,7 @@ function createClientOptions(): LanguageClientOptions {
     synchronize: {
       fileEvents:
         vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
+      configurationSection: 'apex',
     },
     outputChannel: outputChannel,
     middleware: inspector || {},
@@ -174,9 +175,10 @@ function createClientOptions(): LanguageClientOptions {
       error: handleClientError,
       closed: () => handleClientClosed(),
     },
-    // Explicitly enable document symbols support
+    // Include workspace settings in initialization options
     initializationOptions: {
       enableDocumentSymbols: true,
+      ...getWorkspaceSettings(),
     },
   };
 }
@@ -273,6 +275,105 @@ function handleMaxRetriesExceeded(): void {
 }
 
 /**
+ * Gets the current workspace settings for the Apex Language Server
+ */
+function getWorkspaceSettings(): object {
+  const config = vscode.workspace.getConfiguration('apex');
+
+  return {
+    apex: {
+      commentCollection: {
+        enableCommentCollection: config.get<boolean>(
+          'commentCollection.enableCommentCollection',
+          true,
+        ),
+        includeSingleLineComments: config.get<boolean>(
+          'commentCollection.includeSingleLineComments',
+          false,
+        ),
+        associateCommentsWithSymbols: config.get<boolean>(
+          'commentCollection.associateCommentsWithSymbols',
+          false,
+        ),
+        enableForDocumentChanges: config.get<boolean>(
+          'commentCollection.enableForDocumentChanges',
+          true,
+        ),
+        enableForDocumentOpen: config.get<boolean>(
+          'commentCollection.enableForDocumentOpen',
+          true,
+        ),
+        enableForDocumentSymbols: config.get<boolean>(
+          'commentCollection.enableForDocumentSymbols',
+          false,
+        ),
+        enableForFoldingRanges: config.get<boolean>(
+          'commentCollection.enableForFoldingRanges',
+          false,
+        ),
+      },
+      performance: {
+        commentCollectionMaxFileSize: config.get<number>(
+          'performance.commentCollectionMaxFileSize',
+          102400,
+        ),
+        useAsyncCommentProcessing: config.get<boolean>(
+          'performance.useAsyncCommentProcessing',
+          true,
+        ),
+        documentChangeDebounceMs: config.get<number>(
+          'performance.documentChangeDebounceMs',
+          300,
+        ),
+      },
+      environment: {
+        enablePerformanceLogging: config.get<boolean>(
+          'environment.enablePerformanceLogging',
+          false,
+        ),
+        commentCollectionLogLevel: config.get<string>(
+          'environment.commentCollectionLogLevel',
+          'info',
+        ),
+      },
+    },
+  };
+}
+
+/**
+ * Registers a listener for configuration changes and notifies the server
+ */
+function registerConfigurationChangeListener(): void {
+  if (!client) {
+    return;
+  }
+
+  // Listen for configuration changes
+  const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration('apex')) {
+      outputChannel.appendLine(
+        'Apex configuration changed, notifying server...',
+      );
+
+      // Get updated settings
+      const settings = getWorkspaceSettings();
+
+      // Notify the server of the configuration change
+      client?.sendNotification('workspace/didChangeConfiguration', {
+        settings,
+      });
+
+      outputChannel.appendLine('Configuration update sent to server');
+    }
+  });
+
+  // Store the listener in the global context so it gets disposed properly
+  if (globalContext) {
+    globalContext.subscriptions.push(configListener);
+  }
+}
+
+/**
  * Creates and starts the language client
  */
 function createAndStartClient(
@@ -307,6 +408,9 @@ function createAndStartClient(
           // Reset retry counter on successful start
           serverStartRetries = 0;
           isStarting = false;
+
+          // Register configuration change listener when client is ready
+          registerConfigurationChangeListener();
         } else if (event.newState === State.Starting) {
           statusBarItem.text = '$(sync~spin) Starting Apex Server';
           statusBarItem.tooltip = 'Apex Language Server is starting';

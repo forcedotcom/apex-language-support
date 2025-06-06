@@ -1,48 +1,122 @@
-# Extension Apex Language Server
+# Apex Language Server (Node.js)
 
-VS Code extension integration for the Apex Language Server.
-
-## Overview
-
-This package provides the integration layer between the Apex Language Server and VS Code. It enables VS Code to communicate with the language server using Node.js IPC and provides the necessary configuration for VS Code to recognize and use the language server for Apex files.
+This package provides the Node.js implementation of the Apex Language Server.
 
 ## Features
 
-- VS Code extension integration
-- Node.js IPC-based communication
-- Language server initialization and configuration
-- VS Code-specific functionality
+- Full Language Server Protocol (LSP) support
+- Document parsing and symbol extraction
+- Configurable comment collection
+- Real-time diagnostics
+- Document symbols
 
-## Dependencies
+## Configuration
 
-- `vscode-languageserver`: VSCode Language Server implementation
-- `vscode-languageserver-protocol`: LSP protocol definitions
+The language server supports configuration through standard LSP mechanisms. Configuration can be provided via:
 
-## Recent Changes
+1. **Initialization Options**: Settings passed during server initialization
+2. **Workspace Configuration**: Runtime configuration changes via `workspace/didChangeConfiguration`
 
-- **Removed Babel References:**  
-  All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
+### Configuration Sections
 
-- **TypeScript Improvements:**  
-  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.web.test.ts`, variables and parameters now have explicit `any` types.
+The server looks for configuration in these sections (in order of precedence):
 
-- **Jest Configuration:**  
-  Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
+- `apex`
+- `apexLanguageServer`
+- `apex.languageServer`
+- `salesforce.apex`
+
+### Available Settings
+
+#### Comment Collection Settings
+
+```json
+{
+  "apex": {
+    "commentCollection": {
+      "enableCommentCollection": true,
+      "includeSingleLineComments": false,
+      "associateCommentsWithSymbols": false,
+      "enableForDocumentChanges": true,
+      "enableForDocumentOpen": true,
+      "enableForDocumentSymbols": false,
+      "enableForFoldingRanges": false
+    }
+  }
+}
+```
+
+#### Performance Settings
+
+```json
+{
+  "apex": {
+    "performance": {
+      "commentCollectionMaxFileSize": 102400,
+      "useAsyncCommentProcessing": true,
+      "documentChangeDebounceMs": 300
+    }
+  }
+}
+```
+
+#### Environment Settings
+
+```json
+{
+  "apex": {
+    "environment": {
+      "enablePerformanceLogging": false,
+      "commentCollectionLogLevel": "info"
+    }
+  }
+}
+```
 
 ## Usage
 
-This package is typically used as part of a VS Code extension. Once built, it can be included in a VS Code extension package that provides Apex language support.
+### Starting the Server
 
-## Development
+The server supports multiple transport mechanisms:
 
 ```bash
-# Build the package
-npm run build
+# stdio transport
+node dist/index.js --stdio
 
-# Watch for changes during development
-npm run dev
+# Node IPC transport
+node dist/index.js --node-ipc
+
+# Socket transport
+node dist/index.js --socket=6009
 ```
 
-## Extension Configuration
+### With VS Code
 
-When integrating this package into a VS Code extension, you'll need to configure the extension's `package.json` to recognize Apex files and activate the language server appropriately. See the [VS Code Extension API documentation](https://code.visualstudio.com/api) for more details.
+When used with VS Code, configuration can be provided through workspace settings:
+
+```json
+{
+  "apex.commentCollection.enableCommentCollection": true,
+  "apex.performance.commentCollectionMaxFileSize": 204800
+}
+```
+
+### Programmatic Usage
+
+```typescript
+import { createConnection } from 'vscode-languageserver/node';
+
+// Configuration will be automatically handled through LSP mechanisms
+const connection = createConnection(process.stdin, process.stdout);
+```
+
+## Architecture
+
+The server integrates with:
+
+- **ApexSettingsManager**: Manages server settings lifecycle
+- **LSPConfigurationManager**: Handles LSP configuration protocol
+- **ApexStorageManager**: Manages document storage and retrieval
+- **CompilerService**: Processes Apex code parsing and analysis
+
+For more details on configuration schema and options, see the [configuration documentation](../lsp-compliant-services/docs/CONFIGURATION.md).

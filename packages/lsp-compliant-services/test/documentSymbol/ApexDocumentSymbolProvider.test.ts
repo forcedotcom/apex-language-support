@@ -11,19 +11,19 @@ import {
   DocumentSymbol,
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-
 import {
   CompilerService,
   ApexSymbolCollectorListener,
   ErrorSeverity,
   ErrorType,
 } from '@salesforce/apex-lsp-parser-ast';
+import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-logging';
+
 import {
   DefaultApexDocumentSymbolProvider,
   ApexDocumentSymbolProvider,
 } from '../../src/documentSymbol/ApexDocumentSymbolProvider';
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
-import { getLogger, Logger } from '@salesforce/apex-lsp-logging';
 
 jest.mock('@salesforce/apex-lsp-parser-ast');
 jest.mock('@salesforce/apex-lsp-logging');
@@ -35,7 +35,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
   let mockStorage: jest.Mocked<ApexStorageInterface>;
   let mockCompilerService: jest.Mocked<CompilerService>;
   let mockListener: jest.Mocked<ApexSymbolCollectorListener>;
-  let mockLogger: jest.Mocked<Logger>;
+  let mockLogger: jest.Mocked<LoggerInterface>;
 
   beforeEach(() => {
     mockStorage = {
@@ -122,7 +122,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
             {
               name: 'TestClass',
               kind: 'class',
-              location: { startLine: 2, startColumn: 17, endLine: 6, endColumn: 17 },
+              location: {
+                startLine: 2,
+                startColumn: 17,
+                endLine: 6,
+                endColumn: 17,
+              },
             },
           ],
           getChildren: () => [],
@@ -160,7 +165,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
             {
               name: 'SimpleClass',
               kind: 'class',
-              location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 27 },
+              location: {
+                startLine: 1,
+                startColumn: 1,
+                endLine: 1,
+                endColumn: 27,
+              },
             },
           ],
           getChildren: () => [],
@@ -215,7 +225,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           {
             name: 'ComplexClass',
             kind: 'class',
-            location: { startLine: 2, startColumn: 7, endLine: 5, endColumn: 7 },
+            location: {
+              startLine: 2,
+              startColumn: 7,
+              endLine: 5,
+              endColumn: 7,
+            },
           },
         ],
         getChildren: () => [classScope],
@@ -235,7 +250,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(classSymbol.children).toHaveLength(2);
       expect(classSymbol.children[0].name).toBe('myProp');
       expect(classSymbol.children[0].kind).toBe(7); // SymbolKind.Property
-      expect(classSymbol.children[1].name).toBe('myMethod');
+      expect(classSymbol.children[1].name).toBe('myMethod() : void');
       expect(classSymbol.children[1].kind).toBe(6); // SymbolKind.Method
     });
 
@@ -367,7 +382,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
             {
               name: 'TestClass',
               kind: 'class',
-              location: { startLine: 2, startColumn: 17, endLine: 8, endColumn: 17 },
+              location: {
+                startLine: 2,
+                startColumn: 17,
+                endLine: 8,
+                endColumn: 17,
+              },
             },
           ],
           getChildren: () => [classScope],
@@ -412,7 +432,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
             {
               name: 'TestInterface',
               kind: 'interface',
-              location: { startLine: 2, startColumn: 17, endLine: 5, endColumn: 17 },
+              location: {
+                startLine: 2,
+                startColumn: 17,
+                endLine: 5,
+                endColumn: 17,
+              },
             },
           ],
           getChildren: () => [],

@@ -79,6 +79,66 @@
           "type": "number",
           "default": 0,
           "description": "Port to use for debugging (0 for random port)"
+        },
+        "apex.commentCollection.enableCommentCollection": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable comment collection during document parsing"
+        },
+        "apex.commentCollection.includeSingleLineComments": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include single-line (//) comments in collection"
+        },
+        "apex.commentCollection.associateCommentsWithSymbols": {
+          "type": "boolean",
+          "default": true,
+          "description": "Associate comments with symbols for enhanced language features (may impact performance)"
+        },
+        "apex.commentCollection.enableForDocumentChanges": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable comment collection for document change events"
+        },
+        "apex.commentCollection.enableForDocumentOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable comment collection for document open events"
+        },
+        "apex.commentCollection.enableForDocumentSymbols": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable comment collection for document symbols (may impact performance)"
+        },
+        "apex.commentCollection.enableForFoldingRanges": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable comment collection for folding ranges (may impact performance)"
+        },
+        "apex.performance.commentCollectionMaxFileSize": {
+          "type": "number",
+          "default": 102400,
+          "description": "Maximum file size (in bytes) for comment collection. Files larger than this will skip comment collection for performance."
+        },
+        "apex.performance.useAsyncCommentProcessing": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use asynchronous comment processing to improve performance"
+        },
+        "apex.performance.documentChangeDebounceMs": {
+          "type": "number",
+          "default": 300,
+          "description": "Debounce delay (in milliseconds) for document change processing"
+        },
+        "apex.environment.enablePerformanceLogging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable performance logging for the language server"
+        },
+        "apex.inspector.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable LSP request/response inspector for debugging"
         }
       }
     },
@@ -86,6 +146,10 @@
       {
         "command": "apex.restart.server",
         "title": "Restart Apex Language Server"
+      },
+      {
+        "command": "apex.inspector.toggle",
+        "title": "Toggle Apex LSP Inspector"
       }
     ],
     "viewsContainers": {

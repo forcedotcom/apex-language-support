@@ -19,9 +19,16 @@ import {
   ApexSymbolCollectorListener,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
+import type {
+  MethodSymbol,
+  VariableSymbol,
+  ApexSymbol,
+  TypeInfo,
+} from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
+import { ApexSettingsManager } from '../settings/ApexSettingsManager';
 
 /**
  * Interface for Apex document symbol providers
@@ -60,33 +67,42 @@ export class DefaultApexDocumentSymbolProvider
     const logger = getLogger();
     try {
       const documentUri = params.textDocument.uri;
-      logger.info(
+      logger.debug(
         `Attempting to get document from storage for URI: ${documentUri}`,
       );
 
       const document = await this.storage.getDocument(documentUri);
 
       if (!document) {
-        logger.warn(`Document not found in storage for URI: ${documentUri}`);
+        logger.warn(
+          () => `Document not found in storage for URI: ${documentUri}`,
+        );
         return null;
       }
 
-      logger.info(
+      logger.debug(
         `Document found in storage. Content length: ${document.getText().length}`,
       );
-      logger.info(
+      logger.debug(
         `Document content preview: ${document.getText().substring(0, 100)}...`,
       );
 
       // Create a symbol collector listener
       const table = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(table);
+      const settingsManager = ApexSettingsManager.getInstance();
+      const fileSize = document.getText().length;
+      const options = settingsManager.getCompilationOptions(
+        'documentSymbols',
+        fileSize,
+      );
 
       // Parse the document
       const result = this.compilerService.compile(
         document.getText(),
         documentUri,
         listener,
+        options,
       );
 
       if (result.errors.length > 0) {
@@ -115,7 +131,7 @@ export class DefaultApexDocumentSymbolProvider
         );
 
         const documentSymbol: DocumentSymbol = {
-          name: symbol.name,
+          name: this.formatSymbolName(symbol),
           kind: this.mapSymbolKind(symbol.kind),
           range,
           selectionRange: range,
@@ -124,8 +140,9 @@ export class DefaultApexDocumentSymbolProvider
 
         // Recursively collect children for classes, interfaces, enums, etc.
         if (
-          'interfaces' in symbol ||
-          ['class', 'interface', 'enum'].includes(symbol.kind.toLowerCase())
+          ['class', 'interface', 'enum', 'trigger'].includes(
+            symbol.kind.toLowerCase(),
+          )
         ) {
           // Get all child scopes
           const childScopes = symbolTable.getCurrentScope().getChildren();
@@ -157,8 +174,6 @@ export class DefaultApexDocumentSymbolProvider
    * Maps Apex symbol kinds to LSP symbol kinds
    */
   private mapSymbolKind(kind: string): SymbolKind {
-    const logger = getLogger();
-    logger.info(`Mapping symbol kind: ${kind}`);
     let mappedKind: SymbolKind;
     switch (kind.toLowerCase()) {
       case 'class':
@@ -189,11 +204,78 @@ export class DefaultApexDocumentSymbolProvider
         mappedKind = SymbolKind.Class; // 5 (treating triggers as classes)
         break;
       default:
-        logger.warn(`Unknown symbol kind: ${kind}`);
+        getLogger().warn(() => `Unknown symbol kind: ${kind}`);
         mappedKind = SymbolKind.Variable; // 13
     }
-    logger.info(`Mapped to: ${mappedKind} (expected Class to be 5)`);
     return mappedKind;
+  }
+
+  /**
+   * Formats the display name for a symbol based on its type
+   * For methods, includes parameter types and return type
+   * For other symbols, returns the simple name
+   */
+  private formatSymbolName(symbol: ApexSymbol): string {
+    // Check if this is a method symbol
+    if (symbol.kind?.toLowerCase() === 'method') {
+      try {
+        // Cast to MethodSymbol to access method-specific properties
+        const methodSymbol = symbol as MethodSymbol;
+
+        // Build parameter list
+        const parameterList = this.buildParameterList(
+          methodSymbol.parameters || [],
+        );
+
+        // Build return type string
+        const returnTypeString = this.formatReturnType(methodSymbol.returnType);
+
+        // Format: methodName(paramTypes) : ReturnType
+        return `${symbol.name}(${parameterList}) : ${returnTypeString}`;
+      } catch (error) {
+        // Fallback to original name if anything goes wrong
+        return symbol.name;
+      }
+    }
+
+    // For non-methods, return the simple name
+    return symbol.name;
+  }
+
+  /**
+   * Builds a comma-separated list of parameter types
+   */
+  private buildParameterList(parameters: VariableSymbol[]): string {
+    if (!parameters || parameters.length === 0) {
+      return '';
+    }
+
+    return parameters
+      .map((param) => this.formatTypeInfo(param.type))
+      .join(', ');
+  }
+
+  /**
+   * Formats a return type for display
+   */
+  private formatReturnType(returnType: TypeInfo): string {
+    if (!returnType) {
+      return 'void';
+    }
+
+    return this.formatTypeInfo(returnType);
+  }
+
+  /**
+   * Formats a TypeInfo object for display
+   */
+  private formatTypeInfo(typeInfo: TypeInfo): string {
+    if (!typeInfo) {
+      return 'unknown';
+    }
+
+    // Use the originalTypeString if available, otherwise fall back to name
+    return typeInfo.originalTypeString || typeInfo.name || 'unknown';
   }
 
   /**
@@ -204,7 +286,7 @@ export class DefaultApexDocumentSymbolProvider
     const childSymbols = scope.getAllSymbols();
     // Debug log: print all child symbol names and kinds for this scope
     const logger = getLogger();
-    logger.info(
+    logger.debug(
       `collectChildren for parentKind=${parentKind}, scope=${scope.name}, childSymbols=${childSymbols.map(
         (s: any) => ({ name: s.name, kind: s.kind }),
       )}`,
@@ -228,15 +310,17 @@ export class DefaultApexDocumentSymbolProvider
         ),
       );
       const childDocumentSymbol: DocumentSymbol = {
-        name: childSymbol.name,
+        name: this.formatSymbolName(childSymbol),
         kind: this.mapSymbolKind(childSymbol.kind),
         range: childRange,
         selectionRange: childRange,
         children: [],
       };
-      // If the child is a class, interface, or enum, recursively collect its children
+      // If the child is a class, interface, enum, or trigger, recursively collect its children
       if (
-        ['class', 'interface', 'enum'].includes(childSymbol.kind.toLowerCase())
+        ['class', 'interface', 'enum', 'trigger'].includes(
+          childSymbol.kind.toLowerCase(),
+        )
       ) {
         const childScope = scope
           .getChildren()

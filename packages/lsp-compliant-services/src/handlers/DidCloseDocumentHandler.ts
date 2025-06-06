@@ -16,7 +16,7 @@ export const processOnCloseDocument = async (
   event: TextDocumentChangeEvent<TextDocument>,
 ): Promise<void> => {
   const logger = Logger.getInstance();
-  logger.info(
+  logger.debug(
     `Common Apex Language Server close document handler invoked with: ${event}`,
   );
 

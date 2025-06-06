@@ -76,7 +76,7 @@ describe('DidChangeDocumentHandler', () => {
   });
 
   describe('processOnChangeDocument', () => {
-    it('should log info message with document change params', async () => {
+    it('should log debug message with document change params', async () => {
       const event: TextDocumentChangeEvent<TextDocument> = {
         document: {
           uri: 'file:///test.apex',
@@ -93,8 +93,8 @@ describe('DidChangeDocumentHandler', () => {
 
       await processOnChangeDocument(event);
 
-      expect(mockLogger.info).toHaveBeenCalledTimes(1);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });
@@ -117,8 +117,8 @@ describe('DidChangeDocumentHandler', () => {
 
       await processOnChangeDocument(event);
 
-      expect(mockLogger.info).toHaveBeenCalledTimes(1);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });
@@ -140,8 +140,8 @@ describe('DidChangeDocumentHandler', () => {
 
       await processOnChangeDocument(event);
 
-      expect(mockLogger.info).toHaveBeenCalledTimes(1);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });
@@ -163,8 +163,8 @@ describe('DidChangeDocumentHandler', () => {
 
       await processOnChangeDocument(event);
 
-      expect(mockLogger.info).toHaveBeenCalledTimes(1);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });

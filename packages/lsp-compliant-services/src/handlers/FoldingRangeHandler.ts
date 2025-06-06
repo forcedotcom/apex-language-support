@@ -44,7 +44,9 @@ export async function processOnFoldingRange(
     );
 
     if (foldingRanges.length === 0) {
-      logger.debug(`No folding ranges found for: ${params.textDocument.uri}`);
+      logger.debug(
+        () => `No folding ranges found for: ${params.textDocument.uri}`,
+      );
       return null;
     }
 

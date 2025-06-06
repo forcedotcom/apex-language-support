@@ -23,6 +23,13 @@ import {
   ApexErrorListener,
   ApexLexerErrorListener,
 } from './listeners/ApexErrorListener';
+import {
+  ApexComment,
+  ApexCommentCollectorListener,
+  CommentAssociation,
+} from './listeners/ApexCommentCollectorListener';
+import { CommentAssociator } from '../utils/CommentAssociator';
+import { SymbolTable } from '../types/symbol';
 
 /**
  * Result of a compilation process, containing any errors, warnings, and the final result.
@@ -32,6 +39,35 @@ export interface CompilationResult<T> {
   result: T | null;
   errors: ApexError[];
   warnings: string[];
+}
+
+/**
+ * Result of a compilation process with comments included
+ */
+export interface CompilationResultWithComments<T> extends CompilationResult<T> {
+  comments: ApexComment[];
+}
+
+/**
+ * Result with comments and associations included
+ */
+export interface CompilationResultWithAssociations<T>
+  extends CompilationResultWithComments<T> {
+  commentAssociations: CommentAssociation[];
+}
+
+/**
+ * Options for compilation behavior
+ */
+export interface CompilationOptions {
+  /** Optional namespace override for this compilation */
+  projectNamespace?: string;
+  /** Whether to collect comments during parsing (default: true) */
+  includeComments?: boolean;
+  /** Whether to include single-line (//) comments (default: false) */
+  includeSingleLineComments?: boolean;
+  /** Whether to associate comments with symbols (default: false) */
+  associateComments?: boolean;
 }
 
 /**
@@ -57,65 +93,150 @@ export class CompilerService {
    * @param fileContent The content of the Apex file to parse
    * @param fileName Optional filename for error reporting
    * @param listener The listener to use during parsing
-   * @param projectNamespace Optional namespace override for this compilation
-   * @returns CompilationResult with the parsed result or errors
+   * @param options Optional compilation options
+   * @returns CompilationResult with the parsed result or errors, optionally including comments
    */
   public compile<T>(
     fileContent: string,
     fileName: string = 'unknown.cls',
     listener: BaseApexParserListener<T>,
-    projectNamespace?: string,
-  ): CompilationResult<T> {
+    options: CompilationOptions = {},
+  ):
+    | CompilationResult<T>
+    | CompilationResultWithComments<T>
+    | CompilationResultWithAssociations<T> {
     this.logger.debug(`Starting compilation of ${fileName}`);
+
     try {
-      // Create an error listener
+      // Create error listener
       const errorListener = new ApexErrorListener(fileName);
 
-      // Set it on the listener
-      listener.setErrorListener(errorListener);
+      // Create comment collector by default (opt-out behavior)
+      let commentCollector: ApexCommentCollectorListener | null = null;
+      if (options.includeComments !== false) {
+        commentCollector = new ApexCommentCollectorListener(
+          options.includeSingleLineComments || false,
+        );
+      }
 
-      // Set the project namespace if provided or use the one from constructor
-      const namespace = projectNamespace || this.projectNamespace;
+      // Set up parsing infrastructure
+      const inputStream = CharStreams.fromString(fileContent);
+      const lexer = new ApexLexer(new CaseInsensitiveInputStream(inputStream));
+      const tokenStream = new CommonTokenStream(lexer);
+      const parser = new ApexParser(tokenStream);
+
+      // Set up error listeners
+      parser.removeErrorListeners();
+      lexer.removeErrorListeners();
+      parser.addErrorListener(errorListener);
+      const lexerErrorListener = new ApexLexerErrorListener(errorListener);
+      lexer.addErrorListener(lexerErrorListener);
+
+      // Set up the main listener
+      listener.setErrorListener(errorListener);
+      const namespace = options.projectNamespace || this.projectNamespace;
       if (namespace && typeof listener.setProjectNamespace === 'function') {
         this.logger.debug(`Setting project namespace to: ${namespace}`);
         listener.setProjectNamespace(namespace);
       }
 
-      // Parse the code and get the compilation unit
-      const compilationUnitContext = this.getCompilationUnit(
-        fileContent,
-        errorListener,
-      );
+      // Set up the comment collector with the token stream if requested
+      if (commentCollector) {
+        commentCollector.setTokenStream(tokenStream);
+      }
 
-      // Walk the parse tree with our listener
+      // Parse the compilation unit
+      const isTrigger = fileName.endsWith('.trigger');
+      const compilationUnitContext = isTrigger
+        ? parser.triggerUnit()
+        : parser.compilationUnit();
+
+      // Walk the tree with the main listener
       const walker = new ParseTreeWalker();
       walker.walk(listener, compilationUnitContext);
 
-      const result = {
+      // Walk the tree with comment collector if requested
+      let comments: ApexComment[] = [];
+      if (commentCollector) {
+        walker.walk(commentCollector, compilationUnitContext);
+        comments = commentCollector.getResult();
+      }
+
+      // Build the result
+      const baseResult = {
         fileName,
         result: listener.getResult(),
         errors: errorListener.getErrors(),
         warnings: listener.getWarnings(),
       };
 
-      if (result.errors.length > 0) {
-        this.logger.warn(
-          `Compilation completed with ${result.errors.length} errors in ${fileName}`,
-        );
-      } else if (result.warnings.length > 0) {
-        this.logger.info(
-          `Compilation completed with ${result.warnings.length} warnings in ${fileName}`,
-        );
-      } else {
-        this.logger.debug(`Compilation completed successfully for ${fileName}`);
-      }
+      if (options.includeComments !== false) {
+        // Handle comment association if requested
+        if (
+          options.associateComments &&
+          baseResult.result instanceof SymbolTable
+        ) {
+          const symbolTable = baseResult.result as SymbolTable;
+          const symbols = Array.from(
+            symbolTable.getCurrentScope().getAllSymbols(),
+          );
 
-      return result;
+          const associator = new CommentAssociator();
+          const commentAssociations = associator.associateComments(
+            comments,
+            symbols,
+          );
+
+          const resultWithAssociations: CompilationResultWithAssociations<T> = {
+            ...baseResult,
+            comments,
+            commentAssociations,
+          };
+
+          this.logger.debug(
+            `Compilation completed for ${fileName}. ` +
+              `Found ${comments.length} comments, ${commentAssociations.length} associations, ` +
+              `${resultWithAssociations.errors.length} errors, ${resultWithAssociations.warnings.length} warnings`,
+          );
+
+          return resultWithAssociations;
+        } else {
+          const resultWithComments: CompilationResultWithComments<T> = {
+            ...baseResult,
+            comments,
+          };
+
+          this.logger.debug(
+            `Compilation completed for ${fileName}. ` +
+              `Found ${comments.length} comments, ` +
+              `${resultWithComments.errors.length} errors, ${resultWithComments.warnings.length} warnings`,
+          );
+
+          return resultWithComments;
+        }
+      } else {
+        if (baseResult.errors.length > 0) {
+          this.logger.warn(
+            `Compilation completed with ${baseResult.errors.length} errors in ${fileName}`,
+          );
+        } else if (baseResult.warnings.length > 0) {
+          this.logger.info(
+            `Compilation completed with ${baseResult.warnings.length} warnings in ${fileName}`,
+          );
+        } else {
+          this.logger.debug(
+            `Compilation completed successfully for ${fileName}`,
+          );
+        }
+
+        return baseResult;
+      }
     } catch (error) {
       this.logger.error(
         `Unexpected error during compilation of ${fileName}`,
         error,
       );
+
       // Create an error object for any unexpected errors
       const errorObject: ApexError = {
         type: 'semantic' as any,
@@ -126,13 +247,22 @@ export class CompilerService {
         filePath: fileName,
       };
 
-      // Handle any errors during parsing
-      return {
+      const baseErrorResult = {
         fileName,
         result: null,
         errors: [errorObject],
         warnings: [],
       };
+
+      // Return with comments array by default, otherwise without
+      if (options.includeComments !== false) {
+        return {
+          ...baseErrorResult,
+          comments: [],
+        };
+      }
+
+      return baseErrorResult;
     }
   }
 
@@ -140,86 +270,32 @@ export class CompilerService {
    * Parse and compile multiple Apex files.
    * @param files An array of file objects containing content and name
    * @param listener The listener to use during parsing
-   * @param projectNamespace Optional namespace override for this compilation
+   * @param options Optional compilation options
    * @returns Array of CompilationResult with the parsed result or errors for each file
    */
   public compileMultiple<T>(
     files: { content: string; fileName: string }[],
     listener: BaseApexParserListener<T>,
-    projectNamespace?: string,
-  ): CompilationResult<T>[] {
-    const results: CompilationResult<T>[] = [];
+    options: CompilationOptions = {},
+  ): (CompilationResult<T> | CompilationResultWithComments<T>)[] {
+    const results: (CompilationResult<T> | CompilationResultWithComments<T>)[] =
+      [];
 
-    // Use the provided namespace or fall back to the one from constructor
-    const namespace = projectNamespace || this.projectNamespace;
-
-    // Process each file
+    // Process each file using the single file compile method
     for (const file of files) {
-      try {
-        // Create an error listener for this file
-        const errorListener = new ApexErrorListener(file.fileName);
+      // Create a fresh listener for each file if needed
+      const fileListener = listener.createNewInstance
+        ? listener.createNewInstance()
+        : listener;
 
-        // Parse the code and get the compilation unit
-        const compilationUnitContext = this.getCompilationUnit(
-          file.content,
-          errorListener,
-        );
-
-        // Create a fresh listener for each file if needed
-        const fileListener = listener.createNewInstance
-          ? listener.createNewInstance()
-          : listener;
-
-        // Set the error listener on the parser listener
-        fileListener.setErrorListener(errorListener);
-
-        // Set the project namespace if provided
-        if (
-          namespace &&
-          typeof fileListener.setProjectNamespace === 'function'
-        ) {
-          fileListener.setProjectNamespace(namespace);
-        }
-
-        // Use the provided listener to walk the parse tree
-        const walker = new ParseTreeWalker();
-        walker.walk(fileListener, compilationUnitContext);
-
-        // Collect any file-specific warnings
-        const warnings: string[] = [];
-        if (
-          'getWarnings' in fileListener &&
-          typeof fileListener.getWarnings === 'function'
-        ) {
-          warnings.push(...fileListener.getWarnings());
-        }
-
-        // Add the result for this file
-        results.push({
-          fileName: file.fileName,
-          result: fileListener.getResult(),
-          errors: errorListener.getErrors(),
-          warnings,
-        });
-      } catch (error) {
-        // Create an error object for any unexpected errors
-        const errorObject: ApexError = {
-          type: 'semantic' as any, // Type assertion to avoid importing the enum
-          severity: 'error' as any, // Type assertion to avoid importing the enum
-          message: error instanceof Error ? error.message : String(error),
-          line: 0,
-          column: 0,
-          filePath: file.fileName,
-        };
-
-        // Handle any errors during parsing for this file
-        results.push({
-          fileName: file.fileName,
-          result: null,
-          errors: [errorObject],
-          warnings: [],
-        });
-      }
+      // Use the single file compile method which handles all the logic
+      const result = this.compile(
+        file.content,
+        file.fileName,
+        fileListener,
+        options,
+      );
+      results.push(result);
     }
 
     return results;

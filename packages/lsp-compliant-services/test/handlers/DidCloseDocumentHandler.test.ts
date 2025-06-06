@@ -45,7 +45,7 @@ describe('DidCloseDocumentHandler', () => {
   });
 
   describe('processOnCloseDocument', () => {
-    it('should log info message with document close params', async () => {
+    it('should log debug message with document close params', async () => {
       const event: TextDocumentChangeEvent<TextDocument> = {
         document: {
           uri: 'file:///test.apex',
@@ -62,8 +62,8 @@ describe('DidCloseDocumentHandler', () => {
 
       await processOnCloseDocument(event);
 
-      expect(mockLogger.info).toHaveBeenCalledTimes(1);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server close document handler invoked with: ${event}`,
       );
     });
@@ -86,8 +86,8 @@ describe('DidCloseDocumentHandler', () => {
 
       await processOnCloseDocument(event);
 
-      expect(mockLogger.info).toHaveBeenCalledTimes(1);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server close document handler invoked with: ${event}`,
       );
     });

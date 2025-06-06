@@ -58,6 +58,7 @@ interface MockConnection {
   onDocumentSymbol: jest.Mock;
   sendDiagnostics: jest.Mock;
   onFoldingRanges: jest.Mock;
+  onDidChangeConfiguration: jest.Mock;
 }
 
 // Pre-create the mock connection with minimal properties
@@ -76,6 +77,7 @@ const mockConnection: MockConnection = {
   onDocumentSymbol: jest.fn(),
   sendDiagnostics: jest.fn(),
   onFoldingRanges: jest.fn(),
+  onDidChangeConfiguration: jest.fn(),
 };
 
 // Mock TextDocuments
@@ -154,6 +156,22 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
       setReferences: jest.fn(),
     }),
   },
+  ApexSettingsManager: {
+    getInstance: jest.fn().mockReturnValue({
+      updateSettings: jest.fn(),
+      getSettings: jest.fn(),
+      updateFromLSPConfiguration: jest.fn().mockReturnValue(true),
+      getCompilationOptions: jest.fn(),
+      onSettingsChange: jest.fn(),
+    }),
+  },
+  LSPConfigurationManager: jest.fn().mockImplementation(() => ({
+    setConnection: jest.fn(),
+    processInitializeParams: jest.fn(),
+    handleConfigurationChange: jest.fn(),
+    requestConfiguration: jest.fn(),
+    registerForConfigurationChanges: jest.fn(),
+  })),
   dispatchProcessOnOpenDocument: mockDispatchProcessOnOpenDocument,
   dispatchProcessOnChangeDocument: mockDispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
@@ -253,7 +271,13 @@ describe('Apex Language Server', () => {
         },
         hoverProvider: false,
         documentSymbolProvider: true,
-        foldingRangeProvider: false,
+        foldingRangeProvider: true,
+        workspace: {
+          workspaceFolders: {
+            supported: true,
+            changeNotifications: true,
+          },
+        },
       },
     });
   });
@@ -305,8 +329,8 @@ describe('Apex Language Server', () => {
     ]);
   });
 
-  it('should not register a folding range handler', () => {
-    expect(mockConnection.onFoldingRanges.mock.calls.length).toBe(0);
+  it('should register a folding range handler', () => {
+    expect(mockConnection.onFoldingRanges.mock.calls.length).toBe(1);
   });
 
   describe('Document Management', () => {
@@ -336,6 +360,212 @@ describe('Apex Language Server', () => {
       const doc = { document: { uri: 'file:///test.cls' } };
       handler(doc);
       expect(mockDispatchProcessOnSaveDocument).toHaveBeenCalledWith(doc);
+    });
+  });
+
+  describe('Diagnostics Handling', () => {
+    beforeEach(() => {
+      // Clear any previous calls to sendDiagnostics
+      mockConnection.sendDiagnostics.mockClear();
+    });
+
+    it('should send diagnostics when onDidOpen returns diagnostics', async () => {
+      const mockDiagnostics = [
+        {
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 10 },
+          },
+          message: 'Test error',
+          severity: 1,
+        },
+      ];
+      mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(mockDiagnostics);
+
+      const handler = mockDocuments.onDidOpen.mock.calls[0][0];
+      const doc = { document: { uri: 'file:///test.cls' } };
+
+      await handler(doc);
+
+      // Allow promises to resolve
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.cls',
+        diagnostics: mockDiagnostics,
+      });
+    });
+
+    it('should send empty diagnostics array when onDidOpen returns undefined', async () => {
+      mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(undefined);
+
+      const handler = mockDocuments.onDidOpen.mock.calls[0][0];
+      const doc = { document: { uri: 'file:///test.cls' } };
+
+      await handler(doc);
+
+      // Allow promises to resolve
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.cls',
+        diagnostics: [],
+      });
+    });
+
+    it('should send empty diagnostics array when onDidOpen returns null', async () => {
+      mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(null);
+
+      const handler = mockDocuments.onDidOpen.mock.calls[0][0];
+      const doc = { document: { uri: 'file:///test.cls' } };
+
+      await handler(doc);
+
+      // Allow promises to resolve
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.cls',
+        diagnostics: [],
+      });
+    });
+
+    it('should send diagnostics when onDidChangeContent returns diagnostics', async () => {
+      const mockDiagnostics = [
+        {
+          range: {
+            start: { line: 1, character: 5 },
+            end: { line: 1, character: 15 },
+          },
+          message: 'Syntax error',
+          severity: 1,
+        },
+      ];
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(
+        mockDiagnostics,
+      );
+
+      const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
+      const doc = { document: { uri: 'file:///test.cls' } };
+
+      await handler(doc);
+
+      // Allow promises to resolve
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.cls',
+        diagnostics: mockDiagnostics,
+      });
+    });
+
+    it('should send empty diagnostics array when onDidChangeContent returns empty array', async () => {
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce([]);
+
+      const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
+      const doc = { document: { uri: 'file:///test.cls' } };
+
+      await handler(doc);
+
+      // Allow promises to resolve
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.cls',
+        diagnostics: [],
+      });
+    });
+
+    it('should clear diagnostics when document is closed', async () => {
+      const handler = mockDocuments.onDidClose.mock.calls[0][0];
+      const doc = { document: { uri: 'file:///test.cls' } };
+
+      await handler(doc);
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.cls',
+        diagnostics: [],
+      });
+    });
+
+    it('should handle multiple diagnostics correctly', async () => {
+      const mockDiagnostics = [
+        {
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 10 },
+          },
+          message: 'First error',
+          severity: 1,
+        },
+        {
+          range: {
+            start: { line: 1, character: 0 },
+            end: { line: 1, character: 5 },
+          },
+          message: 'Second error',
+          severity: 2,
+        },
+      ];
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(
+        mockDiagnostics,
+      );
+
+      const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
+      const doc = { document: { uri: 'file:///test.cls' } };
+
+      await handler(doc);
+
+      // Allow promises to resolve
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.cls',
+        diagnostics: mockDiagnostics,
+      });
+    });
+
+    it('should clear diagnostics when errors are resolved (bug fix scenario)', async () => {
+      const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
+      const doc = { document: { uri: 'file:///test.cls' } };
+
+      // First, simulate document change with errors
+      const mockDiagnosticsWithErrors = [
+        {
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 10 },
+          },
+          message: 'Syntax error',
+          severity: 1,
+        },
+      ];
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(
+        mockDiagnosticsWithErrors,
+      );
+
+      await handler(doc);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.cls',
+        diagnostics: mockDiagnosticsWithErrors,
+      });
+
+      // Clear the mock to test the next call
+      mockConnection.sendDiagnostics.mockClear();
+
+      // Now, simulate document change with no errors (resolved)
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(undefined);
+
+      await handler(doc);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      // The key test: diagnostics should be cleared (sent as empty array)
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.cls',
+        diagnostics: [],
+      });
     });
   });
 });

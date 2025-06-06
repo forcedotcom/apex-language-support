@@ -41,7 +41,7 @@ describe('DidSaveDocumentHandler', () => {
   });
 
   describe('processOnSaveDocument', () => {
-    it('should log info message with document save params', async () => {
+    it('should log debug message with document save params', async () => {
       const event: TextDocumentChangeEvent<TextDocument> = {
         document: {
           uri: 'file:///test.apex',
@@ -56,8 +56,8 @@ describe('DidSaveDocumentHandler', () => {
 
       await processOnSaveDocument(event);
 
-      expect(mockLogger.info).toHaveBeenCalledTimes(1);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server save document handler invoked with: ${event}`,
       );
     });
@@ -77,8 +77,8 @@ describe('DidSaveDocumentHandler', () => {
 
       await processOnSaveDocument(event);
 
-      expect(mockLogger.info).toHaveBeenCalledTimes(1);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server save document handler invoked with: ${event}`,
       );
     });
@@ -98,8 +98,8 @@ describe('DidSaveDocumentHandler', () => {
 
       await processOnSaveDocument(event);
 
-      expect(mockLogger.info).toHaveBeenCalledTimes(1);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server save document handler invoked with: ${event}`,
       );
     });

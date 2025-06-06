@@ -29,3 +29,8 @@ export {
   ApexReference,
   ApexStorageInterface,
 } from './storage/ApexStorageInterface';
+
+// Export settings management
+export * from './settings/ApexLanguageServerSettings';
+export * from './settings/ApexSettingsManager';
+export * from './settings/LSPConfigurationManager';

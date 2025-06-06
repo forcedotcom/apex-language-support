@@ -18,7 +18,7 @@ export const processOnSaveDocument = async (
   // Client opened a document
   // TODO: Server will parse the document and populate the corresponding local maps
   const logger = Logger.getInstance();
-  logger.info(
+  logger.debug(
     `Common Apex Language Server save document handler invoked with: ${event}`,
   );
 
