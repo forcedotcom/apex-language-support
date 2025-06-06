@@ -120,69 +120,48 @@ npm install @salesforce/apex-lsp-testbed
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd apex-language-server-ts
+cd apex-language-support
 
 # Install dependencies
 npm install
 ```
 
-## Recent Changes
-
-- **Removed Babel References:**  
-  All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
-
-- **TypeScript Improvements:**  
-  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.web.test.ts`, variables and parameters now have explicit `any` types.
-
-- **Jest Configuration:**  
-  Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
-
 ## Development
+
+To build all packages, run the following command from the root of the repository:
 
 ```bash
 # Build all packages
-npm run build
-
-# Watch all packages for changes during development
-npm run dev
-
-# Run tests
-npm test
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run tests for a specific package
-npm run test:packages
-
-# Run tests with coverage for specific packages
-npm run test:coverage:packages
-
-# Generate a consolidated coverage report
-npm run test:coverage:report
-
-# Lint code
-npm run lint
-
-# Fix linting issues
-npm run lint:fix
+turbo build
 ```
 
-### Build and Package VS Code Extension
-
-For a complete build and packaging of the VS Code extension, use the dedicated build script:
+Other useful commands for development include:
 
 ```bash
-# Clean, build, and package the VS Code extension
-npm run build:package
+# Watch all packages for changes
+turbo dev
+
+# Run all tests
+turbo test
+
+# Run all tests with coverage
+turbo test:coverage
+
+# Lint all packages
+turbo lint
+
+# Fix linting issues
+turbo lint:fix
 ```
 
-This script performs the following steps:
-1. Cleans the root `node_modules` directory
-2. Installs fresh dependencies
-3. Cleans both `apex-ls-node` and `apex-lsp-vscode-extension` packages (including their `node_modules` directories)
-4. Compiles and builds the `apex-ls-node` package
-5. Packages the VS Code extension into a `.vsix` file (dependencies are automatically installed during the precompile step)
+### Building and Packaging the VS Code Extension
+
+To build and package the VS Code extension (`.vsix` file), run the following command from the root of the repository:
+
+```bash
+# Build and package the VS Code extension
+turbo package --filter=apex-language-server-extension
+```
 
 The packaged extension will be available in the `packages/apex-lsp-vscode-extension` directory.
 

@@ -54,11 +54,8 @@ export function activate(context: vscode.ExtensionContext) {
   // Create and initialize status bar item
   statusBarItem = createStatusBarItem(context);
 
-  // First-time startup with some delay
-  setTimeout(() => {
-    serverStartRetries = 0;
-    startLanguageServer(context);
-  }, 1000);
+  serverStartRetries = 0;
+  startLanguageServer(context);
 }
 
 /**

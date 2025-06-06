@@ -31,9 +31,6 @@ export default defineConfig({
   external: [
     // VSCode dependencies
     'vscode',
-    // 'vscode-languageclient', // Now bundled
-    // 'vscode-languageserver-textdocument', // Now bundled
-    // 'vscode-uri', // Now bundled
     'vscode-languageserver',
     'vscode-languageserver/browser',
     'vscode-languageserver/node',

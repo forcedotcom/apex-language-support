@@ -12,9 +12,6 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {} from 'jest';
-import {
-  dispatchProcessOnSaveDocument,
-} from '@salesforce/apex-lsp-compliant-services';
 
 // Define handler types
 type OnDidOpenHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
@@ -267,7 +264,7 @@ describe('Apex Language Server', () => {
 
     // Act
     shutdownHandler();
-    
+
     // Assert
     expect(mockLogger.info).toHaveBeenCalledWith(
       'Apex Language Server shutting down...',
@@ -332,6 +329,13 @@ describe('Apex Language Server', () => {
       const doc = { document: { uri: 'file:///test.cls' } };
       handler(doc);
       expect(mockDispatchProcessOnCloseDocument).toHaveBeenCalledWith(doc);
+    });
+
+    it('should handle onDidSave', () => {
+      const handler = mockDocuments.onDidSave.mock.calls[0][0];
+      const doc = { document: { uri: 'file:///test.cls' } };
+      handler(doc);
+      expect(mockDispatchProcessOnSaveDocument).toHaveBeenCalledWith(doc);
     });
   });
 });
