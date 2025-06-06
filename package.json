@@ -25,7 +25,6 @@
     "semantic-release": "semantic-release",
     "bundle": "turbo run bundle",
     "package:packages": "turbo run package --filter=./packages/*",
-    "package:vscode-extension": "npm run package --workspace=packages/apex-lsp-vscode-extension",
     "build:package": "node scripts/build-and-package.js"
   },
   "keywords": [

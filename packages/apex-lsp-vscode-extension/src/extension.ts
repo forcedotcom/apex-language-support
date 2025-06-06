@@ -177,6 +177,10 @@ function createClientOptions(): LanguageClientOptions {
       error: handleClientError,
       closed: () => handleClientClosed(),
     },
+    // Explicitly enable document symbols support
+    initializationOptions: {
+      enableDocumentSymbols: true,
+    },
   };
 }
 

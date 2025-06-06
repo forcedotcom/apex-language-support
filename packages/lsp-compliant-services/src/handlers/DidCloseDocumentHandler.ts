@@ -15,17 +15,14 @@ import { dispatch } from '../utils/handlerUtil';
 export const processOnCloseDocument = async (
   event: TextDocumentChangeEvent<TextDocument>,
 ): Promise<void> => {
-  // Client opened a document
-  // TODO: Server will parse the document and populate the corresponding local maps
   const logger = Logger.getInstance();
   logger.info(
     `Common Apex Language Server close document handler invoked with: ${event}`,
   );
 
-  // TODO: Implement the logic to process the document close
-  // This might involve updating the AST, type information, or other data structures
-  // based on the changes in the document
-  // You can access the document content using params.contentChanges
+  // Note: We intentionally do NOT remove documents from storage when they're closed
+  // in the UI, as the storage system is designed to persist for the entire session
+  // to support cross-file references and other language features.
 };
 
 export const dispatchProcessOnCloseDocument = (

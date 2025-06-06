@@ -96,14 +96,6 @@
           "icon": "media/apex-icon.svg"
         }
       ]
-    },
-    "views": {
-      "explorer": [
-        {
-          "id": "apexOutline",
-          "name": "Apex Outline"
-        }
-      ]
     }
   },
   "scripts": {
