@@ -28,25 +28,12 @@ import { getLogger } from '@salesforce/apex-lsp-logging';
 import { BaseApexParserListener } from './BaseApexParserListener';
 
 /**
- * Types of foldable regions in Apex code
+ * Standard LSP folding range kinds as defined in the Language Server Protocol specification
  */
-export enum FoldingRangeKind {
-  Class = 'class',
-  Interface = 'interface',
-  Method = 'method',
-  Constructor = 'constructor',
-  Block = 'block',
-  IfStatement = 'if',
-  TryCatch = 'try',
-  Switch = 'switch',
-  While = 'while',
-  For = 'for',
-  DoWhile = 'do',
-  Enum = 'enum',
-  Trigger = 'trigger',
-  Comment = 'comment',
-  Statement = 'statement', // For multiline statements like SOQL
-}
+export type FoldingRangeKind =
+  | 'comment' // Comments
+  | 'imports' // Import sections
+  | 'region'; // User-defined regions (catch-all for other foldable content)
 
 /**
  * Represents a foldable region in the code
@@ -90,28 +77,28 @@ export class ApexFoldingRangeListener extends BaseApexParserListener<
    * Called when entering a class declaration
    */
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
-    this.addRange(ctx, FoldingRangeKind.Class);
+    this.addRange(ctx, 'region');
   }
 
   /**
    * Called when entering an interface declaration
    */
   enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
-    this.addRange(ctx, FoldingRangeKind.Interface);
+    this.addRange(ctx, 'region');
   }
 
   /**
    * Called when entering a method declaration
    */
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
-    this.addRange(ctx, FoldingRangeKind.Method);
+    this.addRange(ctx, 'region');
   }
 
   /**
    * Called when entering a constructor declaration
    */
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
-    this.addRange(ctx, FoldingRangeKind.Constructor);
+    this.addRange(ctx, 'region');
   }
 
   /**
@@ -120,21 +107,21 @@ export class ApexFoldingRangeListener extends BaseApexParserListener<
   enterInterfaceMethodDeclaration(
     ctx: InterfaceMethodDeclarationContext,
   ): void {
-    this.addRange(ctx, FoldingRangeKind.Method);
+    this.addRange(ctx, 'region');
   }
 
   /**
    * Called when entering an enum declaration
    */
   enterEnumDeclaration(ctx: EnumDeclarationContext): void {
-    this.addRange(ctx, FoldingRangeKind.Enum);
+    this.addRange(ctx, 'region');
   }
 
   /**
    * Called when entering a trigger unit
    */
   enterTriggerUnit(ctx: TriggerUnitContext): void {
-    this.addRange(ctx, FoldingRangeKind.Trigger);
+    this.addRange(ctx, 'region');
   }
 
   /**
@@ -142,7 +129,7 @@ export class ApexFoldingRangeListener extends BaseApexParserListener<
    */
   enterBlock(ctx: BlockContext): void {
     this.blockDepth++;
-    this.addRange(ctx, FoldingRangeKind.Block);
+    this.addRange(ctx, 'region');
   }
 
   /**
@@ -156,42 +143,42 @@ export class ApexFoldingRangeListener extends BaseApexParserListener<
    * Called when entering an if statement
    */
   enterIfStatement(ctx: IfStatementContext): void {
-    this.addRange(ctx, FoldingRangeKind.IfStatement);
+    this.addRange(ctx, 'region');
   }
 
   /**
    * Called when entering a try statement
    */
   enterTryStatement(ctx: TryStatementContext): void {
-    this.addRange(ctx, FoldingRangeKind.TryCatch);
+    this.addRange(ctx, 'region');
   }
 
   /**
    * Called when entering a switch statement
    */
   enterSwitchStatement(ctx: SwitchStatementContext): void {
-    this.addRange(ctx, FoldingRangeKind.Switch);
+    this.addRange(ctx, 'region');
   }
 
   /**
    * Called when entering a while statement
    */
   enterWhileStatement(ctx: WhileStatementContext): void {
-    this.addRange(ctx, FoldingRangeKind.While);
+    this.addRange(ctx, 'region');
   }
 
   /**
    * Called when entering a for statement
    */
   enterForStatement(ctx: ForStatementContext): void {
-    this.addRange(ctx, FoldingRangeKind.For);
+    this.addRange(ctx, 'region');
   }
 
   /**
    * Called when entering a do-while statement
    */
   enterDoWhileStatement(ctx: DoWhileStatementContext): void {
-    this.addRange(ctx, FoldingRangeKind.DoWhile);
+    this.addRange(ctx, 'region');
   }
 
   /**
@@ -201,7 +188,7 @@ export class ApexFoldingRangeListener extends BaseApexParserListener<
   enterStatement(ctx: ParserRuleContext): void {
     // Only add folding range if the statement spans multiple lines
     if (ctx.start.line !== ctx.stop?.line) {
-      this.addRange(ctx, FoldingRangeKind.Statement);
+      this.addRange(ctx, 'region');
     }
   }
 
