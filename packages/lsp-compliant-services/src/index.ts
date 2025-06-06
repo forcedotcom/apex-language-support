@@ -14,12 +14,16 @@ export * from './storage/ApexStorage';
 // Export document symbol provider
 export * from './documentSymbol/ApexDocumentSymbolProvider';
 
+// Export folding range provider
+export * from './foldingRange/ApexFoldingRangeProvider';
+
 // Export LSP handlers
 export * from './handlers/DidOpenDocumentHandler';
 export * from './handlers/DidChangeDocumentHandler';
 export * from './handlers/DidCloseDocumentHandler';
 export * from './handlers/DidSaveDocumentHandler';
 export * from './handlers/DocumentSymbolHandler';
+export * from './handlers/FoldingRangeHandler';
 export * from './handlers/LogNotificationHandler';
 export {
   ApexReference,
