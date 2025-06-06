@@ -62,6 +62,43 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
       expect(m1?.annotations?.[0].name).toBe('isTest');
     });
 
+    it('should allow @isTest annotation on private class', () => {
+      // This test expects that @isTest annotation acts as an exception to the general
+      // rule that private classes are not allowed. Test classes with @isTest should
+      // be permitted to have private visibility for test isolation purposes.
+      const fileContent = `
+        @isTest
+        private class PrivateTestClass {
+          @isTest
+          public static void testSomething() {
+            // Test method implementation
+          }
+        }
+      `;
+
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'PrivateTestClass.cls',
+        listener,
+      );
+
+      // Expected future behavior: @isTest private classes should have no errors
+      expect(result.errors.length).toBe(0);
+
+      // Verify the annotation and class were parsed correctly
+      const symbolTable = result.result;
+      expect(symbolTable).toBeDefined();
+
+      const globalScope = symbolTable?.getCurrentScope();
+      const classSymbol = globalScope?.getAllSymbols()[0];
+
+      expect(classSymbol).toBeDefined();
+      expect(classSymbol?.name).toBe('PrivateTestClass');
+      expect(classSymbol?.annotations).toBeDefined();
+      expect(classSymbol?.annotations?.length).toBe(1);
+      expect(classSymbol?.annotations?.[0].name).toBe('isTest');
+    });
+
     it('should handle annotation parameters', () => {
       const fileContent = `
         @RestResource(urlMapping='/api/records')

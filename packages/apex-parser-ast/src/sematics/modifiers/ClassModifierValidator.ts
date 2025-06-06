@@ -12,6 +12,7 @@ import {
   SymbolModifiers,
   SymbolVisibility,
   TypeSymbol,
+  Annotation,
 } from '../../types/symbol';
 import { ErrorReporter } from '../../utils/ErrorReporter';
 
@@ -22,6 +23,17 @@ import { ErrorReporter } from '../../utils/ErrorReporter';
  */
 export class ClassModifierValidator {
   /**
+   * Check if annotations contain @isTest annotation
+   * @param annotations The annotations to check
+   * @returns True if @isTest annotation is present
+   */
+  private static hasIsTestAnnotation(annotations: Annotation[]): boolean {
+    return annotations.some(
+      (annotation) => annotation.name.toLowerCase() === 'istest',
+    );
+  }
+
+  /**
    * Validates class visibility modifiers for semantic errors.
    * Ensures proper visibility rules for both outer and inner classes.
    * @param className The name of the class being validated
@@ -29,6 +41,7 @@ export class ClassModifierValidator {
    * @param ctx The parser context for error reporting
    * @param isInnerClass Whether this is an inner class
    * @param currentTypeSymbol The type symbol containing the class (for inner classes)
+   * @param annotations The annotations on the class (to check for @isTest)
    * @param errorReporter The error reporter to use for reporting validation errors
    */
   public static validateClassVisibilityModifiers(
@@ -37,6 +50,7 @@ export class ClassModifierValidator {
     ctx: ParserRuleContext,
     isInnerClass: boolean,
     currentTypeSymbol: TypeSymbol | null,
+    annotations: Annotation[],
     errorReporter: ErrorReporter,
   ): void {
     // webService modifier is not allowed on classes
@@ -52,11 +66,16 @@ export class ClassModifierValidator {
 
     // Validate visibility for outer classes
     if (!isInnerClass) {
+      // Check if this is a test class with @isTest annotation
+      const isTestClass = this.hasIsTestAnnotation(annotations);
+
       // Outer classes can only be public, global, or default
-      if (modifiers.visibility === SymbolVisibility.Private) {
+      // Exception: @isTest classes can be private for test isolation
+      if (modifiers.visibility === SymbolVisibility.Private && !isTestClass) {
         errorReporter.addError(
           `Outer class '${className}' cannot be declared as 'private'. ` +
-            'Outer classes can only be public, global, or default visibility',
+            'Outer classes can only be public, global, or default visibility. ' +
+            'Exception: Test classes with @isTest annotation may be private.',
           ctx,
         );
         // Correct to default visibility

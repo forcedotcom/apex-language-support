@@ -243,6 +243,7 @@ export class ApexSymbolCollectorListener
         ctx,
         !!this.currentTypeSymbol, // isInnerClass
         this.currentTypeSymbol,
+        annotations,
         this,
       );
 
