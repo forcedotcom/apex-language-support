@@ -35,4 +35,4 @@ export default defineConfig({
   external: [
     'vscode', // The language server itself should not bundle the vscode API
   ],
-}); 
+});

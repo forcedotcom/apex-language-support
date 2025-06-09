@@ -164,13 +164,12 @@
   "scripts": {
     "precompile": "npm install && npm run copy:files",
     "compile": "tsc --build",
-    "copy-server-bundle": "shx rm -rf ./server-bundle && shx mkdir -p ./server-bundle && shx cp -R ../apex-ls-node/bundle/* ./server-bundle/",
-    "bundle": "npm run copy-server-bundle && node ../../scripts/build-bundle.js && shx mkdir -p extension/dist/snippets && shx cp -R snippets/* extension/dist/snippets/ && shx cp -R grammars extension/dist/ && shx cp language-configuration.json extension/dist/ && shx cp bundle/extension.js extension/dist/extension.js && shx mkdir -p extension/dist/server-bundle && shx cp -R ./server-bundle/* extension/dist/server-bundle/",
+    "bundle": "node ../../scripts/build-bundle.js && shx mkdir -p extension/dist/snippets && shx cp -R snippets/* extension/dist/snippets/ && shx cp -R grammars extension/dist/ && shx cp language-configuration.json extension/dist/ && shx cp bundle/extension.js extension/dist/extension.js && shx mkdir -p extension/dist/server-bundle && shx cp -R ../apex-ls-node/bundle/* extension/dist/server-bundle/",
     "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
     "package": "vsce package --allow-star-activation",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf dist bundle extension server-bundle *.tsbuildinfo .turbo coverage grammars node_modules",
+    "clean": "rimraf dist bundle extension *.tsbuildinfo .turbo coverage grammars node_modules",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage"
   },
