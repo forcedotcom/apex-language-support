@@ -8,45 +8,31 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  format: ['cjs', 'esm'],
-  dts: false,
+  entry: ['src/index.ts'],
+  outDir: 'bundle',
+  format: ['cjs', 'esm'], // Keep both formats for flexibility
+  dts: true,
   splitting: false,
   sourcemap: true,
-  clean: false,
+  clean: true, // Clean its own 'bundle' dir before build
   minify: true,
   platform: 'node',
   target: 'node16',
-  outDir: 'bundle',
   outExtension({ format }) {
     return {
       js: format === 'esm' ? '.mjs' : '.js',
     };
   },
   noExternal: [
-    'vscode-languageclient',
-    'vscode-languageclient/node',
-    'vscode-languageserver-textdocument',
-    'vscode-uri',
-  ],
-  external: [
-    // VSCode dependencies
-    'vscode',
     'vscode-languageserver',
-    'vscode-languageserver/browser',
     'vscode-languageserver/node',
-    // Common external dependencies
-    '@apexdevtools/apex-parser',
-    'antlr4ts',
-    // Internal dependencies
-    '@salesforce/apex-lsp-logging',
+    'vscode-languageserver-textdocument',
     '@salesforce/apex-lsp-parser-ast',
     '@salesforce/apex-lsp-custom-services',
     '@salesforce/apex-lsp-compliant-services',
-    '@salesforce/apex-ls-browser',
-    '@salesforce/apex-ls-node',
-    '@salesforce/apex-lsp-testbed',
-    '@salesforce/apex-lsp-browser-client',
-    '@salesforce/apex-lsp-vscode-client',
-    '@salesforce/apex-lsp-vscode-extension',
+    '@salesforce/apex-lsp-logging',
   ],
-});
+  external: [
+    'vscode', // The language server itself should not bundle the vscode API
+  ],
+}); 

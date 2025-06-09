@@ -46,7 +46,13 @@ export class NodeLogNotificationHandler implements LogNotificationHandler {
    * @param params The log message parameters
    */
   public sendLogMessage(params: LogMessageParams): void {
-    // Log to console
+    // Send to language client
+    this.connection.sendNotification('window/logMessage', {
+      type: this.getLogMessageType(params.type),
+      message: params.message,
+    });
+
+    // Send to console
     switch (params.type) {
       case LogMessageType.Error:
         console.error(params.message);
@@ -58,17 +64,10 @@ export class NodeLogNotificationHandler implements LogNotificationHandler {
         console.info(params.message);
         break;
       case LogMessageType.Log:
-        console.log(params.message);
-        break;
       default:
         console.log(params.message);
+        break;
     }
-
-    // Send to language client
-    this.connection.sendNotification('window/logMessage', {
-      type: this.getLogMessageType(params.type),
-      message: params.message,
-    });
   }
 
   /**

@@ -35,6 +35,9 @@ export const processOnOpenDocument = async (
 
   const document = event.document;
 
+  // Store the document in storage for later retrieval by other handlers
+  await storage.setDocument(document.uri, document);
+
   // Create a symbol collector listener
   const table = new SymbolTable();
   const listener = new ApexSymbolCollectorListener(table);

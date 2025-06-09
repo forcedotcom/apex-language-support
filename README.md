@@ -120,53 +120,50 @@ npm install @salesforce/apex-lsp-testbed
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd apex-language-server-ts
+cd apex-language-support
 
 # Install dependencies
 npm install
 ```
 
-## Recent Changes
-
-- **Removed Babel References:**  
-  All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
-
-- **TypeScript Improvements:**  
-  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.web.test.ts`, variables and parameters now have explicit `any` types.
-
-- **Jest Configuration:**  
-  Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
-
 ## Development
+
+To build all packages, run the following command from the root of the repository:
 
 ```bash
 # Build all packages
-npm run build
+turbo build
+```
 
-# Watch all packages for changes during development
-npm run dev
+Other useful commands for development include:
 
-# Run tests
-npm test
+```bash
+# Watch all packages for changes
+turbo dev
 
-# Run tests with coverage
-npm run test:coverage
+# Run all tests
+turbo test
 
-# Run tests for a specific package
-npm run test:packages
+# Run all tests with coverage
+turbo test:coverage
 
-# Run tests with coverage for specific packages
-npm run test:coverage:packages
-
-# Generate a consolidated coverage report
-npm run test:coverage:report
-
-# Lint code
-npm run lint
+# Lint all packages
+turbo lint
 
 # Fix linting issues
-npm run lint:fix
+turbo lint:fix
 ```
+
+### Building and Packaging the VS Code Extension
+
+To build and package the VS Code extension (`.vsix` file), run the following command from the root of the repository:
+
+```bash
+# Build and package the VS Code extension
+turbo package --filter=apex-language-server-extension
+```
+
+The packaged extension will be available in the `packages/apex-lsp-vscode-extension` directory.
 
 ## Testing and Code Coverage
 

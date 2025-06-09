@@ -37,6 +37,9 @@ export const processOnChangeDocument = async (
     logger.error(`Document not found for URI: ${event.document.uri}`);
   }
 
+  // Store the document in storage for later retrieval by other handlers
+  await storage.setDocument(document.uri, document);
+
   // Create a symbol collector listener
   const table = new SymbolTable();
   const listener = new ApexSymbolCollectorListener(table);

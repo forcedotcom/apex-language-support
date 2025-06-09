@@ -29,15 +29,20 @@ import {
   processOnOpenDocument,
   dispatchProcessOnOpenDocument,
 } from '../../src/handlers/DidOpenDocumentHandler';
+import * as handlerUtil from '../../src/utils/handlerUtil';
 
 jest.mock('../../src/utils/Logger');
-jest.mock('../../src/storage/ApexStorageManager');
+jest.mock('../../src/storage/ApexStorageManager', () => {
+  const mockGetInstance = jest.fn();
+  return {
+    ApexStorageManager: {
+      getInstance: mockGetInstance,
+    },
+  };
+});
 jest.mock('../../src/definition/ApexDefinitionUpserter');
 jest.mock('../../src/references/ApexReferencesUpserter');
-jest.mock('../../src/utils/handlerUtil', () => ({
-  ...jest.requireActual('../../src/utils/handlerUtil'),
-  dispatch: jest.fn(),
-}));
+jest.mock('../../src/utils/handlerUtil');
 jest.mock('@salesforce/apex-lsp-parser-ast');
 
 describe('DidOpenDocumentHandler', () => {
@@ -50,6 +55,7 @@ describe('DidOpenDocumentHandler', () => {
   let mockSymbolTable: jest.Mocked<SymbolTable>;
   let mockListener: jest.Mocked<ApexSymbolCollectorListener>;
   let mockGlobalSymbols: ApexSymbol[];
+  let mockGetDiagnostics: jest.SpyInstance;
 
   beforeEach(() => {
     // Reset mocks
@@ -166,6 +172,10 @@ describe('DidOpenDocumentHandler', () => {
         }
       },
     );
+
+    mockGetDiagnostics = jest
+      .spyOn(handlerUtil, 'getDiagnosticsFromErrors')
+      .mockImplementation(() => []);
   });
 
   it('should process document open and populate definitions and references', async () => {
@@ -226,6 +236,18 @@ describe('DidOpenDocumentHandler', () => {
       result: undefined,
       warnings: [],
     });
+
+    // Mock the utility function to return a specific diagnostic
+    mockGetDiagnostics.mockReturnValue([
+      {
+        message: 'Compilation error',
+        range: {
+          start: { line: 1, character: 0 },
+          end: { line: 1, character: 0 },
+        },
+        severity: 1,
+      },
+    ]);
 
     // Act
     const result = await processOnOpenDocument(event);
@@ -377,5 +399,39 @@ describe('DidOpenDocumentHandler', () => {
         error,
       );
     });
+  });
+
+  it('should return diagnostics for a document with errors', async () => {
+    const docUri = 'file:///error.cls';
+    const docContent = 'public class ErrorClass {';
+    const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
+    const mockError = { message: 'Syntax error' } as any;
+    const mockDiagnostic = {
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 5 },
+      },
+      message: 'Syntax error',
+    };
+
+    mockCompilerService.compile.mockReturnValue({ errors: [mockError] } as any);
+    mockGetDiagnostics.mockReturnValue([mockDiagnostic]);
+
+    const result = await processOnOpenDocument({ document: textDocument });
+
+    expect(result).toEqual([mockDiagnostic]);
+    expect(mockGetDiagnostics).toHaveBeenCalledWith([mockError]);
+  });
+
+  it('should return undefined for a document without errors', async () => {
+    const docUri = 'file:///success.cls';
+    const docContent = 'public class SuccessClass {}';
+    const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
+    mockCompilerService.compile.mockReturnValue({ errors: [] } as any);
+
+    const result = await processOnOpenDocument({ document: textDocument });
+
+    expect(result).toBeUndefined();
+    expect(mockGetDiagnostics).not.toHaveBeenCalled();
   });
 });

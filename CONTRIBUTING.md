@@ -27,79 +27,336 @@ Before you begin, ensure your development environment meets these requirements:
 
 3. **Build the project**:
    ```bash
-   npm run build
+   npm run compile
    ```
 
-## Project Structure
+## Project Structure & Architecture
 
-The project is organized as a monorepo using npm workspaces:
+The project is organized as a **monorepo** using npm workspaces with multiple interconnected packages. The architecture follows a layered approach with clear separation of concerns:
 
-- `packages/apex-parser-ast`: Apex language parser and AST functionality
-- `packages/custom-services`: Custom language server services
-- `packages/lsp-compliant-services`: Standard LSP-compliant services
-- `packages/apex-ls-browser`: Browser-based implementation for the language server
-- `packages/apex-ls-node`: Node.js implementation for the language server
+### Package Overview
 
-## TypeScript Declaration Files
+```
+packages/
+├── apex-parser-ast/              # Core AST parsing functionality
+├── apex-lsp-logging/             # Centralized logging utilities
+├── lsp-compliant-services/       # Standard LSP protocol implementations
+├── custom-services/              # Custom language server services
+├── apex-ls-node/                 # Node.js language server implementation
+├── apex-ls-browser/              # Browser-based language server
+├── apex-lsp-browser-client/      # Browser client for language server
+├── apex-lsp-vscode-client/       # VS Code client integration
+├── apex-lsp-vscode-extension/    # VS Code desktop extension
+├── apex-lsp-vscode-extension-web/# VS Code web extension
+└── apex-lsp-testbed/             # Testing utilities and benchmarks
+```
 
-Each package generates TypeScript declaration files (`.d.ts`) to provide type information for consumers of the libraries. These declarations are:
+### Layer Architecture
 
-- Generated during the build process
-- Located in the `dist` directory of each package
-- Referenced by the `types` field in each package's `package.json`
+1. **Foundation Layer**:
 
-When creating new modules or modifying existing ones, ensure your code is properly typed so the declaration files are accurate and useful for consumers.
+   - `apex-lsp-logging`: Centralized logging across all packages
+   - `apex-parser-ast`: Core parsing, AST generation, and symbol analysis
+
+2. **Service Layer**:
+
+   - `lsp-compliant-services`: Standard LSP services (hover, completion, etc.)
+   - `custom-services`: Salesforce-specific language features
+
+3. **Server Layer**:
+
+   - `apex-ls-node`: Node.js-based language server implementation
+   - `apex-ls-browser`: Browser-compatible language server
+
+4. **Client Layer**:
+
+   - `apex-lsp-browser-client`: Browser client implementation
+   - `apex-lsp-vscode-client`: VS Code client abstraction
+   - `apex-lsp-vscode-extension`: Desktop VS Code extension
+   - `apex-lsp-vscode-extension-web`: Web VS Code extension
+
+5. **Testing Layer**:
+   - `apex-lsp-testbed`: Integration tests and performance benchmarks
+
+### Key Configuration Files
+
+#### Root Configuration
+
+- **`package.json`**: Monorepo configuration, workspace definitions, and root scripts
+- **`tsconfig.json`**: TypeScript project references and path mappings
+- **`tsconfig.base.json`**: Shared TypeScript compiler options
+- **`turbo.json`**: Build pipeline configuration and task dependencies
+- **`jest.config.cjs`**: Root Jest configuration for testing
+- **`eslint.config.cjs`**: ESLint configuration for code quality
+- **`.prettierrc`**: Code formatting rules
+
+#### Build & Bundling
+
+- **`tsup.config.ts`**: TypeScript bundling configuration
+- **`esbuild.config.js`**: Alternative bundling configuration
+- **`scripts/build-bundle.js`**: Custom bundle generation script
+- **`scripts/build-and-package.js`**: Packaging script for extensions
+- **`scripts/merge-coverage.js`**: Test coverage aggregation
+
+#### Development Tools
+
+- **`.husky/`**: Git hooks for pre-commit checks
+- **`commitlint.config.cjs`**: Commit message linting rules
+- **`.releaserc.json`**: Semantic release configuration
+
+## Build Tools & Technologies
+
+### Primary Build Tools
+
+1. **Turbo**: Monorepo build system with intelligent caching and parallel execution
+2. **TypeScript**: Primary language with strict type checking
+3. **tsup**: Fast TypeScript bundler built on esbuild
+4. **Jest**: Testing framework with coverage reporting
+5. **ESLint + Prettier**: Code quality and formatting
+
+### Build Pipeline Overview
+
+The build system uses **Turbo** for orchestrating builds across the monorepo with the following task hierarchy:
+
+```
+precompile → compile → bundle → package
+     ↑           ↑        ↑        ↑
+  Generate   TypeScript  Create   VS Code
+  resources  compilation bundles  extensions
+```
+
+### Task Dependencies (from turbo.json)
+
+```json
+{
+  "precompile": {
+    "dependsOn": ["^precompile"],
+    "outputs": ["src/generated/**", "dist/**"]
+  },
+  "compile": {
+    "dependsOn": ["precompile", "^compile"],
+    "outputs": ["dist/**", "*.tsbuildinfo"]
+  },
+  "bundle": {
+    "dependsOn": ["compile", "^bundle"],
+    "outputs": ["bundle/**", "dist/**"]
+  },
+  "package": {
+    "dependsOn": ["bundle", "^package"],
+    "outputs": ["extension/**"]
+  }
+}
+```
+
+## Build Target Hierarchies
+
+### 1. Dependency Resolution Order
+
+The build system automatically resolves dependencies in this order:
+
+```
+apex-lsp-logging (foundation)
+         ↓
+apex-parser-ast (core parsing)
+         ↓
+lsp-compliant-services + custom-services (services)
+         ↓
+apex-ls-node + apex-ls-browser (servers)
+         ↓
+apex-lsp-*-client packages (clients)
+         ↓
+apex-lsp-vscode-extension* (extensions)
+```
+
+### 2. Build Targets by Package
+
+Each package supports these build targets:
+
+- **`precompile`**: Generate resources, copy files, prepare for compilation
+- **`compile`**: TypeScript compilation to JavaScript + declaration files
+- **`bundle`**: Create optimized bundles using tsup
+- **`package`**: Create distributable packages (extensions only)
+- **`test`**: Run unit tests
+- **`test:coverage`**: Run tests with coverage reporting
+- **`lint`**: Code quality checks
+- **`clean`**: Remove build artifacts
+
+### 3. Special Build Configurations
+
+#### VS Code Extensions
+
+```json
+"apex-language-server-extension#bundle": {
+  "dependsOn": ["compile", "@salesforce/apex-ls-node#bundle"],
+  "outputs": ["extension/**", "bundle/**", "server-bundle/**"]
+}
+```
+
+#### Web Extensions
+
+```json
+"apex-language-server-extension-web#compile": {
+  "dependsOn": ["precompile", "^compile"],
+  "outputs": ["out/**", "*.tsbuildinfo"]
+}
+```
+
+## Intra-Module Dependencies
+
+### Package Dependency Graph
+
+```mermaid
+graph TD
+    A[apex-lsp-logging] --> B[apex-parser-ast]
+    A --> C[lsp-compliant-services]
+    A --> D[custom-services]
+    A --> E[apex-ls-node]
+    A --> F[apex-ls-browser]
+
+    B --> C
+    B --> D
+    B --> E
+    B --> F
+
+    C --> E
+    C --> F
+    C --> G[apex-lsp-vscode-client]
+
+    D --> E
+    D --> F
+
+    E --> H[apex-lsp-vscode-extension]
+    F --> I[apex-lsp-browser-client]
+    F --> J[apex-lsp-vscode-extension-web]
+
+    G --> H
+    I --> J
+
+    B --> K[apex-lsp-testbed]
+    C --> K
+    D --> K
+```
+
+### TypeScript Path Mappings
+
+The root `tsconfig.json` defines path mappings for cross-package imports:
+
+```json
+{
+  "paths": {
+    "@salesforce/apex-lsp-logging": ["packages/apex-lsp-logging/src"],
+    "@salesforce/apex-lsp-parser-ast": ["packages/apex-parser-ast/src"],
+    "@salesforce/apex-lsp-compliant-services": [
+      "packages/lsp-compliant-services/src"
+    ]
+    // ... other mappings
+  }
+}
+```
+
+### Runtime Dependencies
+
+#### Core Dependencies
+
+- **@apexdevtools/apex-parser**: External Apex parser
+- **antlr4ts**: Parser runtime for ANTLR-generated parsers
+- **vscode-languageserver**: LSP protocol implementation
+- **vscode-languageserver-textdocument**: Document handling utilities
+
+#### Development Dependencies
+
+- **turbo**: Build orchestration
+- **typescript**: Type checking and compilation
+- **jest**: Testing framework
+- **eslint**: Code linting
+- **prettier**: Code formatting
 
 ## Development Workflow
 
 ### Building
 
-This project uses [wireit](https://github.com/google/wireit) for smart incremental builds. Wireit only rebuilds what has changed, making development much faster.
+This project uses **Turbo** for smart incremental builds that only rebuild what has changed:
 
-- Build all packages:
-
-  ```bash
-  npm run build
-  ```
-
-- Build a specific package (will also build its dependencies):
+- **Build all packages**:
 
   ```bash
-  cd packages/custom-services
-  npm run build
+  npm run compile
   ```
 
-- Watch mode for development:
+- **Build a specific package** (will also build its dependencies):
+
   ```bash
-  npm run dev
+  cd packages/apex-parser-ast
+  npm run compile
   ```
 
-Wireit automatically:
+- **Clean build** (remove all build artifacts):
 
-- Tracks dependencies between packages
-- Only rebuilds what's necessary
-- Caches build results to avoid redundant work
-- Runs builds in parallel when possible
+  ```bash
+  npm run clean
+  ```
+
+- **Bundle packages** (create optimized bundles):
+  ```bash
+  npm run bundle
+  ```
+
+### Building Extensions
+
+For VS Code extensions specifically:
+
+```bash
+# Build desktop extension
+cd packages/apex-lsp-vscode-extension
+npm run package:vsix
+
+# Build web extension
+cd packages/apex-lsp-vscode-extension-web
+npm run package
+```
 
 ### Testing
 
-- Run tests:
+- **Run all tests**:
+
   ```bash
   npm test
   ```
 
-### Linting
+- **Run tests with coverage**:
 
-- Check code style:
+  ```bash
+  npm run test:coverage
+  ```
+
+- **Run package-specific tests**:
+  ```bash
+  npm run test:packages
+  ```
+
+### Code Quality
+
+- **Check code style**:
 
   ```bash
   npm run lint
   ```
 
-- Fix code style issues:
+- **Fix code style issues**:
   ```bash
   npm run lint:fix
   ```
+
+## TypeScript Declaration Files
+
+Each package generates TypeScript declaration files (`.d.ts`) to provide type information for consumers:
+
+- Generated during the `compile` phase
+- Located in the `dist/` directory of each package
+- Referenced by the `types` field in each package's `package.json`
+- Enable IntelliSense and type checking for package consumers
+
+When creating new modules or modifying existing ones, ensure your code is properly typed so the declaration files are accurate and useful.
 
 ## Commit Guidelines
 
@@ -175,6 +432,8 @@ This project follows these code style practices:
 - Follow the existing patterns in the codebase
 - All files must include the BSD 3-Clause license header
 - Use ESLint and Prettier for code formatting
+- Write comprehensive JSDoc comments for public APIs
+- Follow Google's Technical Writing Style Guide for documentation
 
 ## Pull Request Process
 
@@ -186,15 +445,34 @@ This project follows these code style practices:
 
 ## Troubleshooting
 
+### Build Issues
+
+- **Turbo cache issues**: Run `npm run clean` to clear build artifacts
+- **TypeScript path resolution**: Ensure packages are built in dependency order
+- **Missing dependencies**: Run `npm install` in the root directory
+
 ### npm Workspace Issues
 
 If you encounter issues with npm workspaces:
 
-- Make sure you're using npm v11.2.0+
+- Make sure you're using npm v10.2.0+
 - If you can't update npm globally, use the project's recommended approach:
   ```bash
-  npx npm@11.2.0 run build
+  npx npm@10.2.0 run compile
   ```
+
+### Extension Development
+
+- **VS Code extension not loading**: Check the extension manifest and ensure all required files are bundled
+- **Language server not starting**: Check the output channel for error messages
+- **Missing features**: Verify that the required services are included in the server bundle
+
+## Performance Considerations
+
+- **Incremental builds**: Turbo automatically handles incremental building based on file changes
+- **Parallel execution**: Tasks that don't depend on each other run in parallel
+- **Caching**: Build outputs are cached to avoid redundant work
+- **Bundle optimization**: Use `npm run bundle` for optimized production builds
 
 ## License
 

@@ -206,36 +206,76 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
   }
 
   async getHover(symbolName: string): Promise<string | undefined> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    // For now, return undefined as hover is not implemented yet
+    return undefined;
   }
 
   async setHover(symbolName: string, hoverText: string): Promise<boolean> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    // For now, just return true as hover is not critical for document symbols
+    return true;
   }
 
   async getDefinition(symbolName: string): Promise<ApexReference | undefined> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    // For now, return undefined as definition lookup is not critical for document symbols
+    return undefined;
   }
 
   async setDefinition(
     symbolName: string,
     definition: ApexReference,
   ): Promise<boolean> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    // For now, just return true as this is not critical for document symbols
+    return true;
   }
 
   async getReferences(symbolName: string): Promise<ApexReference[]> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    return this.references.filter((ref) => ref.targetSymbol === symbolName);
   }
 
   async setReferences(
     symbolName: string,
     references: ApexReference[],
   ): Promise<boolean> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    // Remove existing references for this symbol
+    this.references = this.references.filter(
+      (ref) => ref.targetSymbol !== symbolName,
+    );
+    // Add new references
+    this.references.push(...references);
+    return true;
   }
 
   async setDocument(uri: string, document: TextDocument): Promise<boolean> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    // Store the document in memory cache
+    this.documents.set(uri, document);
+    return true;
   }
 }

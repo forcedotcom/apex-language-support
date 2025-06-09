@@ -27,15 +27,20 @@ import {
   dispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol,
   ApexStorageManager,
-  ApexStorage,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   setLogNotificationHandler,
   getLogger,
+  setLoggerFactory,
 } from '@salesforce/apex-lsp-logging';
 
 import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
+import { ActiveLoggerFactory } from './utils/ActiveLoggerFactory';
+import { NodeFileSystemApexStorage } from './storage/NodeFileSystemApexStorage';
+
+// Set the logger factory early
+setLoggerFactory(new ActiveLoggerFactory());
 
 // Create a connection for the server based on command line arguments
 let connection: Connection;
@@ -65,7 +70,7 @@ const documents = new TextDocuments(TextDocument);
 
 // Initialize storage
 const storageManager = ApexStorageManager.getInstance({
-  storageFactory: (options) => ApexStorage.getInstance(),
+  storageFactory: (options) => new NodeFileSystemApexStorage(),
   storageOptions: {
     /* your options */
   },
@@ -91,6 +96,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       },
       hoverProvider: false,
       documentSymbolProvider: true,
+      foldingRangeProvider: false, //todo: enable this
     },
   };
 });
@@ -98,6 +104,7 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 // Handle client connection
 connection.onInitialized(() => {
   logger.info('Language server initialized and connected to client.');
+
   // Send notification to client that server is ready
   connection.sendNotification(InitializedNotification.type, {
     type: MessageType.Info,
@@ -107,11 +114,40 @@ connection.onInitialized(() => {
 
 // Handle document symbol requests
 connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-  connection.console.info(
-    `Extension Apex Language Server processing document symbols: ${params}`,
+  logger.info(
+    `[SERVER] Received documentSymbol request for: ${params.textDocument.uri}`,
   );
-  return dispatchProcessOnDocumentSymbol(params);
+  logger.info(`[SERVER] DocumentSymbolParams: ${JSON.stringify(params)}`);
+
+  try {
+    const result = await dispatchProcessOnDocumentSymbol(params);
+    logger.info(
+      `[SERVER] Result for documentSymbol (${params.textDocument.uri}): ${JSON.stringify(result)}`,
+    );
+    return result;
+  } catch (error) {
+    logger.error(
+      `[SERVER] Error processing documentSymbol for ${params.textDocument.uri}: ${error}`,
+    );
+    // Return null or an empty array in case of error, as per LSP spec for graceful failure
+    return null;
+  }
 });
+
+// Add a handler for folding ranges
+/*
+connection.onFoldingRanges(
+  async (params: FoldingRangeParams): Promise<FoldingRange[] | null> => {
+    logger.info(
+      `[SERVER] Received foldingRange request for: ${params.textDocument.uri}`,
+    );
+    // TODO: Implement actual folding range logic here.
+    // This would involve parsing the document (params.textDocument.uri can be used to get content from 'documents')
+    // and identifying ranges for comments, regions, classes, methods, etc.
+    // For now, returning an empty array to satisfy the request and stop the 'Unhandled method' error.
+    return [];
+  },
+);*/
 
 // Handle completion requests
 connection.onCompletion((_textDocumentPosition: any) => [

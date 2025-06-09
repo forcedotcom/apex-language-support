@@ -22,15 +22,16 @@ import {
 import { RequestResponseInspector } from './middleware/requestResponseInspector';
 
 // The client instance
-let client: LanguageClient | undefined;
+export let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel;
 let serverStartRetries = 0;
-const MAX_RETRIES = 0;
+const MAX_RETRIES = 3;
 let lastRestartTime = 0;
 const COOLDOWN_PERIOD_MS = 30000; // 30 seconds cooldown between retry cycles
 let isStarting = false; // Flag to prevent multiple start attempts at once
 // Request/response inspector instance
 let inspector: RequestResponseInspector | undefined;
+let statusBarItem: vscode.StatusBarItem;
 
 /**
  * Handle global context storage for restarting the server
@@ -51,13 +52,10 @@ export function activate(context: vscode.ExtensionContext) {
   registerRestartCommand(context);
 
   // Create and initialize status bar item
-  const statusBarItem = createStatusBarItem(context);
+  statusBarItem = createStatusBarItem(context);
 
-  // First-time startup with some delay
-  setTimeout(() => {
-    serverStartRetries = 0;
-    startLanguageServer(context, statusBarItem);
-  }, 1000);
+  serverStartRetries = 0;
+  startLanguageServer(context);
 }
 
 /**
@@ -85,16 +83,16 @@ function createStatusBarItem(
 function registerRestartCommand(context: vscode.ExtensionContext): void {
   const restartCommand = vscode.commands.registerCommand(
     'apex.restart.server',
-    () => {
+    async () => {
       // Only allow manual restart if we're not already starting and we're outside cooldown period
       const now = Date.now();
       if (!isStarting && now - lastRestartTime > COOLDOWN_PERIOD_MS) {
         lastRestartTime = now;
         serverStartRetries = 0; // Reset retry counter on manual restart
         if (client) {
-          restartLanguageServer(context);
+          await restartLanguageServer(context);
         } else {
-          startLanguageServer(context);
+          await startLanguageServer(context);
         }
       } else {
         outputChannel.appendLine(
@@ -114,8 +112,10 @@ function registerRestartCommand(context: vscode.ExtensionContext): void {
  * Creates server options for the language server
  */
 function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
+  // The server bundle is copied into 'extension/dist/server-bundle/' within the VSIX.
+  // context.asAbsolutePath('.') returns the root path of the installed extension.
   const serverModule = context.asAbsolutePath(
-    path.join('..', 'apex-ls-node', 'dist', 'index'),
+    path.join('extension', 'dist', 'server-bundle', 'index.js'),
   );
 
   outputChannel.appendLine(`Server module path: ${serverModule}`);
@@ -160,9 +160,7 @@ function initializeInspector(context: vscode.ExtensionContext) {
 /**
  * Creates client options for the language server
  */
-function createClientOptions(
-  statusItem?: vscode.StatusBarItem,
-): LanguageClientOptions {
+function createClientOptions(): LanguageClientOptions {
   return {
     documentSelector: [{ scheme: 'file', language: 'apex' }],
     synchronize: {
@@ -174,7 +172,11 @@ function createClientOptions(
     // Add error handling with proper retry logic
     errorHandler: {
       error: handleClientError,
-      closed: () => handleClientClosed(statusItem),
+      closed: () => handleClientClosed(),
+    },
+    // Explicitly enable document symbols support
+    initializationOptions: {
+      enableDocumentSymbols: true,
     },
   };
 }
@@ -200,7 +202,7 @@ function handleClientError(
 /**
  * Handles the client closed event
  */
-function handleClientClosed(statusItem?: vscode.StatusBarItem): {
+function handleClientClosed(): {
   action: CloseAction;
 } {
   outputChannel.appendLine(
@@ -208,18 +210,18 @@ function handleClientClosed(statusItem?: vscode.StatusBarItem): {
   );
   isStarting = false;
 
-  if (statusItem) {
-    statusItem.text = '$(error) Apex Server Stopped';
-    statusItem.tooltip = 'Click to restart the Apex Language Server';
+  if (statusBarItem) {
+    statusBarItem.text = '$(error) Apex Server Stopped';
+    statusBarItem.tooltip = 'Click to restart the Apex Language Server';
   }
 
   // Only attempt auto-restart if within retry limit and cooldown period
   const now = Date.now();
   if (serverStartRetries < MAX_RETRIES && now - lastRestartTime > 5000) {
-    return handleAutoRestart(statusItem);
+    return handleAutoRestart();
   } else {
     if (serverStartRetries >= MAX_RETRIES) {
-      handleMaxRetriesExceeded(statusItem);
+      handleMaxRetriesExceeded();
     }
     return { action: CloseAction.DoNotRestart }; // Don't restart
   }
@@ -228,7 +230,7 @@ function handleClientClosed(statusItem?: vscode.StatusBarItem): {
 /**
  * Handles auto-restart logic with exponential backoff
  */
-function handleAutoRestart(statusItem?: vscode.StatusBarItem): {
+function handleAutoRestart(): {
   action: CloseAction;
 } {
   serverStartRetries++;
@@ -241,13 +243,8 @@ function handleAutoRestart(statusItem?: vscode.StatusBarItem): {
   );
 
   setTimeout(() => {
-    stopClientSafely(() => {
-      // Wait another second after stopping before restarting
-      setTimeout(() => {
-        // Use stored global context
-        startLanguageServer(globalContext, statusItem);
-      }, 1000);
-    });
+    // Use stored global context
+    startLanguageServer(globalContext);
   }, delay);
 
   return { action: CloseAction.DoNotRestart }; // Don't restart immediately
@@ -256,7 +253,7 @@ function handleAutoRestart(statusItem?: vscode.StatusBarItem): {
 /**
  * Handles the case when max retries are exceeded
  */
-function handleMaxRetriesExceeded(statusItem?: vscode.StatusBarItem): void {
+function handleMaxRetriesExceeded(): void {
   outputChannel.appendLine(
     `Max retries (${MAX_RETRIES}) exceeded. Auto-restart disabled.`,
   );
@@ -270,41 +267,9 @@ function handleMaxRetriesExceeded(statusItem?: vscode.StatusBarItem): void {
         serverStartRetries = 0;
         lastRestartTime = Date.now();
         // Use stored global context
-        startLanguageServer(globalContext, statusItem);
+        startLanguageServer(globalContext);
       }
     });
-}
-
-/**
- * Safely stops the client with timeout protection
- */
-function stopClientSafely(onComplete: () => void): void {
-  if (client) {
-    try {
-      const stopPromise = client.stop();
-      // Set a timeout in case stop hangs
-      const timeoutPromise = new Promise((_resolve, reject) => {
-        setTimeout(() => reject(new Error('Client stop timed out')), 5000);
-      });
-
-      Promise.race([stopPromise, timeoutPromise])
-        .catch((err) => {
-          outputChannel.appendLine(
-            `Error or timeout stopping previous client: ${err}`,
-          );
-        })
-        .finally(() => {
-          client = undefined;
-          onComplete();
-        });
-    } catch (e) {
-      outputChannel.appendLine(`Exception during client stop: ${e}`);
-      client = undefined;
-      onComplete();
-    }
-  } else {
-    onComplete();
-  }
 }
 
 /**
@@ -313,7 +278,6 @@ function stopClientSafely(onComplete: () => void): void {
 function createAndStartClient(
   serverOptions: ServerOptions,
   clientOptions: LanguageClientOptions,
-  statusItem?: vscode.StatusBarItem,
 ): void {
   try {
     // Create the language client
@@ -325,9 +289,9 @@ function createAndStartClient(
     );
 
     // Update status
-    if (statusItem) {
-      statusItem.text = '$(sync~spin) Starting Apex Server';
-      statusItem.tooltip = 'Apex Language Server is starting';
+    if (statusBarItem) {
+      statusBarItem.text = '$(sync~spin) Starting Apex Server';
+      statusBarItem.tooltip = 'Apex Language Server is starting';
     }
 
     // Track client state changes
@@ -336,19 +300,19 @@ function createAndStartClient(
         `Client state changed: ${State[event.oldState]} -> ${State[event.newState]}`,
       );
 
-      if (statusItem) {
+      if (statusBarItem) {
         if (event.newState === State.Running) {
-          statusItem.text = '$(check) Apex Server Ready';
-          statusItem.tooltip = 'Apex Language Server is running';
+          statusBarItem.text = '$(check) Apex Server Ready';
+          statusBarItem.tooltip = 'Apex Language Server is running';
           // Reset retry counter on successful start
           serverStartRetries = 0;
           isStarting = false;
         } else if (event.newState === State.Starting) {
-          statusItem.text = '$(sync~spin) Starting Apex Server';
-          statusItem.tooltip = 'Apex Language Server is starting';
+          statusBarItem.text = '$(sync~spin) Starting Apex Server';
+          statusBarItem.tooltip = 'Apex Language Server is starting';
         } else {
-          statusItem.text = '$(warning) Apex Server Stopped';
-          statusItem.tooltip = 'Click to restart the Apex Language Server';
+          statusBarItem.text = '$(warning) Apex Server Stopped';
+          statusBarItem.tooltip = 'Click to restart the Apex Language Server';
           isStarting = false;
         }
       }
@@ -359,9 +323,9 @@ function createAndStartClient(
     client.start().catch((error) => {
       outputChannel.appendLine(`Failed to start client: ${error}`);
       isStarting = false;
-      if (statusItem) {
-        statusItem.text = '$(error) Apex Server Error';
-        statusItem.tooltip = 'Click to restart the Apex Language Server';
+      if (statusBarItem) {
+        statusBarItem.text = '$(error) Apex Server Error';
+        statusBarItem.tooltip = 'Click to restart the Apex Language Server';
       }
     });
   } catch (e) {
@@ -373,10 +337,7 @@ function createAndStartClient(
 /**
  * Starts the language server
  */
-function startLanguageServer(
-  context: vscode.ExtensionContext,
-  statusItem?: vscode.StatusBarItem,
-) {
+async function startLanguageServer(context: vscode.ExtensionContext) {
   // Guard against multiple simultaneous start attempts
   if (isStarting) {
     outputChannel.appendLine('Blocked duplicate start attempt');
@@ -389,15 +350,18 @@ function startLanguageServer(
       `[${new Date().toISOString()}] Starting language server (attempt ${serverStartRetries + 1})`,
     );
 
+    // Clean up previous client if it exists
+    if (client) {
+      await client.stop();
+      client = undefined;
+    }
+
     // Set up server and client components
     const serverOptions = createServerOptions(context);
     initializeInspector(context);
-    const clientOptions = createClientOptions(statusItem);
+    const clientOptions = createClientOptions();
 
-    // Clean up previous client if it exists
-    stopClientSafely(() => {
-      createAndStartClient(serverOptions, clientOptions, statusItem);
-    });
+    createAndStartClient(serverOptions, clientOptions);
   } catch (error) {
     outputChannel.appendLine(`Error in startLanguageServer: ${error}`);
     vscode.window.showErrorMessage(
@@ -405,9 +369,9 @@ function startLanguageServer(
     );
     isStarting = false;
 
-    if (statusItem) {
-      statusItem.text = '$(error) Apex Server Error';
-      statusItem.tooltip = 'Click to restart the Apex Language Server';
+    if (statusBarItem) {
+      statusBarItem.text = '$(error) Apex Server Error';
+      statusBarItem.tooltip = 'Click to restart the Apex Language Server';
     }
   }
 }
@@ -415,62 +379,17 @@ function startLanguageServer(
 /**
  * Restarts the language server
  */
-function restartLanguageServer(context: vscode.ExtensionContext) {
+async function restartLanguageServer(context: vscode.ExtensionContext) {
   outputChannel.appendLine(
     `Restarting Apex Language Server at ${new Date().toISOString()}...`,
   );
-
-  // Guard against multiple restart attempts
-  if (isStarting) {
-    outputChannel.appendLine('Restart blocked: Server is already starting');
-    return;
-  }
-
-  isStarting = true;
-
-  if (client) {
-    try {
-      client
-        .stop()
-        .then(() => {
-          client = undefined;
-          isStarting = false;
-          // Wait a moment before restarting
-          setTimeout(() => {
-            startLanguageServer(context);
-          }, 2000);
-        })
-        .catch((error) => {
-          outputChannel.appendLine(
-            `Error stopping server during restart: ${error}`,
-          );
-          client = undefined;
-          isStarting = false;
-          // Try to start anyway after a delay
-          setTimeout(() => {
-            startLanguageServer(context);
-          }, 2000);
-        });
-    } catch (e) {
-      outputChannel.appendLine(`Exception during restart: ${e}`);
-      client = undefined;
-      isStarting = false;
-      setTimeout(() => {
-        startLanguageServer(context);
-      }, 2000);
-    }
-  } else {
-    // If no client exists, just start a new one
-    isStarting = false;
-    startLanguageServer(context);
-  }
+  await startLanguageServer(context);
 }
 
-export function deactivate(): Thenable<void> | undefined {
+export async function deactivate(): Promise<void> {
   outputChannel.appendLine('Deactivating Apex Language Server extension');
   isStarting = false;
-  if (!client) {
-    return undefined;
+  if (client) {
+    await client.stop();
   }
-  return client.stop();
 }
