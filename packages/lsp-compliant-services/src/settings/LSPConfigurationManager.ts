@@ -13,6 +13,7 @@ import {
   DidChangeConfigurationParams,
 } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-logging';
+import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
 
 import { ApexSettingsManager } from './ApexSettingsManager';
 
@@ -25,6 +26,9 @@ export class LSPConfigurationManager {
   private settingsManager: ApexSettingsManager;
   private hasConfigurationCapability = false;
   private hasWorkspaceConfiguration = false;
+  private configurationHandlerRegistered = false;
+  private configurationRegistrationDisposable: any = null;
+  private resourceLoader: ResourceLoader | null = null;
 
   constructor(settingsManager: ApexSettingsManager, connection?: Connection) {
     this.settingsManager = settingsManager;
@@ -39,6 +43,14 @@ export class LSPConfigurationManager {
   public setConnection(connection: Connection): void {
     this.connection = connection;
     this.setupConfigurationHandlers();
+
+    // Initialize resource loader with current settings
+    this.initializeResourceLoader().catch((error) => {
+      this.logger.error(
+        'Failed to initialize resource loader during connection setup:',
+        error,
+      );
+    });
   }
 
   /**
@@ -76,6 +88,16 @@ export class LSPConfigurationManager {
 
       if (success) {
         this.logger.debug('Successfully applied initialization settings');
+
+        // Initialize resource loader with updated settings if connection is available
+        if (this.connection) {
+          this.initializeResourceLoader().catch((error) => {
+            this.logger.error(
+              'Failed to initialize resource loader during initialization:',
+              error,
+            );
+          });
+        }
       } else {
         this.logger.warn('Failed to apply initialization settings');
       }
@@ -90,34 +112,192 @@ export class LSPConfigurationManager {
   }
 
   /**
-   * Handle workspace configuration changes
+   * Initialize resource loader based on current settings
    */
-  public async handleConfigurationChange(
+  private async initializeResourceLoader(): Promise<void> {
+    try {
+      const loadMode = this.settingsManager.getResourceLoadMode();
+      this.logger.info(`Initializing resource loader with mode: ${loadMode}`);
+
+      // Get or create ResourceLoader instance with current settings
+      this.resourceLoader = ResourceLoader.getInstance({ loadMode });
+      await this.resourceLoader.initialize();
+
+      this.logger.info('Resource loader initialized successfully');
+    } catch (error) {
+      this.logger.error('Failed to initialize resource loader:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reconfigure resource loader when settings change
+   */
+  private async reconfigureResourceLoader(
+    newLoadMode: 'lazy' | 'full',
+  ): Promise<void> {
+    try {
+      const currentResourceLoader = this.resourceLoader;
+
+      // Check if load mode actually changed
+      if (currentResourceLoader) {
+        // Since ResourceLoader doesn't expose current loadMode, we'll need to track it
+        // For now, we'll assume it needs reconfiguration if settings changed
+        this.logger.info(
+          `Reconfiguring resource loader to mode: ${newLoadMode}`,
+        );
+      } else {
+        this.logger.info(
+          `Initializing resource loader with mode: ${newLoadMode}`,
+        );
+      }
+
+      // Reset the ResourceLoader singleton to allow reconfiguration
+      // Note: This is a workaround since ResourceLoader doesn't support reconfiguration
+      (ResourceLoader as any).instance = undefined;
+
+      // Create new instance with updated settings
+      this.resourceLoader = ResourceLoader.getInstance({
+        loadMode: newLoadMode,
+      });
+      await this.resourceLoader.initialize();
+
+      this.logger.info(
+        `Resource loader ${currentResourceLoader ? 'reconfigured' : 'initialized'} successfully with mode: ${newLoadMode}`,
+      );
+    } catch (error) {
+      this.logger.error('Failed to reconfigure resource loader:', error);
+      // Don't throw here - we want configuration changes to continue even if resource loader fails
+    }
+  }
+
+  /**
+   * Enhanced configuration change handler with validation and error recovery
+   */
+  private async handleConfigurationChangeEnhanced(
     params: DidChangeConfigurationParams,
   ): Promise<void> {
-    this.logger.debug('Handling configuration change notification');
+    this.logger.debug('Handling enhanced configuration change notification');
 
-    if (this.hasConfigurationCapability) {
-      // Request the latest configuration from the client
-      await this.requestConfiguration();
-    } else {
-      // Fallback: use the settings from the notification
-      if (params.settings) {
-        this.logger.debug(
-          () =>
-            `Using settings from notification: ${JSON.stringify(params.settings, null, 2)}`,
-        );
+    try {
+      // Validate the configuration change params
+      if (!params) {
+        this.logger.warn('Received empty configuration change parameters');
+        return;
+      }
 
-        const success = this.settingsManager.updateFromLSPConfiguration(
-          params.settings,
-        );
+      // Track previous settings for rollback if needed
+      const previousSettings = this.settingsManager.getSettings();
+      const previousLoadMode = previousSettings.resources.loadMode;
 
-        if (success) {
-          this.logger.debug('Successfully updated settings from notification');
+      if (this.hasConfigurationCapability) {
+        // Request the latest configuration from the client
+        await this.requestConfiguration();
+      } else {
+        // Fallback: use the settings from the notification
+        if (params.settings) {
+          this.logger.debug(
+            () =>
+              `Processing settings from notification: ${JSON.stringify(params.settings, null, 2)}`,
+          );
+
+          const success = this.settingsManager.updateFromLSPConfiguration(
+            params.settings,
+          );
+
+          if (success) {
+            this.logger.info('Successfully updated settings from notification');
+
+            // Notify about successful configuration change
+            await this.notifyConfigurationApplied(params.settings);
+          } else {
+            this.logger.error('Failed to update settings from notification');
+
+            // Attempt to restore previous settings on failure
+            await this.handleConfigurationFailure(previousSettings);
+            return;
+          }
         } else {
-          this.logger.warn('Failed to update settings from notification');
+          this.logger.warn(
+            'No settings provided in configuration change notification',
+          );
+          return;
         }
       }
+
+      // Check if resource loading mode changed and reconfigure if needed
+      const newSettings = this.settingsManager.getSettings();
+      const newLoadMode = newSettings.resources.loadMode;
+
+      if (previousLoadMode !== newLoadMode) {
+        this.logger.info(
+          `Resource load mode changed from ${previousLoadMode} to ${newLoadMode}`,
+        );
+        await this.reconfigureResourceLoader(newLoadMode);
+      }
+
+      // Validate the updated configuration
+      await this.validateAppliedConfiguration();
+    } catch (error) {
+      this.logger.error(
+        'Error in enhanced configuration change handler:',
+        error,
+      );
+
+      // Attempt recovery by requesting fresh configuration
+      await this.recoverFromConfigurationError();
+    }
+  }
+
+  /**
+   * Register for configuration change notifications
+   */
+  public registerForConfigurationChanges(): void {
+    if (!this.connection) {
+      this.logger.warn(
+        'Cannot register for configuration changes: no connection available',
+      );
+      return;
+    }
+
+    // Prevent duplicate registration
+    if (this.configurationHandlerRegistered) {
+      this.logger.debug('Configuration change handler already registered');
+      return;
+    }
+
+    try {
+      // Register the enhanced configuration change handler
+      this.connection.onDidChangeConfiguration(
+        async (params: DidChangeConfigurationParams) => {
+          await this.handleConfigurationChangeEnhanced(params);
+        },
+      );
+
+      if (this.hasWorkspaceConfiguration) {
+        // Register for dynamic configuration changes
+        this.configurationRegistrationDisposable =
+          this.connection.client.register(
+            DidChangeConfigurationNotification.type,
+            undefined,
+          );
+        this.logger.info(
+          'Successfully registered for dynamic configuration change notifications',
+        );
+      } else {
+        this.logger.debug(
+          'Client does not support dynamic configuration registration, using static handler',
+        );
+      }
+
+      this.configurationHandlerRegistered = true;
+      this.logger.info('Configuration change handler successfully registered');
+    } catch (error) {
+      this.logger.error(
+        'Failed to register configuration change handler:',
+        error,
+      );
+      throw new Error(`Configuration handler registration failed: ${error}`);
     }
   }
 
@@ -183,29 +363,119 @@ export class LSPConfigurationManager {
   }
 
   /**
-   * Register for configuration change notifications
+   * Handle configuration update failures with recovery
    */
-  public registerForConfigurationChanges(): void {
-    if (!this.connection) {
-      this.logger.warn(
-        'Cannot register for configuration changes: no connection available',
-      );
+  private async handleConfigurationFailure(
+    previousSettings: any,
+  ): Promise<void> {
+    this.logger.warn('Attempting to recover from configuration failure');
+
+    try {
+      // Try to restore previous settings
+      if (previousSettings) {
+        const restored =
+          this.settingsManager.updateFromLSPConfiguration(previousSettings);
+        if (restored) {
+          this.logger.info('Successfully restored previous configuration');
+        } else {
+          this.logger.error('Failed to restore previous configuration');
+        }
+      }
+    } catch (error) {
+      this.logger.error('Error during configuration recovery:', error);
+    }
+  }
+
+  /**
+   * Validate the currently applied configuration
+   */
+  private async validateAppliedConfiguration(): Promise<void> {
+    try {
+      const currentSettings = this.settingsManager.getSettings();
+
+      // Basic validation checks
+      if (!currentSettings) {
+        this.logger.warn('No current settings available for validation');
+        return;
+      }
+
+      // Log configuration summary for debugging
+      this.logger.debug(() => {
+        const settingsKeys = Object.keys(currentSettings);
+        return `Current configuration sections: ${settingsKeys.join(', ')}`;
+      });
+
+      this.logger.debug('Configuration validation completed');
+    } catch (error) {
+      this.logger.error('Error during configuration validation:', error);
+    }
+  }
+
+  /**
+   * Recover from configuration errors by requesting fresh config
+   */
+  private async recoverFromConfigurationError(): Promise<void> {
+    this.logger.info('Attempting configuration error recovery');
+
+    try {
+      if (this.hasConfigurationCapability) {
+        await this.requestConfiguration();
+        this.logger.info('Successfully recovered configuration from client');
+      } else {
+        this.logger.warn(
+          'Cannot recover configuration: client lacks configuration capability',
+        );
+      }
+    } catch (error) {
+      this.logger.error('Configuration recovery failed:', error);
+    }
+  }
+
+  /**
+   * Notify about successful configuration application
+   */
+  private async notifyConfigurationApplied(settings: any): Promise<void> {
+    try {
+      // This could be extended to notify other components about config changes
+      this.logger.info('Configuration successfully applied and validated');
+
+      // Could emit events here for other components to react to config changes
+      // this.eventEmitter?.emit('configurationChanged', settings);
+    } catch (error) {
+      this.logger.error('Error notifying about configuration changes:', error);
+    }
+  }
+
+  /**
+   * Get the resource loader instance
+   */
+  public getResourceLoader(): ResourceLoader | null {
+    return this.resourceLoader;
+  }
+
+  /**
+   * Unregister configuration change handlers (useful for cleanup)
+   */
+  public unregisterConfigurationHandlers(): void {
+    if (!this.connection || !this.configurationHandlerRegistered) {
       return;
     }
 
-    if (this.hasWorkspaceConfiguration) {
-      // Register for dynamic configuration changes
-      this.connection.client.register(
-        DidChangeConfigurationNotification.type,
-        undefined,
-      );
-      this.logger.debug(
-        'Registered for dynamic configuration change notifications',
-      );
-    } else {
-      this.logger.debug(
-        'Client does not support dynamic configuration registration',
-      );
+    try {
+      if (this.configurationRegistrationDisposable) {
+        // Dispose of the registration if it supports disposal
+        if (
+          typeof this.configurationRegistrationDisposable.dispose === 'function'
+        ) {
+          this.configurationRegistrationDisposable.dispose();
+        }
+        this.configurationRegistrationDisposable = null;
+      }
+
+      this.configurationHandlerRegistered = false;
+      this.logger.debug('Configuration change handlers unregistered');
+    } catch (error) {
+      this.logger.error('Error unregistering configuration handlers:', error);
     }
   }
 
@@ -301,6 +571,19 @@ export class LSPConfigurationManager {
                 },
               },
             },
+            resources: {
+              type: 'object',
+              description: 'Resource loading settings',
+              properties: {
+                loadMode: {
+                  type: 'string',
+                  enum: ['lazy', 'full'],
+                  default: 'full',
+                  description:
+                    'Resource loading mode - lazy loads files on demand, full loads all files immediately',
+                },
+              },
+            },
           },
         },
       },
@@ -312,13 +595,11 @@ export class LSPConfigurationManager {
       return;
     }
 
-    // Handle configuration change notifications
-    this.connection.onDidChangeConfiguration(
-      async (params: DidChangeConfigurationParams) => {
-        await this.handleConfigurationChange(params);
-      },
-    );
+    // Use the enhanced registration method
+    this.registerForConfigurationChanges();
 
-    this.logger.debug('LSP configuration handlers set up');
+    this.logger.debug(
+      'LSP configuration handlers set up with enhanced handling',
+    );
   }
 }

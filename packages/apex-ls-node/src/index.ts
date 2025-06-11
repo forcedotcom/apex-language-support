@@ -19,7 +19,6 @@ import {
   TextDocuments,
   TextDocumentChangeEvent,
   Diagnostic,
-  DidChangeConfigurationParams,
   FoldingRangeParams,
   FoldingRange,
 } from 'vscode-languageserver/node';
@@ -162,13 +161,8 @@ connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
   }
 });
 
-// Handle configuration change notifications
-connection.onDidChangeConfiguration(
-  async (params: DidChangeConfigurationParams) => {
-    logger.info('Received configuration change notification');
-    await configurationManager.handleConfigurationChange(params);
-  },
-);
+// Configuration change handling is now managed by the LSPConfigurationManager
+// through its enhanced registration system in registerForConfigurationChanges()
 
 // Add a handler for folding ranges
 connection.onFoldingRanges(

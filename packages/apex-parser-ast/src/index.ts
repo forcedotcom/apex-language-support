@@ -37,6 +37,7 @@ export * from './parser/compilerService';
 
 // Export resource utilities
 export * from './utils/ResourceUtils';
+export * from './utils/resourceLoader';
 
 // Export platform-specific utilities
 export * from './utils/PlatformUtils';
