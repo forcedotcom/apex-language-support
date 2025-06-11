@@ -13,8 +13,7 @@
  * 3. Clean apex-ls-node package (including node_modules)
  * 4. Clean apex-lsp-vscode-extension package (including node_modules)
  * 5. Compile and build apex-ls-node package
- * 6. Run package:all script in apex-lsp-vscode-extension package
- *    (npm install for extension is handled by precompile step)
+ * 6. Run package script in apex-lsp-vscode-extension (npm install handled by precompile step)
  */
 
 const { execSync } = require('child_process');
@@ -135,11 +134,10 @@ function buildAndPackage() {
   executeCommand('npm run clean', apexLspVscodeExtensionDir, 'Cleaning apex-lsp-vscode-extension package');
 
   // Step 5: Compile and build apex-ls-node package
-  executeCommand('npm run compile', apexLsNodeDir, 'Compiling apex-ls-node package');
   executeCommand('npm run bundle', apexLsNodeDir, 'Building apex-ls-node package');
 
-  // Step 6: Run package:all script in apex-lsp-vscode-extension (npm install handled by precompile step)
-  executeCommand('npm run package:all', apexLspVscodeExtensionDir, 'Packaging apex-lsp-vscode-extension');
+  // Step 6: Run package script in apex-lsp-vscode-extension (npm install handled by precompile step)
+  executeCommand('npm run package', apexLspVscodeExtensionDir, 'Packaging apex-lsp-vscode-extension');
 
   log('🎉 Build and package process completed successfully!', 'success');
 }

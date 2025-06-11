@@ -11,7 +11,7 @@ export default defineConfig({
   entry: ['src/index.ts'],
   outDir: 'bundle',
   format: ['cjs', 'esm'], // Keep both formats for flexibility
-  dts: true,
+  dts: false,
   splitting: false,
   sourcemap: true,
   clean: true, // Clean its own 'bundle' dir before build

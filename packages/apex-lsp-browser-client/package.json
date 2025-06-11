@@ -17,7 +17,8 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "bundle": "node ../../scripts/build-bundle.js",
+    "bundle": "npm run compile && tsup",
+    "prebuild": "npm run clean",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage",

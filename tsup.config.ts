@@ -5,9 +5,9 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { defineConfig } from 'tsup';
+import { defineConfig, Options } from 'tsup';
 
-export default defineConfig({
+export const config: Options = {
   format: ['cjs', 'esm'],
   dts: false,
   splitting: false,
@@ -49,4 +49,6 @@ export default defineConfig({
     '@salesforce/apex-lsp-vscode-client',
     '@salesforce/apex-lsp-vscode-extension',
   ],
-});
+};
+
+export default defineConfig(config);

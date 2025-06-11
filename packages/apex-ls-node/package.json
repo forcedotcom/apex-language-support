@@ -4,7 +4,7 @@
   "description": "Node.js implementation of Apex Language Server",
   "main": "bundle/index.js",
   "module": "bundle/index.mjs",
-  "types": "bundle/index.d.ts",
+  "types": "dist/index.d.ts",
   "exports": {
     "import": "./bundle/index.mjs",
     "require": "./bundle/index.js"
@@ -17,12 +17,13 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "bundle": "node ../../scripts/build-bundle.js",
+    "bundle": "npm run compile && tsup",
+    "prebuild": "npm run clean",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage",
     "clean:all": "npm run clean && rimraf node_modules",
-    "dev": "tsc --build --watch"
+    "dev": "tsup --watch"
   },
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",

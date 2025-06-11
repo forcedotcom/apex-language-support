@@ -20,9 +20,10 @@
     "README.md"
   ],
   "scripts": {
+    "prebuild": "npm run clean",
+    "bundle": "npm run compile && tsup",
     "precompile": "node scripts/generate-zip.mjs",
     "compile": "tsc --build",
-    "bundle": "node ../../scripts/build-bundle.js",
     "generate:stubs": "jest test/generator/generate-Standard-Apex-Library.ts",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
