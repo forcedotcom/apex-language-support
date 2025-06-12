@@ -17,7 +17,6 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "build": "npm run compile && tsup",
     "bundle": "npm run compile && tsup",
     "prebuild": "npm run clean",
     "test": "jest",
