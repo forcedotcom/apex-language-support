@@ -13,5 +13,9 @@ export default defineConfig({
   ...config,
   entry: ['src/index.ts'],
   outDir: 'bundle',
-  clean: true
-}); 
+  clean: true,
+  dts: false,
+  splitting: true,
+  noExternal: [],
+  external: [],
+});

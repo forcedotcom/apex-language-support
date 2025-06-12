@@ -14,5 +14,10 @@ export default defineConfig({
   entry: ['src/index.ts'],
   outDir: 'bundle',
   clean: true,
-  platform: 'browser'
-}); 
+  platform: 'browser',
+  target: 'es2020',
+  dts: false,
+  splitting: true,
+  noExternal: [],
+  external: [],
+});

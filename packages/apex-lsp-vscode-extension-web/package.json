@@ -4,6 +4,7 @@
   "description": "VSCode web extension for Apex Language Server",
   "version": "0.1.0",
   "publisher": "salesforce",
+  "sideEffects": false,
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",

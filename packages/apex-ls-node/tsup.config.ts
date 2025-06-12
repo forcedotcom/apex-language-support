@@ -12,7 +12,7 @@ export default defineConfig({
   outDir: 'bundle',
   format: ['cjs', 'esm'], // Keep both formats for flexibility
   dts: false,
-  splitting: false,
+  splitting: true,
   sourcemap: true,
   clean: true, // Clean its own 'bundle' dir before build
   minify: true,
@@ -23,16 +23,6 @@ export default defineConfig({
       js: format === 'esm' ? '.mjs' : '.js',
     };
   },
-  noExternal: [
-    'vscode-languageserver',
-    'vscode-languageserver/node',
-    'vscode-languageserver-textdocument',
-    '@salesforce/apex-lsp-parser-ast',
-    '@salesforce/apex-lsp-custom-services',
-    '@salesforce/apex-lsp-compliant-services',
-    '@salesforce/apex-lsp-logging',
-  ],
-  external: [
-    'vscode', // The language server itself should not bundle the vscode API
-  ],
+  noExternal: [],
+  external: [],
 });

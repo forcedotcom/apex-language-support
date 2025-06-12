@@ -9,6 +9,7 @@
     "import": "./bundle/index.mjs",
     "require": "./bundle/index.js"
   },
+  "sideEffects": false,
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
