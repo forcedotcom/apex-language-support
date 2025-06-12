@@ -34,7 +34,7 @@ async function build(options = {}) {
   const commonOptions = {
     entryPoints: [entryPoint],
     bundle: true,
-    minify: true,
+    minify: false,
     sourcemap: true,
     platform: 'node',
     target: 'node20',

@@ -15,7 +15,7 @@ export default defineConfig({
   splitting: true,
   sourcemap: true,
   clean: true, // Clean its own 'bundle' dir before build
-  minify: true,
+  minify: false,
   platform: 'node',
   target: 'node16',
   outExtension({ format }) {
@@ -23,6 +23,8 @@ export default defineConfig({
       js: format === 'esm' ? '.mjs' : '.js',
     };
   },
-  noExternal: [],
+  // Bundle internal monorepo packages and any dependency that starts with "vscode-" (covers all LSP helpers).
+  noExternal: [/^@salesforce\//, /^vscode-/],
+  // Do not exclude any additional packages explicitly.
   external: [],
 });

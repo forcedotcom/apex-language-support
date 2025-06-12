@@ -13,7 +13,7 @@ export const config: Options = {
   splitting: false,
   sourcemap: true,
   clean: false,
-  minify: true,
+  minify: false,
   platform: 'node',
   target: 'node16',
   outDir: 'bundle',
