@@ -176,7 +176,7 @@ describe('CompilerService Folding Range Integration', () => {
       expect(stringRange?.startLine).toBe(12);
     });
 
-    it('should handle multiple files with folding ranges', () => {
+    it('should handle multiple files with folding ranges', async () => {
       const service = new CompilerService();
       const listener = new ApexFoldingRangeListener();
 
@@ -207,7 +207,7 @@ describe('CompilerService Folding Range Integration', () => {
         },
       ];
 
-      const results = service.compileMultiple(files, listener);
+      const results = await service.compileMultiple(files, listener);
 
       // Both compilations should succeed
       expect(results.length).toBe(2);

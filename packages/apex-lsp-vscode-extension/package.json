@@ -135,6 +135,15 @@
           "default": false,
           "description": "Enable performance logging for the language server"
         },
+        "apex.resources.loadMode": {
+          "type": "string",
+          "enum": [
+            "lazy",
+            "full"
+          ],
+          "default": "lazy",
+          "description": "Resource loading mode for Apex standard library files. 'full' loads all resources immediately (faster access, higher memory usage), 'lazy' loads resources on-demand (lower memory usage, slight access delay)"
+        },
         "apex.inspector.enabled": {
           "type": "boolean",
           "default": false,

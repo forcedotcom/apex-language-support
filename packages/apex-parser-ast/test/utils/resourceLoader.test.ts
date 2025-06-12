@@ -12,15 +12,14 @@ describe('ResourceLoader', () => {
   let loader: ResourceLoader;
   const TEST_FILE = 'System/System.cls';
 
-  beforeEach(() => {
-    // Reset the singleton instance before each test
-    (ResourceLoader as any).instance = undefined;
+  afterEach(() => {
+    (ResourceLoader as any).instance = null;
   });
 
   describe('getInstance', () => {
     it('should return the same instance on multiple calls', () => {
-      const instance1 = ResourceLoader.getInstance();
-      const instance2 = ResourceLoader.getInstance();
+      const instance1 = ResourceLoader.getInstance({ loadMode: 'lazy' });
+      const instance2 = ResourceLoader.getInstance({ loadMode: 'lazy' });
       expect(instance1).toBe(instance2);
     });
 
@@ -32,14 +31,14 @@ describe('ResourceLoader', () => {
 
   describe('initialization', () => {
     it('should throw error when accessing files before initialization', async () => {
-      loader = ResourceLoader.getInstance();
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
       const errorMessage = 'ResourceLoader not initialized';
       expect(() => loader.getFile(TEST_FILE)).toThrow(errorMessage);
       expect(() => loader.getAllFiles()).toThrow(errorMessage);
     });
 
     it('should initialize successfully', async () => {
-      loader = ResourceLoader.getInstance();
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
       await expect(loader.initialize()).resolves.not.toThrow();
     });
 
@@ -52,7 +51,7 @@ describe('ResourceLoader', () => {
 
   describe('file access', () => {
     beforeEach(async () => {
-      loader = ResourceLoader.getInstance();
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
       await loader.initialize();
     });
 
@@ -140,4 +139,52 @@ describe('ResourceLoader', () => {
       expect(content).toContain('global class System');
     });
   });
+});
+
+describe('ResourceLoader Compilation', () => {
+  let resourceLoader: ResourceLoader;
+
+  it('should not compile artifacts when loadMode is lazy', async () => {
+    // Create a new instance with lazy mode
+    (ResourceLoader as any).instance = null;
+    const lazyLoader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+
+    // Initialize the resource loader
+    await lazyLoader.initialize();
+
+    // Wait a bit to ensure no compilation starts
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // Check that no compiled artifacts are available
+    const compiledArtifacts = lazyLoader.getAllCompiledArtifacts();
+    expect(compiledArtifacts.size).toBe(0);
+  });
+
+  it('should get compiled artifact for specific file', async () => {
+    resourceLoader = ResourceLoader.getInstance({ loadMode: 'full' });
+    // Initialize the resource loader
+    await resourceLoader.initialize();
+
+    // Wait for compilation to complete
+    await resourceLoader.waitForCompilation();
+
+    // Get all compiled artifacts to find one we can test with
+    const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
+    const firstArtifact = Array.from(compiledArtifacts.values())[0];
+
+    if (firstArtifact) {
+      const fileName = firstArtifact.path;
+
+      // Get the compiled artifact for this file
+      const compiledArtifact = resourceLoader.getCompiledArtifact(fileName);
+
+      expect(compiledArtifact).toBeDefined();
+      expect(compiledArtifact!.path).toBe(fileName);
+      expect(compiledArtifact!.compilationResult).toBeDefined();
+      expect(compiledArtifact!.compilationResult.comments).toBeDefined();
+      expect(
+        compiledArtifact!.compilationResult.commentAssociations,
+      ).toBeDefined();
+    }
+  }, 30000); // Increase timeout to 30 seconds
 });

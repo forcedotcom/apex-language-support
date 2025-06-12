@@ -44,13 +44,8 @@ export class LSPConfigurationManager {
     this.connection = connection;
     this.setupConfigurationHandlers();
 
-    // Initialize resource loader with current settings
-    this.initializeResourceLoader().catch((error) => {
-      this.logger.error(
-        'Failed to initialize resource loader during connection setup:',
-        error,
-      );
-    });
+    // Note: Resource loader initialization moved to processInitializeParams()
+    // to ensure it happens after initialization options are processed
   }
 
   /**
@@ -70,12 +65,36 @@ export class LSPConfigurationManager {
       !!capabilities.workspace.didChangeConfiguration.dynamicRegistration
     );
 
-    this.logger.debug(
+    // Debug the specific capability detection
+    this.logger.info(
+      () => `Capability detection breakdown:
+       - workspace exists: ${!!capabilities.workspace}
+       - didChangeConfiguration exists: ${!!(capabilities.workspace && capabilities.workspace.didChangeConfiguration)}
+       - dynamicRegistration value: ${capabilities.workspace?.didChangeConfiguration?.dynamicRegistration}
+       - final hasWorkspaceConfiguration: ${this.hasWorkspaceConfiguration}`,
+    );
+
+    // Enhanced debugging for capability detection
+    this.logger.info(
+      () =>
+        `Client capabilities received: ${JSON.stringify(capabilities, null, 2)}`,
+    );
+    this.logger.info(
       `Client capabilities - configuration: ${this.hasConfigurationCapability}, ` +
         `workspace: ${this.hasWorkspaceConfiguration}`,
     );
 
-    // Extract initial settings from initialization options
+    // Log specific workspace capabilities for debugging
+    if (capabilities.workspace) {
+      this.logger.info(
+        () =>
+          `Workspace capabilities: ${JSON.stringify(capabilities.workspace, null, 2)}`,
+      );
+    } else {
+      this.logger.warn('No workspace capabilities found in client');
+    }
+
+    // Extract initial settings from initialization options FIRST
     if (params.initializationOptions) {
       this.logger.debug(
         () =>
@@ -88,19 +107,19 @@ export class LSPConfigurationManager {
 
       if (success) {
         this.logger.debug('Successfully applied initialization settings');
-
-        // Initialize resource loader with updated settings if connection is available
-        if (this.connection) {
-          this.initializeResourceLoader().catch((error) => {
-            this.logger.error(
-              'Failed to initialize resource loader during initialization:',
-              error,
-            );
-          });
-        }
       } else {
         this.logger.warn('Failed to apply initialization settings');
       }
+    }
+
+    // Initialize resource loader AFTER settings are processed
+    if (this.connection) {
+      this.initializeResourceLoader().catch((error) => {
+        this.logger.error(
+          'Failed to initialize resource loader during initialization:',
+          error,
+        );
+      });
     }
 
     // Extract workspace folder information for environment detection
@@ -117,7 +136,15 @@ export class LSPConfigurationManager {
   private async initializeResourceLoader(): Promise<void> {
     try {
       const loadMode = this.settingsManager.getResourceLoadMode();
-      this.logger.info(`Initializing resource loader with mode: ${loadMode}`);
+      const currentSettings = this.settingsManager.getSettings();
+
+      this.logger.info(
+        () => `Initializing resource loader with mode: ${loadMode}`,
+      );
+      this.logger.debug(
+        () =>
+          `Current settings at resource loader init: ${JSON.stringify(currentSettings, null, 2)}`,
+      );
 
       // Get or create ResourceLoader instance with current settings
       this.resourceLoader = ResourceLoader.getInstance({ loadMode });
@@ -144,11 +171,11 @@ export class LSPConfigurationManager {
         // Since ResourceLoader doesn't expose current loadMode, we'll need to track it
         // For now, we'll assume it needs reconfiguration if settings changed
         this.logger.info(
-          `Reconfiguring resource loader to mode: ${newLoadMode}`,
+          () => `Reconfiguring resource loader to mode: ${newLoadMode}`,
         );
       } else {
         this.logger.info(
-          `Initializing resource loader with mode: ${newLoadMode}`,
+          () => `Initializing resource loader with mode: ${newLoadMode}`,
         );
       }
 
@@ -162,9 +189,10 @@ export class LSPConfigurationManager {
       });
       await this.resourceLoader.initialize();
 
-      this.logger.info(
-        `Resource loader ${currentResourceLoader ? 'reconfigured' : 'initialized'} successfully with mode: ${newLoadMode}`,
-      );
+      this.logger.info(() => {
+        const action = currentResourceLoader ? 'reconfigured' : 'initialized';
+        return `Resource loader ${action} successfully with mode: ${newLoadMode}`;
+      });
     } catch (error) {
       this.logger.error('Failed to reconfigure resource loader:', error);
       // Don't throw here - we want configuration changes to continue even if resource loader fails
@@ -231,7 +259,8 @@ export class LSPConfigurationManager {
 
       if (previousLoadMode !== newLoadMode) {
         this.logger.info(
-          `Resource load mode changed from ${previousLoadMode} to ${newLoadMode}`,
+          () =>
+            `Resource load mode changed from ${previousLoadMode} to ${newLoadMode}`,
         );
         await this.reconfigureResourceLoader(newLoadMode);
       }
@@ -345,7 +374,8 @@ export class LSPConfigurationManager {
             this.settingsManager.updateFromLSPConfiguration(config);
           if (success) {
             this.logger.debug(
-              `Successfully updated configuration from section: ${configSections[i]}`,
+              () =>
+                `Successfully updated configuration from section: ${configSections[i]}`,
             );
             foundValidConfig = true;
           }
