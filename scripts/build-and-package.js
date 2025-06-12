@@ -1,48 +1,24 @@
 #!/usr/bin/env node
 
 /**
- * Build and Package Script
- * 
- * This script orchestrates the complete build and packaging process for:
- * - apex-ls-node package
- * - apex-lsp-vscode-extension package
- * 
- * Steps performed:
- * 1. Clean node_modules directory (root)
- * 2. Run npm install (root)
- * 3. Clean apex-ls-node package (including node_modules)
- * 4. Clean apex-lsp-vscode-extension package (including node_modules)
- * 5. Compile and build apex-ls-node package
- * 6. Run package script in apex-lsp-vscode-extension (npm install handled by precompile step)
+ * End-to-end build script for the Apex Language Server monorepo.
+ *
+ * Packages involved:
+ * • packages/apex-ls-node
+ * • packages/apex-lsp-vscode-extension
+ *
+ * Workflow summary:
+ * 1. Clean and reinstall root dependencies.
+ * 2. Clean both packages.
+ * 3. Install & precompile the VS Code extension assets.
+ * 4. Bundle apex-ls-node.
+ * 5. Bundle the extension.
+ * 6. Package the extension with `vsce`.
  */
 
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-
-/**
- * Recursively removes a directory and all its contents
- * @param {string} dirPath - Path to the directory to remove
- */
-function removeDirectory(dirPath) {
-  if (fs.existsSync(dirPath)) {
-    try {
-      fs.rmSync(dirPath, { recursive: true, force: true });
-      return true;
-    } catch (error) {
-      // Fallback for older Node.js versions
-      try {
-        const rimraf = require('rimraf');
-        rimraf.sync(dirPath);
-        return true;
-      } catch (fallbackError) {
-        console.error(`Failed to remove directory ${dirPath}:`, error.message);
-        return false;
-      }
-    }
-  }
-  return true;
-}
 
 // Color output for better visibility
 const colors = {
@@ -71,78 +47,86 @@ function log(message, type = 'info') {
   console.log(`${color}${colors.bright}[${type.toUpperCase()}]${colors.reset} ${message}`);
 }
 
+const ROOT_DIR = path.resolve(__dirname, '..');
+const PACKAGE_DIRS = {
+  apexLsNode: path.join(ROOT_DIR, 'packages', 'apex-ls-node'),
+  vscodeExtension: path.join(ROOT_DIR, 'packages', 'apex-lsp-vscode-extension')
+};
+
 /**
- * Executes a command with proper error handling and logging
- * @param {string} command - The command to execute
- * @param {string} cwd - The working directory
- * @param {string} description - Description of what the command does
+ * Verifies that all required package directories exist.
  */
-function executeCommand(command, cwd, description) {
+function assertWorkspaceLayout() {
+  Object.entries(PACKAGE_DIRS).forEach(([name, dir]) => {
+    if (!fs.existsSync(dir)) {
+      log(`Required directory not found: ${dir} (${name})`, 'error');
+      process.exit(1);
+    }
+  });
+}
+
+/**
+ * Executes an arbitrary function wrapped with standardised logging/error-handling.
+ * @param {() => void} fn – synchronous function representing the build step.
+ * @param {string} description – human-readable description of what the step does.
+ */
+function runStep(fn, description) {
   log(`${description}...`, 'info');
   try {
-    execSync(command, { 
-      cwd, 
-      stdio: 'inherit',
-      encoding: 'utf8'
-    });
+    fn();
     log(`✅ ${description} completed successfully`, 'success');
   } catch (error) {
-    log(`❌ Failed to ${description.toLowerCase()}`, 'error');
-    log(`Error: ${error.message}`, 'error');
+    log(`❌ ${description} failed`, 'error');
+    log(error.message || String(error), 'error');
     process.exit(1);
   }
 }
 
 /**
- * Main build and package function
+ * Returns a closure that runs an arbitrary shell command with execSync.
+ * @param {string} command – command to execute.
+ * @param {string} cwd – working directory.
+ */
+const cmd = (command, cwd) => () => execSync(command, { cwd, stdio: 'inherit', encoding: 'utf8' });
+
+/**
+ * Removes the provided directory path recursively – no-op if it does not exist.
+ */
+const cleanDir = dir => () => {
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+};
+
+/**
+ * Declarative list of steps executed in sequence.
+ * Each entry is a tuple [description, function].
+ */
+const STEPS = [
+  ['Cleaning root node_modules directory', cleanDir(path.join(ROOT_DIR, 'node_modules'))],
+  ['Installing root dependencies', cmd('npm install', ROOT_DIR)],
+  ['Cleaning apex-ls-node package', cmd('npm run clean', PACKAGE_DIRS.apexLsNode)],
+  ['Cleaning apex-lsp-vscode-extension package', cmd('npm run clean', PACKAGE_DIRS.vscodeExtension)],
+  ['Installing VSCode extension dependencies', cmd('npm install', PACKAGE_DIRS.vscodeExtension)],
+  ['Precompiling VSCode extension assets', cmd('npm run precompile', PACKAGE_DIRS.vscodeExtension)],
+  ['Bundling apex-ls-node package', cmd('npm run bundle', PACKAGE_DIRS.apexLsNode)],
+  ['Bundling VSCode extension', cmd('npm run bundle', PACKAGE_DIRS.vscodeExtension)],
+  ['Packaging VSCode extension', cmd('npm run package', PACKAGE_DIRS.vscodeExtension)]
+];
+
+/**
+ * Entry-point orchestrating the full build.
  */
 function buildAndPackage() {
-  const rootDir = path.resolve(__dirname, '..');
-  const apexLsNodeDir = path.join(rootDir, 'packages', 'apex-ls-node');
-  const apexLspVscodeExtensionDir = path.join(rootDir, 'packages', 'apex-lsp-vscode-extension');
+  assertWorkspaceLayout();
+  log('🚀 Starting build and package process', 'info');
 
-  // Verify packages exist
-  if (!fs.existsSync(apexLsNodeDir)) {
-    log('apex-ls-node package directory not found', 'error');
-    process.exit(1);
-  }
-
-  if (!fs.existsSync(apexLspVscodeExtensionDir)) {
-    log('apex-lsp-vscode-extension package directory not found', 'error');
-    process.exit(1);
-  }
-
-  log('Starting build and package process...', 'info');
-
-  // Step 1: Clean node_modules directory
-  log('Cleaning root node_modules directory...', 'info');
-  const nodeModulesPath = path.join(rootDir, 'node_modules');
-  if (removeDirectory(nodeModulesPath)) {
-    log('✅ Cleaning root node_modules directory completed successfully', 'success');
-  } else {
-    log('❌ Failed to clean root node_modules directory', 'error');
-    process.exit(1);
-  }
-
-  // Step 2: Run npm install
-  executeCommand('npm install', rootDir, 'Installing dependencies');
-
-  // Step 3: Clean apex-ls-node package
-  executeCommand('npm run clean', apexLsNodeDir, 'Cleaning apex-ls-node package');
-
-  // Step 4: Clean apex-lsp-vscode-extension package
-  executeCommand('npm run clean', apexLspVscodeExtensionDir, 'Cleaning apex-lsp-vscode-extension package');
-
-  // Step 5: Compile and build apex-ls-node package
-  executeCommand('npm run bundle', apexLsNodeDir, 'Building apex-ls-node package');
-
-  // Step 6: Run package script in apex-lsp-vscode-extension (npm install handled by precompile step)
-  executeCommand('npm run package', apexLspVscodeExtensionDir, 'Packaging apex-lsp-vscode-extension');
+  STEPS.forEach(([description, fn]) => runStep(fn, description));
 
   log('🎉 Build and package process completed successfully!', 'success');
 }
 
-// Run the build and package process
+// Replace old main call with refactored implementation
 if (require.main === module) {
   buildAndPackage();
 }
