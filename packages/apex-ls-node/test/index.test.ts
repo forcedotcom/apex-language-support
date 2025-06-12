@@ -9,6 +9,10 @@
 import {
   InitializeParams,
   TextDocumentChangeEvent,
+  DocumentSymbolParams,
+  FoldingRangeParams,
+  FoldingRange,
+  InitializeResult,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {} from 'jest';
@@ -22,12 +26,24 @@ type OnDidCloseHandler = (
   params: TextDocumentChangeEvent<TextDocument>,
 ) => void;
 type OnDidSaveHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
+type OnDocumentSymbolHandler = (
+  params: DocumentSymbolParams,
+) => Promise<any[] | null>;
+type OnFoldingRangeHandler = (
+  params: FoldingRangeParams,
+) => Promise<FoldingRange[] | null>;
+type InitializeHandler = (params: InitializeParams) => InitializeResult;
+type VoidHandler = () => void;
 
 interface MockHandlerStore {
   onDidOpen: OnDidOpenHandler | null;
   onDidChangeContent: OnDidChangeContentHandler | null;
   onDidClose: OnDidCloseHandler | null;
   onDidSave: OnDidSaveHandler | null;
+  onDocumentSymbol: OnDocumentSymbolHandler | null;
+  onFoldingRange: OnFoldingRangeHandler | null;
+  initialize: InitializeHandler | null;
+  initialized: VoidHandler | null;
 }
 
 // Store mock handlers
@@ -36,6 +52,10 @@ const mockHandlers: MockHandlerStore = {
   onDidChangeContent: null,
   onDidClose: null,
   onDidSave: null,
+  onDocumentSymbol: null,
+  onFoldingRange: null,
+  initialize: null,
+  initialized: null,
 };
 
 const mockConsole = {
@@ -110,6 +130,23 @@ jest.mock('vscode-languageserver/node', () => ({
   },
 }));
 
+mockConnection.onInitialize.mockImplementation((handler: InitializeHandler) => {
+  mockHandlers.initialize = handler;
+});
+mockConnection.onInitialized.mockImplementation((handler: VoidHandler) => {
+  mockHandlers.initialized = handler;
+});
+mockConnection.onDocumentSymbol.mockImplementation(
+  (handler: OnDocumentSymbolHandler) => {
+    mockHandlers.onDocumentSymbol = handler;
+  },
+);
+mockConnection.onFoldingRanges.mockImplementation(
+  (handler: OnFoldingRangeHandler) => {
+    mockHandlers.onFoldingRange = handler;
+  },
+);
+
 mockDocuments.onDidOpen.mockImplementation((handler: OnDidOpenHandler) => {
   mockHandlers.onDidOpen = handler;
   return mockHandlers;
@@ -137,6 +174,8 @@ const mockDispatchProcessOnOpenDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnChangeDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnCloseDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnSaveDocument = jest.fn().mockResolvedValue([]);
+const mockDispatchProcessOnDocumentSymbol = jest.fn().mockResolvedValue([]);
+const mockDispatchProcessOnFoldingRange = jest.fn().mockResolvedValue([]);
 
 jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   ApexStorageManager: {
@@ -176,7 +215,8 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   dispatchProcessOnChangeDocument: mockDispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
   dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
-  dispatchProcessOnDocumentSymbol: jest.fn(),
+  dispatchProcessOnDocumentSymbol: mockDispatchProcessOnDocumentSymbol,
+  dispatchProcessOnFoldingRange: mockDispatchProcessOnFoldingRange,
 }));
 
 // Mock the logger abstraction
@@ -329,8 +369,49 @@ describe('Apex Language Server', () => {
     ]);
   });
 
+  it('should register a document symbol handler', () => {
+    expect(mockConnection.onDocumentSymbol).toHaveBeenCalled();
+  });
+
   it('should register a folding range handler', () => {
-    expect(mockConnection.onFoldingRanges.mock.calls.length).toBe(1);
+    expect(mockConnection.onFoldingRanges).toHaveBeenCalled();
+  });
+
+  it('should handle document symbol requests', async () => {
+    const params = {
+      textDocument: { uri: 'file:///test.cls' },
+    } as DocumentSymbolParams;
+    await mockHandlers.onDocumentSymbol!(params);
+    expect(mockDispatchProcessOnDocumentSymbol).toHaveBeenCalledWith(params);
+  });
+
+  it('should handle folding range requests', async () => {
+    const params = {
+      textDocument: { uri: 'file:///test.cls' },
+    } as FoldingRangeParams;
+    await mockHandlers.onFoldingRange!(params);
+    expect(mockDispatchProcessOnFoldingRange).toHaveBeenCalledWith(
+      params,
+      undefined,
+    );
+  });
+
+  it('should correctly handle the initialized notification', () => {
+    // Get the handler
+    const initializedHandler = mockConnection.onInitialized.mock.calls[0][0];
+    const params: InitializeParams = {
+      processId: 1,
+      rootUri: null,
+      capabilities: {},
+    };
+
+    // Act
+    initializedHandler(params);
+
+    // Assert
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'Language server initialized and connected to client.',
+    );
   });
 
   describe('Document Management', () => {

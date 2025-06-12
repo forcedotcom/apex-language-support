@@ -16,8 +16,8 @@ import {
 } from 'vscode-languageserver-protocol';
 import {
   CompilerService,
-  ApexSymbolCollectorListener,
   SymbolTable,
+  ApexSymbolCollectorListener,
 } from '@salesforce/apex-lsp-parser-ast';
 import type {
   MethodSymbol,
