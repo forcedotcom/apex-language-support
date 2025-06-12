@@ -8,7 +8,7 @@
 
 import { ParserRuleContext } from 'antlr4ts';
 
-import { FieldModifierValidator } from '../../../src/sematics/modifiers/FieldModifierValidator';
+import { FieldModifierValidator } from '../../../src/semantics/modifiers/FieldModifierValidator';
 import { ErrorReporter } from '../../../src/utils/ErrorReporter';
 import {
   SymbolKind,

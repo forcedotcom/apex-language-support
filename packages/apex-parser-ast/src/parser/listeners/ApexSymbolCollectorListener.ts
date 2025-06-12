@@ -29,7 +29,7 @@ import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
-import { Namespace, Namespaces } from '../../sematics/namespaces';
+import { Namespace, Namespaces } from '../../semantics/namespaces';
 import {
   EnumSymbol,
   MethodSymbol,
@@ -49,7 +49,7 @@ import {
   FieldModifierValidator,
   InterfaceBodyValidator,
   ErrorReporter,
-} from '../../sematics/modifiers/index';
+} from '../../semantics/modifiers/index';
 
 interface SemanticError {
   type: 'semantic';

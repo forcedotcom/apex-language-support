@@ -45,5 +45,5 @@ export * from './utils/PlatformUtils';
 export * from './utils/AnnotationUtils';
 
 // Export semantic validators
-export * from './sematics/modifiers/index';
-export * from './sematics/annotations/index';
+export * from './semantics/modifiers/index';
+export * from './semantics/annotations/index';
