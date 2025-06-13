@@ -21,7 +21,7 @@ export const processOnDocumentSymbol = async (
   params: DocumentSymbolParams,
 ): Promise<SymbolInformation[] | DocumentSymbol[] | null> => {
   const logger = Logger.getInstance();
-  logger.info(
+  logger.debug(
     `Common Apex Language Server document symbol handler invoked with: ${params}`,
   );
 

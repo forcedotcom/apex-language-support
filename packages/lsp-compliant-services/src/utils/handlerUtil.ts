@@ -24,7 +24,7 @@ export const dispatch = async <T>(
   try {
     return await operation;
   } catch (error: unknown) {
-    Logger.getInstance().error(`${errorMessage}: ${error}`);
+    Logger.getInstance().error(() => `${errorMessage}: ${error}`);
     throw error;
   }
 };

@@ -6,8 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-export type { ErrorReporter } from '../../utils/ErrorReporter';
 export { ClassModifierValidator } from './ClassModifierValidator';
-export { MethodModifierValidator } from './MethodModifierValidator';
 export { FieldModifierValidator } from './FieldModifierValidator';
+export { InterfaceBodyValidator } from './InterfaceBodyValidator';
+export { MethodModifierValidator } from './MethodModifierValidator';
 export type { FieldModifierValidator as FieldModifierValidatorType } from './FieldModifierValidator';
+export type { ErrorReporter } from '../../utils/ErrorReporter';

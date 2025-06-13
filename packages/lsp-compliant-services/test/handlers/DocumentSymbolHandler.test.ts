@@ -41,7 +41,7 @@ describe('DocumentSymbolHandler', () => {
   });
 
   describe('processOnDocumentSymbol', () => {
-    it('should log info message with document symbol params', async () => {
+    it('should log debug message with document symbol params', async () => {
       const params: DocumentSymbolParams = {
         textDocument: {
           uri: 'file:///test.cls',
@@ -50,8 +50,8 @@ describe('DocumentSymbolHandler', () => {
 
       await processOnDocumentSymbol(params);
 
-      expect(mockLogger.info).toHaveBeenCalledTimes(1);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server document symbol handler invoked with: ${params}`,
       );
     });

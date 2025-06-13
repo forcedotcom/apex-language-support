@@ -19,6 +19,9 @@ import {
   TextDocuments,
   TextDocumentChangeEvent,
   Diagnostic,
+  DidChangeConfigurationParams,
+  FoldingRangeParams,
+  FoldingRange,
 } from 'vscode-languageserver/node';
 import {
   dispatchProcessOnChangeDocument,
@@ -26,7 +29,10 @@ import {
   dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol,
+  dispatchProcessOnFoldingRange,
   ApexStorageManager,
+  ApexSettingsManager,
+  LSPConfigurationManager,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -41,6 +47,10 @@ import { NodeFileSystemApexStorage } from './storage/NodeFileSystemApexStorage';
 
 // Set the logger factory early
 setLoggerFactory(new ActiveLoggerFactory());
+
+// Initialize settings and configuration managers
+const settingsManager = ApexSettingsManager.getInstance({}, 'node');
+const configurationManager = new LSPConfigurationManager(settingsManager);
 
 // Create a connection for the server based on command line arguments
 let connection: Connection;
@@ -64,6 +74,9 @@ if (process.argv.includes('--stdio')) {
 const logger = getLogger();
 setLogNotificationHandler(NodeLogNotificationHandler.getInstance(connection));
 
+// Set up configuration management
+configurationManager.setConnection(connection);
+
 // Server state
 let isShutdown = false;
 const documents = new TextDocuments(TextDocument);
@@ -80,7 +93,10 @@ storageManager.initialize();
 // Initialize server capabilities and properties
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   logger.info('Apex Language Server initializing...');
-  // TODO: Add startup tasks here if needed
+
+  // Process initialization parameters and settings
+  configurationManager.processInitializeParams(params);
+
   return {
     capabilities: {
       textDocumentSync: {
@@ -96,7 +112,13 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       },
       hoverProvider: false,
       documentSymbolProvider: true,
-      foldingRangeProvider: false, //todo: enable this
+      foldingRangeProvider: true, // Enable folding range support
+      workspace: {
+        workspaceFolders: {
+          supported: true,
+          changeNotifications: true,
+        },
+      },
     },
   };
 });
@@ -104,6 +126,12 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 // Handle client connection
 connection.onInitialized(() => {
   logger.info('Language server initialized and connected to client.');
+
+  // Register for configuration changes
+  configurationManager.registerForConfigurationChanges();
+
+  // Request initial configuration from client
+  configurationManager.requestConfiguration();
 
   // Send notification to client that server is ready
   connection.sendNotification(InitializedNotification.type, {
@@ -134,20 +162,42 @@ connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
   }
 });
 
+// Handle configuration change notifications
+connection.onDidChangeConfiguration(
+  async (params: DidChangeConfigurationParams) => {
+    logger.info('Received configuration change notification');
+    await configurationManager.handleConfigurationChange(params);
+  },
+);
+
 // Add a handler for folding ranges
-/*
 connection.onFoldingRanges(
   async (params: FoldingRangeParams): Promise<FoldingRange[] | null> => {
-    logger.info(
-      `[SERVER] Received foldingRange request for: ${params.textDocument.uri}`,
+    logger.debug(
+      () =>
+        `[SERVER] Received foldingRange request for: ${params.textDocument.uri}`,
     );
-    // TODO: Implement actual folding range logic here.
-    // This would involve parsing the document (params.textDocument.uri can be used to get content from 'documents')
-    // and identifying ranges for comments, regions, classes, methods, etc.
-    // For now, returning an empty array to satisfy the request and stop the 'Unhandled method' error.
-    return [];
+
+    try {
+      const result = await dispatchProcessOnFoldingRange(
+        params,
+        storageManager.getStorage(),
+      );
+      logger.debug(
+        () =>
+          `[SERVER] Result for foldingRanges (${params.textDocument.uri}): ${JSON.stringify(result)}`,
+      );
+      return result;
+    } catch (error) {
+      logger.error(
+        () =>
+          `[SERVER] Error processing foldingRanges for ${params.textDocument.uri}: ${error}`,
+      );
+      // Return null or an empty array in case of error, as per LSP spec for graceful failure
+      return null;
+    }
   },
-);*/
+);
 
 // Handle completion requests
 connection.onCompletion((_textDocumentPosition: any) => [
@@ -191,12 +241,12 @@ const handleDiagnostics = (
   uri: string,
   diagnostics: Diagnostic[] | undefined,
 ) => {
-  if (diagnostics) {
-    connection.sendDiagnostics({
-      uri,
-      diagnostics,
-    });
-  }
+  // Always send diagnostics to the client, even if empty array
+  // This ensures diagnostics are cleared when there are no errors
+  connection.sendDiagnostics({
+    uri,
+    diagnostics: diagnostics || [],
+  });
 };
 
 // Notifications
@@ -232,6 +282,9 @@ documents.onDidClose((event: TextDocumentChangeEvent<TextDocument>) => {
   );
 
   dispatchProcessOnCloseDocument(event);
+
+  // Clear diagnostics for the closed document
+  handleDiagnostics(event.document.uri, []);
 });
 
 documents.onDidSave((event: TextDocumentChangeEvent<TextDocument>) => {

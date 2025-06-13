@@ -24,6 +24,17 @@ The application we are working on uses the following tech stack:
 
 - TypeScript
 - Node.js
+- tsup v2+ for bundling/rollup
+- turbo for managing package target dependencies
+
+## NPM Targets
+- The target dependencies are package -> bundle -> compile -> precompile
+
+- package: runs package for the distrinution model for each package in the mono-repo
+- bundle: causes the steps needed to bundle the package smallest artifact count and size for packaging
+- compile: used to compile artifacts
+- precompile: each package may have a precompile step
+- test: run tests for each package
 
 ## Shortcuts
 

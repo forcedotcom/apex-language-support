@@ -46,6 +46,8 @@ import {
 } from '../../types/symbol';
 import {
   ClassModifierValidator,
+  FieldModifierValidator,
+  InterfaceBodyValidator,
   ErrorReporter,
 } from '../../sematics/modifiers/index';
 
@@ -232,6 +234,14 @@ export class ApexSymbolCollectorListener
       const name = ctx.id()?.text ?? 'unknownClass';
       this.logger.debug(`Entering class declaration: ${name}`);
 
+      // Validate class in interface
+      InterfaceBodyValidator.validateClassInInterface(
+        name,
+        ctx,
+        this.currentTypeSymbol,
+        this,
+      );
+
       // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
       const annotations = this.getCurrentAnnotations();
@@ -243,6 +253,7 @@ export class ApexSymbolCollectorListener
         ctx,
         !!this.currentTypeSymbol, // isInnerClass
         this.currentTypeSymbol,
+        annotations,
         this,
       );
 
@@ -334,6 +345,14 @@ export class ApexSymbolCollectorListener
     try {
       const name = ctx.id()?.text ?? 'unknownInterface';
       this.logger.debug(`Entering interface declaration: ${name}`);
+
+      // Validate interface in interface
+      InterfaceBodyValidator.validateInterfaceInInterface(
+        name,
+        ctx,
+        this.currentTypeSymbol,
+        this,
+      );
 
       // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
@@ -523,6 +542,14 @@ export class ApexSymbolCollectorListener
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     try {
       const name = this.currentTypeSymbol?.name ?? 'unknownConstructor';
+
+      // Validate constructor in interface
+      InterfaceBodyValidator.validateConstructorInInterface(
+        name,
+        ctx,
+        this.currentTypeSymbol,
+        this,
+      );
 
       // Check for duplicate constructor
       if (this.currentTypeSymbol) {
@@ -739,6 +766,27 @@ export class ApexSymbolCollectorListener
         `Entering field declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
       );
 
+      // Get current modifiers
+      const modifiers = this.getCurrentModifiers();
+
+      // Validate field declaration in interface
+      if (this.currentTypeSymbol) {
+        InterfaceBodyValidator.validateFieldInInterface(
+          modifiers,
+          ctx,
+          this.currentTypeSymbol,
+          this,
+        );
+
+        // Additional field modifier validations
+        FieldModifierValidator.validateFieldVisibilityModifiers(
+          modifiers,
+          ctx,
+          this.currentTypeSymbol,
+          this,
+        );
+      }
+
       // Process each variable declarator in the field declaration
       for (const declarator of ctx
         .variableDeclarators()
@@ -746,7 +794,7 @@ export class ApexSymbolCollectorListener
         this.processVariableDeclarator(
           declarator,
           type,
-          this.getCurrentModifiers(),
+          modifiers,
           SymbolKind.Property,
         );
       }
@@ -813,6 +861,15 @@ export class ApexSymbolCollectorListener
   enterEnumDeclaration(ctx: EnumDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownEnum';
+
+      // Validate enum in interface
+      InterfaceBodyValidator.validateEnumInInterface(
+        name,
+        ctx,
+        this.currentTypeSymbol,
+        this,
+      );
+
       const modifiers = this.getCurrentModifiers();
       const location = this.getLocation(ctx);
       const parent = this.currentTypeSymbol;

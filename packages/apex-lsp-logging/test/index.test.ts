@@ -8,7 +8,7 @@
 
 import {
   LogLevel,
-  Logger,
+  LoggerInterface,
   LogNotificationHandler,
   LogMessageType,
   setLogNotificationHandler,
@@ -17,7 +17,7 @@ import {
 } from '../src';
 
 describe('apex-lsp-logging', () => {
-  let mockLogger: jest.Mocked<Logger>;
+  let mockLogger: jest.Mocked<LoggerInterface>;
   let mockLogNotificationHandler: jest.Mocked<LogNotificationHandler>;
 
   beforeEach(() => {
@@ -60,7 +60,7 @@ describe('apex-lsp-logging', () => {
           }
         },
       ),
-    } as unknown as jest.Mocked<Logger>;
+    } as unknown as jest.Mocked<LoggerInterface>;
 
     mockLogNotificationHandler = {
       sendLogMessage: jest.fn(),
@@ -85,7 +85,7 @@ describe('apex-lsp-logging', () => {
   });
 
   describe('Logger interface', () => {
-    let logger: Logger;
+    let logger: LoggerInterface;
 
     beforeEach(() => {
       logger = getLogger();

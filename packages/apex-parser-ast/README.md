@@ -127,3 +127,159 @@ npm run dev
 # Run tests
 npm test
 ```
+
+## Comment Collection
+
+Comments are collected by default for language server functionality like hover documentation, code completion, and symbol information.
+
+### Usage Examples
+
+```typescript
+import {
+  CompilerService,
+  ApexSymbolCollectorListener,
+} from '@salesforce/apex-lsp-parser-ast';
+
+const compilerService = new CompilerService();
+const symbolCollector = new ApexSymbolCollectorListener();
+
+// Comments collected by default (recommended for language servers)
+const result = compilerService.compile(
+  apexCode,
+  'MyClass.cls',
+  symbolCollector,
+);
+console.log('Comments found:', result.comments.length);
+
+// Explicitly include comments (same as default)
+const resultWithComments = compilerService.compile(
+  apexCode,
+  'MyClass.cls',
+  symbolCollector,
+  { includeComments: true },
+);
+
+// Opt out of comment collection (for performance-critical scenarios)
+const resultWithoutComments = compilerService.compile(
+  apexCode,
+  'MyClass.cls',
+  symbolCollector,
+  { includeComments: false },
+);
+// resultWithoutComments.comments is undefined
+
+// Include single-line comments (default: false)
+const resultWithLineComments = compilerService.compile(
+  apexCode,
+  'MyClass.cls',
+  symbolCollector,
+  { includeSingleLineComments: true },
+);
+
+// Include comment association (requires includeComments: true)
+const resultWithAssociations = compilerService.compile(
+  apexCode,
+  'MyClass.cls',
+  symbolCollector,
+  {
+    includeComments: true,
+    associateComments: true,
+  },
+);
+
+// All options combined
+const resultWithAllOptions = compilerService.compile(
+  apexCode,
+  'MyClass.cls',
+  symbolCollector,
+  {
+    includeComments: true,
+    includeSingleLineComments: true,
+    associateComments: true,
+    projectNamespace: 'MyProject',
+  },
+);
+```
+
+### Comment Types
+
+The parser identifies different types of comments:
+
+- **Line comments**: `// Single line comment` (excluded by default)
+- **Block comments**: `/* Multi-line comment */` (included by default)
+- **Documentation comments**: `/** JavaDoc style */`, `/// Triple slash` (included when line comments are enabled)
+
+### Comment Collection Behavior
+
+By default, the parser collects block comments but excludes single-line comments. This behavior is optimized for language server use cases where:
+
+- Block comments are more likely to contain meaningful documentation
+- Single-line comments are often temporary or implementation-specific
+- Reducing noise improves hover documentation and IntelliSense quality
+
+To include single-line comments, set `includeSingleLineComments: true` in the compilation options.
+
+### Comment Association
+
+When `associateComments: true` is enabled, comments are automatically associated with nearby symbols using spatial analysis:
+
+```typescript
+import { CommentAssociationType } from '@salesforce/apex-lsp-parser-ast';
+
+const result = compilerService.compile(
+  apexCode,
+  'MyClass.cls',
+  symbolCollector,
+  {
+    includeComments: true,
+    associateComments: true,
+  },
+);
+
+// Access comment associations
+const associations = result.commentAssociations;
+
+// Get associations for a specific symbol
+const classAssociations = associations.filter((a) => a.symbolKey === 'MyClass');
+
+// Get associations by type
+const precedingComments = associations.filter(
+  (a) => a.associationType === CommentAssociationType.Preceding,
+);
+const inlineComments = associations.filter(
+  (a) => a.associationType === CommentAssociationType.Inline,
+);
+
+// Get documentation for a symbol (high-confidence preceding comments)
+const associator = new CommentAssociator();
+const documentation = associator.getDocumentationForSymbol(
+  'MyClass',
+  associations,
+);
+```
+
+#### Association Types
+
+- **Preceding**: Comments that appear before a symbol (typical documentation)
+- **Inline**: Comments on the same line as the symbol declaration
+- **Internal**: Comments inside a symbol's body (for classes/methods)
+- **Trailing**: Comments that appear after a symbol
+
+### Filtering Comments
+
+```typescript
+// Get all comments
+const allComments = result.comments;
+
+// Get only documentation comments
+const docComments = result.comments.filter((c) => c.isDocumentation);
+
+// Get comments by type
+const lineComments = result.comments.filter((c) => c.type === 'line');
+const blockComments = result.comments.filter((c) => c.type === 'block');
+
+// Get comments in a specific range
+const rangeComments = result.comments.filter(
+  (c) => c.startLine >= 10 && c.endLine <= 20,
+);
+```

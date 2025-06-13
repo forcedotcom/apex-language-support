@@ -567,6 +567,157 @@ describe('Apex Language Server Browser', () => {
     });
   });
 
+  describe('Browser Diagnostics Handling', () => {
+    beforeEach(() => {
+      // Clear any previous calls to sendDiagnostics
+      mockConnection.sendDiagnostics.mockClear();
+    });
+
+    it('should send empty diagnostics array when onDidOpen returns undefined', async () => {
+      mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(undefined);
+
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
+          uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'class Test {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
+        },
+      };
+
+      const onDidOpenHandler = mockHandlers.onDidOpen as OnDidOpenHandler;
+      await onDidOpenHandler(event);
+
+      // Allow promises to resolve
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.apex',
+        diagnostics: [],
+      });
+    });
+
+    it('should send empty diagnostics array when onDidChangeContent returns empty array', async () => {
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce([]);
+
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
+          uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 2,
+          getText: () => 'class Test { /* fixed */ }',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
+        },
+      };
+
+      const onDidChangeContentHandler =
+        mockHandlers.onDidChangeContent as OnDidChangeContentHandler;
+      await onDidChangeContentHandler(event);
+
+      // Allow promises to resolve
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.apex',
+        diagnostics: [],
+      });
+    });
+
+    it('should clear diagnostics when document is closed', async () => {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
+          uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'class Test {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
+        },
+      };
+
+      const onDidCloseHandler = mockHandlers.onDidClose as OnDidCloseHandler;
+      await onDidCloseHandler(event);
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.apex',
+        diagnostics: [],
+      });
+    });
+
+    it('should clear diagnostics when errors are resolved in browser (bug fix scenario)', async () => {
+      const event: TextDocumentChangeEvent<TextDocument> = {
+        document: {
+          uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 1,
+          getText: () => 'invalid syntax',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
+        },
+      };
+
+      // First, simulate document change with errors
+      const mockDiagnosticsWithErrors = [
+        {
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 10 },
+          },
+          message: 'Browser syntax error',
+          severity: 1,
+        },
+      ];
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(
+        mockDiagnosticsWithErrors,
+      );
+
+      const onDidChangeContentHandler =
+        mockHandlers.onDidChangeContent as OnDidChangeContentHandler;
+      await onDidChangeContentHandler(event);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.apex',
+        diagnostics: mockDiagnosticsWithErrors,
+      });
+
+      // Clear the mock to test the next call
+      mockConnection.sendDiagnostics.mockClear();
+
+      // Now, simulate document change with no errors (resolved)
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(undefined);
+
+      // Update event to represent fixed code
+      const fixedEvent: TextDocumentChangeEvent<TextDocument> = {
+        document: {
+          uri: 'file:///test.apex',
+          languageId: 'apex',
+          version: 2,
+          getText: () => 'class Test {}',
+          positionAt: () => ({ line: 0, character: 0 }),
+          offsetAt: () => 0,
+          lineCount: 1,
+        },
+      };
+
+      await onDidChangeContentHandler(fixedEvent);
+      await new Promise((resolve) => setImmediate(resolve));
+
+      // The key test: diagnostics should be cleared (sent as empty array)
+      expect(mockConnection.sendDiagnostics).toHaveBeenCalledWith({
+        uri: 'file:///test.apex',
+        diagnostics: [],
+      });
+    });
+  });
+
   // Restore global namespace after tests
   afterAll(() => {
     // Use type assertion to safely delete the property

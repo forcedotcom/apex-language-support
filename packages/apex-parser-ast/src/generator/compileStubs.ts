@@ -99,7 +99,10 @@ function parseApexFile(filePath: string, namespace: string): CompilationResult {
   const listener = new ApexSymbolCollectorListener();
   const compiler = new CompilerService(namespace);
 
-  return compiler.compile(content, filePath, listener, namespace);
+  return compiler.compile(content, filePath, listener, {
+    projectNamespace: namespace,
+    includeComments: false, // Don't need comments for stub generation
+  });
 }
 
 /**

@@ -100,12 +100,9 @@ describe('CompilerService Namespace Integration', () => {
       }
       `;
 
-      const result = service.compile(
-        code,
-        'MyClass.cls',
-        listener,
-        'OverrideNamespace',
-      );
+      const result = service.compile(code, 'MyClass.cls', listener, {
+        projectNamespace: 'OverrideNamespace',
+      });
 
       // Verify we have no errors
       expect(result.errors.length).toBe(0);

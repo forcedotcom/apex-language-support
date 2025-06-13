@@ -20,6 +20,10 @@ export * from './parser/listeners/ApexErrorListener';
 // Export folding range listener
 export * from './parser/listeners/ApexFoldingRangeListener';
 
+// Export comment collection and association
+export * from './parser/listeners/ApexCommentCollectorListener';
+export * from './utils/CommentAssociator';
+
 // Export type definitions
 export * from './types/typeInfo';
 export * from './types/symbol';

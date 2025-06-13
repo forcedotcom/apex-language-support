@@ -30,6 +30,7 @@ import {
   dispatchProcessOnOpenDocument,
 } from '../../src/handlers/DidOpenDocumentHandler';
 import * as handlerUtil from '../../src/utils/handlerUtil';
+import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 
 jest.mock('../../src/utils/Logger');
 jest.mock('../../src/storage/ApexStorageManager', () => {
@@ -44,6 +45,7 @@ jest.mock('../../src/definition/ApexDefinitionUpserter');
 jest.mock('../../src/references/ApexReferencesUpserter');
 jest.mock('../../src/utils/handlerUtil');
 jest.mock('@salesforce/apex-lsp-parser-ast');
+jest.mock('../../src/settings/ApexSettingsManager');
 
 describe('DidOpenDocumentHandler', () => {
   let mockStorage: jest.Mocked<ApexStorageInterface>;
@@ -77,6 +79,7 @@ describe('DidOpenDocumentHandler', () => {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
+      debug: jest.fn(),
     } as unknown as jest.Mocked<Logger>;
 
     // Setup mock storage manager
@@ -176,6 +179,17 @@ describe('DidOpenDocumentHandler', () => {
     mockGetDiagnostics = jest
       .spyOn(handlerUtil, 'getDiagnosticsFromErrors')
       .mockImplementation(() => []);
+
+    // Mock ApexSettingsManager
+    const mockGetCompilationOptions = jest.fn().mockReturnValue({
+      includeComments: true,
+      includeSingleLineComments: false,
+      associateComments: false,
+    });
+
+    (ApexSettingsManager.getInstance as jest.Mock).mockReturnValue({
+      getCompilationOptions: mockGetCompilationOptions,
+    });
   });
 
   it('should process document open and populate definitions and references', async () => {
@@ -196,13 +210,18 @@ describe('DidOpenDocumentHandler', () => {
     await processOnOpenDocument(event);
 
     // Assert
-    expect(mockLogger.info).toHaveBeenCalledWith(
+    expect(mockLogger.debug).toHaveBeenCalledWith(
       `Common Apex Language Server open document handler invoked with: ${event}`,
     );
     expect(mockCompilerService.compile).toHaveBeenCalledWith(
       event.document.getText(),
       event.document.uri,
       mockListener,
+      {
+        includeComments: true,
+        includeSingleLineComments: false,
+        associateComments: false,
+      },
     );
     expect(mockDefinitionUpserter.upsertDefinition).toHaveBeenCalledWith(event);
     expect(mockReferencesUpserter.upsertReferences).toHaveBeenCalledWith(event);
@@ -277,7 +296,7 @@ describe('DidOpenDocumentHandler', () => {
   });
 
   describe('processOnOpenDocument', () => {
-    it('should log info message with document open params', async () => {
+    it('should log debug message with document open params', async () => {
       // Arrange
       const event: TextDocumentChangeEvent<TextDocument> = {
         document: {
@@ -295,7 +314,7 @@ describe('DidOpenDocumentHandler', () => {
       await processOnOpenDocument(event);
 
       // Assert
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });
@@ -320,7 +339,7 @@ describe('DidOpenDocumentHandler', () => {
       await processOnOpenDocument(event);
 
       // Assert
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });
@@ -343,7 +362,7 @@ describe('DidOpenDocumentHandler', () => {
       await processOnOpenDocument(event);
 
       // Assert
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });
@@ -368,7 +387,7 @@ describe('DidOpenDocumentHandler', () => {
       await dispatchProcessOnOpenDocument(event);
 
       // Assert
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });

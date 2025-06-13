@@ -7,8 +7,8 @@
  */
 
 import { promises as fs } from 'fs';
-import { HashMap } from 'data-structure-typed';
 
+import { HashMap } from 'data-structure-typed';
 import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
 import type {
   ApexReference,

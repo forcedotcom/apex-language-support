@@ -6,10 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  LogLevel,
-  Logger as LoggerInterface,
-} from '@salesforce/apex-lsp-logging';
+import { LogLevel, LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { LoggingBridge } from './LoggingBridge';
 

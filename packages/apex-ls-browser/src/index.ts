@@ -142,12 +142,12 @@ const handleDiagnostics = (
   uri: string,
   diagnostics: Diagnostic[] | undefined,
 ) => {
-  if (diagnostics) {
-    connection.sendDiagnostics({
-      uri,
-      diagnostics,
-    });
-  }
+  // Always send diagnostics to the client, even if empty array
+  // This ensures diagnostics are cleared when there are no errors
+  connection.sendDiagnostics({
+    uri,
+    diagnostics: diagnostics || [],
+  });
 };
 
 // Notifications
@@ -183,6 +183,9 @@ documents.onDidClose((event: TextDocumentChangeEvent<TextDocument>) => {
   );
 
   dispatchProcessOnCloseDocument(event);
+
+  // Clear diagnostics for the closed document
+  handleDiagnostics(event.document.uri, []);
 });
 
 documents.onDidSave((event: TextDocumentChangeEvent<TextDocument>) => {
