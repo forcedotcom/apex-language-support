@@ -7,21 +7,34 @@
  */
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { dispatch } from '../../src/utils/handlerUtil';
+import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
+
+// Mock the logger before importing the handler
+const mockLogger = {
+  debug: jest.fn(),
+  error: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  trace: jest.fn(),
+  fatal: jest.fn(),
+};
+
+jest.mock('@salesforce/apex-lsp-logging', () => ({
+  getLogger: jest.fn(() => mockLogger),
+}));
+
+jest.mock('../../src/utils/handlerUtil');
+jest.mock('../../src/storage/ApexStorageManager');
+
+// Import the handler after mocking
 import {
   processOnResolve,
   dispatchProcessOnResolve,
 } from '../../src/handlers/ApexLibResolveHandler';
-import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
-
-jest.mock('@salesforce/apex-lsp-logging');
-jest.mock('../../src/utils/handlerUtil');
-jest.mock('../../src/storage/ApexStorageManager');
 
 describe('ApexLibResolveHandler', () => {
-  let mockLogger: jest.Mocked<ReturnType<typeof getLogger>>;
   let mockDispatch: jest.MockedFunction<typeof dispatch>;
   let mockStorage: jest.Mocked<
     ReturnType<typeof ApexStorageManager.getInstance>
@@ -30,14 +43,9 @@ describe('ApexLibResolveHandler', () => {
   let mockGetDocument: jest.Mock;
 
   beforeEach(() => {
-    mockLogger = {
-      debug: jest.fn(),
-      error: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-    } as unknown as jest.Mocked<ReturnType<typeof getLogger>>;
+    // Reset all mocks before each test
+    jest.clearAllMocks();
 
-    (getLogger as jest.Mock).mockReturnValue(mockLogger);
     mockDispatch = dispatch as jest.MockedFunction<typeof dispatch>;
 
     mockDocument = {
@@ -61,10 +69,6 @@ describe('ApexLibResolveHandler', () => {
     >;
 
     (ApexStorageManager.getInstance as jest.Mock).mockReturnValue(mockStorage);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
   });
 
   describe('processOnResolve', () => {

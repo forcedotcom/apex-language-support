@@ -177,6 +177,22 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
   dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol: jest.fn(),
+  createApexLibManager: jest.fn().mockReturnValue({
+    protocolHandler: {
+      handleRequest: jest.fn(),
+      handleNotification: jest.fn(),
+    },
+    documentSupport: {
+      getDocument: jest.fn(),
+      setDocument: jest.fn(),
+      deleteDocument: jest.fn(),
+    },
+    config: {
+      languageId: 'apex',
+      customScheme: 'apex',
+      fileExtension: 'cls',
+    },
+  }),
 }));
 
 // Mock the logger abstraction
