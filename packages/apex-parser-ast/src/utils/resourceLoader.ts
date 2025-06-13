@@ -5,12 +5,13 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
 import { unzipSync } from 'fflate';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { zipData } from '../generated/apexSrcLoader';
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
-import { CompilerService } from '../parser/compilerService';
+import { CompilerService, CompilationOptions } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import type { SymbolTable } from '../types/symbol';
@@ -146,21 +147,30 @@ export class ResourceLoader {
 
       // Start compilation when loadMode is 'full'
       if (this.loadMode === 'full') {
-        setImmediate(() => {
-          this.compilationPromise = (async () => {
-            try {
-              this.logger.info(() => 'Starting async compilation...');
-              await this.compileAllArtifacts();
-              this.logger.info(
-                () => 'Async compilation completed successfully',
-              );
-            } catch (error) {
-              this.logger.error('Compilation failed:', error);
-              throw error;
-            } finally {
-              this.compilationPromise = null; // Reset promise after completion
+        // Create and start the compilation promise
+        this.compilationPromise = (async () => {
+          try {
+            this.logger.info(() => 'Starting async compilation...');
+            await this.compileAllArtifacts();
+            this.logger.info(() => 'Async compilation completed successfully');
+          } catch (error) {
+            this.logger.error('Compilation failed:', error);
+            throw error;
+          } finally {
+            this.compilationPromise = null; // Reset promise after completion
+          }
+        })();
+
+        // Wait for compilation to start before marking as initialized
+        await new Promise<void>((resolve) => {
+          const checkCompilation = () => {
+            if (this.compilationPromise) {
+              resolve();
+            } else {
+              setTimeout(checkCompilation, 10);
             }
-          })();
+          };
+          checkCompilation();
         });
       }
 
@@ -237,13 +247,30 @@ export class ResourceLoader {
 
     const startTime = Date.now();
 
-    // Prepare files for compilation
-    const filesToCompile: { content: string; fileName: string }[] = [];
+    // Prepare files for compilation with their namespaces
+    const filesToCompile: Array<{
+      content: string;
+      fileName: string;
+      listener: ApexSymbolCollectorListener;
+      options: CompilationOptions;
+    }> = [];
+
     for (const [normalizedPath, content] of this.fileMap.entries()) {
       if (content && isDecodedContent(content.contents)) {
+        // Extract namespace from parent folder path
+        const pathParts = content.originalPath.split(/[\/\\]/);
+        const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
+
         filesToCompile.push({
           content: content.contents,
           fileName: content.originalPath,
+          listener: new ApexSymbolCollectorListener(),
+          options: {
+            projectNamespace: namespace,
+            includeComments: true,
+            includeSingleLineComments: false,
+            associateComments: true,
+          },
         });
       }
     }
@@ -256,26 +283,15 @@ export class ResourceLoader {
     }
 
     try {
-      // Use CompilerService's parallel compilation
-      const listener = new ApexSymbolCollectorListener();
-      const compilationOptions = {
-        includeComments: true,
-        includeSingleLineComments: false,
-        associateComments: true,
-      };
-
       this.logger.info(
-        () => 'Calling compileMultiple with parallel processing',
+        () => 'Calling compileMultipleWithConfigs with parallel processing',
       );
 
-      const results = await this.compilerService.compileMultiple(
-        filesToCompile,
-        listener,
-        compilationOptions,
-      );
+      const results =
+        await this.compilerService.compileMultipleWithConfigs(filesToCompile);
 
       this.logger.info(
-        () => `CompileMultiple returned ${results.length} results`,
+        () => `CompileMultipleWithConfigs returned ${results.length} results`,
       );
 
       // Process and store results
