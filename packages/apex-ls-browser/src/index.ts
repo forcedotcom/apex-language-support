@@ -20,6 +20,9 @@ import {
   TextDocuments,
   TextDocumentChangeEvent,
   Diagnostic,
+  DocumentSymbolParams,
+  FoldingRangeParams,
+  FoldingRange,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -28,6 +31,8 @@ import {
   dispatchProcessOnCloseDocument,
   dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
+  dispatchProcessOnDocumentSymbol,
+  dispatchProcessOnFoldingRange,
   ApexStorage,
 } from '@salesforce/apex-lsp-compliant-services';
 import {
@@ -70,8 +75,11 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       },
       completionProvider: {
         resolveProvider: false,
+        triggerCharacters: ['.'],
       },
       hoverProvider: false,
+      documentSymbolProvider: true,
+      foldingRangeProvider: true, // Enable folding range support
     },
   };
 });
@@ -85,6 +93,61 @@ connection.onInitialized(() => {
     message: 'Apex Language Server is now running in the browser',
   });
 });
+
+// Handle document symbol requests
+connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
+  logger.info(
+    `[SERVER] Received documentSymbol request for: ${params.textDocument.uri}`,
+  );
+  logger.info(`[SERVER] DocumentSymbolParams: ${JSON.stringify(params)}`);
+
+  try {
+    const result = await dispatchProcessOnDocumentSymbol(params);
+    logger.info(
+      `[SERVER] Result for documentSymbol (${params.textDocument.uri}): ${JSON.stringify(
+        result,
+      )}`,
+    );
+    return result;
+  } catch (error) {
+    logger.error(
+      `[SERVER] Error processing documentSymbol for ${params.textDocument.uri}: ${error}`,
+    );
+    // Return null or an empty array in case of error, as per LSP spec for graceful failure
+    return null;
+  }
+});
+
+// Add a handler for folding ranges
+connection.onFoldingRanges(
+  async (params: FoldingRangeParams): Promise<FoldingRange[] | null> => {
+    logger.debug(
+      () =>
+        `[SERVER] Received foldingRange request for: ${params.textDocument.uri}`,
+    );
+
+    try {
+      const result = await dispatchProcessOnFoldingRange(
+        params,
+        storageManager.getStorage(),
+      );
+      logger.debug(
+        () =>
+          `[SERVER] Result for foldingRanges (${params.textDocument.uri}): ${JSON.stringify(
+            result,
+          )}`,
+      );
+      return result;
+    } catch (error) {
+      logger.error(
+        () =>
+          `[SERVER] Error processing foldingRanges for ${params.textDocument.uri}: ${error}`,
+      );
+      // Return null or an empty array in case of error, as per LSP spec for graceful failure
+      return null;
+    }
+  },
+);
 
 // Handle completion requests
 connection.onCompletion(

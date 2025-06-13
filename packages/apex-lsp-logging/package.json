@@ -9,6 +9,7 @@
     "import": "./bundle/index.mjs",
     "require": "./bundle/index.js"
   },
+  "sideEffects": false,
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
@@ -17,8 +18,8 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "bundle": "node ../../scripts/build-bundle.js",
-    "dev": "tsc --build --watch",
+    "bundle": "npm run compile && tsup",
+    "dev": "tsup --watch",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage",

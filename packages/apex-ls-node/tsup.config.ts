@@ -11,11 +11,11 @@ export default defineConfig({
   entry: ['src/index.ts'],
   outDir: 'bundle',
   format: ['cjs', 'esm'], // Keep both formats for flexibility
-  dts: true,
-  splitting: false,
+  dts: false,
+  splitting: true,
   sourcemap: true,
   clean: true, // Clean its own 'bundle' dir before build
-  minify: true,
+  minify: false,
   platform: 'node',
   target: 'node16',
   outExtension({ format }) {
@@ -23,16 +23,8 @@ export default defineConfig({
       js: format === 'esm' ? '.mjs' : '.js',
     };
   },
-  noExternal: [
-    'vscode-languageserver',
-    'vscode-languageserver/node',
-    'vscode-languageserver-textdocument',
-    '@salesforce/apex-lsp-parser-ast',
-    '@salesforce/apex-lsp-custom-services',
-    '@salesforce/apex-lsp-compliant-services',
-    '@salesforce/apex-lsp-logging',
-  ],
-  external: [
-    'vscode', // The language server itself should not bundle the vscode API
-  ],
-}); 
+  // Bundle internal monorepo packages and any dependency that starts with "vscode-" (covers all LSP helpers).
+  noExternal: [/^@salesforce\//, /^vscode-/],
+  // Do not exclude any additional packages explicitly.
+  external: [],
+});
