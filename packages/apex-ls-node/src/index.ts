@@ -39,10 +39,12 @@ import {
   getLogger,
   setLoggerFactory,
 } from '@salesforce/apex-lsp-logging';
+import { createApexLibManager } from '@salesforce/lsp-compliant-services/apexlib';
 
 import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
 import { ActiveLoggerFactory } from './utils/ActiveLoggerFactory';
 import { NodeFileSystemApexStorage } from './storage/NodeFileSystemApexStorage';
+import { createNodeApexLibAdapter } from './utils/NodeApexLibAdapter';
 
 // Set the logger factory early
 setLoggerFactory(new ActiveLoggerFactory());
@@ -95,6 +97,13 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 
   // Process initialization parameters and settings
   configurationManager.processInitializeParams(params);
+
+  // Initialize ApexLib
+  const { client, editorContext } = createNodeApexLibAdapter(
+    connection,
+    documents,
+  );
+  const apexLibManager = createApexLibManager('apex', 'apex', 'cls', client);
 
   return {
     capabilities: {
