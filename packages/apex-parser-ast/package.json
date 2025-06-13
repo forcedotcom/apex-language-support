@@ -21,7 +21,6 @@
     "README.md"
   ],
   "scripts": {
-    "prebuild": "npm run clean",
     "bundle": "npm run compile && tsup",
     "precompile": "node scripts/generate-zip.mjs",
     "compile": "tsc --build",
