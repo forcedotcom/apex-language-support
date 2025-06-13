@@ -23,6 +23,7 @@ import {
   FoldingRange,
 } from 'vscode-languageserver/node';
 import {
+  createApexLibManager,
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnOpenDocument,
@@ -32,6 +33,7 @@ import {
   ApexStorageManager,
   ApexSettingsManager,
   LSPConfigurationManager,
+  dispatchProcessOnResolve,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -39,7 +41,6 @@ import {
   getLogger,
   setLoggerFactory,
 } from '@salesforce/apex-lsp-logging';
-import { createApexLibManager } from '@salesforce/lsp-compliant-services/apexlib';
 
 import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
 import { ActiveLoggerFactory } from './utils/ActiveLoggerFactory';
@@ -140,6 +141,23 @@ connection.onInitialized(() => {
 
   // Request initial configuration from client
   configurationManager.requestConfiguration();
+
+  // Register the apexlib/resolve request handler
+  connection.onRequest('apexlib/resolve', async (params) => {
+    logger.debug(
+      `[SERVER] Received apexlib/resolve request for: ${params.uri}`,
+    );
+    try {
+      const result = await dispatchProcessOnResolve(params);
+      logger.debug(`[SERVER] Successfully resolved content for: ${params.uri}`);
+      return result;
+    } catch (error) {
+      logger.error(
+        `[SERVER] Error resolving content for ${params.uri}: ${error}`,
+      );
+      throw error;
+    }
+  });
 
   // Send notification to client that server is ready
   connection.sendNotification(InitializedNotification.type, {

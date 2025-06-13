@@ -10,10 +10,10 @@ import { Connection } from 'vscode-languageserver/node';
 import { TextDocuments } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
+  TextDocumentContentProvider,
   LanguageServerClient,
   EditorContext,
-  TextDocumentContentProvider,
-} from '@salesforce/lsp-compliant-services/apexlib';
+} from '@salesforce/apex-lsp-compliant-services';
 
 /**
  * Node-specific implementation of LanguageServerClient
