@@ -1,7 +1,8 @@
 {
   "name": "apex-language-server-extension",
-  "displayName": "Apex Language Server",
+  "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
+  "icon": "resources/VSCodeApex.png",
   "version": "0.1.0",
   "publisher": "salesforce",
   "sideEffects": false,
@@ -20,6 +21,11 @@
     "Snippets"
   ],
   "main": "./extension/dist/extension.js",
+  "activationEvents": [
+    "onLanguage:apex",
+    "onCommand:apex.restart.server",
+    "onCommand:apex.inspector.toggle"
+  ],
   "contributes": {
     "languages": [
       {
@@ -167,7 +173,7 @@
     "compile": "tsc --build",
     "bundle": "tsup && shx mkdir -p extension/dist/snippets && shx cp -R snippets/* extension/dist/snippets/ && shx cp -R grammars extension/dist/ && shx cp language-configuration.json extension/dist/ && shx cp bundle/extension.js extension/dist/extension.js && shx mkdir -p extension/dist/server-bundle && shx cp -R ../apex-ls-node/bundle/* extension/dist/server-bundle/",
     "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
-    "package": "vsce package --allow-star-activation",
+    "package": "vsce package",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
     "clean": "rimraf dist bundle extension *.tsbuildinfo .turbo coverage grammars node_modules",
