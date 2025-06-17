@@ -26,8 +26,7 @@ export interface LogNotificationHandler {
  * Platform-specific implementations should override this
  */
 export class DefaultLogNotificationHandler implements LogNotificationHandler {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  public sendLogMessage(message: LogMessage): void {
+  public sendLogMessage(_message: LogMessage): void {
     // Default implementation does nothing
     // Platform-specific implementations should override this
   }

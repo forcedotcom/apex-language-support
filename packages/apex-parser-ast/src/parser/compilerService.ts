@@ -267,35 +267,139 @@ export class CompilerService {
   }
 
   /**
-   * Parse and compile multiple Apex files.
+   * Parse and compile multiple Apex files using parallel processing.
    * @param files An array of file objects containing content and name
    * @param listener The listener to use during parsing
    * @param options Optional compilation options
-   * @returns Array of CompilationResult with the parsed result or errors for each file
+   * @returns Promise that resolves to array of compilation results
    */
-  public compileMultiple<T>(
+  public async compileMultiple<T>(
     files: { content: string; fileName: string }[],
     listener: BaseApexParserListener<T>,
     options: CompilationOptions = {},
-  ): (CompilationResult<T> | CompilationResultWithComments<T>)[] {
-    const results: (CompilationResult<T> | CompilationResultWithComments<T>)[] =
-      [];
+  ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
+    this.logger.info(
+      () => `Starting parallel compilation of ${files.length} files`,
+    );
 
-    // Process each file using the single file compile method
-    for (const file of files) {
+    // Transform the files array into the structure needed by compileMultipleWithConfigs
+    const fileCompilationConfigs = files.map((file) => {
       // Create a fresh listener for each file if needed
       const fileListener = listener.createNewInstance
         ? listener.createNewInstance()
         : listener;
 
-      // Use the single file compile method which handles all the logic
-      const result = this.compile(
-        file.content,
-        file.fileName,
-        fileListener,
+      return {
+        content: file.content,
+        fileName: file.fileName,
+        listener: fileListener,
         options,
+      };
+    });
+
+    // Delegate to the more flexible method
+    return this.compileMultipleWithConfigs(fileCompilationConfigs);
+  }
+
+  /**
+   * Parse and compile multiple Apex files with individual settings using parallel processing.
+   * @param fileCompilationConfigs Array of file compilation configurations
+   * @returns Promise that resolves to array of compilation results
+   */
+  public async compileMultipleWithConfigs<T>(
+    fileCompilationConfigs: Array<{
+      content: string;
+      fileName: string;
+      listener: BaseApexParserListener<T>;
+      options?: CompilationOptions;
+    }>,
+  ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
+    this.logger.info(
+      () =>
+        `Starting parallel compilation of ${fileCompilationConfigs.length} files with individual configurations`,
+    );
+
+    const startTime = Date.now();
+
+    // Use Promise.allSettled to capture compilation rejections
+    const settledResults = await Promise.allSettled(
+      fileCompilationConfigs.map(async (config) =>
+        // Use the listener as provided - assume it's already properly prepared
+        this.compile(
+          config.content,
+          config.fileName,
+          config.listener,
+          config.options || {},
+        ),
+      ),
+    );
+
+    // Process the settled results and handle any rejections
+    const results: (CompilationResult<T> | CompilationResultWithComments<T>)[] =
+      [];
+    let rejectedCount = 0;
+
+    for (let i = 0; i < settledResults.length; i++) {
+      const settledResult = settledResults[i];
+      const config = fileCompilationConfigs[i];
+
+      if (settledResult.status === 'fulfilled') {
+        results.push(settledResult.value);
+      } else {
+        // Handle rejection by creating an error result
+        rejectedCount++;
+        this.logger.error(
+          `Compilation failed for ${config.fileName}`,
+          settledResult.reason,
+        );
+
+        // Create an error object for the rejection
+        const errorObject: ApexError = {
+          type: 'semantic' as any,
+          severity: 'error' as any,
+          message:
+            settledResult.reason instanceof Error
+              ? settledResult.reason.message
+              : String(settledResult.reason),
+          line: 0,
+          column: 0,
+          filePath: config.fileName,
+        };
+
+        const errorResult = {
+          fileName: config.fileName,
+          result: null,
+          errors: [errorObject],
+          warnings: [],
+        };
+
+        // Add comments array if comments are enabled
+        const includeComments = config.options?.includeComments !== false;
+        if (includeComments) {
+          results.push({
+            ...errorResult,
+            comments: [],
+          });
+        } else {
+          results.push(errorResult);
+        }
+      }
+    }
+
+    const endTime = Date.now();
+    const duration = (endTime - startTime) / 1000;
+
+    if (rejectedCount > 0) {
+      this.logger.warn(
+        () =>
+          `Parallel compilation completed in ${duration.toFixed(2)}s: ` +
+          `${results.length} files processed, ${rejectedCount} compilation rejections captured`,
       );
-      results.push(result);
+    } else {
+      this.logger.info(
+        () =>
+          `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed`,
+      );
     }
 
     return results;

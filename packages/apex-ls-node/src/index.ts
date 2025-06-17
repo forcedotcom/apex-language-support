@@ -19,11 +19,11 @@ import {
   TextDocuments,
   TextDocumentChangeEvent,
   Diagnostic,
-  DidChangeConfigurationParams,
   FoldingRangeParams,
   FoldingRange,
 } from 'vscode-languageserver/node';
 import {
+  createApexLibManager,
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnOpenDocument,
@@ -33,6 +33,7 @@ import {
   ApexStorageManager,
   ApexSettingsManager,
   LSPConfigurationManager,
+  dispatchProcessOnResolve,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -44,6 +45,7 @@ import {
 import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
 import { ActiveLoggerFactory } from './utils/ActiveLoggerFactory';
 import { NodeFileSystemApexStorage } from './storage/NodeFileSystemApexStorage';
+import { createNodeApexLibAdapter } from './utils/NodeApexLibAdapter';
 
 // Set the logger factory early
 setLoggerFactory(new ActiveLoggerFactory());
@@ -97,6 +99,13 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
   // Process initialization parameters and settings
   configurationManager.processInitializeParams(params);
 
+  // Initialize ApexLib
+  const { client, editorContext } = createNodeApexLibAdapter(
+    connection,
+    documents,
+  );
+  const apexLibManager = createApexLibManager('apex', 'apex', 'cls', client);
+
   return {
     capabilities: {
       textDocumentSync: {
@@ -133,6 +142,23 @@ connection.onInitialized(() => {
   // Request initial configuration from client
   configurationManager.requestConfiguration();
 
+  // Register the apexlib/resolve request handler
+  connection.onRequest('apexlib/resolve', async (params) => {
+    logger.debug(
+      `[SERVER] Received apexlib/resolve request for: ${params.uri}`,
+    );
+    try {
+      const result = await dispatchProcessOnResolve(params);
+      logger.debug(`[SERVER] Successfully resolved content for: ${params.uri}`);
+      return result;
+    } catch (error) {
+      logger.error(
+        `[SERVER] Error resolving content for ${params.uri}: ${error}`,
+      );
+      throw error;
+    }
+  });
+
   // Send notification to client that server is ready
   connection.sendNotification(InitializedNotification.type, {
     type: MessageType.Info,
@@ -162,13 +188,8 @@ connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
   }
 });
 
-// Handle configuration change notifications
-connection.onDidChangeConfiguration(
-  async (params: DidChangeConfigurationParams) => {
-    logger.info('Received configuration change notification');
-    await configurationManager.handleConfigurationChange(params);
-  },
-);
+// Configuration change handling is now managed by the LSPConfigurationManager
+// through its enhanced registration system in registerForConfigurationChanges()
 
 // Add a handler for folding ranges
 connection.onFoldingRanges(

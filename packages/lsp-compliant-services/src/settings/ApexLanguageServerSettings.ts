@@ -61,6 +61,14 @@ export interface EnvironmentSettings {
 }
 
 /**
+ * Resource loading settings
+ */
+export interface ResourceSettings {
+  /** Resource loading mode (default: 'full' for Node.js, 'lazy' for browser) */
+  loadMode: 'lazy' | 'full';
+}
+
+/**
  * Complete Apex Language Server settings
  */
 export interface ApexLanguageServerSettings {
@@ -72,6 +80,9 @@ export interface ApexLanguageServerSettings {
 
   /** Environment-specific settings */
   environment: EnvironmentSettings;
+
+  /** Resource loading settings */
+  resources: ResourceSettings;
 
   /** Server version for compatibility checks */
   version?: string;
@@ -100,6 +111,9 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     enablePerformanceLogging: false,
     commentCollectionLogLevel: 'info',
   },
+  resources: {
+    loadMode: 'full',
+  },
 };
 
 /**
@@ -124,6 +138,10 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     environment: 'browser',
     enablePerformanceLogging: false, // Typically disabled in browser
   },
+  resources: {
+    ...DEFAULT_APEX_SETTINGS.resources,
+    loadMode: 'lazy',
+  },
 };
 
 /**
@@ -140,7 +158,9 @@ export function isValidApexSettings(
     obj.performance &&
     typeof obj.performance === 'object' &&
     obj.environment &&
-    typeof obj.environment === 'object'
+    typeof obj.environment === 'object' &&
+    obj.resources &&
+    typeof obj.resources === 'object'
   );
 }
 
@@ -169,6 +189,10 @@ export function mergeWithDefaults(
       ...baseDefaults.environment,
       environment,
       ...userSettings.environment,
+    },
+    resources: {
+      ...baseDefaults.resources,
+      ...userSettings.resources,
     },
     version: userSettings.version || baseDefaults.version,
   };

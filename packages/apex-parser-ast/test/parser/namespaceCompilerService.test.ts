@@ -121,7 +121,7 @@ describe('CompilerService Namespace Integration', () => {
       // expect(classSymbol?.namespace).toBe('OverrideNamespace');
     });
 
-    it('should handle multiple files with namespaces', () => {
+    it('should handle multiple files with namespace resolution', async () => {
       const service = new CompilerService('MultiFileNamespace');
       const listener = new ApexSymbolCollectorListener();
 
@@ -130,7 +130,7 @@ describe('CompilerService Namespace Integration', () => {
           fileName: 'FirstClass.cls',
           content: `
           public class FirstClass {
-            public void firstMethod() {}
+            public void firstMethod() { }
           }
           `,
         },
@@ -144,7 +144,7 @@ describe('CompilerService Namespace Integration', () => {
         },
       ];
 
-      const results = service.compileMultiple(files, listener);
+      const results = await service.compileMultiple(files, listener);
 
       // Both compilations should succeed
       expect(results.length).toBe(2);

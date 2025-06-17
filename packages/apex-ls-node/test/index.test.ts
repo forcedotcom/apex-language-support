@@ -79,6 +79,7 @@ interface MockConnection {
   sendDiagnostics: jest.Mock;
   onFoldingRanges: jest.Mock;
   onDidChangeConfiguration: jest.Mock;
+  onRequest: jest.Mock;
 }
 
 // Pre-create the mock connection with minimal properties
@@ -98,6 +99,7 @@ const mockConnection: MockConnection = {
   sendDiagnostics: jest.fn(),
   onFoldingRanges: jest.fn(),
   onDidChangeConfiguration: jest.fn(),
+  onRequest: jest.fn(),
 };
 
 // Mock TextDocuments
@@ -211,12 +213,17 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
     requestConfiguration: jest.fn(),
     registerForConfigurationChanges: jest.fn(),
   })),
+  createApexLibManager: jest.fn().mockReturnValue({
+    initialize: jest.fn(),
+    dispose: jest.fn(),
+  }),
   dispatchProcessOnOpenDocument: mockDispatchProcessOnOpenDocument,
   dispatchProcessOnChangeDocument: mockDispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
   dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol: mockDispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange: mockDispatchProcessOnFoldingRange,
+  dispatchProcessOnResolve: jest.fn(),
 }));
 
 // Mock the logger abstraction
