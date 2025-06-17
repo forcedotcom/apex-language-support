@@ -59,3 +59,19 @@ To integrate this language server into a web-based editor:
 3. Configure the editor to use the language server for Apex files
 
 See the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/) documentation for more details on LSP integration in web environments.
+
+## Bundle Outputs
+
+Starting with v1.1.0 this package ships pre-bundled artifacts in `bundle/` that are published to npm:
+
+| File | Format | Use-case |
+|------|--------|----------|
+| `index.mjs` | ES Module (ES2020) | Modern browsers / bundlers (recommended) |
+| `index.js`  | CommonJS          | Legacy tooling that still requires CJS |
+| `index.d.ts`| Type Declarations | Type-safe consumption from TypeScript |
+
+> **Note**  Because we generate a single, side-effect-free bundle (`"sideEffects": false` in `package.json`), downstream bundlers can safely tree-shake any unused code.
+
+### Supported Browsers / ECMAScript Target
+
+The bundle is transpiled to the `es2020` target.  That means it runs natively in all evergreen browsers (Chrome 88+, Firefox 78+, Edge 90+, Safari 14+).  If you need to support older environments you can continue to transpile our ESM build through your own Babel/ESBuild pipeline.

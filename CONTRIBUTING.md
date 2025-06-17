@@ -94,7 +94,6 @@ packages/
 
 - **`tsup.config.ts`**: TypeScript bundling configuration
 - **`esbuild.config.js`**: Alternative bundling configuration
-- **`scripts/build-bundle.js`**: Custom bundle generation script
 - **`scripts/build-and-package.js`**: Packaging script for extensions
 - **`scripts/merge-coverage.js`**: Test coverage aggregation
 

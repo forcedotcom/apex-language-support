@@ -15,7 +15,7 @@ import {
   SymbolVisibility,
   TypeSymbol,
 } from '../../../src/types/symbol';
-import { InterfaceBodyValidator } from '../../../src/sematics/modifiers/InterfaceBodyValidator';
+import { InterfaceBodyValidator } from '../../../src/semantics/modifiers/InterfaceBodyValidator';
 import { ErrorReporter } from '../../../src/utils/ErrorReporter';
 
 // Mock error reporter for testing

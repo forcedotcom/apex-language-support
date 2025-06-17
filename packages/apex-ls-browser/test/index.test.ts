@@ -11,6 +11,10 @@ import {
   InitializeResult,
   MessageType,
   TextDocumentChangeEvent,
+  DocumentSymbolParams,
+  FoldingRangeParams,
+  FoldingRange,
+  TextDocumentSyncOptions,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -25,6 +29,12 @@ type OnDidCloseHandler = (
   params: TextDocumentChangeEvent<TextDocument>,
 ) => void;
 type OnDidSaveHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
+type OnDocumentSymbolHandler = (
+  params: DocumentSymbolParams,
+) => Promise<any[] | null>;
+type OnFoldingRangeHandler = (
+  params: FoldingRangeParams,
+) => Promise<FoldingRange[] | null>;
 
 // Define mock handlers type
 interface MockHandlerStore {
@@ -36,6 +46,8 @@ interface MockHandlerStore {
   onDidChangeContent: OnDidChangeContentHandler | null;
   onDidClose: OnDidCloseHandler | null;
   onDidSave: OnDidSaveHandler | null;
+  onDocumentSymbol: OnDocumentSymbolHandler | null;
+  onFoldingRange: OnFoldingRangeHandler | null;
 }
 
 // Store mock handlers
@@ -48,6 +60,8 @@ const mockHandlers: MockHandlerStore = {
   onDidChangeContent: null,
   onDidClose: null,
   onDidSave: null,
+  onDocumentSymbol: null,
+  onFoldingRange: null,
 };
 
 // Set up the mock connection with proper type safety
@@ -64,6 +78,8 @@ interface MockConnection {
   onExit: jest.Mock;
   onCompletion: jest.Mock;
   onHover: jest.Mock;
+  onDocumentSymbol: jest.Mock;
+  onFoldingRanges: jest.Mock;
   listen: jest.Mock;
   console: typeof mockConsole;
   sendNotification: jest.Mock;
@@ -79,6 +95,8 @@ const mockConnection: MockConnection = {
   onExit: jest.fn(),
   onCompletion: jest.fn(),
   onHover: jest.fn(),
+  onDocumentSymbol: jest.fn(),
+  onFoldingRanges: jest.fn(),
   listen: jest.fn(),
   console: mockConsole,
   sendNotification: jest.fn(),
@@ -119,6 +137,20 @@ mockConnection.onExit.mockImplementation((handler: VoidHandler) => {
   mockHandlers.exit = handler;
   return mockConnection;
 });
+
+mockConnection.onDocumentSymbol.mockImplementation(
+  (handler: OnDocumentSymbolHandler) => {
+    mockHandlers.onDocumentSymbol = handler;
+    return mockConnection;
+  },
+);
+
+mockConnection.onFoldingRanges.mockImplementation(
+  (handler: OnFoldingRangeHandler) => {
+    mockHandlers.onFoldingRange = handler;
+    return mockConnection;
+  },
+);
 
 mockDocuments.onDidOpen.mockImplementation((handler: OnDidOpenHandler) => {
   mockHandlers.onDidOpen = handler;
@@ -186,6 +218,8 @@ const mockDispatchProcessOnOpenDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnChangeDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnCloseDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnSaveDocument = jest.fn().mockResolvedValue([]);
+const mockDispatchProcessOnDocumentSymbol = jest.fn().mockResolvedValue([]);
+const mockDispatchProcessOnFoldingRange = jest.fn().mockResolvedValue([]);
 
 jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   ...jest.requireActual('@salesforce/apex-lsp-compliant-services'),
@@ -193,6 +227,8 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   dispatchProcessOnChangeDocument: mockDispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
   dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
+  dispatchProcessOnDocumentSymbol: mockDispatchProcessOnDocumentSymbol,
+  dispatchProcessOnFoldingRange: mockDispatchProcessOnFoldingRange,
   ApexStorageManager: {
     getInstance: jest.fn().mockReturnValue({
       getStorage: jest.fn(),
@@ -305,6 +341,15 @@ describe('Apex Language Server Browser', () => {
     expect(mockLogger.info).toHaveBeenCalledWith(
       'Apex Language Server initializing...',
     );
+
+    // Verify that the server capabilities are correctly set
+    const initResult = mockHandlers.initialize!({} as InitializeParams);
+    expect(initResult.capabilities.documentSymbolProvider).toBe(true);
+    expect(initResult.capabilities.foldingRangeProvider).toBe(true);
+    expect(initResult.capabilities.textDocumentSync).toBeDefined();
+    const syncOptions = initResult.capabilities
+      .textDocumentSync as TextDocumentSyncOptions;
+    expect(syncOptions.openClose).toBe(true);
   });
 
   it('should send notification when initialized', () => {
@@ -716,6 +761,45 @@ describe('Apex Language Server Browser', () => {
         diagnostics: [],
       });
     });
+  });
+
+  it('should register a document symbol handler', () => {
+    require('../src/index');
+    expect(mockConnection.onDocumentSymbol).toHaveBeenCalled();
+  });
+
+  it('should handle document symbol requests', async () => {
+    require('../src/index');
+    const params = {
+      textDocument: { uri: 'file:///test.cls' },
+    } as DocumentSymbolParams;
+    await mockHandlers.onDocumentSymbol!(params);
+    expect(mockDispatchProcessOnDocumentSymbol).toHaveBeenCalledWith(params);
+  });
+
+  it('should handle folding range requests', async () => {
+    require('../src/index');
+    const params = {
+      textDocument: { uri: 'file:///test.cls' },
+    } as FoldingRangeParams;
+    await mockHandlers.onFoldingRange!(params);
+    expect(mockDispatchProcessOnFoldingRange).toHaveBeenCalledWith(
+      params,
+      undefined,
+    );
+  });
+
+  it('should send diagnostics on document open', async () => {
+    require('../src/index');
+
+    // Verify that the server capabilities are correctly set
+    const initResult = mockHandlers.initialize!({} as InitializeParams);
+    expect(initResult.capabilities.documentSymbolProvider).toBe(true);
+    expect(initResult.capabilities.foldingRangeProvider).toBe(true);
+    expect(initResult.capabilities.textDocumentSync).toBeDefined();
+    const syncOptions = initResult.capabilities
+      .textDocumentSync as TextDocumentSyncOptions;
+    expect(syncOptions.openClose).toBe(true);
   });
 
   // Restore global namespace after tests

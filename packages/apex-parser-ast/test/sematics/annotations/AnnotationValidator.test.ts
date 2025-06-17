@@ -15,7 +15,7 @@ import {
   SymbolVisibility,
   TypeSymbol,
 } from '../../../src/types/symbol';
-import { AnnotationValidator } from '../../../src/sematics/annotations/index';
+import { AnnotationValidator } from '../../../src/semantics/annotations/index';
 import { ErrorReporter } from '../../../src/utils/ErrorReporter';
 
 // Mock error reporter for testing

@@ -4,11 +4,12 @@
   "description": "Browser implementation of Apex Language Server",
   "main": "bundle/index.js",
   "module": "bundle/index.mjs",
-  "types": "bundle/index.d.ts",
+  "types": "dist/index.d.ts",
   "exports": {
     "import": "./bundle/index.mjs",
     "require": "./bundle/index.js"
   },
+  "sideEffects": false,
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
@@ -17,7 +18,7 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "bundle": "node ../../scripts/build-bundle.js",
+    "bundle": "npm run compile && tsup",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage",
