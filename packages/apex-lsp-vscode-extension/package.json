@@ -2,7 +2,7 @@
   "name": "apex-language-server-extension",
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
-  "icon": "resources/VSCodeApex.png",
+  "icon": "resources/ApexTsIcon.png",
   "version": "0.1.0",
   "publisher": "salesforce",
   "sideEffects": false,
