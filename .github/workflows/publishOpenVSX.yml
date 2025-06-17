@@ -1,0 +1,31 @@
+name: Publish in Open VSX Registry
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+      GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.IDEE_GH_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Build and package extension
+        run: npm run build:package
+
+      - name: Publish to Open VSX Registry
+        run: |
+          VSIX_PATH=$(find packages/apex-lsp-vscode-extension -name "*.vsix")
+          if [ -z "$VSIX_PATH" ]; then
+            echo "VSIX file not found."
+            exit 1
+          fi
+          npx ovsx publish $VSIX_PATH -p ${{ secrets.OVSX_PAT }}
