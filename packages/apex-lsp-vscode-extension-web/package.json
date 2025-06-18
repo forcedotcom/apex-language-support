@@ -115,7 +115,7 @@
     "package": "npm run compile && npm run bundle && shx mkdir -p extension && cd dist && npx vsce package --out ../extension/apex-language-server-extension-web.vsix",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf dist out bundle *.tsbuildinfo .turbo grammars extension",
+    "clean": "rimraf dist out bundle .turbo grammars extension tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules .turbo",
     "clean:coverage": "rimraf coverage"
   },

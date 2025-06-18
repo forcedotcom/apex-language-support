@@ -21,7 +21,7 @@
     "bundle": "npm run compile && tsup",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage",
+    "clean": "rimraf dist bundle .turbo coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "dev": "tsup --watch"
   },
