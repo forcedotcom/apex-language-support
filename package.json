@@ -18,7 +18,7 @@
     "compile": "turbo run compile",
     "prepare": "husky",
     "commit": "git-cz",
-    "clean": "turbo run clean",
+    "clean": "turbo run clean && rimraf .turbo",
     "clean:all": "turbo run clean:all && rimraf node_modules",
     "clean:packages": "turbo run clean --filter=./packages/*",
     "clean:coverage": "rimraf coverage packages/*/coverage",
