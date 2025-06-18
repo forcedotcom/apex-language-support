@@ -19,7 +19,7 @@
     "prepare": "husky",
     "commit": "git-cz",
     "clean": "rimraf packages/**/dist packages/**/out packages/**/*.tsbuildinfo packages/**/bundle packages/**/extension *.tsbuildinfo .turbo packages/**/.turbo coverage dist out bundle packages/**/src/generated/**/*",
-    "clean:all": "npm run clean && rimraf node_modules",
+    "clean:all": "turbo run clean:all && rimraf node_modules .turbo",
     "clean:packages": "turbo run clean --filter=./packages/*",
     "clean:coverage": "rimraf coverage packages/*/coverage",
     "semantic-release": "semantic-release",
