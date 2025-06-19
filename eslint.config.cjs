@@ -13,6 +13,8 @@ const unusedImportsPlugin = require('eslint-plugin-unused-imports');
 const jsdocPlugin = require('eslint-plugin-jsdoc');
 const header = require('@tony.ganchev/eslint-plugin-header');
 const typescriptParser = require('@typescript-eslint/parser');
+const localRules = require('./eslint-rules');
+const jsoncParser = require('jsonc-eslint-parser');
 
 module.exports = [
   {
@@ -36,6 +38,7 @@ module.exports = [
       import: importPlugin,
       'unused-imports': unusedImportsPlugin,
       jsdoc: jsdocPlugin,
+      local: localRules,
     },
     rules: {
       'prettier/prettier': 'error',
@@ -74,6 +77,24 @@ module.exports = [
         },
       ],
       'max-len': ['error', { code: 120 }],
+    },
+  },
+  {
+    // Configuration for package.json files
+    files: ['**/package.json'],
+    languageOptions: {
+      parser: jsoncParser,
+    },
+    plugins: {
+      local: localRules,
+    },
+    rules: {
+      'local/turbo-script-check': [
+        'error',
+        {
+          allowedDirectTargets: ['dev', 'start'], // Allow some targets to be run directly
+        },
+      ],
     },
   },
 ];
