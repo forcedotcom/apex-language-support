@@ -251,6 +251,13 @@ export class ApexSettingsManager {
     return this.currentSettings.performance.useAsyncCommentProcessing;
   }
 
+  /**
+   * Get the resource loading mode
+   */
+  public getResourceLoadMode(): 'lazy' | 'full' {
+    return this.currentSettings.resources.loadMode;
+  }
+
   private notifyListeners(settings: ApexLanguageServerSettings): void {
     this.changeListeners.forEach((listener) => {
       try {
@@ -300,6 +307,16 @@ export class ApexSettingsManager {
     ) {
       changes.push(
         `max file size: ${prevPerf.commentCollectionMaxFileSize} → ${currPerf.commentCollectionMaxFileSize}`,
+      );
+    }
+
+    // Check resource changes
+    const prevResources = previous.resources;
+    const currResources = current.resources;
+
+    if (prevResources.loadMode !== currResources.loadMode) {
+      changes.push(
+        `resource load mode: ${prevResources.loadMode} → ${currResources.loadMode}`,
       );
     }
 

@@ -1,0 +1,162 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+import { TextDocument } from 'vscode-languageserver-textdocument';
+
+import { dispatch } from '../../src/utils/handlerUtil';
+import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
+
+// Mock the logger before importing the handler
+const mockLogger = {
+  debug: jest.fn(),
+  error: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  trace: jest.fn(),
+  fatal: jest.fn(),
+};
+
+jest.mock('@salesforce/apex-lsp-logging', () => ({
+  getLogger: jest.fn(() => mockLogger),
+}));
+
+jest.mock('../../src/utils/handlerUtil');
+jest.mock('../../src/storage/ApexStorageManager');
+
+// Import the handler after mocking
+import {
+  processOnResolve,
+  dispatchProcessOnResolve,
+} from '../../src/handlers/ApexLibResolveHandler';
+
+describe('ApexLibResolveHandler', () => {
+  let mockDispatch: jest.MockedFunction<typeof dispatch>;
+  let mockStorage: jest.Mocked<
+    ReturnType<typeof ApexStorageManager.getInstance>
+  >;
+  let mockDocument: TextDocument;
+  let mockGetDocument: jest.Mock;
+
+  beforeEach(() => {
+    // Reset all mocks before each test
+    jest.clearAllMocks();
+
+    mockDispatch = dispatch as jest.MockedFunction<typeof dispatch>;
+
+    mockDocument = {
+      uri: 'apexlib://test.cls',
+      languageId: 'apex',
+      version: 1,
+      getText: () => 'test content',
+      positionAt: () => ({ line: 0, character: 0 }),
+      offsetAt: () => 0,
+      lineCount: 1,
+    };
+
+    mockGetDocument = jest.fn().mockResolvedValue(mockDocument);
+    mockStorage = {
+      getInstance: jest.fn().mockReturnThis(),
+      getStorage: jest.fn().mockReturnValue({
+        getDocument: mockGetDocument,
+      }),
+    } as unknown as jest.Mocked<
+      ReturnType<typeof ApexStorageManager.getInstance>
+    >;
+
+    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue(mockStorage);
+  });
+
+  describe('processOnResolve', () => {
+    it('should log debug message with resolve params', async () => {
+      const params = {
+        uri: 'apexlib://test.cls',
+      };
+
+      await processOnResolve(params);
+
+      expect(mockLogger.debug).toHaveBeenCalledTimes(2);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Processing resolve request for: ${params.uri}`,
+      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Successfully resolved content for: ${params.uri}`,
+      );
+    });
+
+    it('should return document content', async () => {
+      const params = {
+        uri: 'apexlib://test.cls',
+      };
+
+      const result = await processOnResolve(params);
+
+      expect(result).toEqual({ content: 'test content' });
+      expect(mockGetDocument).toHaveBeenCalledWith(params.uri);
+    });
+
+    it('should throw error when document not found', async () => {
+      const params = {
+        uri: 'apexlib://nonexistent.cls',
+      };
+
+      mockGetDocument.mockResolvedValueOnce(null);
+
+      await expect(processOnResolve(params)).rejects.toThrow(
+        `Document not found: ${params.uri}`,
+      );
+      expect(mockLogger.error).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle storage errors', async () => {
+      const params = {
+        uri: 'apexlib://test.cls',
+      };
+
+      const error = new Error('Storage error');
+      mockGetDocument.mockRejectedValueOnce(error);
+
+      await expect(processOnResolve(params)).rejects.toThrow(error);
+      expect(mockLogger.error).toHaveBeenCalledTimes(1);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        `Error processing resolve request for ${params.uri}: ${error.message}`,
+      );
+    });
+  });
+
+  describe('dispatchProcessOnResolve', () => {
+    it('should dispatch processOnResolve with correct params', () => {
+      const params = {
+        uri: 'apexlib://test.cls',
+      };
+
+      dispatchProcessOnResolve(params);
+
+      expect(mockDispatch).toHaveBeenCalledTimes(1);
+      expect(mockDispatch).toHaveBeenCalledWith(
+        processOnResolve(params),
+        'Error processing resolve request',
+      );
+    });
+
+    it('should handle dispatch error', async () => {
+      const params = {
+        uri: 'apexlib://test.cls',
+      };
+
+      const error = new Error('Test error');
+      mockDispatch.mockRejectedValueOnce(error);
+
+      await expect(dispatchProcessOnResolve(params)).rejects.toThrow(error);
+      expect(mockDispatch).toHaveBeenCalledTimes(1);
+      expect(mockDispatch).toHaveBeenCalledWith(
+        processOnResolve(params),
+        'Error processing resolve request',
+      );
+    });
+  });
+});

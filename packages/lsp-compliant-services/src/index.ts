@@ -24,6 +24,7 @@ export * from './handlers/DidCloseDocumentHandler';
 export * from './handlers/DidSaveDocumentHandler';
 export * from './handlers/DocumentSymbolHandler';
 export * from './handlers/FoldingRangeHandler';
+export * from './handlers/ApexLibResolveHandler';
 export * from './handlers/LogNotificationHandler';
 export {
   ApexReference,
@@ -34,3 +35,6 @@ export {
 export * from './settings/ApexLanguageServerSettings';
 export * from './settings/ApexSettingsManager';
 export * from './settings/LSPConfigurationManager';
+
+// Export ApexLib
+export * from './apexlib';

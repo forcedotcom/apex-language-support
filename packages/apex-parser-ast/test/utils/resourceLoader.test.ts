@@ -12,15 +12,14 @@ describe('ResourceLoader', () => {
   let loader: ResourceLoader;
   const TEST_FILE = 'System/System.cls';
 
-  beforeEach(() => {
-    // Reset the singleton instance before each test
-    (ResourceLoader as any).instance = undefined;
+  afterEach(() => {
+    (ResourceLoader as any).instance = null;
   });
 
   describe('getInstance', () => {
     it('should return the same instance on multiple calls', () => {
-      const instance1 = ResourceLoader.getInstance();
-      const instance2 = ResourceLoader.getInstance();
+      const instance1 = ResourceLoader.getInstance({ loadMode: 'lazy' });
+      const instance2 = ResourceLoader.getInstance({ loadMode: 'lazy' });
       expect(instance1).toBe(instance2);
     });
 
@@ -32,19 +31,19 @@ describe('ResourceLoader', () => {
 
   describe('initialization', () => {
     it('should throw error when accessing files before initialization', async () => {
-      loader = ResourceLoader.getInstance();
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
       const errorMessage = 'ResourceLoader not initialized';
       expect(() => loader.getFile(TEST_FILE)).toThrow(errorMessage);
       expect(() => loader.getAllFiles()).toThrow(errorMessage);
     });
 
     it('should initialize successfully', async () => {
-      loader = ResourceLoader.getInstance();
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
       await expect(loader.initialize()).resolves.not.toThrow();
     });
 
     it('should not initialize twice', async () => {
-      loader = ResourceLoader.getInstance();
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
       await loader.initialize();
       await expect(loader.initialize()).resolves.not.toThrow();
     });
@@ -52,7 +51,7 @@ describe('ResourceLoader', () => {
 
   describe('file access', () => {
     beforeEach(async () => {
-      loader = ResourceLoader.getInstance();
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
       await loader.initialize();
     });
 
@@ -140,4 +139,104 @@ describe('ResourceLoader', () => {
       expect(content).toContain('global class System');
     });
   });
+});
+
+describe('ResourceLoader Compilation', () => {
+  let resourceLoader: ResourceLoader;
+
+  beforeEach(() => {
+    // Reset the singleton instance before each test
+    (ResourceLoader as any).instance = null;
+  });
+
+  afterEach(async () => {
+    // Reset the singleton instance after each test
+    (ResourceLoader as any).instance = null;
+    // Reduced wait time since we don't need to wait for full cleanup
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  });
+
+  // Shared setup for tests that need compiled artifacts
+  const setupCompiledLoader = async () => {
+    const loader = ResourceLoader.getInstance({ loadMode: 'full' });
+    await loader.initialize();
+    await loader.waitForCompilation();
+    return loader;
+  };
+
+  it('should not compile artifacts when loadMode is lazy', async () => {
+    const lazyLoader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+    await lazyLoader.initialize();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const compiledArtifacts = lazyLoader.getAllCompiledArtifacts();
+    expect(compiledArtifacts.size).toBe(0);
+  });
+
+  it('should get compiled artifact for specific file', async () => {
+    resourceLoader = await setupCompiledLoader();
+    const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
+    const firstArtifact = Array.from(compiledArtifacts.values())[0];
+
+    if (firstArtifact) {
+      const fileName = firstArtifact.path;
+      const compiledArtifact = resourceLoader.getCompiledArtifact(fileName);
+
+      expect(compiledArtifact).toBeDefined();
+      expect(compiledArtifact!.path).toBe(fileName);
+      expect(compiledArtifact!.compilationResult).toBeDefined();
+      expect(compiledArtifact!.compilationResult.comments).toBeDefined();
+      expect(
+        compiledArtifact!.compilationResult.commentAssociations,
+      ).toBeDefined();
+    }
+  }, 30000);
+
+  it('should compile files with correct namespace from parent folder', async () => {
+    resourceLoader = await setupCompiledLoader();
+    const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
+
+    // Test System namespace
+    const systemArtifact =
+      resourceLoader.getCompiledArtifact('System/System.cls');
+    expect(systemArtifact).toBeDefined();
+    expect(systemArtifact!.compilationResult.result).toBeDefined();
+
+    // Test Apex namespace
+    const apexArtifact = resourceLoader.getCompiledArtifact(
+      'apexpages.action.cls',
+    );
+    expect(apexArtifact).toBeDefined();
+    expect(apexArtifact!.compilationResult.result).toBeDefined();
+
+    // Verify namespace distribution
+    const artifacts = Array.from(compiledArtifacts.values());
+    const namespaceMap = new Map<string, number>();
+
+    artifacts.forEach((artifact) => {
+      const pathParts = artifact.path.split(/[\/\\]/);
+      const namespace = pathParts.length > 1 ? pathParts[0] : '(root)';
+      namespaceMap.set(namespace, (namespaceMap.get(namespace) || 0) + 1);
+    });
+
+    expect(namespaceMap.size).toBeGreaterThan(1);
+    expect(namespaceMap.has('System')).toBe(true);
+    expect(namespaceMap.get('System')).toBeGreaterThan(0);
+  }, 30000);
+
+  it('should handle root-level files without namespace', async () => {
+    resourceLoader = await setupCompiledLoader();
+    const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
+    const artifacts = Array.from(compiledArtifacts.values());
+
+    const rootFiles = artifacts.filter(
+      (artifact) =>
+        !artifact.path.includes('/') && !artifact.path.includes('\\'),
+    );
+
+    if (rootFiles.length > 0) {
+      const rootFile = rootFiles[0];
+      expect(rootFile.compilationResult.result).toBeDefined();
+      expect(rootFile.compilationResult.errors.length).toBe(0);
+    }
+  }, 30000);
 });

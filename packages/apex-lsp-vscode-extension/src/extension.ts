@@ -180,6 +180,8 @@ function createClientOptions(): LanguageClientOptions {
       enableDocumentSymbols: true,
       ...getWorkspaceSettings(),
     },
+    // Explicitly enable workspace configuration capabilities
+    workspaceFolder: vscode.workspace.workspaceFolders?.[0],
   };
 }
 
