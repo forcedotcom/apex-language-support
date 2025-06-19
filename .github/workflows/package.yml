@@ -1,0 +1,61 @@
+name: Package
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        default: '20.x'
+        type: string
+      branch:
+        description: 'Branch to package from'
+        required: false
+        default: 'main'
+        type: string
+      artifact-name:
+        description: 'Name for the VSIX artifacts'
+        required: false
+        default: 'vsix-packages'
+        type: string
+  workflow_dispatch:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        default: '20.x'
+        type: string
+      branch:
+        description: 'Branch to package from'
+        required: false
+        default: 'main'
+        type: string
+
+jobs:
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+
+      - name: Setup Node.js ${{ inputs.node-version || '20.x' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version || '20.x' }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package packages
+        run: npm run package:packages
+
+      - name: Upload VSIX artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: '**/*.vsix'
+          retention-days: 30

@@ -1,0 +1,213 @@
+name: Release NPM Packages
+
+on:
+  push:
+    branches: [main]
+  workflow_call:
+    inputs:
+      branch:
+        description: 'Branch to release from'
+        required: false
+        default: 'main'
+        type: string
+      packages:
+        description: 'NPM packages to release'
+        required: false
+        default: 'none'
+        type: string
+      available-packages:
+        description: 'Available NPM packages'
+        required: false
+        type: string
+      dry-run:
+        description: 'Run in dry-run mode (no actual publishing)'
+        required: false
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: 'NPM packages to release'
+        required: false
+        default: 'none'
+        type: choice
+        options:
+          - none
+          - all
+          - apex-lsp-logging
+          - apex-parser-ast
+          - apex-ls-browser
+          - apex-ls-node
+          - lsp-compliant-services
+          - custom-services
+          - apex-lsp-browser-client
+          - apex-lsp-vscode-client
+          - apex-lsp-testbed
+      dry-run:
+        description: 'Run in dry-run mode (no actual publishing)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  determine-npm-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed-npm-packages: ${{ steps.changes.outputs.packages }}
+      selected-packages: ${{ steps.selected.outputs.packages }}
+      version-bump: ${{ steps.version.outputs.bump }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.branch || github.ref }}
+
+      - name: Determine changed NPM packages
+        id: changes
+        run: |
+          # Get list of changed files
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          echo "Changed files: $CHANGED_FILES"
+
+          # Determine which NPM packages have changes
+          CHANGED_NPM_PACKAGES=""
+          for pkg in packages/*/; do
+            PKG_NAME=$(basename "$pkg")
+            if [ -f "$pkg/package.json" ]; then
+              # Check if it's an NPM package (not a VS Code extension)
+              if ! grep -q '"publisher"' "$pkg/package.json"; then
+                if echo "$CHANGED_FILES" | grep -q "^packages/$PKG_NAME/"; then
+                  CHANGED_NPM_PACKAGES="$CHANGED_NPM_PACKAGES,$PKG_NAME"
+                fi
+              fi
+            fi
+          done
+
+          # Remove leading comma
+          CHANGED_NPM_PACKAGES=${CHANGED_NPM_PACKAGES#,}
+          echo "packages=$CHANGED_NPM_PACKAGES" >> $GITHUB_OUTPUT
+
+      - name: Determine selected packages
+        id: selected
+        run: |
+          # Handle both workflow_call (string) and workflow_dispatch (choice) inputs
+          SELECTED_PACKAGE="${{ github.event.inputs.packages || inputs.packages }}"
+          AVAILABLE_PACKAGES="${{ inputs.available-packages }}"
+
+          if [ "$SELECTED_PACKAGE" = "none" ]; then
+            # No packages selected
+            SELECTED_PACKAGES=""
+          elif [ "$SELECTED_PACKAGE" = "all" ]; then
+            # Use all available packages
+            if [ -n "$AVAILABLE_PACKAGES" ]; then
+              SELECTED_PACKAGES="$AVAILABLE_PACKAGES"
+            else
+              # Fallback to changed packages detection
+              SELECTED_PACKAGES="${{ steps.changes.outputs.packages }}"
+            fi
+          elif [ "$SELECTED_PACKAGE" = "changed" ]; then
+            # Use changed packages
+            SELECTED_PACKAGES="${{ steps.changes.outputs.packages }}"
+          else
+            # Use the specific selected package
+            SELECTED_PACKAGES="$SELECTED_PACKAGE"
+          fi
+
+          echo "packages=$SELECTED_PACKAGES" >> $GITHUB_OUTPUT
+
+      - name: Determine version bump type
+        id: version
+        run: |
+          # Determine version bump type from commit messages
+          COMMIT_MESSAGES=$(git log --oneline -5)
+          VERSION_BUMP="patch"
+
+          if echo "$COMMIT_MESSAGES" | grep -qi "breaking\|major"; then
+            VERSION_BUMP="major"
+          elif echo "$COMMIT_MESSAGES" | grep -qi "feat\|feature\|minor"; then
+            VERSION_BUMP="minor"
+          fi
+
+          echo "bump=$VERSION_BUMP" >> $GITHUB_OUTPUT
+
+  release-npm:
+    needs: determine-npm-changes
+    runs-on: ubuntu-latest
+    if: needs.determine-npm-changes.outputs.selected-packages != ''
+    strategy:
+      matrix:
+        package: ${{ fromJson(format('[{0}]', needs.determine-npm-changes.outputs.selected-packages)) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.branch || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Display Release Plan
+        if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
+        run: |
+          echo "=== NPM RELEASE PLAN ==="
+          echo "Package: ${{ matrix.package }}"
+          echo "Branch: ${{ inputs.branch || github.ref_name }}"
+          echo "Version bump type: ${{ needs.determine-npm-changes.outputs.version-bump }}"
+          echo "Dry run mode: ENABLED"
+          echo ""
+
+          # Get current version
+          CURRENT_VERSION=$(node -p "require('./packages/${{ matrix.package }}/package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+
+          # Calculate new version
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR="${VERSION_PARTS[0]}"
+          MINOR="${VERSION_PARTS[1]}"
+          PATCH="${VERSION_PARTS[2]}"
+
+          case "${{ needs.determine-npm-changes.outputs.version-bump }}" in
+            "major")
+              NEW_VERSION="$((MAJOR + 1)).0.0"
+              ;;
+            "minor")
+              NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+              ;;
+            "patch")
+              NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+              ;;
+          esac
+
+          echo "Would bump to: $NEW_VERSION"
+          echo "Would publish to: npmjs.org"
+          echo ""
+
+      - name: Build package
+        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+        run: |
+          cd packages/${{ matrix.package }}
+          npm run compile
+          npm run bundle
+
+      - name: Release to NPM
+        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+        run: |
+          cd packages/${{ matrix.package }}
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Dry Run Complete
+        if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
+        run: |
+          echo "✅ NPM release dry run completed for ${{ matrix.package }}"
+          echo "No actual publishing occurred."

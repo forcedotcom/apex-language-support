@@ -58,6 +58,14 @@ jobs:
           name: coverage-report-${{ matrix.os }}-${{ steps.node-label.outputs.value }}
           path: ./coverage
 
+  package:
+    name: Package
+    needs: test
+    uses: ./.github/workflows/package.yml
+    with:
+      branch: ${{ github.ref_name }}
+      artifact-name: vsix-packages-${{ github.run_number }}
+
   # slack-notify:
   #   name: Slack Notification
   #   needs: [test]
