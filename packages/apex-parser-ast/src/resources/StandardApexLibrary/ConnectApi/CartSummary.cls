@@ -9,6 +9,7 @@ global class CartSummary {
 	global String firstPymtTotalListPrice;
 	global String firstPymtTotalTaxAmount;
 	global String grandTotalAmount;
+	global Boolean hasGift;
 	global Boolean isSecondary;
 	global ConnectApi.CartMessagesSummary messagesSummary;
 	global String name;

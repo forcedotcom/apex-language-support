@@ -1,4 +1,6 @@
 global class ProcedurePlanOptionOutputRepresentation {
+	global String apexClass;
+	global String apexClassName;
 	global String ctxDefinitionOutputField;
 	global String ctxMappingOutputField;
 	global String decisionTable;

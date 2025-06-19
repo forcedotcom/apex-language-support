@@ -1,4 +1,5 @@
 global class ReferralStatisticsOutput {
+	global Integer extendedRewardIssuedCount;
 	global Integer referralCount;
 	global Integer referralOnStageFiveCount;
 	global Integer referralOnStageFourCount;

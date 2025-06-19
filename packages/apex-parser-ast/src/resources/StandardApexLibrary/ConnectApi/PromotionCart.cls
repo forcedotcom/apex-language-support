@@ -1,4 +1,5 @@
 global class PromotionCart {
+	global List<ConnectApi.PromotionApproachingDiscount> approachingDiscounts;
 	global List<ConnectApi.PromotionBonusProduct> bonusProducts;
 	global List<ConnectApi.PromotionCartAdjustmentGroup> cartAdjustmentGroups;
 	global List<ConnectApi.PromotionCartDeliveryGroup> cartDeliveryGroups;

@@ -11,6 +11,7 @@ global class PromotionCartItemInput {
 	global String quantity;
 	global String salesPrice;
 	global String sku;
+	global ConnectApi.CartItemSubType subType;
 	global Integer subscriptionTerm;
 	global String totalLineBaseAmount;
 	global String totalListBaseAmount;

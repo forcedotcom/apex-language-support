@@ -6,6 +6,8 @@ global class ReferralMemberEnrollmentInput {
 	global String contactId;
 	global String contactLocale;
 	global ConnectApi.EnrollmentChannelResource enrollmentChannel;
+	global Boolean isAutoEnrolled;
+	global Boolean isEnrollmentActive;
 	global String memberStatus;
 	global Datetime membershipEndDate;
 	global String membershipNumber;

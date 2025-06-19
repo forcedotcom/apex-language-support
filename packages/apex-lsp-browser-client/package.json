@@ -18,11 +18,13 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "bundle": "npm run compile && tsup",
-    "test": "jest",
-    "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage",
-    "clean:all": "npm run clean && rimraf node_modules"
+    "bundle": "tsup",
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
+    "clean": "rimraf dist bundle .turbo coverage tsconfig.tsbuildinfo",
+    "clean:all": "npm run clean && rimraf node_modules",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
@@ -30,14 +32,7 @@
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-protocol": "^3.17.5"
   },
-  "devDependencies": {
-    "typescript": "^5.8.2",
-    "rimraf": "^5.0.0",
-    "@types/node": "^20.0.0",
-    "@types/jest": "^29.5.0",
-    "jest": "^29.5.0",
-    "ts-jest": "^29.1.0"
-  },
+  "devDependencies": {},
   "keywords": [
     "apex",
     "salesforce",

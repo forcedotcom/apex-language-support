@@ -1,8 +1,10 @@
 global class CartItemProduct {
 	global Map<String,String> fields;
 	global String name;
+	global ConnectApi.ProductClass productClass;
 	global String productId;
 	global ConnectApi.ProductSellingModel productSubscriptionInformation;
+	global String productUrlName;
 	global ConnectApi.PurchaseQuantityRule purchaseQuantityRule;
 	global String sku;
 	global ConnectApi.ProductMedia thumbnailImage;

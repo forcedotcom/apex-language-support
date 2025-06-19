@@ -3,6 +3,7 @@ global class ProductAttributeInfo {
 	global String apiName;
 	global List<String> availableValues;
 	global String fieldEnumOrId;
+	global Boolean groupedBy;
 	global String label;
 	global String objectName;
 	global List<ConnectApi.ProductAttributeValueMetadataRepresentation> options;

@@ -1,6 +1,6 @@
 global class PrimitiveComparison {
-	global List<ConnectApi.LabeledSubjectWrapper> joinPath;
-	global List<ConnectApi.LabeledSubjectWrapper> path;
+	global ConnectApi.LabeledSubjectListConfig joinPath;
+	global ConnectApi.LabeledSubjectListConfig path;
 	global Boolean selfReference;
 	global ConnectApi.Subject subject;
 	global Object clone() { }

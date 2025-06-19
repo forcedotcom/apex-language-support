@@ -20,7 +20,7 @@
     "bundle": "echo 'Bundle is not needed for testbed'",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf dist bundle *.tsbuildinfo .turbo",
+    "clean": "rimraf dist bundle .turbo tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules coverage",
     "start:demo": "node --enable-source-maps ./dist/cli.js --server demo --interactive",
     "start:jorje": "node --enable-source-maps ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
@@ -31,7 +31,9 @@
     "start:jorje:debug:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
     "start:jorje:debug:verbose:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
     "start:extension-server": "node --enable-source-maps ./dist/servers/nodeServer/extensionServer/extensionLanguageServerHarness.js --stdio",
-    "start:extension-server:debug": "node --enable-source-maps --inspect ./dist/servers/nodeServer/extensionServer/extensionLanguageServerHarness.js --stdio"
+    "start:extension-server:debug": "node --enable-source-maps --inspect ./dist/servers/nodeServer/extensionServer/extensionLanguageServerHarness.js --stdio",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
@@ -41,12 +43,5 @@
     "vscode-languageserver-protocol": "^3.17.5",
     "vscode-jsonrpc": "^8.2.0"
   },
-  "devDependencies": {
-    "typescript": "^5.8.2",
-    "rimraf": "^5.0.0",
-    "@types/node": "^20.0.0",
-    "@types/jest": "^29.5.0",
-    "jest": "^29.5.0",
-    "ts-jest": "^29.1.0"
-  }
+  "devDependencies": {}
 }

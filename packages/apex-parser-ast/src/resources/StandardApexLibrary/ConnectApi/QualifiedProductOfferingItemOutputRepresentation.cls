@@ -1,6 +1,6 @@
 global class QualifiedProductOfferingItemOutputRepresentation {
 	global String id;
-	global ConnectApi.OpenAPIProductDetailsOutputRepresentation product;
+	global ConnectApi.OpenAPIQueryProductOfferingProductDetails product;
 	global ConnectApi.ProductOfferingOutputRepresentation productOffering;
 	global String type;
 	global QualifiedProductOfferingItemOutputRepresentation() { }

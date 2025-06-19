@@ -4,6 +4,7 @@ global class CaptureRequest {
 	global String clientContext;
 	global String comments;
 	global Datetime effectiveDate;
+	global Boolean isFinalCapture;
 	global ConnectApi.PaymentGroupRequest paymentGroup;
 	global CaptureRequest() { }
 	global Object clone() { }

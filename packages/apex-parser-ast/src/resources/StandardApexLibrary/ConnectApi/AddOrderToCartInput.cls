@@ -1,4 +1,5 @@
 global class AddOrderToCartInput {
+	global String accessToken;
 	global String cartStateOrId;
 	global String orderSummaryIdOrRefNumber;
 	global ConnectApi.OrderSummaryVerificationInput verification;

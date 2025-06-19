@@ -14,11 +14,13 @@ global class CdpSegmentOutput {
 	global String nextPublishDateTime;
 	global String publishInterval;
 	global String publishScheduleEndDate;
+	global String publishScheduleEndDateTime;
 	global String publishScheduleStartDateTime;
 	global String publishStatus;
 	global ConnectApi.CdpSegmentMembershipTableOutput segmentMembershipDmo;
 	global String segmentMembershipTable;
 	global String segmentOnApiName;
+	global String segmentOnDataGraph;
 	global String segmentOnId;
 	global String segmentStatus;
 	global String segmentType;

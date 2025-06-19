@@ -3,7 +3,7 @@ global class UpdateAccountInputRepresentation {
 	global String accountName;
 	global String accountType;
 	global String adServerUserId;
-	global Map<String,ConnectApi.MediaAccountMapObjectInputRepresentation> additionalFields;
+	global ConnectApi.ExternalMediaAddressInputRepresentation address;
 	global Map<String,ConnectApi.MediaAccountMapObjectInputRepresentation> attributes;
 	global ConnectApi.ExternalMediaAddressInputRepresentation billingAddress;
 	global String description;
@@ -12,8 +12,9 @@ global class UpdateAccountInputRepresentation {
 	global String parentId;
 	global String phone;
 	global String rating;
-	global List<ConnectApi.ExternalMediaAccountInputRepresentation> relatedAccounts;
-	global List<ConnectApi.ExternalMediaContactInputRepresentation> relatedContacts;
+	global List<ConnectApi.RelatedAccountInputRepresentation> relatedAccounts;
+	global List<ConnectApi.RelatedContactInputRepresentation> relatedContacts;
+	global String requestId;
 	global ConnectApi.ExternalMediaAddressInputRepresentation shippingAddress;
 	global ConnectApi.ExternalMediaAccountStatusEnum status;
 	global String website;

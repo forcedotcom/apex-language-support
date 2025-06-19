@@ -2,6 +2,7 @@ global class NamedCredentialInput {
 	global ConnectApi.NamedCredentialCalloutOptionsInput calloutOptions;
 	global String calloutUrl;
 	global List<ConnectApi.CredentialCustomHeaderInput> customHeaders;
+	global String description;
 	global String developerName;
 	global List<ConnectApi.ExternalCredentialInput> externalCredentials;
 	global String masterLabel;

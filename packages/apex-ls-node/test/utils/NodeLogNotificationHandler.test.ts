@@ -7,8 +7,9 @@
  */
 
 import { Connection, MessageType } from 'vscode-languageserver/node';
-import { NodeLogNotificationHandler } from '../../src/utils/NodeLogNotificationHandler';
 import { LogMessageParams, LogMessageType } from '@salesforce/apex-lsp-logging';
+
+import { NodeLogNotificationHandler } from '../../src/utils/NodeLogNotificationHandler';
 
 describe('NodeLogNotificationHandler', () => {
   let mockConnection: jest.Mocked<Connection>;

@@ -50,7 +50,6 @@ class ActiveLogger implements LoggerInterface {
     level: LogLevel,
     messageOrProvider: string | (() => string),
     error?: unknown,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: unknown[]
   ): void {
     const message =

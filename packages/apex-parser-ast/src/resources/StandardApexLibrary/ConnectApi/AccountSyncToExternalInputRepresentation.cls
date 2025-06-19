@@ -2,6 +2,7 @@ global class AccountSyncToExternalInputRepresentation {
 	global String adServerAccountId;
 	global List<String> contactIds;
 	global Map<String,ConnectApi.MediaAccountMapObjectInputRepresentation> customFields;
+	global List<String> fieldsToSend;
 	global String requestMode;
 	global AccountSyncToExternalInputRepresentation() { }
 	global Object clone() { }

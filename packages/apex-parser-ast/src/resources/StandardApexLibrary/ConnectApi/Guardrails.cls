@@ -3,8 +3,6 @@ global class Guardrails {
 	global ConnectApi.GuardrailCurrentValue currentValues;
 	global ConnectApi.GuardrailTypeEnumRepresentation guardrailType;
 	global String limitValue;
-	global String maxValue;
-	global String minValue;
 	global Boolean multiValue;
 	global String name;
 	global Boolean notificationSupported;

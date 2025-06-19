@@ -4,6 +4,7 @@ global class InventoryProductOutputRepresentation {
 	global Double onHand;
 	global String product2Id;
 	global String stockKeepingUnit;
+	global List<ConnectApi.InventoryProductOutputRepresentation> variants;
 	global InventoryProductOutputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

@@ -17,6 +17,7 @@ global class CPQProductRelatedComponentOutputRepresentation {
 	global String productRelationshipTypeId;
 	global Double quantity;
 	global String quantityScaleMethod;
+	global String quoteVisibility;
 	global Integer sequence;
 	global ConnectApi.UnitOfMeasureOutputRepresentation unitOfMeasure;
 	global CPQProductRelatedComponentOutputRepresentation() { }
