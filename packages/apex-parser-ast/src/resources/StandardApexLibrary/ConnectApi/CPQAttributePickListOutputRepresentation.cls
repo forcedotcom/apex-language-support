@@ -1,4 +1,5 @@
 global class CPQAttributePickListOutputRepresentation {
+	global String dataType;
 	global String description;
 	global String id;
 	global String name;

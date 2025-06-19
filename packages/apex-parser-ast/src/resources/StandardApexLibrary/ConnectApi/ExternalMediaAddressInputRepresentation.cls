@@ -1,12 +1,10 @@
 global class ExternalMediaAddressInputRepresentation {
+	global String addressId;
 	global String addressLine1;
 	global String addressLine2;
 	global String addressLine3;
-	global String alternatePhone;
 	global String city;
 	global String country;
-	global String email;
-	global String phone;
 	global String state;
 	global String zipcode;
 	global ExternalMediaAddressInputRepresentation() { }

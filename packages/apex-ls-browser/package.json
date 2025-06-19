@@ -18,21 +18,13 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "bundle": "npm run compile && tsup",
+    "bundle": "tsup",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf dist bundle *.tsbuildinfo .turbo coverage",
-    "clean:all": "npm run clean && rimraf node_modules"
-  },
-  "devDependencies": {
-    "typescript": "^5.8.2",
-    "rimraf": "^5.0.0",
-    "@types/node": "^20.0.0",
-    "@types/jest": "^29.5.0",
-    "jest": "^29.5.0",
-    "ts-jest": "^29.1.0",
-    "esbuild": "^0.20.2",
-    "esbuild-register": "^3.5.0"
+    "clean": "rimraf dist bundle .turbo coverage tsconfig.tsbuildinfo",
+    "clean:all": "npm run clean && rimraf node_modules",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",

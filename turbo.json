@@ -7,7 +7,7 @@
       "outputs": ["src/generated/**", "dist/**"]
     },
     "compile": {
-      "dependsOn": ["precompile", "^compile"],
+      "dependsOn": ["precompile", "^precompile", "^compile"],
       "outputs": ["dist/**", "*.tsbuildinfo"],
       "inputs": ["src/**/*.ts", "src/generated/**"]
     },
@@ -30,12 +30,12 @@
       "inputs": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
     },
     "lint": {
-      "dependsOn": ["compile"],
+      "dependsOn": [],
       "outputs": [],
       "inputs": ["src/**/*.ts"]
     },
     "lint:fix": {
-      "dependsOn": ["compile"],
+      "dependsOn": [],
       "outputs": [],
       "inputs": ["src/**/*.ts"]
     },
@@ -56,12 +56,26 @@
       "dependsOn": ["compile", "@salesforce/apex-ls-node#bundle"],
       "outputs": ["extension/**", "bundle/**", "server-bundle/**"]
     },
+    "apex-language-server-extension#compile": {
+      "dependsOn": [
+        "precompile",
+        "^precompile",
+        "^compile",
+        "@salesforce/apex-lsp-parser-ast#precompile"
+      ],
+      "outputs": ["dist/**", "*.tsbuildinfo"]
+    },
     "apex-language-server-extension-web#precompile": {
       "dependsOn": ["^precompile"],
       "outputs": ["out/**"]
     },
     "apex-language-server-extension-web#compile": {
-      "dependsOn": ["precompile", "^compile"],
+      "dependsOn": [
+        "precompile",
+        "^precompile",
+        "^compile",
+        "@salesforce/apex-lsp-parser-ast#precompile"
+      ],
       "outputs": ["out/**", "*.tsbuildinfo"]
     }
   }

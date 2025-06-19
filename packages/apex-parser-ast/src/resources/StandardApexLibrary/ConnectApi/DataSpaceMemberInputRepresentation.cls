@@ -1,6 +1,6 @@
 global class DataSpaceMemberInputRepresentation {
-	global List<ConnectApi.DataSpaceFilterConditionInputRepresentation> filter;
-	global String objectName;
+	global ConnectApi.DataSpaceFilterInputRepresentation filter;
+	global String memberName;
 	global DataSpaceMemberInputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

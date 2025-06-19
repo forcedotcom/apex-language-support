@@ -2,6 +2,7 @@ global class CdpIdentityResolutionMatchCriterionOutput {
 	global Boolean caseSensitiveMatch;
 	global String entityName;
 	global String fieldName;
+	global String fieldValue;
 	global ConnectApi.CdpIdentityResolutionMatchMethodType matchMethodType;
 	global ConnectApi.CdpIdentityResolutionMatchCriterionPartyIdentificationInfoOutput partyIdentificationInfo;
 	global Boolean shouldMatchOnBlank;

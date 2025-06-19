@@ -1,7 +1,7 @@
 global class ActionInvoker {
 	global ActionInvoker() { }
 	global Object clone() { }
-	global static Invocable.ActionInvoker.Result invokeCustomAction(String type, String namespace, String name, Map<String,Object> parameters) { }
+	global static Invocable.ActionInvoker.Result invokeCustomAction(String type, String namespace, String name, Map<String,Object> parameters, Double apiVersion) { }
 global class Error {
 	global String code;
 	global String message;

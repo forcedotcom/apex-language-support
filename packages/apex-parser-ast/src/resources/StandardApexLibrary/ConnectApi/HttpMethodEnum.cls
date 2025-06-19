@@ -1,3 +1,5 @@
-global class HttpMethodEnum {
-
+global enum HttpMethodEnum {
+HTTPDELETE,
+PATCH,
+POST
 }

@@ -13,6 +13,8 @@ global class SavedPaymentMethodOutput {
 	global String gatewayToken;
 	global String id;
 	global Boolean isDefault;
+	global Boolean isOwner;
+	global Boolean isSharedWithinSameAccount;
 	global String issuer;
 	global String last4;
 	global String merchantAccountId;

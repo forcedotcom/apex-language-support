@@ -1,5 +1,6 @@
 global class PricingRecipeOutputRepresentation {
 	global Boolean active;
+	global String businessVertical;
 	global String createdBy;
 	global Datetime createdOn;
 	global List<ConnectApi.PricingRecipeLookUpTableResponseRepresentation> decisionTables;

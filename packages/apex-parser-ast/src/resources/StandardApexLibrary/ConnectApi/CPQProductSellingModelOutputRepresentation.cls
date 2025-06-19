@@ -1,4 +1,5 @@
 global class CPQProductSellingModelOutputRepresentation {
+	global Boolean doesAutoRenewByDefault;
 	global String id;
 	global String name;
 	global Integer pricingTerm;

@@ -1,5 +1,6 @@
 global class IndustriesContext {
 	global IndustriesContext() { }
+	global Map<String,Object> addRecordsToContext(Map<String,Object> input) { }
 	global Map<String,Object> buildContext(Map<String,Object> input) { }
 	global Object clone() { }
 	global void deleteContext(Map<String,Object> input) { }

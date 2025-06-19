@@ -3,6 +3,7 @@ global class PromotionPatternOutputRepresentation {
 	global List<ConnectApi.PromotionCriteriaGroupOutputRepresentation> criteriaGroup;
 	global String id;
 	global String name;
+	global Integer priority;
 	global String type;
 	global PromotionPatternOutputRepresentation() { }
 	global Object clone() { }

@@ -1,4 +1,5 @@
 global class DistinctFacetValue {
+	global ConnectApi.DistinctFacetValueDisplayMetadataRepresentation displayMetadata;
 	global String displayName;
 	global String nameOrId;
 	global Long productCount;

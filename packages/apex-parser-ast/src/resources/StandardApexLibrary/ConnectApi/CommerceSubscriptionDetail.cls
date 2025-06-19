@@ -3,6 +3,7 @@ global class CommerceSubscriptionDetail {
 	global ConnectApi.SubscriptionARCState cancelStatus;
 	global Datetime endDate;
 	global String id;
+	global List<ConnectApi.ProcessExceptionOutput> processExceptions;
 	global ConnectApi.BuyerProductSummary product;
 	global Double quantity;
 	global ConnectApi.ProductSellingModel sellingModel;

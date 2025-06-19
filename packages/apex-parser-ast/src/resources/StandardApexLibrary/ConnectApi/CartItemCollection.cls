@@ -1,4 +1,5 @@
 global class CartItemCollection {
+	global List<String> approachingDiscounts;
 	global ConnectApi.CartCouponCollection cartCoupons;
 	global List<ConnectApi.CartItemResult> cartItems;
 	global ConnectApi.CartPromotionCollection cartPromotions;
@@ -17,6 +18,7 @@ global class CartItemCollection {
 	global CartItemCollection() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }
+	global List<String> getApproachingDiscounts() { }
 	global Double getBuildVersion() { }
 	global ConnectApi.CartCouponCollection getCartCoupons() { }
 	global List<ConnectApi.CartItemResult> getCartItems() { }
@@ -34,6 +36,7 @@ global class CartItemCollection {
 	global Integer getTotal() { }
 	global Integer getTotalNumberOfPages() { }
 	global Integer hashCode() { }
+	global void setApproachingDiscounts(List<String> value) { }
 	global void setCartCoupons(ConnectApi.CartCouponCollection value) { }
 	global void setCartItems(List<ConnectApi.CartItemResult> value) { }
 	global void setCartPromotions(ConnectApi.CartPromotionCollection value) { }

@@ -7,6 +7,7 @@ global class TaxLineItemRequest {
 	global String lineNumber;
 	global String productCode;
 	global String productId;
+	global String productSKU;
 	global Double quantity;
 	global String taxCode;
 	global Double unitPrice;

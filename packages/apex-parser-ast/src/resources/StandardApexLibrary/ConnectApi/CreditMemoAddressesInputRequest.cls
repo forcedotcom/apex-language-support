@@ -1,5 +1,6 @@
 global class CreditMemoAddressesInputRequest {
 	global ConnectApi.RevenueAddressInputRepresentation billingAddress;
+	global ConnectApi.RevenueAddressInputRepresentation shipFromAddress;
 	global ConnectApi.RevenueAddressInputRepresentation shippingAddress;
 	global CreditMemoAddressesInputRequest() { }
 	global Object clone() { }

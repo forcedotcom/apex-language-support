@@ -1,6 +1,8 @@
 global class BuyerProfileDetail {
 	global String email;
 	global String firstName;
+	global Boolean isEmailVerified;
+	global Boolean isPhoneVerified;
 	global String lastName;
 	global String phoneNumber;
 	global String userName;

@@ -1,5 +1,6 @@
 global class EinsteinPromptTemplateGenerationsRepresentation {
 	global ConnectApi.EinsteinLlmGenerationCitationOutput citations;
+	global List<ConnectApi.EinsteinPromptTemplateAttachment> fileData;
 	global List<ConnectApi.EinsteinPromptTemplateGenerationsError> generationErrors;
 	global List<ConnectApi.EinsteinLLMGenerationItemOutput> generations;
 	global Boolean isSummarized;

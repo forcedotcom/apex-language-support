@@ -1,4 +1,5 @@
 global class SearchResult {
+	global String apiName;
 	global Map<String,ConnectApi.RecordFieldValue> fields;
 	global String id;
 	global ConnectApi.MatchInfo matchInfo;

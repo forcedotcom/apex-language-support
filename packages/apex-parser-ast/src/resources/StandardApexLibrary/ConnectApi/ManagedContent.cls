@@ -2,10 +2,12 @@ global class ManagedContent {
 	global Object clone() { }
 	global static ConnectApi.ManagedContentDocumentClone cloneManagedContentDocument(String contentKeyOrId, ConnectApi.ManagedContentDocumentCloneInput ManagedContentCloneInputParam) { }
 	global static ConnectApi.ManagedContentDocument createManagedContent(ConnectApi.ManagedContentDocumentInput ManagedContentInputParam) { }
+	global static ConnectApi.ManagedContentProviderInstance createManagedContentProvider(ConnectApi.ManagedContentProviderInput providerInstanceInput) { }
 	global static ConnectApi.ManagedContentVersionOutput createManagedContentVersion(String contentSpaceId, ConnectApi.ManagedContentVersionInput contentVersion, ConnectApi.BinaryInput contentData) { }
 	global static ConnectApi.ManagedContentVersionOutput createManagedContentVersion(String contentSpaceId, ConnectApi.ManagedContentVersionInput contentVersion) { }
 	global static ConnectApi.ManagedContentDocument createManagedContentWithMedia(ConnectApi.ManagedContentDocumentInput ManagedContentInputParam, ConnectApi.BinaryInput contentData) { }
 	global static void deleteManagedContent(String contentSpaceId, String managedContentId) { }
+	global static void deleteManagedContentProviderInstance(String providerInstanceId) { }
 	global static void deleteManagedContentSpace(String contentSpaceId) { }
 	global static void deleteManagedContentVariant(String variantId) { }
 	global static ConnectApi.ManagedContentVersionCollection getAllContent(String channelId, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean includeMetadata, String startDate, String endDate, Boolean showAbsoluteUrl) { }
@@ -26,6 +28,7 @@ global class ManagedContent {
 	global static ConnectApi.ManagedContentVersionCollection getManagedContentByTopicsAndContentKeys(String communityId, List<String> contentKeys, List<String> topics, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) { }
 	global static ConnectApi.ManagedContentVersionCollection getManagedContentByTopicsAndIds(String communityId, List<String> managedContentIds, List<String> topics, Integer pageParam, Integer pageSize, String language, String managedContentType, Boolean showAbsoluteUrl) { }
 	global static ConnectApi.ManagedContentVersionCollection getManagedContentByTopicsAndIds(String communityId, List<String> managedContentIds, List<String> topics, Integer pageParam, Integer pageSize, String language, String managedContentType) { }
+	global static ConnectApi.ManagedContentProviderCollection getManagedContentProviders() { }
 	global static ConnectApi.ManagedContentSpace getManagedContentSpace(String contentSpaceId) { }
 	global static ConnectApi.MCSFolderShareCollection patchMCSFolderShares(String folderId, ConnectApi.MCSFolderShareCollectionUpdateInput mcsFolderShareCollectionUpdateInput) { }
 	global static ConnectApi.ManagedContentPublishOutput publish(ConnectApi.ManagedContentPublishInput publishInput) { }

@@ -1,5 +1,6 @@
 global class ProgramApplicationInputRepresentation {
 	global String accountId;
+	global String appName;
 	global List<ConnectApi.ProgramApplicationItemInputRepresentation> applicationItems;
 	global ConnectApi.AttributeCreationStrategyEnum attributeCreationStrategy;
 	global String description;

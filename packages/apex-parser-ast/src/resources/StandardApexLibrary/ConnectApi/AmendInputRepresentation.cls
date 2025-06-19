@@ -1,4 +1,5 @@
 global class AmendInputRepresentation {
+	global String actionSubtype;
 	global Datetime amendmentStartDate;
 	global Double quantityChange;
 	global AmendInputRepresentation() { }

@@ -2,8 +2,10 @@ global class RADOutputRepresentation {
 	global List<ConnectApi.RADNodeOutputRepresentation> aggregationObjects;
 	global Boolean canDeleteDefinition;
 	global Boolean canEditDefinition;
+	global Boolean canManageOnDemand;
 	global String description;
 	global String displayName;
+	global Boolean isOnDemandEnabled;
 	global String message;
 	global String recordAggregationDefinitionId;
 	global String status;

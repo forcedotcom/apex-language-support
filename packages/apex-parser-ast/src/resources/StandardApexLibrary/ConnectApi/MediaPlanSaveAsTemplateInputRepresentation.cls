@@ -1,6 +1,7 @@
 global class MediaPlanSaveAsTemplateInputRepresentation {
-	global String adQuoteId;
+	global String description;
 	global String name;
+	global String quoteId;
 	global MediaPlanSaveAsTemplateInputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }
