@@ -61,7 +61,7 @@
       "outputs": ["out/**"]
     },
     "apex-language-server-extension-web#compile": {
-      "dependsOn": ["precompile", "^compile"],
+      "dependsOn": ["precompile", "^precompile", "^compile"],
       "outputs": ["out/**", "*.tsbuildinfo"]
     }
   }
