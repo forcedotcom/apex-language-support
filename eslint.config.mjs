@@ -6,17 +6,17 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-const typescriptEslintPlugin = require('@typescript-eslint/eslint-plugin');
-const prettierPlugin = require('eslint-plugin-prettier');
-const importPlugin = require('eslint-plugin-import');
-const unusedImportsPlugin = require('eslint-plugin-unused-imports');
-const jsdocPlugin = require('eslint-plugin-jsdoc');
-const header = require('@tony.ganchev/eslint-plugin-header');
-const typescriptParser = require('@typescript-eslint/parser');
-const localRules = require('./eslint-rules');
-const jsoncParser = require('jsonc-eslint-parser');
+import typescriptEslintPlugin from '@typescript-eslint/eslint-plugin';
+import prettierPlugin from 'eslint-plugin-prettier';
+import importPlugin from 'eslint-plugin-import';
+import unusedImportsPlugin from 'eslint-plugin-unused-imports';
+import jsdocPlugin from 'eslint-plugin-jsdoc';
+import header from '@tony.ganchev/eslint-plugin-header';
+import typescriptParser from '@typescript-eslint/parser';
+import localRules from './eslint-rules/index.mjs';
+import jsoncParser from 'jsonc-eslint-parser';
 
-module.exports = [
+export default [
   {
     // Global configuration that ensures package.json files are always included
     ignores: [
@@ -27,6 +27,8 @@ module.exports = [
       '**/coverage/**',
       '**/node_modules/**',
       '**/*.d.ts',
+      '**/.DS_Store',
+      '**/server-bundle/**',
     ],
     files: ['**/*.ts', '**/*.mjs'],
     languageOptions: {

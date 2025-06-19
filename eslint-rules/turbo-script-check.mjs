@@ -6,8 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Reads the root turbo.json configuration and extracts defined targets
@@ -44,26 +44,43 @@ function getTurboTargets() {
 }
 
 /**
- * ESLint rule to prevent circular dependencies with turbo targets
+ * ESLint rule to prevent circular dependencies and warn about unfiltered turbo usage
  */
-module.exports = {
+export default {
   meta: {
     type: 'problem',
     docs: {
       description:
-        'Prevent circular dependencies by flagging scripts that call turbo run with matching target names',
+        'Prevent circular dependencies and warn about unfiltered turbo run calls in package.json scripts',
       category: 'Best Practices',
       recommended: true,
     },
     fixable: null,
-    schema: [],
+    schema: [
+      {
+        type: 'object',
+        properties: {
+          allowedDirectTargets: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'Array of turbo targets that are allowed to be called directly',
+          },
+        },
+        additionalProperties: false,
+      },
+    ],
     messages: {
       turboCircular:
         'Script "{{scriptName}}" calls "turbo run {{target}}" which creates a circular dependency. Turbo will call this script when running "{{target}}".',
+      turboUnfiltered:
+        'Script "{{scriptName}}" calls "turbo run {{target}}" without a filter, which will run across all packages. Consider using --filter to scope to specific packages or call the local script directly.',
     },
   },
 
   create(context) {
+    const options = context.options[0] || {};
+    const allowedDirectTargets = new Set(options.allowedDirectTargets || []);
     const turboTargets = new Set(getTurboTargets());
 
     return {
@@ -90,23 +107,25 @@ module.exports = {
             return;
           }
 
-          // Check each script for circular dependencies
+          // Check each script for circular dependencies and unfiltered turbo usage
           Object.entries(packageJson.scripts).forEach(
             ([scriptName, scriptCommand]) => {
               if (typeof scriptCommand !== 'string') {
                 return;
               }
 
+              // Skip if this script name is in the allowed direct targets
+              if (allowedDirectTargets.has(scriptName)) {
+                return;
+              }
+
               const normalizedCommand = scriptCommand.trim();
 
-              // Check for direct turbo calls that create circular dependencies
+              // Check for direct turbo calls
               const turboRunMatch = normalizedCommand.match(/turbo run (\S+)/);
               if (turboRunMatch) {
                 const turboTarget = turboRunMatch[1];
-                if (
-                  turboTargets.has(turboTarget) &&
-                  scriptName === turboTarget
-                ) {
+                if (turboTargets.has(turboTarget)) {
                   // Calculate the line number where this script appears
                   const lines = packageJsonContent.split('\n');
                   let scriptLine = 1;
@@ -121,21 +140,47 @@ module.exports = {
                     }
                   }
 
-                  context.report({
-                    node,
-                    loc: {
-                      start: { line: scriptLine, column: scriptColumn },
-                      end: {
-                        line: scriptLine,
-                        column: scriptColumn + scriptName.length + 2,
-                      }, // +2 for quotes
-                    },
-                    messageId: 'turboCircular',
-                    data: {
-                      scriptName,
-                      target: turboTarget,
-                    },
-                  });
+                  // Determine if this is a circular dependency or just unfiltered usage
+                  const isCircular = scriptName === turboTarget;
+                  const hasFilter = normalizedCommand.includes('--filter');
+
+                  if (isCircular) {
+                    // Circular dependency - error
+                    context.report({
+                      node,
+                      loc: {
+                        start: { line: scriptLine, column: scriptColumn },
+                        end: {
+                          line: scriptLine,
+                          column: scriptColumn + scriptName.length + 2,
+                        }, // +2 for quotes
+                      },
+                      messageId: 'turboCircular',
+                      data: {
+                        scriptName,
+                        target: turboTarget,
+                      },
+                      severity: 0, // 0 = error
+                    });
+                  } else if (!hasFilter) {
+                    // Unfiltered turbo usage - warning
+                    context.report({
+                      node,
+                      loc: {
+                        start: { line: scriptLine, column: scriptColumn },
+                        end: {
+                          line: scriptLine,
+                          column: scriptColumn + scriptName.length + 2,
+                        }, // +2 for quotes
+                      },
+                      messageId: 'turboUnfiltered',
+                      data: {
+                        scriptName,
+                        target: turboTarget,
+                      },
+                      severity: 1, // 1 = warning
+                    });
+                  }
                 }
               }
             },

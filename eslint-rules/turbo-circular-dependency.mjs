@@ -6,8 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Reads the root turbo.json configuration and extracts defined targets
@@ -44,22 +44,22 @@ function getTurboTargets() {
 }
 
 /**
- * ESLint rule to warn about unfiltered turbo usage
+ * ESLint rule to prevent circular dependencies with turbo targets
  */
-module.exports = {
+export default {
   meta: {
-    type: 'suggestion',
+    type: 'problem',
     docs: {
       description:
-        'Warn about unfiltered turbo run calls that may have unintended project-wide implications',
+        'Prevent circular dependencies by flagging scripts that call turbo run with matching target names',
       category: 'Best Practices',
       recommended: true,
     },
     fixable: null,
     schema: [],
     messages: {
-      turboUnfiltered:
-        'Script "{{scriptName}}" calls "turbo run {{target}}" without a filter, which will run across all packages. Consider using --filter to scope to specific packages or call the local script directly.',
+      turboCircular:
+        'Script "{{scriptName}}" calls "turbo run {{target}}" which creates a circular dependency. Turbo will call this script when running "{{target}}".',
     },
   },
 
@@ -90,7 +90,7 @@ module.exports = {
             return;
           }
 
-          // Check each script for unfiltered turbo usage
+          // Check each script for circular dependencies
           Object.entries(packageJson.scripts).forEach(
             ([scriptName, scriptCommand]) => {
               if (typeof scriptCommand !== 'string') {
@@ -99,46 +99,43 @@ module.exports = {
 
               const normalizedCommand = scriptCommand.trim();
 
-              // Check for unfiltered turbo calls
+              // Check for direct turbo calls that create circular dependencies
               const turboRunMatch = normalizedCommand.match(/turbo run (\S+)/);
               if (turboRunMatch) {
                 const turboTarget = turboRunMatch[1];
                 if (
                   turboTargets.has(turboTarget) &&
-                  scriptName !== turboTarget
+                  scriptName === turboTarget
                 ) {
-                  // Skip if it has a filter
-                  if (!normalizedCommand.includes('--filter')) {
-                    // Calculate the line number where this script appears
-                    const lines = packageJsonContent.split('\n');
-                    let scriptLine = 1;
-                    let scriptColumn = 1;
+                  // Calculate the line number where this script appears
+                  const lines = packageJsonContent.split('\n');
+                  let scriptLine = 1;
+                  let scriptColumn = 1;
 
-                    for (let i = 0; i < lines.length; i++) {
-                      const line = lines[i];
-                      if (line.includes(`"${scriptName}"`)) {
-                        scriptLine = i + 1;
-                        scriptColumn = line.indexOf(`"${scriptName}"`) + 1;
-                        break;
-                      }
+                  for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (line.includes(`"${scriptName}"`)) {
+                      scriptLine = i + 1;
+                      scriptColumn = line.indexOf(`"${scriptName}"`) + 1;
+                      break;
                     }
-
-                    context.report({
-                      node,
-                      loc: {
-                        start: { line: scriptLine, column: scriptColumn },
-                        end: {
-                          line: scriptLine,
-                          column: scriptColumn + scriptName.length + 2,
-                        }, // +2 for quotes
-                      },
-                      messageId: 'turboUnfiltered',
-                      data: {
-                        scriptName,
-                        target: turboTarget,
-                      },
-                    });
                   }
+
+                  context.report({
+                    node,
+                    loc: {
+                      start: { line: scriptLine, column: scriptColumn },
+                      end: {
+                        line: scriptLine,
+                        column: scriptColumn + scriptName.length + 2,
+                      }, // +2 for quotes
+                    },
+                    messageId: 'turboCircular',
+                    data: {
+                      scriptName,
+                      target: turboTarget,
+                    },
+                  });
                 }
               }
             },
