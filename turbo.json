@@ -56,12 +56,26 @@
       "dependsOn": ["compile", "@salesforce/apex-ls-node#bundle"],
       "outputs": ["extension/**", "bundle/**", "server-bundle/**"]
     },
+    "apex-language-server-extension#compile": {
+      "dependsOn": [
+        "precompile",
+        "^precompile",
+        "^compile",
+        "@salesforce/apex-lsp-parser-ast#precompile"
+      ],
+      "outputs": ["dist/**", "*.tsbuildinfo"]
+    },
     "apex-language-server-extension-web#precompile": {
       "dependsOn": ["^precompile"],
       "outputs": ["out/**"]
     },
     "apex-language-server-extension-web#compile": {
-      "dependsOn": ["precompile", "^precompile", "^compile"],
+      "dependsOn": [
+        "precompile",
+        "^precompile",
+        "^compile",
+        "@salesforce/apex-lsp-parser-ast#precompile"
+      ],
       "outputs": ["out/**", "*.tsbuildinfo"]
     }
   }

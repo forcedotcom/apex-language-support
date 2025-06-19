@@ -21,7 +21,7 @@
     "README.md"
   ],
   "scripts": {
-    "bundle": "npm run compile && tsup",
+    "bundle": "tsup",
     "precompile": "node scripts/generate-zip.mjs",
     "compile": "tsc --build",
     "generate:stubs": "jest test/generator/generate-Standard-Apex-Library.ts",

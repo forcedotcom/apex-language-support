@@ -18,7 +18,7 @@
   },
   "scripts": {
     "compile": "tsc --build",
-    "bundle": "npm run compile && tsup",
+    "bundle": "tsup",
     "dev": "tsup --watch",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
