@@ -7,9 +7,8 @@
  */
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-
-import { dispatch } from '../../src/utils/handlerUtil';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
+import { dispatch } from '../../src/utils/handlerUtil';
 
 // Mock the logger before importing the handler
 const mockLogger = {

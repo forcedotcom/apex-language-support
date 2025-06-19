@@ -24,8 +24,8 @@
     "clean": "rimraf dist bundle .turbo coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "dev": "tsup --watch",
-    "lint": "eslint \"src/**/*.ts\"",
-    "lint:fix": "eslint \"src/**/*.ts\" --fix"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",

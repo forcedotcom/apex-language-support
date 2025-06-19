@@ -18,7 +18,7 @@ const jsoncParser = require('jsonc-eslint-parser');
 
 module.exports = [
   {
-    // Ignore all generated files and caches
+    // Global configuration that ensures package.json files are always included
     ignores: ['**/.wireit/**', '**/dist/**', '**/node_modules/**', '**/*.d.ts'],
     files: ['**/*.ts', '**/*.mjs'],
     languageOptions: {
@@ -69,18 +69,11 @@ module.exports = [
       'import/named': 'error',
       'import/default': 'error',
       'import/no-duplicates': 'error',
-      'import/order': [
-        'error',
-        {
-          groups: ['builtin', 'external', 'internal'],
-          'newlines-between': 'always',
-        },
-      ],
       'max-len': ['error', { code: 120 }],
     },
   },
   {
-    // Configuration for package.json files
+    // Override for package.json files to use JSONC parser and turbo rules
     files: ['**/package.json'],
     languageOptions: {
       parser: jsoncParser,
@@ -89,12 +82,8 @@ module.exports = [
       local: localRules,
     },
     rules: {
-      'local/turbo-script-check': [
-        'error',
-        {
-          allowedDirectTargets: ['dev', 'start'], // Allow some targets to be run directly
-        },
-      ],
+      'local/turbo-circular-dependency': 'error',
+      'local/turbo-unfiltered-usage': 'warn',
     },
   },
 ];

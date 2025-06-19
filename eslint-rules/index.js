@@ -9,5 +9,7 @@
 module.exports = {
   rules: {
     'turbo-script-check': require('./turbo-script-check'),
+    'turbo-circular-dependency': require('./turbo-circular-dependency'),
+    'turbo-unfiltered-usage': require('./turbo-unfiltered-usage'),
   },
 };

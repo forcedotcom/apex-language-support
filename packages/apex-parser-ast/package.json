@@ -28,8 +28,8 @@
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf dist bundle .turbo coverage src/generated dist/resources tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "eslint \"src/**/*.ts\" --ignore-pattern \"src/generated/**\"",
-    "lint:fix": "eslint \"src/**/*.ts\" --ignore-pattern \"src/generated/**\" --fix"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.0",

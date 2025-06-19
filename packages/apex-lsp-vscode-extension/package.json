@@ -179,11 +179,11 @@
     "package": "vsce package --allow-star-activation",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf dist bundle extension .turbo coverage grammars tsconfig.tsbuildinfo",
+    "clean": "rimraf dist bundle extension .turbo coverage grammars tsconfig.tsbuildinfo server-bundle",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage",
-    "lint": "eslint \"src/**/*.ts\"",
-    "lint:fix": "eslint \"src/**/*.ts\" --fix"
+    "lint": "eslint . --ignore-pattern 'server-bundle/**' --ignore-pattern 'extension/dist/**'",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@salesforce/apex-ls-node": "1.0.0",

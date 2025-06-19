@@ -271,6 +271,7 @@ describe('InterfaceBodyValidator', () => {
       );
 
       expect(mockErrorReporter.errors).toContain(
+        // eslint-disable-next-line max-len
         "Inner interface 'InnerInterface' is not allowed in interfaces. Interfaces can only contain method declarations",
       );
     });

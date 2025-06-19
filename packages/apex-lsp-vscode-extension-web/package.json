@@ -118,8 +118,8 @@
     "clean": "rimraf dist out bundle .turbo grammars extension tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules .turbo",
     "clean:coverage": "rimraf coverage",
-    "lint": "eslint \"src/**/*.ts\"",
-    "lint:fix": "eslint \"src/**/*.ts\" --fix"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {},
   "devDependencies": {
