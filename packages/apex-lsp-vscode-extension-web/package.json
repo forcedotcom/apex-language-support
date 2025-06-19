@@ -117,7 +117,9 @@
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
     "clean": "rimraf dist out bundle .turbo grammars extension tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules .turbo",
-    "clean:coverage": "rimraf coverage"
+    "clean:coverage": "rimraf coverage",
+    "lint": "eslint \"src/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix"
   },
   "dependencies": {},
   "devDependencies": {

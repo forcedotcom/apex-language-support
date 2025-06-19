@@ -30,12 +30,12 @@
       "inputs": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
     },
     "lint": {
-      "dependsOn": ["compile"],
+      "dependsOn": [],
       "outputs": [],
       "inputs": ["src/**/*.ts"]
     },
     "lint:fix": {
-      "dependsOn": ["compile"],
+      "dependsOn": [],
       "outputs": [],
       "inputs": ["src/**/*.ts"]
     },

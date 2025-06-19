@@ -31,7 +31,9 @@
     "start:jorje:debug:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
     "start:jorje:debug:verbose:suspend": "node --enable-source-maps --inspect ./dist/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
     "start:extension-server": "node --enable-source-maps ./dist/servers/nodeServer/extensionServer/extensionLanguageServerHarness.js --stdio",
-    "start:extension-server:debug": "node --enable-source-maps --inspect ./dist/servers/nodeServer/extensionServer/extensionLanguageServerHarness.js --stdio"
+    "start:extension-server:debug": "node --enable-source-maps --inspect ./dist/servers/nodeServer/extensionServer/extensionLanguageServerHarness.js --stdio",
+    "lint": "eslint \"src/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix"
   },
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",

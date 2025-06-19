@@ -13,7 +13,6 @@ import type {
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { HashMap } from 'data-structure-typed';
-
 import { getLogger } from '@salesforce/apex-lsp-logging';
 /**
  * Implementation of ApexStorageInterface for browser environments.
