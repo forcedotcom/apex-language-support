@@ -1,6 +1,4 @@
 global class QuerySqlOutput {
-	global List<ConnectApi.QuerySqlRow> data;
-	global List<ConnectApi.QuerySqlMetadataItem> metadata;
 	global ConnectApi.QuerySqlStatus status;
 	global QuerySqlOutput() { }
 	global Object clone() { }

@@ -1,6 +1,6 @@
 global class QueryProductOfferingOutputRepresentation {
 	global ConnectApi.OpenAPICategoryDetailOutputRepresentation category;
-	global String createdDate;
+	global String creationDate;
 	global String effectiveQualificationDate;
 	global List<ConnectApi.QualifiedProductOfferingItemOutputRepresentation> qualifiedProductOfferingItem;
 	global List<ConnectApi.OpenAPIRelatedPartyOutputRepresentation> relatedParty;

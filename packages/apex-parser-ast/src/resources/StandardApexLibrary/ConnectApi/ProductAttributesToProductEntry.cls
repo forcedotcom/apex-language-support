@@ -1,6 +1,7 @@
 global class ProductAttributesToProductEntry {
 	global String canonicalKey;
 	global ConnectApi.ProductMedia image;
+	global List<ConnectApi.ProductMedia> mediaItems;
 	global String productId;
 	global List<ConnectApi.ProductAttributeSelectionInfo> selectedAttributes;
 	global String urlName;

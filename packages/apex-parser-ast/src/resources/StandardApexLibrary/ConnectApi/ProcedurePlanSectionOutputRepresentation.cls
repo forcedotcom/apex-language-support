@@ -2,6 +2,7 @@ global class ProcedurePlanSectionOutputRepresentation {
 	global ConnectApi.ProcedurePlanGenericErrorRepresentation error;
 	global Boolean isInherited;
 	global Boolean isSuccess;
+	global String phase;
 	global List<ConnectApi.ProcedurePlanOptionOutputRepresentation> procedurePlanOptions;
 	global String recordId;
 	global String resolutionType;

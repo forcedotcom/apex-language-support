@@ -4,6 +4,7 @@ global class SearchBoostBuryRuleOutput {
 	global String id;
 	global Integer level;
 	global String name;
+	global ConnectApi.SearchBoostBuryQueryContextOutput queryContext;
 	global Datetime startDate;
 	global ConnectApi.SearchBoostBuryTargetExpressionOutput targetExpression;
 	global SearchBoostBuryRuleOutput() { }

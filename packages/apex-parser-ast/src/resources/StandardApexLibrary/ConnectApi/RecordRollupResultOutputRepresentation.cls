@@ -1,6 +1,7 @@
 global class RecordRollupResultOutputRepresentation {
 	global List<ConnectApi.RecordRollupResultColumnOutputRepresentation> columns;
 	global String definitionDisplayName;
+	global ConnectApi.RecordRollupResultLastUpdatedDetailsOutputRepresentation lastUpdatedDetails;
 	global String message;
 	global List<ConnectApi.RecordRollupResultRowOutputRepresentation> rows;
 	global String statusCode;

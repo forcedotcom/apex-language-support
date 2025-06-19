@@ -2,6 +2,7 @@ global class DiscoverySearchActionResultsRepresentation {
 	global List<ConnectApi.DiscoverySearchCategoryRepresentation> categories;
 	global List<ConnectApi.DiscoverySearchFacetRepresentation> facets;
 	global List<ConnectApi.DiscoverySearchProductRepresentation> products;
+	global String recommendationCase;
 	global Integer totalNumCategories;
 	global Long totalNumSearchResults;
 	global DiscoverySearchActionResultsRepresentation() { }

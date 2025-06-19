@@ -1,5 +1,6 @@
 global class BookAppointmentsInput {
 	global String appointmentId;
+	global String appointmentStatus;
 	global String appointmentType;
 	global String channelId;
 	global String externalPatientId;
@@ -15,6 +16,7 @@ global class BookAppointmentsInput {
 	global String resourceType;
 	global String serviceType;
 	global ConnectApi.GetSlotStatusInput slot;
+	global String timezone;
 	global BookAppointmentsInput() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

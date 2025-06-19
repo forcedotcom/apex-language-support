@@ -1,3 +1,3 @@
 global enum ExecutionCallApiTypeEnum {
-NGP
+PRICING
 }

@@ -19,7 +19,15 @@ const jsoncParser = require('jsonc-eslint-parser');
 module.exports = [
   {
     // Global configuration that ensures package.json files are always included
-    ignores: ['**/.wireit/**', '**/dist/**', '**/node_modules/**', '**/*.d.ts'],
+    ignores: [
+      '**/.turbo/**',
+      '**/dist/**',
+      '**/out/**',
+      '**/bundle/**',
+      '**/coverage/**',
+      '**/node_modules/**',
+      '**/*.d.ts',
+    ],
     files: ['**/*.ts', '**/*.mjs'],
     languageOptions: {
       ecmaVersion: 2021,

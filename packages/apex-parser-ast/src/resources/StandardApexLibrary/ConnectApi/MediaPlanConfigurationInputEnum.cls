@@ -1,5 +1,5 @@
 global enum MediaPlanConfigurationInputEnum {
-RUNANDALLOWERRORS,
-RUNANDBLOCKERRORS,
-SKIP
+FORCE,
+SKIP,
+SYSTEM
 }

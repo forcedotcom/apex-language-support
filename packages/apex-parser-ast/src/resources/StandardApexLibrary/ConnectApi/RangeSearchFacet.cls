@@ -1,4 +1,5 @@
 global class RangeSearchFacet {
+	global ConnectApi.RangeFacetDisplayMetadataRepresentation displayMetadata;
 	global String max;
 	global String min;
 	global RangeSearchFacet() { }

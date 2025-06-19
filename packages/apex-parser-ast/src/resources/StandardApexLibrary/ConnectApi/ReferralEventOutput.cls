@@ -1,5 +1,6 @@
 global class ReferralEventOutput {
 	global List<String> contactIds;
+	global List<ConnectApi.ExtendedRewardDetails> extendedRewardList;
 	global List<String> referralIds;
 	global String referralStage;
 	global List<String> transactionJournalIds;

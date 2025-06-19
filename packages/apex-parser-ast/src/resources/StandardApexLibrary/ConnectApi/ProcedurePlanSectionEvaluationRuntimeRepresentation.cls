@@ -1,7 +1,10 @@
 global class ProcedurePlanSectionEvaluationRuntimeRepresentation {
+	global String apexClass;
+	global String apexClassName;
 	global String expressionSetApiName;
 	global String expressionSetDefinitionId;
 	global String expressionSetLabel;
+	global List<String> phases;
 	global String readContextMapping;
 	global String saveContextMapping;
 	global String sectionType;

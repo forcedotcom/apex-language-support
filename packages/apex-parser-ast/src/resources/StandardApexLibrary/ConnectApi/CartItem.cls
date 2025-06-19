@@ -1,4 +1,5 @@
 global class CartItem {
+	global ConnectApi.CartItemCollection cartData;
 	global String currencyIsoCode;
 	global String firstPymtTotalAmount;
 	global String firstPymtTotalListPrice;
@@ -21,6 +22,7 @@ global class CartItem {
 	global Object clone() { }
 	global Boolean equals(Object obj) { }
 	global Double getBuildVersion() { }
+	global ConnectApi.CartItemCollection getCartData() { }
 	global String getCurrencyIsoCode() { }
 	global String getFirstPymtTotalAmount() { }
 	global String getFirstPymtTotalListPrice() { }
@@ -40,6 +42,7 @@ global class CartItem {
 	global String getUnitAdjustmentAmount() { }
 	global String getUnitItemAdjustmentAmount() { }
 	global Integer hashCode() { }
+	global void setCartData(ConnectApi.CartItemCollection value) { }
 	global void setCurrencyIsoCode(String value) { }
 	global void setFirstPymtTotalAmount(String value) { }
 	global void setFirstPymtTotalListPrice(String value) { }

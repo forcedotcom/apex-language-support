@@ -1,6 +1,7 @@
 global class ManagedContentVariant {
 	global String apiName;
 	global Map<String,Object> contentBody;
+	global String contentFqn;
 	global String contentKey;
 	global ConnectApi.ManagedContentSpaceSummary contentSpace;
 	global ConnectApi.ManagedContentTypeSummary contentType;

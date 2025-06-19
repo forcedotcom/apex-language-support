@@ -4,6 +4,7 @@ global class NamedCredential {
 	global String calloutUrl;
 	global String createdByNamespace;
 	global List<ConnectApi.CredentialCustomHeader> customHeaders;
+	global String description;
 	global String developerName;
 	global List<ConnectApi.ExternalCredential> externalCredentials;
 	global String id;

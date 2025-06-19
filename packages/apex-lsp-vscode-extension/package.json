@@ -180,7 +180,7 @@
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
     "clean": "rimraf dist bundle extension .turbo coverage grammars tsconfig.tsbuildinfo server-bundle",
-    "clean:all": "npm run clean && rimraf node_modules",
+    "clean:all": "npm run clean && rimraf node_modules apex-language-server-extension-0.1.0.vsix",
     "clean:coverage": "rimraf coverage",
     "lint": "eslint . --ignore-pattern 'server-bundle/**' --ignore-pattern 'extension/dist/**'",
     "lint:fix": "eslint . --fix"

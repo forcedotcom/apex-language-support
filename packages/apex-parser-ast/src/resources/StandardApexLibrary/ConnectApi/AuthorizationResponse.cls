@@ -1,6 +1,7 @@
 global class AuthorizationResponse {
 	global ConnectApi.ErrorResponse error;
 	global ConnectApi.AuthorizationGatewayResponse gatewayResponse;
+	global Boolean isMultiCaptureSupported;
 	global ConnectApi.PaymentAuthorizationResponse paymentAuthorization;
 	global List<ConnectApi.GatewayLogResponse> paymentGatewayLogs;
 	global ConnectApi.PaymentGroupResponse paymentGroup;

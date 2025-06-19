@@ -1,4 +1,5 @@
 global enum SupportedCloneEntity {
 ADQUOTE,
-ADQUOTELINE
+ADQUOTELINE,
+QUOTE
 }

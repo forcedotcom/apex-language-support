@@ -1,11 +1,13 @@
 global class ActivationTarget {
-	global String audienceDmoApiName;
-	global String audienceDmoLabel;
 	global ConnectApi.DataConnector connector;
 	global String dataSpace;
 	global String description;
+	global String historyAudienceDmoApiName;
+	global String historyAudienceDmoLabel;
 	global Boolean isCappingEnabled;
 	global Boolean isEnabled;
+	global String latestAudienceDmoApiName;
+	global String latestAudienceDmoLabel;
 	global String organizationId;
 	global String platformName;
 	global String platformPrivacyType;

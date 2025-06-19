@@ -11,6 +11,7 @@ global class ManagedContentSpace {
 	global Datetime lastModifiedDate;
 	global String name;
 	global String rootFolderId;
+	global ConnectApi.ManagedContentSpaceBaseType spaceType;
 	global ManagedContentSpace() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

@@ -1,6 +1,7 @@
 global class SaveTargetDataSegmentInputRepresentation {
 	global Boolean include;
 	global String segmentId;
+	global String targetValues;
 	global List<ConnectApi.SaveTargetDataSegmentValueInputRepresentation> values;
 	global SaveTargetDataSegmentInputRepresentation() { }
 	global Object clone() { }
