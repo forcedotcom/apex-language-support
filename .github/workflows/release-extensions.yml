@@ -69,89 +69,69 @@ jobs:
   determine-changes:
     runs-on: ubuntu-latest
     outputs:
-      changed-extensions: ${{ steps.changes.outputs.extensions }}
-      selected-extensions: ${{ steps.selected.outputs.extensions }}
-      version-bumps: ${{ steps.version.outputs.bumps }}
+      selected-extensions: ${{ steps.changes.outputs.selected-extensions }}
+      version-bumps: ${{ steps.changes.outputs.version-bumps }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ inputs.branch || github.ref }}
 
-      - name: Determine changed extensions
+      - name: Determine changes and version bumps
         id: changes
         run: |
-          # Get list of changed files
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
-          echo "Changed files: $CHANGED_FILES"
+          # Get build context
+          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
+          VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
+          PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
 
-          # Determine which VS Code extensions have changes
-          CHANGED_EXTENSIONS=""
-          for pkg in packages/*/; do
-            PKG_NAME=$(basename "$pkg")
-            if [ -f "$pkg/package.json" ]; then
-              # Check if it's a VS Code extension
-              if grep -q '"publisher"' "$pkg/package.json"; then
-                if echo "$CHANGED_FILES" | grep -q "^packages/$PKG_NAME/"; then
-                  CHANGED_EXTENSIONS="$CHANGED_EXTENSIONS,$PKG_NAME"
+          echo "Build context:"
+          echo "  Is nightly: $IS_NIGHTLY"
+          echo "  Version bump: $VERSION_BUMP"
+          echo "  Pre-release: $PRE_RELEASE"
+
+          # For nightly builds, always use patch bump and ensure pre-release
+          if [ "$IS_NIGHTLY" = "true" ]; then
+            echo "Nightly build detected - using patch bump strategy"
+            VERSION_BUMP="patch"
+            PRE_RELEASE="true"
+          fi
+
+          # Determine which extensions have changes
+          EXTENSIONS_WITH_CHANGES=""
+          VERSION_BUMP_TYPES=""
+
+          # Check each extension for changes
+          for ext in apex-lsp-vscode-extension apex-lsp-vscode-extension-web; do
+            if [ -d "packages/$ext" ]; then
+              # For nightly builds, always include extensions
+              if [ "$IS_NIGHTLY" = "true" ]; then
+                if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
+                  EXTENSIONS_WITH_CHANGES="$ext"
+                else
+                  EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
+                fi
+                VERSION_BUMP_TYPES="$VERSION_BUMP"
+              else
+                # Check for actual changes
+                CHANGES=$(git diff --name-only HEAD~1..HEAD -- "packages/$ext/")
+                if [ -n "$CHANGES" ]; then
+                  if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
+                    EXTENSIONS_WITH_CHANGES="$ext"
+                  else
+                    EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
+                  fi
+                  VERSION_BUMP_TYPES="$VERSION_BUMP"
                 fi
               fi
             fi
           done
 
-          # Remove leading comma
-          CHANGED_EXTENSIONS=${CHANGED_EXTENSIONS#,}
-          echo "extensions=$CHANGED_EXTENSIONS" >> $GITHUB_OUTPUT
+          echo "Selected extensions: $EXTENSIONS_WITH_CHANGES"
+          echo "Version bump types: $VERSION_BUMP_TYPES"
 
-      - name: Determine selected extensions
-        id: selected
-        run: |
-          # Handle both workflow_call (string) and workflow_dispatch (choice) inputs
-          SELECTED_EXTENSION="${{ github.event.inputs.extensions || inputs.extensions }}"
-          AVAILABLE_EXTENSIONS="${{ inputs.available-extensions }}"
-
-          if [ "$SELECTED_EXTENSION" = "none" ]; then
-            # No extensions selected
-            SELECTED_EXTENSIONS=""
-          elif [ "$SELECTED_EXTENSION" = "all" ]; then
-            # Use all available extensions
-            if [ -n "$AVAILABLE_EXTENSIONS" ]; then
-              SELECTED_EXTENSIONS="$AVAILABLE_EXTENSIONS"
-            else
-              # Fallback to changed extensions detection
-              SELECTED_EXTENSIONS="${{ steps.changes.outputs.extensions }}"
-            fi
-          elif [ "$SELECTED_EXTENSION" = "changed" ]; then
-            # Use changed extensions
-            SELECTED_EXTENSIONS="${{ steps.changes.outputs.extensions }}"
-          else
-            # Use the specific selected extension
-            SELECTED_EXTENSIONS="$SELECTED_EXTENSION"
-          fi
-
-          echo "extensions=$SELECTED_EXTENSIONS" >> $GITHUB_OUTPUT
-
-      - name: Determine version bumps
-        id: version
-        run: |
-          # Get commit messages since last release
-          COMMIT_MESSAGES=$(git log --oneline HEAD~10..HEAD)
-          echo "Recent commits: $COMMIT_MESSAGES"
-
-          # Determine version bump type based on commit messages
-          # Major: breaking changes
-          # Minor: new features
-          # Patch: bug fixes
-          VERSION_BUMP="patch"  # default
-
-          if echo "$COMMIT_MESSAGES" | grep -qi "breaking\|major"; then
-            VERSION_BUMP="major"
-          elif echo "$COMMIT_MESSAGES" | grep -qi "feat\|feature\|minor"; then
-            VERSION_BUMP="minor"
-          fi
-
-          echo "bumps=$VERSION_BUMP" >> $GITHUB_OUTPUT
+          echo "selected-extensions=$EXTENSIONS_WITH_CHANGES" >> $GITHUB_OUTPUT
+          echo "version-bumps=$VERSION_BUMP_TYPES" >> $GITHUB_OUTPUT
 
   display-release-plan:
     needs: determine-changes
@@ -175,6 +155,8 @@ jobs:
         run: |
           echo "=== EXTENSION RELEASE PLAN ==="
           echo "Branch: ${{ inputs.branch || github.ref_name }}"
+          echo "Build type: ${{ github.event_name }}"
+          echo "Is nightly: ${{ needs.determine-build-type.outputs.is-nightly }}"
           echo "Version bump type: ${{ needs.determine-changes.outputs.version-bumps }}"
           echo "Registry: ${{ inputs.registry }}"
           echo "Pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}"
@@ -216,7 +198,13 @@ jobs:
                   ;;
               esac
               
+              # Show version bump information
               echo "  Would bump to: $NEW_VERSION"
+              if [ "$IS_NIGHTLY" = "true" ]; then
+                echo "  Version strategy: Nightly build (odd minor + nightly timestamp)"
+              else
+                echo "  Version strategy: $VERSION_BUMP (conventional commit) + VS Code even/odd (pre-release: $PRE_RELEASE)"
+              fi
               
               # Show release information
               PRE_RELEASE_TEXT=""
@@ -311,6 +299,13 @@ jobs:
               RELEASE_TAG="v$CURRENT_VERSION"
               RELEASE_TITLE="$ext v$CURRENT_VERSION"
               
+              # For nightly builds, add timestamp to tag and title
+              if [ "$IS_NIGHTLY" = "true" ]; then
+                NIGHTLY_DATE=$(date +%Y%m%d)
+                RELEASE_TAG="v$CURRENT_VERSION-nightly.$NIGHTLY_DATE"
+                RELEASE_TITLE="$ext v$CURRENT_VERSION (Nightly $NIGHTLY_DATE)"
+              fi
+              
               # Generate release notes
               RELEASE_NOTES="## $ext v$CURRENT_VERSION\n\n"
               RELEASE_NOTES+="### Changes\n\n"
@@ -332,6 +327,14 @@ jobs:
               
               if [ "$PRE_RELEASE" = "true" ]; then
                 RELEASE_NOTES+="\n⚠️ **This is a pre-release version**\n"
+              fi
+              
+              if [ "$IS_NIGHTLY" = "true" ]; then
+                RELEASE_NOTES+="\n🌙 **This is a nightly build from $NIGHTLY_DATE**\n"
+                RELEASE_NOTES+="\n### Nightly Build Information\n"
+                RELEASE_NOTES+="- **Build Date**: $NIGHTLY_DATE\n"
+                RELEASE_NOTES+="- **Version**: $CURRENT_VERSION (odd minor for pre-release)\n"
+                RELEASE_NOTES+="- **Type**: Nightly pre-release for testing\n"
               fi
               
               # Create GitHub release
@@ -391,9 +394,13 @@ jobs:
         run: |
           VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
+          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || false }}"
+          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
 
           echo "Version bump type: $VERSION_BUMP"
           echo "Selected extensions: $SELECTED_EXTENSIONS"
+          echo "Pre-release mode: $PRE_RELEASE"
+          echo "Is nightly build: $IS_NIGHTLY"
 
           # Convert comma-separated list to array
           IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
@@ -406,11 +413,87 @@ jobs:
               CURRENT_VERSION=$(node -p "require('./packages/$pkg/package.json').version")
               echo "Current version: $CURRENT_VERSION"
               
-              # Bump version
+              # Parse current version components
+              IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+              CURRENT_MAJOR="${VERSION_PARTS[0]}"
+              CURRENT_MINOR="${VERSION_PARTS[1]}"
+              CURRENT_PATCH="${VERSION_PARTS[2]}"
+              
+              # Determine target version based on build type and pre-release status
+              TARGET_MAJOR="$CURRENT_MAJOR"
+              TARGET_MINOR="$CURRENT_MINOR"
+              TARGET_PATCH="$CURRENT_PATCH"
+              
+              if [ "$IS_NIGHTLY" = "true" ]; then
+                # Nightly build strategy: ensure odd minor version and add nightly timestamp
+                echo "Applying nightly build version strategy..."
+                
+                # For nightly builds, we want to ensure odd minor version
+                if [ $((CURRENT_MINOR % 2)) -eq 0 ]; then
+                  # Current is even, bump to next odd
+                  TARGET_MINOR=$((CURRENT_MINOR + 1))
+                  TARGET_PATCH=0
+                else
+                  # Current is already odd, just increment patch
+                  TARGET_PATCH=$((CURRENT_PATCH + 1))
+                fi
+                
+                # Use proper major.minor.patch version for package.json
+                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
+                echo "Nightly version: $NEW_VERSION (odd minor: $TARGET_MINOR)"
+                echo "Note: Nightly timestamp will be added as release tag/metadata"
+              else
+                # Regular build strategy: use smart version bumping
+                case "$VERSION_BUMP" in
+                  "patch")
+                    # For patch bumps, just increment patch
+                    TARGET_PATCH=$((CURRENT_PATCH + 1))
+                    ;;
+                  "minor")
+                    # For minor bumps, we need to be smart about even/odd
+                    if [ "$PRE_RELEASE" = "true" ]; then
+                      # Pre-release: ensure odd minor version
+                      if [ $((CURRENT_MINOR % 2)) -eq 0 ]; then
+                        # Current is even, bump to next odd
+                        TARGET_MINOR=$((CURRENT_MINOR + 1))
+                      else
+                        # Current is already odd, just increment
+                        TARGET_MINOR=$((CURRENT_MINOR + 1))
+                      fi
+                    else
+                      # Stable release: ensure even minor version
+                      if [ $((CURRENT_MINOR % 2)) -eq 1 ]; then
+                        # Current is odd, bump to next even
+                        TARGET_MINOR=$((CURRENT_MINOR + 1))
+                      else
+                        # Current is already even, just increment
+                        TARGET_MINOR=$((CURRENT_MINOR + 1))
+                      fi
+                    fi
+                    TARGET_PATCH=0
+                    ;;
+                  "major")
+                    # For major bumps, reset minor and patch
+                    TARGET_MAJOR=$((CURRENT_MAJOR + 1))
+                    if [ "$PRE_RELEASE" = "true" ]; then
+                      # Pre-release: start with odd minor
+                      TARGET_MINOR=1
+                    else
+                      # Stable release: start with even minor
+                      TARGET_MINOR=0
+                    fi
+                    TARGET_PATCH=0
+                    ;;
+                esac
+                
+                # Construct new version
+                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
+                echo "Regular version: $NEW_VERSION (bump: $VERSION_BUMP, pre-release: $PRE_RELEASE)"
+              fi
+              
+              # Update package.json version
               cd packages/$pkg
-              npm version $VERSION_BUMP --no-git-tag-version
-              NEW_VERSION=$(node -p "require('./package.json').version")
-              echo "New version: $NEW_VERSION"
+              npm version "$NEW_VERSION" --no-git-tag-version
               cd ../..
               
               # Update package-lock.json if it exists

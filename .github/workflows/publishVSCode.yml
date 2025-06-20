@@ -66,7 +66,17 @@ jobs:
             exit 1
           fi
           echo "Publishing VSIX: $VSIX_PATH"
-          node .github/scripts/publish-vsix.js $(dirname "$VSIX_PATH")
+
+          # Add pre-release flag if needed
+          PRE_RELEASE_FLAG=""
+          if [ "${{ inputs.pre-release }}" = "true" ]; then
+            PRE_RELEASE_FLAG="--pre-release"
+            echo "Publishing as pre-release version"
+          fi
+
+          # Publish using vsce
+          npx vsce publish --pat ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }} --packagePath "$VSIX_PATH" --skip-duplicate $PRE_RELEASE_FLAG
+
+          echo "✅ Successfully published to VSCode Marketplace"
         env:
-          VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_TOKEN }}
-          PRE_RELEASE: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}
+          VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}

@@ -1,8 +1,6 @@
-name: Release All
+name: Release
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       branch:
@@ -10,40 +8,45 @@ on:
         required: false
         default: 'main'
         type: string
-      npm-packages:
-        description: 'NPM packages to release'
-        required: false
-        default: 'none'
-        type: choice
-        options:
-          - none
-          - all
-          - changed
-      extensions:
-        description: 'Extensions to release'
-        required: false
-        default: 'apex-lsp-vscode-extension'
-        type: choice
-        options:
-          - none
-          - all
-          - changed
-          - apex-lsp-vscode-extension
-          - apex-lsp-vscode-extension-web
-      registries:
-        description: 'Registries to publish extensions to'
+      packages:
+        description: 'Packages to release'
         required: false
         default: 'all'
-        type: choice
-        options:
-          - all
-          - vscode
-          - openvsx
+        type: string
+      available-packages:
+        description: 'Available packages'
+        required: false
+        type: string
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'
         required: false
-        default: true
+        default: false
         type: boolean
+      pre-release:
+        description: 'Publish as pre-release version'
+        required: false
+        default: false
+        type: boolean
+      version-bump:
+        description: 'Version bump type (auto, patch, minor, major)'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+  schedule:
+    # Nightly pre-release build at 2 AM UTC
+    - cron: '0 2 * * *'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/README.md'
+      - 'docs/**'
 
 jobs:
   get-packages:
@@ -83,3 +86,30 @@ jobs:
       available-extensions: ${{ needs.get-packages.outputs.extensions }}
       dry-run: ${{ github.event.inputs.dry-run || false }}
     secrets: inherit
+
+  determine-build-type:
+    runs-on: ubuntu-latest
+    outputs:
+      is-nightly: ${{ steps.check.outputs.is-nightly }}
+      version-bump: ${{ steps.check.outputs.version-bump }}
+      pre-release: ${{ steps.check.outputs.pre-release }}
+    steps:
+      - name: Check build type
+        id: check
+        run: |
+          # Check if this is a scheduled (nightly) build
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "This is a nightly build"
+            echo "is-nightly=true" >> $GITHUB_OUTPUT
+            echo "version-bump=patch" >> $GITHUB_OUTPUT
+            echo "pre-release=true" >> $GITHUB_OUTPUT
+          else
+            echo "This is a manual or push-triggered build"
+            echo "is-nightly=false" >> $GITHUB_OUTPUT
+            echo "version-bump=${{ github.event.inputs.version-bump || 'auto' }}" >> $GITHUB_OUTPUT
+            echo "pre-release=${{ github.event.inputs.pre-release || false }}" >> $GITHUB_OUTPUT
+          fi
+
+          echo "Build type: ${{ github.event_name }}"
+          echo "Version bump: $(echo "version-bump=${{ github.event.inputs.version-bump || 'auto' }}" | cut -d'=' -f2)"
+          echo "Pre-release: $(echo "pre-release=${{ github.event.inputs.pre-release || false }}" | cut -d'=' -f2)"

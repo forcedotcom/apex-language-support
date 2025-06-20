@@ -341,3 +341,143 @@ gh workflow run release.yml -f npm-packages=all -f extensions=changed
 1. Check workflow run logs
 2. Verify artifact upload/download
 3. Confirm package.json versions
+
+## Smart Version Bumping Strategy
+
+The extension release workflow uses a smart version bumping strategy that combines **conventional commits** with **VS Code's even/odd versioning** for pre-releases vs stable releases.
+
+### Version Bumping Rules
+
+#### **VS Code Even/Odd Strategy:**
+
+- **Even minor versions** (0.2.x, 0.4.x): **Stable releases**
+- **Odd minor versions** (0.3.x, 0.5.x): **Pre-releases**
+
+#### **Conventional Commits:**
+
+- **`fix:`** → **patch** bump (0.1.0 → 0.1.1)
+- **`feat:`** → **minor** bump (0.1.0 → 0.2.0)
+- **`BREAKING CHANGE:`** → **major** bump (1.0.0 → 2.0.0)
+
+### Smart Bumping Examples
+
+#### **Pre-release Mode (`pre-release: true`)**
+
+| Current Version | Conventional Commit | New Version | Explanation                   |
+| --------------- | ------------------- | ----------- | ----------------------------- |
+| 0.1.0 (odd)     | `fix:`              | 0.1.1 (odd) | Patch bump, stays odd         |
+| 0.1.0 (odd)     | `feat:`             | 0.3.0 (odd) | Minor bump, jumps to next odd |
+| 0.2.0 (even)    | `feat:`             | 0.3.0 (odd) | Minor bump, jumps to next odd |
+| 0.3.0 (odd)     | `feat:`             | 0.5.0 (odd) | Minor bump, jumps to next odd |
+
+#### **Stable Release Mode (`pre-release: false`)**
+
+| Current Version | Conventional Commit | New Version  | Explanation                    |
+| --------------- | ------------------- | ------------ | ------------------------------ |
+| 0.1.0 (odd)     | `fix:`              | 0.1.1 (odd)  | Patch bump, stays odd          |
+| 0.1.0 (odd)     | `feat:`             | 0.2.0 (even) | Minor bump, jumps to next even |
+| 0.2.0 (even)    | `feat:`             | 0.4.0 (even) | Minor bump, jumps to next even |
+| 0.3.0 (odd)     | `feat:`             | 0.4.0 (even) | Minor bump, jumps to next even |
+
+### Benefits
+
+1. **Conventional Commits**: Maintains semantic versioning based on commit types
+2. **VS Code Compatibility**: Ensures proper even/odd versioning for marketplace
+3. **Pre-release Support**: Automatically handles pre-release vs stable versioning
+4. **Clear Intent**: Version numbers clearly indicate release type
+
+### Usage
+
+```bash
+# Pre-release with feature
+gh workflow run release-extensions.yml --field pre-release=true
+
+# Stable release with feature
+gh workflow run release-extensions.yml --field pre-release=false
+```
+
+## Nightly Build Strategy
+
+The release workflow includes a nightly build strategy that automatically creates pre-release versions at 2 AM UTC daily.
+
+### Nightly Build Triggers
+
+- **Schedule**: `cron: '0 2 * * *'` (2 AM UTC daily)
+- **Branch**: `main` (HEAD)
+- **Type**: Always pre-release
+- **Version Strategy**: Smart even/odd handling
+
+### Nightly Version Bumping Rules
+
+#### **The Challenge:**
+
+- Nightly builds run from `main` HEAD regardless of current version
+- Current version could be even (0.2.x) or odd (0.3.x)
+- VS Code requires pre-releases to have odd minor versions
+- Need to ensure version uniqueness and proper sequencing
+
+#### **The Solution:**
+
+1. **Ensure Odd Minor**: Always bump to odd minor version for pre-releases
+2. **Add Timestamp**: Include nightly date for uniqueness
+3. **Smart Increment**: Handle both even and odd current versions
+
+### Nightly Version Examples
+
+#### **Scenario 1: Current Version is Even**
+
+```
+Current: 0.2.5 (even minor)
+Package.json: 0.3.0 (odd minor)
+Release Tag: v0.3.0-nightly.20241201
+Strategy: Bump to next odd minor, reset patch, add nightly timestamp to tag
+```
+
+#### **Scenario 2: Current Version is Odd**
+
+```
+Current: 0.3.2 (odd minor)
+Package.json: 0.3.3 (odd minor)
+Release Tag: v0.3.3-nightly.20241201
+Strategy: Increment patch, keep odd minor, add nightly timestamp to tag
+```
+
+#### **Scenario 3: Multiple Nightly Builds**
+
+```
+Day 1: Package.json: 0.3.0, Tag: v0.3.0-nightly.20241201
+Day 2: Package.json: 0.3.1, Tag: v0.3.1-nightly.20241202
+Day 3: Package.json: 0.3.2, Tag: v0.3.2-nightly.20241203
+Strategy: Increment patch each day, maintain odd minor, unique tags
+```
+
+### Nightly Build Benefits
+
+1. **Automatic Pre-releases**: Daily pre-release versions for testing
+2. **VS Code Compliance**: Proper major.minor.patch versions in package.json
+3. **Unique Identification**: Timestamp in release tags for uniqueness
+4. **Clear Identification**: Nightly versions are easily identifiable
+5. **Sequential Ordering**: Proper version progression for updates
+6. **Marketplace Compatible**: Follows VS Code version constraints
+
+### Nightly vs Regular Releases
+
+| Aspect              | Nightly Build                                     | Regular Release              |
+| ------------------- | ------------------------------------------------- | ---------------------------- |
+| **Trigger**         | Scheduled (2 AM UTC)                              | Manual/Push                  |
+| **Version**         | Odd minor + proper major.minor.patch              | Smart even/odd based on type |
+| **Release Tag**     | v{version}-nightly.{YYYYMMDD}                     | v{version}                   |
+| **Pre-release**     | Always true                                       | Configurable                 |
+| **Purpose**         | Daily testing                                     | Official releases            |
+| **Version Example** | Package.json: 0.3.0, Tag: v0.3.0-nightly.20241201 | 0.2.0 or 0.3.0               |
+
+### Usage
+
+```bash
+# Nightly builds run automatically
+# Manual nightly-style build
+gh workflow run release.yml --field pre-release=true
+
+# Regular release
+gh workflow run release.yml --field pre-release=false
+```

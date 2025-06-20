@@ -69,8 +69,14 @@ jobs:
 
           # Add pre-release flag if needed
           PRE_RELEASE_FLAG=""
-          if [ "${{ inputs.pre-release || github.event.inputs.pre-release || false }}" = "true" ]; then
+          if [ "${{ inputs.pre-release }}" = "true" ]; then
             PRE_RELEASE_FLAG="--pre-release"
+            echo "Publishing as pre-release version"
           fi
 
-          npx ovsx publish $VSIX_PATH -p ${{ secrets.OVSX_PAT }} $PRE_RELEASE_FLAG
+          # Publish using ovsx
+          npx ovsx publish "$VSIX_PATH" -p ${{ secrets.OVSX_PAT }} $PRE_RELEASE_FLAG
+
+          echo "✅ Successfully published to OpenVSX Registry"
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
