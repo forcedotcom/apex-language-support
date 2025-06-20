@@ -7,6 +7,11 @@ on:
         required: false
         default: 'main'
         type: string
+      pre-release:
+        description: 'Publish as pre-release version'
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       branch:
@@ -14,6 +19,11 @@ on:
         required: true
         default: 'main'
         type: string
+      pre-release:
+        description: 'Publish as pre-release version'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   package:
@@ -59,3 +69,4 @@ jobs:
           node .github/scripts/publish-vsix.js $(dirname "$VSIX_PATH")
         env:
           VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_TOKEN }}
+          PRE_RELEASE: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}

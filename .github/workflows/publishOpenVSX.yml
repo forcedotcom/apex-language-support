@@ -7,6 +7,11 @@ on:
         required: false
         default: 'main'
         type: string
+      pre-release:
+        description: 'Publish as pre-release version'
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       branch:
@@ -14,6 +19,11 @@ on:
         required: true
         default: 'main'
         type: string
+      pre-release:
+        description: 'Publish as pre-release version'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   package:
@@ -56,4 +66,11 @@ jobs:
             exit 1
           fi
           echo "Publishing VSIX: $VSIX_PATH"
-          npx ovsx publish $VSIX_PATH -p ${{ secrets.OVSX_PAT }}
+
+          # Add pre-release flag if needed
+          PRE_RELEASE_FLAG=""
+          if [ "${{ inputs.pre-release || github.event.inputs.pre-release || false }}" = "true" ]; then
+            PRE_RELEASE_FLAG="--pre-release"
+          fi
+
+          npx ovsx publish $VSIX_PATH -p ${{ secrets.OVSX_PAT }} $PRE_RELEASE_FLAG

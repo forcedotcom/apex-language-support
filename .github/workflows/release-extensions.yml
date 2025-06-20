@@ -29,6 +29,11 @@ on:
         required: false
         default: false
         type: boolean
+      pre-release:
+        description: 'Publish as pre-release version'
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       extensions:
@@ -51,6 +56,11 @@ on:
           - openvsx
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'
+        required: false
+        default: false
+        type: boolean
+      pre-release:
+        description: 'Publish as pre-release version'
         required: false
         default: false
         type: boolean
@@ -167,6 +177,7 @@ jobs:
           echo "Branch: ${{ inputs.branch || github.ref_name }}"
           echo "Version bump type: ${{ needs.determine-changes.outputs.version-bumps }}"
           echo "Registry: ${{ inputs.registry }}"
+          echo "Pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}"
           echo "Dry run mode: ENABLED"
           echo ""
 
@@ -213,12 +224,20 @@ jobs:
                 case "$registry" in
                   "vscode"|"all")
                     if [ "$ext" = "apex-lsp-vscode-extension" ]; then
-                      echo "  Would publish to: VSCode Marketplace"
+                      PRE_RELEASE_TEXT=""
+                      if [ "${{ inputs.pre-release || github.event.inputs.pre-release || false }}" = "true" ]; then
+                        PRE_RELEASE_TEXT=" (pre-release)"
+                      fi
+                      echo "  Would publish to: VSCode Marketplace$PRE_RELEASE_TEXT"
                     fi
                     ;;
                   "openvsx"|"all")
                     if [ "$ext" = "apex-lsp-vscode-extension-web" ]; then
-                      echo "  Would publish to: OpenVSX Registry"
+                      PRE_RELEASE_TEXT=""
+                      if [ "${{ inputs.pre-release || github.event.inputs.pre-release || false }}" = "true" ]; then
+                        PRE_RELEASE_TEXT=" (pre-release)"
+                      fi
+                      echo "  Would publish to: OpenVSX Registry$PRE_RELEASE_TEXT"
                     fi
                     ;;
                 esac
@@ -302,6 +321,7 @@ jobs:
     uses: ./.github/workflows/publishVSCode.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
+      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}
     secrets: inherit
 
   publish-openvsx:
@@ -310,4 +330,5 @@ jobs:
     uses: ./.github/workflows/publishOpenVSX.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
+      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}
     secrets: inherit
