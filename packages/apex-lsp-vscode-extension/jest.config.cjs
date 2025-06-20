@@ -22,5 +22,5 @@ module.exports = {
     '!**/index.ts',
     '!**/middleware/**',
   ],
-  testPathIgnorePatterns: ['/node_modules/', '!**/out/**'],
+  testPathIgnorePatterns: ['/node_modules/'],
 };
