@@ -92,11 +92,11 @@ export class WebLanguageServerHarness {
       'apex-ls-browser',
     );
 
-    const distPath = path.join(webLsPackagePath, 'dist', 'src', 'index.js');
+    const outPath = path.join(webLsPackagePath, 'out', 'src', 'index.js');
 
-    if (fs.existsSync(distPath)) {
-      this.logger.info(`Found apex-ls-browser server at: ${distPath}`);
-      return distPath;
+    if (fs.existsSync(outPath)) {
+      this.logger.info(`Found apex-ls-browser server at: ${outPath}`);
+      return outPath;
     }
 
     // If we couldn't find the server, throw an error

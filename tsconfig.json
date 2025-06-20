@@ -3,52 +3,52 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@salesforce/apex-lsp-logging": ["packages/apex-lsp-logging/src"],
-      "@salesforce/apex-lsp-logging/*": ["packages/apex-lsp-logging/src/*"],
+      "@salesforce/apex-lsp-logging": ["packages/apex-lsp-logging/out"],
+      "@salesforce/apex-lsp-logging/*": ["packages/apex-lsp-logging/out/*"],
 
-      "@salesforce/apex-lsp-parser-ast": ["packages/apex-parser-ast/src"],
-      "@salesforce/apex-lsp-parser-ast/*": ["packages/apex-parser-ast/src/*"],
+      "@salesforce/apex-lsp-parser-ast": ["packages/apex-parser-ast/out"],
+      "@salesforce/apex-lsp-parser-ast/*": ["packages/apex-parser-ast/out/*"],
 
       "@salesforce/apex-lsp-compliant-services": [
-        "packages/lsp-compliant-services/src"
+        "packages/lsp-compliant-services/out"
       ],
       "@salesforce/apex-lsp-compliant-services/*": [
-        "packages/lsp-compliant-services/src/*"
+        "packages/lsp-compliant-services/out/*"
       ],
 
-      "@salesforce/apex-lsp-testbed": ["packages/apex-lsp-testbed/src"],
-      "@salesforce/apex-lsp-testbed/*": ["packages/apex-lsp-testbed/src/*"],
+      "@salesforce/apex-lsp-testbed": ["packages/apex-lsp-testbed/out"],
+      "@salesforce/apex-lsp-testbed/*": ["packages/apex-lsp-testbed/out/*"],
 
-      "@salesforce/apex-lsp-custom-services": ["packages/custom-services/src"],
+      "@salesforce/apex-lsp-custom-services": ["packages/custom-services/out"],
       "@salesforce/apex-lsp-custom-services/*": [
-        "packages/custom-services/src/*"
+        "packages/custom-services/out/*"
       ],
 
-      "@salesforce/apex-ls-node": ["packages/apex-ls-node/src"],
-      "@salesforce/apex-ls-node/*": ["packages/apex-ls-node/src/*"],
+      "@salesforce/apex-ls-node": ["packages/apex-ls-node/out"],
+      "@salesforce/apex-ls-node/*": ["packages/apex-ls-node/out/*"],
 
-      "@salesforce/apex-ls-browser": ["packages/apex-ls-browser/src"],
-      "@salesforce/apex-ls-browser/*": ["packages/apex-ls-browser/src/*"],
+      "@salesforce/apex-ls-browser": ["packages/apex-ls-browser/out"],
+      "@salesforce/apex-ls-browser/*": ["packages/apex-ls-browser/out/*"],
 
       "@salesforce/apex-lsp-browser-client": [
-        "packages/apex-lsp-browser-client/src"
+        "packages/apex-lsp-browser-client/out"
       ],
       "@salesforce/apex-lsp-browser-client/*": [
-        "packages/apex-lsp-browser-client/src/*"
+        "packages/apex-lsp-browser-client/out/*"
       ],
 
       "@salesforce/apex-lsp-vscode-client": [
-        "packages/apex-lsp-vscode-client/src"
+        "packages/apex-lsp-vscode-client/out"
       ],
       "@salesforce/apex-lsp-vscode-client/*": [
-        "packages/apex-lsp-vscode-client/src/*"
+        "packages/apex-lsp-vscode-client/out/*"
       ],
 
       "@salesforce/apex-lsp-vscode-extension": [
-        "packages/apex-lsp-vscode-extension/src"
+        "packages/apex-lsp-vscode-extension/out"
       ],
       "@salesforce/apex-lsp-vscode-extension/*": [
-        "packages/apex-lsp-vscode-extension/src/*"
+        "packages/apex-lsp-vscode-extension/out/*"
       ]
     }
   },

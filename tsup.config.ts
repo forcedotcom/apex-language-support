@@ -16,7 +16,7 @@ export const config: Options = {
   minify: false,
   platform: 'node',
   target: 'node16',
-  outDir: 'bundle',
+  outDir: 'dist',
   outExtension({ format }) {
     return {
       js: format === 'esm' ? '.mjs' : '.js',

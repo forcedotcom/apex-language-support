@@ -1,5 +1,4 @@
 {
-  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "module": "commonjs",
     "target": "ES2020",
@@ -11,24 +10,13 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "baseUrl": ".",
-    "paths": {
-      "@salesforce/apex-lsp-extension": ["../apex-ls-node/src"]
-    },
     "composite": true,
     "declaration": true,
     "declarationMap": true,
     "inlineSources": true
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "out",
-    "bundle",
-    "**/*.test.ts",
-    "test/**/*"
-  ],
-  "references": [{ "path": "../apex-ls-node" }],
+  "exclude": ["node_modules", "out", "dist", "**/*.test.ts", "test/**/*"],
   "copyFiles": [
     {
       "from": "../../node_modules/@salesforce/apex-tmlanguage/grammars",

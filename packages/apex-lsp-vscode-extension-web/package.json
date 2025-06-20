@@ -19,7 +19,7 @@
     "Linters",
     "Snippets"
   ],
-  "main": "./dist/extension.js",
+  "main": "./out/extension.js",
   "contributes": {
     "languages": [
       {
@@ -110,12 +110,12 @@
   "scripts": {
     "precompile": "shx mkdir -p out/snippets out/grammars && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* out/grammars/ && shx cp -R snippets/* out/snippets/",
     "compile": "tsc --build",
-    "bundle": "tsup src/extension.ts --format cjs --no-minify --target chrome88 --out-dir dist --clean --external vscode && shx mkdir -p dist/snippets dist/grammars && shx cp -R snippets/* dist/snippets/ && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* dist/grammars/ && shx cp README.md language-configuration.json dist/ && shx cp package.json dist/ && shx cp LICENSE.txt dist/ && node update-package.js",
+    "bundle": "tsup src/extension.ts --format cjs --no-minify --target chrome88 --out-dir out --clean --external vscode && shx mkdir -p out/snippets out/grammars && shx cp -R snippets/* out/snippets/ && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* out/grammars/ && shx cp README.md language-configuration.json out/ && shx cp package.json out/ && shx cp LICENSE.txt out/ && node update-package.js",
     "copy:files": "shx mkdir -p out/snippets out/grammars && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* out/grammars/ && shx cp -R snippets/* out/snippets/",
-    "package": "shx mkdir -p extension && cd dist && npx vsce package --out ../extension/apex-language-server-extension-web.vsix",
+    "package": "shx mkdir -p extension && cd out && npx vsce package --out ../extension/apex-language-server-extension-web.vsix",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf dist out bundle .turbo grammars extension tsconfig.tsbuildinfo",
+    "clean": "rimraf out bundle .turbo grammars extension tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules .turbo",
     "clean:coverage": "rimraf coverage",
     "lint": "eslint .",

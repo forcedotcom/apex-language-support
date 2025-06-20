@@ -1,16 +1,27 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "src",
+    "outDir": "./out",
+    "rootDir": "./src",
+    "composite": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "inlineSources": true,
+    "target": "ES2020",
+    "module": "ESNext",
     "moduleResolution": "node",
-    "baseUrl": "."
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "incremental": true,
+    "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "bundle"],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "out", "dist", "tsup.config.ts"],
   "references": []
 }

@@ -16,10 +16,11 @@ module.exports = {
   collectCoverageFrom: [
     'src/**/*.ts',
     '!**/node_modules/**',
-    '!**/dist/**',
+    '!**/out/**',
     '!**/test/**',
     '!**/*.d.ts',
     '!**/index.ts',
-    '!**/middleware/**'
+    '!**/middleware/**',
   ],
-}; 
+  testPathIgnorePatterns: ['/node_modules/', '!**/out/**'],
+};

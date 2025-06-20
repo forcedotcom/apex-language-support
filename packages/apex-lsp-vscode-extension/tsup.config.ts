@@ -14,7 +14,7 @@ export default defineConfig({
   treeshake: true,
   minify: false,
   dts: false,
-  outDir: 'bundle',
+  outDir: 'dist',
   clean: true,
   external: ['vscode'],
   noExternal: [

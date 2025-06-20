@@ -2,12 +2,12 @@
   "name": "@salesforce/apex-lsp-parser-ast",
   "version": "1.0.0",
   "description": "Apex Parser AST for Language Server",
-  "main": "bundle/index.js",
-  "module": "bundle/index.mjs",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
-    "import": "./bundle/index.mjs",
-    "require": "./bundle/index.js"
+    "import": "./dist/index.mjs",
+    "require": "./dist/index.js"
   },
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -17,7 +17,7 @@
     "directory": "packages/apex-parser-ast"
   },
   "files": [
-    "dist",
+    "out",
     "README.md"
   ],
   "scripts": {
@@ -26,7 +26,7 @@
     "compile": "tsc --build",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf dist bundle .turbo coverage src/generated tsconfig.tsbuildinfo",
+    "clean": "rimraf out bundle .turbo coverage src/generated tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "eslint . --ignore-pattern 'src/generated/**'",
     "lint:fix": "eslint . --fix --ignore-pattern 'src/generated/**'"

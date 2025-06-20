@@ -15,5 +15,5 @@
     "inlineSources": true,
     "baseUrl": "."
   },
-  "exclude": ["node_modules", "dist", "bundle"]
+  "exclude": ["node_modules", "out", "dist"]
 }

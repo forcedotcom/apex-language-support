@@ -47,7 +47,7 @@ function findWebServerPath(): string {
     currentDir,
     'packages',
     'apex-ls-browser',
-    'dist',
+    'out',
     'src',
     'index.js',
   );

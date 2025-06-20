@@ -1,28 +1,31 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist",
+    "outDir": "./out",
+    "rootDir": "./src",
     "composite": true,
-    "rootDir": "src",
     "declaration": true,
+    "declarationMap": true,
     "sourceMap": true,
-    "baseUrl": ".",
-    "lib": ["ES2020", "WebWorker"],
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "paths": {
-      "@salesforce/apex-lsp-parser-ast": ["../apex-parser-ast/src"],
-      "@salesforce/apex-lsp-parser-ast/*": ["../apex-parser-ast/src/*"],
-      "@salesforce/apex-lsp-compliant-services": [
-        "../lsp-compliant-services/src"
-      ],
-      "@salesforce/apex-lsp-compliant-services/*": [
-        "../lsp-compliant-services/src/*"
-      ]
-    }
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "incremental": true,
+    "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "bundle"],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "out", "dist", "tsup.config.ts"],
   "references": [
+    { "path": "../apex-lsp-logging" },
     { "path": "../apex-parser-ast" },
     { "path": "../lsp-compliant-services" }
   ]

@@ -48,7 +48,7 @@ module.exports = {
   collectCoverageFrom: [
     'packages/*/src/**/*.ts',
     '!**/node_modules/**',
-    '!**/dist/**',
+    '!**/out/**',
     '!**/test/**',
     '!**/*.d.ts',
     '!**/index.ts',

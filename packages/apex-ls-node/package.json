@@ -2,12 +2,12 @@
   "name": "@salesforce/apex-ls-node",
   "version": "1.0.0",
   "description": "Node.js implementation of Apex Language Server",
-  "main": "bundle/index.js",
-  "module": "bundle/index.mjs",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
-    "import": "./bundle/index.mjs",
-    "require": "./bundle/index.js"
+    "import": "./dist/index.mjs",
+    "require": "./dist/index.js"
   },
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -21,7 +21,7 @@
     "bundle": "tsup",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf dist bundle .turbo coverage tsconfig.tsbuildinfo",
+    "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "dev": "tsup --watch",
     "lint": "eslint .",

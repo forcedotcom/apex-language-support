@@ -1,25 +1,39 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "module": "commonjs",
-    "target": "ES2020",
-    "outDir": "./dist",
-    "lib": ["ES2020"],
-    "sourceMap": true,
+    "outDir": "./out",
     "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "baseUrl": ".",
-    "paths": {
-      "@salesforce/apex-lsp-extension": ["../apex-ls-node/src"]
-    },
     "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "inlineSources": true
+    "sourceMap": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "incremental": true,
+    "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "bundle", "**/*.test.ts", "test/**/*"],
-  "references": [{ "path": "../apex-ls-node" }]
+  "exclude": [
+    "node_modules",
+    "out",
+    "dist",
+    "tsup.config.ts",
+    "**/*.test.ts",
+    "test/**/*"
+  ],
+  "references": [
+    { "path": "../apex-lsp-logging" },
+    { "path": "../apex-parser-ast" },
+    { "path": "../lsp-compliant-services" },
+    { "path": "../apex-ls-node" }
+  ]
 }

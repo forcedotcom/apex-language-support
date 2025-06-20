@@ -26,7 +26,7 @@ describe.skip('Standard Apex Library Generation', () => {
     );
     const outputDir = path.join(
       __dirname,
-      '../../dist/resources/StandardApexLibrary',
+      '../../out/resources/StandardApexLibrary',
     );
 
     logger.info('Generating Standard Apex Library...');

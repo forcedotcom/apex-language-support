@@ -20,7 +20,7 @@
     "Linters",
     "Snippets"
   ],
-  "main": "./bundle/extension.js",
+  "main": "./dist/extension.js",
   "activationEvents": [
     "onLanguage:apex",
     "onCommand:apex.restart.server",
@@ -180,12 +180,12 @@
   "scripts": {
     "precompile": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
     "compile": "tsc --build",
-    "bundle": "tsup && shx mkdir -p extension && shx cp -R dist extension/ && shx cp -R resources extension/ && shx cp -R grammars extension/ && shx cp -R snippets extension/ && shx cp package.json extension/ && shx cp README.md extension/ && shx cp LICENSE.txt extension/ && shx cp language-configuration.json extension/ && node update-package.js",
+    "bundle": "tsup && shx mkdir -p extension && shx cp -R out extension/ && shx cp -R resources extension/ && shx cp -R grammars extension/ && shx cp -R snippets extension/ && shx cp package.json extension/ && shx cp README.md extension/ && shx cp LICENSE.txt extension/ && shx cp language-configuration.json extension/ && node update-package.js",
     "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
     "package": "cd extension && vsce package",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf dist bundle extension .turbo coverage grammars tsconfig.tsbuildinfo server-bundle",
+    "clean": "rimraf out dist extension .turbo coverage grammars tsconfig.tsbuildinfo server-bundle",
     "clean:all": "npm run clean && rimraf node_modules apex-language-server-extension-0.1.0.vsix",
     "clean:coverage": "rimraf coverage",
     "lint": "eslint . --ignore-pattern 'server-bundle/**' --ignore-pattern 'extension/dist/**'",
