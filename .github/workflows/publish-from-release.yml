@@ -1,0 +1,141 @@
+name: Publish Extensions from GitHub Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: 'GitHub release tag to publish from'
+        required: true
+        type: string
+      extensions:
+        description: 'Extensions to publish'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - apex-lsp-vscode-extension
+          - apex-lsp-vscode-extension-web
+      registries:
+        description: 'Registries to publish to'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - vscode
+          - openvsx
+      pre-release:
+        description: 'Publish as pre-release version'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  download-release:
+    runs-on: ubuntu-latest
+    outputs:
+      vsix-files: ${{ steps.download.outputs.vsix-files }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download release assets
+        id: download
+        run: |
+          RELEASE_TAG="${{ inputs.release-tag }}"
+          echo "Downloading assets from release: $RELEASE_TAG"
+
+          # Download release assets
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir ./release-assets
+
+          # Find VSIX files
+          VSIX_FILES=$(find ./release-assets -name "*.vsix" | tr '\n' ' ')
+          echo "Found VSIX files: $VSIX_FILES"
+          echo "vsix-files=$VSIX_FILES" >> $GITHUB_OUTPUT
+
+  publish-vscode:
+    needs: download-release
+    if: inputs.registries == 'all' || inputs.registries == 'vscode'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Publish to VSCode Marketplace
+        run: |
+          RELEASE_TAG="${{ inputs.release-tag }}"
+          PRE_RELEASE="${{ inputs.pre-release }}"
+
+          echo "Publishing to VSCode Marketplace from release: $RELEASE_TAG"
+
+          # Find desktop extension VSIX
+          DESKTOP_VSIX=$(find ./release-assets -name "*apex-lsp-vscode-extension*.vsix" | head -1)
+
+          if [ -z "$DESKTOP_VSIX" ]; then
+            echo "Desktop extension VSIX not found in release assets"
+            exit 1
+          fi
+
+          echo "Publishing: $DESKTOP_VSIX"
+
+          # Add pre-release flag if needed
+          PRE_RELEASE_FLAG=""
+          if [ "$PRE_RELEASE" = "true" ]; then
+            PRE_RELEASE_FLAG="--pre-release"
+          fi
+
+          # Publish using vsce
+          npx vsce publish --pat ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }} --packagePath "$DESKTOP_VSIX" --skip-duplicate $PRE_RELEASE_FLAG
+
+          echo "✅ Successfully published to VSCode Marketplace"
+        env:
+          VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
+
+  publish-openvsx:
+    needs: download-release
+    if: inputs.registries == 'all' || inputs.registries == 'openvsx'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Publish to OpenVSX Registry
+        run: |
+          RELEASE_TAG="${{ inputs.release-tag }}"
+          PRE_RELEASE="${{ inputs.pre-release }}"
+
+          echo "Publishing to OpenVSX Registry from release: $RELEASE_TAG"
+
+          # Find web extension VSIX
+          WEB_VSIX=$(find ./release-assets -name "*apex-lsp-vscode-extension-web*.vsix" | head -1)
+
+          if [ -z "$WEB_VSIX" ]; then
+            echo "Web extension VSIX not found in release assets"
+            exit 1
+          fi
+
+          echo "Publishing: $WEB_VSIX"
+
+          # Add pre-release flag if needed
+          PRE_RELEASE_FLAG=""
+          if [ "$PRE_RELEASE" = "true" ]; then
+            PRE_RELEASE_FLAG="--pre-release"
+          fi
+
+          # Publish using ovsx
+          npx ovsx publish "$WEB_VSIX" -p ${{ secrets.OVSX_PAT }} $PRE_RELEASE_FLAG
+
+          echo "✅ Successfully published to OpenVSX Registry"
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}

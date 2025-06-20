@@ -218,31 +218,29 @@ jobs:
               
               echo "  Would bump to: $NEW_VERSION"
               
-              # Determine registries
+              # Show release information
+              PRE_RELEASE_TEXT=""
+              if [ "${{ inputs.pre-release || github.event.inputs.pre-release || false }}" = "true" ]; then
+                PRE_RELEASE_TEXT=" (pre-release)"
+              fi
+              echo "  Would create GitHub release: $ext$PRE_RELEASE_TEXT"
+              
+              # Show marketplace publishing information
               IFS=',' read -ra REG_ARRAY <<< "${{ inputs.registry }}"
               for registry in "${REG_ARRAY[@]}"; do
                 case "$registry" in
                   "vscode"|"all")
                     if [ "$ext" = "apex-lsp-vscode-extension" ]; then
-                      PRE_RELEASE_TEXT=""
-                      if [ "${{ inputs.pre-release || github.event.inputs.pre-release || false }}" = "true" ]; then
-                        PRE_RELEASE_TEXT=" (pre-release)"
-                      fi
                       echo "  Would publish to: VSCode Marketplace$PRE_RELEASE_TEXT"
                     fi
                     ;;
                   "openvsx"|"all")
                     if [ "$ext" = "apex-lsp-vscode-extension-web" ]; then
-                      PRE_RELEASE_TEXT=""
-                      if [ "${{ inputs.pre-release || github.event.inputs.pre-release || false }}" = "true" ]; then
-                        PRE_RELEASE_TEXT=" (pre-release)"
-                      fi
                       echo "  Would publish to: OpenVSX Registry$PRE_RELEASE_TEXT"
                     fi
                     ;;
                 esac
               done
-              echo ""
             fi
           done
 
@@ -255,6 +253,121 @@ jobs:
     with:
       branch: ${{ inputs.branch || github.ref_name }}
       artifact-name: vsix-packages
+
+  create-github-releases:
+    needs: [determine-changes, package, bump-versions]
+    runs-on: ubuntu-latest
+    if: (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true') && needs.determine-changes.outputs.selected-extensions != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download VSIX artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix-packages
+          path: ./vsix-artifacts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Create GitHub Releases
+        run: |
+          # Get pre-release flag
+          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || false }}"
+          VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
+          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
+
+          echo "Creating GitHub releases..."
+          echo "Pre-release: $PRE_RELEASE"
+          echo "Version bump: $VERSION_BUMP"
+          echo "Extensions: $SELECTED_EXTENSIONS"
+
+          # Convert comma-separated list to array
+          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
+
+          for ext in "${EXTENSIONS[@]}"; do
+            if [ -n "$ext" ] && [ -d "packages/$ext" ]; then
+              echo "Processing extension: $ext"
+              
+              # Get current version
+              CURRENT_VERSION=$(node -p "require('./packages/$ext/package.json').version")
+              echo "Current version: $CURRENT_VERSION"
+              
+              # Find VSIX file for this extension
+              VSIX_PATTERN="*${ext}*.vsix"
+              VSIX_FILES=$(find ./vsix-artifacts -name "$VSIX_PATTERN")
+              
+              if [ -z "$VSIX_FILES" ]; then
+                echo "No VSIX files found for $ext"
+                continue
+              fi
+              
+              # Create release tag
+              RELEASE_TAG="v$CURRENT_VERSION"
+              RELEASE_TITLE="$ext v$CURRENT_VERSION"
+              
+              # Generate release notes
+              RELEASE_NOTES="## $ext v$CURRENT_VERSION\n\n"
+              RELEASE_NOTES+="### Changes\n\n"
+              
+              # Get recent commits for this extension
+              RECENT_COMMITS=$(git log --oneline HEAD~10..HEAD -- "packages/$ext/")
+              if [ -n "$RECENT_COMMITS" ]; then
+                echo "$RECENT_COMMITS" | while read -r commit; do
+                  RELEASE_NOTES+="- $commit\n"
+                done
+              else
+                RELEASE_NOTES+="- General improvements and bug fixes\n"
+              fi
+              
+              RELEASE_NOTES+="\n### Installation\n\n"
+              RELEASE_NOTES+="Download the VSIX file and install via:\n"
+              RELEASE_NOTES+="- VS Code: Install from VSIX...\n"
+              RELEASE_NOTES+="- Command line: \`code --install-extension <vsix-file>\`\n"
+              
+              if [ "$PRE_RELEASE" = "true" ]; then
+                RELEASE_NOTES+="\n⚠️ **This is a pre-release version**\n"
+              fi
+              
+              # Create GitHub release
+              echo "Creating release: $RELEASE_TITLE"
+              echo "Tag: $RELEASE_TAG"
+              echo "Pre-release: $PRE_RELEASE"
+              
+              # Create release using GitHub CLI
+              gh release create "$RELEASE_TAG" \
+                --title "$RELEASE_TITLE" \
+                --notes "$RELEASE_NOTES" \
+                --prerelease="$PRE_RELEASE" \
+                --repo "$GITHUB_REPOSITORY" \
+                $VSIX_FILES || echo "Release creation failed or already exists"
+              
+              echo "✅ Release created for $ext"
+            fi
+          done
+
+  publish-vscode:
+    needs: [bump-versions, package, create-github-releases]
+    if: (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true') && (inputs.registry == 'all' || inputs.registry == 'vscode')
+    uses: ./.github/workflows/publishVSCode.yml
+    with:
+      branch: ${{ inputs.branch || github.ref_name }}
+      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}
+    secrets: inherit
+
+  publish-openvsx:
+    needs: [bump-versions, package, create-github-releases]
+    if: (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true') && (inputs.registry == 'all' || inputs.registry == 'openvsx')
+    uses: ./.github/workflows/publishOpenVSX.yml
+    with:
+      branch: ${{ inputs.branch || github.ref_name }}
+      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}
+    secrets: inherit
 
   bump-versions:
     needs: [determine-changes, package]
@@ -314,21 +427,3 @@ jobs:
           git add .
           git commit -m "chore: bump versions for release [skip ci]" || echo "No changes to commit"
           git push
-
-  publish-vscode:
-    needs: [bump-versions, package]
-    if: (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true') && (inputs.registry == 'all' || inputs.registry == 'vscode')
-    uses: ./.github/workflows/publishVSCode.yml
-    with:
-      branch: ${{ inputs.branch || github.ref_name }}
-      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}
-    secrets: inherit
-
-  publish-openvsx:
-    needs: [bump-versions, package]
-    if: (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true') && (inputs.registry == 'all' || inputs.registry == 'openvsx')
-    uses: ./.github/workflows/publishOpenVSX.yml
-    with:
-      branch: ${{ inputs.branch || github.ref_name }}
-      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}
-    secrets: inherit
