@@ -7,20 +7,21 @@
  */
 import { defineConfig } from 'tsup';
 
-import { config } from '../../tsup.config';
-
 export default defineConfig({
-  ...config,
-  entry: ['src/extension.ts'],
-  format: ['cjs'],
+  entry: ['src/extension.ts', 'src/server.ts'],
+  format: ['cjs', 'esm'],
+  splitting: false,
+  treeshake: true,
+  minify: false,
+  dts: false,
   outDir: 'bundle',
   clean: true,
-  dts: false,
-  splitting: true,
+  external: ['vscode'],
   noExternal: [
-    'vscode-languageclient',
-    'vscode-languageclient/node',
-    'vscode-languageserver-textdocument',
-    'vscode-uri',
+    '@salesforce/apex-ls-node',
+    '@salesforce/apex-lsp-compliant-services',
+    '@salesforce/apex-lsp-custom-services',
+    '@salesforce/apex-lsp-logging',
+    '@salesforce/apex-lsp-parser-ast',
   ],
 });

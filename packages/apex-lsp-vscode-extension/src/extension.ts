@@ -112,10 +112,10 @@ function registerRestartCommand(context: vscode.ExtensionContext): void {
  * Creates server options for the language server
  */
 function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
-  // The server bundle is copied into 'extension/dist/server-bundle/' within the VSIX.
+  // The server is bundled into 'extension/dist/server.js' within the VSIX.
   // context.asAbsolutePath('.') returns the root path of the installed extension.
   const serverModule = context.asAbsolutePath(
-    path.join('extension', 'dist', 'server-bundle', 'index.js'),
+    path.join('extension', 'dist', 'server.js'),
   );
 
   outputChannel.appendLine(`Server module path: ${serverModule}`);

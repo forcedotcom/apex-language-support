@@ -24,8 +24,7 @@
     "clean:coverage": "rimraf coverage packages/*/coverage",
     "semantic-release": "semantic-release",
     "bundle": "turbo run bundle",
-    "package:packages": "turbo run package --filter=./packages/*",
-    "build:package": "node scripts/build-and-package.js"
+    "package:packages": "turbo run package --filter=./packages/*"
   },
   "keywords": [
     "salesforce",
