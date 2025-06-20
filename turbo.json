@@ -16,7 +16,7 @@
       "outputs": ["dist/**", "out/**"]
     },
     "package": {
-      "dependsOn": ["dist", "^package"],
+      "dependsOn": ["bundle", "^package"],
       "outputs": ["extension/**"]
     },
     "test": {

@@ -6,8 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as path from 'path';
-
 import * as vscode from 'vscode';
 import {
   LanguageClient,
@@ -112,11 +110,9 @@ function registerRestartCommand(context: vscode.ExtensionContext): void {
  * Creates server options for the language server
  */
 function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
-  // The server is bundled into 'extension/dist/server.js' within the VSIX.
+  // The server is bundled into 'server.js' within the VSIX.
   // context.asAbsolutePath('.') returns the root path of the installed extension.
-  const serverModule = context.asAbsolutePath(
-    path.join('extension', 'dist', 'server.js'),
-  );
+  const serverModule = context.asAbsolutePath('server.js');
 
   outputChannel.appendLine(`Server module path: ${serverModule}`);
 

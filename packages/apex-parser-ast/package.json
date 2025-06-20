@@ -26,7 +26,7 @@
     "compile": "tsc --build",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf out bundle .turbo coverage src/generated tsconfig.tsbuildinfo",
+    "clean": "rimraf out dist .turbo coverage src/generated tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "eslint . --ignore-pattern 'src/generated/**'",
     "lint:fix": "eslint . --fix --ignore-pattern 'src/generated/**'"
