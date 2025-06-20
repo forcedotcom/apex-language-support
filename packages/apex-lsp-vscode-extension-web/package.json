@@ -12,7 +12,7 @@
     "directory": "packages/apex-lsp-vscode-extension-web"
   },
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "Programming Languages",
@@ -124,7 +124,7 @@
   "dependencies": {},
   "devDependencies": {
     "@salesforce/apex-tmlanguage": "1.8.0",
-    "@types/vscode": "^1.75.0",
+    "@types/vscode": "^1.90.0",
     "@vscode/test-electron": "^2.1.5",
     "@vscode/vsce": "^2.15.0",
     "shx": "^0.3.4"
