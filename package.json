@@ -84,6 +84,10 @@
     "turbo": "^2.5.4",
     "typescript": "^5.8.2"
   },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.9.0",
+    "@rollup/rollup-linux-x64-musl": "^4.9.0"
+  },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.0",
     "antlr4ts": "0.5.0-alpha.4",
