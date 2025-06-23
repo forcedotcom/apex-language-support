@@ -28,7 +28,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci || (sleep 10 && npm ci)
 
       - name: Run linting
         run: npm run lint
@@ -63,7 +63,7 @@ jobs:
     needs: test
     uses: ./.github/workflows/package.yml
     with:
-      branch: ${{ github.ref_name }}
+      branch: ${{ github.head_ref || github.ref_name }}
       artifact-name: vsix-packages-${{ github.run_number }}
 
   # slack-notify:
