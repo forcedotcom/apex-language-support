@@ -56,5 +56,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.artifact-name }}
-          path: '**/*.vsix'
-          retention-days: 30
+          path: |
+            packages/**/*.vsix
+          retention-days: 5
