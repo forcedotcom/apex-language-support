@@ -58,7 +58,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^20.11.30",
     "@typescript-eslint/eslint-plugin": "^8.28.0",
-    "@typescript-eslint/parser": "^8.28.0",
+    "@typescript-eslint/parser": "^8.34.1",
     "axios": "^1.6.2",
     "benchmark": "^2.1.4",
     "commitizen": "^4.3.0",
