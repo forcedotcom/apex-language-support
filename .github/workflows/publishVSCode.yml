@@ -10,8 +10,8 @@ on:
       pre-release:
         description: 'Publish as pre-release version'
         required: false
-        default: false
-        type: boolean
+        default: 'false'
+        type: string
   workflow_dispatch:
     inputs:
       branch:
@@ -22,8 +22,8 @@ on:
       pre-release:
         description: 'Publish as pre-release version'
         required: false
-        default: false
-        type: boolean
+        default: 'false'
+        type: string
 
 jobs:
   package:
