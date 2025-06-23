@@ -39,6 +39,11 @@ on:
         required: false
         default: 'main'
         type: string
+      version-bump:
+        description: 'Version bump type (auto, patch, minor, major)'
+        required: false
+        default: 'auto'
+        type: string
   workflow_dispatch:
     inputs:
       extensions:
@@ -71,7 +76,28 @@ on:
         type: string
 
 jobs:
+  determine-build-type:
+    runs-on: ubuntu-latest
+    outputs:
+      is-nightly: ${{ steps.check.outputs.is-nightly }}
+      version-bump: ${{ steps.check.outputs.version-bump }}
+      pre-release: ${{ steps.check.outputs.pre-release }}
+    steps:
+      - name: Check build type
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "is-nightly=true" >> $GITHUB_OUTPUT
+            echo "version-bump=patch" >> $GITHUB_OUTPUT
+            echo "pre-release=true" >> $GITHUB_OUTPUT
+          else
+            echo "is-nightly=false" >> $GITHUB_OUTPUT
+            echo "version-bump=${{ inputs.version-bump || 'auto' }}" >> $GITHUB_OUTPUT
+            echo "pre-release=${{ inputs.pre-release || 'false' }}" >> $GITHUB_OUTPUT
+          fi
+
   determine-changes:
+    needs: determine-build-type
     runs-on: ubuntu-latest
     outputs:
       selected-extensions: ${{ steps.changes.outputs.selected-extensions }}
@@ -147,7 +173,7 @@ jobs:
           echo "version-bumps=$VERSION_BUMP_TYPES" >> $GITHUB_OUTPUT
 
   display-release-plan:
-    needs: determine-changes
+    needs: [determine-build-type, determine-changes]
     runs-on: ubuntu-latest
     if: (inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true') && needs.determine-changes.outputs.selected-extensions != ''
     steps:
