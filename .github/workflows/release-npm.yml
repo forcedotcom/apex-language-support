@@ -24,6 +24,11 @@ on:
         required: false
         default: 'false'
         type: string
+      base-branch:
+        description: 'Base branch to compare against for change detection'
+        required: false
+        default: 'main'
+        type: string
   workflow_dispatch:
     inputs:
       packages:
@@ -70,7 +75,8 @@ jobs:
         id: changes
         run: |
           # Get list of changed files
-          CHANGED_FILES=$(git diff --name-only origin/main..HEAD)
+          BASE_BRANCH="${{ inputs.base-branch || 'main' }}"
+          CHANGED_FILES=$(git diff --name-only origin/$BASE_BRANCH..HEAD)
           echo "Changed files: $CHANGED_FILES"
 
           # Determine which NPM packages have changes

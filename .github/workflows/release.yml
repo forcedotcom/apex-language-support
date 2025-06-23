@@ -43,6 +43,11 @@ on:
           - patch
           - minor
           - major
+      base-branch:
+        description: 'Base branch to compare against for change detection'
+        required: false
+        default: 'main'
+        type: string
   schedule:
     # Nightly pre-release build at 2 AM UTC
     - cron: '0 2 * * *'
@@ -79,6 +84,7 @@ jobs:
       packages: ${{ github.event.inputs.npm-packages || 'changed' }}
       available-packages: ${{ needs.get-packages.outputs.npm-packages }}
       dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+      base-branch: ${{ github.event.inputs.base-branch || 'main' }}
     secrets: inherit
 
   release-extensions:
@@ -91,6 +97,7 @@ jobs:
       registry: ${{ github.event.inputs.registries || 'all' }}
       available-extensions: ${{ needs.get-packages.outputs.extensions }}
       dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+      base-branch: ${{ github.event.inputs.base-branch || 'main' }}
     secrets: inherit
 
   determine-build-type:

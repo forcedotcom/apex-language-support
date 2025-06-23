@@ -34,6 +34,11 @@ on:
         required: false
         default: 'false'
         type: string
+      base-branch:
+        description: 'Base branch to compare against for change detection'
+        required: false
+        default: 'main'
+        type: string
   workflow_dispatch:
     inputs:
       extensions:
@@ -114,7 +119,8 @@ jobs:
                 VERSION_BUMP_TYPES="$VERSION_BUMP"
               else
                 # Check for actual changes
-                CHANGES=$(git diff --name-only origin/main..HEAD -- "packages/$ext/")
+                BASE_BRANCH="${{ inputs.base-branch || 'main' }}"
+                CHANGES=$(git diff --name-only origin/$BASE_BRANCH..HEAD -- "packages/$ext/")
                 if [ -n "$CHANGES" ]; then
                   if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
                     EXTENSIONS_WITH_CHANGES="$ext"
