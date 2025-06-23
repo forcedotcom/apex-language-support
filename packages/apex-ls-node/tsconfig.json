@@ -8,7 +8,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "target": "ES2020",
-    "module": "ESNext",
+    "module": "CommonJS",
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,

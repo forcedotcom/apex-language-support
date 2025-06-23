@@ -2,12 +2,12 @@
   "name": "@salesforce/apex-lsp-logging",
   "version": "1.0.0",
   "description": "Logging interface for Apex Language Server",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "main": "out/index.js",
+  "module": "out/index.js",
+  "types": "out/index.d.ts",
   "exports": {
-    "import": "./dist/index.mjs",
-    "require": "./dist/index.js"
+    "import": "./out/index.js",
+    "require": "./out/index.js"
   },
   "sideEffects": false,
   "license": "BSD-3-Clause",

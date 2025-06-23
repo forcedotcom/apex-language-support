@@ -117,10 +117,10 @@ function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
     context.extensionMode === vscode.ExtensionMode.Development;
 
   // The server is bundled into 'server.js' within the VSIX.
-  // In development mode, it's in the 'dist' directory
-  // In production mode, it's in the extension root
+  // In development mode, it's in the 'out' directory (compiled)
+  // In production mode, it's in the extension root (bundled)
   const serverModule = isDevelopment
-    ? context.asAbsolutePath('dist/server.js')
+    ? context.asAbsolutePath('out/server.js')
     : context.asAbsolutePath('server.js');
 
   outputChannel.appendLine(`Server module path: ${serverModule}`);

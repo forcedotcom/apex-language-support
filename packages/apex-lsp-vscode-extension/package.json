@@ -20,7 +20,7 @@
     "Linters",
     "Snippets"
   ],
-  "main": "./dist/extension.js",
+  "main": "./out/extension.js",
   "activationEvents": [],
   "contributes": {
     "languages": [
