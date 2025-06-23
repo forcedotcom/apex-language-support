@@ -114,7 +114,7 @@ jobs:
                 VERSION_BUMP_TYPES="$VERSION_BUMP"
               else
                 # Check for actual changes
-                CHANGES=$(git diff --name-only HEAD~1..HEAD -- "packages/$ext/")
+                CHANGES=$(git diff --name-only origin/main..HEAD -- "packages/$ext/")
                 if [ -n "$CHANGES" ]; then
                   if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
                     EXTENSIONS_WITH_CHANGES="$ext"
