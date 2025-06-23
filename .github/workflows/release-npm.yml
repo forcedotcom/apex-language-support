@@ -76,6 +76,13 @@ jobs:
         run: |
           # Get list of changed files
           BASE_BRANCH="${{ inputs.base-branch || 'main' }}"
+
+          # Check if the base branch exists, fall back to main if it doesn't
+          if ! git ls-remote --heads origin "$BASE_BRANCH" | grep -q "$BASE_BRANCH"; then
+            echo "Warning: Base branch 'origin/$BASE_BRANCH' does not exist, falling back to 'main'"
+            BASE_BRANCH="main"
+          fi
+
           CHANGED_FILES=$(git diff --name-only origin/$BASE_BRANCH..HEAD)
           echo "Changed files: $CHANGED_FILES"
 

@@ -120,6 +120,13 @@ jobs:
               else
                 # Check for actual changes
                 BASE_BRANCH="${{ inputs.base-branch || 'main' }}"
+                
+                # Check if the base branch exists, fall back to main if it doesn't
+                if ! git ls-remote --heads origin "$BASE_BRANCH" | grep -q "$BASE_BRANCH"; then
+                  echo "Warning: Base branch 'origin/$BASE_BRANCH' does not exist, falling back to 'main'"
+                  BASE_BRANCH="main"
+                fi
+                
                 CHANGES=$(git diff --name-only origin/$BASE_BRANCH..HEAD -- "packages/$ext/")
                 if [ -n "$CHANGES" ]; then
                   if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
