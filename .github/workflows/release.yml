@@ -72,7 +72,7 @@ jobs:
 
   release-npm:
     needs: get-packages
-    if: (github.event.inputs.npm-packages != 'none' && github.event.inputs.npm-packages != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: (github.event.inputs.npm-packages != 'none' && github.event.inputs.npm-packages != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.npm-packages != '')
     uses: ./.github/workflows/release-npm.yml
     with:
       branch: ${{ github.event.inputs.branch || github.ref_name }}
@@ -83,7 +83,7 @@ jobs:
 
   release-extensions:
     needs: get-packages
-    if: (github.event.inputs.extensions != 'none' && github.event.inputs.extensions != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: (github.event.inputs.extensions != 'none' && github.event.inputs.extensions != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.extensions != '')
     uses: ./.github/workflows/release-extensions.yml
     with:
       branch: ${{ github.event.inputs.branch || github.ref_name }}
