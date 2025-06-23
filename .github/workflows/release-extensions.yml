@@ -261,7 +261,7 @@ jobs:
               
               # Show release information
               PRE_RELEASE_TEXT=""
-              if [ "${{ inputs.pre-release || github.event.inputs.pre-release || false }}" = "true" ]; then
+              if [ "${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}" = "true" ]; then
                 PRE_RELEASE_TEXT=" (pre-release)"
               fi
               echo "  Would create GitHub release: $ext$PRE_RELEASE_TEXT"
@@ -319,7 +319,7 @@ jobs:
       - name: Create GitHub Releases
         run: |
           # Get pre-release flag
-          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || false }}"
+          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
           VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
 
@@ -413,7 +413,7 @@ jobs:
     uses: ./.github/workflows/publishVSCode.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
-      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}
+      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
     secrets: inherit
 
   publish-openvsx:
@@ -422,7 +422,7 @@ jobs:
     uses: ./.github/workflows/publishOpenVSX.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
-      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || false }}
+      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
     secrets: inherit
 
   bump-versions:
@@ -447,7 +447,7 @@ jobs:
         run: |
           VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || false }}"
+          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
           IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
 
           echo "Version bump type: $VERSION_BUMP"
