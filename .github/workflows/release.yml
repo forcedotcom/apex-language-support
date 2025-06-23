@@ -97,19 +97,12 @@ jobs:
       - name: Check build type
         id: check
         run: |
-          # Check if this is a scheduled (nightly) build
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "This is a nightly build"
             echo "is-nightly=true" >> $GITHUB_OUTPUT
             echo "version-bump=patch" >> $GITHUB_OUTPUT
             echo "pre-release=true" >> $GITHUB_OUTPUT
           else
-            echo "This is a manual or push-triggered build"
             echo "is-nightly=false" >> $GITHUB_OUTPUT
             echo "version-bump=${{ github.event.inputs.version-bump || 'auto' }}" >> $GITHUB_OUTPUT
             echo "pre-release=${{ github.event.inputs.pre-release || false }}" >> $GITHUB_OUTPUT
           fi
-
-          echo "Build type: ${{ github.event_name }}"
-          echo "Version bump: $(echo "version-bump=${{ github.event.inputs.version-bump || 'auto' }}" | cut -d'=' -f2)"
-          echo "Pre-release: $(echo "pre-release=${{ github.event.inputs.pre-release || false }}" | cut -d'=' -f2)"
