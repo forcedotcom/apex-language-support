@@ -130,6 +130,21 @@ jobs:
             SELECTED_PACKAGES="$SELECTED_PACKAGE"
           fi
 
+          # Convert comma-separated list to JSON array format
+          if [ -n "$SELECTED_PACKAGES" ]; then
+            # Split by comma and format as JSON array
+            IFS=',' read -ra PKG_ARRAY <<< "$SELECTED_PACKAGES"
+            JSON_ARRAY="["
+            for i in "${!PKG_ARRAY[@]}"; do
+              if [ $i -gt 0 ]; then
+                JSON_ARRAY="$JSON_ARRAY,"
+              fi
+              JSON_ARRAY="$JSON_ARRAY\"${PKG_ARRAY[$i]}\""
+            done
+            JSON_ARRAY="$JSON_ARRAY]"
+            SELECTED_PACKAGES="$JSON_ARRAY"
+          fi
+
           echo "packages=$SELECTED_PACKAGES" >> $GITHUB_OUTPUT
 
       - name: Determine version bump type
@@ -153,7 +168,7 @@ jobs:
     if: needs.determine-npm-changes.outputs.selected-packages != ''
     strategy:
       matrix:
-        package: ${{ fromJson(format('[{0}]', needs.determine-npm-changes.outputs.selected-packages)) }}
+        package: ${{ fromJson(needs.determine-npm-changes.outputs.selected-packages) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
