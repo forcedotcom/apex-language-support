@@ -414,6 +414,7 @@ jobs:
     with:
       branch: ${{ inputs.branch || github.ref_name }}
       pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
+      dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
     secrets: inherit
 
   publish-openvsx:
@@ -423,6 +424,7 @@ jobs:
     with:
       branch: ${{ inputs.branch || github.ref_name }}
       pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
+      dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
     secrets: inherit
 
   bump-versions:

@@ -12,6 +12,11 @@ on:
         required: false
         default: 'false'
         type: string
+      dry-run:
+        description: 'Run in dry-run mode (validate without publishing)'
+        required: false
+        default: 'false'
+        type: string
   workflow_dispatch:
     inputs:
       branch:
@@ -21,6 +26,11 @@ on:
         type: string
       pre-release:
         description: 'Publish as pre-release version'
+        required: false
+        default: 'false'
+        type: string
+      dry-run:
+        description: 'Run in dry-run mode (validate without publishing)'
         required: false
         default: 'false'
         type: string
@@ -65,18 +75,27 @@ jobs:
             find ./vsix-artifacts -name "*.vsix" | sort
             exit 1
           fi
-          echo "Publishing VSIX: $VSIX_PATH"
+          echo "Found VSIX: $VSIX_PATH"
 
           # Add pre-release flag if needed
           PRE_RELEASE_FLAG=""
           if [ "${{ inputs.pre-release }}" = "true" ]; then
             PRE_RELEASE_FLAG="--pre-release"
-            echo "Publishing as pre-release version"
+            echo "Would publish as pre-release version"
           fi
 
-          # Publish using vsce
-          npx vsce publish --pat ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }} --packagePath "$VSIX_PATH" --skip-duplicate $PRE_RELEASE_FLAG
-
-          echo "✅ Successfully published to VSCode Marketplace"
+          # Check if this is a dry run
+          if [ "${{ inputs.dry-run }}" = "true" ]; then
+            echo "🔍 DRY RUN MODE - Would publish to VS Code Marketplace:"
+            echo "  VSIX: $VSIX_PATH"
+            echo "  Pre-release: ${{ inputs.pre-release }}"
+            echo "  Command: npx vsce publish --pat [PAT] --packagePath \"$VSIX_PATH\" --skip-duplicate $PRE_RELEASE_FLAG"
+            echo "✅ Dry run completed - no actual publish performed"
+          else
+            echo "Publishing VSIX: $VSIX_PATH"
+            # Publish using vsce
+            npx vsce publish --pat ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }} --packagePath "$VSIX_PATH" --skip-duplicate $PRE_RELEASE_FLAG
+            echo "✅ Successfully published to VSCode Marketplace"
+          fi
         env:
           VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
