@@ -41,7 +41,9 @@ export function activate(context: vscode.ExtensionContext) {
   globalContext = context;
 
   // Create output channel
-  outputChannel = vscode.window.createOutputChannel('Apex Language Server');
+  outputChannel = vscode.window.createOutputChannel(
+    'Apex Language Server (Typescript)',
+  );
   context.subscriptions.push(outputChannel);
 
   outputChannel.appendLine('Apex Language Server extension is now active!');
@@ -110,11 +112,21 @@ function registerRestartCommand(context: vscode.ExtensionContext): void {
  * Creates server options for the language server
  */
 function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
+  // Check if we're running in development mode (from project) or production (installed)
+  const isDevelopment =
+    context.extensionMode === vscode.ExtensionMode.Development;
+
   // The server is bundled into 'server.js' within the VSIX.
-  // context.asAbsolutePath('.') returns the root path of the installed extension.
-  const serverModule = context.asAbsolutePath('server.js');
+  // In development mode, it's in the 'dist' directory
+  // In production mode, it's in the extension root
+  const serverModule = isDevelopment
+    ? context.asAbsolutePath('dist/server.js')
+    : context.asAbsolutePath('server.js');
 
   outputChannel.appendLine(`Server module path: ${serverModule}`);
+  outputChannel.appendLine(
+    `Running in ${isDevelopment ? 'development' : 'production'} mode`,
+  );
 
   return {
     run: {

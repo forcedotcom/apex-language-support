@@ -23,6 +23,7 @@ export const window = {
     command: '',
   })),
   showInformationMessage: jest.fn(),
+  showErrorMessage: jest.fn(),
 };
 
 export const commands = {
@@ -39,11 +40,21 @@ export const workspace = {
     onDidDelete: jest.fn(),
     dispose: jest.fn(),
   })),
+  workspaceFolders: [],
+  onDidChangeConfiguration: jest.fn(() => ({
+    dispose: jest.fn(),
+  })),
 };
 
 export const StatusBarAlignment = {
   Left: 1,
   Right: 2,
+};
+
+export const ExtensionMode = {
+  Production: 1,
+  Development: 2,
+  Test: 3,
 };
 
 export class Disposable {
@@ -64,6 +75,7 @@ export const mockVscode = {
   commands,
   workspace,
   StatusBarAlignment,
+  ExtensionMode,
   Disposable,
 };
 

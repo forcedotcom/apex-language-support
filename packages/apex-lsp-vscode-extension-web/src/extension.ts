@@ -17,7 +17,9 @@ let outputChannel: vscode.OutputChannel;
  */
 export function activate(context: vscode.ExtensionContext) {
   // Create output channel
-  outputChannel = vscode.window.createOutputChannel('Apex Language Support');
+  outputChannel = vscode.window.createOutputChannel(
+    'Apex Language Server (Typescript)',
+  );
   context.subscriptions.push(outputChannel);
 
   outputChannel.appendLine('Apex Language Support extension is now active!');
