@@ -22,8 +22,8 @@ on:
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'
         required: false
-        default: false
-        type: boolean
+        default: 'false'
+        type: string
   workflow_dispatch:
     inputs:
       packages:
@@ -46,8 +46,11 @@ on:
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'
         required: false
-        default: false
-        type: boolean
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 jobs:
   determine-npm-changes:

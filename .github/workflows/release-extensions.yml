@@ -27,13 +27,13 @@ on:
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'
         required: false
-        default: false
-        type: boolean
+        default: 'false'
+        type: string
       pre-release:
         description: 'Publish as pre-release version'
         required: false
-        default: false
-        type: boolean
+        default: 'false'
+        type: string
   workflow_dispatch:
     inputs:
       extensions:
@@ -57,13 +57,13 @@ on:
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'
         required: false
-        default: false
-        type: boolean
+        default: 'false'
+        type: string
       pre-release:
         description: 'Publish as pre-release version'
         required: false
-        default: false
-        type: boolean
+        default: 'false'
+        type: string
 
 jobs:
   determine-changes:
