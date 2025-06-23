@@ -70,7 +70,7 @@ jobs:
         id: changes
         run: |
           # Get list of changed files
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          CHANGED_FILES=$(git diff --name-only origin/main..HEAD)
           echo "Changed files: $CHANGED_FILES"
 
           # Determine which NPM packages have changes
