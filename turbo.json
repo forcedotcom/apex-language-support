@@ -65,6 +65,15 @@
       ],
       "outputs": ["out/**", "*.tsbuildinfo"]
     },
+    "apex-language-server-extension#compile": {
+      "dependsOn": [
+        "precompile",
+        "^precompile",
+        "^compile",
+        "@salesforce/apex-lsp-parser-ast#precompile"
+      ],
+      "outputs": ["dist/**", "*.tsbuildinfo"]
+    },
     "apex-language-server-extension-web#precompile": {
       "dependsOn": ["^precompile"],
       "outputs": ["out/**"]
