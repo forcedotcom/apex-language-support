@@ -2,6 +2,11 @@ name: Publish in Open VSX Registry
 on:
   workflow_call:
     inputs:
+      skip-package:
+        description: 'Skip the package job if already built'
+        required: false
+        default: 'false'
+        type: string
       branch:
         description: 'Branch to publish from'
         required: false
@@ -19,6 +24,11 @@ on:
         type: string
   workflow_dispatch:
     inputs:
+      skip-package:
+        description: 'Skip the package job if already built'
+        required: false
+        default: 'false'
+        type: string
       branch:
         description: 'Branch to publish from'
         required: true
@@ -37,7 +47,7 @@ on:
 
 jobs:
   package:
-    if: ${{ github.workflow != 'Release VS Code Extensions' }}
+    if: inputs.skip-package != 'true'
     uses: ./.github/workflows/package.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
