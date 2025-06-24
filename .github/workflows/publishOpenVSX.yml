@@ -65,7 +65,6 @@ jobs:
       dry-run: ${{ inputs.dry-run || 'false' }}
 
   publish:
-    needs: package
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.event.inputs.branch == github.ref_name || inputs.branch == github.ref_name
     env:
@@ -102,6 +101,15 @@ jobs:
         with:
           name: ${{ steps.calc-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
+
+      - name: Check for VSIX artifact
+        run: |
+          if ls ./vsix-artifacts/*.vsix 1> /dev/null 2>&1; then
+            echo "VSIX artifact found."
+          else
+            echo "❌ VSIX artifact not found for artifact-name: ${{ steps.calc-artifact-name.outputs.artifact-name }}"
+            exit 1
+          fi
 
       - name: Setup dry-run artifacts
         if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
