@@ -465,9 +465,9 @@ jobs:
       - name: Setup dry-run artifacts
         if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
         run: |
-          mkdir -p ./vsix-artifacts
-          cp ./dry-run-artifacts/*.vsix ./vsix-artifacts/ || echo "No VSIX files found"
-          echo "✅ Dry-run: Using local VSIX artifacts from ./dry-run-artifacts/"
+          mkdir -p ./dry-run-artifacts
+          find . -name '*.vsix' -exec cp {} ./dry-run-artifacts/ \;
+          echo "✅ Dry-run: VSIX artifacts created in ./dry-run-artifacts/"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
