@@ -26,8 +26,8 @@ runs:
       id: calc
       shell: bash
       run: |
-        # Check if artifact-name already contains run number (already calculated)
-        if [[ "${{ inputs.artifact-name }}" == *"-"* ]]; then
+        # Only treat as already set if artifact-name ends with -dry-run or -release
+        if [[ "${{ inputs.artifact-name }}" =~ -dry-run$ ]] || [[ "${{ inputs.artifact-name }}" =~ -release$ ]]; then
           echo "artifact-name=${{ inputs.artifact-name }}" >> $GITHUB_OUTPUT
         else
           echo "artifact-name=${{ format('{0}-{1}-{2}', inputs.artifact-name, inputs.run-number, inputs.dry-run == 'true' && 'dry-run' || 'release') }}" >> $GITHUB_OUTPUT
