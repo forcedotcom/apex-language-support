@@ -284,15 +284,16 @@ sequenceDiagram
 
 ### CI Artifacts
 
-- **Name**: `vsix-packages-{run_number}`
+- **Name**: `vsix-packages-{run_number}-release`
 - **Purpose**: PR-specific packaging
-- **Retention**: 30 days
+- **Retention**: 5 days
 
 ### Release Artifacts
 
-- **Name**: `vsix-packages`
-- **Purpose**: Release packaging
-- **Retention**: 30 days
+- **Name**: `vsix-packages-{run_number}-release` (normal) or `vsix-packages-{run_number}-dry-run` (dry-run)
+- **Purpose**: Release packaging with run isolation
+- **Retention**: 5 days
+- **Pattern**: `{base_name}-{run_number}-{mode}` where mode is `release` or `dry-run`
 
 ## Safety Features
 

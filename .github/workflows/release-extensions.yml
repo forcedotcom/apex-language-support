@@ -437,16 +437,28 @@ jobs:
           git commit -m "chore: bump versions for release [skip ci]" || echo "No changes to commit"
           git push
 
+  calculate-artifact-name:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.calc.outputs.artifact-name }}
+    steps:
+      - name: Calculate artifact name
+        id: calc
+        uses: ./.github/actions/calculate-artifact-name
+        with:
+          artifact-name: vsix-packages
+          dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
+
   package:
-    needs: bump-versions
+    needs: [bump-versions, calculate-artifact-name]
     uses: ./.github/workflows/package.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
-      artifact-name: vsix-packages
+      artifact-name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
       dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
 
   create-github-releases:
-    needs: [determine-changes, package, bump-versions]
+    needs: [determine-changes, package, bump-versions, calculate-artifact-name]
     runs-on: ubuntu-latest
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
@@ -459,7 +471,7 @@ jobs:
         if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
         uses: actions/download-artifact@v4
         with:
-          name: vsix-packages
+          name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
 
       - name: Setup dry-run artifacts
@@ -592,7 +604,8 @@ jobs:
           fi
 
   publish-vscode:
-    needs: [bump-versions, package, create-github-releases]
+    needs:
+      [bump-versions, package, create-github-releases, calculate-artifact-name]
     if: (inputs.registry == 'all' || inputs.registry == 'vscode')
     uses: ./.github/workflows/publishVSCode.yml
     with:
@@ -600,10 +613,12 @@ jobs:
       branch: ${{ inputs.branch || github.ref_name }}
       pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
       dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
+      artifact-name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
     secrets: inherit
 
   publish-openvsx:
-    needs: [bump-versions, package, create-github-releases]
+    needs:
+      [bump-versions, package, create-github-releases, calculate-artifact-name]
     if: (inputs.registry == 'all' || inputs.registry == 'openvsx')
     uses: ./.github/workflows/publishOpenVSX.yml
     with:
@@ -611,4 +626,5 @@ jobs:
       branch: ${{ inputs.branch || github.ref_name }}
       pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
       dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
+      artifact-name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
     secrets: inherit

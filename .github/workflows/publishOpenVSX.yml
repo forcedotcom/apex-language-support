@@ -22,6 +22,11 @@ on:
         required: false
         default: 'false'
         type: string
+      artifact-name:
+        description: 'Name for the VSIX artifacts (base name or pre-calculated: vsix-packages-{run_number}-{mode})'
+        required: false
+        default: 'vsix-packages'
+        type: string
   workflow_dispatch:
     inputs:
       skip-package:
@@ -44,6 +49,11 @@ on:
         required: false
         default: 'false'
         type: string
+      artifact-name:
+        description: 'Name for the VSIX artifacts (base name or pre-calculated: vsix-packages-{run_number}-{mode})'
+        required: false
+        default: 'vsix-packages'
+        type: string
 
 jobs:
   package:
@@ -51,6 +61,8 @@ jobs:
     uses: ./.github/workflows/package.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
+      artifact-name: ${{ inputs.artifact-name }}
+      dry-run: ${{ inputs.dry-run || 'false' }}
 
   publish:
     needs: package
@@ -78,10 +90,17 @@ jobs:
           token: ${{ secrets.IDEE_GH_TOKEN }}
           ref: ${{ github.event.inputs.branch || inputs.branch || github.ref }}
 
+      - name: Calculate artifact name
+        id: calc-artifact-name
+        uses: ./.github/actions/calculate-artifact-name
+        with:
+          artifact-name: ${{ inputs.artifact-name }}
+          dry-run: ${{ inputs.dry-run }}
+
       - name: Download VSIX artifacts
         uses: actions/download-artifact@v4
         with:
-          name: vsix-packages
+          name: ${{ steps.calc-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
 
       - name: Setup dry-run artifacts

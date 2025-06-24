@@ -14,7 +14,7 @@ on:
         default: 'main'
         type: string
       artifact-name:
-        description: 'Name for the VSIX artifacts'
+        description: 'Name for the VSIX artifacts (base name or pre-calculated: vsix-packages-{run_number}-{mode})'
         required: false
         default: 'vsix-packages'
         type: string
@@ -23,6 +23,10 @@ on:
         required: false
         default: 'false'
         type: string
+    outputs:
+      artifact-name:
+        description: 'The calculated artifact name'
+        value: ${{ jobs.package.outputs.artifact-name }}
   workflow_dispatch:
     inputs:
       node-version:
@@ -35,11 +39,18 @@ on:
         required: false
         default: 'main'
         type: string
+      dry-run:
+        description: 'Run in dry-run mode'
+        required: false
+        default: 'false'
+        type: string
 
 jobs:
   package:
     name: Package
     runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.calc-artifact-name.outputs.artifact-name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -57,22 +68,21 @@ jobs:
       - name: Package packages
         run: npm run package:packages
 
+      - name: Calculate artifact name
+        id: calc-artifact-name
+        uses: ./.github/actions/calculate-artifact-name
+        with:
+          artifact-name: ${{ inputs.artifact-name }}
+          dry-run: ${{ inputs.dry-run }}
+
       - name: Upload VSIX artifacts
-        if: inputs.dry-run != 'true'
+        id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.artifact-name }}
+          name: ${{ steps.calc-artifact-name.outputs.artifact-name }}
           path: |
             packages/**/*.vsix
           retention-days: 5
-
-      - name: Create dry-run artifacts directory
-        if: inputs.dry-run == 'true'
-        run: |
-          mkdir -p ./dry-run-artifacts
-          cp packages/**/*.vsix ./dry-run-artifacts/ || echo "No VSIX files found"
-          echo "✅ Dry-run: VSIX artifacts created in ./dry-run-artifacts/"
-          ls -la ./dry-run-artifacts/ || echo "No artifacts to list"
 
       - name: List VSIX files
         run: |

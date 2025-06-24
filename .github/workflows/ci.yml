@@ -64,7 +64,8 @@ jobs:
     uses: ./.github/workflows/package.yml
     with:
       branch: ${{ github.head_ref || github.ref_name }}
-      artifact-name: vsix-packages-${{ github.run_number }}
+      artifact-name: vsix-packages
+      dry-run: false
 
   # slack-notify:
   #   name: Slack Notification

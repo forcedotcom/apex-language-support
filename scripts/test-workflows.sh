@@ -247,13 +247,17 @@ test_artifact_naming() {
     local branch="main"
     local pr_number="456"
     
-    # Test PR artifact naming
-    local pr_artifact_name="vsix-packages-$run_number"
+    # Test PR artifact naming (CI workflow)
+    local pr_artifact_name="vsix-packages-$run_number-release"
     print_status "INFO" "PR artifact name: $pr_artifact_name"
     
-    # Test release artifact naming
-    local release_artifact_name="vsix-packages"
-    print_status "INFO" "Release artifact name: $release_artifact_name"
+    # Test release artifact naming (normal mode)
+    local release_artifact_name="vsix-packages-$run_number-release"
+    print_status "INFO" "Release artifact name (normal): $release_artifact_name"
+    
+    # Test release artifact naming (dry-run mode)
+    local dry_run_artifact_name="vsix-packages-$run_number-dry-run"
+    print_status "INFO" "Release artifact name (dry-run): $dry_run_artifact_name"
     
     print_status "SUCCESS" "Artifact naming logic validated"
 }
