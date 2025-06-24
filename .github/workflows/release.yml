@@ -75,17 +75,17 @@ jobs:
         id: packages
         uses: ./.github/actions/get-packages
 
-  release-npm:
-    needs: get-packages
-    if: (github.event.inputs.npm-packages != 'none' && github.event.inputs.npm-packages != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.npm-packages != '')
-    uses: ./.github/workflows/release-npm.yml
-    with:
-      branch: ${{ github.event.inputs.branch || github.ref_name }}
-      packages: ${{ github.event.inputs.npm-packages || 'changed' }}
-      available-packages: ${{ needs.get-packages.outputs.npm-packages }}
-      dry-run: ${{ github.event.inputs.dry-run || 'false' }}
-      base-branch: ${{ github.event.inputs.base-branch || 'main' }}
-    secrets: inherit
+  # release-npm:
+  #   needs: get-packages
+  #   if: (github.event.inputs.npm-packages != 'none' && github.event.inputs.npm-packages != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.npm-packages != '')
+  #   uses: ./.github/workflows/release-npm.yml
+  #   with:
+  #     branch: ${{ github.event.inputs.branch || github.ref_name }}
+  #     packages: ${{ github.event.inputs.npm-packages || 'changed' }}
+  #     available-packages: ${{ needs.get-packages.outputs.npm-packages }}
+  #     dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+  #     base-branch: ${{ github.event.inputs.base-branch || 'main' }}
+  #   secrets: inherit
 
   release-extensions:
     needs: get-packages
