@@ -612,7 +612,6 @@ jobs:
     if: (inputs.registry == 'all' || inputs.registry == 'vscode')
     uses: ./.github/workflows/publishVSCode.yml
     with:
-      skip-package: 'true'
       branch: ${{ inputs.branch || github.ref_name }}
       pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
       dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
@@ -625,7 +624,6 @@ jobs:
     if: (inputs.registry == 'all' || inputs.registry == 'openvsx')
     uses: ./.github/workflows/publishOpenVSX.yml
     with:
-      skip-package: 'true'
       branch: ${{ inputs.branch || github.ref_name }}
       pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
       dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}

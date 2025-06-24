@@ -2,11 +2,6 @@ name: Publish in Microsoft Marketplace
 on:
   workflow_call:
     inputs:
-      skip-package:
-        description: 'Skip the package job if already built'
-        required: false
-        default: 'false'
-        type: string
       branch:
         description: 'Branch to publish from'
         required: false
@@ -29,11 +24,6 @@ on:
         type: string
   workflow_dispatch:
     inputs:
-      skip-package:
-        description: 'Skip the package job if already built'
-        required: false
-        default: 'false'
-        type: string
       branch:
         description: 'Branch to publish from'
         required: true
