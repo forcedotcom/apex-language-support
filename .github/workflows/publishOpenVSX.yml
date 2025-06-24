@@ -37,6 +37,7 @@ on:
 
 jobs:
   package:
+    if: ${{ github.workflow != 'Release VS Code Extensions' }}
     uses: ./.github/workflows/package.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
@@ -56,7 +57,6 @@ jobs:
           ref: ${{ github.event.inputs.branch || inputs.branch || github.ref }}
 
       - name: Download VSIX artifacts
-        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
         uses: actions/download-artifact@v4
         with:
           name: vsix-packages
