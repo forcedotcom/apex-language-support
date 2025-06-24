@@ -64,6 +64,50 @@ jobs:
       artifact-name: ${{ inputs.artifact-name }}
       dry-run: ${{ inputs.dry-run || 'false' }}
 
+  debug-publish-conditions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug publish job conditions (always run)
+        run: |
+          echo "=== PUBLISH JOB CONDITION DEBUGGING ==="
+          echo "This job always runs to help debug why publish might be skipped"
+          echo ""
+          echo "GITHUB_REF: '$GITHUB_REF'"
+          echo "GITHUB_REF_NAME: '$GITHUB_REF_NAME'"
+          echo "GITHUB_EVENT_NAME: '$GITHUB_EVENT_NAME'"
+          echo ""
+          echo "=== INPUTS ==="
+          echo "inputs.branch: '${{ inputs.branch }}'"
+          echo "github.event.inputs.branch: '${{ github.event.inputs.branch }}'"
+          echo ""
+          echo "=== CONDITION EVALUATION ==="
+          echo "Condition: github.ref == 'refs/heads/main' || github.event.inputs.branch == github.ref_name || inputs.branch == github.ref_name"
+          echo "github.ref == 'refs/heads/main': $([ "$GITHUB_REF" = "refs/heads/main" ] && echo "true" || echo "false")"
+          echo "github.event.inputs.branch == github.ref_name: $([ "${{ github.event.inputs.branch }}" = "$GITHUB_REF_NAME" ] && echo "true" || echo "false")"
+          echo "inputs.branch == github.ref_name: $([ "${{ inputs.branch }}" = "$GITHUB_REF_NAME" ] && echo "true" || echo "false")"
+          echo ""
+          echo "=== CONDITION RESULT ==="
+          if [ "$GITHUB_REF" = "refs/heads/main" ] || [ "${{ github.event.inputs.branch }}" = "$GITHUB_REF_NAME" ] || [ "${{ inputs.branch }}" = "$GITHUB_REF_NAME" ]; then
+            echo "✅ Condition evaluates to TRUE - publish job should run"
+          else
+            echo "❌ Condition evaluates to FALSE - publish job will be skipped"
+          fi
+          echo ""
+          echo "=== RECOMMENDATIONS ==="
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "- Not on main branch (GITHUB_REF: $GITHUB_REF)"
+          fi
+          if [ "${{ github.event.inputs.branch }}" != "$GITHUB_REF_NAME" ] && [ "${{ github.event.inputs.branch }}" != "" ]; then
+            echo "- Event branch input doesn't match current branch"
+            echo "  Event input: '${{ github.event.inputs.branch }}'"
+            echo "  Current branch: '$GITHUB_REF_NAME'"
+          fi
+          if [ "${{ inputs.branch }}" != "$GITHUB_REF_NAME" ] && [ "${{ inputs.branch }}" != "" ]; then
+            echo "- Workflow input branch doesn't match current branch"
+            echo "  Workflow input: '${{ inputs.branch }}'"
+            echo "  Current branch: '$GITHUB_REF_NAME'"
+          fi
+
   publish:
     needs: package
     runs-on: ubuntu-latest
@@ -72,15 +116,77 @@ jobs:
       VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
       GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
     steps:
+      - name: Debug publish job conditions
+        run: |
+          echo "=== PUBLISH JOB DEBUGGING ==="
+          echo "GITHUB_REF: '$GITHUB_REF'"
+          echo "GITHUB_REF_NAME: '$GITHUB_REF_NAME'"
+          echo "GITHUB_EVENT_NAME: '$GITHUB_EVENT_NAME'"
+          echo "GITHUB_EVENT_PATH: '$GITHUB_EVENT_PATH'"
+          echo "GITHUB_WORKFLOW: '$GITHUB_WORKFLOW'"
+          echo "GITHUB_RUN_ID: '$GITHUB_RUN_ID'"
+          echo "GITHUB_RUN_NUMBER: '$GITHUB_RUN_NUMBER'"
+          echo ""
+          echo "=== INPUTS ==="
+          echo "inputs.branch: '${{ inputs.branch }}'"
+          echo "github.event.inputs.branch: '${{ github.event.inputs.branch }}'"
+          echo "inputs.pre-release: '${{ inputs.pre-release }}'"
+          echo "inputs.dry-run: '${{ inputs.dry-run }}'"
+          echo "inputs.artifact-name: '${{ inputs.artifact-name }}'"
+          echo ""
+          echo "=== CONDITION EVALUATION ==="
+          echo "Condition: github.ref == 'refs/heads/main' || github.event.inputs.branch == github.ref_name || inputs.branch == github.ref_name"
+          echo "github.ref == 'refs/heads/main': $([ "$GITHUB_REF" = "refs/heads/main" ] && echo "true" || echo "false")"
+          echo "github.event.inputs.branch == github.ref_name: $([ "${{ github.event.inputs.branch }}" = "$GITHUB_REF_NAME" ] && echo "true" || echo "false")"
+          echo "inputs.branch == github.ref_name: $([ "${{ inputs.branch }}" = "$GITHUB_REF_NAME" ] && echo "true" || echo "false")"
+          echo ""
+          echo "=== EVENT CONTEXT ==="
+          if [ -f "$GITHUB_EVENT_PATH" ]; then
+            echo "Event payload (first 500 chars):"
+            head -c 500 "$GITHUB_EVENT_PATH"
+            echo ""
+          else
+            echo "No event payload file found"
+          fi
+          echo ""
+          echo "=== JOB CONTEXT ==="
+          echo "Job name: $GITHUB_JOB"
+          echo "Job matrix: ${{ toJSON(matrix) }}"
+          echo "Job needs: ${{ toJSON(needs) }}"
+          echo ""
+          echo "=== WORKFLOW CONTEXT ==="
+          echo "Workflow run URL: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "Workflow file: $GITHUB_WORKFLOW"
+          echo "Actor: $GITHUB_ACTOR"
+          echo "Repository: $GITHUB_REPOSITORY"
+
       - name: Flexible branch match (skip job if not matching)
         run: |
+          echo "=== BRANCH MATCHING DEBUG ==="
           BRANCH="${GITHUB_REF}"
           INPUT_BRANCH="${{ inputs.branch }}"
           EVENT_BRANCH="${{ github.event.inputs.branch }}"
+
+          echo "BRANCH: '$BRANCH'"
+          echo "INPUT_BRANCH: '$INPUT_BRANCH'"
+          echo "EVENT_BRANCH: '$EVENT_BRANCH'"
+          echo "GITHUB_REF_NAME: '$GITHUB_REF_NAME'"
+
           if [[ "$BRANCH" == *"$INPUT_BRANCH" ]] || [[ "$BRANCH" == *"$EVENT_BRANCH" ]]; then
-            echo "Branch matches, continuing."
+            echo "✅ Branch matches, continuing."
+            echo "Match type:"
+            if [[ "$BRANCH" == *"$INPUT_BRANCH" ]]; then
+              echo "  - BRANCH contains INPUT_BRANCH"
+            fi
+            if [[ "$BRANCH" == *"$EVENT_BRANCH" ]]; then
+              echo "  - BRANCH contains EVENT_BRANCH"
+            fi
           else
-            echo "Branch does not match, skipping job."
+            echo "❌ Branch does not match, skipping job."
+            echo "No match found for:"
+            echo "  - BRANCH: '$BRANCH'"
+            echo "  - INPUT_BRANCH: '$INPUT_BRANCH'"
+            echo "  - EVENT_BRANCH: '$EVENT_BRANCH'"
             exit 0
           fi
 
