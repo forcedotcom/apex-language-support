@@ -50,3 +50,4 @@ runs:
         echo "npm-packages=$NPM_PACKAGES" >> $GITHUB_OUTPUT
         echo "extensions=$EXTENSIONS" >> $GITHUB_OUTPUT
         echo "extension-paths=$EXTENSION_PATHS" >> $GITHUB_OUTPUT 
+        echo $GITHUB_OUTPUT
