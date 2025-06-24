@@ -488,6 +488,13 @@ jobs:
           echo "Version bump: $VERSION_BUMP"
           echo "Extensions: $SELECTED_EXTENSIONS"
 
+          # Set artifacts directory based on dry-run mode
+          if [ "$DRY_RUN" = "true" ]; then
+            ARTIFACTS_DIR="./dry-run-artifacts"
+          else
+            ARTIFACTS_DIR="./vsix-artifacts"
+          fi
+
           # Convert comma-separated list to array
           IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
 
@@ -501,10 +508,10 @@ jobs:
               
               # Find VSIX file for this extension
               VSIX_PATTERN="*${ext}*.vsix"
-              VSIX_FILES=$(find ./vsix-artifacts -name "$VSIX_PATTERN")
+              VSIX_FILES=$(find "$ARTIFACTS_DIR" -name "$VSIX_PATTERN")
               
               if [ -z "$VSIX_FILES" ]; then
-                echo "No VSIX files found for $ext"
+                echo "No VSIX files found for $ext in $ARTIFACTS_DIR"
                 continue
               fi
               
