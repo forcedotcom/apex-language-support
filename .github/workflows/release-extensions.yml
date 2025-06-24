@@ -289,16 +289,16 @@ jobs:
 
   package:
     needs: determine-changes
-    if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
     uses: ./.github/workflows/package.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
       artifact-name: vsix-packages
+      dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
 
   create-github-releases:
     needs: [determine-changes, package, bump-versions]
     runs-on: ubuntu-latest
-    if: (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true') && needs.determine-changes.outputs.selected-extensions != ''
+    if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -306,10 +306,18 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download VSIX artifacts
+        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
         uses: actions/download-artifact@v4
         with:
           name: vsix-packages
           path: ./vsix-artifacts
+
+      - name: Setup dry-run artifacts
+        if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
+        run: |
+          mkdir -p ./vsix-artifacts
+          cp ./dry-run-artifacts/*.vsix ./vsix-artifacts/ || echo "No VSIX files found"
+          echo "✅ Dry-run: Using local VSIX artifacts from ./dry-run-artifacts/"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -318,11 +326,13 @@ jobs:
 
       - name: Create GitHub Releases
         run: |
-          # Get pre-release flag
+          DRY_RUN="${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
           PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
           VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
+          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
 
+          echo "Mode: $([ "$DRY_RUN" = "true" ] && echo "DRY RUN" || echo "LIVE")"
           echo "Creating GitHub releases..."
           echo "Pre-release: $PRE_RELEASE"
           echo "Version bump: $VERSION_BUMP"
@@ -390,26 +400,43 @@ jobs:
                 RELEASE_NOTES+="- **Type**: Nightly pre-release for testing\n"
               fi
               
-              # Create GitHub release
-              echo "Creating release: $RELEASE_TITLE"
-              echo "Tag: $RELEASE_TAG"
-              echo "Pre-release: $PRE_RELEASE"
-              
-              # Create release using GitHub CLI
-              gh release create "$RELEASE_TAG" \
-                --title "$RELEASE_TITLE" \
-                --notes "$RELEASE_NOTES" \
-                --prerelease="$PRE_RELEASE" \
-                --repo "$GITHUB_REPOSITORY" \
-                $VSIX_FILES || echo "Release creation failed or already exists"
-              
-              echo "✅ Release created for $ext"
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "✅ DRY RUN: Would create GitHub release:"
+                echo "  - Tag: $RELEASE_TAG"
+                echo "  - Title: $RELEASE_TITLE"
+                echo "  - Pre-release: $PRE_RELEASE"
+                echo "  - VSIX files: $VSIX_FILES"
+                echo "  - Release notes preview:"
+                echo "$RELEASE_NOTES" | head -20
+                echo "  ... (truncated)"
+              else
+                echo "🔄 LIVE: Creating GitHub release..."
+                echo "Creating release: $RELEASE_TITLE"
+                echo "Tag: $RELEASE_TAG"
+                echo "Pre-release: $PRE_RELEASE"
+                
+                # Create release using GitHub CLI
+                gh release create "$RELEASE_TAG" \
+                  --title "$RELEASE_TITLE" \
+                  --notes "$RELEASE_NOTES" \
+                  --prerelease="$PRE_RELEASE" \
+                  --repo "$GITHUB_REPOSITORY" \
+                  $VSIX_FILES || echo "Release creation failed or already exists"
+                
+                echo "✅ Release created for $ext"
+              fi
             fi
           done
 
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "✅ DRY RUN: GitHub release simulation completed"
+          else
+            echo "✅ LIVE: GitHub releases created"
+          fi
+
   publish-vscode:
     needs: [bump-versions, package, create-github-releases]
-    if: (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true') && (inputs.registry == 'all' || inputs.registry == 'vscode')
+    if: (inputs.registry == 'all' || inputs.registry == 'vscode')
     uses: ./.github/workflows/publishVSCode.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
@@ -419,7 +446,7 @@ jobs:
 
   publish-openvsx:
     needs: [bump-versions, package, create-github-releases]
-    if: (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true') && (inputs.registry == 'all' || inputs.registry == 'openvsx')
+    if: (inputs.registry == 'all' || inputs.registry == 'openvsx')
     uses: ./.github/workflows/publishOpenVSX.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
@@ -430,7 +457,7 @@ jobs:
   bump-versions:
     needs: [determine-changes, package]
     runs-on: ubuntu-latest
-    if: (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true') && needs.determine-changes.outputs.selected-extensions != ''
+    if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -447,11 +474,13 @@ jobs:
 
       - name: Bump versions for selected extensions
         run: |
+          DRY_RUN="${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
           VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
           PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
           IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
 
+          echo "Mode: $([ "$DRY_RUN" = "true" ] && echo "DRY RUN" || echo "LIVE")"
           echo "Version bump type: $VERSION_BUMP"
           echo "Selected extensions: $SELECTED_EXTENSIONS"
           echo "Pre-release mode: $PRE_RELEASE"
@@ -462,7 +491,7 @@ jobs:
 
           for pkg in "${EXTENSIONS[@]}"; do
             if [ -n "$pkg" ] && [ -f "packages/$pkg/package.json" ]; then
-              echo "Bumping version for $pkg..."
+              echo "Processing $pkg..."
               
               # Get current version
               CURRENT_VERSION=$(node -p "require('./packages/$pkg/package.json').version")
@@ -546,19 +575,31 @@ jobs:
                 echo "Regular version: $NEW_VERSION (bump: $VERSION_BUMP, pre-release: $PRE_RELEASE)"
               fi
               
-              # Update package.json version
-              cd packages/$pkg
-              npm version "$NEW_VERSION" --no-git-tag-version
-              cd ../..
-              
-              # Update package-lock.json if it exists
-              if [ -f "package-lock.json" ]; then
-                npm install
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "✅ DRY RUN: Would bump $pkg from $CURRENT_VERSION to $NEW_VERSION"
+              else
+                echo "🔄 LIVE: Bumping $pkg from $CURRENT_VERSION to $NEW_VERSION"
+                # Update package.json version
+                cd packages/$pkg
+                npm version "$NEW_VERSION" --no-git-tag-version
+                cd ../..
+                
+                # Update package-lock.json if it exists
+                if [ -f "package-lock.json" ]; then
+                  npm install
+                fi
               fi
             fi
           done
 
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "✅ DRY RUN: Version bump simulation completed"
+          else
+            echo "✅ LIVE: Version bumps applied"
+          fi
+
       - name: Commit version bumps
+        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"

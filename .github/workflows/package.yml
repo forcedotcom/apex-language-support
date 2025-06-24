@@ -18,6 +18,11 @@ on:
         required: false
         default: 'vsix-packages'
         type: string
+      dry-run:
+        description: 'Run in dry-run mode'
+        required: false
+        default: 'false'
+        type: string
   workflow_dispatch:
     inputs:
       node-version:
@@ -53,9 +58,23 @@ jobs:
         run: npm run package:packages
 
       - name: Upload VSIX artifacts
+        if: inputs.dry-run != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.artifact-name }}
           path: |
             packages/**/*.vsix
           retention-days: 5
+
+      - name: Create dry-run artifacts directory
+        if: inputs.dry-run == 'true'
+        run: |
+          mkdir -p ./dry-run-artifacts
+          cp packages/**/*.vsix ./dry-run-artifacts/ || echo "No VSIX files found"
+          echo "✅ Dry-run: VSIX artifacts created in ./dry-run-artifacts/"
+          ls -la ./dry-run-artifacts/ || echo "No artifacts to list"
+
+      - name: List VSIX files
+        run: |
+          echo "VSIX files created:"
+          find packages -name "*.vsix" -exec ls -la {} \;
