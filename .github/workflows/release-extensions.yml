@@ -442,6 +442,9 @@ jobs:
     outputs:
       artifact-name: ${{ steps.calc.outputs.artifact-name }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Calculate artifact name
         id: calc
         uses: ./.github/actions/calculate-artifact-name
