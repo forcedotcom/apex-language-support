@@ -60,6 +60,18 @@ jobs:
       VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
       GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
     steps:
+      - name: Flexible branch match (skip job if not matching)
+        run: |
+          BRANCH="${GITHUB_REF}"
+          INPUT_BRANCH="${{ inputs.branch }}"
+          EVENT_BRANCH="${{ github.event.inputs.branch }}"
+          if [[ "$BRANCH" == *"$INPUT_BRANCH" ]] || [[ "$BRANCH" == *"$EVENT_BRANCH" ]]; then
+            echo "Branch matches, continuing."
+          else
+            echo "Branch does not match, skipping job."
+            exit 0
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
