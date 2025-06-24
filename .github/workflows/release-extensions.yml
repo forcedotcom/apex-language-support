@@ -284,8 +284,161 @@ jobs:
 
           echo "✅ Extension release dry run completed"
 
+  bump-versions:
+    needs: [determine-changes]
+    runs-on: ubuntu-latest
+    if: needs.determine-changes.outputs.selected-extensions != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump versions for selected extensions
+        run: |
+          DRY_RUN="${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
+          VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
+          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
+          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
+          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
+
+          echo "Mode: $([ "$DRY_RUN" = "true" ] && echo "DRY RUN" || echo "LIVE")"
+          echo "Version bump type: $VERSION_BUMP"
+          echo "Selected extensions: $SELECTED_EXTENSIONS"
+          echo "Pre-release mode: $PRE_RELEASE"
+          echo "Is nightly build: $IS_NIGHTLY"
+
+          # Convert comma-separated list to array
+          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
+
+          for pkg in "${EXTENSIONS[@]}"; do
+            if [ -n "$pkg" ] && [ -f "packages/$pkg/package.json" ]; then
+              echo "Processing $pkg..."
+              
+              # Get current version
+              CURRENT_VERSION=$(node -p "require('./packages/$pkg/package.json').version")
+              echo "Current version: $CURRENT_VERSION"
+              
+              # Parse current version components
+              IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+              CURRENT_MAJOR="${VERSION_PARTS[0]}"
+              CURRENT_MINOR="${VERSION_PARTS[1]}"
+              CURRENT_PATCH="${VERSION_PARTS[2]}"
+              
+              # Determine target version based on build type and pre-release status
+              TARGET_MAJOR="$CURRENT_MAJOR"
+              TARGET_MINOR="$CURRENT_MINOR"
+              TARGET_PATCH="$CURRENT_PATCH"
+              
+              if [ "$IS_NIGHTLY" = "true" ]; then
+                # Nightly build strategy: ensure odd minor version and add nightly timestamp
+                echo "Applying nightly build version strategy..."
+                
+                # For nightly builds, we want to ensure odd minor version
+                if [ $((CURRENT_MINOR % 2)) -eq 0 ]; then
+                  # Current is even, bump to next odd
+                  TARGET_MINOR=$((CURRENT_MINOR + 1))
+                  TARGET_PATCH=0
+                else
+                  # Current is already odd, just increment patch
+                  TARGET_PATCH=$((CURRENT_PATCH + 1))
+                fi
+                
+                # Use proper major.minor.patch version for package.json
+                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
+                echo "Nightly version: $NEW_VERSION (odd minor: $TARGET_MINOR)"
+                echo "Note: Nightly timestamp will be added as release tag/metadata"
+              else
+                # Regular build strategy: use smart version bumping
+                case "$VERSION_BUMP" in
+                  "patch")
+                    # For patch bumps, just increment patch
+                    TARGET_PATCH=$((CURRENT_PATCH + 1))
+                    ;;
+                  "minor")
+                    # For minor bumps, we need to be smart about even/odd
+                    if [ "$PRE_RELEASE" = "true" ]; then
+                      # Pre-release: ensure odd minor version
+                      if [ $((CURRENT_MINOR % 2)) -eq 0 ]; then
+                        # Current is even, bump to next odd
+                        TARGET_MINOR=$((CURRENT_MINOR + 1))
+                      else
+                        # Current is already odd, just increment
+                        TARGET_MINOR=$((CURRENT_MINOR + 1))
+                      fi
+                    else
+                      # Stable release: ensure even minor version
+                      if [ $((CURRENT_MINOR % 2)) -eq 1 ]; then
+                        # Current is odd, bump to next even
+                        TARGET_MINOR=$((CURRENT_MINOR + 1))
+                      else
+                        # Current is already even, just increment
+                        TARGET_MINOR=$((CURRENT_MINOR + 1))
+                      fi
+                    fi
+                    TARGET_PATCH=0
+                    ;;
+                  "major")
+                    # For major bumps, reset minor and patch
+                    TARGET_MAJOR=$((CURRENT_MAJOR + 1))
+                    if [ "$PRE_RELEASE" = "true" ]; then
+                      # Pre-release: start with odd minor
+                      TARGET_MINOR=1
+                    else
+                      # Stable release: start with even minor
+                      TARGET_MINOR=0
+                    fi
+                    TARGET_PATCH=0
+                    ;;
+                esac
+                
+                # Construct new version
+                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
+                echo "Regular version: $NEW_VERSION (bump: $VERSION_BUMP, pre-release: $PRE_RELEASE)"
+              fi
+              
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "✅ DRY RUN: Would bump $pkg from $CURRENT_VERSION to $NEW_VERSION"
+              else
+                echo "🔄 LIVE: Bumping $pkg from $CURRENT_VERSION to $NEW_VERSION"
+                # Update package.json version
+                cd packages/$pkg
+                npm version "$NEW_VERSION" --no-git-tag-version
+                cd ../..
+                
+                # Update package-lock.json if it exists
+                if [ -f "package-lock.json" ]; then
+                  npm install
+                fi
+              fi
+            fi
+          done
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "✅ DRY RUN: Version bump simulation completed"
+          else
+            echo "✅ LIVE: Version bumps applied"
+          fi
+
+      - name: Commit version bumps
+        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "chore: bump versions for release [skip ci]" || echo "No changes to commit"
+          git push
+
   package:
-    needs: determine-changes
+    needs: bump-versions
     uses: ./.github/workflows/package.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
@@ -452,156 +605,3 @@ jobs:
       pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
       dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
     secrets: inherit
-
-  bump-versions:
-    needs: [determine-changes, package]
-    runs-on: ubuntu-latest
-    if: needs.determine-changes.outputs.selected-extensions != ''
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Bump versions for selected extensions
-        run: |
-          DRY_RUN="${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
-          VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
-          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
-          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
-
-          echo "Mode: $([ "$DRY_RUN" = "true" ] && echo "DRY RUN" || echo "LIVE")"
-          echo "Version bump type: $VERSION_BUMP"
-          echo "Selected extensions: $SELECTED_EXTENSIONS"
-          echo "Pre-release mode: $PRE_RELEASE"
-          echo "Is nightly build: $IS_NIGHTLY"
-
-          # Convert comma-separated list to array
-          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
-
-          for pkg in "${EXTENSIONS[@]}"; do
-            if [ -n "$pkg" ] && [ -f "packages/$pkg/package.json" ]; then
-              echo "Processing $pkg..."
-              
-              # Get current version
-              CURRENT_VERSION=$(node -p "require('./packages/$pkg/package.json').version")
-              echo "Current version: $CURRENT_VERSION"
-              
-              # Parse current version components
-              IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
-              CURRENT_MAJOR="${VERSION_PARTS[0]}"
-              CURRENT_MINOR="${VERSION_PARTS[1]}"
-              CURRENT_PATCH="${VERSION_PARTS[2]}"
-              
-              # Determine target version based on build type and pre-release status
-              TARGET_MAJOR="$CURRENT_MAJOR"
-              TARGET_MINOR="$CURRENT_MINOR"
-              TARGET_PATCH="$CURRENT_PATCH"
-              
-              if [ "$IS_NIGHTLY" = "true" ]; then
-                # Nightly build strategy: ensure odd minor version and add nightly timestamp
-                echo "Applying nightly build version strategy..."
-                
-                # For nightly builds, we want to ensure odd minor version
-                if [ $((CURRENT_MINOR % 2)) -eq 0 ]; then
-                  # Current is even, bump to next odd
-                  TARGET_MINOR=$((CURRENT_MINOR + 1))
-                  TARGET_PATCH=0
-                else
-                  # Current is already odd, just increment patch
-                  TARGET_PATCH=$((CURRENT_PATCH + 1))
-                fi
-                
-                # Use proper major.minor.patch version for package.json
-                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
-                echo "Nightly version: $NEW_VERSION (odd minor: $TARGET_MINOR)"
-                echo "Note: Nightly timestamp will be added as release tag/metadata"
-              else
-                # Regular build strategy: use smart version bumping
-                case "$VERSION_BUMP" in
-                  "patch")
-                    # For patch bumps, just increment patch
-                    TARGET_PATCH=$((CURRENT_PATCH + 1))
-                    ;;
-                  "minor")
-                    # For minor bumps, we need to be smart about even/odd
-                    if [ "$PRE_RELEASE" = "true" ]; then
-                      # Pre-release: ensure odd minor version
-                      if [ $((CURRENT_MINOR % 2)) -eq 0 ]; then
-                        # Current is even, bump to next odd
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
-                      else
-                        # Current is already odd, just increment
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
-                      fi
-                    else
-                      # Stable release: ensure even minor version
-                      if [ $((CURRENT_MINOR % 2)) -eq 1 ]; then
-                        # Current is odd, bump to next even
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
-                      else
-                        # Current is already even, just increment
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
-                      fi
-                    fi
-                    TARGET_PATCH=0
-                    ;;
-                  "major")
-                    # For major bumps, reset minor and patch
-                    TARGET_MAJOR=$((CURRENT_MAJOR + 1))
-                    if [ "$PRE_RELEASE" = "true" ]; then
-                      # Pre-release: start with odd minor
-                      TARGET_MINOR=1
-                    else
-                      # Stable release: start with even minor
-                      TARGET_MINOR=0
-                    fi
-                    TARGET_PATCH=0
-                    ;;
-                esac
-                
-                # Construct new version
-                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
-                echo "Regular version: $NEW_VERSION (bump: $VERSION_BUMP, pre-release: $PRE_RELEASE)"
-              fi
-              
-              if [ "$DRY_RUN" = "true" ]; then
-                echo "✅ DRY RUN: Would bump $pkg from $CURRENT_VERSION to $NEW_VERSION"
-              else
-                echo "🔄 LIVE: Bumping $pkg from $CURRENT_VERSION to $NEW_VERSION"
-                # Update package.json version
-                cd packages/$pkg
-                npm version "$NEW_VERSION" --no-git-tag-version
-                cd ../..
-                
-                # Update package-lock.json if it exists
-                if [ -f "package-lock.json" ]; then
-                  npm install
-                fi
-              fi
-            fi
-          done
-
-          if [ "$DRY_RUN" = "true" ]; then
-            echo "✅ DRY RUN: Version bump simulation completed"
-          else
-            echo "✅ LIVE: Version bumps applied"
-          fi
-
-      - name: Commit version bumps
-        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add .
-          git commit -m "chore: bump versions for release [skip ci]" || echo "No changes to commit"
-          git push
