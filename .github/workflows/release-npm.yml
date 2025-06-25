@@ -183,7 +183,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm ci
+        uses: ./.github/actions/npm-install-with-retries
 
       - name: Display Release Plan
         if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'

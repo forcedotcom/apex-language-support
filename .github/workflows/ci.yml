@@ -28,7 +28,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci || (sleep 10 && npm ci)
+        uses: ./.github/actions/npm-install-with-retries
 
       - name: Run linting
         run: npm run lint
