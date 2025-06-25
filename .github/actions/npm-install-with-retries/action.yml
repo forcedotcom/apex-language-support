@@ -7,7 +7,10 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Set npm fetch timeout
+      shell: bash
+      run: npm config set fetch-timeout 600000
     - name: npm ci
       uses: salesforcecli/github-workflows/.github/actions/retry@main
       with:
-        command: npm config set fetch-timeout 600000 && npm ci ${{ inputs.ignore-scripts == 'true' && '--ignore-scripts' || '' }} 
+        command: npm ci ${{ inputs.ignore-scripts == 'true' && '--ignore-scripts' || '' }} 
