@@ -49,19 +49,13 @@ jobs:
   download-artifacts:
     runs-on: ubuntu-latest
     outputs:
-      vsix_files: ${{ steps.find_vsix.outputs.vsix_files }}
+      vsix_files: ${{ steps.download.outputs.vsix_files }}
     steps:
       - name: Download VSIX artifacts
-        uses: actions/download-artifact@v4
+        id: download
+        uses: ./.github/actions/download-vsix-artifacts
         with:
-          name: ${{ inputs.artifact-name }}
-          path: ./vsix-artifacts
-
-      - name: Find VSIX files
-        id: find_vsix
-        run: |
-          VSIX_FILES=$(find ./vsix-artifacts -name "*.vsix" | jq -R -s -c 'split("\n")[:-1]')
-          echo "vsix_files=$VSIX_FILES" >> $GITHUB_OUTPUT
+          artifact-name: ${{ inputs.artifact-name }}
 
   publish:
     runs-on: ubuntu-latest
@@ -93,23 +87,11 @@ jobs:
           ref: ${{ github.event.inputs.branch || inputs.branch || github.ref }}
 
       - name: Publish to VS Code Marketplace
-        run: |
-          echo "Publishing ${{ matrix.vsix }}"
-          PRE_RELEASE_FLAG=""
-          if [ "${{ inputs.pre-release }}" = "true" ]; then
-            PRE_RELEASE_FLAG="--pre-release"
-            echo "Would publish as pre-release version"
-          fi
-          if [ "${{ inputs.dry-run }}" = "true" ]; then
-            echo "🔍 DRY RUN MODE - Would publish to VS Code Marketplace:"
-            echo "  VSIX: ${{ matrix.vsix }}"
-            echo "  Pre-release: ${{ inputs.pre-release }}"
-            echo "  Command: npx vsce publish --pat [PAT] --packagePath \"${{ matrix.vsix }}\" --skip-duplicate $PRE_RELEASE_FLAG"
-            echo "✅ Dry run completed - no actual publish performed"
-          else
-            echo "Publishing VSIX: ${{ matrix.vsix }}"
-            npx vsce publish --pat ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }} --packagePath "${{ matrix.vsix }}" --skip-duplicate $PRE_RELEASE_FLAG
-            echo "✅ Successfully published to VSCode Marketplace"
-          fi
-        env:
-          VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
+        uses: ./.github/actions/publish-vsix
+        with:
+          vsix-path: ${{ matrix.vsix }}
+          publish-tool: vsce
+          pat-secret: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
+          marketplace-name: VSCode Marketplace
+          pre-release: ${{ inputs.pre-release }}
+          dry-run: ${{ inputs.dry-run }}

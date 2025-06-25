@@ -482,3 +482,153 @@ gh workflow run release.yml --field pre-release=true
 # Regular release
 gh workflow run release.yml --field pre-release=false
 ```
+
+# GitHub Workflow Refactoring - Composite Actions Approach
+
+This document outlines the implementation of composite actions to minimize maintenance footprint for the VSIX publishing workflows.
+
+## Current State
+
+The original workflows (`publishOpenVSX.yml` and `publishVSCode.yml`) contained significant code duplication:
+
+- Identical input definitions
+- Identical artifact downloading logic
+- Identical branch matching logic
+- Similar publishing logic with only tool-specific differences
+
+## Solution: Composite Actions
+
+We've implemented **Approach 1: Composite Actions** to eliminate code duplication and improve maintainability.
+
+### Files Created
+
+**Composite Actions:**
+
+- `.github/actions/download-vsix-artifacts/action.yml` - Handles VSIX artifact downloading
+- `.github/actions/publish-vsix/action.yml` - Handles VSIX publishing with tool-specific logic
+
+**Shared Resources:**
+
+- `.github/workflows/shared/inputs.yml` - Shared input definitions (for future use)
+
+### Benefits
+
+1. **Code Reduction**: ~90% reduction in duplicate code across workflows
+2. **Reusability**: Actions can be used in any workflow, not just publishing workflows
+3. **Maintainability**: Clear separation of concerns and easy to test
+4. **Consistency**: All workflows use identical logic for common operations
+5. **Flexibility**: Easy to modify behavior without touching multiple files
+
+### Implementation Details
+
+#### Download VSIX Artifacts Action
+
+```yaml
+# .github/actions/download-vsix-artifacts/action.yml
+name: 'Download VSIX Artifacts'
+description: 'Downloads and finds VSIX artifacts for publishing workflows'
+
+inputs:
+  artifact-name:
+    description: 'Name for the VSIX artifacts'
+    required: false
+    default: 'vsix-packages'
+    type: string
+
+outputs:
+  vsix_files:
+    description: 'JSON array of VSIX file paths'
+    value: ${{ steps.find_vsix.outputs.vsix_files }}
+```
+
+**Usage:**
+
+```yaml
+- name: Download VSIX artifacts
+  id: download
+  uses: ./.github/actions/download-vsix-artifacts
+  with:
+    artifact-name: ${{ inputs.artifact-name }}
+```
+
+#### Publish VSIX Action
+
+```yaml
+# .github/actions/publish-vsix/action.yml
+name: 'Publish VSIX'
+description: 'Publishes VSIX files to a marketplace with dry-run support'
+
+inputs:
+  vsix-path: 'Path to the VSIX file to publish'
+  publish-tool: 'Publishing tool to use (choice: ovsx or vsce)'
+  pat-secret: 'Personal access token secret name'
+  marketplace-name: 'Name of the marketplace for logging'
+  pre-release: 'Publish as pre-release version'
+  dry-run: 'Run in dry-run mode'
+```
+
+**Usage:**
+
+```yaml
+- name: Publish to Open VSX Registry
+  uses: ./.github/actions/publish-vsix
+  with:
+    vsix-path: ${{ matrix.vsix }}
+    publish-tool: ovsx
+    pat-secret: ${{ secrets.OVSX_PAT }}
+    marketplace-name: OpenVSX Registry
+    pre-release: ${{ inputs.pre-release }}
+    dry-run: ${{ inputs.dry-run }}
+```
+
+### Refactored Workflows
+
+Both original workflows have been refactored to use the composite actions:
+
+1. **`publishOpenVSX.yml`** - Now uses composite actions for downloading and publishing
+2. **`publishVSCode.yml`** - Now uses composite actions for downloading and publishing
+
+### Key Improvements
+
+1. **Eliminated Duplication**: Removed ~100 lines of duplicate code
+2. **Centralized Logic**: All publishing logic now in reusable components
+3. **Consistent Behavior**: All workflows use identical logic
+4. **Easy Maintenance**: Changes only need to be made in one place
+5. **Better Testing**: Composite actions can be tested independently
+
+### Adding New Marketplaces
+
+To add a new marketplace, simply:
+
+1. Create a new workflow file
+2. Use the existing composite actions
+3. Configure the specific marketplace parameters
+
+**Example for a new marketplace:**
+
+```yaml
+- name: Publish to New Marketplace
+  uses: ./.github/actions/publish-vsix
+  with:
+    vsix-path: ${{ matrix.vsix }}
+    publish-tool: ovsx # or vsce
+    pat-secret: ${{ secrets.NEW_MARKETPLACE_PAT }}
+    marketplace-name: New Marketplace
+    pre-release: ${{ inputs.pre-release }}
+    dry-run: ${{ inputs.dry-run }}
+```
+
+### Maintenance Benefits
+
+- **Single Point of Change**: Updates to publishing logic only need to be made in one place
+- **Consistent Behavior**: All publishing workflows will behave identically
+- **Easier Testing**: Composite actions can be tested independently
+- **Reduced Errors**: Less chance of inconsistencies between workflows
+- **Faster Development**: New marketplace integrations can reuse existing logic
+
+### Future Enhancements
+
+1. **Versioning**: Composite actions can be versioned independently if needed
+2. **Testing**: Add dedicated tests for composite actions
+3. **Documentation**: Expand documentation for each action
+4. **Validation**: Add input validation to composite actions

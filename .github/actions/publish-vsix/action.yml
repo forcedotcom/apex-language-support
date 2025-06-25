@@ -1,0 +1,68 @@
+name: 'Publish VSIX'
+description: 'Publishes VSIX files to a marketplace with dry-run support'
+
+inputs:
+  vsix-path:
+    description: 'Path to the VSIX file to publish'
+    required: true
+    type: string
+  publish-tool:
+    description: 'Publishing tool to use'
+    required: true
+    type: choice
+    options:
+      - ovsx
+      - vsce
+  pat-secret:
+    description: 'Personal access token secret name'
+    required: true
+    type: string
+  marketplace-name:
+    description: 'Name of the marketplace for logging'
+    required: true
+    type: string
+  pre-release:
+    description: 'Publish as pre-release version'
+    required: false
+    default: 'false'
+    type: string
+  dry-run:
+    description: 'Run in dry-run mode'
+    required: false
+    default: 'false'
+    type: string
+
+runs:
+  using: composite
+  steps:
+    - name: Publish VSIX
+      shell: bash
+      run: |
+        echo "Publishing ${{ inputs.vsix-path }}"
+        PRE_RELEASE_FLAG=""
+        if [ "${{ inputs.pre-release }}" = "true" ]; then
+          PRE_RELEASE_FLAG="--pre-release"
+          echo "Would publish as pre-release version"
+        fi
+        
+        if [ "${{ inputs.dry-run }}" = "true" ]; then
+          echo "🔍 DRY RUN MODE - Would publish to ${{ inputs.marketplace-name }}:"
+          echo "  VSIX: ${{ inputs.vsix-path }}"
+          echo "  Pre-release: ${{ inputs.pre-release }}"
+          
+          if [ "${{ inputs.publish-tool }}" = "ovsx" ]; then
+            echo "  Command: npx ovsx publish \"${{ inputs.vsix-path }}\" -p [PAT] $PRE_RELEASE_FLAG"
+          else
+            echo "  Command: npx vsce publish --pat [PAT] --packagePath \"${{ inputs.vsix-path }}\" --skip-duplicate $PRE_RELEASE_FLAG"
+          fi
+          echo "✅ Dry run completed - no actual publish performed"
+        else
+          echo "Publishing VSIX: ${{ inputs.vsix-path }}"
+          
+          if [ "${{ inputs.publish-tool }}" = "ovsx" ]; then
+            npx ovsx publish "${{ inputs.vsix-path }}" -p ${{ inputs.pat-secret }} $PRE_RELEASE_FLAG
+          else
+            npx vsce publish --pat ${{ inputs.pat-secret }} --packagePath "${{ inputs.vsix-path }}" --skip-duplicate $PRE_RELEASE_FLAG
+          fi
+          echo "✅ Successfully published to ${{ inputs.marketplace-name }}"
+        fi 

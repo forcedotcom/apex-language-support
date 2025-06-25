@@ -18,6 +18,9 @@ module.exports = {
   testMatch: ['**/test/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   rootDir: '.',
+  transform: {
+    '^.+\\.ts$': 'ts-jest',
+  },
   moduleNameMapper: {
     '^@salesforce/apex-lsp-logging$':
       '<rootDir>/packages/apex-lsp-logging/src/index.ts',
@@ -40,6 +43,7 @@ module.exports = {
   transformIgnorePatterns: [
     '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts)).+\\.js$',
   ],
+  testPathIgnorePatterns: ['/node_modules/'],
 
   // Coverage configuration
   collectCoverage: false, // Disabled by default, enabled by --coverage flag
@@ -47,7 +51,6 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'clover', 'html', 'json'],
   collectCoverageFrom: [
     'packages/*/src/**/*.ts',
-    '!**/node_modules/**',
     '!**/out/**',
     '!**/test/**',
     '!**/*.d.ts',
