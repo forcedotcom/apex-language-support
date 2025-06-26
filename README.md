@@ -15,37 +15,37 @@ graph TD
         custom-services[custom-services]
         lsp-compliant-services[lsp-compliant-services]
     end
-    
+
     subgraph "Node.js Runtime"
         apex-ls-node[apex-ls-node]
         apex-lsp-vscode-extension[apex-lsp-vscode-extension]
         apex-lsp-vscode-client[apex-lsp-vscode-client]
     end
-    
+
     subgraph "Browser Runtime"
         apex-ls-browser[apex-ls-browser]
         apex-lsp-browser-client[apex-lsp-browser-client]
     end
-    
+
     subgraph "Testing & Development"
         apex-lsp-testbed[apex-lsp-testbed]
     end
-    
+
     %% Core dependencies
     apex-parser-ast --> custom-services
     apex-parser-ast --> lsp-compliant-services
-    
+
     %% Node.js implementation
     custom-services --> apex-ls-node
     lsp-compliant-services --> apex-ls-node
     apex-ls-node --> apex-lsp-vscode-client
     apex-lsp-vscode-client --> apex-lsp-vscode-extension
-    
+
     %% Browser implementation
     custom-services --> apex-ls-browser
     lsp-compliant-services --> apex-ls-browser
     apex-ls-browser --> apex-lsp-browser-client
-    
+
     %% Testing dependencies
     apex-ls-node --> apex-lsp-testbed
     apex-ls-browser --> apex-lsp-testbed
@@ -81,6 +81,7 @@ graph TD
 The repository provides two parallel implementations of the language server:
 
 1. **Node.js implementation** (`apex-ls-node`):
+
    - Runs in Node.js environment
    - Uses file system for storage
    - Designed for desktop IDE integration (VS Code)
@@ -206,6 +207,99 @@ Global coverage thresholds are set in the Jest configuration file:
 - Lines: 50%
 
 These thresholds can be adjusted per package as needed.
+
+## CI/CD and Release Processes
+
+This project uses GitHub Actions for continuous integration and automated releases. The workflows are designed to handle both VS Code extensions and NPM packages.
+
+### Automated Workflows
+
+#### CI Pipeline
+
+- **Trigger**: Push to `main` branch or pull requests
+- **Platforms**: Ubuntu and Windows with Node.js 20.x and LTS versions
+- **Tasks**: Linting, compilation, testing with coverage, and packaging
+
+#### Release Workflows
+
+##### VS Code Extensions Release
+
+The `release-extensions.yml` workflow handles automated releases of VS Code extensions:
+
+- **Supported Extensions**:
+  - `apex-lsp-vscode-extension` (VS Code Marketplace)
+  - `apex-lsp-vscode-extension-web` (OpenVSX Registry)
+- **Triggers**: Manual dispatch, workflow calls, or scheduled nightly builds
+- **Features**:
+  - Smart change detection (only releases extensions with changes)
+  - Version bumping with even/odd minor version strategy for pre-releases
+  - Dry-run mode for testing release plans
+  - Support for multiple registries (VSCE, OVSX)
+  - Automated GitHub releases with VSIX artifacts
+
+##### NPM Packages Release
+
+The `release-npm.yml` workflow handles automated releases of NPM packages:
+
+- **Supported Packages**: All packages in the monorepo
+- **Triggers**: Manual dispatch or workflow calls
+- **Features**:
+  - Conventional commit-based version bumping
+  - Automated NPM publishing
+  - Change detection to avoid unnecessary releases
+
+### Release Strategies
+
+#### Version Bumping
+
+- **Auto**: Determined by conventional commit messages
+- **Manual**: Patch, minor, or major bumps
+- **Pre-release**: Uses odd minor versions (1.1.x, 1.3.x)
+- **Stable**: Uses even minor versions (1.0.x, 1.2.x)
+
+#### Nightly Builds
+
+- Scheduled builds that create pre-release versions
+- Use patch version bumps with nightly timestamps
+- Automatically marked as pre-releases
+
+### Manual Release Process
+
+To manually trigger a release:
+
+1. **VS Code Extensions**:
+
+   ```bash
+   # Go to Actions tab in GitHub
+   # Select "Release VS Code Extensions"
+   # Choose extensions, registries, and options
+   # Set dry-run=true to test first
+   ```
+
+2. **NPM Packages**:
+   ```bash
+   # Go to Actions tab in GitHub
+   # Select "Release NPM Packages"
+   # Choose packages and options
+   ```
+
+### Dry-Run Mode
+
+Both release workflows support dry-run mode for testing:
+
+- Simulates the entire release process without making actual changes
+- Shows what would be released and to which registries
+- Displays version bump calculations
+- Perfect for testing release configurations
+
+### Dependencies
+
+The workflows require several tools and dependencies:
+
+- **Node.js 20.x**: For building and packaging
+- **jq**: For JSON processing (pre-installed on Ubuntu runners)
+- **GitHub CLI**: For creating releases
+- **VSCE/OVSX**: For publishing to marketplaces
 
 ## License
 

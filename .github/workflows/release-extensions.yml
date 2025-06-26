@@ -611,13 +611,27 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: |
+          # jq should be pre-installed on Ubuntu runners, but let's ensure it's available
+          if ! command -v jq &> /dev/null; then
+            echo "jq not found, installing..."
+            sudo apt-get update && sudo apt-get install -y jq
+          else
+            echo "jq is already installed: $(jq --version)"
+          fi
+
       - name: Determine publish matrix
         id: matrix
         run: |
           REGISTRIES="${{ inputs.registries }}"
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
 
-          MATRIX_ENTRIES="[]"
+          # Initialize empty JSON array
+          MATRIX_ENTRIES='[]'
 
           # Determine which registries to include
           REGISTRY_LIST=""
@@ -648,12 +662,19 @@ jobs:
                     ;;
                 esac
                 
-                ENTRY="{\"registry\": \"$registry\", \"vsix_pattern\": \"$VSIX_PATTERN\", \"marketplace\": \"$MARKETPLACE\"}"
+                # Create JSON entry and add to matrix
+                ENTRY=$(jq -n \
+                  --arg registry "$registry" \
+                  --arg vsix_pattern "$VSIX_PATTERN" \
+                  --arg marketplace "$MARKETPLACE" \
+                  '{registry: $registry, vsix_pattern: $vsix_pattern, marketplace: $marketplace}')
+                
                 MATRIX_ENTRIES=$(echo "$MATRIX_ENTRIES" | jq --argjson entry "$ENTRY" '. += [$entry]')
               done
             fi
           done
 
+          # Output the matrix as a single line to avoid formatting issues
           echo "matrix=$MATRIX_ENTRIES" >> $GITHUB_OUTPUT
           echo "Publish matrix: $MATRIX_ENTRIES"
 

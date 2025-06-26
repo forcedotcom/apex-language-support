@@ -181,27 +181,7 @@ graph LR
 
 **Purpose:** Create VSIX files for extensions.
 
-### 5. Publish Workflows
-
-#### VSCode Marketplace (`publishVSCode.yml`)
-
-```mermaid
-graph LR
-    A[Package Workflow] --> B[Download Artifacts]
-    B --> C[Find Desktop Extension]
-    C --> D[Publish to VSCode Marketplace]
-```
-
-#### OpenVSX Registry (`publishOpenVSX.yml`)
-
-```mermaid
-graph LR
-    A[Package Workflow] --> B[Download Artifacts]
-    B --> C[Find Web Extension]
-    C --> D[Publish to OpenVSX Registry]
-```
-
-### 6. Additional Workflows
+### 5. Additional Workflows
 
 #### Performance Benchmarks (`benchmark.yml`)
 

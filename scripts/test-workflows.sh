@@ -73,8 +73,6 @@ test_workflow_files() {
     local workflows=(
         ".github/workflows/ci.yml"
         ".github/workflows/package.yml"
-        ".github/workflows/publishVSCode.yml"
-        ".github/workflows/publishOpenVSX.yml"
         ".github/workflows/release-npm.yml"
         ".github/workflows/release-extensions.yml"
         ".github/workflows/release.yml"
