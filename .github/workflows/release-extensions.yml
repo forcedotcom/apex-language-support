@@ -489,28 +489,6 @@ jobs:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
 
-      - name: Debug - List downloaded artifacts
-        run: |
-          echo "=== DEBUG: Downloaded Artifacts ==="
-          echo "Artifact name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}"
-          echo "Download path: ./vsix-artifacts"
-          echo ""
-
-          if [ -d "./vsix-artifacts" ]; then
-            echo "Directory exists. Contents:"
-            ls -la ./vsix-artifacts/
-            echo ""
-            
-            echo "VSIX files found:"
-            find ./vsix-artifacts -name "*.vsix" -exec ls -la {} \;
-            echo ""
-            
-            echo "Total VSIX files: $(find ./vsix-artifacts -name "*.vsix" | wc -l)"
-          else
-            echo "❌ Directory ./vsix-artifacts does not exist!"
-          fi
-          echo "=== END DEBUG ==="
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -725,6 +703,28 @@ jobs:
         with:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
+
+      - name: Debug - List downloaded artifacts
+        run: |
+          echo "=== DEBUG: Downloaded Artifacts ==="
+          echo "Artifact name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}"
+          echo "Download path: ./vsix-artifacts"
+          echo ""
+
+          if [ -d "./vsix-artifacts" ]; then
+            echo "Directory exists. Contents:"
+            ls -la ./vsix-artifacts/
+            echo ""
+            
+            echo "VSIX files found:"
+            find ./vsix-artifacts -name "*.vsix" -exec ls -la {} \;
+            echo ""
+            
+            echo "Total VSIX files: $(find ./vsix-artifacts -name "*.vsix" | wc -l)"
+          else
+            echo "❌ Directory ./vsix-artifacts does not exist!"
+          fi
+          echo "=== END DEBUG ==="
 
       - name: Find VSIX file for publishing
         id: find_vsix
