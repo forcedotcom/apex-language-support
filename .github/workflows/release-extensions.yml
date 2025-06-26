@@ -434,7 +434,20 @@ jobs:
           git config --local user.name "GitHub Action"
           git add .
           git commit -m "chore: bump versions for release [skip ci]" || echo "No changes to commit"
-          git push
+
+          # Try direct push first, fall back to PR if branch protection blocks it
+          if ! git push origin HEAD:${{ inputs.branch || github.ref_name }} 2>/dev/null; then
+            echo "Direct push failed, creating pull request instead..."
+            git push origin HEAD:chore/bump-versions-$(date +%Y%m%d-%H%M%S)
+            
+            # Create PR using GitHub CLI
+            gh pr create \
+              --title "chore: bump versions for release" \
+              --body "Automated version bump for release process" \
+              --base ${{ inputs.branch || github.ref_name }} \
+              --head chore/bump-versions-$(date +%Y%m%d-%H%M%S) \
+              --label "automated,release" || echo "PR creation failed"
+          fi
 
   calculate-artifact-name:
     runs-on: ubuntu-latest
@@ -468,20 +481,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ inputs.branch || github.ref }}
 
       - name: Download VSIX artifacts
-        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
-
-      - name: Setup dry-run artifacts
-        if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
-        run: |
-          mkdir -p ./dry-run-artifacts
-          find . -name '*.vsix' -exec cp {} ./dry-run-artifacts/ \;
-          echo "✅ Dry-run: VSIX artifacts created in ./dry-run-artifacts/"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -502,13 +508,6 @@ jobs:
           echo "Version bump: $VERSION_BUMP"
           echo "Extensions: $SELECTED_EXTENSIONS"
 
-          # Set artifacts directory based on dry-run mode
-          if [ "$DRY_RUN" = "true" ]; then
-            ARTIFACTS_DIR="./dry-run-artifacts"
-          else
-            ARTIFACTS_DIR="./vsix-artifacts"
-          fi
-
           # Convert comma-separated list to array
           IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
 
@@ -522,10 +521,10 @@ jobs:
               
               # Find VSIX file for this extension
               VSIX_PATTERN="*${ext}*.vsix"
-              VSIX_FILES=$(find "$ARTIFACTS_DIR" -name "$VSIX_PATTERN")
+              VSIX_FILES=$(find "./vsix-artifacts" -name "$VSIX_PATTERN")
               
               if [ -z "$VSIX_FILES" ]; then
-                echo "No VSIX files found for $ext in $ARTIFACTS_DIR"
+                echo "No VSIX files found for $ext in ./vsix-artifacts"
                 continue
               fi
               
@@ -700,30 +699,15 @@ jobs:
           ref: ${{ inputs.branch || github.ref }}
 
       - name: Download VSIX artifacts
-        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
         uses: actions/download-artifact@v4
         with:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
 
-      - name: Setup dry-run artifacts
-        if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
-        run: |
-          mkdir -p ./dry-run-artifacts
-          find . -name '*.vsix' -exec cp {} ./dry-run-artifacts/ \;
-          echo "✅ Dry-run: VSIX artifacts created in ./dry-run-artifacts/"
-
       - name: Find VSIX file for publishing
         id: find_vsix
         run: |
-          # Set artifacts directory based on dry-run mode
-          if [ "${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}" = "true" ]; then
-            ARTIFACTS_DIR="./dry-run-artifacts"
-          else
-            ARTIFACTS_DIR="./vsix-artifacts"
-          fi
-
-          # Find the specific VSIX file for this matrix entry
+          ARTIFACTS_DIR="./vsix-artifacts"
           VSIX_PATTERN="${{ matrix.vsix_pattern }}"
           VSIX_FILE=$(find "$ARTIFACTS_DIR" -name "$VSIX_PATTERN" | head -1)
 
