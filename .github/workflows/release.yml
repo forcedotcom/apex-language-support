@@ -68,6 +68,12 @@ on:
   #     - '.github/workflows/README.md'
   #     - 'docs/**'
 
+# Add explicit permissions for security
+permissions:
+  contents: write # Needed for version bumps and releases
+  packages: write # Needed for publishing to registries
+  actions: read
+
 jobs:
   get-packages:
     runs-on: ubuntu-latest

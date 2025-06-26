@@ -1,0 +1,48 @@
+# GitHub Security Configuration
+# This file configures security features for the repository
+
+# Enable secret scanning
+secret_scanning:
+  status: enabled
+  push_protection:
+    status: enabled
+  push_protection_bypass:
+    status: disabled
+
+# Enable dependency scanning
+dependency_review:
+  status: enabled
+
+# Enable code scanning
+code_scanning:
+  status: enabled
+  default_setup:
+    languages:
+      - javascript
+      - typescript
+    queries:
+      - security-extended
+      - security-and-quality
+
+# Configure branch protection rules
+branch_protection:
+  required_status_checks:
+    strict: true
+    contexts:
+      - "CI / Test"
+      - "CI / Package"
+  enforce_admins: true
+  required_pull_request_reviews:
+    required_approving_review_count: 2
+    dismiss_stale_reviews: true
+    require_code_owner_reviews: true
+  restrictions:
+    users: []
+    teams:
+      - "@forcedotcom/ide-experience"
+
+# Configure security policy
+security_policy:
+  enabled: true
+  contact_email: "security@forcedotcom.com"
+  responsible_disclosure: true 

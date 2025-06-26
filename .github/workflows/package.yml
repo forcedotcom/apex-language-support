@@ -45,6 +45,11 @@ on:
         default: 'false'
         type: string
 
+# Add explicit permissions for security
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   package:
     name: Package

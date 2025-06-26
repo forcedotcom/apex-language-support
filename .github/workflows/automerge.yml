@@ -16,11 +16,44 @@ on:
       - completed
   status: ~
 
+# Add explicit permissions for security
+permissions:
+  contents: write # Needed for merging
+  pull-requests: write # Needed for merging
+  actions: read
+
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]' || contains(github.event.pull_request.labels.*.name, 'automerge')
     steps:
+      - name: Audit automerge attempt
+        shell: bash
+        run: |
+          # Create audit log entry for automerge attempt
+          AUDIT_LOG="/tmp/automerge_audit.log"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          ACTOR="${{ github.actor }}"
+          REPO="${{ github.repository }}"
+          RUN_ID="${{ github.run_id }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          TRIGGER_TYPE="${{ github.event_name }}"
+
+          # Log audit information
+          echo "[$TIMESTAMP] AUTOMERGE_ATTEMPT: actor=$ACTOR, repo=$REPO, run_id=$RUN_ID, pr_number=$PR_NUMBER, pr_title=\"$PR_TITLE\", pr_author=$PR_AUTHOR, trigger_type=$TRIGGER_TYPE" >> "$AUDIT_LOG"
+
+          # Also log to GitHub Actions output for visibility
+          echo "🔍 AUDIT: Automerge attempt logged - $TIMESTAMP"
+          echo "  Actor: $ACTOR"
+          echo "  Repository: $REPO"
+          echo "  Run ID: $RUN_ID"
+          echo "  PR Number: $PR_NUMBER"
+          echo "  PR Title: $PR_TITLE"
+          echo "  PR Author: $PR_AUTHOR"
+          echo "  Trigger Type: $TRIGGER_TYPE"
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -33,3 +66,22 @@ jobs:
           MERGE_RETRIES: '6'
           MERGE_RETRY_SLEEP: '10000'
           MERGE_REQUIRED_APPROVALS: '1'
+
+      - name: Audit automerge result
+        shell: bash
+        run: |
+          # Log the result of the automerge attempt
+          AUDIT_LOG="/tmp/automerge_audit.log"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          ACTOR="${{ github.actor }}"
+          REPO="${{ github.repository }}"
+          RUN_ID="${{ github.run_id }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+
+          if [ $? -eq 0 ]; then
+            echo "[$TIMESTAMP] AUTOMERGE_SUCCESS: actor=$ACTOR, repo=$REPO, run_id=$RUN_ID, pr_number=$PR_NUMBER" >> "$AUDIT_LOG"
+            echo "✅ AUDIT: Automerge successful - $TIMESTAMP"
+          else
+            echo "[$TIMESTAMP] AUTOMERGE_FAILURE: actor=$ACTOR, repo=$REPO, run_id=$RUN_ID, pr_number=$PR_NUMBER" >> "$AUDIT_LOG"
+            echo "❌ AUDIT: Automerge failed - $TIMESTAMP"
+          fi

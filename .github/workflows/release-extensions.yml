@@ -73,6 +73,12 @@ on:
         default: 'false'
         type: string
 
+# Add explicit permissions for security
+permissions:
+  contents: write # Needed for version bumps and releases
+  packages: write # Needed for publishing to registries
+  actions: read
+
 jobs:
   determine-build-type:
     runs-on: ubuntu-latest
@@ -427,27 +433,44 @@ jobs:
             echo "✅ LIVE: Version bumps applied"
           fi
 
+      - name: Validate GitHub authentication
+        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+        run: |
+          # Validate that required tokens are present
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "❌ Error: GITHUB_TOKEN is not set"
+            exit 1
+          fi
+
+          # Test GitHub CLI authentication
+          if ! gh auth status >/dev/null 2>&1; then
+            echo "❌ Error: GitHub CLI authentication failed"
+            exit 1
+          fi
+
+          echo "✅ GitHub authentication validated"
+
       - name: Commit version bumps
         if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+        env:
+          # Ensure GitHub CLI has proper authentication
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add .
-          git commit -m "chore: bump versions for release [skip ci]" || echo "No changes to commit"
+          git commit -m "chore: bump versions for release [skip ci]"
 
-          # Try direct push first, fall back to PR if branch protection blocks it
-          if ! git push origin HEAD:${{ inputs.branch || github.ref_name }} 2>/dev/null; then
-            echo "Direct push failed, creating pull request instead..."
-            git push origin HEAD:chore/bump-versions-$(date +%Y%m%d-%H%M%S)
-            
-            # Create PR using GitHub CLI
-            gh pr create \
-              --title "chore: bump versions for release" \
-              --body "Automated version bump for release process" \
-              --base ${{ inputs.branch || github.ref_name }} \
-              --head chore/bump-versions-$(date +%Y%m%d-%H%M%S) \
-              --label "automated,release" || echo "PR creation failed"
+          # Push version bumps - fail if branch protection blocks it
+          echo "Pushing version bumps to ${{ inputs.branch || github.ref_name }}..."
+          if ! git push origin HEAD:${{ inputs.branch || github.ref_name }}; then
+            echo "❌ Error: Direct push failed. This may be due to branch protection rules."
+            echo "The workflow requires direct push access to ${{ inputs.branch || github.ref_name }}"
+            echo "Please ensure the workflow has proper permissions or run manually."
+            exit 1
           fi
+
+          echo "✅ Version bumps pushed successfully"
 
   calculate-artifact-name:
     runs-on: ubuntu-latest
@@ -494,7 +517,27 @@ jobs:
         with:
           node-version: '20.x'
 
+      - name: Validate GitHub authentication
+        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+        run: |
+          # Validate that required tokens are present
+          if [ -z "$GITHUB_TOKEN" ]; then
+            echo "❌ Error: GITHUB_TOKEN is not set"
+            exit 1
+          fi
+
+          # Test GitHub CLI authentication
+          if ! gh auth status >/dev/null 2>&1; then
+            echo "❌ Error: GitHub CLI authentication failed"
+            exit 1
+          fi
+
+          echo "✅ GitHub authentication validated"
+
       - name: Create GitHub Releases
+        env:
+          # Ensure GitHub CLI has proper authentication
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           DRY_RUN="${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
           PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
@@ -585,13 +628,13 @@ jobs:
                 echo "Tag: $RELEASE_TAG"
                 echo "Pre-release: $PRE_RELEASE"
                 
-                # Create release using GitHub CLI
+                # Create release using GitHub CLI with proper authentication
                 gh release create "$RELEASE_TAG" \
                   --title "$RELEASE_TITLE" \
                   --notes "$RELEASE_NOTES" \
                   --prerelease="$PRE_RELEASE" \
                   --repo "$GITHUB_REPOSITORY" \
-                  $VSIX_FILES || echo "Release creation failed or already exists"
+                  $VSIX_FILES
                 
                 echo "✅ Release created for $ext"
               fi
@@ -704,6 +747,32 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.determine-publish-matrix.outputs.matrix) }}
     steps:
+      - name: Audit release attempt
+        shell: bash
+        run: |
+          # Create audit log entry for release attempt
+          AUDIT_LOG="/tmp/release_audit.log"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          ACTOR="${{ github.actor }}"
+          REPO="${{ github.repository }}"
+          RUN_ID="${{ github.run_id }}"
+          WORKFLOW="${{ github.workflow }}"
+          BRANCH="${{ inputs.branch || github.ref_name }}"
+
+          # Log audit information
+          echo "[$TIMESTAMP] RELEASE_ATTEMPT: actor=$ACTOR, repo=$REPO, run_id=$RUN_ID, workflow=$WORKFLOW, branch=$BRANCH, registry=${{ matrix.registry }}, marketplace=${{ matrix.marketplace }}, dry_run=${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}" >> "$AUDIT_LOG"
+
+          # Also log to GitHub Actions output for visibility
+          echo "🔍 AUDIT: Release attempt logged - $TIMESTAMP"
+          echo "  Actor: $ACTOR"
+          echo "  Repository: $REPO"
+          echo "  Run ID: $RUN_ID"
+          echo "  Workflow: $WORKFLOW"
+          echo "  Branch: $BRANCH"
+          echo "  Registry: ${{ matrix.registry }}"
+          echo "  Marketplace: ${{ matrix.marketplace }}"
+          echo "  Dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -758,9 +827,32 @@ jobs:
 
       - name: Publish to ${{ matrix.marketplace }}
         uses: ./.github/actions/publish-vsix
+        env:
+          # Pass tokens as environment variables for better security
+          VSCE_PERSONAL_ACCESS_TOKEN: ${{ matrix.registry == 'vsce' && secrets.VSCE_PERSONAL_ACCESS_TOKEN || '' }}
+          OVSX_PAT: ${{ matrix.registry == 'ovsx' && secrets.OVSX_PAT || '' }}
         with:
           vsix-path: ${{ steps.find_vsix.outputs.vsix_file }}
           publish-tool: ${{ matrix.registry }}
-          pat-secret: ${{ matrix.registry == 'vsce' && secrets.VSCE_PERSONAL_ACCESS_TOKEN || secrets.OVSX_PAT }}
           pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
           dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
+
+      - name: Audit release result
+        shell: bash
+        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+        run: |
+          # Log the result of the release attempt
+          AUDIT_LOG="/tmp/release_audit.log"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          ACTOR="${{ github.actor }}"
+          REPO="${{ github.repository }}"
+          RUN_ID="${{ github.run_id }}"
+          BRANCH="${{ inputs.branch || github.ref_name }}"
+
+          if [ $? -eq 0 ]; then
+            echo "[$TIMESTAMP] RELEASE_SUCCESS: actor=$ACTOR, repo=$REPO, run_id=$RUN_ID, branch=$BRANCH, registry=${{ matrix.registry }}, marketplace=${{ matrix.marketplace }}" >> "$AUDIT_LOG"
+            echo "✅ AUDIT: Release successful - $TIMESTAMP"
+          else
+            echo "[$TIMESTAMP] RELEASE_FAILURE: actor=$ACTOR, repo=$REPO, run_id=$RUN_ID, branch=$BRANCH, registry=${{ matrix.registry }}, marketplace=${{ matrix.marketplace }}" >> "$AUDIT_LOG"
+            echo "❌ AUDIT: Release failed - $TIMESTAMP"
+          fi
