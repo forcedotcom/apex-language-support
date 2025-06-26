@@ -645,7 +645,19 @@ jobs:
           for ext in "${EXTENSIONS[@]}"; do
             if [ -n "$ext" ]; then
               # Create VSIX pattern for this extension
-              VSIX_PATTERN="*${ext}*.vsix"
+              # Map extension names to their actual VSIX file patterns
+              case "$ext" in
+                "apex-lsp-vscode-extension")
+                  VSIX_PATTERN="*apex-language-server-extension*.vsix"
+                  ;;
+                "apex-lsp-vscode-extension-web")
+                  VSIX_PATTERN="*apex-language-server-extension-web*.vsix"
+                  ;;
+                *)
+                  # Fallback to original pattern
+                  VSIX_PATTERN="*${ext}*.vsix"
+                  ;;
+              esac
               
               # Add entry for each selected registry
               for registry in $REGISTRY_LIST; do
@@ -735,6 +747,9 @@ jobs:
 
           if [ -z "$VSIX_FILE" ]; then
             echo "❌ No VSIX file found matching pattern: $VSIX_PATTERN"
+            echo "Searching in: $ARTIFACTS_DIR"
+            echo "Available files:"
+            find "$ARTIFACTS_DIR" -name "*.vsix" -exec ls -la {} \;
             exit 1
           fi
 
