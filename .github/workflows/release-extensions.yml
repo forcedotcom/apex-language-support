@@ -675,7 +675,7 @@ jobs:
           done
 
           # Output the matrix as a single line to avoid formatting issues
-          echo "matrix=$MATRIX_ENTRIES" >> $GITHUB_OUTPUT
+          echo "matrix=$(echo "$MATRIX_ENTRIES" | jq -c .)" >> "$GITHUB_OUTPUT"
           echo "Publish matrix: $MATRIX_ENTRIES"
 
   publish:
