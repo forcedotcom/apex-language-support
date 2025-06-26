@@ -1,8 +1,6 @@
 name: Release VS Code Extensions
 
 on:
-  push:
-    branches: [main]
   workflow_call:
     inputs:
       branch:
@@ -15,8 +13,8 @@ on:
         required: false
         default: 'apex-lsp-vscode-extension'
         type: string
-      registry:
-        description: 'Registry to publish to'
+      registries:
+        description: 'Registries to publish to (all, vsce, ovsx)'
         required: false
         default: 'all'
         type: string
@@ -55,15 +53,15 @@ on:
           - all
           - apex-lsp-vscode-extension
           - apex-lsp-vscode-extension-web
-      registry:
-        description: 'Registry to publish to'
+      registries:
+        description: 'Registries to publish to'
         required: false
         default: 'all'
         type: choice
         options:
           - all
-          - vscode
-          - openvsx
+          - vsce
+          - ovsx
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'
         required: false
@@ -199,7 +197,7 @@ jobs:
           echo "Build type: ${{ github.event_name }}"
           echo "Is nightly: $IS_NIGHTLY"
           echo "Version bump type: $VERSION_BUMP"
-          echo "Registry: ${{ inputs.registry }}"
+          echo "Registries: ${{ inputs.registries }}"
           echo "Pre-release: $PRE_RELEASE"
           echo "Dry run mode: ENABLED"
           echo ""
@@ -264,15 +262,15 @@ jobs:
               echo "  Would create GitHub release: $ext$PRE_RELEASE_TEXT"
               
               # Show marketplace publishing information
-              IFS=',' read -ra REG_ARRAY <<< "${{ inputs.registry }}"
+              IFS=',' read -ra REG_ARRAY <<< "${{ inputs.registries }}"
               for registry in "${REG_ARRAY[@]}"; do
                 case "$registry" in
-                  "vscode"|"all")
+                  "vsce"|"all")
                     if [ "$ext" = "apex-lsp-vscode-extension" ]; then
                       echo "  Would publish to: VSCode Marketplace$PRE_RELEASE_TEXT"
                     fi
                     ;;
-                  "openvsx"|"all")
+                  "ovsx"|"all")
                     if [ "$ext" = "apex-lsp-vscode-extension-web" ]; then
                       echo "  Would publish to: OpenVSX Registry$PRE_RELEASE_TEXT"
                     fi
@@ -607,26 +605,120 @@ jobs:
             echo "✅ LIVE: GitHub releases created"
           fi
 
-  publish-vscode:
-    needs:
-      [bump-versions, package, create-github-releases, calculate-artifact-name]
-    if: (inputs.registry == 'all' || inputs.registry == 'vscode')
-    uses: ./.github/workflows/publishVSCode.yml
-    with:
-      branch: ${{ inputs.branch || github.ref_name }}
-      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
-      dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
-      artifact-name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
-    secrets: inherit
+  determine-publish-matrix:
+    needs: [determine-changes, calculate-artifact-name]
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Determine publish matrix
+        id: matrix
+        run: |
+          REGISTRIES="${{ inputs.registries }}"
+          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
 
-  publish-openvsx:
+          MATRIX_ENTRIES="[]"
+
+          # Determine which registries to include
+          REGISTRY_LIST=""
+          if [ "$REGISTRIES" = "all" ]; then
+            REGISTRY_LIST="vsce ovsx"
+          else
+            REGISTRY_LIST="$REGISTRIES"
+          fi
+
+          # Create matrix entries for each extension-registry combination
+          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
+          for ext in "${EXTENSIONS[@]}"; do
+            if [ -n "$ext" ]; then
+              # Create VSIX pattern for this extension
+              VSIX_PATTERN="*${ext}*.vsix"
+              
+              # Add entry for each selected registry
+              for registry in $REGISTRY_LIST; do
+                case "$registry" in
+                  "vsce")
+                    MARKETPLACE="VS Code Marketplace"
+                    ;;
+                  "ovsx")
+                    MARKETPLACE="Open VSX Registry"
+                    ;;
+                  *)
+                    MARKETPLACE="$registry"
+                    ;;
+                esac
+                
+                ENTRY="{\"registry\": \"$registry\", \"vsix_pattern\": \"$VSIX_PATTERN\", \"marketplace\": \"$MARKETPLACE\"}"
+                MATRIX_ENTRIES=$(echo "$MATRIX_ENTRIES" | jq --argjson entry "$ENTRY" '. += [$entry]')
+              done
+            fi
+          done
+
+          echo "matrix=$MATRIX_ENTRIES" >> $GITHUB_OUTPUT
+          echo "Publish matrix: $MATRIX_ENTRIES"
+
+  publish:
     needs:
-      [bump-versions, package, create-github-releases, calculate-artifact-name]
-    if: (inputs.registry == 'all' || inputs.registry == 'openvsx')
-    uses: ./.github/workflows/publishOpenVSX.yml
-    with:
-      branch: ${{ inputs.branch || github.ref_name }}
-      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
-      dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
-      artifact-name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
-    secrets: inherit
+      [
+        bump-versions,
+        package,
+        create-github-releases,
+        calculate-artifact-name,
+        determine-publish-matrix,
+      ]
+    runs-on: ubuntu-latest
+    if: needs.determine-publish-matrix.outputs.matrix != '[]'
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.determine-publish-matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ inputs.branch || github.ref }}
+
+      - name: Download VSIX artifacts
+        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
+          path: ./vsix-artifacts
+
+      - name: Setup dry-run artifacts
+        if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
+        run: |
+          mkdir -p ./dry-run-artifacts
+          find . -name '*.vsix' -exec cp {} ./dry-run-artifacts/ \;
+          echo "✅ Dry-run: VSIX artifacts created in ./dry-run-artifacts/"
+
+      - name: Find VSIX file for publishing
+        id: find_vsix
+        run: |
+          # Set artifacts directory based on dry-run mode
+          if [ "${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}" = "true" ]; then
+            ARTIFACTS_DIR="./dry-run-artifacts"
+          else
+            ARTIFACTS_DIR="./vsix-artifacts"
+          fi
+
+          # Find the specific VSIX file for this matrix entry
+          VSIX_PATTERN="${{ matrix.vsix_pattern }}"
+          VSIX_FILE=$(find "$ARTIFACTS_DIR" -name "$VSIX_PATTERN" | head -1)
+
+          if [ -z "$VSIX_FILE" ]; then
+            echo "❌ No VSIX file found matching pattern: $VSIX_PATTERN"
+            exit 1
+          fi
+
+          echo "vsix_file=$VSIX_FILE" >> $GITHUB_OUTPUT
+          echo "Found VSIX file: $VSIX_FILE"
+
+      - name: Publish to ${{ matrix.marketplace }}
+        uses: ./.github/actions/publish-vsix
+        with:
+          vsix-path: ${{ steps.find_vsix.outputs.vsix_file }}
+          publish-tool: ${{ matrix.registry }}
+          pat-secret: ${{ matrix.registry == 'vsce' && secrets.VSCE_PERSONAL_ACCESS_TOKEN || secrets.OVSX_PAT }}
+          pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
+          dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}

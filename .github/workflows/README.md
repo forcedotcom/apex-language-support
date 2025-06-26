@@ -10,45 +10,49 @@ graph TB
     subgraph "Triggers"
         A[Push to main] --> B[CI Workflow]
         A --> C[Release Workflow]
-        D[Manual Trigger] --> E[Release Workflow]
-        D --> F[Individual Workflows]
+        A --> D[Benchmark Workflow]
+        E[Manual Trigger] --> F[Release Workflow]
+        E --> G[Individual Workflows]
+        H[PR Events] --> I[Validate PR]
+        H --> J[Automerge]
     end
 
     %% CI Workflow
     subgraph "CI Workflow (ci.yml)"
-        B --> G[Test Matrix]
-        G --> H[Package Job]
-        H --> I[vsix-packages-{run_number}]
+        B --> K[Test Matrix]
+        K --> L[Package Job]
+        L --> M[vsix-packages]
     end
 
     %% Release Workflow
     subgraph "Release Workflow (release.yml)"
-        C --> J[Get Packages Action]
-        E --> J
-        J --> K[Release NPM]
-        J --> L[Release Extensions]
+        C --> N[Get Packages Action]
+        F --> N
+        N --> O[Release Extensions]
+        N --> P[Determine Build Type]
     end
 
-    %% Sub-workflows
-    subgraph "NPM Release (release-npm.yml)"
-        K --> M[Determine Changes]
-        M --> N[Matrix: Changed Packages]
-        N --> O[Build & Publish to NPM]
-    end
-
+    %% Extension Release Workflow
     subgraph "Extension Release (release-extensions.yml)"
-        L --> P[Determine Changes]
-        P --> Q[Package Workflow]
-        Q --> R[vsix-packages]
-        P --> S[Bump Versions]
-        S --> T[Publish VSCode]
-        S --> U[Publish OpenVSX]
+        O --> Q[Determine Changes]
+        Q --> R[Package Workflow]
+        R --> S[vsix-packages]
+        Q --> T[Bump Versions]
+        T --> U[Publish VSCode]
+        T --> V[Publish OpenVSX]
     end
 
     %% Publish Workflows
     subgraph "Publish Workflows"
-        T --> V[VSCode Marketplace]
-        U --> W[OpenVSX Registry]
+        U --> W[VSCode Marketplace]
+        V --> X[OpenVSX Registry]
+    end
+
+    %% Additional Workflows
+    subgraph "Additional Workflows"
+        D --> Y[Performance Benchmarks]
+        I --> Z[PR Validation]
+        J --> AA[Auto-merge PRs]
     end
 
     %% Styling
@@ -56,11 +60,13 @@ graph TB
     classDef workflow fill:#f3e5f5
     classDef action fill:#e8f5e8
     classDef artifact fill:#fff3e0
+    classDef additional fill:#fff8e1
 
-    class A,D trigger
-    class B,C,E,F,G,H,K,L,M,N,P,Q,S,T,U workflow
-    class J,O,V,W action
-    class I,R artifact
+    class A,E,H trigger
+    class B,C,D,F,G,I,J,K,L,N,O,P,Q,R,T,U,V workflow
+    class N,R,W,X action
+    class M,S artifact
+    class Y,Z,AA additional
 ```
 
 ## Workflow Details
@@ -78,7 +84,7 @@ graph TB
 ```mermaid
 graph LR
     A[Test Matrix] --> B[Package Job]
-    B --> C[vsix-packages-{run_number}]
+    B --> C[vsix-packages]
 
     subgraph "Test Matrix"
         D[ubuntu-latest, 20.x]
@@ -92,19 +98,27 @@ graph LR
 
 **Purpose:** Run tests and create packaging artifacts for each PR/merge.
 
+**Key Features:**
+
+- Uses composite action `npm-install-with-retries` for reliable dependency installation
+- Runs linting, compilation, and tests with coverage
+- Merges coverage reports across matrix runs
+- Creates VSIX packages for extensions
+
 ### 2. Release Workflow (`release.yml`)
 
 **Triggers:**
 
-- Push to main (automatic)
-- Manual dispatch
+- Manual dispatch (primary)
+- ~~Push to main (commented out)~~
+- ~~Nightly schedule (commented out)~~
 
 **Jobs:**
 
 ```mermaid
 graph TB
-    A[Get Packages] --> B[Release NPM]
-    A --> C[Release Extensions]
+    A[Get Packages] --> B[Release Extensions]
+    A --> C[Determine Build Type]
 
     subgraph "Get Packages Action"
         D[Scan packages/*/]
@@ -113,39 +127,16 @@ graph TB
     end
 ```
 
-**Purpose:** Orchestrate releases of NPM packages and VS Code extensions.
+**Purpose:** Orchestrate releases of VS Code extensions (NPM releases currently disabled).
 
-### 3. NPM Release Workflow (`release-npm.yml`)
+**Key Features:**
 
-**Triggers:**
+- Uses composite action `get-packages` to dynamically identify packages
+- Supports manual input for branch, packages, dry-run, pre-release, etc.
+- Determines build type (nightly vs regular)
+- ~~NPM release workflow is commented out~~
 
-- Called by release workflow
-- Manual dispatch
-
-**Jobs:**
-
-```mermaid
-graph LR
-    A[Determine Changes] --> B[Matrix: Changed Packages]
-    B --> C[Build Package]
-    C --> D[Publish to NPM]
-
-    subgraph "Matrix Strategy"
-        E[apex-lsp-logging]
-        F[apex-parser-ast]
-        G[apex-ls-browser]
-        H[apex-ls-node]
-        I[lsp-compliant-services]
-        J[custom-services]
-        K[apex-lsp-browser-client]
-        L[apex-lsp-vscode-client]
-        M[apex-lsp-testbed]
-    end
-```
-
-**Purpose:** Release NPM packages using semantic-release.
-
-### 4. Extension Release Workflow (`release-extensions.yml`)
+### 3. Extension Release Workflow (`release-extensions.yml`)
 
 **Triggers:**
 
@@ -171,7 +162,7 @@ graph TB
 
 **Purpose:** Release VS Code extensions to multiple registries.
 
-### 5. Package Workflow (`package.yml`)
+### 4. Package Workflow (`package.yml`)
 
 **Triggers:**
 
@@ -190,7 +181,7 @@ graph LR
 
 **Purpose:** Create VSIX files for extensions.
 
-### 6. Publish Workflows
+### 5. Publish Workflows
 
 #### VSCode Marketplace (`publishVSCode.yml`)
 
@@ -210,6 +201,116 @@ graph LR
     C --> D[Publish to OpenVSX Registry]
 ```
 
+### 6. Additional Workflows
+
+#### Performance Benchmarks (`benchmark.yml`)
+
+**Triggers:**
+
+- Push to main
+- Pull requests to main
+
+**Purpose:** Run LSP performance benchmarks and track performance over time.
+
+**Features:**
+
+- Uses `benchmark-action/github-action-benchmark` for performance tracking
+- Stores results for main branch pushes
+- Compares results in PRs without storing
+- Alerts on 130% performance regression
+
+#### Validate PR (`validatePR.yml`)
+
+**Triggers:**
+
+- Pull request events (opened, reopened, edited, synchronize)
+- Target branch: `develop`
+
+**Purpose:** Validate pull requests using Salesforce CLI workflows and code quality checks.
+
+**Features:**
+
+- Uses `salesforcecli/github-workflows` for PR validation
+- Runs linting checks
+- Ensures code quality standards
+
+#### Automerge (`automerge.yml`)
+
+**Triggers:**
+
+- Pull request events
+- Check suite completion
+- Status events
+
+**Purpose:** Automatically merge PRs with specific labels.
+
+**Features:**
+
+- Merges PRs with `automerge` or `dependencies` labels
+- Supports Dependabot PRs
+- Uses squash merge method
+- Requires 1 approval
+
+#### Stale (`stale.yml`)
+
+**Triggers:**
+
+- Scheduled (daily at 1:30 AM)
+
+**Purpose:** Close stale issues and pull requests.
+
+**Features:**
+
+- Marks issues stale after 30 days, closes after 35 days
+- Marks PRs stale after 30 days, closes after 40 days
+- Exempts issues/PRs with specific labels
+
+## Composite Actions
+
+The workflow system uses several composite actions to reduce code duplication and improve maintainability:
+
+### 1. Get Packages (`get-packages/action.yml`)
+
+**Purpose:** Dynamically determines NPM packages and VS Code extensions in the monorepo.
+
+**Outputs:**
+
+- `npm-packages`: Comma-separated list of NPM package names
+- `extensions`: Comma-separated list of VS Code extension names
+- `extension-paths`: Extension package paths for publishing
+
+### 2. Download VSIX Artifacts (`download-vsix-artifacts/action.yml`)
+
+**Purpose:** Downloads and finds VSIX artifacts for publishing workflows.
+
+**Inputs:**
+
+- `artifact-name`: Name for the VSIX artifacts (default: 'vsix-packages')
+
+**Outputs:**
+
+- `vsix_files`: JSON array of VSIX file paths
+
+### 3. Publish VSIX (`publish-vsix/action.yml`)
+
+**Purpose:** Publishes VSIX files to a marketplace with dry-run support.
+
+**Inputs:**
+
+- `vsix-path`: Path to the VSIX file to publish
+- `publish-tool`: Publishing tool to use (ovsx or vsce)
+- `pat-secret`: Personal access token secret name
+- `pre-release`: Publish as pre-release version
+- `dry-run`: Run in dry-run mode
+
+### 4. NPM Install with Retries (`npm-install-with-retries/action.yml`)
+
+**Purpose:** Installs NPM dependencies with retry logic for reliability.
+
+### 5. Calculate Artifact Name (`calculate-artifact-name/action.yml`)
+
+**Purpose:** Calculates artifact names with run isolation.
+
 ## Execution Scenarios
 
 ### Scenario 1: Normal Development Flow
@@ -226,9 +327,9 @@ sequenceDiagram
     Dev->>GitHub: Merge to main
     GitHub->>CI: Trigger ci.yml
     CI->>CI: Run tests & package
-    GitHub->>Release: Trigger release.yml
+    Note over Release: Manual trigger required
+    Dev->>Release: Manual trigger release.yml
     Release->>Release: Get changed packages
-    Release->>Release: Release changed NPM packages
     Release->>Release: Release changed extensions
 ```
 
@@ -238,27 +339,26 @@ sequenceDiagram
 sequenceDiagram
     participant User
     participant Release
-    participant NPM
     participant Extensions
 
     User->>Release: Manual trigger
     Release->>Release: Get package lists
-    Release->>NPM: Release specific NPM packages
     Release->>Extensions: Release specific extensions
 ```
 
-### Scenario 3: Emergency Release
+### Scenario 3: Performance Monitoring
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant Release
-    participant Package
-    participant Publish
+    participant Dev
+    participant GitHub
+    participant Benchmark
 
-    User->>Release: Manual trigger (hotfix branch)
-    Release->>Package: Package from hotfix branch
-    Package->>Publish: Publish to registries
+    Dev->>GitHub: Push to main
+    GitHub->>Benchmark: Trigger benchmark.yml
+    Benchmark->>Benchmark: Run performance tests
+    Benchmark->>GitHub: Store results
+    Benchmark->>GitHub: Alert if regression
 ```
 
 ## Package Classification
@@ -275,6 +375,8 @@ sequenceDiagram
 - `apex-lsp-vscode-client`
 - `apex-lsp-testbed`
 
+**Note:** NPM package releases are currently disabled in the main release workflow.
+
 ### VS Code Extensions (2 total)
 
 - `apex-lsp-vscode-extension` (desktop)
@@ -284,7 +386,7 @@ sequenceDiagram
 
 ### CI Artifacts
 
-- **Name**: `vsix-packages-{run_number}-release`
+- **Name**: `vsix-packages`
 - **Purpose**: PR-specific packaging
 - **Retention**: 5 days
 
@@ -297,11 +399,12 @@ sequenceDiagram
 
 ## Safety Features
 
-1. **NPM Publishing**: Defaults to "none" (manual override required)
+1. **Manual Control**: Release workflow requires manual trigger
 2. **Change Detection**: Only releases packages with changes
-3. **Branch Protection**: Automatic releases only from main
-4. **Manual Control**: Full override capability for emergencies
+3. **Branch Protection**: Automatic releases only from main (when enabled)
+4. **Dry-run Support**: Full dry-run capability for testing
 5. **Artifact Isolation**: PR artifacts don't interfere with releases
+6. **Performance Monitoring**: Automatic performance regression detection
 
 ## Common Commands
 
@@ -325,7 +428,10 @@ gh run view <run-id>
 gh workflow run release.yml
 
 # Trigger with inputs
-gh workflow run release.yml -f npm-packages=all -f extensions=changed
+gh workflow run release.yml -f extensions=changed -f dry-run=true
+
+# Trigger benchmark workflow
+gh workflow run benchmark.yml
 ```
 
 ## Troubleshooting
@@ -336,12 +442,14 @@ gh workflow run release.yml -f npm-packages=all -f extensions=changed
 2. **Version conflicts**: Ensure semantic-release is configured correctly
 3. **Permission errors**: Verify NPM_TOKEN and OVSX_PAT secrets are set
 4. **Branch issues**: Ensure workflows are called with correct branch parameter
+5. **NPM releases disabled**: NPM package releases are currently commented out
 
 ### Debug Steps
 
 1. Check workflow run logs
 2. Verify artifact upload/download
 3. Confirm package.json versions
+4. Check composite action outputs
 
 ## Smart Version Bumping Strategy
 
@@ -397,238 +505,36 @@ gh workflow run release-extensions.yml --field pre-release=true
 gh workflow run release-extensions.yml --field pre-release=false
 ```
 
-## Nightly Build Strategy
+## Current Status and Notes
 
-The release workflow includes a nightly build strategy that automatically creates pre-release versions at 2 AM UTC daily.
+### Disabled Features
 
-### Nightly Build Triggers
+1. **NPM Package Releases**: The NPM release workflow is commented out in `release.yml`
+2. **Automatic Releases**: Push-to-main triggers are commented out
+3. **Nightly Builds**: Scheduled nightly builds are commented out
 
-- **Schedule**: `cron: '0 2 * * *'` (2 AM UTC daily)
-- **Branch**: `main` (HEAD)
-- **Type**: Always pre-release
-- **Version Strategy**: Smart even/odd handling
+### Active Features
 
-### Nightly Version Bumping Rules
+1. **Extension Releases**: Fully functional with manual triggers
+2. **Performance Benchmarks**: Active monitoring and alerting
+3. **PR Validation**: Active validation for develop branch
+4. **Automerge**: Active for labeled PRs
+5. **Stale Management**: Active cleanup of stale issues/PRs
 
-#### **The Challenge:**
-
-- Nightly builds run from `main` HEAD regardless of current version
-- Current version could be even (0.2.x) or odd (0.3.x)
-- VS Code requires pre-releases to have odd minor versions
-- Need to ensure version uniqueness and proper sequencing
-
-#### **The Solution:**
-
-1. **Ensure Odd Minor**: Always bump to odd minor version for pre-releases
-2. **Add Timestamp**: Include nightly date for uniqueness
-3. **Smart Increment**: Handle both even and odd current versions
-
-### Nightly Version Examples
-
-#### **Scenario 1: Current Version is Even**
-
-```
-Current: 0.2.5 (even minor)
-Package.json: 0.3.0 (odd minor)
-Release Tag: v0.3.0-nightly.20241201
-Strategy: Bump to next odd minor, reset patch, add nightly timestamp to tag
-```
-
-#### **Scenario 2: Current Version is Odd**
-
-```
-Current: 0.3.2 (odd minor)
-Package.json: 0.3.3 (odd minor)
-Release Tag: v0.3.3-nightly.20241201
-Strategy: Increment patch, keep odd minor, add nightly timestamp to tag
-```
-
-#### **Scenario 3: Multiple Nightly Builds**
-
-```
-Day 1: Package.json: 0.3.0, Tag: v0.3.0-nightly.20241201
-Day 2: Package.json: 0.3.1, Tag: v0.3.1-nightly.20241202
-Day 3: Package.json: 0.3.2, Tag: v0.3.2-nightly.20241203
-Strategy: Increment patch each day, maintain odd minor, unique tags
-```
-
-### Nightly Build Benefits
-
-1. **Automatic Pre-releases**: Daily pre-release versions for testing
-2. **VS Code Compliance**: Proper major.minor.patch versions in package.json
-3. **Unique Identification**: Timestamp in release tags for uniqueness
-4. **Clear Identification**: Nightly versions are easily identifiable
-5. **Sequential Ordering**: Proper version progression for updates
-6. **Marketplace Compatible**: Follows VS Code version constraints
-
-### Nightly vs Regular Releases
-
-| Aspect              | Nightly Build                                     | Regular Release              |
-| ------------------- | ------------------------------------------------- | ---------------------------- |
-| **Trigger**         | Scheduled (2 AM UTC)                              | Manual/Push                  |
-| **Version**         | Odd minor + proper major.minor.patch              | Smart even/odd based on type |
-| **Release Tag**     | v{version}-nightly.{YYYYMMDD}                     | v{version}                   |
-| **Pre-release**     | Always true                                       | Configurable                 |
-| **Purpose**         | Daily testing                                     | Official releases            |
-| **Version Example** | Package.json: 0.3.0, Tag: v0.3.0-nightly.20241201 | 0.2.0 or 0.3.0               |
-
-### Usage
-
-```bash
-# Nightly builds run automatically
-# Manual nightly-style build
-gh workflow run release.yml --field pre-release=true
-
-# Regular release
-gh workflow run release.yml --field pre-release=false
-```
-
-# GitHub Workflow Refactoring - Composite Actions Approach
-
-This document outlines the implementation of composite actions to minimize maintenance footprint for the VSIX publishing workflows.
-
-## Current State
-
-The original workflows (`publishOpenVSX.yml` and `publishVSCode.yml`) contained significant code duplication:
-
-- Identical input definitions
-- Identical artifact downloading logic
-- Identical branch matching logic
-- Similar publishing logic with only tool-specific differences
-
-## Solution: Composite Actions
-
-We've implemented **Approach 1: Composite Actions** to eliminate code duplication and improve maintainability.
-
-### Files Created
-
-**Composite Actions:**
-
-- `.github/actions/download-vsix-artifacts/action.yml` - Handles VSIX artifact downloading
-- `.github/actions/publish-vsix/action.yml` - Handles VSIX publishing with tool-specific logic
-
-**Shared Resources:**
-
-- `.github/workflows/shared/inputs.yml` - Shared input definitions (for future use)
-
-### Benefits
+### Composite Actions Benefits
 
 1. **Code Reduction**: ~90% reduction in duplicate code across workflows
-2. **Reusability**: Actions can be used in any workflow, not just publishing workflows
-3. **Maintainability**: Clear separation of concerns and easy to test
+2. **Reusability**: Actions can be used in any workflow
+3. **Maintainability**: Clear separation of concerns
 4. **Consistency**: All workflows use identical logic for common operations
 5. **Flexibility**: Easy to modify behavior without touching multiple files
 
-### Implementation Details
-
-#### Download VSIX Artifacts Action
-
-```yaml
-# .github/actions/download-vsix-artifacts/action.yml
-name: 'Download VSIX Artifacts'
-description: 'Downloads and finds VSIX artifacts for publishing workflows'
-
-inputs:
-  artifact-name:
-    description: 'Name for the VSIX artifacts'
-    required: false
-    default: 'vsix-packages'
-    type: string
-
-outputs:
-  vsix_files:
-    description: 'JSON array of VSIX file paths'
-    value: ${{ steps.find_vsix.outputs.vsix_files }}
-```
-
-**Usage:**
-
-```yaml
-- name: Download VSIX artifacts
-  id: download
-  uses: ./.github/actions/download-vsix-artifacts
-  with:
-    artifact-name: ${{ inputs.artifact-name }}
-```
-
-#### Publish VSIX Action
-
-```yaml
-# .github/actions/publish-vsix/action.yml
-name: 'Publish VSIX'
-description: 'Publishes VSIX files to a marketplace with dry-run support'
-
-inputs:
-  vsix-path: 'Path to the VSIX file to publish'
-  publish-tool: 'Publishing tool to use (choice: ovsx or vsce)'
-  pat-secret: 'Personal access token secret name'
-  marketplace-name: 'Name of the marketplace for logging'
-  pre-release: 'Publish as pre-release version'
-  dry-run: 'Run in dry-run mode'
-```
-
-**Usage:**
-
-```yaml
-- name: Publish to Open VSX Registry
-  uses: ./.github/actions/publish-vsix
-  with:
-    vsix-path: ${{ matrix.vsix }}
-    publish-tool: ovsx
-    pat-secret: ${{ secrets.OVSX_PAT }}
-    marketplace-name: OpenVSX Registry
-    pre-release: ${{ inputs.pre-release }}
-    dry-run: ${{ inputs.dry-run }}
-```
-
-### Refactored Workflows
-
-Both original workflows have been refactored to use the composite actions:
-
-1. **`publishOpenVSX.yml`** - Now uses composite actions for downloading and publishing
-2. **`publishVSCode.yml`** - Now uses composite actions for downloading and publishing
-
-### Key Improvements
-
-1. **Eliminated Duplication**: Removed ~100 lines of duplicate code
-2. **Centralized Logic**: All publishing logic now in reusable components
-3. **Consistent Behavior**: All workflows use identical logic
-4. **Easy Maintenance**: Changes only need to be made in one place
-5. **Better Testing**: Composite actions can be tested independently
-
-### Adding New Marketplaces
-
-To add a new marketplace, simply:
-
-1. Create a new workflow file
-2. Use the existing composite actions
-3. Configure the specific marketplace parameters
-
-**Example for a new marketplace:**
-
-```yaml
-- name: Publish to New Marketplace
-  uses: ./.github/actions/publish-vsix
-  with:
-    vsix-path: ${{ matrix.vsix }}
-    publish-tool: ovsx # or vsce
-    pat-secret: ${{ secrets.NEW_MARKETPLACE_PAT }}
-    marketplace-name: New Marketplace
-    pre-release: ${{ inputs.pre-release }}
-    dry-run: ${{ inputs.dry-run }}
-```
-
-### Maintenance Benefits
-
-- **Single Point of Change**: Updates to publishing logic only need to be made in one place
-- **Consistent Behavior**: All publishing workflows will behave identically
-- **Easier Testing**: Composite actions can be tested independently
-- **Reduced Errors**: Less chance of inconsistencies between workflows
-- **Faster Development**: New marketplace integrations can reuse existing logic
-
 ### Future Enhancements
 
-1. **Versioning**: Composite actions can be versioned independently if needed
-2. **Testing**: Add dedicated tests for composite actions
-3. **Documentation**: Expand documentation for each action
-4. **Validation**: Add input validation to composite actions
+1. **Re-enable NPM Releases**: When needed, uncomment NPM release workflow
+2. **Re-enable Automatic Releases**: When ready, uncomment push triggers
+3. **Re-enable Nightly Builds**: When needed, uncomment scheduled builds
+4. **Versioning**: Composite actions can be versioned independently if needed
+5. **Testing**: Add dedicated tests for composite actions
+6. **Documentation**: Expand documentation for each action
+7. **Validation**: Add input validation to composite actions

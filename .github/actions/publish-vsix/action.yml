@@ -17,10 +17,6 @@ inputs:
     description: 'Personal access token secret name'
     required: true
     type: string
-  marketplace-name:
-    description: 'Name of the marketplace for logging'
-    required: true
-    type: string
   pre-release:
     description: 'Publish as pre-release version'
     required: false
@@ -39,6 +35,14 @@ runs:
       shell: bash
       run: |
         echo "Publishing ${{ inputs.vsix-path }}"
+        
+        # Calculate marketplace name based on publish tool
+        if [ "${{ inputs.publish-tool }}" = "ovsx" ]; then
+          MARKETPLACE_NAME="Open VSX Registry"
+        else
+          MARKETPLACE_NAME="Visual Studio Marketplace"
+        fi
+        
         PRE_RELEASE_FLAG=""
         if [ "${{ inputs.pre-release }}" = "true" ]; then
           PRE_RELEASE_FLAG="--pre-release"
@@ -46,7 +50,7 @@ runs:
         fi
         
         if [ "${{ inputs.dry-run }}" = "true" ]; then
-          echo "🔍 DRY RUN MODE - Would publish to ${{ inputs.marketplace-name }}:"
+          echo "🔍 DRY RUN MODE - Would publish to $MARKETPLACE_NAME:"
           echo "  VSIX: ${{ inputs.vsix-path }}"
           echo "  Pre-release: ${{ inputs.pre-release }}"
           
@@ -64,5 +68,5 @@ runs:
           else
             npx vsce publish --pat ${{ inputs.pat-secret }} --packagePath "${{ inputs.vsix-path }}" --skip-duplicate $PRE_RELEASE_FLAG
           fi
-          echo "✅ Successfully published to ${{ inputs.marketplace-name }}"
+          echo "✅ Successfully published to $MARKETPLACE_NAME"
         fi 
