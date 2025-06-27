@@ -43,13 +43,13 @@ import {
 } from '@salesforce/apex-lsp-logging';
 
 import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
-import { ActiveLoggerFactory } from './utils/ActiveLoggerFactory';
+import { LSPLoggerFactory } from './utils/LSPLoggerFactory';
 import { NodeFileSystemApexStorage } from './storage/NodeFileSystemApexStorage';
 import { createNodeApexLibAdapter } from './utils/NodeApexLibAdapter';
 
 export function startServer() {
   // Set the logger factory early
-  setLoggerFactory(new ActiveLoggerFactory());
+  setLoggerFactory(new LSPLoggerFactory());
 
   // Initialize settings and configuration managers
   const settingsManager = ApexSettingsManager.getInstance({}, 'node');
