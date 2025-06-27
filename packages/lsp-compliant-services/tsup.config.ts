@@ -15,7 +15,7 @@ export default defineConfig({
   outDir: 'dist',
   clean: true,
   dts: false,
-  splitting: true,
+  splitting: false,
   noExternal: [],
   external: [],
 });

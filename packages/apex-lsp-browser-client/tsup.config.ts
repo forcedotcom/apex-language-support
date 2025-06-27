@@ -17,7 +17,7 @@ export default defineConfig({
   platform: 'browser',
   target: 'es2020',
   dts: false,
-  splitting: true,
+  splitting: false,
   noExternal: [],
   external: [],
 });
