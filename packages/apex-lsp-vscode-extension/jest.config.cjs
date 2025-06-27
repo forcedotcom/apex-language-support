@@ -11,12 +11,5 @@ module.exports = {
   transformIgnorePatterns: [
     '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts|vscode-languageclient)).+\\.js$',
   ],
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!**/out/**',
-    '!**/test/**',
-    '!**/*.d.ts',
-    '!**/index.ts',
-    '!**/middleware/**',
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!**/*.d.ts'],
 };

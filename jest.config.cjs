@@ -49,13 +49,7 @@ module.exports = {
   collectCoverage: false, // Disabled by default, enabled by --coverage flag
   coverageDirectory: '<rootDir>/coverage',
   coverageReporters: ['text', 'lcov', 'clover', 'html', 'json'],
-  collectCoverageFrom: [
-    'packages/*/src/**/*.ts',
-    '!**/out/**',
-    '!**/test/**',
-    '!**/*.d.ts',
-    '!**/index.ts',
-  ],
+  collectCoverageFrom: ['packages/*/src/**/*.ts', '!**/*.d.ts', '!**/index.ts'],
   // Coverage thresholds (can be overridden for specific packages)
   coverageThreshold: {
     global: {
