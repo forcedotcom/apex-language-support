@@ -117,14 +117,16 @@ export async function compileStubs(
   outputDir?: string,
 ): Promise<void> {
   const logger = getLogger();
-  const defaultSourceDir = path.join(
+  const resourcesPath = path.join(
     __dirname,
-    '../../src/resources/StandardApexLibrary',
+    '..',
+    '..',
+    'out',
+    'resources',
+    'StandardApexLibrary',
   );
-  const defaultOutputDir = path.join(
-    __dirname,
-    '../../dist/resources/StandardApexLibrary',
-  );
+  const defaultSourceDir = path.join(resourcesPath);
+  const defaultOutputDir = path.join(resourcesPath);
 
   const finalSourceDir = sourceDir || defaultSourceDir;
   const finalOutputDir = outputDir || defaultOutputDir;

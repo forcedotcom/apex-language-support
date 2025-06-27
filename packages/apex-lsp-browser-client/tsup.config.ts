@@ -12,12 +12,12 @@ import { config } from '../../tsup.config';
 export default defineConfig({
   ...config,
   entry: ['src/index.ts'],
-  outDir: 'bundle',
+  outDir: 'dist',
   clean: true,
   platform: 'browser',
   target: 'es2020',
   dts: false,
-  splitting: true,
+  splitting: false,
   noExternal: [],
   external: [],
 });

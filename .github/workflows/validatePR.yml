@@ -4,6 +4,12 @@ on:
     types: [opened, reopened, edited, synchronize]
     branches: [develop]
 
+# Add explicit permissions for security
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
 jobs:
   pr-validation:
     uses: salesforcecli/github-workflows/.github/workflows/validatePR.yml@main
@@ -15,6 +21,6 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: npm
-      - run: npm ci
+      - uses: ./.github/actions/npm-install-with-retries
       - name: Lint
         run: npm run lint

@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '30 1 * * *'
 
+# Add explicit permissions for security
+permissions:
+  issues: write # Needed for closing issues
+  pull-requests: write # Needed for closing PRs
+  actions: read
+
 jobs:
   stale:
     runs-on: ubuntu-latest

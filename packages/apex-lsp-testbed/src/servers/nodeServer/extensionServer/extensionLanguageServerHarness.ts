@@ -93,16 +93,16 @@ export class ExtensionApexLanguageServerHarness {
       'apex-ls-node',
     );
 
-    const distPath = path.join(extensionLsPackagePath, 'dist', 'index.js');
+    const outPath = path.join(extensionLsPackagePath, 'out', 'index.js');
 
-    if (fs.existsSync(distPath)) {
-      this.logger.info(`Built apex-ls-node server at: ${distPath}`);
-      return distPath;
+    if (fs.existsSync(outPath)) {
+      this.logger.info(`Built apex-ls-node server at: ${outPath}`);
+      return outPath;
     }
 
     // If we couldn't find the server, throw an error
     throw new Error(
-      `Could not find apex-ls-node server. at ${distPath}. ` +
+      `Could not find apex-ls-node server. at ${outPath}. ` +
         'Please ensure the package is built by running "npm run build" in the project root.',
     );
   }

@@ -1,21 +1,21 @@
-# Apex Language Server VSCode Extension
+# Salesforce Apex Language Server for VSCode
 
 This extension provides Apex language support in Visual Studio Code through the Apex Language Server.
 
 ## Features
 
-- **Syntax Highlighting**: Full Apex and SOQL syntax highlighting
-- **Language Server Integration**: Real-time diagnostics and language features
-- **Configurable Comment Collection**: Control how comments are processed
-- **Performance Optimization**: Configurable settings for optimal performance
-- **Document Symbols**: Navigate code structure with symbol support
-- **Inspector Tools**: Debug LSP communication (for development)
+- **Syntax Highlighting**: Full Apex and SOQL syntax highlighting.
+- **Language Server Integration**: Real-time diagnostics and language features powered by the Apex Language Server.
+- **Configurable Comment Collection**: Fine-tune how comments are parsed and processed.
+- **Performance Optimization**: Adjust settings to optimize for speed and resource usage.
+- **Document Symbols**: Easily navigate your code's structure.
+- **Inspector Tools**: Debug Language Server Protocol (LSP) communication for development and troubleshooting.
 
 ## Installation
 
-1. Install the extension from the VSCode marketplace
-2. Open a workspace containing Apex files (`.cls`, `.trigger`, `.apex`)
-3. The language server will start automatically
+1. Install the extension from the VSCode Marketplace.
+2. Open a workspace containing Apex files (`.cls`, `.trigger`, `.apex`).
+3. The language server will start automatically.
 
 ## Configuration
 
@@ -29,11 +29,11 @@ Control how comments are collected and processed during document parsing:
 {
   "apex.commentCollection.enableCommentCollection": true,
   "apex.commentCollection.includeSingleLineComments": false,
-  "apex.commentCollection.associateCommentsWithSymbols": false,
+  "apex.commentCollection.associateCommentsWithSymbols": true,
   "apex.commentCollection.enableForDocumentChanges": true,
   "apex.commentCollection.enableForDocumentOpen": true,
   "apex.commentCollection.enableForDocumentSymbols": false,
-  "apex.commentCollection.enableForFoldingRanges": false
+  "apex.commentCollection.enableForFoldingRanges": true
 }
 ```
 
@@ -47,10 +47,10 @@ Control how comments are collected and processed during document parsing:
 
   - Include single-line (`//`) comments in addition to block comments (`/* */`).
 
-- **`associateCommentsWithSymbols`** (boolean, default: `false`)
+- **`associateCommentsWithSymbols`** (boolean, default: `true`)
 
   - Associate comments with nearby symbols for enhanced language features.
-  - ⚠️ May impact performance.
+  - ⚠️ May impact performance, especially in large files.
 
 - **`enableForDocumentChanges`** (boolean, default: `true`)
 
@@ -65,7 +65,7 @@ Control how comments are collected and processed during document parsing:
   - Enable comment collection for document symbols.
   - ⚠️ May impact performance.
 
-- **`enableForFoldingRanges`** (boolean, default: `false`)
+- **`enableForFoldingRanges`** (boolean, default: `true`)
   - Enable comment collection for folding ranges.
   - ⚠️ May impact performance.
 
@@ -100,20 +100,14 @@ Control logging and debugging:
 
 ```json
 {
-  "apex.environment.enablePerformanceLogging": false,
-  "apex.environment.commentCollectionLogLevel": "info"
+  "apex.environment.enablePerformanceLogging": false
 }
 ```
 
 #### Environment Options
 
 - **`enablePerformanceLogging`** (boolean, default: `false`)
-
   - Enable performance logging for the language server.
-
-- **`commentCollectionLogLevel`** (string, default: `"info"`)
-  - Log level for comment collection operations.
-  - Options: `"debug"`, `"info"`, `"warn"`, `"error"`
 
 ### Inspector Settings
 
@@ -130,7 +124,7 @@ Debug LSP communication:
 
 ### Legacy Settings
 
-For compatibility with other tooling:
+These settings are for low-level control and compatibility with other tooling:
 
 ```json
 {
@@ -143,15 +137,15 @@ For compatibility with other tooling:
 
 ## Commands
 
-The extension provides the following commands:
+The extension provides the following commands, which can be accessed from the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`):
 
 - **Restart Apex Language Server** (`apex.restart.server`)
 
-  - Restart the language server if it becomes unresponsive
-  - Available via Command Palette or status bar click
+  - Restarts the language server if it becomes unresponsive.
+  - Also available by clicking the status bar item.
 
 - **Toggle Apex LSP Inspector** (`apex.inspector.toggle`)
-  - Toggle the LSP request/response inspector for debugging
+  - Toggles the LSP request/response inspector for debugging.
 
 ## Workspace Settings Example
 
@@ -162,8 +156,7 @@ Create a `.vscode/settings.json` file in your workspace for project-specific set
   "apex.commentCollection.enableCommentCollection": true,
   "apex.commentCollection.includeSingleLineComments": true,
   "apex.commentCollection.associateCommentsWithSymbols": true,
-  "apex.performance.commentCollectionMaxFileSize": 204800,
-  "apex.environment.commentCollectionLogLevel": "debug"
+  "apex.performance.commentCollectionMaxFileSize": 204800
 }
 ```
 
@@ -182,19 +175,27 @@ Configure global settings in VSCode user settings:
 
 ## Performance Recommendations
 
-For optimal performance with large codebases:
+For optimal performance, especially with large codebases:
 
-1. **Disable expensive features** for large files:
+1. **Disable expensive features** for large files or if not needed:
 
    ```json
    {
      "apex.commentCollection.associateCommentsWithSymbols": false,
      "apex.commentCollection.enableForDocumentSymbols": false,
+     "apex.commentCollection.enableForFoldingRanges": false
+   }
+   ```
+
+2. **Adjust file size limit** for comment collection:
+
+   ```json
+   {
      "apex.performance.commentCollectionMaxFileSize": 51200
    }
    ```
 
-2. **Increase debounce** for frequently changing files:
+3. **Increase debounce** for frequently changing files:
 
    ```json
    {
@@ -202,11 +203,10 @@ For optimal performance with large codebases:
    }
    ```
 
-3. **Enable performance logging** to identify bottlenecks:
+4. **Enable performance logging** to identify bottlenecks:
    ```json
    {
-     "apex.environment.enablePerformanceLogging": true,
-     "apex.environment.commentCollectionLogLevel": "debug"
+     "apex.environment.enablePerformanceLogging": true
    }
    ```
 
@@ -214,41 +214,40 @@ For optimal performance with large codebases:
 
 ### Language Server Not Starting
 
-1. Check the Output panel (View → Output → Apex Language Server)
-2. Use the "Restart Apex Language Server" command
-3. Verify workspace contains Apex files
-4. Check extension and dependency versions
+1. Check the **Output** panel (View → Output) and select **Apex Language Server** from the dropdown.
+2. Use the **Restart Apex Language Server** command from the Command Palette.
+3. Verify your workspace contains Apex files (`.cls`, `.trigger`, `.apex`).
+4. Check for conflicting extensions.
 
 ### Performance Issues
 
-1. Reduce `commentCollectionMaxFileSize` for large files
-2. Disable `associateCommentsWithSymbols` if not needed
-3. Increase `documentChangeDebounceMs` for busy editing
-4. Enable performance logging to identify bottlenecks
+1. Reduce `commentCollectionMaxFileSize` for large files.
+2. Disable `associateCommentsWithSymbols` if not needed.
+3. Increase `documentChangeDebounceMs` for busy editing environments.
+4. Enable performance logging to identify bottlenecks.
 
 ### Configuration Not Applying
 
-1. Settings changes are applied immediately via `workspace/didChangeConfiguration`
-2. Check for typos in setting names
-3. Verify JSON syntax in settings files
-4. Restart the language server if issues persist
+1. Settings changes are applied immediately. If not, use the **Restart Apex Language Server** command.
+2. Check for typos in setting keys in your `settings.json` file.
+3. Verify the JSON syntax in your settings files is correct.
 
 ## Development
 
 For extension development and debugging:
 
 1. Enable inspector: `"apex.inspector.enabled": true`
-2. Use debug logging: `"apex.environment.commentCollectionLogLevel": "debug"`
-3. Enable performance logging: `"apex.environment.enablePerformanceLogging": true`
-4. Monitor the Output panel for detailed logs
+2. Enable performance logging: `"apex.environment.enablePerformanceLogging": true`
+3. Set the trace level: `"apex.trace.server": "verbose"`
+4. Monitor the **Output** panel for detailed logs.
 
 ## Architecture
 
 The extension integrates with:
 
-- **Apex Language Server (Node.js)**: Provides core language features
-- **LSP Configuration Manager**: Handles settings lifecycle
-- **Comment Collection System**: Configurable comment processing
-- **Performance Monitoring**: Optimizes resource usage
+- **Apex Language Server (Node.js)**: Provides core language features.
+- **LSP Configuration Manager**: Handles the settings lifecycle.
+- **Comment Collection System**: Provides configurable comment processing.
+- **Performance Monitoring**: Helps optimize resource usage.
 
 For more details on the underlying language server, see the [Node.js Language Server documentation](../apex-ls-node/README.md).

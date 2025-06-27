@@ -1,17 +1,16 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
+    "outDir": "./out",
     "rootDir": "./src",
-    "composite": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "inlineSources": true,
-    "moduleResolution": "node",
-    "baseUrl": "."
+    "module": "ESNext",
+    "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "bundle", "**/*.test.ts", "test/**/*"],
-  "references": []
+  "exclude": ["node_modules", "out", "dist", "tsup.config.ts"],
+  "references": [
+    { "path": "../apex-lsp-logging" },
+    { "path": "../apex-parser-ast" },
+    { "path": "../lsp-compliant-services" }
+  ]
 }

@@ -9,10 +9,10 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
   entry: ['src/index.ts'],
-  outDir: 'bundle',
+  outDir: 'dist',
   format: ['cjs', 'esm'], // Keep both formats for flexibility
   dts: false,
-  splitting: true,
+  splitting: false,
   sourcemap: true,
   clean: true, // Clean its own 'bundle' dir before build
   minify: false,

@@ -1,16 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "src",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "inlineSources": true,
-    "moduleResolution": "node",
-    "baseUrl": "."
+    "outDir": "./out",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "bundle"],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "out", "dist", "tsup.config.ts"],
   "references": []
 }

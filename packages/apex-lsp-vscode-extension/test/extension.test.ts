@@ -28,7 +28,7 @@ jest.mock('vscode-languageclient/node', () => {
 });
 
 // Must be imported after the mock
-// eslint-disable-next-line import/order
+
 import { LanguageClient } from 'vscode-languageclient/node';
 
 describe('Apex Language Server Extension', () => {
@@ -43,6 +43,7 @@ describe('Apex Language Server Extension', () => {
     mockContext = {
       subscriptions: [],
       asAbsolutePath: (p: string) => p,
+      extensionMode: vscode.ExtensionMode.Development,
     } as unknown as vscode.ExtensionContext;
   });
 

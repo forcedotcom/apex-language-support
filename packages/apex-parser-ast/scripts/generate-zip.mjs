@@ -35,14 +35,14 @@ async function generateZip() {
     // Create generated directory for source files
     await mkdir(path.join('src', 'generated'), { recursive: true });
     // Create resources directory for distribution
-    await mkdir(path.join('dist', 'resources'), { recursive: true });
+    await mkdir(path.join('out', 'resources'), { recursive: true });
 
     // Clean up old zipLoader files
     const oldLoaderPaths = [
       path.join('src', 'generated', 'zipLoader.ts'),
-      path.join('dist', 'generated', 'zipLoader.js'),
-      path.join('dist', 'generated', 'zipLoader.d.ts'),
-      path.join('dist', 'generated', 'zipLoader.js.map'),
+      path.join('out', 'generated', 'zipLoader.js'),
+      path.join('out', 'generated', 'zipLoader.d.ts'),
+      path.join('out', 'generated', 'zipLoader.js.map'),
     ];
 
     for (const oldPath of oldLoaderPaths) {
@@ -67,14 +67,10 @@ async function generateZip() {
 
     // Write the zip file to both locations
     const srcZipPath = path.join('src', 'generated', 'StandardApexLibrary.zip');
-    const distZipPath = path.join(
-      'dist',
-      'resources',
-      'StandardApexLibrary.zip',
-    );
+    const outZipPath = path.join('out', 'resources', 'StandardApexLibrary.zip');
 
     await writeFile(srcZipPath, zipData);
-    await writeFile(distZipPath, zipData);
+    await writeFile(outZipPath, zipData);
 
     // Create the zipLoader.ts file with the base64-encoded zip data
     const base64Data = Buffer.from(zipData).toString('base64');
@@ -96,7 +92,7 @@ export const zipData = Buffer.from('${base64Data}', 'base64');
     );
 
     console.log(
-      'Resources zip file created successfully in src/generated and dist/resources',
+      'Resources zip file created successfully in src/generated and out/resources',
     );
     console.log(`Zip file size: ${zipData.length} bytes`);
   } catch (error) {

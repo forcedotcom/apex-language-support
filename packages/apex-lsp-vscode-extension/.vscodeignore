@@ -40,3 +40,7 @@ extension/../**/*
 .idea/**
 *.iml
 .DS_Store
+
+# Keep resources
+!resources/
+!resources/** 

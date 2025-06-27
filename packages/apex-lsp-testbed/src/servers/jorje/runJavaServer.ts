@@ -141,16 +141,16 @@ const findJarFile = (): string => {
   const extensionPath = path.resolve(__dirname, '..', '..');
 
   const resourcesPath = path.join(extensionPath, 'src', 'resources');
-  const distResourcesPath = path.join(extensionPath, 'dist', 'resources');
+  const outResourcesPath = path.join(extensionPath, 'out', 'resources');
 
   let jarFilePath = path.join(resourcesPath, JAR_FILE_NAME);
 
-  // If the jar doesn't exist in the src directory, check the dist directory
+  // If the jar doesn't exist in the src directory, check the out directory
   if (!fs.existsSync(jarFilePath)) {
-    jarFilePath = path.join(distResourcesPath, JAR_FILE_NAME);
+    jarFilePath = path.join(outResourcesPath, JAR_FILE_NAME);
     if (!fs.existsSync(jarFilePath)) {
       throw new Error(
-        `Could not find ${JAR_FILE_NAME} in either ${resourcesPath} or ${distResourcesPath}`,
+        `Could not find ${JAR_FILE_NAME} in either ${resourcesPath} or ${outResourcesPath}`,
       );
     }
   }

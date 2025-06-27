@@ -1,35 +1,96 @@
-name: Automerge
+name: Dependabot Automerge
 
 on:
-  pull_request_target:
+  pull_request:
     types:
       - labeled
       - unlabeled
       - synchronize
-      - opened
-      - edited
       - ready_for_review
       - reopened
-      - unlocked
   check_suite:
     types:
       - completed
   status: ~
 
+# Add explicit permissions for security
+permissions:
+  contents: write # Needed for merging
+  pull-requests: write # Needed for merging
+  actions: read
+
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]' || contains(github.event.pull_request.labels.*.name, 'automerge')
+    # Only run for Dependabot PRs that are ready to merge
+    if: |
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.mergeable == true
     steps:
+      - name: Audit automerge attempt
+        shell: bash
+        run: |
+          # Create audit log entry for automerge attempt
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          ACTOR="${{ github.actor }}"
+          REPO="${{ github.repository }}"
+          RUN_ID="${{ github.run_id }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+
+          # Log audit information to GitHub Actions output for persistence
+          echo "🔍 AUDIT: Dependabot automerge attempt logged - $TIMESTAMP"
+          echo "  Actor: $ACTOR"
+          echo "  Repository: $REPO"
+          echo "  Run ID: $RUN_ID"
+          echo "  PR Number: $PR_NUMBER"
+          echo "  PR Title: $PR_TITLE"
+          echo "  Source Branch: $BRANCH"
+          echo "  Target Branch: $BASE_BRANCH"
+          echo "  Is Draft: ${{ github.event.pull_request.draft }}"
+          echo "  Is Mergeable: ${{ github.event.pull_request.mergeable }}"
+
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Automerge
+        id: automerge
         uses: pascalgn/automerge-action@v0.15.6
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
-          MERGE_LABELS: 'automerge,dependencies'
           MERGE_METHOD: 'squash'
-          MERGE_RETRIES: '6'
-          MERGE_RETRY_SLEEP: '10000'
-          MERGE_REQUIRED_APPROVALS: '1'
+          MERGE_RETRIES: '3'
+          MERGE_RETRY_SLEEP: '30000'
+          MERGE_REQUIRED_APPROVALS: '0'
+          MERGE_DELETE_BRANCH: 'true'
+          MERGE_COMMIT_MESSAGE: 'chore(deps): automerge dependabot PR #${{ github.event.pull_request.number }}'
+          MERGE_REQUIRED_STATUS_CHECKS: 'CI Completed'
+
+      - name: Audit automerge result
+        shell: bash
+        run: |
+          # Log the result of the automerge attempt
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          ACTOR="${{ github.actor }}"
+          REPO="${{ github.repository }}"
+          RUN_ID="${{ github.run_id }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          AUTOMERGE_EXIT_CODE="${{ steps.automerge.outcome }}"
+
+          if [ "$AUTOMERGE_EXIT_CODE" = "success" ]; then
+            echo "✅ AUDIT: Dependabot automerge successful - $TIMESTAMP"
+            echo "  Actor: $ACTOR"
+            echo "  Repository: $REPO"
+            echo "  Run ID: $RUN_ID"
+            echo "  PR Number: $PR_NUMBER"
+          else
+            echo "❌ AUDIT: Dependabot automerge failed - $TIMESTAMP"
+            echo "  Actor: $ACTOR"
+            echo "  Repository: $REPO"
+            echo "  Run ID: $RUN_ID"
+            echo "  PR Number: $PR_NUMBER"
+            echo "  Exit Code: $AUTOMERGE_EXIT_CODE"
+          fi

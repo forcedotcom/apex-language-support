@@ -3,8 +3,6 @@ const baseConfig = require('../../jest.config.cjs');
 
 module.exports = {
   ...baseConfig,
-  rootDir: '.',
-  testEnvironment: 'node',
   testMatch: ['<rootDir>/test/**/*.test.ts'],
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
@@ -13,13 +11,5 @@ module.exports = {
   transformIgnorePatterns: [
     '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts|vscode-languageclient)).+\\.js$',
   ],
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!**/node_modules/**',
-    '!**/dist/**',
-    '!**/test/**',
-    '!**/*.d.ts',
-    '!**/index.ts',
-    '!**/middleware/**'
-  ],
-}; 
+  collectCoverageFrom: ['src/**/*.ts', '!**/*.d.ts'],
+};

@@ -1,30 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "composite": true,
-    "rootDir": "src",
-    "noEmit": false,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "inlineSources": false,
-    "moduleResolution": "node",
-    "baseUrl": ".",
-    "paths": {
-      "@salesforce/apex-lsp-logging": ["../apex-lsp-logging/src"],
-      "@salesforce/apex-lsp-logging/*": ["../apex-lsp-logging/src/*"],
-      "@salesforce/apex-lsp-parser-ast": ["../apex-parser-ast/src"],
-      "@salesforce/apex-lsp-parser-ast/*": ["../apex-parser-ast/src/*"],
-      "@salesforce/apex-lsp-custom-services": ["../custom-services/src"],
-      "@salesforce/apex-lsp-custom-services/*": ["../custom-services/src/*"]
-    }
+    "outDir": "./out",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "bundle"],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "out", "dist", "tsup.config.ts"],
   "references": [
     { "path": "../apex-lsp-logging" },
-    { "path": "../apex-parser-ast" },
-    { "path": "../custom-services" }
+    { "path": "../apex-parser-ast" }
   ]
 }

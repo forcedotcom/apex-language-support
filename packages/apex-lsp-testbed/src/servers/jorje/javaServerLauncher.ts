@@ -282,7 +282,7 @@ const findJarFile = (customPath?: string, fallbackPath?: string): string => {
     // Relative to current working directory
     path.resolve(process.cwd(), 'resources', JAR_FILE_NAME),
     path.resolve(process.cwd(), 'src', 'resources', JAR_FILE_NAME),
-    path.resolve(process.cwd(), 'dist', 'resources', JAR_FILE_NAME),
+    path.resolve(process.cwd(), 'out', 'resources', JAR_FILE_NAME),
   ];
 
   for (const location of possibleLocations) {
