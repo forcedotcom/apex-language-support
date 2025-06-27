@@ -19,10 +19,5 @@ module.exports = {
       '<rootDir>/../apex-lsp-logging/src/index.ts',
   },
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/generated/**',
-    '!**/*.d.ts',
-    '!**/index.ts',
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/generated/**', '!**/*.d.ts'],
 };

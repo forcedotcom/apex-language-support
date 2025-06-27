@@ -10,5 +10,5 @@ const baseConfig = require('../../jest.config.cjs');
 
 module.exports = {
   ...baseConfig,
-  collectCoverageFrom: ['src/**/*.ts', '!**/*.d.ts', '!**/index.ts'],
+  collectCoverageFrom: ['src/**/*.ts', '!**/*.d.ts'],
 };
