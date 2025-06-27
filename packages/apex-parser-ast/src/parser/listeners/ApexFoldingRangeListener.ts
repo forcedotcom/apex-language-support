@@ -23,7 +23,7 @@ import {
   TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 
@@ -209,12 +209,17 @@ export class ApexFoldingRangeListener extends BaseApexParserListener<
       };
 
       this.ranges.push(range);
-      this.logger.debug(
-        `Added folding range for ${kind} at lines ${range.startLine}-${range.endLine}`,
+      this.logger.log(
+        LogMessageType.Debug,
+        () =>
+          `Added folding range for ${kind} at lines ${range.startLine}-${range.endLine}`,
       );
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      this.logger.error(`Error adding folding range: ${errorMessage}`);
+      this.logger.log(
+        LogMessageType.Error,
+        () => `Error adding folding range: ${errorMessage}`,
+      );
     }
   }
 }

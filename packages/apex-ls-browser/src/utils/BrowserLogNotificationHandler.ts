@@ -64,6 +64,7 @@ export class BrowserLogNotificationHandler implements LogNotificationHandler {
         console.info(params.message);
         break;
       case LogMessageType.Log:
+      case LogMessageType.Debug:
         console.log(params.message);
         break;
       default:
@@ -91,6 +92,9 @@ export class BrowserLogNotificationHandler implements LogNotificationHandler {
       case LogMessageType.Info:
         return MessageType.Info;
       case LogMessageType.Log:
+        return MessageType.Log;
+      case LogMessageType.Debug:
+        // Map Debug to Log for backward compatibility with older LSP clients
         return MessageType.Log;
       default:
         return MessageType.Log;

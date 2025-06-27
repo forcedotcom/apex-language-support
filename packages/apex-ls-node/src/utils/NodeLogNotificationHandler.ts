@@ -64,6 +64,7 @@ export class NodeLogNotificationHandler implements LogNotificationHandler {
         console.info(params.message);
         break;
       case LogMessageType.Log:
+      case LogMessageType.Debug:
       default:
         console.log(params.message);
         break;
@@ -84,6 +85,9 @@ export class NodeLogNotificationHandler implements LogNotificationHandler {
       case LogMessageType.Info:
         return MessageType.Info;
       case LogMessageType.Log:
+        return MessageType.Log;
+      case LogMessageType.Debug:
+        // Map Debug to Log for backward compatibility with older LSP clients
         return MessageType.Log;
       default:
         return MessageType.Log;

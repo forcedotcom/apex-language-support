@@ -7,7 +7,7 @@
  */
 import {
   getLogger,
-  LogLevel,
+  LogMessageType,
   LoggerInterface,
 } from '@salesforce/apex-lsp-logging';
 
@@ -19,7 +19,7 @@ import {
 export class TestLogger implements LoggerInterface {
   private static instance: TestLogger;
   private logger: LoggerInterface;
-  private logLevel: LogLevel = LogLevel.Info;
+  private logLevel: LogMessageType = LogMessageType.Info;
 
   private constructor() {
     this.logger = getLogger();
@@ -39,85 +39,79 @@ export class TestLogger implements LoggerInterface {
    * Set the log level for tests
    * @param level The log level to use
    */
-  public setLogLevel(level: LogLevel): void {
+  public setLogLevel(level: LogMessageType): void {
     this.logLevel = level;
   }
 
   /**
    * Get the current log level
    */
-  public getLogLevel(): LogLevel {
+  public getLogLevel(): LogMessageType {
     return this.logLevel;
   }
 
   /**
    * Log a debug message
    */
-  public debug(message: string | (() => string), ...args: unknown[]): void {
-    if (this.shouldLog(LogLevel.Debug)) {
-      const actualMessage = typeof message === 'function' ? message() : message;
-      this.logger.debug(actualMessage, ...args);
+  public debug(message: string | (() => string)): void {
+    if (this.shouldLog(LogMessageType.Debug)) {
+      this.log(LogMessageType.Debug, message);
     }
   }
 
   /**
    * Log an info message
    */
-  public info(message: string | (() => string), ...args: unknown[]): void {
-    if (this.shouldLog(LogLevel.Info)) {
-      const actualMessage = typeof message === 'function' ? message() : message;
-      this.logger.info(actualMessage, ...args);
+  public info(message: string | (() => string)): void {
+    if (this.shouldLog(LogMessageType.Info)) {
+      this.log(LogMessageType.Info, message);
     }
   }
 
   /**
    * Log a warning message
    */
-  public warn(message: string | (() => string), ...args: unknown[]): void {
-    if (this.shouldLog(LogLevel.Warn)) {
-      const actualMessage = typeof message === 'function' ? message() : message;
-      this.logger.warn(actualMessage, ...args);
+  public warn(message: string | (() => string)): void {
+    if (this.shouldLog(LogMessageType.Warning)) {
+      this.log(LogMessageType.Warning, message);
     }
   }
 
   /**
    * Log an error message
    */
-  public error(
-    message: string | (() => string),
-    error?: unknown,
-    ...args: unknown[]
-  ): void {
-    if (this.shouldLog(LogLevel.Error)) {
-      const actualMessage = typeof message === 'function' ? message() : message;
-      this.logger.error(actualMessage, error, ...args);
+  public error(message: string | (() => string)): void {
+    if (this.shouldLog(LogMessageType.Error)) {
+      this.log(LogMessageType.Error, message);
     }
   }
 
   /**
-   * Log a message with the specified level
+   * Log a message with the specified type
    */
   public log(
-    level: LogLevel,
+    messageType: LogMessageType,
     message: string | (() => string),
-    error?: unknown,
-    ...args: unknown[]
   ): void {
-    if (this.shouldLog(level)) {
-      const actualMessage = typeof message === 'function' ? message() : message;
-      this.logger.log(level, actualMessage, error, ...args);
+    if (this.shouldLog(messageType)) {
+      if (typeof message === 'function') {
+        this.logger.log(messageType, message);
+      } else {
+        this.logger.log(messageType, message);
+      }
     }
   }
 
   /**
    * Check if a message at the given level should be logged
    */
-  private shouldLog(level: LogLevel): boolean {
+  private shouldLog(level: LogMessageType): boolean {
     const levels = [
-      LogLevel.Error,
-      LogLevel.Warn,
-      LogLevel.Info,
-      LogLevel.Debug,
+      LogMessageType.Error,
+      LogMessageType.Warning,
+      LogMessageType.Info,
+      LogMessageType.Log,
+      LogMessageType.Debug,
     ];
     return levels.indexOf(level) <= levels.indexOf(this.logLevel);
   }

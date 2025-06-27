@@ -7,7 +7,7 @@
  */
 
 import { CommonTokenStream, Token, ParserRuleContext } from 'antlr4ts';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 
@@ -126,7 +126,10 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
    */
   setTokenStream(tokenStream: CommonTokenStream): void {
     this.tokenStream = tokenStream;
-    this.logger.debug('Token stream set for comment collection');
+    this.logger.log(
+      LogMessageType.Debug,
+      () => 'Token stream set for comment collection',
+    );
   }
 
   /**
@@ -162,7 +165,10 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
         }
       }
     } catch (error) {
-      this.logger.warn('Error collecting comments in enterEveryRule:', error);
+      this.logger.log(
+        LogMessageType.Warning,
+        () => `Error collecting comments in enterEveryRule: ${error}`,
+      );
     }
   }
 
@@ -186,9 +192,15 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
         }
       }
 
-      this.logger.debug(`Collected ${this.comments.length} total comments`);
+      this.logger.log(
+        LogMessageType.Debug,
+        () => `Collected ${this.comments.length} total comments`,
+      );
     } catch (error) {
-      this.logger.warn('Error collecting remaining comments:', error);
+      this.logger.log(
+        LogMessageType.Warning,
+        () => `Error collecting remaining comments: ${error}`,
+      );
     }
   }
 
@@ -231,11 +243,16 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
       };
 
       this.comments.push(comment);
-      this.logger.debug(
-        `Collected ${comment.type} comment at line ${comment.startLine}: ${text.substring(0, 50)}...`,
+      this.logger.log(
+        LogMessageType.Debug,
+        () =>
+          `Collected ${comment.type} comment at line ${comment.startLine}: ${text.substring(0, 50)}...`,
       );
     } catch (error) {
-      this.logger.warn('Error processing comment token:', error);
+      this.logger.log(
+        LogMessageType.Warning,
+        () => `Error processing comment token: ${error}`,
+      );
     }
   }
 

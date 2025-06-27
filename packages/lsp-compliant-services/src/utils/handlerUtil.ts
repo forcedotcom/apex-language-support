@@ -8,6 +8,7 @@
 
 import { DiagnosticSeverity } from 'vscode-languageserver';
 import { ApexError } from '@salesforce/apex-lsp-parser-ast';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { Logger } from './Logger';
 
@@ -24,7 +25,10 @@ export const dispatch = async <T>(
   try {
     return await operation;
   } catch (error: unknown) {
-    Logger.getInstance().error(() => `${errorMessage}: ${error}`);
+    Logger.getInstance().log(
+      LogMessageType.Error,
+      () => `${errorMessage}: ${error}`,
+    );
     throw error;
   }
 };

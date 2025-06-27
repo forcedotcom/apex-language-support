@@ -7,7 +7,7 @@
  */
 
 import { FoldingRangeParams, FoldingRange } from 'vscode-languageserver';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { dispatch } from '../utils/handlerUtil';
 import { ApexFoldingRangeProvider } from '../foldingRange/ApexFoldingRangeProvider';
@@ -34,7 +34,8 @@ export async function processOnFoldingRange(
   storage: ApexStorageInterface,
 ): Promise<FoldingRange[] | null> {
   try {
-    logger.debug(
+    logger.log(
+      LogMessageType.Debug,
       `Processing folding range request for: ${params.textDocument.uri}`,
     );
 
@@ -44,19 +45,22 @@ export async function processOnFoldingRange(
     );
 
     if (foldingRanges.length === 0) {
-      logger.debug(
+      logger.log(
+        LogMessageType.Debug,
         () => `No folding ranges found for: ${params.textDocument.uri}`,
       );
       return null;
     }
 
-    logger.debug(
+    logger.log(
+      LogMessageType.Debug,
       `Returning ${foldingRanges.length} folding ranges for: ${params.textDocument.uri}`,
     );
     return foldingRanges;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(
+    logger.log(
+      LogMessageType.Error,
       `Error processing folding range request for ${params.textDocument.uri}: ${errorMessage}`,
     );
     return null;

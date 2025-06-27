@@ -9,7 +9,7 @@
 import { ApexSymbol } from '@salesforce/apex-lsp-parser-ast';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import {
   ApexStorageInterface,
@@ -65,7 +65,10 @@ export class DefaultApexReferencesUpserter implements ApexReferencesUpserter {
         await this.storage.setReferences(symbol.name, references);
       }
     } catch (error) {
-      this.logger.error('Error populating definitions:', error);
+      this.logger.log(
+        LogMessageType.Error,
+        `Error populating definitions: ${error}`,
+      );
     }
   }
 }

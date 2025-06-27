@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LogMessage, LogLevel } from '@salesforce/apex-lsp-logging';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { getLogNotificationHandler } from '../handlers/LogNotificationHandler';
 
@@ -34,17 +34,13 @@ export class LoggingBridge {
 
   /**
    * Log a message through the LSP layer
-   * @param level Log level
+   * @param messageType LSP message type
    * @param message Message to log
-   * @param error Optional error object
    */
-  public log(level: LogLevel, message: string, error?: unknown): void {
-    const logMessage: LogMessage = {
-      level,
-      message: error ? `${message}: ${error}` : message,
-      error,
-    };
-
-    getLogNotificationHandler().sendLogMessage(logMessage);
+  public log(messageType: LogMessageType, message: string): void {
+    getLogNotificationHandler().sendLogMessage({
+      type: messageType,
+      message,
+    });
   }
 }

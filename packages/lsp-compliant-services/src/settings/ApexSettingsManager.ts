@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 import type { CompilationOptions } from '@salesforce/apex-lsp-parser-ast';
 
 import {
@@ -42,10 +42,12 @@ export class ApexSettingsManager {
       initialSettings || {},
       environment,
     );
-    this.logger.debug(
+    this.logger.log(
+      LogMessageType.Debug,
       `ApexSettingsManager initialized for ${environment} environment`,
     );
-    this.logger.debug(
+    this.logger.log(
+      LogMessageType.Debug,
       () =>
         `Initial settings: ${JSON.stringify(this.currentSettings, null, 2)}`,
     );
@@ -87,8 +89,12 @@ export class ApexSettingsManager {
   public updateSettings(
     newSettings: Partial<ApexLanguageServerSettings>,
   ): void {
-    this.logger.debug('Updating Apex Language Server settings');
-    this.logger.debug(
+    this.logger.log(
+      LogMessageType.Debug,
+      'Updating Apex Language Server settings',
+    );
+    this.logger.log(
+      LogMessageType.Debug,
       () => `New settings: ${JSON.stringify(newSettings, null, 2)}`,
     );
 
@@ -112,7 +118,10 @@ export class ApexSettingsManager {
   public updateFromLSPConfiguration(config: any): boolean {
     try {
       if (!config || typeof config !== 'object') {
-        this.logger.warn('Invalid LSP configuration received, using defaults');
+        this.logger.log(
+          LogMessageType.Warning,
+          'Invalid LSP configuration received, using defaults',
+        );
         return false;
       }
 
@@ -123,14 +132,18 @@ export class ApexSettingsManager {
         this.updateSettings(apexConfig);
         return true;
       } else {
-        this.logger.warn(
+        this.logger.log(
+          LogMessageType.Warning,
           'LSP configuration does not match expected schema, merging what we can',
         );
         this.updateSettings(apexConfig as Partial<ApexLanguageServerSettings>);
         return true;
       }
     } catch (error) {
-      this.logger.error('Error processing LSP configuration:', error);
+      this.logger.log(
+        LogMessageType.Error,
+        () => `Error processing LSP configuration: ${error}`,
+      );
       return false;
     }
   }
@@ -160,7 +173,8 @@ export class ApexSettingsManager {
 
     // Check file size limits
     if (fileSize && fileSize > performance.commentCollectionMaxFileSize) {
-      this.logger.debug(
+      this.logger.log(
+        LogMessageType.Debug,
         () =>
           `File size ${fileSize} exceeds limit ${performance.commentCollectionMaxFileSize}, disabling comments`,
       );
@@ -196,7 +210,8 @@ export class ApexSettingsManager {
         includeComments && commentCollection.associateCommentsWithSymbols,
     };
 
-    this.logger.debug(
+    this.logger.log(
+      LogMessageType.Debug,
       () =>
         `Final CompilationOptions for ${operationType}: ${JSON.stringify(compilationOptions, null, 2)}`,
     );
@@ -263,7 +278,10 @@ export class ApexSettingsManager {
       try {
         listener(settings);
       } catch (error) {
-        this.logger.error('Error notifying settings change listener:', error);
+        this.logger.log(
+          LogMessageType.Error,
+          () => `Error notifying settings change listener: ${error}`,
+        );
       }
     });
   }
@@ -321,7 +339,10 @@ export class ApexSettingsManager {
     }
 
     if (changes.length > 0) {
-      this.logger.debug(() => `Settings changed: ${changes.join(', ')}`);
+      this.logger.log(
+        LogMessageType.Debug,
+        () => `Settings changed: ${changes.join(', ')}`,
+      );
     }
   }
 }

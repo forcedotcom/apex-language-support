@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LogLevel } from '@salesforce/apex-lsp-logging';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import {
   CompilerService,
@@ -24,7 +24,7 @@ import { TestLogger } from '../utils/testLogger';
 describe('CompilerService Multiple Files Compilation', () => {
   // Set up debug logging for all tests in this suite
   const logger = TestLogger.getInstance();
-  logger.setLogLevel(LogLevel.Debug);
+  logger.setLogLevel(LogMessageType.Debug);
 
   describe('compileMultiple method', () => {
     it('should process multiple files with the same listener type', async () => {

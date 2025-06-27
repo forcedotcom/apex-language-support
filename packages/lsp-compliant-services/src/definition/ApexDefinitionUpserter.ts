@@ -8,7 +8,7 @@
 
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 import { ApexSymbol } from '@salesforce/apex-lsp-parser-ast';
 
 import {
@@ -62,7 +62,10 @@ export class DefaultApexDefinitionUpserter implements ApexDefinitionUpserter {
         await this.storage.setDefinition(symbol.name, reference);
       }
     } catch (error) {
-      this.logger.error('Error populating definitions:', error);
+      this.logger.log(
+        LogMessageType.Error,
+        `Error populating definitions: ${error}`,
+      );
     }
   }
 }

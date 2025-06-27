@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LogLevel, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { LoggingBridge } from './LoggingBridge';
 
@@ -34,72 +34,34 @@ export class Logger implements LoggerInterface {
   }
 
   /**
-   * Log an error message
+   * Log a message with the specified type
+   * @param messageType - The LSP message type
    * @param message - The message to log
-   * @param error - Optional error object to include in the log
-   */
-  public error(message: string | (() => string), error?: unknown): void {
-    const actualMessage = typeof message === 'function' ? message() : message;
-    const errorMessage = error ? `${actualMessage}: ${error}` : actualMessage;
-    console.error(errorMessage);
-    this.loggingBridge.log(LogLevel.Error, actualMessage, error);
-  }
-
-  /**
-   * Log a warning message
-   * @param message - The message to log
-   */
-  public warn(message: string | (() => string)): void {
-    const actualMessage = typeof message === 'function' ? message() : message;
-    console.warn(actualMessage);
-    this.loggingBridge.log(LogLevel.Warn, actualMessage);
-  }
-
-  /**
-   * Log an info message
-   * @param message - The message to log
-   */
-  public info(message: string | (() => string)): void {
-    const actualMessage = typeof message === 'function' ? message() : message;
-    console.info(actualMessage);
-    this.loggingBridge.log(LogLevel.Info, actualMessage);
-  }
-
-  /**
-   * Log a debug message
-   * @param message - The message to log
-   */
-  public debug(message: string | (() => string)): void {
-    const actualMessage = typeof message === 'function' ? message() : message;
-    console.log(actualMessage);
-    this.loggingBridge.log(LogLevel.Debug, actualMessage);
-  }
-
-  /**
-   * Log a message with the specified level
-   * @param level - The log level
-   * @param message - The message to log
-   * @param error - Optional error object to include in the log
    */
   public log(
-    level: LogLevel,
+    messageType: LogMessageType,
     message: string | (() => string),
-    error?: unknown,
   ): void {
     const actualMessage = typeof message === 'function' ? message() : message;
-    switch (level) {
-      case LogLevel.Error:
-        this.error(actualMessage, error);
+
+    // Log to console based on message type
+    switch (messageType) {
+      case LogMessageType.Error:
+        console.error(actualMessage);
         break;
-      case LogLevel.Warn:
-        this.warn(actualMessage);
+      case LogMessageType.Warning:
+        console.warn(actualMessage);
         break;
-      case LogLevel.Info:
-        this.info(actualMessage);
+      case LogMessageType.Info:
+        console.info(actualMessage);
         break;
-      case LogLevel.Debug:
-        this.debug(actualMessage);
+      case LogMessageType.Log:
+      case LogMessageType.Debug:
+        console.log(actualMessage);
         break;
     }
+
+    // Send to LSP layer
+    this.loggingBridge.log(messageType, actualMessage);
   }
 }

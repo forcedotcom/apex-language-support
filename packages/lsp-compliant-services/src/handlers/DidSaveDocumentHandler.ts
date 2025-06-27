@@ -7,6 +7,7 @@
  */
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { Logger } from '../utils/Logger';
 import { dispatch } from '../utils/handlerUtil';
@@ -18,7 +19,8 @@ export const processOnSaveDocument = async (
   // Client opened a document
   // TODO: Server will parse the document and populate the corresponding local maps
   const logger = Logger.getInstance();
-  logger.debug(
+  logger.log(
+    LogMessageType.Debug,
     `Common Apex Language Server save document handler invoked with: ${event}`,
   );
 

@@ -12,6 +12,7 @@ import {
   SymbolTable,
   ApexSymbolCollectorListener,
 } from '@salesforce/apex-lsp-parser-ast';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { Logger } from '../utils/Logger';
 import { dispatch, getDiagnosticsFromErrors } from '../utils/handlerUtil';
@@ -26,7 +27,8 @@ export const processOnOpenDocument = async (
 ): Promise<Diagnostic[] | undefined> => {
   // Client opened a document
   const logger = Logger.getInstance();
-  logger.debug(
+  logger.log(
+    LogMessageType.Debug,
     `Common Apex Language Server open document handler invoked with: ${event}`,
   );
 
@@ -60,7 +62,10 @@ export const processOnOpenDocument = async (
   );
 
   if (result.errors.length > 0) {
-    logger.error('Errors parsing document:', result.errors);
+    logger.log(
+      LogMessageType.Error,
+      `Errors parsing document: ${result.errors}`,
+    );
     const diagnostics = getDiagnosticsFromErrors(result.errors);
     return diagnostics;
   }

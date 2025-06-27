@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { ApexSymbol, SymbolKind } from '../types/symbol';
 import {
@@ -48,8 +48,10 @@ export class CommentAssociator {
       (a, b) => a.location.startLine - b.location.startLine,
     );
 
-    this.logger.debug(
-      `Associating ${sortedComments.length} comments with ${sortedSymbols.length} symbols`,
+    this.logger.log(
+      LogMessageType.Debug,
+      () =>
+        `Associating ${sortedComments.length} comments with ${sortedSymbols.length} symbols`,
     );
 
     // For each comment, find the best symbol association
@@ -67,13 +69,17 @@ export class CommentAssociator {
         bestAssociation.confidence >= this.config.minConfidence
       ) {
         associations.push(bestAssociation);
-        this.logger.debug(
-          `Associated comment at line ${comment.startLine} with symbol '${bestAssociation.symbolKey}' ` +
+        this.logger.log(
+          LogMessageType.Debug,
+          () =>
+            `Associated comment at line ${comment.startLine} with symbol '${bestAssociation.symbolKey}' ` +
             `(${bestAssociation.associationType}, confidence: ${bestAssociation.confidence.toFixed(2)})`,
         );
       } else {
-        this.logger.debug(
-          `No suitable association found for comment at line ${comment.startLine}`,
+        this.logger.log(
+          LogMessageType.Debug,
+          () =>
+            `No suitable association found for comment at line ${comment.startLine}`,
         );
       }
     }

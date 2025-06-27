@@ -15,7 +15,7 @@ import {
   ParseTreeWalker,
   TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { BaseApexParserListener } from './listeners/BaseApexParserListener';
 import {
@@ -83,8 +83,10 @@ export class CompilerService {
    */
   constructor(projectNamespace?: string) {
     this.projectNamespace = projectNamespace;
-    this.logger.debug(
-      `CompilerService initialized with namespace: ${projectNamespace || 'none'}`,
+    this.logger.log(
+      LogMessageType.Debug,
+      () =>
+        `CompilerService initialized with namespace: ${projectNamespace || 'none'}`,
     );
   }
 
@@ -105,7 +107,10 @@ export class CompilerService {
     | CompilationResult<T>
     | CompilationResultWithComments<T>
     | CompilationResultWithAssociations<T> {
-    this.logger.debug(`Starting compilation of ${fileName}`);
+    this.logger.log(
+      LogMessageType.Debug,
+      () => `Starting compilation of ${fileName}`,
+    );
 
     try {
       // Create error listener
@@ -136,7 +141,10 @@ export class CompilerService {
       listener.setErrorListener(errorListener);
       const namespace = options.projectNamespace || this.projectNamespace;
       if (namespace && typeof listener.setProjectNamespace === 'function') {
-        this.logger.debug(`Setting project namespace to: ${namespace}`);
+        this.logger.log(
+          LogMessageType.Debug,
+          () => `Setting project namespace to: ${namespace}`,
+        );
         listener.setProjectNamespace(namespace);
       }
 
@@ -193,10 +201,10 @@ export class CompilerService {
             commentAssociations,
           };
 
-          this.logger.debug(
-            `Compilation completed for ${fileName}. ` +
-              `Found ${comments.length} comments, ${commentAssociations.length} associations, ` +
-              `${resultWithAssociations.errors.length} errors, ${resultWithAssociations.warnings.length} warnings`,
+          this.logger.log(
+            LogMessageType.Debug,
+            () =>
+              `Compilation completed for ${fileName}. Found ${comments.length} comments, ${commentAssociations.length} associations, ${resultWithAssociations.errors.length} errors, ${resultWithAssociations.warnings.length} warnings`,
           );
 
           return resultWithAssociations;
@@ -206,35 +214,40 @@ export class CompilerService {
             comments,
           };
 
-          this.logger.debug(
-            `Compilation completed for ${fileName}. ` +
-              `Found ${comments.length} comments, ` +
-              `${resultWithComments.errors.length} errors, ${resultWithComments.warnings.length} warnings`,
+          this.logger.log(
+            LogMessageType.Debug,
+            () =>
+              `Compilation completed for ${fileName}. Found ${comments.length} comments, ${resultWithComments.errors.length} errors, ${resultWithComments.warnings.length} warnings`,
           );
 
           return resultWithComments;
         }
       } else {
         if (baseResult.errors.length > 0) {
-          this.logger.warn(
-            `Compilation completed with ${baseResult.errors.length} errors in ${fileName}`,
+          this.logger.log(
+            LogMessageType.Warning,
+            () =>
+              `Compilation completed with ${baseResult.errors.length} errors in ${fileName}`,
           );
         } else if (baseResult.warnings.length > 0) {
-          this.logger.info(
-            `Compilation completed with ${baseResult.warnings.length} warnings in ${fileName}`,
+          this.logger.log(
+            LogMessageType.Info,
+            () =>
+              `Compilation completed with ${baseResult.warnings.length} warnings in ${fileName}`,
           );
         } else {
-          this.logger.debug(
-            `Compilation completed successfully for ${fileName}`,
+          this.logger.log(
+            LogMessageType.Debug,
+            () => `Compilation completed successfully for ${fileName}`,
           );
         }
 
         return baseResult;
       }
     } catch (error) {
-      this.logger.error(
-        `Unexpected error during compilation of ${fileName}`,
-        error,
+      this.logger.log(
+        LogMessageType.Error,
+        () => `Unexpected error during compilation of ${fileName}`,
       );
 
       // Create an error object for any unexpected errors
@@ -278,7 +291,8 @@ export class CompilerService {
     listener: BaseApexParserListener<T>,
     options: CompilationOptions = {},
   ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
-    this.logger.info(
+    this.logger.log(
+      LogMessageType.Info,
       () => `Starting parallel compilation of ${files.length} files`,
     );
 
@@ -314,7 +328,8 @@ export class CompilerService {
       options?: CompilationOptions;
     }>,
   ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
-    this.logger.info(
+    this.logger.log(
+      LogMessageType.Info,
       () =>
         `Starting parallel compilation of ${fileCompilationConfigs.length} files with individual configurations`,
     );
@@ -348,9 +363,9 @@ export class CompilerService {
       } else {
         // Handle rejection by creating an error result
         rejectedCount++;
-        this.logger.error(
-          `Compilation failed for ${config.fileName}`,
-          settledResult.reason,
+        this.logger.log(
+          LogMessageType.Error,
+          () => `Compilation failed for ${config.fileName}`,
         );
 
         // Create an error object for the rejection
@@ -390,13 +405,14 @@ export class CompilerService {
     const duration = (endTime - startTime) / 1000;
 
     if (rejectedCount > 0) {
-      this.logger.warn(
+      this.logger.log(
+        LogMessageType.Warning,
         () =>
-          `Parallel compilation completed in ${duration.toFixed(2)}s: ` +
-          `${results.length} files processed, ${rejectedCount} compilation rejections captured`,
+          `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed, ${rejectedCount} compilation rejections captured`,
       );
     } else {
-      this.logger.info(
+      this.logger.log(
+        LogMessageType.Info,
         () =>
           `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed`,
       );
@@ -409,7 +425,7 @@ export class CompilerService {
     source: string,
     errorListener?: ApexErrorListener,
   ): CompilationUnitContext | TriggerUnitContext {
-    this.logger.debug('Creating compilation unit');
+    this.logger.log(LogMessageType.Debug, 'Creating compilation unit');
     const inputStream = CharStreams.fromString(source);
     const lexer = new ApexLexer(new CaseInsensitiveInputStream(inputStream));
     const tokenStream = new CommonTokenStream(lexer);
@@ -417,7 +433,10 @@ export class CompilerService {
 
     // Add our custom error listener if provided
     if (errorListener) {
-      this.logger.debug('Setting up custom error listeners');
+      this.logger.log(
+        LogMessageType.Debug,
+        'Setting up custom error listeners',
+      );
       // Remove default error listeners that print to console
       parser.removeErrorListeners();
       lexer.removeErrorListeners();
@@ -434,7 +453,7 @@ export class CompilerService {
       errorListener?.getFilePath()?.endsWith('.trigger') ?? false;
 
     // Parse the compilation unit or trigger based on file type
-    this.logger.debug('Parsing compilation unit');
+    this.logger.log(LogMessageType.Debug, 'Parsing compilation unit');
     const compilationUnitContext = isTrigger
       ? parser.triggerUnit()
       : parser.compilationUnit();

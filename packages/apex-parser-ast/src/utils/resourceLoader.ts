@@ -7,7 +7,7 @@
  */
 
 import { unzipSync } from 'fflate';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { zipData } from '../generated/apexSrcLoader';
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
@@ -93,7 +93,10 @@ export class ResourceLoader {
       // Unzip the contents
       const files = unzipSync(zipData);
 
-      this.logger.debug(() => `Raw zip entries: ${Object.keys(files).length}`);
+      this.logger.log(
+        LogMessageType.Debug,
+        () => `Raw zip entries: ${Object.keys(files).length}`,
+      );
 
       // Convert each file to string and store in map
       let processedFiles = 0;
@@ -116,7 +119,10 @@ export class ResourceLoader {
           processedFiles++;
         });
 
-      this.logger.debug(() => `Processed files: ${processedFiles}`);
+      this.logger.log(
+        LogMessageType.Debug,
+        () => `Processed files: ${processedFiles}`,
+      );
 
       // Calculate and log statistics
       const dirStats = new Map<string, number>();
@@ -134,27 +140,46 @@ export class ResourceLoader {
         totalFiles++;
       }
 
-      this.logger.info(
+      this.logger.log(
+        LogMessageType.Info,
         () => '\nResource Loading Statistics:\n---------------------------',
       );
-      this.logger.info(() => `Total files loaded: ${totalFiles}`);
-      this.logger.info(() => `Loading mode: ${this.loadMode}`);
-      this.logger.info(() => '\nFiles per directory:');
+      this.logger.log(
+        LogMessageType.Info,
+        () => `Total files loaded: ${totalFiles}`,
+      );
+      this.logger.log(
+        LogMessageType.Info,
+        () => `Loading mode: ${this.loadMode}`,
+      );
+      this.logger.log(LogMessageType.Info, () => '\nFiles per directory:');
       for (const [dir, count] of dirStats.entries()) {
-        this.logger.info(() => `  ${dir}: ${count} files`);
+        this.logger.log(LogMessageType.Info, () => `  ${dir}: ${count} files`);
       }
-      this.logger.info(() => '---------------------------\n');
+      this.logger.log(
+        LogMessageType.Info,
+        () => '---------------------------\n',
+      );
 
       // Start compilation when loadMode is 'full'
       if (this.loadMode === 'full') {
         // Create and start the compilation promise
         this.compilationPromise = (async () => {
           try {
-            this.logger.info(() => 'Starting async compilation...');
+            this.logger.log(
+              LogMessageType.Info,
+              () => 'Starting async compilation...',
+            );
             await this.compileAllArtifacts();
-            this.logger.info(() => 'Async compilation completed successfully');
+            this.logger.log(
+              LogMessageType.Info,
+              () => 'Async compilation completed successfully',
+            );
           } catch (error) {
-            this.logger.error('Compilation failed:', error);
+            this.logger.log(
+              LogMessageType.Error,
+              () => `Compilation failed: ${error}`,
+            );
             throw error;
           } finally {
             this.compilationPromise = null; // Reset promise after completion
@@ -176,7 +201,10 @@ export class ResourceLoader {
 
       this.initialized = true;
     } catch (error) {
-      this.logger.error('Failed to initialize resource loader:', error);
+      this.logger.log(
+        LogMessageType.Error,
+        () => `Failed to initialize resource loader: ${error}`,
+      );
       throw error;
     }
   }
@@ -240,7 +268,8 @@ export class ResourceLoader {
    * @private
    */
   private async compileAllArtifacts(): Promise<void> {
-    this.logger.info(
+    this.logger.log(
+      LogMessageType.Info,
       () =>
         'Starting parallel compilation of all artifacts using CompilerService...',
     );
@@ -275,22 +304,27 @@ export class ResourceLoader {
       }
     }
 
-    this.logger.info(() => `Found ${filesToCompile.length} files to compile`);
+    this.logger.log(
+      LogMessageType.Info,
+      () => `Found ${filesToCompile.length} files to compile`,
+    );
 
     if (filesToCompile.length === 0) {
-      this.logger.info(() => 'No files to compile');
+      this.logger.log(LogMessageType.Info, () => 'No files to compile');
       return;
     }
 
     try {
-      this.logger.info(
+      this.logger.log(
+        LogMessageType.Info,
         () => 'Calling compileMultipleWithConfigs with parallel processing',
       );
 
       const results =
         await this.compilerService.compileMultipleWithConfigs(filesToCompile);
 
-      this.logger.info(
+      this.logger.log(
+        LogMessageType.Info,
         () => `CompileMultipleWithConfigs returned ${results.length} results`,
       );
 
@@ -313,9 +347,9 @@ export class ResourceLoader {
           }
         } else {
           errorCount++;
-          this.logger.error(
-            `Compilation failed for ${result.fileName}:`,
-            result.errors,
+          this.logger.log(
+            LogMessageType.Error,
+            () => `Compilation failed for ${result.fileName}:`,
           );
         }
       });
@@ -323,13 +357,16 @@ export class ResourceLoader {
       const endTime = Date.now();
       const duration = (endTime - startTime) / 1000;
 
-      this.logger.info(
+      this.logger.log(
+        LogMessageType.Info,
         () =>
-          `Parallel compilation completed in ${duration.toFixed(2)}s: ` +
-          `${compiledCount} files compiled, ${errorCount} files with errors`,
+          `Parallel compilation completed in ${duration.toFixed(2)}s: ${compiledCount} files compiled, ${errorCount} files with errors`,
       );
     } catch (error) {
-      this.logger.error('Failed to compile artifacts:', error);
+      this.logger.log(
+        LogMessageType.Error,
+        () => 'Failed to compile artifacts:',
+      );
       throw error;
     }
   }

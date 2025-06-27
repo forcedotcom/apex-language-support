@@ -6,26 +6,34 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { FoldingRange as LSPFoldingRange } from 'vscode-languageserver';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { FoldingRange as LSPFoldingRange } from 'vscode-languageserver';
 import {
-  ApexFoldingRangeListener,
-  type FoldingRange as ASTFoldingRange,
   CompilerService,
-  type ApexComment,
+  ApexFoldingRangeListener,
+  ApexComment,
   CommentType,
 } from '@salesforce/apex-lsp-parser-ast';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
-import type { ApexStorageInterface } from '../storage/ApexStorageInterface';
+import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { ApexSettingsManager } from '../settings/ApexSettingsManager';
+
+/**
+ * Interface for AST folding range
+ */
+interface ASTFoldingRange {
+  startLine: number;
+  startColumn?: number;
+  endLine: number;
+  endColumn?: number;
+  kind?: string;
+  level?: number;
+}
 
 const logger = getLogger();
 
 /**
- * Provider for computing folding ranges in Apex code.
- *
- * This provider uses the Apex AST parser to identify foldable regions
- * and converts them to the LSP-compliant format.
+ * Provider for Apex folding ranges
  */
 export class ApexFoldingRangeProvider {
   private compilerService: CompilerService;
@@ -35,8 +43,7 @@ export class ApexFoldingRangeProvider {
   }
 
   /**
-   * Compute folding ranges for the given Apex document.
-   *
+   * Get folding ranges for a document
    * @param documentUri - The URI of the document to analyze
    * @returns Array of LSP folding ranges
    */
@@ -44,14 +51,18 @@ export class ApexFoldingRangeProvider {
     documentUri: string,
   ): Promise<LSPFoldingRange[]> {
     try {
-      logger.debug(
+      logger.log(
+        LogMessageType.Debug,
         () => `Computing folding ranges for document: ${documentUri}`,
       );
 
       // Get the document from storage
       const document = await this.storage.getDocument(documentUri);
       if (!document) {
-        logger.warn(() => `Document not found in storage: ${documentUri}`);
+        logger.log(
+          LogMessageType.Warning,
+          () => `Document not found in storage: ${documentUri}`,
+        );
         return [];
       }
 
@@ -73,12 +84,16 @@ export class ApexFoldingRangeProvider {
       );
 
       if (result.errors.length > 0) {
-        logger.warn(() => `Parse errors for ${documentUri}:`, result.errors);
+        logger.log(
+          LogMessageType.Warning,
+          () => `Parse errors for ${documentUri}: ${result.errors}`,
+        );
         // Continue processing even with errors, as partial folding ranges may still be useful
       }
 
       const astFoldingRanges = listener.getResult();
-      logger.debug(
+      logger.log(
+        LogMessageType.Debug,
         () => `Found ${astFoldingRanges.length} folding ranges in AST`,
       );
 
@@ -88,7 +103,8 @@ export class ApexFoldingRangeProvider {
         blockCommentRanges = this.convertBlockCommentsToFoldingRanges(
           result.comments,
         );
-        logger.debug(
+        logger.log(
+          LogMessageType.Debug,
           () => `Found ${blockCommentRanges.length} block comment ranges`,
         );
       }
@@ -99,14 +115,16 @@ export class ApexFoldingRangeProvider {
       // Convert to LSP folding ranges
       const lspFoldingRanges = this.convertToLSPFoldingRanges(allRanges);
 
-      logger.debug(
+      logger.log(
+        LogMessageType.Debug,
         `Converted to ${lspFoldingRanges.length} LSP folding ranges`,
       );
       return lspFoldingRanges;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logger.error(
+      logger.log(
+        LogMessageType.Error,
         `Error computing folding ranges for ${documentUri}: ${errorMessage}`,
       );
       return [];
@@ -139,7 +157,8 @@ export class ApexFoldingRangeProvider {
           level: 0,
         });
 
-        logger.debug(
+        logger.log(
+          LogMessageType.Debug,
           () =>
             `Added block comment folding range: ${comment.startLine}-${comment.endLine}`,
         );
@@ -180,7 +199,8 @@ export class ApexFoldingRangeProvider {
 
     // Log validation for comment ranges
     if (range.kind === 'comment') {
-      logger.debug(
+      logger.log(
+        LogMessageType.Debug,
         () =>
           `Validating comment folding range: ${range.startLine}-${range.endLine} (valid: ${isValidRange})`,
       );
@@ -220,7 +240,8 @@ export class ApexFoldingRangeProvider {
 
       // Log conversion for comment ranges
       if (astRange.kind === 'comment') {
-        logger.debug(
+        logger.log(
+          LogMessageType.Debug,
           () =>
             `Converting comment folding range: ${astRange.startLine}-${astRange.endLine} -> ` +
             `${lspRange.startLine}-${lspRange.endLine}`,
@@ -231,28 +252,33 @@ export class ApexFoldingRangeProvider {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logger.warn(() => `Failed to convert folding range: ${errorMessage}`);
+      logger.log(
+        LogMessageType.Warning,
+        () => `Failed to convert folding range: ${errorMessage}`,
+      );
       return null;
     }
   }
 
   /**
-   * Convert AST folding range kind to LSP kind.
+   * Convert AST folding range kind to LSP folding range kind.
    *
    * @param astKind - The AST folding range kind
-   * @returns LSP folding range kind
+   * @returns LSP folding range kind or undefined
    */
   private convertFoldingRangeKind(astKind: string): string | undefined {
-    switch (astKind) {
+    switch (astKind.toLowerCase()) {
       case 'comment':
         return 'comment';
-      case 'imports':
-        return 'imports';
       case 'region':
         return 'region';
+      case 'imports':
+        return 'imports';
       default:
-        // For unknown kinds, return undefined to let LSP use default
-        logger.debug(() => `Unknown folding range kind: ${astKind}`);
+        logger.log(
+          LogMessageType.Debug,
+          () => `Unknown folding range kind: ${astKind}`,
+        );
         return undefined;
     }
   }

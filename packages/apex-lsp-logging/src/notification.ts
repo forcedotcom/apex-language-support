@@ -14,6 +14,7 @@ export enum LogMessageType {
   Warning = 2,
   Info = 3,
   Log = 4,
+  Debug = 5,
 }
 
 /**

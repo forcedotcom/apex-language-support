@@ -12,6 +12,7 @@ import {
   CompilerService,
   ApexSymbolCollectorListener,
 } from '@salesforce/apex-lsp-parser-ast';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { Logger } from '../utils/Logger';
 import { dispatch, getDiagnosticsFromErrors } from '../utils/handlerUtil';
@@ -26,7 +27,8 @@ export const processOnChangeDocument = async (
 ): Promise<Diagnostic[] | undefined> => {
   // Client opened a document
   const logger = Logger.getInstance();
-  logger.debug(
+  logger.log(
+    LogMessageType.Debug,
     `Common Apex Language Server change document handler invoked with: ${event}`,
   );
 
@@ -35,7 +37,10 @@ export const processOnChangeDocument = async (
   const storage = storageManager.getStorage();
   const document = event.document;
   if (!document) {
-    logger.error(() => `Document not found for URI: ${event.document.uri}`);
+    logger.log(
+      LogMessageType.Error,
+      () => `Document not found for URI: ${event.document.uri}`,
+    );
   }
 
   // Store the document in storage for later retrieval by other handlers
@@ -62,7 +67,10 @@ export const processOnChangeDocument = async (
   );
 
   if (result.errors.length > 0) {
-    logger.error('Errors parsing document:', result.errors);
+    logger.log(
+      LogMessageType.Error,
+      `Errors parsing document: ${result.errors}`,
+    );
     const diagnostics = getDiagnosticsFromErrors(result.errors);
     return diagnostics;
   }

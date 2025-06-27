@@ -8,7 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import {
   CompilerService,
@@ -131,10 +131,12 @@ export async function compileStubs(
   const finalSourceDir = sourceDir || defaultSourceDir;
   const finalOutputDir = outputDir || defaultOutputDir;
 
-  logger.info('Starting compilation of stub files...');
+  logger.log(LogMessageType.Info, 'Starting compilation of stub files...');
   if (specificFiles) {
-    logger.info('Processing specific files:');
-    specificFiles.forEach((file) => logger.info(`- ${file}`));
+    logger.log(LogMessageType.Info, () => 'Processing specific files:');
+    specificFiles.forEach((file) =>
+      logger.log(LogMessageType.Info, () => `- ${file}`),
+    );
   }
 
   // Create output directory if it doesn't exist
@@ -144,7 +146,10 @@ export async function compileStubs(
 
   // Find all Apex files
   const files = findApexFiles(finalSourceDir, specificFiles);
-  logger.info(`Found ${files.length} Apex files to compile`);
+  logger.log(
+    LogMessageType.Info,
+    () => `Found ${files.length} Apex files to compile`,
+  );
 
   const results: CompilationResults = {
     total: files.length,
@@ -158,7 +163,10 @@ export async function compileStubs(
     try {
       // Get namespace from parent directory name
       const namespace = path.basename(path.dirname(file));
-      logger.info(`\nProcessing ${file} (namespace: ${namespace})`);
+      logger.log(
+        LogMessageType.Info,
+        () => `\nProcessing ${file} (namespace: ${namespace})`,
+      );
 
       // Parse the file
       const result = parseApexFile(file, namespace);
@@ -322,11 +330,11 @@ export async function compileStubs(
       }
 
       fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
-      logger.info(`✓ Compiled ${relativePath}`);
+      logger.log(LogMessageType.Info, () => `✓ Compiled ${relativePath}`);
 
       results.successful++;
     } catch (error) {
-      logger.error(`✗ Failed to compile ${file}:`, error);
+      logger.log(LogMessageType.Error, () => `✗ Failed to compile ${file}:`);
       results.failed++;
       results.errors.push({
         file,
@@ -339,15 +347,15 @@ export async function compileStubs(
   const summaryPath = path.join(finalOutputDir, 'compilation-summary.json');
   fs.writeFileSync(summaryPath, JSON.stringify(results, null, 2));
 
-  logger.info('\nCompilation Summary:');
-  logger.info(`Total files: ${results.total}`);
-  logger.info(`Successful: ${results.successful}`);
-  logger.info(`Failed: ${results.failed}`);
+  logger.log(LogMessageType.Info, () => '\nCompilation Summary:');
+  logger.log(LogMessageType.Info, () => `Total files: ${results.total}`);
+  logger.log(LogMessageType.Info, () => `Successful: ${results.successful}`);
+  logger.log(LogMessageType.Info, () => `Failed: ${results.failed}`);
 
   if (results.failed > 0) {
-    logger.error('\nErrors:');
+    logger.log(LogMessageType.Error, () => '\nErrors:');
     results.errors.forEach((e) => {
-      logger.error(`- ${e.file}: ${e.error}`);
+      logger.log(LogMessageType.Error, () => `- ${e.file}: ${e.error}`);
     });
   }
 }

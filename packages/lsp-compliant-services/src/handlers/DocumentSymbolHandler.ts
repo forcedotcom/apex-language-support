@@ -10,6 +10,7 @@ import {
   SymbolInformation,
   DocumentSymbol,
 } from 'vscode-languageserver';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { Logger } from '../utils/Logger';
 import { dispatch } from '../utils/handlerUtil';
@@ -21,7 +22,8 @@ export const processOnDocumentSymbol = async (
   params: DocumentSymbolParams,
 ): Promise<SymbolInformation[] | DocumentSymbol[] | null> => {
   const logger = Logger.getInstance();
-  logger.debug(
+  logger.log(
+    LogMessageType.Debug,
     `Common Apex Language Server document symbol handler invoked with: ${params}`,
   );
 
@@ -36,7 +38,10 @@ export const processOnDocumentSymbol = async (
     // Get document symbols
     return await provider.provideDocumentSymbols(params);
   } catch (error) {
-    logger.error('Error processing document symbols:', error);
+    logger.log(
+      LogMessageType.Error,
+      `Error processing document symbols: ${error}`,
+    );
     return null;
   }
 };
