@@ -218,7 +218,7 @@ export class LSPConfigurationManager {
       });
       await this.resourceLoader.initialize();
 
-      this.logger.log(LogMessageType.Info, () => {
+      this.logger.info(() => {
         const action = currentResourceLoader ? 'reconfigured' : 'initialized';
         return `Resource loader ${action} successfully with mode: ${newLoadMode}`;
       });
@@ -514,15 +514,12 @@ export class LSPConfigurationManager {
       }
 
       // Log configuration summary for debugging
-      this.logger.log(LogMessageType.Debug, () => {
+      this.logger.debug(() => {
         const settingsKeys = Object.keys(currentSettings);
         return `Current configuration sections: ${settingsKeys.join(', ')}`;
       });
 
-      this.logger.log(
-        LogMessageType.Debug,
-        'Configuration validation completed',
-      );
+      this.logger.debug('Configuration validation completed');
     } catch (error) {
       this.logger.log(
         LogMessageType.Error,
@@ -574,6 +571,10 @@ export class LSPConfigurationManager {
 
       // Could emit events here for other components to react to config changes
       // this.eventEmitter?.emit('configurationChanged', settings);
+
+      this.logger.info(
+        () => `Configuration updated:\n${JSON.stringify(settings, null, 2)}`,
+      );
     } catch (error) {
       this.logger.log(
         LogMessageType.Error,

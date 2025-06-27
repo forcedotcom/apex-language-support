@@ -200,7 +200,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
 
       return document;
     } catch (error) {
-      this.logger.error(`Error reading document ${uri}:`, error);
+      this.logger.error(`Error reading document ${uri}: ${error}`);
       return null;
     }
   }

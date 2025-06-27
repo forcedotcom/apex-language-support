@@ -152,9 +152,9 @@ export class ResourceLoader {
         LogMessageType.Info,
         () => `Loading mode: ${this.loadMode}`,
       );
-      this.logger.log(LogMessageType.Info, () => '\nFiles per directory:');
+      this.logger.info(() => '\nFiles per directory:');
       for (const [dir, count] of dirStats.entries()) {
-        this.logger.log(LogMessageType.Info, () => `  ${dir}: ${count} files`);
+        this.logger.info(() => `  ${dir}: ${count} files`);
       }
       this.logger.log(
         LogMessageType.Info,
@@ -310,7 +310,7 @@ export class ResourceLoader {
     );
 
     if (filesToCompile.length === 0) {
-      this.logger.log(LogMessageType.Info, () => 'No files to compile');
+      this.logger.info(() => 'No files to compile');
       return;
     }
 

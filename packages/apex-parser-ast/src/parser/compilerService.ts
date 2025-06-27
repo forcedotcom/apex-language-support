@@ -425,7 +425,7 @@ export class CompilerService {
     source: string,
     errorListener?: ApexErrorListener,
   ): CompilationUnitContext | TriggerUnitContext {
-    this.logger.log(LogMessageType.Debug, 'Creating compilation unit');
+    this.logger.debug('Creating compilation unit');
     const inputStream = CharStreams.fromString(source);
     const lexer = new ApexLexer(new CaseInsensitiveInputStream(inputStream));
     const tokenStream = new CommonTokenStream(lexer);
@@ -453,7 +453,7 @@ export class CompilerService {
       errorListener?.getFilePath()?.endsWith('.trigger') ?? false;
 
     // Parse the compilation unit or trigger based on file type
-    this.logger.log(LogMessageType.Debug, 'Parsing compilation unit');
+    this.logger.debug('Parsing compilation unit');
     const compilationUnitContext = isTrigger
       ? parser.triggerUnit()
       : parser.compilationUnit();
