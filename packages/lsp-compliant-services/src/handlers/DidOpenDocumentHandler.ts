@@ -12,9 +12,8 @@ import {
   SymbolTable,
   ApexSymbolCollectorListener,
 } from '@salesforce/apex-lsp-parser-ast';
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
-import { Logger } from '../utils/Logger';
 import { dispatch, getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
@@ -26,7 +25,7 @@ export const processOnOpenDocument = async (
   event: TextDocumentChangeEvent<TextDocument>,
 ): Promise<Diagnostic[] | undefined> => {
   // Client opened a document
-  const logger = Logger.getInstance();
+  const logger = getLogger();
   logger.log(
     LogMessageType.Debug,
     `Common Apex Language Server open document handler invoked with: ${event}`,
@@ -105,3 +104,35 @@ export const processOnOpenDocument = async (
 export const dispatchProcessOnOpenDocument = async (
   event: TextDocumentChangeEvent<TextDocument>,
 ) => processOnOpenDocument(event);
+
+/**
+ * Handler for document open events
+ */
+export class DidOpenDocumentHandler {
+  private readonly logger = getLogger();
+
+  /**
+   * Handle document open event
+   * @param event The document open event
+   * @returns Diagnostics for the opened document
+   */
+  public async handleDocumentOpen(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<Diagnostic[] | undefined> {
+    this.logger.log(
+      LogMessageType.Info,
+      `Processing document open: ${event.document.uri}`,
+    );
+
+    try {
+      return await dispatchProcessOnOpenDocument(event);
+    } catch (error) {
+      this.logger.log(
+        LogMessageType.Error,
+        () =>
+          `Error processing document open for ${event.document.uri}: ${error}`,
+      );
+      throw error;
+    }
+  }
+}

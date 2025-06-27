@@ -7,12 +7,21 @@
  */
 
 import { dispatch } from '../../src/utils/handlerUtil';
+import { getLogger } from '@salesforce/apex-lsp-logging';
+jest.mock('@salesforce/apex-lsp-logging');
 
 describe('handlerUtil', () => {
-  let consoleErrorSpy: jest.SpyInstance;
+  let mockLogger: any;
 
   beforeEach(() => {
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    mockLogger = {
+      log: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    (getLogger as jest.Mock).mockReturnValue(mockLogger);
   });
 
   afterEach(() => {
@@ -28,27 +37,31 @@ describe('handlerUtil', () => {
       const dispatchResult = await dispatch(operation, errorMessage);
 
       expect(dispatchResult).toBe(result);
-      expect(consoleErrorSpy).not.toHaveBeenCalled();
+      expect(mockLogger.log).not.toHaveBeenCalled();
     });
 
     it('should log error and rethrow when operation fails', async () => {
-      const error = new Error('Test error');
+      const error = new Error('fail');
       const operation = Promise.reject(error);
-      const errorMessage = 'Test error message';
+      const errorMessage = 'Failed operation';
 
       await expect(dispatch(operation, errorMessage)).rejects.toThrow(error);
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(`${errorMessage}: ${error}`);
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.any(Number),
+        expect.stringContaining('Error in dispatch'),
+      );
     });
 
     it('should handle non-Error objects in catch', async () => {
-      const error = 'String error';
+      const error = 'fail';
       const operation = Promise.reject(error);
-      const errorMessage = 'Test error message';
+      const errorMessage = 'Failed operation';
 
       await expect(dispatch(operation, errorMessage)).rejects.toBe(error);
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(`${errorMessage}: ${error}`);
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.any(Number),
+        expect.stringContaining('Error in dispatch'),
+      );
     });
 
     it('should handle complex return types', async () => {
@@ -59,7 +72,7 @@ describe('handlerUtil', () => {
       const dispatchResult = await dispatch(operation, errorMessage);
 
       expect(dispatchResult).toEqual(result);
-      expect(consoleErrorSpy).not.toHaveBeenCalled();
+      expect(mockLogger.log).not.toHaveBeenCalled();
     });
   });
 });

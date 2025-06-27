@@ -12,9 +12,8 @@ import {
   CompilerService,
   ApexSymbolCollectorListener,
 } from '@salesforce/apex-lsp-parser-ast';
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
-import { Logger } from '../utils/Logger';
 import { dispatch, getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
@@ -26,7 +25,7 @@ export const processOnChangeDocument = async (
   event: TextDocumentChangeEvent<TextDocument>,
 ): Promise<Diagnostic[] | undefined> => {
   // Client opened a document
-  const logger = Logger.getInstance();
+  const logger = getLogger();
   logger.log(
     LogMessageType.Debug,
     `Common Apex Language Server change document handler invoked with: ${event}`,
@@ -109,3 +108,35 @@ export const dispatchProcessOnChangeDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
 ) =>
   dispatch(processOnChangeDocument(event), 'Error processing document change');
+
+/**
+ * Handler for document change events
+ */
+export class DidChangeDocumentHandler {
+  private readonly logger = getLogger();
+
+  /**
+   * Handle document change event
+   * @param event The document change event
+   * @returns Diagnostics for the changed document
+   */
+  public async handleDocumentChange(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<Diagnostic[] | undefined> {
+    this.logger.log(
+      LogMessageType.Info,
+      `Processing document change: ${event.document.uri}`,
+    );
+
+    try {
+      return await dispatchProcessOnChangeDocument(event);
+    } catch (error) {
+      this.logger.log(
+        LogMessageType.Error,
+        () =>
+          `Error processing document change for ${event.document.uri}: ${error}`,
+      );
+      throw error;
+    }
+  }
+}

@@ -10,9 +10,8 @@ import {
   SymbolInformation,
   DocumentSymbol,
 } from 'vscode-languageserver';
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
-import { Logger } from '../utils/Logger';
 import { dispatch } from '../utils/handlerUtil';
 import { DefaultApexDocumentSymbolProvider } from '../documentSymbol/ApexDocumentSymbolProvider';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -21,7 +20,7 @@ import { ApexStorageManager } from '../storage/ApexStorageManager';
 export const processOnDocumentSymbol = async (
   params: DocumentSymbolParams,
 ): Promise<SymbolInformation[] | DocumentSymbol[] | null> => {
-  const logger = Logger.getInstance();
+  const logger = getLogger();
   logger.log(
     LogMessageType.Debug,
     `Common Apex Language Server document symbol handler invoked with: ${params}`,
@@ -53,3 +52,35 @@ export const dispatchProcessOnDocumentSymbol = (
     processOnDocumentSymbol(params),
     'Error processing document symbols',
   );
+
+/**
+ * Handler for document symbol requests
+ */
+export class DocumentSymbolHandler {
+  private readonly logger = getLogger();
+
+  /**
+   * Handle document symbol request
+   * @param params The document symbol parameters
+   * @returns Document symbols for the requested document
+   */
+  public async handleDocumentSymbol(
+    params: DocumentSymbolParams,
+  ): Promise<SymbolInformation[] | DocumentSymbol[] | null> {
+    this.logger.log(
+      LogMessageType.Info,
+      `Processing document symbol request: ${params.textDocument.uri}`,
+    );
+
+    try {
+      return await dispatchProcessOnDocumentSymbol(params);
+    } catch (error) {
+      this.logger.log(
+        LogMessageType.Error,
+        () =>
+          `Error processing document symbol request for ${params.textDocument.uri}: ${error}`,
+      );
+      throw error;
+    }
+  }
+}

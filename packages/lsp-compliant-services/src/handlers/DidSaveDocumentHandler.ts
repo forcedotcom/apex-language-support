@@ -7,9 +7,8 @@
  */
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
-import { Logger } from '../utils/Logger';
 import { dispatch } from '../utils/handlerUtil';
 
 // Visible for testing
@@ -18,7 +17,7 @@ export const processOnSaveDocument = async (
 ): Promise<void> => {
   // Client opened a document
   // TODO: Server will parse the document and populate the corresponding local maps
-  const logger = Logger.getInstance();
+  const logger = getLogger();
   logger.log(
     LogMessageType.Debug,
     `Common Apex Language Server save document handler invoked with: ${event}`,
@@ -33,3 +32,34 @@ export const processOnSaveDocument = async (
 export const dispatchProcessOnSaveDocument = (
   event: TextDocumentChangeEvent<TextDocument>,
 ) => dispatch(processOnSaveDocument(event), 'Error processing document save');
+
+/**
+ * Handler for document save events
+ */
+export class DidSaveDocumentHandler {
+  private readonly logger = getLogger();
+
+  /**
+   * Handle document save event
+   * @param event The document save event
+   */
+  public async handleDocumentSave(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<void> {
+    this.logger.log(
+      LogMessageType.Info,
+      `Processing document save: ${event.document.uri}`,
+    );
+
+    try {
+      await dispatchProcessOnSaveDocument(event);
+    } catch (error) {
+      this.logger.log(
+        LogMessageType.Error,
+        () =>
+          `Error processing document save for ${event.document.uri}: ${error}`,
+      );
+      throw error;
+    }
+  }
+}

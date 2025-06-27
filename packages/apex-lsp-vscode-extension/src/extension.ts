@@ -461,7 +461,7 @@ async function startLanguageServer(context: vscode.ExtensionContext) {
   try {
     isStarting = true;
     outputChannel.appendLine(
-      `[${new Date().toISOString()}] Starting language server (attempt ${serverStartRetries + 1})`,
+      `Starting language server (attempt ${serverStartRetries + 1})`,
     );
 
     // Clean up previous client if it exists

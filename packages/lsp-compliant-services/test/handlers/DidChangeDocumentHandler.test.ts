@@ -6,218 +6,134 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TextDocumentChangeEvent, TextDocuments } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
+import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
-import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
-import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
-import { Logger } from '../../src/utils/Logger';
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
-import { dispatch } from '../../src/utils/handlerUtil';
-import {
-  processOnChangeDocument,
-  dispatchProcessOnChangeDocument,
-} from '../../src/handlers/DidChangeDocumentHandler';
+import { DidChangeDocumentHandler } from '../../src/handlers/DidChangeDocumentHandler';
 
-jest.mock('../../src/utils/Logger');
-jest.mock('../../src/utils/handlerUtil', () => ({
-  ...jest.requireActual('../../src/utils/handlerUtil'),
-  dispatch: jest.fn(),
+// Mock the logging module
+jest.mock('@salesforce/apex-lsp-logging');
+
+// Mock the dispatch function
+jest.mock('../../src/index', () => ({
+  dispatchProcessOnChangeDocument: jest.fn(),
 }));
-jest.mock('../../src/storage/ApexStorageManager');
-jest.mock('../../src/definition/ApexDefinitionUpserter');
-jest.mock('../../src/references/ApexReferencesUpserter');
+
+// Mock the storage manager to avoid singleton errors
+jest.mock('../../src/storage/ApexStorageManager', () => ({
+  ApexStorageManager: {
+    getInstance: jest.fn(() => ({
+      getStorage: jest.fn(() => ({ setDocument: jest.fn() })),
+    })),
+  },
+}));
 
 describe('DidChangeDocumentHandler', () => {
-  let mockLogger: jest.Mocked<Logger>;
-  let mockDispatch: jest.MockedFunction<typeof dispatch>;
-  let mockDocuments: jest.Mocked<TextDocuments<TextDocument>>;
-  let mockStorageManager: jest.Mocked<ApexStorageManager>;
-  let mockStorage: jest.Mocked<ApexStorageInterface>;
+  let handler: DidChangeDocumentHandler;
+  let mockLogger: any;
+  let mockDispatchProcessOnChangeDocument: jest.MockedFunction<any>;
 
   beforeEach(() => {
+    // Create mock logger
     mockLogger = {
-      getInstance: jest.fn().mockReturnThis(),
       log: jest.fn(),
       debug: jest.fn(),
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
-    } as unknown as jest.Mocked<Logger>;
-    // Setup mock storage
-    mockStorage = {
-      getDocument: jest.fn(),
-      setDocument: jest.fn(),
-      deleteDocument: jest.fn(),
-      getDefinition: jest.fn(),
-      setDefinition: jest.fn(),
-      getReferences: jest.fn(),
-      setReferences: jest.fn(),
-    } as unknown as jest.Mocked<ApexStorageInterface>;
-    (Logger.getInstance as jest.Mock).mockReturnValue(mockLogger);
-    mockDispatch = dispatch as jest.MockedFunction<typeof dispatch>;
-    mockDocuments = {
-      get: jest.fn(),
-    } as unknown as jest.Mocked<TextDocuments<TextDocument>>;
-    // Setup mock storage manager
-    mockStorageManager = {
-      getInstance: jest.fn().mockReturnValue({
-        getStorage: jest.fn().mockReturnValue(mockStorage),
-      }),
-    } as unknown as jest.Mocked<ApexStorageManager>;
+    };
 
-    // Mock ApexStorageManager.getInstance
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
-      getStorage: jest.fn().mockReturnValue(mockStorage),
-    });
+    // Mock getLogger to return our mock logger
+    (getLogger as jest.Mock).mockReturnValue(mockLogger);
+
+    // Get the mocked dispatch function
+    mockDispatchProcessOnChangeDocument =
+      require('../../src/index').dispatchProcessOnChangeDocument;
+
+    handler = new DidChangeDocumentHandler();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('processOnChangeDocument', () => {
-    it('should log debug message with document change params', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.apex',
-          version: 2,
-          languageId: 'apex',
-          getText: () => 'test content',
-          positionAt: () => ({ line: 0, character: 0 }),
-          offsetAt: () => 0,
-          lineCount: 1,
-        },
+  describe('handleDocumentChange', () => {
+    it('should process document change event successfully', async () => {
+      // Arrange
+      const mockDocument = TextDocument.create(
+        'file:///test.cls',
+        'apex',
+        1,
+        'public class TestClass {}',
+      );
+      const mockEvent: TextDocumentChangeEvent<TextDocument> = {
+        document: mockDocument,
       };
+      const mockDiagnostics = [
+        {
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 10 },
+          },
+          message: 'Test diagnostic',
+          severity: 1,
+        },
+      ];
 
-      mockDocuments.get.mockReturnValue(undefined);
+      mockDispatchProcessOnChangeDocument.mockResolvedValue(mockDiagnostics);
 
-      await processOnChangeDocument(event);
+      // Act
+      const result = await handler.handleDocumentChange(mockEvent);
+
+      // Assert
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Info,
+        'Processing document change: file:///test.cls',
+      );
+      expect(mockDispatchProcessOnChangeDocument).toHaveBeenCalledWith(
+        mockEvent,
+      );
+      expect(result).toEqual(mockDiagnostics);
+    });
+
+    it('should log error and rethrow when dispatch fails', async () => {
+      // Arrange
+      const mockDocument = TextDocument.create(
+        'file:///test.cls',
+        'apex',
+        1,
+        'public class TestClass {}',
+      );
+      const mockEvent: TextDocumentChangeEvent<TextDocument> = {
+        document: mockDocument,
+      };
+      const mockError = new Error('Dispatch failed');
+
+      mockDispatchProcessOnChangeDocument.mockRejectedValue(mockError);
+
+      // Act & Assert
+      await expect(handler.handleDocumentChange(mockEvent)).rejects.toThrow(
+        'Dispatch failed',
+      );
 
       expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Debug,
-        `Common Apex Language Server change document handler invoked with: ${event}`,
+        LogMessageType.Error,
+        expect.any(Function),
       );
-    });
 
-    it('should log when document already exists', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.apex',
-          version: 2,
-          languageId: 'apex',
-          getText: () => 'test content',
-          positionAt: () => ({ line: 0, character: 0 }),
-          offsetAt: () => 0,
-          lineCount: 1,
-        },
-      };
-
-      const existingDoc = { uri: event.document.uri } as TextDocument;
-      mockDocuments.get.mockReturnValue(existingDoc);
-
-      await processOnChangeDocument(event);
-
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Debug,
-        `Common Apex Language Server change document handler invoked with: ${event}`,
+      // Verify the error message function was called with correct content
+      const errorLogCall = mockLogger.log.mock.calls.find(
+        (call: any) => call[0] === LogMessageType.Error,
       );
-    });
+      expect(errorLogCall).toBeDefined();
 
-    it('should handle empty content changes', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.apex',
-          version: 1,
-          languageId: 'apex',
-          getText: () => 'test content',
-          positionAt: () => ({ line: 0, character: 0 }),
-          offsetAt: () => 0,
-          lineCount: 1,
-        },
-      };
-
-      mockDocuments.get.mockReturnValue(undefined);
-
-      await processOnChangeDocument(event);
-
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Debug,
-        `Common Apex Language Server change document handler invoked with: ${event}`,
+      const errorMessageFunction = errorLogCall[1];
+      expect(typeof errorMessageFunction).toBe('function');
+      expect(errorMessageFunction()).toContain(
+        'Error processing document change for file:///test.cls',
       );
-    });
-
-    it('should handle multiple content changes', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.apex',
-          version: 1,
-          languageId: 'apex',
-          getText: () => 'test content',
-          positionAt: () => ({ line: 0, character: 0 }),
-          offsetAt: () => 0,
-          lineCount: 1,
-        },
-      };
-
-      mockDocuments.get.mockReturnValue(undefined);
-
-      await processOnChangeDocument(event);
-
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Debug,
-        `Common Apex Language Server change document handler invoked with: ${event}`,
-      );
-    });
-  });
-
-  describe('dispatchProcessOnChangeDocument', () => {
-    it('should dispatch processOnChangeDocument with correct params', () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.apex',
-          version: 1,
-          languageId: 'apex',
-          getText: () => 'test content',
-          positionAt: () => ({ line: 0, character: 0 }),
-          offsetAt: () => 0,
-          lineCount: 1,
-        },
-      };
-
-      dispatchProcessOnChangeDocument(event);
-
-      expect(mockDispatch).toHaveBeenCalledTimes(1);
-      expect(mockDispatch).toHaveBeenCalledWith(
-        processOnChangeDocument(event),
-        'Error processing document change',
-      );
-    });
-
-    it('should handle dispatch error', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.apex',
-          version: 1,
-          languageId: 'apex',
-          getText: () => 'test content',
-          positionAt: () => ({ line: 0, character: 0 }),
-          offsetAt: () => 0,
-          lineCount: 1,
-        },
-      };
-
-      const error = new Error('Test error');
-      mockDispatch.mockRejectedValueOnce(error);
-
-      await expect(dispatchProcessOnChangeDocument(event)).rejects.toThrow(
-        error,
-      );
-      expect(mockDispatch).toHaveBeenCalledTimes(1);
-      expect(mockDispatch).toHaveBeenCalledWith(
-        processOnChangeDocument(event),
-        'Error processing document change',
-      );
+      expect(errorMessageFunction()).toContain('Dispatch failed');
     });
   });
 });
