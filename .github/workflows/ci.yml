@@ -67,11 +67,30 @@ jobs:
   package:
     name: Package
     needs: test
+    if: ${{ needs.test.result == 'success' }}
     uses: ./.github/workflows/package.yml
     with:
       branch: ${{ github.head_ref || github.ref_name }}
       artifact-name: vsix-packages
       dry-run: false
+
+  ci-complete:
+    name: CI Complete
+    runs-on: ubuntu-latest
+    needs: [test, package]
+    if: always()
+    steps:
+      - name: Check all jobs result
+        run: |
+          if [[ "${{ needs.test.result }}" != "success" ]]; then
+            echo "Test job(s) failed"
+            exit 1
+          fi
+          if [[ "${{ needs.package.result }}" != "success" ]]; then
+            echo "Package job failed"
+            exit 1
+          fi
+          echo "All jobs succeeded"
 
   # slack-notify:
   #   name: Slack Notification
