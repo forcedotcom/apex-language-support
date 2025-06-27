@@ -1,34 +1,11 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./out",
     "rootDir": "./src",
-    "composite": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "target": "ES2020",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": false,
-    "incremental": true,
     "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "out",
-    "dist",
-    "tsup.config.ts",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ],
-  "references": []
+  "exclude": ["node_modules", "out", "dist", "tsup.config.ts"],
+  "references": [{ "path": "../apex-lsp-logging" }]
 }
