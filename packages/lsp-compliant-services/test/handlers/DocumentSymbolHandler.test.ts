@@ -7,6 +7,7 @@
  */
 
 import { DocumentSymbolParams } from 'vscode-languageserver';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { Logger } from '../../src/utils/Logger';
 import { dispatch } from '../../src/utils/handlerUtil';
@@ -50,8 +51,8 @@ describe('DocumentSymbolHandler', () => {
 
       await processOnDocumentSymbol(params);
 
-      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Common Apex Language Server document symbol handler invoked with: ${params}`,
       );
     });

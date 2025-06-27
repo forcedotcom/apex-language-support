@@ -17,7 +17,7 @@ import type { LogMessageType } from './notification';
 
 /**
  * Interface for the logger implementation
- * Aligned with LSP window/logMessage structure
+ * Aligned with LSP window/logMessage structure while providing convenience methods
  */
 export interface LoggerInterface {
   /**
@@ -33,6 +33,54 @@ export interface LoggerInterface {
    * @param messageProvider - Function that returns the message to log
    */
   log(messageType: LogMessageType, messageProvider: () => string): void;
+
+  /**
+   * Log a debug message
+   * @param message - The message to log
+   */
+  debug(message: string): void;
+
+  /**
+   * Log a debug message with lazy evaluation
+   * @param messageProvider - Function that returns the message to log
+   */
+  debug(messageProvider: () => string): void;
+
+  /**
+   * Log an info message
+   * @param message - The message to log
+   */
+  info(message: string): void;
+
+  /**
+   * Log an info message with lazy evaluation
+   * @param messageProvider - Function that returns the message to log
+   */
+  info(messageProvider: () => string): void;
+
+  /**
+   * Log a warning message
+   * @param message - The message to log
+   */
+  warn(message: string): void;
+
+  /**
+   * Log a warning message with lazy evaluation
+   * @param messageProvider - Function that returns the message to log
+   */
+  warn(messageProvider: () => string): void;
+
+  /**
+   * Log an error message
+   * @param message - The message to log
+   */
+  error(message: string): void;
+
+  /**
+   * Log an error message with lazy evaluation
+   * @param messageProvider - Function that returns the message to log
+   */
+  error(messageProvider: () => string): void;
 }
 
 /**
@@ -52,6 +100,14 @@ class NoOpLogger implements LoggerInterface {
     _messageType: LogMessageType,
     _message: string | (() => string),
   ): void {}
+
+  public debug(_message: string | (() => string)): void {}
+
+  public info(_message: string | (() => string)): void {}
+
+  public warn(_message: string | (() => string)): void {}
+
+  public error(_message: string | (() => string)): void {}
 }
 
 // Default no-op logger factory

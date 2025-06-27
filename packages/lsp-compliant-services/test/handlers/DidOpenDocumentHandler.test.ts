@@ -18,6 +18,7 @@ import {
   ErrorType,
   ErrorSeverity,
 } from '@salesforce/apex-lsp-parser-ast';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { Logger } from '../../src/utils/Logger';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
@@ -76,10 +77,11 @@ describe('DidOpenDocumentHandler', () => {
 
     // Setup mock logger
     mockLogger = {
+      log: jest.fn(),
+      debug: jest.fn(),
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
-      debug: jest.fn(),
     } as unknown as jest.Mocked<Logger>;
 
     // Setup mock storage manager
@@ -171,7 +173,11 @@ describe('DidOpenDocumentHandler', () => {
         try {
           await promise;
         } catch (error) {
-          mockLogger.error(errorMessage, error);
+          mockLogger.log(
+            LogMessageType.Error,
+            `Error upserting definitions: ${error}`,
+          );
+          throw error;
         }
       },
     );
@@ -210,7 +216,8 @@ describe('DidOpenDocumentHandler', () => {
     await processOnOpenDocument(event);
 
     // Assert
-    expect(mockLogger.debug).toHaveBeenCalledWith(
+    expect(mockLogger.log).toHaveBeenCalledWith(
+      LogMessageType.Debug,
       `Common Apex Language Server open document handler invoked with: ${event}`,
     );
     expect(mockCompilerService.compile).toHaveBeenCalledWith(
@@ -272,15 +279,18 @@ describe('DidOpenDocumentHandler', () => {
     const result = await processOnOpenDocument(event);
 
     // Assert
-    expect(mockLogger.error).toHaveBeenCalledWith('Errors parsing document:', [
-      {
-        message: 'Compilation error',
-        line: 1,
-        column: 0,
-        type: ErrorType.Semantic,
-        severity: ErrorSeverity.Error,
-      },
-    ]);
+    expect(mockLogger.log).toHaveBeenCalledWith(
+      LogMessageType.Error,
+      `Errors parsing document: ${JSON.stringify([
+        {
+          message: 'Compilation error',
+          line: 1,
+          column: 0,
+          type: ErrorType.Semantic,
+          severity: ErrorSeverity.Error,
+        },
+      ])}`,
+    );
     expect(result).toEqual([
       {
         message: 'Compilation error',
@@ -314,7 +324,8 @@ describe('DidOpenDocumentHandler', () => {
       await processOnOpenDocument(event);
 
       // Assert
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });
@@ -339,7 +350,8 @@ describe('DidOpenDocumentHandler', () => {
       await processOnOpenDocument(event);
 
       // Assert
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });
@@ -362,7 +374,8 @@ describe('DidOpenDocumentHandler', () => {
       await processOnOpenDocument(event);
 
       // Assert
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });
@@ -387,7 +400,8 @@ describe('DidOpenDocumentHandler', () => {
       await dispatchProcessOnOpenDocument(event);
 
       // Assert
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Common Apex Language Server open document handler invoked with: ${event}`,
       );
     });
@@ -410,12 +424,10 @@ describe('DidOpenDocumentHandler', () => {
       mockDefinitionUpserter.upsertDefinition.mockRejectedValue(error);
 
       // Act
-      await dispatchProcessOnOpenDocument(event);
-
-      // Assert
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Error upserting definitions',
-        error,
+      await dispatchProcessOnOpenDocument(event).catch(() => {});
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Error,
+        `Error upserting definitions: ${error}`,
       );
     });
   });

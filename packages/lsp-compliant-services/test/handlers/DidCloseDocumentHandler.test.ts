@@ -8,6 +8,7 @@
 
 import { TextDocumentChangeEvent, TextDocuments } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { Logger } from '../../src/utils/Logger';
 import { dispatch } from '../../src/utils/handlerUtil';
@@ -62,8 +63,9 @@ describe('DidCloseDocumentHandler', () => {
 
       await processOnCloseDocument(event);
 
-      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledTimes(1);
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Common Apex Language Server close document handler invoked with: ${event}`,
       );
     });
@@ -86,8 +88,9 @@ describe('DidCloseDocumentHandler', () => {
 
       await processOnCloseDocument(event);
 
-      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledTimes(1);
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Common Apex Language Server close document handler invoked with: ${event}`,
       );
     });

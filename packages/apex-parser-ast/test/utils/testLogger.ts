@@ -51,42 +51,6 @@ export class TestLogger implements LoggerInterface {
   }
 
   /**
-   * Log a debug message
-   */
-  public debug(message: string | (() => string)): void {
-    if (this.shouldLog(LogMessageType.Debug)) {
-      this.log(LogMessageType.Debug, message);
-    }
-  }
-
-  /**
-   * Log an info message
-   */
-  public info(message: string | (() => string)): void {
-    if (this.shouldLog(LogMessageType.Info)) {
-      this.log(LogMessageType.Info, message);
-    }
-  }
-
-  /**
-   * Log a warning message
-   */
-  public warn(message: string | (() => string)): void {
-    if (this.shouldLog(LogMessageType.Warning)) {
-      this.log(LogMessageType.Warning, message);
-    }
-  }
-
-  /**
-   * Log an error message
-   */
-  public error(message: string | (() => string)): void {
-    if (this.shouldLog(LogMessageType.Error)) {
-      this.log(LogMessageType.Error, message);
-    }
-  }
-
-  /**
    * Log a message with the specified type
    */
   public log(
@@ -100,6 +64,38 @@ export class TestLogger implements LoggerInterface {
         this.logger.log(messageType, message);
       }
     }
+  }
+
+  /**
+   * Log a debug message
+   * @param message - The message to log or function that returns the message
+   */
+  public debug(message: string | (() => string)): void {
+    this.log(LogMessageType.Debug, message);
+  }
+
+  /**
+   * Log an info message
+   * @param message - The message to log or function that returns the message
+   */
+  public info(message: string | (() => string)): void {
+    this.log(LogMessageType.Info, message);
+  }
+
+  /**
+   * Log a warning message
+   * @param message - The message to log or function that returns the message
+   */
+  public warn(message: string | (() => string)): void {
+    this.log(LogMessageType.Warning, message);
+  }
+
+  /**
+   * Log an error message
+   * @param message - The message to log or function that returns the message
+   */
+  public error(message: string | (() => string)): void {
+    this.log(LogMessageType.Error, message);
   }
 
   /**

@@ -64,7 +64,7 @@ export const processOnOpenDocument = async (
   if (result.errors.length > 0) {
     logger.log(
       LogMessageType.Error,
-      `Errors parsing document: ${result.errors}`,
+      `Errors parsing document: ${JSON.stringify(result.errors)}`,
     );
     const diagnostics = getDiagnosticsFromErrors(result.errors);
     return diagnostics;
@@ -89,17 +89,19 @@ export const processOnOpenDocument = async (
   );
 
   // Upsert the definitions
-  dispatch(
+  const defPromise = dispatch(
     definitionUpserter.upsertDefinition(event),
     'Error upserting definitions',
   );
   // Upsert the references
-  dispatch(
+  const refPromise = dispatch(
     referencesUpserter.upsertReferences(event),
     'Error upserting references',
   );
+  // Wait for both to complete (or fail)
+  await Promise.all([defPromise, refPromise]);
 };
 
-export const dispatchProcessOnOpenDocument = (
+export const dispatchProcessOnOpenDocument = async (
   event: TextDocumentChangeEvent<TextDocument>,
-) => dispatch(processOnOpenDocument(event), 'Error processing document open');
+) => processOnOpenDocument(event);

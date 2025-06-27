@@ -12,6 +12,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 import { Logger } from '../../src/utils/Logger';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 import { dispatch } from '../../src/utils/handlerUtil';
 import {
   processOnChangeDocument,
@@ -37,11 +38,11 @@ describe('DidChangeDocumentHandler', () => {
   beforeEach(() => {
     mockLogger = {
       getInstance: jest.fn().mockReturnThis(),
-      error: jest.fn(),
-      warn: jest.fn(),
-      info: jest.fn(),
-      debug: jest.fn(),
       log: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
     } as unknown as jest.Mocked<Logger>;
     // Setup mock storage
     mockStorage = {
@@ -93,8 +94,8 @@ describe('DidChangeDocumentHandler', () => {
 
       await processOnChangeDocument(event);
 
-      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });
@@ -117,8 +118,8 @@ describe('DidChangeDocumentHandler', () => {
 
       await processOnChangeDocument(event);
 
-      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });
@@ -140,8 +141,8 @@ describe('DidChangeDocumentHandler', () => {
 
       await processOnChangeDocument(event);
 
-      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });
@@ -163,8 +164,8 @@ describe('DidChangeDocumentHandler', () => {
 
       await processOnChangeDocument(event);
 
-      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Common Apex Language Server change document handler invoked with: ${event}`,
       );
     });

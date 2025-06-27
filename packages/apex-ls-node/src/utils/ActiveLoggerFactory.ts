@@ -49,6 +49,38 @@ class ActiveLogger implements LoggerInterface {
       );
     }
   }
+
+  /**
+   * Log a debug message
+   * @param message - The message to log or function that returns the message
+   */
+  public debug(message: string | (() => string)): void {
+    this.log(LogMessageType.Debug, message);
+  }
+
+  /**
+   * Log an info message
+   * @param message - The message to log or function that returns the message
+   */
+  public info(message: string | (() => string)): void {
+    this.log(LogMessageType.Info, message);
+  }
+
+  /**
+   * Log a warning message
+   * @param message - The message to log or function that returns the message
+   */
+  public warn(message: string | (() => string)): void {
+    this.log(LogMessageType.Warning, message);
+  }
+
+  /**
+   * Log an error message
+   * @param message - The message to log or function that returns the message
+   */
+  public error(message: string | (() => string)): void {
+    this.log(LogMessageType.Error, message);
+  }
 }
 
 /**

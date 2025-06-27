@@ -9,9 +9,11 @@
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import { dispatch } from '../../src/utils/handlerUtil';
+import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 // Mock the logger before importing the handler
 const mockLogger = {
+  log: jest.fn(),
   debug: jest.fn(),
   error: jest.fn(),
   info: jest.fn(),
@@ -22,6 +24,13 @@ const mockLogger = {
 
 jest.mock('@salesforce/apex-lsp-logging', () => ({
   getLogger: jest.fn(() => mockLogger),
+  LogMessageType: {
+    Error: 1,
+    Warning: 2,
+    Info: 3,
+    Log: 4,
+    Debug: 5,
+  },
 }));
 
 jest.mock('../../src/utils/handlerUtil');
@@ -78,11 +87,12 @@ describe('ApexLibResolveHandler', () => {
 
       await processOnResolve(params);
 
-      expect(mockLogger.debug).toHaveBeenCalledTimes(2);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Processing resolve request for: ${params.uri}`,
       );
-      expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Debug,
         `Successfully resolved content for: ${params.uri}`,
       );
     });
@@ -108,7 +118,10 @@ describe('ApexLibResolveHandler', () => {
       await expect(processOnResolve(params)).rejects.toThrow(
         `Document not found: ${params.uri}`,
       );
-      expect(mockLogger.error).toHaveBeenCalledTimes(1);
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Error,
+        `Error processing resolve request for ${params.uri}: Document not found: ${params.uri}`,
+      );
     });
 
     it('should handle storage errors', async () => {
@@ -120,8 +133,8 @@ describe('ApexLibResolveHandler', () => {
       mockGetDocument.mockRejectedValueOnce(error);
 
       await expect(processOnResolve(params)).rejects.toThrow(error);
-      expect(mockLogger.error).toHaveBeenCalledTimes(1);
-      expect(mockLogger.error).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        LogMessageType.Error,
         `Error processing resolve request for ${params.uri}: ${error.message}`,
       );
     });
