@@ -2,7 +2,8 @@
  * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { defineConfig } from 'tsup';
 import { execSync } from 'child_process';
@@ -43,10 +44,13 @@ export default defineConfig({
       cwd: sourceDir,
       stdio: 'inherit',
     });
-    execSync('shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* dist/grammars/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
+    execSync(
+      'shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* dist/grammars/',
+      {
+        cwd: sourceDir,
+        stdio: 'inherit',
+      },
+    );
 
     // Copy other required files
     execSync('shx cp README.md language-configuration.json LICENSE.txt dist/', {
