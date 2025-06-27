@@ -92,15 +92,24 @@ jobs:
           fi
           echo "All jobs succeeded"
 
-  # slack-notify:
-  #   name: Slack Notification
-  #   needs: [test]
-  #   runs-on: ubuntu-latest
-  #   if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #   steps:
-  #     - name: Notify Slack
-  #       uses: salesforcecli/github-workflows/.github/actions/slack-notify@main
-  #       with:
-  #         channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
-  #         slack-token: ${{ secrets.IDEE_MAIN_SLACK_WEBHOOK }}
-  #         status: ${{ needs.test.result }}
+  slack-notify:
+    name: CI Failed Notification
+    needs: [test, package]
+    runs-on: ubuntu-latest
+    if: always() && github.event_name == 'push' && (needs.test.result == 'failure' || needs.package.result == 'failure')
+    steps:
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v1.22.0
+        with:
+          payload: |
+            {
+              "text": "❌ CI Pipeline Failed",
+              "event": "CI workflow failed, run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+              "repo": "${{ github.repository }}",
+              "test_result": "${{ needs.test.result }}",
+              "package_result": "${{ needs.package.result }}",
+              "branch": "${{ github.ref_name }}",
+              "commit": "${{ github.sha }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.IDEE_MAIN_SLACK_WEBHOOK }}

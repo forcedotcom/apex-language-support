@@ -856,3 +856,224 @@ jobs:
             echo "[$TIMESTAMP] RELEASE_FAILURE: actor=$ACTOR, repo=$REPO, run_id=$RUN_ID, branch=$BRANCH, registry=${{ matrix.registry }}, marketplace=${{ matrix.marketplace }}" >> "$AUDIT_LOG"
             echo "❌ AUDIT: Release failed - $TIMESTAMP"
           fi
+
+  slack-notify:
+    name: Slack Notification
+    needs: [publish]
+    runs-on: ubuntu-latest
+    if: always() && needs.publish.result == 'success' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+
+      - name: Get Extension Details
+        id: extension-details
+        run: |
+          # Get selected extensions and their details
+          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
+          VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
+          PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
+
+          # Initialize arrays for extension details
+          EXTENSION_NAMES=""
+          EXTENSION_VERSIONS=""
+          EXTENSION_DISPLAY_NAMES=""
+
+          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
+          for ext in "${EXTENSIONS[@]}"; do
+            if [ -n "$ext" ] && [ -f "packages/$ext/package.json" ]; then
+              # Get package details
+              PACKAGE_NAME=$(node -p "require('./packages/$ext/package.json').name")
+              PACKAGE_VERSION=$(node -p "require('./packages/$ext/package.json').version")
+              DISPLAY_NAME=$(node -p "require('./packages/$ext/package.json').displayName || require('./packages/$ext/package.json').name")
+              
+              # Add to arrays
+              if [ -z "$EXTENSION_NAMES" ]; then
+                EXTENSION_NAMES="$PACKAGE_NAME"
+                EXTENSION_VERSIONS="$PACKAGE_VERSION"
+                EXTENSION_DISPLAY_NAMES="$DISPLAY_NAME"
+              else
+                EXTENSION_NAMES="$EXTENSION_NAMES, $PACKAGE_NAME"
+                EXTENSION_VERSIONS="$EXTENSION_VERSIONS, $PACKAGE_VERSION"
+                EXTENSION_DISPLAY_NAMES="$EXTENSION_DISPLAY_NAMES, $DISPLAY_NAME"
+              fi
+            fi
+          done
+
+          echo "extension_names=$EXTENSION_NAMES" >> $GITHUB_OUTPUT
+          echo "extension_versions=$EXTENSION_VERSIONS" >> $GITHUB_OUTPUT
+          echo "extension_display_names=$EXTENSION_DISPLAY_NAMES" >> $GITHUB_OUTPUT
+          echo "version_bump=$VERSION_BUMP" >> $GITHUB_OUTPUT
+          echo "pre_release=$PRE_RELEASE" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v1.22.0
+        with:
+          payload: |
+            {
+              "text": "🎉 VS Code Extensions Released Successfully!",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🎉 VS Code Extensions Released Successfully!"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ inputs.branch || github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Extensions:*\n${{ steps.extension-details.outputs.extension_display_names }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Versions:*\n${{ steps.extension-details.outputs.extension_versions }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Release Type:*\n${{ steps.extension-details.outputs.pre_release == 'true' && 'Pre-release' || 'Stable' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version Bump:*\n${{ steps.extension-details.outputs.version_bump }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.IDEE_MAIN_SLACK_WEBHOOK }}
+
+  slack-notify-failure:
+    name: Slack Failure Notification
+    needs: [publish]
+    runs-on: ubuntu-latest
+    if: always() && needs.publish.result == 'failure' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+
+      - name: Get Extension Details
+        id: extension-details
+        run: |
+          # Get selected extensions and their details
+          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
+          VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
+          PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
+
+          # Initialize arrays for extension details
+          EXTENSION_NAMES=""
+          EXTENSION_VERSIONS=""
+          EXTENSION_DISPLAY_NAMES=""
+
+          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
+          for ext in "${EXTENSIONS[@]}"; do
+            if [ -n "$ext" ] && [ -f "packages/$ext/package.json" ]; then
+              # Get package details
+              PACKAGE_NAME=$(node -p "require('./packages/$ext/package.json').name")
+              PACKAGE_VERSION=$(node -p "require('./packages/$ext/package.json').version")
+              DISPLAY_NAME=$(node -p "require('./packages/$ext/package.json').displayName || require('./packages/$ext/package.json').name")
+              
+              # Add to arrays
+              if [ -z "$EXTENSION_NAMES" ]; then
+                EXTENSION_NAMES="$PACKAGE_NAME"
+                EXTENSION_VERSIONS="$PACKAGE_VERSION"
+                EXTENSION_DISPLAY_NAMES="$DISPLAY_NAME"
+              else
+                EXTENSION_NAMES="$EXTENSION_NAMES, $PACKAGE_NAME"
+                EXTENSION_VERSIONS="$EXTENSION_VERSIONS, $PACKAGE_VERSION"
+                EXTENSION_DISPLAY_NAMES="$EXTENSION_DISPLAY_NAMES, $DISPLAY_NAME"
+              fi
+            fi
+          done
+
+          echo "extension_names=$EXTENSION_NAMES" >> $GITHUB_OUTPUT
+          echo "extension_versions=$EXTENSION_VERSIONS" >> $GITHUB_OUTPUT
+          echo "extension_display_names=$EXTENSION_DISPLAY_NAMES" >> $GITHUB_OUTPUT
+          echo "version_bump=$VERSION_BUMP" >> $GITHUB_OUTPUT
+          echo "pre_release=$PRE_RELEASE" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v1.22.0
+        with:
+          payload: |
+            {
+              "text": "❌ VS Code Extension Release Failed!",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "❌ VS Code Extension Release Failed!"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ inputs.branch || github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Extensions:*\n${{ steps.extension-details.outputs.extension_display_names }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Versions:*\n${{ steps.extension-details.outputs.extension_versions }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Release Type:*\n${{ steps.extension-details.outputs.pre_release == 'true' && 'Pre-release' || 'Stable' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version Bump:*\n${{ steps.extension-details.outputs.version_bump }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "Please check the workflow logs for detailed error information."
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.IDEE_MAIN_SLACK_WEBHOOK }}

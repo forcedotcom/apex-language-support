@@ -242,3 +242,240 @@ jobs:
         run: |
           echo "✅ NPM release dry run completed for ${{ matrix.package }}"
           echo "No actual publishing occurred."
+
+  slack-notify:
+    name: Slack Notification
+    needs: [release-npm]
+    runs-on: ubuntu-latest
+    if: always() && needs.release-npm.result == 'success' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+
+      - name: Get Package Details
+        id: package-details
+        run: |
+          # Get selected packages and their details
+          SELECTED_PACKAGES="${{ needs.determine-npm-changes.outputs.selected-packages }}"
+          VERSION_BUMP="${{ needs.determine-npm-changes.outputs.version-bump }}"
+
+          # Initialize arrays for package details
+          PACKAGE_NAMES=""
+          PACKAGE_VERSIONS=""
+          PACKAGE_DESCRIPTIONS=""
+
+          # Parse the JSON array of selected packages
+          PACKAGES_JSON="$SELECTED_PACKAGES"
+          if [ -n "$PACKAGES_JSON" ] && [ "$PACKAGES_JSON" != "[]" ]; then
+            # Extract package names from JSON array
+            PACKAGE_LIST=$(echo "$PACKAGES_JSON" | node -e "
+              const packages = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+              console.log(packages.join(','));
+            ")
+            
+            IFS=',' read -ra PACKAGES <<< "$PACKAGE_LIST"
+            for pkg in "${PACKAGES[@]}"; do
+              if [ -n "$pkg" ] && [ -f "packages/$pkg/package.json" ]; then
+                # Get package details
+                PACKAGE_NAME=$(node -p "require('./packages/$pkg/package.json').name")
+                PACKAGE_VERSION=$(node -p "require('./packages/$pkg/package.json').version")
+                PACKAGE_DESC=$(node -p "require('./packages/$pkg/package.json').description || 'No description'")
+                
+                # Add to arrays
+                if [ -z "$PACKAGE_NAMES" ]; then
+                  PACKAGE_NAMES="$PACKAGE_NAME"
+                  PACKAGE_VERSIONS="$PACKAGE_VERSION"
+                  PACKAGE_DESCRIPTIONS="$PACKAGE_DESC"
+                else
+                  PACKAGE_NAMES="$PACKAGE_NAMES, $PACKAGE_NAME"
+                  PACKAGE_VERSIONS="$PACKAGE_VERSIONS, $PACKAGE_VERSION"
+                  PACKAGE_DESCRIPTIONS="$PACKAGE_DESCRIPTIONS, $PACKAGE_DESC"
+                fi
+              fi
+            done
+          fi
+
+          echo "package_names=$PACKAGE_NAMES" >> $GITHUB_OUTPUT
+          echo "package_versions=$PACKAGE_VERSIONS" >> $GITHUB_OUTPUT
+          echo "package_descriptions=$PACKAGE_DESCRIPTIONS" >> $GITHUB_OUTPUT
+          echo "version_bump=$VERSION_BUMP" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v1.22.0
+        with:
+          payload: |
+            {
+              "text": "📦 NPM Packages Released Successfully!",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "📦 NPM Packages Released Successfully!"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ inputs.branch || github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Packages:*\n${{ steps.package-details.outputs.package_names }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Versions:*\n${{ steps.package-details.outputs.package_versions }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version Bump:*\n${{ steps.package-details.outputs.version_bump }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Registry:*\nnpmjs.org"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.IDEE_MAIN_SLACK_WEBHOOK }}
+
+  slack-notify-failure:
+    name: Slack Failure Notification
+    needs: [release-npm]
+    runs-on: ubuntu-latest
+    if: always() && needs.release-npm.result == 'failure' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+
+      - name: Get Package Details
+        id: package-details
+        run: |
+          # Get selected packages and their details
+          SELECTED_PACKAGES="${{ needs.determine-npm-changes.outputs.selected-packages }}"
+          VERSION_BUMP="${{ needs.determine-npm-changes.outputs.version-bump }}"
+
+          # Initialize arrays for package details
+          PACKAGE_NAMES=""
+          PACKAGE_VERSIONS=""
+          PACKAGE_DESCRIPTIONS=""
+
+          # Parse the JSON array of selected packages
+          PACKAGES_JSON="$SELECTED_PACKAGES"
+          if [ -n "$PACKAGES_JSON" ] && [ "$PACKAGES_JSON" != "[]" ]; then
+            # Extract package names from JSON array
+            PACKAGE_LIST=$(echo "$PACKAGES_JSON" | node -e "
+              const packages = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+              console.log(packages.join(','));
+            ")
+            
+            IFS=',' read -ra PACKAGES <<< "$PACKAGE_LIST"
+            for pkg in "${PACKAGES[@]}"; do
+              if [ -n "$pkg" ] && [ -f "packages/$pkg/package.json" ]; then
+                # Get package details
+                PACKAGE_NAME=$(node -p "require('./packages/$pkg/package.json').name")
+                PACKAGE_VERSION=$(node -p "require('./packages/$pkg/package.json').version")
+                PACKAGE_DESC=$(node -p "require('./packages/$pkg/package.json').description || 'No description'")
+                
+                # Add to arrays
+                if [ -z "$PACKAGE_NAMES" ]; then
+                  PACKAGE_NAMES="$PACKAGE_NAME"
+                  PACKAGE_VERSIONS="$PACKAGE_VERSION"
+                  PACKAGE_DESCRIPTIONS="$PACKAGE_DESC"
+                else
+                  PACKAGE_NAMES="$PACKAGE_NAMES, $PACKAGE_NAME"
+                  PACKAGE_VERSIONS="$PACKAGE_VERSIONS, $PACKAGE_VERSION"
+                  PACKAGE_DESCRIPTIONS="$PACKAGE_DESCRIPTIONS, $PACKAGE_DESC"
+                fi
+              fi
+            done
+          fi
+
+          echo "package_names=$PACKAGE_NAMES" >> $GITHUB_OUTPUT
+          echo "package_versions=$PACKAGE_VERSIONS" >> $GITHUB_OUTPUT
+          echo "package_descriptions=$PACKAGE_DESCRIPTIONS" >> $GITHUB_OUTPUT
+          echo "version_bump=$VERSION_BUMP" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v1.22.0
+        with:
+          payload: |
+            {
+              "text": "❌ NPM Package Release Failed!",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "❌ NPM Package Release Failed!"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ inputs.branch || github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Packages:*\n${{ steps.package-details.outputs.package_names }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Versions:*\n${{ steps.package-details.outputs.package_versions }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version Bump:*\n${{ steps.package-details.outputs.version_bump }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Registry:*\nnpmjs.org"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                  }
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "Please check the workflow logs for detailed error information."
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.IDEE_MAIN_SLACK_WEBHOOK }}
