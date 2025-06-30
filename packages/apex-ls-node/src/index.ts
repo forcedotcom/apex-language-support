@@ -169,14 +169,14 @@ export function startServer() {
 
   // Handle document symbol requests
   connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-    logger.info(
+    logger.debug(
       `[SERVER] Received documentSymbol request for: ${params.textDocument.uri}`,
     );
-    logger.info(`[SERVER] DocumentSymbolParams: ${JSON.stringify(params)}`);
+    logger.debug(`[SERVER] DocumentSymbolParams: ${JSON.stringify(params)}`);
 
     try {
       const result = await dispatchProcessOnDocumentSymbol(params);
-      logger.info(
+      logger.debug(
         `[SERVER] Result for documentSymbol (${params.textDocument.uri}): ${JSON.stringify(result)}`,
       );
       return result;
@@ -275,7 +275,7 @@ export function startServer() {
   documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
     // Client opened a document
     // Server will parse the document and populate the corresponding local maps
-    logger.info(
+    logger.debug(
       `Extension Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
     );
 
@@ -288,7 +288,7 @@ export function startServer() {
     (event: TextDocumentChangeEvent<TextDocument>) => {
       // Client changed a open document
       // Server will parse the document and populate the corresponding local maps
-      logger.info(
+      logger.debug(
         `Extension Apex Language Server changed and processed document: ${JSON.stringify(event)}`,
       );
 
@@ -301,7 +301,7 @@ export function startServer() {
   documents.onDidClose((event: TextDocumentChangeEvent<TextDocument>) => {
     // Client closed a open document
     // Server will update the corresponding local maps
-    logger.info(
+    logger.debug(
       `Extension Apex Language Server closed document: ${JSON.stringify(event)}`,
     );
 
@@ -314,7 +314,7 @@ export function startServer() {
   documents.onDidSave((event: TextDocumentChangeEvent<TextDocument>) => {
     // Client saved a document
     // Server will parse the document and update storage as needed
-    logger.info(
+    logger.debug(
       `Extension Apex Language Server saved document: ${JSON.stringify(event)}`,
     );
 

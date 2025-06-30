@@ -7,7 +7,7 @@
  */
 
 import { unzipSync } from 'fflate';
-import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { zipData } from '../generated/apexSrcLoader';
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
@@ -320,8 +320,7 @@ export class ResourceLoader {
       const endTime = Date.now();
       const duration = (endTime - startTime) / 1000;
 
-      this.logger.log(
-        LogMessageType.Info,
+      this.logger.debug(
         () =>
           `Parallel compilation completed in ${duration.toFixed(2)}s: ` +
           `${compiledCount} files compiled, ${errorCount} files with errors`,
