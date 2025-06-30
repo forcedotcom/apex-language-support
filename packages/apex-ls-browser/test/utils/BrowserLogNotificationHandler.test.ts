@@ -7,7 +7,11 @@
  */
 
 import { Connection, MessageType } from 'vscode-languageserver/browser';
-import { LogMessageParams, LogMessageType } from '@salesforce/apex-lsp-logging';
+import {
+  LogMessageParams,
+  LogMessageType,
+  setLogLevel,
+} from '@salesforce/apex-lsp-logging';
 
 import { BrowserLogNotificationHandler } from '../../src/utils/BrowserLogNotificationHandler';
 
@@ -33,6 +37,8 @@ describe('BrowserLogNotificationHandler', () => {
       info: jest.spyOn(console, 'info').mockImplementation(),
       log: jest.spyOn(console, 'log').mockImplementation(),
     };
+
+    setLogLevel(LogMessageType.Debug);
 
     handler = BrowserLogNotificationHandler.getInstance(mockConnection);
   });

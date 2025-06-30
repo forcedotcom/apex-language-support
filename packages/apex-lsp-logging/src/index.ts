@@ -69,8 +69,13 @@ export const getLogLevel = (): LogMessageType => currentLogLevel;
  * @param messageType The message type to check
  * @returns True if the message should be logged
  */
-export const shouldLog = (messageType: LogMessageType): boolean =>
-  messageType <= currentLogLevel;
+export const shouldLog = (messageType: LogMessageType): boolean => {
+  // If messageType is not a valid LogMessageType number, treat as Log
+  if (typeof messageType !== 'number' || !(messageType in LogMessageType)) {
+    return LogMessageType.Log <= currentLogLevel;
+  }
+  return messageType <= currentLogLevel;
+};
 
 /**
  * Interface for the logger implementation
@@ -178,11 +183,6 @@ class NoOpLoggerFactory implements LoggerFactory {
 
 // Console logger implementation for standalone usage
 class ConsoleLogger implements LoggerInterface {
-  /**
-   * Convert LogMessageType enum to string representation
-   * @param messageType The log message type enum value
-   * @returns String representation of the message type
-   */
   private getMessageTypeString(messageType: LogMessageType): string {
     switch (messageType) {
       case LogMessageType.Error:
@@ -207,73 +207,52 @@ class ConsoleLogger implements LoggerInterface {
     if (!shouldLog(messageType)) {
       return;
     }
-
     const msg = typeof message === 'function' ? message() : message;
     const timestamp = new Date().toISOString();
     const typeString = this.getMessageTypeString(messageType);
+    const formatted = `[${timestamp}] [${typeString}] ${msg}`;
     switch (messageType) {
       case LogMessageType.Error:
-        console.error(`[${timestamp}] [${typeString}] ${msg}`);
+        console.error(formatted);
         break;
       case LogMessageType.Warning:
-        console.warn(`[${timestamp}] [${typeString}] ${msg}`);
+        console.warn(formatted);
         break;
       case LogMessageType.Info:
-        console.info(`[${timestamp}] [${typeString}] ${msg}`);
+        console.info(formatted);
         break;
       case LogMessageType.Log:
-        console.log(`[${timestamp}] [${typeString}] ${msg}`);
+        console.log(formatted);
         break;
       case LogMessageType.Debug:
-        console.debug(`[${timestamp}] [${typeString}] ${msg}`);
+        console.debug(formatted);
         break;
       default:
-        console.log(`[${timestamp}] [${typeString}] ${msg}`);
+        console.log(formatted);
         break;
     }
   }
 
   public debug(message: string | (() => string)): void {
-    if (!shouldLog(LogMessageType.Debug)) {
-      return;
-    }
-    const msg = typeof message === 'function' ? message() : message;
-    const timestamp = new Date().toISOString();
-    console.debug(`[${timestamp}] [DEBUG] ${msg}`);
+    this.log(LogMessageType.Debug, message);
   }
 
   public info(message: string | (() => string)): void {
-    if (!shouldLog(LogMessageType.Info)) {
-      return;
-    }
-    const msg = typeof message === 'function' ? message() : message;
-    const timestamp = new Date().toISOString();
-    console.info(`[${timestamp}] [INFO] ${msg}`);
+    this.log(LogMessageType.Info, message);
   }
 
   public warn(message: string | (() => string)): void {
-    if (!shouldLog(LogMessageType.Warning)) {
-      return;
-    }
-    const msg = typeof message === 'function' ? message() : message;
-    const timestamp = new Date().toISOString();
-    console.warn(`[${timestamp}] [WARN] ${msg}`);
+    this.log(LogMessageType.Warning, message);
   }
 
   public error(message: string | (() => string)): void {
-    if (!shouldLog(LogMessageType.Error)) {
-      return;
-    }
-    const msg = typeof message === 'function' ? message() : message;
-    const timestamp = new Date().toISOString();
-    console.error(`[${timestamp}] [ERROR] ${msg}`);
+    this.log(LogMessageType.Error, message);
   }
 }
 
 // Console logger factory for standalone usage
 class ConsoleLoggerFactory implements LoggerFactory {
   private static instance: LoggerInterface = new ConsoleLogger();
-
   public getLogger(): LoggerInterface {
     return ConsoleLoggerFactory.instance;
   }
@@ -291,28 +270,20 @@ export const setLoggerFactory = (factory: LoggerFactory): void => {
 };
 
 /**
- * Get the current logger factory
- * @returns The current logger factory
- */
-export const getLoggerFactory = (): LoggerFactory => loggerFactory;
-
-/**
  * Get the current logger instance
  * @returns The current logger instance
  */
 export const getLogger = (): LoggerInterface => loggerFactory.getLogger();
 
 /**
- * Enable console logging for standalone usage
- * This sets up a console logger with timestamps for use outside of LSP contexts
+ * Enable console logging with timestamps
  */
 export const enableConsoleLogging = (): void => {
   setLoggerFactory(new ConsoleLoggerFactory());
 };
 
 /**
- * Disable logging (set to no-op logger)
- * This is useful for production environments where logging is not needed
+ * Disable all logging (set to no-op logger)
  */
 export const disableLogging = (): void => {
   setLoggerFactory(new NoOpLoggerFactory());

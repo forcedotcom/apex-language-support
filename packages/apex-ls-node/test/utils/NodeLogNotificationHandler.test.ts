@@ -7,7 +7,11 @@
  */
 
 import { Connection, MessageType } from 'vscode-languageserver/node';
-import { LogMessageParams, LogMessageType } from '@salesforce/apex-lsp-logging';
+import {
+  LogMessageParams,
+  LogMessageType,
+  setLogLevel,
+} from '@salesforce/apex-lsp-logging';
 
 import { NodeLogNotificationHandler } from '../../src/utils/NodeLogNotificationHandler';
 
@@ -22,6 +26,9 @@ describe('NodeLogNotificationHandler', () => {
   };
 
   beforeEach(() => {
+    // Set log level to debug to allow all messages during testing
+    setLogLevel(LogMessageType.Debug);
+
     NodeLogNotificationHandler.resetInstance();
     mockConnection = {
       sendNotification: jest.fn(),
@@ -106,7 +113,7 @@ describe('NodeLogNotificationHandler', () => {
 
     it('should send debug message to both console and connection', () => {
       const params: LogMessageParams = {
-        type: LogMessageType.Log,
+        type: LogMessageType.Debug,
         message: 'Test debug message',
       };
 

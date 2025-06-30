@@ -11,6 +11,7 @@ import {
   LoggerFactory,
   LogMessageType,
   getLogNotificationHandler,
+  shouldLog,
 } from '@salesforce/apex-lsp-logging';
 
 /**
@@ -27,6 +28,11 @@ class LSPLogger implements LoggerInterface {
     messageType: LogMessageType,
     messageOrProvider: string | (() => string),
   ): void {
+    // Check log level first
+    if (!shouldLog(messageType)) {
+      return;
+    }
+
     const message =
       typeof messageOrProvider === 'function'
         ? messageOrProvider()

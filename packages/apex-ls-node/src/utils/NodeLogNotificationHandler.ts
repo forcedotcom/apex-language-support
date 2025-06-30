@@ -11,6 +11,7 @@ import {
   LogMessageParams,
   LogMessageType,
   LogNotificationHandler,
+  shouldLog,
 } from '@salesforce/apex-lsp-logging';
 
 /**
@@ -46,6 +47,11 @@ export class NodeLogNotificationHandler implements LogNotificationHandler {
    * @param params The log message parameters
    */
   public sendLogMessage(params: LogMessageParams): void {
+    // Check if we should log this message based on current log level
+    if (!shouldLog(params.type)) {
+      return; // Don't log if below current log level
+    }
+
     // Send to language client
     this.connection.sendNotification('window/logMessage', {
       type: this.getLogMessageType(params.type),

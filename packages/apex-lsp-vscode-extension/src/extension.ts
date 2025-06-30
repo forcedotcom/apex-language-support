@@ -16,6 +16,7 @@ import {
   CloseAction,
   ErrorAction,
 } from 'vscode-languageclient/node';
+import { LogMessageType, shouldLog } from '@salesforce/apex-lsp-logging';
 
 import { RequestResponseInspector } from './middleware/requestResponseInspector';
 
@@ -46,7 +47,10 @@ export function activate(context: vscode.ExtensionContext) {
   );
   context.subscriptions.push(outputChannel);
 
-  outputChannel.appendLine('Apex Language Server extension is now active!');
+  logToOutputChannel(
+    'Apex Language Server extension is now active!',
+    LogMessageType.Info,
+  );
 
   // Register command to restart the server
   registerRestartCommand(context);
@@ -95,8 +99,9 @@ function registerRestartCommand(context: vscode.ExtensionContext): void {
           await startLanguageServer(context);
         }
       } else {
-        outputChannel.appendLine(
+        logToOutputChannel(
           'Restart blocked: Server is already starting or in cooldown period',
+          LogMessageType.Info,
         );
         vscode.window.showInformationMessage(
           'Server restart was requested too soon after previous attempt. Please wait a moment before trying again.',
@@ -123,9 +128,13 @@ function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
     ? context.asAbsolutePath('out/server.js')
     : context.asAbsolutePath('server.js');
 
-  outputChannel.appendLine(`Server module path: ${serverModule}`);
-  outputChannel.appendLine(
+  logToOutputChannel(
+    `Server module path: ${serverModule}`,
+    LogMessageType.Debug,
+  );
+  logToOutputChannel(
     `Running in ${isDevelopment ? 'development' : 'production'} mode`,
+    LogMessageType.Debug,
   );
 
   return {
@@ -156,8 +165,9 @@ function initializeInspector(context: vscode.ExtensionContext) {
       vscode.commands.registerCommand('apex.inspector.toggle', () => {
         if (inspector) {
           inspector.setEnabled(!inspector.isEnabled());
-          vscode.window.showInformationMessage(
+          logToOutputChannel(
             `Apex LSP Inspector ${inspector.isEnabled() ? 'enabled' : 'disabled'}`,
+            LogMessageType.Info,
           );
         }
       }),
@@ -201,11 +211,12 @@ function handleClientError(
   message: any,
   _count: number | undefined,
 ): { action: ErrorAction } {
-  outputChannel.appendLine(
+  logToOutputChannel(
     `LSP Error: ${message?.toString() || 'Unknown error'}`,
+    LogMessageType.Error,
   );
   if (error) {
-    outputChannel.appendLine(`Error details: ${error}`);
+    logToOutputChannel(`Error details: ${error}`, LogMessageType.Debug);
   }
   // Always continue on errors, we handle retries separately
   return { action: ErrorAction.Continue };
@@ -217,8 +228,9 @@ function handleClientError(
 function handleClientClosed(): {
   action: CloseAction;
 } {
-  outputChannel.appendLine(
+  logToOutputChannel(
     `Connection to server closed - ${new Date().toISOString()}`,
+    LogMessageType.Info,
   );
   isStarting = false;
 
@@ -250,8 +262,9 @@ function handleAutoRestart(): {
 
   // Exponential backoff between retries
   const delay = Math.min(2000 * Math.pow(2, serverStartRetries - 1), 10000);
-  outputChannel.appendLine(
+  logToOutputChannel(
     `Will retry server start (${serverStartRetries}/${MAX_RETRIES}) after ${delay}ms delay...`,
+    LogMessageType.Info,
   );
 
   setTimeout(() => {
@@ -266,8 +279,9 @@ function handleAutoRestart(): {
  * Handles the case when max retries are exceeded
  */
 function handleMaxRetriesExceeded(): void {
-  outputChannel.appendLine(
+  logToOutputChannel(
     `Max retries (${MAX_RETRIES}) exceeded. Auto-restart disabled.`,
+    LogMessageType.Info,
   );
   vscode.window
     .showErrorMessage(
@@ -361,8 +375,9 @@ function registerConfigurationChangeListener(): void {
   // Listen for configuration changes
   const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
     if (event.affectsConfiguration('apex')) {
-      outputChannel.appendLine(
+      logToOutputChannel(
         'Apex configuration changed, notifying server...',
+        LogMessageType.Info,
       );
 
       // Get updated settings
@@ -373,7 +388,10 @@ function registerConfigurationChangeListener(): void {
         settings,
       });
 
-      outputChannel.appendLine('Configuration update sent to server');
+      logToOutputChannel(
+        'Configuration update sent to server',
+        LogMessageType.Info,
+      );
     }
   });
 
@@ -407,8 +425,9 @@ function createAndStartClient(
 
     // Track client state changes
     client.onDidChangeState((event) => {
-      outputChannel.appendLine(
+      logToOutputChannel(
         `Client state changed: ${State[event.oldState]} -> ${State[event.newState]}`,
+        LogMessageType.Debug,
       );
 
       if (statusBarItem) {
@@ -433,9 +452,15 @@ function createAndStartClient(
     });
 
     // Start the client
-    outputChannel.appendLine('Starting Apex Language Server client...');
+    logToOutputChannel(
+      'Starting Apex Language Server client...',
+      LogMessageType.Info,
+    );
     client.start().catch((error) => {
-      outputChannel.appendLine(`Failed to start client: ${error}`);
+      logToOutputChannel(
+        `Failed to start client: ${error}`,
+        LogMessageType.Error,
+      );
       isStarting = false;
       if (statusBarItem) {
         statusBarItem.text = '$(error) Apex Server Error';
@@ -443,7 +468,7 @@ function createAndStartClient(
       }
     });
   } catch (e) {
-    outputChannel.appendLine(`Error creating client: ${e}`);
+    logToOutputChannel(`Error creating client: ${e}`, LogMessageType.Error);
     isStarting = false;
   }
 }
@@ -454,14 +479,15 @@ function createAndStartClient(
 async function startLanguageServer(context: vscode.ExtensionContext) {
   // Guard against multiple simultaneous start attempts
   if (isStarting) {
-    outputChannel.appendLine('Blocked duplicate start attempt');
+    logToOutputChannel('Blocked duplicate start attempt', LogMessageType.Info);
     return;
   }
 
   try {
     isStarting = true;
-    outputChannel.appendLine(
+    logToOutputChannel(
       `Starting language server (attempt ${serverStartRetries + 1})`,
+      LogMessageType.Info,
     );
 
     // Clean up previous client if it exists
@@ -477,7 +503,10 @@ async function startLanguageServer(context: vscode.ExtensionContext) {
 
     createAndStartClient(serverOptions, clientOptions);
   } catch (error) {
-    outputChannel.appendLine(`Error in startLanguageServer: ${error}`);
+    logToOutputChannel(
+      `Error in startLanguageServer: ${error}`,
+      LogMessageType.Error,
+    );
     vscode.window.showErrorMessage(
       `Failed to start Apex Language Server: ${error}`,
     );
@@ -494,16 +523,30 @@ async function startLanguageServer(context: vscode.ExtensionContext) {
  * Restarts the language server
  */
 async function restartLanguageServer(context: vscode.ExtensionContext) {
-  outputChannel.appendLine(
+  logToOutputChannel(
     `Restarting Apex Language Server at ${new Date().toISOString()}...`,
+    LogMessageType.Info,
   );
   await startLanguageServer(context);
 }
 
 export async function deactivate(): Promise<void> {
-  outputChannel.appendLine('Deactivating Apex Language Server extension');
+  logToOutputChannel(
+    'Deactivating Apex Language Server extension',
+    LogMessageType.Info,
+  );
   isStarting = false;
   if (client) {
     await client.stop();
   }
+}
+
+function logToOutputChannel(
+  message: string,
+  messageType: LogMessageType = LogMessageType.Info,
+) {
+  if (!shouldLog(messageType)) return;
+  const timestamp = new Date().toISOString();
+  const typeString = LogMessageType[messageType] || 'LOG';
+  outputChannel.appendLine(`[${timestamp}] [${typeString}] ${message}`);
 }
