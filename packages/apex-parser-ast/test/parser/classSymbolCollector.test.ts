@@ -38,29 +38,29 @@ describe('ApexSymbolCollectorListener', () => {
   });
 
   describe('collect Class Symbols', () => {
-    it('should collect class, method, property and parameter symbols', () => {
+    it('should collect class, method, field and parameter symbols', () => {
       logger.debug(
-        'Starting test: collect class, method, property and parameter symbols',
+        'Starting test: collect class, method, field and parameter symbols',
       );
-      // Sample Apex code with a class, methods, properties and parameters
+      // Sample Apex code with a class, methods, fields and parameters
       const fileContent = `
         public class TestClass {
           private String name;
           public Integer count;
-          
+
           public TestClass(String initialName) {
             this.name = initialName;
             this.count = 0;
           }
-          
+
           public String getName() {
             return name;
           }
-          
+
           public void setName(String name) {
             this.name = name;
           }
-          
+
           public void incrementCount(Integer amount) {
             this.count += amount;
           }
@@ -110,34 +110,30 @@ describe('ApexSymbolCollectorListener', () => {
       expect(classScope?.name).toBe('TestClass');
       logger.debug('Class scope retrieved');
 
-      // Check properties
-      const properties = classScope
+      // Check fields
+      const fields = classScope
         ?.getAllSymbols()
-        .filter((s: ApexSymbol) => s.kind === SymbolKind.Property);
-      expect(properties?.length).toBe(2);
-      logger.debug(() => `Found ${properties?.length} property symbols`);
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Field);
+      expect(fields?.length).toBe(2);
+      logger.debug(() => `Found ${fields?.length} field symbols`);
 
-      const nameProperty = properties?.find(
-        (p: ApexSymbol) => p.name === 'name',
-      );
-      expect(nameProperty).toBeDefined();
-      expect(nameProperty?.kind).toBe(SymbolKind.Property);
-      expect(nameProperty?.modifiers.visibility).toBe(SymbolVisibility.Private);
+      const nameField = fields?.find((p: ApexSymbol) => p.name === 'name');
+      expect(nameField).toBeDefined();
+      expect(nameField?.kind).toBe(SymbolKind.Field);
+      expect(nameField?.modifiers.visibility).toBe(SymbolVisibility.Private);
       logger.debug(
         () =>
-          `Name property verified: kind=${nameProperty?.kind}, ` +
-          `visibility=${nameProperty?.modifiers.visibility}`,
+          `Name field verified: kind=${nameField?.kind}, ` +
+          `visibility=${nameField?.modifiers.visibility}`,
       );
 
-      const countProperty = properties?.find(
-        (p: ApexSymbol) => p.name === 'count',
-      );
-      expect(countProperty).toBeDefined();
-      expect(countProperty?.kind).toBe(SymbolKind.Property);
-      expect(countProperty?.modifiers.visibility).toBe(SymbolVisibility.Public);
+      const countField = fields?.find((p: ApexSymbol) => p.name === 'count');
+      expect(countField).toBeDefined();
+      expect(countField?.kind).toBe(SymbolKind.Field);
+      expect(countField?.modifiers.visibility).toBe(SymbolVisibility.Public);
       logger.debug(
         () =>
-          `Count property verified: kind=${countProperty?.kind}, visibility=${countProperty?.modifiers.visibility}`,
+          `Count field verified: kind=${countField?.kind}, visibility=${countField?.modifiers.visibility}`,
       );
 
       // Check methods
@@ -343,12 +339,12 @@ describe('ApexSymbolCollectorListener', () => {
         public class BlocksTest {
           public void m1() {
             Integer outerVar = 10;
-            
+
             if (outerVar > 5) {
               String innerVar = 'inside if';
               System.debug(innerVar);
             }
-            
+
             for (Integer i = 0; i < 5; i++) {
               Double loopVar = i * 1.5;
               System.debug(loopVar);
@@ -402,15 +398,15 @@ describe('ApexSymbolCollectorListener', () => {
       const fileContent = `
         public class Outer {
           private Integer outerField;
-          
+
           public class Inner {
             private String innerField;
-            
+
             public void innerMethod() {
               Boolean innerVar = true;
             }
           }
-          
+
           public void outerMethod() {
             Inner inner = new Inner();
           }
@@ -856,9 +852,9 @@ describe('ApexSymbolCollectorListener', () => {
         public abstract class MultiErrorClass {
           private String name;
           private String name; // Duplicate field
-          
+
           abstract override void badMethod(); // Abstract and override conflict
-          
+
           public void normalMethod() {
             Integer x = 5
             Integer x = 10; // Missing semicolon and duplicate variable
@@ -966,7 +962,7 @@ describe('ApexSymbolCollectorListener', () => {
           public void sameMethod() {
             // First implementation
           }
-          
+
           public void sameMethod() {
             // Duplicate method with same signature
           }
@@ -1001,7 +997,7 @@ describe('ApexSymbolCollectorListener', () => {
           public DuplicateConstructorClass() {
             // First constructor
           }
-          
+
           private DuplicateConstructorClass() {
             // Duplicate constructor
           }
@@ -1036,7 +1032,7 @@ describe('ApexSymbolCollectorListener', () => {
       const fileContent = `
         public interface DuplicateInterfaceMethodInterface {
           void sameMethod();
-          
+
           String sameMethod(); // Duplicate method with different return type
         }
       `;

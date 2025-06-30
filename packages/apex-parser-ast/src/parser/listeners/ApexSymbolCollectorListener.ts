@@ -795,7 +795,7 @@ export class ApexSymbolCollectorListener
           declarator,
           type,
           modifiers,
-          SymbolKind.Property,
+          SymbolKind.Field,
         );
       }
 
@@ -1011,7 +1011,11 @@ export class ApexSymbolCollectorListener
     ctx: VariableDeclaratorContext,
     type: TypeInfo,
     modifiers: SymbolModifiers,
-    kind: SymbolKind.Property | SymbolKind.Variable | SymbolKind.EnumValue,
+    kind:
+      | SymbolKind.Property
+      | SymbolKind.Field
+      | SymbolKind.Variable
+      | SymbolKind.EnumValue,
   ): void {
     try {
       const name = ctx.id()?.text ?? 'unknownVariable';
@@ -1337,7 +1341,11 @@ export class ApexSymbolCollectorListener
   private createPropertySymbol(
     ctx: ParserRuleContext,
     name: string,
-    kind: SymbolKind.Property | SymbolKind.Variable | SymbolKind.EnumValue,
+    kind:
+      | SymbolKind.Property
+      | SymbolKind.Field
+      | SymbolKind.Variable
+      | SymbolKind.EnumValue,
     type: TypeInfo,
   ): VariableSymbol {
     const location = this.getLocation(ctx);
