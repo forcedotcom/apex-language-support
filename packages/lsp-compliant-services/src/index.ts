@@ -6,6 +6,19 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import {
+  TextDocumentChangeEvent,
+  DocumentSymbolParams,
+  SymbolInformation,
+  DocumentSymbol,
+  Diagnostic,
+} from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+
+import { HandlerFactory } from './factories/HandlerFactory';
+import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
+import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
+
 // Export storage interfaces and classes
 export * from './storage/ApexStorageInterface';
 export * from './storage/ApexStorageManager';
@@ -26,6 +39,16 @@ export * from './handlers/DocumentSymbolHandler';
 export * from './handlers/FoldingRangeHandler';
 export * from './handlers/ApexLibResolveHandler';
 export * from './handlers/LogNotificationHandler';
+
+// Export services
+export * from './services/DocumentProcessingService';
+export * from './services/DocumentSymbolProcessingService';
+export * from './services/DocumentSaveProcessingService';
+export * from './services/DocumentCloseProcessingService';
+
+// Export factories
+export * from './factories/HandlerFactory';
+
 export type {
   ApexReference,
   ApexStorageInterface,
@@ -38,3 +61,57 @@ export * from './settings/LSPConfigurationManager';
 
 // Export ApexLib
 export * from './apexlib';
+
+// Legacy dispatch function exports for backward compatibility
+// These use the new handler architecture internally
+
+/**
+ * Dispatch function for document change events
+ * @param event The document change event
+ * @returns Promise resolving to diagnostics or undefined
+ */
+export const dispatchProcessOnChangeDocument = async (
+  event: TextDocumentChangeEvent<TextDocument>,
+): Promise<Diagnostic[] | undefined> => {
+  const handler = HandlerFactory.createDidChangeDocumentHandler();
+  return await handler.handleDocumentChange(event);
+};
+
+/**
+ * Dispatch function for document close events
+ * @param event The document close event
+ * @returns Promise resolving to void
+ */
+export const dispatchProcessOnCloseDocument = async (
+  event: TextDocumentChangeEvent<TextDocument>,
+): Promise<void> => {
+  const handler = HandlerFactory.createDidCloseDocumentHandler();
+  return await handler.handleDocumentClose(event);
+};
+
+/**
+ * Dispatch function for document save events
+ * @param event The document save event
+ * @returns Promise resolving to void
+ */
+export const dispatchProcessOnSaveDocument = async (
+  event: TextDocumentChangeEvent<TextDocument>,
+): Promise<void> => {
+  const handler = HandlerFactory.createDidSaveDocumentHandler();
+  return await handler.handleDocumentSave(event);
+};
+
+/**
+ * Dispatch function for document symbol requests
+ * @param params The document symbol parameters
+ * @returns Promise resolving to symbol information or document symbols
+ */
+export const dispatchProcessOnDocumentSymbol = async (
+  params: DocumentSymbolParams,
+): Promise<SymbolInformation[] | DocumentSymbol[] | null> => {
+  const handler = HandlerFactory.createDocumentSymbolHandler();
+  return await handler.handleDocumentSymbol(params);
+};
+
+// Re-export the existing dispatch functions
+export { dispatchProcessOnFoldingRange, dispatchProcessOnResolve };

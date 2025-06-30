@@ -8,31 +8,15 @@
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
-import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
+import { LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { DidCloseDocumentHandler } from '../../src/handlers/DidCloseDocumentHandler';
-
-// Mock the logging module
-jest.mock('@salesforce/apex-lsp-logging');
-
-// Mock the dispatch function
-jest.mock('../../src/index', () => ({
-  dispatchProcessOnCloseDocument: jest.fn(),
-}));
-
-// Mock the storage manager to avoid singleton errors
-jest.mock('../../src/storage/ApexStorageManager', () => ({
-  ApexStorageManager: {
-    getInstance: jest.fn(() => ({
-      getStorage: jest.fn(() => ({ setDocument: jest.fn() })),
-    })),
-  },
-}));
+import { IDocumentCloseProcessor } from '../../src/services/DocumentCloseProcessingService';
 
 describe('DidCloseDocumentHandler', () => {
   let handler: DidCloseDocumentHandler;
-  let mockLogger: any;
-  let mockDispatchProcessOnCloseDocument: jest.MockedFunction<any>;
+  let mockLogger: jest.Mocked<LoggerInterface>;
+  let mockDocumentCloseProcessor: jest.Mocked<IDocumentCloseProcessor>;
 
   beforeEach(() => {
     // Create mock logger
@@ -44,14 +28,16 @@ describe('DidCloseDocumentHandler', () => {
       error: jest.fn(),
     };
 
-    // Mock getLogger to return our mock logger
-    (getLogger as jest.Mock).mockReturnValue(mockLogger);
+    // Create mock document close processor
+    mockDocumentCloseProcessor = {
+      processDocumentClose: jest.fn(),
+    };
 
-    // Get the mocked dispatch function
-    mockDispatchProcessOnCloseDocument =
-      require('../../src/index').dispatchProcessOnCloseDocument;
-
-    handler = new DidCloseDocumentHandler();
+    // Create handler with mocked dependencies
+    handler = new DidCloseDocumentHandler(
+      mockLogger,
+      mockDocumentCloseProcessor,
+    );
   });
 
   afterEach(() => {
@@ -59,7 +45,7 @@ describe('DidCloseDocumentHandler', () => {
   });
 
   describe('handleDocumentClose', () => {
-    it('should process document close event successfully', () => {
+    it('should process document close event successfully', async () => {
       // Arrange
       const mockDocument = TextDocument.create(
         'file:///test.cls',
@@ -67,26 +53,28 @@ describe('DidCloseDocumentHandler', () => {
         1,
         'public class TestClass {}',
       );
-      const mockEvent: TextDocumentChangeEvent<TextDocument> = {
+      const mockEvent: TextDocumentChangeEvent<typeof mockDocument> = {
         document: mockDocument,
       };
 
-      mockDispatchProcessOnCloseDocument.mockReturnValue(undefined);
+      mockDocumentCloseProcessor.processDocumentClose.mockResolvedValue(
+        undefined,
+      );
 
       // Act
-      handler.handleDocumentClose(mockEvent);
+      await handler.handleDocumentClose(mockEvent);
 
       // Assert
       expect(mockLogger.log).toHaveBeenCalledWith(
         LogMessageType.Info,
         'Processing document close: file:///test.cls',
       );
-      expect(mockDispatchProcessOnCloseDocument).toHaveBeenCalledWith(
-        mockEvent,
-      );
+      expect(
+        mockDocumentCloseProcessor.processDocumentClose,
+      ).toHaveBeenCalledWith(mockEvent);
     });
 
-    it('should log error and rethrow when dispatch fails', () => {
+    it('should log error and rethrow when document close processor fails', async () => {
       // Arrange
       const mockDocument = TextDocument.create(
         'file:///test.cls',
@@ -94,18 +82,18 @@ describe('DidCloseDocumentHandler', () => {
         1,
         'public class TestClass {}',
       );
-      const mockEvent: TextDocumentChangeEvent<TextDocument> = {
+      const mockEvent: TextDocumentChangeEvent<typeof mockDocument> = {
         document: mockDocument,
       };
-      const mockError = new Error('Dispatch failed');
+      const mockError = new Error('Document close processing failed');
 
-      mockDispatchProcessOnCloseDocument.mockImplementation(() => {
-        throw mockError;
-      });
+      mockDocumentCloseProcessor.processDocumentClose.mockRejectedValue(
+        mockError,
+      );
 
       // Act & Assert
-      expect(() => handler.handleDocumentClose(mockEvent)).toThrow(
-        'Dispatch failed',
+      await expect(handler.handleDocumentClose(mockEvent)).rejects.toThrow(
+        'Document close processing failed',
       );
 
       expect(mockLogger.log).toHaveBeenCalledWith(
@@ -119,12 +107,16 @@ describe('DidCloseDocumentHandler', () => {
       );
       expect(errorLogCall).toBeDefined();
 
-      const errorMessageFunction = errorLogCall[1];
-      expect(typeof errorMessageFunction).toBe('function');
-      expect(errorMessageFunction()).toContain(
-        'Error processing document close for file:///test.cls',
-      );
-      expect(errorMessageFunction()).toContain('Dispatch failed');
+      if (errorLogCall) {
+        const errorMessageFunction = errorLogCall[1];
+        expect(typeof errorMessageFunction).toBe('function');
+        expect(errorMessageFunction()).toContain(
+          'Error processing document close for file:///test.cls',
+        );
+        expect(errorMessageFunction()).toContain(
+          'Document close processing failed',
+        );
+      }
     });
   });
 });

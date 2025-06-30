@@ -8,31 +8,15 @@
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
-import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
+import { LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { DidSaveDocumentHandler } from '../../src/handlers/DidSaveDocumentHandler';
-
-// Mock the logging module
-jest.mock('@salesforce/apex-lsp-logging');
-
-// Mock the dispatch function
-jest.mock('../../src/index', () => ({
-  dispatchProcessOnSaveDocument: jest.fn(),
-}));
-
-// Mock the storage manager to avoid singleton errors
-jest.mock('../../src/storage/ApexStorageManager', () => ({
-  ApexStorageManager: {
-    getInstance: jest.fn(() => ({
-      getStorage: jest.fn(() => ({ setDocument: jest.fn() })),
-    })),
-  },
-}));
+import { IDocumentSaveProcessor } from '../../src/services/DocumentSaveProcessingService';
 
 describe('DidSaveDocumentHandler', () => {
   let handler: DidSaveDocumentHandler;
-  let mockLogger: any;
-  let mockDispatchProcessOnSaveDocument: jest.MockedFunction<any>;
+  let mockLogger: jest.Mocked<LoggerInterface>;
+  let mockDocumentSaveProcessor: jest.Mocked<IDocumentSaveProcessor>;
 
   beforeEach(() => {
     // Create mock logger
@@ -44,14 +28,13 @@ describe('DidSaveDocumentHandler', () => {
       error: jest.fn(),
     };
 
-    // Mock getLogger to return our mock logger
-    (getLogger as jest.Mock).mockReturnValue(mockLogger);
+    // Create mock document save processor
+    mockDocumentSaveProcessor = {
+      processDocumentSave: jest.fn(),
+    };
 
-    // Get the mocked dispatch function
-    mockDispatchProcessOnSaveDocument =
-      require('../../src/index').dispatchProcessOnSaveDocument;
-
-    handler = new DidSaveDocumentHandler();
+    // Create handler with mocked dependencies
+    handler = new DidSaveDocumentHandler(mockLogger, mockDocumentSaveProcessor);
   });
 
   afterEach(() => {
@@ -67,11 +50,13 @@ describe('DidSaveDocumentHandler', () => {
         1,
         'public class TestClass {}',
       );
-      const mockEvent: TextDocumentChangeEvent<TextDocument> = {
+      const mockEvent: TextDocumentChangeEvent<typeof mockDocument> = {
         document: mockDocument,
       };
 
-      mockDispatchProcessOnSaveDocument.mockResolvedValue(undefined);
+      mockDocumentSaveProcessor.processDocumentSave.mockResolvedValue(
+        undefined,
+      );
 
       // Act
       await handler.handleDocumentSave(mockEvent);
@@ -81,10 +66,12 @@ describe('DidSaveDocumentHandler', () => {
         LogMessageType.Info,
         'Processing document save: file:///test.cls',
       );
-      expect(mockDispatchProcessOnSaveDocument).toHaveBeenCalledWith(mockEvent);
+      expect(
+        mockDocumentSaveProcessor.processDocumentSave,
+      ).toHaveBeenCalledWith(mockEvent);
     });
 
-    it('should log error and rethrow when dispatch fails', async () => {
+    it('should log error and rethrow when document save processor fails', async () => {
       // Arrange
       const mockDocument = TextDocument.create(
         'file:///test.cls',
@@ -92,16 +79,18 @@ describe('DidSaveDocumentHandler', () => {
         1,
         'public class TestClass {}',
       );
-      const mockEvent: TextDocumentChangeEvent<TextDocument> = {
+      const mockEvent: TextDocumentChangeEvent<typeof mockDocument> = {
         document: mockDocument,
       };
-      const mockError = new Error('Dispatch failed');
+      const mockError = new Error('Document save processing failed');
 
-      mockDispatchProcessOnSaveDocument.mockRejectedValue(mockError);
+      mockDocumentSaveProcessor.processDocumentSave.mockRejectedValue(
+        mockError,
+      );
 
       // Act & Assert
       await expect(handler.handleDocumentSave(mockEvent)).rejects.toThrow(
-        'Dispatch failed',
+        'Document save processing failed',
       );
 
       expect(mockLogger.log).toHaveBeenCalledWith(
@@ -115,12 +104,16 @@ describe('DidSaveDocumentHandler', () => {
       );
       expect(errorLogCall).toBeDefined();
 
-      const errorMessageFunction = errorLogCall[1];
-      expect(typeof errorMessageFunction).toBe('function');
-      expect(errorMessageFunction()).toContain(
-        'Error processing document save for file:///test.cls',
-      );
-      expect(errorMessageFunction()).toContain('Dispatch failed');
+      if (errorLogCall) {
+        const errorMessageFunction = errorLogCall[1];
+        expect(typeof errorMessageFunction).toBe('function');
+        expect(errorMessageFunction()).toContain(
+          'Error processing document save for file:///test.cls',
+        );
+        expect(errorMessageFunction()).toContain(
+          'Document save processing failed',
+        );
+      }
     });
   });
 });

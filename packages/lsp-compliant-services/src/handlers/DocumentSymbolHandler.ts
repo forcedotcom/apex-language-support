@@ -10,54 +10,19 @@ import {
   SymbolInformation,
   DocumentSymbol,
 } from 'vscode-languageserver';
-import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
+import { LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { dispatch } from '../utils/handlerUtil';
-import { DefaultApexDocumentSymbolProvider } from '../documentSymbol/ApexDocumentSymbolProvider';
-import { ApexStorageManager } from '../storage/ApexStorageManager';
-
-// Visible for testing
-export const processOnDocumentSymbol = async (
-  params: DocumentSymbolParams,
-): Promise<SymbolInformation[] | DocumentSymbol[] | null> => {
-  const logger = getLogger();
-  logger.log(
-    LogMessageType.Debug,
-    `Common Apex Language Server document symbol handler invoked with: ${params}`,
-  );
-
-  try {
-    // Get the storage manager instance
-    const storageManager = ApexStorageManager.getInstance();
-    const storage = storageManager.getStorage();
-
-    // Create the document symbol provider
-    const provider = new DefaultApexDocumentSymbolProvider(storage);
-
-    // Get document symbols
-    return await provider.provideDocumentSymbols(params);
-  } catch (error) {
-    logger.log(
-      LogMessageType.Error,
-      `Error processing document symbols: ${error}`,
-    );
-    return null;
-  }
-};
-
-export const dispatchProcessOnDocumentSymbol = (
-  params: DocumentSymbolParams,
-): Promise<SymbolInformation[] | DocumentSymbol[] | null> =>
-  dispatch(
-    processOnDocumentSymbol(params),
-    'Error processing document symbols',
-  );
+import { IDocumentSymbolProcessor } from '../services/DocumentSymbolProcessingService';
 
 /**
  * Handler for document symbol requests
  */
 export class DocumentSymbolHandler {
-  private readonly logger = getLogger();
+  constructor(
+    private readonly logger: LoggerInterface,
+    private readonly documentSymbolProcessor: IDocumentSymbolProcessor,
+  ) {}
 
   /**
    * Handle document symbol request
@@ -73,7 +38,10 @@ export class DocumentSymbolHandler {
     );
 
     try {
-      return await dispatchProcessOnDocumentSymbol(params);
+      return await dispatch(
+        this.documentSymbolProcessor.processDocumentSymbol(params),
+        'Error processing document symbol request',
+      );
     } catch (error) {
       this.logger.log(
         LogMessageType.Error,
