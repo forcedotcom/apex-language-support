@@ -7,7 +7,7 @@
  */
 import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { dispatch } from '../utils/handlerUtil';
 
@@ -42,9 +42,8 @@ export class DidChangeDocumentHandler {
   public async handleDocumentChange(
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<Diagnostic[] | undefined> {
-    this.logger.log(
-      LogMessageType.Info,
-      `Processing document change: ${event.document.uri}`,
+    this.logger.debug(
+      () => `Processing document change: ${event.document.uri}`,
     );
 
     try {
@@ -53,8 +52,7 @@ export class DidChangeDocumentHandler {
         'Error processing document change',
       );
     } catch (error) {
-      this.logger.log(
-        LogMessageType.Error,
+      this.logger.error(
         () =>
           `Error processing document change for ${event.document.uri}: ${error}`,
       );

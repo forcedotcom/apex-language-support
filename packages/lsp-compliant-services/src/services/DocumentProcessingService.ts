@@ -46,8 +46,7 @@ export class DocumentProcessingService implements IDocumentProcessor {
     const storage = storageManager.getStorage();
     const document = event.document;
     if (!document) {
-      this.logger.log(
-        LogMessageType.Error,
+      this.logger.error(
         () => `Document not found for URI: ${event.document.uri}`,
       );
     }

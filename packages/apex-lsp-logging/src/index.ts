@@ -159,17 +159,27 @@ export interface LoggerFactory {
 // Default no-op logger implementation
 class NoOpLogger implements LoggerInterface {
   public log(
-    _messageType: LogMessageType,
-    _message: string | (() => string),
-  ): void {}
+    messageType: LogMessageType,
+    message: string | (() => string),
+  ): void {
+    // No-op implementation - does nothing
+  }
 
-  public debug(_message: string | (() => string)): void {}
+  public debug(message: string | (() => string)): void {
+    // No-op implementation - does nothing
+  }
 
-  public info(_message: string | (() => string)): void {}
+  public info(message: string | (() => string)): void {
+    // No-op implementation - does nothing
+  }
 
-  public warn(_message: string | (() => string)): void {}
+  public warn(message: string | (() => string)): void {
+    // No-op implementation - does nothing
+  }
 
-  public error(_message: string | (() => string)): void {}
+  public error(message: string | (() => string)): void {
+    // No-op implementation - does nothing
+  }
 }
 
 // Default no-op logger factory

@@ -58,26 +58,7 @@ export class BrowserLogNotificationHandler implements LogNotificationHandler {
       return; // Don't log if below current log level
     }
 
-    // Log to console
-    switch (params.type) {
-      case LogMessageType.Error:
-        console.error(params.message);
-        break;
-      case LogMessageType.Warning:
-        console.warn(params.message);
-        break;
-      case LogMessageType.Info:
-        console.info(params.message);
-        break;
-      case LogMessageType.Log:
-      case LogMessageType.Debug:
-        console.log(params.message);
-        break;
-      default:
-        console.log(params.message);
-    }
-
-    // Send to language client
+    // Send to language client only - let the client handle OutputChannel logging
     this.connection.sendNotification('window/logMessage', {
       type: this.getLogMessageType(params.type),
       message: params.message,

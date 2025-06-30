@@ -40,7 +40,7 @@ export function logHandlerError(
 
   // Log additional context if provided
   if (context) {
-    logger.log(LogMessageType.Debug, `Error context: ${context}`);
+    logger.debug(`Error context: ${context}`);
   }
 }
 

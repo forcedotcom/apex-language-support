@@ -12,7 +12,15 @@ import {
   Diagnostic,
   DiagnosticSeverity,
 } from 'vscode-languageserver';
-import { LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { LoggerInterface, getLogger } from '@salesforce/apex-lsp-logging';
+
+jest.mock('@salesforce/apex-lsp-logging', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-logging');
+  return {
+    ...actual,
+    getLogger: jest.fn(),
+  };
+});
 
 import {
   DidChangeDocumentHandler,
@@ -25,6 +33,7 @@ describe('DidChangeDocumentHandler', () => {
   let mockDocumentProcessor: jest.Mocked<IDocumentProcessor>;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     // Create mock logger
     mockLogger = {
       log: jest.fn(),
@@ -32,7 +41,8 @@ describe('DidChangeDocumentHandler', () => {
       info: jest.fn(),
       warn: jest.fn(),
       error: jest.fn(),
-    };
+    } as any;
+    (getLogger as jest.Mock).mockReturnValue(mockLogger);
 
     // Create mock document processor
     mockDocumentProcessor = {
@@ -78,8 +88,10 @@ describe('DidChangeDocumentHandler', () => {
       const result = await handler.handleDocumentChange(mockEvent);
 
       // Assert
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Info,
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
+      const debugCall = mockLogger.debug.mock.calls[0][0];
+      expect(typeof debugCall).toBe('function');
+      expect(debugCall()).toContain(
         'Processing document change: file:///test.cls',
       );
       expect(mockDocumentProcessor.processDocumentChange).toHaveBeenCalledWith(
@@ -108,25 +120,14 @@ describe('DidChangeDocumentHandler', () => {
         'Document processing failed',
       );
 
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Error,
-        expect.any(Function),
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
+      const errorCall = mockLogger.error.mock.calls[0][0];
+      expect(typeof errorCall).toBe('function');
+      const errorMsg = errorCall();
+      expect(errorMsg).toContain(
+        'Error processing document change for file:///test.cls',
       );
-
-      // Verify the error message function was called with correct content
-      const errorLogCall = mockLogger.log.mock.calls.find(
-        (call: any) => call[0] === LogMessageType.Error,
-      );
-      expect(errorLogCall).toBeDefined();
-
-      if (errorLogCall) {
-        const errorMessageFunction = errorLogCall[1];
-        expect(typeof errorMessageFunction).toBe('function');
-        expect(errorMessageFunction()).toContain(
-          'Error processing document change for file:///test.cls',
-        );
-        expect(errorMessageFunction()).toContain('Document processing failed');
-      }
+      expect(errorMsg).toContain('Document processing failed');
     });
   });
 });

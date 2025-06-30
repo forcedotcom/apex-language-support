@@ -18,47 +18,44 @@ import { BrowserLogNotificationHandler } from '../../src/utils/BrowserLogNotific
 describe('BrowserLogNotificationHandler', () => {
   let mockConnection: jest.Mocked<Connection>;
   let handler: BrowserLogNotificationHandler;
-  let consoleSpy: {
-    error: jest.SpyInstance;
-    warn: jest.SpyInstance;
-    info: jest.SpyInstance;
-    log: jest.SpyInstance;
-  };
 
   beforeEach(() => {
-    BrowserLogNotificationHandler.resetInstance();
+    setLogLevel(LogMessageType.Debug);
+
     mockConnection = {
       sendNotification: jest.fn(),
-    } as unknown as jest.Mocked<Connection>;
-
-    consoleSpy = {
-      error: jest.spyOn(console, 'error').mockImplementation(),
-      warn: jest.spyOn(console, 'warn').mockImplementation(),
-      info: jest.spyOn(console, 'info').mockImplementation(),
-      log: jest.spyOn(console, 'log').mockImplementation(),
-    };
-
-    setLogLevel(LogMessageType.Debug);
+    } as any;
 
     handler = BrowserLogNotificationHandler.getInstance(mockConnection);
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    BrowserLogNotificationHandler.resetInstance();
   });
 
   describe('getInstance', () => {
-    it('should return the same instance on multiple calls', () => {
+    it('should return the same instance for the same connection', () => {
       const instance1 =
         BrowserLogNotificationHandler.getInstance(mockConnection);
       const instance2 =
         BrowserLogNotificationHandler.getInstance(mockConnection);
       expect(instance1).toBe(instance2);
     });
+
+    it('should return the same instance for a different connection', () => {
+      const mockConnection2 = {
+        sendNotification: jest.fn(),
+      } as any;
+      const instance1 =
+        BrowserLogNotificationHandler.getInstance(mockConnection);
+      const instance2 =
+        BrowserLogNotificationHandler.getInstance(mockConnection2);
+      expect(instance1).toBe(instance2);
+    });
   });
 
   describe('sendLogMessage', () => {
-    it('should send error message to both console and connection', () => {
+    it('should send error message to connection only', () => {
       const params: LogMessageParams = {
         type: LogMessageType.Error,
         message: 'Test error message',
@@ -66,7 +63,6 @@ describe('BrowserLogNotificationHandler', () => {
 
       handler.sendLogMessage(params);
 
-      expect(consoleSpy.error).toHaveBeenCalledWith('Test error message');
       expect(mockConnection.sendNotification).toHaveBeenCalledWith(
         'window/logMessage',
         {
@@ -76,7 +72,7 @@ describe('BrowserLogNotificationHandler', () => {
       );
     });
 
-    it('should send warning message to both console and connection', () => {
+    it('should send warning message to connection only', () => {
       const params: LogMessageParams = {
         type: LogMessageType.Warning,
         message: 'Test warning message',
@@ -84,7 +80,6 @@ describe('BrowserLogNotificationHandler', () => {
 
       handler.sendLogMessage(params);
 
-      expect(consoleSpy.warn).toHaveBeenCalledWith('Test warning message');
       expect(mockConnection.sendNotification).toHaveBeenCalledWith(
         'window/logMessage',
         {
@@ -94,7 +89,7 @@ describe('BrowserLogNotificationHandler', () => {
       );
     });
 
-    it('should send info message to both console and connection', () => {
+    it('should send info message to connection only', () => {
       const params: LogMessageParams = {
         type: LogMessageType.Info,
         message: 'Test info message',
@@ -102,7 +97,6 @@ describe('BrowserLogNotificationHandler', () => {
 
       handler.sendLogMessage(params);
 
-      expect(consoleSpy.info).toHaveBeenCalledWith('Test info message');
       expect(mockConnection.sendNotification).toHaveBeenCalledWith(
         'window/logMessage',
         {
@@ -112,19 +106,18 @@ describe('BrowserLogNotificationHandler', () => {
       );
     });
 
-    it('should send debug message to both console and connection', () => {
+    it('should send debug message to connection only', () => {
       const params: LogMessageParams = {
-        type: LogMessageType.Log,
+        type: LogMessageType.Debug,
         message: 'Test debug message',
       };
 
       handler.sendLogMessage(params);
 
-      expect(consoleSpy.log).toHaveBeenCalledWith('Test debug message');
       expect(mockConnection.sendNotification).toHaveBeenCalledWith(
         'window/logMessage',
         {
-          type: MessageType.Log,
+          type: MessageType.Log, // Debug maps to Log for backward compatibility
           message: 'Test debug message',
         },
       );
@@ -132,17 +125,16 @@ describe('BrowserLogNotificationHandler', () => {
 
     it('should handle unknown message type', () => {
       const params: LogMessageParams = {
-        type: 'unknown' as unknown as LogMessageType,
+        type: 999 as LogMessageType, // Unknown type
         message: 'Test unknown message',
       };
 
       handler.sendLogMessage(params);
 
-      expect(consoleSpy.log).toHaveBeenCalledWith('Test unknown message');
       expect(mockConnection.sendNotification).toHaveBeenCalledWith(
         'window/logMessage',
         {
-          type: MessageType.Log,
+          type: MessageType.Log, // Unknown types map to Log
           message: 'Test unknown message',
         },
       );

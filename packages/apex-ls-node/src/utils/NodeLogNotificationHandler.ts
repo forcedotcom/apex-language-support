@@ -52,29 +52,11 @@ export class NodeLogNotificationHandler implements LogNotificationHandler {
       return; // Don't log if below current log level
     }
 
-    // Send to language client
+    // Send to language client only - let the client handle OutputChannel logging
     this.connection.sendNotification('window/logMessage', {
       type: this.getLogMessageType(params.type),
       message: params.message,
     });
-
-    // Send to console
-    switch (params.type) {
-      case LogMessageType.Error:
-        console.error(params.message);
-        break;
-      case LogMessageType.Warning:
-        console.warn(params.message);
-        break;
-      case LogMessageType.Info:
-        console.info(params.message);
-        break;
-      case LogMessageType.Log:
-      case LogMessageType.Debug:
-      default:
-        console.log(params.message);
-        break;
-    }
   }
 
   /**

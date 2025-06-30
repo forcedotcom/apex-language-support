@@ -10,19 +10,14 @@ import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
 
-import { DidOpenDocumentHandler } from '../../src/handlers/DidOpenDocumentHandler';
-import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
-import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
-
 // Mock the logging module
-jest.mock('@salesforce/apex-lsp-logging', () => ({
-  getLogger: jest.fn(),
-  LogMessageType: {
-    Info: 'info',
-    Error: 'error',
-    Debug: 'debug',
-  },
-}));
+jest.mock('@salesforce/apex-lsp-logging', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-logging');
+  return {
+    ...actual,
+    getLogger: jest.fn(),
+  };
+});
 
 // Mock the parser module
 jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
@@ -73,6 +68,11 @@ jest.mock('../../src/references/ApexReferencesUpserter', () => ({
   })),
 }));
 
+// Import the handler after the logger mock is set up
+import { DidOpenDocumentHandler } from '../../src/handlers/DidOpenDocumentHandler';
+import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
+import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
+
 describe('DidOpenDocumentHandler', () => {
   let handler: DidOpenDocumentHandler;
   let mockLogger: jest.Mocked<ReturnType<typeof getLogger>>;
@@ -103,6 +103,10 @@ describe('DidOpenDocumentHandler', () => {
     // Setup logger mock
     mockLogger = {
       log: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
     } as any;
     (getLogger as jest.Mock).mockReturnValue(mockLogger);
 
@@ -169,6 +173,19 @@ describe('DidOpenDocumentHandler', () => {
         LogMessageType.Error,
         expect.any(Function),
       );
+      const errorCall = mockLogger.log.mock.calls.find(
+        (call) => call[0] === LogMessageType.Error,
+      );
+      expect(errorCall).toBeDefined();
+      if (errorCall) {
+        const errorFn = errorCall[1];
+        expect(typeof errorFn).toBe('function');
+        const errorMsg = errorFn();
+        expect(errorMsg).toContain(
+          'Error processing document open for file:///test.cls',
+        );
+        expect(errorMsg).toContain('Storage failed');
+      }
     });
 
     it('should log error and rethrow when definition upserter fails', async () => {

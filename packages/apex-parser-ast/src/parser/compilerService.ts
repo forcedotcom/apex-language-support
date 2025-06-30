@@ -83,8 +83,7 @@ export class CompilerService {
    */
   constructor(projectNamespace?: string) {
     this.projectNamespace = projectNamespace;
-    this.logger.log(
-      LogMessageType.Debug,
+    this.logger.debug(
       () =>
         `CompilerService initialized with namespace: ${projectNamespace || 'none'}`,
     );
@@ -107,10 +106,7 @@ export class CompilerService {
     | CompilationResult<T>
     | CompilationResultWithComments<T>
     | CompilationResultWithAssociations<T> {
-    this.logger.log(
-      LogMessageType.Debug,
-      () => `Starting compilation of ${fileName}`,
-    );
+    this.logger.debug(() => `Starting compilation of ${fileName}`);
 
     try {
       // Create error listener
@@ -141,10 +137,7 @@ export class CompilerService {
       listener.setErrorListener(errorListener);
       const namespace = options.projectNamespace || this.projectNamespace;
       if (namespace && typeof listener.setProjectNamespace === 'function') {
-        this.logger.log(
-          LogMessageType.Debug,
-          () => `Setting project namespace to: ${namespace}`,
-        );
+        this.logger.debug(() => `Setting project namespace to: ${namespace}`);
         listener.setProjectNamespace(namespace);
       }
 
@@ -201,10 +194,11 @@ export class CompilerService {
             commentAssociations,
           };
 
-          this.logger.log(
-            LogMessageType.Debug,
+          this.logger.debug(
             () =>
-              `Compilation completed for ${fileName}. Found ${comments.length} comments, ${commentAssociations.length} associations, ${resultWithAssociations.errors.length} errors, ${resultWithAssociations.warnings.length} warnings`,
+              `Compilation completed for ${fileName}. Found ${comments.length} comments, ` +
+              `${commentAssociations.length} associations, ${resultWithAssociations.errors.length} errors, ` +
+              `${resultWithAssociations.warnings.length} warnings`,
           );
 
           return resultWithAssociations;
@@ -214,30 +208,27 @@ export class CompilerService {
             comments,
           };
 
-          this.logger.log(
-            LogMessageType.Debug,
+          this.logger.debug(
             () =>
-              `Compilation completed for ${fileName}. Found ${comments.length} comments, ${resultWithComments.errors.length} errors, ${resultWithComments.warnings.length} warnings`,
+              `Compilation completed for ${fileName}. Found ${comments.length} comments, ` +
+              `${resultWithComments.errors.length} errors, ${resultWithComments.warnings.length} warnings`,
           );
 
           return resultWithComments;
         }
       } else {
         if (baseResult.errors.length > 0) {
-          this.logger.log(
-            LogMessageType.Warning,
+          this.logger.warn(
             () =>
               `Compilation completed with ${baseResult.errors.length} errors in ${fileName}`,
           );
         } else if (baseResult.warnings.length > 0) {
-          this.logger.log(
-            LogMessageType.Info,
+          this.logger.info(
             () =>
               `Compilation completed with ${baseResult.warnings.length} warnings in ${fileName}`,
           );
         } else {
-          this.logger.log(
-            LogMessageType.Debug,
+          this.logger.debug(
             () => `Compilation completed successfully for ${fileName}`,
           );
         }
@@ -245,8 +236,7 @@ export class CompilerService {
         return baseResult;
       }
     } catch (error) {
-      this.logger.log(
-        LogMessageType.Error,
+      this.logger.error(
         () => `Unexpected error during compilation of ${fileName}`,
       );
 
@@ -291,8 +281,7 @@ export class CompilerService {
     listener: BaseApexParserListener<T>,
     options: CompilationOptions = {},
   ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
-    this.logger.log(
-      LogMessageType.Info,
+    this.logger.info(
       () => `Starting parallel compilation of ${files.length} files`,
     );
 
@@ -328,8 +317,7 @@ export class CompilerService {
       options?: CompilationOptions;
     }>,
   ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
-    this.logger.log(
-      LogMessageType.Info,
+    this.logger.info(
       () =>
         `Starting parallel compilation of ${fileCompilationConfigs.length} files with individual configurations`,
     );
@@ -363,10 +351,7 @@ export class CompilerService {
       } else {
         // Handle rejection by creating an error result
         rejectedCount++;
-        this.logger.log(
-          LogMessageType.Error,
-          () => `Compilation failed for ${config.fileName}`,
-        );
+        this.logger.error(() => `Compilation failed for ${config.fileName}`);
 
         // Create an error object for the rejection
         const errorObject: ApexError = {
@@ -405,14 +390,12 @@ export class CompilerService {
     const duration = (endTime - startTime) / 1000;
 
     if (rejectedCount > 0) {
-      this.logger.log(
-        LogMessageType.Warning,
+      this.logger.warn(
         () =>
           `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed, ${rejectedCount} compilation rejections captured`,
       );
     } else {
-      this.logger.log(
-        LogMessageType.Info,
+      this.logger.info(
         () =>
           `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed`,
       );

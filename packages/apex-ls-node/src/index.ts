@@ -48,13 +48,6 @@ import { NodeFileSystemApexStorage } from './storage/NodeFileSystemApexStorage';
 import { createNodeApexLibAdapter } from './utils/NodeApexLibAdapter';
 
 export function startServer() {
-  // Set the logger factory early
-  setLoggerFactory(new LSPLoggerFactory());
-
-  // Initialize settings and configuration managers
-  const settingsManager = ApexSettingsManager.getInstance({}, 'node');
-  const configurationManager = new LSPConfigurationManager(settingsManager);
-
   // Create a connection for the server based on command line arguments
   let connection: Connection;
   if (process.argv.includes('--stdio')) {
@@ -73,9 +66,14 @@ export function startServer() {
     );
   }
 
-  // Set up logging
-  const logger = getLogger();
+  // Set up logging BEFORE anything else to ensure all loggers get proper configuration
+  setLoggerFactory(new LSPLoggerFactory());
   setLogNotificationHandler(NodeLogNotificationHandler.getInstance(connection));
+  const logger = getLogger();
+
+  // Initialize settings and configuration managers
+  const settingsManager = ApexSettingsManager.getInstance({}, 'node');
+  const configurationManager = new LSPConfigurationManager(settingsManager);
 
   // Set up configuration management
   configurationManager.setConnection(connection);

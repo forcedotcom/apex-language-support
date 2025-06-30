@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { dispatch } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -40,10 +40,7 @@ export async function processOnResolve(
   params: ResolveRequestParams,
 ): Promise<ResolveResponse> {
   try {
-    logger.log(
-      LogMessageType.Debug,
-      `Processing resolve request for: ${params.uri}`,
-    );
+    logger.debug(`Processing resolve request for: ${params.uri}`);
 
     // Get the storage manager instance
     const storageManager = ApexStorageManager.getInstance();
@@ -56,16 +53,12 @@ export async function processOnResolve(
     }
 
     const content = document.getText();
-    logger.log(
-      LogMessageType.Debug,
-      `Successfully resolved content for: ${params.uri}`,
-    );
+    logger.debug(`Successfully resolved content for: ${params.uri}`);
 
     return { content };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.log(
-      LogMessageType.Error,
+    logger.error(
       `Error processing resolve request for ${params.uri}: ${errorMessage}`,
     );
     throw error;
