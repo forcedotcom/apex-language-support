@@ -154,7 +154,7 @@ export class ResourceLoader {
             await this.compileAllArtifacts();
             this.logger.debug(() => 'Async compilation completed successfully');
           } catch (error) {
-            this.logger.error(() => `Compilation failed: ${error}`);
+            this.logger.debug(() => `Compilation failed: ${error}`);
             throw error;
           } finally {
             this.compilationPromise = null; // Reset promise after completion
@@ -313,7 +313,7 @@ export class ResourceLoader {
           }
         } else {
           errorCount++;
-          this.logger.error(() => `Compilation failed for ${result.fileName}:`);
+          this.logger.debug(() => `Compilation failed for ${result.fileName}:`);
         }
       });
 

@@ -218,12 +218,12 @@ export class CompilerService {
         }
       } else {
         if (baseResult.errors.length > 0) {
-          this.logger.warn(
+          this.logger.debug(
             () =>
               `Compilation completed with ${baseResult.errors.length} errors in ${fileName}`,
           );
         } else if (baseResult.warnings.length > 0) {
-          this.logger.info(
+          this.logger.debug(
             () =>
               `Compilation completed with ${baseResult.warnings.length} warnings in ${fileName}`,
           );
@@ -281,7 +281,7 @@ export class CompilerService {
     listener: BaseApexParserListener<T>,
     options: CompilationOptions = {},
   ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
-    this.logger.info(
+    this.logger.debug(
       () => `Starting parallel compilation of ${files.length} files`,
     );
 
@@ -317,7 +317,7 @@ export class CompilerService {
       options?: CompilationOptions;
     }>,
   ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
-    this.logger.info(
+    this.logger.debug(
       () =>
         `Starting parallel compilation of ${fileCompilationConfigs.length} files with individual configurations`,
     );
@@ -351,7 +351,7 @@ export class CompilerService {
       } else {
         // Handle rejection by creating an error result
         rejectedCount++;
-        this.logger.error(() => `Compilation failed for ${config.fileName}`);
+        this.logger.debug(() => `Compilation failed for ${config.fileName}`);
 
         // Create an error object for the rejection
         const errorObject: ApexError = {
@@ -390,12 +390,13 @@ export class CompilerService {
     const duration = (endTime - startTime) / 1000;
 
     if (rejectedCount > 0) {
-      this.logger.warn(
+      this.logger.debug(
         () =>
+          // eslint-disable-next-line max-len
           `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed, ${rejectedCount} compilation rejections captured`,
       );
     } else {
-      this.logger.info(
+      this.logger.debug(
         () =>
           `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed`,
       );
