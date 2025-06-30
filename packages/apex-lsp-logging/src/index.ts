@@ -48,7 +48,7 @@ export const messageTypeToLogLevel = (
 ): LogMessageType => messageType;
 
 // Global log level setting
-let currentLogLevel: LogMessageType = LogMessageType.Info;
+let currentLogLevel: LogMessageType = LogMessageType.Error;
 
 /**
  * Set the global log level

@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
+import {
+  getLogger,
+  LogMessageType,
+  setLogLevel,
+} from '@salesforce/apex-lsp-logging';
 import type { CompilationOptions } from '@salesforce/apex-lsp-parser-ast';
 
 import {
@@ -98,6 +102,15 @@ export class ApexSettingsManager {
       () => `New settings: ${JSON.stringify(newSettings, null, 2)}`,
     );
 
+    // Set log level if provided
+    if (newSettings.ls?.logLevel ?? false) {
+      setLogLevel(newSettings.ls!.logLevel!);
+      this.logger.log(
+        LogMessageType.Info,
+        () => `Log level set to: ${newSettings.ls!.logLevel}`,
+      );
+    }
+
     const previousSettings = { ...this.currentSettings };
     const environment =
       this.currentSettings.environment.environment === 'web-worker'
@@ -127,6 +140,15 @@ export class ApexSettingsManager {
 
       // Extract apex-specific settings from the configuration
       const apexConfig = config.apex || config.apexLanguageServer || config;
+
+      // Set log level if provided
+      if (apexConfig.ls && apexConfig.ls.logLevel) {
+        setLogLevel(apexConfig.ls.logLevel);
+        this.logger.log(
+          LogMessageType.Info,
+          () => `Log level set to: ${apexConfig.ls.logLevel}`,
+        );
+      }
 
       if (isValidApexSettings(apexConfig)) {
         this.updateSettings(apexConfig);

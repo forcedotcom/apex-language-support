@@ -289,6 +289,7 @@ function handleMaxRetriesExceeded(): void {
  */
 function getWorkspaceSettings(): object {
   const config = vscode.workspace.getConfiguration('apex');
+  const logLevel = config.get<string>('ls.logLevel', 'error');
 
   return {
     apex: {
@@ -341,10 +342,9 @@ function getWorkspaceSettings(): object {
           'environment.enablePerformanceLogging',
           false,
         ),
-        commentCollectionLogLevel: config.get<string>(
-          'environment.commentCollectionLogLevel',
-          'info',
-        ),
+      },
+      ls: {
+        logLevel,
       },
     },
   };

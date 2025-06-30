@@ -86,6 +86,14 @@ export interface ApexLanguageServerSettings {
 
   /** Server version for compatibility checks */
   version?: string;
+
+  /**
+   * General log level for the server (optional, from apex.ls.logLevel)
+   * Accepts: 'error', 'warning', 'info', 'log', 'debug'
+   */
+  ls?: {
+    logLevel?: string;
+  };
 }
 
 /**
@@ -195,5 +203,6 @@ export function mergeWithDefaults(
       ...userSettings.resources,
     },
     version: userSettings.version || baseDefaults.version,
+    ls: userSettings.ls || baseDefaults.ls,
   };
 }

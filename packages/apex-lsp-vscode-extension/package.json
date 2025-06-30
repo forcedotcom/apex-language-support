@@ -151,6 +151,18 @@
           "type": "boolean",
           "default": false,
           "description": "Enable LSP request/response inspector for debugging"
+        },
+        "apex.ls.logLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "log",
+            "debug"
+          ],
+          "default": "info",
+          "description": "Controls the minimum log level for Apex Language Server logging. Messages at this level or higher will be logged."
         }
       }
     },

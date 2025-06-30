@@ -11,6 +11,7 @@ import {
   disableLogging,
   getLogger,
   LogMessageType,
+  setLogLevel,
 } from '../src/index';
 
 describe('Console Logging', () => {
@@ -21,7 +22,7 @@ describe('Console Logging', () => {
   let errorSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    // Spy on console methods
+    setLogLevel('debug');
     logSpy = jest.spyOn(console, 'log').mockImplementation();
     debugSpy = jest.spyOn(console, 'debug').mockImplementation();
     infoSpy = jest.spyOn(console, 'info').mockImplementation();
@@ -30,6 +31,7 @@ describe('Console Logging', () => {
   });
 
   afterEach(() => {
+    setLogLevel('info');
     logSpy.mockRestore();
     debugSpy.mockRestore();
     infoSpy.mockRestore();
