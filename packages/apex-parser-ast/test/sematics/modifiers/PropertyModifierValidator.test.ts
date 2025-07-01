@@ -200,7 +200,7 @@ describe('PropertyModifierValidator', () => {
         errorReporter,
       );
 
-      expect(errorReporter.errors.length).toBe(3); // Visibility adjustment + webService must be global + webService in non-global class
+      expect(errorReporter.errors.length).toBe(3);
       expect(errorReporter.errors[0].message).toContain(
         'Property cannot have wider visibility',
       );

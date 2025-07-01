@@ -8,12 +8,7 @@
 
 import { ParserRuleContext } from 'antlr4ts';
 
-import {
-  SymbolKind,
-  SymbolModifiers,
-  SymbolVisibility,
-  TypeSymbol,
-} from '../../types/symbol';
+import { SymbolModifiers, TypeSymbol } from '../../types/symbol';
 import { ErrorReporter } from '../../utils/ErrorReporter';
 import { BaseModifierValidator } from './BaseModifierValidator';
 
