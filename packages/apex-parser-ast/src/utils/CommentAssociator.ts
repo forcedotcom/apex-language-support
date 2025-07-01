@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { ApexSymbol, SymbolKind } from '../types/symbol';
 import {

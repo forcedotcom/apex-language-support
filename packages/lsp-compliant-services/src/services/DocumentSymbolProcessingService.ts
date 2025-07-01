@@ -11,7 +11,7 @@ import {
   SymbolInformation,
   DocumentSymbol,
 } from 'vscode-languageserver';
-import { LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { DefaultApexDocumentSymbolProvider } from '../documentSymbol/ApexDocumentSymbolProvider';
 import { ApexStorageManager } from '../storage/ApexStorageManager';

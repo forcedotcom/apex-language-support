@@ -7,7 +7,7 @@
  */
 
 import { DocumentSymbolParams, DocumentSymbol } from 'vscode-languageserver';
-import { LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { DocumentSymbolHandler } from '../../src/handlers/DocumentSymbolHandler';
 import { IDocumentSymbolProcessor } from '../../src/services/DocumentSymbolProcessingService';

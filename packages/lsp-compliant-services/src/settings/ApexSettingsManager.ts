@@ -6,11 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  getLogger,
-  LogMessageType,
-  setLogLevel,
-} from '@salesforce/apex-lsp-logging';
+import { getLogger, setLogLevel } from '@salesforce/apex-lsp-logging';
 import type { CompilationOptions } from '@salesforce/apex-lsp-parser-ast';
 
 import {

@@ -13,7 +13,7 @@ import {
   CompilerService,
   ApexSymbolCollectorListener,
 } from '@salesforce/apex-lsp-parser-ast';
-import { LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';

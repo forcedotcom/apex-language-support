@@ -8,7 +8,7 @@
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
-import { LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { DidSaveDocumentHandler } from '../../src/handlers/DidSaveDocumentHandler';
 import { IDocumentSaveProcessor } from '../../src/services/DocumentSaveProcessingService';

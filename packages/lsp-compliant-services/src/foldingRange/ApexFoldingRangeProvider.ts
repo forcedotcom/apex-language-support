@@ -13,7 +13,7 @@ import {
   ApexComment,
   CommentType,
 } from '@salesforce/apex-lsp-parser-ast';
-import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { ApexSettingsManager } from '../settings/ApexSettingsManager';

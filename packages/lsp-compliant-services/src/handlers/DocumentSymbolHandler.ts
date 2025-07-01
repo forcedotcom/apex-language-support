@@ -10,7 +10,7 @@ import {
   SymbolInformation,
   DocumentSymbol,
 } from 'vscode-languageserver';
-import { LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { dispatch } from '../utils/handlerUtil';
 import { IDocumentSymbolProcessor } from '../services/DocumentSymbolProcessingService';

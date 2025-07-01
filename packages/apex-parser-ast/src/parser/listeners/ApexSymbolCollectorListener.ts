@@ -25,7 +25,7 @@ import {
   TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
-import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';

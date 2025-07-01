@@ -8,7 +8,7 @@
 
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 // Mock the logging module
 jest.mock('@salesforce/apex-lsp-logging', () => {
