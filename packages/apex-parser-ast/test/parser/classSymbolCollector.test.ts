@@ -38,15 +38,17 @@ describe('ApexSymbolCollectorListener', () => {
   });
 
   describe('collect Class Symbols', () => {
-    it('should collect class, method, field and parameter symbols', () => {
+    it('should collect class, method, field, property and parameter symbols', () => {
       logger.debug(
-        'Starting test: collect class, method, field and parameter symbols',
+        'Starting test: collect class, method, field, property and parameter symbols',
       );
-      // Sample Apex code with a class, methods, fields and parameters
+      // Sample Apex code with a class, methods, fields, properties and parameters
       const fileContent = `
         public class TestClass {
           private String name;
           public Integer count;
+          public String property1 { get; set; }
+          public Number property2 { get; set; }
 
           public TestClass(String initialName) {
             this.name = initialName;
@@ -116,6 +118,13 @@ describe('ApexSymbolCollectorListener', () => {
         .filter((s: ApexSymbol) => s.kind === SymbolKind.Field);
       expect(fields?.length).toBe(2);
       logger.debug(() => `Found ${fields?.length} field symbols`);
+
+      // Check properties
+      const properties = classScope
+        ?.getAllSymbols()
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Property);
+      expect(properties?.length).toBe(2);
+      logger.debug(() => `Found ${properties?.length} property symbols`);
 
       const nameField = fields?.find((p: ApexSymbol) => p.name === 'name');
       expect(nameField).toBeDefined();
