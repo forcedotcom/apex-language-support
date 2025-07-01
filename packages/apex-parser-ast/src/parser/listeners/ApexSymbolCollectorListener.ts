@@ -288,6 +288,11 @@ export class ApexSymbolCollectorListener
         }
       }
 
+      // Get the identifier location specifically
+      const idLocation = ctx.id()
+        ? this.getIdentifierLocation(ctx.id()!, name)
+        : this.getIdentifierLocation(ctx, name);
+
       // Create a new class symbol
       const classSymbol = this.createTypeSymbol(
         ctx,
@@ -295,6 +300,9 @@ export class ApexSymbolCollectorListener
         SymbolKind.Class,
         modifiers,
       );
+
+      // Add identifier location to the symbol
+      classSymbol.identifierLocation = idLocation;
 
       // Set superclass and interfaces
       if (superclass) {
@@ -382,6 +390,11 @@ export class ApexSymbolCollectorListener
         SymbolKind.Interface,
         modifiers,
       );
+
+      // Add identifier location to the interface symbol
+      interfaceSymbol.identifierLocation = ctx.id()
+        ? this.getIdentifierLocation(ctx.id()!, name)
+        : this.getIdentifierLocation(ctx, name);
 
       // Set interfaces
       interfaceSymbol.interfaces = interfaces;
@@ -496,6 +509,11 @@ export class ApexSymbolCollectorListener
         modifiers,
         returnType,
       );
+
+      // Add identifier location to the method symbol
+      methodSymbol.identifierLocation = ctx.id()
+        ? this.getIdentifierLocation(ctx.id()!, name)
+        : this.getIdentifierLocation(ctx, name);
 
       // Add annotations to the method symbol
       if (annotations.length > 0) {
@@ -894,6 +912,11 @@ export class ApexSymbolCollectorListener
         annotations: this.getCurrentAnnotations(),
       };
 
+      // Add identifier location to the enum symbol
+      enumSymbol.identifierLocation = ctx.id()
+        ? this.getIdentifierLocation(ctx.id()!, name)
+        : this.getIdentifierLocation(ctx, name);
+
       this.currentTypeSymbol = enumSymbol;
       this.symbolTable.addSymbol(enumSymbol);
       this.symbolTable.enterScope(name);
@@ -1035,6 +1058,11 @@ export class ApexSymbolCollectorListener
         parentKey,
       };
 
+      // Add identifier location to the variable symbol
+      variableSymbol.identifierLocation = ctx.id()
+        ? this.getIdentifierLocation(ctx.id()!, name)
+        : this.getIdentifierLocation(ctx, name);
+
       this.symbolTable.addSymbol(variableSymbol);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -1054,6 +1082,38 @@ export class ApexSymbolCollectorListener
         (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
         (ctx.stop?.text?.length ?? 0),
     };
+  }
+
+  /**
+   * Get precise location information for just the identifier (name)
+   * This excludes any surrounding context like keywords, modifiers, etc.
+   */
+  private getIdentifierLocation(
+    ctx: ParserRuleContext,
+    name: string,
+  ): SymbolLocation {
+    const startLine = ctx.start.line;
+    const startColumn = ctx.start.charPositionInLine;
+    const endLine = ctx.stop?.line ?? ctx.start.line;
+
+    // Find the position of the name within the context text
+    const contextText = ctx.text || '';
+    const nameIndex = contextText.indexOf(name);
+
+    if (nameIndex >= 0) {
+      // Calculate the actual start position of the name
+      const actualStartColumn = startColumn + nameIndex;
+
+      return {
+        startLine,
+        startColumn: actualStartColumn,
+        endLine,
+        endColumn: actualStartColumn + name.length,
+      };
+    }
+
+    // Fallback to the full context location if name not found
+    return this.getLocation(ctx);
   }
 
   /**

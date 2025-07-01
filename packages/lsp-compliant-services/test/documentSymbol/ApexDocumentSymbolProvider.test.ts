@@ -9,6 +9,8 @@ import {
   DocumentSymbolParams,
   SymbolKind,
   DocumentSymbol,
+  Range,
+  Position,
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -81,6 +83,9 @@ describe('DefaultApexDocumentSymbolProvider', () => {
 
       const result = await symbolProvider.provideDocumentSymbols(params);
       expect(result).toBeNull();
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.any(Function),
+      );
     });
 
     it('should return null when document has parsing errors', async () => {
@@ -89,12 +94,31 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         TextDocument.create('test.apex', 'apex', 1, invalidApex),
       );
 
+      mockCompilerService.compile.mockReturnValue({
+        errors: [
+          {
+            message: 'Syntax error',
+            type: ErrorType.Syntax,
+            severity: ErrorSeverity.Error,
+            line: 1,
+            column: 1,
+          },
+        ],
+        fileName: 'test.apex',
+        result: {} as any,
+        warnings: [],
+      });
+
       const params: DocumentSymbolParams = {
         textDocument: { uri: 'test.apex' },
       };
 
       const result = await symbolProvider.provideDocumentSymbols(params);
       expect(result).toBeNull();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Errors parsing document:',
+        expect.any(Array),
+      );
     });
 
     it('should correctly parse a simple Apex class', async () => {
@@ -322,6 +346,388 @@ describe('DefaultApexDocumentSymbolProvider', () => {
 
       expect(result).toBeNull();
     });
+
+    it('should handle method symbols with parameters and return types', async () => {
+      const docUri = 'file:///method.cls';
+      const docContent = `
+        public class MethodClass {
+          public String getValue(Integer id, String name) {
+            return 'test';
+          }
+        }
+      `;
+      const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
+      mockStorage.getDocument.mockResolvedValue(textDocument);
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: {} as any,
+        warnings: [],
+      });
+
+      const methodSymbol = {
+        name: 'getValue',
+        kind: 'method',
+        location: { startLine: 3, startColumn: 9, endLine: 5, endColumn: 9 },
+        parameters: [
+          { name: 'id', type: { name: 'Integer', originalTypeString: 'Integer' } },
+          { name: 'name', type: { name: 'String', originalTypeString: 'String' } },
+        ],
+        returnType: { name: 'String', originalTypeString: 'String' },
+      };
+      const classScope = {
+        name: 'MethodClass',
+        getAllSymbols: () => [methodSymbol],
+        getChildren: () => [],
+      };
+      const globalScope = {
+        getAllSymbols: () => [
+          {
+            name: 'MethodClass',
+            kind: 'class',
+            location: { startLine: 2, startColumn: 7, endLine: 6, endColumn: 7 },
+          },
+        ],
+        getChildren: () => [classScope],
+      };
+      const mockSymbolTable = {
+        getCurrentScope: () => globalScope,
+      };
+      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).toHaveLength(1);
+      const classSymbol = result![0] as any;
+      expect(classSymbol.children).toHaveLength(1);
+      expect(classSymbol.children[0].name).toBe('getValue(Integer, String) : String');
+    });
+
+    it('should handle symbols with identifier location for precise ranges', async () => {
+      const docUri = 'file:///precise.cls';
+      const docContent = 'public class PreciseClass {}';
+      const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
+      mockStorage.getDocument.mockResolvedValue(textDocument);
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: {} as any,
+        warnings: [],
+      });
+
+      const mockSymbolTable = {
+        getCurrentScope: () => ({
+          getAllSymbols: () => [
+            {
+              name: 'PreciseClass',
+              kind: 'class',
+              location: {
+                startLine: 1,
+                startColumn: 1,
+                endLine: 1,
+                endColumn: 27,
+              },
+              identifierLocation: {
+                startLine: 1,
+                startColumn: 14, // Start of class name
+                endLine: 1,
+                endColumn: 25, // End of class name
+              },
+            },
+          ],
+          getChildren: () => [],
+        }),
+      };
+      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).toHaveLength(1);
+      const symbol = result![0] as DocumentSymbol;
+      expect(symbol.range).toEqual(
+        Range.create(Position.create(0, 14), Position.create(0, 25))
+      );
+      expect(symbol.selectionRange).toEqual(
+        Range.create(Position.create(0, 14), Position.create(0, 25))
+      );
+    });
+
+    it('should handle nested classes with children', async () => {
+      const docUri = 'file:///nested.cls';
+      const docContent = `
+        public class OuterClass {
+          public class InnerClass {
+            public void innerMethod() {}
+          }
+        }
+      `;
+      const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
+      mockStorage.getDocument.mockResolvedValue(textDocument);
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: {} as any,
+        warnings: [],
+      });
+
+      const innerMethodSymbol = {
+        name: 'innerMethod',
+        kind: 'method',
+        location: { startLine: 4, startColumn: 13, endLine: 4, endColumn: 29 },
+      };
+      const innerClassScope = {
+        name: 'InnerClass',
+        getAllSymbols: () => [innerMethodSymbol],
+        getChildren: () => [],
+      };
+      const innerClassSymbol = {
+        name: 'InnerClass',
+        kind: 'class',
+        location: { startLine: 3, startColumn: 11, endLine: 5, endColumn: 11 },
+      };
+      const outerClassScope = {
+        name: 'OuterClass',
+        getAllSymbols: () => [innerClassSymbol],
+        getChildren: () => [innerClassScope],
+      };
+      const globalScope = {
+        getAllSymbols: () => [
+          {
+            name: 'OuterClass',
+            kind: 'class',
+            location: { startLine: 2, startColumn: 7, endLine: 6, endColumn: 7 },
+          },
+        ],
+        getChildren: () => [outerClassScope],
+      };
+      const mockSymbolTable = {
+        getCurrentScope: () => globalScope,
+      };
+      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).toHaveLength(1);
+      const outerSymbol = result![0] as DocumentSymbol;
+      expect(outerSymbol.children).toHaveLength(1);
+      expect(outerSymbol.children![0].name).toBe('InnerClass');
+      expect(outerSymbol.children![0].children).toHaveLength(1);
+      expect(outerSymbol.children![0].children![0].name).toBe('innerMethod() : void');
+    });
+
+    it('should handle interface with only methods', async () => {
+      const docUri = 'file:///interface.cls';
+      const docContent = `
+        public interface TestInterface {
+          void method1();
+          String method2();
+        }
+      `;
+      const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
+      mockStorage.getDocument.mockResolvedValue(textDocument);
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: {} as any,
+        warnings: [],
+      });
+
+      const method1Symbol = {
+        name: 'method1',
+        kind: 'method',
+        location: { startLine: 3, startColumn: 11, endLine: 3, endColumn: 20 },
+      };
+      const method2Symbol = {
+        name: 'method2',
+        kind: 'method',
+        location: { startLine: 4, startColumn: 11, endLine: 4, endColumn: 22 },
+        returnType: { name: 'String', originalTypeString: 'String' },
+      };
+      const variableSymbol = {
+        name: 'someVariable',
+        kind: 'variable',
+        location: { startLine: 5, startColumn: 11, endLine: 5, endColumn: 24 },
+      };
+      const interfaceScope = {
+        name: 'TestInterface',
+        getAllSymbols: () => [method1Symbol, method2Symbol, variableSymbol],
+        getChildren: () => [],
+      };
+      const globalScope = {
+        getAllSymbols: () => [
+          {
+            name: 'TestInterface',
+            kind: 'interface',
+            location: { startLine: 2, startColumn: 7, endLine: 6, endColumn: 7 },
+          },
+        ],
+        getChildren: () => [interfaceScope],
+      };
+      const mockSymbolTable = {
+        getCurrentScope: () => globalScope,
+      };
+      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).toHaveLength(1);
+      const interfaceSymbol = result![0] as DocumentSymbol;
+      // Should only include methods, not variables
+      expect(interfaceSymbol.children).toHaveLength(2);
+      expect(interfaceSymbol.children![0].name).toBe('method1() : void');
+      expect(interfaceSymbol.children![1].name).toBe('method2() : String');
+    });
+
+    it('should handle enum with enum values', async () => {
+      const docUri = 'file:///enum.cls';
+      const docContent = `
+        public enum TestEnum {
+          VALUE1,
+          VALUE2
+        }
+      `;
+      const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
+      mockStorage.getDocument.mockResolvedValue(textDocument);
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: {} as any,
+        warnings: [],
+      });
+
+      const value1Symbol = {
+        name: 'VALUE1',
+        kind: 'enumvalue',
+        location: { startLine: 3, startColumn: 11, endLine: 3, endColumn: 17 },
+      };
+      const value2Symbol = {
+        name: 'VALUE2',
+        kind: 'enumvalue',
+        location: { startLine: 4, startColumn: 11, endLine: 4, endColumn: 17 },
+      };
+      const enumScope = {
+        name: 'TestEnum',
+        getAllSymbols: () => [value1Symbol, value2Symbol],
+        getChildren: () => [],
+      };
+      const globalScope = {
+        getAllSymbols: () => [
+          {
+            name: 'TestEnum',
+            kind: 'enum',
+            location: { startLine: 2, startColumn: 7, endLine: 5, endColumn: 7 },
+          },
+        ],
+        getChildren: () => [enumScope],
+      };
+      const mockSymbolTable = {
+        getCurrentScope: () => globalScope,
+      };
+      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).toHaveLength(1);
+      const enumSymbol = result![0] as DocumentSymbol;
+      expect(enumSymbol.kind).toBe(SymbolKind.Enum);
+      expect(enumSymbol.children).toHaveLength(2);
+      expect(enumSymbol.children![0].name).toBe('VALUE1');
+      expect(enumSymbol.children![0].kind).toBe(SymbolKind.EnumMember);
+      expect(enumSymbol.children![1].name).toBe('VALUE2');
+      expect(enumSymbol.children![1].kind).toBe(SymbolKind.EnumMember);
+    });
+
+    it('should handle trigger symbols', async () => {
+      const docUri = 'file:///trigger.cls';
+      const docContent = `
+        trigger TestTrigger on Account (before insert, after update) {
+          // trigger logic
+        }
+      `;
+      const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
+      mockStorage.getDocument.mockResolvedValue(textDocument);
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: {} as any,
+        warnings: [],
+      });
+
+      const mockSymbolTable = {
+        getCurrentScope: () => ({
+          getAllSymbols: () => [
+            {
+              name: 'TestTrigger',
+              kind: 'trigger',
+              location: { startLine: 2, startColumn: 9, endLine: 4, endColumn: 9 },
+            },
+          ],
+          getChildren: () => [],
+        }),
+      };
+      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).toHaveLength(1);
+      const triggerSymbol = result![0] as DocumentSymbol;
+      expect(triggerSymbol.name).toBe('TestTrigger');
+      expect(triggerSymbol.kind).toBe(SymbolKind.Class); // Triggers are mapped to Class
+    });
+
+    it('should handle error during symbol processing', async () => {
+      const docUri = 'file:///error.cls';
+      const docContent = 'public class ErrorClass {}';
+      const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
+      mockStorage.getDocument.mockResolvedValue(textDocument);
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: {} as any,
+        warnings: [],
+      });
+
+      const mockSymbolTable = {
+        getCurrentScope: () => ({
+          getAllSymbols: () => [
+            {
+              name: 'ErrorClass',
+              kind: 'class',
+              location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 27 },
+            },
+          ],
+          getChildren: () => [],
+        }),
+      };
+      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      // Mock an error during processing
+      jest.spyOn(symbolProvider as any, 'createDocumentSymbol').mockImplementation(() => {
+        throw new Error('Processing error');
+      });
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).toBeNull();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Error providing document symbols:',
+        expect.any(Error),
+      );
+    });
   });
 
   describe('collectChildren', () => {
@@ -474,6 +880,145 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(provider.mapSymbolKind('parameter')).toBe(13);
       expect(provider.mapSymbolKind('trigger')).toBe(5);
       expect(provider.mapSymbolKind('unknown')).toBe(13);
+    });
+
+    it('should handle case-insensitive symbol kinds', () => {
+      const provider = symbolProvider as any;
+      expect(provider.mapSymbolKind('CLASS')).toBe(5);
+      expect(provider.mapSymbolKind('Method')).toBe(6);
+      expect(provider.mapSymbolKind('INTERFACE')).toBe(11);
+    });
+  });
+
+  describe('formatSymbolName', () => {
+    it('should format method names with parameters and return type', () => {
+      const provider = symbolProvider as any;
+      const methodSymbol = {
+        name: 'testMethod',
+        kind: 'method',
+        parameters: [
+          { type: { originalTypeString: 'String' } },
+          { type: { originalTypeString: 'Integer' } },
+        ],
+        returnType: { originalTypeString: 'Boolean' },
+      };
+
+      const result = provider.formatSymbolName(methodSymbol);
+      expect(result).toBe('testMethod(String, Integer) : Boolean');
+    });
+
+    it('should handle methods without parameters', () => {
+      const provider = symbolProvider as any;
+      const methodSymbol = {
+        name: 'testMethod',
+        kind: 'method',
+        parameters: [],
+        returnType: { originalTypeString: 'void' },
+      };
+
+      const result = provider.formatSymbolName(methodSymbol);
+      expect(result).toBe('testMethod() : void');
+    });
+
+    it('should handle non-method symbols', () => {
+      const provider = symbolProvider as any;
+      const classSymbol = {
+        name: 'TestClass',
+        kind: 'class',
+      };
+
+      const result = provider.formatSymbolName(classSymbol);
+      expect(result).toBe('TestClass');
+    });
+
+    it('should handle method symbols with missing type information', () => {
+      const provider = symbolProvider as any;
+      const methodSymbol = {
+        name: 'testMethod',
+        kind: 'method',
+        parameters: [{ type: null }],
+        returnType: null,
+      };
+
+      const result = provider.formatSymbolName(methodSymbol);
+      expect(result).toBe('testMethod(unknown) : void');
+    });
+  });
+
+  describe('range creation methods', () => {
+    it('should create precise ranges from identifier location', () => {
+      const provider = symbolProvider as any;
+      const symbol = {
+        name: 'TestClass',
+        identifierLocation: {
+          startLine: 1,
+          startColumn: 14,
+          endLine: 1,
+          endColumn: 23,
+        },
+      };
+      const document = TextDocument.create('test.cls', 'apex', 1, 'public class TestClass {}');
+
+      const result = provider.createRangeFromIdentifier(symbol, document);
+      expect(result).toEqual(
+        Range.create(Position.create(0, 14), Position.create(0, 23))
+      );
+    });
+
+    it('should create trimmed ranges when identifier location is not available', () => {
+      const provider = symbolProvider as any;
+      const symbol = {
+        name: 'TestClass',
+        location: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 27,
+        },
+      };
+      const document = TextDocument.create('test.cls', 'apex', 1, '    public class TestClass {}');
+
+      const result = provider.createTrimmedRange(symbol, document);
+      expect(result).toBeDefined();
+      expect(result.start.character).toBeGreaterThan(0); // Should trim leading whitespace
+    });
+
+    it('should create fallback ranges when other methods fail', () => {
+      const provider = symbolProvider as any;
+      const symbol = {
+        name: 'TestClass',
+        location: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 27,
+        },
+      };
+
+      const result = provider.createFallbackRange(symbol);
+      expect(result).toEqual(
+        Range.create(Position.create(0, 0), Position.create(0, 26))
+      );
+    });
+  });
+
+  describe('isCompoundSymbolType', () => {
+    it('should identify compound symbol types correctly', () => {
+      const provider = symbolProvider as any;
+      expect(provider.isCompoundSymbolType('class')).toBe(true);
+      expect(provider.isCompoundSymbolType('interface')).toBe(true);
+      expect(provider.isCompoundSymbolType('enum')).toBe(true);
+      expect(provider.isCompoundSymbolType('trigger')).toBe(true);
+      expect(provider.isCompoundSymbolType('method')).toBe(false);
+      expect(provider.isCompoundSymbolType('variable')).toBe(false);
+      expect(provider.isCompoundSymbolType('property')).toBe(false);
+    });
+
+    it('should handle case-insensitive compound symbol types', () => {
+      const provider = symbolProvider as any;
+      expect(provider.isCompoundSymbolType('CLASS')).toBe(true);
+      expect(provider.isCompoundSymbolType('Interface')).toBe(true);
+      expect(provider.isCompoundSymbolType('ENUM')).toBe(true);
     });
   });
 });

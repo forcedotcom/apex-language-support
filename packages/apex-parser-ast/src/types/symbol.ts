@@ -177,6 +177,8 @@ export interface TypeSymbol extends ApexSymbol {
   interfaces: string[];
   /** Annotations for this type */
   annotations?: Annotation[];
+  /** Precise location of the identifier (class name, interface name, etc.) */
+  identifierLocation?: SymbolLocation;
 }
 
 /**
@@ -189,6 +191,8 @@ export interface MethodSymbol extends ApexSymbol {
   isConstructor?: boolean;
   /** Annotations for this method */
   annotations?: Annotation[];
+  /** Precise location of the method name */
+  identifierLocation?: SymbolLocation;
 }
 
 /**
@@ -202,6 +206,8 @@ export interface VariableSymbol extends ApexSymbol {
     | SymbolKind.EnumValue;
   type: TypeInfo;
   initialValue?: string;
+  /** Precise location of the variable name */
+  identifierLocation?: SymbolLocation;
 }
 
 /**
