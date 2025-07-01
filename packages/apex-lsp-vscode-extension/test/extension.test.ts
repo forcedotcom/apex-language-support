@@ -50,6 +50,8 @@ describe('Apex Language Server Extension', () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.clearAllMocks();
+    // Clean up environment variables
+    delete process.env.APEX_LSP_DEBUG_MODE;
   });
 
   it('should activate, start the client, and register commands', async () => {
@@ -98,5 +100,77 @@ describe('Apex Language Server Extension', () => {
     await deactivate();
     // The client instance's stop method should have been called
     expect(client!.stop).toHaveBeenCalled();
+  });
+
+  describe('Environment Variable Debug Options', () => {
+    it('should not enable debug options when APEX_LSP_DEBUG_MODE is not set', async () => {
+      // Ensure environment variable is not set
+      delete process.env.APEX_LSP_DEBUG_MODE;
+
+      activate(mockContext);
+      await jest.runAllTimersAsync();
+
+      // Get the server options from the LanguageClient constructor call
+      const serverOptions = MockLanguageClient.mock.calls[0][2];
+
+      // Debug options should not be set
+      expect(serverOptions.debug.options).toBeUndefined();
+    });
+
+    it('should not enable debug options when APEX_LSP_DEBUG_MODE is set to "none"', async () => {
+      process.env.APEX_LSP_DEBUG_MODE = 'none';
+
+      activate(mockContext);
+      await jest.runAllTimersAsync();
+
+      // Get the server options from the LanguageClient constructor call
+      const serverOptions = MockLanguageClient.mock.calls[0][2];
+
+      // Debug options should not be set
+      expect(serverOptions.debug.options).toBeUndefined();
+    });
+
+    it('should enable inspection without break when APEX_LSP_DEBUG_MODE is set to "inspect"', async () => {
+      process.env.APEX_LSP_DEBUG_MODE = 'inspect';
+
+      activate(mockContext);
+      await jest.runAllTimersAsync();
+
+      // Get the server options from the LanguageClient constructor call
+      const serverOptions = MockLanguageClient.mock.calls[0][2];
+
+      // Debug options should be set with inspect (no break)
+      expect(serverOptions.debug.options).toEqual({
+        execArgv: ['--nolazy', '--inspect=6009'],
+      });
+    });
+
+    it('should enable inspection with break when APEX_LSP_DEBUG_MODE is set to "inspect-brk"', async () => {
+      process.env.APEX_LSP_DEBUG_MODE = 'inspect-brk';
+
+      activate(mockContext);
+      await jest.runAllTimersAsync();
+
+      // Get the server options from the LanguageClient constructor call
+      const serverOptions = MockLanguageClient.mock.calls[0][2];
+
+      // Debug options should be set with inspect-brk
+      expect(serverOptions.debug.options).toEqual({
+        execArgv: ['--nolazy', '--inspect-brk=6009'],
+      });
+    });
+
+    it('should not enable debug options when APEX_LSP_DEBUG_MODE is set to an invalid value', async () => {
+      process.env.APEX_LSP_DEBUG_MODE = 'invalid-value';
+
+      activate(mockContext);
+      await jest.runAllTimersAsync();
+
+      // Get the server options from the LanguageClient constructor call
+      const serverOptions = MockLanguageClient.mock.calls[0][2];
+
+      // Debug options should not be set for invalid values
+      expect(serverOptions.debug.options).toBeUndefined();
+    });
   });
 });

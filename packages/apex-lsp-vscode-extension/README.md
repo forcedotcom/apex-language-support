@@ -241,6 +241,72 @@ For extension development and debugging:
 3. Set the trace level: `"apex.trace.server": "verbose"`
 4. Monitor the **Output** panel for detailed logs.
 
+### Debugging the Language Server
+
+The extension supports environment variable-based debugging of the language server process. Set the `APEX_LSP_DEBUG_MODE` environment variable to control inspection behavior:
+
+#### Debug Mode Options
+
+- **No Inspection** (default): Don't set the environment variable or set it to `none`
+
+  ```bash
+  # No debug options enabled (no log messages output)
+  export APEX_LSP_DEBUG_MODE=none
+  # or simply don't set the variable
+  ```
+
+- **Inspection without Break**: Set to `inspect`
+
+  ```bash
+  # Enable inspection on port 6009 without breaking on startup
+  export APEX_LSP_DEBUG_MODE=inspect
+  ```
+
+- **Inspection with Break**: Set to `inspect-brk`
+  ```bash
+  # Enable inspection on port 6009 and break on startup
+  export APEX_LSP_DEBUG_MODE=inspect-brk
+  ```
+
+#### Usage Examples
+
+1. **For development without debugging**:
+
+   ```bash
+   # No environment variable needed
+   code .
+   ```
+
+2. **For debugging with inspection**:
+
+   ```bash
+   export APEX_LSP_DEBUG_MODE=inspect
+   code .
+   # Then attach debugger to localhost:6009
+   ```
+
+3. **For debugging with break on startup**:
+   ```bash
+   export APEX_LSP_DEBUG_MODE=inspect-brk
+   code .
+   # Debugger will break immediately when language server starts
+   ```
+
+#### Debugging in VS Code
+
+To debug the language server in VS Code:
+
+1. Set the environment variable: `export APEX_LSP_DEBUG_MODE=inspect-brk`
+2. Start VS Code: `code .`
+3. Open the Debug panel in VS Code
+4. Create a new launch configuration for "Attach to Node.js Process"
+5. Set the port to `6009`
+6. Start debugging
+
+The language server will pause on startup, allowing you to set breakpoints and step through the code.
+
+**Note**: The language server will log debug mode changes in the Output panel under 'Apex Language Server (Typescript)' only when inspection is enabled (`inspect` or `inspect-brk`). No log messages are output when debug mode is set to `none` or not set.
+
 ## Architecture
 
 The extension integrates with:

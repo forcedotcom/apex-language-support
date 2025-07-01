@@ -114,6 +114,37 @@ function registerRestartCommand(context: vscode.ExtensionContext): void {
 }
 
 /**
+ * Determines debug options based on environment variable
+ * Environment variable: APEX_LSP_DEBUG_MODE
+ * Values:
+ * - 'none' or undefined: No inspection
+ * - 'inspect': Enable inspection without break
+ * - 'inspect-brk': Enable inspection with break
+ * - Any other value: No inspection (defaults to none)
+ */
+function getDebugOptions(): string[] | undefined {
+  const debugMode = process.env.APEX_LSP_DEBUG_MODE;
+
+  switch (debugMode) {
+    case 'inspect':
+      logToOutputChannel(
+        'Enabling inspection mode (no break)',
+        LogMessageType.Info,
+      );
+      return ['--nolazy', '--inspect=6009'];
+    case 'inspect-brk':
+      logToOutputChannel(
+        'Enabling inspection mode with break',
+        LogMessageType.Info,
+      );
+      return ['--nolazy', '--inspect-brk=6009'];
+    case 'none':
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Creates server options for the language server
  */
 function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
@@ -137,6 +168,9 @@ function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
     LogMessageType.Debug,
   );
 
+  // Get debug options based on environment variable
+  const debugOptions = getDebugOptions();
+
   return {
     run: {
       module: serverModule,
@@ -145,8 +179,8 @@ function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
     debug: {
       module: serverModule,
       transport: TransportKind.ipc,
-      ...(isDevelopment && {
-        options: { execArgv: ['--nolazy', '--inspect=6009'] },
+      ...(debugOptions && {
+        options: { execArgv: debugOptions },
       }),
     },
   };
