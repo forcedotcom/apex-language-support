@@ -21,13 +21,21 @@ export class RequestResponseInspector implements Middleware {
     this.channel = channel;
   }
 
+  /**
+   * Helper function to add timestamp to log messages
+   */
+  private logWithTimestamp(message: string): void {
+    const timestamp = new Date().toISOString();
+    this.channel.appendLine(`[${timestamp}] [INSPECTOR] ${message}`);
+  }
+
   // We need to satisfy the Middleware interface
   public didOpen = (
     document: vscode.TextDocument,
     next: (document: vscode.TextDocument) => Promise<void>,
   ): Promise<void> => {
     if (!this.enabled) return next(document);
-    this.channel.appendLine(`[LSP Request] didOpen: ${document.uri}`);
+    this.logWithTimestamp(`[LSP Request] didOpen: ${document.uri}`);
     return next(document);
   };
 
@@ -36,7 +44,7 @@ export class RequestResponseInspector implements Middleware {
     next: (params: any) => Promise<void>,
   ): Promise<void> => {
     if (!this.enabled) return next(params);
-    this.channel.appendLine(
+    this.logWithTimestamp(
       `[LSP Request] didChange: ${params.textDocument?.uri}`,
     );
     return next(params);
@@ -54,8 +62,8 @@ export class RequestResponseInspector implements Middleware {
   ): Promise<any> => {
     if (!this.enabled) return next(method, params, token);
 
-    this.channel.appendLine(`[LSP Request] Method: ${method}`);
-    this.channel.appendLine(
+    this.logWithTimestamp(`[LSP Request] Method: ${method}`);
+    this.logWithTimestamp(
       `[LSP Request] Params: ${JSON.stringify(params, null, 2)}`,
     );
 
@@ -63,25 +71,23 @@ export class RequestResponseInspector implements Middleware {
     return next(method, params, token)
       .then((result) => {
         const duration = Date.now() - start;
-        this.channel.appendLine(
+        this.logWithTimestamp(
           `[LSP Response] Method: ${method}, Duration: ${duration}ms`,
         );
-        this.channel.appendLine(
+        this.logWithTimestamp(
           `[LSP Response] Result: ${JSON.stringify(result, null, 2)}`,
         );
         return result;
       })
       .catch((error) => {
-        this.channel.appendLine(
-          `[LSP Error] Method: ${method}, Error: ${error}`,
-        );
+        this.logWithTimestamp(`[LSP Error] Method: ${method}, Error: ${error}`);
         throw error;
       });
   };
 
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
-    this.channel.appendLine(
+    this.logWithTimestamp(
       `[LSP Inspector] ${enabled ? 'Enabled' : 'Disabled'}`,
     );
   }

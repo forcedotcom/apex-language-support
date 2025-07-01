@@ -39,19 +39,24 @@ class LSPLogger implements LoggerInterface {
         : messageOrProvider;
     const handler = getLogNotificationHandler();
 
+    // Add ISO timestamp and log level to every message
+    const timestamp = new Date().toISOString();
+    const logLevel = LogMessageType[messageType] || 'LOG';
+    const messageWithTimestamp = `[${timestamp}] [${logLevel}] ${message}`;
+
     if (handler && typeof handler.sendLogMessage === 'function') {
       // For backward compatibility, map Debug to Log for older LSP clients
       const mappedType =
         messageType === LogMessageType.Debug ? LogMessageType.Log : messageType;
       handler.sendLogMessage({
         type: mappedType,
-        message,
+        message: messageWithTimestamp,
       });
     } else {
       const fallbackType = messageType.toString();
       console.warn(
         '[LSPLogger] LogNotificationHandler not available or invalid. ' +
-          `Fallback log (${fallbackType}): ${message}`,
+          `Fallback log (${fallbackType}): ${messageWithTimestamp}`,
       );
     }
   }

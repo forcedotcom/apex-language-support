@@ -16,7 +16,11 @@ import {
   CloseAction,
   ErrorAction,
 } from 'vscode-languageclient/node';
-import { LogMessageType, shouldLog } from '@salesforce/apex-lsp-logging';
+import {
+  LogMessageType,
+  shouldLog,
+  setLogLevel,
+} from '@salesforce/apex-lsp-logging';
 
 import { RequestResponseInspector } from './middleware/requestResponseInspector';
 
@@ -46,6 +50,11 @@ export function activate(context: vscode.ExtensionContext) {
     'Apex Language Server (Typescript)',
   );
   context.subscriptions.push(outputChannel);
+
+  // Set initial log level from workspace settings
+  const config = vscode.workspace.getConfiguration('apex');
+  const logLevel = config.get<string>('ls.logLevel', 'error');
+  setLogLevel(logLevel);
 
   logToOutputChannel(
     'Apex Language Server extension is now active!',
@@ -341,6 +350,9 @@ function handleMaxRetriesExceeded(): void {
 function getWorkspaceSettings(): object {
   const config = vscode.workspace.getConfiguration('apex');
   const logLevel = config.get<string>('ls.logLevel', 'error');
+
+  // Set the log level for the extension's logging system
+  setLogLevel(logLevel);
 
   return {
     apex: {

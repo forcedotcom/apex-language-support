@@ -307,6 +307,10 @@ The language server will pause on startup, allowing you to set breakpoints and s
 
 **Note**: The language server will log debug mode changes in the Output panel under 'Apex Language Server (Typescript)' only when inspection is enabled (`inspect` or `inspect-brk`). No log messages are output when debug mode is set to `none` or not set.
 
+### Logging Behavior
+
+The extension provides consistent timestamped logging through the Output panel. All log messages from the language server are automatically formatted with ISO timestamps for easy debugging and monitoring.
+
 ## Architecture
 
 The extension integrates with:

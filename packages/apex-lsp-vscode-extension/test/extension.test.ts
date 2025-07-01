@@ -173,4 +173,31 @@ describe('Apex Language Server Extension', () => {
       expect(serverOptions.debug.options).toBeUndefined();
     });
   });
+
+  describe('Log Level Configuration', () => {
+    it('should set log level from workspace settings', async () => {
+      // Mock workspace configuration to return 'debug' log level
+      const mockGetConfiguration = jest.fn().mockReturnValue({
+        get: jest.fn((key: string, defaultValue: any) => {
+          if (key === 'ls.logLevel') return 'debug';
+          return defaultValue;
+        }),
+      });
+
+      // Mock vscode.workspace.getConfiguration
+      const originalGetConfiguration = vscode.workspace.getConfiguration;
+      vscode.workspace.getConfiguration = mockGetConfiguration;
+
+      try {
+        activate(mockContext);
+        await jest.runAllTimersAsync();
+
+        // Verify that getConfiguration was called for apex settings
+        expect(mockGetConfiguration).toHaveBeenCalledWith('apex');
+      } finally {
+        // Restore original function
+        vscode.workspace.getConfiguration = originalGetConfiguration;
+      }
+    });
+  });
 });
