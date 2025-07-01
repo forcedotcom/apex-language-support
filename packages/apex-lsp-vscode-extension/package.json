@@ -85,8 +85,8 @@
         },
         "apex.debugPort": {
           "type": "number",
-          "default": 0,
-          "description": "Port to use for debugging (0 for random port)"
+          "default": 6009,
+          "description": "Port to use for debugging (6009 is the default)"
         },
         "apex.commentCollection.enableCommentCollection": {
           "type": "boolean",

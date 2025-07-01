@@ -122,6 +122,29 @@ Debug LSP communication:
 - **`inspector.enabled`** (boolean, default: `false`)
   - Enable LSP request/response inspector for debugging.
 
+### Debug Settings
+
+Configure debugging for the language server:
+
+```json
+{
+  "apex.debug": "off",
+  "apex.debugPort": 6009
+}
+```
+
+#### Debug Options
+
+- **`debug`** (string, enum: `"off"`, `"inspect"`, `"inspect-brk"`, default: `"off"`)
+
+  - **`"off"`**: No debugging enabled
+  - **`"inspect"`**: Enable debugging without breaking on startup
+  - **`"inspect-brk"`**: Enable debugging with break on startup
+
+- **`debugPort`** (number, default: `6009`)
+
+  - Port to use for debugging. Set to `6009` to use the default port.
+
 ### Legacy Settings
 
 These settings are for low-level control and compatibility with other tooling:
@@ -129,9 +152,7 @@ These settings are for low-level control and compatibility with other tooling:
 ```json
 {
   "apex.enable": true,
-  "apex.trace.server": "off",
-  "apex.debug": false,
-  "apex.debugPort": 0
+  "apex.trace.server": "off"
 }
 ```
 
@@ -239,73 +260,84 @@ For extension development and debugging:
 1. Enable inspector: `"apex.inspector.enabled": true`
 2. Enable performance logging: `"apex.environment.enablePerformanceLogging": true`
 3. Set the trace level: `"apex.trace.server": "verbose"`
-4. Monitor the **Output** panel for detailed logs.
+4. Enable debugging: `"apex.debug": "inspect"` or `"apex.debug": "inspect-brk"`
+5. Monitor the **Output** panel for detailed logs.
 
 ### Debugging the Language Server
 
-The extension supports environment variable-based debugging of the language server process. Set the `APEX_LSP_DEBUG_MODE` environment variable to control inspection behavior:
+The extension supports VS Code configuration-based debugging of the language server process. Configure the debug settings in your VS Code settings to control inspection behavior:
 
 #### Debug Mode Options
 
-- **No Inspection** (default): Don't set the environment variable or set it to `none`
+- **No Inspection** (default): Set `"apex.debug": "off"`
 
-  ```bash
-  # No debug options enabled (no log messages output)
-  export APEX_LSP_DEBUG_MODE=none
-  # or simply don't set the variable
+  ```json
+  {
+    "apex.debug": "off"
+  }
   ```
 
-- **Inspection without Break**: Set to `inspect`
+- **Inspection without Break**: Set to `"inspect"`
 
-  ```bash
-  # Enable inspection on port 6009 without breaking on startup
-  export APEX_LSP_DEBUG_MODE=inspect
+  ```json
+  {
+    "apex.debug": "inspect",
+    "apex.debugPort": 6009
+  }
   ```
 
-- **Inspection with Break**: Set to `inspect-brk`
-  ```bash
-  # Enable inspection on port 6009 and break on startup
-  export APEX_LSP_DEBUG_MODE=inspect-brk
+- **Inspection with Break**: Set to `"inspect-brk"`
+  ```json
+  {
+    "apex.debug": "inspect-brk",
+    "apex.debugPort": 6009
+  }
   ```
 
 #### Usage Examples
 
 1. **For development without debugging**:
 
-   ```bash
-   # No environment variable needed
-   code .
+   ```json
+   {
+     "apex.debug": "off"
+   }
    ```
 
 2. **For debugging with inspection**:
 
-   ```bash
-   export APEX_LSP_DEBUG_MODE=inspect
-   code .
-   # Then attach debugger to localhost:6009
+   ```json
+   {
+     "apex.debug": "inspect",
+     "apex.debugPort": 6009
+   }
    ```
 
+   Then attach debugger to `localhost:6009`
+
 3. **For debugging with break on startup**:
-   ```bash
-   export APEX_LSP_DEBUG_MODE=inspect-brk
-   code .
-   # Debugger will break immediately when language server starts
+   ```json
+   {
+     "apex.debug": "inspect-brk",
+     "apex.debugPort": 6009
+   }
    ```
+   Debugger will break immediately when language server starts
 
 #### Debugging in VS Code
 
 To debug the language server in VS Code:
 
-1. Set the environment variable: `export APEX_LSP_DEBUG_MODE=inspect-brk`
-2. Start VS Code: `code .`
+1. Configure your settings with the desired debug mode
+2. Restart the language server using the **Restart Apex Language Server** command
 3. Open the Debug panel in VS Code
 4. Create a new launch configuration for "Attach to Node.js Process"
-5. Set the port to `6009`
+5. Set the port to match your `apex.debugPort` setting (6009 is the default)
 6. Start debugging
 
-The language server will pause on startup, allowing you to set breakpoints and step through the code.
+The language server will pause on startup if using `"inspect-brk"` mode, allowing you to set breakpoints and step through the code.
 
-**Note**: The language server will log debug mode changes in the Output panel under 'Apex Language Server (Typescript)' only when inspection is enabled (`inspect` or `inspect-brk`). No log messages are output when debug mode is set to `none` or not set.
+**Note**: The language server will log debug mode changes in the Output panel under 'Apex Language Server (Typescript)' when inspection is enabled (`"inspect"` or `"inspect-brk"`). No log messages are output when debug mode is set to `"off"`.
 
 ### Logging Behavior
 
