@@ -207,6 +207,8 @@ describe('FieldModifierValidator', () => {
   });
 
   test('should reject virtual fields', () => {
+    // Note: 'virtual' is valid for classes/methods but NOT for fields in Apex.
+    // Virtual inner classes are handled by ClassModifierValidator, not FieldModifierValidator.
     const classSymbol = {
       kind: SymbolKind.Class,
       modifiers: createSymbolModifiers(),
@@ -226,6 +228,35 @@ describe('FieldModifierValidator', () => {
       "Field cannot be declared as 'virtual'",
     );
     expect(modifiers.isVirtual).toBe(false);
+  });
+
+  test('should allow valid field modifiers in inner classes', () => {
+    // This test ensures fields in inner classes follow the same validation rules
+    // as fields in outer classes. The parsing of 'virtual' inner classes is
+    // handled at the grammar level (now fixed in BaseApexParser.g4).
+    const innerClassSymbol = {
+      kind: SymbolKind.Class,
+      modifiers: createSymbolModifiers({
+        visibility: SymbolVisibility.Public,
+        isVirtual: true, // This is valid for classes, not fields
+      }),
+    } as TypeSymbol;
+
+    const validFieldModifiers = createSymbolModifiers({
+      visibility: SymbolVisibility.Public,
+      isStatic: true,
+      isFinal: false,
+    });
+
+    FieldModifierValidator.validateFieldVisibilityModifiers(
+      validFieldModifiers,
+      ctx,
+      innerClassSymbol,
+      errorReporter,
+    );
+
+    expect(errorReporter.errors.length).toBe(0);
+    expect(errorReporter.warnings.length).toBe(0);
   });
 
   test('should reject override fields', () => {
