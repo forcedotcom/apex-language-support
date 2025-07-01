@@ -28,10 +28,7 @@ export class DidSaveDocumentHandler {
   public async handleDocumentSave(
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<void> {
-    this.logger.log(
-      LogMessageType.Info,
-      `Processing document save: ${event.document.uri}`,
-    );
+    this.logger.debug(() => `Processing document save: ${event.document.uri}`);
 
     try {
       await dispatch(
@@ -39,8 +36,7 @@ export class DidSaveDocumentHandler {
         'Error processing document save',
       );
     } catch (error) {
-      this.logger.log(
-        LogMessageType.Error,
+      this.logger.error(
         () =>
           `Error processing document save for ${event.document.uri}: ${error}`,
       );

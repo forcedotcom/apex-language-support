@@ -46,12 +46,10 @@ export class ApexSettingsManager {
       initialSettings || {},
       environment,
     );
-    this.logger.log(
-      LogMessageType.Debug,
-      `ApexSettingsManager initialized for ${environment} environment`,
+    this.logger.debug(
+      () => `ApexSettingsManager initialized for ${environment} environment`,
     );
-    this.logger.log(
-      LogMessageType.Debug,
+    this.logger.debug(
       () =>
         `Initial settings: ${JSON.stringify(this.currentSettings, null, 2)}`,
     );
@@ -93,22 +91,15 @@ export class ApexSettingsManager {
   public updateSettings(
     newSettings: Partial<ApexLanguageServerSettings>,
   ): void {
-    this.logger.log(
-      LogMessageType.Debug,
-      'Updating Apex Language Server settings',
-    );
-    this.logger.log(
-      LogMessageType.Debug,
+    this.logger.debug('Updating Apex Language Server settings');
+    this.logger.debug(
       () => `New settings: ${JSON.stringify(newSettings, null, 2)}`,
     );
 
     // Set log level if provided
     if (newSettings.ls?.logLevel ?? false) {
       setLogLevel(newSettings.ls!.logLevel!);
-      this.logger.log(
-        LogMessageType.Info,
-        () => `Log level set to: ${newSettings.ls!.logLevel}`,
-      );
+      this.logger.debug(() => `Log level set to: ${newSettings.ls!.logLevel}`);
     }
 
     const previousSettings = { ...this.currentSettings };
@@ -131,10 +122,7 @@ export class ApexSettingsManager {
   public updateFromLSPConfiguration(config: any): boolean {
     try {
       if (!config || typeof config !== 'object') {
-        this.logger.log(
-          LogMessageType.Warning,
-          'Invalid LSP configuration received, using defaults',
-        );
+        this.logger.debug('Invalid LSP configuration received, using defaults');
         return false;
       }
 
@@ -144,28 +132,22 @@ export class ApexSettingsManager {
       // Set log level if provided
       if (apexConfig.ls && apexConfig.ls.logLevel) {
         setLogLevel(apexConfig.ls.logLevel);
-        this.logger.log(
-          LogMessageType.Info,
-          () => `Log level set to: ${apexConfig.ls.logLevel}`,
-        );
+        this.logger.debug(() => `Log level set to: ${apexConfig.ls.logLevel}`);
       }
 
       if (isValidApexSettings(apexConfig)) {
         this.updateSettings(apexConfig);
         return true;
       } else {
-        this.logger.log(
-          LogMessageType.Warning,
-          'LSP configuration does not match expected schema, merging what we can',
+        this.logger.warn(
+          () =>
+            'LSP configuration does not match expected schema, merging what we can',
         );
         this.updateSettings(apexConfig as Partial<ApexLanguageServerSettings>);
         return true;
       }
     } catch (error) {
-      this.logger.log(
-        LogMessageType.Error,
-        () => `Error processing LSP configuration: ${error}`,
-      );
+      this.logger.error(() => `Error processing LSP configuration: ${error}`);
       return false;
     }
   }
@@ -195,8 +177,7 @@ export class ApexSettingsManager {
 
     // Check file size limits
     if (fileSize && fileSize > performance.commentCollectionMaxFileSize) {
-      this.logger.log(
-        LogMessageType.Debug,
+      this.logger.debug(
         () =>
           `File size ${fileSize} exceeds limit ${performance.commentCollectionMaxFileSize}, disabling comments`,
       );
@@ -232,8 +213,7 @@ export class ApexSettingsManager {
         includeComments && commentCollection.associateCommentsWithSymbols,
     };
 
-    this.logger.log(
-      LogMessageType.Debug,
+    this.logger.debug(
       () =>
         `Final CompilationOptions for ${operationType}: ${JSON.stringify(compilationOptions, null, 2)}`,
     );
@@ -300,8 +280,7 @@ export class ApexSettingsManager {
       try {
         listener(settings);
       } catch (error) {
-        this.logger.log(
-          LogMessageType.Error,
+        this.logger.error(
           () => `Error notifying settings change listener: ${error}`,
         );
       }
@@ -361,10 +340,7 @@ export class ApexSettingsManager {
     }
 
     if (changes.length > 0) {
-      this.logger.log(
-        LogMessageType.Debug,
-        () => `Settings changed: ${changes.join(', ')}`,
-      );
+      this.logger.debug(() => `Settings changed: ${changes.join(', ')}`);
     }
   }
 }

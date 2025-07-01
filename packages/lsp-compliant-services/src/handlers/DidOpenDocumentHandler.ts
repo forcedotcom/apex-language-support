@@ -26,9 +26,9 @@ export const processOnOpenDocument = async (
 ): Promise<Diagnostic[] | undefined> => {
   // Client opened a document
   const logger = getLogger();
-  logger.log(
-    LogMessageType.Debug,
-    `Common Apex Language Server open document handler invoked with: ${event}`,
+  logger.debug(
+    () =>
+      `Common Apex Language Server open document handler invoked with: ${event}`,
   );
 
   // Get the storage manager instance
@@ -61,9 +61,8 @@ export const processOnOpenDocument = async (
   );
 
   if (result.errors.length > 0) {
-    logger.log(
-      LogMessageType.Error,
-      `Errors parsing document: ${JSON.stringify(result.errors)}`,
+    logger.debug(
+      () => `Errors parsing document: ${JSON.stringify(result.errors)}`,
     );
     const diagnostics = getDiagnosticsFromErrors(result.errors);
     return diagnostics;
@@ -119,16 +118,12 @@ export class DidOpenDocumentHandler {
   public async handleDocumentOpen(
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<Diagnostic[] | undefined> {
-    this.logger.log(
-      LogMessageType.Info,
-      `Processing document open: ${event.document.uri}`,
-    );
+    this.logger.debug(() => `Processing document open: ${event.document.uri}`);
 
     try {
       return await dispatchProcessOnOpenDocument(event);
     } catch (error) {
-      this.logger.log(
-        LogMessageType.Error,
+      this.logger.error(
         () =>
           `Error processing document open for ${event.document.uri}: ${error}`,
       );

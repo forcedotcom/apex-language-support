@@ -28,10 +28,7 @@ export class DidCloseDocumentHandler {
   public async handleDocumentClose(
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<void> {
-    this.logger.log(
-      LogMessageType.Info,
-      `Processing document close: ${event.document.uri}`,
-    );
+    this.logger.debug(() => `Processing document close: ${event.document.uri}`);
 
     try {
       await dispatch(
@@ -39,8 +36,7 @@ export class DidCloseDocumentHandler {
         'Error processing document close',
       );
     } catch (error) {
-      this.logger.log(
-        LogMessageType.Error,
+      this.logger.error(
         () =>
           `Error processing document close for ${event.document.uri}: ${error}`,
       );

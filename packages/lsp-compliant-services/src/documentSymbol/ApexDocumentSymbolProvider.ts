@@ -65,27 +65,24 @@ export class DefaultApexDocumentSymbolProvider
     const logger = getLogger();
     try {
       const documentUri = params.textDocument.uri;
-      logger.log(
-        LogMessageType.Debug,
-        `Attempting to get document from storage for URI: ${documentUri}`,
+      logger.debug(
+        () => `Attempting to get document from storage for URI: ${documentUri}`,
       );
 
       const document = await this.storage.getDocument(documentUri);
 
       if (!document) {
-        logger.log(
-          LogMessageType.Warning,
+        logger.debug(
           () => `Document not found in storage for URI: ${documentUri}`,
         );
         return null;
       }
 
-      logger.log(
-        LogMessageType.Debug,
-        `Document found in storage. Content length: ${document.getText().length}`,
+      logger.debug(
+        () =>
+          `Document found in storage. Content length: ${document.getText().length}`,
       );
-      logger.log(
-        LogMessageType.Debug,
+      logger.debug(
         `Document content preview: ${document.getText().substring(0, 100)}...`,
       );
 
@@ -108,10 +105,7 @@ export class DefaultApexDocumentSymbolProvider
       );
 
       if (result.errors.length > 0) {
-        logger.log(
-          LogMessageType.Error,
-          `Errors parsing document: ${result.errors}`,
-        );
+        logger.debug(() => `Errors parsing document: ${result.errors}`);
         return null;
       }
 
@@ -170,10 +164,7 @@ export class DefaultApexDocumentSymbolProvider
 
       return symbols;
     } catch (error) {
-      logger.log(
-        LogMessageType.Error,
-        `Error providing document symbols: ${error}`,
-      );
+      logger.error(() => `Error providing document symbols: ${error}`);
       return null;
     }
   }
@@ -212,10 +203,7 @@ export class DefaultApexDocumentSymbolProvider
         mappedKind = SymbolKind.Class; // 5 (treating triggers as classes)
         break;
       default:
-        getLogger().log(
-          LogMessageType.Warning,
-          () => `Unknown symbol kind: ${kind}`,
-        );
+        getLogger().debug(() => `Unknown symbol kind: ${kind}`);
         mappedKind = SymbolKind.Variable; // 13
     }
     return mappedKind;
@@ -297,11 +285,11 @@ export class DefaultApexDocumentSymbolProvider
     const childSymbols = scope.getAllSymbols();
     // Debug log: print all child symbol names and kinds for this scope
     const logger = getLogger();
-    logger.log(
-      LogMessageType.Debug,
-      `collectChildren for parentKind=${parentKind}, scope=${scope.name}, childSymbols=${childSymbols.map(
-        (s: any) => ({ name: s.name, kind: s.kind }),
-      )}`,
+    logger.debug(
+      () =>
+        `collectChildren for parentKind=${parentKind}, scope=${scope.name}, childSymbols=${childSymbols.map(
+          (s: any) => ({ name: s.name, kind: s.kind }),
+        )}`,
     );
     for (const childSymbol of childSymbols) {
       // For interfaces, only include methods

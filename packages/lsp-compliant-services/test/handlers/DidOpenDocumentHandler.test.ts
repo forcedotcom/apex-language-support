@@ -149,10 +149,11 @@ describe('DidOpenDocumentHandler', () => {
       const result = await handler.handleDocumentOpen(mockEvent);
 
       // Assert
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Info,
-        'Processing document open: file:///test.cls',
-      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
+
+      // Verify the debug message function was called with correct content
+      const debugCall = mockLogger.debug.mock.calls[0];
+      expect(debugCall[0]()).toBe('Processing document open: file:///test.cls');
       expect(mockStorage.setDocument).toHaveBeenCalledWith(
         mockEvent.document.uri,
         mockEvent.document,
@@ -169,23 +170,16 @@ describe('DidOpenDocumentHandler', () => {
       await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow(
         'Storage failed',
       );
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Error,
-        expect.any(Function),
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
+
+      // Verify the error message function was called with correct content
+      const errorCall = mockLogger.error.mock.calls[0];
+      expect(typeof errorCall[0]).toBe('function');
+      const errorMsg = errorCall[0]();
+      expect(errorMsg).toContain(
+        'Error processing document open for file:///test.cls',
       );
-      const errorCall = mockLogger.log.mock.calls.find(
-        (call) => call[0] === LogMessageType.Error,
-      );
-      expect(errorCall).toBeDefined();
-      if (errorCall) {
-        const errorFn = errorCall[1];
-        expect(typeof errorFn).toBe('function');
-        const errorMsg = errorFn();
-        expect(errorMsg).toContain(
-          'Error processing document open for file:///test.cls',
-        );
-        expect(errorMsg).toContain('Storage failed');
-      }
+      expect(errorMsg).toContain('Storage failed');
     });
 
     it('should log error and rethrow when definition upserter fails', async () => {
@@ -202,10 +196,7 @@ describe('DidOpenDocumentHandler', () => {
       await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow(
         'Definition failed',
       );
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Error,
-        expect.any(Function),
-      );
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
     it('should log error and rethrow when references upserter fails', async () => {
@@ -222,10 +213,7 @@ describe('DidOpenDocumentHandler', () => {
       await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow(
         'References failed',
       );
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Error,
-        expect.any(Function),
-      );
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
   });
 });

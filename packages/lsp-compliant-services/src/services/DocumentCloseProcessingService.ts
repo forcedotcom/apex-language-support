@@ -36,9 +36,9 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
   public async processDocumentClose(
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<void> {
-    this.logger.log(
-      LogMessageType.Debug,
-      `Common Apex Language Server close document handler invoked with: ${event}`,
+    this.logger.debug(
+      () =>
+        `Common Apex Language Server close document handler invoked with: ${event}`,
     );
 
     // Note: We intentionally do NOT remove documents from storage when they're closed

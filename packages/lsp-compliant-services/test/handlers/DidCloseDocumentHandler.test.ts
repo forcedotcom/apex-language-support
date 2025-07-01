@@ -65,8 +65,10 @@ describe('DidCloseDocumentHandler', () => {
       await handler.handleDocumentClose(mockEvent);
 
       // Assert
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Info,
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
+      // Verify the debug message function was called with correct content
+      const debugCall = mockLogger.debug.mock.calls[0];
+      expect(debugCall[0]()).toBe(
         'Processing document close: file:///test.cls',
       );
       expect(
@@ -96,27 +98,14 @@ describe('DidCloseDocumentHandler', () => {
         'Document close processing failed',
       );
 
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Error,
-        expect.any(Function),
-      );
-
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
       // Verify the error message function was called with correct content
-      const errorLogCall = mockLogger.log.mock.calls.find(
-        (call: any) => call[0] === LogMessageType.Error,
+      const errorLogCall = mockLogger.error.mock.calls[0];
+      expect(typeof errorLogCall[0]).toBe('function');
+      expect(errorLogCall[0]()).toContain(
+        'Error processing document close for file:///test.cls',
       );
-      expect(errorLogCall).toBeDefined();
-
-      if (errorLogCall) {
-        const errorMessageFunction = errorLogCall[1];
-        expect(typeof errorMessageFunction).toBe('function');
-        expect(errorMessageFunction()).toContain(
-          'Error processing document close for file:///test.cls',
-        );
-        expect(errorMessageFunction()).toContain(
-          'Document close processing failed',
-        );
-      }
+      expect(errorLogCall[0]()).toContain('Document close processing failed');
     });
   });
 });

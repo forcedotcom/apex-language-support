@@ -36,9 +36,9 @@ export class DocumentProcessingService implements IDocumentProcessor {
   public async processDocumentChange(
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<Diagnostic[] | undefined> {
-    this.logger.log(
-      LogMessageType.Debug,
-      `Common Apex Language Server change document handler invoked with: ${event}`,
+    this.logger.debug(
+      () =>
+        `Common Apex Language Server change document handler invoked with: ${event}`,
     );
 
     // Get the storage manager instance
@@ -75,10 +75,7 @@ export class DocumentProcessingService implements IDocumentProcessor {
     );
 
     if (result.errors.length > 0) {
-      this.logger.log(
-        LogMessageType.Error,
-        `Errors parsing document: ${result.errors}`,
-      );
+      this.logger.debug(() => `Errors parsing document: ${result.errors}`);
       const diagnostics = getDiagnosticsFromErrors(result.errors);
       return diagnostics;
     }
@@ -106,19 +103,13 @@ export class DocumentProcessingService implements IDocumentProcessor {
     try {
       await definitionUpserter.upsertDefinition(event);
     } catch (error) {
-      this.logger.log(
-        LogMessageType.Error,
-        `Error upserting definitions: ${error}`,
-      );
+      this.logger.error(() => `Error upserting definitions: ${error}`);
     }
 
     try {
       await referencesUpserter.upsertReferences(event);
     } catch (error) {
-      this.logger.log(
-        LogMessageType.Error,
-        `Error upserting references: ${error}`,
-      );
+      this.logger.error(() => `Error upserting references: ${error}`);
     }
 
     return undefined; // No diagnostics to return

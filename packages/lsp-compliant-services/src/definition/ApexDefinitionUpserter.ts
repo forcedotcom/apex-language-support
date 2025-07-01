@@ -62,10 +62,7 @@ export class DefaultApexDefinitionUpserter implements ApexDefinitionUpserter {
         await this.storage.setDefinition(symbol.name, reference);
       }
     } catch (error) {
-      this.logger.log(
-        LogMessageType.Error,
-        `Error populating definitions: ${error}`,
-      );
+      this.logger.error(() => `Error populating definitions: ${error}`);
     }
   }
 }

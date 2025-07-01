@@ -763,8 +763,7 @@ export class ApexSymbolCollectorListener
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
     try {
       const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
-      this.logger.log(
-        LogMessageType.Debug,
+      this.logger.debug(
         () =>
           `Entering field declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
       );
@@ -1002,10 +1001,7 @@ export class ApexSymbolCollectorListener
   exitBlock(): void {
     // Exit block scope
     const currentScope = this.symbolTable.getCurrentScope();
-    this.logger.log(
-      LogMessageType.Debug,
-      () => `Exiting block scope: ${currentScope.name}`,
-    );
+    this.logger.debug(() => `Exiting block scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
     this.blockDepth--;
   }
@@ -1132,24 +1128,21 @@ export class ApexSymbolCollectorListener
    * Create a TypeInfo object from a type string
    */
   private createTypeInfo(typeString: string): TypeInfo {
-    this.logger.log(
-      LogMessageType.Debug,
+    this.logger.debug(
       () => `createTypeInfo called with typeString: ${typeString}`,
     );
 
     // Handle qualified type names (e.g., System.PageReference)
     if (typeString.includes('.')) {
       const [namespace, typeName] = typeString.split('.');
-      this.logger.log(
-        LogMessageType.Debug,
+      this.logger.debug(
         () =>
           `Processing qualified type - namespace: ${namespace}, typeName: ${typeName}`,
       );
 
       // Use predefined namespaces for built-in types
       if (namespace === 'System') {
-        this.logger.log(
-          LogMessageType.Debug,
+        this.logger.debug(
           () => 'Using Namespaces.SYSTEM for System namespace type',
         );
         return {
@@ -1163,8 +1156,7 @@ export class ApexSymbolCollectorListener
         };
       }
       // For other namespaces, create a new namespace instance
-      this.logger.log(
-        LogMessageType.Debug,
+      this.logger.debug(
         () => 'Creating new namespace instance for non-System namespace',
       );
       return {
@@ -1179,10 +1171,7 @@ export class ApexSymbolCollectorListener
     }
 
     // For simple types, use createPrimitiveType
-    this.logger.log(
-      LogMessageType.Debug,
-      () => 'Using createPrimitiveType for simple type',
-    );
+    this.logger.debug(() => 'Using createPrimitiveType for simple type');
     return createPrimitiveType(typeString);
   }
 
@@ -1417,10 +1406,7 @@ export class ApexSymbolCollectorListener
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
-      this.logger.log(
-        LogMessageType.Debug,
-        () => `Entered trigger scope: ${name}`,
-      );
+      this.logger.debug(() => `Entered trigger scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -1464,10 +1450,7 @@ export class ApexSymbolCollectorListener
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
-      this.logger.log(
-        LogMessageType.Debug,
-        () => `Entered trigger scope: ${name}`,
-      );
+      this.logger.debug(() => `Entered trigger scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();

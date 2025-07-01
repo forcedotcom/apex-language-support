@@ -417,10 +417,7 @@ export class CompilerService {
 
     // Add our custom error listener if provided
     if (errorListener) {
-      this.logger.log(
-        LogMessageType.Debug,
-        'Setting up custom error listeners',
-      );
+      this.logger.debug('Setting up custom error listeners');
       // Remove default error listeners that print to console
       parser.removeErrorListeners();
       lexer.removeErrorListeners();

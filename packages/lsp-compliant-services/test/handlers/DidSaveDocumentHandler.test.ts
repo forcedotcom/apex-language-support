@@ -62,10 +62,11 @@ describe('DidSaveDocumentHandler', () => {
       await handler.handleDocumentSave(mockEvent);
 
       // Assert
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Info,
-        'Processing document save: file:///test.cls',
-      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
+
+      // Verify the debug message function was called with correct content
+      const debugCall = mockLogger.debug.mock.calls[0];
+      expect(debugCall[0]()).toBe('Processing document save: file:///test.cls');
       expect(
         mockDocumentSaveProcessor.processDocumentSave,
       ).toHaveBeenCalledWith(mockEvent);
@@ -93,27 +94,15 @@ describe('DidSaveDocumentHandler', () => {
         'Document save processing failed',
       );
 
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogMessageType.Error,
-        expect.any(Function),
-      );
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
 
       // Verify the error message function was called with correct content
-      const errorLogCall = mockLogger.log.mock.calls.find(
-        (call: any) => call[0] === LogMessageType.Error,
+      const errorCall = mockLogger.error.mock.calls[0];
+      expect(typeof errorCall[0]).toBe('function');
+      expect(errorCall[0]()).toContain(
+        'Error processing document save for file:///test.cls',
       );
-      expect(errorLogCall).toBeDefined();
-
-      if (errorLogCall) {
-        const errorMessageFunction = errorLogCall[1];
-        expect(typeof errorMessageFunction).toBe('function');
-        expect(errorMessageFunction()).toContain(
-          'Error processing document save for file:///test.cls',
-        );
-        expect(errorMessageFunction()).toContain(
-          'Document save processing failed',
-        );
-      }
+      expect(errorCall[0]()).toContain('Document save processing failed');
     });
   });
 });

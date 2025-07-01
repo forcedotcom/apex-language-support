@@ -32,9 +32,8 @@ export class DocumentSymbolHandler {
   public async handleDocumentSymbol(
     params: DocumentSymbolParams,
   ): Promise<SymbolInformation[] | DocumentSymbol[] | null> {
-    this.logger.log(
-      LogMessageType.Info,
-      `Processing document symbol request: ${params.textDocument.uri}`,
+    this.logger.debug(
+      () => `Processing document symbol request: ${params.textDocument.uri}`,
     );
 
     try {
@@ -43,8 +42,7 @@ export class DocumentSymbolHandler {
         'Error processing document symbol request',
       );
     } catch (error) {
-      this.logger.log(
-        LogMessageType.Error,
+      this.logger.error(
         () =>
           `Error processing document symbol request for ${params.textDocument.uri}: ${error}`,
       );

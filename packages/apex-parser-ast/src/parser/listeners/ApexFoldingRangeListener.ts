@@ -209,17 +209,13 @@ export class ApexFoldingRangeListener extends BaseApexParserListener<
       };
 
       this.ranges.push(range);
-      this.logger.log(
-        LogMessageType.Debug,
+      this.logger.debug(
         () =>
           `Added folding range for ${kind} at lines ${range.startLine}-${range.endLine}`,
       );
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      this.logger.log(
-        LogMessageType.Error,
-        () => `Error adding folding range: ${errorMessage}`,
-      );
+      this.logger.error(() => `Error adding folding range: ${errorMessage}`);
     }
   }
 }

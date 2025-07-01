@@ -46,9 +46,9 @@ export class DocumentSymbolProcessingService
   public async processDocumentSymbol(
     params: DocumentSymbolParams,
   ): Promise<SymbolInformation[] | DocumentSymbol[] | null> {
-    this.logger.log(
-      LogMessageType.Debug,
-      `Common Apex Language Server document symbol handler invoked with: ${params}`,
+    this.logger.debug(
+      () =>
+        `Common Apex Language Server document symbol handler invoked with: ${params}`,
     );
 
     try {
@@ -62,10 +62,7 @@ export class DocumentSymbolProcessingService
       // Get document symbols
       return await provider.provideDocumentSymbols(params);
     } catch (error) {
-      this.logger.log(
-        LogMessageType.Error,
-        `Error processing document symbols: ${error}`,
-      );
+      this.logger.error(() => `Error processing document symbols: ${error}`);
       return null;
     }
   }

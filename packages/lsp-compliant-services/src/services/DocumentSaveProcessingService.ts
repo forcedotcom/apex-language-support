@@ -38,9 +38,9 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
   ): Promise<void> {
     // Client opened a document
     // TODO: Server will parse the document and populate the corresponding local maps
-    this.logger.log(
-      LogMessageType.Debug,
-      `Common Apex Language Server save document handler invoked with: ${event}`,
+    this.logger.debug(
+      () =>
+        `Common Apex Language Server save document handler invoked with: ${event}`,
     );
 
     // TODO: Implement the logic to process the document save

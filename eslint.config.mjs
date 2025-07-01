@@ -51,8 +51,14 @@ export default [
     },
     rules: {
       'prettier/prettier': 'error',
-      'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['off'],
+      'no-unused-vars': 'warn',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          args: 'none',
+          ignoreRestSiblings: true
+        }
+      ],
       'arrow-body-style': ['error', 'as-needed'],
       'jsdoc/check-alignment': 'warn',
       'jsdoc/check-indentation': 'warn',

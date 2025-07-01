@@ -23,25 +23,21 @@ export function logHandlerError(
   context?: string,
 ): void {
   const logger = getLogger();
+
   const contextInfo = context ? ` (${context})` : '';
+  const baseMessage = `Error in ${handlerName}${contextInfo}: ${error.message}`;
 
-  logger.log(
-    LogMessageType.Error,
-    `Error in ${handlerName}${contextInfo}: ${error.message}`,
-  );
+  let fullMessage = baseMessage;
 
-  // Log additional error details if available
   if (error.stack) {
-    logger.log(
-      LogMessageType.Debug,
-      () => `Stack trace for ${handlerName} error:\n${error.stack}`,
-    );
+    fullMessage += `\nStack trace:\n${error.stack}`;
   }
 
-  // Log additional context if provided
   if (context) {
-    logger.debug(`Error context: ${context}`);
+    fullMessage += `\nError context: ${context}`;
   }
+
+  logger.log(LogMessageType.Error, fullMessage);
 }
 
 /**
