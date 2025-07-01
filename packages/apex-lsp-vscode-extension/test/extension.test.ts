@@ -50,8 +50,6 @@ describe('Apex Language Server Extension', () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.clearAllMocks();
-    // Clean up environment variables
-    delete process.env.APEX_LSP_DEBUG_MODE;
   });
 
   it('should activate, start the client, and register commands', async () => {
@@ -102,10 +100,40 @@ describe('Apex Language Server Extension', () => {
     expect(client!.stop).toHaveBeenCalled();
   });
 
-  describe('Environment Variable Debug Options', () => {
-    it('should not enable debug options when APEX_LSP_DEBUG_MODE is not set', async () => {
-      // Ensure environment variable is not set
-      delete process.env.APEX_LSP_DEBUG_MODE;
+  describe('VS Code Configuration Debug Options', () => {
+    let mockGetConfiguration: jest.Mock;
+    let originalGetConfiguration: any;
+
+    beforeEach(() => {
+      // Mock workspace configuration
+      mockGetConfiguration = jest.fn().mockReturnValue({
+        get: jest.fn((key: string, defaultValue: any) => {
+          if (key === 'debug') return 'off';
+          if (key === 'debugPort') return 0;
+          if (key === 'ls.logLevel') return 'error';
+          return defaultValue;
+        }),
+      });
+
+      // Mock vscode.workspace.getConfiguration
+      originalGetConfiguration = vscode.workspace.getConfiguration;
+      vscode.workspace.getConfiguration = mockGetConfiguration;
+    });
+
+    afterEach(() => {
+      // Restore original function
+      vscode.workspace.getConfiguration = originalGetConfiguration;
+    });
+
+    it('should not enable debug options when debug is set to "off"', async () => {
+      mockGetConfiguration.mockReturnValue({
+        get: jest.fn((key: string, defaultValue: any) => {
+          if (key === 'debug') return 'off';
+          if (key === 'debugPort') return 0;
+          if (key === 'ls.logLevel') return 'error';
+          return defaultValue;
+        }),
+      });
 
       activate(mockContext);
       await jest.runAllTimersAsync();
@@ -117,21 +145,15 @@ describe('Apex Language Server Extension', () => {
       expect(serverOptions.debug.options).toBeUndefined();
     });
 
-    it('should not enable debug options when APEX_LSP_DEBUG_MODE is set to "none"', async () => {
-      process.env.APEX_LSP_DEBUG_MODE = 'none';
-
-      activate(mockContext);
-      await jest.runAllTimersAsync();
-
-      // Get the server options from the LanguageClient constructor call
-      const serverOptions = MockLanguageClient.mock.calls[0][2];
-
-      // Debug options should not be set
-      expect(serverOptions.debug.options).toBeUndefined();
-    });
-
-    it('should enable inspection without break when APEX_LSP_DEBUG_MODE is set to "inspect"', async () => {
-      process.env.APEX_LSP_DEBUG_MODE = 'inspect';
+    it('should enable inspection without break when debug is set to "inspect"', async () => {
+      mockGetConfiguration.mockReturnValue({
+        get: jest.fn((key: string, defaultValue: any) => {
+          if (key === 'debug') return 'inspect';
+          if (key === 'debugPort') return 0;
+          if (key === 'ls.logLevel') return 'error';
+          return defaultValue;
+        }),
+      });
 
       activate(mockContext);
       await jest.runAllTimersAsync();
@@ -145,8 +167,15 @@ describe('Apex Language Server Extension', () => {
       });
     });
 
-    it('should enable inspection with break when APEX_LSP_DEBUG_MODE is set to "inspect-brk"', async () => {
-      process.env.APEX_LSP_DEBUG_MODE = 'inspect-brk';
+    it('should enable inspection with break when debug is set to "inspect-brk"', async () => {
+      mockGetConfiguration.mockReturnValue({
+        get: jest.fn((key: string, defaultValue: any) => {
+          if (key === 'debug') return 'inspect-brk';
+          if (key === 'debugPort') return 0;
+          if (key === 'ls.logLevel') return 'error';
+          return defaultValue;
+        }),
+      });
 
       activate(mockContext);
       await jest.runAllTimersAsync();
@@ -160,8 +189,15 @@ describe('Apex Language Server Extension', () => {
       });
     });
 
-    it('should not enable debug options when APEX_LSP_DEBUG_MODE is set to an invalid value', async () => {
-      process.env.APEX_LSP_DEBUG_MODE = 'invalid-value';
+    it('should use custom port when debugPort is set', async () => {
+      mockGetConfiguration.mockReturnValue({
+        get: jest.fn((key: string, defaultValue: any) => {
+          if (key === 'debug') return 'inspect';
+          if (key === 'debugPort') return 9229;
+          if (key === 'ls.logLevel') return 'error';
+          return defaultValue;
+        }),
+      });
 
       activate(mockContext);
       await jest.runAllTimersAsync();
@@ -169,8 +205,32 @@ describe('Apex Language Server Extension', () => {
       // Get the server options from the LanguageClient constructor call
       const serverOptions = MockLanguageClient.mock.calls[0][2];
 
-      // Debug options should not be set for invalid values
-      expect(serverOptions.debug.options).toBeUndefined();
+      // Debug options should be set with custom port
+      expect(serverOptions.debug.options).toEqual({
+        execArgv: ['--nolazy', '--inspect=9229'],
+      });
+    });
+
+    it('should use default port when debugPort is set to 0', async () => {
+      mockGetConfiguration.mockReturnValue({
+        get: jest.fn((key: string, defaultValue: any) => {
+          if (key === 'debug') return 'inspect';
+          if (key === 'debugPort') return 0;
+          if (key === 'ls.logLevel') return 'error';
+          return defaultValue;
+        }),
+      });
+
+      activate(mockContext);
+      await jest.runAllTimersAsync();
+
+      // Get the server options from the LanguageClient constructor call
+      const serverOptions = MockLanguageClient.mock.calls[0][2];
+
+      // Debug options should be set with default port
+      expect(serverOptions.debug.options).toEqual({
+        execArgv: ['--nolazy', '--inspect=6009'],
+      });
     });
   });
 

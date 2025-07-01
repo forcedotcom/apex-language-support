@@ -74,9 +74,14 @@
           "description": "Traces the communication between VS Code and the Apex language server"
         },
         "apex.debug": {
-          "type": "boolean",
-          "default": false,
-          "description": "Run Apex language server in debug mode"
+          "type": "string",
+          "enum": [
+            "off",
+            "inspect",
+            "inspect-brk"
+          ],
+          "default": "off",
+          "description": "Debug mode for the Apex language server. 'inspect' enables debugging without breaking, 'inspect-brk' enables debugging with break on start"
         },
         "apex.debugPort": {
           "type": "number",
@@ -158,7 +163,6 @@
             "error",
             "warning",
             "info",
-            "log",
             "debug"
           ],
           "default": "info",

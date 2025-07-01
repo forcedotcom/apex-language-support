@@ -123,34 +123,42 @@ function registerRestartCommand(context: vscode.ExtensionContext): void {
 }
 
 /**
- * Determines debug options based on environment variable
- * Environment variable: APEX_LSP_DEBUG_MODE
- * Values:
- * - 'none' or undefined: No inspection
- * - 'inspect': Enable inspection without break
- * - 'inspect-brk': Enable inspection with break
- * - Any other value: No inspection (defaults to none)
+ * Determines debug options based on VS Code configuration
+ * Configuration settings:
+ * - apex.debug: string - debug mode ('off', 'inspect', 'inspect-brk')
+ * - apex.debugPort: number - port to use for debugging (0 for default port 6009)
  */
 function getDebugOptions(): string[] | undefined {
-  const debugMode = process.env.APEX_LSP_DEBUG_MODE;
+  // Use VS Code configuration
+  const config = vscode.workspace.getConfiguration('apex');
+  const debugMode = config.get<string>('debug', 'off');
+  const debugPort = config.get<number>('debugPort', 0);
 
-  switch (debugMode) {
-    case 'inspect':
-      logToOutputChannel(
-        'Enabling inspection mode (no break)',
-        LogMessageType.Info,
-      );
-      return ['--nolazy', '--inspect=6009'];
-    case 'inspect-brk':
-      logToOutputChannel(
-        'Enabling inspection mode with break',
-        LogMessageType.Info,
-      );
-      return ['--nolazy', '--inspect-brk=6009'];
-    case 'none':
-    default:
-      return undefined;
+  if (debugMode === 'off') {
+    return undefined;
   }
+
+  // Determine port to use
+  const port = debugPort === 0 ? 6009 : debugPort;
+
+  // Determine debug flags based on mode
+  let debugFlags: string[];
+  if (debugMode === 'inspect-brk') {
+    logToOutputChannel(
+      `Enabling debug mode with break on port ${port}`,
+      LogMessageType.Info,
+    );
+    debugFlags = ['--nolazy', `--inspect-brk=${port}`];
+  } else {
+    // Default to 'inspect' mode
+    logToOutputChannel(
+      `Enabling debug mode on port ${port}`,
+      LogMessageType.Info,
+    );
+    debugFlags = ['--nolazy', `--inspect=${port}`];
+  }
+
+  return debugFlags;
 }
 
 /**
@@ -225,6 +233,9 @@ function initializeInspector(context: vscode.ExtensionContext) {
  * Creates client options for the language server
  */
 function createClientOptions(): LanguageClientOptions {
+  const config = vscode.workspace.getConfiguration('apex');
+  const traceServer = config.get<string>('trace.server', 'off');
+
   return {
     documentSelector: [{ scheme: 'file', language: 'apex' }],
     synchronize: {
@@ -242,6 +253,7 @@ function createClientOptions(): LanguageClientOptions {
     // Include workspace settings in initialization options
     initializationOptions: {
       enableDocumentSymbols: true,
+      trace: traceServer,
       ...getWorkspaceSettings(),
     },
     // Explicitly enable workspace configuration capabilities
