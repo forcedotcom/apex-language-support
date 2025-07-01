@@ -83,9 +83,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
 
       const result = await symbolProvider.provideDocumentSymbols(params);
       expect(result).toBeNull();
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.any(Function),
-      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.any(Function));
     });
 
     it('should return null when document has parsing errors', async () => {
@@ -370,8 +368,14 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         kind: 'method',
         location: { startLine: 3, startColumn: 9, endLine: 5, endColumn: 9 },
         parameters: [
-          { name: 'id', type: { name: 'Integer', originalTypeString: 'Integer' } },
-          { name: 'name', type: { name: 'String', originalTypeString: 'String' } },
+          {
+            name: 'id',
+            type: { name: 'Integer', originalTypeString: 'Integer' },
+          },
+          {
+            name: 'name',
+            type: { name: 'String', originalTypeString: 'String' },
+          },
         ],
         returnType: { name: 'String', originalTypeString: 'String' },
       };
@@ -385,7 +389,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           {
             name: 'MethodClass',
             kind: 'class',
-            location: { startLine: 2, startColumn: 7, endLine: 6, endColumn: 7 },
+            location: {
+              startLine: 2,
+              startColumn: 7,
+              endLine: 6,
+              endColumn: 7,
+            },
           },
         ],
         getChildren: () => [classScope],
@@ -402,7 +411,9 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(result).toHaveLength(1);
       const classSymbol = result![0] as any;
       expect(classSymbol.children).toHaveLength(1);
-      expect(classSymbol.children[0].name).toBe('getValue(Integer, String) : String');
+      expect(classSymbol.children[0].name).toBe(
+        'getValue(Integer, String) : String',
+      );
     });
 
     it('should handle symbols with identifier location for precise ranges', async () => {
@@ -449,10 +460,10 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(result).toHaveLength(1);
       const symbol = result![0] as DocumentSymbol;
       expect(symbol.range).toEqual(
-        Range.create(Position.create(0, 14), Position.create(0, 25))
+        Range.create(Position.create(0, 14), Position.create(0, 25)),
       );
       expect(symbol.selectionRange).toEqual(
-        Range.create(Position.create(0, 14), Position.create(0, 25))
+        Range.create(Position.create(0, 14), Position.create(0, 25)),
       );
     });
 
@@ -499,7 +510,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           {
             name: 'OuterClass',
             kind: 'class',
-            location: { startLine: 2, startColumn: 7, endLine: 6, endColumn: 7 },
+            location: {
+              startLine: 2,
+              startColumn: 7,
+              endLine: 6,
+              endColumn: 7,
+            },
           },
         ],
         getChildren: () => [outerClassScope],
@@ -518,7 +534,9 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(outerSymbol.children).toHaveLength(1);
       expect(outerSymbol.children![0].name).toBe('InnerClass');
       expect(outerSymbol.children![0].children).toHaveLength(1);
-      expect(outerSymbol.children![0].children![0].name).toBe('innerMethod() : void');
+      expect(outerSymbol.children![0].children![0].name).toBe(
+        'innerMethod() : void',
+      );
     });
 
     it('should handle interface with only methods', async () => {
@@ -564,7 +582,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           {
             name: 'TestInterface',
             kind: 'interface',
-            location: { startLine: 2, startColumn: 7, endLine: 6, endColumn: 7 },
+            location: {
+              startLine: 2,
+              startColumn: 7,
+              endLine: 6,
+              endColumn: 7,
+            },
           },
         ],
         getChildren: () => [interfaceScope],
@@ -623,7 +646,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           {
             name: 'TestEnum',
             kind: 'enum',
-            location: { startLine: 2, startColumn: 7, endLine: 5, endColumn: 7 },
+            location: {
+              startLine: 2,
+              startColumn: 7,
+              endLine: 5,
+              endColumn: 7,
+            },
           },
         ],
         getChildren: () => [enumScope],
@@ -669,7 +697,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
             {
               name: 'TestTrigger',
               kind: 'trigger',
-              location: { startLine: 2, startColumn: 9, endLine: 4, endColumn: 9 },
+              location: {
+                startLine: 2,
+                startColumn: 9,
+                endLine: 4,
+                endColumn: 9,
+              },
             },
           ],
           getChildren: () => [],
@@ -705,7 +738,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
             {
               name: 'ErrorClass',
               kind: 'class',
-              location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 27 },
+              location: {
+                startLine: 1,
+                startColumn: 1,
+                endLine: 1,
+                endColumn: 27,
+              },
             },
           ],
           getChildren: () => [],
@@ -714,9 +752,11 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
 
       // Mock an error during processing
-      jest.spyOn(symbolProvider as any, 'createDocumentSymbol').mockImplementation(() => {
-        throw new Error('Processing error');
-      });
+      jest
+        .spyOn(symbolProvider as any, 'createDocumentSymbol')
+        .mockImplementation(() => {
+          throw new Error('Processing error');
+        });
 
       const result = await symbolProvider.provideDocumentSymbols({
         textDocument: { uri: docUri },
@@ -957,11 +997,16 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           endColumn: 23,
         },
       };
-      const document = TextDocument.create('test.cls', 'apex', 1, 'public class TestClass {}');
+      const document = TextDocument.create(
+        'test.cls',
+        'apex',
+        1,
+        'public class TestClass {}',
+      );
 
       const result = provider.createRangeFromIdentifier(symbol, document);
       expect(result).toEqual(
-        Range.create(Position.create(0, 14), Position.create(0, 23))
+        Range.create(Position.create(0, 14), Position.create(0, 23)),
       );
     });
 
@@ -976,7 +1021,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           endColumn: 27,
         },
       };
-      const document = TextDocument.create('test.cls', 'apex', 1, '    public class TestClass {}');
+      const document = TextDocument.create(
+        'test.cls',
+        'apex',
+        1,
+        '    public class TestClass {}',
+      );
 
       const result = provider.createTrimmedRange(symbol, document);
       expect(result).toBeDefined();
@@ -997,7 +1047,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
 
       const result = provider.createFallbackRange(symbol);
       expect(result).toEqual(
-        Range.create(Position.create(0, 0), Position.create(0, 26))
+        Range.create(Position.create(0, 0), Position.create(0, 26)),
       );
     });
   });

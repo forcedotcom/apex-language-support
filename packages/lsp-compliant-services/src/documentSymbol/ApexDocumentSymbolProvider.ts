@@ -148,9 +148,7 @@ export class DefaultApexDocumentSymbolProvider
 
       // Get all symbols from the global scope
       const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
-      logger.debug(
-        `Found ${globalSymbols.length} global symbols in document`,
-      );
+      logger.debug(`Found ${globalSymbols.length} global symbols in document`);
 
       // Process each symbol and convert to LSP DocumentSymbol format
       for (const symbol of globalSymbols) {
