@@ -2,8 +2,6 @@ const baseConfig = require('../../jest.config.cjs');
 
 module.exports = {
   ...baseConfig,
-  rootDir: '.',
-  testMatch: ['**/test/**/*.test.ts'],
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
     '^@salesforce/apex-lsp-logging$':

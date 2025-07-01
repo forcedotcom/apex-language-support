@@ -53,9 +53,12 @@ async function getTestFiles(pattern) {
  */
 async function testCompileStubs() {
   const stubsDir = path.join(__dirname, '../src/resources/StandardApexLibrary');
-  const outputDir = path.join(
+  const resourcesPath = path.join(
     __dirname,
-    '../dist/resources/StandardApexLibrary',
+    '..',
+    'out',
+    'resources',
+    'StandardApexLibrary',
   );
 
   // Get glob pattern from command line arguments
@@ -82,9 +85,9 @@ async function testCompileStubs() {
     }
 
     // Clean output directory if it exists
-    if (fs.existsSync(outputDir)) {
+    if (fs.existsSync(resourcesPath)) {
       logger.info('\nCleaning existing output directory...');
-      fs.rmSync(outputDir, { recursive: true, force: true });
+      fs.rmSync(resourcesPath, { recursive: true, force: true });
     }
 
     // Run the compilation script with specific files
@@ -95,12 +98,12 @@ async function testCompileStubs() {
     });
 
     // Verify output directory exists
-    if (!fs.existsSync(outputDir)) {
+    if (!fs.existsSync(resourcesPath)) {
       throw new Error('Output directory was not created');
     }
 
     // Check for compilation summary
-    const summaryPath = path.join(outputDir, 'compilation-summary.json');
+    const summaryPath = path.join(resourcesPath, 'compilation-summary.json');
     if (!fs.existsSync(summaryPath)) {
       throw new Error('Compilation summary was not generated');
     }
@@ -114,7 +117,7 @@ async function testCompileStubs() {
     logger.info('\nVerifying test files:');
     for (const testFile of testFiles) {
       const outputFile = testFile.replace('.cls', '.ast.json');
-      const filePath = path.join(outputDir, outputFile);
+      const filePath = path.join(resourcesPath, outputFile);
 
       if (!fs.existsSync(filePath)) {
         throw new Error(`Expected file ${outputFile} was not generated`);
@@ -151,7 +154,7 @@ async function testCompileStubs() {
 
     // Verify total files match
     const compiledFiles = fs
-      .readdirSync(outputDir, { recursive: true })
+      .readdirSync(resourcesPath, { recursive: true })
       .filter((file) => file.endsWith('.ast.json'));
 
     if (compiledFiles.length !== testFiles.length) {

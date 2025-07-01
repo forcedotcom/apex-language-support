@@ -52,6 +52,10 @@ test-workspace
 
 # tsup generated files
 tsup.config.*.mjs
+tsup.config.js
+tsup.config.d.ts
+tsup.config.js.map
+tsup.config.d.ts.map
 /packages/apex-parser-ast/test/generator/test-files
 /packages/apex-parser-ast/src/generated
 

@@ -38,14 +38,20 @@ console.log('Test file content:');
 console.log(testApexContent);
 
 // Path to the language server
-const serverPath = path.join(__dirname, '..', 'apex-ls-node', 'dist', 'index.js');
+const serverPath = path.join(
+  __dirname,
+  '..',
+  'apex-ls-node',
+  'out',
+  'index.js',
+);
 
 console.log('\nStarting language server at:', serverPath);
 
 // Start the language server
 const server = spawn('node', [serverPath, '--stdio'], {
   stdio: ['pipe', 'pipe', 'pipe'],
-  cwd: __dirname
+  cwd: __dirname,
 });
 
 let messageId = 1;
@@ -56,15 +62,15 @@ function sendMessage(method, params) {
     jsonrpc: '2.0',
     id: messageId++,
     method: method,
-    params: params
+    params: params,
   };
-  
+
   const content = JSON.stringify(message);
   const header = `Content-Length: ${Buffer.byteLength(content, 'utf8')}\r\n\r\n`;
-  
+
   console.log('\n>>> Sending:', method);
   console.log(JSON.stringify(message, null, 2));
-  
+
   server.stdin.write(header + content);
 }
 
@@ -73,15 +79,15 @@ function sendNotification(method, params) {
   const message = {
     jsonrpc: '2.0',
     method: method,
-    params: params
+    params: params,
   };
-  
+
   const content = JSON.stringify(message);
   const header = `Content-Length: ${Buffer.byteLength(content, 'utf8')}\r\n\r\n`;
-  
+
   console.log('\n>>> Sending notification:', method);
   console.log(JSON.stringify(message, null, 2));
-  
+
   server.stdin.write(header + content);
 }
 
@@ -90,41 +96,44 @@ let buffer = '';
 // Handle server output
 server.stdout.on('data', (data) => {
   buffer += data.toString();
-  
+
   // Process complete messages
   while (true) {
     const headerEnd = buffer.indexOf('\r\n\r\n');
     if (headerEnd === -1) break;
-    
+
     const header = buffer.substring(0, headerEnd);
     const contentLengthMatch = header.match(/Content-Length: (\d+)/);
-    
+
     if (!contentLengthMatch) {
       console.error('Invalid header:', header);
       break;
     }
-    
+
     const contentLength = parseInt(contentLengthMatch[1]);
     const messageStart = headerEnd + 4;
-    
+
     if (buffer.length < messageStart + contentLength) break;
-    
-    const messageContent = buffer.substring(messageStart, messageStart + contentLength);
+
+    const messageContent = buffer.substring(
+      messageStart,
+      messageStart + contentLength,
+    );
     buffer = buffer.substring(messageStart + contentLength);
-    
+
     try {
       const message = JSON.parse(messageContent);
       console.log('\n<<< Received:');
       console.log(JSON.stringify(message, null, 2));
-      
+
       // Handle specific responses
       if (message.id === 1) {
         // Initialize response
         console.log('\n=== Server initialized successfully ===');
-        
+
         // Send initialized notification
         sendNotification('initialized', {});
-        
+
         // Open the test document
         setTimeout(() => {
           const fileUri = `file://${testFilePath}`;
@@ -133,16 +142,16 @@ server.stdout.on('data', (data) => {
               uri: fileUri,
               languageId: 'apex',
               version: 1,
-              text: testApexContent
-            }
+              text: testApexContent,
+            },
           });
-          
+
           // Request document symbols after a short delay
           setTimeout(() => {
             sendMessage('textDocument/documentSymbol', {
               textDocument: {
-                uri: fileUri
-              }
+                uri: fileUri,
+              },
             });
           }, 1000);
         }, 500);
@@ -156,13 +165,13 @@ server.stdout.on('data', (data) => {
               name: symbol.name,
               kind: symbol.kind,
               range: symbol.range,
-              children: symbol.children ? symbol.children.length : 0
+              children: symbol.children ? symbol.children.length : 0,
             });
           });
         } else {
           console.log('FAILURE: No symbols found or null result');
         }
-        
+
         // Shutdown the server
         setTimeout(() => {
           sendMessage('shutdown', {});
@@ -200,16 +209,16 @@ setTimeout(() => {
     processId: process.pid,
     clientInfo: {
       name: 'Document Symbol Test Client',
-      version: '1.0.0'
+      version: '1.0.0',
     },
     capabilities: {
       textDocument: {
         documentSymbol: {
           dynamicRegistration: true,
-          hierarchicalDocumentSymbolSupport: true
-        }
-      }
+          hierarchicalDocumentSymbolSupport: true,
+        },
+      },
     },
-    rootUri: `file://${__dirname}`
+    rootUri: `file://${__dirname}`,
   });
-}, 100); 
+}, 100);

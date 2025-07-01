@@ -10,36 +10,36 @@ jobs:
   benchmark:
     name: LSP Performance Benchmark
     runs-on: ubuntu-latest
-    
+
     permissions:
       # deployments permission to deploy GitHub pages website
       deployments: write
-      # contents permission to update benchmark contents in gh-pages branch  
+      # contents permission to update benchmark contents in gh-pages branch
       contents: write
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          
+
       - name: Install dependencies
-        run: npm ci
-        
+        uses: ./.github/actions/npm-install-with-retries
+
       - name: Run performance benchmarks
         run: npm run benchmark
         env:
           LSP_SERVER_PATH: 'mock-server.js'
-      
+
       # Only store benchmark results for push events to main, not PRs
       - name: Store benchmark results
         if: github.event_name == 'push'
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: "LSP Performance Benchmarks"
+          name: 'LSP Performance Benchmarks'
           tool: 'benchmarkjs'
           output-file-path: 'benchmark-output.json'
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -47,13 +47,13 @@ jobs:
           alert-threshold: '130%'
           comment-on-alert: true
           fail-on-alert: true
-          
+
       # For pull requests, compare with main without storing results
       - name: Compare benchmark results in PR
         if: github.event_name == 'pull_request'
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: "LSP Performance Benchmarks"
+          name: 'LSP Performance Benchmarks'
           tool: 'benchmarkjs'
           output-file-path: 'benchmark-output.json'
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -63,4 +63,4 @@ jobs:
           comment-on-alert: true
           fail-on-alert: false
           # Display results in PR via job summary
-          summary-always: true 
+          summary-always: true

@@ -6,13 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+const baseConfig = require('../../jest.config.cjs');
+
 module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  testMatch: ['**/test/**/*.test.ts'],
-  moduleFileExtensions: ['ts', 'js', 'json', 'node'],
-  rootDir: '.',
-  transform: {
-    '^.+\\.ts$': 'ts-jest',
-  },
+  ...baseConfig,
+  collectCoverageFrom: ['src/**/*.ts', '!**/*.d.ts'],
 };

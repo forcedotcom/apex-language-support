@@ -277,9 +277,33 @@ describe('Apex Language Server', () => {
       }
     });
 
-    // Import the module to load the handlers
+    // Reset mock documents
+    Object.keys(mockDocuments).forEach((key) => {
+      if (
+        typeof mockDocuments[key as keyof typeof mockDocuments] === 'function'
+      ) {
+        (
+          mockDocuments[key as keyof typeof mockDocuments] as jest.Mock
+        ).mockClear();
+      }
+    });
+
+    // Reset all other mocks
+    mockDispatchProcessOnOpenDocument.mockClear();
+    mockDispatchProcessOnChangeDocument.mockClear();
+    mockDispatchProcessOnCloseDocument.mockClear();
+    mockDispatchProcessOnSaveDocument.mockClear();
+    mockDispatchProcessOnDocumentSymbol.mockClear();
+    mockDispatchProcessOnFoldingRange.mockClear();
+    mockLogger.info.mockClear();
+    mockLogger.warn.mockClear();
+    mockLogger.error.mockClear();
+    mockLogger.debug.mockClear();
+
+    // Import the module and call startServer to set up the handlers
     jest.resetModules();
-    require('../src/index');
+    const module = require('../src/index');
+    module.startServer();
   });
 
   afterEach(() => {
@@ -288,6 +312,9 @@ describe('Apex Language Server', () => {
   });
 
   it('should correctly handle the initialize request', () => {
+    // Verify the handler was registered
+    expect(mockConnection.onInitialize).toHaveBeenCalled();
+
     // Get the handler
     const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
     const params: InitializeParams = {
@@ -330,6 +357,9 @@ describe('Apex Language Server', () => {
   });
 
   it('should handle the shutdown request', () => {
+    // Verify the handler was registered
+    expect(mockConnection.onShutdown).toHaveBeenCalled();
+
     // Get the handler
     const shutdownHandler = mockConnection.onShutdown.mock.calls[0][0];
 
@@ -346,6 +376,9 @@ describe('Apex Language Server', () => {
   });
 
   it('should handle the exit request', () => {
+    // Verify the handler was registered
+    expect(mockConnection.onExit).toHaveBeenCalled();
+
     // Get the handler
     const exitHandler = mockConnection.onExit.mock.calls[0][0];
 
@@ -360,6 +393,9 @@ describe('Apex Language Server', () => {
   });
 
   it('should return a static completion item', () => {
+    // Verify the handler was registered
+    expect(mockConnection.onCompletion).toHaveBeenCalled();
+
     // Get the handler
     const completionHandler = mockConnection.onCompletion.mock.calls[0][0];
     const result = completionHandler({
@@ -385,6 +421,9 @@ describe('Apex Language Server', () => {
   });
 
   it('should handle document symbol requests', async () => {
+    // Verify the handler was registered
+    expect(mockConnection.onDocumentSymbol).toHaveBeenCalled();
+
     const params = {
       textDocument: { uri: 'file:///test.cls' },
     } as DocumentSymbolParams;
@@ -393,6 +432,9 @@ describe('Apex Language Server', () => {
   });
 
   it('should handle folding range requests', async () => {
+    // Verify the handler was registered
+    expect(mockConnection.onFoldingRanges).toHaveBeenCalled();
+
     const params = {
       textDocument: { uri: 'file:///test.cls' },
     } as FoldingRangeParams;
@@ -404,6 +446,9 @@ describe('Apex Language Server', () => {
   });
 
   it('should correctly handle the initialized notification', () => {
+    // Verify the handler was registered
+    expect(mockConnection.onInitialized).toHaveBeenCalled();
+
     // Get the handler
     const initializedHandler = mockConnection.onInitialized.mock.calls[0][0];
     const params: InitializeParams = {
@@ -423,6 +468,9 @@ describe('Apex Language Server', () => {
 
   describe('Document Management', () => {
     it('should handle onDidOpen', () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidOpen).toHaveBeenCalled();
+
       const handler = mockDocuments.onDidOpen.mock.calls[0][0];
       const doc = { document: { uri: 'file:///test.cls' } };
       handler(doc);
@@ -430,6 +478,9 @@ describe('Apex Language Server', () => {
     });
 
     it('should handle onDidChangeContent', () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidChangeContent).toHaveBeenCalled();
+
       const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
       const doc = { document: { uri: 'file:///test.cls' } };
       handler(doc);
@@ -437,6 +488,9 @@ describe('Apex Language Server', () => {
     });
 
     it('should handle onDidClose', () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidClose).toHaveBeenCalled();
+
       const handler = mockDocuments.onDidClose.mock.calls[0][0];
       const doc = { document: { uri: 'file:///test.cls' } };
       handler(doc);
@@ -444,6 +498,9 @@ describe('Apex Language Server', () => {
     });
 
     it('should handle onDidSave', () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidSave).toHaveBeenCalled();
+
       const handler = mockDocuments.onDidSave.mock.calls[0][0];
       const doc = { document: { uri: 'file:///test.cls' } };
       handler(doc);
@@ -458,6 +515,9 @@ describe('Apex Language Server', () => {
     });
 
     it('should send diagnostics when onDidOpen returns diagnostics', async () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidOpen).toHaveBeenCalled();
+
       const mockDiagnostics = [
         {
           range: {
@@ -485,6 +545,9 @@ describe('Apex Language Server', () => {
     });
 
     it('should send empty diagnostics array when onDidOpen returns undefined', async () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidOpen).toHaveBeenCalled();
+
       mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(undefined);
 
       const handler = mockDocuments.onDidOpen.mock.calls[0][0];
@@ -502,6 +565,9 @@ describe('Apex Language Server', () => {
     });
 
     it('should send empty diagnostics array when onDidOpen returns null', async () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidOpen).toHaveBeenCalled();
+
       mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(null);
 
       const handler = mockDocuments.onDidOpen.mock.calls[0][0];
@@ -519,6 +585,9 @@ describe('Apex Language Server', () => {
     });
 
     it('should send diagnostics when onDidChangeContent returns diagnostics', async () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidChangeContent).toHaveBeenCalled();
+
       const mockDiagnostics = [
         {
           range: {
@@ -548,6 +617,9 @@ describe('Apex Language Server', () => {
     });
 
     it('should send empty diagnostics array when onDidChangeContent returns empty array', async () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidChangeContent).toHaveBeenCalled();
+
       mockDispatchProcessOnChangeDocument.mockResolvedValueOnce([]);
 
       const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
@@ -565,6 +637,9 @@ describe('Apex Language Server', () => {
     });
 
     it('should clear diagnostics when document is closed', async () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidClose).toHaveBeenCalled();
+
       const handler = mockDocuments.onDidClose.mock.calls[0][0];
       const doc = { document: { uri: 'file:///test.cls' } };
 
@@ -577,6 +652,9 @@ describe('Apex Language Server', () => {
     });
 
     it('should handle multiple diagnostics correctly', async () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidChangeContent).toHaveBeenCalled();
+
       const mockDiagnostics = [
         {
           range: {
@@ -614,6 +692,9 @@ describe('Apex Language Server', () => {
     });
 
     it('should clear diagnostics when errors are resolved (bug fix scenario)', async () => {
+      // Verify the handler was registered
+      expect(mockDocuments.onDidChangeContent).toHaveBeenCalled();
+
       const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
       const doc = { document: { uri: 'file:///test.cls' } };
 

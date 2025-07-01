@@ -1,35 +1,136 @@
 name: Release
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to release from'
+        required: false
+        default: 'main'
+        type: string
+      packages:
+        description: 'Packages to release'
+        required: false
+        default: 'all'
+        type: string
+      available-packages:
+        description: 'Available packages'
+        required: false
+        type: string
+      dry-run:
+        description: 'Run in dry-run mode (no actual publishing)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      pre-release:
+        description: 'Publish as pre-release version'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      version-bump:
+        description: 'Version bump type (auto, patch, minor, major)'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+      base-branch:
+        description: 'Base branch to compare against for change detection'
+        required: false
+        default: 'main'
+        type: string
+      registries:
+        description: 'Registries to publish to'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - vsce
+          - ovsx
+  # schedule:
+  #   # Nightly pre-release build at 2 AM UTC
+  #   - cron: '0 2 * * *'
+  # push:
+  #   branches:
+  #     - main
+  #   paths-ignore:
+  #     - '**.md'
+  #     - '.github/workflows/README.md'
+  #     - 'docs/**'
+
+# Add explicit permissions for security
+permissions:
+  contents: write # Needed for version bumps and releases
+  packages: write # Needed for publishing to registries
+  actions: read
 
 jobs:
-  release:
+  get-packages:
     runs-on: ubuntu-latest
+    outputs:
+      npm-packages: ${{ steps.packages.outputs.npm-packages }}
+      extensions: ${{ steps.packages.outputs.extensions }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          persist-credentials: false
+          ref: ${{ github.event.inputs.branch || github.ref }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
+      - name: Get package lists
+        id: packages
+        uses: ./.github/actions/get-packages
 
-      - name: Install dependencies
-        run: npm ci
+  # release-npm:
+  #   needs: get-packages
+  #   if: (github.event.inputs.npm-packages != 'none' && github.event.inputs.npm-packages != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.npm-packages != '')
+  #   uses: ./.github/workflows/release-npm.yml
+  #   with:
+  #     branch: ${{ github.event.inputs.branch || github.ref_name }}
+  #     packages: ${{ github.event.inputs.npm-packages || 'changed' }}
+  #     available-packages: ${{ needs.get-packages.outputs.npm-packages }}
+  #     dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+  #     base-branch: ${{ github.event.inputs.base-branch || 'main' }}
+  #   secrets: inherit
 
-      - name: Build
-        run: npm run build
+  release-extensions:
+    needs: get-packages
+    if: (github.event.inputs.extensions != 'none' && github.event.inputs.extensions != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.extensions != '')
+    uses: ./.github/workflows/release-extensions.yml
+    with:
+      branch: ${{ github.event.inputs.branch || github.ref_name }}
+      extensions: ${{ github.event.inputs.extensions || 'changed' }}
+      registries: ${{ github.event.inputs.registries || 'all' }}
+      available-extensions: ${{ needs.get-packages.outputs.extensions }}
+      dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+      base-branch: ${{ github.event.inputs.base-branch || 'main' }}
+    secrets: inherit
 
-      - name: Test
-        run: npm test
-
-      - name: Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npx semantic-release
+  determine-build-type:
+    runs-on: ubuntu-latest
+    outputs:
+      is-nightly: ${{ steps.check.outputs.is-nightly }}
+      version-bump: ${{ steps.check.outputs.version-bump }}
+      pre-release: ${{ steps.check.outputs.pre-release }}
+    steps:
+      - name: Check build type
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "is-nightly=true" >> $GITHUB_OUTPUT
+            echo "version-bump=patch" >> $GITHUB_OUTPUT
+            echo "pre-release=true" >> $GITHUB_OUTPUT
+          else
+            echo "is-nightly=false" >> $GITHUB_OUTPUT
+            echo "version-bump=${{ github.event.inputs.version-bump || 'auto' }}" >> $GITHUB_OUTPUT
+            echo "pre-release=${{ github.event.inputs.pre-release || 'false' }}" >> $GITHUB_OUTPUT
+          fi

@@ -4,20 +4,19 @@
   "tasks": {
     "precompile": {
       "dependsOn": ["^precompile"],
-      "outputs": ["src/generated/**", "dist/**"]
+      "outputs": ["src/generated/**", "out/**"]
     },
     "compile": {
       "dependsOn": ["precompile", "^precompile", "^compile"],
-      "outputs": ["dist/**", "*.tsbuildinfo"],
+      "outputs": ["out/**", "*.tsbuildinfo"],
       "inputs": ["src/**/*.ts", "src/generated/**"]
     },
     "bundle": {
       "dependsOn": ["compile", "^bundle"],
-      "outputs": ["bundle/**", "dist/**"]
+      "outputs": ["dist/**", "out/**"]
     },
     "package": {
-      "dependsOn": ["bundle", "^package"],
-      "outputs": ["extension/**"]
+      "dependsOn": ["bundle", "^package"]
     },
     "test": {
       "dependsOn": ["compile"],
@@ -54,7 +53,7 @@
     },
     "apex-language-server-extension#bundle": {
       "dependsOn": ["compile", "@salesforce/apex-ls-node#bundle"],
-      "outputs": ["extension/**", "bundle/**", "server-bundle/**"]
+      "outputs": ["extension/**", "dist/**", "server-bundle/**"]
     },
     "apex-language-server-extension#compile": {
       "dependsOn": [
@@ -63,7 +62,11 @@
         "^compile",
         "@salesforce/apex-lsp-parser-ast#precompile"
       ],
-      "outputs": ["dist/**", "*.tsbuildinfo"]
+      "outputs": ["out/**", "*.tsbuildinfo"]
+    },
+    "apex-language-server-extension#package": {
+      "dependsOn": ["bundle", "^package"],
+      "outputs": ["*.vsix"]
     },
     "apex-language-server-extension-web#precompile": {
       "dependsOn": ["^precompile"],
@@ -77,6 +80,10 @@
         "@salesforce/apex-lsp-parser-ast#precompile"
       ],
       "outputs": ["out/**", "*.tsbuildinfo"]
+    },
+    "apex-language-server-extension-web#package": {
+      "dependsOn": ["bundle", "^package"],
+      "outputs": ["extension/**"]
     }
   }
 }

@@ -21,9 +21,8 @@ export default [
     // Global configuration that ensures package.json files are always included
     ignores: [
       '**/.turbo/**',
-      '**/dist/**',
       '**/out/**',
-      '**/bundle/**',
+      '**/dist/**',
       '**/coverage/**',
       '**/node_modules/**',
       '**/*.d.ts',

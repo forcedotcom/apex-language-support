@@ -1,21 +1,11 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "composite": true,
-    "rootDir": "src",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "inlineSources": true,
-    "moduleResolution": "node",
-    "baseUrl": ".",
-    "paths": {
-      "@salesforce/apex-lsp-logging": ["../apex-lsp-logging/src"],
-      "@salesforce/apex-lsp-logging/*": ["../apex-lsp-logging/src/*"]
-    }
+    "outDir": "./out",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
-  "include": ["src/**/*", "src/generated/**/*"],
-  "exclude": ["node_modules", "dist", "bundle", "**/*.test.ts", "**/*.spec.ts"],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "out", "dist", "tsup.config.ts"],
   "references": [{ "path": "../apex-lsp-logging" }]
 }

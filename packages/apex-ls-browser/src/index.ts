@@ -44,8 +44,12 @@ import { BrowserLogNotificationHandler } from './utils/BrowserLogNotificationHan
 
 /* browser specific setup code */
 
-const messageReader = new BrowserMessageReader(self);
-const messageWriter = new BrowserMessageWriter(self);
+const messageReader = new BrowserMessageReader(
+  self as DedicatedWorkerGlobalScope,
+);
+const messageWriter = new BrowserMessageWriter(
+  self as DedicatedWorkerGlobalScope,
+);
 
 const connection = createConnection(messageReader, messageWriter);
 

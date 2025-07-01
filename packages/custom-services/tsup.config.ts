@@ -12,10 +12,10 @@ import { config } from '../../tsup.config';
 export default defineConfig({
   ...config,
   entry: ['src/index.ts'],
-  outDir: 'bundle',
+  outDir: 'dist',
   clean: true,
   dts: false,
-  splitting: true,
+  splitting: false,
   noExternal: [],
   external: [],
 });

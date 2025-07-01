@@ -1,0 +1,95 @@
+name: Package
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        default: '20.x'
+        type: string
+      branch:
+        description: 'Branch to package from'
+        required: false
+        default: 'main'
+        type: string
+      artifact-name:
+        description: 'Name for the VSIX artifacts (base name or pre-calculated: vsix-packages-{run_number}-{mode})'
+        required: false
+        default: 'vsix-packages'
+        type: string
+      dry-run:
+        description: 'Run in dry-run mode'
+        required: false
+        default: 'false'
+        type: string
+    outputs:
+      artifact-name:
+        description: 'The calculated artifact name'
+        value: ${{ jobs.package.outputs.artifact-name }}
+  workflow_dispatch:
+    inputs:
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        default: '20.x'
+        type: string
+      branch:
+        description: 'Branch to package from'
+        required: false
+        default: 'main'
+        type: string
+      dry-run:
+        description: 'Run in dry-run mode'
+        required: false
+        default: 'false'
+        type: string
+
+# Add explicit permissions for security
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-name: ${{ steps.calc-artifact-name.outputs.artifact-name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch || github.head_ref || github.ref }}
+
+      - name: Setup Node.js ${{ inputs.node-version || '20.x' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version || '20.x' }}
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
+      - name: Package packages
+        run: npm run package:packages
+
+      - name: Calculate artifact name
+        id: calc-artifact-name
+        uses: ./.github/actions/calculate-artifact-name
+        with:
+          artifact-name: ${{ inputs.artifact-name }}
+          dry-run: ${{ inputs.dry-run }}
+
+      - name: Upload VSIX artifacts
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.calc-artifact-name.outputs.artifact-name }}
+          path: |
+            packages/**/*.vsix
+          retention-days: 5
+
+      - name: List VSIX files
+        run: |
+          echo "VSIX files created:"
+          find packages -name "*.vsix" -exec ls -la {} \;

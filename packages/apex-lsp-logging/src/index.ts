@@ -9,11 +9,10 @@
 export * from './notification';
 export {
   LogMessageType,
-  LogMessageParams,
-  LogNotificationHandler,
   setLogNotificationHandler,
   getLogNotificationHandler,
 } from './notification';
+export type { LogMessageParams, LogNotificationHandler } from './notification';
 
 /**
  * Log levels supported by the logger

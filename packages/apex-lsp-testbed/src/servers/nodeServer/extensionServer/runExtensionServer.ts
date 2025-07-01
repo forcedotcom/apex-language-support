@@ -71,7 +71,7 @@ function findExtensionServerPath(): string {
     currentDir,
     'packages',
     'apex-ls-node',
-    'dist',
+    'out',
     'src',
     'index.js',
   );

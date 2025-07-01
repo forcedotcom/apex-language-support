@@ -26,7 +26,7 @@ export * from './handlers/DocumentSymbolHandler';
 export * from './handlers/FoldingRangeHandler';
 export * from './handlers/ApexLibResolveHandler';
 export * from './handlers/LogNotificationHandler';
-export {
+export type {
   ApexReference,
   ApexStorageInterface,
 } from './storage/ApexStorageInterface';
