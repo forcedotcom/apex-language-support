@@ -1,0 +1,142 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js"
+      ],
+      "sourceMaps": true,
+      "smartStep": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/**",
+        "${workspaceFolder}/packages/apex-lsp-logging/**",
+        "${workspaceFolder}/packages/apex-parser-ast/**",
+        "${workspaceFolder}/packages/lsp-compliant-services/**",
+        "${workspaceFolder}/packages/apex-ls-node/**",
+        "!**/node_modules/**"
+      ],
+      "preLaunchTask": "npm: compile",
+      "env": {
+        "NODE_OPTIONS": "--enable-source-maps"
+      },
+      "sourceMapPathOverrides": {
+        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*",
+        "../../apex-lsp-logging/src/*": "${workspaceFolder}/packages/apex-lsp-logging/src/*",
+        "../../apex-parser-ast/src/*": "${workspaceFolder}/packages/apex-parser-ast/src/*",
+        "../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
+        "../../apex-ls-node/src/*": "${workspaceFolder}/packages/apex-ls-node/src/*"
+      }
+    },
+    {
+      "name": "Attach to Language Server",
+      "type": "node",
+      "request": "attach",
+      "port": 6009,
+      "restart": true,
+      "protocol": "inspector",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js",
+        "${workspaceFolder}/packages/apex-ls-node/out/**/*.js",
+        "${workspaceFolder}/packages/apex-parser-ast/out/**/*.js",
+        "${workspaceFolder}/packages/lsp-compliant-services/out/**/*.js"
+      ],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/**",
+        "${workspaceFolder}/packages/apex-ls-node/**",
+        "${workspaceFolder}/packages/apex-parser-ast/**",
+        "${workspaceFolder}/packages/lsp-compliant-services/**",
+        "!**/node_modules/**"
+      ],
+      "sourceMapPathOverrides": {
+        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*",
+        "../../apex-ls-node/src/*": "${workspaceFolder}/packages/apex-ls-node/src/*",
+        "../../apex-parser-ast/src/*": "${workspaceFolder}/packages/apex-parser-ast/src/*",
+        "../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*"
+      }
+    },
+    {
+      "name": "Extension Tests",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension",
+        "--extensionTestsPath=${workspaceFolder}/packages/apex-lsp-vscode-extension/out/test/suite/index"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/test/**/*.js"
+      ],
+      "sourceMaps": true,
+      "smartStep": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/**",
+        "!**/node_modules/**"
+      ],
+      "preLaunchTask": "npm: compile"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Current Jest Test",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/jest",
+      "args": [
+        "${relativeFile}",
+        "-c",
+        "${workspaceFolder}/packages/apex-parser-ast/jest.config.cjs",
+        "-t",
+        "${selectedText}",
+        "--runInBand"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/node_modules/jest/bin/jest"
+      },
+      "sourceMaps": true,
+      "smartStep": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/packages/apex-parser-ast/**",
+        "!**/node_modules/**"
+      ],
+      "outFiles": ["${workspaceFolder}/packages/apex-parser-ast/**/*.js"],
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "env": {
+        "NODE_OPTIONS": "--enable-source-maps"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Run All Jest Tests in File",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/jest",
+      "args": [
+        "${relativeFile}",
+        "-c",
+        "${workspaceFolder}/packages/apex-parser-ast/jest.config.cjs",
+        "--runInBand"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/node_modules/jest/bin/jest"
+      },
+      "sourceMaps": true,
+      "smartStep": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/packages/apex-parser-ast/**",
+        "!**/node_modules/**"
+      ],
+      "outFiles": ["${workspaceFolder}/packages/apex-parser-ast/**/*.js"],
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "env": {
+        "NODE_OPTIONS": "--enable-source-maps"
+      }
+    }
+  ]
+}

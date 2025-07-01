@@ -145,6 +145,9 @@ function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
     debug: {
       module: serverModule,
       transport: TransportKind.ipc,
+      ...(isDevelopment && {
+        options: { execArgv: ['--nolazy', '--inspect=6009'] },
+      }),
     },
   };
 }
