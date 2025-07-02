@@ -19,7 +19,7 @@ import { ErrorReporter } from '../../utils/ErrorReporter';
 /**
  * Base class providing common validation logic for Apex modifiers
  */
-export abstract class BaseModifierValidator {
+export class BaseModifierValidator {
   /**
    * Validate that the member is not declared in an interface
    */
