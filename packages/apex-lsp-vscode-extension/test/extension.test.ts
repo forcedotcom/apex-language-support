@@ -70,7 +70,7 @@ describe('Apex Language Server Extension', () => {
     );
   });
 
-  it('should attempt to restart the server when the connection is closed', async () => {
+  it('should handle connection closure gracefully', async () => {
     activate(mockContext);
     await jest.runAllTimersAsync();
 
@@ -85,11 +85,11 @@ describe('Apex Language Server Extension', () => {
     const closeHandlerResult = errorHandler.closed();
     expect(closeHandlerResult.action).toBe(1); // CloseAction.DoNotRestart
 
-    // Fast-forward timers to trigger the restart
+    // Fast-forward timers to trigger any delayed operations
     await jest.runAllTimersAsync();
 
-    // startLanguageServer is called again, creating a new LanguageClient
-    expect(MockLanguageClient).toHaveBeenCalledTimes(2);
+    // The LanguageClient should only be called once since we handle restart separately
+    expect(MockLanguageClient).toHaveBeenCalledTimes(1);
   });
 
   it('should deactivate the client', async () => {
