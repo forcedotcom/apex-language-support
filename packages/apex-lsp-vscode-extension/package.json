@@ -152,11 +152,6 @@
           "default": "lazy",
           "description": "Resource loading mode for Apex standard library files. 'full' loads all resources immediately (faster access, higher memory usage), 'lazy' loads resources on-demand (lower memory usage, slight access delay)"
         },
-        "apex.inspector.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable LSP request/response inspector for debugging"
-        },
         "apex.ls.logLevel": {
           "type": "string",
           "enum": [
@@ -174,10 +169,6 @@
       {
         "command": "apex.restart.server",
         "title": "Restart Apex Language Server"
-      },
-      {
-        "command": "apex.inspector.toggle",
-        "title": "Toggle Apex LSP Inspector"
       }
     ],
     "viewsContainers": {

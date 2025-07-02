@@ -109,7 +109,7 @@ describe('Apex Language Server Extension', () => {
       mockGetConfiguration = jest.fn().mockReturnValue({
         get: jest.fn((key: string, defaultValue: any) => {
           if (key === 'debug') return 'off';
-          if (key === 'debugPort') return 0;
+          if (key === 'debugPort') return 6009;
           if (key === 'ls.logLevel') return 'error';
           return defaultValue;
         }),
@@ -129,7 +129,7 @@ describe('Apex Language Server Extension', () => {
       mockGetConfiguration.mockReturnValue({
         get: jest.fn((key: string, defaultValue: any) => {
           if (key === 'debug') return 'off';
-          if (key === 'debugPort') return 0;
+          if (key === 'debugPort') return 6009;
           if (key === 'ls.logLevel') return 'error';
           return defaultValue;
         }),
@@ -149,7 +149,7 @@ describe('Apex Language Server Extension', () => {
       mockGetConfiguration.mockReturnValue({
         get: jest.fn((key: string, defaultValue: any) => {
           if (key === 'debug') return 'inspect';
-          if (key === 'debugPort') return 0;
+          if (key === 'debugPort') return 6009;
           if (key === 'ls.logLevel') return 'error';
           return defaultValue;
         }),
@@ -171,7 +171,7 @@ describe('Apex Language Server Extension', () => {
       mockGetConfiguration.mockReturnValue({
         get: jest.fn((key: string, defaultValue: any) => {
           if (key === 'debug') return 'inspect-brk';
-          if (key === 'debugPort') return 0;
+          if (key === 'debugPort') return 6009;
           if (key === 'ls.logLevel') return 'error';
           return defaultValue;
         }),
@@ -211,7 +211,7 @@ describe('Apex Language Server Extension', () => {
       });
     });
 
-    it('should use default port when debugPort is set to 0', async () => {
+    it('should use configured port when debugPort is set to 0', async () => {
       mockGetConfiguration.mockReturnValue({
         get: jest.fn((key: string, defaultValue: any) => {
           if (key === 'debug') return 'inspect';
@@ -227,9 +227,9 @@ describe('Apex Language Server Extension', () => {
       // Get the server options from the LanguageClient constructor call
       const serverOptions = MockLanguageClient.mock.calls[0][2];
 
-      // Debug options should be set with default port
+      // Debug options should be set with the configured port (0)
       expect(serverOptions.debug.options).toEqual({
-        execArgv: ['--nolazy', '--inspect=6009'],
+        execArgv: ['--nolazy', '--inspect=0'],
       });
     });
   });

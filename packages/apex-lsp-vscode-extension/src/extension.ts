@@ -22,8 +22,6 @@ import {
   setLogLevel,
 } from '@salesforce/apex-lsp-logging';
 
-import { RequestResponseInspector } from './middleware/requestResponseInspector';
-
 // The client instance
 export let client: LanguageClient | undefined;
 let outputChannel: vscode.OutputChannel;
@@ -32,8 +30,7 @@ const MAX_RETRIES = 3;
 let lastRestartTime = 0;
 const COOLDOWN_PERIOD_MS = 30000; // 30 seconds cooldown between retry cycles
 let isStarting = false; // Flag to prevent multiple start attempts at once
-// Request/response inspector instance
-let inspector: RequestResponseInspector | undefined;
+
 let statusBarItem: vscode.StatusBarItem;
 
 /**
@@ -132,14 +129,12 @@ function getDebugOptions(): string[] | undefined {
   // Use VS Code configuration
   const config = vscode.workspace.getConfiguration('apex');
   const debugMode = config.get<string>('debug', 'off');
-  const debugPort = config.get<number>('debugPort', 0);
-
   if (debugMode === 'off') {
     return undefined;
   }
 
-  // Determine port to use
-  const port = debugPort === 0 ? 6009 : debugPort;
+  // Get the configured debug port (defaults to 6009 from package.json)
+  const port = config.get<number>('debugPort');
 
   // Determine debug flags based on mode
   let debugFlags: string[];
@@ -204,32 +199,6 @@ function createServerOptions(context: vscode.ExtensionContext): ServerOptions {
 }
 
 /**
- * Initializes the request/response inspector middleware
- */
-function initializeInspector(context: vscode.ExtensionContext) {
-  if (!inspector) {
-    // Default to disabled unless specifically enabled in settings
-    const inspectorEnabled = vscode.workspace
-      .getConfiguration('apex')
-      .get('inspector.enabled', false);
-    inspector = new RequestResponseInspector(inspectorEnabled, outputChannel);
-
-    // Register command to toggle inspector
-    context.subscriptions.push(
-      vscode.commands.registerCommand('apex.inspector.toggle', () => {
-        if (inspector) {
-          inspector.setEnabled(!inspector.isEnabled());
-          logToOutputChannel(
-            `Apex LSP Inspector ${inspector.isEnabled() ? 'enabled' : 'disabled'}`,
-            LogMessageType.Info,
-          );
-        }
-      }),
-    );
-  }
-}
-
-/**
  * Creates client options for the language server
  */
 function createClientOptions(): LanguageClientOptions {
@@ -244,7 +213,6 @@ function createClientOptions(): LanguageClientOptions {
       configurationSection: 'apex',
     },
     outputChannel: outputChannel,
-    middleware: inspector || {},
     // Add error handling with proper retry logic
     errorHandler: {
       error: handleClientError,
@@ -559,7 +527,6 @@ async function startLanguageServer(context: vscode.ExtensionContext) {
 
     // Set up server and client components
     const serverOptions = createServerOptions(context);
-    initializeInspector(context);
     const clientOptions = createClientOptions();
 
     createAndStartClient(serverOptions, clientOptions);

@@ -9,7 +9,6 @@ This extension provides Apex language support in Visual Studio Code through the 
 - **Configurable Comment Collection**: Fine-tune how comments are parsed and processed.
 - **Performance Optimization**: Adjust settings to optimize for speed and resource usage.
 - **Document Symbols**: Easily navigate your code's structure.
-- **Inspector Tools**: Debug Language Server Protocol (LSP) communication for development and troubleshooting.
 
 ## Installation
 
@@ -109,19 +108,6 @@ Control logging and debugging:
 - **`enablePerformanceLogging`** (boolean, default: `false`)
   - Enable performance logging for the language server.
 
-### Inspector Settings
-
-Debug LSP communication:
-
-```json
-{
-  "apex.inspector.enabled": false
-}
-```
-
-- **`inspector.enabled`** (boolean, default: `false`)
-  - Enable LSP request/response inspector for debugging.
-
 ### Debug Settings
 
 Configure debugging for the language server:
@@ -164,9 +150,6 @@ The extension provides the following commands, which can be accessed from the Co
 
   - Restarts the language server if it becomes unresponsive.
   - Also available by clicking the status bar item.
-
-- **Toggle Apex LSP Inspector** (`apex.inspector.toggle`)
-  - Toggles the LSP request/response inspector for debugging.
 
 ## Workspace Settings Example
 
@@ -257,11 +240,10 @@ For optimal performance, especially with large codebases:
 
 For extension development and debugging:
 
-1. Enable inspector: `"apex.inspector.enabled": true`
-2. Enable performance logging: `"apex.environment.enablePerformanceLogging": true`
-3. Set the trace level: `"apex.trace.server": "verbose"`
-4. Enable debugging: `"apex.debug": "inspect"` or `"apex.debug": "inspect-brk"`
-5. Monitor the **Output** panel for detailed logs.
+1. Enable performance logging: `"apex.environment.enablePerformanceLogging": true`
+2. Set the trace level: `"apex.trace.server": "verbose"`
+3. Enable debugging: `"apex.debug": "inspect"` or `"apex.debug": "inspect-brk"`
+4. Monitor the **Output** panel for detailed logs.
 
 ### Debugging the Language Server
 
