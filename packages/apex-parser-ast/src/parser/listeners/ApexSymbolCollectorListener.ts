@@ -23,6 +23,7 @@ import {
   EnumConstantsContext,
   TriggerMemberDeclarationContext,
   TriggerUnitContext,
+  PropertyDeclarationContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-logging';
@@ -47,6 +48,7 @@ import {
 import {
   ClassModifierValidator,
   FieldModifierValidator,
+  PropertyModifierValidator,
   InterfaceBodyValidator,
   ErrorReporter,
 } from '../../semantics/modifiers/index';
@@ -757,6 +759,56 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Called when entering a property declaration
+   */
+  enterPropertyDeclaration(ctx: PropertyDeclarationContext): void {
+    try {
+      const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
+      const name = ctx.id?.()?.text ?? 'unknownProperty';
+      this.logger.debug(
+        `Entering property declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
+      );
+
+      // Get current modifiers
+      const modifiers = this.getCurrentModifiers();
+
+      // Validate property declaration in interface
+      if (this.currentTypeSymbol) {
+        InterfaceBodyValidator.validatePropertyInInterface(
+          modifiers,
+          ctx,
+          this.currentTypeSymbol,
+          this,
+        );
+        // Additional field/property modifier validations
+        PropertyModifierValidator.validatePropertyVisibilityModifiers(
+          modifiers,
+          ctx,
+          this.currentTypeSymbol,
+          this,
+        );
+      }
+
+      // Create and add the property symbol
+      const propertySymbol = this.createVariableSymbol(
+        ctx,
+        modifiers,
+        name,
+        SymbolKind.Property,
+        type,
+      );
+      this.symbolTable.addSymbol(propertySymbol);
+
+      // Reset modifiers and annotations for the next symbol
+      this.resetModifiers();
+      this.resetAnnotations();
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in property declaration: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
    * Called when entering a field declaration
    */
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
@@ -795,7 +847,7 @@ export class ApexSymbolCollectorListener
           declarator,
           type,
           modifiers,
-          SymbolKind.Property,
+          SymbolKind.Field,
         );
       }
 
@@ -1011,29 +1063,17 @@ export class ApexSymbolCollectorListener
     ctx: VariableDeclaratorContext,
     type: TypeInfo,
     modifiers: SymbolModifiers,
-    kind: SymbolKind.Property | SymbolKind.Variable | SymbolKind.EnumValue,
+    kind: SymbolKind.Field | SymbolKind.Variable | SymbolKind.EnumValue,
   ): void {
     try {
       const name = ctx.id()?.text ?? 'unknownVariable';
-      const location = this.getLocation(ctx);
-      const parent = this.currentTypeSymbol || this.currentMethodSymbol;
-      const parentKey = parent ? parent.key : null;
-      const key = {
-        prefix: kind,
-        name,
-        path: this.getCurrentPath(),
-      };
-
-      const variableSymbol: VariableSymbol = {
+      const variableSymbol = this.createVariableSymbol(
+        ctx,
+        modifiers,
         name,
         kind,
-        location,
-        modifiers,
         type,
-        parent,
-        key,
-        parentKey,
-      };
+      );
 
       this.symbolTable.addSymbol(variableSymbol);
     } catch (e) {
@@ -1334,10 +1374,15 @@ export class ApexSymbolCollectorListener
     return methodSymbol;
   }
 
-  private createPropertySymbol(
+  private createVariableSymbol(
     ctx: ParserRuleContext,
+    modifiers: SymbolModifiers,
     name: string,
-    kind: SymbolKind.Property | SymbolKind.Variable | SymbolKind.EnumValue,
+    kind:
+      | SymbolKind.Property
+      | SymbolKind.Field
+      | SymbolKind.Variable
+      | SymbolKind.EnumValue,
     type: TypeInfo,
   ): VariableSymbol {
     const location = this.getLocation(ctx);
@@ -1349,18 +1394,18 @@ export class ApexSymbolCollectorListener
       path: this.getCurrentPath(),
     };
 
-    const propertySymbol: VariableSymbol = {
+    const variableSymbol: VariableSymbol = {
       name,
       kind,
       location,
-      modifiers: this.getCurrentModifiers(),
+      modifiers,
       type,
       parent,
       key,
       parentKey,
     };
 
-    return propertySymbol;
+    return variableSymbol;
   }
 
   private getCurrentPath(): string[] {

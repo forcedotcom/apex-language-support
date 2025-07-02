@@ -13,13 +13,13 @@ import { ErrorReporter } from '../../utils/ErrorReporter';
 import { BaseModifierValidator } from './BaseModifierValidator';
 
 /**
- * Static class providing validation logic for Apex field modifiers
+ * Static class providing validation logic for Apex property modifiers
  */
-export class FieldModifierValidator {
+export class PropertyModifierValidator {
   /**
-   * Validate field visibility modifiers for semantic errors
+   * Validate property visibility modifiers for semantic errors
    */
-  public static validateFieldVisibilityModifiers(
+  public static validatePropertyVisibilityModifiers(
     modifiers: SymbolModifiers,
     ctx: ParserRuleContext,
     currentTypeSymbol: TypeSymbol,
@@ -27,13 +27,13 @@ export class FieldModifierValidator {
   ): void {
     const typeKind = currentTypeSymbol.kind;
 
-    // Check if field is in interface
+    // Check if property is in interface
     if (
       !BaseModifierValidator.validateNotInInterface(
         typeKind,
         ctx,
         errorReporter,
-        'Fields',
+        'Properties',
       )
     ) {
       return;
@@ -45,34 +45,40 @@ export class FieldModifierValidator {
       modifiers,
       ctx,
       errorReporter,
-      'Field',
+      'Property',
     );
     BaseModifierValidator.validateVisibilityNotWiderThanClass(
       modifiers,
       currentTypeSymbol,
       ctx,
       errorReporter,
-      'Field',
+      'Property',
     );
     BaseModifierValidator.validateWebServiceModifier(
       modifiers,
       currentTypeSymbol,
       ctx,
       errorReporter,
-      'Field',
+      'Property',
     );
     BaseModifierValidator.validateNotOverride(
       modifiers,
       ctx,
       errorReporter,
-      'Field',
+      'Property',
     );
 
-    // Field-specific validations
-    // Virtual fields are not allowed
-    if (modifiers.isVirtual) {
-      errorReporter.addError("Field cannot be declared as 'virtual'", ctx);
-      modifiers.isVirtual = false;
+    // Property-specific validations
+    // TestMethod properties are not allowed
+    if (modifiers.isTestMethod) {
+      errorReporter.addError(
+        "Property cannot be declared as 'testMethod'",
+        ctx,
+      );
+      modifiers.isTestMethod = false;
     }
+
+    // Virtual properties are allowed (for inheritance)
+    // No validation needed for virtual properties
   }
 }
