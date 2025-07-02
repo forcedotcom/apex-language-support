@@ -7,7 +7,8 @@
  */
 import * as vscode from 'vscode';
 
-import { activate, deactivate, client } from '../src/extension';
+import { activate, deactivate } from '../src/extension';
+import { getLanguageClient } from '../src/language-server';
 
 jest.mock('vscode-languageclient/node', () => {
   // Return a new mock object each time the constructor is called
@@ -95,6 +96,11 @@ describe('Apex Language Server Extension', () => {
     // Activate the extension to create the client
     activate(mockContext);
     await jest.runAllTimersAsync(); // Ensure client is created
+
+    // Get the client instance
+    const client = getLanguageClient();
+    expect(client).toBeDefined();
+
     await deactivate();
     // The client instance's stop method should have been called
     expect(client!.stop).toHaveBeenCalled();
