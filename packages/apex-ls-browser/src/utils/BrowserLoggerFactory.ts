@@ -102,9 +102,7 @@ export class BrowserLoggerFactory implements LoggerFactory {
    * @returns A Logger instance.
    */
   public getLogger(): LoggerInterface {
-    if (!BrowserLoggerFactory.loggerInstance) {
-      BrowserLoggerFactory.loggerInstance = new BrowserLogger();
-    }
+    BrowserLoggerFactory.loggerInstance ??= new BrowserLogger()
     return BrowserLoggerFactory.loggerInstance;
   }
 }
