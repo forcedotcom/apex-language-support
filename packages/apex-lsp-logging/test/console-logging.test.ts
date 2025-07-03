@@ -10,7 +10,6 @@ import {
   enableConsoleLogging,
   disableLogging,
   getLogger,
-  LogMessageType,
   setLogLevel,
 } from '../src/index';
 
@@ -86,42 +85,42 @@ describe('Console Logging', () => {
       );
     });
 
-    it('should handle LogMessageType enum values correctly', () => {
+    it('should handle LogMessageType string values correctly', () => {
       enableConsoleLogging();
       const logger = getLogger();
 
-      logger.log(LogMessageType.Error, 'Error via enum');
+      logger.log('error', 'Error via string');
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[ERROR\] Error via enum/,
+          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[ERROR\] Error via string/,
         ),
       );
 
-      logger.log(LogMessageType.Warning, 'Warning via enum');
+      logger.log('warning', 'Warning via string');
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[WARN\] Warning via enum/,
+          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[WARN\] Warning via string/,
         ),
       );
 
-      logger.log(LogMessageType.Info, 'Info via enum');
+      logger.log('info', 'Info via string');
       expect(infoSpy).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[INFO\] Info via enum/,
+          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[INFO\] Info via string/,
         ),
       );
 
-      logger.log(LogMessageType.Log, 'Log via enum');
+      logger.log('log', 'Log via string');
       expect(logSpy).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[LOG\] Log via enum/,
+          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[LOG\] Log via string/,
         ),
       );
 
-      logger.log(LogMessageType.Debug, 'Debug via enum');
+      logger.log('debug', 'Debug via string');
       expect(debugSpy).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[DEBUG\] Debug via enum/,
+          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[DEBUG\] Debug via string/,
         ),
       );
     });

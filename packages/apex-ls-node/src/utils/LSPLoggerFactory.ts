@@ -9,7 +9,7 @@
 import {
   LoggerInterface,
   LoggerFactory,
-  LogMessageType,
+  type LogMessageType,
   getLogNotificationHandler,
   shouldLog,
 } from '@salesforce/apex-lsp-logging';
@@ -41,13 +41,12 @@ class LSPLogger implements LoggerInterface {
 
     // Add ISO timestamp and log level to every message
     const timestamp = new Date().toISOString();
-    const logLevel = LogMessageType[messageType] || 'LOG';
+    const logLevel = messageType.toUpperCase();
     const messageWithTimestamp = `[${timestamp}] [${logLevel}] ${message}`;
 
     if (handler && typeof handler.sendLogMessage === 'function') {
-      // For backward compatibility, map Debug to Log for older LSP clients
-      const mappedType =
-        messageType === LogMessageType.Debug ? LogMessageType.Log : messageType;
+      // For backward compatibility, map debug to log for older LSP clients
+      const mappedType = messageType === 'debug' ? 'log' : messageType;
       handler.sendLogMessage({
         type: mappedType,
         message: messageWithTimestamp,
@@ -66,7 +65,7 @@ class LSPLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public debug(message: string | (() => string)): void {
-    this.log(LogMessageType.Debug, message);
+    this.log('debug', message);
   }
 
   /**
@@ -74,7 +73,7 @@ class LSPLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public info(message: string | (() => string)): void {
-    this.log(LogMessageType.Info, message);
+    this.log('info', message);
   }
 
   /**
@@ -82,7 +81,7 @@ class LSPLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public warn(message: string | (() => string)): void {
-    this.log(LogMessageType.Warning, message);
+    this.log('warning', message);
   }
 
   /**
@@ -90,7 +89,7 @@ class LSPLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public error(message: string | (() => string)): void {
-    this.log(LogMessageType.Error, message);
+    this.log('error', message);
   }
 }
 

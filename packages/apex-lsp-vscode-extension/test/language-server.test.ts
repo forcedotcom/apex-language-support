@@ -180,7 +180,7 @@ describe('Language Server Module', () => {
       expect(updateStatusBarError).toHaveBeenCalled();
       expect(logToOutputChannel).toHaveBeenCalledWith(
         'Failed to start client: Error: Start failed',
-        expect.any(Number),
+        'error',
       );
     });
   });
@@ -196,7 +196,7 @@ describe('Language Server Module', () => {
       expect(setStartingFlag).toHaveBeenCalledWith(true);
       expect(logToOutputChannel).toHaveBeenCalledWith(
         'Starting language server...',
-        expect.any(Number),
+        'info',
       );
       expect(MockLanguageClient).toHaveBeenCalled();
       expect(mockClient.start).toHaveBeenCalled();
@@ -216,7 +216,7 @@ describe('Language Server Module', () => {
       expect(setStartingFlag).toHaveBeenCalledWith(false);
       expect(logToOutputChannel).toHaveBeenCalledWith(
         'Error creating client: Error: Start failed',
-        expect.any(Number),
+        'error',
       );
     });
   });
@@ -234,7 +234,7 @@ describe('Language Server Module', () => {
 
       expect(logToOutputChannel).toHaveBeenCalledWith(
         expect.stringContaining('Restarting Apex Language Server at'),
-        expect.any(Number),
+        'info',
       );
       expect(mockClient.stop).toHaveBeenCalled();
     });

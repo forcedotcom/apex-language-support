@@ -9,15 +9,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
-
 import { compileStubs } from '../../src/generator/compileStubs';
 import { TestLogger } from '../utils/testLogger';
 
 describe.skip('Standard Apex Library Generation', () => {
   // Set up debug logging for all tests in this suite
   const logger = TestLogger.getInstance();
-  logger.setLogLevel(LogMessageType.Debug);
+  logger.setLogLevel('debug');
 
   it('should generate the Standard Apex Library', async () => {
     const sourceDir = path.join(

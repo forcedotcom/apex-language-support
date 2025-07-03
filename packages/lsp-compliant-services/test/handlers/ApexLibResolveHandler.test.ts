@@ -142,7 +142,7 @@ describe('ApexLibResolveHandler', () => {
 
       expect(mockDispatch).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(
-        processOnResolve(params),
+        expect.any(Promise),
         'Error processing resolve request',
       );
     });
@@ -158,7 +158,7 @@ describe('ApexLibResolveHandler', () => {
       await expect(dispatchProcessOnResolve(params)).rejects.toThrow(error);
       expect(mockDispatch).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(
-        processOnResolve(params),
+        expect.any(Promise),
         'Error processing resolve request',
       );
     });

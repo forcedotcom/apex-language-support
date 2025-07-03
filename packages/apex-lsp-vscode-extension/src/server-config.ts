@@ -20,7 +20,6 @@ import {
   getWorkspaceSettings,
 } from './configuration';
 import { logToOutputChannel, getOutputChannel } from './logging';
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
 import { DEBUG_CONFIG } from './constants';
 
 /**
@@ -39,7 +38,7 @@ export const getDebugOptions = (): string[] | undefined => {
   if (debugConfig.mode === DEBUG_CONFIG.INSPECT_BRK_MODE) {
     logToOutputChannel(
       `Enabling debug mode with break on port ${debugConfig.port}`,
-      LogMessageType.Info,
+      'info',
     );
     debugFlags = [
       DEBUG_CONFIG.NOLAZY_FLAG,
@@ -49,7 +48,7 @@ export const getDebugOptions = (): string[] | undefined => {
     // Default to 'inspect' mode
     logToOutputChannel(
       `Enabling debug mode on port ${debugConfig.port}`,
-      LogMessageType.Info,
+      'info',
     );
     debugFlags = [DEBUG_CONFIG.NOLAZY_FLAG, `--inspect=${debugConfig.port}`];
   }
@@ -76,13 +75,10 @@ export const createServerOptions = (
     ? context.asAbsolutePath('out/server.js')
     : context.asAbsolutePath('server.js');
 
-  logToOutputChannel(
-    `Server module path: ${serverModule}`,
-    LogMessageType.Debug,
-  );
+  logToOutputChannel(`Server module path: ${serverModule}`, 'debug');
   logToOutputChannel(
     `Running in ${isDevelopment ? 'development' : 'production'} mode`,
-    LogMessageType.Debug,
+    'debug',
   );
 
   // Get debug options based on environment variable
@@ -148,10 +144,10 @@ const handleClientError = (
 ): { action: ErrorAction } => {
   logToOutputChannel(
     `LSP Error: ${message?.toString() || 'Unknown error'}`,
-    LogMessageType.Error,
+    'error',
   );
   if (error) {
-    logToOutputChannel(`Error details: ${error}`, LogMessageType.Debug);
+    logToOutputChannel(`Error details: ${error}`, 'debug');
   }
   // Always continue on errors, we handle retries separately
   return { action: ErrorAction.Continue };
@@ -164,7 +160,7 @@ const handleClientError = (
 const handleClientClosed = (): { action: CloseAction } => {
   logToOutputChannel(
     `Connection to server closed - ${new Date().toISOString()}`,
-    LogMessageType.Info,
+    'info',
   );
 
   // Always return DoNotRestart since we handle restart logic separately

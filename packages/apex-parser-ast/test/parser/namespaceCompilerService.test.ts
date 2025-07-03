@@ -6,8 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
-
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolTable, SymbolKind, MethodSymbol } from '../../src/types/symbol';
@@ -16,7 +14,7 @@ import { TestLogger } from '../utils/testLogger';
 describe('CompilerService Namespace Integration', () => {
   // Set up debug logging for all tests in this suite
   const logger = TestLogger.getInstance();
-  logger.setLogLevel(LogMessageType.Debug);
+  logger.setLogLevel('debug');
 
   describe('Namespace Handling', () => {
     it('should process code without namespace', () => {

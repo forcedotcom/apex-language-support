@@ -10,18 +10,6 @@ import * as vscode from 'vscode';
 
 // Mock the logging module before importing the module under test
 jest.mock('@salesforce/apex-lsp-logging', () => ({
-  LogMessageType: {
-    Error: 1,
-    Warning: 2,
-    Info: 3,
-    Log: 4,
-    Debug: 5,
-    1: 'Error',
-    2: 'Warning',
-    3: 'Info',
-    4: 'Log',
-    5: 'Debug',
-  },
   shouldLog: jest.fn().mockReturnValue(true),
   setLogLevel: jest.fn(),
 }));
@@ -45,12 +33,12 @@ describe('Logging Module', () => {
     // Create mock output channel
     mockOutputChannel = {
       appendLine: jest.fn(),
-    } as unknown as vscode.OutputChannel;
+    } as unknown as vscode.LogOutputChannel;
 
     // Mock vscode.window.createOutputChannel
     jest
       .spyOn(vscode.window, 'createOutputChannel')
-      .mockReturnValue(mockOutputChannel);
+      .mockReturnValue(mockOutputChannel as any);
 
     // Create mock context
     mockContext = {
@@ -99,14 +87,13 @@ describe('Logging Module', () => {
 
     it('should log message with timestamp and type', () => {
       const message = 'Test message';
-      const { LogMessageType } = require('@salesforce/apex-lsp-logging');
-      const messageType = LogMessageType.Info;
+      const messageType = 'info';
 
-      logToOutputChannel(message, messageType);
+      logToOutputChannel(message, messageType as any);
 
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[Info\] Test message/,
+          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[INFO\] Test message/,
         ),
       );
     });
@@ -117,27 +104,26 @@ describe('Logging Module', () => {
       logToOutputChannel(message);
 
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
-        expect.stringMatching(/\[Info\] Test message/),
+        expect.stringMatching(/\[INFO\] Test message/),
       );
     });
 
     it('should handle different message types', () => {
       const message = 'Test message';
-      const { LogMessageType } = require('@salesforce/apex-lsp-logging');
 
-      logToOutputChannel(message, LogMessageType.Error);
+      logToOutputChannel(message, 'error' as any);
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
-        expect.stringMatching(/\[Error\] Test message/),
+        expect.stringMatching(/\[ERROR\] Test message/),
       );
 
-      logToOutputChannel(message, LogMessageType.Warning);
+      logToOutputChannel(message, 'warning' as any);
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
-        expect.stringMatching(/\[Warning\] Test message/),
+        expect.stringMatching(/\[WARNING\] Test message/),
       );
 
-      logToOutputChannel(message, LogMessageType.Debug);
+      logToOutputChannel(message, 'debug' as any);
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
-        expect.stringMatching(/\[Debug\] Test message/),
+        expect.stringMatching(/\[DEBUG\] Test message/),
       );
     });
   });

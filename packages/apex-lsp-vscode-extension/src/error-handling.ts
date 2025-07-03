@@ -9,7 +9,6 @@
 import * as vscode from 'vscode';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel } from './logging';
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
 import { updateStatusBarStopped, updateStatusBarError } from './status-bar';
 import {
   getServerStartRetries,
@@ -47,7 +46,7 @@ export const handleAutoRestart = async (
     logToOutputChannel(
       // eslint-disable-next-line max-len
       `Will retry server start (${getServerStartRetries()}/${EXTENSION_CONSTANTS.MAX_RETRIES}) after ${delay}ms delay...`,
-      LogMessageType.Info,
+      'info',
     );
 
     setTimeout(() => {
@@ -73,7 +72,7 @@ export const handleMaxRetriesExceeded = (
 ): void => {
   logToOutputChannel(
     `Max retries (${EXTENSION_CONSTANTS.MAX_RETRIES}) exceeded. Auto-restart disabled.`,
-    LogMessageType.Info,
+    'info',
   );
 
   updateStatusBarError();
@@ -102,7 +101,7 @@ export const handleClientClosed = async (
 ): Promise<void> => {
   logToOutputChannel(
     `Connection to server closed - ${new Date().toISOString()}`,
-    LogMessageType.Info,
+    'info',
   );
 
   setStartingFlag(false);
@@ -120,9 +119,9 @@ export const handleClientClosed = async (
 export const handleClientError = (error: Error, message: any): void => {
   logToOutputChannel(
     `LSP Error: ${message?.toString() || 'Unknown error'}`,
-    LogMessageType.Error,
+    'error',
   );
   if (error) {
-    logToOutputChannel(`Error details: ${error}`, LogMessageType.Debug);
+    logToOutputChannel(`Error details: ${error}`, 'debug');
   }
 };

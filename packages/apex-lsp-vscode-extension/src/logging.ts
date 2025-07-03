@@ -7,12 +7,8 @@
  */
 
 import * as vscode from 'vscode';
-import {
-  LogMessageType,
-  shouldLog,
-  setLogLevel,
-} from '@salesforce/apex-lsp-logging';
-
+import { shouldLog, setLogLevel } from '@salesforce/apex-lsp-logging';
+import type { LogMessageType } from '@salesforce/apex-lsp-logging';
 /**
  * Global output channel for logging
  */
@@ -41,12 +37,12 @@ export const initializeLogging = (context: vscode.ExtensionContext): void => {
  */
 export const logToOutputChannel = (
   message: string,
-  messageType: LogMessageType = LogMessageType.Info,
+  messageType: LogMessageType = 'info',
 ): void => {
   if (!shouldLog(messageType)) return;
 
   const timestamp = new Date().toISOString();
-  const typeString = LogMessageType[messageType] || 'LOG';
+  const typeString = messageType.toUpperCase();
   outputChannel.appendLine(`[${timestamp}] [${typeString}] ${message}`);
 };
 

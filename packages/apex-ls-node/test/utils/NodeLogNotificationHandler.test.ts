@@ -9,7 +9,7 @@
 import { Connection, MessageType } from 'vscode-languageserver/node';
 import {
   LogMessageParams,
-  LogMessageType,
+  type LogMessageType,
   setLogLevel,
 } from '@salesforce/apex-lsp-logging';
 
@@ -21,7 +21,7 @@ describe('NodeLogNotificationHandler', () => {
 
   beforeEach(() => {
     // Set log level to debug to allow all messages during testing
-    setLogLevel(LogMessageType.Debug);
+    setLogLevel('debug');
 
     mockConnection = {
       sendNotification: jest.fn(),
@@ -45,7 +45,7 @@ describe('NodeLogNotificationHandler', () => {
   describe('sendLogMessage', () => {
     it('should send error message to connection only', () => {
       const params: LogMessageParams = {
-        type: LogMessageType.Error,
+        type: 'error',
         message: 'Test error message',
       };
 
@@ -62,7 +62,7 @@ describe('NodeLogNotificationHandler', () => {
 
     it('should send warning message to connection only', () => {
       const params: LogMessageParams = {
-        type: LogMessageType.Warning,
+        type: 'warning',
         message: 'Test warning message',
       };
 
@@ -79,7 +79,7 @@ describe('NodeLogNotificationHandler', () => {
 
     it('should send info message to connection only', () => {
       const params: LogMessageParams = {
-        type: LogMessageType.Info,
+        type: 'info',
         message: 'Test info message',
       };
 
@@ -96,7 +96,7 @@ describe('NodeLogNotificationHandler', () => {
 
     it('should send debug message to connection only', () => {
       const params: LogMessageParams = {
-        type: LogMessageType.Debug,
+        type: 'debug',
         message: 'Test debug message',
       };
 
@@ -113,7 +113,7 @@ describe('NodeLogNotificationHandler', () => {
 
     it('should handle unknown message type', () => {
       const params: LogMessageParams = {
-        type: 999 as LogMessageType, // Unknown type
+        type: 'unknown' as LogMessageType, // Unknown type
         message: 'Test unknown message',
       };
 

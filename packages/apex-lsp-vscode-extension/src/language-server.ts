@@ -10,7 +10,6 @@ import * as vscode from 'vscode';
 import { LanguageClient, State } from 'vscode-languageclient/node';
 import { createServerOptions, createClientOptions } from './server-config';
 import { logToOutputChannel } from './logging';
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
 import {
   updateStatusBarStarting,
   updateStatusBarReady,
@@ -57,7 +56,7 @@ export const createAndStartClient = (
     client.onDidChangeState((event) => {
       logToOutputChannel(
         `Client state changed: ${State[event.oldState]} -> ${State[event.newState]}`,
-        LogMessageType.Debug,
+        'debug',
       );
 
       if (event.newState === State.Running) {
@@ -77,20 +76,14 @@ export const createAndStartClient = (
     });
 
     // Start the client
-    logToOutputChannel(
-      'Starting Apex Language Server client...',
-      LogMessageType.Info,
-    );
+    logToOutputChannel('Starting Apex Language Server client...', 'info');
     client.start().catch((error) => {
-      logToOutputChannel(
-        `Failed to start client: ${error}`,
-        LogMessageType.Error,
-      );
+      logToOutputChannel(`Failed to start client: ${error}`, 'error');
       setStartingFlag(false);
       updateStatusBarError();
     });
   } catch (e) {
-    logToOutputChannel(`Error creating client: ${e}`, LogMessageType.Error);
+    logToOutputChannel(`Error creating client: ${e}`, 'error');
     setStartingFlag(false);
   }
 };
@@ -106,13 +99,13 @@ export const startLanguageServer = async (
 ): Promise<void> => {
   // Guard against multiple simultaneous start attempts
   if (getStartingFlag()) {
-    logToOutputChannel('Blocked duplicate start attempt', LogMessageType.Info);
+    logToOutputChannel('Blocked duplicate start attempt', 'info');
     return;
   }
 
   try {
     setStartingFlag(true);
-    logToOutputChannel('Starting language server...', LogMessageType.Info);
+    logToOutputChannel('Starting language server...', 'info');
 
     // Clean up previous client if it exists
     if (client) {
@@ -126,10 +119,7 @@ export const startLanguageServer = async (
 
     createAndStartClient(serverOptions, clientOptions, context, restartHandler);
   } catch (error) {
-    logToOutputChannel(
-      `Error in startLanguageServer: ${error}`,
-      LogMessageType.Error,
-    );
+    logToOutputChannel(`Error in startLanguageServer: ${error}`, 'error');
     vscode.window.showErrorMessage(
       `Failed to start Apex Language Server: ${error}`,
     );
@@ -149,7 +139,7 @@ export const restartLanguageServer = async (
 ): Promise<void> => {
   logToOutputChannel(
     `Restarting Apex Language Server at ${new Date().toISOString()}...`,
-    LogMessageType.Info,
+    'info',
   );
   await startLanguageServer(context, restartHandler);
 };

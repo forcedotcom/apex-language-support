@@ -99,7 +99,7 @@ describe('Error Handling Module', () => {
         expect.stringMatching(
           /Will retry server start \(1\/3\) after \d+ms delay\.\.\./,
         ),
-        expect.any(Number),
+        'info',
       );
     });
 
@@ -145,7 +145,7 @@ describe('Error Handling Module', () => {
         expect.stringMatching(
           /Max retries \(3\) exceeded\. Auto-restart disabled\./,
         ),
-        expect.any(Number),
+        'info',
       );
     });
   });
@@ -170,7 +170,7 @@ describe('Error Handling Module', () => {
         expect.stringMatching(
           /Max retries \(3\) exceeded\. Auto-restart disabled\./,
         ),
-        expect.any(Number),
+        'info',
       );
       expect(mockShowErrorMessage).toHaveBeenCalledWith(
         'The Apex Language Server failed to start after multiple attempts. Click the status bar icon to try again.',
@@ -213,7 +213,7 @@ describe('Error Handling Module', () => {
         expect.stringMatching(
           /Connection to server closed - \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/,
         ),
-        expect.any(Number),
+        'info',
       );
     });
 
@@ -246,11 +246,11 @@ describe('Error Handling Module', () => {
 
       expect(logToOutputChannel).toHaveBeenCalledWith(
         'LSP Error: Test message',
-        expect.any(Number),
+        'error',
       );
       expect(logToOutputChannel).toHaveBeenCalledWith(
         'Error details: Error: Test error',
-        expect.any(Number),
+        'debug',
       );
     });
 
@@ -262,7 +262,7 @@ describe('Error Handling Module', () => {
 
       expect(logToOutputChannel).toHaveBeenCalledWith(
         'LSP Error: Unknown error',
-        expect.any(Number),
+        'error',
       );
     });
 
@@ -274,11 +274,11 @@ describe('Error Handling Module', () => {
 
       expect(logToOutputChannel).toHaveBeenCalledWith(
         'LSP Error: Test message',
-        expect.any(Number),
+        'error',
       );
       expect(logToOutputChannel).not.toHaveBeenCalledWith(
         expect.stringMatching(/Error details:/),
-        expect.any(Number),
+        'debug',
       );
     });
   });

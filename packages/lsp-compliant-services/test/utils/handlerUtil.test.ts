@@ -47,7 +47,7 @@ describe('handlerUtil', () => {
 
       await expect(dispatch(operation, errorMessage)).rejects.toThrow(error);
       expect(mockLogger.log).toHaveBeenCalledWith(
-        expect.any(Number),
+        'error',
         expect.stringContaining('Error in dispatch'),
       );
     });
@@ -59,7 +59,7 @@ describe('handlerUtil', () => {
 
       await expect(dispatch(operation, errorMessage)).rejects.toBe(error);
       expect(mockLogger.log).toHaveBeenCalledWith(
-        expect.any(Number),
+        'error',
         expect.stringContaining('Error in dispatch'),
       );
     });

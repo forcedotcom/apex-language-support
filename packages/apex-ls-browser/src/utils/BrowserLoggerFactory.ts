@@ -9,10 +9,10 @@
 import {
   LoggerInterface,
   LoggerFactory,
-  LogMessageType,
   getLogNotificationHandler,
   shouldLog,
 } from '@salesforce/apex-lsp-logging';
+import type { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 /**
  * A browser logger implementation that sends log messages through the
@@ -41,8 +41,7 @@ class BrowserLogger implements LoggerInterface {
 
     if (handler && typeof handler.sendLogMessage === 'function') {
       // For backward compatibility, map Debug to Log for older LSP clients
-      const mappedType =
-        messageType === LogMessageType.Debug ? LogMessageType.Log : messageType;
+      const mappedType = messageType === 'debug' ? 'log' : messageType;
       handler.sendLogMessage({
         type: mappedType,
         message,
@@ -61,7 +60,7 @@ class BrowserLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public debug(message: string | (() => string)): void {
-    this.log(LogMessageType.Debug, message);
+    this.log('debug', message);
   }
 
   /**
@@ -69,7 +68,7 @@ class BrowserLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public info(message: string | (() => string)): void {
-    this.log(LogMessageType.Info, message);
+    this.log('info', message);
   }
 
   /**
@@ -77,7 +76,7 @@ class BrowserLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public warn(message: string | (() => string)): void {
-    this.log(LogMessageType.Warning, message);
+    this.log('warning', message);
   }
 
   /**
@@ -85,7 +84,7 @@ class BrowserLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public error(message: string | (() => string)): void {
-    this.log(LogMessageType.Error, message);
+    this.log('error', message);
   }
 }
 

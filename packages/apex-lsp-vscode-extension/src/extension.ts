@@ -7,7 +7,6 @@
  */
 
 import * as vscode from 'vscode';
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
 import { initializeLogging, logToOutputChannel } from './logging';
 import { createStatusBarItem } from './status-bar';
 import {
@@ -60,10 +59,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerRestartCommand(context);
 
   // Log activation
-  logToOutputChannel(
-    'Apex Language Server extension is now active!',
-    LogMessageType.Info,
-  );
+  logToOutputChannel('Apex Language Server extension is now active!', 'info');
 
   // Start the language server
   handleStart(context);
@@ -73,10 +69,7 @@ export function activate(context: vscode.ExtensionContext): void {
  * Main extension deactivation function
  */
 export async function deactivate(): Promise<void> {
-  logToOutputChannel(
-    'Deactivating Apex Language Server extension',
-    LogMessageType.Info,
-  );
+  logToOutputChannel('Deactivating Apex Language Server extension', 'info');
 
   await stopLanguageServer();
 }

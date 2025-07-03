@@ -9,7 +9,7 @@
 import { Connection, MessageType } from 'vscode-languageserver/node';
 import {
   LogMessageParams,
-  LogMessageType,
+  type LogMessageType,
   LogNotificationHandler,
   shouldLog,
 } from '@salesforce/apex-lsp-logging';
@@ -66,16 +66,16 @@ export class NodeLogNotificationHandler implements LogNotificationHandler {
    */
   private getLogMessageType(type: LogMessageType): MessageType {
     switch (type) {
-      case LogMessageType.Error:
+      case 'error':
         return MessageType.Error;
-      case LogMessageType.Warning:
+      case 'warning':
         return MessageType.Warning;
-      case LogMessageType.Info:
+      case 'info':
         return MessageType.Info;
-      case LogMessageType.Log:
+      case 'log':
         return MessageType.Log;
-      case LogMessageType.Debug:
-        // Map Debug to Log for backward compatibility with older LSP clients
+      case 'debug':
+        // Map debug to log for backward compatibility with older LSP clients
         return MessageType.Log;
       default:
         return MessageType.Log;

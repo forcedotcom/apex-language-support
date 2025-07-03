@@ -9,7 +9,6 @@
 import * as vscode from 'vscode';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel } from './logging';
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 /**
  * Global state for restart management
@@ -67,12 +66,12 @@ export const registerRestartCommand = (
         if (restartHandler) {
           await restartHandler(context);
         } else {
-          logToOutputChannel('Restart handler not set', LogMessageType.Error);
+          logToOutputChannel('Restart handler not set', 'error');
         }
       } else {
         logToOutputChannel(
           'Restart blocked: Server is already starting or in cooldown period',
-          LogMessageType.Info,
+          'info',
         );
         vscode.window.showInformationMessage(
           'Server restart was requested too soon after previous attempt. Please wait a moment before trying again.',

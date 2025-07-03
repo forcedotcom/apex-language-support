@@ -7,7 +7,7 @@
  */
 import {
   getLogger,
-  LogMessageType,
+  type LogMessageType,
   LoggerInterface,
 } from '@salesforce/apex-lsp-logging';
 
@@ -19,7 +19,7 @@ import {
 export class TestLogger implements LoggerInterface {
   private static instance: TestLogger;
   private logger: LoggerInterface;
-  private logLevel: LogMessageType = LogMessageType.Info;
+  private logLevel: LogMessageType = 'info';
 
   private constructor() {
     this.logger = getLogger();
@@ -71,11 +71,11 @@ export class TestLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public debug(message: string | (() => string)): void {
-    if (this.shouldLog(LogMessageType.Debug)) {
+    if (this.shouldLog('debug')) {
       if (typeof message === 'function') {
-        this.logger.log(LogMessageType.Debug, message);
+        this.logger.log('debug', message);
       } else {
-        this.logger.log(LogMessageType.Debug, message);
+        this.logger.log('debug', message);
       }
     }
   }
@@ -85,11 +85,11 @@ export class TestLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public info(message: string | (() => string)): void {
-    if (this.shouldLog(LogMessageType.Info)) {
+    if (this.shouldLog('info')) {
       if (typeof message === 'function') {
-        this.logger.log(LogMessageType.Info, message);
+        this.logger.log('info', message);
       } else {
-        this.logger.log(LogMessageType.Info, message);
+        this.logger.log('info', message);
       }
     }
   }
@@ -99,11 +99,11 @@ export class TestLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public warn(message: string | (() => string)): void {
-    if (this.shouldLog(LogMessageType.Warning)) {
+    if (this.shouldLog('warning')) {
       if (typeof message === 'function') {
-        this.logger.log(LogMessageType.Warning, message);
+        this.logger.log('warning', message);
       } else {
-        this.logger.log(LogMessageType.Warning, message);
+        this.logger.log('warning', message);
       }
     }
   }
@@ -113,11 +113,11 @@ export class TestLogger implements LoggerInterface {
    * @param message - The message to log or function that returns the message
    */
   public error(message: string | (() => string)): void {
-    if (this.shouldLog(LogMessageType.Error)) {
+    if (this.shouldLog('error')) {
       if (typeof message === 'function') {
-        this.logger.log(LogMessageType.Error, message);
+        this.logger.log('error', message);
       } else {
-        this.logger.log(LogMessageType.Error, message);
+        this.logger.log('error', message);
       }
     }
   }
@@ -126,12 +126,12 @@ export class TestLogger implements LoggerInterface {
    * Check if a message at the given level should be logged
    */
   private shouldLog(level: LogMessageType): boolean {
-    const levels = [
-      LogMessageType.Error,
-      LogMessageType.Warning,
-      LogMessageType.Info,
-      LogMessageType.Log,
-      LogMessageType.Debug,
+    const levels: LogMessageType[] = [
+      'error',
+      'warning',
+      'info',
+      'log',
+      'debug',
     ];
     return levels.indexOf(level) <= levels.indexOf(this.logLevel);
   }

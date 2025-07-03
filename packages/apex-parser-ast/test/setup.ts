@@ -5,7 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { LogMessageType } from '@salesforce/apex-lsp-logging';
+import type { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 import { TestLogger } from './utils/testLogger';
 
@@ -14,18 +14,19 @@ const logger = TestLogger.getInstance();
 
 // Set default log level based on environment
 if (process.env.TEST_LOG_LEVEL) {
-  // Convert string env to number, fallback to Info if invalid
-  const logLevel = parseInt(process.env.TEST_LOG_LEVEL, 10);
-  logger.setLogLevel(
-    logLevel in LogMessageType
-      ? (logLevel as LogMessageType)
-      : LogMessageType.Info,
-  );
+  // Convert string env to log level, fallback to info if invalid
+  const logLevel = process.env.TEST_LOG_LEVEL as LogMessageType;
+  const validLevels: LogMessageType[] = [
+    'error',
+    'warning',
+    'info',
+    'log',
+    'debug',
+  ];
+  logger.setLogLevel(validLevels.includes(logLevel) ? logLevel : 'info');
 } else {
-  // Default to Info level in CI, Debug in local development
-  logger.setLogLevel(
-    process.env.CI ? LogMessageType.Info : LogMessageType.Debug,
-  );
+  // Default to info level in CI, debug in local development
+  logger.setLogLevel(process.env.CI ? 'info' : 'debug');
 }
 
 // Log test environment setup

@@ -9,7 +9,7 @@
 import { Connection, MessageType } from 'vscode-languageserver/browser';
 import {
   LogMessageParams,
-  LogMessageType,
+  type LogMessageType,
   setLogLevel,
 } from '@salesforce/apex-lsp-logging';
 
@@ -20,7 +20,7 @@ describe('BrowserLogNotificationHandler', () => {
   let handler: BrowserLogNotificationHandler;
 
   beforeEach(() => {
-    setLogLevel(LogMessageType.Debug);
+    setLogLevel('debug');
 
     mockConnection = {
       sendNotification: jest.fn(),
@@ -57,7 +57,7 @@ describe('BrowserLogNotificationHandler', () => {
   describe('sendLogMessage', () => {
     it('should send error message to connection only', () => {
       const params: LogMessageParams = {
-        type: LogMessageType.Error,
+        type: 'error',
         message: 'Test error message',
       };
 
@@ -74,7 +74,7 @@ describe('BrowserLogNotificationHandler', () => {
 
     it('should send warning message to connection only', () => {
       const params: LogMessageParams = {
-        type: LogMessageType.Warning,
+        type: 'warning',
         message: 'Test warning message',
       };
 
@@ -91,7 +91,7 @@ describe('BrowserLogNotificationHandler', () => {
 
     it('should send info message to connection only', () => {
       const params: LogMessageParams = {
-        type: LogMessageType.Info,
+        type: 'info',
         message: 'Test info message',
       };
 
@@ -108,7 +108,7 @@ describe('BrowserLogNotificationHandler', () => {
 
     it('should send debug message to connection only', () => {
       const params: LogMessageParams = {
-        type: LogMessageType.Debug,
+        type: 'debug',
         message: 'Test debug message',
       };
 
@@ -125,7 +125,7 @@ describe('BrowserLogNotificationHandler', () => {
 
     it('should handle unknown message type', () => {
       const params: LogMessageParams = {
-        type: 999 as LogMessageType, // Unknown type
+        type: 'unknown' as LogMessageType, // Unknown type
         message: 'Test unknown message',
       };
 

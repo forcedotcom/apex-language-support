@@ -7,7 +7,7 @@
  */
 
 import { Diagnostic } from 'vscode-languageserver';
-import { getLogger, LogMessageType } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { ApexError } from '@salesforce/apex-lsp-parser-ast';
 
@@ -37,7 +37,7 @@ export function logHandlerError(
     fullMessage += `\nError context: ${context}`;
   }
 
-  logger.log(LogMessageType.Error, fullMessage);
+  logger.log('error', fullMessage);
 }
 
 /**

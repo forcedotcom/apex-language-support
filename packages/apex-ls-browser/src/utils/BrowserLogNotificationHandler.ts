@@ -9,10 +9,10 @@
 import { Connection, MessageType } from 'vscode-languageserver/browser';
 import {
   LogMessageParams,
-  LogMessageType,
   LogNotificationHandler,
   shouldLog,
 } from '@salesforce/apex-lsp-logging';
+import type { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 /**
  * Browser-specific implementation of LogNotificationHandler
@@ -72,15 +72,15 @@ export class BrowserLogNotificationHandler implements LogNotificationHandler {
    */
   private getLogMessageType(type: LogMessageType): MessageType {
     switch (type) {
-      case LogMessageType.Error:
+      case 'error':
         return MessageType.Error;
-      case LogMessageType.Warning:
+      case 'warning':
         return MessageType.Warning;
-      case LogMessageType.Info:
+      case 'info':
         return MessageType.Info;
-      case LogMessageType.Log:
+      case 'log':
         return MessageType.Log;
-      case LogMessageType.Debug:
+      case 'debug':
         // Map Debug to Log for backward compatibility with older LSP clients
         return MessageType.Log;
       default:

@@ -8,33 +8,47 @@
 
 export * from './notification';
 export {
-  LogMessageType,
   setLogNotificationHandler,
   getLogNotificationHandler,
 } from './notification';
-export type { LogMessageParams, LogNotificationHandler } from './notification';
+export type {
+  LogMessageType,
+  LogMessageParams,
+  LogNotificationHandler,
+} from './notification';
 import { LogMessageType } from './notification';
+
+/**
+ * Priority mapping for log levels (higher number = higher priority)
+ */
+const LOG_LEVEL_PRIORITY: Record<LogMessageType, number> = {
+  error: 5,
+  warning: 4,
+  info: 3,
+  log: 2,
+  debug: 1,
+};
 
 /**
  * Convert string log level to LogMessageType
  * @param level String representation of log level
- * @returns LogMessageType enum value
+ * @returns LogMessageType string value
  */
 const stringToLogLevel = (level: string): LogMessageType => {
   switch (level.toLowerCase()) {
     case 'error':
-      return LogMessageType.Error;
+      return 'error';
     case 'warn':
     case 'warning':
-      return LogMessageType.Warning;
+      return 'warning';
     case 'info':
-      return LogMessageType.Info;
+      return 'info';
     case 'log':
-      return LogMessageType.Log;
+      return 'log';
     case 'debug':
-      return LogMessageType.Debug;
+      return 'debug';
     default:
-      return LogMessageType.Info; // Default to info
+      return 'info'; // Default to info
   }
 };
 
@@ -48,7 +62,7 @@ export const messageTypeToLogLevel = (
 ): LogMessageType => messageType;
 
 // Global log level setting
-let currentLogLevel: LogMessageType = LogMessageType.Error;
+let currentLogLevel: LogMessageType = 'error';
 
 /**
  * Set the global log level
@@ -70,11 +84,10 @@ export const getLogLevel = (): LogMessageType => currentLogLevel;
  * @returns True if the message should be logged
  */
 export const shouldLog = (messageType: LogMessageType): boolean => {
-  // If messageType is not a valid LogMessageType number, treat as Log
-  if (typeof messageType !== 'number' || !(messageType in LogMessageType)) {
-    return LogMessageType.Log <= currentLogLevel;
-  }
-  return messageType <= currentLogLevel;
+  const messagePriority =
+    LOG_LEVEL_PRIORITY[messageType] || LOG_LEVEL_PRIORITY.log;
+  const currentPriority = LOG_LEVEL_PRIORITY[currentLogLevel];
+  return messagePriority >= currentPriority;
 };
 
 /**
@@ -195,15 +208,15 @@ class NoOpLoggerFactory implements LoggerFactory {
 class ConsoleLogger implements LoggerInterface {
   private getMessageTypeString(messageType: LogMessageType): string {
     switch (messageType) {
-      case LogMessageType.Error:
+      case 'error':
         return 'ERROR';
-      case LogMessageType.Warning:
+      case 'warning':
         return 'WARN';
-      case LogMessageType.Info:
+      case 'info':
         return 'INFO';
-      case LogMessageType.Log:
+      case 'log':
         return 'LOG';
-      case LogMessageType.Debug:
+      case 'debug':
         return 'DEBUG';
       default:
         return 'UNKNOWN';
@@ -222,19 +235,19 @@ class ConsoleLogger implements LoggerInterface {
     const typeString = this.getMessageTypeString(messageType);
     const formatted = `[${timestamp}] [${typeString}] ${msg}`;
     switch (messageType) {
-      case LogMessageType.Error:
+      case 'error':
         console.error(formatted);
         break;
-      case LogMessageType.Warning:
+      case 'warning':
         console.warn(formatted);
         break;
-      case LogMessageType.Info:
+      case 'info':
         console.info(formatted);
         break;
-      case LogMessageType.Log:
+      case 'log':
         console.log(formatted);
         break;
-      case LogMessageType.Debug:
+      case 'debug':
         console.debug(formatted);
         break;
       default:
@@ -244,19 +257,19 @@ class ConsoleLogger implements LoggerInterface {
   }
 
   public debug(message: string | (() => string)): void {
-    this.log(LogMessageType.Debug, message);
+    this.log('debug', message);
   }
 
   public info(message: string | (() => string)): void {
-    this.log(LogMessageType.Info, message);
+    this.log('info', message);
   }
 
   public warn(message: string | (() => string)): void {
-    this.log(LogMessageType.Warning, message);
+    this.log('warning', message);
   }
 
   public error(message: string | (() => string)): void {
-    this.log(LogMessageType.Error, message);
+    this.log('error', message);
   }
 }
 

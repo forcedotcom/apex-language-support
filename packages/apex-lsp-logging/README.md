@@ -101,35 +101,9 @@ interface LoggerInterface {
 ### Log Message Types
 
 ```typescript
-type LogMessageType = 'Error' | 'Warning' | 'Info' | 'Log' | 'Debug';
+type LogMessageType = 'error' | 'warning' | 'info' | 'log' | 'debug';
 ```
 
 ## Examples
 
-See the `examples/` directory for complete usage examples:
-
-- `standalone-usage.ts` - Demonstrates standalone console logging with the Apex parser
-
-## Integration with Apex Parser
-
-This package is designed to work seamlessly with the Apex parser:
-
-```typescript
-import { enableConsoleLogging } from '@salesforce/apex-lsp-logging';
-import {
-  CompilerService,
-  ApexSymbolCollectorListener,
-} from '@salesforce/apex-parser-ast';
-
-// Enable logging
-enableConsoleLogging();
-
-// Use the parser with automatic logging
-const compiler = new CompilerService();
-const listener = new ApexSymbolCollectorListener();
-const result = compiler.compile(apexCode, 'test.cls', listener);
-```
-
-## License
-
-BSD-3-Clause
+See the `examples/`
