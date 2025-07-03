@@ -43,6 +43,23 @@ const COMPOUND_SYMBOL_TYPES = [
 ] as const;
 
 /**
+ * Maps Apex symbol kinds to LSP symbol kinds
+ * This converts the internal Apex symbol types to standard LSP SymbolKind values
+ */
+const SYMBOL_KIND_MAP: Record<string, SymbolKind> = {
+  class: SymbolKind.Class, // 5
+  interface: SymbolKind.Interface, // 11
+  method: SymbolKind.Method, // 6
+  property: SymbolKind.Property, // 7
+  field: SymbolKind.Field, // 8
+  variable: SymbolKind.Variable, // 13
+  enum: SymbolKind.Enum, // 10
+  enumvalue: SymbolKind.EnumMember, // 22
+  parameter: SymbolKind.Variable, // 13 (parameters are treated as variables)
+  trigger: SymbolKind.Class, // 5 (treating triggers as classes for consistency)
+};
+
+/**
  * Interface for precise identifier location information
  * Used to create more accurate ranges that exclude surrounding keywords/modifiers
  */
@@ -189,20 +206,7 @@ export class DefaultApexDocumentSymbolProvider
    * This converts the internal Apex symbol types to standard LSP SymbolKind values
    */
   private mapSymbolKind(kind: string): SymbolKind {
-    const kindMap: Record<string, SymbolKind> = {
-      class: SymbolKind.Class, // 5
-      interface: SymbolKind.Interface, // 11
-      method: SymbolKind.Method, // 6
-      property: SymbolKind.Property, // 7
-      field: SymbolKind.Field, // 8
-      variable: SymbolKind.Variable, // 13
-      enum: SymbolKind.Enum, // 10
-      enumvalue: SymbolKind.EnumMember, // 22
-      parameter: SymbolKind.Variable, // 13 (parameters are treated as variables)
-      trigger: SymbolKind.Class, // 5 (treating triggers as classes for consistency)
-    };
-
-    const mappedKind = kindMap[kind.toLowerCase()];
+    const mappedKind = SYMBOL_KIND_MAP[kind.toLowerCase()];
     if (mappedKind) {
       return mappedKind;
     }
