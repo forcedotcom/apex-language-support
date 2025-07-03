@@ -9,7 +9,6 @@
 import * as vscode from 'vscode';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel } from './logging';
-import { updateStatusBarStopped, updateStatusBarError } from './status-bar';
 import {
   getServerStartRetries,
   incrementServerStartRetries,
@@ -19,6 +18,10 @@ import {
   setStartingFlag,
   getGlobalContext,
 } from './commands';
+import {
+  updateApexServerStatusStopped,
+  updateApexServerStatusError,
+} from './status-bar';
 
 /**
  * Handles auto-restart logic with exponential backoff
@@ -75,8 +78,6 @@ export const handleMaxRetriesExceeded = (
     'info',
   );
 
-  updateStatusBarError();
-
   vscode.window
     .showErrorMessage(
       'The Apex Language Server failed to start after multiple attempts. Click the status bar icon to try again.',
@@ -105,7 +106,7 @@ export const handleClientClosed = async (
   );
 
   setStartingFlag(false);
-  updateStatusBarStopped();
+  updateApexServerStatusStopped();
 
   // Attempt auto-restart
   await handleAutoRestart(restartHandler);
@@ -124,4 +125,5 @@ export const handleClientError = (error: Error, message: any): void => {
   if (error) {
     logToOutputChannel(`Error details: ${error}`, 'debug');
   }
+  updateApexServerStatusError();
 };

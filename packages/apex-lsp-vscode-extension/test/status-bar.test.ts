@@ -51,7 +51,6 @@ describe('Status Bar Module', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-    // Reset the module's internal state by clearing the module cache
     jest.resetModules();
   });
 
@@ -86,7 +85,6 @@ describe('Status Bar Module', () => {
 
       expect(mockStatusBarItem.text).toBe(STATUS_BAR_TEXT.READY);
       expect(mockStatusBarItem.tooltip).toBe(STATUS_BAR_TOOLTIPS.READY);
-      expect(mockStatusBarItem.show).toHaveBeenCalled();
     });
   });
 
@@ -98,7 +96,6 @@ describe('Status Bar Module', () => {
 
       expect(mockStatusBarItem.text).toBe(STATUS_BAR_TEXT.STARTING);
       expect(mockStatusBarItem.tooltip).toBe(STATUS_BAR_TOOLTIPS.STARTING);
-      expect(mockStatusBarItem.show).toHaveBeenCalled();
     });
   });
 
@@ -110,7 +107,6 @@ describe('Status Bar Module', () => {
 
       expect(mockStatusBarItem.text).toBe(STATUS_BAR_TEXT.ERROR);
       expect(mockStatusBarItem.tooltip).toBe(STATUS_BAR_TOOLTIPS.ERROR);
-      expect(mockStatusBarItem.show).toHaveBeenCalled();
     });
   });
 
@@ -124,10 +120,8 @@ describe('Status Bar Module', () => {
     });
 
     it('should return undefined before creation', () => {
-      // Clear the module cache to reset internal state
       jest.resetModules();
 
-      // Re-import the module to get fresh state
       const {
         getStatusBarItem: freshGetStatusBarItem,
       } = require('../src/status-bar');

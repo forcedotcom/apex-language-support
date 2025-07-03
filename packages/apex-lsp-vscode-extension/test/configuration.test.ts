@@ -217,7 +217,30 @@ describe('Configuration Module', () => {
         .mock.calls[0][0];
 
       // Mock getWorkspaceSettings to return test settings
-      const testSettings = { apex: { test: 'value' } };
+      const testSettings = {
+        apex: {
+          commentCollection: {
+            enableCommentCollection: true,
+            includeSingleLineComments: false,
+            associateCommentsWithSymbols: false,
+            enableForDocumentChanges: true,
+            enableForDocumentOpen: true,
+            enableForDocumentSymbols: false,
+            enableForFoldingRanges: false,
+          },
+          performance: {
+            commentCollectionMaxFileSize: 102400,
+            useAsyncCommentProcessing: true,
+            documentChangeDebounceMs: 300,
+          },
+          environment: {
+            enablePerformanceLogging: false,
+          },
+          ls: {
+            logLevel: 'error',
+          },
+        },
+      };
       jest
         .spyOn(require('../src/configuration'), 'getWorkspaceSettings')
         .mockReturnValue(testSettings);

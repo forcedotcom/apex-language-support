@@ -30,18 +30,20 @@ export {
 
 // Export status bar utilities
 export {
-  createStatusBarItem,
-  updateStatusBarStarting,
-  updateStatusBarReady,
-  updateStatusBarStopped,
-  updateStatusBarError,
-  getStatusBarItem,
+  updateLogLevelStatusItems,
+  registerApexLanguageStatusMenu,
+  createApexServerStatusItem,
+  updateApexServerStatusStarting,
+  updateApexServerStatusReady,
+  updateApexServerStatusStopped,
+  updateApexServerStatusError,
 } from './status-bar';
 
 // Export command utilities
 export {
   initializeCommandState,
   registerRestartCommand,
+  registerLogLevelCommands,
   setRestartHandler,
   setStartingFlag,
   getStartingFlag,

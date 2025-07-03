@@ -247,6 +247,7 @@ jest.mock('@salesforce/apex-lsp-logging', () => ({
   setLogNotificationHandler: jest.fn(),
   getLogger: () => mockLogger,
   setLoggerFactory: jest.fn(),
+  setLogLevel: jest.fn(),
   LogLevel: {
     Error: 'ERROR',
     Warn: 'WARN',

@@ -169,6 +169,22 @@
       {
         "command": "apex.restart.server",
         "title": "Restart Apex Language Server"
+      },
+      {
+        "command": "apex.setLogLevel.error",
+        "title": "Set Apex Log Level: Error"
+      },
+      {
+        "command": "apex.setLogLevel.warning",
+        "title": "Set Apex Log Level: Warning"
+      },
+      {
+        "command": "apex.setLogLevel.info",
+        "title": "Set Apex Log Level: Info"
+      },
+      {
+        "command": "apex.setLogLevel.debug",
+        "title": "Set Apex Log Level: Debug"
       }
     ],
     "viewsContainers": {

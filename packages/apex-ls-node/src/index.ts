@@ -40,12 +40,23 @@ import {
   setLogNotificationHandler,
   getLogger,
   setLoggerFactory,
+  setLogLevel,
 } from '@salesforce/apex-lsp-logging';
 
 import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
 import { LSPLoggerFactory } from './utils/LSPLoggerFactory';
 import { NodeFileSystemApexStorage } from './storage/NodeFileSystemApexStorage';
 import { createNodeApexLibAdapter } from './utils/NodeApexLibAdapter';
+
+/**
+ * Interface for server initialization options
+ */
+interface ApexServerInitializationOptions {
+  logLevel?: string;
+  enableDocumentSymbols?: boolean;
+  trace?: string;
+  [key: string]: any;
+}
 
 export function startServer() {
   // Create a connection for the server based on command line arguments
@@ -94,6 +105,17 @@ export function startServer() {
   // Initialize server capabilities and properties
   connection.onInitialize((params: InitializeParams): InitializeResult => {
     logger.info('Apex Language Server initializing...');
+
+    // Extract and set log level from initialization options
+    const initOptions = params.initializationOptions as
+      | ApexServerInitializationOptions
+      | undefined;
+    const logLevel = initOptions?.logLevel || 'error';
+
+    logger.info(`Setting log level to: ${logLevel}`);
+
+    // Set the log level in the logging system
+    setLogLevel(logLevel);
 
     // Process initialization parameters and settings
     configurationManager.processInitializeParams(params);

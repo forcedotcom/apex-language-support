@@ -8,7 +8,7 @@
 
 import * as vscode from 'vscode';
 import { EXTENSION_CONSTANTS } from './constants';
-import { logToOutputChannel } from './logging';
+import { logToOutputChannel, updateLogLevel } from './logging';
 
 /**
  * Global state for restart management
@@ -81,6 +81,71 @@ export const registerRestartCommand = (
   );
 
   context.subscriptions.push(restartCommand);
+};
+
+/**
+ * Registers commands for setting log levels
+ * @param context The extension context
+ */
+export const registerLogLevelCommands = (
+  context: vscode.ExtensionContext,
+): void => {
+  const logLevelCommands = [
+    {
+      commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.ERROR,
+      logLevel: 'error',
+      title: 'Set Log Level: Error',
+    },
+    {
+      commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.WARNING,
+      logLevel: 'warning',
+      title: 'Set Log Level: Warning',
+    },
+    {
+      commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.INFO,
+      logLevel: 'info',
+      title: 'Set Log Level: Info',
+    },
+    {
+      commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.DEBUG,
+      logLevel: 'debug',
+      title: 'Set Log Level: Debug',
+    },
+  ];
+
+  logLevelCommands.forEach(({ commandId, logLevel, title }) => {
+    const command = vscode.commands.registerCommand(commandId, async () => {
+      try {
+        // Update the workspace configuration
+        const config = vscode.workspace.getConfiguration(
+          EXTENSION_CONSTANTS.CONFIG_SECTION,
+        );
+        await config.update(
+          'ls.logLevel',
+          logLevel,
+          vscode.ConfigurationTarget.Workspace,
+        );
+
+        // Update the log level immediately
+        updateLogLevel(logLevel);
+
+        logToOutputChannel(`Log level set to: ${logLevel}`, 'info');
+        vscode.window.showInformationMessage(
+          `Apex log level set to: ${logLevel}`,
+        );
+      } catch (error) {
+        logToOutputChannel(
+          `Failed to set log level to ${logLevel}: ${error}`,
+          'error',
+        );
+        vscode.window.showErrorMessage(
+          `Failed to set log level to ${logLevel}`,
+        );
+      }
+    });
+
+    context.subscriptions.push(command);
+  });
 };
 
 /**

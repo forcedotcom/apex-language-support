@@ -13,9 +13,14 @@ import { createServerOptions, createClientOptions } from '../src/server-config';
 jest.mock('../src/configuration', () => ({
   getDebugConfig: jest.fn().mockReturnValue({ mode: 'off', port: 6009 }),
   getTraceServerConfig: jest.fn().mockReturnValue('off'),
-  getWorkspaceSettings: jest
-    .fn()
-    .mockReturnValue({ apex: { test: 'settings' } }),
+  getWorkspaceSettings: jest.fn().mockReturnValue({
+    apex: {
+      test: 'settings',
+      ls: {
+        logLevel: 'error',
+      },
+    },
+  }),
 }));
 
 // Mock the logging module
@@ -130,7 +135,14 @@ describe('Server Config Module', () => {
 
     it('should include workspace settings in initialization options', () => {
       const { getWorkspaceSettings } = require('../src/configuration');
-      const testSettings = { apex: { test: 'value' } };
+      const testSettings = {
+        apex: {
+          test: 'value',
+          ls: {
+            logLevel: 'error',
+          },
+        },
+      };
       getWorkspaceSettings.mockReturnValue(testSettings);
 
       const clientOptions = createClientOptions();

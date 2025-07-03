@@ -62,7 +62,7 @@ describe('Logging Module', () => {
       initializeLogging(mockContext);
 
       expect(vscode.window.createOutputChannel).toHaveBeenCalledWith(
-        'Apex Language Server (Typescript)',
+        'Apex Language Extension (Typescript)',
       );
       expect(mockContext.subscriptions).toContain(mockOutputChannel);
     });

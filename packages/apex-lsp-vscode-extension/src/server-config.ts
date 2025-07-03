@@ -19,7 +19,7 @@ import {
   getTraceServerConfig,
   getWorkspaceSettings,
 } from './configuration';
-import { logToOutputChannel, getOutputChannel } from './logging';
+import { logToOutputChannel } from './logging';
 import { DEBUG_CONFIG } from './constants';
 
 /**
@@ -105,6 +105,7 @@ export const createServerOptions = (
  */
 export const createClientOptions = (): LanguageClientOptions => {
   const traceServer = getTraceServerConfig();
+  const settings = getWorkspaceSettings();
 
   return {
     documentSelector: [{ scheme: 'file', language: 'apex' }],
@@ -113,7 +114,7 @@ export const createClientOptions = (): LanguageClientOptions => {
         vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
       configurationSection: 'apex',
     },
-    outputChannel: getOutputChannel(),
+    // Remove outputChannel - let LanguageClient create its own for LSP tracing
     // Add error handling with proper retry logic
     errorHandler: {
       error: handleClientError,
@@ -122,11 +123,13 @@ export const createClientOptions = (): LanguageClientOptions => {
     // Include workspace settings in initialization options
     initializationOptions: {
       enableDocumentSymbols: true,
-      trace: traceServer,
-      ...getWorkspaceSettings(),
+      trace: traceServer, // This enables LSP tracing
+      logLevel: settings.apex.ls.logLevel, // Pass log level to server
+      ...settings,
     },
     // Explicitly enable workspace configuration capabilities
     workspaceFolder: vscode.workspace.workspaceFolders?.[0],
+    outputChannelName: 'Apex Language Server (Typescript)',
   };
 };
 

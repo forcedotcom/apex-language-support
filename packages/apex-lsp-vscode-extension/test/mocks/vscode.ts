@@ -46,6 +46,18 @@ export const workspace = {
   })),
 };
 
+export const languages = {
+  createLanguageStatusItem: jest.fn(() => ({
+    name: '',
+    text: '',
+    detail: '',
+    command: undefined,
+    show: jest.fn(),
+    hide: jest.fn(),
+    dispose: jest.fn(),
+  })),
+};
+
 export const StatusBarAlignment = {
   Left: 1,
   Right: 2,
@@ -56,6 +68,10 @@ export const ExtensionMode = {
   Development: 2,
   Test: 3,
 };
+
+export class ThemeColor {
+  constructor(public readonly id: string) {}
+}
 
 export class Disposable {
   private readonly _callOnDispose: () => any;
@@ -74,8 +90,10 @@ export const mockVscode = {
   window,
   commands,
   workspace,
+  languages,
   StatusBarAlignment,
   ExtensionMode,
+  ThemeColor,
   Disposable,
 };
 
