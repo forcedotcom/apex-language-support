@@ -187,6 +187,9 @@ export class DefaultApexDocumentSymbolProvider
       case 'property':
         mappedKind = SymbolKind.Property; // 7
         break;
+      case 'field':
+        mappedKind = SymbolKind.Field; // 8
+        break;
       case 'variable':
         mappedKind = SymbolKind.Variable; // 13
         break;

@@ -298,4 +298,54 @@ describe('InterfaceBodyValidator', () => {
       expect(mockErrorReporter.errors).toHaveLength(0);
     });
   });
+
+  describe('validatePropertyInInterface', () => {
+    it('should report error when property is declared in interface', () => {
+      const modifiers: SymbolModifiers = {
+        visibility: SymbolVisibility.Public,
+        isStatic: false,
+        isFinal: false,
+        isAbstract: false,
+        isVirtual: false,
+        isOverride: false,
+        isTransient: false,
+        isTestMethod: false,
+        isWebService: false,
+      };
+
+      InterfaceBodyValidator.validatePropertyInInterface(
+        modifiers,
+        mockContext,
+        interfaceSymbol,
+        mockErrorReporter,
+      );
+
+      expect(mockErrorReporter.errors).toContain(
+        'Properties are not allowed in interfaces. Interfaces can only contain method declarations',
+      );
+    });
+
+    it('should not report error when property is declared in class', () => {
+      const modifiers: SymbolModifiers = {
+        visibility: SymbolVisibility.Public,
+        isStatic: false,
+        isFinal: false,
+        isAbstract: false,
+        isVirtual: false,
+        isOverride: false,
+        isTransient: false,
+        isTestMethod: false,
+        isWebService: false,
+      };
+
+      InterfaceBodyValidator.validatePropertyInInterface(
+        modifiers,
+        mockContext,
+        classSymbol,
+        mockErrorReporter,
+      );
+
+      expect(mockErrorReporter.errors).toHaveLength(0);
+    });
+  });
 });

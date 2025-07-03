@@ -39,6 +39,28 @@ export class InterfaceBodyValidator {
   }
 
   /**
+   * Validates that property declarations are not allowed in interface bodies.
+   * Properties are only allowed in classes, not interfaces.
+   * @param modifiers The property modifiers
+   * @param ctx The parser context for error reporting
+   * @param currentTypeSymbol The interface symbol containing the property
+   * @param errorReporter The error reporter to use for reporting validation errors
+   */
+  public static validatePropertyInInterface(
+    modifiers: SymbolModifiers,
+    ctx: ParserRuleContext,
+    currentTypeSymbol: TypeSymbol,
+    errorReporter: ErrorReporter,
+  ): void {
+    if (currentTypeSymbol.kind === SymbolKind.Interface) {
+      errorReporter.addError(
+        'Properties are not allowed in interfaces. Interfaces can only contain method declarations',
+        ctx,
+      );
+    }
+  }
+
+  /**
    * Validates that constructor declarations are not allowed in interface bodies.
    * Constructors are only allowed in classes, not interfaces.
    * @param constructorName The name of the constructor

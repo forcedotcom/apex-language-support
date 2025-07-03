@@ -7,7 +7,9 @@
  */
 
 export { ClassModifierValidator } from './ClassModifierValidator';
+export { BaseModifierValidator } from './BaseModifierValidator';
 export { FieldModifierValidator } from './FieldModifierValidator';
+export { PropertyModifierValidator } from './PropertyModifierValidator';
 export { InterfaceBodyValidator } from './InterfaceBodyValidator';
 export { MethodModifierValidator } from './MethodModifierValidator';
 export type { FieldModifierValidator as FieldModifierValidatorType } from './FieldModifierValidator';

@@ -19,6 +19,7 @@ export enum SymbolKind {
   Trigger = 'trigger',
   Method = 'method',
   Property = 'property',
+  Field = 'field',
   Variable = 'variable',
   Parameter = 'parameter',
   Enum = 'enum',
@@ -192,11 +193,12 @@ export interface MethodSymbol extends ApexSymbol {
 }
 
 /**
- * Represents a property, variable, parameter, or enum value
+ * Represents a property, field, variable, parameter, or enum value
  */
 export interface VariableSymbol extends ApexSymbol {
   kind:
     | SymbolKind.Property
+    | SymbolKind.Field
     | SymbolKind.Variable
     | SymbolKind.Parameter
     | SymbolKind.EnumValue;
