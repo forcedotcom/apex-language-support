@@ -152,11 +152,7 @@ describe('Error Handling Module', () => {
 
   describe('handleMaxRetriesExceeded', () => {
     it('should show error message and handle restart option', () => {
-      const {
-        resetServerStartRetries,
-        setLastRestartTime,
-        getGlobalContext,
-      } = require('../src/commands');
+      const { getGlobalContext } = require('../src/commands');
       const { updateStatusBarError } = require('../src/status-bar');
       const { logToOutputChannel } = require('../src/logging');
 

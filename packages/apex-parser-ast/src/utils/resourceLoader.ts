@@ -122,7 +122,7 @@ export class ResourceLoader {
       const dirStats = new Map<string, number>();
       let totalFiles = 0;
 
-      for (const [normalizedPath, content] of this.fileMap.entries()) {
+      for (const [_normalizedPath, content] of this.fileMap.entries()) {
         if (!content) continue;
         // Use the original path for directory statistics to maintain compatibility
         const dir =
@@ -220,7 +220,7 @@ export class ResourceLoader {
       );
     }
     const result = new CaseInsensitivePathMap<string>();
-    for (const [normalizedPath, content] of this.fileMap.entries()) {
+    for (const [_normalizedPath, content] of this.fileMap.entries()) {
       if (!content) continue;
       // Always return the original path format
       if (isDecodedContent(content.contents)) {
@@ -255,7 +255,7 @@ export class ResourceLoader {
       options: CompilationOptions;
     }> = [];
 
-    for (const [normalizedPath, content] of this.fileMap.entries()) {
+    for (const [_normalizedPath, content] of this.fileMap.entries()) {
       if (content && isDecodedContent(content.contents)) {
         // Extract namespace from parent folder path
         const pathParts = content.originalPath.split(/[\/\\]/);

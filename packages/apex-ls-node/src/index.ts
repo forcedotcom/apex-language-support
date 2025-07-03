@@ -99,11 +99,12 @@ export function startServer() {
     configurationManager.processInitializeParams(params);
 
     // Initialize ApexLib
-    const { client, editorContext } = createNodeApexLibAdapter(
+    const { client, ..._rest } = createNodeApexLibAdapter(
       connection,
       documents,
     );
-    const apexLibManager = createApexLibManager('apex', 'apex', 'cls', client);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const apexLibManager = createApexLibManager('apex', 'apex', 'cls', client); // this is needed for future work
 
     return {
       capabilities: {

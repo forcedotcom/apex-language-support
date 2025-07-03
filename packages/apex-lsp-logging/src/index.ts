@@ -20,7 +20,7 @@ import { LogMessageType } from './notification';
  * @param level String representation of log level
  * @returns LogMessageType enum value
  */
-export const stringToLogLevel = (level: string): LogMessageType => {
+const stringToLogLevel = (level: string): LogMessageType => {
   switch (level.toLowerCase()) {
     case 'error':
       return LogMessageType.Error;

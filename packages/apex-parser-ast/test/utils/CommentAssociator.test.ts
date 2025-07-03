@@ -26,8 +26,11 @@ import {
 
 describe('CommentAssociator', () => {
   let associator: CommentAssociator;
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  // to be used when comment association is complete
   let compilerService: CompilerService;
   let symbolCollector: ApexSymbolCollectorListener;
+  /* eslint-enable @typescript-eslint/no-unused-vars */
 
   beforeEach(() => {
     associator = new CommentAssociator();

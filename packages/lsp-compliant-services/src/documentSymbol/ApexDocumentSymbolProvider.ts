@@ -231,7 +231,7 @@ export class DefaultApexDocumentSymbolProvider
 
         // Format: methodName(paramTypes) : ReturnType
         return `${symbol.name}(${parameterList}) : ${returnTypeString}`;
-      } catch (error) {
+      } catch (_e) {
         // Fallback to original name if anything goes wrong
         return symbol.name;
       }

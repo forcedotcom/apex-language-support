@@ -873,28 +873,13 @@ export class ApexSymbolCollectorListener
       );
 
       const modifiers = this.getCurrentModifiers();
-      const location = this.getLocation(ctx);
-      const parent = this.currentTypeSymbol;
-      const parentKey = parent ? parent.key : null;
-      const key = {
-        prefix: SymbolKind.Enum,
-        name,
-        path: this.getCurrentPath(),
-      };
 
-      const enumSymbol: EnumSymbol = {
+      const enumSymbol = this.createTypeSymbol(
+        ctx,
         name,
-        kind: SymbolKind.Enum,
-        location,
+        SymbolKind.Enum,
         modifiers,
-        values: [],
-        interfaces: [], // Required by TypeSymbol
-        superClass: undefined, // Optional in TypeSymbol
-        parent,
-        key,
-        parentKey,
-        annotations: this.getCurrentAnnotations(),
-      };
+      );
 
       this.currentTypeSymbol = enumSymbol;
       this.symbolTable.addSymbol(enumSymbol);
@@ -1282,7 +1267,11 @@ export class ApexSymbolCollectorListener
   private createTypeSymbol(
     ctx: ParserRuleContext,
     name: string,
-    kind: SymbolKind.Class | SymbolKind.Interface | SymbolKind.Trigger,
+    kind:
+      | SymbolKind.Class
+      | SymbolKind.Interface
+      | SymbolKind.Trigger
+      | SymbolKind.Enum,
     modifiers: SymbolModifiers,
   ): TypeSymbol {
     const location = this.getLocation(ctx);
@@ -1305,6 +1294,12 @@ export class ApexSymbolCollectorListener
       parentKey,
       annotations: this.getCurrentAnnotations(),
     };
+
+    // For enums, we need to add the values array
+    // TODO: change to a more generic approach
+    if (typeSymbol.kind === SymbolKind.Enum) {
+      (typeSymbol as EnumSymbol).values = [];
+    }
 
     return typeSymbol;
   }
