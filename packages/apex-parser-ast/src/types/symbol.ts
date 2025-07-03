@@ -99,6 +99,8 @@ export interface ApexSymbol {
   namespace?: string;
   /** Annotations for this symbol */
   annotations?: Annotation[];
+  /** Precise location of the identifier (symbol name) */
+  identifierLocation?: SymbolLocation;
   /** Runtime parent reference - not serialized */
   parent?: ApexSymbol | null;
 }
@@ -142,6 +144,9 @@ export class RuntimeSymbol implements ApexSymbol {
   get annotations() {
     return this.symbol.annotations;
   }
+  get identifierLocation() {
+    return this.symbol.identifierLocation;
+  }
 
   get parent(): ApexSymbol | null {
     if (!this._parent && this.symbol.parentKey) {
@@ -177,8 +182,6 @@ export interface TypeSymbol extends ApexSymbol {
   interfaces: string[];
   /** Annotations for this type */
   annotations?: Annotation[];
-  /** Precise location of the identifier (class name, interface name, etc.) */
-  identifierLocation?: SymbolLocation;
 }
 
 /**
@@ -191,8 +194,6 @@ export interface MethodSymbol extends ApexSymbol {
   isConstructor?: boolean;
   /** Annotations for this method */
   annotations?: Annotation[];
-  /** Precise location of the method name */
-  identifierLocation?: SymbolLocation;
 }
 
 /**
@@ -206,8 +207,6 @@ export interface VariableSymbol extends ApexSymbol {
     | SymbolKind.EnumValue;
   type: TypeInfo;
   initialValue?: string;
-  /** Precise location of the variable name */
-  identifierLocation?: SymbolLocation;
 }
 
 /**

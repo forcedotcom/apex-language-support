@@ -285,7 +285,7 @@ export class DefaultApexDocumentSymbolProvider
     return {
       name: this.formatSymbolName(symbol),
       kind: this.mapSymbolKind(symbol.kind),
-      range: this.createTrimmedRange(symbol, document),
+      range: this.createRange(symbol, document),
       selectionRange: this.createSelectionRange(symbol, document),
       children: [],
     };
@@ -391,34 +391,41 @@ export class DefaultApexDocumentSymbolProvider
    * Creates a precise range that excludes leading whitespace
    * This finds the first non-whitespace character in the line for better UX
    */
-  private createTrimmedRange(
+  private createRange(
     symbol: ApexSymbolWithIdentifier,
     document: TextDocument,
   ): Range {
     // Try to use identifier location first (most precise)
     const identifierRange = this.createRangeFromIdentifier(symbol, document);
     if (identifierRange) {
-      return identifierRange;
-    }
-
-    // Fallback: find first non-whitespace character on the start line
-    const symbolLine = symbol.location.startLine - 1; // Convert to 0-based indexing
-    const lineText = document.getText().split('\n')[symbolLine] || '';
-    const trimmedStart = lineText.search(/\S/);
-
-    if (trimmedStart >= 0) {
-      const nameIndex = lineText.indexOf(symbol.name, trimmedStart);
-      const nameEnd =
-        nameIndex >= 0 ? nameIndex + symbol.name.length : trimmedStart + 1;
-
+      // For trimmed range, we want to extend from the identifier to the full symbol
       return Range.create(
-        Position.create(symbolLine, trimmedStart),
-        Position.create(symbolLine, nameEnd),
+        identifierRange.start,
+        Position.create(
+          symbol.location.endLine - 1,
+          symbol.location.endColumn - 1,
+        ),
       );
     }
 
-    // Final fallback to the original range if trimming fails
-    return this.createFallbackRange(symbol);
+    // Fallback: find first non-whitespace character on the line
+    const startLine = symbol.location.startLine - 1;
+    const lines = document.getText().split('\n');
+    const lineText = lines[startLine] || '';
+    const firstNonWhitespace = lineText.search(/\S/);
+
+    const startPosition =
+      firstNonWhitespace >= 0
+        ? Position.create(startLine, firstNonWhitespace)
+        : Position.create(startLine, symbol.location.startColumn - 1);
+
+    return Range.create(
+      startPosition,
+      Position.create(
+        symbol.location.endLine - 1,
+        symbol.location.endColumn - 1,
+      ),
+    );
   }
 
   /**
@@ -436,26 +443,24 @@ export class DefaultApexDocumentSymbolProvider
     }
 
     // Fallback: find the symbol name in the line
-    const symbolLine = symbol.location.startLine - 1; // Convert to 0-based indexing
-    const lineText = document.getText().split('\n')[symbolLine] || '';
-    const nameIndex = lineText.indexOf(symbol.name);
+    const startLine = symbol.location.startLine - 1;
+    const lines = document.getText().split('\n');
+    const lineText = lines[startLine] || '';
 
-    if (nameIndex >= 0) {
+    // Use word boundary to find the exact symbol name
+    const escapedName = symbol.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const nameRegex = new RegExp(`\\b${escapedName}\\b`);
+    const match = lineText.match(nameRegex);
+    const namePosition = match ? match.index! : -1;
+
+    if (namePosition >= 0) {
       return Range.create(
-        Position.create(symbolLine, nameIndex),
-        Position.create(symbolLine, nameIndex + symbol.name.length),
+        Position.create(startLine, namePosition),
+        Position.create(startLine, namePosition + symbol.name.length),
       );
     }
 
-    // Fallback to the original range if name not found
-    return this.createFallbackRange(symbol);
-  }
-
-  /**
-   * Creates a fallback range using the original symbol location
-   * This is used when more precise range calculation fails
-   */
-  private createFallbackRange(symbol: ApexSymbol): Range {
+    // Final fallback
     return Range.create(
       Position.create(
         symbol.location.startLine - 1,

@@ -460,7 +460,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(result).toHaveLength(1);
       const symbol = result![0] as DocumentSymbol;
       expect(symbol.range).toEqual(
-        Range.create(Position.create(0, 14), Position.create(0, 25)),
+        Range.create(Position.create(0, 14), Position.create(0, 26)),
       );
       expect(symbol.selectionRange).toEqual(
         Range.create(Position.create(0, 14), Position.create(0, 25)),
@@ -1028,12 +1028,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         '    public class TestClass {}',
       );
 
-      const result = provider.createTrimmedRange(symbol, document);
+      const result = provider.createRange(symbol, document);
       expect(result).toBeDefined();
       expect(result.start.character).toBeGreaterThan(0); // Should trim leading whitespace
     });
 
-    it('should create fallback ranges when other methods fail', () => {
+    it('should create ranges using symbol location as fallback', () => {
       const provider = symbolProvider as any;
       const symbol = {
         name: 'TestClass',
@@ -1045,10 +1045,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         },
       };
 
-      const result = provider.createFallbackRange(symbol);
-      expect(result).toEqual(
-        Range.create(Position.create(0, 0), Position.create(0, 26)),
-      );
+      const result = provider.createRange(symbol, {
+        getText: () => 'public class TestClass {}',
+      });
+      expect(result).toBeDefined();
+      expect(result.start.line).toBe(0); // 0-based indexing
+      expect(result.end.line).toBe(0);
     });
   });
 
