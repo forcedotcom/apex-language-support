@@ -6,140 +6,106 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TextDocumentChangeEvent, TextDocuments } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { TextDocumentChangeEvent } from 'vscode-languageserver';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
-import { Logger } from '../../src/utils/Logger';
-import { dispatch } from '../../src/utils/handlerUtil';
-import {
-  processOnCloseDocument,
-  dispatchProcessOnCloseDocument,
-} from '../../src/handlers/DidCloseDocumentHandler';
-
-jest.mock('../../src/utils/Logger');
-jest.mock('../../src/utils/handlerUtil');
+import { DidCloseDocumentHandler } from '../../src/handlers/DidCloseDocumentHandler';
+import { IDocumentCloseProcessor } from '../../src/services/DocumentCloseProcessingService';
 
 describe('DidCloseDocumentHandler', () => {
-  let mockLogger: jest.Mocked<Logger>;
-  let mockDispatch: jest.MockedFunction<typeof dispatch>;
-  let mockDocuments: jest.Mocked<TextDocuments<TextDocument>>;
-  beforeEach(() => {
-    mockLogger = {
-      getInstance: jest.fn().mockReturnThis(),
-      error: jest.fn(),
-      warn: jest.fn(),
-      info: jest.fn(),
-      debug: jest.fn(),
-      log: jest.fn(),
-    } as unknown as jest.Mocked<Logger>;
+  let handler: DidCloseDocumentHandler;
+  let mockLogger: jest.Mocked<LoggerInterface>;
+  let mockDocumentCloseProcessor: jest.Mocked<IDocumentCloseProcessor>;
 
-    (Logger.getInstance as jest.Mock).mockReturnValue(mockLogger);
-    mockDispatch = dispatch as jest.MockedFunction<typeof dispatch>;
-    mockDocuments = {
-      get: jest.fn(),
-    } as unknown as jest.Mocked<TextDocuments<TextDocument>>;
+  beforeEach(() => {
+    // Create mock logger
+    mockLogger = {
+      log: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+
+    // Create mock document close processor
+    mockDocumentCloseProcessor = {
+      processDocumentClose: jest.fn(),
+    };
+
+    // Create handler with mocked dependencies
+    handler = new DidCloseDocumentHandler(
+      mockLogger,
+      mockDocumentCloseProcessor,
+    );
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('processOnCloseDocument', () => {
-    it('should log debug message with document close params', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.apex',
-          languageId: 'apex',
-          version: 1,
-          getText: () => 'class TestClass {}',
-          positionAt: () => ({ line: 0, character: 0 }),
-          offsetAt: () => 0,
-          lineCount: 1,
-        },
+  describe('handleDocumentClose', () => {
+    it('should process document close event successfully', async () => {
+      // Arrange
+      const mockDocument = TextDocument.create(
+        'file:///test.cls',
+        'apex',
+        1,
+        'public class TestClass {}',
+      );
+      const mockEvent: TextDocumentChangeEvent<typeof mockDocument> = {
+        document: mockDocument,
       };
 
-      mockDocuments.get.mockReturnValue(undefined);
-
-      await processOnCloseDocument(event);
-
-      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Common Apex Language Server close document handler invoked with: ${event}`,
+      mockDocumentCloseProcessor.processDocumentClose.mockResolvedValue(
+        undefined,
       );
+
+      // Act
+      await handler.handleDocumentClose(mockEvent);
+
+      // Assert
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
+      // Verify the debug message function was called with correct content
+      const debugCall = mockLogger.debug.mock.calls[0];
+      expect(debugCall[0]()).toBe(
+        'Processing document close: file:///test.cls',
+      );
+      expect(
+        mockDocumentCloseProcessor.processDocumentClose,
+      ).toHaveBeenCalledWith(mockEvent);
     });
 
-    it('should log when document already exists', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.apex',
-          languageId: 'apex',
-          version: 1,
-          getText: () => 'class TestClass {}',
-          positionAt: () => ({ line: 0, character: 0 }),
-          offsetAt: () => 0,
-          lineCount: 1,
-        },
+    it('should log error and rethrow when document close processor fails', async () => {
+      // Arrange
+      const mockDocument = TextDocument.create(
+        'file:///test.cls',
+        'apex',
+        1,
+        'public class TestClass {}',
+      );
+      const mockEvent: TextDocumentChangeEvent<typeof mockDocument> = {
+        document: mockDocument,
       };
+      const mockError = new Error('Document close processing failed');
 
-      const existingDoc = { uri: event.document.uri } as TextDocument;
-      mockDocuments.get.mockReturnValue(existingDoc);
-
-      await processOnCloseDocument(event);
-
-      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Common Apex Language Server close document handler invoked with: ${event}`,
+      mockDocumentCloseProcessor.processDocumentClose.mockRejectedValue(
+        mockError,
       );
-    });
-  });
 
-  describe('dispatchProcessOnCloseDocument', () => {
-    it('should dispatch processOnCloseDocument with correct params', () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.apex',
-          languageId: 'apex',
-          version: 1,
-          getText: () => 'class TestClass {}',
-          positionAt: () => ({ line: 0, character: 0 }),
-          offsetAt: () => 0,
-          lineCount: 1,
-        },
-      };
-
-      dispatchProcessOnCloseDocument(event);
-
-      expect(mockDispatch).toHaveBeenCalledTimes(1);
-      expect(mockDispatch).toHaveBeenCalledWith(
-        processOnCloseDocument(event),
-        'Error processing document close',
+      // Act & Assert
+      await expect(handler.handleDocumentClose(mockEvent)).rejects.toThrow(
+        'Document close processing failed',
       );
-    });
 
-    it('should handle dispatch error', async () => {
-      const event: TextDocumentChangeEvent<TextDocument> = {
-        document: {
-          uri: 'file:///test.apex',
-          languageId: 'apex',
-          version: 1,
-          getText: () => 'class TestClass {}',
-          positionAt: () => ({ line: 0, character: 0 }),
-          offsetAt: () => 0,
-          lineCount: 1,
-        },
-      };
-
-      const error = new Error('Test error');
-      mockDispatch.mockRejectedValueOnce(error);
-
-      await expect(dispatchProcessOnCloseDocument(event)).rejects.toThrow(
-        error,
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
+      // Verify the error message function was called with correct content
+      const errorLogCall = mockLogger.error.mock.calls[0];
+      expect(typeof errorLogCall[0]).toBe('function');
+      expect(errorLogCall[0]()).toContain(
+        'Error processing document close for file:///test.cls',
       );
-      expect(mockDispatch).toHaveBeenCalledTimes(1);
-      expect(mockDispatch).toHaveBeenCalledWith(
-        processOnCloseDocument(event),
-        'Error processing document close',
-      );
+      expect(errorLogCall[0]()).toContain('Document close processing failed');
     });
   });
 });

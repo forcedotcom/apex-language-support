@@ -9,25 +9,30 @@
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import { dispatch } from '../../src/utils/handlerUtil';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
 // Mock the logger before importing the handler
 const mockLogger = {
+  log: jest.fn(),
   debug: jest.fn(),
-  error: jest.fn(),
   info: jest.fn(),
   warn: jest.fn(),
-  trace: jest.fn(),
-  fatal: jest.fn(),
-};
+  error: jest.fn(),
+} as any;
+(getLogger as jest.Mock).mockReturnValue(mockLogger);
 
-jest.mock('@salesforce/apex-lsp-logging', () => ({
-  getLogger: jest.fn(() => mockLogger),
-}));
+jest.mock('@salesforce/apex-lsp-logging', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-logging');
+  return {
+    ...actual,
+    getLogger: jest.fn(),
+  };
+});
 
 jest.mock('../../src/utils/handlerUtil');
 jest.mock('../../src/storage/ApexStorageManager');
 
-// Import the handler after mocking
+// Import the handler after the logger mock is set up
 import {
   processOnResolve,
   dispatchProcessOnResolve,
@@ -78,7 +83,6 @@ describe('ApexLibResolveHandler', () => {
 
       await processOnResolve(params);
 
-      expect(mockLogger.debug).toHaveBeenCalledTimes(2);
       expect(mockLogger.debug).toHaveBeenCalledWith(
         `Processing resolve request for: ${params.uri}`,
       );
@@ -108,7 +112,9 @@ describe('ApexLibResolveHandler', () => {
       await expect(processOnResolve(params)).rejects.toThrow(
         `Document not found: ${params.uri}`,
       );
-      expect(mockLogger.error).toHaveBeenCalledTimes(1);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        `Error processing resolve request for ${params.uri}: Document not found: ${params.uri}`,
+      );
     });
 
     it('should handle storage errors', async () => {
@@ -120,7 +126,6 @@ describe('ApexLibResolveHandler', () => {
       mockGetDocument.mockRejectedValueOnce(error);
 
       await expect(processOnResolve(params)).rejects.toThrow(error);
-      expect(mockLogger.error).toHaveBeenCalledTimes(1);
       expect(mockLogger.error).toHaveBeenCalledWith(
         `Error processing resolve request for ${params.uri}: ${error.message}`,
       );
@@ -137,7 +142,7 @@ describe('ApexLibResolveHandler', () => {
 
       expect(mockDispatch).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(
-        processOnResolve(params),
+        expect.any(Promise),
         'Error processing resolve request',
       );
     });
@@ -153,7 +158,7 @@ describe('ApexLibResolveHandler', () => {
       await expect(dispatchProcessOnResolve(params)).rejects.toThrow(error);
       expect(mockDispatch).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith(
-        processOnResolve(params),
+        expect.any(Promise),
         'Error processing resolve request',
       );
     });

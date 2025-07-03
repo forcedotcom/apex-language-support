@@ -43,18 +43,11 @@ import {
 } from '@salesforce/apex-lsp-logging';
 
 import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
-import { ActiveLoggerFactory } from './utils/ActiveLoggerFactory';
+import { LSPLoggerFactory } from './utils/LSPLoggerFactory';
 import { NodeFileSystemApexStorage } from './storage/NodeFileSystemApexStorage';
 import { createNodeApexLibAdapter } from './utils/NodeApexLibAdapter';
 
 export function startServer() {
-  // Set the logger factory early
-  setLoggerFactory(new ActiveLoggerFactory());
-
-  // Initialize settings and configuration managers
-  const settingsManager = ApexSettingsManager.getInstance({}, 'node');
-  const configurationManager = new LSPConfigurationManager(settingsManager);
-
   // Create a connection for the server based on command line arguments
   let connection: Connection;
   if (process.argv.includes('--stdio')) {
@@ -73,9 +66,14 @@ export function startServer() {
     );
   }
 
-  // Set up logging
-  const logger = getLogger();
+  // Set up logging BEFORE anything else to ensure all loggers get proper configuration
+  setLoggerFactory(new LSPLoggerFactory());
   setLogNotificationHandler(NodeLogNotificationHandler.getInstance(connection));
+  const logger = getLogger();
+
+  // Initialize settings and configuration managers
+  const settingsManager = ApexSettingsManager.getInstance({}, 'node');
+  const configurationManager = new LSPConfigurationManager(settingsManager);
 
   // Set up configuration management
   configurationManager.setConnection(connection);
@@ -101,11 +99,9 @@ export function startServer() {
     configurationManager.processInitializeParams(params);
 
     // Initialize ApexLib
-    const { client, editorContext } = createNodeApexLibAdapter(
-      connection,
-      documents,
-    );
-    const apexLibManager = createApexLibManager('apex', 'apex', 'cls', client);
+    const { client } = createNodeApexLibAdapter(connection, documents);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const apexLibManager = createApexLibManager('apex', 'apex', 'cls', client); // this is needed for future work
 
     return {
       capabilities: {
@@ -171,14 +167,14 @@ export function startServer() {
 
   // Handle document symbol requests
   connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-    logger.info(
+    logger.debug(
       `[SERVER] Received documentSymbol request for: ${params.textDocument.uri}`,
     );
-    logger.info(`[SERVER] DocumentSymbolParams: ${JSON.stringify(params)}`);
+    logger.debug(`[SERVER] DocumentSymbolParams: ${JSON.stringify(params)}`);
 
     try {
       const result = await dispatchProcessOnDocumentSymbol(params);
-      logger.info(
+      logger.debug(
         `[SERVER] Result for documentSymbol (${params.textDocument.uri}): ${JSON.stringify(result)}`,
       );
       return result;
@@ -277,7 +273,7 @@ export function startServer() {
   documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
     // Client opened a document
     // Server will parse the document and populate the corresponding local maps
-    logger.info(
+    logger.debug(
       `Extension Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
     );
 
@@ -290,7 +286,7 @@ export function startServer() {
     (event: TextDocumentChangeEvent<TextDocument>) => {
       // Client changed a open document
       // Server will parse the document and populate the corresponding local maps
-      logger.info(
+      logger.debug(
         `Extension Apex Language Server changed and processed document: ${JSON.stringify(event)}`,
       );
 
@@ -303,7 +299,7 @@ export function startServer() {
   documents.onDidClose((event: TextDocumentChangeEvent<TextDocument>) => {
     // Client closed a open document
     // Server will update the corresponding local maps
-    logger.info(
+    logger.debug(
       `Extension Apex Language Server closed document: ${JSON.stringify(event)}`,
     );
 
@@ -316,7 +312,7 @@ export function startServer() {
   documents.onDidSave((event: TextDocumentChangeEvent<TextDocument>) => {
     // Client saved a document
     // Server will parse the document and update storage as needed
-    logger.info(
+    logger.debug(
       `Extension Apex Language Server saved document: ${JSON.stringify(event)}`,
     );
 

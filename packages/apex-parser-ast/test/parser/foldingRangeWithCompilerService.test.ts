@@ -6,8 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LogLevel } from '@salesforce/apex-lsp-logging';
-
 import { CompilerService } from '../../src/parser/compilerService';
 import {
   ApexFoldingRangeListener,
@@ -18,7 +16,7 @@ import { TestLogger } from '../utils/testLogger';
 describe('CompilerService Folding Range Integration', () => {
   // Set up debug logging for all tests in this suite
   const logger = TestLogger.getInstance();
-  logger.setLogLevel(LogLevel.Debug);
+  logger.setLogLevel('debug');
 
   describe('Basic Folding Ranges', () => {
     it('should collect folding ranges for class and method declarations', () => {

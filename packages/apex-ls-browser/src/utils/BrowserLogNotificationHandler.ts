@@ -9,9 +9,10 @@
 import { Connection, MessageType } from 'vscode-languageserver/browser';
 import {
   LogMessageParams,
-  LogMessageType,
   LogNotificationHandler,
+  shouldLog,
 } from '@salesforce/apex-lsp-logging';
+import type { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 /**
  * Browser-specific implementation of LogNotificationHandler
@@ -52,25 +53,12 @@ export class BrowserLogNotificationHandler implements LogNotificationHandler {
    * @param params The log message parameters
    */
   public sendLogMessage(params: LogMessageParams): void {
-    // Log to console
-    switch (params.type) {
-      case LogMessageType.Error:
-        console.error(params.message);
-        break;
-      case LogMessageType.Warning:
-        console.warn(params.message);
-        break;
-      case LogMessageType.Info:
-        console.info(params.message);
-        break;
-      case LogMessageType.Log:
-        console.log(params.message);
-        break;
-      default:
-        console.log(params.message);
+    // Check if we should log this message based on current log level
+    if (!shouldLog(params.type)) {
+      return; // Don't log if below current log level
     }
 
-    // Send to language client
+    // Send to language client only - let the client handle OutputChannel logging
     this.connection.sendNotification('window/logMessage', {
       type: this.getLogMessageType(params.type),
       message: params.message,
@@ -84,13 +72,16 @@ export class BrowserLogNotificationHandler implements LogNotificationHandler {
    */
   private getLogMessageType(type: LogMessageType): MessageType {
     switch (type) {
-      case LogMessageType.Error:
+      case 'error':
         return MessageType.Error;
-      case LogMessageType.Warning:
+      case 'warning':
         return MessageType.Warning;
-      case LogMessageType.Info:
+      case 'info':
         return MessageType.Info;
-      case LogMessageType.Log:
+      case 'log':
+        return MessageType.Log;
+      case 'debug':
+        // Map Debug to Log for backward compatibility with older LSP clients
         return MessageType.Log;
       default:
         return MessageType.Log;

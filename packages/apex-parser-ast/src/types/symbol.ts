@@ -88,7 +88,7 @@ export interface SymbolLocation {
  * Base interface for all Apex symbols
  */
 export interface ApexSymbol {
-  name: string;
+  name: string; // name of the symbol based on the id
   kind: SymbolKind;
   location: SymbolLocation;
   modifiers: SymbolModifiers;
@@ -154,7 +154,7 @@ export class RuntimeSymbol implements ApexSymbol {
 }
 
 /**
- * Represents a class, interface, or trigger
+ * Represents a class, interface, enum, or trigger
  */
 export interface TypeSymbol extends ApexSymbol {
   kind:

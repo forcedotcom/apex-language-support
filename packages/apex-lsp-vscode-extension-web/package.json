@@ -97,6 +97,18 @@
           "type": "number",
           "default": 0,
           "description": "Port to use for debugging (0 for random port)"
+        },
+        "apex.ls.logLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "log",
+            "debug"
+          ],
+          "default": "info",
+          "description": "Controls the minimum log level for Apex Language Server logging. Messages at this level or higher will be logged."
         }
       }
     },

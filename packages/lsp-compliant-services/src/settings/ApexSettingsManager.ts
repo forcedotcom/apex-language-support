@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger, setLogLevel } from '@salesforce/apex-lsp-logging';
 import type { CompilationOptions } from '@salesforce/apex-lsp-parser-ast';
 
 import {
@@ -43,7 +43,7 @@ export class ApexSettingsManager {
       environment,
     );
     this.logger.debug(
-      `ApexSettingsManager initialized for ${environment} environment`,
+      () => `ApexSettingsManager initialized for ${environment} environment`,
     );
     this.logger.debug(
       () =>
@@ -92,6 +92,12 @@ export class ApexSettingsManager {
       () => `New settings: ${JSON.stringify(newSettings, null, 2)}`,
     );
 
+    // Set log level if provided
+    if (newSettings.ls?.logLevel ?? false) {
+      setLogLevel(newSettings.ls!.logLevel!);
+      this.logger.debug(() => `Log level set to: ${newSettings.ls!.logLevel}`);
+    }
+
     const previousSettings = { ...this.currentSettings };
     const environment =
       this.currentSettings.environment.environment === 'web-worker'
@@ -112,25 +118,32 @@ export class ApexSettingsManager {
   public updateFromLSPConfiguration(config: any): boolean {
     try {
       if (!config || typeof config !== 'object') {
-        this.logger.warn('Invalid LSP configuration received, using defaults');
+        this.logger.debug('Invalid LSP configuration received, using defaults');
         return false;
       }
 
       // Extract apex-specific settings from the configuration
       const apexConfig = config.apex || config.apexLanguageServer || config;
 
+      // Set log level if provided
+      if (apexConfig.ls && apexConfig.ls.logLevel) {
+        setLogLevel(apexConfig.ls.logLevel);
+        this.logger.debug(() => `Log level set to: ${apexConfig.ls.logLevel}`);
+      }
+
       if (isValidApexSettings(apexConfig)) {
         this.updateSettings(apexConfig);
         return true;
       } else {
         this.logger.warn(
-          'LSP configuration does not match expected schema, merging what we can',
+          () =>
+            'LSP configuration does not match expected schema, merging what we can',
         );
         this.updateSettings(apexConfig as Partial<ApexLanguageServerSettings>);
         return true;
       }
     } catch (error) {
-      this.logger.error('Error processing LSP configuration:', error);
+      this.logger.error(() => `Error processing LSP configuration: ${error}`);
       return false;
     }
   }
@@ -263,7 +276,9 @@ export class ApexSettingsManager {
       try {
         listener(settings);
       } catch (error) {
-        this.logger.error('Error notifying settings change listener:', error);
+        this.logger.error(
+          () => `Error notifying settings change listener: ${error}`,
+        );
       }
     });
   }

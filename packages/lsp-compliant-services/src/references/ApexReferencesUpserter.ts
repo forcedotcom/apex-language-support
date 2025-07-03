@@ -65,7 +65,7 @@ export class DefaultApexReferencesUpserter implements ApexReferencesUpserter {
         await this.storage.setReferences(symbol.name, references);
       }
     } catch (error) {
-      this.logger.error('Error populating definitions:', error);
+      this.logger.error(() => `Error populating definitions: ${error}`);
     }
   }
 }

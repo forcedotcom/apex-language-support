@@ -7,97 +7,56 @@
  */
 import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {
-  SymbolTable,
-  CompilerService,
-  ApexSymbolCollectorListener,
-} from '@salesforce/apex-lsp-parser-ast';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
-import { Logger } from '../utils/Logger';
-import { dispatch, getDiagnosticsFromErrors } from '../utils/handlerUtil';
-import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
-import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
-import { ApexSettingsManager } from '../settings/ApexSettingsManager';
+import { dispatch } from '../utils/handlerUtil';
 
-// Visible for testing
-export const processOnChangeDocument = async (
-  event: TextDocumentChangeEvent<TextDocument>,
-): Promise<Diagnostic[] | undefined> => {
-  // Client opened a document
-  const logger = Logger.getInstance();
-  logger.debug(
-    `Common Apex Language Server change document handler invoked with: ${event}`,
-  );
+/**
+ * Interface for document processing functionality to make handlers more testable
+ */
+export interface IDocumentProcessor {
+  /**
+   * Process a document change event
+   * @param event The document change event
+   * @returns Diagnostics for the changed document
+   */
+  processDocumentChange(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<Diagnostic[] | undefined>;
+}
 
-  // Get the storage manager instance
-  const storageManager = ApexStorageManager.getInstance();
-  const storage = storageManager.getStorage();
-  const document = event.document;
-  if (!document) {
-    logger.error(() => `Document not found for URI: ${event.document.uri}`);
+/**
+ * Handler for document change events
+ */
+export class DidChangeDocumentHandler {
+  constructor(
+    private readonly logger: LoggerInterface,
+    private readonly documentProcessor: IDocumentProcessor,
+  ) {}
+
+  /**
+   * Handle document change event
+   * @param event The document change event
+   * @returns Diagnostics for the changed document
+   */
+  public async handleDocumentChange(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<Diagnostic[] | undefined> {
+    this.logger.debug(
+      () => `Processing document change: ${event.document.uri}`,
+    );
+
+    try {
+      return await dispatch(
+        this.documentProcessor.processDocumentChange(event),
+        'Error processing document change',
+      );
+    } catch (error) {
+      this.logger.error(
+        () =>
+          `Error processing document change for ${event.document.uri}: ${error}`,
+      );
+      throw error;
+    }
   }
-
-  // Store the document in storage for later retrieval by other handlers
-  await storage.setDocument(document.uri, document);
-
-  // Create a symbol collector listener
-  const table = new SymbolTable();
-  const listener = new ApexSymbolCollectorListener(table);
-  const compilerService = new CompilerService();
-
-  // Parse the document
-  const settingsManager = ApexSettingsManager.getInstance();
-  const fileSize = document.getText().length;
-  const options = settingsManager.getCompilationOptions(
-    'documentChange',
-    fileSize,
-  );
-
-  const result = compilerService.compile(
-    document.getText(),
-    document.uri,
-    listener,
-    options,
-  );
-
-  if (result.errors.length > 0) {
-    logger.error('Errors parsing document:', result.errors);
-    const diagnostics = getDiagnosticsFromErrors(result.errors);
-    return diagnostics;
-  }
-
-  // Get the symbol table from the listener
-  const symbolTable = listener.getResult();
-
-  // Get all symbols from the global scope
-  const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
-
-  // Create the definition provider
-  const definitionUpserter = new DefaultApexDefinitionUpserter(
-    storage,
-    globalSymbols,
-  );
-
-  // Create the references provider
-  const referencesUpserter = new DefaultApexReferencesUpserter(
-    storage,
-    globalSymbols,
-  );
-
-  // Upsert the definitions
-  dispatch(
-    definitionUpserter.upsertDefinition(event),
-    'Error upserting definitions',
-  );
-  // Upsert the references
-  dispatch(
-    referencesUpserter.upsertReferences(event),
-    'Error upserting references',
-  );
-};
-
-export const dispatchProcessOnChangeDocument = (
-  event: TextDocumentChangeEvent<TextDocument>,
-) =>
-  dispatch(processOnChangeDocument(event), 'Error processing document change');
+}

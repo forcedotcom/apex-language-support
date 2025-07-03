@@ -157,7 +157,7 @@ export class LspTestFixture {
     try {
       // Send the request via the client
 
-      const response = await this.client.sendRequest(step.method, step.params);
+      await this.client.sendRequest(step.method, step.params);
 
       // Get the captured request-response pair
       const pair = this.middleware.getLastCapturedRequest();

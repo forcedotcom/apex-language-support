@@ -6,8 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LogLevel } from '@salesforce/apex-lsp-logging';
-
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolTable, SymbolKind, MethodSymbol } from '../../src/types/symbol';
@@ -16,7 +14,7 @@ import { TestLogger } from '../utils/testLogger';
 describe('CompilerService Namespace Integration', () => {
   // Set up debug logging for all tests in this suite
   const logger = TestLogger.getInstance();
-  logger.setLogLevel(LogLevel.Debug);
+  logger.setLogLevel('debug');
 
   describe('Namespace Handling', () => {
     it('should process code without namespace', () => {
@@ -255,33 +253,29 @@ describe('CompilerService Namespace Integration', () => {
         logger.info('\nCompilation Errors:');
         result.errors.forEach((error, index) => {
           logger.info(`\nError ${index + 1}:`);
-          logger.info('Message:', error.message);
-          logger.info('Line:', error.line);
-          logger.info('Column:', error.column);
-          logger.info('File:', error.filePath);
-          logger.info('Type:', error.type);
-          logger.info('Severity:', error.severity);
+          logger.info(`Message: ${error.message}`);
+          logger.info(`Line: ${error.line}`);
+          logger.info(`Column: ${error.column}`);
+          logger.info(`File: ${error.filePath}`);
+          logger.info(`Type: ${error.type}`);
+          logger.info(`Severity: ${error.severity}`);
           // Add context around the error
           const errorLine = code.split('\n')[error.line - 1];
-          logger.info('Error Context:', errorLine);
-          logger.info(' '.repeat(error.column) + '^');
+          logger.info(`Error Context: ${errorLine}`);
+          logger.info(`${' '.repeat(error.column)}^`);
         });
       }
 
       // Log symbol table information
       const symbolTable = result.result as SymbolTable;
       logger.info('\nSymbol Table:');
-      logger.info(
-        'Global Scope Symbols:',
+      logger.info(`Global Scope Symbols: ${JSON.stringify(
         symbolTable
           .getCurrentScope()
           .getAllSymbols()
-          .map((s) => ({
-            name: s.name,
-            kind: s.kind,
-            namespace: s.namespace,
-          })),
-      );
+          .map((s) => ({ name: s.name, kind: s.kind, namespace: s.namespace })),
+      )}
+`);
 
       // Get the class scope and verify methods
       const classScope = symbolTable
@@ -297,11 +291,13 @@ describe('CompilerService Namespace Integration', () => {
           .forEach((method) => {
             const methodSymbol = method as MethodSymbol;
             logger.info(`\nMethod: ${methodSymbol.name}`);
-            logger.info('Return Type:', {
-              name: methodSymbol.returnType.name,
-              namespace: methodSymbol.returnType.namespace?.global,
-              originalTypeString: methodSymbol.returnType.originalTypeString,
-            });
+            logger.info(
+              `Return Type: ${JSON.stringify({
+                name: methodSymbol.returnType.name,
+                namespace: methodSymbol.returnType.namespace?.global,
+                originalTypeString: methodSymbol.returnType.originalTypeString,
+              })}`,
+            );
           });
       }
 
@@ -344,11 +340,13 @@ describe('CompilerService Namespace Integration', () => {
       Object.entries(methodReturnTypes).forEach(([name, expectedType]) => {
         const method = methods.find((m) => m.name === name) as MethodSymbol;
         logger.info(`\nVerifying method: ${name}`);
-        logger.info('Expected:', expectedType);
-        logger.info('Actual:', {
-          name: method.returnType.name,
-          namespace: method.returnType.namespace?.global,
-        });
+        logger.info(`Expected: ${JSON.stringify(expectedType)}`);
+        logger.info(
+          `Actual: ${JSON.stringify({
+            name: method.returnType.name,
+            namespace: method.returnType.namespace?.global,
+          })}`,
+        );
 
         expect(method).toBeDefined();
         expect(method.returnType.name).toBe(expectedType.name);

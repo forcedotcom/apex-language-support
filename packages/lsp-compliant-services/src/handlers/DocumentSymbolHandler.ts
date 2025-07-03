@@ -10,41 +10,43 @@ import {
   SymbolInformation,
   DocumentSymbol,
 } from 'vscode-languageserver';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
-import { Logger } from '../utils/Logger';
 import { dispatch } from '../utils/handlerUtil';
-import { DefaultApexDocumentSymbolProvider } from '../documentSymbol/ApexDocumentSymbolProvider';
-import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { IDocumentSymbolProcessor } from '../services/DocumentSymbolProcessingService';
 
-// Visible for testing
-export const processOnDocumentSymbol = async (
-  params: DocumentSymbolParams,
-): Promise<SymbolInformation[] | DocumentSymbol[] | null> => {
-  const logger = Logger.getInstance();
-  logger.debug(
-    `Common Apex Language Server document symbol handler invoked with: ${params}`,
-  );
+/**
+ * Handler for document symbol requests
+ */
+export class DocumentSymbolHandler {
+  constructor(
+    private readonly logger: LoggerInterface,
+    private readonly documentSymbolProcessor: IDocumentSymbolProcessor,
+  ) {}
 
-  try {
-    // Get the storage manager instance
-    const storageManager = ApexStorageManager.getInstance();
-    const storage = storageManager.getStorage();
+  /**
+   * Handle document symbol request
+   * @param params The document symbol parameters
+   * @returns Document symbols for the requested document
+   */
+  public async handleDocumentSymbol(
+    params: DocumentSymbolParams,
+  ): Promise<SymbolInformation[] | DocumentSymbol[] | null> {
+    this.logger.debug(
+      () => `Processing document symbol request: ${params.textDocument.uri}`,
+    );
 
-    // Create the document symbol provider
-    const provider = new DefaultApexDocumentSymbolProvider(storage);
-
-    // Get document symbols
-    return await provider.provideDocumentSymbols(params);
-  } catch (error) {
-    logger.error('Error processing document symbols:', error);
-    return null;
+    try {
+      return await dispatch(
+        this.documentSymbolProcessor.processDocumentSymbol(params),
+        'Error processing document symbol request',
+      );
+    } catch (error) {
+      this.logger.error(
+        () =>
+          `Error processing document symbol request for ${params.textDocument.uri}: ${error}`,
+      );
+      throw error;
+    }
   }
-};
-
-export const dispatchProcessOnDocumentSymbol = (
-  params: DocumentSymbolParams,
-): Promise<SymbolInformation[] | DocumentSymbol[] | null> =>
-  dispatch(
-    processOnDocumentSymbol(params),
-    'Error processing document symbols',
-  );
+}

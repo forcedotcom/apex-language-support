@@ -122,7 +122,7 @@ export class ResourceLoader {
       const dirStats = new Map<string, number>();
       let totalFiles = 0;
 
-      for (const [normalizedPath, content] of this.fileMap.entries()) {
+      for (const [_normalizedPath, content] of this.fileMap.entries()) {
         if (!content) continue;
         // Use the original path for directory statistics to maintain compatibility
         const dir =
@@ -134,27 +134,27 @@ export class ResourceLoader {
         totalFiles++;
       }
 
-      this.logger.info(
+      this.logger.debug(
         () => '\nResource Loading Statistics:\n---------------------------',
       );
-      this.logger.info(() => `Total files loaded: ${totalFiles}`);
-      this.logger.info(() => `Loading mode: ${this.loadMode}`);
-      this.logger.info(() => '\nFiles per directory:');
+      this.logger.debug(() => `Total files loaded: ${totalFiles}`);
+      this.logger.debug(() => `Loading mode: ${this.loadMode}`);
+      this.logger.debug(() => '\nFiles per directory:');
       for (const [dir, count] of dirStats.entries()) {
-        this.logger.info(() => `  ${dir}: ${count} files`);
+        this.logger.debug(() => `  ${dir}: ${count} files`);
       }
-      this.logger.info(() => '---------------------------\n');
+      this.logger.debug(() => '---------------------------\n');
 
       // Start compilation when loadMode is 'full'
       if (this.loadMode === 'full') {
         // Create and start the compilation promise
         this.compilationPromise = (async () => {
           try {
-            this.logger.info(() => 'Starting async compilation...');
+            this.logger.debug(() => 'Starting async compilation...');
             await this.compileAllArtifacts();
-            this.logger.info(() => 'Async compilation completed successfully');
+            this.logger.debug(() => 'Async compilation completed successfully');
           } catch (error) {
-            this.logger.error('Compilation failed:', error);
+            this.logger.debug(() => `Compilation failed: ${error}`);
             throw error;
           } finally {
             this.compilationPromise = null; // Reset promise after completion
@@ -176,7 +176,7 @@ export class ResourceLoader {
 
       this.initialized = true;
     } catch (error) {
-      this.logger.error('Failed to initialize resource loader:', error);
+      this.logger.error(() => `Failed to initialize resource loader: ${error}`);
       throw error;
     }
   }
@@ -220,7 +220,7 @@ export class ResourceLoader {
       );
     }
     const result = new CaseInsensitivePathMap<string>();
-    for (const [normalizedPath, content] of this.fileMap.entries()) {
+    for (const [_normalizedPath, content] of this.fileMap.entries()) {
       if (!content) continue;
       // Always return the original path format
       if (isDecodedContent(content.contents)) {
@@ -240,7 +240,7 @@ export class ResourceLoader {
    * @private
    */
   private async compileAllArtifacts(): Promise<void> {
-    this.logger.info(
+    this.logger.debug(
       () =>
         'Starting parallel compilation of all artifacts using CompilerService...',
     );
@@ -255,7 +255,7 @@ export class ResourceLoader {
       options: CompilationOptions;
     }> = [];
 
-    for (const [normalizedPath, content] of this.fileMap.entries()) {
+    for (const [_normalizedPath, content] of this.fileMap.entries()) {
       if (content && isDecodedContent(content.contents)) {
         // Extract namespace from parent folder path
         const pathParts = content.originalPath.split(/[\/\\]/);
@@ -275,22 +275,22 @@ export class ResourceLoader {
       }
     }
 
-    this.logger.info(() => `Found ${filesToCompile.length} files to compile`);
+    this.logger.debug(() => `Found ${filesToCompile.length} files to compile`);
 
     if (filesToCompile.length === 0) {
-      this.logger.info(() => 'No files to compile');
+      this.logger.debug(() => 'No files to compile');
       return;
     }
 
     try {
-      this.logger.info(
+      this.logger.debug(
         () => 'Calling compileMultipleWithConfigs with parallel processing',
       );
 
       const results =
         await this.compilerService.compileMultipleWithConfigs(filesToCompile);
 
-      this.logger.info(
+      this.logger.debug(
         () => `CompileMultipleWithConfigs returned ${results.length} results`,
       );
 
@@ -313,23 +313,20 @@ export class ResourceLoader {
           }
         } else {
           errorCount++;
-          this.logger.error(
-            `Compilation failed for ${result.fileName}:`,
-            result.errors,
-          );
+          this.logger.debug(() => `Compilation failed for ${result.fileName}:`);
         }
       });
 
       const endTime = Date.now();
       const duration = (endTime - startTime) / 1000;
 
-      this.logger.info(
+      this.logger.debug(
         () =>
           `Parallel compilation completed in ${duration.toFixed(2)}s: ` +
           `${compiledCount} files compiled, ${errorCount} files with errors`,
       );
     } catch (error) {
-      this.logger.error('Failed to compile artifacts:', error);
+      this.logger.error(() => 'Failed to compile artifacts:');
       throw error;
     }
   }

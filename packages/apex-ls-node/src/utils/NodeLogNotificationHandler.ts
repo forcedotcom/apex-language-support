@@ -9,8 +9,9 @@
 import { Connection, MessageType } from 'vscode-languageserver/node';
 import {
   LogMessageParams,
-  LogMessageType,
+  type LogMessageType,
   LogNotificationHandler,
+  shouldLog,
 } from '@salesforce/apex-lsp-logging';
 
 /**
@@ -46,28 +47,16 @@ export class NodeLogNotificationHandler implements LogNotificationHandler {
    * @param params The log message parameters
    */
   public sendLogMessage(params: LogMessageParams): void {
-    // Send to language client
+    // Check if we should log this message based on current log level
+    if (!shouldLog(params.type)) {
+      return; // Don't log if below current log level
+    }
+
+    // Send to language client only - let the client handle OutputChannel logging
     this.connection.sendNotification('window/logMessage', {
       type: this.getLogMessageType(params.type),
       message: params.message,
     });
-
-    // Send to console
-    switch (params.type) {
-      case LogMessageType.Error:
-        console.error(params.message);
-        break;
-      case LogMessageType.Warning:
-        console.warn(params.message);
-        break;
-      case LogMessageType.Info:
-        console.info(params.message);
-        break;
-      case LogMessageType.Log:
-      default:
-        console.log(params.message);
-        break;
-    }
   }
 
   /**
@@ -77,13 +66,16 @@ export class NodeLogNotificationHandler implements LogNotificationHandler {
    */
   private getLogMessageType(type: LogMessageType): MessageType {
     switch (type) {
-      case LogMessageType.Error:
+      case 'error':
         return MessageType.Error;
-      case LogMessageType.Warning:
+      case 'warning':
         return MessageType.Warning;
-      case LogMessageType.Info:
+      case 'info':
         return MessageType.Info;
-      case LogMessageType.Log:
+      case 'log':
+        return MessageType.Log;
+      case 'debug':
+        // Map debug to log for backward compatibility with older LSP clients
         return MessageType.Log;
       default:
         return MessageType.Log;

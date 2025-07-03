@@ -13,10 +13,7 @@ import {
   ParseTreeWalker,
 } from '@apexdevtools/apex-parser';
 
-import {
-  ApexFoldingRangeListener,
-  FoldingRangeKind,
-} from '../../src/parser/listeners/ApexFoldingRangeListener';
+import { ApexFoldingRangeListener } from '../../src/parser/listeners/ApexFoldingRangeListener';
 
 describe('ApexFoldingRangeListener', () => {
   let listener: ApexFoldingRangeListener;
@@ -33,9 +30,6 @@ describe('ApexFoldingRangeListener', () => {
     const walker = new ParseTreeWalker();
     walker.walk(listener, parser.compilationUnit());
   };
-
-  const findRangeByKind = (kind: FoldingRangeKind) =>
-    listener.getResult().find((range) => range.kind === kind);
 
   const findRangeByStartLine = (startLine: number) =>
     listener.getResult().find((range) => range.startLine === startLine);

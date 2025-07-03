@@ -22,7 +22,6 @@ bundle/
 *.tsbuildinfo
 
 # IDE files
-.vscode/
 .idea/
 
 # macOS

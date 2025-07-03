@@ -234,7 +234,7 @@ export class ApexSymbolCollectorListener
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownClass';
-      this.logger.debug(`Entering class declaration: ${name}`);
+      this.logger.debug(() => `Entering class declaration: ${name}`);
 
       // Validate class in interface
       InterfaceBodyValidator.validateClassInInterface(
@@ -317,7 +317,7 @@ export class ApexSymbolCollectorListener
 
       // Enter class scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(`Entered class scope: ${name}`);
+      this.logger.debug(() => `Entered class scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -333,7 +333,7 @@ export class ApexSymbolCollectorListener
   exitClassDeclaration(): void {
     // Exit the class scope
     const currentScope = this.symbolTable.getCurrentScope();
-    this.logger.debug(`Exiting class scope: ${currentScope.name}`);
+    this.logger.debug(() => `Exiting class scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
 
     // Clear current type symbol
@@ -346,7 +346,7 @@ export class ApexSymbolCollectorListener
   enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownInterface';
-      this.logger.debug(`Entering interface declaration: ${name}`);
+      this.logger.debug(() => `Entering interface declaration: ${name}`);
 
       // Validate interface in interface
       InterfaceBodyValidator.validateInterfaceInInterface(
@@ -401,7 +401,7 @@ export class ApexSymbolCollectorListener
 
       // Enter interface scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(`Entered interface scope: ${name}`);
+      this.logger.debug(() => `Entered interface scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -429,7 +429,8 @@ export class ApexSymbolCollectorListener
     try {
       const name = ctx.id()?.text ?? 'unknownMethod';
       this.logger.debug(
-        `Entering method declaration: ${name} in class: ${this.currentTypeSymbol?.name}`,
+        () =>
+          `Entering method declaration: ${name} in class: ${this.currentTypeSymbol?.name}`,
       );
 
       // Get current modifiers and annotations
@@ -512,7 +513,7 @@ export class ApexSymbolCollectorListener
 
       // Enter method scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(`Entered method scope: ${name}`);
+      this.logger.debug(() => `Entered method scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -529,7 +530,7 @@ export class ApexSymbolCollectorListener
   exitMethodDeclaration(): void {
     // Exit method scope
     const currentScope = this.symbolTable.getCurrentScope();
-    this.logger.debug(`Exiting method scope: ${currentScope.name}`);
+    this.logger.debug(() => `Exiting method scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
 
     // Clear current method symbol
@@ -697,7 +698,7 @@ export class ApexSymbolCollectorListener
 
       // Enter method scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(`Entered interface method scope: ${name}`);
+      this.logger.debug(() => `Entered interface method scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -815,7 +816,8 @@ export class ApexSymbolCollectorListener
     try {
       const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
       this.logger.debug(
-        `Entering field declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
+        () =>
+          `Entering field declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
       );
 
       // Get current modifiers
@@ -923,28 +925,13 @@ export class ApexSymbolCollectorListener
       );
 
       const modifiers = this.getCurrentModifiers();
-      const location = this.getLocation(ctx);
-      const parent = this.currentTypeSymbol;
-      const parentKey = parent ? parent.key : null;
-      const key = {
-        prefix: SymbolKind.Enum,
-        name,
-        path: this.getCurrentPath(),
-      };
 
-      const enumSymbol: EnumSymbol = {
+      const enumSymbol = this.createTypeSymbol(
+        ctx,
         name,
-        kind: SymbolKind.Enum,
-        location,
+        SymbolKind.Enum,
         modifiers,
-        values: [],
-        interfaces: [], // Required by TypeSymbol
-        superClass: undefined, // Optional in TypeSymbol
-        parent,
-        key,
-        parentKey,
-        annotations: this.getCurrentAnnotations(),
-      };
+      );
 
       this.currentTypeSymbol = enumSymbol;
       this.symbolTable.addSymbol(enumSymbol);
@@ -1051,7 +1038,7 @@ export class ApexSymbolCollectorListener
   exitBlock(): void {
     // Exit block scope
     const currentScope = this.symbolTable.getCurrentScope();
-    this.logger.debug(`Exiting block scope: ${currentScope.name}`);
+    this.logger.debug(() => `Exiting block scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
     this.blockDepth--;
   }
@@ -1166,18 +1153,23 @@ export class ApexSymbolCollectorListener
    * Create a TypeInfo object from a type string
    */
   private createTypeInfo(typeString: string): TypeInfo {
-    this.logger.debug(`createTypeInfo called with typeString: ${typeString}`);
+    this.logger.debug(
+      () => `createTypeInfo called with typeString: ${typeString}`,
+    );
 
     // Handle qualified type names (e.g., System.PageReference)
     if (typeString.includes('.')) {
       const [namespace, typeName] = typeString.split('.');
       this.logger.debug(
-        `Processing qualified type - namespace: ${namespace}, typeName: ${typeName}`,
+        () =>
+          `Processing qualified type - namespace: ${namespace}, typeName: ${typeName}`,
       );
 
       // Use predefined namespaces for built-in types
       if (namespace === 'System') {
-        this.logger.debug('Using Namespaces.SYSTEM for System namespace type');
+        this.logger.debug(
+          () => 'Using Namespaces.SYSTEM for System namespace type',
+        );
         return {
           name: typeName,
           isArray: false,
@@ -1190,7 +1182,7 @@ export class ApexSymbolCollectorListener
       }
       // For other namespaces, create a new namespace instance
       this.logger.debug(
-        'Creating new namespace instance for non-System namespace',
+        () => 'Creating new namespace instance for non-System namespace',
       );
       return {
         name: typeName,
@@ -1204,7 +1196,7 @@ export class ApexSymbolCollectorListener
     }
 
     // For simple types, use createPrimitiveType
-    this.logger.debug('Using createPrimitiveType for simple type');
+    this.logger.debug(() => 'Using createPrimitiveType for simple type');
     return createPrimitiveType(typeString);
   }
 
@@ -1315,7 +1307,11 @@ export class ApexSymbolCollectorListener
   private createTypeSymbol(
     ctx: ParserRuleContext,
     name: string,
-    kind: SymbolKind.Class | SymbolKind.Interface | SymbolKind.Trigger,
+    kind:
+      | SymbolKind.Class
+      | SymbolKind.Interface
+      | SymbolKind.Trigger
+      | SymbolKind.Enum,
     modifiers: SymbolModifiers,
   ): TypeSymbol {
     const location = this.getLocation(ctx);
@@ -1338,6 +1334,12 @@ export class ApexSymbolCollectorListener
       parentKey,
       annotations: this.getCurrentAnnotations(),
     };
+
+    // For enums, we need to add the values array
+    // TODO: change to a more generic approach
+    if (typeSymbol.kind === SymbolKind.Enum) {
+      (typeSymbol as EnumSymbol).values = [];
+    }
 
     return typeSymbol;
   }
@@ -1444,7 +1446,7 @@ export class ApexSymbolCollectorListener
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(`Entered trigger scope: ${name}`);
+      this.logger.debug(() => `Entered trigger scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -1488,7 +1490,7 @@ export class ApexSymbolCollectorListener
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(`Entered trigger scope: ${name}`);
+      this.logger.debug(() => `Entered trigger scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();

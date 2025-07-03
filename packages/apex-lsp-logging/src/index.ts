@@ -8,119 +8,154 @@
 
 export * from './notification';
 export {
-  LogMessageType,
   setLogNotificationHandler,
   getLogNotificationHandler,
 } from './notification';
-export type { LogMessageParams, LogNotificationHandler } from './notification';
+export type {
+  LogMessageType,
+  LogMessageParams,
+  LogNotificationHandler,
+} from './notification';
+import { LogMessageType } from './notification';
 
 /**
- * Log levels supported by the logger
+ * Priority mapping for log levels (higher number = higher priority)
  */
-export enum LogLevel {
-  Error = 'error',
-  Warn = 'warn',
-  Info = 'info',
-  Debug = 'debug',
-}
+const LOG_LEVEL_PRIORITY: Record<LogMessageType, number> = {
+  error: 5,
+  warning: 4,
+  info: 3,
+  log: 2,
+  debug: 1,
+};
 
 /**
- * Interface for logging messages
+ * Convert string log level to LogMessageType
+ * @param level String representation of log level
+ * @returns LogMessageType string value
  */
-export interface LogMessage {
-  level: LogLevel;
-  message: string;
-  error?: unknown;
-}
+const stringToLogLevel = (level: string): LogMessageType => {
+  switch (level.toLowerCase()) {
+    case 'error':
+      return 'error';
+    case 'warn':
+    case 'warning':
+      return 'warning';
+    case 'info':
+      return 'info';
+    case 'log':
+      return 'log';
+    case 'debug':
+      return 'debug';
+    default:
+      return 'info'; // Default to info
+  }
+};
+
+/**
+ * Convert LogMessageType to LogLevel
+ * @param messageType The log message type
+ * @returns Corresponding log level
+ */
+export const messageTypeToLogLevel = (
+  messageType: LogMessageType,
+): LogMessageType => messageType;
+
+// Global log level setting
+let currentLogLevel: LogMessageType = 'error';
+
+/**
+ * Set the global log level
+ * @param level The log level to set
+ */
+export const setLogLevel = (level: LogMessageType | string): void => {
+  currentLogLevel = typeof level === 'string' ? stringToLogLevel(level) : level;
+};
+
+/**
+ * Get the current global log level
+ * @returns The current log level
+ */
+export const getLogLevel = (): LogMessageType => currentLogLevel;
+
+/**
+ * Check if a message type should be logged based on current log level
+ * @param messageType The message type to check
+ * @returns True if the message should be logged
+ */
+export const shouldLog = (messageType: LogMessageType): boolean => {
+  const messagePriority =
+    LOG_LEVEL_PRIORITY[messageType] || LOG_LEVEL_PRIORITY.log;
+  const currentPriority = LOG_LEVEL_PRIORITY[currentLogLevel];
+  return messagePriority >= currentPriority;
+};
 
 /**
  * Interface for the logger implementation
+ * Aligned with LSP window/logMessage structure while providing convenience methods
  */
 export interface LoggerInterface {
   /**
-   * Log an error message
+   * Log a message with the specified type
+   * @param messageType - The LSP message type (Error, Warning, Info, Log, Debug)
    * @param message - The message to log
-   * @param error - Optional error object to include in the log
-   * @param args - Additional arguments to include in the log
    */
-  error(message: string, error?: unknown, ...args: unknown[]): void;
-  /**
-   * Log an error message with lazy evaluation
-   * @param messageProvider - Function that returns the message to log
-   * @param error - Optional error object to include in the log
-   * @param args - Additional arguments to include in the log
-   */
-  error(
-    messageProvider: () => string,
-    error?: unknown,
-    ...args: unknown[]
-  ): void;
+  log(messageType: LogMessageType, message: string): void;
 
   /**
-   * Log a warning message
-   * @param message - The message to log
-   * @param args - Additional arguments to include in the log
-   */
-  warn(message: string, ...args: unknown[]): void;
-  /**
-   * Log a warning message with lazy evaluation
+   * Log a message with lazy evaluation
+   * @param messageType - The LSP message type (Error, Warning, Info, Log, Debug)
    * @param messageProvider - Function that returns the message to log
-   * @param args - Additional arguments to include in the log
    */
-  warn(messageProvider: () => string, ...args: unknown[]): void;
-
-  /**
-   * Log an info message
-   * @param message - The message to log
-   * @param args - Additional arguments to include in the log
-   */
-  info(message: string, ...args: unknown[]): void;
-  /**
-   * Log an info message with lazy evaluation
-   * @param messageProvider - Function that returns the message to log
-   * @param args - Additional arguments to include in the log
-   */
-  info(messageProvider: () => string, ...args: unknown[]): void;
+  log(messageType: LogMessageType, messageProvider: () => string): void;
 
   /**
    * Log a debug message
    * @param message - The message to log
-   * @param args - Additional arguments to include in the log
    */
-  debug(message: string, ...args: unknown[]): void;
+  debug(message: string): void;
+
   /**
    * Log a debug message with lazy evaluation
    * @param messageProvider - Function that returns the message to log
-   * @param args - Additional arguments to include in the log
    */
-  debug(messageProvider: () => string, ...args: unknown[]): void;
+  debug(messageProvider: () => string): void;
 
   /**
-   * Log a message with the specified level
-   * @param level - The log level
+   * Log an info message
    * @param message - The message to log
-   * @param error - Optional error object to include in the log
-   * @param args - Additional arguments to include in the log
    */
-  log(
-    level: LogLevel,
-    message: string,
-    error?: unknown,
-    ...args: unknown[]
-  ): void;
+  info(message: string): void;
+
   /**
-   * Log a message with the specified level and lazy evaluation
-   * @param level - The log level
+   * Log an info message with lazy evaluation
    * @param messageProvider - Function that returns the message to log
-   * @param error - Optional error object to include in the log
-   * @param args - Additional arguments to include in the log
    */
-  log(
-    level: LogLevel,
-    messageProvider: () => string,
-    error?: unknown,
-    ...args: unknown[]
-  ): void;
+  info(messageProvider: () => string): void;
+
+  /**
+   * Log a warning message
+   * @param message - The message to log
+   */
+  warn(message: string): void;
+
+  /**
+   * Log a warning message with lazy evaluation
+   * @param messageProvider - Function that returns the message to log
+   */
+  warn(messageProvider: () => string): void;
+
+  /**
+   * Log an error message
+   * @param message - The message to log
+   */
+  error(message: string): void;
+
+  /**
+   * Log an error message with lazy evaluation
+   * @param messageProvider - Function that returns the message to log
+   */
+  error(messageProvider: () => string): void;
 }
 
 /**
@@ -136,20 +171,28 @@ export interface LoggerFactory {
 
 // Default no-op logger implementation
 class NoOpLogger implements LoggerInterface {
-  public error(
-    _message: string | (() => string),
-    _error?: unknown,
-    ..._args: unknown[]
-  ): void {}
-  public warn(_message: string | (() => string), ..._args: unknown[]): void {}
-  public info(_message: string | (() => string), ..._args: unknown[]): void {}
-  public debug(_message: string | (() => string), ..._args: unknown[]): void {}
   public log(
-    _level: LogLevel,
-    _message: string | (() => string),
-    _error?: unknown,
-    ..._args: unknown[]
-  ): void {}
+    messageType: LogMessageType,
+    message: string | (() => string),
+  ): void {
+    // No-op implementation - does nothing
+  }
+
+  public debug(message: string | (() => string)): void {
+    // No-op implementation - does nothing
+  }
+
+  public info(message: string | (() => string)): void {
+    // No-op implementation - does nothing
+  }
+
+  public warn(message: string | (() => string)): void {
+    // No-op implementation - does nothing
+  }
+
+  public error(message: string | (() => string)): void {
+    // No-op implementation - does nothing
+  }
 }
 
 // Default no-op logger factory
@@ -158,6 +201,83 @@ class NoOpLoggerFactory implements LoggerFactory {
 
   public getLogger(): LoggerInterface {
     return NoOpLoggerFactory.instance;
+  }
+}
+
+// Console logger implementation for standalone usage
+class ConsoleLogger implements LoggerInterface {
+  private getMessageTypeString(messageType: LogMessageType): string {
+    switch (messageType) {
+      case 'error':
+        return 'ERROR';
+      case 'warning':
+        return 'WARN';
+      case 'info':
+        return 'INFO';
+      case 'log':
+        return 'LOG';
+      case 'debug':
+        return 'DEBUG';
+      default:
+        return 'UNKNOWN';
+    }
+  }
+
+  public log(
+    messageType: LogMessageType,
+    message: string | (() => string),
+  ): void {
+    if (!shouldLog(messageType)) {
+      return;
+    }
+    const msg = typeof message === 'function' ? message() : message;
+    const timestamp = new Date().toISOString();
+    const typeString = this.getMessageTypeString(messageType);
+    const formatted = `[${timestamp}] [${typeString}] ${msg}`;
+    switch (messageType) {
+      case 'error':
+        console.error(formatted);
+        break;
+      case 'warning':
+        console.warn(formatted);
+        break;
+      case 'info':
+        console.info(formatted);
+        break;
+      case 'log':
+        console.log(formatted);
+        break;
+      case 'debug':
+        console.debug(formatted);
+        break;
+      default:
+        console.log(formatted);
+        break;
+    }
+  }
+
+  public debug(message: string | (() => string)): void {
+    this.log('debug', message);
+  }
+
+  public info(message: string | (() => string)): void {
+    this.log('info', message);
+  }
+
+  public warn(message: string | (() => string)): void {
+    this.log('warning', message);
+  }
+
+  public error(message: string | (() => string)): void {
+    this.log('error', message);
+  }
+}
+
+// Console logger factory for standalone usage
+class ConsoleLoggerFactory implements LoggerFactory {
+  private static instance: LoggerInterface = new ConsoleLogger();
+  public getLogger(): LoggerInterface {
+    return ConsoleLoggerFactory.instance;
   }
 }
 
@@ -173,13 +293,21 @@ export const setLoggerFactory = (factory: LoggerFactory): void => {
 };
 
 /**
- * Get the current logger factory
- * @returns The current logger factory
- */
-export const getLoggerFactory = (): LoggerFactory => loggerFactory;
-
-/**
  * Get the current logger instance
  * @returns The current logger instance
  */
 export const getLogger = (): LoggerInterface => loggerFactory.getLogger();
+
+/**
+ * Enable console logging with timestamps
+ */
+export const enableConsoleLogging = (): void => {
+  setLoggerFactory(new ConsoleLoggerFactory());
+};
+
+/**
+ * Disable all logging (set to no-op logger)
+ */
+export const disableLogging = (): void => {
+  setLoggerFactory(new NoOpLoggerFactory());
+};

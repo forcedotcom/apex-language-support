@@ -7,27 +7,40 @@
  */
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
-import { Logger } from '../utils/Logger';
 import { dispatch } from '../utils/handlerUtil';
+import { IDocumentSaveProcessor } from '../services/DocumentSaveProcessingService';
 
-// Visible for testing
-export const processOnSaveDocument = async (
-  event: TextDocumentChangeEvent<TextDocument>,
-): Promise<void> => {
-  // Client opened a document
-  // TODO: Server will parse the document and populate the corresponding local maps
-  const logger = Logger.getInstance();
-  logger.debug(
-    `Common Apex Language Server save document handler invoked with: ${event}`,
-  );
+/**
+ * Handler for document save events
+ */
+export class DidSaveDocumentHandler {
+  constructor(
+    private readonly logger: LoggerInterface,
+    private readonly documentSaveProcessor: IDocumentSaveProcessor,
+  ) {}
 
-  // TODO: Implement the logic to process the document save
-  // This might involve updating the AST, type information, or other data structures
-  // based on the changes in the document
-  // You can access the document content using params.contentChanges
-};
+  /**
+   * Handle document save event
+   * @param event The document save event
+   */
+  public async handleDocumentSave(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<void> {
+    this.logger.debug(() => `Processing document save: ${event.document.uri}`);
 
-export const dispatchProcessOnSaveDocument = (
-  event: TextDocumentChangeEvent<TextDocument>,
-) => dispatch(processOnSaveDocument(event), 'Error processing document save');
+    try {
+      await dispatch(
+        this.documentSaveProcessor.processDocumentSave(event),
+        'Error processing document save',
+      );
+    } catch (error) {
+      this.logger.error(
+        () =>
+          `Error processing document save for ${event.document.uri}: ${error}`,
+      );
+      throw error;
+    }
+  }
+}
