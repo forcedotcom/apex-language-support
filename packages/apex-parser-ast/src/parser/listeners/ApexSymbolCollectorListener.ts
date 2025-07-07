@@ -912,10 +912,7 @@ export class ApexSymbolCollectorListener
         name,
         SymbolKind.Enum,
         modifiers,
-      ) as EnumSymbol;
-
-      // Initialize enum-specific properties
-      enumSymbol.values = [];
+      );
 
       this.currentTypeSymbol = enumSymbol;
       this.symbolTable.addSymbol(enumSymbol);
@@ -1349,7 +1346,7 @@ export class ApexSymbolCollectorListener
       | SymbolKind.Trigger
       | SymbolKind.Enum,
     modifiers: SymbolModifiers,
-  ): TypeSymbol {
+  ): TypeSymbol | EnumSymbol {
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol;
     const parentKey = parent ? parent.key : null;
@@ -1379,6 +1376,7 @@ export class ApexSymbolCollectorListener
     // TODO: change to a more generic approach
     if (typeSymbol.kind === SymbolKind.Enum) {
       (typeSymbol as EnumSymbol).values = [];
+      return typeSymbol as EnumSymbol;
     }
 
     return typeSymbol;

@@ -47,25 +47,6 @@ const SYMBOL_KIND_MAP: Record<string, SymbolKind> = {
 };
 
 /**
- * Interface for precise identifier location information
- * Used to create more accurate ranges that exclude surrounding keywords/modifiers
- */
-interface IdentifierLocation {
-  startLine: number;
-  startColumn: number;
-  endLine?: number;
-  endColumn?: number;
-}
-
-/**
- * Extended Apex symbol with optional identifier location
- * This allows for more precise range calculations when identifier location is available
- */
-type ApexSymbolWithIdentifier = ApexSymbol & {
-  identifierLocation?: IdentifierLocation;
-};
-
-/**
  * Interface for Apex document symbol providers
  */
 export interface ApexDocumentSymbolProvider {
@@ -342,7 +323,7 @@ export class DefaultApexDocumentSymbolProvider
    * Creates a precise range that excludes leading whitespace
    * This finds the first non-whitespace character in the line for better UX
    */
-  private createRange(symbol: ApexSymbolWithIdentifier): Range {
+  private createRange(symbol: ApexSymbol): Range {
     const { location, identifierLocation } = symbol;
 
     // The end position is always the end of the full symbol location.
@@ -351,20 +332,11 @@ export class DefaultApexDocumentSymbolProvider
       location.endColumn - 1,
     );
 
-    // If we have a precise identifier location, start the range from there
-    // for a "tighter" range that excludes leading modifiers/keywords.
-    if (identifierLocation) {
-      const startPosition = Position.create(
-        identifierLocation.startLine - 1,
-        identifierLocation.startColumn,
-      );
-      return Range.create(startPosition, endPosition);
-    }
-
-    // Fallback to the full symbol location if no identifier location is available.
+    // Use the precise identifier location for the start of the range.
+    // This provides a "tighter" range that excludes leading modifiers/keywords.
     const startPosition = Position.create(
-      location.startLine - 1,
-      location.startColumn - 1,
+      (identifierLocation?.startLine ?? location.startLine) - 1,
+      identifierLocation?.startColumn ?? location.startColumn - 1,
     );
     return Range.create(startPosition, endPosition);
   }
@@ -373,26 +345,23 @@ export class DefaultApexDocumentSymbolProvider
    * Creates a precise selection range for the symbol name
    * This excludes leading whitespace and keywords for better selection behavior
    */
-  private createSelectionRange(symbol: ApexSymbolWithIdentifier): Range {
+  private createSelectionRange(symbol: ApexSymbol): Range {
     const { identifierLocation, location, name } = symbol;
 
-    // Use the precise identifier location if available.
-    if (identifierLocation) {
-      const { startLine, startColumn, endLine, endColumn } = identifierLocation;
-      return Range.create(
-        Position.create(startLine - 1, startColumn),
-        Position.create(
-          (endLine || startLine) - 1,
-          endColumn ?? startColumn + name.length,
-        ),
-      );
-    }
+    const startLine = (identifierLocation?.startLine ?? location.startLine) - 1;
+    const startColumn =
+      identifierLocation?.startColumn ?? location.startColumn - 1;
 
-    // Fallback: use symbol's start location. This is not as precise but avoids reading the file.
-    const startCharacter = location.startColumn - 1;
+    const endLine =
+      (identifierLocation?.endLine ??
+        identifierLocation?.startLine ??
+        location.startLine) - 1;
+    const endColumn =
+      identifierLocation?.endColumn ?? startColumn + name.length;
+
     return Range.create(
-      Position.create(location.startLine - 1, startCharacter),
-      Position.create(location.startLine - 1, startCharacter + name.length),
+      Position.create(startLine, startColumn),
+      Position.create(endLine, endColumn),
     );
   }
 }
