@@ -7,7 +7,7 @@
  */
 
 import * as vscode from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
+import { LanguageClient, Trace } from 'vscode-languageclient/node';
 import { WorkspaceSettings, DebugConfig } from './types';
 import { updateLogLevel } from './logging';
 import { EXTENSION_CONSTANTS } from './constants';
@@ -108,13 +108,24 @@ export const getDebugConfig = (): DebugConfig => {
 
 /**
  * Gets trace server configuration
- * @returns The trace server setting
+ * @returns The trace server setting as a Trace enum value
  */
-export const getTraceServerConfig = (): string => {
+export const getTraceServerConfig = (): Trace => {
   const config = vscode.workspace.getConfiguration(
     EXTENSION_CONSTANTS.CONFIG_SECTION,
   );
-  return config.get<string>('trace.server', 'off');
+  const traceValue = config.get<string>('trace.server', 'off');
+
+  // Map string values to Trace enum
+  switch (traceValue.toLowerCase()) {
+    case 'verbose':
+      return Trace.Verbose;
+    case 'messages':
+      return Trace.Messages;
+    case 'off':
+    default:
+      return Trace.Off;
+  }
 };
 
 /**

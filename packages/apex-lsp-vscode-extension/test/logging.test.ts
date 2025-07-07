@@ -93,7 +93,7 @@ describe('Logging Module', () => {
 
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[INFO\] Test message/,
+          /\[\d{1,2}:\d{2}:\d{2} [AP]M\] \[INFO\] Test message/,
         ),
       );
     });

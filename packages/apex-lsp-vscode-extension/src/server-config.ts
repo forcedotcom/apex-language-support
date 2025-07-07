@@ -14,13 +14,9 @@ import {
   CloseAction,
   ErrorAction,
 } from 'vscode-languageclient/node';
-import {
-  getDebugConfig,
-  getTraceServerConfig,
-  getWorkspaceSettings,
-} from './configuration';
+import { getDebugConfig, getWorkspaceSettings } from './configuration';
 import { logToOutputChannel } from './logging';
-import { DEBUG_CONFIG } from './constants';
+import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -104,9 +100,10 @@ export const createServerOptions = (
  * @returns Client options configuration
  */
 export const createClientOptions = (): LanguageClientOptions => {
-  const traceServer = getTraceServerConfig();
   const settings = getWorkspaceSettings();
-
+  const outputChannel = vscode.window.createOutputChannel(
+    EXTENSION_CONSTANTS.SERVER_OUTPUT_CHANNEL_NAME,
+  );
   return {
     documentSelector: [{ scheme: 'file', language: 'apex' }],
     synchronize: {
@@ -114,7 +111,6 @@ export const createClientOptions = (): LanguageClientOptions => {
         vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
       configurationSection: 'apex',
     },
-    // Remove outputChannel - let LanguageClient create its own for LSP tracing
     // Add error handling with proper retry logic
     errorHandler: {
       error: handleClientError,
@@ -123,13 +119,12 @@ export const createClientOptions = (): LanguageClientOptions => {
     // Include workspace settings in initialization options
     initializationOptions: {
       enableDocumentSymbols: true,
-      trace: traceServer, // This enables LSP tracing
-      logLevel: settings.apex.logLevel, // Pass log level to server
       ...settings,
     },
     // Explicitly enable workspace configuration capabilities
     workspaceFolder: vscode.workspace.workspaceFolders?.[0],
-    outputChannelName: 'Apex Language Server (Typescript)',
+    outputChannel,
+    traceOutputChannel: outputChannel,
   };
 };
 

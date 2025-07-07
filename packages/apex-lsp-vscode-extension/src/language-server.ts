@@ -7,7 +7,7 @@
  */
 
 import * as vscode from 'vscode';
-import { LanguageClient, State } from 'vscode-languageclient/node';
+import { LanguageClient, State, Trace } from 'vscode-languageclient/node';
 import { createServerOptions, createClientOptions } from './server-config';
 import { logToOutputChannel } from './logging';
 import {
@@ -59,6 +59,9 @@ export const createAndStartClient = (
       serverOptions,
       clientOptions,
     );
+
+    // Set the trace level for the language client
+    client.setTrace(Trace.Verbose);
 
     // Track the new output channel
     lastServerOutputChannel = client.outputChannel;

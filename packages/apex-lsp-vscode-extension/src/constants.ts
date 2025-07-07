@@ -19,7 +19,9 @@ export const EXTENSION_CONSTANTS = {
   /** Status bar priority */
   STATUS_BAR_PRIORITY: 100,
   /** Output channel name */
-  OUTPUT_CHANNEL_NAME: 'Apex Language Extension (Typescript)',
+  EXTENSION_OUTPUT_CHANNEL_NAME: 'Apex Language Extension (Typescript)',
+  /** Server output channel name */
+  SERVER_OUTPUT_CHANNEL_NAME: 'Apex Language Server (Typescript)',
   /** Restart command ID */
   RESTART_COMMAND_ID: 'apex.restart.server',
   /** Configuration section name */

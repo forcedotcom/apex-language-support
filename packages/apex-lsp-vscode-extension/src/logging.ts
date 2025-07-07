@@ -24,7 +24,7 @@ export const initializeExtensionLogging = (
   context: vscode.ExtensionContext,
 ): void => {
   extensionOutputChannel = vscode.window.createOutputChannel(
-    EXTENSION_CONSTANTS.OUTPUT_CHANNEL_NAME,
+    EXTENSION_CONSTANTS.EXTENSION_OUTPUT_CHANNEL_NAME,
   );
   context.subscriptions.push(extensionOutputChannel);
 
