@@ -352,31 +352,6 @@ export class DefaultApexDocumentSymbolProvider
   }
 
   /**
-   * Creates a range from identifier location or returns null if not available
-   * This provides the most precise range when identifier location is available from the parser
-   */
-  private createRangeFromIdentifier(
-    symbol: ApexSymbolWithIdentifier,
-    document: TextDocument,
-  ): Range | null {
-    if (!symbol.identifierLocation) {
-      return null;
-    }
-
-    const idLocation = symbol.identifierLocation;
-    const endColumn =
-      idLocation.endColumn || idLocation.startColumn + symbol.name.length;
-
-    return Range.create(
-      Position.create(idLocation.startLine - 1, idLocation.startColumn),
-      Position.create(
-        (idLocation.endLine || idLocation.startLine) - 1,
-        endColumn,
-      ),
-    );
-  }
-
-  /**
    * Creates a precise range that excludes leading whitespace
    * This finds the first non-whitespace character in the line for better UX
    */
@@ -384,37 +359,30 @@ export class DefaultApexDocumentSymbolProvider
     symbol: ApexSymbolWithIdentifier,
     document: TextDocument,
   ): Range {
-    // Try to use identifier location first (most precise)
-    const identifierRange = this.createRangeFromIdentifier(symbol, document);
-    if (identifierRange) {
-      // For trimmed range, we want to extend from the identifier to the full symbol
-      return Range.create(
-        identifierRange.start,
-        Position.create(
-          symbol.location.endLine - 1,
-          symbol.location.endColumn - 1,
-        ),
+    const { location, identifierLocation } = symbol;
+
+    // The end position is always the end of the full symbol location.
+    const endPosition = Position.create(
+      location.endLine - 1,
+      location.endColumn - 1,
+    );
+
+    // If we have a precise identifier location, start the range from there
+    // for a "tighter" range that excludes leading modifiers/keywords.
+    if (identifierLocation) {
+      const startPosition = Position.create(
+        identifierLocation.startLine - 1,
+        identifierLocation.startColumn,
       );
+      return Range.create(startPosition, endPosition);
     }
 
-    // Fallback: find first non-whitespace character on the line
-    const startLine = symbol.location.startLine - 1;
-    const lines = document.getText().split('\n');
-    const lineText = lines[startLine] || '';
-    const firstNonWhitespace = lineText.search(/\S/);
-
-    const startPosition =
-      firstNonWhitespace >= 0
-        ? Position.create(startLine, firstNonWhitespace)
-        : Position.create(startLine, symbol.location.startColumn - 1);
-
-    return Range.create(
-      startPosition,
-      Position.create(
-        symbol.location.endLine - 1,
-        symbol.location.endColumn - 1,
-      ),
+    // Fallback to the full symbol location if no identifier location is available.
+    const startPosition = Position.create(
+      location.startLine - 1,
+      location.startColumn - 1,
     );
+    return Range.create(startPosition, endPosition);
   }
 
   /**
@@ -425,40 +393,35 @@ export class DefaultApexDocumentSymbolProvider
     symbol: ApexSymbolWithIdentifier,
     document: TextDocument,
   ): Range {
-    // Try to use identifier location first (most precise)
-    const identifierRange = this.createRangeFromIdentifier(symbol, document);
-    if (identifierRange) {
-      return identifierRange;
-    }
+    const { identifierLocation, location, name } = symbol;
 
-    // Fallback: find the symbol name in the line
-    const startLine = symbol.location.startLine - 1;
-    const lines = document.getText().split('\n');
-    const lineText = lines[startLine] || '';
-
-    // Use word boundary to find the exact symbol name
-    const escapedName = symbol.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const nameRegex = new RegExp(`\\b${escapedName}\\b`);
-    const match = lineText.match(nameRegex);
-    const namePosition = match ? match.index! : -1;
-
-    if (namePosition >= 0) {
+    // Use the precise identifier location if available.
+    if (identifierLocation) {
+      const { startLine, startColumn, endLine, endColumn } = identifierLocation;
       return Range.create(
-        Position.create(startLine, namePosition),
-        Position.create(startLine, namePosition + symbol.name.length),
+        Position.create(startLine - 1, startColumn),
+        Position.create(
+          (endLine || startLine) - 1,
+          endColumn ?? startColumn + name.length,
+        ),
       );
     }
 
-    // Final fallback
+    // Fallback: search for the symbol name on its starting line.
+    const lineContent = document.getText(
+      Range.create(
+        Position.create(location.startLine - 1, 0),
+        Position.create(location.startLine - 1, Number.MAX_VALUE),
+      ),
+    );
+
+    const nameIndex = lineContent.indexOf(name);
+    const startCharacter =
+      nameIndex > -1 ? nameIndex : location.startColumn - 1;
+
     return Range.create(
-      Position.create(
-        symbol.location.startLine - 1,
-        symbol.location.startColumn - 1,
-      ),
-      Position.create(
-        symbol.location.endLine - 1,
-        symbol.location.endColumn - 1,
-      ),
+      Position.create(location.startLine - 1, startCharacter),
+      Position.create(location.startLine - 1, startCharacter + name.length),
     );
   }
 }
