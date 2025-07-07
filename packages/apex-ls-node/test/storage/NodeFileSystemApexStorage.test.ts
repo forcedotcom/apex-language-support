@@ -29,6 +29,8 @@ jest.mock('fs', () => ({
 const mockLogger = {
   info: jest.fn(),
   error: jest.fn(),
+  debug: jest.fn(),
+  warn: jest.fn(),
 };
 
 jest.mock('@salesforce/apex-lsp-logging', () => ({
@@ -48,7 +50,7 @@ describe('NodeFileSystemApexStorage', () => {
     it('should initialize storage with options', async () => {
       const options = { test: 'option' };
       await storage.initialize(options);
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         `Initializing Node.js storage with options: ${options}`,
       );
     });
@@ -58,7 +60,7 @@ describe('NodeFileSystemApexStorage', () => {
     it('should shutdown storage', async () => {
       await storage.initialize();
       await storage.shutdown();
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         'Shutting down Node.js storage',
       );
     });
@@ -245,7 +247,7 @@ describe('NodeFileSystemApexStorage', () => {
     it('should persist data', async () => {
       await storage.initialize();
       await storage.persist();
-      expect(mockLogger.info).toHaveBeenCalledWith(
+      expect(mockLogger.debug).toHaveBeenCalledWith(
         'Persisting data to Node.js storage',
       );
     });

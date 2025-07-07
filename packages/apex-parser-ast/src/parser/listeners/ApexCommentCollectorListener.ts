@@ -126,7 +126,7 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
    */
   setTokenStream(tokenStream: CommonTokenStream): void {
     this.tokenStream = tokenStream;
-    this.logger.debug('Token stream set for comment collection');
+    this.logger.debug(() => 'Token stream set for comment collection');
   }
 
   /**
@@ -162,7 +162,9 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
         }
       }
     } catch (error) {
-      this.logger.warn('Error collecting comments in enterEveryRule:', error);
+      this.logger.warn(
+        () => `Error collecting comments in enterEveryRule: ${error}`,
+      );
     }
   }
 
@@ -186,9 +188,11 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
         }
       }
 
-      this.logger.debug(`Collected ${this.comments.length} total comments`);
+      this.logger.debug(
+        () => `Collected ${this.comments.length} total comments`,
+      );
     } catch (error) {
-      this.logger.warn('Error collecting remaining comments:', error);
+      this.logger.error(() => `Error collecting remaining comments: ${error}`);
     }
   }
 
@@ -232,10 +236,11 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
 
       this.comments.push(comment);
       this.logger.debug(
-        `Collected ${comment.type} comment at line ${comment.startLine}: ${text.substring(0, 50)}...`,
+        () =>
+          `Collected ${comment.type} comment at line ${comment.startLine}: ${text.substring(0, 50)}...`,
       );
     } catch (error) {
-      this.logger.warn('Error processing comment token:', error);
+      this.logger.error(() => `Error processing comment token: ${error}`);
     }
   }
 

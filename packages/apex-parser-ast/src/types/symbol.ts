@@ -19,6 +19,7 @@ export enum SymbolKind {
   Trigger = 'trigger',
   Method = 'method',
   Property = 'property',
+  Field = 'field',
   Variable = 'variable',
   Parameter = 'parameter',
   Enum = 'enum',
@@ -87,7 +88,7 @@ export interface SymbolLocation {
  * Base interface for all Apex symbols
  */
 export interface ApexSymbol {
-  name: string;
+  name: string; // name of the symbol based on the id
   kind: SymbolKind;
   location: SymbolLocation;
   modifiers: SymbolModifiers;
@@ -158,7 +159,7 @@ export class RuntimeSymbol implements ApexSymbol {
 }
 
 /**
- * Represents a class, interface, or trigger
+ * Represents a class, interface, enum, or trigger
  */
 export interface TypeSymbol extends ApexSymbol {
   kind:
@@ -197,11 +198,12 @@ export interface MethodSymbol extends ApexSymbol {
 }
 
 /**
- * Represents a property, variable, parameter, or enum value
+ * Represents a property, field, variable, parameter, or enum value
  */
 export interface VariableSymbol extends ApexSymbol {
   kind:
     | SymbolKind.Property
+    | SymbolKind.Field
     | SymbolKind.Variable
     | SymbolKind.Parameter
     | SymbolKind.EnumValue;

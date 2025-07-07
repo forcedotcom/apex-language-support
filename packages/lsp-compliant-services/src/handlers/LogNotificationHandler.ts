@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LogMessage } from '@salesforce/apex-lsp-logging';
+import { LogMessageParams } from '@salesforce/apex-lsp-logging';
 
 /**
  * Interface for the log notification handler
@@ -16,9 +16,9 @@ import { LogMessage } from '@salesforce/apex-lsp-logging';
 export interface LogNotificationHandler {
   /**
    * Send a log message to the language client
-   * @param message The log message
+   * @param params The log message parameters
    */
-  sendLogMessage(message: LogMessage): void;
+  sendLogMessage(params: LogMessageParams): void;
 }
 
 /**
@@ -26,7 +26,7 @@ export interface LogNotificationHandler {
  * Platform-specific implementations should override this
  */
 export class DefaultLogNotificationHandler implements LogNotificationHandler {
-  public sendLogMessage(_message: LogMessage): void {
+  public sendLogMessage(_params: LogMessageParams): void {
     // Default implementation does nothing
     // Platform-specific implementations should override this
   }

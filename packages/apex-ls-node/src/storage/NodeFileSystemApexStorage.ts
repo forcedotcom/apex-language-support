@@ -42,7 +42,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
     // - Initialize database connections
     // - Load existing data into memory
 
-    this.logger.info(`Initializing Node.js storage with options: ${options}`);
+    this.logger.debug(`Initializing Node.js storage with options: ${options}`);
     this.initialized = true;
   }
 
@@ -55,7 +55,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
     // - Save any pending data
     // - Close database connections
 
-    this.logger.info('Shutting down Node.js storage');
+    this.logger.debug('Shutting down Node.js storage');
     this.initialized = false;
   }
 
@@ -166,7 +166,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
 
     // In a real implementation, this would flush all in-memory
     // data to disk or database
-    this.logger.info('Persisting data to Node.js storage');
+    this.logger.debug('Persisting data to Node.js storage');
   }
 
   /**
@@ -200,7 +200,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
 
       return document;
     } catch (error) {
-      this.logger.error(`Error reading document ${uri}:`, error);
+      this.logger.error(`Error reading document ${uri}: ${error}`);
       return null;
     }
   }

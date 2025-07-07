@@ -6,46 +6,70 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DiagnosticSeverity } from 'vscode-languageserver';
+import { Diagnostic } from 'vscode-languageserver';
+import { getLogger } from '@salesforce/apex-lsp-logging';
+
 import { ApexError } from '@salesforce/apex-lsp-parser-ast';
 
-import { Logger } from './Logger';
+/**
+ * Utility function to log handler errors consistently
+ * @param handlerName The name of the handler that encountered the error
+ * @param error The error that occurred
+ * @param context Optional context information about the error
+ */
+export function logHandlerError(
+  handlerName: string,
+  error: Error,
+  context?: string,
+): void {
+  const logger = getLogger();
+
+  const contextInfo = context ? ` (${context})` : '';
+  const baseMessage = `Error in ${handlerName}${contextInfo}: ${error.message}`;
+
+  let fullMessage = baseMessage;
+
+  if (error.stack) {
+    fullMessage += `\nStack trace:\n${error.stack}`;
+  }
+
+  if (context) {
+    fullMessage += `\nError context: ${context}`;
+  }
+
+  logger.log('error', fullMessage);
+}
 
 /**
- * Generic utility function to handle async operations in a fire-and-forget pattern
- * @param operation - The async operation to execute
- * @param errorMessage - The error message to log if the operation fails
- * @returns The result of the operation
+ * Dispatch a promise and handle errors consistently
+ * @param promise The promise to dispatch
+ * @param errorContext The context for error logging
+ * @returns The result of the promise
  */
-export const dispatch = async <T>(
-  operation: Promise<T>,
-  errorMessage: string,
-): Promise<T> => {
+export async function dispatch<T>(
+  promise: Promise<T>,
+  errorContext: string,
+): Promise<T> {
   try {
-    return await operation;
-  } catch (error: unknown) {
-    Logger.getInstance().error(() => `${errorMessage}: ${error}`);
+    return await promise;
+  } catch (error) {
+    logHandlerError('dispatch', error as Error, errorContext);
     throw error;
   }
-};
+}
 
 /**
- * Converts Apex errors to diagnostics
- * @param errors - The Apex errors to convert
- * @returns The diagnostics
+ * Convert compilation errors to diagnostics
+ * @param errors The compilation errors
+ * @returns Array of diagnostics
  */
-export const getDiagnosticsFromErrors = (errors: ApexError[]) =>
-  errors.map((error) => ({
-    severity: DiagnosticSeverity.Error,
-    message: error.message,
+export function getDiagnosticsFromErrors(errors: ApexError[]): Diagnostic[] {
+  return errors.map((error) => ({
     range: {
-      start: {
-        line: error.line,
-        character: error.column,
-      },
-      end: {
-        line: error.endLine ?? error.line,
-        character: error.endColumn ?? error.column,
-      },
+      start: { line: error.line - 1, character: error.column - 1 },
+      end: { line: error.line - 1, character: error.column },
     },
+    message: error.message,
+    severity: 1, // Error
   }));
+}

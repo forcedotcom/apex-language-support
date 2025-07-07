@@ -65,8 +65,7 @@ export class LSPConfigurationManager {
       !!capabilities.workspace.didChangeConfiguration.dynamicRegistration
     );
 
-    // Debug the specific capability detection
-    this.logger.info(
+    this.logger.debug(
       () => `Capability detection breakdown:
        - workspace exists: ${!!capabilities.workspace}
        - didChangeConfiguration exists: ${!!(capabilities.workspace && capabilities.workspace.didChangeConfiguration)}
@@ -74,19 +73,18 @@ export class LSPConfigurationManager {
        - final hasWorkspaceConfiguration: ${this.hasWorkspaceConfiguration}`,
     );
 
-    // Enhanced debugging for capability detection
-    this.logger.info(
+    this.logger.debug(
       () =>
         `Client capabilities received: ${JSON.stringify(capabilities, null, 2)}`,
     );
-    this.logger.info(
+    this.logger.debug(
       `Client capabilities - configuration: ${this.hasConfigurationCapability}, ` +
         `workspace: ${this.hasWorkspaceConfiguration}`,
     );
 
     // Log specific workspace capabilities for debugging
     if (capabilities.workspace) {
-      this.logger.info(
+      this.logger.debug(
         () =>
           `Workspace capabilities: ${JSON.stringify(capabilities.workspace, null, 2)}`,
       );
@@ -116,8 +114,8 @@ export class LSPConfigurationManager {
     if (this.connection) {
       this.initializeResourceLoader().catch((error) => {
         this.logger.error(
-          'Failed to initialize resource loader during initialization:',
-          error,
+          () =>
+            `Failed to initialize resource loader during initialization: ${error}`,
         );
       });
     }
@@ -138,7 +136,7 @@ export class LSPConfigurationManager {
       const loadMode = this.settingsManager.getResourceLoadMode();
       const currentSettings = this.settingsManager.getSettings();
 
-      this.logger.info(
+      this.logger.debug(
         () => `Initializing resource loader with mode: ${loadMode}`,
       );
       this.logger.debug(
@@ -150,9 +148,9 @@ export class LSPConfigurationManager {
       this.resourceLoader = ResourceLoader.getInstance({ loadMode });
       await this.resourceLoader.initialize();
 
-      this.logger.info('Resource loader initialized successfully');
+      this.logger.debug('Resource loader initialized successfully');
     } catch (error) {
-      this.logger.error('Failed to initialize resource loader:', error);
+      this.logger.error(() => `Failed to initialize resource loader: ${error}`);
       throw error;
     }
   }
@@ -170,11 +168,11 @@ export class LSPConfigurationManager {
       if (currentResourceLoader) {
         // Since ResourceLoader doesn't expose current loadMode, we'll need to track it
         // For now, we'll assume it needs reconfiguration if settings changed
-        this.logger.info(
+        this.logger.debug(
           () => `Reconfiguring resource loader to mode: ${newLoadMode}`,
         );
       } else {
-        this.logger.info(
+        this.logger.debug(
           () => `Initializing resource loader with mode: ${newLoadMode}`,
         );
       }
@@ -189,12 +187,14 @@ export class LSPConfigurationManager {
       });
       await this.resourceLoader.initialize();
 
-      this.logger.info(() => {
+      this.logger.debug(() => {
         const action = currentResourceLoader ? 'reconfigured' : 'initialized';
         return `Resource loader ${action} successfully with mode: ${newLoadMode}`;
       });
     } catch (error) {
-      this.logger.error('Failed to reconfigure resource loader:', error);
+      this.logger.error(
+        () => `Failed to reconfigure resource loader: ${error}`,
+      );
       // Don't throw here - we want configuration changes to continue even if resource loader fails
     }
   }
@@ -234,7 +234,9 @@ export class LSPConfigurationManager {
           );
 
           if (success) {
-            this.logger.info('Successfully updated settings from notification');
+            this.logger.debug(
+              'Successfully updated settings from notification',
+            );
 
             // Notify about successful configuration change
             await this.notifyConfigurationApplied(params.settings);
@@ -258,7 +260,7 @@ export class LSPConfigurationManager {
       const newLoadMode = newSettings.resources.loadMode;
 
       if (previousLoadMode !== newLoadMode) {
-        this.logger.info(
+        this.logger.debug(
           () =>
             `Resource load mode changed from ${previousLoadMode} to ${newLoadMode}`,
         );
@@ -269,8 +271,7 @@ export class LSPConfigurationManager {
       await this.validateAppliedConfiguration();
     } catch (error) {
       this.logger.error(
-        'Error in enhanced configuration change handler:',
-        error,
+        () => `Error in enhanced configuration change handler: ${error}`,
       );
 
       // Attempt recovery by requesting fresh configuration
@@ -310,7 +311,7 @@ export class LSPConfigurationManager {
             DidChangeConfigurationNotification.type,
             undefined,
           );
-        this.logger.info(
+        this.logger.debug(
           'Successfully registered for dynamic configuration change notifications',
         );
       } else {
@@ -320,11 +321,10 @@ export class LSPConfigurationManager {
       }
 
       this.configurationHandlerRegistered = true;
-      this.logger.info('Configuration change handler successfully registered');
+      this.logger.debug('Configuration change handler successfully registered');
     } catch (error) {
       this.logger.error(
-        'Failed to register configuration change handler:',
-        error,
+        () => `Failed to register configuration change handler: ${error}`,
       );
       throw new Error(`Configuration handler registration failed: ${error}`);
     }
@@ -388,7 +388,9 @@ export class LSPConfigurationManager {
         );
       }
     } catch (error) {
-      this.logger.error('Error requesting configuration from client:', error);
+      this.logger.error(
+        () => `Error requesting configuration from client: ${error}`,
+      );
     }
   }
 
@@ -406,13 +408,13 @@ export class LSPConfigurationManager {
         const restored =
           this.settingsManager.updateFromLSPConfiguration(previousSettings);
         if (restored) {
-          this.logger.info('Successfully restored previous configuration');
+          this.logger.debug('Successfully restored previous configuration');
         } else {
           this.logger.error('Failed to restore previous configuration');
         }
       }
     } catch (error) {
-      this.logger.error('Error during configuration recovery:', error);
+      this.logger.error(() => `Error during configuration recovery: ${error}`);
     }
   }
 
@@ -437,7 +439,9 @@ export class LSPConfigurationManager {
 
       this.logger.debug('Configuration validation completed');
     } catch (error) {
-      this.logger.error('Error during configuration validation:', error);
+      this.logger.error(
+        () => `Error during configuration validation: ${error}`,
+      );
     }
   }
 
@@ -445,19 +449,19 @@ export class LSPConfigurationManager {
    * Recover from configuration errors by requesting fresh config
    */
   private async recoverFromConfigurationError(): Promise<void> {
-    this.logger.info('Attempting configuration error recovery');
+    this.logger.debug('Attempting configuration error recovery');
 
     try {
       if (this.hasConfigurationCapability) {
         await this.requestConfiguration();
-        this.logger.info('Successfully recovered configuration from client');
+        this.logger.debug('Successfully recovered configuration from client');
       } else {
         this.logger.warn(
           'Cannot recover configuration: client lacks configuration capability',
         );
       }
     } catch (error) {
-      this.logger.error('Configuration recovery failed:', error);
+      this.logger.error(() => `Configuration recovery failed: ${error}`);
     }
   }
 
@@ -467,12 +471,18 @@ export class LSPConfigurationManager {
   private async notifyConfigurationApplied(settings: any): Promise<void> {
     try {
       // This could be extended to notify other components about config changes
-      this.logger.info('Configuration successfully applied and validated');
+      this.logger.debug('Configuration successfully applied and validated');
 
       // Could emit events here for other components to react to config changes
       // this.eventEmitter?.emit('configurationChanged', settings);
+
+      this.logger.info(
+        () => `Configuration updated:\n${JSON.stringify(settings, null, 2)}`,
+      );
     } catch (error) {
-      this.logger.error('Error notifying about configuration changes:', error);
+      this.logger.error(
+        () => `Error notifying about configuration changes: ${error}`,
+      );
     }
   }
 
@@ -505,7 +515,9 @@ export class LSPConfigurationManager {
       this.configurationHandlerRegistered = false;
       this.logger.debug('Configuration change handlers unregistered');
     } catch (error) {
-      this.logger.error('Error unregistering configuration handlers:', error);
+      this.logger.error(
+        () => `Error unregistering configuration handlers: ${error}`,
+      );
     }
   }
 

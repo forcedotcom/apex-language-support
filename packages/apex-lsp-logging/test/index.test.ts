@@ -7,7 +7,6 @@
  */
 
 import {
-  LogLevel,
   LoggerInterface,
   LogNotificationHandler,
   LogMessageType,
@@ -22,39 +21,8 @@ describe('apex-lsp-logging', () => {
 
   beforeEach(() => {
     mockLogger = {
-      error: jest.fn(
-        (
-          message: string | (() => string),
-          error?: unknown,
-          ...args: unknown[]
-        ) => {
-          if (typeof message === 'function') {
-            message();
-          }
-        },
-      ),
-      warn: jest.fn((message: string | (() => string), ...args: unknown[]) => {
-        if (typeof message === 'function') {
-          message();
-        }
-      }),
-      info: jest.fn((message: string | (() => string), ...args: unknown[]) => {
-        if (typeof message === 'function') {
-          message();
-        }
-      }),
-      debug: jest.fn((message: string | (() => string), ...args: unknown[]) => {
-        if (typeof message === 'function') {
-          message();
-        }
-      }),
       log: jest.fn(
-        (
-          level: LogLevel,
-          message: string | (() => string),
-          error?: unknown,
-          ...args: unknown[]
-        ) => {
+        (messageType: LogMessageType, message: string | (() => string)) => {
           if (typeof message === 'function') {
             message();
           }
@@ -93,168 +61,114 @@ describe('apex-lsp-logging', () => {
 
     it('should log error messages', () => {
       const message = 'Test error message';
-      const error = new Error('Test error');
 
-      logger.error(message, error);
+      logger.log('error', message);
 
-      expect(mockLogger.error).toHaveBeenCalledWith(message, error);
+      expect(mockLogger.log).toHaveBeenCalledWith('error', message);
     });
 
     it('should log warning messages', () => {
       const message = 'Test warning message';
 
-      logger.warn(message);
+      logger.log('warning', message);
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(message);
+      expect(mockLogger.log).toHaveBeenCalledWith('warning', message);
     });
 
     it('should log info messages', () => {
       const message = 'Test info message';
 
-      logger.info(message);
+      logger.log('info', message);
 
-      expect(mockLogger.info).toHaveBeenCalledWith(message);
+      expect(mockLogger.log).toHaveBeenCalledWith('info', message);
     });
 
     it('should log debug messages', () => {
       const message = 'Test debug message';
 
-      logger.debug(message);
+      logger.log('debug', message);
 
-      expect(mockLogger.debug).toHaveBeenCalledWith(message);
+      expect(mockLogger.log).toHaveBeenCalledWith('debug', message);
     });
 
-    it('should log messages with specified level', () => {
-      const message = 'Test message';
-      const error = new Error('Test error');
+    it('should log log messages', () => {
+      const message = 'Test log message';
 
-      logger.log(LogLevel.Error, message, error);
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        LogLevel.Error,
-        message,
-        error,
-      );
+      logger.log('log', message);
 
-      logger.log(LogLevel.Warn, message);
-      expect(mockLogger.log).toHaveBeenCalledWith(LogLevel.Warn, message);
-
-      logger.log(LogLevel.Info, message);
-      expect(mockLogger.log).toHaveBeenCalledWith(LogLevel.Info, message);
-
-      logger.log(LogLevel.Debug, message);
-      expect(mockLogger.log).toHaveBeenCalledWith(LogLevel.Debug, message);
+      expect(mockLogger.log).toHaveBeenCalledWith('log', message);
     });
 
     describe('lazy evaluation', () => {
       it('should evaluate message provider for error messages', () => {
         const messageProvider = jest.fn(() => 'Test error message');
-        const error = new Error('Test error');
 
-        logger.error(messageProvider, error);
+        logger.log('error', messageProvider);
 
         expect(messageProvider).toHaveBeenCalledTimes(1);
-        expect(mockLogger.error).toHaveBeenCalledWith(messageProvider, error);
+        expect(mockLogger.log).toHaveBeenCalledWith('error', messageProvider);
       });
 
       it('should evaluate message provider for warning messages', () => {
         const messageProvider = jest.fn(() => 'Test warning message');
 
-        logger.warn(messageProvider);
+        logger.log('warning', messageProvider);
 
         expect(messageProvider).toHaveBeenCalledTimes(1);
-        expect(mockLogger.warn).toHaveBeenCalledWith(messageProvider);
+        expect(mockLogger.log).toHaveBeenCalledWith('warning', messageProvider);
       });
 
       it('should evaluate message provider for info messages', () => {
         const messageProvider = jest.fn(() => 'Test info message');
 
-        logger.info(messageProvider);
+        logger.log('info', messageProvider);
 
         expect(messageProvider).toHaveBeenCalledTimes(1);
-        expect(mockLogger.info).toHaveBeenCalledWith(messageProvider);
+        expect(mockLogger.log).toHaveBeenCalledWith('info', messageProvider);
       });
 
       it('should evaluate message provider for debug messages', () => {
         const messageProvider = jest.fn(() => 'Test debug message');
 
-        logger.debug(messageProvider);
+        logger.log('debug', messageProvider);
 
         expect(messageProvider).toHaveBeenCalledTimes(1);
-        expect(mockLogger.debug).toHaveBeenCalledWith(messageProvider);
+        expect(mockLogger.log).toHaveBeenCalledWith('debug', messageProvider);
       });
 
-      it('should evaluate message provider for log with specified level', () => {
-        const messageProvider = jest.fn(() => 'Test message');
-        const error = new Error('Test error');
+      it('should evaluate message provider for log messages', () => {
+        const messageProvider = jest.fn(() => 'Test log message');
 
-        logger.log(LogLevel.Error, messageProvider, error);
+        logger.log('log', messageProvider);
+
         expect(messageProvider).toHaveBeenCalledTimes(1);
-        expect(mockLogger.log).toHaveBeenCalledWith(
-          LogLevel.Error,
-          messageProvider,
-          error,
-        );
-
-        // Clear both the message provider and the mock logger
-        messageProvider.mockClear();
-        mockLogger.log.mockClear();
-
-        // Create a new message provider for the second test
-        const messageProvider2 = jest.fn(() => 'Test message');
-        logger.log(LogLevel.Warn, messageProvider2);
-        expect(messageProvider2).toHaveBeenCalledTimes(1);
-        expect(mockLogger.log).toHaveBeenCalledWith(
-          LogLevel.Warn,
-          messageProvider2,
-        );
+        expect(mockLogger.log).toHaveBeenCalledWith('log', messageProvider);
       });
     });
   });
 
+  describe('LogMessageType union', () => {
+    it('should have correct string values', () => {
+      expect('error').toBe('error');
+      expect('warning').toBe('warning');
+      expect('info').toBe('info');
+      expect('log').toBe('log');
+      expect('debug').toBe('debug');
+    });
+  });
+
   describe('LogNotificationHandler', () => {
-    it('should send log messages through the notification handler', () => {
-      const message = 'Test message';
-      const error = new Error('Test error');
+    it('should send log messages', () => {
+      const params = {
+        type: 'error' as LogMessageType,
+        message: 'Test error message',
+      };
 
-      // Test error level
-      mockLogNotificationHandler.sendLogMessage({
-        type: LogMessageType.Error,
-        message: `${message}: ${error}`,
-      });
-      expect(mockLogNotificationHandler.sendLogMessage).toHaveBeenCalledWith({
-        type: LogMessageType.Error,
-        message: `${message}: ${error}`,
-      });
+      mockLogNotificationHandler.sendLogMessage(params);
 
-      // Test warning level
-      mockLogNotificationHandler.sendLogMessage({
-        type: LogMessageType.Warning,
-        message,
-      });
-      expect(mockLogNotificationHandler.sendLogMessage).toHaveBeenCalledWith({
-        type: LogMessageType.Warning,
-        message,
-      });
-
-      // Test info level
-      mockLogNotificationHandler.sendLogMessage({
-        type: LogMessageType.Info,
-        message,
-      });
-      expect(mockLogNotificationHandler.sendLogMessage).toHaveBeenCalledWith({
-        type: LogMessageType.Info,
-        message,
-      });
-
-      // Test debug level
-      mockLogNotificationHandler.sendLogMessage({
-        type: LogMessageType.Log,
-        message,
-      });
-      expect(mockLogNotificationHandler.sendLogMessage).toHaveBeenCalledWith({
-        type: LogMessageType.Log,
-        message,
-      });
+      expect(mockLogNotificationHandler.sendLogMessage).toHaveBeenCalledWith(
+        params,
+      );
     });
   });
 });

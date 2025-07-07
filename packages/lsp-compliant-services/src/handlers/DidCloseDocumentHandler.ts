@@ -7,24 +7,40 @@
  */
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
-import { Logger } from '../utils/Logger';
 import { dispatch } from '../utils/handlerUtil';
+import { IDocumentCloseProcessor } from '../services/DocumentCloseProcessingService';
 
-// Visible for testing
-export const processOnCloseDocument = async (
-  event: TextDocumentChangeEvent<TextDocument>,
-): Promise<void> => {
-  const logger = Logger.getInstance();
-  logger.debug(
-    `Common Apex Language Server close document handler invoked with: ${event}`,
-  );
+/**
+ * Handler for document close events
+ */
+export class DidCloseDocumentHandler {
+  constructor(
+    private readonly logger: LoggerInterface,
+    private readonly documentCloseProcessor: IDocumentCloseProcessor,
+  ) {}
 
-  // Note: We intentionally do NOT remove documents from storage when they're closed
-  // in the UI, as the storage system is designed to persist for the entire session
-  // to support cross-file references and other language features.
-};
+  /**
+   * Handle document close event
+   * @param event The document close event
+   */
+  public async handleDocumentClose(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<void> {
+    this.logger.debug(() => `Processing document close: ${event.document.uri}`);
 
-export const dispatchProcessOnCloseDocument = (
-  event: TextDocumentChangeEvent<TextDocument>,
-) => dispatch(processOnCloseDocument(event), 'Error processing document close');
+    try {
+      await dispatch(
+        this.documentCloseProcessor.processDocumentClose(event),
+        'Error processing document close',
+      );
+    } catch (error) {
+      this.logger.error(
+        () =>
+          `Error processing document close for ${event.document.uri}: ${error}`,
+      );
+      throw error;
+    }
+  }
+}

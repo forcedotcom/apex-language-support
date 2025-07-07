@@ -38,9 +38,11 @@ import {
 import {
   setLogNotificationHandler,
   getLogger,
+  setLoggerFactory,
 } from '@salesforce/apex-lsp-logging';
 
 import { BrowserLogNotificationHandler } from './utils/BrowserLogNotificationHandler';
+import { BrowserLoggerFactory } from './utils/BrowserLoggerFactory';
 
 /* browser specific setup code */
 
@@ -52,6 +54,9 @@ const messageWriter = new BrowserMessageWriter(
 );
 
 const connection = createConnection(messageReader, messageWriter);
+
+// Set the logger factory early
+setLoggerFactory(new BrowserLoggerFactory());
 
 // Set up logging
 const logger = getLogger();

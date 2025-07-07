@@ -14,11 +14,19 @@ import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 // Mock the dependencies
 jest.mock('@salesforce/apex-lsp-logging', () => ({
   getLogger: jest.fn(() => ({
+    log: jest.fn(),
     debug: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
     info: jest.fn(),
   })),
+  LogMessageType: {
+    Error: 1,
+    Warning: 2,
+    Info: 3,
+    Log: 4,
+    Debug: 5,
+  },
 }));
 
 jest.mock('../../src/settings/ApexSettingsManager', () => ({

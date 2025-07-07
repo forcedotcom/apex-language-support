@@ -7,14 +7,9 @@
  */
 
 /**
- * Log message type enum
+ * Log message type union
  */
-export enum LogMessageType {
-  Error = 1,
-  Warning = 2,
-  Info = 3,
-  Log = 4,
-}
+export type LogMessageType = 'error' | 'warning' | 'info' | 'log' | 'debug';
 
 /**
  * Log message parameters interface

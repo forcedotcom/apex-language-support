@@ -6,104 +6,108 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DocumentSymbolParams } from 'vscode-languageserver';
+import { DocumentSymbolParams, DocumentSymbol } from 'vscode-languageserver';
+import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
-import { Logger } from '../../src/utils/Logger';
-import { dispatch } from '../../src/utils/handlerUtil';
-import {
-  processOnDocumentSymbol,
-  dispatchProcessOnDocumentSymbol,
-} from '../../src/handlers/DocumentSymbolHandler';
-
-jest.mock('../../src/utils/Logger');
-jest.mock('../../src/utils/handlerUtil');
+import { DocumentSymbolHandler } from '../../src/handlers/DocumentSymbolHandler';
+import { IDocumentSymbolProcessor } from '../../src/services/DocumentSymbolProcessingService';
 
 describe('DocumentSymbolHandler', () => {
-  let mockLogger: jest.Mocked<Logger>;
-  let mockDispatch: jest.MockedFunction<typeof dispatch>;
+  let handler: DocumentSymbolHandler;
+  let mockLogger: jest.Mocked<LoggerInterface>;
+  let mockDocumentSymbolProcessor: jest.Mocked<IDocumentSymbolProcessor>;
 
   beforeEach(() => {
+    // Create mock logger
     mockLogger = {
-      getInstance: jest.fn().mockReturnThis(),
-      error: jest.fn(),
-      warn: jest.fn(),
-      info: jest.fn(),
-      debug: jest.fn(),
       log: jest.fn(),
-    } as unknown as jest.Mocked<Logger>;
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
 
-    (Logger.getInstance as jest.Mock).mockReturnValue(mockLogger);
-    mockDispatch = dispatch as jest.MockedFunction<typeof dispatch>;
+    // Create mock document symbol processor
+    mockDocumentSymbolProcessor = {
+      processDocumentSymbol: jest.fn(),
+    };
+
+    // Create handler with mocked dependencies
+    handler = new DocumentSymbolHandler(
+      mockLogger,
+      mockDocumentSymbolProcessor,
+    );
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('processOnDocumentSymbol', () => {
-    it('should log debug message with document symbol params', async () => {
-      const params: DocumentSymbolParams = {
-        textDocument: {
-          uri: 'file:///test.cls',
-        },
+  describe('handleDocumentSymbol', () => {
+    it('should process document symbol request successfully', async () => {
+      // Arrange
+      const mockParams: DocumentSymbolParams = {
+        textDocument: { uri: 'file:///test.cls' },
       };
+      const mockSymbols: DocumentSymbol[] = [
+        {
+          name: 'TestClass',
+          kind: 5, // Class
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 10, character: 0 },
+          },
+          selectionRange: {
+            start: { line: 0, character: 6 },
+            end: { line: 0, character: 15 },
+          },
+        },
+      ];
 
-      await processOnDocumentSymbol(params);
-
-      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Common Apex Language Server document symbol handler invoked with: ${params}`,
+      mockDocumentSymbolProcessor.processDocumentSymbol.mockResolvedValue(
+        mockSymbols,
       );
+
+      // Act
+      const result = await handler.handleDocumentSymbol(mockParams);
+
+      // Assert
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
+      // Verify the debug message function was called with correct content
+      const debugCall = mockLogger.debug.mock.calls[0];
+      expect(debugCall[0]()).toBe(
+        'Processing document symbol request: file:///test.cls',
+      );
+      expect(
+        mockDocumentSymbolProcessor.processDocumentSymbol,
+      ).toHaveBeenCalledWith(mockParams);
+      expect(result).toEqual(mockSymbols);
     });
 
-    it('should return empty array for now', async () => {
-      const params: DocumentSymbolParams = {
-        textDocument: {
-          uri: 'file:///test.cls',
-        },
+    it('should log error and rethrow when document symbol processor fails', async () => {
+      // Arrange
+      const mockParams: DocumentSymbolParams = {
+        textDocument: { uri: 'file:///test.cls' },
       };
+      const mockError = new Error('Document symbol processing failed');
 
-      const result = await processOnDocumentSymbol(params);
-
-      expect(result).toEqual(null);
-    });
-  });
-
-  describe('dispatchProcessOnDocumentSymbol', () => {
-    it('should dispatch processOnDocumentSymbol with correct params', () => {
-      const params: DocumentSymbolParams = {
-        textDocument: {
-          uri: 'file:///test.cls',
-        },
-      };
-
-      dispatchProcessOnDocumentSymbol(params);
-
-      expect(mockDispatch).toHaveBeenCalledTimes(1);
-      expect(mockDispatch).toHaveBeenCalledWith(
-        processOnDocumentSymbol(params),
-        'Error processing document symbols',
+      mockDocumentSymbolProcessor.processDocumentSymbol.mockRejectedValue(
+        mockError,
       );
-    });
 
-    it('should handle dispatch error', async () => {
-      const params: DocumentSymbolParams = {
-        textDocument: {
-          uri: 'file:///test.cls',
-        },
-      };
-
-      const error = new Error('Test error');
-      mockDispatch.mockRejectedValueOnce(error);
-
-      await expect(dispatchProcessOnDocumentSymbol(params)).rejects.toThrow(
-        error,
+      // Act & Assert
+      await expect(handler.handleDocumentSymbol(mockParams)).rejects.toThrow(
+        'Document symbol processing failed',
       );
-      expect(mockDispatch).toHaveBeenCalledTimes(1);
-      expect(mockDispatch).toHaveBeenCalledWith(
-        processOnDocumentSymbol(params),
-        'Error processing document symbols',
+
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
+      // Verify the error message function was called with correct content
+      const errorLogCall = mockLogger.error.mock.calls[0];
+      expect(typeof errorLogCall[0]).toBe('function');
+      expect(errorLogCall[0]()).toContain(
+        'Error processing document symbol request for file:///test.cls',
       );
+      expect(errorLogCall[0]()).toContain('Document symbol processing failed');
     });
   });
 });

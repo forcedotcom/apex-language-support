@@ -7,23 +7,21 @@
  */
 
 import {
+  DocumentSymbolParams,
   DocumentSymbol,
   SymbolInformation,
-  DocumentSymbolParams,
   SymbolKind,
   Range,
   Position,
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
-  CompilerService,
   SymbolTable,
+  CompilerService,
   ApexSymbolCollectorListener,
-} from '@salesforce/apex-lsp-parser-ast';
-import type {
+  ApexSymbol,
   MethodSymbol,
   VariableSymbol,
-  ApexSymbol,
   TypeInfo,
 } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-logging';
@@ -117,13 +115,13 @@ export class DefaultApexDocumentSymbolProvider
     try {
       const documentUri = params.textDocument.uri;
       logger.debug(
-        `Attempting to get document from storage for URI: ${documentUri}`,
+        () => `Attempting to get document from storage for URI: ${documentUri}`,
       );
 
       const document = await this.storage.getDocument(documentUri);
 
       if (!document) {
-        logger.warn(
+        logger.debug(
           () => `Document not found in storage for URI: ${documentUri}`,
         );
         return null;
@@ -155,7 +153,7 @@ export class DefaultApexDocumentSymbolProvider
       );
 
       if (result.errors.length > 0) {
-        logger.error('Errors parsing document:', result.errors);
+        logger.debug(() => `Errors parsing document: ${result.errors}`);
         return null;
       }
 
@@ -196,7 +194,7 @@ export class DefaultApexDocumentSymbolProvider
       logger.debug(`Returning ${symbols.length} document symbols`);
       return symbols;
     } catch (error) {
-      logger.error('Error providing document symbols:', error);
+      logger.error(() => `Error providing document symbols: ${error}`);
       return null;
     }
   }
@@ -221,8 +219,26 @@ export class DefaultApexDocumentSymbolProvider
    * For other symbols, returns the simple name
    */
   private formatSymbolName(symbol: ApexSymbol): string {
-    if (symbol.kind?.toLowerCase() !== 'method') {
-      return symbol.name;
+    // Check if this is a method symbol
+    if (symbol.kind?.toLowerCase() === 'method') {
+      try {
+        // Cast to MethodSymbol to access method-specific properties
+        const methodSymbol = symbol as MethodSymbol;
+
+        // Build parameter list
+        const parameterList = this.buildParameterList(
+          methodSymbol.parameters || [],
+        );
+
+        // Build return type string
+        const returnTypeString = this.formatReturnType(methodSymbol.returnType);
+
+        // Format: methodName(paramTypes) : ReturnType
+        return `${symbol.name}(${parameterList}) : ${returnTypeString}`;
+      } catch (_e) {
+        // Fallback to original name if anything goes wrong
+        return symbol.name;
+      }
     }
 
     try {
@@ -235,6 +251,9 @@ export class DefaultApexDocumentSymbolProvider
       // Format: methodName(paramTypes) : ReturnType
       return `${symbol.name}(${parameterList}) : ${returnTypeString}`;
     } catch (error) {
+      getLogger().warn(
+        () => `Error formatting symbol name for '${symbol.name}': ${error}`,
+      );
       // Fallback to original name if anything goes wrong
       return symbol.name;
     }

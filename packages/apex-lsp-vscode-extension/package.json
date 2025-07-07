@@ -74,14 +74,19 @@
           "description": "Traces the communication between VS Code and the Apex language server"
         },
         "apex.debug": {
-          "type": "boolean",
-          "default": false,
-          "description": "Run Apex language server in debug mode"
+          "type": "string",
+          "enum": [
+            "off",
+            "inspect",
+            "inspect-brk"
+          ],
+          "default": "off",
+          "description": "Debug mode for the Apex language server. 'inspect' enables debugging without breaking, 'inspect-brk' enables debugging with break on start"
         },
         "apex.debugPort": {
           "type": "number",
-          "default": 0,
-          "description": "Port to use for debugging (0 for random port)"
+          "default": 6009,
+          "description": "Port to use for debugging (6009 is the default)"
         },
         "apex.commentCollection.enableCommentCollection": {
           "type": "boolean",
@@ -147,10 +152,16 @@
           "default": "lazy",
           "description": "Resource loading mode for Apex standard library files. 'full' loads all resources immediately (faster access, higher memory usage), 'lazy' loads resources on-demand (lower memory usage, slight access delay)"
         },
-        "apex.inspector.enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable LSP request/response inspector for debugging"
+        "apex.ls.logLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "debug"
+          ],
+          "default": "info",
+          "description": "Controls the minimum log level for Apex Language Server logging. Messages at this level or higher will be logged."
         }
       }
     },
@@ -158,10 +169,6 @@
       {
         "command": "apex.restart.server",
         "title": "Restart Apex Language Server"
-      },
-      {
-        "command": "apex.inspector.toggle",
-        "title": "Toggle Apex LSP Inspector"
       }
     ],
     "viewsContainers": {

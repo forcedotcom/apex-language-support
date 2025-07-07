@@ -232,14 +232,14 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         kind: 'method',
         location: { startLine: 4, startColumn: 9, endLine: 4, endColumn: 30 },
       };
-      const propertySymbol = {
-        name: 'myProp',
-        kind: 'property',
+      const fieldSymbol = {
+        name: 'myField',
+        kind: 'field',
         location: { startLine: 3, startColumn: 9, endLine: 3, endColumn: 40 },
       };
       const classScope = {
         name: 'ComplexClass',
-        getAllSymbols: () => [propertySymbol, methodSymbol],
+        getAllSymbols: () => [fieldSymbol, methodSymbol],
         getChildren: () => [],
       };
       const globalScope = {
@@ -270,8 +270,8 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       const classSymbol = result![0] as any;
       expect(classSymbol.name).toBe('ComplexClass');
       expect(classSymbol.children).toHaveLength(2);
-      expect(classSymbol.children[0].name).toBe('myProp');
-      expect(classSymbol.children[0].kind).toBe(7); // SymbolKind.Property
+      expect(classSymbol.children[0].name).toBe('myField');
+      expect(classSymbol.children[0].kind).toBe(8); // SymbolKind.Field
       expect(classSymbol.children[1].name).toBe('myMethod() : void');
       expect(classSymbol.children[1].kind).toBe(6); // SymbolKind.Method
     });
@@ -289,6 +289,11 @@ describe('DefaultApexDocumentSymbolProvider', () => {
     it('should correctly map property to SymbolKind.Property', () => {
       const result = (symbolProvider as any).mapSymbolKind('property');
       expect(result).toBe(SymbolKind.Property);
+    });
+
+    it('should correctly map field to SymbolKind.Field', () => {
+      const result = (symbolProvider as any).mapSymbolKind('field');
+      expect(result).toBe(SymbolKind.Field);
     });
 
     it('should correctly map enum to SymbolKind.Enum', () => {
@@ -914,6 +919,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(provider.mapSymbolKind('interface')).toBe(11);
       expect(provider.mapSymbolKind('method')).toBe(6);
       expect(provider.mapSymbolKind('property')).toBe(7);
+      expect(provider.mapSymbolKind('field')).toBe(8);
       expect(provider.mapSymbolKind('variable')).toBe(13);
       expect(provider.mapSymbolKind('enum')).toBe(10);
       expect(provider.mapSymbolKind('enumvalue')).toBe(22);

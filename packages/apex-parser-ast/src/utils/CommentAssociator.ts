@@ -68,12 +68,14 @@ export class CommentAssociator {
       ) {
         associations.push(bestAssociation);
         this.logger.debug(
-          `Associated comment at line ${comment.startLine} with symbol '${bestAssociation.symbolKey}' ` +
+          () =>
+            `Associated comment at line ${comment.startLine} with symbol '${bestAssociation.symbolKey}' ` +
             `(${bestAssociation.associationType}, confidence: ${bestAssociation.confidence.toFixed(2)})`,
         );
       } else {
         this.logger.debug(
-          `No suitable association found for comment at line ${comment.startLine}`,
+          () =>
+            `No suitable association found for comment at line ${comment.startLine}`,
         );
       }
     }
