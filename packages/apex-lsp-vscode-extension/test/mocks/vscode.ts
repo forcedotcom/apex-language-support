@@ -55,6 +55,8 @@ export const languages = {
     show: jest.fn(),
     hide: jest.fn(),
     dispose: jest.fn(),
+    severity: 1,
+    busy: false,
   })),
 };
 
@@ -95,6 +97,12 @@ export const mockVscode = {
   ExtensionMode,
   ThemeColor,
   Disposable,
+};
+
+export const LanguageStatusSeverity = {
+  Information: 1,
+  Warning: 2,
+  Error: 3,
 };
 
 export default mockVscode;

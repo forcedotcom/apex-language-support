@@ -17,9 +17,10 @@ import {
 
 // Mock the status bar module
 jest.mock('../src/status-bar', () => ({
-  updateStatusBarReady: jest.fn(),
-  updateStatusBarError: jest.fn(),
-  updateStatusBarStarting: jest.fn(),
+  updateApexServerStatusReady: jest.fn(),
+  updateApexServerStatusError: jest.fn(),
+  updateApexServerStatusStarting: jest.fn(),
+  updateApexServerStatusStopped: jest.fn(),
 }));
 
 // Mock the logging module
@@ -124,7 +125,7 @@ describe('Language Server Module', () => {
 
     it('should handle client state changes', async () => {
       const restartHandler = jest.fn();
-      const { updateStatusBarReady } = require('../src/status-bar');
+      const { updateApexServerStatusReady } = require('../src/status-bar');
       const {
         resetServerStartRetries,
         setStartingFlag,
@@ -139,7 +140,7 @@ describe('Language Server Module', () => {
       const stateChangeHandler = mockClient.onDidChangeState.mock.calls[0][0];
       stateChangeHandler({ oldState: State.Starting, newState: State.Running });
 
-      expect(updateStatusBarReady).toHaveBeenCalled();
+      expect(updateApexServerStatusReady).toHaveBeenCalled();
       expect(resetServerStartRetries).toHaveBeenCalled();
       expect(setStartingFlag).toHaveBeenCalledWith(false);
       expect(registerConfigurationChangeListener).toHaveBeenCalledWith(
@@ -150,7 +151,7 @@ describe('Language Server Module', () => {
 
     it('should handle other states', async () => {
       const restartHandler = jest.fn();
-      const { updateStatusBarError } = require('../src/status-bar');
+      const { updateApexServerStatusError } = require('../src/status-bar');
       const { setStartingFlag } = require('../src/commands');
 
       await startLanguageServer(mockContext, restartHandler);
@@ -159,14 +160,14 @@ describe('Language Server Module', () => {
       const stateChangeHandler = mockClient.onDidChangeState.mock.calls[0][0];
       stateChangeHandler({ oldState: State.Running, newState: State.Stopped });
 
-      expect(updateStatusBarError).toHaveBeenCalled();
+      expect(updateApexServerStatusError).toHaveBeenCalled();
       expect(setStartingFlag).toHaveBeenCalledWith(false);
     });
 
     it('should handle client start error', async () => {
       const restartHandler = jest.fn();
       const { logToOutputChannel } = require('../src/logging');
-      const { updateStatusBarError } = require('../src/status-bar');
+      const { updateApexServerStatusError } = require('../src/status-bar');
       const { setStartingFlag } = require('../src/commands');
 
       mockClient.start.mockRejectedValue(new Error('Start failed'));
@@ -177,7 +178,7 @@ describe('Language Server Module', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(setStartingFlag).toHaveBeenCalledWith(false);
-      expect(updateStatusBarError).toHaveBeenCalled();
+      expect(updateApexServerStatusError).toHaveBeenCalled();
       expect(logToOutputChannel).toHaveBeenCalledWith(
         'Failed to start client: Error: Start failed',
         'error',

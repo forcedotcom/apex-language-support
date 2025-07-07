@@ -28,8 +28,8 @@ jest.mock('../src/commands', () => ({
 
 // Mock the status bar module
 jest.mock('../src/status-bar', () => ({
-  updateStatusBarStopped: jest.fn(),
-  updateStatusBarError: jest.fn(),
+  updateApexServerStatusStopped: jest.fn(),
+  updateApexServerStatusError: jest.fn(),
 }));
 
 // Mock the logging module
@@ -153,7 +153,7 @@ describe('Error Handling Module', () => {
   describe('handleMaxRetriesExceeded', () => {
     it('should show error message and handle restart option', () => {
       const { getGlobalContext } = require('../src/commands');
-      const { updateStatusBarError } = require('../src/status-bar');
+      const { updateApexServerStatusError } = require('../src/status-bar');
       const { logToOutputChannel } = require('../src/logging');
 
       // Mock getGlobalContext to return our mock context
@@ -165,7 +165,7 @@ describe('Error Handling Module', () => {
 
       handleMaxRetriesExceeded(mockRestartHandler);
 
-      expect(updateStatusBarError).toHaveBeenCalled();
+      expect(updateApexServerStatusError).toHaveBeenCalled();
       expect(logToOutputChannel).toHaveBeenCalledWith(
         expect.stringMatching(
           /Max retries \(3\) exceeded\. Auto-restart disabled\./,
@@ -202,13 +202,13 @@ describe('Error Handling Module', () => {
   describe('handleClientClosed', () => {
     it('should handle client closed event', async () => {
       const { setStartingFlag } = require('../src/commands');
-      const { updateStatusBarStopped } = require('../src/status-bar');
+      const { updateApexServerStatusStopped } = require('../src/status-bar');
       const { logToOutputChannel } = require('../src/logging');
 
       await handleClientClosed(mockRestartHandler);
 
       expect(setStartingFlag).toHaveBeenCalledWith(false);
-      expect(updateStatusBarStopped).toHaveBeenCalled();
+      expect(updateApexServerStatusStopped).toHaveBeenCalled();
       expect(logToOutputChannel).toHaveBeenCalledWith(
         expect.stringMatching(
           /Connection to server closed - \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/,

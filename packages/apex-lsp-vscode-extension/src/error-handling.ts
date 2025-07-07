@@ -78,6 +78,9 @@ export const handleMaxRetriesExceeded = (
     'info',
   );
 
+  // Update status to show error state
+  updateApexServerStatusError();
+
   vscode.window
     .showErrorMessage(
       'The Apex Language Server failed to start after multiple attempts. Click the status bar icon to try again.',

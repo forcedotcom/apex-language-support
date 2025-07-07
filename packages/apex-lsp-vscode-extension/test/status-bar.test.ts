@@ -6,129 +6,93 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+// Remove all tests and imports related to the old status bar item API.
+
 import * as vscode from 'vscode';
 import {
-  createStatusBarItem,
-  updateStatusBarReady,
-  updateStatusBarStarting,
-  updateStatusBarError,
-  getStatusBarItem,
+  createApexServerStatusItem,
+  updateApexServerStatusStarting,
+  updateApexServerStatusReady,
+  updateApexServerStatusStopped,
+  updateApexServerStatusError,
 } from '../src/status-bar';
-import {
-  EXTENSION_CONSTANTS,
-  STATUS_BAR_TEXT,
-  STATUS_BAR_TOOLTIPS,
-} from '../src/constants';
 
-describe('Status Bar Module', () => {
+describe('Apex Server Status LanguageStatusItem', () => {
   let mockContext: vscode.ExtensionContext;
-  let mockStatusBarItem: vscode.StatusBarItem;
+  let mockStatusItem: any;
 
   beforeEach(() => {
-    // Reset mocks
     jest.clearAllMocks();
-
-    // Create mock status bar item
-    mockStatusBarItem = {
-      command: EXTENSION_CONSTANTS.RESTART_COMMAND_ID,
-      text: STATUS_BAR_TEXT.STARTING,
-      tooltip: STATUS_BAR_TOOLTIPS.STARTING,
+    mockStatusItem = {
+      name: '',
+      text: '',
+      detail: '',
+      severity: vscode.LanguageStatusSeverity.Information,
+      command: undefined,
+      busy: false,
       show: jest.fn(),
       hide: jest.fn(),
       dispose: jest.fn(),
-    } as unknown as vscode.StatusBarItem;
-
-    // Mock vscode.window.createStatusBarItem
+    };
     jest
-      .spyOn(vscode.window, 'createStatusBarItem')
-      .mockReturnValue(mockStatusBarItem);
-
-    // Create mock context
-    mockContext = {
-      subscriptions: [],
-    } as unknown as vscode.ExtensionContext;
+      .spyOn(vscode.languages, 'createLanguageStatusItem')
+      .mockReturnValue(mockStatusItem);
+    mockContext = { subscriptions: [] } as unknown as vscode.ExtensionContext;
   });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
-    jest.resetModules();
-  });
-
-  describe('createStatusBarItem', () => {
-    it('should create status bar item and add to subscriptions', () => {
-      createStatusBarItem(mockContext);
-
-      expect(vscode.window.createStatusBarItem).toHaveBeenCalledWith(
-        vscode.StatusBarAlignment.Right,
-        EXTENSION_CONSTANTS.STATUS_BAR_PRIORITY,
-      );
-      expect(mockContext.subscriptions).toContain(mockStatusBarItem);
-      expect(mockStatusBarItem.show).toHaveBeenCalled();
-    });
-
-    it('should set initial status bar properties', () => {
-      createStatusBarItem(mockContext);
-
-      expect(mockStatusBarItem.command).toBe(
-        EXTENSION_CONSTANTS.RESTART_COMMAND_ID,
-      );
-      expect(mockStatusBarItem.text).toBe(STATUS_BAR_TEXT.STARTING);
-      expect(mockStatusBarItem.tooltip).toBe(STATUS_BAR_TOOLTIPS.STARTING);
+  it('should create the LanguageStatusItem and add to subscriptions', () => {
+    createApexServerStatusItem(mockContext);
+    expect(vscode.languages.createLanguageStatusItem).toHaveBeenCalledWith(
+      'apex.serverStatus',
+      { language: 'apex', scheme: 'file' },
+    );
+    expect(mockContext.subscriptions).toContain(mockStatusItem);
+    expect(mockStatusItem.name).toBe('Apex Language Server Status');
+    expect(mockStatusItem.text).toContain('Starting');
+    expect(mockStatusItem.busy).toBe(true);
+    expect(mockStatusItem.command).toEqual({
+      title: 'Restart Apex Language Server',
+      command: 'apex.restart.server',
     });
   });
 
-  describe('updateStatusBarReady', () => {
-    it('should update status bar to ready state', () => {
-      createStatusBarItem(mockContext);
-
-      updateStatusBarReady();
-
-      expect(mockStatusBarItem.text).toBe(STATUS_BAR_TEXT.READY);
-      expect(mockStatusBarItem.tooltip).toBe(STATUS_BAR_TOOLTIPS.READY);
-    });
+  it('should update to starting state', () => {
+    createApexServerStatusItem(mockContext);
+    updateApexServerStatusStarting();
+    expect(mockStatusItem.text).toContain('Starting');
+    expect(mockStatusItem.detail).toContain('starting');
+    expect(mockStatusItem.severity).toBe(
+      vscode.LanguageStatusSeverity.Information,
+    );
+    expect(mockStatusItem.busy).toBe(true);
   });
 
-  describe('updateStatusBarStarting', () => {
-    it('should update status bar to starting state', () => {
-      createStatusBarItem(mockContext);
-
-      updateStatusBarStarting();
-
-      expect(mockStatusBarItem.text).toBe(STATUS_BAR_TEXT.STARTING);
-      expect(mockStatusBarItem.tooltip).toBe(STATUS_BAR_TOOLTIPS.STARTING);
-    });
+  it('should update to ready state', () => {
+    createApexServerStatusItem(mockContext);
+    updateApexServerStatusReady();
+    expect(mockStatusItem.text).toContain('Ready');
+    expect(mockStatusItem.detail).toContain('running');
+    expect(mockStatusItem.severity).toBe(
+      vscode.LanguageStatusSeverity.Information,
+    );
+    expect(mockStatusItem.busy).toBe(false);
   });
 
-  describe('updateStatusBarError', () => {
-    it('should update status bar to error state', () => {
-      createStatusBarItem(mockContext);
-
-      updateStatusBarError();
-
-      expect(mockStatusBarItem.text).toBe(STATUS_BAR_TEXT.ERROR);
-      expect(mockStatusBarItem.tooltip).toBe(STATUS_BAR_TOOLTIPS.ERROR);
-    });
+  it('should update to stopped state', () => {
+    createApexServerStatusItem(mockContext);
+    updateApexServerStatusStopped();
+    expect(mockStatusItem.text).toContain('Stopped');
+    expect(mockStatusItem.detail).toContain('stopped');
+    expect(mockStatusItem.severity).toBe(vscode.LanguageStatusSeverity.Error);
+    expect(mockStatusItem.busy).toBe(false);
   });
 
-  describe('getStatusBarItem', () => {
-    it('should return status bar item after creation', () => {
-      createStatusBarItem(mockContext);
-
-      const result = getStatusBarItem();
-
-      expect(result).toBe(mockStatusBarItem);
-    });
-
-    it('should return undefined before creation', () => {
-      jest.resetModules();
-
-      const {
-        getStatusBarItem: freshGetStatusBarItem,
-      } = require('../src/status-bar');
-
-      const result = freshGetStatusBarItem();
-
-      expect(result).toBeUndefined();
-    });
+  it('should update to error state', () => {
+    createApexServerStatusItem(mockContext);
+    updateApexServerStatusError();
+    expect(mockStatusItem.text).toContain('Error');
+    expect(mockStatusItem.detail).toContain('error');
+    expect(mockStatusItem.severity).toBe(vscode.LanguageStatusSeverity.Error);
+    expect(mockStatusItem.busy).toBe(false);
   });
 });
