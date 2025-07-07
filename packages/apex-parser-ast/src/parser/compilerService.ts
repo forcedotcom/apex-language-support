@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CharStreams, CommonTokenStream } from 'antlr4ts';
+import { CharStreams, CommonTokenStream, DefaultErrorStrategy } from 'antlr4ts';
 import {
   ApexLexer,
   ApexParser,
@@ -57,6 +57,18 @@ export interface CompilationResultWithAssociations<T>
 }
 
 /**
+ * Result of creating a parse tree.
+ */
+export interface ParseTreeResult {
+  fileName: string;
+  parseTree: CompilationUnitContext | TriggerUnitContext;
+  errorListener: ApexErrorListener;
+  lexer: ApexLexer;
+  tokenStream: CommonTokenStream;
+  parser: ApexParser;
+}
+
+/**
  * Options for compilation behavior
  */
 export interface CompilationOptions {
@@ -90,6 +102,52 @@ export class CompilerService {
   }
 
   /**
+   * Creates a parse tree from the given file content.
+   * This method handles the setup of the lexer, parser, and error listeners.
+   * @param fileContent The content of the Apex file.
+   * @param fileName The name of the file, used for error reporting and trigger detection.
+   * @returns A ParseTreeResult containing the parse tree and related objects.
+   */
+  public createParseTree(
+    fileContent: string,
+    fileName: string = 'unknown.cls',
+  ): ParseTreeResult {
+    this.logger.debug(() => `Creating parse tree for ${fileName}`);
+
+    // Create error listener
+    const errorListener = new ApexErrorListener(fileName);
+
+    // Set up parsing infrastructure
+    const inputStream = CharStreams.fromString(fileContent);
+    const lexer = new ApexLexer(new CaseInsensitiveInputStream(inputStream));
+    const tokenStream = new CommonTokenStream(lexer);
+    const parser = new ApexParser(tokenStream);
+    parser.errorHandler = new DefaultErrorStrategy();
+
+    // Set up error listeners
+    parser.removeErrorListeners();
+    lexer.removeErrorListeners();
+    parser.addErrorListener(errorListener);
+    const lexerErrorListener = new ApexLexerErrorListener(errorListener);
+    lexer.addErrorListener(lexerErrorListener);
+
+    // Parse the compilation unit
+    const isTrigger = fileName.endsWith('.trigger');
+    const parseTree = isTrigger
+      ? parser.triggerUnit()
+      : parser.compilationUnit();
+
+    return {
+      fileName,
+      parseTree,
+      errorListener,
+      lexer,
+      tokenStream,
+      parser,
+    };
+  }
+
+  /**
    * Parse and compile a single Apex file.
    * @param fileContent The content of the Apex file to parse
    * @param fileName Optional filename for error reporting
@@ -109,8 +167,11 @@ export class CompilerService {
     this.logger.debug(() => `Starting compilation of ${fileName}`);
 
     try {
-      // Create error listener
-      const errorListener = new ApexErrorListener(fileName);
+      // Create parse tree and get associated components
+      const { parseTree, errorListener, tokenStream } = this.createParseTree(
+        fileContent,
+        fileName,
+      );
 
       // Create comment collector by default (opt-out behavior)
       let commentCollector: ApexCommentCollectorListener | null = null;
@@ -119,19 +180,6 @@ export class CompilerService {
           options.includeSingleLineComments || false,
         );
       }
-
-      // Set up parsing infrastructure
-      const inputStream = CharStreams.fromString(fileContent);
-      const lexer = new ApexLexer(new CaseInsensitiveInputStream(inputStream));
-      const tokenStream = new CommonTokenStream(lexer);
-      const parser = new ApexParser(tokenStream);
-
-      // Set up error listeners
-      parser.removeErrorListeners();
-      lexer.removeErrorListeners();
-      parser.addErrorListener(errorListener);
-      const lexerErrorListener = new ApexLexerErrorListener(errorListener);
-      lexer.addErrorListener(lexerErrorListener);
 
       // Set up the main listener
       listener.setErrorListener(errorListener);
@@ -146,20 +194,14 @@ export class CompilerService {
         commentCollector.setTokenStream(tokenStream);
       }
 
-      // Parse the compilation unit
-      const isTrigger = fileName.endsWith('.trigger');
-      const compilationUnitContext = isTrigger
-        ? parser.triggerUnit()
-        : parser.compilationUnit();
-
       // Walk the tree with the main listener
       const walker = new ParseTreeWalker();
-      walker.walk(listener, compilationUnitContext);
+      walker.walk(listener, parseTree);
 
       // Walk the tree with comment collector if requested
       let comments: ApexComment[] = [];
       if (commentCollector) {
-        walker.walk(commentCollector, compilationUnitContext);
+        walker.walk(commentCollector, parseTree);
         comments = commentCollector.getResult();
       }
 
