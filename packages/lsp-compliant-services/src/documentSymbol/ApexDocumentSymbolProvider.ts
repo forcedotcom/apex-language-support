@@ -23,22 +23,12 @@ import {
   MethodSymbol,
   VariableSymbol,
   TypeInfo,
+  isCompoundSymbolType,
 } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { ApexSettingsManager } from '../settings/ApexSettingsManager';
-
-/**
- * Symbol types that can have children (classes, interfaces, enums, triggers)
- * These are compound symbols that can contain other symbols within their scope
- */
-const COMPOUND_SYMBOL_TYPES = [
-  'class',
-  'interface',
-  'enum',
-  'trigger',
-] as const;
 
 /**
  * Maps Apex symbol kinds to LSP symbol kinds
@@ -170,7 +160,7 @@ export class DefaultApexDocumentSymbolProvider
         const documentSymbol = this.createDocumentSymbol(symbol, document);
 
         // Recursively collect children for compound symbol types (classes, interfaces, etc.)
-        if (this.isCompoundSymbolType(symbol.kind)) {
+        if (isCompoundSymbolType(symbol)) {
           const childScopes = symbolTable.getCurrentScope().getChildren();
           const typeScope = childScopes.find(
             (scope: any) => scope.name === symbol.name,
@@ -301,16 +291,6 @@ export class DefaultApexDocumentSymbolProvider
   }
 
   /**
-   * Checks if a symbol type can have children
-   * Only compound symbol types (classes, interfaces, enums, triggers) can contain other symbols
-   */
-  private isCompoundSymbolType(kind: string): boolean {
-    return COMPOUND_SYMBOL_TYPES.includes(
-      kind.toLowerCase() as (typeof COMPOUND_SYMBOL_TYPES)[number],
-    );
-  }
-
-  /**
    * Recursively collects children symbols for a given scope and kind
    * This builds the hierarchical structure of the document outline
    */
@@ -345,7 +325,7 @@ export class DefaultApexDocumentSymbolProvider
       );
 
       // Recursively collect children for compound symbol types
-      if (this.isCompoundSymbolType(childSymbol.kind)) {
+      if (isCompoundSymbolType(childSymbol)) {
         const childScope = scope
           .getChildren()
           .find((s: any) => s.name === childSymbol.name);

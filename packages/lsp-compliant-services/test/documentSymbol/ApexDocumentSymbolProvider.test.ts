@@ -27,7 +27,14 @@ import {
 } from '../../src/documentSymbol/ApexDocumentSymbolProvider';
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 
-jest.mock('@salesforce/apex-lsp-parser-ast');
+jest.mock('@salesforce/apex-lsp-parser-ast', () => {
+  const originalModule = jest.requireActual('@salesforce/apex-lsp-parser-ast');
+  return {
+    ...originalModule,
+    CompilerService: jest.fn(),
+    ApexSymbolCollectorListener: jest.fn(),
+  };
+});
 jest.mock('@salesforce/apex-lsp-logging');
 
 const mockedGetLogger = getLogger as jest.Mock;
@@ -1057,26 +1064,6 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(result).toBeDefined();
       expect(result.start.line).toBe(0); // 0-based indexing
       expect(result.end.line).toBe(0);
-    });
-  });
-
-  describe('isCompoundSymbolType', () => {
-    it('should identify compound symbol types correctly', () => {
-      const provider = symbolProvider as any;
-      expect(provider.isCompoundSymbolType('class')).toBe(true);
-      expect(provider.isCompoundSymbolType('interface')).toBe(true);
-      expect(provider.isCompoundSymbolType('enum')).toBe(true);
-      expect(provider.isCompoundSymbolType('trigger')).toBe(true);
-      expect(provider.isCompoundSymbolType('method')).toBe(false);
-      expect(provider.isCompoundSymbolType('variable')).toBe(false);
-      expect(provider.isCompoundSymbolType('property')).toBe(false);
-    });
-
-    it('should handle case-insensitive compound symbol types', () => {
-      const provider = symbolProvider as any;
-      expect(provider.isCompoundSymbolType('CLASS')).toBe(true);
-      expect(provider.isCompoundSymbolType('Interface')).toBe(true);
-      expect(provider.isCompoundSymbolType('ENUM')).toBe(true);
     });
   });
 });
