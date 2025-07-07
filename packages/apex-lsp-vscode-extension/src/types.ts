@@ -44,9 +44,10 @@ export interface WorkspaceSettings {
     environment: {
       enablePerformanceLogging: boolean;
     };
-    ls: {
-      logLevel: string;
+    resources: {
+      loadMode: 'lazy' | 'full';
     };
+    logLevel: string;
   };
 }
 

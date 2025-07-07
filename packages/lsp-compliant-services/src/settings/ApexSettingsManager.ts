@@ -14,7 +14,7 @@ import {
   DEFAULT_APEX_SETTINGS,
   BROWSER_DEFAULT_APEX_SETTINGS,
   mergeWithDefaults,
-  isValidApexSettings,
+  validateApexSettings,
 } from './ApexLanguageServerSettings';
 
 /**
@@ -93,9 +93,9 @@ export class ApexSettingsManager {
     );
 
     // Set log level if provided
-    if (newSettings.ls?.logLevel ?? false) {
-      setLogLevel(newSettings.ls!.logLevel!);
-      this.logger.debug(() => `Log level set to: ${newSettings.ls!.logLevel}`);
+    if (newSettings.logLevel) {
+      setLogLevel(newSettings.logLevel);
+      this.logger.debug(() => `Log level set to: ${newSettings.logLevel}`);
     }
 
     const previousSettings = { ...this.currentSettings };
@@ -122,23 +122,49 @@ export class ApexSettingsManager {
         return false;
       }
 
+      // Log the received configuration for debugging
+      this.logger.debug(
+        () => `Received LSP configuration: ${JSON.stringify(config, null, 2)}`,
+      );
+
       // Extract apex-specific settings from the configuration
       const apexConfig = config.apex || config.apexLanguageServer || config;
 
+      // Log the extracted apex configuration
+      this.logger.debug(
+        () =>
+          `Extracted apex configuration: ${JSON.stringify(apexConfig, null, 2)}`,
+      );
+
       // Set log level if provided
-      if (apexConfig.ls && apexConfig.ls.logLevel) {
-        setLogLevel(apexConfig.ls.logLevel);
-        this.logger.debug(() => `Log level set to: ${apexConfig.ls.logLevel}`);
+      if (apexConfig.logLevel) {
+        setLogLevel(apexConfig.logLevel);
+        this.logger.debug(() => `Log level set to: ${apexConfig.logLevel}`);
       }
 
-      if (isValidApexSettings(apexConfig)) {
+      // Perform validation on the provided configuration keys
+      const validationResult = validateApexSettings(apexConfig);
+
+      if (validationResult.isValid) {
+        this.logger.debug('LSP configuration validation passed');
         this.updateSettings(apexConfig);
         return true;
       } else {
+        // Log validation errors for invalid keys/types
         this.logger.warn(
           () =>
-            'LSP configuration does not match expected schema, merging what we can',
+            `LSP configuration has invalid properties. Details: ${validationResult.details.join(', ')}`,
         );
+
+        if (validationResult.invalidKeys.length > 0) {
+          this.logger.warn(
+            () =>
+              `Invalid keys (wrong type): ${validationResult.invalidKeys.join(', ')}`,
+          );
+        }
+
+        // Still merge the configuration, but warn about the issues
+        this.logger.debug('Merging configuration despite validation issues');
         this.updateSettings(apexConfig as Partial<ApexLanguageServerSettings>);
         return true;
       }

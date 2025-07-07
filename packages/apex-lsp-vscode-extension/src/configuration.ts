@@ -20,11 +20,12 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
   const config = vscode.workspace.getConfiguration(
     EXTENSION_CONSTANTS.CONFIG_SECTION,
   );
-  const logLevel = config.get<string>('logLevel', 'error');
+  const logLevel = config.get<string>('logLevel') ?? 'info';
 
   // Update the log level for the extension's logging system
   updateLogLevel(logLevel);
 
+  // Map apex-ls-ts configuration to the apex format expected by the language server
   return {
     apex: {
       commentCollection: {
@@ -77,9 +78,12 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
           false,
         ),
       },
-      ls: {
-        logLevel,
+      resources: {
+        loadMode: config.get<string>('resources.loadMode', 'lazy') as
+          | 'lazy'
+          | 'full',
       },
+      logLevel,
     },
   };
 };

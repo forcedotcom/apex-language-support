@@ -62,7 +62,7 @@ describe('Configuration Module', () => {
       // Mock configuration values
       mockGetConfiguration.mockImplementation(
         (key: string, defaultValue: any) => {
-          if (key === 'ls.logLevel') return 'error';
+          if (key === 'logLevel') return 'info';
           if (key === 'commentCollection.enableCommentCollection') return true;
           if (key === 'commentCollection.includeSingleLineComments')
             return false;
@@ -77,6 +77,7 @@ describe('Configuration Module', () => {
           if (key === 'performance.useAsyncCommentProcessing') return true;
           if (key === 'performance.documentChangeDebounceMs') return 300;
           if (key === 'environment.enablePerformanceLogging') return false;
+          if (key === 'resources.loadMode') return 'lazy';
           return defaultValue;
         },
       );
@@ -102,9 +103,10 @@ describe('Configuration Module', () => {
           environment: {
             enablePerformanceLogging: false,
           },
-          ls: {
-            logLevel: 'error',
+          resources: {
+            loadMode: 'lazy',
           },
+          logLevel: 'info',
         },
       });
     });
@@ -236,9 +238,10 @@ describe('Configuration Module', () => {
           environment: {
             enablePerformanceLogging: false,
           },
-          ls: {
-            logLevel: 'error',
+          resources: {
+            loadMode: 'lazy',
           },
+          logLevel: 'info',
         },
       };
       jest

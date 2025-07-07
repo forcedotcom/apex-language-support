@@ -124,7 +124,7 @@ export const createClientOptions = (): LanguageClientOptions => {
     initializationOptions: {
       enableDocumentSymbols: true,
       trace: traceServer, // This enables LSP tracing
-      logLevel: settings.apex.ls.logLevel, // Pass log level to server
+      logLevel: settings.apex.logLevel, // Pass log level to server
       ...settings,
     },
     // Explicitly enable workspace configuration capabilities

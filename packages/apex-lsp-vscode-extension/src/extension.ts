@@ -87,7 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Create language status actions for log levels and restart
   createApexLanguageStatusActions(
     context,
-    () => getWorkspaceSettings().apex.ls.logLevel,
+    () => getWorkspaceSettings().apex.logLevel,
     async (level: string) => {
       const config = vscode.workspace.getConfiguration('apex-ls-ts');
       await config.update(
