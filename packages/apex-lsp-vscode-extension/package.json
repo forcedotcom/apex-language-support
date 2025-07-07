@@ -56,14 +56,14 @@
       }
     ],
     "configuration": {
-      "title": "Apex",
+      "title": "Apex-LS-TS",
       "properties": {
-        "apex.enable": {
+        "apex-ls-ts.enable": {
           "type": "boolean",
           "default": true,
-          "description": "Enable Apex language server"
+          "description": "%configuration.apex-ls-ts.enable.description%"
         },
-        "apex.trace.server": {
+        "apex-ls-ts.trace.server": {
           "type": "string",
           "enum": [
             "off",
@@ -71,9 +71,9 @@
             "verbose"
           ],
           "default": "off",
-          "description": "Traces the communication between VS Code and the Apex language server"
+          "description": "%configuration.apex-ls-ts.trace.server.description%"
         },
-        "apex.debug": {
+        "apex-ls-ts.debug": {
           "type": "string",
           "enum": [
             "off",
@@ -81,78 +81,78 @@
             "inspect-brk"
           ],
           "default": "off",
-          "description": "Debug mode for the Apex language server. 'inspect' enables debugging without breaking, 'inspect-brk' enables debugging with break on start"
+          "description": "%configuration.apex-ls-ts.debug.description%"
         },
-        "apex.debugPort": {
+        "apex-ls-ts.debugPort": {
           "type": "number",
           "default": 6009,
-          "description": "Port to use for debugging (6009 is the default)"
+          "description": "%configuration.apex-ls-ts.debugPort.description%"
         },
-        "apex.commentCollection.enableCommentCollection": {
+        "apex-ls-ts.commentCollection.enableCommentCollection": {
           "type": "boolean",
           "default": true,
-          "description": "Enable comment collection during document parsing"
+          "description": "%configuration.apex-ls-ts.commentCollection.enableCommentCollection.description%"
         },
-        "apex.commentCollection.includeSingleLineComments": {
+        "apex-ls-ts.commentCollection.includeSingleLineComments": {
           "type": "boolean",
           "default": false,
-          "description": "Include single-line (//) comments in collection"
+          "description": "%configuration.apex-ls-ts.commentCollection.includeSingleLineComments.description%"
         },
-        "apex.commentCollection.associateCommentsWithSymbols": {
+        "apex-ls-ts.commentCollection.associateCommentsWithSymbols": {
           "type": "boolean",
           "default": true,
-          "description": "Associate comments with symbols for enhanced language features (may impact performance)"
+          "description": "%configuration.apex-ls-ts.commentCollection.associateCommentsWithSymbols.description%"
         },
-        "apex.commentCollection.enableForDocumentChanges": {
+        "apex-ls-ts.commentCollection.enableForDocumentChanges": {
           "type": "boolean",
           "default": true,
-          "description": "Enable comment collection for document change events"
+          "description": "%configuration.apex-ls-ts.commentCollection.enableForDocumentChanges.description%"
         },
-        "apex.commentCollection.enableForDocumentOpen": {
+        "apex-ls-ts.commentCollection.enableForDocumentOpen": {
           "type": "boolean",
           "default": true,
-          "description": "Enable comment collection for document open events"
+          "description": "%configuration.apex-ls-ts.commentCollection.enableForDocumentOpen.description%"
         },
-        "apex.commentCollection.enableForDocumentSymbols": {
+        "apex-ls-ts.commentCollection.enableForDocumentSymbols": {
           "type": "boolean",
           "default": false,
-          "description": "Enable comment collection for document symbols (may impact performance)"
+          "description": "%configuration.apex-ls-ts.commentCollection.enableForDocumentSymbols.description%"
         },
-        "apex.commentCollection.enableForFoldingRanges": {
+        "apex-ls-ts.commentCollection.enableForFoldingRanges": {
           "type": "boolean",
           "default": true,
-          "description": "Enable comment collection for folding ranges (may impact performance)"
+          "description": "%configuration.apex-ls-ts.commentCollection.enableForFoldingRanges.description%"
         },
-        "apex.performance.commentCollectionMaxFileSize": {
+        "apex-ls-ts.performance.commentCollectionMaxFileSize": {
           "type": "number",
           "default": 102400,
-          "description": "Maximum file size (in bytes) for comment collection. Files larger than this will skip comment collection for performance."
+          "description": "%configuration.apex-ls-ts.performance.commentCollectionMaxFileSize.description%"
         },
-        "apex.performance.useAsyncCommentProcessing": {
+        "apex-ls-ts.performance.useAsyncCommentProcessing": {
           "type": "boolean",
           "default": true,
-          "description": "Use asynchronous comment processing to improve performance"
+          "description": "%configuration.apex-ls-ts.performance.useAsyncCommentProcessing.description%"
         },
-        "apex.performance.documentChangeDebounceMs": {
+        "apex-ls-ts.performance.documentChangeDebounceMs": {
           "type": "number",
           "default": 300,
-          "description": "Debounce delay (in milliseconds) for document change processing"
+          "description": "%configuration.apex-ls-ts.performance.documentChangeDebounceMs.description%"
         },
-        "apex.environment.enablePerformanceLogging": {
+        "apex-ls-ts.environment.enablePerformanceLogging": {
           "type": "boolean",
           "default": false,
-          "description": "Enable performance logging for the language server"
+          "description": "%configuration.apex-ls-ts.environment.enablePerformanceLogging.description%"
         },
-        "apex.resources.loadMode": {
+        "apex-ls-ts.resources.loadMode": {
           "type": "string",
           "enum": [
             "lazy",
             "full"
           ],
           "default": "lazy",
-          "description": "Resource loading mode for Apex standard library files. 'full' loads all resources immediately (faster access, higher memory usage), 'lazy' loads resources on-demand (lower memory usage, slight access delay)"
+          "description": "%configuration.apex-ls-ts.resources.loadMode.description%"
         },
-        "apex.ls.logLevel": {
+        "apex-ls-ts.logLevel": {
           "type": "string",
           "enum": [
             "error",
@@ -161,37 +161,37 @@
             "debug"
           ],
           "default": "info",
-          "description": "Controls the minimum log level for Apex Language Server logging. Messages at this level or higher will be logged."
+          "description": "%configuration.apex-ls-ts.logLevel.description%"
         }
       }
     },
     "commands": [
       {
         "command": "apex.restart.server",
-        "title": "Restart Apex Language Server"
+        "title": "%commands.apex.restart.server.title%"
       },
       {
         "command": "apex.setLogLevel.error",
-        "title": "Set Apex Log Level: Error"
+        "title": "%commands.apex.setLogLevel.error.title%"
       },
       {
         "command": "apex.setLogLevel.warning",
-        "title": "Set Apex Log Level: Warning"
+        "title": "%commands.apex.setLogLevel.warning.title%"
       },
       {
         "command": "apex.setLogLevel.info",
-        "title": "Set Apex Log Level: Info"
+        "title": "%commands.apex.setLogLevel.info.title%"
       },
       {
         "command": "apex.setLogLevel.debug",
-        "title": "Set Apex Log Level: Debug"
+        "title": "%commands.apex.setLogLevel.debug.title%"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "apex-explorer",
-          "title": "Apex Explorer"
+          "title": "%viewsContainers.apex-explorer.title%"
         }
       ]
     }

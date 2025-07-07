@@ -20,7 +20,7 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
   const config = vscode.workspace.getConfiguration(
     EXTENSION_CONSTANTS.CONFIG_SECTION,
   );
-  const logLevel = config.get<string>('ls.logLevel', 'error');
+  const logLevel = config.get<string>('logLevel', 'error');
 
   // Update the log level for the extension's logging system
   updateLogLevel(logLevel);

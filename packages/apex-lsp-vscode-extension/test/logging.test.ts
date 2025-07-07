@@ -75,7 +75,7 @@ describe('Logging Module', () => {
 
       initializeLogging(mockContext);
 
-      expect(mockGet).toHaveBeenCalledWith('ls.logLevel', 'error');
+      expect(mockGet).toHaveBeenCalledWith('logLevel', 'error');
     });
   });
 

@@ -72,9 +72,9 @@ export function activate(context: vscode.ExtensionContext): void {
   logLevels.forEach((level) => {
     const commandId = `apex.setLogLevel.${level}`;
     const disposable = vscode.commands.registerCommand(commandId, async () => {
-      const config = vscode.workspace.getConfiguration('apex');
+      const config = vscode.workspace.getConfiguration('apex-ls-ts');
       await config.update(
-        'ls.logLevel',
+        'logLevel',
         level,
         vscode.ConfigurationTarget.Workspace,
       );
@@ -89,9 +89,9 @@ export function activate(context: vscode.ExtensionContext): void {
     context,
     () => getWorkspaceSettings().apex.ls.logLevel,
     async (level: string) => {
-      const config = vscode.workspace.getConfiguration('apex');
+      const config = vscode.workspace.getConfiguration('apex-ls-ts');
       await config.update(
-        'ls.logLevel',
+        'logLevel',
         level,
         vscode.ConfigurationTarget.Workspace,
       );

@@ -44,8 +44,8 @@ This extension provides Apex language server support for VSCode, enabling rich l
 
 This extension contributes the following settings:
 
-- `apex.enable`: Enable/disable the Apex language server
-- `apex.trace.server`: Traces the communication between VSCode and the Apex language server
+- `apex-ls-ts.enable`: Enable/disable the Apex language server
+- `apex-ls-ts.trace.server`: Traces the communication between VSCode and the Apex language server
 
 ## Development
 

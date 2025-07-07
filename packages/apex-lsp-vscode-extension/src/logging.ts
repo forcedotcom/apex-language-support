@@ -27,8 +27,8 @@ export const initializeLogging = (context: vscode.ExtensionContext): void => {
   context.subscriptions.push(outputChannel);
 
   // Set initial log level from workspace settings
-  const config = vscode.workspace.getConfiguration('apex');
-  const logLevel = config.get<string>('ls.logLevel', 'error');
+  const config = vscode.workspace.getConfiguration('apex-ls-ts');
+  const logLevel = config.get<string>('logLevel', 'error');
   setLogLevel(logLevel);
 };
 
