@@ -121,7 +121,7 @@ export class DefaultApexDocumentSymbolProvider
       const document = await this.storage.getDocument(documentUri);
 
       if (!document) {
-        logger.debug(
+        logger.warn(
           () => `Document not found in storage for URI: ${documentUri}`,
         );
         return null;
@@ -153,7 +153,7 @@ export class DefaultApexDocumentSymbolProvider
       );
 
       if (result.errors.length > 0) {
-        logger.debug(() => `Errors parsing document: ${result.errors}`);
+        (logger.error as any)('Errors parsing document:', result.errors);
         return null;
       }
 
@@ -194,7 +194,7 @@ export class DefaultApexDocumentSymbolProvider
       logger.debug(`Returning ${symbols.length} document symbols`);
       return symbols;
     } catch (error) {
-      logger.error(() => `Error providing document symbols: ${error}`);
+      (logger.error as any)('Error providing document symbols:', error);
       return null;
     }
   }
@@ -235,28 +235,18 @@ export class DefaultApexDocumentSymbolProvider
 
         // Format: methodName(paramTypes) : ReturnType
         return `${symbol.name}(${parameterList}) : ${returnTypeString}`;
-      } catch (_e) {
+      } catch (error) {
+        getLogger().warn(
+          () =>
+            `Error formatting method symbol name for '${symbol.name}': ${error}`,
+        );
         // Fallback to original name if anything goes wrong
         return symbol.name;
       }
     }
 
-    try {
-      const methodSymbol = symbol as MethodSymbol;
-      const parameterList = this.buildParameterList(
-        methodSymbol.parameters || [],
-      );
-      const returnTypeString = this.formatReturnType(methodSymbol.returnType);
-
-      // Format: methodName(paramTypes) : ReturnType
-      return `${symbol.name}(${parameterList}) : ${returnTypeString}`;
-    } catch (error) {
-      getLogger().warn(
-        () => `Error formatting symbol name for '${symbol.name}': ${error}`,
-      );
-      // Fallback to original name if anything goes wrong
-      return symbol.name;
-    }
+    // For other symbols, returns the simple name
+    return symbol.name;
   }
 
   /**

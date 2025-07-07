@@ -720,13 +720,13 @@ export class ApexSymbolCollectorListener
       const type = this.createTypeInfo(ctx.typeRef()?.text ?? 'Object');
       const modifiers = this.getCurrentModifiers();
 
-      // Create parameter symbol using createPropertySymbol method
-      const paramSymbol = this.createPropertySymbol(
+      // Create parameter symbol using createVariableSymbol method
+      const paramSymbol = this.createVariableSymbol(
         ctx,
+        modifiers,
         name,
         SymbolKind.Parameter,
         type,
-        modifiers,
       );
 
       if (this.currentMethodSymbol) {
@@ -737,15 +737,6 @@ export class ApexSymbolCollectorListener
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in parameter: ${errorMessage}`, ctx);
     }
-  }
-  createPropertySymbol(
-    ctx: FormalParameterContext,
-    name: string,
-    Parameter: SymbolKind,
-    type: TypeInfo,
-    modifiers: SymbolModifiers,
-  ) {
-    throw new Error('Method not implemented.');
   }
 
   /**
@@ -954,13 +945,13 @@ export class ApexSymbolCollectorListener
         const name = id.text;
         const modifiers = this.getCurrentModifiers();
 
-        // Create enum value symbol using createPropertySymbol method
-        const valueSymbol = this.createPropertySymbol(
+        // Create enum value symbol using createVariableSymbol method
+        const valueSymbol = this.createVariableSymbol(
           id,
+          modifiers,
           name,
           SymbolKind.EnumValue,
           enumType,
-          modifiers,
         );
 
         enumSymbol.values.push(valueSymbol);
