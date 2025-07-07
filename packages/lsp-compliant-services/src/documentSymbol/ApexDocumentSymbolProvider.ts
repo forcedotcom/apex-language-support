@@ -14,7 +14,6 @@ import {
   Range,
   Position,
 } from 'vscode-languageserver-protocol';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   SymbolTable,
   CompilerService,
@@ -157,7 +156,7 @@ export class DefaultApexDocumentSymbolProvider
 
       // Process each symbol and convert to LSP DocumentSymbol format
       for (const symbol of globalSymbols) {
-        const documentSymbol = this.createDocumentSymbol(symbol, document);
+        const documentSymbol = this.createDocumentSymbol(symbol);
 
         // Recursively collect children for compound symbol types (classes, interfaces, etc.)
         if (isCompoundSymbolType(symbol)) {
@@ -173,7 +172,6 @@ export class DefaultApexDocumentSymbolProvider
             documentSymbol.children = this.collectChildren(
               typeScope,
               symbol.kind,
-              document,
             );
           }
         }
@@ -277,15 +275,12 @@ export class DefaultApexDocumentSymbolProvider
    * Creates a document symbol from an Apex symbol
    * This is the main conversion point from internal Apex symbols to LSP DocumentSymbol format
    */
-  private createDocumentSymbol(
-    symbol: ApexSymbol,
-    document: TextDocument,
-  ): DocumentSymbol {
+  private createDocumentSymbol(symbol: ApexSymbol): DocumentSymbol {
     return {
       name: this.formatSymbolName(symbol),
       kind: this.mapSymbolKind(symbol.kind),
-      range: this.createRange(symbol, document),
-      selectionRange: this.createSelectionRange(symbol, document),
+      range: this.createRange(symbol),
+      selectionRange: this.createSelectionRange(symbol),
       children: [],
     };
   }
@@ -294,11 +289,7 @@ export class DefaultApexDocumentSymbolProvider
    * Recursively collects children symbols for a given scope and kind
    * This builds the hierarchical structure of the document outline
    */
-  private collectChildren(
-    scope: any,
-    parentKind: string,
-    document: TextDocument,
-  ): DocumentSymbol[] {
+  private collectChildren(scope: any, parentKind: string): DocumentSymbol[] {
     const children: DocumentSymbol[] = [];
     const childSymbols = scope.getAllSymbols();
     const logger = getLogger();
@@ -319,10 +310,7 @@ export class DefaultApexDocumentSymbolProvider
         continue;
       }
 
-      const childDocumentSymbol = this.createDocumentSymbol(
-        childSymbol,
-        document,
-      );
+      const childDocumentSymbol = this.createDocumentSymbol(childSymbol);
 
       // Recursively collect children for compound symbol types
       if (isCompoundSymbolType(childSymbol)) {
@@ -337,7 +325,6 @@ export class DefaultApexDocumentSymbolProvider
           childDocumentSymbol.children = this.collectChildren(
             childScope,
             childSymbol.kind,
-            document,
           );
         }
       }
@@ -355,10 +342,7 @@ export class DefaultApexDocumentSymbolProvider
    * Creates a precise range that excludes leading whitespace
    * This finds the first non-whitespace character in the line for better UX
    */
-  private createRange(
-    symbol: ApexSymbolWithIdentifier,
-    document: TextDocument,
-  ): Range {
+  private createRange(symbol: ApexSymbolWithIdentifier): Range {
     const { location, identifierLocation } = symbol;
 
     // The end position is always the end of the full symbol location.
@@ -389,10 +373,7 @@ export class DefaultApexDocumentSymbolProvider
    * Creates a precise selection range for the symbol name
    * This excludes leading whitespace and keywords for better selection behavior
    */
-  private createSelectionRange(
-    symbol: ApexSymbolWithIdentifier,
-    document: TextDocument,
-  ): Range {
+  private createSelectionRange(symbol: ApexSymbolWithIdentifier): Range {
     const { identifierLocation, location, name } = symbol;
 
     // Use the precise identifier location if available.
@@ -407,18 +388,8 @@ export class DefaultApexDocumentSymbolProvider
       );
     }
 
-    // Fallback: search for the symbol name on its starting line.
-    const lineContent = document.getText(
-      Range.create(
-        Position.create(location.startLine - 1, 0),
-        Position.create(location.startLine - 1, Number.MAX_VALUE),
-      ),
-    );
-
-    const nameIndex = lineContent.indexOf(name);
-    const startCharacter =
-      nameIndex > -1 ? nameIndex : location.startColumn - 1;
-
+    // Fallback: use symbol's start location. This is not as precise but avoids reading the file.
+    const startCharacter = location.startColumn - 1;
     return Range.create(
       Position.create(location.startLine - 1, startCharacter),
       Position.create(location.startLine - 1, startCharacter + name.length),
