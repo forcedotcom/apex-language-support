@@ -81,7 +81,7 @@ export const createServerOptions = (
     'debug',
   );
 
-  // Get debug options based on environment variable
+  // Get debug options
   const debugOptions = getDebugOptions();
 
   return {

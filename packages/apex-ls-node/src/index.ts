@@ -158,9 +158,6 @@ export function startServer() {
     // Register for configuration changes
     configurationManager.registerForConfigurationChanges();
 
-    // Request initial configuration from client
-    configurationManager.requestConfiguration();
-
     // Register the apexlib/resolve request handler
     connection.onRequest('apexlib/resolve', async (params) => {
       logger.debug(

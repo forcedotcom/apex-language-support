@@ -10,7 +10,10 @@ import {
   validateApexSettings,
   isValidApexSettings,
   mergeWithDefaults,
+  mergeWithExisting,
+  ApexLanguageServerSettings,
 } from '../../src/settings/ApexLanguageServerSettings';
+import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 
 describe('ApexLanguageServerSettings Validation', () => {
   describe('validateApexSettings', () => {
@@ -207,6 +210,110 @@ describe('ApexLanguageServerSettings Validation', () => {
       expect(result.environment.environment).toBe('browser');
       expect(result.resources.loadMode).toBe('lazy'); // Browser default
       expect(result.performance.commentCollectionMaxFileSize).toBe(51200); // Browser default
+    });
+  });
+
+  describe('mergeWithExisting', () => {
+    it('should preserve existing settings not included in partial update', () => {
+      const existingSettings = mergeWithDefaults(
+        {
+          resources: { loadMode: 'lazy' },
+          logLevel: 'info',
+        },
+        'node',
+      );
+
+      const partialUpdate = {
+        logLevel: 'debug',
+      };
+
+      const result = mergeWithExisting(existingSettings, partialUpdate);
+
+      expect(result.logLevel).toBe('debug'); // Updated
+      expect(result.resources.loadMode).toBe('lazy'); // Preserved from existing
+      expect(result.commentCollection.enableCommentCollection).toBe(true); // From existing (which had defaults)
+    });
+
+    it('should update nested properties while preserving others', () => {
+      const existingSettings = mergeWithDefaults(
+        {
+          performance: {
+            commentCollectionMaxFileSize: 50000,
+            useAsyncCommentProcessing: false,
+            documentChangeDebounceMs: 300,
+          },
+          resources: { loadMode: 'lazy' },
+        } as Partial<ApexLanguageServerSettings>,
+        'node',
+      );
+
+      const partialUpdate = {
+        performance: {
+          commentCollectionMaxFileSize: 75000, // Only updating this one property
+        },
+      } as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithExisting(existingSettings, partialUpdate);
+
+      expect(result.performance.commentCollectionMaxFileSize).toBe(75000); // Updated
+      expect(result.performance.useAsyncCommentProcessing).toBe(false); // Preserved from existing
+      expect(result.resources.loadMode).toBe('lazy'); // Preserved from existing
+    });
+  });
+
+  describe('ApexSettingsManager integration', () => {
+    beforeEach(() => {
+      // Reset the singleton before each test
+      ApexSettingsManager.resetInstance();
+    });
+
+    it('should preserve user settings during partial configuration updates', () => {
+      // Initialize with user setting for lazy loading
+      const initialSettings = {
+        resources: { loadMode: 'lazy' as const },
+        logLevel: 'info',
+      };
+
+      const manager = ApexSettingsManager.getInstance(initialSettings, 'node');
+
+      // Verify initial state
+      expect(manager.getResourceLoadMode()).toBe('lazy');
+      expect(manager.getSettings().logLevel).toBe('info');
+
+      // Simulate a partial configuration update (like changing only log level)
+      manager.updateSettings({
+        logLevel: 'debug',
+      });
+
+      // The user's lazy loading setting should be preserved
+      expect(manager.getResourceLoadMode()).toBe('lazy');
+      expect(manager.getSettings().logLevel).toBe('debug');
+    });
+
+    it('should allow updating resource settings while preserving other user settings', () => {
+      const initialSettings = {
+        resources: { loadMode: 'lazy' as const },
+        performance: {
+          commentCollectionMaxFileSize: 50000,
+          useAsyncCommentProcessing: true,
+          documentChangeDebounceMs: 300,
+        },
+        logLevel: 'info',
+      } as Partial<ApexLanguageServerSettings>;
+
+      const manager = ApexSettingsManager.getInstance(initialSettings, 'node');
+
+      // Update just the resource loading mode
+      manager.updateSettings({
+        resources: { loadMode: 'full' },
+      } as Partial<ApexLanguageServerSettings>);
+
+      // Resource mode should be updated, but other user settings preserved
+      expect(manager.getResourceLoadMode()).toBe('full');
+      expect(
+        manager.getSettings().performance.commentCollectionMaxFileSize,
+      ).toBe(50000);
+      expect(manager.getSettings().logLevel).toBe('info');
     });
   });
 });

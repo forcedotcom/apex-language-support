@@ -14,6 +14,7 @@ import {
   DEFAULT_APEX_SETTINGS,
   BROWSER_DEFAULT_APEX_SETTINGS,
   mergeWithDefaults,
+  mergeWithExisting,
   validateApexSettings,
 } from './ApexLanguageServerSettings';
 
@@ -99,11 +100,9 @@ export class ApexSettingsManager {
     }
 
     const previousSettings = { ...this.currentSettings };
-    const environment =
-      this.currentSettings.environment.environment === 'web-worker'
-        ? 'browser'
-        : (this.currentSettings.environment.environment as 'node' | 'browser');
-    this.currentSettings = mergeWithDefaults(newSettings, environment);
+
+    // Merge with existing settings to preserve user configuration that isn't being updated
+    this.currentSettings = mergeWithExisting(this.currentSettings, newSettings);
 
     // Log significant changes
     this.logSettingsChanges(previousSettings, this.currentSettings);

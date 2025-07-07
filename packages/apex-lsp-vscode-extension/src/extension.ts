@@ -8,7 +8,7 @@
 
 import * as vscode from 'vscode';
 import {
-  initializeLogging,
+  initializeExtensionLogging,
   logToOutputChannel,
   updateLogLevel,
 } from './logging';
@@ -53,7 +53,7 @@ const handleStart = async (context: vscode.ExtensionContext): Promise<void> => {
  */
 export function activate(context: vscode.ExtensionContext): void {
   // Initialize simple extension logging
-  initializeLogging(context);
+  initializeExtensionLogging(context);
 
   // Initialize command state
   initializeCommandState(context);

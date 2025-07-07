@@ -260,3 +260,32 @@ export function mergeWithDefaults(
     logLevel: userSettings.logLevel || baseDefaults.logLevel,
   };
 }
+
+/**
+ * Merge partial settings with existing settings, preserving values that aren't being updated
+ */
+export function mergeWithExisting(
+  existingSettings: ApexLanguageServerSettings,
+  partialSettings: Partial<ApexLanguageServerSettings>,
+): ApexLanguageServerSettings {
+  return {
+    commentCollection: {
+      ...existingSettings.commentCollection,
+      ...partialSettings.commentCollection,
+    },
+    performance: {
+      ...existingSettings.performance,
+      ...partialSettings.performance,
+    },
+    environment: {
+      ...existingSettings.environment,
+      ...partialSettings.environment,
+    },
+    resources: {
+      ...existingSettings.resources,
+      ...partialSettings.resources,
+    },
+    version: partialSettings.version ?? existingSettings.version,
+    logLevel: partialSettings.logLevel ?? existingSettings.logLevel,
+  };
+}

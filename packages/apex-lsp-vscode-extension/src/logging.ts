@@ -14,17 +14,19 @@ import { EXTENSION_CONSTANTS } from './constants';
 /**
  * Global output channel for extension logging
  */
-let outputChannel: vscode.OutputChannel;
+let extensionOutputChannel: vscode.OutputChannel;
 
 /**
  * Initializes the logging system
  * @param context The extension context
  */
-export const initializeLogging = (context: vscode.ExtensionContext): void => {
-  outputChannel = vscode.window.createOutputChannel(
+export const initializeExtensionLogging = (
+  context: vscode.ExtensionContext,
+): void => {
+  extensionOutputChannel = vscode.window.createOutputChannel(
     EXTENSION_CONSTANTS.OUTPUT_CHANNEL_NAME,
   );
-  context.subscriptions.push(outputChannel);
+  context.subscriptions.push(extensionOutputChannel);
 
   // Set initial log level from workspace settings
   const config = vscode.workspace.getConfiguration('apex-ls-ts');
@@ -43,11 +45,11 @@ export const logToOutputChannel = (
 ): void => {
   if (!shouldLog(messageType)) return;
 
-  const timestamp = new Date().toISOString();
+  const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
   const typeString = messageType.toUpperCase();
   const formattedMessage = `[${timestamp}] [${typeString}] ${message}`;
 
-  outputChannel.appendLine(formattedMessage);
+  extensionOutputChannel.appendLine(formattedMessage);
 };
 
 /**
@@ -62,4 +64,5 @@ export const updateLogLevel = (logLevel: string): void => {
  * Gets the extension output channel instance
  * @returns The extension output channel
  */
-export const getOutputChannel = (): vscode.OutputChannel => outputChannel;
+export const getOutputChannel = (): vscode.OutputChannel =>
+  extensionOutputChannel;

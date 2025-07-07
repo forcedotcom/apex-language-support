@@ -22,7 +22,7 @@ export {
 
 // Export logging utilities
 export {
-  initializeLogging,
+  initializeExtensionLogging as initializeLogging,
   logToOutputChannel,
   updateLogLevel,
   getOutputChannel,
