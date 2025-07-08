@@ -16,7 +16,7 @@ import {
 } from 'vscode-languageclient/node';
 import { getDebugConfig, getWorkspaceSettings } from './configuration';
 import { logToOutputChannel } from './logging';
-import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
+import { DEBUG_CONFIG } from './constants';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -101,9 +101,7 @@ export const createServerOptions = (
  */
 export const createClientOptions = (): LanguageClientOptions => {
   const settings = getWorkspaceSettings();
-  const outputChannel = vscode.window.createOutputChannel(
-    EXTENSION_CONSTANTS.SERVER_OUTPUT_CHANNEL_NAME,
-  );
+
   return {
     documentSelector: [{ scheme: 'file', language: 'apex' }],
     synchronize: {
@@ -123,8 +121,6 @@ export const createClientOptions = (): LanguageClientOptions => {
     },
     // Explicitly enable workspace configuration capabilities
     workspaceFolder: vscode.workspace.workspaceFolders?.[0],
-    outputChannel,
-    traceOutputChannel: outputChannel,
   };
 };
 

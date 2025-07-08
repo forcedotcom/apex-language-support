@@ -20,6 +20,37 @@ import {
  */
 class LSPLogger implements LoggerInterface {
   /**
+   * Formats a timestamp in the format [5:46:20 AM]
+   * @returns Formatted timestamp string
+   */
+  private formatTimestamp(): string {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    });
+    return `[${timeString}]`;
+  }
+
+  /**
+   * Formats a message type in the format [INFO]
+   * @param messageType The message type to format
+   * @returns Formatted message type string
+   */
+  private formatMessageType(messageType: LogMessageType): string {
+    const typeMap: Record<LogMessageType, string> = {
+      debug: '[DEBUG]',
+      info: '[INFO]',
+      log: '[LOG]',
+      warning: '[WARNING]',
+      error: '[ERROR]',
+    };
+    return typeMap[messageType] || `[${messageType.toUpperCase()}]`;
+  }
+
+  /**
    * Logs a message with the specified type.
    * @param messageType The LSP message type.
    * @param messageOrProvider The message to log or a function that returns it.
@@ -33,13 +64,19 @@ class LSPLogger implements LoggerInterface {
       return;
     }
 
-    const message =
+    const rawMessage =
       typeof messageOrProvider === 'function'
         ? messageOrProvider()
         : messageOrProvider;
+
+    // Format the message with timestamp and message type prefix
+    const timestamp = this.formatTimestamp();
+    const typePrefix = this.formatMessageType(messageType);
+    const message = `${timestamp} ${typePrefix} ${rawMessage}`;
+
     const handler = getLogNotificationHandler();
 
-    // Let VS Code handle both timestamps and log levels - just send the plain message
+    // Send the formatted message to the LSP client
     if (handler && typeof handler.sendLogMessage === 'function') {
       // For backward compatibility, map debug to log for older LSP clients
       const mappedType = messageType === 'debug' ? 'log' : messageType;

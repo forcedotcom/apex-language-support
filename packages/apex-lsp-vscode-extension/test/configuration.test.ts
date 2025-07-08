@@ -15,6 +15,26 @@ import {
   registerConfigurationChangeListener,
 } from '../src/configuration';
 
+// Mock vscode-languageclient
+jest.mock('vscode-languageclient/node', () => ({
+  LanguageClient: jest.fn(),
+  State: {
+    Stopped: 1,
+    Starting: 2,
+    Running: 3,
+  },
+  TransportKind: {
+    ipc: 'ipc',
+    pipe: 'pipe',
+    stdio: 'stdio',
+  },
+  Trace: {
+    Off: 'off',
+    Messages: 'messages',
+    Verbose: 'verbose',
+  },
+}));
+
 // Mock the logging module
 jest.mock('../src/logging', () => ({
   updateLogLevel: jest.fn(),

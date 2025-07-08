@@ -150,7 +150,6 @@ describe('Server Config Module', () => {
       expect(clientOptions.initializationOptions).toEqual(
         expect.objectContaining({
           enableDocumentSymbols: true,
-          trace: 'off',
           ...testSettings,
         }),
       );

@@ -7,7 +7,7 @@
  */
 
 import * as vscode from 'vscode';
-import { LanguageClient, State, Trace } from 'vscode-languageclient/node';
+import { LanguageClient, State } from 'vscode-languageclient/node';
 import { createServerOptions, createClientOptions } from './server-config';
 import { logToOutputChannel } from './logging';
 import {
@@ -54,14 +54,11 @@ export const createAndStartClient = (
 
     // Create the language client
     client = new LanguageClient(
-      'apexLanguageServer',
-      'Apex Language Server',
+      'apex-ls-ts',
+      'Apex Language Server (Typescript)',
       serverOptions,
       clientOptions,
     );
-
-    // Set the trace level for the language client
-    client.setTrace(Trace.Verbose);
 
     // Track the new output channel
     lastServerOutputChannel = client.outputChannel;

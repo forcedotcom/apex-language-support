@@ -115,8 +115,8 @@ describe('Language Server Module', () => {
       await startLanguageServer(mockContext, restartHandler);
 
       expect(MockLanguageClient).toHaveBeenCalledWith(
-        'apexLanguageServer',
-        'Apex Language Server',
+        'apex-ls-ts',
+        'Apex Language Server (Typescript)',
         expect.any(Object),
         expect.any(Object),
       );
