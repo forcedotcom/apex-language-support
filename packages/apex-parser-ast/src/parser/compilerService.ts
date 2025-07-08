@@ -108,7 +108,7 @@ export class CompilerService {
    * @param fileName The name of the file, used for error reporting and trigger detection.
    * @returns A ParseTreeResult containing the parse tree and related objects.
    */
-  public createParseTree(
+  private createParseTree(
     fileContent: string,
     fileName: string = 'unknown.cls',
   ): ParseTreeResult {
@@ -445,41 +445,5 @@ export class CompilerService {
     }
 
     return results;
-  }
-
-  private getCompilationUnit(
-    source: string,
-    errorListener?: ApexErrorListener,
-  ): CompilationUnitContext | TriggerUnitContext {
-    this.logger.debug('Creating compilation unit');
-    const inputStream = CharStreams.fromString(source);
-    const lexer = new ApexLexer(new CaseInsensitiveInputStream(inputStream));
-    const tokenStream = new CommonTokenStream(lexer);
-    const parser = new ApexParser(tokenStream);
-
-    // Add our custom error listener if provided
-    if (errorListener) {
-      this.logger.debug('Setting up custom error listeners');
-      // Remove default error listeners that print to console
-      parser.removeErrorListeners();
-      lexer.removeErrorListeners();
-
-      // Add our custom error listener
-      parser.addErrorListener(errorListener);
-      // Create and add lexer-specific error listener
-      const lexerErrorListener = new ApexLexerErrorListener(errorListener);
-      lexer.addErrorListener(lexerErrorListener);
-    }
-
-    // Check if this is a trigger file based on the file extension
-    const isTrigger =
-      errorListener?.getFilePath()?.endsWith('.trigger') ?? false;
-
-    // Parse the compilation unit or trigger based on file type
-    this.logger.debug('Parsing compilation unit');
-    const compilationUnitContext = isTrigger
-      ? parser.triggerUnit()
-      : parser.compilationUnit();
-    return compilationUnitContext;
   }
 }
