@@ -21,7 +21,7 @@ import {
   ApexSymbol,
   VariableSymbol,
   TypeInfo,
-  isTypeSymbol,
+  inTypeSymbolGroup,
   isMethodSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 
@@ -144,7 +144,7 @@ export class DefaultApexDocumentSymbolProvider
         const documentSymbol = this.createDocumentSymbol(symbol);
 
         // Recursively collect children for top-level symbol types (classes, interfaces, etc.)
-        if (isTypeSymbol(symbol)) {
+        if (inTypeSymbolGroup(symbol)) {
           const childScopes = symbolTable.getCurrentScope().getChildren();
           const typeScope = childScopes.find(
             (scope: any) => scope.name === symbol.name,
@@ -298,7 +298,7 @@ export class DefaultApexDocumentSymbolProvider
       const childDocumentSymbol = this.createDocumentSymbol(childSymbol);
 
       // Recursively collect children for top-level symbol types
-      if (isTypeSymbol(childSymbol)) {
+      if (inTypeSymbolGroup(childSymbol)) {
         const childScope = scope
           .getChildren()
           .find((s: any) => s.name === childSymbol.name);

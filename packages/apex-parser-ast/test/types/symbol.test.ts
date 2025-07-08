@@ -16,7 +16,7 @@ import {
   VariableSymbol,
 } from '../../src/types/symbol';
 import {
-  isTypeSymbol,
+  inTypeSymbolGroup,
   hasIdMethod,
   isEnumSymbol,
   isMethodSymbol,
@@ -476,7 +476,7 @@ describe('isVariableSymbol', () => {
   });
 });
 
-describe('isTypeSymbol', () => {
+describe('inTypeSymbolGroup', () => {
   it('should return true for class symbols', () => {
     const symbol: ApexSymbol = {
       kind: SymbolKind.Class,
@@ -486,7 +486,7 @@ describe('isTypeSymbol', () => {
       key: {} as any,
       parentKey: null,
     } as ApexSymbol;
-    expect(isTypeSymbol(symbol)).toBe(true);
+    expect(inTypeSymbolGroup(symbol)).toBe(true);
   });
 
   it('should return true for interface symbols', () => {
@@ -498,7 +498,7 @@ describe('isTypeSymbol', () => {
       key: {} as any,
       parentKey: null,
     } as ApexSymbol;
-    expect(isTypeSymbol(symbol)).toBe(true);
+    expect(inTypeSymbolGroup(symbol)).toBe(true);
   });
 
   it('should return true for enum symbols', () => {
@@ -510,7 +510,7 @@ describe('isTypeSymbol', () => {
       key: {} as any,
       parentKey: null,
     } as ApexSymbol;
-    expect(isTypeSymbol(symbol)).toBe(true);
+    expect(inTypeSymbolGroup(symbol)).toBe(true);
   });
 
   it('should return true for trigger symbols', () => {
@@ -522,7 +522,7 @@ describe('isTypeSymbol', () => {
       key: {} as any,
       parentKey: null,
     } as ApexSymbol;
-    expect(isTypeSymbol(symbol)).toBe(true);
+    expect(inTypeSymbolGroup(symbol)).toBe(true);
   });
 
   it('should return false for method symbols', () => {
@@ -534,7 +534,7 @@ describe('isTypeSymbol', () => {
       key: {} as any,
       parentKey: null,
     } as ApexSymbol;
-    expect(isTypeSymbol(symbol)).toBe(false);
+    expect(inTypeSymbolGroup(symbol)).toBe(false);
   });
 
   it('should return false for property symbols', () => {
@@ -546,7 +546,7 @@ describe('isTypeSymbol', () => {
       key: {} as any,
       parentKey: null,
     } as ApexSymbol;
-    expect(isTypeSymbol(symbol)).toBe(false);
+    expect(inTypeSymbolGroup(symbol)).toBe(false);
   });
 
   it('should return false for field symbols', () => {
@@ -558,7 +558,7 @@ describe('isTypeSymbol', () => {
       key: {} as any,
       parentKey: null,
     } as ApexSymbol;
-    expect(isTypeSymbol(symbol)).toBe(false);
+    expect(inTypeSymbolGroup(symbol)).toBe(false);
   });
 
   it('should return false for variable symbols', () => {
@@ -570,7 +570,7 @@ describe('isTypeSymbol', () => {
       key: {} as any,
       parentKey: null,
     } as ApexSymbol;
-    expect(isTypeSymbol(symbol)).toBe(false);
+    expect(inTypeSymbolGroup(symbol)).toBe(false);
   });
 
   it('should correctly narrow the type to TypeSymbol', () => {
@@ -584,12 +584,12 @@ describe('isTypeSymbol', () => {
       parentKey: null,
     } as ApexSymbol;
 
-    if (isTypeSymbol(symbol)) {
+    if (inTypeSymbolGroup(symbol)) {
       // If the type guard is working, this should compile
       const typeSymbol: TypeSymbol = symbol;
       expect(typeSymbol.interfaces).toEqual([]);
     } else {
-      fail('isTypeSymbol should have returned true for a class symbol');
+      fail('inTypeSymbolGroup should have returned true for a class symbol');
     }
   });
 });

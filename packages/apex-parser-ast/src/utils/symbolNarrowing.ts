@@ -56,9 +56,9 @@ export const isTriggerSymbol = (symbol: ApexSymbol): symbol is TypeSymbol =>
   symbol.kind === SymbolKind.Trigger;
 
 /**
- * Type predicate to check if a symbol is a TypeSymbol (Class, Interface, Enum, or Trigger)
+ * Type predicate to check if a symbol is in the TypeSymbol family (Class, Interface, Enum, or Trigger)
  */
-export const isTypeSymbol = (symbol: ApexSymbol): symbol is TypeSymbol =>
+export const inTypeSymbolGroup = (symbol: ApexSymbol): symbol is TypeSymbol =>
   symbol.kind === SymbolKind.Class ||
   symbol.kind === SymbolKind.Interface ||
   symbol.kind === SymbolKind.Enum ||
