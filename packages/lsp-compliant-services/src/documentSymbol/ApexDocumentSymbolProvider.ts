@@ -125,8 +125,11 @@ export class DefaultApexDocumentSymbolProvider
       );
 
       if (result.errors.length > 0) {
-        (logger.error as any)('Errors parsing document:', result.errors);
-        return null;
+        logger.warn(
+          () =>
+            `Parsed with ${result.errors.length} errors, continuing with partial symbols.`,
+        );
+        logger.debug(() => `Parse errors: ${JSON.stringify(result.errors)}`);
       }
 
       // Get the symbol table from the listener

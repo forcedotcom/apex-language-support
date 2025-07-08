@@ -93,8 +93,15 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith(expect.any(Function));
     });
 
-    it('should return null when document has parsing errors', async () => {
-      const invalidApex = 'invalid apex code';
+    it('should return partial symbols when document has parsing errors', async () => {
+      const invalidApex = `
+        public class MyClass {
+          public String myField;
+          public void anotherMethod() {
+              System.debug('hello' // Missing semicolon
+          }
+        }
+      `;
       mockStorage.getDocument.mockResolvedValue(
         TextDocument.create('test.apex', 'apex', 1, invalidApex),
       );
@@ -102,11 +109,11 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       mockCompilerService.compile.mockReturnValue({
         errors: [
           {
-            message: 'Syntax error',
+            message: "Syntax error: missing ';'",
             type: ErrorType.Syntax,
             severity: ErrorSeverity.Error,
-            line: 1,
-            column: 1,
+            line: 5,
+            column: 37,
           },
         ],
         fileName: 'test.apex',
@@ -114,16 +121,60 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         warnings: [],
       });
 
+      const fieldSymbol = {
+        name: 'myField',
+        kind: 'field',
+        location: { startLine: 3, startColumn: 11, endLine: 3, endColumn: 30 },
+      };
+      const methodSymbol = {
+        name: 'anotherMethod',
+        kind: 'method',
+        returnType: { name: 'void' },
+        parameters: [],
+        location: { startLine: 4, startColumn: 11, endLine: 6, endColumn: 11 },
+      };
+      const classScope = {
+        name: 'MyClass',
+        getAllSymbols: () => [fieldSymbol, methodSymbol],
+        getChildren: () => [],
+      };
+      const mockSymbolTable = {
+        getCurrentScope: () => ({
+          getAllSymbols: () => [
+            {
+              name: 'MyClass',
+              kind: 'class',
+              location: {
+                startLine: 2,
+                startColumn: 9,
+                endLine: 8,
+                endColumn: 9,
+              },
+            },
+          ],
+          getChildren: () => [classScope],
+        }),
+      };
+      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
       const params: DocumentSymbolParams = {
         textDocument: { uri: 'test.apex' },
       };
 
       const result = await symbolProvider.provideDocumentSymbols(params);
-      expect(result).toBeNull();
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Errors parsing document:',
-        expect.any(Array),
-      );
+
+      expect(result).not.toBeNull();
+      expect(result!.length).toBe(1);
+      const classSymbol = result![0] as DocumentSymbol;
+      expect(classSymbol.name).toBe('MyClass');
+      expect(classSymbol.kind).toBe(SymbolKind.Class);
+      expect(classSymbol.children?.length).toBe(2);
+      expect(classSymbol.children![0].name).toBe('myField');
+      expect(classSymbol.children![1].name).toBe('anotherMethod() : void');
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.any(Function));
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
+      expect(mockLogger.error).not.toHaveBeenCalled();
     });
 
     it('should correctly parse a simple Apex class', async () => {
