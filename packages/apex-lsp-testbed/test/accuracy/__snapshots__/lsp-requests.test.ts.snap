@@ -1,172 +1,13 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`LSP Request/Response Accuracy LSP textDocument/codeAction request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/codeAction',
-  id: 98,
-  params: [Object],
-  performance: [Object],
-  result: [Array]
-} 1`] = `
-{
-  "actualResponse": [],
-  "expectedResponse": [
-    {
-      "edit": {
-        "changes": {},
-        "documentChanges": [
-          {
-            "edits": [
-              {
-                "newText": "            List<ContentVersion> v1 = [
-                SELECT ContentDocumentId
-                FROM ContentVersion
-                WHERE Id = :contentVersion.Id
-                WITH USER_MODE
-            ];
-",
-                "range": {
-                  "end": {
-                    "character": 0,
-                    "line": 14,
-                  },
-                  "start": {
-                    "character": 0,
-                    "line": 14,
-                  },
-                },
-              },
-              {
-                "newText": "v1",
-                "range": {
-                  "end": {
-                    "character": 13,
-                    "line": 19,
-                  },
-                  "start": {
-                    "character": 29,
-                    "line": 14,
-                  },
-                },
-              },
-            ],
-            "textDocument": {
-              "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-              "version": null,
-            },
-          },
-        ],
-      },
-      "kind": "refactor.extract.variable",
-      "title": "Extract Variable",
-    },
-  ],
-  "request": {
-    "method": "textDocument/codeAction",
-    "params": {
-      "context": {
-        "diagnostics": [],
-        "triggerKind": 2,
-      },
-      "range": {
-        "end": {
-          "character": 30,
-          "line": 18,
-        },
-        "start": {
-          "character": 30,
-          "line": 18,
-        },
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/codeLens request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/codeLens',
-  id: 100,
-  params: [Object],
-  performance: [Object],
-  result: [Array]
-} 1`] = `
-{
-  "actualResponse": [],
-  "expectedResponse": [
-    {
-      "children": [
-        {
-          "kind": 6,
-          "name": "createFile(String, String, String) : String",
-          "range": {
-            "end": {
-              "character": 5,
-              "line": 31,
-            },
-            "start": {
-              "character": 25,
-              "line": 2,
-            },
-          },
-          "selectionRange": {
-            "end": {
-              "character": 35,
-              "line": 2,
-            },
-            "start": {
-              "character": 25,
-              "line": 2,
-            },
-          },
-        },
-      ],
-      "kind": 5,
-      "name": "FileUtilities",
-      "range": {
-        "end": {
-          "character": 1,
-          "line": 34,
-        },
-        "start": {
-          "character": 26,
-          "line": 0,
-        },
-      },
-      "selectionRange": {
-        "end": {
-          "character": 39,
-          "line": 0,
-        },
-        "start": {
-          "character": 26,
-          "line": 0,
-        },
-      },
-    },
-  ],
-  "request": {
-    "method": "textDocument/codeLens",
-    "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 9,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -427,14 +268,14 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 15,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -695,14 +536,14 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 21,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -713,7 +554,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
           "range": {
             "end": {
               "character": 5,
-              "line": 31,
+              "line": 34,
             },
             "start": {
               "character": 25,
@@ -737,7 +578,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
       "range": {
         "end": {
           "character": 1,
-          "line": 34,
+          "line": 35,
         },
         "start": {
           "character": 26,
@@ -819,14 +660,14 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 27,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -943,14 +784,14 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 33,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -1259,14 +1100,14 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 39,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -1279,21 +1120,21 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
               "range": {
                 "end": {
                   "character": 28,
-                  "line": 54,
+                  "line": 57,
                 },
                 "start": {
                   "character": 22,
-                  "line": 54,
+                  "line": 57,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 28,
-                  "line": 54,
+                  "line": 57,
                 },
                 "start": {
                   "character": 22,
-                  "line": 54,
+                  "line": 57,
                 },
               },
             },
@@ -1303,21 +1144,21 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
               "range": {
                 "end": {
                   "character": 26,
-                  "line": 56,
+                  "line": 59,
                 },
                 "start": {
                   "character": 22,
-                  "line": 56,
+                  "line": 59,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 26,
-                  "line": 56,
+                  "line": 59,
                 },
                 "start": {
                   "character": 22,
-                  "line": 56,
+                  "line": 59,
                 },
               },
             },
@@ -1327,21 +1168,21 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
               "range": {
                 "end": {
                   "character": 27,
-                  "line": 58,
+                  "line": 61,
                 },
                 "start": {
                   "character": 22,
-                  "line": 58,
+                  "line": 61,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 27,
-                  "line": 58,
+                  "line": 61,
                 },
                 "start": {
                   "character": 22,
-                  "line": 58,
+                  "line": 61,
                 },
               },
             },
@@ -1351,21 +1192,21 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
               "range": {
                 "end": {
                   "character": 29,
-                  "line": 60,
+                  "line": 63,
                 },
                 "start": {
                   "character": 22,
-                  "line": 60,
+                  "line": 63,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 29,
-                  "line": 60,
+                  "line": 63,
                 },
                 "start": {
                   "character": 22,
-                  "line": 60,
+                  "line": 63,
                 },
               },
             },
@@ -1375,21 +1216,21 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
               "range": {
                 "end": {
                   "character": 32,
-                  "line": 62,
+                  "line": 65,
                 },
                 "start": {
                   "character": 22,
-                  "line": 62,
+                  "line": 65,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 32,
-                  "line": 62,
+                  "line": 65,
                 },
                 "start": {
                   "character": 22,
-                  "line": 62,
+                  "line": 65,
                 },
               },
             },
@@ -1399,21 +1240,21 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
           "range": {
             "end": {
               "character": 5,
-              "line": 63,
+              "line": 66,
             },
             "start": {
               "character": 17,
-              "line": 52,
+              "line": 55,
             },
           },
           "selectionRange": {
             "end": {
               "character": 33,
-              "line": 52,
+              "line": 55,
             },
             "start": {
               "character": 17,
-              "line": 52,
+              "line": 55,
             },
           },
         },
@@ -1425,21 +1266,21 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
               "range": {
                 "end": {
                   "character": 26,
-                  "line": 67,
+                  "line": 70,
                 },
                 "start": {
                   "character": 23,
-                  "line": 67,
+                  "line": 70,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 26,
-                  "line": 67,
+                  "line": 70,
                 },
                 "start": {
                   "character": 23,
-                  "line": 67,
+                  "line": 70,
                 },
               },
             },
@@ -1449,21 +1290,21 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
               "range": {
                 "end": {
                   "character": 26,
-                  "line": 69,
+                  "line": 72,
                 },
                 "start": {
                   "character": 23,
-                  "line": 69,
+                  "line": 72,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 26,
-                  "line": 69,
+                  "line": 72,
                 },
                 "start": {
                   "character": 23,
-                  "line": 69,
+                  "line": 72,
                 },
               },
             },
@@ -1473,21 +1314,21 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
           "range": {
             "end": {
               "character": 5,
-              "line": 70,
+              "line": 73,
             },
             "start": {
               "character": 17,
-              "line": 65,
+              "line": 68,
             },
           },
           "selectionRange": {
             "end": {
               "character": 28,
-              "line": 65,
+              "line": 68,
             },
             "start": {
               "character": 17,
-              "line": 65,
+              "line": 68,
             },
           },
         },
@@ -1521,7 +1362,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
           "range": {
             "end": {
               "character": 5,
-              "line": 50,
+              "line": 53,
             },
             "start": {
               "character": 36,
@@ -1545,7 +1386,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
       "range": {
         "end": {
           "character": 1,
-          "line": 71,
+          "line": 74,
         },
         "start": {
           "character": 26,
@@ -1871,14 +1712,14 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 45,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -2187,14 +2028,14 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 51,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -2943,67 +2784,16 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 57,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
-  "actualResponse": [
-    {
-      "children": [
-        {
-          "kind": 6,
-          "name": "x() : String",
-          "range": {
-            "end": {
-              "character": 12,
-              "line": 2,
-            },
-            "start": {
-              "character": 11,
-              "line": 2,
-            },
-          },
-          "selectionRange": {
-            "end": {
-              "character": 12,
-              "line": 2,
-            },
-            "start": {
-              "character": 11,
-              "line": 2,
-            },
-          },
-        },
-      ],
-      "kind": 11,
-      "name": "MyInterface",
-      "range": {
-        "end": {
-          "character": 1,
-          "line": 3,
-        },
-        "start": {
-          "character": 17,
-          "line": 0,
-        },
-      },
-      "selectionRange": {
-        "end": {
-          "character": 28,
-          "line": 0,
-        },
-        "start": {
-          "character": 17,
-          "line": 0,
-        },
-      },
-    },
-  ],
+  "actualResponse": [],
   "expectedResponse": [
     {
       "children": [
@@ -3067,115 +2857,16 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 63,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
-  "actualResponse": [
-    {
-      "children": [
-        {
-          "kind": 8,
-          "name": "x : String",
-          "range": {
-            "end": {
-              "character": 19,
-              "line": 1,
-            },
-            "start": {
-              "character": 18,
-              "line": 1,
-            },
-          },
-          "selectionRange": {
-            "end": {
-              "character": 19,
-              "line": 1,
-            },
-            "start": {
-              "character": 18,
-              "line": 1,
-            },
-          },
-        },
-        {
-          "kind": 8,
-          "name": "y : String",
-          "range": {
-            "end": {
-              "character": 20,
-              "line": 2,
-            },
-            "start": {
-              "character": 19,
-              "line": 2,
-            },
-          },
-          "selectionRange": {
-            "end": {
-              "character": 20,
-              "line": 2,
-            },
-            "start": {
-              "character": 19,
-              "line": 2,
-            },
-          },
-        },
-        {
-          "kind": 9,
-          "name": "MyWebService()",
-          "range": {
-            "end": {
-              "character": 5,
-              "line": 13,
-            },
-            "start": {
-              "character": 11,
-              "line": 3,
-            },
-          },
-          "selectionRange": {
-            "end": {
-              "character": 23,
-              "line": 3,
-            },
-            "start": {
-              "character": 11,
-              "line": 3,
-            },
-          },
-        },
-      ],
-      "kind": 5,
-      "name": "MyWebService",
-      "range": {
-        "end": {
-          "character": 1,
-          "line": 14,
-        },
-        "start": {
-          "character": 26,
-          "line": 0,
-        },
-      },
-      "selectionRange": {
-        "end": {
-          "character": 38,
-          "line": 0,
-        },
-        "start": {
-          "character": 26,
-          "line": 0,
-        },
-      },
-    },
-  ],
+  "actualResponse": [],
   "expectedResponse": [
     {
       "children": [
@@ -3287,14 +2978,14 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 69,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -3555,14 +3246,14 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 96,
   params: [Object],
   performance: [Object],
   result: [Array]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -3573,7 +3264,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
           "range": {
             "end": {
               "character": 5,
-              "line": 31,
+              "line": 34,
             },
             "start": {
               "character": 25,
@@ -3597,7 +3288,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
       "range": {
         "end": {
           "character": 1,
-          "line": 34,
+          "line": 35,
         },
         "start": {
           "character": 26,
@@ -3679,12 +3370,12 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
 }
 `;
 
-exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/response matches snapshot for request {
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
   id: 101,
   params: [Object]
-} 1`] = `
+}: textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -3695,7 +3386,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
           "range": {
             "end": {
               "character": 5,
-              "line": 31,
+              "line": 34,
             },
             "start": {
               "character": 25,
@@ -3719,7 +3410,7 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
       "range": {
         "end": {
           "character": 1,
-          "line": 34,
+          "line": 35,
         },
         "start": {
           "character": 26,
@@ -3742,924 +3433,6 @@ exports[`LSP Request/Response Accuracy LSP textDocument/documentSymbol request/r
   "request": {
     "method": "textDocument/documentSymbol",
     "params": {
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 124,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String FileUtilities.createFile(String base64data, String filename, String recordId)
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String FileUtilities.createFile(String base64data, String filename, String recordId)
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 28,
-        "line": 2,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 126,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String FileUtilities.createFile(String base64data, String filename, String recordId)
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String FileUtilities.createFile(String base64data, String filename, String recordId)
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 29,
-        "line": 2,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 128,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": "",
-  },
-  "expectedResponse": {
-    "contents": "",
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 14,
-        "line": 2,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 130,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 10,
-        "line": 3,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 132,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 10,
-        "line": 4,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 134,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 10,
-        "line": 5,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 136,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String recordId
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String recordId
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 17,
-        "line": 5,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 138,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String recordId
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String recordId
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 19,
-        "line": 5,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 140,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String recordId
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String recordId
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 18,
-        "line": 5,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 142,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 23,
-        "line": 21,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 144,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": "",
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink contentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 39,
-        "line": 21,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 146,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": "",
-  },
-  "expectedResponse": {
-    "contents": "",
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 63,
-        "line": 21,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 148,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": "",
-  },
-  "expectedResponse": {
-    "contents": "",
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 64,
-        "line": 21,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 150,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": "",
-  },
-  "expectedResponse": {
-    "contents": "",
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 65,
-        "line": 21,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 152,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink contentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink contentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 24,
-        "line": 22,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 154,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": "",
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-Id ContentDocumentLink.ContentDocumentId
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 36,
-        "line": 22,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 156,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": "",
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-Id ContentDocumentLink.ContentDocumentId
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 38,
-        "line": 22,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 158,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": "",
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-Id ContentDocumentLink.LinkedEntityId
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 35,
-        "line": 23,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 160,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink contentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink contentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 29,
-        "line": 25,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 162,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink contentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink contentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 20,
-        "line": 25,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 164,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": "",
-  },
-  "expectedResponse": {
-    "contents": "",
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 14,
-        "line": 25,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 166,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink contentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink contentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 16,
-        "line": 24,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 168,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink contentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-ContentDocumentLink contentDocumentLink
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 30,
-        "line": 24,
-      },
-      "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy LSP textDocument/hover request/response matches snapshot for request {
-  type: 'request',
-  method: 'textDocument/hover',
-  id: 170,
-  params: [Object],
-  performance: [Object],
-  result: [Object]
-} 1`] = `
-{
-  "actualResponse": {
-    "contents": "",
-  },
-  "expectedResponse": {
-    "contents": {
-      "kind": "markdown",
-      "value": "\`\`\`apex
-String ContentDocumentLink.ShareType
-\`\`\`
-",
-    },
-  },
-  "request": {
-    "method": "textDocument/hover",
-    "params": {
-      "position": {
-        "character": 34,
-        "line": 24,
-      },
       "textDocument": {
         "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
       },
