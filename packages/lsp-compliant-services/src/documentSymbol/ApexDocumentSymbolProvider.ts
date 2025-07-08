@@ -19,11 +19,12 @@ import {
   CompilerService,
   ApexSymbolCollectorListener,
   ApexSymbol,
-  MethodSymbol,
   VariableSymbol,
   TypeInfo,
-  isCompoundSymbolType,
+  isTypeSymbol,
+  isMethodSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
+
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
@@ -142,8 +143,8 @@ export class DefaultApexDocumentSymbolProvider
       for (const symbol of globalSymbols) {
         const documentSymbol = this.createDocumentSymbol(symbol);
 
-        // Recursively collect children for compound symbol types (classes, interfaces, etc.)
-        if (isCompoundSymbolType(symbol)) {
+        // Recursively collect children for top-level symbol types (classes, interfaces, etc.)
+        if (isTypeSymbol(symbol)) {
           const childScopes = symbolTable.getCurrentScope().getChildren();
           const typeScope = childScopes.find(
             (scope: any) => scope.name === symbol.name,
@@ -192,10 +193,9 @@ export class DefaultApexDocumentSymbolProvider
    */
   private formatSymbolName(symbol: ApexSymbol): string {
     // Check if this is a method symbol
-    if (symbol.kind?.toLowerCase() === 'method') {
+    if (isMethodSymbol(symbol)) {
       try {
-        // Cast to MethodSymbol to access method-specific properties
-        const methodSymbol = symbol as MethodSymbol;
+        const methodSymbol = symbol;
 
         // Build parameter list
         const parameterList = this.buildParameterList(
@@ -287,7 +287,7 @@ export class DefaultApexDocumentSymbolProvider
       // For interfaces, only include methods (Apex interfaces can only contain method signatures)
       if (
         parentKind.toLowerCase() === 'interface' &&
-        childSymbol.kind.toLowerCase() !== 'method'
+        !isMethodSymbol(childSymbol)
       ) {
         logger.debug(
           () => `Skipping non-method symbol '${childSymbol.name}' in interface`,
@@ -297,8 +297,8 @@ export class DefaultApexDocumentSymbolProvider
 
       const childDocumentSymbol = this.createDocumentSymbol(childSymbol);
 
-      // Recursively collect children for compound symbol types
-      if (isCompoundSymbolType(childSymbol)) {
+      // Recursively collect children for top-level symbol types
+      if (isTypeSymbol(childSymbol)) {
         const childScope = scope
           .getChildren()
           .find((s: any) => s.name === childSymbol.name);

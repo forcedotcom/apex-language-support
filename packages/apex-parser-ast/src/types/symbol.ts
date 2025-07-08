@@ -186,21 +186,6 @@ export interface TypeSymbol extends ApexSymbol {
 }
 
 /**
- * Type guard to check if a symbol is a compound `TypeSymbol` (class, interface, enum, or trigger).
- * Compound symbols are types that can contain other symbols within their scope.
- * @param symbol The symbol to check
- * @returns true if the symbol is a `TypeSymbol`, false otherwise
- */
-export function isCompoundSymbolType(symbol: ApexSymbol): symbol is TypeSymbol {
-  return (
-    symbol.kind === SymbolKind.Class ||
-    symbol.kind === SymbolKind.Interface ||
-    symbol.kind === SymbolKind.Enum ||
-    symbol.kind === SymbolKind.Trigger
-  );
-}
-
-/**
  * Represents a method or constructor
  */
 export interface MethodSymbol extends ApexSymbol {

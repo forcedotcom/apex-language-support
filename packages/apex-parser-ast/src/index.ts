@@ -44,6 +44,7 @@ export * from './utils/PlatformUtils';
 
 // Export utils
 export * from './utils/AnnotationUtils';
+export * from './utils/symbolNarrowing';
 
 // Export semantic validators
 export * from './semantics/modifiers/index';

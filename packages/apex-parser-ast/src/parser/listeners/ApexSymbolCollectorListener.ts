@@ -52,6 +52,13 @@ import {
   InterfaceBodyValidator,
   ErrorReporter,
 } from '../../semantics/modifiers/index';
+import {
+  hasIdMethod,
+  isEnumSymbol,
+  isMethodSymbol,
+  isClassSymbol,
+  isInterfaceSymbol,
+} from '../../utils/symbolNarrowing';
 
 interface SemanticError {
   type: 'semantic';
@@ -211,7 +218,8 @@ export class ApexSymbolCollectorListener
 
       // Check for modifiers in interface methods
       if (
-        this.currentTypeSymbol?.kind === SymbolKind.Interface &&
+        this.currentTypeSymbol &&
+        isInterfaceSymbol(this.currentTypeSymbol) &&
         this.currentMethodSymbol &&
         modifier
       ) {
@@ -279,8 +287,10 @@ export class ApexSymbolCollectorListener
 
         // Check for nested inner class
         if (
-          this.currentTypeSymbol.kind === SymbolKind.Class &&
-          this.currentTypeSymbol.parent?.kind === SymbolKind.Class
+          this.currentTypeSymbol &&
+          isClassSymbol(this.currentTypeSymbol) &&
+          this.currentTypeSymbol.parent &&
+          isClassSymbol(this.currentTypeSymbol.parent)
         ) {
           this.addError(
             `Inner class '${name}' cannot be defined within another inner class. ` +
@@ -475,12 +485,11 @@ export class ApexSymbolCollectorListener
             .join(',') || '';
 
         const duplicateMethod = existingSymbols.find((s) => {
-          if (s.kind !== SymbolKind.Method || s.name !== name) {
+          if (!isMethodSymbol(s) || s.name !== name) {
             return false;
           }
-          const methodSymbol = s as MethodSymbol;
           const existingParamTypes =
-            methodSymbol.parameters
+            s.parameters
               ?.map((param) => param.type.originalTypeString)
               .join(',') || '';
           return existingParamTypes === currentParamTypes;
@@ -569,16 +578,11 @@ export class ApexSymbolCollectorListener
             .join(',') || '';
 
         const duplicateConstructor = existingSymbols.find((s) => {
-          if (
-            s.kind !== SymbolKind.Method ||
-            s.name !== name ||
-            !(s as MethodSymbol).isConstructor
-          ) {
+          if (!isMethodSymbol(s) || s.name !== name || !s.isConstructor) {
             return false;
           }
-          const methodSymbol = s as MethodSymbol;
           const existingParamTypes =
-            methodSymbol.parameters
+            s.parameters
               ?.map((param) => param.type.originalTypeString)
               .join(',') || '';
           return existingParamTypes === currentParamTypes;
@@ -642,7 +646,7 @@ export class ApexSymbolCollectorListener
         const currentScope = this.symbolTable.getCurrentScope();
         const existingSymbols = currentScope.getAllSymbols();
         const duplicateMethod = existingSymbols.find(
-          (s) => s.kind === SymbolKind.Method && s.name === name,
+          (s) => isMethodSymbol(s) && s.name === name,
         );
 
         if (duplicateMethod) {
@@ -933,7 +937,7 @@ export class ApexSymbolCollectorListener
       );
       const enumSymbol = this.currentTypeSymbol as EnumSymbol | null;
 
-      if (!enumSymbol || enumSymbol.kind !== SymbolKind.Enum) {
+      if (!enumSymbol || !isEnumSymbol(enumSymbol)) {
         this.addError('Enum constants found outside of enum declaration', ctx);
         return;
       }
@@ -1071,8 +1075,8 @@ export class ApexSymbolCollectorListener
     let identifierNode: any = null;
 
     // Check if the context has an id() method (most common case)
-    if (typeof (ctx as any).id === 'function') {
-      identifierNode = (ctx as any).id();
+    if (hasIdMethod(ctx)) {
+      identifierNode = ctx.id();
     }
 
     // If we found the identifier node, use its position
@@ -1243,11 +1247,7 @@ export class ApexSymbolCollectorListener
       return false;
     }
     const parent = symbol.parent;
-    return (
-      parent !== null &&
-      parent !== undefined &&
-      parent.kind === SymbolKind.Class
-    );
+    return parent !== null && parent !== undefined && isClassSymbol(parent);
   }
 
   /**
@@ -1270,7 +1270,7 @@ export class ApexSymbolCollectorListener
 
     // Traverse up the parent chain
     while (current) {
-      if (current.kind === SymbolKind.Class) {
+      if (isClassSymbol(current)) {
         classCount++;
         // If we find more than one class in the parent chain,
         // this means we have a nested inner class
@@ -1374,9 +1374,9 @@ export class ApexSymbolCollectorListener
 
     // For enums, we need to add the values array
     // TODO: change to a more generic approach
-    if (typeSymbol.kind === SymbolKind.Enum) {
-      (typeSymbol as EnumSymbol).values = [];
-      return typeSymbol as EnumSymbol;
+    if (isEnumSymbol(typeSymbol)) {
+      typeSymbol.values = [];
+      return typeSymbol;
     }
 
     return typeSymbol;
