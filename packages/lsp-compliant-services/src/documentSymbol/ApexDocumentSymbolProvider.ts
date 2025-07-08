@@ -99,10 +99,11 @@ export class DefaultApexDocumentSymbolProvider
 
       const documentText = document.getText();
       logger.debug(
-        `Document found in storage. Content length: ${documentText.length}`,
+        () =>
+          `Document found in storage. Content length: ${documentText.length}`,
       );
       logger.debug(
-        `Document content preview: ${documentText.substring(0, 100)}...`,
+        () => `Document content preview: ${documentText.substring(0, 100)}...`,
       );
 
       // Create a symbol collector listener to parse the document
@@ -133,7 +134,9 @@ export class DefaultApexDocumentSymbolProvider
 
       // Get all symbols from the global scope
       const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
-      logger.debug(`Found ${globalSymbols.length} global symbols in document`);
+      logger.debug(
+        () => `Found ${globalSymbols.length} global symbols in document`,
+      );
 
       // Process each symbol and convert to LSP DocumentSymbol format
       for (const symbol of globalSymbols) {
@@ -148,7 +151,7 @@ export class DefaultApexDocumentSymbolProvider
 
           if (typeScope) {
             logger.debug(
-              `Collecting children for ${symbol.kind} '${symbol.name}'`,
+              () => `Collecting children for ${symbol.kind} '${symbol.name}'`,
             );
             documentSymbol.children = this.collectChildren(
               typeScope,
@@ -160,7 +163,7 @@ export class DefaultApexDocumentSymbolProvider
         symbols.push(documentSymbol);
       }
 
-      logger.debug(`Returning ${symbols.length} document symbols`);
+      logger.debug(() => `Returning ${symbols.length} document symbols`);
       return symbols;
     } catch (error) {
       (logger.error as any)('Error providing document symbols:', error);
@@ -276,7 +279,8 @@ export class DefaultApexDocumentSymbolProvider
     const logger = getLogger();
 
     logger.debug(
-      `Collecting children for ${parentKind} '${scope.name}': ${childSymbols.length} symbols found`,
+      () =>
+        `Collecting children for ${parentKind} '${scope.name}': ${childSymbols.length} symbols found`,
     );
 
     for (const childSymbol of childSymbols) {
@@ -286,7 +290,7 @@ export class DefaultApexDocumentSymbolProvider
         childSymbol.kind.toLowerCase() !== 'method'
       ) {
         logger.debug(
-          `Skipping non-method symbol '${childSymbol.name}' in interface`,
+          () => `Skipping non-method symbol '${childSymbol.name}' in interface`,
         );
         continue;
       }
@@ -301,7 +305,8 @@ export class DefaultApexDocumentSymbolProvider
 
         if (childScope) {
           logger.debug(
-            `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}'`,
+            () =>
+              `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}'`,
           );
           childDocumentSymbol.children = this.collectChildren(
             childScope,
@@ -314,7 +319,8 @@ export class DefaultApexDocumentSymbolProvider
     }
 
     logger.debug(
-      `Collected ${children.length} children for ${parentKind} '${scope.name}'`,
+      () =>
+        `Collected ${children.length} children for ${parentKind} '${scope.name}'`,
     );
     return children;
   }
