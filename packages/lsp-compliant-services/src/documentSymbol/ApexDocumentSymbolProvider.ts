@@ -338,14 +338,14 @@ export class DefaultApexDocumentSymbolProvider
     // The end position is always the end of the full symbol location.
     const endPosition = Position.create(
       location.endLine - 1,
-      location.endColumn - 1,
+      location.endColumn,
     );
 
     // Use the precise identifier location for the start of the range.
     // This provides a "tighter" range that excludes leading modifiers/keywords.
     const startPosition = Position.create(
       (identifierLocation?.startLine ?? location.startLine) - 1,
-      identifierLocation?.startColumn ?? location.startColumn - 1,
+      identifierLocation?.startColumn ?? location.startColumn,
     );
     return Range.create(startPosition, endPosition);
   }
@@ -358,8 +358,7 @@ export class DefaultApexDocumentSymbolProvider
     const { identifierLocation, location, name } = symbol;
 
     const startLine = (identifierLocation?.startLine ?? location.startLine) - 1;
-    const startColumn =
-      identifierLocation?.startColumn ?? location.startColumn - 1;
+    const startColumn = identifierLocation?.startColumn ?? location.startColumn;
 
     const endLine =
       (identifierLocation?.endLine ??

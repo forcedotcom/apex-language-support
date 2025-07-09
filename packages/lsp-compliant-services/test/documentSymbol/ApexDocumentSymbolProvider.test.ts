@@ -523,7 +523,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(result).toHaveLength(1);
       const symbol = result![0] as DocumentSymbol;
       expect(symbol.range).toEqual(
-        Range.create(Position.create(0, 14), Position.create(0, 26)),
+        Range.create(Position.create(0, 14), Position.create(0, 27)),
       );
       expect(symbol.selectionRange).toEqual(
         Range.create(Position.create(0, 14), Position.create(0, 25)),

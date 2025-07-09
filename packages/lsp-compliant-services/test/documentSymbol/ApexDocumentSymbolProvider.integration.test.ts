@@ -126,7 +126,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
             kind: 6, // SymbolKind.Method
             name: 'forwardToStartPage() : PageReference',
             range: {
-              end: { character: 5, line: 7 },
+              end: { character: 6, line: 7 },
               start: { character: 25, line: 5 },
             },
             selectionRange: {
@@ -139,7 +139,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
             kind: 6, // SymbolKind.Method
             name: 'CommunitiesLandingController(Boolean) : void',
             range: {
-              end: { character: 5, line: 14 },
+              end: { character: 6, line: 14 },
               start: { character: 11, line: 9 },
             },
             selectionRange: {
@@ -151,7 +151,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
         kind: 5, // SymbolKind.Class
         name: 'CommunitiesLandingController',
         range: {
-          end: { character: 1, line: 16 },
+          end: { character: 2, line: 16 },
           start: { character: 26, line: 3 },
         },
         selectionRange: {
@@ -244,7 +244,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
         kind: 5, // Class
         range: {
           start: { line: 0, character: 13 },
-          end: { line: 6, character: 0 },
+          end: { line: 6, character: 1 },
         },
         selectionRange: {
           start: { line: 0, character: 13 },
@@ -256,7 +256,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
             kind: 5, // Class
             range: {
               start: { line: 1, character: 15 },
-              end: { line: 5, character: 2 },
+              end: { line: 5, character: 3 },
             },
             selectionRange: {
               start: { line: 1, character: 15 },
@@ -268,7 +268,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
                 kind: 6, // Method (for constructor)
                 range: {
                   start: { line: 2, character: 22 }, //starts at InnerClass2 since it's after the dot
-                  end: { line: 4, character: 4 },
+                  end: { line: 4, character: 5 },
                 },
                 selectionRange: {
                   start: { line: 2, character: 22 },
