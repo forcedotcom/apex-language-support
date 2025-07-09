@@ -826,10 +826,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       });
 
       expect(result).toBeNull();
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Error providing document symbols:',
-        expect.any(Error),
-      );
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
   });
 

@@ -170,7 +170,8 @@ export class DefaultApexDocumentSymbolProvider
       logger.debug(() => `Returning ${symbols.length} document symbols`);
       return symbols;
     } catch (error) {
-      (logger.error as any)('Error providing document symbols:', error);
+      const errorMessage = JSON.stringify(error);
+      logger.error(() => `Error providing document symbols: ${errorMessage}`);
       return null;
     }
   }
