@@ -229,6 +229,48 @@ describe('ApexSymbolCollectorListener', () => {
       );
     });
 
+    it('should correctly identify an inner class constructor', () => {
+      const fileContent = `
+        public class OuterClass {
+          public class InnerClass {
+            public InnerClass() {
+              // constructor for inner class
+            }
+          }
+        }
+      `;
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'OuterClass.cls',
+        listener,
+      );
+      expect(result.errors.length).toBe(0);
+
+      const fileScope = result.result!.getCurrentScope();
+      const outerClassSymbol = fileScope.getSymbol('OuterClass');
+      expect(outerClassSymbol).toBeDefined();
+
+      const outerClassScope = fileScope
+        .getChildren()
+        .find((s) => s.name === 'OuterClass');
+      expect(outerClassScope).toBeDefined();
+
+      const innerClassSymbol = outerClassScope!.getSymbol('InnerClass');
+      expect(innerClassSymbol).toBeDefined();
+
+      const innerClassScope = outerClassScope!
+        .getChildren()
+        .find((s) => s.name === 'InnerClass');
+      expect(innerClassScope).toBeDefined();
+
+      const constructorSymbol = innerClassScope!.getSymbol(
+        'InnerClass',
+      ) as MethodSymbol;
+      expect(constructorSymbol).toBeDefined();
+      expect(constructorSymbol.isConstructor).toBe(true);
+      expect(constructorSymbol.location.startLine).toBe(4);
+    });
+
     it('should collect interface symbols', () => {
       logger.debug('Starting test: collect interface symbols');
       const fileContent = `

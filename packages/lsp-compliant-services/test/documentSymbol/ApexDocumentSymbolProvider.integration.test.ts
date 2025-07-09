@@ -211,6 +211,80 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
     });
 
     /**
+     * This test validates that a constructor for an inner class,
+     * which has a qualified name, has its location correctly identified.
+     * This is a regression test for the logic that gets the last part of a
+     * qualified name for a constructor.
+     */
+    it('correctly handles inner class constructors', async () => {
+      const apexClassContent = [
+        'public class OuterClass {',
+        '  public class InnerClass {',
+        '    public InnerClass.InnerClass2() {', //I don't think this is even valid Apex, but it's a valid ANTLR rule
+        "      System.debug('Inner class constructor');",
+        '    }',
+        '  }',
+        '}',
+      ].join('\n');
+
+      const docUri = 'file:///OuterClass.cls';
+      const textDocument = TextDocument.create(
+        docUri,
+        'apex',
+        1,
+        apexClassContent,
+      );
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const params: DocumentSymbolParams = { textDocument: { uri: docUri } };
+      const result = await symbolProvider.provideDocumentSymbols(params);
+
+      const expected = {
+        name: 'OuterClass',
+        kind: 5, // Class
+        range: {
+          start: { line: 0, character: 13 },
+          end: { line: 6, character: 0 },
+        },
+        selectionRange: {
+          start: { line: 0, character: 13 },
+          end: { line: 0, character: 23 },
+        },
+        children: [
+          {
+            name: 'InnerClass',
+            kind: 5, // Class
+            range: {
+              start: { line: 1, character: 15 },
+              end: { line: 5, character: 2 },
+            },
+            selectionRange: {
+              start: { line: 1, character: 15 },
+              end: { line: 1, character: 25 },
+            },
+            children: [
+              {
+                name: 'InnerClass() : void', // InnerClass is the name of the class still
+                kind: 6, // Method (for constructor)
+                range: {
+                  start: { line: 2, character: 22 }, //starts at InnerClass2 since it's after the dot
+                  end: { line: 4, character: 4 },
+                },
+                selectionRange: {
+                  start: { line: 2, character: 22 },
+                  end: { line: 2, character: 33 },
+                },
+                children: [],
+              },
+            ],
+          },
+        ],
+      };
+      const plainResult = JSON.parse(JSON.stringify(result![0]));
+      expect(plainResult).toEqual(expected);
+    });
+
+    /**
      * Tests interface handling to ensure method-only filtering works correctly
      */
     it('correctly filters interface members to only include methods', async () => {
