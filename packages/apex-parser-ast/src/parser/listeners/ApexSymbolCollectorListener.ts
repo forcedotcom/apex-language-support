@@ -554,7 +554,6 @@ export class ApexSymbolCollectorListener
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     try {
       const name = this.currentTypeSymbol?.name ?? 'unknownConstructor';
-
       // Validate constructor in interface
       InterfaceBodyValidator.validateConstructorInInterface(
         name,
@@ -596,12 +595,20 @@ export class ApexSymbolCollectorListener
 
       const modifiers = this.getCurrentModifiers();
 
+      // Get the qualified name id location which is the last id in the qualified name
+      const ids = ctx.qualifiedName()?.id();
+      const lastId = ids && ids.length > 0 ? ids[ids.length - 1] : undefined;
+      const qualifiedNameIdLocation = lastId
+        ? this.getIdentifierLocation(lastId)
+        : undefined;
+
       // Create constructor symbol using createMethodSymbol method
       const constructorSymbol = this.createMethodSymbol(
         ctx,
         name,
         modifiers,
         createPrimitiveType('void'),
+        qualifiedNameIdLocation,
       );
 
       // Set constructor-specific properties
@@ -1066,10 +1073,7 @@ export class ApexSymbolCollectorListener
    * @param name The name of the identifier to locate
    * @returns The precise location of the identifier
    */
-  private getIdentifierLocation(
-    ctx: ParserRuleContext,
-    name: string,
-  ): SymbolLocation {
+  private getIdentifierLocation(ctx: ParserRuleContext): SymbolLocation {
     // Try to find the identifier node within the context
     // For most contexts, the identifier is accessible via ctx.id()
     let identifierNode: any = null;
@@ -1090,32 +1094,6 @@ export class ApexSymbolCollectorListener
           identifierNode.stop.text.length,
       };
     }
-
-    // Fallback: try to find the identifier in the source text more carefully
-    // This handles cases where the identifier node isn't directly accessible
-    const startLine = ctx.start.line;
-    const startColumn = ctx.start.charPositionInLine;
-
-    // Get the full context text and find the identifier
-    const contextText = ctx.text || '';
-
-    // Use a word boundary regex to find the exact identifier
-    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const nameRegex = new RegExp(`\\b${escapedName}\\b`);
-    const match = nameRegex.exec(contextText);
-
-    if (match && match.index !== undefined) {
-      // Calculate the actual position by adding the match index to the start column
-      const actualStartColumn = startColumn + match.index;
-
-      return {
-        startLine,
-        startColumn: actualStartColumn,
-        endLine: startLine,
-        endColumn: actualStartColumn + name.length,
-      };
-    }
-
     // Final fallback - return the full context location
     return this.getLocation(ctx);
   }
@@ -1357,7 +1335,7 @@ export class ApexSymbolCollectorListener
     };
 
     // Get the identifier location for the type symbol
-    const identifierLocation = this.getIdentifierLocation(ctx, name);
+    const identifierLocation = this.getIdentifierLocation(ctx);
 
     const typeSymbol: TypeSymbol = {
       name,
@@ -1387,6 +1365,7 @@ export class ApexSymbolCollectorListener
     name: string,
     modifiers: SymbolModifiers,
     returnType: TypeInfo,
+    identifierLocation?: SymbolLocation,
   ): MethodSymbol {
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol;
@@ -1396,9 +1375,6 @@ export class ApexSymbolCollectorListener
       name,
       path: this.getCurrentPath(),
     };
-
-    // Get the identifier location for the method symbol
-    const identifierLocation = this.getIdentifierLocation(ctx, name);
 
     const methodSymbol: MethodSymbol = {
       name,
@@ -1412,7 +1388,7 @@ export class ApexSymbolCollectorListener
       parentKey,
       isConstructor: false,
       annotations: this.getCurrentAnnotations(),
-      identifierLocation,
+      identifierLocation: identifierLocation ?? this.getIdentifierLocation(ctx),
     };
 
     return methodSymbol;
@@ -1440,7 +1416,7 @@ export class ApexSymbolCollectorListener
     };
 
     // Get the identifier location for the variable symbol
-    const identifierLocation = this.getIdentifierLocation(ctx, name);
+    const identifierLocation = this.getIdentifierLocation(ctx);
 
     const variableSymbol: VariableSymbol = {
       name,
