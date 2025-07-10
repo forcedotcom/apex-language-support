@@ -13,23 +13,43 @@ import {
   SymbolKind,
   Range,
   Position,
-} from 'vscode-languageserver';
+} from 'vscode-languageserver-protocol';
 import {
   SymbolTable,
   CompilerService,
   ApexSymbolCollectorListener,
   ApexSymbol,
-  MethodSymbol,
   VariableSymbol,
   TypeInfo,
+  inTypeSymbolGroup,
+  isMethodSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
+
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { ApexSettingsManager } from '../settings/ApexSettingsManager';
 
 /**
- * Interface for Apex document symbol provider
+ * Maps Apex symbol kinds to LSP symbol kinds
+ * This converts the internal Apex symbol types to standard LSP SymbolKind values
+ */
+const SYMBOL_KIND_MAP: Record<string, SymbolKind> = {
+  class: SymbolKind.Class, // 5
+  interface: SymbolKind.Interface, // 11
+  method: SymbolKind.Method, // 6
+  property: SymbolKind.Property, // 7
+  field: SymbolKind.Field, // 8
+  constructor: SymbolKind.Constructor, // 9
+  variable: SymbolKind.Variable, // 13
+  enum: SymbolKind.Enum, // 10
+  enumvalue: SymbolKind.EnumMember, // 22
+  parameter: SymbolKind.Variable, // 13 (parameters are treated as variables)
+  trigger: SymbolKind.Class, // 5 (treating triggers as classes for consistency)
+};
+
+/**
+ * Interface for Apex document symbol providers
  */
 export interface ApexDocumentSymbolProvider {
   /**
@@ -44,11 +64,12 @@ export interface ApexDocumentSymbolProvider {
 
 /**
  * Implementation of Apex document symbol provider
+ * Converts Apex symbols from the parser into LSP DocumentSymbol format
  */
 export class DefaultApexDocumentSymbolProvider
   implements ApexDocumentSymbolProvider
 {
-  private compilerService: CompilerService;
+  private readonly compilerService: CompilerService;
 
   constructor(private readonly storage: ApexStorageInterface) {
     this.compilerService = new CompilerService();
@@ -72,41 +93,44 @@ export class DefaultApexDocumentSymbolProvider
       const document = await this.storage.getDocument(documentUri);
 
       if (!document) {
-        logger.debug(
+        logger.warn(
           () => `Document not found in storage for URI: ${documentUri}`,
         );
         return null;
       }
 
+      const documentText = document.getText();
       logger.debug(
         () =>
-          `Document found in storage. Content length: ${document.getText().length}`,
+          `Document found in storage. Content length: ${documentText.length}`,
       );
       logger.debug(
-        `Document content preview: ${document.getText().substring(0, 100)}...`,
+        () => `Document content preview: ${documentText.substring(0, 100)}...`,
       );
 
-      // Create a symbol collector listener
+      // Create a symbol collector listener to parse the document
       const table = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(table);
       const settingsManager = ApexSettingsManager.getInstance();
-      const fileSize = document.getText().length;
       const options = settingsManager.getCompilationOptions(
         'documentSymbols',
-        fileSize,
+        documentText.length,
       );
 
-      // Parse the document
+      // Parse the document using the compiler service
       const result = this.compilerService.compile(
-        document.getText(),
+        documentText,
         documentUri,
         listener,
         options,
       );
 
       if (result.errors.length > 0) {
-        logger.debug(() => `Errors parsing document: ${result.errors}`);
-        return null;
+        logger.warn(
+          () =>
+            `Parsed with ${result.errors.length} errors, continuing with partial symbols.`,
+        );
+        logger.debug(() => `Parse errors: ${JSON.stringify(result.errors)}`);
       }
 
       // Get the symbol table from the listener
@@ -115,43 +139,25 @@ export class DefaultApexDocumentSymbolProvider
 
       // Get all symbols from the global scope
       const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
+      logger.debug(
+        () => `Found ${globalSymbols.length} global symbols in document`,
+      );
 
-      // Process each symbol
+      // Process each symbol and convert to LSP DocumentSymbol format
       for (const symbol of globalSymbols) {
-        const range = Range.create(
-          Position.create(
-            symbol.location.startLine - 1,
-            symbol.location.startColumn - 1,
-          ),
-          Position.create(
-            symbol.location.endLine - 1,
-            symbol.location.endColumn - 1,
-          ),
-        );
+        const documentSymbol = this.createDocumentSymbol(symbol);
 
-        const documentSymbol: DocumentSymbol = {
-          name: this.formatSymbolName(symbol),
-          kind: this.mapSymbolKind(symbol.kind),
-          range,
-          selectionRange: range,
-          children: [], // Initialize empty children array
-        };
-
-        // Recursively collect children for classes, interfaces, enums, etc.
-        if (
-          ['class', 'interface', 'enum', 'trigger'].includes(
-            symbol.kind.toLowerCase(),
-          )
-        ) {
-          // Get all child scopes
+        // Recursively collect children for top-level symbol types (classes, interfaces, etc.)
+        if (inTypeSymbolGroup(symbol)) {
           const childScopes = symbolTable.getCurrentScope().getChildren();
-
-          // Find the scope for this type
           const typeScope = childScopes.find(
             (scope: any) => scope.name === symbol.name,
           );
+
           if (typeScope) {
-            // Recursively collect children
+            logger.debug(
+              () => `Collecting children for ${symbol.kind} '${symbol.name}'`,
+            );
             documentSymbol.children = this.collectChildren(
               typeScope,
               symbol.kind,
@@ -162,67 +168,39 @@ export class DefaultApexDocumentSymbolProvider
         symbols.push(documentSymbol);
       }
 
+      logger.debug(() => `Returning ${symbols.length} document symbols`);
       return symbols;
     } catch (error) {
-      logger.error(() => `Error providing document symbols: ${error}`);
+      const errorMessage = JSON.stringify(error);
+      logger.error(() => `Error providing document symbols: ${errorMessage}`);
       return null;
     }
   }
 
   /**
    * Maps Apex symbol kinds to LSP symbol kinds
+   * This converts the internal Apex symbol types to standard LSP SymbolKind values
    */
   private mapSymbolKind(kind: string): SymbolKind {
-    let mappedKind: SymbolKind;
-    switch (kind.toLowerCase()) {
-      case 'class':
-        mappedKind = SymbolKind.Class; // 5
-        break;
-      case 'interface':
-        mappedKind = SymbolKind.Interface; // 11
-        break;
-      case 'method':
-        mappedKind = SymbolKind.Method; // 6
-        break;
-      case 'property':
-        mappedKind = SymbolKind.Property; // 7
-        break;
-      case 'field':
-        mappedKind = SymbolKind.Field; // 8
-        break;
-      case 'variable':
-        mappedKind = SymbolKind.Variable; // 13
-        break;
-      case 'enum':
-        mappedKind = SymbolKind.Enum; // 10
-        break;
-      case 'enumvalue':
-        mappedKind = SymbolKind.EnumMember; // 22
-        break;
-      case 'parameter':
-        mappedKind = SymbolKind.Variable; // 13
-        break;
-      case 'trigger':
-        mappedKind = SymbolKind.Class; // 5 (treating triggers as classes)
-        break;
-      default:
-        getLogger().debug(() => `Unknown symbol kind: ${kind}`);
-        mappedKind = SymbolKind.Variable; // 13
+    const mappedKind = SYMBOL_KIND_MAP[kind.toLowerCase()];
+    if (mappedKind) {
+      return mappedKind;
     }
-    return mappedKind;
+
+    getLogger().warn(() => `Unknown symbol kind: ${kind}`);
+    return SymbolKind.Variable; // 13 (default fallback)
   }
 
   /**
    * Formats the display name for a symbol based on its type
-   * For methods, includes parameter types and return type
+   * For methods, includes parameter types and return type for better UX
    * For other symbols, returns the simple name
    */
   private formatSymbolName(symbol: ApexSymbol): string {
     // Check if this is a method symbol
-    if (symbol.kind?.toLowerCase() === 'method') {
+    if (isMethodSymbol(symbol)) {
       try {
-        // Cast to MethodSymbol to access method-specific properties
-        const methodSymbol = symbol as MethodSymbol;
+        const methodSymbol = symbol;
 
         // Build parameter list
         const parameterList = this.buildParameterList(
@@ -234,21 +212,26 @@ export class DefaultApexDocumentSymbolProvider
 
         // Format: methodName(paramTypes) : ReturnType
         return `${symbol.name}(${parameterList}) : ${returnTypeString}`;
-      } catch (_e) {
+      } catch (error) {
+        getLogger().warn(
+          () =>
+            `Error formatting method symbol name for '${symbol.name}': ${error}`,
+        );
         // Fallback to original name if anything goes wrong
         return symbol.name;
       }
     }
 
-    // For non-methods, return the simple name
+    // For other symbols, returns the simple name
     return symbol.name;
   }
 
   /**
    * Builds a comma-separated list of parameter types
+   * Used for method signature display in the outline
    */
   private buildParameterList(parameters: VariableSymbol[]): string {
-    if (!parameters || parameters.length === 0) {
+    if (!parameters?.length) {
       return '';
     }
 
@@ -259,84 +242,136 @@ export class DefaultApexDocumentSymbolProvider
 
   /**
    * Formats a return type for display
+   * Returns 'void' for methods without return types
    */
   private formatReturnType(returnType: TypeInfo): string {
-    if (!returnType) {
-      return 'void';
-    }
-
-    return this.formatTypeInfo(returnType);
+    return returnType ? this.formatTypeInfo(returnType) : 'void';
   }
 
   /**
    * Formats a TypeInfo object for display
+   * Uses originalTypeString if available for better accuracy
    */
   private formatTypeInfo(typeInfo: TypeInfo): string {
     if (!typeInfo) {
       return 'unknown';
     }
 
-    // Use the originalTypeString if available, otherwise fall back to name
     return typeInfo.originalTypeString || typeInfo.name || 'unknown';
   }
 
   /**
+   * Creates a document symbol from an Apex symbol
+   * This is the main conversion point from internal Apex symbols to LSP DocumentSymbol format
+   */
+  private createDocumentSymbol(symbol: ApexSymbol): DocumentSymbol {
+    return {
+      name: this.formatSymbolName(symbol),
+      kind: this.mapSymbolKind(symbol.kind),
+      range: this.createRange(symbol),
+      selectionRange: this.createSelectionRange(symbol),
+      children: [],
+    };
+  }
+
+  /**
    * Recursively collects children symbols for a given scope and kind
+   * This builds the hierarchical structure of the document outline
    */
   private collectChildren(scope: any, parentKind: string): DocumentSymbol[] {
     const children: DocumentSymbol[] = [];
     const childSymbols = scope.getAllSymbols();
-    // Debug log: print all child symbol names and kinds for this scope
     const logger = getLogger();
+
     logger.debug(
       () =>
-        `collectChildren for parentKind=${parentKind}, scope=${scope.name}, childSymbols=${childSymbols.map(
-          (s: any) => ({ name: s.name, kind: s.kind }),
-        )}`,
+        `Collecting children for ${parentKind} '${scope.name}': ${childSymbols.length} symbols found`,
     );
+
     for (const childSymbol of childSymbols) {
-      // For interfaces, only include methods
+      // For interfaces, only include methods (Apex interfaces can only contain method signatures)
       if (
         parentKind.toLowerCase() === 'interface' &&
-        childSymbol.kind.toLowerCase() !== 'method'
+        !isMethodSymbol(childSymbol)
       ) {
+        logger.debug(
+          () => `Skipping non-method symbol '${childSymbol.name}' in interface`,
+        );
         continue;
       }
-      const childRange = Range.create(
-        Position.create(
-          childSymbol.location.startLine - 1,
-          childSymbol.location.startColumn - 1,
-        ),
-        Position.create(
-          childSymbol.location.endLine - 1,
-          childSymbol.location.endColumn - 1,
-        ),
-      );
-      const childDocumentSymbol: DocumentSymbol = {
-        name: this.formatSymbolName(childSymbol),
-        kind: this.mapSymbolKind(childSymbol.kind),
-        range: childRange,
-        selectionRange: childRange,
-        children: [],
-      };
-      // If the child is a class, interface, enum, or trigger, recursively collect its children
-      if (
-        ['class', 'interface', 'enum', 'trigger'].includes(
-          childSymbol.kind.toLowerCase(),
-        )
-      ) {
+
+      const childDocumentSymbol = this.createDocumentSymbol(childSymbol);
+
+      // Recursively collect children for top-level symbol types
+      if (inTypeSymbolGroup(childSymbol)) {
         const childScope = scope
           .getChildren()
           .find((s: any) => s.name === childSymbol.name);
+
         if (childScope) {
+          logger.debug(
+            () =>
+              `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}'`,
+          );
           childDocumentSymbol.children = this.collectChildren(
             childScope,
             childSymbol.kind,
           );
         }
       }
+
       children.push(childDocumentSymbol);
     }
+
+    logger.debug(
+      () =>
+        `Collected ${children.length} children for ${parentKind} '${scope.name}'`,
+    );
     return children;
+  }
+
+  /**
+   * Creates a precise range that excludes leading whitespace
+   * This finds the first non-whitespace character in the line for better UX
+   */
+  private createRange(symbol: ApexSymbol): Range {
+    const { location, identifierLocation } = symbol;
+
+    // The end position is always the end of the full symbol location.
+    const endPosition = Position.create(
+      location.endLine - 1,
+      location.endColumn,
+    );
+
+    // Use the precise identifier location for the start of the range.
+    // This provides a "tighter" range that excludes leading modifiers/keywords.
+    const startPosition = Position.create(
+      (identifierLocation?.startLine ?? location.startLine) - 1,
+      identifierLocation?.startColumn ?? location.startColumn,
+    );
+    return Range.create(startPosition, endPosition);
+  }
+
+  /**
+   * Creates a precise selection range for the symbol name
+   * This excludes leading whitespace and keywords for better selection behavior
+   */
+  private createSelectionRange(symbol: ApexSymbol): Range {
+    const { identifierLocation, location, name } = symbol;
+
+    const startLine = (identifierLocation?.startLine ?? location.startLine) - 1;
+    const startColumn = identifierLocation?.startColumn ?? location.startColumn;
+
+    const endLine =
+      (identifierLocation?.endLine ??
+        identifierLocation?.startLine ??
+        location.startLine) - 1;
+    const endColumn =
+      identifierLocation?.endColumn ?? startColumn + name.length;
+
+    return Range.create(
+      Position.create(startLine, startColumn),
+      Position.create(endLine, endColumn),
+    );
   }
 }
