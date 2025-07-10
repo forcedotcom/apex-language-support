@@ -197,7 +197,7 @@
     }
   },
   "scripts": {
-    "precompile": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
+    "precompile": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars . && shx mkdir -p out && shx cp package.nls*.json language-configuration.json out/",
     "compile": "tsc --build",
     "bundle": "tsup",
     "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
