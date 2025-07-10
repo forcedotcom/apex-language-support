@@ -18,6 +18,7 @@ export enum SymbolKind {
   Interface = 'interface',
   Trigger = 'trigger',
   Method = 'method',
+  Constructor = 'constructor',
   Property = 'property',
   Field = 'field',
   Variable = 'variable',
@@ -100,6 +101,8 @@ export interface ApexSymbol {
   namespace?: string;
   /** Annotations for this symbol */
   annotations?: Annotation[];
+  /** Precise location of the identifier (symbol name) */
+  identifierLocation?: SymbolLocation;
   /** Runtime parent reference - not serialized */
   parent?: ApexSymbol | null;
 }
@@ -143,6 +146,9 @@ export class RuntimeSymbol implements ApexSymbol {
   get annotations() {
     return this.symbol.annotations;
   }
+  get identifierLocation() {
+    return this.symbol.identifierLocation;
+  }
 
   get parent(): ApexSymbol | null {
     if (!this._parent && this.symbol.parentKey) {
@@ -184,7 +190,7 @@ export interface TypeSymbol extends ApexSymbol {
  * Represents a method or constructor
  */
 export interface MethodSymbol extends ApexSymbol {
-  kind: SymbolKind.Method;
+  kind: SymbolKind.Method | SymbolKind.Constructor;
   returnType: TypeInfo;
   parameters: VariableSymbol[];
   isConstructor?: boolean;
