@@ -40,6 +40,7 @@ const SYMBOL_KIND_MAP: Record<string, SymbolKind> = {
   method: SymbolKind.Method, // 6
   property: SymbolKind.Property, // 7
   field: SymbolKind.Field, // 8
+  constructor: SymbolKind.Constructor, // 9
   variable: SymbolKind.Variable, // 13
   enum: SymbolKind.Enum, // 10
   enumvalue: SymbolKind.EnumMember, // 22

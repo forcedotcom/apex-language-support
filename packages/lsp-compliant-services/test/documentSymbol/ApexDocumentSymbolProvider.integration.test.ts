@@ -136,7 +136,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
           },
           {
             children: [],
-            kind: 6, // SymbolKind.Method
+            kind: 9, // SymbolKind.Constructor
             name: 'CommunitiesLandingController(Boolean) : void',
             range: {
               end: { character: 6, line: 14 },
@@ -265,7 +265,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
             children: [
               {
                 name: 'InnerClass() : void', // InnerClass is the name of the class still
-                kind: 6, // Method (for constructor)
+                kind: 9, // Constructor
                 range: {
                   start: { line: 2, character: 22 }, //starts at InnerClass2 since it's after the dot
                   end: { line: 4, character: 5 },

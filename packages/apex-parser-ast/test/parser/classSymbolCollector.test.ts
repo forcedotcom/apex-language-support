@@ -149,15 +149,18 @@ describe('ApexSymbolCollectorListener', () => {
       const methods = classScope
         ?.getAllSymbols()
         .filter((s: ApexSymbol) => s.kind === SymbolKind.Method);
-      expect(methods?.length).toBe(4); // Constructor, getName, setName, incrementCount
+      expect(methods?.length).toBe(3); // getName, setName, incrementCount
       logger.debug(() => `Found ${methods?.length} method symbols`);
 
       // Check constructor
-      const constructor = methods?.find(
-        (m: ApexSymbol) => m.name === 'TestClass',
-      ) as MethodSymbol;
+      const constructors = classScope
+        ?.getAllSymbols()
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Constructor);
+      expect(constructors?.length).toBe(1);
+      const constructor = constructors?.[0] as MethodSymbol;
       expect(constructor).toBeDefined();
-      expect(constructor?.isConstructor).toBe(true);
+      expect(constructor.name).toBe('TestClass');
+      expect(constructor.isConstructor).toBe(true);
       logger.debug(
         () =>
           `Constructor verified: isConstructor=${constructor?.isConstructor}`,

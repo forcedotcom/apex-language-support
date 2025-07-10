@@ -18,6 +18,7 @@ export enum SymbolKind {
   Interface = 'interface',
   Trigger = 'trigger',
   Method = 'method',
+  Constructor = 'constructor',
   Property = 'property',
   Field = 'field',
   Variable = 'variable',
@@ -189,7 +190,7 @@ export interface TypeSymbol extends ApexSymbol {
  * Represents a method or constructor
  */
 export interface MethodSymbol extends ApexSymbol {
-  kind: SymbolKind.Method;
+  kind: SymbolKind.Method | SymbolKind.Constructor;
   returnType: TypeInfo;
   parameters: VariableSymbol[];
   isConstructor?: boolean;

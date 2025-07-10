@@ -35,7 +35,7 @@ export const isEnumSymbol = (symbol: ApexSymbol): symbol is EnumSymbol =>
  * Type predicate to check if a symbol is a MethodSymbol
  */
 export const isMethodSymbol = (symbol: ApexSymbol): symbol is MethodSymbol =>
-  symbol.kind === SymbolKind.Method;
+  symbol.kind === SymbolKind.Method || symbol.kind === SymbolKind.Constructor;
 
 /**
  * Type predicate to check if a symbol is a ClassSymbol

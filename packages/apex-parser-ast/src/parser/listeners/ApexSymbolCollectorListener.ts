@@ -613,7 +613,7 @@ export class ApexSymbolCollectorListener
 
       // Set constructor-specific properties
       constructorSymbol.isConstructor = true;
-
+      constructorSymbol.kind = SymbolKind.Constructor;
       this.currentMethodSymbol = constructorSymbol;
       this.symbolTable.addSymbol(constructorSymbol);
       this.symbolTable.enterScope(name);
