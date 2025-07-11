@@ -40,6 +40,9 @@ packages/*/coverage/
 *.tmp
 *.temp
 
+# Benchmark results
+*benchmark*.json
+
 # Webpack
 webpack-stats.json
 .wireit

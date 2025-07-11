@@ -20,6 +20,7 @@
     "bundle": "echo 'Bundle is not needed for testbed'",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
+    "test:perf": "jest --testMatch \"**/test/**/*.perf.ts\"",
     "clean": "rimraf out dist .turbo tsconfig.tsbuildinfo coverage",
     "clean:all": "npm run clean && rimraf node_modules coverage",
     "start:demo": "node --enable-source-maps ./out/cli.js --server demo --interactive",
