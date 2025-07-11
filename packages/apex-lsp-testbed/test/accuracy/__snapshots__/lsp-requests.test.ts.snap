@@ -1,0 +1,3489 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 9,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 7,
+          "name": "pageSize",
+          "range": {
+            "end": {
+              "character": 41,
+              "line": 2,
+            },
+            "start": {
+              "character": 19,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 27,
+              "line": 2,
+            },
+            "start": {
+              "character": 19,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 7,
+          "name": "pageNumber",
+          "range": {
+            "end": {
+              "character": 43,
+              "line": 5,
+            },
+            "start": {
+              "character": 19,
+              "line": 5,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 5,
+            },
+            "start": {
+              "character": 19,
+              "line": 5,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 7,
+          "name": "totalItemCount",
+          "range": {
+            "end": {
+              "character": 47,
+              "line": 8,
+            },
+            "start": {
+              "character": 19,
+              "line": 8,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 33,
+              "line": 8,
+            },
+            "start": {
+              "character": 19,
+              "line": 8,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 7,
+          "name": "records",
+          "range": {
+            "end": {
+              "character": 41,
+              "line": 11,
+            },
+            "start": {
+              "character": 20,
+              "line": 11,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 27,
+              "line": 11,
+            },
+            "start": {
+              "character": 20,
+              "line": 11,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "PagedResult",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 12,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 37,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "kind": 7,
+          "name": "pageSize : Integer",
+          "range": {
+            "end": {
+              "character": 27,
+              "line": 2,
+            },
+            "start": {
+              "character": 19,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 27,
+              "line": 2,
+            },
+            "start": {
+              "character": 19,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "kind": 7,
+          "name": "pageNumber : Integer",
+          "range": {
+            "end": {
+              "character": 29,
+              "line": 5,
+            },
+            "start": {
+              "character": 19,
+              "line": 5,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 5,
+            },
+            "start": {
+              "character": 19,
+              "line": 5,
+            },
+          },
+        },
+        {
+          "kind": 7,
+          "name": "totalItemCount : Integer",
+          "range": {
+            "end": {
+              "character": 33,
+              "line": 8,
+            },
+            "start": {
+              "character": 19,
+              "line": 8,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 33,
+              "line": 8,
+            },
+            "start": {
+              "character": 19,
+              "line": 8,
+            },
+          },
+        },
+        {
+          "kind": 7,
+          "name": "records : List<Object>",
+          "range": {
+            "end": {
+              "character": 27,
+              "line": 11,
+            },
+            "start": {
+              "character": 20,
+              "line": 11,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 27,
+              "line": 11,
+            },
+            "start": {
+              "character": 20,
+              "line": 11,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "PagedResult",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 12,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 37,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 15,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 8,
+          "name": "DEFAULT_MAX_PRICE",
+          "range": {
+            "end": {
+              "character": 60,
+              "line": 1,
+            },
+            "start": {
+              "character": 33,
+              "line": 1,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 50,
+              "line": 1,
+            },
+            "start": {
+              "character": 33,
+              "line": 1,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 8,
+          "name": "DEFAULT_PAGE_SIZE",
+          "range": {
+            "end": {
+              "character": 54,
+              "line": 2,
+            },
+            "start": {
+              "character": 33,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 50,
+              "line": 2,
+            },
+            "start": {
+              "character": 33,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "getPagedPropertyList(String, Decimal, Integer, Integer, Integer, Integer) : PagedResult",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 75,
+            },
+            "start": {
+              "character": 30,
+              "line": 15,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 50,
+              "line": 15,
+            },
+            "start": {
+              "character": 30,
+              "line": 15,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "getPictures(Id) : List<ContentVersion>",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 110,
+            },
+            "start": {
+              "character": 39,
+              "line": 83,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 50,
+              "line": 83,
+            },
+            "start": {
+              "character": 39,
+              "line": 83,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "PropertyController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 111,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 44,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "kind": 8,
+          "name": "DEFAULT_MAX_PRICE : Decimal",
+          "range": {
+            "end": {
+              "character": 50,
+              "line": 1,
+            },
+            "start": {
+              "character": 33,
+              "line": 1,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 50,
+              "line": 1,
+            },
+            "start": {
+              "character": 33,
+              "line": 1,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "DEFAULT_PAGE_SIZE : Integer",
+          "range": {
+            "end": {
+              "character": 50,
+              "line": 2,
+            },
+            "start": {
+              "character": 33,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 50,
+              "line": 2,
+            },
+            "start": {
+              "character": 33,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "getPagedPropertyList(String, Decimal, Integer, Integer, Integer, Integer) : PagedResult",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 75,
+            },
+            "start": {
+              "character": 30,
+              "line": 15,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 50,
+              "line": 15,
+            },
+            "start": {
+              "character": 30,
+              "line": 15,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "getPictures(Id) : List<ContentVersion>",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 110,
+            },
+            "start": {
+              "character": 39,
+              "line": 83,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 50,
+              "line": 83,
+            },
+            "start": {
+              "character": 39,
+              "line": 83,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "PropertyController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 111,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 44,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 21,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFile(String, String, String) : String",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 34,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 35,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "FileUtilities",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 35,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 39,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "kind": 6,
+          "name": "createFile(String, String, String) : String",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 31,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 35,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "FileUtilities",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 34,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 39,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 27,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "importSampleData() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 15,
+            },
+            "start": {
+              "character": 16,
+              "line": 3,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 32,
+              "line": 3,
+            },
+            "start": {
+              "character": 16,
+              "line": 3,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "TestSampleDataController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 16,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 38,
+          "line": 1,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "kind": 6,
+          "name": "importSampleData() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 15,
+            },
+            "start": {
+              "character": 16,
+              "line": 3,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 32,
+              "line": 3,
+            },
+            "start": {
+              "character": 16,
+              "line": 3,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "TestSampleDataController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 16,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 38,
+          "line": 1,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 33,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 8,
+          "name": "MOCK_PICTURE_NAME",
+          "range": {
+            "end": {
+              "character": 69,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 49,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createProperties(Integer) : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 17,
+            },
+            "start": {
+              "character": 23,
+              "line": 4,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 39,
+              "line": 4,
+            },
+            "start": {
+              "character": 23,
+              "line": 4,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "testGetPagedPropertyList() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 71,
+            },
+            "start": {
+              "character": 16,
+              "line": 20,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 20,
+            },
+            "start": {
+              "character": 16,
+              "line": 20,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "testGetPicturesNoResults() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 85,
+            },
+            "start": {
+              "character": 16,
+              "line": 74,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 74,
+            },
+            "start": {
+              "character": 16,
+              "line": 74,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "testGetPicturesWithResults() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 119,
+            },
+            "start": {
+              "character": 16,
+              "line": 88,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 42,
+              "line": 88,
+            },
+            "start": {
+              "character": 16,
+              "line": 88,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "TestPropertyController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 120,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 36,
+          "line": 1,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "kind": 8,
+          "name": "MOCK_PICTURE_NAME : String",
+          "range": {
+            "end": {
+              "character": 49,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 49,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "createProperties(Integer) : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 17,
+            },
+            "start": {
+              "character": 23,
+              "line": 4,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 39,
+              "line": 4,
+            },
+            "start": {
+              "character": 23,
+              "line": 4,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "testGetPagedPropertyList() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 71,
+            },
+            "start": {
+              "character": 16,
+              "line": 20,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 20,
+            },
+            "start": {
+              "character": 16,
+              "line": 20,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "testGetPicturesNoResults() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 85,
+            },
+            "start": {
+              "character": 16,
+              "line": 74,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 74,
+            },
+            "start": {
+              "character": 16,
+              "line": 74,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "testGetPicturesWithResults() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 119,
+            },
+            "start": {
+              "character": 16,
+              "line": 88,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 42,
+              "line": 88,
+            },
+            "start": {
+              "character": 16,
+              "line": 88,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "TestPropertyController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 120,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 36,
+          "line": 1,
+        },
+        "start": {
+          "character": 14,
+          "line": 1,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 39,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 8,
+          "name": "BASE_URL",
+          "range": {
+            "end": {
+              "character": 99,
+              "line": 1,
+            },
+            "start": {
+              "character": 32,
+              "line": 1,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 1,
+            },
+            "start": {
+              "character": 32,
+              "line": 1,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "geocodeAddresses(List<GeocodingAddress>) : List<Coordinates>",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 53,
+            },
+            "start": {
+              "character": 36,
+              "line": 4,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 52,
+              "line": 4,
+            },
+            "start": {
+              "character": 36,
+              "line": 4,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 8,
+              "name": "street",
+              "range": {
+                "end": {
+                  "character": 28,
+                  "line": 57,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 57,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 28,
+                  "line": 57,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 57,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "city",
+              "range": {
+                "end": {
+                  "character": 26,
+                  "line": 59,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 59,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 26,
+                  "line": 59,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 59,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "state",
+              "range": {
+                "end": {
+                  "character": 27,
+                  "line": 61,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 61,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 27,
+                  "line": 61,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 61,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "country",
+              "range": {
+                "end": {
+                  "character": 29,
+                  "line": 63,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 63,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 29,
+                  "line": 63,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 63,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "postalcode",
+              "range": {
+                "end": {
+                  "character": 32,
+                  "line": 65,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 65,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 32,
+                  "line": 65,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 65,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "GeocodingAddress",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 66,
+            },
+            "start": {
+              "character": 17,
+              "line": 55,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 33,
+              "line": 55,
+            },
+            "start": {
+              "character": 17,
+              "line": 55,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 8,
+              "name": "lat",
+              "range": {
+                "end": {
+                  "character": 26,
+                  "line": 70,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 70,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 26,
+                  "line": 70,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 70,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "lon",
+              "range": {
+                "end": {
+                  "character": 26,
+                  "line": 72,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 72,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 26,
+                  "line": 72,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 72,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "Coordinates",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 73,
+            },
+            "start": {
+              "character": 17,
+              "line": 68,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 28,
+              "line": 68,
+            },
+            "start": {
+              "character": 17,
+              "line": 68,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "GeocodingService",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 74,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 42,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "kind": 8,
+              "name": "street : String",
+              "range": {
+                "end": {
+                  "character": 28,
+                  "line": 54,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 54,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 28,
+                  "line": 54,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 54,
+                },
+              },
+            },
+            {
+              "kind": 8,
+              "name": "city : String",
+              "range": {
+                "end": {
+                  "character": 26,
+                  "line": 56,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 56,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 26,
+                  "line": 56,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 56,
+                },
+              },
+            },
+            {
+              "kind": 8,
+              "name": "state : String",
+              "range": {
+                "end": {
+                  "character": 27,
+                  "line": 58,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 58,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 27,
+                  "line": 58,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 58,
+                },
+              },
+            },
+            {
+              "kind": 8,
+              "name": "country : String",
+              "range": {
+                "end": {
+                  "character": 29,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 60,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 29,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 60,
+                },
+              },
+            },
+            {
+              "kind": 8,
+              "name": "postalcode : String",
+              "range": {
+                "end": {
+                  "character": 32,
+                  "line": 62,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 62,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 32,
+                  "line": 62,
+                },
+                "start": {
+                  "character": 22,
+                  "line": 62,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "GeocodingAddress",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 63,
+            },
+            "start": {
+              "character": 17,
+              "line": 52,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 33,
+              "line": 52,
+            },
+            "start": {
+              "character": 17,
+              "line": 52,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "kind": 8,
+              "name": "lat : Decimal",
+              "range": {
+                "end": {
+                  "character": 26,
+                  "line": 67,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 67,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 26,
+                  "line": 67,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 67,
+                },
+              },
+            },
+            {
+              "kind": 8,
+              "name": "lon : Decimal",
+              "range": {
+                "end": {
+                  "character": 26,
+                  "line": 69,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 69,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 26,
+                  "line": 69,
+                },
+                "start": {
+                  "character": 23,
+                  "line": 69,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "Coordinates",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 70,
+            },
+            "start": {
+              "character": 17,
+              "line": 65,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 28,
+              "line": 65,
+            },
+            "start": {
+              "character": 17,
+              "line": 65,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "BASE_URL : String",
+          "range": {
+            "end": {
+              "character": 40,
+              "line": 1,
+            },
+            "start": {
+              "character": 32,
+              "line": 1,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 1,
+            },
+            "start": {
+              "character": 32,
+              "line": 1,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "geocodeAddresses(List<GeocodingService.GeocodingAddress>) : List<GeocodingService.Coordinates>",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 50,
+            },
+            "start": {
+              "character": 36,
+              "line": 4,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 52,
+              "line": 4,
+            },
+            "start": {
+              "character": 36,
+              "line": 4,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "GeocodingService",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 71,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 42,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 45,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "importSampleData() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 11,
+            },
+            "start": {
+              "character": 23,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 39,
+              "line": 2,
+            },
+            "start": {
+              "character": 23,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "insertBrokers() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 25,
+            },
+            "start": {
+              "character": 24,
+              "line": 13,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 37,
+              "line": 13,
+            },
+            "start": {
+              "character": 24,
+              "line": 13,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "insertProperties() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 40,
+            },
+            "start": {
+              "character": 24,
+              "line": 27,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 27,
+            },
+            "start": {
+              "character": 24,
+              "line": 27,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "insertContacts() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 54,
+            },
+            "start": {
+              "character": 24,
+              "line": 42,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 38,
+              "line": 42,
+            },
+            "start": {
+              "character": 24,
+              "line": 42,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "randomizeDateListed(List<Property__c>) : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 61,
+            },
+            "start": {
+              "character": 24,
+              "line": 56,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 43,
+              "line": 56,
+            },
+            "start": {
+              "character": 24,
+              "line": 56,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "SampleDataController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 62,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 46,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "kind": 6,
+          "name": "importSampleData() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 11,
+            },
+            "start": {
+              "character": 23,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 39,
+              "line": 2,
+            },
+            "start": {
+              "character": 23,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "insertBrokers() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 25,
+            },
+            "start": {
+              "character": 24,
+              "line": 13,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 37,
+              "line": 13,
+            },
+            "start": {
+              "character": 24,
+              "line": 13,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "insertProperties() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 40,
+            },
+            "start": {
+              "character": 24,
+              "line": 27,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 27,
+            },
+            "start": {
+              "character": 24,
+              "line": 27,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "insertContacts() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 54,
+            },
+            "start": {
+              "character": 24,
+              "line": 42,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 38,
+              "line": 42,
+            },
+            "start": {
+              "character": 24,
+              "line": 42,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "randomizeDateListed(List<Property__c>) : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 61,
+            },
+            "start": {
+              "character": 24,
+              "line": 56,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 43,
+              "line": 56,
+            },
+            "start": {
+              "character": 24,
+              "line": 56,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "SampleDataController",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 62,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 46,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 51,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 8,
+          "name": "STREET",
+          "range": {
+            "end": {
+              "character": 63,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 38,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 8,
+          "name": "CITY",
+          "range": {
+            "end": {
+              "character": 48,
+              "line": 3,
+            },
+            "start": {
+              "character": 32,
+              "line": 3,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 36,
+              "line": 3,
+            },
+            "start": {
+              "character": 32,
+              "line": 3,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 8,
+          "name": "POSTAL_CODE",
+          "range": {
+            "end": {
+              "character": 53,
+              "line": 4,
+            },
+            "start": {
+              "character": 32,
+              "line": 4,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 43,
+              "line": 4,
+            },
+            "start": {
+              "character": 32,
+              "line": 4,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 8,
+          "name": "STATE",
+          "range": {
+            "end": {
+              "character": 49,
+              "line": 5,
+            },
+            "start": {
+              "character": 32,
+              "line": 5,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 37,
+              "line": 5,
+            },
+            "start": {
+              "character": 32,
+              "line": 5,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 8,
+          "name": "COUNTRY",
+          "range": {
+            "end": {
+              "character": 49,
+              "line": 6,
+            },
+            "start": {
+              "character": 32,
+              "line": 6,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 39,
+              "line": 6,
+            },
+            "start": {
+              "character": 32,
+              "line": 6,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 8,
+          "name": "LATITUDE",
+          "range": {
+            "end": {
+              "character": 49,
+              "line": 7,
+            },
+            "start": {
+              "character": 33,
+              "line": 7,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 41,
+              "line": 7,
+            },
+            "start": {
+              "character": 33,
+              "line": 7,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 8,
+          "name": "LONGITUDE",
+          "range": {
+            "end": {
+              "character": 51,
+              "line": 8,
+            },
+            "start": {
+              "character": 33,
+              "line": 8,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 42,
+              "line": 8,
+            },
+            "start": {
+              "character": 33,
+              "line": 8,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "successResponse() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 34,
+            },
+            "start": {
+              "character": 16,
+              "line": 11,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 31,
+              "line": 11,
+            },
+            "start": {
+              "character": 16,
+              "line": 11,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "blankAddress() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 54,
+            },
+            "start": {
+              "character": 16,
+              "line": 36,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 28,
+              "line": 36,
+            },
+            "start": {
+              "character": 16,
+              "line": 36,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "errorResponse() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 79,
+            },
+            "start": {
+              "character": 16,
+              "line": 56,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 56,
+            },
+            "start": {
+              "character": 16,
+              "line": 56,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 6,
+              "name": "respond(HTTPRequest) : HTTPResponse",
+              "range": {
+                "end": {
+                  "character": 9,
+                  "line": 88,
+                },
+                "start": {
+                  "character": 28,
+                  "line": 82,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 35,
+                  "line": 82,
+                },
+                "start": {
+                  "character": 28,
+                  "line": 82,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "OpenStreetMapHttpCalloutMockImpl",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 89,
+            },
+            "start": {
+              "character": 17,
+              "line": 81,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 49,
+              "line": 81,
+            },
+            "start": {
+              "character": 17,
+              "line": 81,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 6,
+              "name": "respond(HTTPRequest) : HTTPResponse",
+              "range": {
+                "end": {
+                  "character": 9,
+                  "line": 97,
+                },
+                "start": {
+                  "character": 28,
+                  "line": 92,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 35,
+                  "line": 92,
+                },
+                "start": {
+                  "character": 28,
+                  "line": 92,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "OpenStreetMapHttpCalloutMockImplError",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 98,
+            },
+            "start": {
+              "character": 17,
+              "line": 91,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 54,
+              "line": 91,
+            },
+            "start": {
+              "character": 17,
+              "line": 91,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "GeocodingServiceTest",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 99,
+        },
+        "start": {
+          "character": 27,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 47,
+          "line": 1,
+        },
+        "start": {
+          "character": 27,
+          "line": 1,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "kind": 6,
+              "name": "respond(System.HttpRequest) : System.HttpResponse",
+              "range": {
+                "end": {
+                  "character": 9,
+                  "line": 88,
+                },
+                "start": {
+                  "character": 28,
+                  "line": 82,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 35,
+                  "line": 82,
+                },
+                "start": {
+                  "character": 28,
+                  "line": 82,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "OpenStreetMapHttpCalloutMockImpl",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 89,
+            },
+            "start": {
+              "character": 17,
+              "line": 81,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 49,
+              "line": 81,
+            },
+            "start": {
+              "character": 17,
+              "line": 81,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "kind": 6,
+              "name": "respond(System.HttpRequest) : System.HttpResponse",
+              "range": {
+                "end": {
+                  "character": 9,
+                  "line": 97,
+                },
+                "start": {
+                  "character": 28,
+                  "line": 92,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 35,
+                  "line": 92,
+                },
+                "start": {
+                  "character": 28,
+                  "line": 92,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "OpenStreetMapHttpCalloutMockImplError",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 98,
+            },
+            "start": {
+              "character": 17,
+              "line": 91,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 54,
+              "line": 91,
+            },
+            "start": {
+              "character": 17,
+              "line": 91,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "STREET : String",
+          "range": {
+            "end": {
+              "character": 38,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 38,
+              "line": 2,
+            },
+            "start": {
+              "character": 32,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "CITY : String",
+          "range": {
+            "end": {
+              "character": 36,
+              "line": 3,
+            },
+            "start": {
+              "character": 32,
+              "line": 3,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 36,
+              "line": 3,
+            },
+            "start": {
+              "character": 32,
+              "line": 3,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "POSTAL_CODE : String",
+          "range": {
+            "end": {
+              "character": 43,
+              "line": 4,
+            },
+            "start": {
+              "character": 32,
+              "line": 4,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 43,
+              "line": 4,
+            },
+            "start": {
+              "character": 32,
+              "line": 4,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "STATE : String",
+          "range": {
+            "end": {
+              "character": 37,
+              "line": 5,
+            },
+            "start": {
+              "character": 32,
+              "line": 5,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 37,
+              "line": 5,
+            },
+            "start": {
+              "character": 32,
+              "line": 5,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "COUNTRY : String",
+          "range": {
+            "end": {
+              "character": 39,
+              "line": 6,
+            },
+            "start": {
+              "character": 32,
+              "line": 6,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 39,
+              "line": 6,
+            },
+            "start": {
+              "character": 32,
+              "line": 6,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "LATITUDE : Decimal",
+          "range": {
+            "end": {
+              "character": 41,
+              "line": 7,
+            },
+            "start": {
+              "character": 33,
+              "line": 7,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 41,
+              "line": 7,
+            },
+            "start": {
+              "character": 33,
+              "line": 7,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "LONGITUDE : Decimal",
+          "range": {
+            "end": {
+              "character": 42,
+              "line": 8,
+            },
+            "start": {
+              "character": 33,
+              "line": 8,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 42,
+              "line": 8,
+            },
+            "start": {
+              "character": 33,
+              "line": 8,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "successResponse() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 34,
+            },
+            "start": {
+              "character": 16,
+              "line": 11,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 31,
+              "line": 11,
+            },
+            "start": {
+              "character": 16,
+              "line": 11,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "blankAddress() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 54,
+            },
+            "start": {
+              "character": 16,
+              "line": 36,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 28,
+              "line": 36,
+            },
+            "start": {
+              "character": 16,
+              "line": 36,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "errorResponse() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 79,
+            },
+            "start": {
+              "character": 16,
+              "line": 56,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 56,
+            },
+            "start": {
+              "character": 16,
+              "line": 56,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "GeocodingServiceTest",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 99,
+        },
+        "start": {
+          "character": 27,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 47,
+          "line": 1,
+        },
+        "start": {
+          "character": 27,
+          "line": 1,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 57,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": null,
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "kind": 6,
+          "name": "x() : String",
+          "range": {
+            "end": {
+              "character": 12,
+              "line": 2,
+            },
+            "start": {
+              "character": 11,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 12,
+              "line": 2,
+            },
+            "start": {
+              "character": 11,
+              "line": 2,
+            },
+          },
+        },
+      ],
+      "kind": 11,
+      "name": "MyInterface",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 3,
+        },
+        "start": {
+          "character": 17,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 28,
+          "line": 0,
+        },
+        "start": {
+          "character": 17,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 63,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": null,
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "kind": 8,
+          "name": "x : String",
+          "range": {
+            "end": {
+              "character": 19,
+              "line": 1,
+            },
+            "start": {
+              "character": 18,
+              "line": 1,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 19,
+              "line": 1,
+            },
+            "start": {
+              "character": 18,
+              "line": 1,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "y : String",
+          "range": {
+            "end": {
+              "character": 20,
+              "line": 2,
+            },
+            "start": {
+              "character": 19,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 20,
+              "line": 2,
+            },
+            "start": {
+              "character": 19,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "kind": 9,
+          "name": "MyWebService()",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 13,
+            },
+            "start": {
+              "character": 11,
+              "line": 3,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 23,
+              "line": 3,
+            },
+            "start": {
+              "character": 11,
+              "line": 3,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "MyWebService",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 14,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 38,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 69,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFileSucceedsWhenCorrectInput() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 21,
+            },
+            "start": {
+              "character": 16,
+              "line": 3,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 50,
+              "line": 3,
+            },
+            "start": {
+              "character": 16,
+              "line": 3,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFileFailsWhenIncorrectRecordId() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 42,
+            },
+            "start": {
+              "character": 16,
+              "line": 24,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 52,
+              "line": 24,
+            },
+            "start": {
+              "character": 16,
+              "line": 24,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFileFailsWhenIncorrectBase64Data() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 66,
+            },
+            "start": {
+              "character": 16,
+              "line": 45,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 54,
+              "line": 45,
+            },
+            "start": {
+              "character": 16,
+              "line": 45,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFileFailsWhenIncorrectFilename() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 90,
+            },
+            "start": {
+              "character": 16,
+              "line": 69,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 52,
+              "line": 69,
+            },
+            "start": {
+              "character": 16,
+              "line": 69,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "FileUtilitiesTest",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 91,
+        },
+        "start": {
+          "character": 27,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 44,
+          "line": 1,
+        },
+        "start": {
+          "character": 27,
+          "line": 1,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "kind": 6,
+          "name": "createFileSucceedsWhenCorrectInput() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 21,
+            },
+            "start": {
+              "character": 16,
+              "line": 3,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 50,
+              "line": 3,
+            },
+            "start": {
+              "character": 16,
+              "line": 3,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "createFileFailsWhenIncorrectRecordId() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 42,
+            },
+            "start": {
+              "character": 16,
+              "line": 24,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 52,
+              "line": 24,
+            },
+            "start": {
+              "character": 16,
+              "line": 24,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "createFileFailsWhenIncorrectBase64Data() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 66,
+            },
+            "start": {
+              "character": 16,
+              "line": 45,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 54,
+              "line": 45,
+            },
+            "start": {
+              "character": 16,
+              "line": 45,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "createFileFailsWhenIncorrectFilename() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 90,
+            },
+            "start": {
+              "character": 16,
+              "line": 69,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 52,
+              "line": 69,
+            },
+            "start": {
+              "character": 16,
+              "line": 69,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "FileUtilitiesTest",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 91,
+        },
+        "start": {
+          "character": 27,
+          "line": 1,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 44,
+          "line": 1,
+        },
+        "start": {
+          "character": 27,
+          "line": 1,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 96,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFile(String, String, String) : String",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 34,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 35,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "FileUtilities",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 35,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 39,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "kind": 6,
+          "name": "createFile(String, String, String) : String",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 31,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 35,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "FileUtilities",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 34,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 39,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 101,
+  params: [Object]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFile(String, String, String) : String",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 34,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 35,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "FileUtilities",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 35,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 39,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "expectedResponse": undefined,
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+      },
+    },
+  },
+}
+`;

@@ -71,7 +71,7 @@ const extractTestDataForGroup = (config: RequestGroupConfig): [string, any][] =>
     )
     .map((request) => [request.method, request]);
 
-describe.skip('LSP Request/Response Accuracy', () => {
+describe('LSP Request/Response Accuracy', () => {
   const targetServer: ServerType = 'nodeServer';
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;
 
