@@ -13,7 +13,7 @@ import {
   createTestServer,
   ServerOptions,
 } from '../../src/test-utils/serverFactory';
-import { ServerType } from 'packages/apex-lsp-testbed/src/utils/serverUtils';
+import { ServerType } from '../../src/utils/serverUtils';
 
 // --- Load test data synchronously ---
 const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
