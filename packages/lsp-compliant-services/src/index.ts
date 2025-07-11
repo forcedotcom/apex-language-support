@@ -21,8 +21,8 @@ import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
 
 // Export storage interfaces and classes
 export * from './storage/ApexStorageInterface';
-export * from './storage/ApexStorageManager';
 export * from './storage/ApexStorage';
+export * from './storage/ApexStorageManager';
 
 // Export document symbol provider
 export * from './documentSymbol/ApexDocumentSymbolProvider';
@@ -33,18 +33,20 @@ export * from './foldingRange/ApexFoldingRangeProvider';
 // Export LSP handlers
 export * from './handlers/DidOpenDocumentHandler';
 export * from './handlers/DidChangeDocumentHandler';
-export * from './handlers/DidCloseDocumentHandler';
 export * from './handlers/DidSaveDocumentHandler';
+export * from './handlers/DidCloseDocumentHandler';
 export * from './handlers/DocumentSymbolHandler';
 export * from './handlers/FoldingRangeHandler';
 export * from './handlers/ApexLibResolveHandler';
 export * from './handlers/LogNotificationHandler';
+export * from './handlers/DiagnosticHandler';
 
 // Export services
 export * from './services/DocumentProcessingService';
-export * from './services/DocumentSymbolProcessingService';
 export * from './services/DocumentSaveProcessingService';
 export * from './services/DocumentCloseProcessingService';
+export * from './services/DocumentSymbolProcessingService';
+export * from './services/DiagnosticProcessingService';
 
 // Export factories
 export * from './factories/HandlerFactory';
@@ -115,3 +117,15 @@ export const dispatchProcessOnDocumentSymbol = async (
 
 // Re-export the existing dispatch functions
 export { dispatchProcessOnFoldingRange, dispatchProcessOnResolve };
+
+/**
+ * Dispatch function for diagnostic requests
+ * @param params The diagnostic parameters
+ * @returns Promise resolving to diagnostics
+ */
+export const dispatchProcessOnDiagnostic = async (
+  params: DocumentSymbolParams,
+): Promise<Diagnostic[]> => {
+  const handler = HandlerFactory.createDiagnosticHandler();
+  return await handler.handleDiagnostic(params);
+};
