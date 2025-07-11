@@ -258,8 +258,8 @@ describe('Apex Language Server Extension', () => {
         activate(mockContext);
         await jest.runAllTimersAsync();
 
-        // Verify that getConfiguration was called for apex settings
-        expect(mockGetConfiguration).toHaveBeenCalledWith('apex');
+        // Verify that getConfiguration was called for apex-ls-ts settings
+        expect(mockGetConfiguration).toHaveBeenCalledWith('apex-ls-ts');
       } finally {
         // Restore original function
         vscode.workspace.getConfiguration = originalGetConfiguration;

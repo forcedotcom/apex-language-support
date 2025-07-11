@@ -184,16 +184,16 @@ export function activate(context: vscode.ExtensionContext) {
       apex: {
         commentCollection: {
           enableCommentCollection: vscode.workspace
-            .getConfiguration('apex')
+            .getConfiguration('apex-ls-ts')
             .get('commentCollection.enableCommentCollection', true),
           includeSingleLineComments: vscode.workspace
-            .getConfiguration('apex')
+            .getConfiguration('apex-ls-ts')
             .get('commentCollection.includeSingleLineComments', false),
           // ... other settings
         },
         performance: {
           commentCollectionMaxFileSize: vscode.workspace
-            .getConfiguration('apex')
+            .getConfiguration('apex-ls-ts')
             .get('performance.commentCollectionMaxFileSize', 102400),
           // ... other settings
         }
@@ -201,7 +201,7 @@ export function activate(context: vscode.ExtensionContext) {
     },
     synchronize: {
       // Synchronize these configuration sections
-      configurationSection: ['apex', 'apexLanguageServer']
+      configurationSection: ['apex-ls-ts', 'apexLanguageServer']
     }
   };
 
