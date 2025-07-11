@@ -110,12 +110,10 @@ export interface ApexLanguageServerSettings {
   version?: string;
 
   /**
-   * General log level for the server (optional, from apex.ls.logLevel)
+   * General log level for the server (optional, from apex.logLevel)
    * Accepts: 'error', 'warning', 'info', 'log', 'debug'
    */
-  ls?: {
-    logLevel?: string;
-  };
+  logLevel?: string;
 }
 
 /**
@@ -188,25 +186,80 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
 };
 
 /**
+ * Interface for validation result
+ */
+export interface ValidationResult {
+  isValid: boolean;
+  missingKeys: string[];
+  invalidKeys: string[];
+  details: string[];
+}
+
+/**
+ * Enhanced validation function that provides detailed feedback about schema mismatches
+ * This validates partial configurations - only checks the properties that are present
+ */
+export function validateApexSettings(obj: any): ValidationResult {
+  const result: ValidationResult = {
+    isValid: true,
+    missingKeys: [],
+    invalidKeys: [],
+    details: [],
+  };
+
+  if (!obj || typeof obj !== 'object') {
+    result.isValid = false;
+    result.details.push(
+      'Configuration object is null, undefined, or not an object',
+    );
+    return result;
+  }
+
+  // Define valid properties and their expected types
+  const validTopLevelProps = {
+    commentCollection: 'object',
+    performance: 'object',
+    environment: 'object',
+    resources: 'object',
+    diagnostics: 'object',
+    version: 'string',
+    logLevel: 'string',
+  };
+
+  // Check each provided property
+  for (const [prop, value] of Object.entries(obj)) {
+    if (!(prop in validTopLevelProps)) {
+      result.details.push(`Unknown property: ${prop}`);
+      // Don't mark as invalid for unknown properties, just log them
+    } else {
+      const expectedType =
+        validTopLevelProps[prop as keyof typeof validTopLevelProps];
+      const actualType = typeof value;
+
+      if (actualType !== expectedType) {
+        result.isValid = false;
+        result.invalidKeys.push(prop);
+        result.details.push(
+          `Property ${prop} should be ${expectedType} but is ${actualType}`,
+        );
+      } else if (expectedType === 'object' && value === null) {
+        result.isValid = false;
+        result.invalidKeys.push(prop);
+        result.details.push(`Property ${prop} should be an object but is null`);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
  * Type guard to check if an object is valid ApexLanguageServerSettings
  */
 export function isValidApexSettings(
   obj: any,
 ): obj is ApexLanguageServerSettings {
-  return (
-    obj &&
-    typeof obj === 'object' &&
-    obj.commentCollection &&
-    typeof obj.commentCollection === 'object' &&
-    obj.performance &&
-    typeof obj.performance === 'object' &&
-    obj.environment &&
-    typeof obj.environment === 'object' &&
-    obj.resources &&
-    typeof obj.resources === 'object' &&
-    obj.diagnostics &&
-    typeof obj.diagnostics === 'object'
-  );
+  return validateApexSettings(obj).isValid;
 }
 
 /**
@@ -244,6 +297,39 @@ export function mergeWithDefaults(
       ...userSettings.diagnostics,
     },
     version: userSettings.version || baseDefaults.version,
-    ls: userSettings.ls || baseDefaults.ls,
+    logLevel: userSettings.logLevel || baseDefaults.logLevel,
+  };
+}
+
+/**
+ * Merge partial settings with existing settings, preserving values that aren't being updated
+ */
+export function mergeWithExisting(
+  existingSettings: ApexLanguageServerSettings,
+  partialSettings: Partial<ApexLanguageServerSettings>,
+): ApexLanguageServerSettings {
+  return {
+    commentCollection: {
+      ...existingSettings.commentCollection,
+      ...partialSettings.commentCollection,
+    },
+    performance: {
+      ...existingSettings.performance,
+      ...partialSettings.performance,
+    },
+    environment: {
+      ...existingSettings.environment,
+      ...partialSettings.environment,
+    },
+    resources: {
+      ...existingSettings.resources,
+      ...partialSettings.resources,
+    },
+    diagnostics: {
+      ...existingSettings.diagnostics,
+      ...partialSettings.diagnostics,
+    },
+    version: partialSettings.version ?? existingSettings.version,
+    logLevel: partialSettings.logLevel ?? existingSettings.logLevel,
   };
 }

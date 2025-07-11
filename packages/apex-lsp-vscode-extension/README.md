@@ -18,7 +18,7 @@ This extension provides Apex language support in Visual Studio Code through the 
 
 ## Configuration
 
-The extension supports extensive configuration through VSCode settings. All settings are prefixed with `apex.`.
+The extension supports extensive configuration through VSCode settings. All settings are prefixed with `apex-ls-ts.`.
 
 ### Comment Collection Settings
 
@@ -26,41 +26,35 @@ Control how comments are collected and processed during document parsing:
 
 ```json
 {
-  "apex.commentCollection.enableCommentCollection": true,
-  "apex.commentCollection.includeSingleLineComments": false,
-  "apex.commentCollection.associateCommentsWithSymbols": true,
-  "apex.commentCollection.enableForDocumentChanges": true,
-  "apex.commentCollection.enableForDocumentOpen": true,
-  "apex.commentCollection.enableForDocumentSymbols": false,
-  "apex.commentCollection.enableForFoldingRanges": true
+  "apex-ls-ts.commentCollection.enableCommentCollection": true,
+  "apex-ls-ts.commentCollection.includeSingleLineComments": false,
+  "apex-ls-ts.commentCollection.associateCommentsWithSymbols": true,
+  "apex-ls-ts.commentCollection.enableForDocumentChanges": true,
+  "apex-ls-ts.commentCollection.enableForDocumentOpen": true,
+  "apex-ls-ts.commentCollection.enableForDocumentSymbols": false,
+  "apex-ls-ts.commentCollection.enableForFoldingRanges": true
 }
 ```
 
 #### Comment Collection Options
 
 - **`enableCommentCollection`** (boolean, default: `true`)
-
   - Master switch for comment collection. When disabled, no comments are collected.
 
 - **`includeSingleLineComments`** (boolean, default: `false`)
-
   - Include single-line (`//`) comments in addition to block comments (`/* */`).
 
 - **`associateCommentsWithSymbols`** (boolean, default: `true`)
-
   - Associate comments with nearby symbols for enhanced language features.
   - ⚠️ May impact performance, especially in large files.
 
 - **`enableForDocumentChanges`** (boolean, default: `true`)
-
   - Enable comment collection when documents are modified.
 
 - **`enableForDocumentOpen`** (boolean, default: `true`)
-
   - Enable comment collection when documents are opened.
 
 - **`enableForDocumentSymbols`** (boolean, default: `false`)
-
   - Enable comment collection for document symbols.
   - ⚠️ May impact performance.
 
@@ -74,20 +68,18 @@ Optimize language server performance:
 
 ```json
 {
-  "apex.performance.commentCollectionMaxFileSize": 102400,
-  "apex.performance.useAsyncCommentProcessing": true,
-  "apex.performance.documentChangeDebounceMs": 300
+  "apex-ls-ts.performance.commentCollectionMaxFileSize": 102400,
+  "apex-ls-ts.performance.useAsyncCommentProcessing": true,
+  "apex-ls-ts.performance.documentChangeDebounceMs": 300
 }
 ```
 
 #### Performance Options
 
 - **`commentCollectionMaxFileSize`** (number, default: `102400`)
-
   - Maximum file size (in bytes) for comment collection. Files larger than this will skip comment collection.
 
 - **`useAsyncCommentProcessing`** (boolean, default: `true`)
-
   - Use asynchronous comment processing to improve responsiveness.
 
 - **`documentChangeDebounceMs`** (number, default: `300`)
@@ -99,7 +91,7 @@ Control logging and debugging:
 
 ```json
 {
-  "apex.environment.enablePerformanceLogging": false
+  "apex-ls-ts.environment.enablePerformanceLogging": false
 }
 ```
 
@@ -114,21 +106,19 @@ Configure debugging for the language server:
 
 ```json
 {
-  "apex.debug": "off",
-  "apex.debugPort": 6009
+  "apex-ls-ts.debug": "off",
+  "apex-ls-ts.debugPort": 6009
 }
 ```
 
 #### Debug Options
 
 - **`debug`** (string, enum: `"off"`, `"inspect"`, `"inspect-brk"`, default: `"off"`)
-
   - **`"off"`**: No debugging enabled
   - **`"inspect"`**: Enable debugging without breaking on startup
   - **`"inspect-brk"`**: Enable debugging with break on startup
 
 - **`debugPort`** (number, default: `6009`)
-
   - Port to use for debugging. Set to `6009` to use the default port.
 
 ### Legacy Settings
@@ -137,8 +127,8 @@ These settings are for low-level control and compatibility with other tooling:
 
 ```json
 {
-  "apex.enable": true,
-  "apex.trace.server": "off"
+  "apex-ls-ts.enable": true,
+  "apex-ls-ts.trace.server": "off"
 }
 ```
 
@@ -147,7 +137,6 @@ These settings are for low-level control and compatibility with other tooling:
 The extension provides the following commands, which can be accessed from the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`):
 
 - **Restart Apex Language Server** (`apex.restart.server`)
-
   - Restarts the language server if it becomes unresponsive.
   - Also available by clicking the status bar item.
 
@@ -157,10 +146,10 @@ Create a `.vscode/settings.json` file in your workspace for project-specific set
 
 ```json
 {
-  "apex.commentCollection.enableCommentCollection": true,
-  "apex.commentCollection.includeSingleLineComments": true,
-  "apex.commentCollection.associateCommentsWithSymbols": true,
-  "apex.performance.commentCollectionMaxFileSize": 204800
+  "apex-ls-ts.commentCollection.enableCommentCollection": true,
+  "apex-ls-ts.commentCollection.includeSingleLineComments": true,
+  "apex-ls-ts.commentCollection.associateCommentsWithSymbols": true,
+  "apex-ls-ts.performance.commentCollectionMaxFileSize": 204800
 }
 ```
 
@@ -170,10 +159,10 @@ Configure global settings in VSCode user settings:
 
 ```json
 {
-  "apex.commentCollection.enableCommentCollection": true,
-  "apex.performance.useAsyncCommentProcessing": true,
-  "apex.performance.documentChangeDebounceMs": 500,
-  "apex.environment.enablePerformanceLogging": false
+  "apex-ls-ts.commentCollection.enableCommentCollection": true,
+  "apex-ls-ts.performance.useAsyncCommentProcessing": true,
+  "apex-ls-ts.performance.documentChangeDebounceMs": 500,
+  "apex-ls-ts.environment.enablePerformanceLogging": false
 }
 ```
 
@@ -185,9 +174,9 @@ For optimal performance, especially with large codebases:
 
    ```json
    {
-     "apex.commentCollection.associateCommentsWithSymbols": false,
-     "apex.commentCollection.enableForDocumentSymbols": false,
-     "apex.commentCollection.enableForFoldingRanges": false
+     "apex-ls-ts.commentCollection.associateCommentsWithSymbols": false,
+     "apex-ls-ts.commentCollection.enableForDocumentSymbols": false,
+     "apex-ls-ts.commentCollection.enableForFoldingRanges": false
    }
    ```
 
@@ -195,7 +184,7 @@ For optimal performance, especially with large codebases:
 
    ```json
    {
-     "apex.performance.commentCollectionMaxFileSize": 51200
+     "apex-ls-ts.performance.commentCollectionMaxFileSize": 51200
    }
    ```
 
@@ -203,14 +192,14 @@ For optimal performance, especially with large codebases:
 
    ```json
    {
-     "apex.performance.documentChangeDebounceMs": 500
+     "apex-ls-ts.performance.documentChangeDebounceMs": 500
    }
    ```
 
 4. **Enable performance logging** to identify bottlenecks:
    ```json
    {
-     "apex.environment.enablePerformanceLogging": true
+     "apex-ls-ts.environment.enablePerformanceLogging": true
    }
    ```
 
@@ -240,98 +229,6 @@ For optimal performance, especially with large codebases:
 
 For extension development and debugging:
 
-1. Enable performance logging: `"apex.environment.enablePerformanceLogging": true`
-2. Set the trace level: `"apex.trace.server": "verbose"`
-3. Enable debugging: `"apex.debug": "inspect"` or `"apex.debug": "inspect-brk"`
-4. Monitor the **Output** panel for detailed logs.
-
-### Debugging the Language Server
-
-The extension supports VS Code configuration-based debugging of the language server process. Configure the debug settings in your VS Code settings to control inspection behavior:
-
-#### Debug Mode Options
-
-- **No Inspection** (default): Set `"apex.debug": "off"`
-
-  ```json
-  {
-    "apex.debug": "off"
-  }
-  ```
-
-- **Inspection without Break**: Set to `"inspect"`
-
-  ```json
-  {
-    "apex.debug": "inspect",
-    "apex.debugPort": 6009
-  }
-  ```
-
-- **Inspection with Break**: Set to `"inspect-brk"`
-  ```json
-  {
-    "apex.debug": "inspect-brk",
-    "apex.debugPort": 6009
-  }
-  ```
-
-#### Usage Examples
-
-1. **For development without debugging**:
-
-   ```json
-   {
-     "apex.debug": "off"
-   }
-   ```
-
-2. **For debugging with inspection**:
-
-   ```json
-   {
-     "apex.debug": "inspect",
-     "apex.debugPort": 6009
-   }
-   ```
-
-   Then attach debugger to `localhost:6009`
-
-3. **For debugging with break on startup**:
-   ```json
-   {
-     "apex.debug": "inspect-brk",
-     "apex.debugPort": 6009
-   }
-   ```
-   Debugger will break immediately when language server starts
-
-#### Debugging in VS Code
-
-To debug the language server in VS Code:
-
-1. Configure your settings with the desired debug mode
-2. Restart the language server using the **Restart Apex Language Server** command
-3. Open the Debug panel in VS Code
-4. Create a new launch configuration for "Attach to Node.js Process"
-5. Set the port to match your `apex.debugPort` setting (6009 is the default)
-6. Start debugging
-
-The language server will pause on startup if using `"inspect-brk"` mode, allowing you to set breakpoints and step through the code.
-
-**Note**: The language server will log debug mode changes in the Output panel under 'Apex Language Server (Typescript)' when inspection is enabled (`"inspect"` or `"inspect-brk"`). No log messages are output when debug mode is set to `"off"`.
-
-### Logging Behavior
-
-The extension provides consistent timestamped logging through the Output panel. All log messages from the language server are automatically formatted with ISO timestamps for easy debugging and monitoring.
-
-## Architecture
-
-The extension integrates with:
-
-- **Apex Language Server (Node.js)**: Provides core language features.
-- **LSP Configuration Manager**: Handles the settings lifecycle.
-- **Comment Collection System**: Provides configurable comment processing.
-- **Performance Monitoring**: Helps optimize resource usage.
-
-For more details on the underlying language server, see the [Node.js Language Server documentation](../apex-ls-node/README.md).
+1. Enable performance logging: `"apex-ls-ts.environment.enablePerformanceLogging": true`
+2. Set the trace level: `"apex-ls-ts.trace.server": "verbose"`
+3. Enable debugging: `

@@ -11,6 +11,7 @@ import {
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
+  InitializeResult,
 } from 'vscode-languageclient/node';
 
 // Define enum since it's not directly exported
@@ -160,7 +161,7 @@ export class ApexLspVscodeClient {
    * Gets workspace settings to pass to the server during initialization
    */
   private getWorkspaceSettings(): object {
-    const config = vscode.workspace.getConfiguration('apex');
+    const config = vscode.workspace.getConfiguration('apex-ls-ts');
     return {
       enableCompletions: config.get<boolean>('enableCompletions', true),
       enableDiagnostics: config.get<boolean>('enableDiagnostics', true),
@@ -275,7 +276,7 @@ export class ApexLspVscodeClient {
     // Register configuration change listener to notify server of changes
     const configListener = vscode.workspace.onDidChangeConfiguration(
       (event) => {
-        if (event.affectsConfiguration('apex')) {
+        if (event.affectsConfiguration('apex-ls-ts')) {
           // Notify server of configuration changes
           this.client.sendNotification('workspace/didChangeConfiguration', {
             settings: this.getWorkspaceSettings(),

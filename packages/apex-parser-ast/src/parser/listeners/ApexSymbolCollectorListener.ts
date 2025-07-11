@@ -52,6 +52,13 @@ import {
   InterfaceBodyValidator,
   ErrorReporter,
 } from '../../semantics/modifiers/index';
+import {
+  hasIdMethod,
+  isEnumSymbol,
+  isMethodSymbol,
+  isClassSymbol,
+  isInterfaceSymbol,
+} from '../../utils/symbolNarrowing';
 
 interface SemanticError {
   type: 'semantic';
@@ -211,7 +218,8 @@ export class ApexSymbolCollectorListener
 
       // Check for modifiers in interface methods
       if (
-        this.currentTypeSymbol?.kind === SymbolKind.Interface &&
+        this.currentTypeSymbol &&
+        isInterfaceSymbol(this.currentTypeSymbol) &&
         this.currentMethodSymbol &&
         modifier
       ) {
@@ -279,8 +287,10 @@ export class ApexSymbolCollectorListener
 
         // Check for nested inner class
         if (
-          this.currentTypeSymbol.kind === SymbolKind.Class &&
-          this.currentTypeSymbol.parent?.kind === SymbolKind.Class
+          this.currentTypeSymbol &&
+          isClassSymbol(this.currentTypeSymbol) &&
+          this.currentTypeSymbol.parent &&
+          isClassSymbol(this.currentTypeSymbol.parent)
         ) {
           this.addError(
             `Inner class '${name}' cannot be defined within another inner class. ` +
@@ -475,12 +485,11 @@ export class ApexSymbolCollectorListener
             .join(',') || '';
 
         const duplicateMethod = existingSymbols.find((s) => {
-          if (s.kind !== SymbolKind.Method || s.name !== name) {
+          if (!isMethodSymbol(s) || s.name !== name) {
             return false;
           }
-          const methodSymbol = s as MethodSymbol;
           const existingParamTypes =
-            methodSymbol.parameters
+            s.parameters
               ?.map((param) => param.type.originalTypeString)
               .join(',') || '';
           return existingParamTypes === currentParamTypes;
@@ -545,7 +554,6 @@ export class ApexSymbolCollectorListener
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     try {
       const name = this.currentTypeSymbol?.name ?? 'unknownConstructor';
-
       // Validate constructor in interface
       InterfaceBodyValidator.validateConstructorInInterface(
         name,
@@ -569,16 +577,11 @@ export class ApexSymbolCollectorListener
             .join(',') || '';
 
         const duplicateConstructor = existingSymbols.find((s) => {
-          if (
-            s.kind !== SymbolKind.Method ||
-            s.name !== name ||
-            !(s as MethodSymbol).isConstructor
-          ) {
+          if (!isMethodSymbol(s) || s.name !== name || !s.isConstructor) {
             return false;
           }
-          const methodSymbol = s as MethodSymbol;
           const existingParamTypes =
-            methodSymbol.parameters
+            s.parameters
               ?.map((param) => param.type.originalTypeString)
               .join(',') || '';
           return existingParamTypes === currentParamTypes;
@@ -591,28 +594,26 @@ export class ApexSymbolCollectorListener
       }
 
       const modifiers = this.getCurrentModifiers();
-      const location = this.getLocation(ctx);
-      const parent = this.currentTypeSymbol;
-      const parentKey = parent ? parent.key : null;
-      const key = {
-        prefix: SymbolKind.Method,
-        name,
-        path: this.getCurrentPath(),
-      };
 
-      const constructorSymbol: MethodSymbol = {
+      // Get the qualified name id location which is the last id in the qualified name
+      const ids = ctx.qualifiedName()?.id();
+      const lastId = ids && ids.length > 0 ? ids[ids.length - 1] : undefined;
+      const qualifiedNameIdLocation = lastId
+        ? this.getIdentifierLocation(lastId)
+        : undefined;
+
+      // Create constructor symbol using createMethodSymbol method
+      const constructorSymbol = this.createMethodSymbol(
+        ctx,
         name,
-        kind: SymbolKind.Method,
-        location,
         modifiers,
-        returnType: createPrimitiveType('void'),
-        parameters: [],
-        parent,
-        key,
-        parentKey,
-        isConstructor: true,
-      };
+        createPrimitiveType('void'),
+        qualifiedNameIdLocation,
+      );
 
+      // Set constructor-specific properties
+      constructorSymbol.isConstructor = true;
+      constructorSymbol.kind = SymbolKind.Constructor;
       this.currentMethodSymbol = constructorSymbol;
       this.symbolTable.addSymbol(constructorSymbol);
       this.symbolTable.enterScope(name);
@@ -652,7 +653,7 @@ export class ApexSymbolCollectorListener
         const currentScope = this.symbolTable.getCurrentScope();
         const existingSymbols = currentScope.getAllSymbols();
         const duplicateMethod = existingSymbols.find(
-          (s) => s.kind === SymbolKind.Method && s.name === name,
+          (s) => isMethodSymbol(s) && s.name === name,
         );
 
         if (duplicateMethod) {
@@ -729,25 +730,15 @@ export class ApexSymbolCollectorListener
       const name = ctx.id()?.text ?? 'unknownParameter';
       const type = this.createTypeInfo(ctx.typeRef()?.text ?? 'Object');
       const modifiers = this.getCurrentModifiers();
-      const location = this.getLocation(ctx);
-      const parent = this.currentMethodSymbol;
-      const parentKey = parent ? parent.key : null;
-      const key = {
-        prefix: SymbolKind.Parameter,
-        name,
-        path: this.getCurrentPath(),
-      };
 
-      const paramSymbol: VariableSymbol = {
-        name,
-        kind: SymbolKind.Parameter,
-        location,
+      // Create parameter symbol using createVariableSymbol method
+      const paramSymbol = this.createVariableSymbol(
+        ctx,
         modifiers,
+        name,
+        SymbolKind.Parameter,
         type,
-        parent,
-        key,
-        parentKey,
-      };
+      );
 
       if (this.currentMethodSymbol) {
         this.currentMethodSymbol.parameters.push(paramSymbol);
@@ -926,6 +917,7 @@ export class ApexSymbolCollectorListener
 
       const modifiers = this.getCurrentModifiers();
 
+      // Create enum symbol using createTypeSymbol method
       const enumSymbol = this.createTypeSymbol(
         ctx,
         name,
@@ -952,7 +944,7 @@ export class ApexSymbolCollectorListener
       );
       const enumSymbol = this.currentTypeSymbol as EnumSymbol | null;
 
-      if (!enumSymbol || enumSymbol.kind !== SymbolKind.Enum) {
+      if (!enumSymbol || !isEnumSymbol(enumSymbol)) {
         this.addError('Enum constants found outside of enum declaration', ctx);
         return;
       }
@@ -960,25 +952,15 @@ export class ApexSymbolCollectorListener
       for (const id of ctx.id()) {
         const name = id.text;
         const modifiers = this.getCurrentModifiers();
-        const location = this.getLocation(id);
-        const parent = enumSymbol;
-        const parentKey = parent.key;
-        const key = {
-          prefix: SymbolKind.EnumValue,
-          name,
-          path: this.getCurrentPath(),
-        };
 
-        const valueSymbol: VariableSymbol = {
-          name,
-          kind: SymbolKind.EnumValue,
-          location,
+        // Create enum value symbol using createVariableSymbol method
+        const valueSymbol = this.createVariableSymbol(
+          id,
           modifiers,
-          type: enumType,
-          parent,
-          key,
-          parentKey,
-        };
+          name,
+          SymbolKind.EnumValue,
+          enumType,
+        );
 
         enumSymbol.values.push(valueSymbol);
         this.symbolTable.addSymbol(valueSymbol);
@@ -1081,6 +1063,39 @@ export class ApexSymbolCollectorListener
         (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
         (ctx.stop?.text?.length ?? 0),
     };
+  }
+
+  /**
+   * Get precise location information for just the identifier (name)
+   * This excludes any surrounding context like keywords, modifiers, etc.
+   *
+   * @param ctx The parser context containing the identifier
+   * @param name The name of the identifier to locate
+   * @returns The precise location of the identifier
+   */
+  private getIdentifierLocation(ctx: ParserRuleContext): SymbolLocation {
+    // Try to find the identifier node within the context
+    // For most contexts, the identifier is accessible via ctx.id()
+    let identifierNode: any = null;
+
+    // Check if the context has an id() method (most common case)
+    if (hasIdMethod(ctx)) {
+      identifierNode = ctx.id();
+    }
+
+    // If we found the identifier node, use its position
+    if (identifierNode && identifierNode.start && identifierNode.stop) {
+      return {
+        startLine: identifierNode.start.line,
+        startColumn: identifierNode.start.charPositionInLine,
+        endLine: identifierNode.stop.line,
+        endColumn:
+          identifierNode.stop.charPositionInLine +
+          identifierNode.stop.text.length,
+      };
+    }
+    // Final fallback - return the full context location
+    return this.getLocation(ctx);
   }
 
   /**
@@ -1210,11 +1225,7 @@ export class ApexSymbolCollectorListener
       return false;
     }
     const parent = symbol.parent;
-    return (
-      parent !== null &&
-      parent !== undefined &&
-      parent.kind === SymbolKind.Class
-    );
+    return parent !== null && parent !== undefined && isClassSymbol(parent);
   }
 
   /**
@@ -1237,7 +1248,7 @@ export class ApexSymbolCollectorListener
 
     // Traverse up the parent chain
     while (current) {
-      if (current.kind === SymbolKind.Class) {
+      if (isClassSymbol(current)) {
         classCount++;
         // If we find more than one class in the parent chain,
         // this means we have a nested inner class
@@ -1313,7 +1324,7 @@ export class ApexSymbolCollectorListener
       | SymbolKind.Trigger
       | SymbolKind.Enum,
     modifiers: SymbolModifiers,
-  ): TypeSymbol {
+  ): TypeSymbol | EnumSymbol {
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol;
     const parentKey = parent ? parent.key : null;
@@ -1322,6 +1333,9 @@ export class ApexSymbolCollectorListener
       name,
       path: this.getCurrentPath(),
     };
+
+    // Get the identifier location for the type symbol
+    const identifierLocation = this.getIdentifierLocation(ctx);
 
     const typeSymbol: TypeSymbol = {
       name,
@@ -1333,12 +1347,14 @@ export class ApexSymbolCollectorListener
       key,
       parentKey,
       annotations: this.getCurrentAnnotations(),
+      identifierLocation,
     };
 
     // For enums, we need to add the values array
     // TODO: change to a more generic approach
-    if (typeSymbol.kind === SymbolKind.Enum) {
-      (typeSymbol as EnumSymbol).values = [];
+    if (isEnumSymbol(typeSymbol)) {
+      typeSymbol.values = [];
+      return typeSymbol;
     }
 
     return typeSymbol;
@@ -1349,6 +1365,7 @@ export class ApexSymbolCollectorListener
     name: string,
     modifiers: SymbolModifiers,
     returnType: TypeInfo,
+    identifierLocation?: SymbolLocation,
   ): MethodSymbol {
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol;
@@ -1371,6 +1388,7 @@ export class ApexSymbolCollectorListener
       parentKey,
       isConstructor: false,
       annotations: this.getCurrentAnnotations(),
+      identifierLocation: identifierLocation ?? this.getIdentifierLocation(ctx),
     };
 
     return methodSymbol;
@@ -1382,8 +1400,9 @@ export class ApexSymbolCollectorListener
     name: string,
     kind:
       | SymbolKind.Property
-      | SymbolKind.Field
       | SymbolKind.Variable
+      | SymbolKind.Parameter
+      | SymbolKind.Field
       | SymbolKind.EnumValue,
     type: TypeInfo,
   ): VariableSymbol {
@@ -1396,6 +1415,9 @@ export class ApexSymbolCollectorListener
       path: this.getCurrentPath(),
     };
 
+    // Get the identifier location for the variable symbol
+    const identifierLocation = this.getIdentifierLocation(ctx);
+
     const variableSymbol: VariableSymbol = {
       name,
       kind,
@@ -1405,6 +1427,7 @@ export class ApexSymbolCollectorListener
       parent,
       key,
       parentKey,
+      identifierLocation,
     };
 
     return variableSymbol;

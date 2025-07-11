@@ -7,81 +7,195 @@
  */
 
 import * as vscode from 'vscode';
-import {
-  EXTENSION_CONSTANTS,
-  STATUS_BAR_TEXT,
-  STATUS_BAR_TOOLTIPS,
-} from './constants';
 
 /**
- * Global status bar item
+ * Language status items for log levels and restart
  */
-let statusBarItem: vscode.StatusBarItem;
+let logLevelStatusItems: {
+  error: vscode.LanguageStatusItem;
+  warning: vscode.LanguageStatusItem;
+  info: vscode.LanguageStatusItem;
+  debug: vscode.LanguageStatusItem;
+};
+
+const LOG_LEVELS = ['error', 'warning', 'info', 'debug'] as const;
+
+let apexServerStatusItem: vscode.LanguageStatusItem | undefined;
 
 /**
- * Creates and initializes the status bar item for the Apex Language Server
+ * Creates LanguageStatusItems for log levels and restart
  * @param context The extension context
- * @returns The created status bar item
+ * @param getCurrentLogLevel Function to get the current log level
+ * @param setLogLevel Function to set the log level
+ * @param restartHandler Function to restart the language server
  */
-export const createStatusBarItem = (
+export const createApexLanguageStatusActions = (
   context: vscode.ExtensionContext,
-): vscode.StatusBarItem => {
-  statusBarItem = vscode.window.createStatusBarItem(
-    vscode.StatusBarAlignment.Right,
-    EXTENSION_CONSTANTS.STATUS_BAR_PRIORITY,
+  getCurrentLogLevel: () => string,
+  setLogLevel: (level: string) => Promise<void>,
+  restartHandler: () => Promise<void>,
+): void => {
+  logLevelStatusItems = {
+    error: vscode.languages.createLanguageStatusItem('ApexLSPLogLevelError', {
+      language: 'apex',
+      scheme: 'file',
+    }),
+    warning: vscode.languages.createLanguageStatusItem(
+      'ApexLSPLogLevelWarning',
+      { language: 'apex', scheme: 'file' },
+    ),
+    info: vscode.languages.createLanguageStatusItem('ApexLSPLogLevelInfo', {
+      language: 'apex',
+      scheme: 'file',
+    }),
+    debug: vscode.languages.createLanguageStatusItem('ApexLSPLogLevelDebug', {
+      language: 'apex',
+      scheme: 'file',
+    }),
+  };
+
+  // Register log level items
+  LOG_LEVELS.forEach((level) => {
+    const item = logLevelStatusItems[level];
+    item.name = 'Apex Log Level';
+    item.severity = vscode.LanguageStatusSeverity.Information;
+    item.command = {
+      title: `Set Log Level: ${level.charAt(0).toUpperCase() + level.slice(1)}`,
+      command: `apex.setLogLevel.${level}`,
+    };
+    context.subscriptions.push(item);
+  });
+
+  // Initial update
+  updateLogLevelStatusItems(getCurrentLogLevel());
+};
+
+/**
+ * Updates the log level LanguageStatusItems to show a checkmark for the current log level
+ * @param currentLogLevel The current log level
+ */
+export const updateLogLevelStatusItems = (currentLogLevel: string): void => {
+  if (!logLevelStatusItems) return;
+  LOG_LEVELS.forEach((level) => {
+    const item = logLevelStatusItems[level];
+    item.text = `Log Level: ${level.charAt(0).toUpperCase() + level.slice(1)}`;
+    item.detail = currentLogLevel === level ? 'Current' : undefined;
+  });
+};
+
+/**
+ * Registers a language status item for Apex with a menu of actions
+ * @param context The extension context
+ * @param getCurrentLogLevel A function that returns the current log level
+ * @param setLogLevel A function to set the log level
+ * @param restartHandler A function to restart the language server
+ */
+export const registerApexLanguageStatusMenu = (
+  context: vscode.ExtensionContext,
+  getCurrentLogLevel: () => string,
+  setLogLevel: (level: string) => Promise<void>,
+  restartHandler: () => Promise<void>,
+): void => {
+  const langStatusItem = vscode.languages.createLanguageStatusItem(
+    'apex.actions',
+    'apex',
   );
-  statusBarItem.text = STATUS_BAR_TEXT.STARTING;
-  statusBarItem.tooltip = STATUS_BAR_TOOLTIPS.STARTING;
-  statusBarItem.command = EXTENSION_CONSTANTS.RESTART_COMMAND_ID;
-  statusBarItem.show();
-  context.subscriptions.push(statusBarItem);
+  langStatusItem.name = 'Apex';
+  langStatusItem.text = 'Apex';
+  langStatusItem.detail = 'Apex Language Actions';
+  langStatusItem.command = {
+    title: 'Apex Actions',
+    command: 'apex.languageStatusMenu',
+  };
+  context.subscriptions.push(langStatusItem);
 
-  return statusBarItem;
+  // Register the menu command
+  const menuCommand = vscode.commands.registerCommand(
+    'apex.languageStatusMenu',
+    async () => {
+      const currentLogLevel = getCurrentLogLevel();
+      const logLevels = ['error', 'warning', 'info', 'debug'];
+      const quickPickItems: vscode.QuickPickItem[] = [
+        ...logLevels.map((level) => ({
+          label: `Log Level: ${level.charAt(0).toUpperCase() + level.slice(1)}`,
+          picked: currentLogLevel === level,
+          description: currentLogLevel === level ? 'Current' : undefined,
+        })),
+        { label: 'Restart Apex Language Server', alwaysShow: true },
+      ];
+      const pick = await vscode.window.showQuickPick(quickPickItems, {
+        placeHolder: 'Select an action',
+      });
+      if (!pick) return;
+      if (pick.label.startsWith('Log Level:')) {
+        const selectedLevel = pick.label
+          .split(':')[1]
+          .replace('$(check)', '')
+          .trim()
+          .toLowerCase();
+        await setLogLevel(selectedLevel);
+      } else if (pick.label === 'Restart Apex Language Server') {
+        await restartHandler();
+      }
+    },
+  );
+  context.subscriptions.push(menuCommand);
 };
 
 /**
- * Updates the status bar to show the server is starting
+ * Creates the persistent LanguageStatusItem for Apex server status
  */
-export const updateStatusBarStarting = (): void => {
-  if (statusBarItem) {
-    statusBarItem.text = STATUS_BAR_TEXT.STARTING;
-    statusBarItem.tooltip = STATUS_BAR_TOOLTIPS.STARTING;
+export const createApexServerStatusItem = (
+  context: vscode.ExtensionContext,
+) => {
+  apexServerStatusItem = vscode.languages.createLanguageStatusItem(
+    'apex.serverStatus',
+    { language: 'apex', scheme: 'file' },
+  );
+  apexServerStatusItem.name = 'Apex Language Server Status';
+  apexServerStatusItem.text = '$(sync~spin) Starting Apex Server';
+  apexServerStatusItem.detail = 'Apex Language Server is starting';
+  apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Information;
+  apexServerStatusItem.command = {
+    title: 'Restart Apex Language Server',
+    command: 'apex.restart.server',
+  };
+  apexServerStatusItem.busy = true;
+  context.subscriptions.push(apexServerStatusItem);
+};
+
+export const updateApexServerStatusStarting = () => {
+  if (apexServerStatusItem) {
+    apexServerStatusItem.text = '$(sync~spin) Starting Apex Server';
+    apexServerStatusItem.detail = 'Apex Language Server is starting';
+    apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Information;
+    apexServerStatusItem.busy = true;
   }
 };
 
-/**
- * Updates the status bar to show the server is ready
- */
-export const updateStatusBarReady = (): void => {
-  if (statusBarItem) {
-    statusBarItem.text = STATUS_BAR_TEXT.READY;
-    statusBarItem.tooltip = STATUS_BAR_TOOLTIPS.READY;
+export const updateApexServerStatusReady = () => {
+  if (apexServerStatusItem) {
+    apexServerStatusItem.text = '$(check) Apex Server Ready';
+    apexServerStatusItem.detail = 'Apex Language Server is running';
+    apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Information;
+    apexServerStatusItem.busy = false;
   }
 };
 
-/**
- * Updates the status bar to show the server has stopped
- */
-export const updateStatusBarStopped = (): void => {
-  if (statusBarItem) {
-    statusBarItem.text = STATUS_BAR_TEXT.STOPPED;
-    statusBarItem.tooltip = STATUS_BAR_TOOLTIPS.STOPPED;
+export const updateApexServerStatusStopped = () => {
+  if (apexServerStatusItem) {
+    apexServerStatusItem.text = '$(error) Apex Server Stopped';
+    apexServerStatusItem.detail = 'Apex Language Server has stopped';
+    apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Error;
+    apexServerStatusItem.busy = false;
   }
 };
 
-/**
- * Updates the status bar to show an error state
- */
-export const updateStatusBarError = (): void => {
-  if (statusBarItem) {
-    statusBarItem.text = STATUS_BAR_TEXT.ERROR;
-    statusBarItem.tooltip = STATUS_BAR_TOOLTIPS.ERROR;
+export const updateApexServerStatusError = () => {
+  if (apexServerStatusItem) {
+    apexServerStatusItem.text = '$(error) Apex Server Error';
+    apexServerStatusItem.detail = 'Apex Language Server encountered an error';
+    apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Error;
+    apexServerStatusItem.busy = false;
   }
 };
-
-/**
- * Gets the current status bar item
- * @returns The status bar item
- */
-export const getStatusBarItem = (): vscode.StatusBarItem | undefined =>
-  statusBarItem;

@@ -16,7 +16,7 @@ jest.mock('@salesforce/apex-lsp-logging', () => ({
 
 // Import after mocking
 import {
-  initializeLogging,
+  initializeExtensionLogging,
   logToOutputChannel,
   updateLogLevel,
   getOutputChannel,
@@ -59,10 +59,10 @@ describe('Logging Module', () => {
 
   describe('initializeLogging', () => {
     it('should create output channel and add to subscriptions', () => {
-      initializeLogging(mockContext);
+      initializeExtensionLogging(mockContext);
 
       expect(vscode.window.createOutputChannel).toHaveBeenCalledWith(
-        'Apex Language Server (Typescript)',
+        'Apex Language Extension (Typescript)',
       );
       expect(mockContext.subscriptions).toContain(mockOutputChannel);
     });
@@ -73,16 +73,16 @@ describe('Logging Module', () => {
         get: mockGet,
       } as unknown as vscode.WorkspaceConfiguration);
 
-      initializeLogging(mockContext);
+      initializeExtensionLogging(mockContext);
 
-      expect(mockGet).toHaveBeenCalledWith('ls.logLevel', 'error');
+      expect(mockGet).toHaveBeenCalledWith('logLevel');
     });
   });
 
   describe('logToOutputChannel', () => {
     beforeEach(() => {
       // Initialize logging first
-      initializeLogging(mockContext);
+      initializeExtensionLogging(mockContext);
     });
 
     it('should log message with timestamp and type', () => {
@@ -93,7 +93,7 @@ describe('Logging Module', () => {
 
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[INFO\] Test message/,
+          /\[\d{1,2}:\d{2}:\d{2} [AP]M\] \[INFO\] Test message/,
         ),
       );
     });
@@ -136,7 +136,7 @@ describe('Logging Module', () => {
 
   describe('getOutputChannel', () => {
     it('should return the output channel after initialization', () => {
-      initializeLogging(mockContext);
+      initializeExtensionLogging(mockContext);
 
       const outputChannel = getOutputChannel();
 

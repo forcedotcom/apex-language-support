@@ -14,12 +14,8 @@ import {
   CloseAction,
   ErrorAction,
 } from 'vscode-languageclient/node';
-import {
-  getDebugConfig,
-  getTraceServerConfig,
-  getWorkspaceSettings,
-} from './configuration';
-import { logToOutputChannel, getOutputChannel } from './logging';
+import { getDebugConfig, getWorkspaceSettings } from './configuration';
+import { logToOutputChannel } from './logging';
 import { DEBUG_CONFIG } from './constants';
 
 /**
@@ -81,7 +77,7 @@ export const createServerOptions = (
     'debug',
   );
 
-  // Get debug options based on environment variable
+  // Get debug options
   const debugOptions = getDebugOptions();
 
   return {
@@ -104,7 +100,7 @@ export const createServerOptions = (
  * @returns Client options configuration
  */
 export const createClientOptions = (): LanguageClientOptions => {
-  const traceServer = getTraceServerConfig();
+  const settings = getWorkspaceSettings();
 
   return {
     documentSelector: [{ scheme: 'file', language: 'apex' }],
@@ -113,7 +109,6 @@ export const createClientOptions = (): LanguageClientOptions => {
         vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
       configurationSection: 'apex',
     },
-    outputChannel: getOutputChannel(),
     // Add error handling with proper retry logic
     errorHandler: {
       error: handleClientError,
@@ -122,8 +117,7 @@ export const createClientOptions = (): LanguageClientOptions => {
     // Include workspace settings in initialization options
     initializationOptions: {
       enableDocumentSymbols: true,
-      trace: traceServer,
-      ...getWorkspaceSettings(),
+      ...settings,
     },
     // Explicitly enable workspace configuration capabilities
     workspaceFolder: vscode.workspace.workspaceFolders?.[0],

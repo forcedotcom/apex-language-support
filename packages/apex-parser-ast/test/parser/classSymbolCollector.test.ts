@@ -149,15 +149,18 @@ describe('ApexSymbolCollectorListener', () => {
       const methods = classScope
         ?.getAllSymbols()
         .filter((s: ApexSymbol) => s.kind === SymbolKind.Method);
-      expect(methods?.length).toBe(4); // Constructor, getName, setName, incrementCount
+      expect(methods?.length).toBe(3); // getName, setName, incrementCount
       logger.debug(() => `Found ${methods?.length} method symbols`);
 
       // Check constructor
-      const constructor = methods?.find(
-        (m: ApexSymbol) => m.name === 'TestClass',
-      ) as MethodSymbol;
+      const constructors = classScope
+        ?.getAllSymbols()
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Constructor);
+      expect(constructors?.length).toBe(1);
+      const constructor = constructors?.[0] as MethodSymbol;
       expect(constructor).toBeDefined();
-      expect(constructor?.isConstructor).toBe(true);
+      expect(constructor.name).toBe('TestClass');
+      expect(constructor.isConstructor).toBe(true);
       logger.debug(
         () =>
           `Constructor verified: isConstructor=${constructor?.isConstructor}`,
@@ -227,6 +230,48 @@ describe('ApexSymbolCollectorListener', () => {
         () =>
           `name parameter verified: name=${nameParam?.name}, kind=${nameParam?.kind}`,
       );
+    });
+
+    it('should correctly identify an inner class constructor', () => {
+      const fileContent = `
+        public class OuterClass {
+          public class InnerClass {
+            public InnerClass() {
+              // constructor for inner class
+            }
+          }
+        }
+      `;
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'OuterClass.cls',
+        listener,
+      );
+      expect(result.errors.length).toBe(0);
+
+      const fileScope = result.result!.getCurrentScope();
+      const outerClassSymbol = fileScope.getSymbol('OuterClass');
+      expect(outerClassSymbol).toBeDefined();
+
+      const outerClassScope = fileScope
+        .getChildren()
+        .find((s) => s.name === 'OuterClass');
+      expect(outerClassScope).toBeDefined();
+
+      const innerClassSymbol = outerClassScope!.getSymbol('InnerClass');
+      expect(innerClassSymbol).toBeDefined();
+
+      const innerClassScope = outerClassScope!
+        .getChildren()
+        .find((s) => s.name === 'InnerClass');
+      expect(innerClassScope).toBeDefined();
+
+      const constructorSymbol = innerClassScope!.getSymbol(
+        'InnerClass',
+      ) as MethodSymbol;
+      expect(constructorSymbol).toBeDefined();
+      expect(constructorSymbol.isConstructor).toBe(true);
+      expect(constructorSymbol.location.startLine).toBe(4);
     });
 
     it('should collect interface symbols', () => {

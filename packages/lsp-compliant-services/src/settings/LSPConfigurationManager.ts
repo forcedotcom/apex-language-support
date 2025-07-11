@@ -9,7 +9,6 @@
 import {
   Connection,
   InitializeParams,
-  DidChangeConfigurationNotification,
   DidChangeConfigurationParams,
 } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-logging';
@@ -54,45 +53,7 @@ export class LSPConfigurationManager {
   public processInitializeParams(params: InitializeParams): void {
     this.logger.debug('Processing LSP initialize parameters');
 
-    // Check client capabilities
-    const capabilities = params.capabilities;
-    this.hasConfigurationCapability = !!(
-      capabilities.workspace && !!capabilities.workspace.configuration
-    );
-    this.hasWorkspaceConfiguration = !!(
-      capabilities.workspace &&
-      !!capabilities.workspace.didChangeConfiguration &&
-      !!capabilities.workspace.didChangeConfiguration.dynamicRegistration
-    );
-
-    this.logger.debug(
-      () => `Capability detection breakdown:
-       - workspace exists: ${!!capabilities.workspace}
-       - didChangeConfiguration exists: ${!!(capabilities.workspace && capabilities.workspace.didChangeConfiguration)}
-       - dynamicRegistration value: ${capabilities.workspace?.didChangeConfiguration?.dynamicRegistration}
-       - final hasWorkspaceConfiguration: ${this.hasWorkspaceConfiguration}`,
-    );
-
-    this.logger.debug(
-      () =>
-        `Client capabilities received: ${JSON.stringify(capabilities, null, 2)}`,
-    );
-    this.logger.debug(
-      `Client capabilities - configuration: ${this.hasConfigurationCapability}, ` +
-        `workspace: ${this.hasWorkspaceConfiguration}`,
-    );
-
-    // Log specific workspace capabilities for debugging
-    if (capabilities.workspace) {
-      this.logger.debug(
-        () =>
-          `Workspace capabilities: ${JSON.stringify(capabilities.workspace, null, 2)}`,
-      );
-    } else {
-      this.logger.warn('No workspace capabilities found in client');
-    }
-
-    // Extract initial settings from initialization options FIRST
+    // Extract initial settings from initialization options
     if (params.initializationOptions) {
       this.logger.debug(
         () =>
@@ -108,6 +69,8 @@ export class LSPConfigurationManager {
       } else {
         this.logger.warn('Failed to apply initialization settings');
       }
+    } else {
+      this.logger.debug('No initialization options provided, using defaults');
     }
 
     // Initialize resource loader AFTER settings are processed
@@ -200,82 +163,59 @@ export class LSPConfigurationManager {
   }
 
   /**
-   * Enhanced configuration change handler with validation and error recovery
+   * Simplified configuration change handler that only uses client-provided settings
    */
-  private async handleConfigurationChangeEnhanced(
+  private async handleConfigurationChange(
     params: DidChangeConfigurationParams,
   ): Promise<void> {
-    this.logger.debug('Handling enhanced configuration change notification');
+    this.logger.debug('Handling configuration change notification');
 
     try {
-      // Validate the configuration change params
-      if (!params) {
-        this.logger.warn('Received empty configuration change parameters');
+      if (!params || !params.settings) {
+        this.logger.debug(
+          'No settings provided in configuration change notification',
+        );
         return;
       }
 
-      // Track previous settings for rollback if needed
+      this.logger.debug(
+        () =>
+          `Processing settings from client: ${JSON.stringify(params.settings, null, 2)}`,
+      );
+
+      // Track previous settings for comparison
       const previousSettings = this.settingsManager.getSettings();
       const previousLoadMode = previousSettings.resources.loadMode;
 
-      if (this.hasConfigurationCapability) {
-        // Request the latest configuration from the client
-        await this.requestConfiguration();
-      } else {
-        // Fallback: use the settings from the notification
-        if (params.settings) {
-          this.logger.debug(
-            () =>
-              `Processing settings from notification: ${JSON.stringify(params.settings, null, 2)}`,
-          );
-
-          const success = this.settingsManager.updateFromLSPConfiguration(
-            params.settings,
-          );
-
-          if (success) {
-            this.logger.debug(
-              'Successfully updated settings from notification',
-            );
-
-            // Notify about successful configuration change
-            await this.notifyConfigurationApplied(params.settings);
-          } else {
-            this.logger.error('Failed to update settings from notification');
-
-            // Attempt to restore previous settings on failure
-            await this.handleConfigurationFailure(previousSettings);
-            return;
-          }
-        } else {
-          this.logger.warn(
-            'No settings provided in configuration change notification',
-          );
-          return;
-        }
-      }
-
-      // Check if resource loading mode changed and reconfigure if needed
-      const newSettings = this.settingsManager.getSettings();
-      const newLoadMode = newSettings.resources.loadMode;
-
-      if (previousLoadMode !== newLoadMode) {
-        this.logger.debug(
-          () =>
-            `Resource load mode changed from ${previousLoadMode} to ${newLoadMode}`,
-        );
-        await this.reconfigureResourceLoader(newLoadMode);
-      }
-
-      // Validate the updated configuration
-      await this.validateAppliedConfiguration();
-    } catch (error) {
-      this.logger.error(
-        () => `Error in enhanced configuration change handler: ${error}`,
+      // Update settings with what the client provided
+      const success = this.settingsManager.updateFromLSPConfiguration(
+        params.settings,
       );
 
-      // Attempt recovery by requesting fresh configuration
-      await this.recoverFromConfigurationError();
+      if (success) {
+        this.logger.debug('Successfully updated settings from client');
+
+        // Check if resource loading mode changed and reconfigure if needed
+        const newSettings = this.settingsManager.getSettings();
+        const newLoadMode = newSettings.resources.loadMode;
+
+        if (previousLoadMode !== newLoadMode) {
+          this.logger.debug(
+            () =>
+              `Resource load mode changed from ${previousLoadMode} to ${newLoadMode}`,
+          );
+          await this.reconfigureResourceLoader(newLoadMode);
+        }
+
+        // Validate the updated configuration
+        await this.validateAppliedConfiguration();
+      } else {
+        this.logger.warn('Failed to process settings from client');
+      }
+    } catch (error) {
+      this.logger.error(
+        () => `Error in configuration change handler: ${error}`,
+      );
     }
   }
 
@@ -297,28 +237,12 @@ export class LSPConfigurationManager {
     }
 
     try {
-      // Register the enhanced configuration change handler
+      // Register the simplified configuration change handler
       this.connection.onDidChangeConfiguration(
         async (params: DidChangeConfigurationParams) => {
-          await this.handleConfigurationChangeEnhanced(params);
+          await this.handleConfigurationChange(params);
         },
       );
-
-      if (this.hasWorkspaceConfiguration) {
-        // Register for dynamic configuration changes
-        this.configurationRegistrationDisposable =
-          this.connection.client.register(
-            DidChangeConfigurationNotification.type,
-            undefined,
-          );
-        this.logger.debug(
-          'Successfully registered for dynamic configuration change notifications',
-        );
-      } else {
-        this.logger.debug(
-          'Client does not support dynamic configuration registration, using static handler',
-        );
-      }
 
       this.configurationHandlerRegistered = true;
       this.logger.debug('Configuration change handler successfully registered');
@@ -331,67 +255,13 @@ export class LSPConfigurationManager {
   }
 
   /**
-   * Request current configuration from the client
+   * Request current configuration from the client (not used in passive mode)
    */
   public async requestConfiguration(): Promise<void> {
-    if (!this.connection) {
-      this.logger.warn('Cannot request configuration: no connection available');
-      return;
-    }
-
-    if (!this.hasConfigurationCapability) {
-      this.logger.warn(
-        'Cannot request configuration: client does not support workspace.configuration',
-      );
-      return;
-    }
-
-    try {
-      this.logger.debug('Requesting configuration from client');
-
-      // Request configuration for multiple possible setting keys
-      const configSections = [
-        'apex',
-        'apexLanguageServer',
-        'apex.languageServer',
-        'salesforce.apex',
-      ];
-
-      const configs = await this.connection.workspace.getConfiguration(
-        configSections.map((section) => ({ section })),
-      );
-
-      this.logger.debug(
-        () => `Received configurations: ${JSON.stringify(configs, null, 2)}`,
-      );
-
-      // Try to find a valid configuration from the responses
-      let foundValidConfig = false;
-      for (let i = 0; i < configs.length && !foundValidConfig; i++) {
-        const config = configs[i];
-        if (config && typeof config === 'object') {
-          const success =
-            this.settingsManager.updateFromLSPConfiguration(config);
-          if (success) {
-            this.logger.debug(
-              () =>
-                `Successfully updated configuration from section: ${configSections[i]}`,
-            );
-            foundValidConfig = true;
-          }
-        }
-      }
-
-      if (!foundValidConfig) {
-        this.logger.warn(
-          'No valid configuration found in any of the requested sections',
-        );
-      }
-    } catch (error) {
-      this.logger.error(
-        () => `Error requesting configuration from client: ${error}`,
-      );
-    }
+    this.logger.debug(
+      'requestConfiguration called - language server operates in passive mode, using client-provided settings only',
+    );
+    // No action needed - configuration is provided via initializationOptions and didChangeConfiguration
   }
 
   /**
@@ -446,23 +316,13 @@ export class LSPConfigurationManager {
   }
 
   /**
-   * Recover from configuration errors by requesting fresh config
+   * Recover from configuration errors (simplified for passive mode)
    */
   private async recoverFromConfigurationError(): Promise<void> {
-    this.logger.debug('Attempting configuration error recovery');
-
-    try {
-      if (this.hasConfigurationCapability) {
-        await this.requestConfiguration();
-        this.logger.debug('Successfully recovered configuration from client');
-      } else {
-        this.logger.warn(
-          'Cannot recover configuration: client lacks configuration capability',
-        );
-      }
-    } catch (error) {
-      this.logger.error(() => `Configuration recovery failed: ${error}`);
-    }
+    this.logger.debug(
+      'Configuration error recovery - language server operates in passive mode',
+    );
+    // No recovery action needed - client will send new configuration if needed
   }
 
   /**

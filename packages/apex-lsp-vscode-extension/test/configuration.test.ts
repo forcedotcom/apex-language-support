@@ -15,6 +15,26 @@ import {
   registerConfigurationChangeListener,
 } from '../src/configuration';
 
+// Mock vscode-languageclient
+jest.mock('vscode-languageclient/node', () => ({
+  LanguageClient: jest.fn(),
+  State: {
+    Stopped: 1,
+    Starting: 2,
+    Running: 3,
+  },
+  TransportKind: {
+    ipc: 'ipc',
+    pipe: 'pipe',
+    stdio: 'stdio',
+  },
+  Trace: {
+    Off: 'off',
+    Messages: 'messages',
+    Verbose: 'verbose',
+  },
+}));
+
 // Mock the logging module
 jest.mock('../src/logging', () => ({
   updateLogLevel: jest.fn(),
@@ -62,7 +82,7 @@ describe('Configuration Module', () => {
       // Mock configuration values
       mockGetConfiguration.mockImplementation(
         (key: string, defaultValue: any) => {
-          if (key === 'ls.logLevel') return 'error';
+          if (key === 'logLevel') return 'info';
           if (key === 'commentCollection.enableCommentCollection') return true;
           if (key === 'commentCollection.includeSingleLineComments')
             return false;
@@ -77,6 +97,7 @@ describe('Configuration Module', () => {
           if (key === 'performance.useAsyncCommentProcessing') return true;
           if (key === 'performance.documentChangeDebounceMs') return 300;
           if (key === 'environment.enablePerformanceLogging') return false;
+          if (key === 'resources.loadMode') return 'lazy';
           return defaultValue;
         },
       );
@@ -102,9 +123,10 @@ describe('Configuration Module', () => {
           environment: {
             enablePerformanceLogging: false,
           },
-          ls: {
-            logLevel: 'error',
+          resources: {
+            loadMode: 'lazy',
           },
+          logLevel: 'info',
         },
       });
     });
@@ -217,7 +239,31 @@ describe('Configuration Module', () => {
         .mock.calls[0][0];
 
       // Mock getWorkspaceSettings to return test settings
-      const testSettings = { apex: { test: 'value' } };
+      const testSettings = {
+        apex: {
+          commentCollection: {
+            enableCommentCollection: true,
+            includeSingleLineComments: false,
+            associateCommentsWithSymbols: false,
+            enableForDocumentChanges: true,
+            enableForDocumentOpen: true,
+            enableForDocumentSymbols: false,
+            enableForFoldingRanges: false,
+          },
+          performance: {
+            commentCollectionMaxFileSize: 102400,
+            useAsyncCommentProcessing: true,
+            documentChangeDebounceMs: 300,
+          },
+          environment: {
+            enablePerformanceLogging: false,
+          },
+          resources: {
+            loadMode: 'lazy',
+          },
+          logLevel: 'info',
+        },
+      };
       jest
         .spyOn(require('../src/configuration'), 'getWorkspaceSettings')
         .mockReturnValue(testSettings);
