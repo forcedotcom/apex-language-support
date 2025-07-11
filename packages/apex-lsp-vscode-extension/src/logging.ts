@@ -9,29 +9,33 @@
 import * as vscode from 'vscode';
 import { shouldLog, setLogLevel } from '@salesforce/apex-lsp-logging';
 import type { LogMessageType } from '@salesforce/apex-lsp-logging';
+import { EXTENSION_CONSTANTS } from './constants';
+
 /**
- * Global output channel for logging
+ * Global output channel for extension logging
  */
-let outputChannel: vscode.OutputChannel;
+let extensionOutputChannel: vscode.OutputChannel;
 
 /**
  * Initializes the logging system
  * @param context The extension context
  */
-export const initializeLogging = (context: vscode.ExtensionContext): void => {
-  outputChannel = vscode.window.createOutputChannel(
-    'Apex Language Server (Typescript)',
+export const initializeExtensionLogging = (
+  context: vscode.ExtensionContext,
+): void => {
+  extensionOutputChannel = vscode.window.createOutputChannel(
+    EXTENSION_CONSTANTS.EXTENSION_OUTPUT_CHANNEL_NAME,
   );
-  context.subscriptions.push(outputChannel);
+  context.subscriptions.push(extensionOutputChannel);
 
   // Set initial log level from workspace settings
-  const config = vscode.workspace.getConfiguration('apex');
-  const logLevel = config.get<string>('ls.logLevel', 'error');
+  const config = vscode.workspace.getConfiguration('apex-ls-ts');
+  const logLevel = config.get<string>('logLevel') ?? 'info';
   setLogLevel(logLevel);
 };
 
 /**
- * Logs a message to the output channel
+ * Logs a message to the extension output channel
  * @param message The message to log
  * @param messageType The type of log message
  */
@@ -41,9 +45,11 @@ export const logToOutputChannel = (
 ): void => {
   if (!shouldLog(messageType)) return;
 
-  const timestamp = new Date().toISOString();
+  const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
   const typeString = messageType.toUpperCase();
-  outputChannel.appendLine(`[${timestamp}] [${typeString}] ${message}`);
+  const formattedMessage = `[${timestamp}] [${typeString}] ${message}`;
+
+  extensionOutputChannel.appendLine(formattedMessage);
 };
 
 /**
@@ -55,7 +61,8 @@ export const updateLogLevel = (logLevel: string): void => {
 };
 
 /**
- * Gets the output channel instance
- * @returns The output channel
+ * Gets the extension output channel instance
+ * @returns The extension output channel
  */
-export const getOutputChannel = (): vscode.OutputChannel => outputChannel;
+export const getOutputChannel = (): vscode.OutputChannel =>
+  extensionOutputChannel;

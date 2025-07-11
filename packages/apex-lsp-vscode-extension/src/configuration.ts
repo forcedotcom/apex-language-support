@@ -7,7 +7,7 @@
  */
 
 import * as vscode from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
+import { LanguageClient, Trace } from 'vscode-languageclient/node';
 import { WorkspaceSettings, DebugConfig } from './types';
 import { updateLogLevel } from './logging';
 import { EXTENSION_CONSTANTS } from './constants';
@@ -20,11 +20,12 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
   const config = vscode.workspace.getConfiguration(
     EXTENSION_CONSTANTS.CONFIG_SECTION,
   );
-  const logLevel = config.get<string>('ls.logLevel', 'error');
+  const logLevel = config.get<string>('logLevel') ?? 'info';
 
   // Update the log level for the extension's logging system
   updateLogLevel(logLevel);
 
+  // Map apex-ls-ts configuration to the apex format expected by the language server
   return {
     apex: {
       commentCollection: {
@@ -77,9 +78,12 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
           false,
         ),
       },
-      ls: {
-        logLevel,
+      resources: {
+        loadMode: config.get<string>('resources.loadMode', 'lazy') as
+          | 'lazy'
+          | 'full',
       },
+      logLevel,
     },
   };
 };
@@ -104,13 +108,24 @@ export const getDebugConfig = (): DebugConfig => {
 
 /**
  * Gets trace server configuration
- * @returns The trace server setting
+ * @returns The trace server setting as a Trace enum value
  */
-export const getTraceServerConfig = (): string => {
+export const getTraceServerConfig = (): Trace => {
   const config = vscode.workspace.getConfiguration(
     EXTENSION_CONSTANTS.CONFIG_SECTION,
   );
-  return config.get<string>('trace.server', 'off');
+  const traceValue = config.get<string>('trace.server', 'off');
+
+  // Map string values to Trace enum
+  switch (traceValue.toLowerCase()) {
+    case 'verbose':
+      return Trace.Verbose;
+    case 'messages':
+      return Trace.Messages;
+    case 'off':
+    default:
+      return Trace.Off;
+  }
 };
 
 /**

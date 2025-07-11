@@ -73,12 +73,12 @@
     "configuration": {
       "title": "Apex",
       "properties": {
-        "apex.enable": {
+        "apex-ls-ts.enable": {
           "type": "boolean",
           "default": true,
           "description": "Enable Apex language support"
         },
-        "apex.trace.server": {
+        "apex-ls-ts.trace.server": {
           "type": "string",
           "enum": [
             "off",
@@ -88,17 +88,17 @@
           "default": "off",
           "description": "Traces the communication between VS Code and the Apex language server"
         },
-        "apex.debug": {
+        "apex-ls-ts.debug": {
           "type": "boolean",
           "default": false,
           "description": "Run Apex language server in debug mode"
         },
-        "apex.debugPort": {
+        "apex-ls-ts.debugPort": {
           "type": "number",
           "default": 0,
           "description": "Port to use for debugging (0 for random port)"
         },
-        "apex.ls.logLevel": {
+        "apex-ls-ts.logLevel": {
           "type": "string",
           "enum": [
             "error",

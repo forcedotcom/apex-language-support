@@ -11,21 +11,26 @@ import { LanguageClient, State } from 'vscode-languageclient/node';
 import { createServerOptions, createClientOptions } from './server-config';
 import { logToOutputChannel } from './logging';
 import {
-  updateStatusBarStarting,
-  updateStatusBarReady,
-  updateStatusBarError,
-} from './status-bar';
-import {
   setStartingFlag,
   getStartingFlag,
   resetServerStartRetries,
 } from './commands';
 import { registerConfigurationChangeListener } from './configuration';
+import {
+  updateApexServerStatusStarting,
+  updateApexServerStatusReady,
+  updateApexServerStatusError,
+} from './status-bar';
 
 /**
  * Global language client instance
  */
 let client: LanguageClient | undefined;
+
+/**
+ * Track the last output channel created by the LanguageClient
+ */
+let lastServerOutputChannel: vscode.OutputChannel | undefined;
 
 /**
  * Creates and starts the language client
@@ -41,16 +46,22 @@ export const createAndStartClient = (
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): void => {
   try {
+    // Dispose previous output channel if it exists
+    if (lastServerOutputChannel) {
+      lastServerOutputChannel.dispose();
+      lastServerOutputChannel = undefined;
+    }
+
     // Create the language client
     client = new LanguageClient(
-      'apexLanguageServer',
-      'Apex Language Server',
+      'apex-ls-ts',
+      'Apex Language Server (Typescript)',
       serverOptions,
       clientOptions,
     );
 
-    // Update status
-    updateStatusBarStarting();
+    // Track the new output channel
+    lastServerOutputChannel = client.outputChannel;
 
     // Track client state changes
     client.onDidChangeState((event) => {
@@ -60,7 +71,7 @@ export const createAndStartClient = (
       );
 
       if (event.newState === State.Running) {
-        updateStatusBarReady();
+        updateApexServerStatusReady();
         // Reset retry counter on successful start
         resetServerStartRetries();
         setStartingFlag(false);
@@ -68,9 +79,9 @@ export const createAndStartClient = (
         // Register configuration change listener when client is ready
         registerConfigurationChangeListener(client!, context);
       } else if (event.newState === State.Starting) {
-        updateStatusBarStarting();
+        updateApexServerStatusStarting();
       } else {
-        updateStatusBarError();
+        updateApexServerStatusError();
         setStartingFlag(false);
       }
     });
@@ -80,11 +91,12 @@ export const createAndStartClient = (
     client.start().catch((error) => {
       logToOutputChannel(`Failed to start client: ${error}`, 'error');
       setStartingFlag(false);
-      updateStatusBarError();
+      updateApexServerStatusError();
     });
   } catch (e) {
     logToOutputChannel(`Error creating client: ${e}`, 'error');
     setStartingFlag(false);
+    updateApexServerStatusError();
   }
 };
 
@@ -124,7 +136,7 @@ export const startLanguageServer = async (
       `Failed to start Apex Language Server: ${error}`,
     );
     setStartingFlag(false);
-    updateStatusBarError();
+    updateApexServerStatusError();
   }
 };
 
@@ -151,6 +163,11 @@ export const stopLanguageServer = async (): Promise<void> => {
   if (client) {
     await client.stop();
     client = undefined;
+  }
+  // Dispose the last output channel if it exists
+  if (lastServerOutputChannel) {
+    lastServerOutputChannel.dispose();
+    lastServerOutputChannel = undefined;
   }
 };
 

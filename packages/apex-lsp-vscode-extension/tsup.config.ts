@@ -59,6 +59,10 @@ export default defineConfig({
       cwd: sourceDir,
       stdio: 'inherit',
     });
+    execSync('shx cp package.nls*.json dist/', {
+      cwd: sourceDir,
+      stdio: 'inherit',
+    });
 
     // Prepare package.json for dist
     const originalPackagePath = path.join(sourceDir, 'package.json');
