@@ -171,7 +171,7 @@ export class ApexJsonRpcClient {
       nodePath: 'node',
       nodeArgs: [],
       serverArgs: [],
-      requestTimeout: 10000,
+      requestTimeout: 10_000,
       ...options,
     };
     this.serverType = options.serverType;
