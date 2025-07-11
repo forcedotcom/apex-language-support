@@ -30,6 +30,9 @@ export interface CommentCollectionSettings {
 
   /** Enable comment collection for folding ranges (default: false for performance) */
   enableForFoldingRanges: boolean;
+
+  /** Enable comment collection for diagnostic requests (default: false) */
+  enableForDiagnostics: boolean;
 }
 
 /**
@@ -69,6 +72,22 @@ export interface ResourceSettings {
 }
 
 /**
+ * Diagnostic settings
+ */
+export interface DiagnosticSettings {
+  /** Enable pull-based diagnostics (textDocument/diagnostic) */
+  enablePullDiagnostics: boolean;
+  /** Enable push-based diagnostics (textDocument/publishDiagnostics) */
+  enablePushDiagnostics: boolean;
+  /** Maximum number of diagnostics per file */
+  maxDiagnosticsPerFile: number;
+  /** Include warnings in diagnostics */
+  includeWarnings: boolean;
+  /** Include info messages in diagnostics */
+  includeInfo: boolean;
+}
+
+/**
  * Complete Apex Language Server settings
  */
 export interface ApexLanguageServerSettings {
@@ -83,6 +102,9 @@ export interface ApexLanguageServerSettings {
 
   /** Resource loading settings */
   resources: ResourceSettings;
+
+  /** Diagnostic settings */
+  diagnostics: DiagnosticSettings;
 
   /** Server version for compatibility checks */
   version?: string;
@@ -108,6 +130,7 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     enableForDocumentOpen: true,
     enableForDocumentSymbols: false, // Disabled for performance
     enableForFoldingRanges: false, // Disabled for performance
+    enableForDiagnostics: false,
   },
   performance: {
     commentCollectionMaxFileSize: 102400, // 100KB
@@ -122,6 +145,13 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
   resources: {
     loadMode: 'full',
   },
+  diagnostics: {
+    enablePullDiagnostics: true,
+    enablePushDiagnostics: true,
+    maxDiagnosticsPerFile: 100,
+    includeWarnings: true,
+    includeInfo: true,
+  },
 };
 
 /**
@@ -134,6 +164,7 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     // More conservative defaults for browser environment
     enableCommentCollection: true,
     associateCommentsWithSymbols: false, // More expensive in browser
+    enableForDiagnostics: false,
   },
   performance: {
     ...DEFAULT_APEX_SETTINGS.performance,
@@ -149,6 +180,10 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
   resources: {
     ...DEFAULT_APEX_SETTINGS.resources,
     loadMode: 'lazy',
+  },
+  diagnostics: {
+    ...DEFAULT_APEX_SETTINGS.diagnostics,
+    maxDiagnosticsPerFile: 50,
   },
 };
 
@@ -168,7 +203,9 @@ export function isValidApexSettings(
     obj.environment &&
     typeof obj.environment === 'object' &&
     obj.resources &&
-    typeof obj.resources === 'object'
+    typeof obj.resources === 'object' &&
+    obj.diagnostics &&
+    typeof obj.diagnostics === 'object'
   );
 }
 
@@ -201,6 +238,10 @@ export function mergeWithDefaults(
     resources: {
       ...baseDefaults.resources,
       ...userSettings.resources,
+    },
+    diagnostics: {
+      ...baseDefaults.diagnostics,
+      ...userSettings.diagnostics,
     },
     version: userSettings.version || baseDefaults.version,
     ls: userSettings.ls || baseDefaults.ls,

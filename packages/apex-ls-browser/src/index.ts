@@ -33,6 +33,7 @@ import {
   dispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange,
+  dispatchProcessOnDiagnostic,
   ApexStorage,
 } from '@salesforce/apex-lsp-compliant-services';
 import {
@@ -89,6 +90,10 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
       hoverProvider: false,
       documentSymbolProvider: true,
       foldingRangeProvider: true, // Enable folding range support
+      diagnosticProvider: {
+        interFileDependencies: false,
+        workspaceDiagnostics: false,
+      },
     },
   };
 });
@@ -126,6 +131,31 @@ connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
     return null;
   }
 });
+
+// Handle diagnostic requests
+connection.onRequest(
+  'textDocument/diagnostic',
+  async (params: DocumentSymbolParams) => {
+    logger.info(
+      `[SERVER] Received diagnostic request for: ${params.textDocument.uri}`,
+    );
+    logger.info(`[SERVER] DiagnosticParams: ${JSON.stringify(params)}`);
+
+    try {
+      const result = await dispatchProcessOnDiagnostic(params);
+      logger.info(
+        `[SERVER] Result for diagnostic (${params.textDocument.uri}): ${JSON.stringify(result)}`,
+      );
+      return result;
+    } catch (error) {
+      logger.error(
+        `[SERVER] Error processing diagnostic for ${params.textDocument.uri}: ${error}`,
+      );
+      // Return empty array in case of error, as per LSP spec for graceful failure
+      return [];
+    }
+  },
+);
 
 // Add a handler for folding ranges
 connection.onFoldingRanges(

@@ -344,6 +344,10 @@ describe('Apex Language Server', () => {
           triggerCharacters: ['.'],
         },
         hoverProvider: false,
+        diagnosticProvider: {
+          interFileDependencies: false,
+          workspaceDiagnostics: false,
+        },
         documentSymbolProvider: true,
         foldingRangeProvider: true,
         workspace: {
