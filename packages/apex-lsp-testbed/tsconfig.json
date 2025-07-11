@@ -3,8 +3,8 @@
   "compilerOptions": {
     "outDir": "./out",
     "rootDir": "./src",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
   "include": ["src/**/*"],

@@ -9,6 +9,7 @@
   "scripts": {
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
+    "test:perf": "turbo run test:perf",
     "test:packages": "turbo run test --filter=./packages/*",
     "test:coverage:packages": "turbo run test:coverage --filter=./packages/*",
     "test:coverage:report": "node scripts/merge-coverage.js",
