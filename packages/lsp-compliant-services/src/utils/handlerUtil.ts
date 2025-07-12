@@ -67,66 +67,12 @@ export async function dispatch<T>(
 export function getDiagnosticsFromErrors(
   errors: ApexError[],
   options: {
-    includeWarnings?: boolean;
-    includeInfo?: boolean;
-    maxDiagnostics?: number;
     includeCodes?: boolean;
   } = {},
 ): Diagnostic[] {
-  const {
-    includeWarnings = true,
-    includeInfo = false,
-    maxDiagnostics = 100,
-    includeCodes = true,
-  } = options;
+  const { includeCodes = true } = options;
 
-  const logger = getLogger();
-
-  // Filter errors based on severity settings
-  const filteredErrors = errors.filter((error) => {
-    switch (error.severity) {
-      case 'error':
-        return true; // Always include errors
-      case 'warning':
-        return includeWarnings;
-      case 'info':
-        return includeInfo;
-      default:
-        logger.warn(() => `Unknown error severity: ${error.severity}`);
-        return true; // Include unknown severities as errors
-    }
-  });
-
-  // Limit the number of diagnostics
-  const limitedErrors = filteredErrors.slice(0, maxDiagnostics);
-
-  if (filteredErrors.length > maxDiagnostics) {
-    logger.warn(
-      () =>
-        `Diagnostics limited to ${maxDiagnostics} (${filteredErrors.length} total found)`,
-    );
-  }
-
-  return limitedErrors.map((error) => {
-    // Convert severity to LSP DiagnosticSeverity
-    let severity: DiagnosticSeverity;
-    switch (error.severity) {
-      case 'error':
-        severity = DiagnosticSeverity.Error;
-        break;
-      case 'warning':
-        severity = DiagnosticSeverity.Warning;
-        break;
-      case 'info':
-        severity = DiagnosticSeverity.Information;
-        break;
-      default:
-        severity = DiagnosticSeverity.Error; // Default to error
-        logger.warn(
-          () => `Unknown severity ${error.severity}, defaulting to error`,
-        );
-    }
-
+  return errors.map((error) => {
     // Calculate range with proper bounds checking
     const startLine = Math.max(0, error.line - 1);
     const startCharacter = Math.max(0, error.column - 1);
@@ -152,7 +98,7 @@ export function getDiagnosticsFromErrors(
     // Create diagnostic code if enabled
     let code: string | number | undefined;
     if (includeCodes) {
-      code = `${error.type.toUpperCase()}_${error.severity.toUpperCase()}`;
+      code = `${error.type.toUpperCase()}_ERROR`;
     }
 
     // Create diagnostic with enhanced information
@@ -162,7 +108,7 @@ export function getDiagnosticsFromErrors(
         end: { line: endLine, character: endCharacter },
       },
       message: error.message,
-      severity,
+      severity: DiagnosticSeverity.Error,
       source: 'apex-parser',
       ...(code && { code }),
       ...(error.filePath && {

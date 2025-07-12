@@ -181,8 +181,7 @@ export class ApexSettingsManager {
       | 'documentChange'
       | 'documentOpen'
       | 'documentSymbols'
-      | 'foldingRanges'
-      | 'diagnostics',
+      | 'foldingRanges',
     fileSize?: number,
   ): CompilationOptions {
     const settings = this.currentSettings;
@@ -224,9 +223,6 @@ export class ApexSettingsManager {
         break;
       case 'foldingRanges':
         includeComments = commentCollection.enableForFoldingRanges;
-        break;
-      case 'diagnostics':
-        includeComments = commentCollection.enableForDiagnostics;
         break;
     }
 

@@ -30,9 +30,6 @@ export interface CommentCollectionSettings {
 
   /** Enable comment collection for folding ranges (default: false for performance) */
   enableForFoldingRanges: boolean;
-
-  /** Enable comment collection for diagnostic requests (default: false) */
-  enableForDiagnostics: boolean;
 }
 
 /**
@@ -79,12 +76,6 @@ export interface DiagnosticSettings {
   enablePullDiagnostics: boolean;
   /** Enable push-based diagnostics (textDocument/publishDiagnostics) */
   enablePushDiagnostics: boolean;
-  /** Maximum number of diagnostics per file */
-  maxDiagnosticsPerFile: number;
-  /** Include warnings in diagnostics */
-  includeWarnings: boolean;
-  /** Include info messages in diagnostics */
-  includeInfo: boolean;
 }
 
 /**
@@ -128,7 +119,6 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     enableForDocumentOpen: true,
     enableForDocumentSymbols: false, // Disabled for performance
     enableForFoldingRanges: false, // Disabled for performance
-    enableForDiagnostics: false,
   },
   performance: {
     commentCollectionMaxFileSize: 102400, // 100KB
@@ -146,9 +136,6 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
   diagnostics: {
     enablePullDiagnostics: true,
     enablePushDiagnostics: true,
-    maxDiagnosticsPerFile: 100,
-    includeWarnings: true,
-    includeInfo: true,
   },
 };
 
@@ -162,7 +149,6 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     // More conservative defaults for browser environment
     enableCommentCollection: true,
     associateCommentsWithSymbols: false, // More expensive in browser
-    enableForDiagnostics: false,
   },
   performance: {
     ...DEFAULT_APEX_SETTINGS.performance,
@@ -181,7 +167,6 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
   },
   diagnostics: {
     ...DEFAULT_APEX_SETTINGS.diagnostics,
-    maxDiagnosticsPerFile: 50,
   },
 };
 

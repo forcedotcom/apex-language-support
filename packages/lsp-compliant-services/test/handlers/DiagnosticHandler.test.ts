@@ -7,15 +7,23 @@
  */
 
 import { Diagnostic, DocumentSymbolParams } from 'vscode-languageserver';
-import { LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 
-import { DiagnosticHandler } from '../../src/handlers/DiagnosticHandler';
-import { IDiagnosticProcessor } from '../../src/services/DiagnosticProcessingService';
+import { processOnDiagnostic } from '../../src/handlers/DiagnosticHandler';
 
-describe('DiagnosticHandler', () => {
-  let mockLogger: jest.Mocked<LoggerInterface>;
-  let mockDiagnosticProcessor: jest.Mocked<IDiagnosticProcessor>;
-  let handler: DiagnosticHandler;
+// Mock the logging module
+jest.mock('@salesforce/apex-lsp-logging', () => ({
+  getLogger: jest.fn(),
+}));
+
+// Mock the DiagnosticProcessingService
+jest.mock('../../src/services/DiagnosticProcessingService', () => ({
+  DiagnosticProcessingService: jest.fn(),
+}));
+
+describe('processOnDiagnostic', () => {
+  let mockLogger: jest.Mocked<ReturnType<typeof getLogger>>;
+  let mockDiagnosticProcessor: any;
 
   beforeEach(() => {
     mockLogger = {
@@ -29,10 +37,20 @@ describe('DiagnosticHandler', () => {
       processDiagnostic: jest.fn(),
     };
 
-    handler = new DiagnosticHandler(mockLogger, mockDiagnosticProcessor);
+    (getLogger as jest.Mock).mockReturnValue(mockLogger);
+    const {
+      DiagnosticProcessingService,
+    } = require('../../src/services/DiagnosticProcessingService');
+    DiagnosticProcessingService.mockImplementation(
+      () => mockDiagnosticProcessor,
+    );
   });
 
-  describe('handleDiagnostic', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('processOnDiagnostic', () => {
     it('should process diagnostic request successfully', async () => {
       const mockParams: DocumentSymbolParams = {
         textDocument: { uri: 'file:///test.cls' },
@@ -53,7 +71,7 @@ describe('DiagnosticHandler', () => {
         mockDiagnostics,
       );
 
-      const result = await handler.handleDiagnostic(mockParams);
+      const result = await processOnDiagnostic(mockParams);
 
       expect(result).toEqual(mockDiagnostics);
       expect(mockDiagnosticProcessor.processDiagnostic).toHaveBeenCalledWith(
@@ -62,7 +80,7 @@ describe('DiagnosticHandler', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
     });
 
-    it('should handle errors gracefully', async () => {
+    it('should handle errors gracefully and return empty array', async () => {
       const mockParams: DocumentSymbolParams = {
         textDocument: { uri: 'file:///test.cls' },
       };
@@ -70,10 +88,9 @@ describe('DiagnosticHandler', () => {
       const error = new Error('Test error');
       mockDiagnosticProcessor.processDiagnostic.mockRejectedValue(error);
 
-      await expect(handler.handleDiagnostic(mockParams)).rejects.toThrow(
-        'Test error',
-      );
+      const result = await processOnDiagnostic(mockParams);
 
+      expect(result).toEqual([]);
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
@@ -84,7 +101,7 @@ describe('DiagnosticHandler', () => {
 
       mockDiagnosticProcessor.processDiagnostic.mockResolvedValue([]);
 
-      const result = await handler.handleDiagnostic(mockParams);
+      const result = await processOnDiagnostic(mockParams);
 
       expect(result).toEqual([]);
       expect(mockDiagnosticProcessor.processDiagnostic).toHaveBeenCalledWith(

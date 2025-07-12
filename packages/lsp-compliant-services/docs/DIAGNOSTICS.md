@@ -55,9 +55,6 @@ const settings = {
   diagnostics: {
     enablePullDiagnostics: true, // textDocument/diagnostic
     enablePushDiagnostics: true, // textDocument/publishDiagnostics
-    maxDiagnosticsPerFile: 100, // Limit diagnostics per file
-    includeWarnings: true, // Include warnings
-    includeInfo: true, // Include info messages
   },
 };
 ```
@@ -246,17 +243,10 @@ interface DiagnosticSettings {
 
   /** Enable push-based diagnostics (textDocument/publishDiagnostics) */
   enablePushDiagnostics: boolean;
-
-  /** Maximum number of diagnostics per file */
-  maxDiagnosticsPerFile: number;
-
-  /** Include warnings in diagnostics */
-  includeWarnings: boolean;
-
-  /** Include info messages in diagnostics */
-  includeInfo: boolean;
 }
 ```
+
+````
 
 ### Default Settings
 
@@ -265,12 +255,9 @@ interface DiagnosticSettings {
   diagnostics: {
     enablePullDiagnostics: true,
     enablePushDiagnostics: true,
-    maxDiagnosticsPerFile: 100,
-    includeWarnings: true,
-    includeInfo: true,
   }
 }
-```
+````
 
 ### Environment-specific Settings
 
@@ -289,25 +276,21 @@ const settings = BROWSER_DEFAULT_APEX_SETTINGS;
 
 ## Diagnostic Severity Levels
 
-| Severity    | Value | Description                        | Usage                                |
-| ----------- | ----- | ---------------------------------- | ------------------------------------ |
-| Error       | 1     | Indicates an error                 | Syntax errors, compilation failures  |
-| Warning     | 2     | Indicates a warning                | Code style issues, deprecated usage  |
-| Information | 3     | Indicates an informational message | Suggestions, best practices          |
-| Hint        | 4     | Indicates a hint                   | Quick fixes, refactoring suggestions |
+Since Jorje (the Apex parser) only produces errors, all diagnostics are treated as errors:
+
+| Severity | Value | Description        | Usage                          |
+| -------- | ----- | ------------------ | ------------------------------ |
+| Error    | 1     | Indicates an error | All syntax and semantic errors |
 
 ## Diagnostic Codes
 
-The server generates diagnostic codes based on error type and severity:
+The server generates diagnostic codes based on error type:
 
-| Code               | Description                   |
-| ------------------ | ----------------------------- |
-| `SYNTAX_ERROR`     | Syntax parsing errors         |
-| `SYNTAX_WARNING`   | Syntax warnings               |
-| `SYNTAX_INFO`      | Syntax information messages   |
-| `SEMANTIC_ERROR`   | Semantic analysis errors      |
-| `SEMANTIC_WARNING` | Semantic warnings             |
-| `SEMANTIC_INFO`    | Semantic information messages |
+| Code             | Description              |
+| ---------------- | ------------------------ |
+| `SYNTAX_ERROR`   | Syntax parsing errors    |
+| `SEMANTIC_ERROR` | Semantic analysis errors |
+| `LEXER_ERROR`    | Token recognition errors |
 
 ## Implementation Details
 
@@ -383,9 +366,6 @@ class DocumentProcessingService implements IDocumentProcessor {
 function getDiagnosticsFromErrors(
   errors: ApexError[],
   options?: {
-    includeWarnings?: boolean;
-    includeInfo?: boolean;
-    maxDiagnostics?: number;
     includeCodes?: boolean;
   },
 ): Diagnostic[];
@@ -453,12 +433,8 @@ try {
 ### Performance Optimization
 
 ```typescript
-// Limit diagnostics for large files
-const diagnostics = getDiagnosticsFromErrors(errors, {
-  maxDiagnostics: 50,
-  includeWarnings: false,
-  includeInfo: false,
-});
+// The server provides all diagnostics - let the client handle filtering
+const diagnostics = getDiagnosticsFromErrors(errors);
 
 // Use pull-based diagnostics for on-demand validation
 // Use push-based diagnostics for real-time feedback
@@ -523,8 +499,7 @@ npx turbo run test --filter=@salesforce/apex-lsp-compliant-services -- --testPat
    - Verify bounds checking logic
 
 3. **Performance issues**
-   - Reduce `maxDiagnosticsPerFile` setting
-   - Disable `includeInfo` for large files
+   - Let the client handle diagnostic filtering and display limits
    - Use pull-based diagnostics for on-demand requests
 
 ### Debugging
@@ -584,7 +559,7 @@ getDiagnosticsFromErrors(errors: ApexError[], options?: DiagnosticOptions): Diag
 
 1. **Use pull-based diagnostics** for on-demand validation
 2. **Use push-based diagnostics** for real-time feedback
-3. **Limit diagnostic count** for large files
+3. **Let the client handle diagnostic filtering** and display limits
 4. **Provide meaningful error codes** for client filtering
 5. **Include source information** for better error context
 6. **Handle errors gracefully** with proper fallbacks

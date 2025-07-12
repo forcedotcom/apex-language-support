@@ -16,6 +16,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { HandlerFactory } from './factories/HandlerFactory';
+import { dispatchProcessOnDiagnostic } from './handlers/DiagnosticHandler';
 import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
 import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
 
@@ -116,16 +117,8 @@ export const dispatchProcessOnDocumentSymbol = async (
 };
 
 // Re-export the existing dispatch functions
-export { dispatchProcessOnFoldingRange, dispatchProcessOnResolve };
-
-/**
- * Dispatch function for diagnostic requests
- * @param params The diagnostic parameters
- * @returns Promise resolving to diagnostics
- */
-export const dispatchProcessOnDiagnostic = async (
-  params: DocumentSymbolParams,
-): Promise<Diagnostic[]> => {
-  const handler = HandlerFactory.createDiagnosticHandler();
-  return await handler.handleDiagnostic(params);
+export {
+  dispatchProcessOnDiagnostic,
+  dispatchProcessOnFoldingRange,
+  dispatchProcessOnResolve,
 };
