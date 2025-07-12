@@ -486,6 +486,24 @@ export class LSPConfigurationManager {
                 },
               },
             },
+            diagnostics: {
+              type: 'object',
+              description: 'Diagnostic settings',
+              properties: {
+                enablePullDiagnostics: {
+                  type: 'boolean',
+                  default: true,
+                  description:
+                    'Enable pull-based diagnostics (textDocument/diagnostic)',
+                },
+                enablePushDiagnostics: {
+                  type: 'boolean',
+                  default: true,
+                  description:
+                    'Enable push-based diagnostics (textDocument/publishDiagnostics)',
+                },
+              },
+            },
           },
         },
       },

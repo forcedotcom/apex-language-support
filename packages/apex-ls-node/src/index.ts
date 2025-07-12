@@ -30,6 +30,7 @@ import {
   dispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange,
+  dispatchProcessOnDiagnostic,
   ApexStorageManager,
   ApexSettingsManager,
   LSPConfigurationManager,
@@ -141,6 +142,10 @@ export function startServer() {
         hoverProvider: false,
         documentSymbolProvider: true,
         foldingRangeProvider: true, // Enable folding range support
+        diagnosticProvider: {
+          interFileDependencies: false,
+          workspaceDiagnostics: false,
+        },
         workspace: {
           workspaceFolders: {
             supported: true,
@@ -205,6 +210,31 @@ export function startServer() {
       return null;
     }
   });
+
+  // Handle diagnostic requests
+  connection.onRequest(
+    'textDocument/diagnostic',
+    async (params: DocumentSymbolParams) => {
+      logger.debug(
+        `[SERVER] Received diagnostic request for: ${params.textDocument.uri}`,
+      );
+      logger.debug(`[SERVER] DiagnosticParams: ${JSON.stringify(params)}`);
+
+      try {
+        const result = await dispatchProcessOnDiagnostic(params);
+        logger.debug(
+          `[SERVER] Result for diagnostic (${params.textDocument.uri}): ${JSON.stringify(result)}`,
+        );
+        return result;
+      } catch (error) {
+        logger.error(
+          `[SERVER] Error processing diagnostic for ${params.textDocument.uri}: ${error}`,
+        );
+        // Return empty array in case of error, as per LSP spec for graceful failure
+        return [];
+      }
+    },
+  );
 
   // Configuration change handling is now managed by the LSPConfigurationManager
   // through its enhanced registration system in registerForConfigurationChanges()
