@@ -16,7 +16,6 @@ import {
 
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { ApexSettingsManager } from '../settings/ApexSettingsManager';
 
 /**
  * Interface for diagnostic processing functionality to make handlers more testable.
@@ -55,7 +54,6 @@ export interface IDiagnosticProcessor {
  * ```
  *
  * @see {@link IDiagnosticProcessor} - The interface this service implements
- * @see {@link DiagnosticHandler} - Handler that uses this service
  * @see {@link getDiagnosticsFromErrors} - Utility for converting parser errors to diagnostics
  */
 export class DiagnosticProcessingService implements IDiagnosticProcessor {
@@ -135,12 +133,11 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       const compilerService = new CompilerService();
 
       // Parse the document
-      const settingsManager = ApexSettingsManager.getInstance();
-      const fileSize = document.getText().length;
-      const options = settingsManager.getCompilationOptions(
-        'diagnostics',
-        fileSize,
-      );
+      const options = {
+        includeComments: false,
+        includeSingleLineComments: false,
+        associateComments: false,
+      };
 
       const result = compilerService.compile(
         document.getText(),

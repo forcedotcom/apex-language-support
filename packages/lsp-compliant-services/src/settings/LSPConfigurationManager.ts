@@ -432,11 +432,6 @@ export class LSPConfigurationManager {
                   default: false,
                   description: 'Enable for folding ranges',
                 },
-                enableForDiagnostics: {
-                  type: 'boolean',
-                  default: true,
-                  description: 'Enable for diagnostic requests',
-                },
               },
             },
             performance: {
@@ -506,21 +501,6 @@ export class LSPConfigurationManager {
                   default: true,
                   description:
                     'Enable push-based diagnostics (textDocument/publishDiagnostics)',
-                },
-                maxDiagnosticsPerFile: {
-                  type: 'number',
-                  default: 100,
-                  description: 'Maximum number of diagnostics per file',
-                },
-                includeWarnings: {
-                  type: 'boolean',
-                  default: true,
-                  description: 'Include warnings in diagnostics',
-                },
-                includeInfo: {
-                  type: 'boolean',
-                  default: false,
-                  description: 'Include info messages in diagnostics',
                 },
               },
             },

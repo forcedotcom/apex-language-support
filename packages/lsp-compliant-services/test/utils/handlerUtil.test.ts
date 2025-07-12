@@ -122,70 +122,6 @@ describe('handlerUtil', () => {
       });
     });
 
-    it('should handle warnings when includeWarnings is true', () => {
-      const errors: ApexError[] = [
-        createMockError({
-          severity: ErrorSeverity.Warning,
-          message: 'Warning message',
-          line: 3,
-          column: 5,
-        }),
-      ];
-
-      const diagnostics = getDiagnosticsFromErrors(errors, {
-        includeWarnings: true,
-      });
-
-      expect(diagnostics).toHaveLength(1);
-      expect(diagnostics[0].severity).toBe(DiagnosticSeverity.Warning);
-      expect(diagnostics[0].code).toBe('SYNTAX_WARNING');
-    });
-
-    it('should exclude warnings when includeWarnings is false', () => {
-      const errors: ApexError[] = [
-        createMockError({ severity: ErrorSeverity.Error }),
-        createMockError({ severity: ErrorSeverity.Warning }),
-      ];
-
-      const diagnostics = getDiagnosticsFromErrors(errors, {
-        includeWarnings: false,
-      });
-
-      expect(diagnostics).toHaveLength(1);
-      expect(diagnostics[0].severity).toBe(DiagnosticSeverity.Error);
-    });
-
-    it('should handle info messages when includeInfo is true', () => {
-      const errors: ApexError[] = [
-        createMockError({
-          severity: ErrorSeverity.Info,
-          message: 'Info message',
-        }),
-      ];
-
-      const diagnostics = getDiagnosticsFromErrors(errors, {
-        includeInfo: true,
-      });
-
-      expect(diagnostics).toHaveLength(1);
-      expect(diagnostics[0].severity).toBe(DiagnosticSeverity.Information);
-      expect(diagnostics[0].code).toBe('SYNTAX_INFO');
-    });
-
-    it('should exclude info messages when includeInfo is false', () => {
-      const errors: ApexError[] = [
-        createMockError({ severity: ErrorSeverity.Error }),
-        createMockError({ severity: ErrorSeverity.Info }),
-      ];
-
-      const diagnostics = getDiagnosticsFromErrors(errors, {
-        includeInfo: false,
-      });
-
-      expect(diagnostics).toHaveLength(1);
-      expect(diagnostics[0].severity).toBe(DiagnosticSeverity.Error);
-    });
-
     it('should handle semantic errors', () => {
       const errors: ApexError[] = [
         createMockError({
@@ -272,24 +208,6 @@ describe('handlerUtil', () => {
       ]);
     });
 
-    it('should limit diagnostics when maxDiagnostics is set', () => {
-      const errors: ApexError[] = Array.from({ length: 5 }, (_, i) =>
-        createMockError({
-          message: `Error ${i}`,
-          line: i + 1,
-        }),
-      );
-
-      const diagnostics = getDiagnosticsFromErrors(errors, {
-        maxDiagnostics: 3,
-      });
-
-      expect(diagnostics).toHaveLength(3);
-      expect(diagnostics[0].message).toBe('Error 0');
-      expect(diagnostics[1].message).toBe('Error 1');
-      expect(diagnostics[2].message).toBe('Error 2');
-    });
-
     it('should exclude diagnostic codes when includeCodes is false', () => {
       const errors: ApexError[] = [createMockError()];
 
@@ -316,40 +234,25 @@ describe('handlerUtil', () => {
       });
     });
 
-    it('should handle unknown severity gracefully', () => {
-      const errors: ApexError[] = [
-        createMockError({
-          severity: 'unknown' as ErrorSeverity,
-        }),
-      ];
-
-      const diagnostics = getDiagnosticsFromErrors(errors);
-
-      expect(diagnostics[0].severity).toBe(DiagnosticSeverity.Error);
-    });
-
     it('should handle empty errors array', () => {
       const diagnostics = getDiagnosticsFromErrors([]);
 
       expect(diagnostics).toEqual([]);
     });
 
-    it('should handle mixed severity types correctly', () => {
+    it('should always use Error severity for all diagnostics', () => {
       const errors: ApexError[] = [
         createMockError({ severity: ErrorSeverity.Error }),
         createMockError({ severity: ErrorSeverity.Warning }),
         createMockError({ severity: ErrorSeverity.Info }),
       ];
 
-      const diagnostics = getDiagnosticsFromErrors(errors, {
-        includeWarnings: true,
-        includeInfo: true,
-      });
+      const diagnostics = getDiagnosticsFromErrors(errors);
 
       expect(diagnostics).toHaveLength(3);
       expect(diagnostics[0].severity).toBe(DiagnosticSeverity.Error);
-      expect(diagnostics[1].severity).toBe(DiagnosticSeverity.Warning);
-      expect(diagnostics[2].severity).toBe(DiagnosticSeverity.Information);
+      expect(diagnostics[1].severity).toBe(DiagnosticSeverity.Error);
+      expect(diagnostics[2].severity).toBe(DiagnosticSeverity.Error);
     });
   });
 });

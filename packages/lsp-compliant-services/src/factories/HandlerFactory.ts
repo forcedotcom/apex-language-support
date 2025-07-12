@@ -28,11 +28,6 @@ import {
   DocumentCloseProcessingService,
   IDocumentCloseProcessor,
 } from '../services/DocumentCloseProcessingService';
-import { DiagnosticHandler } from '../handlers/DiagnosticHandler';
-import {
-  DiagnosticProcessingService,
-  IDiagnosticProcessor,
-} from '../services/DiagnosticProcessingService';
 
 /**
  * Factory for creating handlers with proper dependency injection
@@ -132,29 +127,5 @@ export class HandlerFactory {
     documentCloseProcessor: IDocumentCloseProcessor,
   ): DidCloseDocumentHandler {
     return new DidCloseDocumentHandler(logger, documentCloseProcessor);
-  }
-
-  /**
-   * Create a DiagnosticHandler with default dependencies
-   * @returns A configured DiagnosticHandler instance
-   */
-  static createDiagnosticHandler(): DiagnosticHandler {
-    const logger = getLogger();
-    const diagnosticProcessor = new DiagnosticProcessingService(logger);
-
-    return new DiagnosticHandler(logger, diagnosticProcessor);
-  }
-
-  /**
-   * Create a DiagnosticHandler with custom dependencies (for testing)
-   * @param logger Custom logger implementation
-   * @param diagnosticProcessor Custom diagnostic processor implementation
-   * @returns A configured DiagnosticHandler instance
-   */
-  static createDiagnosticHandlerWithDependencies(
-    logger: LoggerInterface,
-    diagnosticProcessor: IDiagnosticProcessor,
-  ): DiagnosticHandler {
-    return new DiagnosticHandler(logger, diagnosticProcessor);
   }
 }
