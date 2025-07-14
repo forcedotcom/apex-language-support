@@ -35,6 +35,7 @@ type OnDocumentSymbolHandler = (
 type OnFoldingRangeHandler = (
   params: FoldingRangeParams,
 ) => Promise<FoldingRange[] | null>;
+type OnRequestHandler = (params: DocumentSymbolParams) => Promise<any[]>;
 
 // Define mock handlers type
 interface MockHandlerStore {
@@ -48,6 +49,7 @@ interface MockHandlerStore {
   onDidSave: OnDidSaveHandler | null;
   onDocumentSymbol: OnDocumentSymbolHandler | null;
   onFoldingRange: OnFoldingRangeHandler | null;
+  onRequest: OnRequestHandler | null;
 }
 
 // Store mock handlers
@@ -62,6 +64,7 @@ const mockHandlers: MockHandlerStore = {
   onDidSave: null,
   onDocumentSymbol: null,
   onFoldingRange: null,
+  onRequest: null,
 };
 
 // Set up the mock connection with proper type safety
@@ -80,6 +83,7 @@ interface MockConnection {
   onHover: jest.Mock;
   onDocumentSymbol: jest.Mock;
   onFoldingRanges: jest.Mock;
+  onRequest: jest.Mock;
   listen: jest.Mock;
   console: typeof mockConsole;
   sendNotification: jest.Mock;
@@ -97,6 +101,7 @@ const mockConnection: MockConnection = {
   onHover: jest.fn(),
   onDocumentSymbol: jest.fn(),
   onFoldingRanges: jest.fn(),
+  onRequest: jest.fn(),
   listen: jest.fn(),
   console: mockConsole,
   sendNotification: jest.fn(),
@@ -148,6 +153,15 @@ mockConnection.onDocumentSymbol.mockImplementation(
 mockConnection.onFoldingRanges.mockImplementation(
   (handler: OnFoldingRangeHandler) => {
     mockHandlers.onFoldingRange = handler;
+    return mockConnection;
+  },
+);
+
+mockConnection.onRequest.mockImplementation(
+  (method: string, handler: OnRequestHandler) => {
+    if (method === 'textDocument/diagnostic') {
+      mockHandlers.onRequest = handler;
+    }
     return mockConnection;
   },
 );
@@ -220,6 +234,7 @@ const mockDispatchProcessOnCloseDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnSaveDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnDocumentSymbol = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnFoldingRange = jest.fn().mockResolvedValue([]);
+const mockDispatchProcessOnDiagnostic = jest.fn().mockResolvedValue([]);
 
 jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   ...jest.requireActual('@salesforce/apex-lsp-compliant-services'),
@@ -229,6 +244,7 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol: mockDispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange: mockDispatchProcessOnFoldingRange,
+  dispatchProcessOnDiagnostic: mockDispatchProcessOnDiagnostic,
   ApexStorageManager: {
     getInstance: jest.fn().mockReturnValue({
       getStorage: jest.fn(),
