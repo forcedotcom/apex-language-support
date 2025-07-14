@@ -10,8 +10,8 @@
         "version": "1.99.3"
       },
       "locale": "en",
-      "rootPath": "/Users/peter.hale/git/dreamhouse-lwc",
-      "rootUri": "file:///workspace/",
+      "rootPath": "/workspace",
+      "rootUri": "file:///workspace",
       "capabilities": {
         "workspace": {
           "applyEdit": true,
@@ -497,7 +497,7 @@
       "trace": "verbose",
       "workspaceFolders": [
         {
-          "uri": "file:///workspace/",
+          "uri": "file:///Users/peter.hale/git/dreamhouse-lwc",
           "name": "dreamhouse-lwc"
         }
       ]

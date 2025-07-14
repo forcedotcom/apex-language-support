@@ -28,6 +28,8 @@ export default [
       '**/*.d.ts',
       '**/.DS_Store',
       '**/server-bundle/**',
+      '**/test-artifacts/**',
+      '**/src/generated/**',
     ],
     files: ['**/*.ts', '**/*.mjs'],
     languageOptions: {
@@ -65,7 +67,7 @@ export default [
       ],
       'arrow-body-style': ['error', 'as-needed'],
       'jsdoc/check-alignment': 'warn',
-      'jsdoc/check-indentation': 'warn',
+      'jsdoc/check-indentation': 'off',
       'header/header': [
         'error',
         'block',
