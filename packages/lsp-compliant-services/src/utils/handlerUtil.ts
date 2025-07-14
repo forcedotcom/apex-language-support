@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Diagnostic } from 'vscode-languageserver';
+import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { ApexError } from '@salesforce/apex-lsp-parser-ast';
@@ -61,15 +61,72 @@ export async function dispatch<T>(
 /**
  * Convert compilation errors to diagnostics
  * @param errors The compilation errors
+ * @param options Optional configuration for diagnostic generation
  * @returns Array of diagnostics
  */
-export function getDiagnosticsFromErrors(errors: ApexError[]): Diagnostic[] {
-  return errors.map((error) => ({
-    range: {
-      start: { line: error.line - 1, character: error.column - 1 },
-      end: { line: error.line - 1, character: error.column },
-    },
-    message: error.message,
-    severity: 1, // Error
-  }));
+export function getDiagnosticsFromErrors(
+  errors: ApexError[],
+  options: {
+    includeCodes?: boolean;
+  } = {},
+): Diagnostic[] {
+  const { includeCodes = true } = options;
+
+  return errors.map((error) => {
+    // Calculate range with proper bounds checking
+    const startLine = Math.max(0, error.line - 1);
+    const startCharacter = Math.max(0, error.column - 1);
+
+    // Use endLine and endColumn if available, otherwise calculate reasonable end
+    let endLine = startLine;
+    let endCharacter = startCharacter + 1; // Default to 1 character width
+
+    if (error.endLine !== undefined && error.endColumn !== undefined) {
+      endLine = Math.max(0, error.endLine - 1);
+      endCharacter = Math.max(0, error.endColumn - 1);
+    } else if (error.source) {
+      // Estimate end position based on source text
+      const lines = error.source.split('\n');
+      if (lines.length > 1) {
+        endLine = startLine + lines.length - 1;
+        endCharacter = lines[lines.length - 1].length;
+      } else {
+        endCharacter = startCharacter + error.source.length;
+      }
+    }
+
+    // Create diagnostic code if enabled
+    let code: string | number | undefined;
+    if (includeCodes) {
+      code = `${error.type.toUpperCase()}_ERROR`;
+    }
+
+    // Create diagnostic with enhanced information
+    const diagnostic: Diagnostic = {
+      range: {
+        start: { line: startLine, character: startCharacter },
+        end: { line: endLine, character: endCharacter },
+      },
+      message: error.message,
+      severity: DiagnosticSeverity.Error,
+      source: 'apex-parser',
+      ...(code && { code }),
+      ...(error.filePath && {
+        relatedInformation: [
+          {
+            location: {
+              uri: error.filePath,
+              range: {
+                start: { line: startLine, character: startCharacter },
+                end: { line: endLine, character: endCharacter },
+              },
+            },
+            message: error.message,
+          },
+        ],
+      }),
+    };
+
+    return diagnostic;
+  });
 }

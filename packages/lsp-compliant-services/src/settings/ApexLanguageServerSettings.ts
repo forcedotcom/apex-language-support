@@ -69,6 +69,16 @@ export interface ResourceSettings {
 }
 
 /**
+ * Diagnostic settings
+ */
+export interface DiagnosticSettings {
+  /** Enable pull-based diagnostics (textDocument/diagnostic) */
+  enablePullDiagnostics: boolean;
+  /** Enable push-based diagnostics (textDocument/publishDiagnostics) */
+  enablePushDiagnostics: boolean;
+}
+
+/**
  * Complete Apex Language Server settings
  */
 export interface ApexLanguageServerSettings {
@@ -83,6 +93,9 @@ export interface ApexLanguageServerSettings {
 
   /** Resource loading settings */
   resources: ResourceSettings;
+
+  /** Diagnostic settings */
+  diagnostics: DiagnosticSettings;
 
   /** Server version for compatibility checks */
   version?: string;
@@ -120,6 +133,10 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
   resources: {
     loadMode: 'full',
   },
+  diagnostics: {
+    enablePullDiagnostics: true,
+    enablePushDiagnostics: true,
+  },
 };
 
 /**
@@ -147,6 +164,9 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
   resources: {
     ...DEFAULT_APEX_SETTINGS.resources,
     loadMode: 'lazy',
+  },
+  diagnostics: {
+    ...DEFAULT_APEX_SETTINGS.diagnostics,
   },
 };
 
@@ -186,6 +206,7 @@ export function validateApexSettings(obj: any): ValidationResult {
     performance: 'object',
     environment: 'object',
     resources: 'object',
+    diagnostics: 'object',
     version: 'string',
     logLevel: 'string',
   };
@@ -256,6 +277,10 @@ export function mergeWithDefaults(
       ...baseDefaults.resources,
       ...userSettings.resources,
     },
+    diagnostics: {
+      ...baseDefaults.diagnostics,
+      ...userSettings.diagnostics,
+    },
     version: userSettings.version || baseDefaults.version,
     logLevel: userSettings.logLevel || baseDefaults.logLevel,
   };
@@ -284,6 +309,10 @@ export function mergeWithExisting(
     resources: {
       ...existingSettings.resources,
       ...partialSettings.resources,
+    },
+    diagnostics: {
+      ...existingSettings.diagnostics,
+      ...partialSettings.diagnostics,
     },
     version: partialSettings.version ?? existingSettings.version,
     logLevel: partialSettings.logLevel ?? existingSettings.logLevel,
