@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Diagnostic, DocumentSymbolParams } from 'vscode-languageserver';
+import {
+  Diagnostic,
+  DocumentSymbolParams,
+} from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { dispatch } from '../utils/handlerUtil';
@@ -44,7 +47,7 @@ export async function processOnDiagnostic(
       return [];
     }
 
-    const diagnosticProcessor = new DiagnosticProcessingService(logger);
+    const diagnosticProcessor = new DiagnosticProcessingService();
     const diagnostics = await dispatch(
       diagnosticProcessor.processDiagnostic(params),
       'Error processing diagnostic request',

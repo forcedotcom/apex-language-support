@@ -7,7 +7,7 @@
  */
 
 import { DocumentSymbolParams } from 'vscode-languageserver';
-import { LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { LoggerInterface, getLogger } from '@salesforce/apex-lsp-logging';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { DiagnosticProcessingService } from '../../src/services/DiagnosticProcessingService';
@@ -16,6 +16,9 @@ import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 
 // Mock dependencies
 jest.mock('@salesforce/apex-lsp-parser-ast');
+jest.mock('@salesforce/apex-lsp-logging', () => ({
+  getLogger: jest.fn(),
+}));
 jest.mock('../../src/storage/ApexStorageManager');
 jest.mock('../../src/settings/ApexSettingsManager');
 jest.mock('../../src/utils/handlerUtil');
@@ -45,7 +48,10 @@ describe('DiagnosticProcessingService', () => {
       getCompilationOptions: jest.fn().mockReturnValue({}),
     });
 
-    service = new DiagnosticProcessingService(mockLogger);
+    // Mock the getLogger function to return our mock logger
+    (getLogger as jest.Mock).mockReturnValue(mockLogger);
+
+    service = new DiagnosticProcessingService();
   });
 
   describe('processDiagnostic', () => {
