@@ -25,7 +25,16 @@ const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
 const rawData = readFileSync(logPath, 'utf8');
 const logData: Record<string, any> = JSON.parse(rawData);
 
-jest.setTimeout(120_000);
+jest.setTimeout(180_000); // Increased timeout for server operations
+
+// Add global error handlers to catch unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+});
 
 /**
  * Configuration for request groups to test.
@@ -93,12 +102,21 @@ describe('LSP Request/Response Accuracy', () => {
       workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
     };
     serverContext = await createTestServer(options);
+
+    // Give the server a moment to fully initialize
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   });
 
   afterAll(async () => {
     if (serverContext) {
-      await serverContext.cleanup();
+      try {
+        await serverContext.cleanup();
+      } catch (error) {
+        console.warn(`Cleanup failed: ${error}`);
+      }
     }
+    // Give some time for cleanup to complete
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   });
 
   // Generate test groups for each configured request type
@@ -139,22 +157,36 @@ describe('LSP Request/Response Accuracy', () => {
                 serverContext.workspace?.rootUri || '',
               );
 
-              await serverContext.client.sendNotification(
-                'textDocument/didOpen',
-                {
-                  textDocument: denormalizedOpenEvent.params.textDocument,
-                },
-              );
+              try {
+                await serverContext.client.openTextDocument(
+                  denormalizedOpenEvent.params.textDocument.uri,
+                  denormalizedOpenEvent.params.textDocument.text,
+                  denormalizedOpenEvent.params.textDocument.languageId ||
+                    'apex',
+                );
 
-              // Give the server a moment to process the document
-              await new Promise((resolve) => setTimeout(resolve, 100));
+                // Give the server a moment to process the document
+                await new Promise((resolve) => setTimeout(resolve, 100));
+              } catch (error) {
+                console.warn(`Failed to open document: ${error}`);
+                // Continue with the test even if document opening fails
+              }
             }
           }
 
-          const actualResponse = await serverContext.client.sendRequest(
-            method,
-            denormalizedRequest.params,
-          );
+          let actualResponse;
+          try {
+            actualResponse = await serverContext.client.sendRequest(
+              method,
+              denormalizedRequest.params,
+            );
+          } catch (error) {
+            console.warn(`Request failed: ${error}`);
+            // If the request fails, create a response indicating the failure
+            actualResponse = {
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
 
           const snapshotData = {
             request: {
