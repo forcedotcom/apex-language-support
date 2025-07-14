@@ -161,6 +161,7 @@ export async function createClientOptions(
         ...(workspace ? { workspacePath: workspace.rootPath } : {}),
       };
     }
+
     default:
       throw new Error(`Unknown server type: ${serverType}`);
   }
@@ -225,7 +226,7 @@ export function parseArgs(): CliOptions {
     }
   }
 
-  if (!options.serverType) {
+  if (!options.serverType && !options.showHelp) {
     console.error(
       "Error: --server <type> is required. Must be 'demo', 'jorje', 'nodeServer', or 'webServer'.",
     );

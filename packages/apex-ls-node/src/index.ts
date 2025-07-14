@@ -375,3 +375,8 @@ export function startServer() {
   // Listen on the connection
   connection.listen();
 }
+
+// Start the server when this module is executed directly
+if (require.main === module) {
+  startServer();
+}

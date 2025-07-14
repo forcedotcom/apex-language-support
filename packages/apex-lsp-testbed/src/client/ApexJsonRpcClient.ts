@@ -171,7 +171,7 @@ export class ApexJsonRpcClient {
       nodePath: 'node',
       nodeArgs: [],
       serverArgs: [],
-      requestTimeout: 10000,
+      requestTimeout: 10_000,
       ...options,
     };
     this.serverType = options.serverType;
@@ -492,6 +492,16 @@ export class ApexJsonRpcClient {
           },
         );
       case 'webServer':
+        return cp.spawn(
+          nodePath as string,
+          [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
+          {
+            env: { ...process.env, ...env },
+            stdio: ['pipe', 'pipe', 'pipe'],
+            cwd: workspacePath, // Set the current working directory
+          },
+        );
+      case 'nodeServer':
         return cp.spawn(
           nodePath as string,
           [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
