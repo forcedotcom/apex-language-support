@@ -36,6 +36,7 @@ type OnFoldingRangeHandler = (
   params: FoldingRangeParams,
 ) => Promise<FoldingRange[] | null>;
 type OnRequestHandler = (params: DocumentSymbolParams) => Promise<any[]>;
+type PingHandler = () => Promise<any>;
 
 // Define mock handlers type
 interface MockHandlerStore {
@@ -50,6 +51,7 @@ interface MockHandlerStore {
   onDocumentSymbol: OnDocumentSymbolHandler | null;
   onFoldingRange: OnFoldingRangeHandler | null;
   onRequest: OnRequestHandler | null;
+  ping: PingHandler | null;
 }
 
 // Store mock handlers
@@ -65,6 +67,7 @@ const mockHandlers: MockHandlerStore = {
   onDocumentSymbol: null,
   onFoldingRange: null,
   onRequest: null,
+  ping: null,
 };
 
 // Set up the mock connection with proper type safety
@@ -165,6 +168,15 @@ mockConnection.onRequest.mockImplementation(
     return mockConnection;
   },
 );
+
+mockConnection.onRequest.mockImplementation((method: string, handler: any) => {
+  // Store the handler for later testing
+  if (method === '$/ping') {
+    mockHandlers.ping = handler;
+  }
+  return mockConnection;
+});
+
 
 mockDocuments.onDidOpen.mockImplementation((handler: OnDidOpenHandler) => {
   mockHandlers.onDidOpen = handler;
@@ -440,6 +452,36 @@ describe('Apex Language Server Browser', () => {
     // Should NOT warn about improper shutdown
     expect(mockConnection.console.warn).not.toHaveBeenCalledWith(
       'Apex Language Server exiting without proper shutdown',
+    );
+  });
+  
+  it('should handle $/ping request', async () => {
+    // First trigger the initialized callback to register the request handlers
+    expect(mockConnection.onInitialized).toHaveBeenCalled();
+    const initializedHandler = mockConnection.onInitialized.mock.calls[0][0];
+    initializedHandler();
+
+    // Verify the handler was registered
+    expect(mockConnection.onRequest).toHaveBeenCalled();
+
+    // Get the stored ping handler
+    expect(mockHandlers.ping).toBeDefined();
+    const pingHandler = mockHandlers.ping!;
+
+    // Act
+    const result = await pingHandler();
+
+    // Assert
+    expect(result).toEqual({
+      message: 'pong',
+      timestamp: expect.any(String),
+      server: 'apex-ls-browser',
+    });
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      '[SERVER] Received $/ping request',
+    );
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect.stringContaining('[SERVER] Responding to $/ping with:'),
     );
   });
 
