@@ -152,7 +152,12 @@ public class TestClass {
 
   rl.on('close', async () => {
     console.log('Exiting interactive mode...');
-    await client.stop();
+    try {
+      await client.stop();
+    } catch (_error) {
+      // Ignore shutdown errors - they're expected during exit
+      console.log('Server stopped');
+    }
     process.exit(0);
   });
 }

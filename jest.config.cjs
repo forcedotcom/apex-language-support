@@ -43,7 +43,7 @@ module.exports = {
   transformIgnorePatterns: [
     '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts)).+\\.js$',
   ],
-  testPathIgnorePatterns: ['/node_modules/'],
+  testPathIgnorePatterns: ['/node_modules/'], // Exclude performance tests from regular test runs
 
   // Coverage configuration
   collectCoverage: false, // Disabled by default, enabled by --coverage flag
