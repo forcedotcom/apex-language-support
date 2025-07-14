@@ -15,7 +15,12 @@ import { code2ProtocolConverter, protocol2CodeConverter } from './uriUtils';
 import { createJavaServerOptions } from '../servers/jorje/javaServerLauncher';
 
 // Define server types as a string union
-export type ServerType = 'demo' | 'jorje' | 'nodeServer' | 'webServer';
+export type ServerType =
+  | 'demo'
+  | 'jorje'
+  | 'nodeServer'
+  | 'webServer'
+  | 'webWorker';
 
 // Define CLI options interface
 export interface CliOptions {
@@ -170,7 +175,37 @@ export async function createClientOptions(
         ...(workspace ? { workspacePath: workspace.rootPath } : {}),
       };
     }
-
+    case 'webWorker': {
+      return {
+        serverType: 'webWorker',
+        serverPath: path.join(
+          repoRoot,
+          'packages',
+          'apex-ls-node',
+          'out',
+          'index.js',
+        ),
+        webWorkerOptions: {
+          workerUrl: path.join(
+            repoRoot,
+            'packages',
+            'apex-ls-node',
+            'out',
+            'index.js',
+          ),
+          workerOptions: {
+            name: 'apex-language-server-worker',
+          },
+        },
+        env: {
+          ...process.env,
+          APEX_LSP_DEBUG: verbose ? '1' : '0',
+          ...(workspace ? { APEX_LSP_WORKSPACE: workspace.rootPath } : {}),
+        },
+        initializeParams: initializationOptions,
+        ...(workspace ? { workspacePath: workspace.rootPath } : {}),
+      };
+    }
     default:
       throw new Error(`Unknown server type: ${serverType}`);
   }
@@ -199,7 +234,8 @@ export function parseArgs(): CliOptions {
         value === 'demo' ||
         value === 'jorje' ||
         value === 'nodeserver' ||
-        value === 'webserver'
+        value === 'webserver' ||
+        value === 'webworker'
       ) {
         // Map lowercase values back to correct case
         const serverTypeMap: Record<string, ServerType> = {
@@ -207,11 +243,12 @@ export function parseArgs(): CliOptions {
           jorje: 'jorje',
           nodeserver: 'nodeServer',
           webserver: 'webServer',
+          webworker: 'webWorker',
         };
         options.serverType = serverTypeMap[value];
       } else {
         console.error(
-          `Invalid server type: ${value}. Must be 'demo', 'jorje', 'nodeServer', or 'webServer'.`,
+          `Invalid server type: ${value}. Must be 'demo', 'jorje', 'nodeServer', 'webServer', or 'webWorker'.`,
         );
         process.exit(1);
       }

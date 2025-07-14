@@ -17,6 +17,13 @@ import {
 } from 'vscode-jsonrpc';
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node';
 
+// Web worker options interface
+interface WorkerOptions {
+  name?: string;
+  credentials?: string;
+  type?: string;
+}
+
 import { ServerType } from '../utils/serverUtils';
 
 /**
@@ -63,6 +70,21 @@ export interface JsonRpcClientOptions {
    * The type of server to use (e.g., 'demo' or 'jorje')
    */
   serverType: ServerType;
+
+  /**
+   * Web worker options (used when serverType is 'nodeServer' in browser environment)
+   */
+  webWorkerOptions?: {
+    /**
+     * URL to the worker script
+     */
+    workerUrl?: string;
+
+    /**
+     * Worker options (name, credentials, etc.)
+     */
+    workerOptions?: WorkerOptions;
+  };
 }
 
 /**
@@ -153,6 +175,7 @@ export class ConsoleLogger implements Logger {
  */
 export class ApexJsonRpcClient {
   private childProcess: cp.ChildProcess | null = null;
+  private webWorker: any = null; // Will be Worker from web-worker package
   private isInitialized: boolean = false;
   private options: JsonRpcClientOptions;
   private logger: Logger;
@@ -187,6 +210,78 @@ export class ApexJsonRpcClient {
       return;
     }
 
+    // Check if we should use web worker
+    if (
+      this.serverType === 'webWorker' ||
+      (this.serverType === 'nodeServer' && this.options.webWorkerOptions)
+    ) {
+      await this.startWebWorker();
+    } else {
+      await this.startChildProcess();
+    }
+  }
+
+  /**
+   * Start the server using a web worker
+   * @private
+   */
+  private async startWebWorker(): Promise<void> {
+    this.logger.info('Starting server in web worker...');
+
+    try {
+      // Dynamically import web-worker package
+      const { default: Worker } = await import('web-worker');
+
+      // Create the web worker
+      const workerUrl =
+        this.options.webWorkerOptions?.workerUrl || this.options.serverPath;
+      const workerOptions = this.options.webWorkerOptions?.workerOptions || {};
+
+      this.webWorker = new Worker(workerUrl, workerOptions);
+
+      // Set up worker event handlers
+      this.webWorker.onerror = (error: any) => {
+        this.logger.error(`Web worker error: ${error.message}`);
+        this.cleanup();
+        this.eventEmitter.emit('error', error);
+      };
+
+      this.webWorker.onmessage = (event: any) => {
+        // Handle messages from the worker
+        this.logger.debug(
+          `Received message from worker: ${JSON.stringify(event.data)}`,
+        );
+      };
+
+      // Create message reader and writer for web worker
+      const reader = this.createWebWorkerMessageReader();
+      const writer = this.createWebWorkerMessageWriter();
+
+      // Create the message connection
+      this.connection = createMessageConnection(reader, writer, this.logger);
+
+      // Set up connection handlers
+      this.setupConnectionHandlers();
+
+      // Start listening
+      this.connection.listen();
+
+      // Initialize the server
+      await this.initializeWithRetry();
+      this.logger.info(
+        'Web worker server started and initialized successfully',
+      );
+    } catch (error) {
+      this.logger.error(`Failed to start web worker: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Start the server using a child process
+   * @private
+   */
+  private async startChildProcess(): Promise<void> {
     this.logger.info('Starting server process...');
     this.childProcess = this.startServerProcess();
 
@@ -219,13 +314,33 @@ export class ApexJsonRpcClient {
     // Create the message connection
     this.connection = createMessageConnection(reader, writer, this.logger);
 
+    // Set up connection handlers
+    this.setupConnectionHandlers();
+
+    // Start listening
+    this.connection.listen();
+
+    this.childProcess.stderr?.on('data', (data) => {
+      this.logger.error(`Server stderr: ${data.toString()}`);
+    });
+
+    // Initialize the server with retry logic
+    await this.initializeWithRetry();
+    this.logger.info('Server started and initialized successfully');
+  }
+
+  /**
+   * Set up connection event handlers
+   * @private
+   */
+  private setupConnectionHandlers(): void {
     // Set up notification handler
-    this.connection.onNotification((method, params) => {
+    this.connection!.onNotification((method, params) => {
       this.eventEmitter.emit(`notification:${method}`, params);
     });
 
     // Listen for errors
-    this.connection.onError((error) => {
+    this.connection!.onError((error) => {
       if (error instanceof ResponseError) {
         this.logger.error(
           `Connection error: ${error.message} (code: ${error.code})`,
@@ -238,21 +353,113 @@ export class ApexJsonRpcClient {
     });
 
     // Listen for close
-    this.connection.onClose(() => {
+    this.connection!.onClose(() => {
       this.logger.info('Connection closed');
       this.cleanup();
     });
+  }
 
-    // Start listening
-    this.connection.listen();
+  /**
+   * Create a message reader for web worker communication
+   * @private
+   */
+  private createWebWorkerMessageReader() {
+    const eventEmitter = new EventEmitter();
+    let isDisposed = false;
 
-    this.childProcess.stderr?.on('data', (data) => {
-      this.logger.error(`Server stderr: ${data.toString()}`);
-    });
+    // Set up message listener on the web worker
+    this.webWorker.onmessage = (event: any) => {
+      if (isDisposed) return;
 
-    // Initialize the server with retry logic
-    await this.initializeWithRetry();
-    this.logger.info('Server started and initialized successfully');
+      try {
+        const message = JSON.parse(event.data);
+        eventEmitter.emit('data', JSON.stringify(message) + '\n');
+      } catch (error) {
+        this.logger.error(`Failed to parse worker message: ${error}`);
+        eventEmitter.emit('error', error);
+      }
+    };
+
+    return {
+      listen: (callback: (data: any) => void) => {
+        if (isDisposed) return { dispose: () => {} };
+        eventEmitter.on('data', callback);
+        return {
+          dispose: () => eventEmitter.removeListener('data', callback),
+        };
+      },
+      onError: (callback: (error: any) => void) => {
+        if (isDisposed) return { dispose: () => {} };
+        eventEmitter.on('error', callback);
+        return {
+          dispose: () => eventEmitter.removeListener('error', callback),
+        };
+      },
+      onClose: (callback: () => void) => {
+        if (isDisposed) return { dispose: () => {} };
+        eventEmitter.on('close', callback);
+        return {
+          dispose: () => eventEmitter.removeListener('close', callback),
+        };
+      },
+      onPartialMessage: (callback: (message: any) => void) => {
+        if (isDisposed) return { dispose: () => {} };
+        eventEmitter.on('partialMessage', callback);
+        return {
+          dispose: () =>
+            eventEmitter.removeListener('partialMessage', callback),
+        };
+      },
+      dispose: () => {
+        isDisposed = true;
+        eventEmitter.removeAllListeners();
+      },
+    };
+  }
+
+  /**
+   * Create a message writer for web worker communication
+   * @private
+   */
+  private createWebWorkerMessageWriter() {
+    let isDisposed = false;
+    const eventEmitter = new EventEmitter();
+
+    return {
+      write: async (data: any) => {
+        if (isDisposed) return;
+
+        try {
+          this.webWorker.postMessage(data);
+        } catch (error) {
+          this.logger.error(`Failed to send message to worker: ${error}`);
+          eventEmitter.emit('error', error);
+          throw error;
+        }
+      },
+      onError: (callback: (error: any) => void) => {
+        if (isDisposed) return { dispose: () => {} };
+        eventEmitter.on('error', callback);
+        return {
+          dispose: () => eventEmitter.removeListener('error', callback),
+        };
+      },
+      onClose: (callback: () => void) => {
+        if (isDisposed) return { dispose: () => {} };
+        eventEmitter.on('close', callback);
+        return {
+          dispose: () => eventEmitter.removeListener('close', callback),
+        };
+      },
+      end: () => {
+        if (isDisposed) return;
+        eventEmitter.emit('close');
+      },
+      dispose: () => {
+        isDisposed = true;
+        eventEmitter.removeAllListeners();
+      },
+    };
   }
 
   /**
@@ -329,6 +536,11 @@ export class ApexJsonRpcClient {
       this.childProcess = null;
     }
 
+    if (this.webWorker) {
+      this.webWorker.terminate();
+      this.webWorker = null;
+    }
+
     this.isInitialized = false;
     this.serverCapabilities = null;
   }
@@ -377,6 +589,12 @@ export class ApexJsonRpcClient {
    * @returns True if the process is alive and not killed
    */
   private isProcessAlive(): boolean {
+    if (this.webWorker) {
+      // For web workers, we assume they're alive if they exist
+      // Web workers don't have a direct "alive" check like processes
+      return this.webWorker !== null;
+    }
+
     return (
       this.childProcess !== null &&
       !this.childProcess.killed &&

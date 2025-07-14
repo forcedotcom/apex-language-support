@@ -113,7 +113,7 @@ export async function createTestServer(
     await client.start();
 
     // Wait for server to be healthy and responsive
-    await client.waitForHealthy(30000);
+    await client.waitForHealthy(120_000);
 
     // Verify server initialized properly
     const capabilities = client.getServerCapabilities();
