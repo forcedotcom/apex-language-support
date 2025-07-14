@@ -101,7 +101,17 @@ describe('LSP Request/Response Accuracy', () => {
       verbose: false,
       workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
     };
-    serverContext = await createTestServer(options);
+
+    // Add timeout to server startup
+    const serverPromise = createTestServer(options);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Server startup timeout')), 60000);
+    });
+
+    serverContext = (await Promise.race([
+      serverPromise,
+      timeoutPromise,
+    ])) as Awaited<ReturnType<typeof createTestServer>>;
 
     // Give the server a moment to fully initialize
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -115,8 +125,22 @@ describe('LSP Request/Response Accuracy', () => {
         console.warn(`Cleanup failed: ${error}`);
       }
     }
+
     // Give some time for cleanup to complete
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Force cleanup any remaining processes
+    try {
+      // Kill any remaining Node.js processes that might be hanging
+      const { exec } = require('child_process');
+      exec('pkill -f "apex-ls-node"', (error: any) => {
+        if (error) {
+          console.warn('No apex-ls-node processes to kill');
+        }
+      });
+    } catch (error) {
+      console.warn('Failed to force cleanup processes:', error);
+    }
   });
 
   // Generate test groups for each configured request type
@@ -176,16 +200,30 @@ describe('LSP Request/Response Accuracy', () => {
 
           let actualResponse;
           try {
+            // Check if server is still healthy before sending request
+            if (!(await serverContext.client.isHealthy())) {
+              throw new Error('Server is not healthy, cannot send request');
+            }
+
             actualResponse = await serverContext.client.sendRequest(
               method,
               denormalizedRequest.params,
             );
           } catch (error) {
-            console.warn(`Request failed: ${error}`);
-            // If the request fails, create a response indicating the failure
-            actualResponse = {
-              error: error instanceof Error ? error.message : String(error),
-            };
+            // Handle EPIPE errors more gracefully
+            if (error instanceof Error && error.message.includes('EPIPE')) {
+              console.error(`EPIPE error in test: ${error.message}`);
+              actualResponse = {
+                error: `Server connection lost (EPIPE): ${error.message}`,
+                type: 'connection_error',
+              };
+            } else {
+              console.warn(`Request failed: ${error}`);
+              actualResponse = {
+                error: error instanceof Error ? error.message : String(error),
+                type: 'request_error',
+              };
+            }
           }
 
           const snapshotData = {

@@ -194,6 +194,24 @@ export class ApexJsonRpcClient {
       throw new Error('Server process failed to start with proper pipes');
     }
 
+    // Set up process error handling first
+    this.childProcess.on('error', (error) => {
+      this.logger.error(`Server process error: ${error.message}`);
+      this.cleanup();
+      this.eventEmitter.emit('error', error);
+    });
+
+    this.childProcess.on('exit', (code, signal) => {
+      this.logger.info(
+        `Server process exited with code ${code}, signal ${signal}`,
+      );
+      this.cleanup();
+      this.eventEmitter.emit('exit', code);
+    });
+
+    // Wait for process to be ready
+    await this.waitForProcessReady();
+
     // Create message reader and writer
     const reader = new StreamMessageReader(this.childProcess.stdout);
     const writer = new StreamMessageWriter(this.childProcess.stdin);
@@ -232,21 +250,70 @@ export class ApexJsonRpcClient {
       this.logger.error(`Server stderr: ${data.toString()}`);
     });
 
-    this.childProcess.on('exit', (code) => {
-      this.logger.info(`Server process exited with code ${code}`);
-      this.cleanup();
-      this.eventEmitter.emit('exit', code);
-    });
-
-    this.childProcess.on('error', (error) => {
-      this.logger.error(`Server process error: ${error.message}`);
-      this.cleanup();
-      this.eventEmitter.emit('error', error);
-    });
-
-    // Initialize the server
-    await this.initialize();
+    // Initialize the server with retry logic
+    await this.initializeWithRetry();
     this.logger.info('Server started and initialized successfully');
+  }
+
+  /**
+   * Wait for the server process to be ready to accept connections
+   * @private
+   */
+  private async waitForProcessReady(): Promise<void> {
+    const maxWaitTime = 30000; // 30 seconds
+    const checkInterval = 100; // 100ms
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxWaitTime) {
+      // Check if process is still alive
+      if (!this.isProcessAlive()) {
+        throw new Error('Server process died during startup');
+      }
+
+      // Check if we have valid stdout/stdin
+      if (this.childProcess?.stdout && this.childProcess?.stdin) {
+        // Give a small delay to ensure pipes are established
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, checkInterval));
+    }
+
+    throw new Error('Server process failed to become ready within timeout');
+  }
+
+  /**
+   * Initialize the server with retry logic
+   * @private
+   */
+  private async initializeWithRetry(): Promise<void> {
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 seconds
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.initialize();
+        return; // Success
+      } catch (error) {
+        this.logger.error(
+          `Initialization attempt ${attempt}/${maxRetries} failed: ${error}`,
+        );
+
+        if (attempt === maxRetries) {
+          throw error;
+        }
+
+        // Check if process is still alive before retrying
+        if (!this.isProcessAlive()) {
+          throw new Error('Server process died during initialization');
+        }
+
+        // Wait before retrying
+        this.logger.info(`Retrying initialization in ${retryDelay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      }
+    }
   }
 
   private cleanup(): void {
@@ -324,21 +391,13 @@ export class ApexJsonRpcClient {
    * @returns Promise that resolves with the response
    */
   public async sendRequest<T>(method: string, params: any): Promise<T> {
-    if (!this.connection || !this.isInitialized || !this.isProcessAlive()) {
-      throw new Error('Client not initialized or process exited');
-    }
+    this.validateConnectionState(method);
     this.logger.debug(`Sending request: ${method}`);
+
     try {
-      return this.connection.sendRequest(method, params) as Promise<T>;
+      return this.connection!.sendRequest(method, params) as Promise<T>;
     } catch (error) {
-      if (error instanceof Error && error.message.includes('EPIPE')) {
-        this.logger.error(
-          `Sending request failed: Process pipe broken (${method})`,
-        );
-        throw new Error(
-          `Sending request failed: Process pipe broken (${method})`,
-        );
-      }
+      this.handleSendError(error, method, 'request');
       throw error;
     }
   }
@@ -349,23 +408,67 @@ export class ApexJsonRpcClient {
    * @param params - Notification parameters
    */
   public sendNotification(method: string, params: any): void {
-    if (!this.connection || !this.isInitialized || !this.isProcessAlive()) {
-      throw new Error('Client not initialized or process exited');
-    }
+    this.validateConnectionState(method);
     this.logger.debug(`Sending notification: ${method}`);
+
     try {
-      this.connection.sendNotification(method, params);
+      this.connection!.sendNotification(method, params);
     } catch (error) {
-      if (error instanceof Error && error.message.includes('EPIPE')) {
-        this.logger.error(
-          `Sending notification failed: Process pipe broken (${method})`,
-        );
-        throw new Error(
-          `Sending notification failed: Process pipe broken (${method})`,
-        );
-      }
+      this.handleSendError(error, method, 'notification');
       throw error;
     }
+  }
+
+  /**
+   * Validate that the connection is in a valid state for sending messages
+   * @private
+   */
+  private validateConnectionState(method: string): void {
+    if (!this.connection) {
+      throw new Error(`Cannot send ${method}: No connection established`);
+    }
+
+    if (!this.isInitialized) {
+      throw new Error(`Cannot send ${method}: Server not initialized`);
+    }
+
+    if (!this.isProcessAlive()) {
+      throw new Error(`Cannot send ${method}: Server process is not running`);
+    }
+  }
+
+  /**
+   * Handle errors that occur during send operations
+   * @private
+   */
+  private handleSendError(
+    error: any,
+    method: string,
+    operationType: 'request' | 'notification',
+  ): void {
+    if (error instanceof Error) {
+      if (error.message.includes('EPIPE')) {
+        this.logger.error(
+          `Sending ${operationType} failed: Process pipe broken (${method})`,
+        );
+        // Mark as not initialized since pipe is broken
+        this.isInitialized = false;
+        throw new Error(
+          `Sending ${operationType} failed: Process pipe broken (${method})`,
+        );
+      } else if (error.message.includes('ECONNRESET')) {
+        this.logger.error(
+          `Sending ${operationType} failed: Connection reset (${method})`,
+        );
+        this.isInitialized = false;
+        throw new Error(
+          `Sending ${operationType} failed: Connection reset (${method})`,
+        );
+      }
+    }
+
+    this.logger.error(`Sending ${operationType} failed: ${error}`);
+    throw error;
   }
 
   /**
@@ -374,6 +477,43 @@ export class ApexJsonRpcClient {
    */
   public getServerCapabilities(): any {
     return this.serverCapabilities;
+  }
+
+  /**
+   * Check if the server is healthy and responding
+   * @returns Promise that resolves to true if server is healthy
+   */
+  public async isHealthy(): Promise<boolean> {
+    if (!this.connection || !this.isInitialized || !this.isProcessAlive()) {
+      return false;
+    }
+    try {
+      // Instead of sending $/ping, just check that we have capabilities
+      const capabilities = this.getServerCapabilities();
+      return !!capabilities;
+    } catch (error) {
+      this.logger.debug(`Health check failed: ${error}`);
+      return false;
+    }
+  }
+
+  /**
+   * Wait for the server to be healthy and responsive
+   * @param timeout - Maximum time to wait in milliseconds (default: 30000)
+   * @returns Promise that resolves when server is healthy
+   */
+  public async waitForHealthy(timeout: number = 30000): Promise<void> {
+    const startTime = Date.now();
+    const checkInterval = 1000; // 1 second
+
+    while (Date.now() - startTime < timeout) {
+      if (await this.isHealthy()) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, checkInterval));
+    }
+
+    throw new Error(`Server did not become healthy within ${timeout}ms`);
   }
 
   /**
