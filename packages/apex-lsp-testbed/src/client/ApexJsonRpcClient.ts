@@ -488,9 +488,16 @@ export class ApexJsonRpcClient {
       return false;
     }
     try {
-      // Instead of sending $/ping, just check that we have capabilities
-      const capabilities = this.getServerCapabilities();
-      return !!capabilities;
+      // Use $/ping for nodeServer and webServer, capabilities check for others
+      if (this.serverType === 'nodeServer' || this.serverType === 'webServer') {
+        // Send $/ping request to check if server is responsive
+        await this.ping();
+        return true;
+      } else {
+        // For demo and jorje servers, check that we have capabilities
+        const capabilities = this.getServerCapabilities();
+        return !!capabilities;
+      }
     } catch (error) {
       this.logger.debug(`Health check failed: ${error}`);
       return false;
@@ -646,6 +653,14 @@ export class ApexJsonRpcClient {
   }
 
   /**
+   * Send a ping request to the server to check if it's responsive
+   * @returns Promise that resolves when ping is successful
+   */
+  public async ping(): Promise<void> {
+    return this.sendRequest('$/ping', undefined);
+  }
+
+  /**
    * Start the server process
    * @returns Child process
    * @private
@@ -698,16 +713,6 @@ export class ApexJsonRpcClient {
           },
         );
       case 'webServer':
-        return cp.spawn(
-          nodePath as string,
-          [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
-          {
-            env: { ...process.env, ...env },
-            stdio: ['pipe', 'pipe', 'pipe'],
-            cwd: workspacePath, // Set the current working directory
-          },
-        );
-      case 'nodeServer':
         return cp.spawn(
           nodePath as string,
           [...(nodeArgs || []), serverPath, ...(serverArgs || [])],

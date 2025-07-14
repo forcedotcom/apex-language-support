@@ -10,4 +10,4 @@
 export {
   WebLanguageServerHarness,
   createWebLanguageServerHarness,
-} from './webServer/webLanguageServerHarness';
+} from '../webServer/webLanguageServerHarness';
