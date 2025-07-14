@@ -8,7 +8,7 @@
 
 import {
   Diagnostic,
-  DocumentSymbolParams,
+  DocumentDiagnosticParams,
 } from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
@@ -26,7 +26,7 @@ import { ApexSettingsManager } from '../settings/ApexSettingsManager';
  * @returns Array of diagnostics for the document
  */
 export async function processOnDiagnostic(
-  params: DocumentSymbolParams,
+  params: DocumentDiagnosticParams,
 ): Promise<Diagnostic[]> {
   const logger = getLogger();
 
@@ -75,7 +75,7 @@ export async function processOnDiagnostic(
  * @returns Promise resolving to diagnostics array
  */
 export function dispatchProcessOnDiagnostic(
-  params: DocumentSymbolParams,
+  params: DocumentDiagnosticParams,
 ): Promise<Diagnostic[]> {
   return dispatch(
     processOnDiagnostic(params),
