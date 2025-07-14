@@ -177,7 +177,11 @@ public class TestClass {
 
     // Open document
     this.logger.info(`Opening document: ${testDocumentUri}`);
-    this.client.openTextDocument(testDocumentUri, documentContent, 'apex');
+    await this.client.openTextDocument(
+      testDocumentUri,
+      documentContent,
+      'apex',
+    );
 
     // Update document
     this.logger.info('Updating document content');
@@ -185,11 +189,11 @@ public class TestClass {
       'this.count++;',
       'this.count += 2;',
     );
-    this.client.updateTextDocument(testDocumentUri, updatedContent, 2);
+    await this.client.updateTextDocument(testDocumentUri, updatedContent, 2);
 
     // Close document
     this.logger.info('Closing document');
-    this.client.closeTextDocument(testDocumentUri);
+    await this.client.closeTextDocument(testDocumentUri);
 
     this.logger.info('Basic document operations completed successfully\n');
   }
@@ -210,7 +214,11 @@ public class CompletionTest {
 }`;
 
     // Open document
-    this.client.openTextDocument(testDocumentUri, documentContent, 'apex');
+    await this.client.openTextDocument(
+      testDocumentUri,
+      documentContent,
+      'apex',
+    );
 
     // Request completion
     this.logger.info('Requesting completion at line 3, character 13');
@@ -237,7 +245,7 @@ public class CompletionTest {
     }
 
     // Close document
-    this.client.closeTextDocument(testDocumentUri);
+    await this.client.closeTextDocument(testDocumentUri);
 
     this.logger.info('Completion test completed\n');
   }
@@ -260,7 +268,11 @@ public class HoverTest {
 }`;
 
     // Open document
-    this.client.openTextDocument(testDocumentUri, documentContent, 'apex');
+    await this.client.openTextDocument(
+      testDocumentUri,
+      documentContent,
+      'apex',
+    );
 
     // Request hover
     this.logger.info('Requesting hover at line 5, character 14');
@@ -283,7 +295,7 @@ public class HoverTest {
     }
 
     // Close document
-    this.client.closeTextDocument(testDocumentUri);
+    await this.client.closeTextDocument(testDocumentUri);
 
     this.logger.info('Hover test completed\n');
   }

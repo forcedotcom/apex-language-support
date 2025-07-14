@@ -73,7 +73,7 @@ public class TestClass {
 
   // Open document
   logger.info(`Opening document: ${testDocumentUri}`);
-  client.openTextDocument(testDocumentUri, documentContent, 'apex');
+  await client.openTextDocument(testDocumentUri, documentContent, 'apex');
 
   // Update document
   logger.info('Updating document content');
@@ -81,11 +81,11 @@ public class TestClass {
     'this.count++;',
     'this.count += 2;',
   );
-  client.updateTextDocument(testDocumentUri, updatedContent, 2);
+  await client.updateTextDocument(testDocumentUri, updatedContent, 2);
 
   // Close document
   logger.info('Closing document');
-  client.closeTextDocument(testDocumentUri);
+  await client.closeTextDocument(testDocumentUri);
 
   logger.info('Basic document operations completed successfully\n');
 }
@@ -106,7 +106,7 @@ public class CompletionTest {
 }`;
 
   // Open document
-  client.openTextDocument(testDocumentUri, documentContent, 'apex');
+  await client.openTextDocument(testDocumentUri, documentContent, 'apex');
 
   // Request completion
   logger.info('Requesting completion at line 3, character 13');
@@ -127,7 +127,7 @@ public class CompletionTest {
   }
 
   // Close document
-  client.closeTextDocument(testDocumentUri);
+  await client.closeTextDocument(testDocumentUri);
 
   logger.info('Completion test completed\n');
 }
@@ -150,7 +150,7 @@ public class HoverTest {
 }`;
 
   // Open document
-  client.openTextDocument(testDocumentUri, documentContent, 'apex');
+  await client.openTextDocument(testDocumentUri, documentContent, 'apex');
 
   // Request hover
   logger.info('Requesting hover at line 5, character 14');
@@ -171,7 +171,7 @@ public class HoverTest {
   }
 
   // Close document
-  client.closeTextDocument(testDocumentUri);
+  await client.closeTextDocument(testDocumentUri);
 
   logger.info('Hover test completed\n');
 }

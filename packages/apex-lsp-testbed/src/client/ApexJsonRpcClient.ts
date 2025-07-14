@@ -238,6 +238,12 @@ export class ApexJsonRpcClient {
       this.eventEmitter.emit('exit', code);
     });
 
+    this.childProcess.on('error', (error) => {
+      this.logger.error(`Server process error: ${error.message}`);
+      this.cleanup();
+      this.eventEmitter.emit('error', error);
+    });
+
     // Initialize the server
     await this.initialize();
     this.logger.info('Server started and initialized successfully');
@@ -300,25 +306,66 @@ export class ApexJsonRpcClient {
   }
 
   /**
+   * Check if the server process is still alive
+   * @returns True if the process is alive and not killed
+   */
+  private isProcessAlive(): boolean {
+    return (
+      this.childProcess !== null &&
+      !this.childProcess.killed &&
+      this.childProcess.exitCode === null
+    );
+  }
+
+  /**
    * Send a request to the language server
    * @param method - Request method
    * @param params - Request parameters
    * @returns Promise that resolves with the response
    */
   public async sendRequest<T>(method: string, params: any): Promise<T> {
-    if (!this.connection || !this.isInitialized) {
-      throw new Error('Client not initialized');
+    if (!this.connection || !this.isInitialized || !this.isProcessAlive()) {
+      throw new Error('Client not initialized or process exited');
     }
     this.logger.debug(`Sending request: ${method}`);
-    return this.connection.sendRequest(method, params) as Promise<T>;
+    try {
+      return this.connection.sendRequest(method, params) as Promise<T>;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('EPIPE')) {
+        this.logger.error(
+          `Sending request failed: Process pipe broken (${method})`,
+        );
+        throw new Error(
+          `Sending request failed: Process pipe broken (${method})`,
+        );
+      }
+      throw error;
+    }
   }
 
+  /**
+   * Send a notification to the language server
+   * @param method - Notification method
+   * @param params - Notification parameters
+   */
   public sendNotification(method: string, params: any): void {
-    if (!this.connection || !this.isInitialized) {
-      throw new Error('Client not initialized');
+    if (!this.connection || !this.isInitialized || !this.isProcessAlive()) {
+      throw new Error('Client not initialized or process exited');
     }
     this.logger.debug(`Sending notification: ${method}`);
-    this.connection.sendNotification(method, params);
+    try {
+      this.connection.sendNotification(method, params);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('EPIPE')) {
+        this.logger.error(
+          `Sending notification failed: Process pipe broken (${method})`,
+        );
+        throw new Error(
+          `Sending notification failed: Process pipe broken (${method})`,
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -335,19 +382,24 @@ export class ApexJsonRpcClient {
    * @param text - Document content
    * @param languageId - Language identifier (default: 'apex')
    */
-  public openTextDocument(
+  public async openTextDocument(
     uri: string,
     text: string,
     languageId: string = 'apex',
-  ): void {
-    this.sendNotification('textDocument/didOpen', {
-      textDocument: {
-        uri,
-        languageId,
-        version: 1,
-        text,
-      },
-    });
+  ): Promise<void> {
+    try {
+      this.sendNotification('textDocument/didOpen', {
+        textDocument: {
+          uri,
+          languageId,
+          version: 1,
+          text,
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to open text document: ${error}`);
+      throw error;
+    }
   }
 
   /**
@@ -356,24 +408,38 @@ export class ApexJsonRpcClient {
    * @param text - New document content
    * @param version - Document version
    */
-  public updateTextDocument(uri: string, text: string, version: number): void {
-    this.sendNotification('textDocument/didChange', {
-      textDocument: {
-        uri,
-        version,
-      },
-      contentChanges: [{ text }],
-    });
+  public async updateTextDocument(
+    uri: string,
+    text: string,
+    version: number,
+  ): Promise<void> {
+    try {
+      this.sendNotification('textDocument/didChange', {
+        textDocument: {
+          uri,
+          version,
+        },
+        contentChanges: [{ text }],
+      });
+    } catch (error) {
+      this.logger.error(`Failed to update text document: ${error}`);
+      throw error;
+    }
   }
 
   /**
    * Close a text document in the language server
    * @param uri - Document URI
    */
-  public closeTextDocument(uri: string): void {
-    this.sendNotification('textDocument/didClose', {
-      textDocument: { uri },
-    });
+  public async closeTextDocument(uri: string): Promise<void> {
+    try {
+      this.sendNotification('textDocument/didClose', {
+        textDocument: { uri },
+      });
+    } catch (error) {
+      this.logger.error(`Failed to close text document: ${error}`);
+      throw error;
+    }
   }
 
   /**
