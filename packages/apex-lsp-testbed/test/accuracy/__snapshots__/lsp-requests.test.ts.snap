@@ -265,7 +265,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PagedResult.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/PagedResult.cls",
       },
     },
   },
@@ -537,7 +537,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/PropertyController.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/PropertyController.cls",
       },
     },
   },
@@ -563,7 +563,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "range": {
             "end": {
               "character": 5,
-              "line": 34,
+              "line": 31,
             },
             "start": {
               "character": 25,
@@ -587,7 +587,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       "range": {
         "end": {
           "character": 1,
-          "line": 35,
+          "line": 34,
         },
         "start": {
           "character": 26,
@@ -662,7 +662,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/FileUtilities.cls",
       },
     },
   },
@@ -787,7 +787,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestSampleDataController.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/TestSampleDataController.cls",
       },
     },
   },
@@ -1108,7 +1108,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/TestPropertyController.cls",
       },
     },
   },
@@ -1159,7 +1159,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "range": {
             "end": {
               "character": 5,
-              "line": 53,
+              "line": 50,
             },
             "start": {
               "character": 36,
@@ -1186,21 +1186,21 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "range": {
                 "end": {
                   "character": 28,
-                  "line": 57,
+                  "line": 54,
                 },
                 "start": {
                   "character": 22,
-                  "line": 57,
+                  "line": 54,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 28,
-                  "line": 57,
+                  "line": 54,
                 },
                 "start": {
                   "character": 22,
-                  "line": 57,
+                  "line": 54,
                 },
               },
             },
@@ -1211,21 +1211,21 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "range": {
                 "end": {
                   "character": 26,
-                  "line": 59,
+                  "line": 56,
                 },
                 "start": {
                   "character": 22,
-                  "line": 59,
+                  "line": 56,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 26,
-                  "line": 59,
+                  "line": 56,
                 },
                 "start": {
                   "character": 22,
-                  "line": 59,
+                  "line": 56,
                 },
               },
             },
@@ -1236,21 +1236,21 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "range": {
                 "end": {
                   "character": 27,
-                  "line": 61,
+                  "line": 58,
                 },
                 "start": {
                   "character": 22,
-                  "line": 61,
+                  "line": 58,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 27,
-                  "line": 61,
+                  "line": 58,
                 },
                 "start": {
                   "character": 22,
-                  "line": 61,
+                  "line": 58,
                 },
               },
             },
@@ -1261,21 +1261,21 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "range": {
                 "end": {
                   "character": 29,
-                  "line": 63,
+                  "line": 60,
                 },
                 "start": {
                   "character": 22,
-                  "line": 63,
+                  "line": 60,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 29,
-                  "line": 63,
+                  "line": 60,
                 },
                 "start": {
                   "character": 22,
-                  "line": 63,
+                  "line": 60,
                 },
               },
             },
@@ -1286,21 +1286,21 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "range": {
                 "end": {
                   "character": 32,
-                  "line": 65,
+                  "line": 62,
                 },
                 "start": {
                   "character": 22,
-                  "line": 65,
+                  "line": 62,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 32,
-                  "line": 65,
+                  "line": 62,
                 },
                 "start": {
                   "character": 22,
-                  "line": 65,
+                  "line": 62,
                 },
               },
             },
@@ -1310,21 +1310,21 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "range": {
             "end": {
               "character": 5,
-              "line": 66,
+              "line": 63,
             },
             "start": {
               "character": 17,
-              "line": 55,
+              "line": 52,
             },
           },
           "selectionRange": {
             "end": {
               "character": 33,
-              "line": 55,
+              "line": 52,
             },
             "start": {
               "character": 17,
-              "line": 55,
+              "line": 52,
             },
           },
         },
@@ -1337,21 +1337,21 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "range": {
                 "end": {
                   "character": 26,
-                  "line": 70,
+                  "line": 67,
                 },
                 "start": {
                   "character": 23,
-                  "line": 70,
+                  "line": 67,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 26,
-                  "line": 70,
+                  "line": 67,
                 },
                 "start": {
                   "character": 23,
-                  "line": 70,
+                  "line": 67,
                 },
               },
             },
@@ -1362,21 +1362,21 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "range": {
                 "end": {
                   "character": 26,
-                  "line": 72,
+                  "line": 69,
                 },
                 "start": {
                   "character": 23,
-                  "line": 72,
+                  "line": 69,
                 },
               },
               "selectionRange": {
                 "end": {
                   "character": 26,
-                  "line": 72,
+                  "line": 69,
                 },
                 "start": {
                   "character": 23,
-                  "line": 72,
+                  "line": 69,
                 },
               },
             },
@@ -1386,21 +1386,21 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "range": {
             "end": {
               "character": 5,
-              "line": 73,
+              "line": 70,
             },
             "start": {
               "character": 17,
-              "line": 68,
+              "line": 65,
             },
           },
           "selectionRange": {
             "end": {
               "character": 28,
-              "line": 68,
+              "line": 65,
             },
             "start": {
               "character": 17,
-              "line": 68,
+              "line": 65,
             },
           },
         },
@@ -1410,7 +1410,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       "range": {
         "end": {
           "character": 1,
-          "line": 74,
+          "line": 71,
         },
         "start": {
           "character": 26,
@@ -1729,7 +1729,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingService.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/GeocodingService.cls",
       },
     },
   },
@@ -2050,7 +2050,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/SampleDataController.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/SampleDataController.cls",
       },
     },
   },
@@ -2818,7 +2818,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/GeocodingServiceTest.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/GeocodingServiceTest.cls",
       },
     },
   },
@@ -2834,7 +2834,59 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
   result: [Array]
 }: textDocument/documentSymbol-request 1`] = `
 {
-  "actualResponse": null,
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "x() : String",
+          "range": {
+            "end": {
+              "character": 15,
+              "line": 2,
+            },
+            "start": {
+              "character": 11,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 12,
+              "line": 2,
+            },
+            "start": {
+              "character": 11,
+              "line": 2,
+            },
+          },
+        },
+      ],
+      "kind": 11,
+      "name": "MyInterface",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 3,
+        },
+        "start": {
+          "character": 17,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 28,
+          "line": 0,
+        },
+        "start": {
+          "character": 17,
+          "line": 0,
+        },
+      },
+    },
+  ],
   "expectedResponse": [
     {
       "children": [
@@ -2891,7 +2943,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyInterface.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/MyInterface.cls",
       },
     },
   },
@@ -2907,7 +2959,109 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
   result: [Array]
 }: textDocument/documentSymbol-request 1`] = `
 {
-  "actualResponse": null,
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 8,
+          "name": "x",
+          "range": {
+            "end": {
+              "character": 19,
+              "line": 1,
+            },
+            "start": {
+              "character": 18,
+              "line": 1,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 19,
+              "line": 1,
+            },
+            "start": {
+              "character": 18,
+              "line": 1,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 8,
+          "name": "y",
+          "range": {
+            "end": {
+              "character": 20,
+              "line": 2,
+            },
+            "start": {
+              "character": 19,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 20,
+              "line": 2,
+            },
+            "start": {
+              "character": 19,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 9,
+          "name": "MyWebService() : void",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 13,
+            },
+            "start": {
+              "character": 11,
+              "line": 3,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 23,
+              "line": 3,
+            },
+            "start": {
+              "character": 11,
+              "line": 3,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "MyWebService",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 14,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 38,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
   "expectedResponse": [
     {
       "children": [
@@ -3012,7 +3166,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/MyWebService.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/MyWebService.cls",
       },
     },
   },
@@ -3284,7 +3438,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilitiesTest.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/FileUtilitiesTest.cls",
       },
     },
   },
@@ -3310,7 +3464,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "range": {
             "end": {
               "character": 5,
-              "line": 34,
+              "line": 31,
             },
             "start": {
               "character": 25,
@@ -3334,7 +3488,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       "range": {
         "end": {
           "character": 1,
-          "line": 35,
+          "line": 34,
         },
         "start": {
           "character": 26,
@@ -3409,7 +3563,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/FileUtilities.cls",
       },
     },
   },
@@ -3433,7 +3587,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "range": {
             "end": {
               "character": 5,
-              "line": 34,
+              "line": 31,
             },
             "start": {
               "character": 25,
@@ -3457,7 +3611,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
       "range": {
         "end": {
           "character": 1,
-          "line": 35,
+          "line": 34,
         },
         "start": {
           "character": 26,
@@ -3481,7 +3635,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "method": "textDocument/documentSymbol",
     "params": {
       "textDocument": {
-        "uri": "file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/FileUtilities.cls",
+        "uri": "file:///workspace/force-app/main/default/classes/FileUtilities.cls",
       },
     },
   },

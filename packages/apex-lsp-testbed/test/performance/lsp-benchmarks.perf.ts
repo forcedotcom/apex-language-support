@@ -41,11 +41,15 @@ import {
   createTestServer,
   ServerOptions,
 } from '../../src/test-utils/serverFactory';
+import { normalizeTraceData } from '../../src/test-utils/traceDataUtils';
 
 // --- Load test data synchronously ---
 const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
 const rawData = readFileSync(logPath, 'utf8');
 const logData: Record<string, any> = JSON.parse(rawData);
+
+// Normalize the trace data for portability
+const normalizedLogData = normalizeTraceData(logData);
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -162,7 +166,7 @@ const methodOrder = [
 // Group requests by document URI to maintain proper state
 const requestsByDocument = new Map<string, any[]>();
 
-const allRequests = Object.values(logData);
+const allRequests = Object.values(normalizedLogData);
 const relevantEntries = allRequests.filter(
   (entry) =>
     (entry.type === 'request' || entry.type === 'notification') &&
@@ -243,10 +247,9 @@ if (selectedUri) {
   console.warn('No suitable document URI found with multiple operations');
 }
 
-const describeMethod = shouldSkip ? describe.skip : describe.only;
 const testTitle = `${serverType.charAt(0).toUpperCase() + serverType.slice(1)} LSP Performance Benchmarks`;
 
-describeMethod(testTitle, () => {
+describe(testTitle, () => {
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;
 
   beforeAll(async () => {

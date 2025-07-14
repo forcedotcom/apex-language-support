@@ -14,6 +14,11 @@ import {
   ServerOptions,
 } from '../../src/test-utils/serverFactory';
 import { ServerType } from '../../src/utils/serverUtils';
+import {
+  normalizeTraceData,
+  denormalizeRequest,
+  getDocumentOpenEventsBeforeRequest,
+} from '../../src/test-utils/traceDataUtils';
 
 // --- Load test data synchronously ---
 const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
@@ -63,13 +68,19 @@ const REQUEST_GROUPS: RequestGroupConfig[] = [
  * @param config - The request group configuration
  * @returns Array of test data tuples [method, request]
  */
-const extractTestDataForGroup = (config: RequestGroupConfig): [string, any][] =>
-  Object.values(logData)
+const extractTestDataForGroup = (
+  config: RequestGroupConfig,
+): [string, any][] => {
+  // Normalize the trace data first
+  const normalizedLogData = normalizeTraceData(logData);
+
+  return Object.values(normalizedLogData)
     .filter(
       (entry) =>
         entry.type === 'request' && config.methodPattern.test(entry.method),
     )
     .map((request) => [request.method, request]);
+};
 
 describe('LSP Request/Response Accuracy', () => {
   const targetServer: ServerType = 'nodeServer';
@@ -78,7 +89,7 @@ describe('LSP Request/Response Accuracy', () => {
   beforeAll(async () => {
     const options: ServerOptions = {
       serverType: targetServer,
-      verbose: true,
+      verbose: false,
       workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
     };
     serverContext = await createTestServer(options);
@@ -103,15 +114,52 @@ describe('LSP Request/Response Accuracy', () => {
       it.each(testData)(
         'LSP %s request/response matches snapshot for request %s',
         async (method, request) => {
+          // Convert normalized URIs back to actual workspace paths
+          const denormalizedRequest = denormalizeRequest(
+            request,
+            serverContext.workspace?.rootUri || '',
+          );
+
+          // For document symbol requests, ensure the document is opened first
+          if (method === 'textDocument/documentSymbol') {
+            // Check if this document was opened in the trace before this request
+            const normalizedLogData = normalizeTraceData(logData);
+            const documentOpenEvents = getDocumentOpenEventsBeforeRequest(
+              normalizedLogData,
+              request.id,
+              request.params.textDocument.uri,
+            );
+
+            if (documentOpenEvents.length > 0) {
+              // Open the document first with denormalized URI
+              const openEvent =
+                documentOpenEvents[documentOpenEvents.length - 1];
+              const denormalizedOpenEvent = denormalizeRequest(
+                openEvent,
+                serverContext.workspace?.rootUri || '',
+              );
+
+              await serverContext.client.sendNotification(
+                'textDocument/didOpen',
+                {
+                  textDocument: denormalizedOpenEvent.params.textDocument,
+                },
+              );
+
+              // Give the server a moment to process the document
+              await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+          }
+
           const actualResponse = await serverContext.client.sendRequest(
             method,
-            request.params,
+            denormalizedRequest.params,
           );
 
           const snapshotData = {
             request: {
               method: request.method,
-              params: request.params,
+              params: request.params, // Use the normalized request for snapshot
             },
             expectedResponse: request?.result,
             actualResponse,
