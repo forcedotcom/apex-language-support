@@ -104,14 +104,21 @@ describe('LSP Request/Response Accuracy', () => {
 
     // Add timeout to server startup
     const serverPromise = createTestServer(options);
+    let timeoutId: NodeJS.Timeout | undefined = undefined;
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Server startup timeout')), 60000);
+      timeoutId = setTimeout(
+        () => reject(new Error('Server startup timeout')),
+        60000,
+      );
     });
 
     serverContext = (await Promise.race([
       serverPromise,
       timeoutPromise,
     ])) as Awaited<ReturnType<typeof createTestServer>>;
+
+    // Clear the timeout if server started successfully
+    if (timeoutId) clearTimeout(timeoutId);
 
     // Give the server a moment to fully initialize
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -132,12 +139,12 @@ describe('LSP Request/Response Accuracy', () => {
     // Force cleanup any remaining processes
     try {
       // Kill any remaining Node.js processes that might be hanging
-      const { exec } = require('child_process');
-      exec('pkill -f "apex-ls-node"', (error: any) => {
-        if (error) {
-          console.warn('No apex-ls-node processes to kill');
-        }
-      });
+      const { execSync } = require('child_process');
+      try {
+        execSync('pkill -f "apex-ls-node"', { stdio: 'ignore' });
+      } catch (_error) {
+        // Silently ignore if no processes to kill
+      }
     } catch (error) {
       console.warn('Failed to force cleanup processes:', error);
     }
