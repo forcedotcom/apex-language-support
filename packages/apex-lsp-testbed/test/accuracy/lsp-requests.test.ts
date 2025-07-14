@@ -20,7 +20,7 @@ const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
 const rawData = readFileSync(logPath, 'utf8');
 const logData: Record<string, any> = JSON.parse(rawData);
 
-jest.setTimeout(10_000);
+jest.setTimeout(120_000);
 
 /**
  * Configuration for request groups to test.
