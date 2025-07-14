@@ -119,7 +119,7 @@ When running in interactive mode (the default), the following commands are avail
   All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
 
 - **TypeScript Improvements:**  
-  Explicit types have been added to test files to resolve TypeScript errors. For example, in `test/performance/lsp-benchmarks.web.test.ts`, variables and parameters now have explicit `any` types.
+  Explicit types have been added to test files to resolve TypeScript errors. For example, in `test/performance/lsp-benchmarks.test.ts`, variables and parameters now have explicit `any` types.
 
 - **Jest Configuration:**  
   Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
@@ -191,16 +191,16 @@ When started with the `--suspend` flag, the Java process will wait for a debugge
 
 The following configuration options are available:
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `javaHome` | Path to the Java home directory | Uses `JAVA_HOME` environment variable |
-| `jarPath` | Path to the `apex-jorje-lsp.jar` file | Auto-detected |
-| `javaMemory` | Memory allocation in MB | 4096 |
-| `enableSemanticErrors` | Enable semantic error reporting | false |
-| `enableCompletionStatistics` | Enable completion statistics | false |
-| `debugPort` | Debug port for JDWP | 2739 |
-| `logLevel` | Log level (ERROR, WARN, INFO, DEBUG) | ERROR |
-| `suspendStartup` | Whether to suspend on startup (for debugging) | false |
+| Option                       | Description                                   | Default                               |
+| ---------------------------- | --------------------------------------------- | ------------------------------------- |
+| `javaHome`                   | Path to the Java home directory               | Uses `JAVA_HOME` environment variable |
+| `jarPath`                    | Path to the `apex-jorje-lsp.jar` file         | Auto-detected                         |
+| `javaMemory`                 | Memory allocation in MB                       | 4096                                  |
+| `enableSemanticErrors`       | Enable semantic error reporting               | false                                 |
+| `enableCompletionStatistics` | Enable completion statistics                  | false                                 |
+| `debugPort`                  | Debug port for JDWP                           | 2739                                  |
+| `logLevel`                   | Log level (ERROR, WARN, INFO, DEBUG)          | ERROR                                 |
+| `suspendStartup`             | Whether to suspend on startup (for debugging) | false                                 |
 
 ## Advanced JSON-RPC Client
 

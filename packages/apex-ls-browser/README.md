@@ -35,7 +35,7 @@ import * as WebApexLanguageServer from 'apex-ls-browser';
   All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
 
 - **TypeScript Improvements:**  
-  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.web.test.ts`, variables and parameters now have explicit `any` types.
+  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.test.ts`, variables and parameters now have explicit `any` types.
 
 - **Jest Configuration:**  
   Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
@@ -64,14 +64,14 @@ See the [Language Server Protocol](https://microsoft.github.io/language-server-p
 
 Starting with v1.1.0 this package ships pre-bundled artifacts in `bundle/` that are published to npm:
 
-| File | Format | Use-case |
-|------|--------|----------|
-| `index.mjs` | ES Module (ES2020) | Modern browsers / bundlers (recommended) |
-| `index.js`  | CommonJS          | Legacy tooling that still requires CJS |
-| `index.d.ts`| Type Declarations | Type-safe consumption from TypeScript |
+| File         | Format             | Use-case                                 |
+| ------------ | ------------------ | ---------------------------------------- |
+| `index.mjs`  | ES Module (ES2020) | Modern browsers / bundlers (recommended) |
+| `index.js`   | CommonJS           | Legacy tooling that still requires CJS   |
+| `index.d.ts` | Type Declarations  | Type-safe consumption from TypeScript    |
 
-> **Note**  Because we generate a single, side-effect-free bundle (`"sideEffects": false` in `package.json`), downstream bundlers can safely tree-shake any unused code.
+> **Note** Because we generate a single, side-effect-free bundle (`"sideEffects": false` in `package.json`), downstream bundlers can safely tree-shake any unused code.
 
 ### Supported Browsers / ECMAScript Target
 
-The bundle is transpiled to the `es2020` target.  That means it runs natively in all evergreen browsers (Chrome 88+, Firefox 78+, Edge 90+, Safari 14+).  If you need to support older environments you can continue to transpile our ESM build through your own Babel/ESBuild pipeline.
+The bundle is transpiled to the `es2020` target. That means it runs natively in all evergreen browsers (Chrome 88+, Firefox 78+, Edge 90+, Safari 14+). If you need to support older environments you can continue to transpile our ESM build through your own Babel/ESBuild pipeline.
