@@ -9,6 +9,7 @@
   "scripts": {
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
+    "test:perf": "turbo run test:perf",
     "test:packages": "turbo run test --filter=./packages/*",
     "test:coverage:packages": "turbo run test:coverage --filter=./packages/*",
     "test:coverage:report": "node scripts/merge-coverage.js",
@@ -85,7 +86,7 @@
     "typescript": "^5.8.2"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.9.0",
+    "@rollup/rollup-linux-x64-gnu": "^4.45.0",
     "@rollup/rollup-linux-x64-musl": "^4.9.0"
   },
   "dependencies": {

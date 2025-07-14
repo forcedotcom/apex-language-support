@@ -75,28 +75,22 @@ The server looks for configuration in these sections (in order of precedence):
 ##### Options:
 
 - **`enableCommentCollection`** (boolean, default: `true`)
-
   - Master switch for comment collection. When disabled, no comments are collected regardless of other settings.
 
 - **`includeSingleLineComments`** (boolean, default: `false`)
-
   - Whether to include single-line (`//`) comments in addition to block comments (`/* */`).
 
 - **`associateCommentsWithSymbols`** (boolean, default: `false`)
-
   - Whether to associate comments with nearby symbols for enhanced language features.
   - Note: This is more computationally expensive and may impact performance.
 
 - **`enableForDocumentChanges`** (boolean, default: `true`)
-
   - Enable comment collection when documents are modified.
 
 - **`enableForDocumentOpen`** (boolean, default: `true`)
-
   - Enable comment collection when documents are opened.
 
 - **`enableForDocumentSymbols`** (boolean, default: `false`)
-
   - Enable comment collection for document symbol requests.
   - Disabled by default for performance reasons.
 
@@ -121,12 +115,10 @@ The server looks for configuration in these sections (in order of precedence):
 ##### Options:
 
 - **`commentCollectionMaxFileSize`** (number, default: `102400` for Node.js, `51200` for browser)
-
   - Maximum file size in bytes for enabling comment collection.
   - Files larger than this will skip comment collection for performance.
 
 - **`useAsyncCommentProcessing`** (boolean, default: `true`)
-
   - Whether to use asynchronous processing for comment collection in large files.
 
 - **`documentChangeDebounceMs`** (number, default: `300` for Node.js, `500` for browser)
@@ -148,7 +140,6 @@ The server looks for configuration in these sections (in order of precedence):
 ##### Options:
 
 - **`enablePerformanceLogging`** (boolean, default: `false`)
-
   - Enable detailed performance logging for comment collection operations.
 
 - **`commentCollectionLogLevel`** (string, default: `"info"`)
@@ -170,7 +161,6 @@ The server looks for configuration in these sections (in order of precedence):
 ##### Options:
 
 - **`loadMode`** (string, default: `"full"` for Node.js, `"lazy"` for browser)
-
   - Resource loading strategy for Apex standard library files.
   - `"full"`: Load all resources immediately during initialization (faster access, higher memory usage)
   - `"lazy"`: Load resources on-demand when accessed (lower memory usage, slight access delay)
@@ -370,7 +360,7 @@ connection.onShutdown(async () => {
   All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
 
 - **TypeScript Improvements:**  
-  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.web.test.ts`, variables and parameters now have explicit `any` types.
+  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.test.ts`, variables and parameters now have explicit `any` types.
 
 - **Jest Configuration:**  
   Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
