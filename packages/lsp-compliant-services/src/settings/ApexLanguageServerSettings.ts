@@ -206,6 +206,7 @@ export function validateApexSettings(obj: any): ValidationResult {
     performance: 'object',
     environment: 'object',
     resources: 'object',
+    diagnostics: 'object',
     version: 'string',
     logLevel: 'string',
   };
