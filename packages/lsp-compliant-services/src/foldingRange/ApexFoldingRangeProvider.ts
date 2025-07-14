@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { FoldingRange as LSPFoldingRange } from 'vscode-languageserver';
+import { FoldingRange as LSPFoldingRange } from 'vscode-languageserver-protocol';
 import {
   CompilerService,
   ApexFoldingRangeListener,

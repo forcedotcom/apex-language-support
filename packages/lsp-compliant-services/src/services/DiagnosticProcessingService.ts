@@ -6,8 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Diagnostic, DocumentSymbolParams } from 'vscode-languageserver';
-import { LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { Diagnostic, DocumentDiagnosticParams } from 'vscode-languageserver';
+import { getLogger } from '@salesforce/apex-lsp-logging';
 import {
   CompilerService,
   SymbolTable,
@@ -32,7 +32,7 @@ export interface IDiagnosticProcessor {
    * @param params - The diagnostic parameters containing the document URI
    * @returns Promise resolving to an array of diagnostics for the document
    */
-  processDiagnostic(params: DocumentSymbolParams): Promise<Diagnostic[]>;
+  processDiagnostic(params: DocumentDiagnosticParams): Promise<Diagnostic[]>;
 }
 
 /**
@@ -59,10 +59,8 @@ export interface IDiagnosticProcessor {
 export class DiagnosticProcessingService implements IDiagnosticProcessor {
   /**
    * Creates a new DiagnosticProcessingService instance.
-   *
-   * @param logger - Logger interface for debug and error logging
    */
-  constructor(private readonly logger: LoggerInterface) {}
+  constructor() {}
 
   /**
    * Process a diagnostic request for a specific document.
@@ -98,16 +96,17 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    * // ]
    * ```
    *
-   * @see {@link DocumentSymbolParams} - The request parameters interface
+   * @see {@link DocumentDiagnosticParams} - The request parameters interface
    * @see {@link Diagnostic} - The diagnostic result interface
    * @see {@link ApexStorageManager} - For document retrieval
    * @see {@link CompilerService} - For document parsing
    * @see {@link getDiagnosticsFromErrors} - For error conversion
    */
   public async processDiagnostic(
-    params: DocumentSymbolParams,
+    params: DocumentDiagnosticParams,
   ): Promise<Diagnostic[]> {
-    this.logger.debug(
+    const logger = getLogger();
+    logger.debug(
       () =>
         `Common Apex Language Server diagnostic handler invoked with: ${params}`,
     );
@@ -120,7 +119,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       // Get the document from storage
       const document = await storage.getDocument(params.textDocument.uri);
       if (!document) {
-        this.logger.warn(
+        logger.warn(
           () =>
             `Document not found for diagnostic request: ${params.textDocument.uri}`,
         );
@@ -147,7 +146,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       );
 
       if (result.errors.length > 0) {
-        this.logger.debug(() => `Errors parsing document: ${result.errors}`);
+        logger.debug(() => `Errors parsing document: ${result.errors}`);
         const diagnostics = getDiagnosticsFromErrors(result.errors);
         return diagnostics;
       }
@@ -155,7 +154,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       // No errors found
       return [];
     } catch (error) {
-      this.logger.error(() => `Error processing diagnostic: ${error}`);
+      logger.error(() => `Error processing diagnostic: ${error}`);
       return [];
     }
   }
