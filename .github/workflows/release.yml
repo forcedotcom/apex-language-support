@@ -18,10 +18,6 @@ on:
         required: false
         default: 'apex-lsp-vscode-extension'
         type: string
-      available-packages:
-        description: 'Available packages'
-        required: false
-        type: string
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'
         required: false
@@ -117,5 +113,7 @@ jobs:
       registries: ${{ github.event.inputs.registries || 'all' }}
       available-extensions: ${{ needs.get-packages.outputs.extensions }}
       dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+      pre-release: ${{ github.event.inputs.pre-release || 'false' }}
+      version-bump: ${{ github.event.inputs.version-bump || 'auto' }}
       base-branch: ${{ github.event.inputs.base-branch || 'main' }}
     secrets: inherit
