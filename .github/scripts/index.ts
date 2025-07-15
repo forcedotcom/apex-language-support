@@ -36,8 +36,9 @@ import { displayExtensionReleasePlan } from './ext-release-plan.js';
 import { bumpVersions } from './ext-version-bumper.js';
 import { determinePublishMatrix } from './ext-publish-matrix.js';
 import { createGitHubReleases } from './ext-github-releases.js';
+import { publishVsix } from './ext-publish-vsix.js';
 import { logAuditEvent } from './audit-logger.js';
-import { sendSlackNotification } from './slack-notifier.js';
+
 import { log } from './utils.js';
 
 const program = new Command();
@@ -185,23 +186,17 @@ program
 program
   .command('ext-release-plan')
   .description('Display extension release plan for dry runs')
-  .option('--branch <branch>', 'Branch to release from', 'main')
-  .option(
-    '--build-type <type>',
-    'Build type (workflow_dispatch, schedule, etc.)',
-    'workflow_dispatch',
-  )
-  .option('--is-nightly <boolean>', 'Is nightly build', 'false')
-  .option('--version-bump <type>', 'Version bump type', 'auto')
-  .option('--registries <list>', 'Registries to publish to', 'all')
-  .option('--pre-release <boolean>', 'Pre-release mode', 'false')
-  .option(
-    '--selected-extensions <list>',
-    'Comma-separated list of extensions to release',
-    '',
-  )
-  .action(async (options) => {
+  .action(async () => {
     try {
+      const options = {
+        branch: process.env.BRANCH || 'main',
+        buildType: process.env.BUILD_TYPE || 'workflow_dispatch',
+        isNightly: process.env.IS_NIGHTLY || 'false',
+        versionBump: process.env.VERSION_BUMP || 'auto',
+        registries: process.env.REGISTRIES || 'all',
+        preRelease: process.env.PRE_RELEASE || 'false',
+        selectedExtensions: process.env.SELECTED_EXTENSIONS || '',
+      };
       displayExtensionReleasePlan(options);
     } catch (error) {
       log.error(`Failed to display release plan: ${error}`);
@@ -210,58 +205,19 @@ program
   });
 
 program
-  .command('slack-notifier')
-  .description('Send Slack notifications for release operations')
-  .option('--webhook-url <url>', 'Slack webhook URL', '')
-  .option('--status <status>', 'Status (success, failure, dry-run)', 'success')
-  .option('--type <type>', 'Type (extension, npm)', 'extension')
-  .option('--repository <repo>', 'Repository name', '')
-  .option('--branch <branch>', 'Branch name', '')
-  .option('--workflow <workflow>', 'Workflow name', '')
-  .option('--run-id <id>', 'Workflow run ID', '')
-  .option('--actor <actor>', 'Actor performing the action', '')
-  .option('--details <json>', 'Details as JSON string', '{}')
-  .action(async (options) => {
-    try {
-      sendSlackNotification({
-        webhookUrl: options.webhookUrl,
-        status: options.status as 'success' | 'failure' | 'dry-run',
-        type: options.type as 'extension' | 'npm',
-        repository: options.repository,
-        branch: options.branch,
-        workflow: options.workflow,
-        runId: options.runId,
-        actor: options.actor,
-        details: options.details,
-      });
-    } catch (error) {
-      log.error(`Failed to send Slack notification: ${error}`);
-      process.exit(1);
-    }
-  });
-
-program
   .command('audit-logger')
   .description('Log audit events for release operations')
-  .option('--action <action>', 'Action being performed', '')
-  .option('--actor <actor>', 'Actor performing the action', '')
-  .option('--repository <repo>', 'Repository name', '')
-  .option('--branch <branch>', 'Branch name', '')
-  .option('--workflow <workflow>', 'Workflow name', '')
-  .option('--run-id <id>', 'Workflow run ID', '')
-  .option('--details <json>', 'Details as JSON string', '{}')
-  .option('--log-file <path>', 'Custom log file path')
-  .action(async (options) => {
+  .action(async () => {
     try {
       logAuditEvent({
-        action: options.action,
-        actor: options.actor,
-        repository: options.repository,
-        branch: options.branch,
-        workflow: options.workflow,
-        runId: options.runId,
-        details: options.details,
-        logFile: options.logFile,
+        action: process.env.ACTION || '',
+        actor: process.env.ACTOR || '',
+        repository: process.env.REPOSITORY || '',
+        branch: process.env.BRANCH || '',
+        workflow: process.env.WORKFLOW || '',
+        runId: process.env.RUN_ID || '',
+        details: process.env.DETAILS || '{}',
+        logFile: process.env.LOG_FILE,
       });
     } catch (error) {
       log.error(`Failed to log audit event: ${error}`);
@@ -272,29 +228,16 @@ program
 program
   .command('ext-github-releases')
   .description('Create GitHub releases for extensions')
-  .option('--dry-run', 'Run in dry-run mode', false)
-  .option('--pre-release <boolean>', 'Pre-release mode', 'false')
-  .option('--version-bump <type>', 'Version bump type', 'auto')
-  .option(
-    '--selected-extensions <list>',
-    'Comma-separated list of extensions to release',
-    '',
-  )
-  .option('--is-nightly <boolean>', 'Is nightly build', 'false')
-  .option(
-    '--vsix-artifacts-path <path>',
-    'Path to VSIX artifacts',
-    './vsix-artifacts',
-  )
-  .action(async (options) => {
+  .action(async () => {
     try {
       createGitHubReleases({
-        dryRun: options.dryRun,
-        preRelease: options.preRelease,
-        versionBump: options.versionBump,
-        selectedExtensions: options.selectedExtensions,
-        isNightly: options.isNightly,
-        vsixArtifactsPath: options.vsixArtifactsPath,
+        dryRun: process.env.DRY_RUN === 'true',
+        preRelease: process.env.PRE_RELEASE || 'false',
+        versionBump: process.env.VERSION_BUMP || 'auto',
+        selectedExtensions: process.env.SELECTED_EXTENSIONS || '',
+        isNightly: process.env.IS_NIGHTLY || 'false',
+        vsixArtifactsPath:
+          process.env.VSIX_ARTIFACTS_PATH || './vsix-artifacts',
       });
     } catch (error) {
       log.error(`Failed to create GitHub releases: ${error}`);
@@ -305,14 +248,12 @@ program
 program
   .command('ext-publish-matrix')
   .description('Determine publish matrix for extensions')
-  .option('--registries <list>', 'Registries to publish to', 'all')
-  .option(
-    '--selected-extensions <list>',
-    'Comma-separated list of extensions to release',
-    '',
-  )
-  .action(async (options) => {
+  .action(async () => {
     try {
+      const options = {
+        registries: process.env.REGISTRIES || 'all',
+        selectedExtensions: process.env.SELECTED_EXTENSIONS || '',
+      };
       const matrix = determinePublishMatrix(options);
       // Output in GitHub Actions format
       console.log(`matrix=${JSON.stringify(matrix)}`);
@@ -325,30 +266,36 @@ program
 program
   .command('ext-version-bumper')
   .description('Bump versions for selected extensions')
-  .option('--dry-run', 'Run in dry-run mode', false)
-  .option('--version-bump <type>', 'Version bump type', 'auto')
-  .option(
-    '--selected-extensions <list>',
-    'Comma-separated list of extensions to release',
-    '',
-  )
-  .option('--pre-release <boolean>', 'Pre-release mode', 'false')
-  .option('--is-nightly <boolean>', 'Is nightly build', 'false')
-  .option('--is-promotion <boolean>', 'Is promotion', 'false')
-  .option('--promotion-commit-sha <sha>', 'Promotion commit SHA')
-  .action(async (options) => {
+  .action(async () => {
     try {
       bumpVersions({
-        dryRun: options.dryRun,
-        versionBump: options.versionBump,
-        selectedExtensions: options.selectedExtensions,
-        preRelease: options.preRelease,
-        isNightly: options.isNightly,
-        isPromotion: options.isPromotion,
-        promotionCommitSha: options.promotionCommitSha,
+        dryRun: process.env.DRY_RUN === 'true',
+        versionBump: process.env.VERSION_BUMP || 'auto',
+        selectedExtensions: process.env.SELECTED_EXTENSIONS || '',
+        preRelease: process.env.PRE_RELEASE || 'false',
+        isNightly: process.env.IS_NIGHTLY || 'false',
+        isPromotion: process.env.IS_PROMOTION || 'false',
+        promotionCommitSha: process.env.PROMOTION_COMMIT_SHA,
       });
     } catch (error) {
       log.error(`Failed to bump versions: ${error}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('ext-publish-vsix')
+  .description('Publish VSIX file to VS Code Marketplace')
+  .action(async () => {
+    try {
+      publishVsix({
+        packageDir: process.env.PACKAGE_DIR || '',
+        vsceToken: process.env.VSCE_PERSONAL_ACCESS_TOKEN || '',
+        isPreRelease: process.env.PRE_RELEASE === 'true',
+        dryRun: process.env.DRY_RUN === 'true',
+      });
+    } catch (error) {
+      log.error(`Failed to publish VSIX: ${error}`);
       process.exit(1);
     }
   });

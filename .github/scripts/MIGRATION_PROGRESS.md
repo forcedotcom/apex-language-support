@@ -29,8 +29,6 @@ This document tracks the migration of bash scripts in GitHub workflows to TypeSc
 
 ### Slack Notifications
 
-- ✅ **slack-notifier**: Send Slack notifications for release operations
-
 ### Audit Logging
 
 - ✅ **audit-logger**: Log audit events for release operations
@@ -108,7 +106,6 @@ This document tracks the migration of bash scripts in GitHub workflows to TypeSc
 
 ### Utility Scripts
 
-- **slack-notifier**: Send notifications to Slack
 - **audit-logger**: Log audit events for compliance
 - **utils**: Common utilities and helpers
 

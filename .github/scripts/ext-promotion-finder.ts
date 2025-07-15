@@ -6,14 +6,16 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { simpleGit, SimpleGit } from 'simple-git';
+import simpleGit from 'simple-git';
 import { PromotionCandidate, GitTag } from './types.js';
 import { log, setOutput, isStableVersion } from './utils.js';
+
+type SimpleGitType = ReturnType<typeof simpleGit>;
 
 /**
  * Get all git tags with metadata
  */
-async function getAllTags(git: SimpleGit): Promise<GitTag[]> {
+async function getAllTags(git: SimpleGitType): Promise<GitTag[]> {
   const tags = await git.tags();
   const tagList: GitTag[] = [];
 
@@ -158,7 +160,7 @@ function findPromotionCandidates(
 export async function findPromotionCandidate(): Promise<PromotionCandidate | null> {
   log.info('Finding nightly build to promote...');
 
-  const git = simpleGit();
+  const git: SimpleGitType = simpleGit();
 
   try {
     // Get all tags
@@ -181,6 +183,7 @@ export async function findPromotionCandidate(): Promise<PromotionCandidate | nul
     const mostRecentNightly = findMostRecentNightly(tags);
     if (mostRecentNightly) {
       log.info(
+        // eslint-disable-next-line max-len
         `Most recent nightly: ${mostRecentNightly.name} (${new Date(mostRecentNightly.commitDate * 1000).toISOString()})`,
       );
     }

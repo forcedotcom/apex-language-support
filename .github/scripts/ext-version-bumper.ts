@@ -1,83 +1,11 @@
-#!/usr/bin/env tsx
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
 
-/**
- * Extension Version Bumper Script
- *
- * This script handles version bumping for VS Code extensions based on build type,
- * pre-release status, and promotion requirements.
- */
-
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-import { Command } from 'commander';
 import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -264,33 +192,3 @@ function bumpVersions(options: VersionBumpOptions): void {
 
 // Export for use in other modules
 export { bumpVersions };
-
-const program = new Command();
-
-program
-  .name('ext-version-bumper')
-  .description('Bump versions for selected extensions')
-  .option('--dry-run', 'Run in dry-run mode', false)
-  .option('--version-bump <type>', 'Version bump type', 'auto')
-  .option(
-    '--selected-extensions <list>',
-    'Comma-separated list of extensions to release',
-    '',
-  )
-  .option('--pre-release <boolean>', 'Pre-release mode', 'false')
-  .option('--is-nightly <boolean>', 'Is nightly build', 'false')
-  .option('--is-promotion <boolean>', 'Is promotion', 'false')
-  .option('--promotion-commit-sha <sha>', 'Promotion commit SHA')
-  .action((options) => {
-    bumpVersions({
-      dryRun: options.dryRun,
-      versionBump: options.versionBump,
-      selectedExtensions: options.selectedExtensions,
-      preRelease: options.preRelease,
-      isNightly: options.isNightly,
-      isPromotion: options.isPromotion,
-      promotionCommitSha: options.promotionCommitSha,
-    });
-  });
-
-program.parse();

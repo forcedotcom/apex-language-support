@@ -1,4 +1,3 @@
-#!/usr/bin/env tsx
 /*
  * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
@@ -6,7 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { Command } from 'commander';
+
 import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -263,35 +262,3 @@ function createGitHubReleases(options: GitHubReleaseOptions): void {
 
 // Export for use in other modules
 export { createGitHubReleases };
-
-const program = new Command();
-
-program
-  .name('ext-github-releases')
-  .description('Create GitHub releases for extensions')
-  .option('--dry-run', 'Run in dry-run mode', false)
-  .option('--pre-release <boolean>', 'Pre-release mode', 'false')
-  .option('--version-bump <type>', 'Version bump type', 'auto')
-  .option(
-    '--selected-extensions <list>',
-    'Comma-separated list of extensions to release',
-    '',
-  )
-  .option('--is-nightly <boolean>', 'Is nightly build', 'false')
-  .option(
-    '--vsix-artifacts-path <path>',
-    'Path to VSIX artifacts',
-    './vsix-artifacts',
-  )
-  .action((options) => {
-    createGitHubReleases({
-      dryRun: options.dryRun,
-      preRelease: options.preRelease,
-      versionBump: options.versionBump,
-      selectedExtensions: options.selectedExtensions,
-      isNightly: options.isNightly,
-      vsixArtifactsPath: options.vsixArtifactsPath,
-    });
-  });
-
-program.parse();

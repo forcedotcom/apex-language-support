@@ -1,4 +1,11 @@
 #!/usr/bin/env tsx
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
 
 /**
  * Extension Release Plan Display Script
@@ -8,146 +15,6 @@
  * and marketplace publishing.
  */
 
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { join } from 'path';

@@ -133,10 +133,7 @@ The release scripts are organized in the `.github/scripts` folder:
 ├── npm-change-detector.ts    # Detect NPM package changes
 ├── npm-package-selector.ts   # Select NPM packages
 ├── npm-package-details.ts    # Extract NPM package details
-├── npm-release-plan.ts       # Generate NPM release plans
-├── audit-logger.sh           # Existing workflow script
-├── publish-vsix.js           # Existing workflow script
-└── slack-notify.js           # Existing workflow script
+└── npm-release-plan.ts       # Generate NPM release plans
 ```
 
 ### Core Modules

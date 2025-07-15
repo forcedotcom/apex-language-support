@@ -1,13 +1,12 @@
 #!/usr/bin/env tsx
-
-/**
- * Extension Publish Matrix Script
- *
- * This script determines the publish matrix for VS Code extensions,
- * creating entries for each extension-registry combination.
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// eslint-disable-next-line header/header
 import { Command } from 'commander';
 
 interface PublishMatrixEntry {

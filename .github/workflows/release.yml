@@ -100,11 +100,12 @@ jobs:
 
       - name: Get package lists
         id: packages
+        env:
+          SELECTED_PACKAGE: ${{ github.event.inputs.packages || 'none' }}
+          AVAILABLE_PACKAGES: ''
+          CHANGED_PACKAGES: ''
         run: |
-          npx tsx .github/scripts/index.ts npm-package-selector \
-            --selected-package "${{ github.event.inputs.packages || 'none' }}" \
-            --available-packages "" \
-            --changed-packages ""
+          npx tsx .github/scripts/index.ts npm-package-selector
 
   release-npm:
     needs: get-packages
