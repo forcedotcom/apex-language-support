@@ -97,11 +97,12 @@ jobs:
 
       - name: Check build type
         id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          VERSION_BUMP: ${{ inputs.version-bump || 'auto' }}
+          PRE_RELEASE: ${{ inputs.pre-release || 'false' }}
         run: |
-          npx tsx .github/scripts/index.ts ext-build-type \
-            --event-name "${{ github.event_name }}" \
-            --version-bump "${{ inputs.version-bump || 'auto' }}" \
-            --pre-release "${{ inputs.pre-release || 'false' }}"
+          npx tsx .github/scripts/index.ts ext-build-type
 
   find-promotion-candidate:
     needs: determine-build-type
@@ -152,13 +153,15 @@ jobs:
 
       - name: Determine changes and version bumps
         id: changes
+        env:
+          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
+          PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
+          IS_PROMOTION: ${{ needs.determine-build-type.outputs.is-promotion }}
+          PROMOTION_COMMIT_SHA: ${{ needs.find-promotion-candidate.outputs.promotion-commit-sha }}
+          SELECTED_EXTENSIONS: ${{ inputs.extensions }}
         run: |
-          npx tsx .github/scripts/index.ts ext-change-detector \
-            --is-nightly "${{ needs.determine-build-type.outputs.is-nightly }}" \
-            --version-bump "${{ needs.determine-build-type.outputs.version-bump }}" \
-            --pre-release "${{ needs.determine-build-type.outputs.pre-release }}" \
-            --is-promotion "${{ needs.determine-build-type.outputs.is-promotion }}" \
-            --promotion-commit-sha "${{ needs.find-promotion-candidate.outputs.promotion-commit-sha }}"
+          npx tsx .github/scripts/index.ts ext-change-detector
 
   display-release-plan:
     needs: [determine-build-type, determine-changes]
@@ -179,15 +182,16 @@ jobs:
         uses: ./.github/actions/npm-install-with-retries
 
       - name: Display Extension Release Plan
+        env:
+          BRANCH: ${{ inputs.branch || github.ref_name }}
+          BUILD_TYPE: ${{ github.event_name }}
+          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
+          REGISTRIES: ${{ inputs.registries }}
+          PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
+          SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
         run: |
-          npx tsx .github/scripts/index.ts ext-release-plan \
-            --branch "${{ inputs.branch || github.ref_name }}" \
-            --build-type "${{ github.event_name }}" \
-            --is-nightly "${{ needs.determine-build-type.outputs.is-nightly }}" \
-            --version-bump "${{ needs.determine-build-type.outputs.version-bump }}" \
-            --registries "${{ inputs.registries }}" \
-            --pre-release "${{ needs.determine-build-type.outputs.pre-release }}" \
-            --selected-extensions "${{ needs.determine-changes.outputs.selected-extensions }}"
+          npx tsx .github/scripts/index.ts ext-release-plan
 
   bump-versions:
     needs: [determine-changes]
@@ -208,15 +212,16 @@ jobs:
         uses: ./.github/actions/npm-install-with-retries
 
       - name: Bump versions for selected extensions
+        env:
+          DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
+          VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
+          SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
+          PRE_RELEASE: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
+          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          IS_PROMOTION: ${{ needs.determine-build-type.outputs.is-promotion }}
+          PROMOTION_COMMIT_SHA: ${{ needs.determine-changes.outputs.promotion-commit-sha }}
         run: |
-          npx tsx .github/scripts/index.ts ext-version-bumper \
-            --dry-run "${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}" \
-            --version-bump "${{ needs.determine-changes.outputs.version-bumps }}" \
-            --selected-extensions "${{ needs.determine-changes.outputs.selected-extensions }}" \
-            --pre-release "${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}" \
-            --is-nightly "${{ needs.determine-build-type.outputs.is-nightly }}" \
-            --is-promotion "${{ needs.determine-build-type.outputs.is-promotion }}" \
-            --promotion-commit-sha "${{ needs.determine-changes.outputs.promotion-commit-sha }}"
+          npx tsx .github/scripts/index.ts ext-version-bumper
 
       - name: Validate GitHub authentication
         if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
@@ -344,14 +349,14 @@ jobs:
         env:
           # Ensure GitHub CLI has proper authentication
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
+          PRE_RELEASE: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
+          VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
+          SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
+          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          VSIX_ARTIFACTS_PATH: './vsix-artifacts'
         run: |
-          npx tsx .github/scripts/index.ts ext-github-releases \
-            --dry-run "${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}" \
-            --pre-release "${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}" \
-            --version-bump "${{ needs.determine-changes.outputs.version-bumps }}" \
-            --selected-extensions "${{ needs.determine-changes.outputs.selected-extensions }}" \
-            --is-nightly "${{ needs.determine-build-type.outputs.is-nightly }}" \
-            --vsix-artifacts-path "./vsix-artifacts"
+          npx tsx .github/scripts/index.ts ext-github-releases
 
   determine-publish-matrix:
     needs: [determine-changes, calculate-artifact-name]
@@ -372,10 +377,11 @@ jobs:
 
       - name: Determine publish matrix
         id: matrix
+        env:
+          REGISTRIES: ${{ inputs.registries }}
+          SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
         run: |
-          npx tsx .github/scripts/index.ts ext-publish-matrix \
-            --registries "${{ inputs.registries }}" \
-            --selected-extensions "${{ needs.determine-changes.outputs.selected-extensions }}"
+          npx tsx .github/scripts/index.ts ext-publish-matrix
 
   publish:
     needs:

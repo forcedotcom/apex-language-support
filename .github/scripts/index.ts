@@ -16,17 +16,23 @@ import {
   setPromotionOutputs,
 } from './ext-promotion-finder';
 import {
-  determineChanges,
+  detectExtensionChanges,
   setChangeDetectionOutputs,
 } from './ext-change-detector';
+import {
+  getAvailableExtensions,
+  setExtensionDiscoveryOutputs,
+} from './ext-package-selector';
+
 import {
   detectNpmChanges,
   setNpmChangeDetectionOutputs,
 } from './npm-change-detector';
 import {
-  selectNpmPackages,
-  setPackageSelectionOutputs,
+  getAvailableNpmPackages,
+  setPackageDiscoveryOutputs,
 } from './npm-package-selector';
+
 import {
   extractPackageDetails,
   setPackageDetailsOutputs,
@@ -94,7 +100,10 @@ program
         promotionCommitSha,
       };
 
-      const result = await determineChanges(buildContext, promotionCommitSha);
+      const result = await detectExtensionChanges(
+        buildContext,
+        promotionCommitSha,
+      );
       setChangeDetectionOutputs(result);
     } catch (error) {
       log.error(`Failed to determine changes: ${error}`);
@@ -118,21 +127,26 @@ program
 
 program
   .command('npm-package-selector')
-  .description('Select NPM packages for release')
+  .description('Discover available NPM packages')
   .action(async () => {
     try {
-      const selectedPackage = process.env.SELECTED_PACKAGE || '';
-      const availablePackages = process.env.AVAILABLE_PACKAGES || '';
-      const changedPackages = process.env.CHANGED_PACKAGES || '';
-
-      const selectedPackages = selectNpmPackages(
-        selectedPackage,
-        availablePackages,
-        changedPackages,
-      );
-      setPackageSelectionOutputs(selectedPackages);
+      const npmPackages = getAvailableNpmPackages();
+      setPackageDiscoveryOutputs(npmPackages);
     } catch (error) {
-      log.error(`Failed to select packages: ${error}`);
+      log.error(`Failed to discover NPM packages: ${error}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('ext-package-selector')
+  .description('Discover available VS Code extensions')
+  .action(async () => {
+    try {
+      const extensions = getAvailableExtensions();
+      setExtensionDiscoveryOutputs(extensions);
+    } catch (error) {
+      log.error(`Failed to discover extensions: ${error}`);
       process.exit(1);
     }
   });

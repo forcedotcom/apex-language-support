@@ -11,14 +11,14 @@ import { join } from 'path';
 import { log, setOutput, getExtensionInfo } from './utils';
 
 /**
- * Get all available NPM packages
+ * Get all available VS Code extensions
  */
-export function getAvailableNpmPackages(): string {
-  log.info('Getting all available NPM packages...');
+export function getAvailableExtensions(): string {
+  log.info('Getting all available VS Code extensions...');
 
   // Get all packages from the packages directory
   const packagesDir = join(process.cwd(), 'packages');
-  const packages: string[] = [];
+  const extensions: string[] = [];
 
   if (!existsSync(packagesDir)) {
     log.warning('packages directory not found');
@@ -37,14 +37,14 @@ export function getAvailableNpmPackages(): string {
       try {
         const info = getExtensionInfo(packagePath);
 
-        // Only include packages that don't have a publisher (NPM packages)
-        if (!info.publisher) {
-          packages.push(packageName);
-          log.debug(`Found NPM package: ${packageName}`);
-        } else {
+        // Only include packages that have a publisher (VS Code extensions)
+        if (info.publisher) {
+          extensions.push(packageName);
           log.debug(
-            `Skipping VS Code extension: ${packageName} (publisher: ${info.publisher})`,
+            `Found VS Code extension: ${packageName} (publisher: ${info.publisher})`,
           );
+        } else {
+          log.debug(`Skipping NPM package: ${packageName} (no publisher)`);
         }
       } catch (error) {
         log.warning(`Failed to read package.json for ${packageName}: ${error}`);
@@ -52,20 +52,22 @@ export function getAvailableNpmPackages(): string {
     }
   }
 
-  const jsonArray = JSON.stringify(packages);
-  log.info(`Found ${packages.length} NPM packages: ${packages.join(', ')}`);
+  const jsonArray = JSON.stringify(extensions);
+  log.info(
+    `Found ${extensions.length} VS Code extensions: ${extensions.join(', ')}`,
+  );
   log.debug(`JSON array: ${jsonArray}`);
 
   return jsonArray;
 }
 
 /**
- * Set GitHub Actions outputs for package discovery
+ * Set GitHub Actions outputs for extension discovery
  */
-export function setPackageDiscoveryOutputs(npmPackages: string): void {
-  setOutput('npm-packages', npmPackages);
+export function setExtensionDiscoveryOutputs(extensions: string): void {
+  setOutput('extensions', extensions);
 
-  log.success('NPM package discovery outputs set');
+  log.success('Extension discovery outputs set');
 }
 
 /**
@@ -73,10 +75,10 @@ export function setPackageDiscoveryOutputs(npmPackages: string): void {
  */
 export async function main(): Promise<void> {
   try {
-    const npmPackages = getAvailableNpmPackages();
-    setPackageDiscoveryOutputs(npmPackages);
+    const extensions = getAvailableExtensions();
+    setExtensionDiscoveryOutputs(extensions);
   } catch (error) {
-    log.error(`Failed to discover NPM packages: ${error}`);
+    log.error(`Failed to discover extensions: ${error}`);
     process.exit(1);
   }
 }

@@ -24,11 +24,7 @@ on:
         required: false
         default: 'false'
         type: string
-      base-branch:
-        description: 'Base branch to compare against for change detection'
-        required: false
-        default: 'main'
-        type: string
+
   workflow_dispatch:
     inputs:
       packages:
@@ -81,25 +77,28 @@ jobs:
 
       - name: Determine changed NPM packages
         id: changes
+        env:
+          INPUT_BASE_BRANCH: 'main'
         run: |
-          npx tsx .github/scripts/index.ts npm-change-detector \
-            --base-branch "${{ inputs.base-branch || 'main' }}"
+          npx tsx .github/scripts/index.ts npm-change-detector
 
       - name: Determine selected packages
         id: selected-packages
+        env:
+          SELECTED_PACKAGE: ${{ github.event.inputs.packages || inputs.packages }}
+          AVAILABLE_PACKAGES: ${{ inputs.available-packages }}
+          CHANGED_PACKAGES: ${{ steps.changes.outputs.packages }}
         run: |
-          npx tsx .github/scripts/index.ts npm-package-selector \
-            --selected-package "${{ github.event.inputs.packages || inputs.packages }}" \
-            --available-packages "${{ inputs.available-packages }}" \
-            --changed-packages "${{ steps.changes.outputs.packages }}"
+          npx tsx .github/scripts/index.ts npm-package-selector
 
       - name: Determine version bump type
         id: version-bump
+        env:
+          MATRIX_PACKAGE: 'dummy'
+          VERSION_BUMP: 'auto'
+          DRY_RUN: 'true'
         run: |
-          npx tsx .github/scripts/index.ts npm-release-plan \
-            --package-name "dummy" \
-            --version-bump "auto" \
-            --dry-run true
+          npx tsx .github/scripts/index.ts npm-release-plan
 
   release-npm:
     needs: determine-npm-changes
@@ -126,11 +125,12 @@ jobs:
 
       - name: Display Release Plan
         if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
+        env:
+          MATRIX_PACKAGE: ${{ matrix.package }}
+          VERSION_BUMP: ${{ needs.determine-npm-changes.outputs.version-bump }}
+          DRY_RUN: 'true'
         run: |
-          npx tsx .github/scripts/index.ts npm-release-plan \
-            --package-name "${{ matrix.package }}" \
-            --version-bump "${{ needs.determine-npm-changes.outputs.version-bump }}" \
-            --dry-run true
+          npx tsx .github/scripts/index.ts npm-release-plan
 
       - name: Build package
         if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
@@ -167,10 +167,11 @@ jobs:
 
       - name: Get Package Details
         id: package-details
+        env:
+          SELECTED_PACKAGES: ${{ needs.determine-npm-changes.outputs.selected-packages }}
+          VERSION_BUMP: ${{ needs.determine-npm-changes.outputs.version-bump }}
         run: |
-          npx tsx .github/scripts/index.ts npm-package-details \
-            --selected-packages "${{ needs.determine-npm-changes.outputs.selected-packages }}" \
-            --version-bump "${{ needs.determine-npm-changes.outputs.version-bump }}"
+          npx tsx .github/scripts/index.ts npm-package-details
 
       - name: Notify Slack
         uses: slackapi/slack-github-action@v1.22.0
@@ -240,10 +241,11 @@ jobs:
 
       - name: Get Package Details
         id: package-details
+        env:
+          SELECTED_PACKAGES: ${{ needs.determine-npm-changes.outputs.selected-packages }}
+          VERSION_BUMP: ${{ needs.determine-npm-changes.outputs.version-bump }}
         run: |
-          npx tsx .github/scripts/index.ts npm-package-details \
-            --selected-packages "${{ needs.determine-npm-changes.outputs.selected-packages }}" \
-            --version-bump "${{ needs.determine-npm-changes.outputs.version-bump }}"
+          npx tsx .github/scripts/index.ts npm-package-details
 
       - name: Notify Slack
         uses: slackapi/slack-github-action@v1.22.0

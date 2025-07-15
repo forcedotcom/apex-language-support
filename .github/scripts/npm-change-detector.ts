@@ -17,7 +17,7 @@ import {
 import { log, setOutput, getExtensionInfo } from './utils';
 
 /**
- * Get all available NPM packages (excluding VS Code extensions)
+ * Get all available NPM packages (packages without publisher field)
  */
 function getAvailableNpmPackages(): NpmPackageInfo[] {
   const packages: NpmPackageInfo[] = [];
@@ -40,16 +40,21 @@ function getAvailableNpmPackages(): NpmPackageInfo[] {
       try {
         const info = getExtensionInfo(packagePath);
 
-        // Check if it's an NPM package (not a VS Code extension)
-        const isExtension = !!info.publisher;
-
-        packages.push({
-          name: packageName,
-          path: packagePath,
-          currentVersion: info.version,
-          description: info.displayName,
-          isExtension,
-        });
+        // Only include packages that don't have a publisher (NPM packages)
+        if (!info.publisher) {
+          packages.push({
+            name: packageName,
+            path: packagePath,
+            currentVersion: info.version,
+            description: info.displayName,
+            isExtension: false,
+          });
+          log.debug(`Found NPM package: ${packageName}`);
+        } else {
+          log.debug(
+            `Skipping VS Code extension: ${packageName} (publisher: ${info.publisher})`,
+          );
+        }
       } catch (error) {
         log.warning(`Failed to read package.json for ${packageName}: ${error}`);
       }
@@ -149,9 +154,8 @@ export async function detectNpmChanges(
     baseBranch = 'main';
   }
 
-  // Get all NPM packages (excluding VS Code extensions)
-  const allPackages = getAvailableNpmPackages();
-  const npmPackages = allPackages.filter((pkg) => !pkg.isExtension);
+  // Get all NPM packages (packages without publisher field)
+  const npmPackages = getAvailableNpmPackages();
 
   log.info(
     `Found ${npmPackages.length} NPM packages: ${npmPackages.map((p) => p.name).join(', ')}`,

@@ -116,7 +116,7 @@ export function parseEnvironment(): {
 }
 
 /**
- * Set GitHub Actions output
+ * Set GitHub Actions output using environment files
  */
 export function setOutput(name: string, value: string): void {
   const outputPath = process.env.GITHUB_OUTPUT;
@@ -124,7 +124,6 @@ export function setOutput(name: string, value: string): void {
     const fs = require('fs');
     fs.appendFileSync(outputPath, `${name}=${value}\n`);
   }
-  console.log(`::set-output name=${name}::${value}`);
 }
 
 /**

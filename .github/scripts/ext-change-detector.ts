@@ -13,7 +13,7 @@ import { BuildContext, ChangeDetectionResult, ExtensionInfo } from './types';
 import { log, setOutput, getExtensionInfo } from './utils';
 
 /**
- * Get all available extensions
+ * Get all available VS Code extensions (packages with publisher field)
  */
 function getAvailableExtensions(): ExtensionInfo[] {
   const extensions: ExtensionInfo[] = [];
@@ -35,13 +35,22 @@ function getAvailableExtensions(): ExtensionInfo[] {
     if (existsSync(packageJsonPath)) {
       try {
         const info = getExtensionInfo(packagePath);
-        extensions.push({
-          name: packageName,
-          path: packagePath,
-          currentVersion: info.version,
-          publisher: info.publisher,
-          displayName: info.displayName,
-        });
+
+        // Only include packages that have a publisher (VS Code extensions)
+        if (info.publisher) {
+          extensions.push({
+            name: packageName,
+            path: packagePath,
+            currentVersion: info.version,
+            publisher: info.publisher,
+            displayName: info.displayName,
+          });
+          log.debug(
+            `Found VS Code extension: ${packageName} (publisher: ${info.publisher})`,
+          );
+        } else {
+          log.debug(`Skipping NPM package: ${packageName} (no publisher)`);
+        }
       } catch (error) {
         log.warning(`Failed to read package.json for ${packageName}: ${error}`);
       }
@@ -98,19 +107,19 @@ async function findLastReleaseTag(git: any): Promise<string | null> {
 }
 
 /**
- * Determine which extensions need releases
+ * Detect changes in extensions
  */
-export async function determineChanges(
+export async function detectExtensionChanges(
   buildContext: BuildContext,
   promotionCommitSha?: string,
 ): Promise<ChangeDetectionResult> {
-  log.info('Determining changes and version bumps...');
+  log.info('Detecting changes in extensions...');
   log.debug(`Build context: ${JSON.stringify(buildContext)}`);
   log.debug(`Promotion commit SHA: ${promotionCommitSha || 'none'}`);
 
   const git = simpleGit();
   const extensions = getAvailableExtensions();
-  const selectedExtensions: string[] = [];
+  const changedExtensions: string[] = [];
   let versionBumps = buildContext.versionBump;
 
   log.info(
@@ -120,12 +129,12 @@ export async function determineChanges(
   // For nightly builds, always include all extensions
   if (buildContext.isNightly) {
     log.info('Nightly build detected - including all extensions');
-    selectedExtensions.push(...extensions.map((e) => e.name));
+    changedExtensions.push(...extensions.map((e) => e.name));
   }
   // For promotions, always include all extensions
   else if (buildContext.isPromotion) {
     log.info('Promotion detected - including all extensions');
-    selectedExtensions.push(...extensions.map((e) => e.name));
+    changedExtensions.push(...extensions.map((e) => e.name));
   }
   // For regular builds, check for actual changes
   else {
@@ -149,18 +158,19 @@ export async function determineChanges(
 
       if (hasChanges) {
         log.info(`Found changes in ${extension.name} - including in release`);
-        selectedExtensions.push(extension.name);
+        changedExtensions.push(extension.name);
       } else {
         log.info(`No changes found in ${extension.name} - skipping release`);
       }
     }
   }
 
-  log.info(`Selected extensions: ${selectedExtensions.join(', ')}`);
+  log.info(`Changed extensions: ${changedExtensions.join(', ')}`);
   log.info(`Version bump type: ${versionBumps}`);
 
   return {
-    selectedExtensions,
+    selectedExtensions: changedExtensions, // For backward compatibility
+    changedExtensions,
     versionBumps,
     promotionCommitSha,
   };
@@ -170,7 +180,8 @@ export async function determineChanges(
  * Set GitHub Actions outputs for change detection
  */
 export function setChangeDetectionOutputs(result: ChangeDetectionResult): void {
-  setOutput('selected-extensions', result.selectedExtensions.join(','));
+  setOutput('changed-extensions', result.changedExtensions.join(','));
+  setOutput('available-extensions', result.selectedExtensions.join(',')); // For backward compatibility
   setOutput('version-bumps', result.versionBumps);
   if (result.promotionCommitSha) {
     setOutput('promotion-commit-sha', result.promotionCommitSha);
@@ -200,7 +211,10 @@ export async function main(): Promise<void> {
       promotionCommitSha,
     };
 
-    const result = await determineChanges(buildContext, promotionCommitSha);
+    const result = await detectExtensionChanges(
+      buildContext,
+      promotionCommitSha,
+    );
     setChangeDetectionOutputs(result);
   } catch (error) {
     log.error(`Failed to determine changes: ${error}`);

@@ -11,16 +11,36 @@ This directory contains TypeScript scripts for automating release operations in 
 - **Modularity**: Each script has a single responsibility and can be composed together
 - **Reusability**: Scripts can be used across multiple workflows
 - **Error Handling**: Consistent error handling with proper exit codes and logging
+- **Package Filtering**: Clear separation between VS Code extensions and NPM packages
+
+### Package Filtering
+
+The scripts automatically filter packages based on their type:
+
+#### VS Code Extensions (ext-\* scripts)
+
+- **Scope**: Only packages with a `publisher` field in `package.json`
+- **Examples**: `apex-lsp-vscode-extension`, `apex-lsp-vscode-extension-web`
+- **Purpose**: VS Code Marketplace publishing
+
+#### NPM Packages (npm-\* scripts)
+
+- **Scope**: Only packages without a `publisher` field in `package.json`
+- **Examples**: `apex-lsp-logging`, `apex-parser-ast`, `lsp-compliant-services`
+- **Purpose**: NPM registry publishing
+
+This filtering ensures each release process only operates on the appropriate package types and prevents cross-contamination between extension and NPM workflows.
 
 ### Script Categories
 
 #### Extension Scripts (ext-\*)
 
-Handle VS Code extension-specific operations:
+Handle VS Code extension-specific operations (packages with `publisher` field in package.json):
 
 - `ext-build-type`: Determine build type (nightly/promotion/regular)
 - `ext-promotion-finder`: Find promotion candidates for nightly builds
-- `ext-change-detector`: Detect changes in extensions
+- `ext-change-detector`: Detect changes in VS Code extensions
+- `ext-package-selector`: Select VS Code extensions for release
 - `ext-release-plan`: Display extension release plan
 - `ext-version-bumper`: Bump versions for selected extensions
 - `ext-publish-matrix`: Determine publish matrix for extensions
@@ -28,10 +48,10 @@ Handle VS Code extension-specific operations:
 
 #### NPM Scripts (npm-\*)
 
-Handle NPM package-specific operations:
+Handle NPM package-specific operations (packages without `publisher` field in package.json):
 
 - `npm-change-detector`: Detect changes in NPM packages
-- `npm-package-selector`: Select packages for release
+- `npm-package-selector`: Select NPM packages for release
 - `npm-release-plan`: Display NPM release plan
 - `npm-package-details`: Extract package details for notifications
 
@@ -67,6 +87,10 @@ npx tsx .github/scripts/index.ts ext-promotion-finder
 # ext-change-detector
 IS_NIGHTLY=true VERSION_BUMP=minor PRE_RELEASE=false IS_PROMOTION=false PROMOTION_COMMIT_SHA=abc123 \
 npx tsx .github/scripts/index.ts ext-change-detector
+
+# ext-package-selector
+SELECTED_EXTENSIONS=all AVAILABLE_EXTENSIONS=apex-lsp-vscode-extension,apex-lsp-vscode-extension-web CHANGED_EXTENSIONS=apex-lsp-vscode-extension \
+npx tsx .github/scripts/index.ts ext-package-selector
 
 # ext-release-plan
 BRANCH=main BUILD_TYPE=workflow_dispatch IS_NIGHTLY=false VERSION_BUMP=auto REGISTRIES=all PRE_RELEASE=false SELECTED_EXTENSIONS=apex-lsp-vscode-extension \
@@ -209,24 +233,26 @@ jobs:
 
 ### Extension-Specific Variables
 
-| Variable              | Description                        | Example                                                   |
-| --------------------- | ---------------------------------- | --------------------------------------------------------- |
-| `SELECTED_EXTENSIONS` | Comma-separated list of extensions | `apex-lsp-vscode-extension,apex-lsp-vscode-extension-web` |
-| `REGISTRIES`          | Registries to publish to           | `all`, `vsce`, `ovsx`                                     |
-| `VSIX_ARTIFACTS_PATH` | Path to VSIX artifacts             | `./vsix-artifacts`                                        |
-| `BRANCH`              | Branch to release from             | `main`                                                    |
-| `BUILD_TYPE`          | Build type                         | `workflow_dispatch`, `schedule`                           |
+| Variable               | Description                  | Example                                                   |
+| ---------------------- | ---------------------------- | --------------------------------------------------------- |
+| `SELECTED_EXTENSIONS`  | Extension selection mode     | `none`, `all`, `changed`, `apex-lsp-vscode-extension`     |
+| `AVAILABLE_EXTENSIONS` | Available VS Code extensions | `apex-lsp-vscode-extension,apex-lsp-vscode-extension-web` |
+| `CHANGED_EXTENSIONS`   | Changed VS Code extensions   | `apex-lsp-vscode-extension`                               |
+| `REGISTRIES`           | Registries to publish to     | `all`, `vsce`, `ovsx`                                     |
+| `VSIX_ARTIFACTS_PATH`  | Path to VSIX artifacts       | `./vsix-artifacts`                                        |
+| `BRANCH`               | Branch to release from       | `main`                                                    |
+| `BUILD_TYPE`           | Build type                   | `workflow_dispatch`, `schedule`                           |
 
 ### NPM-Specific Variables
 
-| Variable             | Description                      | Example                            |
-| -------------------- | -------------------------------- | ---------------------------------- |
-| `SELECTED_PACKAGE`   | Selected package                 | `all`, `none`, `apex-lsp-logging`  |
-| `AVAILABLE_PACKAGES` | Available packages               | `apex-lsp-logging,apex-parser-ast` |
-| `CHANGED_PACKAGES`   | Changed packages                 | `apex-lsp-logging`                 |
-| `SELECTED_PACKAGES`  | JSON array of selected packages  | `["apex-lsp-logging"]`             |
-| `MATRIX_PACKAGE`     | Current matrix package           | `apex-lsp-logging`                 |
-| `INPUT_BASE_BRANCH`  | Base branch for change detection | `main`                             |
+| Variable             | Description                      | Example                                      |
+| -------------------- | -------------------------------- | -------------------------------------------- |
+| `SELECTED_PACKAGE`   | NPM package selection mode       | `none`, `all`, `changed`, `apex-lsp-logging` |
+| `AVAILABLE_PACKAGES` | Available NPM packages           | `apex-lsp-logging,apex-parser-ast`           |
+| `CHANGED_PACKAGES`   | Changed NPM packages             | `apex-lsp-logging`                           |
+| `SELECTED_PACKAGES`  | JSON array of selected packages  | `["apex-lsp-logging"]`                       |
+| `MATRIX_PACKAGE`     | Current matrix package           | `apex-lsp-logging`                           |
+| `INPUT_BASE_BRANCH`  | Base branch for change detection | `main`                                       |
 
 ### Utility Variables
 

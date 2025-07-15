@@ -1,6 +1,6 @@
 # Release Automation Scripts
 
-TypeScript-based release automation scripts for VS Code extensions and NPM packages, replacing complex bash scripts in GitHub Actions workflows.
+TypeScript-based release automation scripts for VS Code extensions and NPM packages, replacing complex bash scripts in GitHub Actions workflows. The scripts automatically filter packages based on their type to ensure proper separation of concerns.
 
 ## Features
 
@@ -12,6 +12,8 @@ TypeScript-based release automation scripts for VS Code extensions and NPM packa
 - ✅ **Documentation**: JSDoc comments, clear function signatures
 - ✅ **Dual Support**: Handles both VS Code extensions and NPM packages
 - ✅ **Clear Naming**: Prefixed commands for easy identification
+- ✅ **Package Filtering**: Automatic filtering based on package type
+- ✅ **Separation of Concerns**: Clear distinction between extension and NPM workflows
 
 ## Installation
 
@@ -30,6 +32,8 @@ These scripts are designed to be called directly from GitHub Actions workflows:
 
 #### Extension Commands (prefixed with "ext-")
 
+Handle VS Code extensions (packages with `publisher` field in package.json):
+
 ```bash
 # Determine build type (nightly/promotion/regular)
 npx tsx .github/scripts/index.ts ext-build-type
@@ -37,11 +41,16 @@ npx tsx .github/scripts/index.ts ext-build-type
 # Find promotion candidates for nightly builds
 npx tsx .github/scripts/index.ts ext-promotion-finder
 
-# Detect changes in extensions
+# Detect changes in VS Code extensions
 npx tsx .github/scripts/index.ts ext-change-detector
+
+# Select VS Code extensions for release
+npx tsx .github/scripts/index.ts ext-package-selector
 ```
 
 #### NPM Commands (prefixed with "npm-")
+
+Handle NPM packages (packages without `publisher` field in package.json):
 
 ```bash
 # Detect changes in NPM packages
@@ -80,13 +89,16 @@ The scripts read from GitHub Actions environment variables:
 - `INPUT_DRY_RUN`: Run in dry-run mode
 - `INPUT_PRE_RELEASE`: Publish as pre-release version
 - `INPUT_VERSION_BUMP`: Version bump type
+- `SELECTED_EXTENSIONS`: Extension selection mode (`none`, `all`, `changed`, specific extensions)
+- `AVAILABLE_EXTENSIONS`: Available VS Code extensions (from change detector)
+- `CHANGED_EXTENSIONS`: Changed VS Code extensions (from change detector)
 
 #### NPM Scripts
 
 - `INPUT_BASE_BRANCH`: Base branch for change detection
-- `SELECTED_PACKAGE`: Package selection mode (none/all/changed/specific)
-- `AVAILABLE_PACKAGES`: Comma-separated list of available packages
-- `CHANGED_PACKAGES`: Comma-separated list of changed packages
+- `SELECTED_PACKAGE`: NPM package selection mode (`none`, `all`, `changed`, specific packages)
+- `AVAILABLE_PACKAGES`: Comma-separated list of available NPM packages
+- `CHANGED_PACKAGES`: Comma-separated list of changed NPM packages
 - `SELECTED_PACKAGES`: JSON array of selected packages
 - `VERSION_BUMP`: Version bump type
 - `MATRIX_PACKAGE`: Package name for matrix jobs
@@ -116,6 +128,43 @@ Scripts set GitHub Actions outputs using the `::set-output` format:
 
 ## Architecture
 
+### Package Filtering Strategy
+
+The scripts implement automatic package filtering to ensure proper separation between VS Code extensions and NPM packages:
+
+#### VS Code Extensions (ext-\* scripts)
+
+- **Filter**: Only packages with a `publisher` field in `package.json`
+- **Purpose**: VS Code Marketplace publishing
+- **Examples**: `apex-lsp-vscode-extension`, `apex-lsp-vscode-extension-web`
+- **Scripts**: `ext-change-detector`, `ext-package-selector`, `ext-version-bumper`, etc.
+
+#### NPM Packages (npm-\* scripts)
+
+- **Filter**: Only packages without a `publisher` field in `package.json`
+- **Purpose**: NPM registry publishing
+- **Examples**: `apex-lsp-logging`, `apex-parser-ast`, `lsp-compliant-services`
+- **Scripts**: `npm-change-detector`, `npm-package-selector`, `npm-release-plan`, etc.
+
+This filtering prevents cross-contamination between extension and NPM workflows and ensures each release process operates on the appropriate package types.
+
+### Separation of Concerns
+
+The scripts follow a clear separation pattern:
+
+1. **Change Detection**: Scripts that analyze git history to determine what has changed
+   - `ext-change-detector.ts`: Detects changes in VS Code extensions
+   - `npm-change-detector.ts`: Detects changes in NPM packages
+
+2. **Package Selection**: Scripts that apply user preferences to the detected changes
+   - `ext-package-selector.ts`: Selects VS Code extensions based on user input
+   - `npm-package-selector.ts`: Selects NPM packages based on user input
+
+3. **Release Operations**: Scripts that perform the actual release tasks
+   - Version bumping, publishing, notifications, etc.
+
+This separation allows for flexible workflows where change detection can be automated while package selection can be manually controlled.
+
 ### File Structure
 
 The release scripts are organized in the `.github/scripts` folder:
@@ -129,7 +178,8 @@ The release scripts are organized in the `.github/scripts` folder:
 ├── utils.ts                  # Common utilities
 ├── ext-build-type.ts         # Determine build type
 ├── ext-promotion-finder.ts   # Find promotion candidates
-├── ext-change-detector.ts    # Detect extension changes
+├── ext-change-detector.ts    # Detect VS Code extension changes
+├── ext-package-selector.ts   # Select VS Code extensions
 ├── npm-change-detector.ts    # Detect NPM package changes
 ├── npm-package-selector.ts   # Select NPM packages
 ├── npm-package-details.ts    # Extract NPM package details
@@ -142,7 +192,8 @@ The release scripts are organized in the `.github/scripts` folder:
 
 - **`ext-build-type.ts`**: Determine build type (nightly/promotion/regular)
 - **`ext-promotion-finder.ts`**: Find promotion candidates for nightly builds
-- **`ext-change-detector.ts`**: Detect changes in extensions
+- **`ext-change-detector.ts`**: Detect changes in VS Code extensions
+- **`ext-package-selector.ts`**: Select VS Code extensions for release
 
 #### NPM Modules
 
@@ -196,9 +247,17 @@ The scripts implement smart version bumping strategies for both extensions and N
 # Test extension commands
 npx tsx .github/scripts/index.ts ext-build-type
 npx tsx .github/scripts/index.ts ext-change-detector
+npx tsx .github/scripts/index.ts ext-package-selector
 
 # Test NPM commands
 npx tsx .github/scripts/index.ts npm-change-detector
+npx tsx .github/scripts/index.ts npm-package-selector
+
+# Test with environment variables
+SELECTED_EXTENSIONS=all AVAILABLE_EXTENSIONS=apex-lsp-vscode-extension,apex-lsp-vscode-extension-web CHANGED_EXTENSIONS=apex-lsp-vscode-extension \
+npx tsx .github/scripts/index.ts ext-package-selector
+
+SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-logging,apex-parser-ast CHANGED_PACKAGES=apex-lsp-logging \
 npx tsx .github/scripts/index.ts npm-package-selector
 
 # Run tests
@@ -233,8 +292,17 @@ To:
 - name: Install dependencies
   uses: ./.github/actions/npm-install-with-retries
 
-- name: Determine changes and version bumps
+- name: Detect extension changes
+  id: ext-changes
   run: npx tsx .github/scripts/index.ts ext-change-detector
+
+- name: Select extensions for release
+  id: extensions
+  env:
+    SELECTED_EXTENSIONS: ${{ github.event.inputs.extensions || 'none' }}
+    AVAILABLE_EXTENSIONS: ${{ steps.ext-changes.outputs.available-extensions }}
+    CHANGED_EXTENSIONS: ${{ steps.ext-changes.outputs.changed-extensions }}
+  run: npx tsx .github/scripts/index.ts ext-package-selector
 ```
 
 ### NPM Workflow Integration

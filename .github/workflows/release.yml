@@ -26,6 +26,17 @@ on:
           - apex-lsp-browser-client
           - apex-lsp-vscode-client
           - apex-lsp-testbed
+      extensions:
+        description: 'VS Code extensions to release'
+        required: false
+        default: 'none'
+        type: choice
+        options:
+          - none
+          - all
+          - changed
+          - apex-lsp-vscode-extension
+          - apex-lsp-vscode-extension-web
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'
         required: false
@@ -82,8 +93,8 @@ jobs:
   get-packages:
     runs-on: ubuntu-latest
     outputs:
-      npm-packages: ${{ steps.packages.outputs.npm-packages }}
-      extensions: ${{ steps.packages.outputs.extensions }}
+      npm-packages: ${{ steps.packages.outputs.packages }}
+      extensions: ${{ steps.extensions.outputs.extensions }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,14 +109,15 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/npm-install-with-retries
 
-      - name: Get package lists
+      - name: Get NPM packages
         id: packages
-        env:
-          SELECTED_PACKAGE: ${{ github.event.inputs.packages || 'none' }}
-          AVAILABLE_PACKAGES: ''
-          CHANGED_PACKAGES: ''
         run: |
           npx tsx .github/scripts/index.ts npm-package-selector
+
+      - name: Get extensions
+        id: extensions
+        run: |
+          npx tsx .github/scripts/index.ts ext-package-selector
 
   release-npm:
     needs: get-packages
@@ -120,7 +132,7 @@ jobs:
 
   release-extensions:
     needs: get-packages
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.extensions != '')
+    if: (github.event.inputs.extensions != 'none' && github.event.inputs.extensions != '') || (needs.get-packages.outputs.extensions != '')
     uses: ./.github/workflows/release-extensions.yml
     with:
       branch: ${{ github.event.inputs.branch || github.ref_name }}
@@ -128,4 +140,6 @@ jobs:
       dry-run: ${{ github.event.inputs.dry-run || 'false' }}
       pre-release: ${{ github.event.inputs.pre-release || 'false' }}
       version-bump: ${{ github.event.inputs.version-bump || 'auto' }}
+      extensions: ${{ github.event.inputs.extensions || 'none' }}
+      available-extensions: ${{ needs.get-packages.outputs.extensions }}
     secrets: inherit
