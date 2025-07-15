@@ -52,11 +52,6 @@ on:
           - patch
           - minor
           - major
-      base-branch:
-        description: 'Base branch to compare against for change detection'
-        required: false
-        default: 'main'
-        type: string
       registries:
         description: 'Registries to publish to'
         required: false
@@ -120,7 +115,6 @@ jobs:
       packages: ${{ github.event.inputs.packages || 'changed' }}
       available-packages: ${{ needs.get-packages.outputs.npm-packages }}
       dry-run: ${{ github.event.inputs.dry-run || 'false' }}
-      base-branch: ${{ github.event.inputs.base-branch || 'main' }}
     secrets: inherit
 
   release-extensions:
