@@ -13,6 +13,11 @@ on:
         required: false
         default: 'all'
         type: string
+      extensions:
+        description: 'Extensions to release'
+        required: false
+        default: 'apex-lsp-vscode-extension'
+        type: string
       available-packages:
         description: 'Available packages'
         required: false
