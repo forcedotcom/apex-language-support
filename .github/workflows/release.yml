@@ -119,23 +119,3 @@ jobs:
       dry-run: ${{ github.event.inputs.dry-run || 'false' }}
       base-branch: ${{ github.event.inputs.base-branch || 'main' }}
     secrets: inherit
-
-  determine-build-type:
-    runs-on: ubuntu-latest
-    outputs:
-      is-nightly: ${{ steps.check.outputs.is-nightly }}
-      version-bump: ${{ steps.check.outputs.version-bump }}
-      pre-release: ${{ steps.check.outputs.pre-release }}
-    steps:
-      - name: Check build type
-        id: check
-        run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "is-nightly=true" >> $GITHUB_OUTPUT
-            echo "version-bump=patch" >> $GITHUB_OUTPUT
-            echo "pre-release=true" >> $GITHUB_OUTPUT
-          else
-            echo "is-nightly=false" >> $GITHUB_OUTPUT
-            echo "version-bump=${{ github.event.inputs.version-bump || 'auto' }}" >> $GITHUB_OUTPUT
-            echo "pre-release=${{ github.event.inputs.pre-release || 'false' }}" >> $GITHUB_OUTPUT
-          fi
