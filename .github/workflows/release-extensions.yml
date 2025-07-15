@@ -84,25 +84,24 @@ jobs:
       pre-release: ${{ steps.check.outputs.pre-release }}
       is-promotion: ${{ steps.check.outputs.is-promotion }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
       - name: Check build type
         id: check
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "is-nightly=true" >> $GITHUB_OUTPUT
-            echo "version-bump=patch" >> $GITHUB_OUTPUT
-            echo "pre-release=true" >> $GITHUB_OUTPUT
-            echo "is-promotion=false" >> $GITHUB_OUTPUT
-          else
-            echo "is-nightly=false" >> $GITHUB_OUTPUT
-            echo "version-bump=${{ inputs.version-bump || 'auto' }}" >> $GITHUB_OUTPUT
-            echo "pre-release=${{ inputs.pre-release || 'false' }}" >> $GITHUB_OUTPUT
-            # A stable release (pre-release=false) is a promotion
-            if [ "${{ inputs.pre-release || 'false' }}" = "false" ]; then
-              echo "is-promotion=true" >> $GITHUB_OUTPUT
-            else
-              echo "is-promotion=false" >> $GITHUB_OUTPUT
-            fi
-          fi
+          npx tsx .github/scripts/index.ts ext-build-type \
+            --event-name "${{ github.event_name }}" \
+            --version-bump "${{ inputs.version-bump || 'auto' }}" \
+            --pre-release "${{ inputs.pre-release || 'false' }}"
 
   find-promotion-candidate:
     needs: determine-build-type
@@ -117,111 +116,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
       - name: Find nightly build to promote
         id: find
         run: |
-          echo "Finding nightly build to promote..."
-
-          # Find the last stable release tag (even minor version)
-          LAST_STABLE_TAG=""
-          ALL_TAGS=$(git tag --sort=-version:refname | grep "^v")
-
-          for tag in $ALL_TAGS; do
-            # Extract version from tag (remove 'v' prefix)
-            VERSION=${tag#v}
-            # Parse major.minor.patch
-            IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
-            MAJOR="${VERSION_PARTS[0]}"
-            MINOR="${VERSION_PARTS[1]}"
-            
-            # Check if this is a stable release (even minor, no nightly suffix)
-            if [ $((MINOR % 2)) -eq 0 ] && [[ "$tag" != *"-nightly"* ]]; then
-              LAST_STABLE_TAG="$tag"
-              break
-            fi
-          done
-
-          if [ -z "$LAST_STABLE_TAG" ]; then
-            echo "No previous stable release found - this will be the first promotion"
-            # For first promotion, look for any nightly in the last 7 days
-            SEVEN_DAYS_AGO=$(date -d "7 days ago" +%s)
-          else
-            echo "Last stable release: $LAST_STABLE_TAG"
-            # Get the commit date of the last stable release
-            STABLE_COMMIT_DATE=$(git log -1 --format=%ct "$LAST_STABLE_TAG")
-            # Add 7 days to that date
-            SEVEN_DAYS_AFTER_STABLE=$((STABLE_COMMIT_DATE + 7 * 24 * 60 * 60))
-          fi
-
-                    # Find the most recent nightly build
-          MOST_RECENT_NIGHTLY=""
-          MOST_RECENT_NIGHTLY_DATE=0
-
-          for tag in $ALL_TAGS; do
-            if [[ "$tag" == *"-nightly"* ]]; then
-              NIGHTLY_COMMIT_DATE=$(git log -1 --format=%ct "$tag")
-              if [ "$NIGHTLY_COMMIT_DATE" -gt "$MOST_RECENT_NIGHTLY_DATE" ]; then
-                MOST_RECENT_NIGHTLY="$tag"
-                MOST_RECENT_NIGHTLY_DATE="$NIGHTLY_COMMIT_DATE"
-              fi
-            fi
-          done
-
-          if [ -n "$MOST_RECENT_NIGHTLY" ]; then
-            echo "Most recent nightly: $MOST_RECENT_NIGHTLY (date: $MOST_RECENT_NIGHTLY_DATE)"
-            
-            # Calculate the cutoff date: 7 days before the most recent nightly
-            SEVEN_DAYS_BEFORE_RECENT=$((MOST_RECENT_NIGHTLY_DATE - 7 * 24 * 60 * 60))
-            echo "Cutoff date for promotion candidates: $SEVEN_DAYS_BEFORE_RECENT"
-          fi
-
-          # Find nightly builds that meet both criteria:
-          # 1. Within 7 days after the last stable release
-          # 2. At least 7 days older than the most recent nightly
-          PROMOTION_CANDIDATES=""
-
-          for tag in $ALL_TAGS; do
-            if [[ "$tag" == *"-nightly"* ]]; then
-              # Get commit date of this nightly
-              NIGHTLY_COMMIT_DATE=$(git log -1 --format=%ct "$tag")
-              
-              if [ -n "$LAST_STABLE_TAG" ] && [ -n "$MOST_RECENT_NIGHTLY" ]; then
-                # Check if this nightly meets both criteria:
-                # - Within 7 days after the last stable release
-                # - At least 7 days older than the most recent nightly
-                if [ "$NIGHTLY_COMMIT_DATE" -ge "$STABLE_COMMIT_DATE" ] && \
-                   [ "$NIGHTLY_COMMIT_DATE" -le "$SEVEN_DAYS_AFTER_STABLE" ] && \
-                   [ "$NIGHTLY_COMMIT_DATE" -le "$SEVEN_DAYS_BEFORE_RECENT" ]; then
-                  PROMOTION_CANDIDATES="$PROMOTION_CANDIDATES $tag"
-                fi
-              elif [ -n "$MOST_RECENT_NIGHTLY" ]; then
-                # For first promotion, check if nightly is:
-                # - Within last 7 days from now
-                # - At least 7 days older than the most recent nightly
-                if [ "$NIGHTLY_COMMIT_DATE" -ge "$SEVEN_DAYS_AGO" ] && \
-                   [ "$NIGHTLY_COMMIT_DATE" -le "$SEVEN_DAYS_BEFORE_RECENT" ]; then
-                  PROMOTION_CANDIDATES="$PROMOTION_CANDIDATES $tag"
-                fi
-              fi
-            fi
-          done
-
-          if [ -n "$PROMOTION_CANDIDATES" ]; then
-            # Select the most recent nightly from candidates
-            SELECTED_NIGHTLY=$(echo "$PROMOTION_CANDIDATES" | tr ' ' '\n' | sort -V | tail -1)
-            echo "Selected nightly for promotion: $SELECTED_NIGHTLY"
-            
-            # Get the commit SHA of this nightly
-            COMMIT_SHA=$(git rev-parse "$SELECTED_NIGHTLY")
-            echo "Commit SHA: $COMMIT_SHA"
-            
-            echo "commit-sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-            echo "nightly-tag=$SELECTED_NIGHTLY" >> $GITHUB_OUTPUT
-          else
-            echo "No suitable nightly builds found for promotion"
-            echo "commit-sha=" >> $GITHUB_OUTPUT
-            echo "nightly-tag=" >> $GITHUB_OUTPUT
-          fi
+          npx tsx .github/scripts/index.ts ext-promotion-finder
 
   determine-changes:
     needs: [determine-build-type, find-promotion-candidate]
@@ -236,136 +142,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
       - name: Determine changes and version bumps
         id: changes
         run: |
-          # Get build context
-          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
-          VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
-          PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
-          IS_PROMOTION="${{ needs.determine-build-type.outputs.is-promotion }}"
-          PROMOTION_COMMIT_SHA="${{ needs.find-promotion-candidate.outputs.promotion-commit-sha }}"
-
-          echo "Build context:"
-          echo "  Is nightly: $IS_NIGHTLY"
-          echo "  Version bump: $VERSION_BUMP"
-          echo "  Pre-release: $PRE_RELEASE"
-          echo "  Is promotion: $IS_PROMOTION"
-          echo "  Promotion commit SHA: $PROMOTION_COMMIT_SHA"
-
-          # For nightly builds, always use patch bump and ensure pre-release
-          if [ "$IS_NIGHTLY" = "true" ]; then
-            echo "Nightly build detected - using patch bump strategy"
-            VERSION_BUMP="patch"
-            PRE_RELEASE="true"
-          fi
-
-          # For promotions, always include extensions and use minor bump
-          if [ "$IS_PROMOTION" = "true" ]; then
-            echo "Promotion detected - using minor bump strategy"
-            VERSION_BUMP="minor"
-            PRE_RELEASE="false"
-          fi
-
-          # Determine which extensions have changes
-          EXTENSIONS_WITH_CHANGES=""
-          VERSION_BUMP_TYPES=""
-
-          # Check each extension for changes
-          for ext in apex-lsp-vscode-extension apex-lsp-vscode-extension-web; do
-            if [ -d "packages/$ext" ]; then
-              # For nightly builds, always include extensions
-              if [ "$IS_NIGHTLY" = "true" ]; then
-                if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
-                  EXTENSIONS_WITH_CHANGES="$ext"
-                else
-                  EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
-                fi
-                VERSION_BUMP_TYPES="$VERSION_BUMP"
-              # For promotions, always include extensions
-              elif [ "$IS_PROMOTION" = "true" ]; then
-                if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
-                  EXTENSIONS_WITH_CHANGES="$ext"
-                else
-                  EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
-                fi
-                VERSION_BUMP_TYPES="$VERSION_BUMP"
-              else
-                # Check for actual changes since last release
-                echo "Checking for changes in $ext since last release..."
-                
-                # Get current version from package.json
-                CURRENT_VERSION=$(node -p "require('./packages/$ext/package.json').version")
-                echo "Current version: $CURRENT_VERSION"
-                
-                # Find the last release tag for this extension
-                # Look for tags that could be related to this extension
-                LAST_TAG=""
-                
-                # Get all tags sorted by version (newest first)
-                ALL_TAGS=$(git tag --sort=-version:refname | grep "^v")
-                
-                if [ -n "$ALL_TAGS" ]; then
-                  # For now, use the most recent tag as the baseline
-                  # In the future, this could be enhanced to:
-                  # 1. Look for extension-specific tags (e.g., v1.2.3-{ext})
-                  # 2. Parse package.json from each tag to find the right extension
-                  # 3. Use GitHub API to get release information
-                  LAST_TAG=$(echo "$ALL_TAGS" | head -1)
-                  echo "Using most recent tag as baseline: $LAST_TAG"
-                  
-                  # TODO: Enhance this logic to be more extension-specific
-                  # For example, if we had extension-specific tags like:
-                  # - v1.2.3-apex-lsp-vscode-extension
-                  # - v1.2.3-apex-lsp-vscode-extension-web
-                  # We could filter more precisely
-                fi
-                
-                if [ -z "$LAST_TAG" ]; then
-                  echo "No previous release tag found for $ext - treating as first release"
-                  # If no previous tag exists, this is the first release
-                  # Check if there are any files in the extension directory
-                  if [ "$(find "packages/$ext" -type f -name "*.ts" -o -name "*.js" -o -name "*.json" | wc -l)" -gt 0 ]; then
-                    if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
-                      EXTENSIONS_WITH_CHANGES="$ext"
-                    else
-                      EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
-                    fi
-                    VERSION_BUMP_TYPES="$VERSION_BUMP"
-                    echo "First release for $ext - including in release"
-                  fi
-                else
-                  echo "Comparing against last release tag: $LAST_TAG"
-                  
-                  # Check for changes since the last release tag
-                  CHANGES=$(git diff --name-only "$LAST_TAG"..HEAD -- "packages/$ext/")
-                  if [ -n "$CHANGES" ]; then
-                    echo "Found changes in $ext since $LAST_TAG:"
-                    echo "$CHANGES" | head -5
-                    if [ "$(echo "$CHANGES" | wc -l)" -gt 5 ]; then
-                      echo "... and $(($(echo "$CHANGES" | wc -l) - 5)) more files"
-                    fi
-                    
-                    if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
-                      EXTENSIONS_WITH_CHANGES="$ext"
-                    else
-                      EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
-                    fi
-                    VERSION_BUMP_TYPES="$VERSION_BUMP"
-                  else
-                    echo "No changes found in $ext since $LAST_TAG - skipping release"
-                  fi
-                fi
-              fi
-            fi
-          done
-
-          echo "Selected extensions: $EXTENSIONS_WITH_CHANGES"
-          echo "Version bump types: $VERSION_BUMP_TYPES"
-
-          echo "selected-extensions=$EXTENSIONS_WITH_CHANGES" >> $GITHUB_OUTPUT
-          echo "version-bumps=$VERSION_BUMP_TYPES" >> $GITHUB_OUTPUT
-          echo "promotion-commit-sha=$PROMOTION_COMMIT_SHA" >> $GITHUB_OUTPUT
+          npx tsx .github/scripts/index.ts ext-change-detector \
+            --is-nightly "${{ needs.determine-build-type.outputs.is-nightly }}" \
+            --version-bump "${{ needs.determine-build-type.outputs.version-bump }}" \
+            --pre-release "${{ needs.determine-build-type.outputs.pre-release }}" \
+            --is-promotion "${{ needs.determine-build-type.outputs.is-promotion }}" \
+            --promotion-commit-sha "${{ needs.find-promotion-candidate.outputs.promotion-commit-sha }}"
 
   display-release-plan:
     needs: [determine-build-type, determine-changes]
@@ -382,102 +175,19 @@ jobs:
         with:
           node-version: '20.x'
 
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
       - name: Display Extension Release Plan
         run: |
-          # Get build context variables
-          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
-          VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
-          PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
-
-          echo "=== EXTENSION RELEASE PLAN ==="
-          echo "Branch: ${{ inputs.branch || github.ref_name }}"
-          echo "Build type: ${{ github.event_name }}"
-          echo "Is nightly: $IS_NIGHTLY"
-          echo "Version bump type: $VERSION_BUMP"
-          echo "Registries: ${{ inputs.registries }}"
-          echo "Pre-release: $PRE_RELEASE"
-          echo "Dry run mode: ENABLED"
-          echo ""
-
-          # Determine which extensions to release
-          EXTENSIONS_TO_RELEASE="${{ needs.determine-changes.outputs.selected-extensions }}"
-          echo "Extensions to release: $EXTENSIONS_TO_RELEASE"
-          echo ""
-
-          # Show what would happen for each extension
-          IFS=',' read -ra EXT_ARRAY <<< "$EXTENSIONS_TO_RELEASE"
-          for ext in "${EXT_ARRAY[@]}"; do
-            if [ -n "$ext" ] && [ -d "packages/$ext" ]; then
-              echo "Extension: $ext"
-              
-              # Get current version and publisher
-              CURRENT_VERSION=$(node -p "require('./packages/$ext/package.json').version")
-              PUBLISHER=$(node -p "require('./packages/$ext/package.json').publisher")
-              echo "  Current version: $CURRENT_VERSION"
-              echo "  Publisher: $PUBLISHER"
-              
-              # Calculate new version
-              IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
-              MAJOR="${VERSION_PARTS[0]}"
-              MINOR="${VERSION_PARTS[1]}"
-              PATCH="${VERSION_PARTS[2]}"
-              
-              # Use VERSION_BUMP from determine-build-type job
-              case "$VERSION_BUMP" in
-                "major")
-                  NEW_VERSION="$((MAJOR + 1)).0.0"
-                  ;;
-                "minor")
-                  NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
-                  ;;
-                "patch")
-                  NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-                  ;;
-                "auto")
-                  # For auto, default to patch
-                  NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-                  ;;
-                *)
-                  # Default to patch if unknown
-                  NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-                  ;;
-              esac
-              
-              # Show version bump information
-              echo "  Would bump to: $NEW_VERSION"
-              if [ "$IS_NIGHTLY" = "true" ]; then
-                echo "  Version strategy: Nightly build (odd minor + nightly timestamp)"
-              else
-                echo "  Version strategy: $VERSION_BUMP (conventional commit) + VS Code even/odd (pre-release: $PRE_RELEASE)"
-              fi
-              
-              # Show release information
-              PRE_RELEASE_TEXT=""
-              if [ "${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}" = "true" ]; then
-                PRE_RELEASE_TEXT=" (pre-release)"
-              fi
-              echo "  Would create GitHub release: $ext$PRE_RELEASE_TEXT"
-              
-              # Show marketplace publishing information
-              IFS=',' read -ra REG_ARRAY <<< "${{ inputs.registries }}"
-              for registry in "${REG_ARRAY[@]}"; do
-                case "$registry" in
-                  "vsce"|"all")
-                    if [ "$ext" = "apex-lsp-vscode-extension" ]; then
-                      echo "  Would publish to: VSCode Marketplace$PRE_RELEASE_TEXT"
-                    fi
-                    ;;
-                  "ovsx"|"all")
-                    if [ "$ext" = "apex-lsp-vscode-extension-web" ]; then
-                      echo "  Would publish to: OpenVSX Registry$PRE_RELEASE_TEXT"
-                    fi
-                    ;;
-                esac
-              done
-            fi
-          done
-
-          echo "✅ Extension release dry run completed"
+          npx tsx .github/scripts/index.ts ext-release-plan \
+            --branch "${{ inputs.branch || github.ref_name }}" \
+            --build-type "${{ github.event_name }}" \
+            --is-nightly "${{ needs.determine-build-type.outputs.is-nightly }}" \
+            --version-bump "${{ needs.determine-build-type.outputs.version-bump }}" \
+            --registries "${{ inputs.registries }}" \
+            --pre-release "${{ needs.determine-build-type.outputs.pre-release }}" \
+            --selected-extensions "${{ needs.determine-changes.outputs.selected-extensions }}"
 
   bump-versions:
     needs: [determine-changes]
@@ -498,6 +208,7 @@ jobs:
         uses: ./.github/actions/npm-install-with-retries
 
       - name: Bump versions for selected extensions
+        # TODO: Migrate to Node.js script: npx tsx .github/scripts/index.ts ext-version-bumper
         run: |
           DRY_RUN="${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
           VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
@@ -908,18 +619,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install jq
-        run: |
-          # jq should be pre-installed on Ubuntu runners, but let's ensure it's available
-          if ! command -v jq &> /dev/null; then
-            echo "jq not found, installing..."
-            sudo apt-get update && sudo apt-get install -y jq
-          else
-            echo "jq is already installed: $(jq --version)"
-          fi
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
 
       - name: Determine publish matrix
         id: matrix
+        # TODO: Migrate to Node.js script: npx tsx .github/scripts/index.ts ext-publish-matrix
         run: |
           REGISTRIES="${{ inputs.registries }}"
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"

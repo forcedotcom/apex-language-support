@@ -1,9 +1,5 @@
 #!/usr/bin/env tsx
 
-/**
- * Main CLI entry point for release automation scripts
- */
-
 /*
  * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
@@ -12,146 +8,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
+// eslint-disable-next-line header/header
 import { Command } from 'commander';
 import { determineBuildType, setBuildTypeOutputs } from './ext-build-type.js';
 import {
@@ -175,6 +32,7 @@ import {
   setPackageDetailsOutputs,
 } from './npm-package-details.js';
 import { generateReleasePlan, displayReleasePlan } from './npm-release-plan.js';
+import { displayExtensionReleasePlan } from './ext-release-plan.js';
 import { log } from './utils.js';
 
 const program = new Command();
@@ -315,6 +173,76 @@ program
       }
     } catch (error) {
       log.error(`Failed to generate release plan: ${error}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('ext-release-plan')
+  .description('Display extension release plan for dry runs')
+  .option('--branch <branch>', 'Branch to release from', 'main')
+  .option(
+    '--build-type <type>',
+    'Build type (workflow_dispatch, schedule, etc.)',
+    'workflow_dispatch',
+  )
+  .option('--is-nightly <boolean>', 'Is nightly build', 'false')
+  .option('--version-bump <type>', 'Version bump type', 'auto')
+  .option('--registries <list>', 'Registries to publish to', 'all')
+  .option('--pre-release <boolean>', 'Pre-release mode', 'false')
+  .option(
+    '--selected-extensions <list>',
+    'Comma-separated list of extensions to release',
+    '',
+  )
+  .action(async (options) => {
+    try {
+      displayExtensionReleasePlan(options);
+    } catch (error) {
+      log.error(`Failed to display release plan: ${error}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('ext-publish-matrix')
+  .description('Determine publish matrix for extensions')
+  .option('--registries <list>', 'Registries to publish to', 'all')
+  .option(
+    '--selected-extensions <list>',
+    'Comma-separated list of extensions to release',
+    '',
+  )
+  .action(async (options) => {
+    try {
+      log.info('Publish matrix not yet implemented');
+      // TODO: Implement publish matrix
+    } catch (error) {
+      log.error(`Failed to determine publish matrix: ${error}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('ext-version-bumper')
+  .description('Bump versions for selected extensions')
+  .option('--dry-run', 'Run in dry-run mode', false)
+  .option('--version-bump <type>', 'Version bump type', 'auto')
+  .option(
+    '--selected-extensions <list>',
+    'Comma-separated list of extensions to release',
+    '',
+  )
+  .option('--pre-release <boolean>', 'Pre-release mode', 'false')
+  .option('--is-nightly <boolean>', 'Is nightly build', 'false')
+  .option('--is-promotion <boolean>', 'Is promotion', 'false')
+  .option('--promotion-commit-sha <sha>', 'Promotion commit SHA')
+  .action(async (options) => {
+    try {
+      log.info('Version bumper not yet implemented');
+      // TODO: Implement version bumper
+    } catch (error) {
+      log.error(`Failed to bump versions: ${error}`);
       process.exit(1);
     }
   });
