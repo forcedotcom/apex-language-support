@@ -156,7 +156,7 @@ jobs:
 
   slack-notify:
     name: Slack Notification
-    needs: [release-npm]
+    needs: [determine-npm-changes, release-npm]
     runs-on: ubuntu-latest
     if: always() && needs.release-npm.result == 'success' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
@@ -230,7 +230,7 @@ jobs:
 
   slack-notify-failure:
     name: Slack Failure Notification
-    needs: [release-npm]
+    needs: [determine-npm-changes, release-npm]
     runs-on: ubuntu-latest
     if: always() && needs.release-npm.result == 'failure' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:

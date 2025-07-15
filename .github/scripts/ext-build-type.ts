@@ -7,34 +7,26 @@
  */
 
 import { BuildContext, VersionBumpType } from './types';
-import {
-  parseEnvironment,
-  setOutput,
-  log,
-  booleanString,
-  versionBumpType,
-} from './utils.js';
+import { setOutput, log, booleanString, versionBumpType } from './utils.js';
 
 /**
  * Determine the build context based on GitHub event and inputs
  */
 export function determineBuildType(): BuildContext {
-  const env = parseEnvironment();
-
   log.info('Determining build type...');
-  log.debug(`GitHub event: ${env.githubEventName}`);
-  log.debug(`Pre-release input: ${env.inputs.preRelease}`);
-  log.debug(`Version bump input: ${env.inputs.versionBump}`);
+  log.debug(`GitHub event: ${process.env.GITHUB_EVENT_NAME}`);
+  log.debug(`Pre-release input: ${process.env.INPUT_PRE_RELEASE}`);
+  log.debug(`Version bump input: ${process.env.INPUT_VERSION_BUMP}`);
 
   // Check if this is a scheduled nightly build
-  const isNightly = env.githubEventName === 'schedule';
+  const isNightly = process.env.GITHUB_EVENT_NAME === 'schedule';
 
   // Determine version bump type
   let versionBump: VersionBumpType = 'auto';
   if (isNightly) {
     versionBump = 'patch';
   } else {
-    const inputBump = env.inputs.versionBump || 'auto';
+    const inputBump = process.env.INPUT_VERSION_BUMP || 'auto';
     try {
       versionBump = versionBumpType.parse(inputBump);
     } catch {
@@ -50,7 +42,7 @@ export function determineBuildType(): BuildContext {
   if (isNightly) {
     preRelease = true;
   } else {
-    const inputPreRelease = env.inputs.preRelease || 'false';
+    const inputPreRelease = process.env.INPUT_PRE_RELEASE || 'false';
     try {
       preRelease = booleanString.parse(inputPreRelease);
     } catch {

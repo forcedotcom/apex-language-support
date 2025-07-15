@@ -98,9 +98,8 @@ jobs:
       - name: Check build type
         id: check
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          VERSION_BUMP: ${{ inputs.version-bump || 'auto' }}
-          PRE_RELEASE: ${{ inputs.pre-release || 'false' }}
+          INPUT_VERSION_BUMP: ${{ inputs.version-bump || 'auto' }}
+          INPUT_PRE_RELEASE: ${{ inputs.pre-release || 'false' }}
         run: |
           npx tsx .github/scripts/index.ts ext-build-type
 
@@ -194,7 +193,7 @@ jobs:
           npx tsx .github/scripts/index.ts ext-release-plan
 
   bump-versions:
-    needs: [determine-changes]
+    needs: [determine-build-type, determine-changes]
     runs-on: ubuntu-latest
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
@@ -307,7 +306,14 @@ jobs:
       dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
 
   create-github-releases:
-    needs: [determine-changes, package, bump-versions, calculate-artifact-name]
+    needs:
+      [
+        determine-build-type,
+        determine-changes,
+        package,
+        bump-versions,
+        calculate-artifact-name,
+      ]
     runs-on: ubuntu-latest
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
@@ -510,7 +516,7 @@ jobs:
 
   slack-notify:
     name: Slack Notification
-    needs: [publish]
+    needs: [determine-build-type, determine-changes, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'success' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
@@ -616,7 +622,7 @@ jobs:
 
   slack-notify-failure:
     name: Slack Failure Notification
-    needs: [publish]
+    needs: [determine-build-type, determine-changes, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'failure' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
