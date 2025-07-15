@@ -32,11 +32,7 @@ on:
         required: false
         default: 'false'
         type: string
-      base-branch:
-        description: 'Base branch to compare against for change detection'
-        required: false
-        default: 'main'
-        type: string
+
       version-bump:
         description: 'Version bump type (auto, patch, minor, major)'
         required: false
@@ -86,6 +82,7 @@ jobs:
       is-nightly: ${{ steps.check.outputs.is-nightly }}
       version-bump: ${{ steps.check.outputs.version-bump }}
       pre-release: ${{ steps.check.outputs.pre-release }}
+      is-promotion: ${{ steps.check.outputs.is-promotion }}
     steps:
       - name: Check build type
         id: check
@@ -94,18 +91,145 @@ jobs:
             echo "is-nightly=true" >> $GITHUB_OUTPUT
             echo "version-bump=patch" >> $GITHUB_OUTPUT
             echo "pre-release=true" >> $GITHUB_OUTPUT
+            echo "is-promotion=false" >> $GITHUB_OUTPUT
           else
             echo "is-nightly=false" >> $GITHUB_OUTPUT
             echo "version-bump=${{ inputs.version-bump || 'auto' }}" >> $GITHUB_OUTPUT
             echo "pre-release=${{ inputs.pre-release || 'false' }}" >> $GITHUB_OUTPUT
+            # A stable release (pre-release=false) is a promotion
+            if [ "${{ inputs.pre-release || 'false' }}" = "false" ]; then
+              echo "is-promotion=true" >> $GITHUB_OUTPUT
+            else
+              echo "is-promotion=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+  find-promotion-candidate:
+    needs: determine-build-type
+    runs-on: ubuntu-latest
+    if: needs.determine-build-type.outputs.is-promotion == 'true'
+    outputs:
+      promotion-commit-sha: ${{ steps.find.outputs.commit-sha }}
+      promotion-nightly-tag: ${{ steps.find.outputs.nightly-tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find nightly build to promote
+        id: find
+        run: |
+          echo "Finding nightly build to promote..."
+
+          # Find the last stable release tag (even minor version)
+          LAST_STABLE_TAG=""
+          ALL_TAGS=$(git tag --sort=-version:refname | grep "^v")
+
+          for tag in $ALL_TAGS; do
+            # Extract version from tag (remove 'v' prefix)
+            VERSION=${tag#v}
+            # Parse major.minor.patch
+            IFS='.' read -ra VERSION_PARTS <<< "$VERSION"
+            MAJOR="${VERSION_PARTS[0]}"
+            MINOR="${VERSION_PARTS[1]}"
+            
+            # Check if this is a stable release (even minor, no nightly suffix)
+            if [ $((MINOR % 2)) -eq 0 ] && [[ "$tag" != *"-nightly"* ]]; then
+              LAST_STABLE_TAG="$tag"
+              break
+            fi
+          done
+
+          if [ -z "$LAST_STABLE_TAG" ]; then
+            echo "No previous stable release found - this will be the first promotion"
+            # For first promotion, look for any nightly in the last 7 days
+            SEVEN_DAYS_AGO=$(date -d "7 days ago" +%s)
+          else
+            echo "Last stable release: $LAST_STABLE_TAG"
+            # Get the commit date of the last stable release
+            STABLE_COMMIT_DATE=$(git log -1 --format=%ct "$LAST_STABLE_TAG")
+            # Add 7 days to that date
+            SEVEN_DAYS_AFTER_STABLE=$((STABLE_COMMIT_DATE + 7 * 24 * 60 * 60))
+          fi
+
+                    # Find the most recent nightly build
+          MOST_RECENT_NIGHTLY=""
+          MOST_RECENT_NIGHTLY_DATE=0
+
+          for tag in $ALL_TAGS; do
+            if [[ "$tag" == *"-nightly"* ]]; then
+              NIGHTLY_COMMIT_DATE=$(git log -1 --format=%ct "$tag")
+              if [ "$NIGHTLY_COMMIT_DATE" -gt "$MOST_RECENT_NIGHTLY_DATE" ]; then
+                MOST_RECENT_NIGHTLY="$tag"
+                MOST_RECENT_NIGHTLY_DATE="$NIGHTLY_COMMIT_DATE"
+              fi
+            fi
+          done
+
+          if [ -n "$MOST_RECENT_NIGHTLY" ]; then
+            echo "Most recent nightly: $MOST_RECENT_NIGHTLY (date: $MOST_RECENT_NIGHTLY_DATE)"
+            
+            # Calculate the cutoff date: 7 days before the most recent nightly
+            SEVEN_DAYS_BEFORE_RECENT=$((MOST_RECENT_NIGHTLY_DATE - 7 * 24 * 60 * 60))
+            echo "Cutoff date for promotion candidates: $SEVEN_DAYS_BEFORE_RECENT"
+          fi
+
+          # Find nightly builds that meet both criteria:
+          # 1. Within 7 days after the last stable release
+          # 2. At least 7 days older than the most recent nightly
+          PROMOTION_CANDIDATES=""
+
+          for tag in $ALL_TAGS; do
+            if [[ "$tag" == *"-nightly"* ]]; then
+              # Get commit date of this nightly
+              NIGHTLY_COMMIT_DATE=$(git log -1 --format=%ct "$tag")
+              
+              if [ -n "$LAST_STABLE_TAG" ] && [ -n "$MOST_RECENT_NIGHTLY" ]; then
+                # Check if this nightly meets both criteria:
+                # - Within 7 days after the last stable release
+                # - At least 7 days older than the most recent nightly
+                if [ "$NIGHTLY_COMMIT_DATE" -ge "$STABLE_COMMIT_DATE" ] && \
+                   [ "$NIGHTLY_COMMIT_DATE" -le "$SEVEN_DAYS_AFTER_STABLE" ] && \
+                   [ "$NIGHTLY_COMMIT_DATE" -le "$SEVEN_DAYS_BEFORE_RECENT" ]; then
+                  PROMOTION_CANDIDATES="$PROMOTION_CANDIDATES $tag"
+                fi
+              elif [ -n "$MOST_RECENT_NIGHTLY" ]; then
+                # For first promotion, check if nightly is:
+                # - Within last 7 days from now
+                # - At least 7 days older than the most recent nightly
+                if [ "$NIGHTLY_COMMIT_DATE" -ge "$SEVEN_DAYS_AGO" ] && \
+                   [ "$NIGHTLY_COMMIT_DATE" -le "$SEVEN_DAYS_BEFORE_RECENT" ]; then
+                  PROMOTION_CANDIDATES="$PROMOTION_CANDIDATES $tag"
+                fi
+              fi
+            fi
+          done
+
+          if [ -n "$PROMOTION_CANDIDATES" ]; then
+            # Select the most recent nightly from candidates
+            SELECTED_NIGHTLY=$(echo "$PROMOTION_CANDIDATES" | tr ' ' '\n' | sort -V | tail -1)
+            echo "Selected nightly for promotion: $SELECTED_NIGHTLY"
+            
+            # Get the commit SHA of this nightly
+            COMMIT_SHA=$(git rev-parse "$SELECTED_NIGHTLY")
+            echo "Commit SHA: $COMMIT_SHA"
+            
+            echo "commit-sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+            echo "nightly-tag=$SELECTED_NIGHTLY" >> $GITHUB_OUTPUT
+          else
+            echo "No suitable nightly builds found for promotion"
+            echo "commit-sha=" >> $GITHUB_OUTPUT
+            echo "nightly-tag=" >> $GITHUB_OUTPUT
           fi
 
   determine-changes:
-    needs: determine-build-type
+    needs: [determine-build-type, find-promotion-candidate]
     runs-on: ubuntu-latest
     outputs:
       selected-extensions: ${{ steps.changes.outputs.selected-extensions }}
       version-bumps: ${{ steps.changes.outputs.version-bumps }}
+      promotion-commit-sha: ${{ steps.changes.outputs.promotion-commit-sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -119,17 +243,28 @@ jobs:
           IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
           VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
           PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
+          IS_PROMOTION="${{ needs.determine-build-type.outputs.is-promotion }}"
+          PROMOTION_COMMIT_SHA="${{ needs.find-promotion-candidate.outputs.promotion-commit-sha }}"
 
           echo "Build context:"
           echo "  Is nightly: $IS_NIGHTLY"
           echo "  Version bump: $VERSION_BUMP"
           echo "  Pre-release: $PRE_RELEASE"
+          echo "  Is promotion: $IS_PROMOTION"
+          echo "  Promotion commit SHA: $PROMOTION_COMMIT_SHA"
 
           # For nightly builds, always use patch bump and ensure pre-release
           if [ "$IS_NIGHTLY" = "true" ]; then
             echo "Nightly build detected - using patch bump strategy"
             VERSION_BUMP="patch"
             PRE_RELEASE="true"
+          fi
+
+          # For promotions, always include extensions and use minor bump
+          if [ "$IS_PROMOTION" = "true" ]; then
+            echo "Promotion detected - using minor bump strategy"
+            VERSION_BUMP="minor"
+            PRE_RELEASE="false"
           fi
 
           # Determine which extensions have changes
@@ -147,24 +282,79 @@ jobs:
                   EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
                 fi
                 VERSION_BUMP_TYPES="$VERSION_BUMP"
+              # For promotions, always include extensions
+              elif [ "$IS_PROMOTION" = "true" ]; then
+                if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
+                  EXTENSIONS_WITH_CHANGES="$ext"
+                else
+                  EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
+                fi
+                VERSION_BUMP_TYPES="$VERSION_BUMP"
               else
-                # Check for actual changes
-                BASE_BRANCH="${{ inputs.base-branch || 'main' }}"
+                # Check for actual changes since last release
+                echo "Checking for changes in $ext since last release..."
                 
-                # Check if the base branch exists, fall back to main if it doesn't
-                if ! git ls-remote --heads origin "$BASE_BRANCH" | grep -q "$BASE_BRANCH"; then
-                  echo "Warning: Base branch 'origin/$BASE_BRANCH' does not exist, falling back to 'main'"
-                  BASE_BRANCH="main"
+                # Get current version from package.json
+                CURRENT_VERSION=$(node -p "require('./packages/$ext/package.json').version")
+                echo "Current version: $CURRENT_VERSION"
+                
+                # Find the last release tag for this extension
+                # Look for tags that could be related to this extension
+                LAST_TAG=""
+                
+                # Get all tags sorted by version (newest first)
+                ALL_TAGS=$(git tag --sort=-version:refname | grep "^v")
+                
+                if [ -n "$ALL_TAGS" ]; then
+                  # For now, use the most recent tag as the baseline
+                  # In the future, this could be enhanced to:
+                  # 1. Look for extension-specific tags (e.g., v1.2.3-{ext})
+                  # 2. Parse package.json from each tag to find the right extension
+                  # 3. Use GitHub API to get release information
+                  LAST_TAG=$(echo "$ALL_TAGS" | head -1)
+                  echo "Using most recent tag as baseline: $LAST_TAG"
+                  
+                  # TODO: Enhance this logic to be more extension-specific
+                  # For example, if we had extension-specific tags like:
+                  # - v1.2.3-apex-lsp-vscode-extension
+                  # - v1.2.3-apex-lsp-vscode-extension-web
+                  # We could filter more precisely
                 fi
                 
-                CHANGES=$(git diff --name-only origin/$BASE_BRANCH..HEAD -- "packages/$ext/")
-                if [ -n "$CHANGES" ]; then
-                  if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
-                    EXTENSIONS_WITH_CHANGES="$ext"
-                  else
-                    EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
+                if [ -z "$LAST_TAG" ]; then
+                  echo "No previous release tag found for $ext - treating as first release"
+                  # If no previous tag exists, this is the first release
+                  # Check if there are any files in the extension directory
+                  if [ "$(find "packages/$ext" -type f -name "*.ts" -o -name "*.js" -o -name "*.json" | wc -l)" -gt 0 ]; then
+                    if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
+                      EXTENSIONS_WITH_CHANGES="$ext"
+                    else
+                      EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
+                    fi
+                    VERSION_BUMP_TYPES="$VERSION_BUMP"
+                    echo "First release for $ext - including in release"
                   fi
-                  VERSION_BUMP_TYPES="$VERSION_BUMP"
+                else
+                  echo "Comparing against last release tag: $LAST_TAG"
+                  
+                  # Check for changes since the last release tag
+                  CHANGES=$(git diff --name-only "$LAST_TAG"..HEAD -- "packages/$ext/")
+                  if [ -n "$CHANGES" ]; then
+                    echo "Found changes in $ext since $LAST_TAG:"
+                    echo "$CHANGES" | head -5
+                    if [ "$(echo "$CHANGES" | wc -l)" -gt 5 ]; then
+                      echo "... and $(($(echo "$CHANGES" | wc -l) - 5)) more files"
+                    fi
+                    
+                    if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
+                      EXTENSIONS_WITH_CHANGES="$ext"
+                    else
+                      EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
+                    fi
+                    VERSION_BUMP_TYPES="$VERSION_BUMP"
+                  else
+                    echo "No changes found in $ext since $LAST_TAG - skipping release"
+                  fi
                 fi
               fi
             fi
@@ -175,6 +365,7 @@ jobs:
 
           echo "selected-extensions=$EXTENSIONS_WITH_CHANGES" >> $GITHUB_OUTPUT
           echo "version-bumps=$VERSION_BUMP_TYPES" >> $GITHUB_OUTPUT
+          echo "promotion-commit-sha=$PROMOTION_COMMIT_SHA" >> $GITHUB_OUTPUT
 
   display-release-plan:
     needs: [determine-build-type, determine-changes]
@@ -313,12 +504,16 @@ jobs:
           SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
           PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
           IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
+          IS_PROMOTION="${{ needs.determine-build-type.outputs.is-promotion }}"
+          PROMOTION_COMMIT_SHA="${{ needs.determine-changes.outputs.promotion-commit-sha }}"
 
           echo "Mode: $([ "$DRY_RUN" = "true" ] && echo "DRY RUN" || echo "LIVE")"
           echo "Version bump type: $VERSION_BUMP"
           echo "Selected extensions: $SELECTED_EXTENSIONS"
           echo "Pre-release mode: $PRE_RELEASE"
           echo "Is nightly build: $IS_NIGHTLY"
+          echo "Is promotion: $IS_PROMOTION"
+          echo "Promotion commit SHA: $PROMOTION_COMMIT_SHA"
 
           # Convert comma-separated list to array
           IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
@@ -360,6 +555,25 @@ jobs:
                 NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
                 echo "Nightly version: $NEW_VERSION (odd minor: $TARGET_MINOR)"
                 echo "Note: Nightly timestamp will be added as release tag/metadata"
+              elif [ "$IS_PROMOTION" = "true" ]; then
+                # Promotion strategy: bump from odd minor (nightly) to even minor (stable)
+                echo "Applying promotion version strategy..."
+                
+                # For promotions, we always bump from odd minor to even minor
+                if [ $((CURRENT_MINOR % 2)) -eq 1 ]; then
+                  # Current is odd (nightly), bump to next even (stable)
+                  TARGET_MINOR=$((CURRENT_MINOR + 1))
+                  TARGET_PATCH=0
+                else
+                  # Current is already even, this shouldn't happen for promotions
+                  echo "Warning: Current version has even minor, expected odd for promotion"
+                  TARGET_MINOR=$((CURRENT_MINOR + 2))
+                  TARGET_PATCH=0
+                fi
+                
+                # Use proper major.minor.patch version for package.json
+                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
+                echo "Promotion version: $NEW_VERSION (even minor: $TARGET_MINOR)"
               else
                 # Regular build strategy: use smart version bumping
                 case "$VERSION_BUMP" in
@@ -370,22 +584,22 @@ jobs:
                   "minor")
                     # For minor bumps, we need to be smart about even/odd
                     if [ "$PRE_RELEASE" = "true" ]; then
-                      # Pre-release: ensure odd minor version
+                      # Pre-release: ensure odd minor version (no auto-update)
                       if [ $((CURRENT_MINOR % 2)) -eq 0 ]; then
                         # Current is even, bump to next odd
                         TARGET_MINOR=$((CURRENT_MINOR + 1))
                       else
-                        # Current is already odd, just increment
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
+                        # Current is already odd, jump to next odd
+                        TARGET_MINOR=$((CURRENT_MINOR + 2))
                       fi
                     else
-                      # Stable release: ensure even minor version
+                      # Stable release: ensure even minor version (auto-update enabled)
                       if [ $((CURRENT_MINOR % 2)) -eq 1 ]; then
                         # Current is odd, bump to next even
                         TARGET_MINOR=$((CURRENT_MINOR + 1))
                       else
-                        # Current is already even, just increment
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
+                        # Current is already even, jump to next even
+                        TARGET_MINOR=$((CURRENT_MINOR + 2))
                       fi
                     fi
                     TARGET_PATCH=0
@@ -418,11 +632,9 @@ jobs:
                 npm version "$NEW_VERSION" --no-git-tag-version
                 cd ../..
                 
-                # Update package-lock.json if it exists
-                if [ -f "package-lock.json" ]; then
-                  # Consider wrapping this with retry logic if network failures are a concern
-                  npm install
-                fi
+                # Note: package-lock.json is intentionally not updated here
+                # The lock file should already be up-to-date and version bumps
+                # don't affect dependency resolution
               fi
             fi
           done
@@ -456,21 +668,42 @@ jobs:
           # Ensure GitHub CLI has proper authentication
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add .
-          git commit -m "chore: bump versions for release [skip ci]"
+          IS_PROMOTION="${{ needs.determine-build-type.outputs.is-promotion }}"
+          PROMOTION_COMMIT_SHA="${{ needs.determine-changes.outputs.promotion-commit-sha }}"
 
-          # Push version bumps - fail if branch protection blocks it
-          echo "Pushing version bumps to ${{ inputs.branch || github.ref_name }}..."
-          if ! git push origin HEAD:${{ inputs.branch || github.ref_name }}; then
-            echo "❌ Error: Direct push failed. This may be due to branch protection rules."
-            echo "The workflow requires direct push access to ${{ inputs.branch || github.ref_name }}"
-            echo "Please ensure the workflow has proper permissions or run manually."
-            exit 1
+          if [ "$IS_PROMOTION" = "true" ] && [ -n "$PROMOTION_COMMIT_SHA" ]; then
+            echo "🔄 PROMOTION: Creating release tag on promotion commit..."
+            
+            # Get the new version from package.json
+            NEW_VERSION=$(node -p "require('./packages/apex-lsp-vscode-extension/package.json').version")
+            RELEASE_TAG="v$NEW_VERSION"
+            
+            echo "Creating release tag: $RELEASE_TAG on commit: $PROMOTION_COMMIT_SHA"
+            
+            # Create tag on the promotion commit
+            git tag "$RELEASE_TAG" "$PROMOTION_COMMIT_SHA"
+            git push origin "$RELEASE_TAG"
+            
+            echo "✅ Release tag created on promotion commit"
+          else
+            echo "🔄 REGULAR: Committing version bumps to HEAD..."
+            
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add .
+            git commit -m "chore: bump versions for release [skip ci]"
+
+            # Push version bumps - fail if branch protection blocks it
+            echo "Pushing version bumps to ${{ inputs.branch || github.ref_name }}..."
+            if ! git push origin HEAD:${{ inputs.branch || github.ref_name }}; then
+              echo "❌ Error: Direct push failed. This may be due to branch protection rules."
+              echo "The workflow requires direct push access to ${{ inputs.branch || github.ref_name }}"
+              echo "Please ensure the workflow has proper permissions or run manually."
+              exit 1
+            fi
+
+            echo "✅ Version bumps pushed successfully"
           fi
-
-          echo "✅ Version bumps pushed successfully"
 
   calculate-artifact-name:
     runs-on: ubuntu-latest
@@ -488,7 +721,7 @@ jobs:
           dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
 
   package:
-    needs: [bump-versions, calculate-artifact-name]
+    needs: [bump-versions, calculate-artifact-name, determine-changes]
     uses: ./.github/workflows/package.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
@@ -586,14 +819,33 @@ jobs:
               RELEASE_NOTES="## $ext v$CURRENT_VERSION\n\n"
               RELEASE_NOTES+="### Changes\n\n"
               
-              # Get recent commits for this extension
-              RECENT_COMMITS=$(git log --oneline HEAD~10..HEAD -- "packages/$ext/")
-              if [ -n "$RECENT_COMMITS" ]; then
-                echo "$RECENT_COMMITS" | while read -r commit; do
-                  RELEASE_NOTES+="- $commit\n"
-                done
+              # Find the last release tag for this extension to get commits since last release
+              LAST_TAG=""
+              ALL_TAGS=$(git tag --sort=-version:refname | grep "^v")
+              if [ -n "$ALL_TAGS" ]; then
+                LAST_TAG=$(echo "$ALL_TAGS" | head -1)
+              fi
+              
+              if [ -n "$LAST_TAG" ]; then
+                # Get commits since the last release
+                RECENT_COMMITS=$(git log --oneline "$LAST_TAG"..HEAD -- "packages/$ext/")
+                if [ -n "$RECENT_COMMITS" ]; then
+                  echo "$RECENT_COMMITS" | while read -r commit; do
+                    RELEASE_NOTES+="- $commit\n"
+                  done
+                else
+                  RELEASE_NOTES+="- General improvements and bug fixes\n"
+                fi
               else
-                RELEASE_NOTES+="- General improvements and bug fixes\n"
+                # First release - get all commits for this extension
+                RECENT_COMMITS=$(git log --oneline -- "packages/$ext/")
+                if [ -n "$RECENT_COMMITS" ]; then
+                  echo "$RECENT_COMMITS" | while read -r commit; do
+                    RELEASE_NOTES+="- $commit\n"
+                  done
+                else
+                  RELEASE_NOTES+="- Initial release\n"
+                fi
               fi
               
               RELEASE_NOTES+="\n### Installation\n\n"
