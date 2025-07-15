@@ -9,15 +9,23 @@ on:
         default: 'main'
         type: string
       packages:
-        description: 'Packages to release'
+        description: 'NPM packages to release'
         required: false
-        default: 'all'
-        type: string
-      extensions:
-        description: 'Extensions to release'
-        required: false
-        default: 'apex-lsp-vscode-extension'
-        type: string
+        default: 'none'
+        type: choice
+        options:
+          - none
+          - all
+          - changed
+          - apex-lsp-logging
+          - apex-parser-ast
+          - apex-ls-browser
+          - apex-ls-node
+          - lsp-compliant-services
+          - custom-services
+          - apex-lsp-browser-client
+          - apex-lsp-vscode-client
+          - apex-lsp-testbed
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'
         required: false
@@ -87,31 +95,41 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch || github.ref }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
       - name: Get package lists
         id: packages
-        uses: ./.github/actions/get-packages
+        run: |
+          npx tsx .github/scripts/index.ts npm-package-selector \
+            --selected-package "${{ github.event.inputs.packages || 'none' }}" \
+            --available-packages "" \
+            --changed-packages ""
 
-  # release-npm:
-  #   needs: get-packages
-  #   if: (github.event.inputs.npm-packages != 'none' && github.event.inputs.npm-packages != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.npm-packages != '')
-  #   uses: ./.github/workflows/release-npm.yml
-  #   with:
-  #     branch: ${{ github.event.inputs.branch || github.ref_name }}
-  #     packages: ${{ github.event.inputs.npm-packages || 'changed' }}
-  #     available-packages: ${{ needs.get-packages.outputs.npm-packages }}
-  #     dry-run: ${{ github.event.inputs.dry-run || 'false' }}
-  #     base-branch: ${{ github.event.inputs.base-branch || 'main' }}
-  #   secrets: inherit
+  release-npm:
+    needs: get-packages
+    if: (github.event.inputs.packages != 'none' && github.event.inputs.packages != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.npm-packages != '')
+    uses: ./.github/workflows/release-npm.yml
+    with:
+      branch: ${{ github.event.inputs.branch || github.ref_name }}
+      packages: ${{ github.event.inputs.packages || 'changed' }}
+      available-packages: ${{ needs.get-packages.outputs.npm-packages }}
+      dry-run: ${{ github.event.inputs.dry-run || 'false' }}
+      base-branch: ${{ github.event.inputs.base-branch || 'main' }}
+    secrets: inherit
 
   release-extensions:
     needs: get-packages
-    if: (github.event.inputs.extensions != 'none' && github.event.inputs.extensions != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.extensions != '')
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.extensions != '')
     uses: ./.github/workflows/release-extensions.yml
     with:
       branch: ${{ github.event.inputs.branch || github.ref_name }}
-      extensions: ${{ github.event.inputs.extensions || 'changed' }}
       registries: ${{ github.event.inputs.registries || 'all' }}
-      available-extensions: ${{ needs.get-packages.outputs.extensions }}
       dry-run: ${{ github.event.inputs.dry-run || 'false' }}
       pre-release: ${{ github.event.inputs.pre-release || 'false' }}
       version-bump: ${{ github.event.inputs.version-bump || 'auto' }}

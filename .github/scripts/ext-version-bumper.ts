@@ -77,76 +77,6 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
 import { Command } from 'commander';
 import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
@@ -261,8 +191,6 @@ function getPackageDetails(extensionPath: string): PackageJson | null {
   }
 }
 
-// Note: updatePackageVersion function removed as it's not used - we use npm version instead
-
 function bumpVersions(options: VersionBumpOptions): void {
   const {
     dryRun,
@@ -333,6 +261,9 @@ function bumpVersions(options: VersionBumpOptions): void {
     console.log('✅ LIVE: Version bumps applied');
   }
 }
+
+// Export for use in other modules
+export { bumpVersions };
 
 const program = new Command();
 

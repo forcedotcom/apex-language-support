@@ -7,76 +7,7 @@
  * creating entries for each extension-registry combination.
  */
 
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
+// eslint-disable-next-line header/header
 import { Command } from 'commander';
 
 interface PublishMatrixEntry {
@@ -145,6 +76,9 @@ function determinePublishMatrix(
 
   return matrix;
 }
+
+// Export for use in other modules
+export { determinePublishMatrix };
 
 function setMatrixOutput(matrix: PublishMatrixEntry[]): void {
   const matrixJson = JSON.stringify(matrix);

@@ -1,136 +1,164 @@
-# Workflow Migration Progress: Bash to Node.js
+# Migration Progress: Bash to Node.js Scripts
 
-This document tracks the progress of migrating bash steps in GitHub workflows to Node.js scripts.
+## Overview
 
-## Migration Overview
+This document tracks the migration of bash scripts in GitHub workflows to TypeScript Node.js scripts for better maintainability, type safety, and reusability.
 
-We are migrating complex bash logic in GitHub workflows to TypeScript/Node.js scripts for better maintainability, type safety, and debugging capabilities.
+## Completed Migrations ✅
 
-## ✅ Completed Migrations
+### Extension Release Workflow (`release-extensions.yml`)
 
-### 1. determine-build-type
+- ✅ **ext-build-type**: Determine build type (nightly, promotion, regular)
+- ✅ **ext-promotion-finder**: Find promotion commits and determine promotion status
+- ✅ **ext-change-detector**: Detect changes in extensions and determine version bumps
+- ✅ **ext-release-plan**: Display release plan for extensions
+- ✅ **ext-version-bumper**: Bump versions for selected extensions
+- ✅ **ext-publish-matrix**: Determine publish matrix for extensions
+- ✅ **ext-github-releases**: Create GitHub releases for extensions
 
-- **File**: `.github/workflows/release-extensions.yml`
-- **Script**: `ext-build-type.ts`
-- **Status**: ✅ Complete
-- **Command**: `npx tsx .github/scripts/index.ts ext-build-type`
+### NPM Release Workflow (`release-npm.yml`)
 
-### 2. find-promotion-candidate
+- ✅ **npm-change-detector**: Detect changes in NPM packages
+- ✅ **npm-package-selector**: Select packages for release
+- ✅ **npm-release-plan**: Display release plan for NPM packages
+- ✅ **npm-package-details**: Extract package details for notifications
 
-- **File**: `.github/workflows/release-extensions.yml`
-- **Script**: `ext-promotion-finder.ts`
-- **Status**: ✅ Complete
-- **Command**: `npx tsx .github/scripts/index.ts ext-promotion-finder`
+### Main Release Workflow (`release.yml`)
 
-### 3. determine-changes
+- ✅ **npm-package-selector**: Select packages for release (reused from NPM workflow)
 
-- **File**: `.github/workflows/release-extensions.yml`
-- **Script**: `ext-change-detector.ts`
-- **Status**: ✅ Complete
-- **Command**: `npx tsx .github/scripts/index.ts ext-change-detector`
+### Slack Notifications
 
-### 4. display-release-plan
+- ✅ **slack-notifier**: Send Slack notifications for release operations
 
-- **File**: `.github/workflows/release-extensions.yml`
-- **Script**: `ext-release-plan.ts`
-- **Status**: ✅ Complete
-- **Command**: `npx tsx .github/scripts/index.ts ext-release-plan`
+### Audit Logging
 
-## 🔄 In Progress
+- ✅ **audit-logger**: Log audit events for release operations
 
-### 5. bump-versions
-
-- **File**: `.github/workflows/release-extensions.yml`
-- **Script**: `ext-version-bumper.ts` (needs implementation)
-- **Status**: 🔄 TODO Comment Added
-- **Command**: `npx tsx .github/scripts/index.ts ext-version-bumper`
-
-### 6. determine-publish-matrix
-
-- **File**: `.github/workflows/release-extensions.yml`
-- **Script**: `ext-publish-matrix.ts` (needs implementation)
-- **Status**: 🔄 TODO Comment Added
-- **Command**: `npx tsx .github/scripts/index.ts ext-publish-matrix`
-
-## 📋 Remaining Work
-
-### 7. create-github-releases
-
-- **File**: `.github/workflows/release-extensions.yml`
-- **Script**: `ext-github-releases.ts` (needs creation)
-- **Status**: 📋 Not Started
-- **Complexity**: High - involves GitHub API calls, release creation, file uploads
-
-### 8. publish (audit steps)
-
-- **File**: `.github/workflows/release-extensions.yml`
-- **Script**: `ext-publish-audit.ts` (needs creation)
-- **Status**: 📋 Not Started
-- **Complexity**: Medium - audit logging and validation
-
-### 9. slack-notify
-
-- **File**: `.github/workflows/release-extensions.yml`
-- **Script**: `ext-slack-notify.ts` (needs creation)
-- **Status**: 📋 Not Started
-- **Complexity**: Low - notification formatting
-
-## Implementation Notes
-
-### Script Structure
-
-All scripts follow this pattern:
-
-1. Use Commander.js for CLI argument parsing
-2. Export main functions for use in other modules
-3. Include proper error handling and logging
-4. Use TypeScript interfaces for type safety
-5. Follow the existing code style and patterns
+## In Progress 🔄
 
 ### Workflow Integration
 
-- Scripts are called via `npx tsx .github/scripts/index.ts <command>`
-- Environment variables are passed as command-line arguments
-- Outputs are set using `console.log("key=value")` format
-- Error handling includes proper exit codes
+- 🔄 **Slack notification integration**: Replace bash-based Slack notifications with Node.js scripts
+- 🔄 **Audit logging integration**: Add audit logging to release workflows
 
-### Testing
+## Remaining Work 📋
 
-- Scripts can be tested locally with sample data
-- Use `--dry-run` flags where appropriate
-- Validate outputs match expected GitHub Actions format
+### Version Bumping
 
-## Next Steps
+- ⏳ **npm-version-bumper**: Bump versions for NPM packages (similar to ext-version-bumper)
 
-1. **Complete ext-version-bumper implementation**
-   - Implement version calculation logic
-   - Add npm version command execution
-   - Handle promotion scenarios
+### GitHub Release Creation
 
-2. **Complete ext-publish-matrix implementation**
-   - Implement matrix generation logic
-   - Add proper JSON output formatting
-   - Test with various registry combinations
+- ⏳ **npm-github-releases**: Create GitHub releases for NPM packages (if needed)
 
-3. **Create ext-github-releases script**
-   - Implement GitHub API integration
-   - Handle release note generation
-   - Manage VSIX file uploads
+### Additional Utilities
 
-4. **Create remaining scripts**
-   - ext-publish-audit
-   - ext-slack-notify
-
-5. **Update workflow files**
-   - Replace remaining bash steps
-   - Add proper error handling
-   - Update documentation
+- ⏳ **workflow-utils**: Common utilities for workflow operations
+- ⏳ **validation-utils**: Input validation and sanitization utilities
 
 ## Benefits of Migration
 
-- **Type Safety**: TypeScript provides compile-time error checking
-- **Maintainability**: Easier to read, debug, and modify
-- **Reusability**: Scripts can be used in multiple workflows
-- **Testing**: Unit tests can be written for individual functions
-- **Documentation**: Better IDE support and JSDoc comments
-- **Error Handling**: More robust error handling and logging
+### Type Safety
+
+- All scripts are written in TypeScript with proper type definitions
+- Compile-time error checking prevents runtime issues
+- Better IDE support with autocomplete and refactoring
+
+### Maintainability
+
+- Modular design with reusable components
+- Consistent error handling and logging
+- Clear separation of concerns
+
+### Reusability
+
+- Scripts can be used across multiple workflows
+- Common utilities shared between extension and NPM workflows
+- Easy to test and debug individual components
+
+### Error Handling
+
+- Structured error messages with proper exit codes
+- Detailed logging for troubleshooting
+- Graceful failure handling
+
+## Script Architecture
+
+### Core Scripts
+
+- **CLI Interface**: All scripts use Commander.js for consistent CLI interface
+- **Logging**: Centralized logging with different levels (info, warn, error)
+- **Error Handling**: Consistent error handling with proper exit codes
+- **Type Safety**: Full TypeScript support with interfaces and types
+
+### Extension Scripts (ext-\*)
+
+- Handle VS Code extension-specific logic
+- Manage VSIX file patterns and marketplace publishing
+- Support nightly builds and promotions
+- Handle GitHub release creation
+
+### NPM Scripts (npm-\*)
+
+- Handle NPM package-specific logic
+- Manage package.json versioning
+- Support semantic versioning
+- Handle NPM registry publishing
+
+### Utility Scripts
+
+- **slack-notifier**: Send notifications to Slack
+- **audit-logger**: Log audit events for compliance
+- **utils**: Common utilities and helpers
+
+## Testing
+
+### Manual Testing
+
+- All scripts can be run manually with `npx tsx .github/scripts/index.ts <command>`
+- Dry-run mode available for safe testing
+- Comprehensive logging for debugging
+
+### Integration Testing
+
+- Scripts integrated into workflows for end-to-end testing
+- Error scenarios tested with invalid inputs
+- Cross-platform compatibility verified
+
+## Migration Strategy
+
+### Phase 1: Core Scripts ✅
+
+- Implemented basic change detection and package selection
+- Created version bumping and release planning
+- Added GitHub release creation
+
+### Phase 2: Workflow Integration ✅
+
+- Updated workflows to use Node.js scripts
+- Replaced bash steps with script calls
+- Maintained backward compatibility
+
+### Phase 3: Advanced Features 🔄
+
+- Adding audit logging and Slack notifications
+- Implementing additional utilities
+- Optimizing performance and error handling
+
+## Next Steps
+
+1. **Complete Slack integration**: Replace remaining bash-based Slack notifications
+2. **Add audit logging**: Integrate audit logging into all release workflows
+3. **Create NPM version bumper**: Implement version bumping for NPM packages
+4. **Add validation utilities**: Create input validation and sanitization utilities
+5. **Performance optimization**: Optimize script performance for large repositories
+6. **Documentation**: Update documentation with new script usage examples
+
+## Notes
+
+- All scripts follow consistent naming conventions (ext-_ for extensions, npm-_ for NPM packages)
+- Scripts are designed to be idempotent and safe to run multiple times
+- Dry-run mode available for all destructive operations
+- Comprehensive error handling and logging throughout
+- TypeScript strict mode enabled for maximum type safety

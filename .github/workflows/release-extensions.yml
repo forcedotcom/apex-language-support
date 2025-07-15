@@ -208,153 +208,15 @@ jobs:
         uses: ./.github/actions/npm-install-with-retries
 
       - name: Bump versions for selected extensions
-        # TODO: Migrate to Node.js script: npx tsx .github/scripts/index.ts ext-version-bumper
         run: |
-          DRY_RUN="${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
-          VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
-          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
-          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
-          IS_PROMOTION="${{ needs.determine-build-type.outputs.is-promotion }}"
-          PROMOTION_COMMIT_SHA="${{ needs.determine-changes.outputs.promotion-commit-sha }}"
-
-          echo "Mode: $([ "$DRY_RUN" = "true" ] && echo "DRY RUN" || echo "LIVE")"
-          echo "Version bump type: $VERSION_BUMP"
-          echo "Selected extensions: $SELECTED_EXTENSIONS"
-          echo "Pre-release mode: $PRE_RELEASE"
-          echo "Is nightly build: $IS_NIGHTLY"
-          echo "Is promotion: $IS_PROMOTION"
-          echo "Promotion commit SHA: $PROMOTION_COMMIT_SHA"
-
-          # Convert comma-separated list to array
-          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
-
-          for pkg in "${EXTENSIONS[@]}"; do
-            if [ -n "$pkg" ] && [ -f "packages/$pkg/package.json" ]; then
-              echo "Processing $pkg..."
-              
-              # Get current version
-              CURRENT_VERSION=$(node -p "require('./packages/$pkg/package.json').version")
-              echo "Current version: $CURRENT_VERSION"
-              
-              # Parse current version components
-              IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
-              CURRENT_MAJOR="${VERSION_PARTS[0]}"
-              CURRENT_MINOR="${VERSION_PARTS[1]}"
-              CURRENT_PATCH="${VERSION_PARTS[2]}"
-              
-              # Determine target version based on build type and pre-release status
-              TARGET_MAJOR="$CURRENT_MAJOR"
-              TARGET_MINOR="$CURRENT_MINOR"
-              TARGET_PATCH="$CURRENT_PATCH"
-              
-              if [ "$IS_NIGHTLY" = "true" ]; then
-                # Nightly build strategy: ensure odd minor version and add nightly timestamp
-                echo "Applying nightly build version strategy..."
-                
-                # For nightly builds, we want to ensure odd minor version
-                if [ $((CURRENT_MINOR % 2)) -eq 0 ]; then
-                  # Current is even, bump to next odd
-                  TARGET_MINOR=$((CURRENT_MINOR + 1))
-                  TARGET_PATCH=0
-                else
-                  # Current is already odd, just increment patch
-                  TARGET_PATCH=$((CURRENT_PATCH + 1))
-                fi
-                
-                # Use proper major.minor.patch version for package.json
-                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
-                echo "Nightly version: $NEW_VERSION (odd minor: $TARGET_MINOR)"
-                echo "Note: Nightly timestamp will be added as release tag/metadata"
-              elif [ "$IS_PROMOTION" = "true" ]; then
-                # Promotion strategy: bump from odd minor (nightly) to even minor (stable)
-                echo "Applying promotion version strategy..."
-                
-                # For promotions, we always bump from odd minor to even minor
-                if [ $((CURRENT_MINOR % 2)) -eq 1 ]; then
-                  # Current is odd (nightly), bump to next even (stable)
-                  TARGET_MINOR=$((CURRENT_MINOR + 1))
-                  TARGET_PATCH=0
-                else
-                  # Current is already even, this shouldn't happen for promotions
-                  echo "Warning: Current version has even minor, expected odd for promotion"
-                  TARGET_MINOR=$((CURRENT_MINOR + 2))
-                  TARGET_PATCH=0
-                fi
-                
-                # Use proper major.minor.patch version for package.json
-                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
-                echo "Promotion version: $NEW_VERSION (even minor: $TARGET_MINOR)"
-              else
-                # Regular build strategy: use smart version bumping
-                case "$VERSION_BUMP" in
-                  "patch")
-                    # For patch bumps, just increment patch
-                    TARGET_PATCH=$((CURRENT_PATCH + 1))
-                    ;;
-                  "minor")
-                    # For minor bumps, we need to be smart about even/odd
-                    if [ "$PRE_RELEASE" = "true" ]; then
-                      # Pre-release: ensure odd minor version (no auto-update)
-                      if [ $((CURRENT_MINOR % 2)) -eq 0 ]; then
-                        # Current is even, bump to next odd
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
-                      else
-                        # Current is already odd, jump to next odd
-                        TARGET_MINOR=$((CURRENT_MINOR + 2))
-                      fi
-                    else
-                      # Stable release: ensure even minor version (auto-update enabled)
-                      if [ $((CURRENT_MINOR % 2)) -eq 1 ]; then
-                        # Current is odd, bump to next even
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
-                      else
-                        # Current is already even, jump to next even
-                        TARGET_MINOR=$((CURRENT_MINOR + 2))
-                      fi
-                    fi
-                    TARGET_PATCH=0
-                    ;;
-                  "major")
-                    # For major bumps, reset minor and patch
-                    TARGET_MAJOR=$((CURRENT_MAJOR + 1))
-                    if [ "$PRE_RELEASE" = "true" ]; then
-                      # Pre-release: start with odd minor
-                      TARGET_MINOR=1
-                    else
-                      # Stable release: start with even minor
-                      TARGET_MINOR=0
-                    fi
-                    TARGET_PATCH=0
-                    ;;
-                esac
-                
-                # Construct new version
-                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
-                echo "Regular version: $NEW_VERSION (bump: $VERSION_BUMP, pre-release: $PRE_RELEASE)"
-              fi
-              
-              if [ "$DRY_RUN" = "true" ]; then
-                echo "✅ DRY RUN: Would bump $pkg from $CURRENT_VERSION to $NEW_VERSION"
-              else
-                echo "🔄 LIVE: Bumping $pkg from $CURRENT_VERSION to $NEW_VERSION"
-                # Update package.json version
-                cd packages/$pkg
-                npm version "$NEW_VERSION" --no-git-tag-version
-                cd ../..
-                
-                # Note: package-lock.json is intentionally not updated here
-                # The lock file should already be up-to-date and version bumps
-                # don't affect dependency resolution
-              fi
-            fi
-          done
-
-          if [ "$DRY_RUN" = "true" ]; then
-            echo "✅ DRY RUN: Version bump simulation completed"
-          else
-            echo "✅ LIVE: Version bumps applied"
-          fi
+          npx tsx .github/scripts/index.ts ext-version-bumper \
+            --dry-run "${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}" \
+            --version-bump "${{ needs.determine-changes.outputs.version-bumps }}" \
+            --selected-extensions "${{ needs.determine-changes.outputs.selected-extensions }}" \
+            --pre-release "${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}" \
+            --is-nightly "${{ needs.determine-build-type.outputs.is-nightly }}" \
+            --is-promotion "${{ needs.determine-build-type.outputs.is-promotion }}" \
+            --promotion-commit-sha "${{ needs.determine-changes.outputs.promotion-commit-sha }}"
 
       - name: Validate GitHub authentication
         if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
@@ -483,132 +345,13 @@ jobs:
           # Ensure GitHub CLI has proper authentication
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          DRY_RUN="${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
-          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
-          VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
-          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
-
-          echo "Mode: $([ "$DRY_RUN" = "true" ] && echo "DRY RUN" || echo "LIVE")"
-          echo "Creating GitHub releases..."
-          echo "Pre-release: $PRE_RELEASE"
-          echo "Version bump: $VERSION_BUMP"
-          echo "Extensions: $SELECTED_EXTENSIONS"
-
-          # Convert comma-separated list to array
-          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
-
-          for ext in "${EXTENSIONS[@]}"; do
-            if [ -n "$ext" ] && [ -d "packages/$ext" ]; then
-              echo "Processing extension: $ext"
-              
-              # Get current version
-              CURRENT_VERSION=$(node -p "require('./packages/$ext/package.json').version")
-              echo "Current version: $CURRENT_VERSION"
-              
-              # Find VSIX file for this extension
-              VSIX_PATTERN="*${ext}*.vsix"
-              VSIX_FILES=$(find "./vsix-artifacts" -name "$VSIX_PATTERN")
-              
-              if [ -z "$VSIX_FILES" ]; then
-                echo "No VSIX files found for $ext in ./vsix-artifacts"
-                continue
-              fi
-              
-              # Create release tag
-              RELEASE_TAG="v$CURRENT_VERSION"
-              RELEASE_TITLE="$ext v$CURRENT_VERSION"
-              
-              # For nightly builds, add timestamp to tag and title
-              if [ "$IS_NIGHTLY" = "true" ]; then
-                NIGHTLY_DATE=$(date +%Y%m%d)
-                RELEASE_TAG="v$CURRENT_VERSION-nightly.$NIGHTLY_DATE"
-                RELEASE_TITLE="$ext v$CURRENT_VERSION (Nightly $NIGHTLY_DATE)"
-              fi
-              
-              # Generate release notes
-              RELEASE_NOTES="## $ext v$CURRENT_VERSION\n\n"
-              RELEASE_NOTES+="### Changes\n\n"
-              
-              # Find the last release tag for this extension to get commits since last release
-              LAST_TAG=""
-              ALL_TAGS=$(git tag --sort=-version:refname | grep "^v")
-              if [ -n "$ALL_TAGS" ]; then
-                LAST_TAG=$(echo "$ALL_TAGS" | head -1)
-              fi
-              
-              if [ -n "$LAST_TAG" ]; then
-                # Get commits since the last release
-                RECENT_COMMITS=$(git log --oneline "$LAST_TAG"..HEAD -- "packages/$ext/")
-                if [ -n "$RECENT_COMMITS" ]; then
-                  echo "$RECENT_COMMITS" | while read -r commit; do
-                    RELEASE_NOTES+="- $commit\n"
-                  done
-                else
-                  RELEASE_NOTES+="- General improvements and bug fixes\n"
-                fi
-              else
-                # First release - get all commits for this extension
-                RECENT_COMMITS=$(git log --oneline -- "packages/$ext/")
-                if [ -n "$RECENT_COMMITS" ]; then
-                  echo "$RECENT_COMMITS" | while read -r commit; do
-                    RELEASE_NOTES+="- $commit\n"
-                  done
-                else
-                  RELEASE_NOTES+="- Initial release\n"
-                fi
-              fi
-              
-              RELEASE_NOTES+="\n### Installation\n\n"
-              RELEASE_NOTES+="Download the VSIX file and install via:\n"
-              RELEASE_NOTES+="- VS Code: Install from VSIX...\n"
-              RELEASE_NOTES+="- Command line: \`code --install-extension <vsix-file>\`\n"
-              
-              if [ "$PRE_RELEASE" = "true" ]; then
-                RELEASE_NOTES+="\n⚠️ **This is a pre-release version**\n"
-              fi
-              
-              if [ "$IS_NIGHTLY" = "true" ]; then
-                RELEASE_NOTES+="\n🌙 **This is a nightly build from $NIGHTLY_DATE**\n"
-                RELEASE_NOTES+="\n### Nightly Build Information\n"
-                RELEASE_NOTES+="- **Build Date**: $NIGHTLY_DATE\n"
-                RELEASE_NOTES+="- **Version**: $CURRENT_VERSION (odd minor for pre-release)\n"
-                RELEASE_NOTES+="- **Type**: Nightly pre-release for testing\n"
-              fi
-              
-              if [ "$DRY_RUN" = "true" ]; then
-                echo "✅ DRY RUN: Would create GitHub release:"
-                echo "  - Tag: $RELEASE_TAG"
-                echo "  - Title: $RELEASE_TITLE"
-                echo "  - Pre-release: $PRE_RELEASE"
-                echo "  - VSIX files: $VSIX_FILES"
-                echo "  - Release notes preview:"
-                echo "$RELEASE_NOTES" | head -20
-                echo "  ... (truncated)"
-              else
-                echo "🔄 LIVE: Creating GitHub release..."
-                echo "Creating release: $RELEASE_TITLE"
-                echo "Tag: $RELEASE_TAG"
-                echo "Pre-release: $PRE_RELEASE"
-                
-                # Create release using GitHub CLI with proper authentication
-                gh release create "$RELEASE_TAG" \
-                  --title "$RELEASE_TITLE" \
-                  --notes "$RELEASE_NOTES" \
-                  --prerelease="$PRE_RELEASE" \
-                  --repo "$GITHUB_REPOSITORY" \
-                  $VSIX_FILES
-                
-                echo "✅ Release created for $ext"
-              fi
-            fi
-          done
-
-          if [ "$DRY_RUN" = "true" ]; then
-            echo "✅ DRY RUN: GitHub release simulation completed"
-          else
-            echo "✅ LIVE: GitHub releases created"
-          fi
+          npx tsx .github/scripts/index.ts ext-github-releases \
+            --dry-run "${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}" \
+            --pre-release "${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}" \
+            --version-bump "${{ needs.determine-changes.outputs.version-bumps }}" \
+            --selected-extensions "${{ needs.determine-changes.outputs.selected-extensions }}" \
+            --is-nightly "${{ needs.determine-build-type.outputs.is-nightly }}" \
+            --vsix-artifacts-path "./vsix-artifacts"
 
   determine-publish-matrix:
     needs: [determine-changes, calculate-artifact-name]
@@ -629,70 +372,10 @@ jobs:
 
       - name: Determine publish matrix
         id: matrix
-        # TODO: Migrate to Node.js script: npx tsx .github/scripts/index.ts ext-publish-matrix
         run: |
-          REGISTRIES="${{ inputs.registries }}"
-          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-
-          # Initialize empty JSON array
-          MATRIX_ENTRIES='[]'
-
-          # Determine which registries to include
-          REGISTRY_LIST=""
-          if [ "$REGISTRIES" = "all" ]; then
-            REGISTRY_LIST="vsce ovsx"
-          else
-            REGISTRY_LIST="$REGISTRIES"
-          fi
-
-          # Create matrix entries for each extension-registry combination
-          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
-          for ext in "${EXTENSIONS[@]}"; do
-            if [ -n "$ext" ]; then
-              # Create VSIX pattern for this extension
-              # Map extension names to their actual VSIX file patterns
-              case "$ext" in
-                "apex-lsp-vscode-extension")
-                  VSIX_PATTERN="*apex-language-server-extension*.vsix"
-                  ;;
-                "apex-lsp-vscode-extension-web")
-                  VSIX_PATTERN="*apex-language-server-extension-web*.vsix"
-                  ;;
-                *)
-                  # Fallback to original pattern
-                  VSIX_PATTERN="*${ext}*.vsix"
-                  ;;
-              esac
-              
-              # Add entry for each selected registry
-              for registry in $REGISTRY_LIST; do
-                case "$registry" in
-                  "vsce")
-                    MARKETPLACE="VS Code Marketplace"
-                    ;;
-                  "ovsx")
-                    MARKETPLACE="Open VSX Registry"
-                    ;;
-                  *)
-                    MARKETPLACE="$registry"
-                    ;;
-                esac
-                
-                # Create JSON entry and add to matrix
-                ENTRY=$(jq -n \
-                  --arg registry "$registry" \
-                  --arg vsix_pattern "$VSIX_PATTERN" \
-                  --arg marketplace "$MARKETPLACE" \
-                  '{registry: $registry, vsix_pattern: $vsix_pattern, marketplace: $marketplace}')
-                
-                MATRIX_ENTRIES=$(echo "$MATRIX_ENTRIES" | jq --argjson entry "$ENTRY" '. += [$entry]')
-              done
-            fi
-          done
-
-          # Output the matrix as a single line to avoid formatting issues
-          echo "matrix=$(echo "$MATRIX_ENTRIES" | jq -c .)" >> "$GITHUB_OUTPUT"
-          echo "Publish matrix: $MATRIX_ENTRIES"
+          npx tsx .github/scripts/index.ts ext-publish-matrix \
+            --registries "${{ inputs.registries }}" \
+            --selected-extensions "${{ needs.determine-changes.outputs.selected-extensions }}"
 
   publish:
     needs:
