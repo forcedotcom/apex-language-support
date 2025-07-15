@@ -9,8 +9,8 @@
 import { simpleGit } from 'simple-git';
 import { readdirSync, existsSync } from 'fs';
 import { join } from 'path';
-import { BuildContext, ChangeDetectionResult, ExtensionInfo } from './types.js';
-import { log, setOutput, getExtensionInfo } from './utils.js';
+import { BuildContext, ChangeDetectionResult, ExtensionInfo } from './types';
+import { log, setOutput, getExtensionInfo } from './utils';
 
 /**
  * Get all available extensions
@@ -105,7 +105,7 @@ export async function determineChanges(
   promotionCommitSha?: string,
 ): Promise<ChangeDetectionResult> {
   log.info('Determining changes and version bumps...');
-  log.debug('Build context:', buildContext);
+  log.debug(`Build context: ${JSON.stringify(buildContext)}`);
   log.debug(`Promotion commit SHA: ${promotionCommitSha || 'none'}`);
 
   const git = simpleGit();

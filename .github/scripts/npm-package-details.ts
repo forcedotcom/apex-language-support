@@ -8,8 +8,8 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { NpmPackageDetails, VersionBumpType } from './npm-types.js';
-import { log, setOutput } from './utils.js';
+import { NpmPackageDetails, VersionBumpType } from './npm-types';
+import { log, setOutput } from './utils';
 
 /**
  * Parse package.json and extract details

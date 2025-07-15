@@ -14,7 +14,7 @@ import {
   NpmChangeDetectionResult,
   VersionBumpType,
 } from './npm-types.js';
-import { log, setOutput, getExtensionInfo } from './utils.js';
+import { log, setOutput, getExtensionInfo } from './utils';
 
 /**
  * Get all available NPM packages (excluding VS Code extensions)

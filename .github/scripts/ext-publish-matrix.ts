@@ -7,8 +7,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Command } from 'commander';
-
 interface PublishMatrixEntry {
   registry: string;
   vsix_pattern: string;
@@ -78,29 +76,3 @@ function determinePublishMatrix(
 
 // Export for use in other modules
 export { determinePublishMatrix };
-
-function setMatrixOutput(matrix: PublishMatrixEntry[]): void {
-  const matrixJson = JSON.stringify(matrix);
-  console.log(`matrix=${matrixJson}`);
-
-  // Also log for debugging
-  console.log('Publish matrix:', matrixJson);
-}
-
-const program = new Command();
-
-program
-  .name('ext-publish-matrix')
-  .description('Determine publish matrix for extensions')
-  .option('--registries <list>', 'Registries to publish to', 'all')
-  .option(
-    '--selected-extensions <list>',
-    'Comma-separated list of extensions to release',
-    '',
-  )
-  .action((options) => {
-    const matrix = determinePublishMatrix(options);
-    setMatrixOutput(matrix);
-  });
-
-program.parse();

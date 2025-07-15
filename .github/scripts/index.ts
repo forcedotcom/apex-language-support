@@ -10,36 +10,36 @@
 
 // eslint-disable-next-line header/header
 import { Command } from 'commander';
-import { determineBuildType, setBuildTypeOutputs } from './ext-build-type.js';
+import { determineBuildType, setBuildTypeOutputs } from './ext-build-type';
 import {
   findPromotionCandidate,
   setPromotionOutputs,
-} from './ext-promotion-finder.js';
+} from './ext-promotion-finder';
 import {
   determineChanges,
   setChangeDetectionOutputs,
-} from './ext-change-detector.js';
+} from './ext-change-detector';
 import {
   detectNpmChanges,
   setNpmChangeDetectionOutputs,
-} from './npm-change-detector.js';
+} from './npm-change-detector';
 import {
   selectNpmPackages,
   setPackageSelectionOutputs,
-} from './npm-package-selector.js';
+} from './npm-package-selector';
 import {
   extractPackageDetails,
   setPackageDetailsOutputs,
-} from './npm-package-details.js';
-import { generateReleasePlan, displayReleasePlan } from './npm-release-plan.js';
-import { displayExtensionReleasePlan } from './ext-release-plan.js';
-import { bumpVersions } from './ext-version-bumper.js';
-import { determinePublishMatrix } from './ext-publish-matrix.js';
-import { createGitHubReleases } from './ext-github-releases.js';
-import { publishVsix } from './ext-publish-vsix.js';
-import { logAuditEvent } from './audit-logger.js';
+} from './npm-package-details';
+import { generateReleasePlan, displayReleasePlan } from './npm-release-plan';
+import { displayExtensionReleasePlan } from './ext-release-plan';
+import { bumpVersions } from './ext-version-bumper';
+import { determinePublishMatrix } from './ext-publish-matrix';
+import { createGitHubReleases } from './ext-github-releases';
+import { publishVsix } from './ext-publish-vsix';
+import { logAuditEvent } from './audit-logger';
 
-import { log } from './utils.js';
+import { log } from './utils';
 
 const program = new Command();
 
@@ -296,34 +296,6 @@ program
       });
     } catch (error) {
       log.error(`Failed to publish VSIX: ${error}`);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('version-bumper')
-  .description('Bump versions for selected extensions')
-  .option('--dry-run', 'Run in dry-run mode')
-  .action(async (options) => {
-    try {
-      log.info('Version bumper not yet implemented');
-      // TODO: Implement version bumper
-    } catch (error) {
-      log.error(`Failed to bump versions: ${error}`);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('release-plan')
-  .description('Generate release plan')
-  .option('--dry-run', 'Run in dry-run mode')
-  .action(async (options) => {
-    try {
-      log.info('Release planner not yet implemented');
-      // TODO: Implement release planner
-    } catch (error) {
-      log.error(`Failed to generate release plan: ${error}`);
       process.exit(1);
     }
   });

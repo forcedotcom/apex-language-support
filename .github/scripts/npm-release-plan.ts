@@ -8,8 +8,8 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { NpmReleasePlan, VersionBumpType } from './npm-types.js';
-import { log, parseVersion, formatVersion } from './utils.js';
+import { NpmReleasePlan, VersionBumpType } from './npm-types';
+import { log, parseVersion, formatVersion } from './utils';
 
 /**
  * Calculate new version based on current version and bump type

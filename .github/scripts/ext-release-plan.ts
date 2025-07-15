@@ -15,7 +15,6 @@
  * and marketplace publishing.
  */
 
-import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -165,29 +164,3 @@ function displayReleasePlan(options: ReleasePlanOptions): void {
 
 // Export for use in other modules
 export { displayReleasePlan as displayExtensionReleasePlan };
-
-const program = new Command();
-
-program
-  .name('ext-release-plan')
-  .description('Display extension release plan for dry runs')
-  .option('--branch <branch>', 'Branch to release from', 'main')
-  .option(
-    '--build-type <type>',
-    'Build type (workflow_dispatch, schedule, etc.)',
-    'workflow_dispatch',
-  )
-  .option('--is-nightly <boolean>', 'Is nightly build', 'false')
-  .option('--version-bump <type>', 'Version bump type', 'auto')
-  .option('--registries <list>', 'Registries to publish to', 'all')
-  .option('--pre-release <boolean>', 'Pre-release mode', 'false')
-  .option(
-    '--selected-extensions <list>',
-    'Comma-separated list of extensions to release',
-    '',
-  )
-  .action((options) => {
-    displayReleasePlan(options);
-  });
-
-program.parse();

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { log, setOutput } from './utils.js';
+import { log, setOutput } from './utils';
 
 /**
  * Parse environment variables for package selection

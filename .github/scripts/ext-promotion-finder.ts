@@ -7,8 +7,8 @@
  */
 
 import simpleGit from 'simple-git';
-import { PromotionCandidate, GitTag } from './types.js';
-import { log, setOutput, isStableVersion } from './utils.js';
+import { PromotionCandidate, GitTag } from './types';
+import { log, setOutput, isStableVersion } from './utils';
 
 type SimpleGitType = ReturnType<typeof simpleGit>;
 

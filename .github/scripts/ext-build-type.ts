@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { BuildContext, VersionBumpType } from './types.js';
+import { BuildContext, VersionBumpType } from './types';
 import {
   parseEnvironment,
   setOutput,
