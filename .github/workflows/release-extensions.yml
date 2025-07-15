@@ -129,8 +129,12 @@ jobs:
         run: |
           npx tsx .github/scripts/index.ts ext-promotion-finder
 
+      - name: Set promotion commit SHA
+        run: |
+          echo "PROMOTION_COMMIT_SHA=${{ steps.find.outputs.commit-sha }}" >> $GITHUB_ENV
+
   determine-changes:
-    needs: [determine-build-type, find-promotion-candidate]
+    needs: [determine-build-type]
     runs-on: ubuntu-latest
     outputs:
       selected-extensions: ${{ steps.changes.outputs.selected-extensions }}
@@ -157,7 +161,7 @@ jobs:
           VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
           PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
           IS_PROMOTION: ${{ needs.determine-build-type.outputs.is-promotion }}
-          PROMOTION_COMMIT_SHA: ${{ needs.find-promotion-candidate.outputs.promotion-commit-sha }}
+          PROMOTION_COMMIT_SHA: ${{ env.PROMOTION_COMMIT_SHA || '' }}
           SELECTED_EXTENSIONS: ${{ inputs.extensions }}
         run: |
           npx tsx .github/scripts/index.ts ext-change-detector
