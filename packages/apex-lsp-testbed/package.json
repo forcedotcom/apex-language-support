@@ -19,6 +19,7 @@
     "compile": "tsc --build",
     "bundle": "echo 'Bundle is not needed for testbed'",
     "test": "jest",
+    "test:quality": "jest --testMatch \"**/test/**/*.quality.ts\"",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "test:perf": "jest --testMatch \"**/test/**/*.perf.ts\"",
     "clean": "rimraf out dist .turbo tsconfig.tsbuildinfo coverage test-artifacts",

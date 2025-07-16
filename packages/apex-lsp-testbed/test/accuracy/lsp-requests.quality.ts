@@ -91,10 +91,7 @@ const extractTestDataForGroup = (
     .map((request) => [request.method, request]);
 };
 
-type Describe = typeof describe;
-const desc: Describe = process.platform === 'win32' ? describe.skip : describe;
-
-desc('LSP Request/Response Accuracy', () => {
+describe('LSP Request/Response Accuracy', () => {
   const targetServer: ServerType = 'nodeServer';
   let serverContext: Awaited<ReturnType<typeof createTestServer>>;
 
