@@ -338,6 +338,9 @@ jobs:
         with:
           node-version: '20.x'
 
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
       - name: Validate GitHub authentication
         if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
         run: |
