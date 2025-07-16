@@ -90,164 +90,164 @@ const extractTestDataForGroup = (
     )
     .map((request) => [request.method, request]);
 };
-const desc = (
-  process.platform === 'win32' ? describe.skip : describe
-) as typeof describe;
 
-desc('LSP Request/Response Accuracy', () => {
-  const targetServer: ServerType = 'nodeServer';
-  let serverContext: Awaited<ReturnType<typeof createTestServer>>;
+(process.platform === 'win32' ? describe.skip : describe)(
+  'LSP Request/Response Accuracy',
+  () => {
+    const targetServer: ServerType = 'nodeServer';
+    let serverContext: Awaited<ReturnType<typeof createTestServer>>;
 
-  beforeAll(async () => {
-    const options: ServerOptions = {
-      serverType: targetServer,
-      verbose: false,
-      workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
-    };
+    beforeAll(async () => {
+      const options: ServerOptions = {
+        serverType: targetServer,
+        verbose: false,
+        workspacePath: 'https://github.com/trailheadapps/dreamhouse-lwc.git',
+      };
 
-    // Add timeout to server startup
-    const serverPromise = createTestServer(options);
-    let timeoutId: NodeJS.Timeout | undefined = undefined;
-    const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(
-        () => reject(new Error('Server startup timeout')),
-        60000,
-      );
+      // Add timeout to server startup
+      const serverPromise = createTestServer(options);
+      let timeoutId: NodeJS.Timeout | undefined = undefined;
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error('Server startup timeout')),
+          60000,
+        );
+      });
+
+      serverContext = (await Promise.race([
+        serverPromise,
+        timeoutPromise,
+      ])) as Awaited<ReturnType<typeof createTestServer>>;
+
+      // Clear the timeout if server started successfully
+      if (timeoutId) clearTimeout(timeoutId);
+
+      // Give the server a moment to fully initialize
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     });
 
-    serverContext = (await Promise.race([
-      serverPromise,
-      timeoutPromise,
-    ])) as Awaited<ReturnType<typeof createTestServer>>;
+    afterAll(async () => {
+      if (serverContext) {
+        try {
+          await serverContext.cleanup();
+        } catch (error) {
+          console.warn(`Cleanup failed: ${error}`);
+        }
+      }
 
-    // Clear the timeout if server started successfully
-    if (timeoutId) clearTimeout(timeoutId);
+      // Give some time for cleanup to complete
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Give the server a moment to fully initialize
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  });
-
-  afterAll(async () => {
-    if (serverContext) {
+      // Force cleanup any remaining processes
       try {
-        await serverContext.cleanup();
+        // Kill any remaining Node.js processes that might be hanging
+        const { execSync } = require('child_process');
+        try {
+          execSync('pkill -f "apex-ls-node"', { stdio: 'ignore' });
+        } catch (_error) {
+          // Silently ignore if no processes to kill
+        }
       } catch (error) {
-        console.warn(`Cleanup failed: ${error}`);
+        console.warn('Failed to force cleanup processes:', error);
       }
-    }
+    });
 
-    // Give some time for cleanup to complete
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Generate test groups for each configured request type
+    REQUEST_GROUPS.forEach((groupConfig) => {
+      const testData = extractTestDataForGroup(groupConfig);
 
-    // Force cleanup any remaining processes
-    try {
-      // Kill any remaining Node.js processes that might be hanging
-      const { execSync } = require('child_process');
-      try {
-        execSync('pkill -f "apex-ls-node"', { stdio: 'ignore' });
-      } catch (_error) {
-        // Silently ignore if no processes to kill
+      // Skip creating a describe block if no test data is found
+      if (testData.length === 0) {
+        return;
       }
-    } catch (error) {
-      console.warn('Failed to force cleanup processes:', error);
-    }
-  });
 
-  // Generate test groups for each configured request type
-  REQUEST_GROUPS.forEach((groupConfig) => {
-    const testData = extractTestDataForGroup(groupConfig);
-
-    // Skip creating a describe block if no test data is found
-    if (testData.length === 0) {
-      return;
-    }
-
-    describe(`${groupConfig.name} requests`, () => {
-      it.each(testData)(
-        'LSP %s request/response matches snapshot for request %s',
-        async (method, request) => {
-          // Convert normalized URIs back to actual workspace paths
-          const denormalizedRequest = denormalizeRequest(
-            request,
-            serverContext.workspace?.rootUri || '',
-          );
-
-          // For document symbol requests, ensure the document is opened first
-          if (method === 'textDocument/documentSymbol') {
-            // Check if this document was opened in the trace before this request
-            const normalizedLogData = normalizeTraceData(logData);
-            const documentOpenEvents = getDocumentOpenEventsBeforeRequest(
-              normalizedLogData,
-              request.id,
-              request.params.textDocument.uri,
+      describe(`${groupConfig.name} requests`, () => {
+        it.each(testData)(
+          'LSP %s request/response matches snapshot for request %s',
+          async (method, request) => {
+            // Convert normalized URIs back to actual workspace paths
+            const denormalizedRequest = denormalizeRequest(
+              request,
+              serverContext.workspace?.rootUri || '',
             );
 
-            if (documentOpenEvents.length > 0) {
-              // Open the document first with denormalized URI
-              const openEvent =
-                documentOpenEvents[documentOpenEvents.length - 1];
-              const denormalizedOpenEvent = denormalizeRequest(
-                openEvent,
-                serverContext.workspace?.rootUri || '',
+            // For document symbol requests, ensure the document is opened first
+            if (method === 'textDocument/documentSymbol') {
+              // Check if this document was opened in the trace before this request
+              const normalizedLogData = normalizeTraceData(logData);
+              const documentOpenEvents = getDocumentOpenEventsBeforeRequest(
+                normalizedLogData,
+                request.id,
+                request.params.textDocument.uri,
               );
 
-              try {
-                await serverContext.client.openTextDocument(
-                  denormalizedOpenEvent.params.textDocument.uri,
-                  denormalizedOpenEvent.params.textDocument.text,
-                  denormalizedOpenEvent.params.textDocument.languageId ||
-                    'apex',
+              if (documentOpenEvents.length > 0) {
+                // Open the document first with denormalized URI
+                const openEvent =
+                  documentOpenEvents[documentOpenEvents.length - 1];
+                const denormalizedOpenEvent = denormalizeRequest(
+                  openEvent,
+                  serverContext.workspace?.rootUri || '',
                 );
 
-                // Give the server a moment to process the document
-                await new Promise((resolve) => setTimeout(resolve, 100));
-              } catch (error) {
-                console.warn(`Failed to open document: ${error}`);
-                // Continue with the test even if document opening fails
+                try {
+                  await serverContext.client.openTextDocument(
+                    denormalizedOpenEvent.params.textDocument.uri,
+                    denormalizedOpenEvent.params.textDocument.text,
+                    denormalizedOpenEvent.params.textDocument.languageId ||
+                      'apex',
+                  );
+
+                  // Give the server a moment to process the document
+                  await new Promise((resolve) => setTimeout(resolve, 100));
+                } catch (error) {
+                  console.warn(`Failed to open document: ${error}`);
+                  // Continue with the test even if document opening fails
+                }
               }
             }
-          }
 
-          let actualResponse;
-          try {
-            // Check if server is still healthy before sending request
-            if (!(await serverContext.client.isHealthy())) {
-              throw new Error('Server is not healthy, cannot send request');
+            let actualResponse;
+            try {
+              // Check if server is still healthy before sending request
+              if (!(await serverContext.client.isHealthy())) {
+                throw new Error('Server is not healthy, cannot send request');
+              }
+
+              actualResponse = await serverContext.client.sendRequest(
+                method,
+                denormalizedRequest.params,
+              );
+            } catch (error) {
+              // Handle EPIPE errors more gracefully
+              if (error instanceof Error && error.message.includes('EPIPE')) {
+                console.error(`EPIPE error in test: ${error.message}`);
+                actualResponse = {
+                  error: `Server connection lost (EPIPE): ${error.message}`,
+                  type: 'connection_error',
+                };
+              } else {
+                console.warn(`Request failed: ${error}`);
+                actualResponse = {
+                  error: error instanceof Error ? error.message : String(error),
+                  type: 'request_error',
+                };
+              }
             }
 
-            actualResponse = await serverContext.client.sendRequest(
-              method,
-              denormalizedRequest.params,
-            );
-          } catch (error) {
-            // Handle EPIPE errors more gracefully
-            if (error instanceof Error && error.message.includes('EPIPE')) {
-              console.error(`EPIPE error in test: ${error.message}`);
-              actualResponse = {
-                error: `Server connection lost (EPIPE): ${error.message}`,
-                type: 'connection_error',
-              };
-            } else {
-              console.warn(`Request failed: ${error}`);
-              actualResponse = {
-                error: error instanceof Error ? error.message : String(error),
-                type: 'request_error',
-              };
-            }
-          }
+            const snapshotData = {
+              request: {
+                method: request.method,
+                params: request.params, // Use the normalized request for snapshot
+              },
+              expectedResponse: request?.result,
+              actualResponse,
+            };
 
-          const snapshotData = {
-            request: {
-              method: request.method,
-              params: request.params, // Use the normalized request for snapshot
-            },
-            expectedResponse: request?.result,
-            actualResponse,
-          };
-
-          expect(snapshotData).toMatchSnapshot(`${groupConfig.name}-request`);
-        },
-      );
+            expect(snapshotData).toMatchSnapshot(`${groupConfig.name}-request`);
+          },
+        );
+      });
     });
-  });
-});
+  },
+);
