@@ -285,7 +285,6 @@ program
   .action(async () => {
     try {
       bumpVersions({
-        dryRun: process.env.DRY_RUN === 'true',
         versionBump: process.env.VERSION_BUMP || 'auto',
         selectedExtensions: process.env.SELECTED_EXTENSIONS || '',
         preRelease: process.env.PRE_RELEASE || 'false',

@@ -216,7 +216,6 @@ jobs:
 
       - name: Bump versions and tag for selected extensions
         env:
-          DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
           VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
           SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
           PRE_RELEASE: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}

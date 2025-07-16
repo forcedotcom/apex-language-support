@@ -18,7 +18,6 @@ interface PackageJson {
 }
 
 interface VersionBumpOptions {
-  dryRun: boolean;
   versionBump: string;
   selectedExtensions: string;
   preRelease: string;
@@ -155,7 +154,6 @@ function createGitTag(
 
 function bumpVersions(options: VersionBumpOptions): void {
   const {
-    dryRun,
     versionBump,
     selectedExtensions,
     preRelease,
@@ -164,7 +162,6 @@ function bumpVersions(options: VersionBumpOptions): void {
     promotionCommitSha,
   } = options;
 
-  console.log(`Mode: ${dryRun ? 'DRY RUN' : 'LIVE'}`);
   console.log(`Version bump type: ${versionBump}`);
   console.log(`Selected extensions: ${selectedExtensions}`);
   console.log(`Pre-release mode: ${preRelease}`);
@@ -192,48 +189,34 @@ function bumpVersions(options: VersionBumpOptions): void {
       preRelease === 'true',
     );
 
-    if (dryRun) {
-      console.log(
-        `✅ DRY RUN: Would bump ${ext} from ${packageDetails.version} to ${newVersion}`,
-      );
-      const tagSuffix = preRelease === 'true' ? '-pre-release' : '';
-      console.log(
-        `✅ DRY RUN: Would create tag: ${packageDetails.name}-v${newVersion}${tagSuffix}`,
-      );
-    } else {
-      console.log(
-        `🔄 LIVE: Bumping ${ext} from ${packageDetails.version} to ${newVersion}`,
-      );
+    console.log(
+      `🔄 Bumping ${ext} from ${packageDetails.version} to ${newVersion}`,
+    );
 
-      // Update package.json version
-      const originalDir = process.cwd();
-      try {
-        process.chdir(join(originalDir, 'packages', ext));
-        execSync(`npm version "${newVersion}" --no-git-tag-version`, {
-          stdio: 'inherit',
-        });
-        process.chdir(originalDir);
+    // Update package.json version
+    const originalDir = process.cwd();
+    try {
+      process.chdir(join(originalDir, 'packages', ext));
+      execSync(`npm version "${newVersion}" --no-git-tag-version`, {
+        stdio: 'inherit',
+      });
+      process.chdir(originalDir);
 
-        // Create git tag for this extension
-        createGitTag(
-          packageDetails.name,
-          newVersion,
-          preRelease === 'true',
-          promotionCommitSha,
-        );
-      } catch (error) {
-        console.error(`Failed to bump version for ${ext}:`, error);
-        process.chdir(originalDir);
-        throw error;
-      }
+      // Create git tag for this extension
+      createGitTag(
+        packageDetails.name,
+        newVersion,
+        preRelease === 'true',
+        promotionCommitSha,
+      );
+    } catch (error) {
+      console.error(`Failed to bump version for ${ext}:`, error);
+      process.chdir(originalDir);
+      throw error;
     }
   }
 
-  if (dryRun) {
-    console.log('✅ DRY RUN: Version bump and tag simulation completed');
-  } else {
-    console.log('✅ LIVE: Version bumps and tags applied');
-  }
+  console.log('✅ Version bumps and tags applied');
 }
 
 // Export for use in other modules
