@@ -207,8 +207,8 @@
     "clean": "rimraf out dist extension .turbo coverage grammars tsconfig.tsbuildinfo server-bundle *.vsix",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage",
-    "lint": "eslint . --ignore-pattern 'server-bundle/**' --ignore-pattern 'dist/**'",
-    "lint:fix": "eslint . --fix"
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix"
   },
   "dependencies": {
     "@salesforce/apex-ls-node": "1.0.0",

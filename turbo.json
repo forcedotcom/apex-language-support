@@ -28,6 +28,16 @@
       "outputs": ["coverage/**"],
       "inputs": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
     },
+    "test:perf": {
+      "dependsOn": ["compile"],
+      "outputs": [],
+      "inputs": ["src/**/*.ts", "test/**/*.perf.ts", "jest.config.cjs"]
+    },
+    "test:quality": {
+      "dependsOn": ["compile"],
+      "outputs": [],
+      "inputs": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
+    },
     "lint": {
       "dependsOn": [],
       "outputs": [],

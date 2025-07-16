@@ -51,6 +51,10 @@ class MockApexJsonRpcClient {
     });
   }
 
+  async ping() {
+    return this.sendRequest('$/ping', undefined);
+  }
+
   private async sendRequest(method: string, params: any) {
     const id = this.nextId++;
     const request = { jsonrpc: '2.0', id, method, params };
@@ -165,6 +169,12 @@ describe('ApexJsonRpcClient', () => {
     it('should send hover requests', async () => {
       // Just verify the method exists and doesn't throw
       await client.hover('file:///test.cls', 1, 10);
+      expect(true).toBe(true);
+    });
+
+    it('should send ping requests', async () => {
+      // Just verify the method exists and doesn't throw
+      await client.ping();
       expect(true).toBe(true);
     });
   });

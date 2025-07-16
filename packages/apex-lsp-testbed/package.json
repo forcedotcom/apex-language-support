@@ -19,9 +19,11 @@
     "compile": "tsc --build",
     "bundle": "echo 'Bundle is not needed for testbed'",
     "test": "jest",
+    "test:quality": "jest --testMatch \"**/test/**/*.quality.ts\"",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf out dist .turbo tsconfig.tsbuildinfo coverage",
-    "clean:all": "npm run clean && rimraf node_modules coverage",
+    "test:perf": "jest --testMatch \"**/test/**/*.perf.ts\"",
+    "clean": "rimraf out dist .turbo tsconfig.tsbuildinfo coverage test-artifacts",
+    "clean:all": "npm run clean && rimraf node_modules coverage test-artifacts",
     "start:demo": "node --enable-source-maps ./out/cli.js --server demo --interactive",
     "start:jorje": "node --enable-source-maps ./out/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:demo:verbose": "node --enable-source-maps ./out/cli.js --server demo --interactive --verbose",
@@ -30,18 +32,17 @@
     "start:jorje:debug:verbose": "node --enable-source-maps --inspect ./out/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:jorje:debug:suspend": "node --enable-source-maps --inspect ./out/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
     "start:jorje:debug:verbose:suspend": "node --enable-source-maps --inspect ./out/cli.js --server jorje --interactive --verbose --workspace https://github.com/trailheadapps/dreamhouse-lwc.git --suspend",
-    "start:extension-server": "node --enable-source-maps ./out/servers/nodeServer/extensionServer/extensionLanguageServerHarness.js --stdio",
-    "start:extension-server:debug": "node --enable-source-maps --inspect ./out/servers/nodeServer/extensionServer/extensionLanguageServerHarness.js --stdio",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "start:apex-ls-node": "node --enable-source-maps ./out/cli.js --server nodeServer --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix"
   },
   "dependencies": {
-    "@salesforce/apex-lsp-parser-ast": "1.0.0",
-    "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-ls-browser": "1.0.0",
+    "@salesforce/apex-lsp-compliant-services": "1.0.0",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "vscode-jsonrpc": "^8.2.0",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-protocol": "^3.17.5",
-    "vscode-jsonrpc": "^8.2.0"
-  },
-  "devDependencies": {}
+    "web-worker": "^1.5.0"
+  }
 }

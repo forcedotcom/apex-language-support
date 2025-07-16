@@ -6,13 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Export functionality from both language server harnesses
-export {
-  ExtensionApexLanguageServerHarness,
-  createExtensionLanguageServerHarness,
-} from './extensionServer/extensionLanguageServerHarness';
-
+// Export functionality from web language server harness
 export {
   WebLanguageServerHarness,
   createWebLanguageServerHarness,
-} from './webServer/webLanguageServerHarness';
+} from '../webServer/webLanguageServerHarness';

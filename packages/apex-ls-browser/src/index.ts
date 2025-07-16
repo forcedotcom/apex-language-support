@@ -101,6 +101,26 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 // Handle initialized notification
 connection.onInitialized(() => {
   logger.info('Apex Language Server initialized');
+
+  // Register the $/ping request handler
+  connection.onRequest('$/ping', async () => {
+    logger.debug('[SERVER] Received $/ping request');
+    try {
+      const response = {
+        message: 'pong',
+        timestamp: new Date().toISOString(),
+        server: 'apex-ls-browser',
+      };
+      logger.debug(
+        `[SERVER] Responding to $/ping with: ${JSON.stringify(response)}`,
+      );
+      return response;
+    } catch (error) {
+      logger.error(`[SERVER] Error processing $/ping request: ${error}`);
+      throw error;
+    }
+  });
+
   // Send notification to client that server is ready
   connection.sendNotification(InitializedNotification.type, {
     type: MessageType.Info,
