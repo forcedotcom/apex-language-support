@@ -87,7 +87,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/npm-install-with-retries
 
-      - name: Run tests with coverage
+      - name: Run quality tests
         run: npm run test:quality
 
   package:
