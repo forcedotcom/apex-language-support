@@ -119,6 +119,40 @@ function getPackageDetails(extensionPath: string): PackageJson | null {
   }
 }
 
+function createGitTag(
+  packageName: string,
+  version: string,
+  isPreRelease: boolean,
+  promotionCommitSha?: string,
+): void {
+  // Create tag name with pre-release suffix if applicable
+  const tagName = isPreRelease
+    ? `${packageName}-v${version}-pre-release`
+    : `${packageName}-v${version}`;
+
+  try {
+    if (promotionCommitSha) {
+      // For promotions, create tag on specific commit
+      console.log(
+        `Creating tag ${tagName} on promotion commit ${promotionCommitSha}...`,
+      );
+      execSync(`git tag "${tagName}" "${promotionCommitSha}"`, {
+        stdio: 'inherit',
+      });
+    } else {
+      // For regular builds, create tag on current commit
+      console.log(`Creating tag ${tagName} on current commit...`);
+      execSync(`git tag "${tagName}"`, {
+        stdio: 'inherit',
+      });
+    }
+    console.log(`✅ Tag created: ${tagName}`);
+  } catch (error) {
+    console.error(`Failed to create tag ${tagName}:`, error);
+    throw error;
+  }
+}
+
 function bumpVersions(options: VersionBumpOptions): void {
   const {
     dryRun,
@@ -162,6 +196,10 @@ function bumpVersions(options: VersionBumpOptions): void {
       console.log(
         `✅ DRY RUN: Would bump ${ext} from ${packageDetails.version} to ${newVersion}`,
       );
+      const tagSuffix = preRelease === 'true' ? '-pre-release' : '';
+      console.log(
+        `✅ DRY RUN: Would create tag: ${packageDetails.name}-v${newVersion}${tagSuffix}`,
+      );
     } else {
       console.log(
         `🔄 LIVE: Bumping ${ext} from ${packageDetails.version} to ${newVersion}`,
@@ -175,6 +213,14 @@ function bumpVersions(options: VersionBumpOptions): void {
           stdio: 'inherit',
         });
         process.chdir(originalDir);
+
+        // Create git tag for this extension
+        createGitTag(
+          packageDetails.name,
+          newVersion,
+          preRelease === 'true',
+          promotionCommitSha,
+        );
       } catch (error) {
         console.error(`Failed to bump version for ${ext}:`, error);
         process.chdir(originalDir);
@@ -184,9 +230,9 @@ function bumpVersions(options: VersionBumpOptions): void {
   }
 
   if (dryRun) {
-    console.log('✅ DRY RUN: Version bump simulation completed');
+    console.log('✅ DRY RUN: Version bump and tag simulation completed');
   } else {
-    console.log('✅ LIVE: Version bumps applied');
+    console.log('✅ LIVE: Version bumps and tags applied');
   }
 }
 

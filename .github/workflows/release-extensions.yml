@@ -214,7 +214,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/npm-install-with-retries
 
-      - name: Bump versions for selected extensions
+      - name: Bump versions and tag for selected extensions
         env:
           DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
           VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
@@ -243,47 +243,64 @@ jobs:
 
           echo "✅ GitHub authentication validated"
 
-      - name: Commit version bumps
-        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+      - name: Commit version bumps with tags
         env:
           # Ensure GitHub CLI has proper authentication
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
         run: |
           IS_PROMOTION="${{ needs.determine-build-type.outputs.is-promotion }}"
           PROMOTION_COMMIT_SHA="${{ needs.determine-changes.outputs.promotion-commit-sha }}"
 
           if [ "$IS_PROMOTION" = "true" ] && [ -n "$PROMOTION_COMMIT_SHA" ]; then
-            echo "🔄 PROMOTION: Creating release tag on promotion commit..."
-            
-            # Get the new version from package.json
-            NEW_VERSION=$(node -p "require('./packages/apex-lsp-vscode-extension/package.json').version")
-            RELEASE_TAG="v$NEW_VERSION"
-            
-            echo "Creating release tag: $RELEASE_TAG on commit: $PROMOTION_COMMIT_SHA"
-            
-            # Create tag on the promotion commit
-            git tag "$RELEASE_TAG" "$PROMOTION_COMMIT_SHA"
-            git push origin "$RELEASE_TAG"
-            
-            echo "✅ Release tag created on promotion commit"
-          else
-            echo "🔄 REGULAR: Committing version bumps to HEAD..."
-            
-            git config --local user.email "action@github.com"
-            git config --local user.name "GitHub Action"
-            git add .
-            git commit -m "chore: bump versions for release [skip ci]"
-
-            # Push version bumps - fail if branch protection blocks it
-            echo "Pushing version bumps to ${{ inputs.branch || github.ref_name }}..."
-            if ! git push origin HEAD:${{ inputs.branch || github.ref_name }}; then
-              echo "❌ Error: Direct push failed. This may be due to branch protection rules."
-              echo "The workflow requires direct push access to ${{ inputs.branch || github.ref_name }}"
-              echo "Please ensure the workflow has proper permissions or run manually."
-              exit 1
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "🔄 PROMOTION DRY RUN: Would push tags created by version bumper script"
+              echo "✅ DRY RUN: Promotion tags would be pushed"
+            else
+              echo "🔄 PROMOTION: Tags already created by version bumper script"
+              echo "✅ Promotion tags are ready for pushing"
             fi
+          else
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "🔄 REGULAR DRY RUN: Would commit and push version bumps..."
+              
+              # Show what would be committed
+              echo "📋 DRY RUN: Changes that would be committed:"
+              git status --porcelain
+              
+              # Show what tags would be pushed
+              echo "📋 DRY RUN: Tags that would be pushed:"
+              git tag --list | tail -10 || echo "No tags found"
+              
+              echo "✅ DRY RUN: Would commit version bumps and push tags"
+            else
+              echo "🔄 REGULAR: Committing version bumps..."
+              
+              # Configure git for the action
+              git config --local user.email "action@github.com"
+              git config --local user.name "GitHub Action"
+              
+              # Add all changes (including version bumps and tags)
+              git add .
+              
+              # Create commit with version bump message
+              git commit -m "chore: bump versions for release [skip ci]"
 
-            echo "✅ Version bumps pushed successfully"
+              # Push version bumps and tags - fail if branch protection blocks it
+              echo "Pushing version bumps and tags to ${{ inputs.branch || github.ref_name }}..."
+              if ! git push origin HEAD:${{ inputs.branch || github.ref_name }}; then
+                echo "❌ Error: Direct push failed. This may be due to branch protection rules."
+                echo "The workflow requires direct push access to ${{ inputs.branch || github.ref_name }}"
+                echo "Please ensure the workflow has proper permissions or run manually."
+                exit 1
+              fi
+              
+              # Push all tags
+              echo "Pushing tags..."
+              git push origin --tags
+              
+              echo "✅ Version bumps and tags pushed successfully"
+            fi
           fi
 
   calculate-artifact-name:
