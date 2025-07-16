@@ -107,15 +107,90 @@ async function findLastReleaseTag(git: any): Promise<string | null> {
 }
 
 /**
+ * Parse user-selected extensions from environment variable
+ */
+function parseUserSelectedExtensions(
+  selectedExtensionsInput?: string,
+): string[] {
+  if (!selectedExtensionsInput || selectedExtensionsInput.trim() === '') {
+    log.info('No user selection provided - will use all available extensions');
+    return [];
+  }
+
+  const selected = selectedExtensionsInput
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  log.info(`User selected extensions: ${selected.join(', ')}`);
+  return selected;
+}
+
+/**
+ * Intersect user selection with detected changes
+ */
+function intersectExtensions(
+  userSelected: string[],
+  changedExtensions: string[],
+  availableExtensions: ExtensionInfo[],
+  buildContext: BuildContext,
+): string[] {
+  const availableNames = availableExtensions.map((e) => e.name);
+
+  // If no user selection, use all changed extensions
+  if (userSelected.length === 0) {
+    log.info('No user selection - using all detected changes');
+    return changedExtensions;
+  }
+
+  // Validate user selection against available extensions
+  const validUserSelected = userSelected.filter((ext) => {
+    if (!availableNames.includes(ext)) {
+      log.warning(
+        `User selected extension '${ext}' is not available - skipping`,
+      );
+      return false;
+    }
+    return true;
+  });
+
+  if (validUserSelected.length === 0) {
+    log.warning('No valid extensions in user selection');
+    return [];
+  }
+
+  // For nightly builds and promotions, use user selection if provided
+  if (buildContext.isNightly || buildContext.isPromotion) {
+    const buildType = buildContext.isNightly ? 'Nightly' : 'Promotion';
+    log.info(
+      `${buildType} build - using user selection: ${validUserSelected.join(', ')}`,
+    );
+    return validUserSelected;
+  }
+
+  // For regular builds, intersect user selection with detected changes
+  const intersection = validUserSelected.filter((ext) =>
+    changedExtensions.includes(ext),
+  );
+
+  log.info(`User selection: ${validUserSelected.join(', ')}`);
+  log.info(`Detected changes: ${changedExtensions.join(', ')}`);
+  log.info(`Intersection: ${intersection.join(', ')}`);
+
+  return intersection;
+}
+
+/**
  * Detect changes in extensions
  */
 export async function detectExtensionChanges(
   buildContext: BuildContext,
   promotionCommitSha?: string,
+  userSelectedExtensions?: string,
 ): Promise<ChangeDetectionResult> {
   log.info('Detecting changes in extensions...');
   log.debug(`Build context: ${JSON.stringify(buildContext)}`);
   log.debug(`Promotion commit SHA: ${promotionCommitSha || 'none'}`);
+  log.debug(`User selected extensions: ${userSelectedExtensions || 'none'}`);
 
   const git = simpleGit();
   const extensions = getAvailableExtensions();
@@ -125,6 +200,9 @@ export async function detectExtensionChanges(
   log.info(
     `Found ${extensions.length} extensions: ${extensions.map((e) => e.name).join(', ')}`,
   );
+
+  // Parse user selection
+  const userSelected = parseUserSelectedExtensions(userSelectedExtensions);
 
   // For nightly builds, always include all extensions
   if (buildContext.isNightly) {
@@ -165,11 +243,19 @@ export async function detectExtensionChanges(
     }
   }
 
-  log.info(`Changed extensions: ${changedExtensions.join(', ')}`);
+  // Intersect user selection with detected changes
+  const finalSelectedExtensions = intersectExtensions(
+    userSelected,
+    changedExtensions,
+    extensions,
+    buildContext,
+  );
+
+  log.info(`Final selected extensions: ${finalSelectedExtensions.join(', ')}`);
   log.info(`Version bump type: ${versionBumps}`);
 
   return {
-    selectedExtensions: changedExtensions,
+    selectedExtensions: finalSelectedExtensions,
     versionBumps,
     promotionCommitSha,
   };
@@ -200,6 +286,10 @@ export async function main(): Promise<void> {
     const preRelease = process.env.PRE_RELEASE === 'true';
     const isPromotion = process.env.IS_PROMOTION === 'true';
     const promotionCommitSha = process.env.PROMOTION_COMMIT_SHA;
+    const userSelectedExtensions = process.env.SELECTED_EXTENSIONS;
+    log.info(
+      `Raw SELECTED_EXTENSIONS env var: "${process.env.SELECTED_EXTENSIONS}"`,
+    );
 
     const buildContext: BuildContext = {
       isNightly,
@@ -212,6 +302,7 @@ export async function main(): Promise<void> {
     const result = await detectExtensionChanges(
       buildContext,
       promotionCommitSha,
+      userSelectedExtensions,
     );
     setChangeDetectionOutputs(result);
   } catch (error) {

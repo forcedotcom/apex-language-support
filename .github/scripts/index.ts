@@ -45,7 +45,7 @@ import { createGitHubReleases } from './ext-github-releases';
 import { publishVsix } from './ext-publish-vsix';
 import { logAuditEvent } from './audit-logger';
 
-import { log } from './utils';
+import { log, setOutput } from './utils';
 
 const program = new Command();
 
@@ -91,6 +91,7 @@ program
       const preRelease = process.env.PRE_RELEASE === 'true';
       const isPromotion = process.env.IS_PROMOTION === 'true';
       const promotionCommitSha = process.env.PROMOTION_COMMIT_SHA;
+      const userSelectedExtensions = process.env.SELECTED_EXTENSIONS;
 
       const buildContext = {
         isNightly,
@@ -103,6 +104,7 @@ program
       const result = await detectExtensionChanges(
         buildContext,
         promotionCommitSha,
+        userSelectedExtensions,
       );
       setChangeDetectionOutputs(result);
     } catch (error) {
@@ -270,7 +272,7 @@ program
       };
       const matrix = determinePublishMatrix(options);
       // Output in GitHub Actions format
-      console.log(`matrix=${JSON.stringify(matrix)}`);
+      setOutput('matrix', JSON.stringify(matrix));
     } catch (error) {
       log.error(`Failed to determine publish matrix: ${error}`);
       process.exit(1);

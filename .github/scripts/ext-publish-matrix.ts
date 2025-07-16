@@ -7,6 +7,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { log } from './utils';
+
 interface PublishMatrixEntry {
   registry: string;
   vsix_pattern: string;
@@ -45,6 +47,12 @@ function determinePublishMatrix(
 ): PublishMatrixEntry[] {
   const { registries, selectedExtensions } = options;
 
+  // Handle empty or undefined selectedExtensions
+  if (!selectedExtensions || selectedExtensions.trim() === '') {
+    log.info('No extensions selected for publishing, returning empty matrix');
+    return [];
+  }
+
   // Determine which registries to include
   const registryList =
     registries === 'all'
@@ -70,7 +78,7 @@ function determinePublishMatrix(
       });
     }
   }
-
+  log.info(`Publish matrix: ${JSON.stringify(matrix, null, 2)}`);
   return matrix;
 }
 
