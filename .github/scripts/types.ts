@@ -26,7 +26,6 @@ export interface ExtensionInfo {
 
 export interface ChangeDetectionResult {
   selectedExtensions: string[];
-  changedExtensions: string[];
   versionBumps: VersionBumpType;
   promotionCommitSha?: string;
 }

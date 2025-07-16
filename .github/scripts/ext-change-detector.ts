@@ -169,8 +169,7 @@ export async function detectExtensionChanges(
   log.info(`Version bump type: ${versionBumps}`);
 
   return {
-    selectedExtensions: changedExtensions, // For backward compatibility
-    changedExtensions,
+    selectedExtensions: changedExtensions,
     versionBumps,
     promotionCommitSha,
   };
@@ -180,8 +179,7 @@ export async function detectExtensionChanges(
  * Set GitHub Actions outputs for change detection
  */
 export function setChangeDetectionOutputs(result: ChangeDetectionResult): void {
-  setOutput('changed-extensions', result.changedExtensions.join(','));
-  setOutput('available-extensions', result.selectedExtensions.join(',')); // For backward compatibility
+  setOutput('selected-extensions', result.selectedExtensions.join(','));
   setOutput('version-bumps', result.versionBumps);
   if (result.promotionCommitSha) {
     setOutput('promotion-commit-sha', result.promotionCommitSha);
