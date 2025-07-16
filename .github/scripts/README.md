@@ -45,6 +45,7 @@ Handle VS Code extension-specific operations (packages with `publisher` field in
 - `ext-version-bumper`: Bump versions for selected extensions
 - `ext-publish-matrix`: Determine publish matrix for extensions
 - `ext-github-releases`: Create GitHub releases for extensions
+- `ext-publish-vsix`: Publish VSIX file to VS Code Marketplace
 
 #### NPM Scripts (npm-\*)
 
@@ -107,6 +108,10 @@ npx tsx .github/scripts/index.ts ext-publish-matrix
 # ext-github-releases
 DRY_RUN=true PRE_RELEASE=false VERSION_BUMP=auto SELECTED_EXTENSIONS=apex-lsp-vscode-extension IS_NIGHTLY=false VSIX_ARTIFACTS_PATH=./vsix-artifacts \
 npx tsx .github/scripts/index.ts ext-github-releases
+
+# ext-publish-vsix
+PACKAGE_DIR=./packages/apex-lsp-vscode-extension VSCE_PERSONAL_ACCESS_TOKEN=token PRE_RELEASE=false DRY_RUN=true \
+npx tsx .github/scripts/index.ts ext-publish-vsix
 ```
 
 #### NPM Scripts
@@ -132,8 +137,6 @@ npx tsx .github/scripts/index.ts npm-package-details
 #### Utility Scripts
 
 ```bash
-
-
 # audit-logger
 ACTION=release ACTOR=github-actions REPOSITORY=forcedotcom/apex-language-support BRANCH=main WORKFLOW=release RUN_ID=123456789 DETAILS='{"packages":"apex-lsp-logging","version":"1.0.0"}' \
 npx tsx .github/scripts/index.ts audit-logger
@@ -233,15 +236,19 @@ jobs:
 
 ### Extension-Specific Variables
 
-| Variable               | Description                  | Example                                                   |
-| ---------------------- | ---------------------------- | --------------------------------------------------------- |
-| `SELECTED_EXTENSIONS`  | Extension selection mode     | `none`, `all`, `changed`, `apex-lsp-vscode-extension`     |
-| `AVAILABLE_EXTENSIONS` | Available VS Code extensions | `apex-lsp-vscode-extension,apex-lsp-vscode-extension-web` |
-| `CHANGED_EXTENSIONS`   | Changed VS Code extensions   | `apex-lsp-vscode-extension`                               |
-| `REGISTRIES`           | Registries to publish to     | `all`, `vsce`, `ovsx`                                     |
-| `VSIX_ARTIFACTS_PATH`  | Path to VSIX artifacts       | `./vsix-artifacts`                                        |
-| `BRANCH`               | Branch to release from       | `main`                                                    |
-| `BUILD_TYPE`           | Build type                   | `workflow_dispatch`, `schedule`                           |
+| Variable                     | Description                  | Example                                                   |
+| ---------------------------- | ---------------------------- | --------------------------------------------------------- |
+| `SELECTED_EXTENSIONS`        | Extension selection mode     | `none`, `all`, `changed`, `apex-lsp-vscode-extension`     |
+| `AVAILABLE_EXTENSIONS`       | Available VS Code extensions | `apex-lsp-vscode-extension,apex-lsp-vscode-extension-web` |
+| `CHANGED_EXTENSIONS`         | Changed VS Code extensions   | `apex-lsp-vscode-extension`                               |
+| `REGISTRIES`                 | Registries to publish to     | `all`, `vsce`, `ovsx`                                     |
+| `VSIX_ARTIFACTS_PATH`        | Path to VSIX artifacts       | `./vsix-artifacts`                                        |
+| `BRANCH`                     | Branch to release from       | `main`                                                    |
+| `BUILD_TYPE`                 | Build type                   | `workflow_dispatch`, `schedule`                           |
+| `INPUT_VERSION_BUMP`         | Version bump from workflow   | `auto`, `patch`, `minor`, `major`                         |
+| `INPUT_PRE_RELEASE`          | Pre-release from workflow    | `true` or `false`                                         |
+| `PACKAGE_DIR`                | Package directory for VSIX   | `./packages/apex-lsp-vscode-extension`                    |
+| `VSCE_PERSONAL_ACCESS_TOKEN` | VSCE token for publishing    | `ghp_...`                                                 |
 
 ### NPM-Specific Variables
 
@@ -268,6 +275,16 @@ jobs:
 | `DETAILS`           | JSON details             | `{"packages":"apex-lsp-logging"}`   |
 | `ACTION`            | Action being performed   | `release`                           |
 | `LOG_FILE`          | Custom log file path     | `./custom-audit.log`                |
+
+### Workflow-Specific Variables
+
+| Variable                     | Description                     | Example                       |
+| ---------------------------- | ------------------------------- | ----------------------------- |
+| `GITHUB_TOKEN`               | GitHub token for operations     | `ghp_...`                     |
+| `NPM_TOKEN`                  | NPM token for publishing        | `npm_...`                     |
+| `VSCE_PERSONAL_ACCESS_TOKEN` | VSCE marketplace token          | `ghp_...`                     |
+| `OVSX_PAT`                   | OpenVSX registry token          | `ovsx_...`                    |
+| `IDEE_MAIN_SLACK_WEBHOOK`    | Slack webhook for notifications | `https://hooks.slack.com/...` |
 
 ## Testing
 

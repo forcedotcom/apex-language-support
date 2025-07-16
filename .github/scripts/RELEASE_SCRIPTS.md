@@ -46,6 +46,21 @@ npx tsx .github/scripts/index.ts ext-change-detector
 
 # Select VS Code extensions for release
 npx tsx .github/scripts/index.ts ext-package-selector
+
+# Display extension release plan
+npx tsx .github/scripts/index.ts ext-release-plan
+
+# Bump versions for selected extensions
+npx tsx .github/scripts/index.ts ext-version-bumper
+
+# Determine publish matrix for extensions
+npx tsx .github/scripts/index.ts ext-publish-matrix
+
+# Create GitHub releases for extensions
+npx tsx .github/scripts/index.ts ext-github-releases
+
+# Publish VSIX file to VS Code Marketplace
+npx tsx .github/scripts/index.ts ext-publish-vsix
 ```
 
 #### NPM Commands (prefixed with "npm-")
@@ -66,14 +81,11 @@ npx tsx .github/scripts/index.ts npm-package-details
 npx tsx .github/scripts/index.ts npm-release-plan
 ```
 
-#### General Commands
+#### Utility Commands
 
 ```bash
-# Bump versions for selected extensions
-npx tsx .github/scripts/index.ts version-bumper --dry-run
-
-# Generate release plan
-npx tsx .github/scripts/index.ts release-plan --dry-run
+# Log audit events for release operations
+npx tsx .github/scripts/index.ts audit-logger
 ```
 
 ### Environment Variables
@@ -92,6 +104,15 @@ The scripts read from GitHub Actions environment variables:
 - `SELECTED_EXTENSIONS`: Extension selection mode (`none`, `all`, `changed`, specific extensions)
 - `AVAILABLE_EXTENSIONS`: Available VS Code extensions (from change detector)
 - `CHANGED_EXTENSIONS`: Changed VS Code extensions (from change detector)
+- `IS_NIGHTLY`: Whether this is a nightly build
+- `IS_PROMOTION`: Whether this is a promotion build
+- `PROMOTION_COMMIT_SHA`: Commit SHA for promotion (if applicable)
+- `BRANCH`: Branch to release from
+- `BUILD_TYPE`: Build type (workflow_dispatch, schedule)
+- `REGISTRIES`: Registries to publish to
+- `VSIX_ARTIFACTS_PATH`: Path to VSIX artifacts
+- `PACKAGE_DIR`: Package directory for VSIX publishing
+- `VSCE_PERSONAL_ACCESS_TOKEN`: VSCE token for publishing
 
 #### NPM Scripts
 
@@ -103,6 +124,17 @@ The scripts read from GitHub Actions environment variables:
 - `VERSION_BUMP`: Version bump type
 - `MATRIX_PACKAGE`: Package name for matrix jobs
 - `DRY_RUN`: Run in dry-run mode
+
+#### Utility Scripts
+
+- `ACTION`: Action being performed
+- `ACTOR`: Actor performing action
+- `REPOSITORY`: Repository name
+- `BRANCH`: Branch name
+- `WORKFLOW`: Workflow name
+- `RUN_ID`: Workflow run ID
+- `DETAILS`: JSON details
+- `LOG_FILE`: Custom log file path
 
 ### Outputs
 
@@ -117,6 +149,7 @@ Scripts set GitHub Actions outputs using the `::set-output` format:
 - `selected-extensions`: Comma-separated list of extensions to release
 - `version-bumps`: Version bump type for selected extensions
 - `promotion-commit-sha`: Commit SHA for promotion (if applicable)
+- `matrix`: JSON array for publish matrix
 
 #### NPM Outputs
 
@@ -180,10 +213,16 @@ The release scripts are organized in the `.github/scripts` folder:
 ├── ext-promotion-finder.ts   # Find promotion candidates
 ├── ext-change-detector.ts    # Detect VS Code extension changes
 ├── ext-package-selector.ts   # Select VS Code extensions
+├── ext-release-plan.ts       # Display extension release plan
+├── ext-version-bumper.ts     # Bump versions for extensions
+├── ext-publish-matrix.ts     # Determine publish matrix
+├── ext-github-releases.ts    # Create GitHub releases
+├── ext-publish-vsix.ts       # Publish VSIX to marketplace
 ├── npm-change-detector.ts    # Detect NPM package changes
 ├── npm-package-selector.ts   # Select NPM packages
 ├── npm-package-details.ts    # Extract NPM package details
-└── npm-release-plan.ts       # Generate NPM release plans
+├── npm-release-plan.ts       # Generate NPM release plans
+└── audit-logger.ts           # Log audit events
 ```
 
 ### Core Modules
@@ -194,175 +233,133 @@ The release scripts are organized in the `.github/scripts` folder:
 - **`ext-promotion-finder.ts`**: Find promotion candidates for nightly builds
 - **`ext-change-detector.ts`**: Detect changes in VS Code extensions
 - **`ext-package-selector.ts`**: Select VS Code extensions for release
+- **`ext-release-plan.ts`**: Display extension release plan
+- **`ext-version-bumper.ts`**: Bump versions for selected extensions
+- **`ext-publish-matrix.ts`**: Determine publish matrix for extensions
+- **`ext-github-releases.ts`**: Create GitHub releases for extensions
+- **`ext-publish-vsix.ts`**: Publish VSIX file to VS Code Marketplace
 
 #### NPM Modules
 
 - **`npm-change-detector.ts`**: Detect changes in NPM packages since base branch
-- **`npm-package-selector.ts`**: Select NPM packages based on criteria
+- **`npm-package-selector.ts`**: Select NPM packages based on user preferences
 - **`npm-package-details.ts`**: Extract package details for notifications
 - **`npm-release-plan.ts`**: Generate release plans for NPM packages
 
-#### General Modules
+#### Utility Modules
 
-- **`version-bumper.ts`**: Smart version bumping with even/odd logic _(TODO)_
-- **`release-planner.ts`**: Generate detailed release plans _(TODO)_
+- **`audit-logger.ts`**: Log audit events for compliance and tracking
+- **`utils.ts`**: Common utilities used across all scripts
+- **`types.ts`**: TypeScript interfaces for extension operations
+- **`npm-types.ts`**: TypeScript interfaces for NPM operations
 
-### Utilities
+## Workflow Integration
 
-- **`types.ts`**: TypeScript interfaces for extension data structures
-- **`npm-types.ts`**: TypeScript interfaces for NPM data structures
-- **`utils.ts`**: Common utility functions (version parsing, git operations, etc.)
+### Extension Release Workflow
 
-### Integration
+The extension release workflow uses these scripts in sequence:
 
-- **Dependencies**: Added to root `package.json` devDependencies
-- **TypeScript**: Uses root `tsconfig.json` configuration
-- **Build**: No separate build step needed - uses `tsx` for direct execution
-- **Workflow**: Called directly from GitHub Actions workflows
+1. **`ext-build-type`**: Determines if this is a nightly, promotion, or regular build
+2. **`ext-promotion-finder`**: Finds promotion candidates (if promotion build)
+3. **`ext-change-detector`**: Detects which extensions have changes
+4. **`ext-release-plan`**: Displays release plan (dry-run mode)
+5. **`ext-version-bumper`**: Bumps versions and creates tags
+6. **`ext-github-releases`**: Creates GitHub releases
+7. **`ext-publish-matrix`**: Determines publish matrix for registries
 
-## Version Bumping Strategy
+### NPM Release Workflow
 
-The scripts implement smart version bumping strategies for both extensions and NPM packages:
+The NPM release workflow uses these scripts:
 
-### VS Code Extension Even/Odd Strategy
+1. **`npm-change-detector`**: Detects which NPM packages have changes
+2. **`npm-package-selector`**: Selects packages based on user input
+3. **`npm-release-plan`**: Displays release plan (dry-run mode)
+4. **`npm-package-details`**: Extracts details for notifications
 
-- **Even minor versions** (0.2.x, 0.4.x): **Stable releases**
-- **Odd minor versions** (0.3.x, 0.5.x): **Pre-releases**
+### Environment Variable Patterns
 
-### Build Types
+#### Extension Scripts
 
-1. **Nightly Builds**: Always use patch bump, ensure odd minor version
-2. **Promotions**: Bump from odd minor (nightly) to even minor (stable)
-3. **Regular Builds**: Use conventional commit logic with even/odd strategy
+```bash
+# Build type determination
+INPUT_VERSION_BUMP=auto INPUT_PRE_RELEASE=false \
+npx tsx .github/scripts/index.ts ext-build-type
 
-### NPM Package Strategy
+# Change detection
+IS_NIGHTLY=false VERSION_BUMP=auto PRE_RELEASE=false IS_PROMOTION=false \
+npx tsx .github/scripts/index.ts ext-change-detector
 
-- **Conventional Commits**: Parse commit messages for version bump type
-- **Change Detection**: Only bump versions for packages with actual changes
-- **Smart Selection**: Support for different package selection modes
+# Version bumping
+VERSION_BUMP=minor SELECTED_EXTENSIONS=apex-lsp-vscode-extension \
+PRE_RELEASE=false IS_NIGHTLY=false IS_PROMOTION=false \
+npx tsx .github/scripts/index.ts ext-version-bumper
+```
+
+#### NPM Scripts
+
+```bash
+# Change detection
+INPUT_BASE_BRANCH=main \
+npx tsx .github/scripts/index.ts npm-change-detector
+
+# Package selection
+SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-logging,apex-parser-ast \
+CHANGED_PACKAGES=apex-lsp-logging \
+npx tsx .github/scripts/index.ts npm-package-selector
+```
 
 ## Testing
 
+### Manual Testing
+
+Test scripts locally with environment variables:
+
 ```bash
-# Test extension commands
-npx tsx .github/scripts/index.ts ext-build-type
+# Test extension change detection
+IS_NIGHTLY=true VERSION_BUMP=minor PRE_RELEASE=false IS_PROMOTION=false \
 npx tsx .github/scripts/index.ts ext-change-detector
-npx tsx .github/scripts/index.ts ext-package-selector
 
-# Test NPM commands
-npx tsx .github/scripts/index.ts npm-change-detector
+# Test NPM package selection
+SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-logging,apex-parser-ast \
+CHANGED_PACKAGES=apex-lsp-logging \
 npx tsx .github/scripts/index.ts npm-package-selector
-
-# Test with environment variables
-SELECTED_EXTENSIONS=all AVAILABLE_EXTENSIONS=apex-lsp-vscode-extension,apex-lsp-vscode-extension-web CHANGED_EXTENSIONS=apex-lsp-vscode-extension \
-npx tsx .github/scripts/index.ts ext-package-selector
-
-SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-logging,apex-parser-ast CHANGED_PACKAGES=apex-lsp-logging \
-npx tsx .github/scripts/index.ts npm-package-selector
-
-# Run tests
-npm test
-
-# Run in development mode with watch
-npm run dev
 ```
 
-## Integration with Workflows
+### Dry Run Mode
 
-These scripts are designed to replace the bash scripts in both extension and NPM release workflows.
+Most scripts support dry-run mode for safe testing:
 
-### Extension Workflow Integration
-
-The workflow would change from:
-
-```yaml
-- name: Determine changes and version bumps
-  run: |
-    # 100+ lines of bash script
+```bash
+DRY_RUN=true npx tsx .github/scripts/index.ts ext-version-bumper
 ```
 
-To:
+## Error Handling
 
-```yaml
-- name: Setup Node.js
-  uses: actions/setup-node@v4
-  with:
-    node-version: '20.x'
+All scripts follow consistent error handling patterns:
 
-- name: Install dependencies
-  uses: ./.github/actions/npm-install-with-retries
+1. **Input Validation**: Validate required environment variables
+2. **Graceful Degradation**: Handle missing optional inputs with defaults
+3. **Error Logging**: Log detailed error messages for debugging
+4. **Exit Codes**: Use proper exit codes (0 for success, 1 for failure)
+5. **Cleanup**: Ensure proper cleanup on errors
 
-- name: Detect extension changes
-  id: ext-changes
-  run: npx tsx .github/scripts/index.ts ext-change-detector
+## Migration from Command-Line Arguments
 
-- name: Select extensions for release
-  id: extensions
-  env:
-    SELECTED_EXTENSIONS: ${{ github.event.inputs.extensions || 'none' }}
-    AVAILABLE_EXTENSIONS: ${{ steps.ext-changes.outputs.available-extensions }}
-    CHANGED_EXTENSIONS: ${{ steps.ext-changes.outputs.changed-extensions }}
-  run: npx tsx .github/scripts/index.ts ext-package-selector
-```
+This script suite was migrated from command-line arguments to environment variables for better GitHub Actions integration. The benefits include:
 
-### NPM Workflow Integration
+- **Better Integration**: Environment variables are the standard for GitHub Actions
+- **Easier Debugging**: Variables are visible in workflow logs
+- **Type Safety**: Better handling of complex data types
+- **Consistency**: All scripts follow the same pattern
+- **Maintainability**: Easier to modify and extend
 
-For NPM release workflows:
+## Contributing
 
-```yaml
-- name: Detect NPM changes
-  run: npx tsx .github/scripts/index.ts npm-change-detector
-  env:
-    INPUT_BASE_BRANCH: main
+When adding new scripts:
 
-- name: Select NPM packages
-  run: npx tsx .github/scripts/index.ts npm-package-selector
-  env:
-    SELECTED_PACKAGE: changed
-    AVAILABLE_PACKAGES: ${{ steps.detect.outputs.packages }}
-    CHANGED_PACKAGES: ${{ steps.detect.outputs.packages }}
-
-- name: Extract package details
-  run: npx tsx .github/scripts/index.ts npm-package-details
-  env:
-    SELECTED_PACKAGES: ${{ steps.select.outputs.packages }}
-    VERSION_BUMP: ${{ steps.detect.outputs.bump }}
-```
-
-## Benefits Over Bash Scripts
-
-- **Type Safety**: Catch errors at compile time
-- **Better Error Handling**: Proper try/catch with meaningful messages
-- **Testability**: Each function can be unit tested
-- **Maintainability**: Clear function signatures and documentation
-- **Debugging**: Better stack traces and logging
-- **IDE Support**: IntelliSense, refactoring, etc.
-- **Clear Naming**: Prefixed commands make it easy to identify functionality
-- **Dual Support**: Handle both extensions and NPM packages with consistent patterns
-
-## Dependencies
-
-- **`simple-git`**: Git operations (tags, commits, diffs)
-- **`semver`**: Version parsing and comparison
-- **`zod`**: Runtime type validation
-- **`chalk`**: Colored console output
-- **`commander`**: CLI argument parsing
-- **`tsx`**: TypeScript execution without compilation
-
-## Migration Guide
-
-### From Bash to TypeScript
-
-1. **Identify bash scripts** in workflows that need replacement
-2. **Choose appropriate TypeScript script** based on functionality
-3. **Update workflow** to use `npx tsx .github/scripts/index.ts <command>`
-4. **Set environment variables** as needed for the specific script
-5. **Test thoroughly** in dry-run mode before deploying
-
-### Naming Convention
-
-- **Extension scripts**: Prefixed with `ext-` (e.g., `ext-build-type`)
-- **NPM scripts**: Prefixed with `npm-` (e.g., `npm-change-detector`)
-- **General scripts**: No prefix (e.g., `version-bumper`)
-
-This naming convention makes it immediately clear which scripts handle extensions vs NPM packages, improving maintainability and reducing confusion.
+1. Follow the environment variable pattern
+2. Use TypeScript interfaces for type safety
+3. Include proper error handling
+4. Add comprehensive logging
+5. Update this documentation with new variables
+6. Test with dry-run mode first
