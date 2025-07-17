@@ -81,11 +81,10 @@ export const createServerOptions = (
   const debugOptions = getDebugOptions();
 
   // Determine server mode with environment variable override
-  let serverMode: 'production' | 'development' | 'test';
+  let serverMode: 'production' | 'development';
   if (
     process.env.APEX_LS_MODE === 'production' ||
-    process.env.APEX_LS_MODE === 'development' ||
-    process.env.APEX_LS_MODE === 'test'
+    process.env.APEX_LS_MODE === 'development'
   ) {
     serverMode = process.env.APEX_LS_MODE;
     logToOutputChannel(
@@ -95,11 +94,10 @@ export const createServerOptions = (
   } else {
     // Default to extension mode
     serverMode =
-      context.extensionMode === vscode.ExtensionMode.Development
+      context.extensionMode === vscode.ExtensionMode.Development ||
+      context.extensionMode === vscode.ExtensionMode.Test
         ? 'development'
-        : context.extensionMode === vscode.ExtensionMode.Test
-          ? 'test'
-          : 'production';
+        : 'production';
     logToOutputChannel(
       `Using server mode from extension mode: ${serverMode}`,
       'debug',
@@ -146,11 +144,10 @@ export const createClientOptions = (
   // Map VS Code extension mode to server mode
   const extensionMode = context.extensionMode;
   const serverMode =
-    extensionMode === vscode.ExtensionMode.Development
+    extensionMode === vscode.ExtensionMode.Development ||
+    extensionMode === vscode.ExtensionMode.Test
       ? 'development'
-      : extensionMode === vscode.ExtensionMode.Test
-        ? 'test'
-        : 'production';
+      : 'production';
 
   return {
     documentSelector: [{ scheme: 'file', language: 'apex' }],

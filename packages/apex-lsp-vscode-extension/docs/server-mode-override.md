@@ -8,14 +8,13 @@ Set the `APEX_LS_MODE` environment variable to one of the following values:
 
 - `production` - Forces production mode
 - `development` - Forces development mode
-- `test` - Forces test mode
 
 ## Priority Order
 
 The server determines its mode using the following priority order:
 
 1. **APEX_LS_MODE environment variable** (highest priority)
-2. **Extension mode** (Development → 'development', Test → 'test', Production → 'production')
+2. **Extension mode** (Development/Test → 'development', Production → 'production')
 3. **NODE_ENV environment variable** (lowest priority)
 
 ## Examples
@@ -32,12 +31,6 @@ export APEX_LS_MODE=production
 export APEX_LS_MODE=development
 ```
 
-### Force Test Mode
-
-```bash
-export APEX_LS_MODE=test
-```
-
 ## Use Cases
 
 - **Testing**: Force production mode during development to test production behavior
@@ -48,6 +41,12 @@ export APEX_LS_MODE=test
 ## Implementation Details
 
 The environment variable is passed from the VS Code extension to the language server process and is checked during server initialization. The server logs which mode source is being used for transparency.
+
+**Extension Mode Mapping:**
+
+- `vscode.ExtensionMode.Development` → `'development'`
+- `vscode.ExtensionMode.Test` → `'development'` (maps to development mode)
+- `vscode.ExtensionMode.Production` → `'production'`
 
 ## Notes
 

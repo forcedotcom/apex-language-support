@@ -818,32 +818,6 @@ describe('Apex Language Server', () => {
       );
     });
 
-    it('should use APEX_LS_MODE environment variable when set to test', () => {
-      // Set the environment variable
-      process.env.APEX_LS_MODE = 'test';
-
-      // Reset modules and restart server to pick up new env var
-      jest.resetModules();
-      const module = require('../src/index');
-      module.startServer();
-
-      // Get the initialize handler
-      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
-      const params: InitializeParams = {
-        processId: 1,
-        rootUri: null,
-        capabilities: {},
-      };
-
-      // Act
-      initializeHandler(params);
-
-      // Assert
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Using server mode from APEX_LS_MODE environment variable: test',
-      );
-    });
-
     it('should fall back to extension mode when APEX_LS_MODE is not set', () => {
       // Ensure APEX_LS_MODE is not set
       delete process.env.APEX_LS_MODE;

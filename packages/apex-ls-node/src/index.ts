@@ -123,16 +123,14 @@ export function startServer() {
     const extensionMode = initOptions?.extensionMode as
       | 'production'
       | 'development'
-      | 'test'
       | undefined;
 
-    let mode: 'production' | 'development' | 'test';
+    let mode: 'production' | 'development';
 
     // First check for APEX_LS_MODE environment variable
     if (
       process.env.APEX_LS_MODE === 'production' ||
-      process.env.APEX_LS_MODE === 'development' ||
-      process.env.APEX_LS_MODE === 'test'
+      process.env.APEX_LS_MODE === 'development'
     ) {
       mode = process.env.APEX_LS_MODE;
       logger.info(
@@ -150,7 +148,7 @@ export function startServer() {
     else {
       mode = (
         process.env.NODE_ENV === 'development' ? 'development' : 'production'
-      ) as 'production' | 'development' | 'test';
+      ) as 'production' | 'development';
       logger.info(`Using server mode from NODE_ENV: ${mode}`);
     }
 

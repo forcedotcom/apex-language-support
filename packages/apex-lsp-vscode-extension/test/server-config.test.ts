@@ -118,17 +118,6 @@ describe('Server Config Module', () => {
       expect(serverOptions.debug.options.execArgv).toContain('--inspect=6009');
     });
 
-    it('should set correct APEX_LS_MODE for test mode', () => {
-      const testContext = {
-        ...mockContext,
-        extensionMode: vscode.ExtensionMode.Test,
-      } as vscode.ExtensionContext;
-
-      const serverOptions = createServerOptions(testContext) as any;
-
-      expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('test');
-    });
-
     it('should override extension mode with APEX_LS_MODE environment variable', () => {
       // Save original environment
       const originalEnv = process.env.APEX_LS_MODE;
@@ -167,6 +156,17 @@ describe('Server Config Module', () => {
         // Restore original environment
         process.env.APEX_LS_MODE = originalEnv;
       }
+    });
+
+    it('should map Test extension mode to development server mode', () => {
+      const testContext = {
+        ...mockContext,
+        extensionMode: vscode.ExtensionMode.Test,
+      } as vscode.ExtensionContext;
+
+      const serverOptions = createServerOptions(testContext) as any;
+
+      expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('development');
     });
   });
 
@@ -210,7 +210,7 @@ describe('Server Config Module', () => {
       );
     });
 
-    it('should set correct extension mode for test mode', () => {
+    it('should map Test extension mode to development in client options', () => {
       const testContext = {
         ...mockContext,
         extensionMode: vscode.ExtensionMode.Test,
@@ -221,7 +221,7 @@ describe('Server Config Module', () => {
       expect(clientOptions.initializationOptions).toEqual(
         expect.objectContaining({
           enableDocumentSymbols: true,
-          extensionMode: 'test',
+          extensionMode: 'development',
         }),
       );
     });

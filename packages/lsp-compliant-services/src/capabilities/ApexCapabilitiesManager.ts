@@ -15,7 +15,7 @@ import {
 /**
  * Server mode enumeration
  */
-export type ServerMode = 'production' | 'development' | 'test';
+export type ServerMode = 'production' | 'development';
 
 /**
  * Capabilities manager for the Apex Language Server

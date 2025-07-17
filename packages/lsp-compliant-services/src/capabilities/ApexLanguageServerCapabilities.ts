@@ -17,9 +17,6 @@ export interface CapabilitiesConfiguration {
 
   /** Development mode capabilities - full feature set */
   development: ServerCapabilities;
-
-  /** Test mode capabilities - testing-specific features */
-  test: ServerCapabilities;
 }
 
 /**
@@ -38,6 +35,7 @@ export const PRODUCTION_CAPABILITIES: ServerCapabilities = {
   documentSymbolProvider: true,
   foldingRangeProvider: true,
   diagnosticProvider: {
+    identifier: 'apex-ls-ts',
     interFileDependencies: false,
     workspaceDiagnostics: false,
   },
@@ -86,37 +84,11 @@ export const PRODUCTION_CAPABILITIES: ServerCapabilities = {
  */
 export const DEVELOPMENT_CAPABILITIES: ServerCapabilities = {
   ...PRODUCTION_CAPABILITIES, // Start with production capabilities
-  // Implemented features (including placeholders)
   completionProvider: {
     resolveProvider: false,
     triggerCharacters: ['.'],
   },
-};
-
-/**
- * Test capabilities - exposes which features are available in test
- * Inherits from development but with simplified settings for testing
- */
-export const TEST_CAPABILITIES: ServerCapabilities = {
-  ...DEVELOPMENT_CAPABILITIES, // Start with development capabilities
-  textDocumentSync: {
-    openClose: true,
-    change: 1,
-    save: true,
-    willSave: false,
-    willSaveWaitUntil: false,
-  },
-  // Simplified diagnostic capabilities for testing
-  diagnosticProvider: {
-    interFileDependencies: false,
-    workspaceDiagnostics: false,
-  },
-  workspace: {
-    workspaceFolders: {
-      supported: true,
-      changeNotifications: true,
-    },
-  },
+  textDocumentDiagnosticProvider:
 };
 
 /**
@@ -125,5 +97,4 @@ export const TEST_CAPABILITIES: ServerCapabilities = {
 export const CAPABILITIES_CONFIGURATION: CapabilitiesConfiguration = {
   production: PRODUCTION_CAPABILITIES,
   development: DEVELOPMENT_CAPABILITIES,
-  test: TEST_CAPABILITIES,
 };

@@ -10,7 +10,6 @@ import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilities
 import {
   PRODUCTION_CAPABILITIES,
   DEVELOPMENT_CAPABILITIES,
-  TEST_CAPABILITIES,
 } from '../../src/capabilities/ApexLanguageServerCapabilities';
 
 describe('ApexCapabilitiesManager', () => {
@@ -39,9 +38,6 @@ describe('ApexCapabilitiesManager', () => {
       manager.setMode('development');
       expect(manager.getMode()).toBe('development');
 
-      manager.setMode('test');
-      expect(manager.getMode()).toBe('test');
-
       manager.setMode('production');
       expect(manager.getMode()).toBe('production');
     });
@@ -61,10 +57,6 @@ describe('ApexCapabilitiesManager', () => {
       // Test development mode
       manager.setMode('development');
       expect(manager.getCapabilities()).toEqual(DEVELOPMENT_CAPABILITIES);
-
-      // Test test mode
-      manager.setMode('test');
-      expect(manager.getCapabilities()).toEqual(TEST_CAPABILITIES);
     });
 
     it('should return capabilities for specific modes', () => {
@@ -74,17 +66,14 @@ describe('ApexCapabilitiesManager', () => {
       expect(manager.getCapabilitiesForMode('development')).toEqual(
         DEVELOPMENT_CAPABILITIES,
       );
-      expect(manager.getCapabilitiesForMode('test')).toEqual(TEST_CAPABILITIES);
     });
 
     it('should return all capabilities configurations', () => {
       const allCapabilities = manager.getAllCapabilities();
       expect(allCapabilities).toHaveProperty('production');
       expect(allCapabilities).toHaveProperty('development');
-      expect(allCapabilities).toHaveProperty('test');
       expect(allCapabilities.production).toEqual(PRODUCTION_CAPABILITIES);
       expect(allCapabilities.development).toEqual(DEVELOPMENT_CAPABILITIES);
-      expect(allCapabilities.test).toEqual(TEST_CAPABILITIES);
     });
   });
 
@@ -119,21 +108,6 @@ describe('ApexCapabilitiesManager', () => {
       expect(manager.isCapabilityEnabled('hoverProvider')).toBe(false);
     });
 
-    it('should correctly identify enabled capabilities in test mode', () => {
-      manager.setMode('test');
-
-      // Test mode should have these enabled (inherits from development)
-      expect(manager.isCapabilityEnabled('textDocumentSync')).toBe(true);
-      expect(manager.isCapabilityEnabled('completionProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('documentSymbolProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('diagnosticProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('workspace')).toBe(true);
-
-      // Test mode should have these disabled (not yet implemented)
-      expect(manager.isCapabilityEnabled('hoverProvider')).toBe(false);
-    });
-
     it('should check capabilities for specific modes', () => {
       // Check production mode capabilities
       expect(
@@ -161,17 +135,6 @@ describe('ApexCapabilitiesManager', () => {
           'development',
           'documentSymbolProvider',
         ),
-      ).toBe(true);
-
-      // Check test mode capabilities (inherits from development)
-      expect(manager.isCapabilityEnabledForMode('test', 'hoverProvider')).toBe(
-        false,
-      );
-      expect(
-        manager.isCapabilityEnabledForMode('test', 'completionProvider'),
-      ).toBe(true);
-      expect(
-        manager.isCapabilityEnabledForMode('test', 'documentSymbolProvider'),
       ).toBe(true);
     });
   });
