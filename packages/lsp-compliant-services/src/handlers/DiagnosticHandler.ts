@@ -14,7 +14,6 @@ import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { dispatch } from '../utils/handlerUtil';
 import { DiagnosticProcessingService } from '../services/DiagnosticProcessingService';
-import { ApexSettingsManager } from '../settings/ApexSettingsManager';
 
 /**
  * Process diagnostic request for Apex documents.
@@ -34,18 +33,6 @@ export async function processOnDiagnostic(
     logger.debug(
       () => `Processing diagnostic request for: ${params.textDocument.uri}`,
     );
-
-    // Check if pull-based diagnostics are enabled
-    const settingsManager = ApexSettingsManager.getInstance();
-    const settings = settingsManager.getSettings();
-
-    if (!settings.diagnostics.enablePullDiagnostics) {
-      logger.debug(
-        () =>
-          `Pull-based diagnostics disabled, returning empty array for: ${params.textDocument.uri}`,
-      );
-      return [];
-    }
 
     const diagnosticProcessor = new DiagnosticProcessingService();
     const diagnostics = await dispatch(

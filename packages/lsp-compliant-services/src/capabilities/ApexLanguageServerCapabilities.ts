@@ -88,7 +88,11 @@ export const DEVELOPMENT_CAPABILITIES: ServerCapabilities = {
     resolveProvider: false,
     triggerCharacters: ['.'],
   },
-  textDocumentDiagnosticProvider:
+  diagnosticProvider: {
+    identifier: 'apex-ls-ts',
+    interFileDependencies: true,
+    workspaceDiagnostics: true,
+  },
 };
 
 /**
