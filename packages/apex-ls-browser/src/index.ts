@@ -8,25 +8,23 @@
 
 import {
   createConnection,
-  BrowserMessageReader,
-  BrowserMessageWriter,
-  CompletionItem,
-  Hover,
-  InitializedNotification,
   InitializeParams,
   InitializeResult,
+  InitializedNotification,
   MessageType,
-  TextDocumentPositionParams,
+  DocumentSymbolParams,
   TextDocuments,
   TextDocumentChangeEvent,
   Diagnostic,
-  DocumentSymbolParams,
   FoldingRangeParams,
   FoldingRange,
+  TextDocumentPositionParams,
+  CompletionItem,
+  Hover,
+  BrowserMessageReader,
+  BrowserMessageWriter,
 } from 'vscode-languageserver/browser';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
-  ApexStorageManager,
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnOpenDocument,
@@ -34,9 +32,11 @@ import {
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnDiagnostic,
+  ApexStorageManager,
   ApexStorage,
-  ApexCapabilitiesManager,
+  LSPConfigurationManager,
 } from '@salesforce/apex-lsp-compliant-services';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   setLogNotificationHandler,
   getLogger,
@@ -67,7 +67,7 @@ setLogNotificationHandler(
 );
 
 // Initialize capabilities manager
-const capabilitiesManager = ApexCapabilitiesManager.getInstance();
+const capabilitiesManager = new LSPConfigurationManager();
 
 // Server state
 let isShutdown = false;
@@ -123,6 +123,8 @@ connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
 });
 
 // Handle diagnostic requests
+// enabling pull diagnostics enables both 'textDocument/diagnostic' and 'workspace/diagnostic' requests
+// only one of them is implemented, the other one is a no-op for now
 connection.onRequest(
   'textDocument/diagnostic',
   async (params: DocumentSymbolParams) => {
@@ -146,6 +148,11 @@ connection.onRequest(
     }
   },
 );
+
+connection.onRequest('workspace/diagnostic', async (params) => {
+  logger.debug('workspace/diagnostic requested by client');
+  return { items: [] };
+});
 
 // Add a handler for folding ranges
 connection.onFoldingRanges(
@@ -234,6 +241,17 @@ const handleDiagnostics = (
   uri: string,
   diagnostics: Diagnostic[] | undefined,
 ) => {
+  // Check if publishDiagnostics is enabled in capabilities
+  const capabilities = capabilitiesManager.getExtendedServerCapabilities();
+  if (!capabilities.publishDiagnostics) {
+    // Don't send diagnostics if publishDiagnostics is disabled
+    logger.debug(
+      () =>
+        `Publish diagnostics disabled, skipping diagnostic send for: ${uri}`,
+    );
+    return;
+  }
+
   // Always send diagnostics to the client, even if empty array
   // This ensures diagnostics are cleared when there are no errors
   connection.sendDiagnostics({

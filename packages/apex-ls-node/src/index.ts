@@ -238,6 +238,12 @@ export function startServer() {
     },
   );
 
+  // Handle workspace diagnostic requests (no-op for now)
+  connection.onRequest('workspace/diagnostic', async (params) => {
+    logger.debug('workspace/diagnostic requested by client');
+    return { items: [] };
+  });
+
   // Configuration change handling is now managed by the LSPConfigurationManager
   // through its enhanced registration system in registerForConfigurationChanges()
 
@@ -312,6 +318,17 @@ export function startServer() {
     uri: string,
     diagnostics: Diagnostic[] | undefined,
   ) => {
+    // Check if publishDiagnostics is enabled in capabilities
+    const capabilities = configurationManager.getExtendedServerCapabilities();
+    if (!capabilities.publishDiagnostics) {
+      // Don't send diagnostics if publishDiagnostics is disabled
+      logger.debug(
+        () =>
+          `Publish diagnostics disabled, skipping diagnostic send for: ${uri}`,
+      );
+      return;
+    }
+
     // Always send diagnostics to the client, even if empty array
     // This ensures diagnostics are cleared when there are no errors
     connection.sendDiagnostics({

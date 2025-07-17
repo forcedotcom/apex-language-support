@@ -209,6 +209,29 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   LSPConfigurationManager: jest.fn().mockImplementation(() => ({
     setMode: jest.fn(),
     getCapabilities: jest.fn().mockReturnValue({
+      publishDiagnostics: true,
+      textDocumentSync: {
+        openClose: true,
+        change: 1,
+        save: true,
+        willSave: false,
+        willSaveWaitUntil: false,
+      },
+      documentSymbolProvider: true,
+      foldingRangeProvider: true,
+      diagnosticProvider: {
+        interFileDependencies: false,
+        workspaceDiagnostics: false,
+      },
+      workspace: {
+        workspaceFolders: {
+          supported: true,
+          changeNotifications: true,
+        },
+      },
+    }),
+    getExtendedServerCapabilities: jest.fn().mockReturnValue({
+      publishDiagnostics: true,
       textDocumentSync: {
         openClose: true,
         change: 1,
@@ -350,6 +373,7 @@ describe('Apex Language Server', () => {
     );
     expect(result).toEqual({
       capabilities: {
+        publishDiagnostics: true,
         textDocumentSync: {
           openClose: true,
           change: 1,

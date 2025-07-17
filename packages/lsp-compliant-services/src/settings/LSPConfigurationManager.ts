@@ -11,6 +11,7 @@ import {
   ApexCapabilitiesManager,
   ServerMode,
 } from '../capabilities/ApexCapabilitiesManager';
+import { ExtendedServerCapabilities } from '../capabilities/ApexLanguageServerCapabilities';
 
 /**
  * Configuration options for the LSP server
@@ -20,7 +21,7 @@ export interface LSPConfigurationOptions {
   mode?: ServerMode;
 
   /** Custom capabilities to override defaults */
-  customCapabilities?: Partial<ServerCapabilities>;
+  customCapabilities?: Partial<ExtendedServerCapabilities>;
 }
 
 /**
@@ -31,7 +32,7 @@ export interface LSPConfigurationOptions {
  */
 export class LSPConfigurationManager {
   private capabilitiesManager: ApexCapabilitiesManager;
-  private customCapabilities?: Partial<ServerCapabilities>;
+  private customCapabilities?: Partial<ExtendedServerCapabilities>;
 
   constructor(options: LSPConfigurationOptions = {}) {
     this.capabilitiesManager = ApexCapabilitiesManager.getInstance();
@@ -52,7 +53,9 @@ export class LSPConfigurationManager {
    * @returns The current server capabilities with any custom overrides applied
    */
   public getCapabilities(): ServerCapabilities {
-    const baseCapabilities = this.capabilitiesManager.getCapabilities();
+    const baseCapabilities: Partial<ServerCapabilities> = Object.entries(
+      this.capabilitiesManager.getCapabilities(),
+    ).reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
 
     // Apply custom overrides if any
     if (this.customCapabilities) {
@@ -60,6 +63,14 @@ export class LSPConfigurationManager {
     }
 
     return baseCapabilities;
+  }
+
+  /**
+   * Get the current extended server capabilities
+   * @returns The current extended server capabilities with any custom overrides applied
+   */
+  public getExtendedServerCapabilities(): ExtendedServerCapabilities {
+    return this.capabilitiesManager.getCapabilities();
   }
 
   /**
@@ -83,7 +94,7 @@ export class LSPConfigurationManager {
    * @param capabilities - The custom capabilities to apply
    */
   public setCustomCapabilities(
-    capabilities: Partial<ServerCapabilities>,
+    capabilities: Partial<ExtendedServerCapabilities>,
   ): void {
     this.customCapabilities = capabilities;
   }
@@ -100,7 +111,7 @@ export class LSPConfigurationManager {
    * @param mode - The server mode to get capabilities for
    * @returns The capabilities for the specified mode with any custom overrides applied
    */
-  public getCapabilitiesForMode(mode: ServerMode): ServerCapabilities {
+  public getCapabilitiesForMode(mode: ServerMode): ExtendedServerCapabilities {
     const baseCapabilities =
       this.capabilitiesManager.getCapabilitiesForMode(mode);
 
@@ -117,9 +128,14 @@ export class LSPConfigurationManager {
    * @param capability - The capability to check
    * @returns True if the capability is enabled
    */
-  public isCapabilityEnabled(capability: keyof ServerCapabilities): boolean {
+  public isCapabilityEnabled<T extends ServerCapabilities>(
+    capability: keyof T,
+  ): boolean {
     const capabilities = this.getCapabilities();
-    return capability in capabilities && capabilities[capability] !== false;
+    return (
+      capability in capabilities &&
+      capabilities[capability as keyof ServerCapabilities] !== false
+    );
   }
 
   /**
@@ -128,10 +144,10 @@ export class LSPConfigurationManager {
    * @param overrides - The custom overrides to apply
    * @returns The merged capabilities
    */
-  private mergeCapabilities(
-    base: ServerCapabilities,
-    overrides: Partial<ServerCapabilities>,
-  ): ServerCapabilities {
+  private mergeCapabilities<T extends ServerCapabilities>(
+    base: T,
+    overrides: Partial<T>,
+  ): T {
     return { ...base, ...overrides };
   }
 }

@@ -6,10 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ServerCapabilities } from 'vscode-languageserver-protocol';
 import {
   CAPABILITIES_CONFIGURATION,
   CapabilitiesConfiguration,
+  ExtendedServerCapabilities,
 } from './ApexLanguageServerCapabilities';
 
 /**
@@ -61,7 +61,7 @@ export class ApexCapabilitiesManager {
   /**
    * Get capabilities for the current mode
    */
-  public getCapabilities(): ServerCapabilities {
+  public getCapabilities(): ExtendedServerCapabilities {
     return this.capabilities[this.currentMode];
   }
 
@@ -69,7 +69,7 @@ export class ApexCapabilitiesManager {
    * Get capabilities for a specific mode
    * @param mode - The server mode to get capabilities for
    */
-  public getCapabilitiesForMode(mode: ServerMode): ServerCapabilities {
+  public getCapabilitiesForMode(mode: ServerMode): ExtendedServerCapabilities {
     return this.capabilities[mode];
   }
 
@@ -84,7 +84,9 @@ export class ApexCapabilitiesManager {
    * Check if a specific capability is enabled for the current mode
    * @param capability - The capability to check
    */
-  public isCapabilityEnabled(capability: keyof ServerCapabilities): boolean {
+  public isCapabilityEnabled(
+    capability: keyof ExtendedServerCapabilities,
+  ): boolean {
     const currentCapabilities = this.getCapabilities();
     return (
       capability in currentCapabilities &&
@@ -100,7 +102,7 @@ export class ApexCapabilitiesManager {
    */
   public isCapabilityEnabledForMode(
     mode: ServerMode,
-    capability: keyof ServerCapabilities,
+    capability: keyof ExtendedServerCapabilities,
   ): boolean {
     const modeCapabilities = this.getCapabilitiesForMode(mode);
     return (

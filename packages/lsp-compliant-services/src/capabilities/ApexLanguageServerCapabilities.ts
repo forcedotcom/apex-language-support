@@ -13,17 +13,25 @@ import { ServerCapabilities } from 'vscode-languageserver-protocol';
  */
 export interface CapabilitiesConfiguration {
   /** Production mode capabilities - optimized for performance */
-  production: ServerCapabilities;
+  production: ExtendedServerCapabilities;
 
   /** Development mode capabilities - full feature set */
-  development: ServerCapabilities;
+  development: ExtendedServerCapabilities;
 }
+
+export interface ImplcitCapabilties {
+  publishDiagnostics: boolean;
+}
+
+export type ExtendedServerCapabilities = ServerCapabilities &
+  ImplcitCapabilties;
 
 /**
  * Production capabilities - exposes which features are available in production
  * Only includes released features for stability
  */
-export const PRODUCTION_CAPABILITIES: ServerCapabilities = {
+export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
+  publishDiagnostics: false,
   textDocumentSync: {
     openClose: true,
     change: 1,
@@ -82,8 +90,9 @@ export const PRODUCTION_CAPABILITIES: ServerCapabilities = {
  * Development capabilities - exposes which features are available in development
  * Includes both released and implemented features for testing
  */
-export const DEVELOPMENT_CAPABILITIES: ServerCapabilities = {
-  ...PRODUCTION_CAPABILITIES, // Start with production capabilities
+export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
+  ...PRODUCTION_CAPABILITIES,
+  publishDiagnostics: true,
   completionProvider: {
     resolveProvider: false,
     triggerCharacters: ['.'],
