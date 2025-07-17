@@ -351,8 +351,9 @@ describe('Apex Language Server Browser', () => {
       willSave: false,
       willSaveWaitUntil: false,
     });
-    expect(result.capabilities).toHaveProperty('completionProvider');
-    expect(result.capabilities).toHaveProperty('hoverProvider', false);
+    expect(result.capabilities).toHaveProperty('documentSymbolProvider', true);
+    expect(result.capabilities).toHaveProperty('foldingRangeProvider', true);
+    expect(result.capabilities).toHaveProperty('diagnosticProvider');
 
     // Verify logging
     expect(mockLogger.info).toHaveBeenCalledWith(

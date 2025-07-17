@@ -97,10 +97,22 @@ export const createServerOptions = (
 
 /**
  * Creates client options for the language server
+ * @param context The extension context
  * @returns Client options configuration
  */
-export const createClientOptions = (): LanguageClientOptions => {
+export const createClientOptions = (
+  context: vscode.ExtensionContext,
+): LanguageClientOptions => {
   const settings = getWorkspaceSettings();
+
+  // Map VS Code extension mode to server mode
+  const extensionMode = context.extensionMode;
+  const serverMode =
+    extensionMode === vscode.ExtensionMode.Development
+      ? 'development'
+      : extensionMode === vscode.ExtensionMode.Test
+        ? 'test'
+        : 'production';
 
   return {
     documentSelector: [{ scheme: 'file', language: 'apex' }],
@@ -114,9 +126,10 @@ export const createClientOptions = (): LanguageClientOptions => {
       error: handleClientError,
       closed: () => handleClientClosed(),
     },
-    // Include workspace settings in initialization options
+    // Include workspace settings and extension mode in initialization options
     initializationOptions: {
       enableDocumentSymbols: true,
+      extensionMode: serverMode, // Pass extension mode to server
       ...settings,
     },
     // Explicitly enable workspace configuration capabilities

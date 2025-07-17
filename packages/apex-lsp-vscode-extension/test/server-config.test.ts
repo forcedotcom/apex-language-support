@@ -118,7 +118,7 @@ describe('Server Config Module', () => {
 
   describe('createClientOptions', () => {
     it('should create client options with correct document selector', () => {
-      const clientOptions = createClientOptions();
+      const clientOptions = createClientOptions(mockContext);
 
       expect(clientOptions.documentSelector).toEqual([
         { scheme: 'file', language: 'apex' },
@@ -126,7 +126,7 @@ describe('Server Config Module', () => {
     });
 
     it('should include error and close action handlers', () => {
-      const clientOptions = createClientOptions();
+      const clientOptions = createClientOptions(mockContext);
 
       expect(clientOptions.errorHandler).toBeDefined();
       expect(typeof clientOptions.errorHandler.error).toBe('function');
@@ -145,11 +145,12 @@ describe('Server Config Module', () => {
       };
       getWorkspaceSettings.mockReturnValue(testSettings);
 
-      const clientOptions = createClientOptions();
+      const clientOptions = createClientOptions(mockContext);
 
       expect(clientOptions.initializationOptions).toEqual(
         expect.objectContaining({
           enableDocumentSymbols: true,
+          extensionMode: 'development',
           ...testSettings,
         }),
       );

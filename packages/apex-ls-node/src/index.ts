@@ -32,7 +32,6 @@ import {
   dispatchProcessOnFoldingRange,
   dispatchProcessOnDiagnostic,
   ApexStorageManager,
-  ApexSettingsManager,
   LSPConfigurationManager,
   dispatchProcessOnResolve,
 } from '@salesforce/apex-lsp-compliant-services';
@@ -84,11 +83,7 @@ export function startServer() {
   const logger = getLogger();
 
   // Initialize settings and configuration managers
-  const settingsManager = ApexSettingsManager.getInstance({}, 'node');
-  const configurationManager = new LSPConfigurationManager(settingsManager);
-
-  // Set up configuration management
-  configurationManager.setConnection(connection);
+  const configurationManager = new LSPConfigurationManager();
 
   // Server state
   let isShutdown = false;
@@ -118,50 +113,38 @@ export function startServer() {
     // Set the log level in the logging system
     setLogLevel(logLevel);
 
-    // Process initialization parameters and settings
-    configurationManager.processInitializeParams(params);
-
     // Initialize ApexLib
     const { client } = createNodeApexLibAdapter(connection, documents);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const apexLibManager = createApexLibManager('apex', 'apex', 'cls', client); // this is needed for future work
 
-    return {
-      capabilities: {
-        textDocumentSync: {
-          openClose: true,
-          change: 1, // Full text document sync
-          save: true,
-          willSave: false, // Enable willSave support
-          willSaveWaitUntil: false, // Enable willSaveWaitUntil support
-        },
-        completionProvider: {
-          resolveProvider: false,
-          triggerCharacters: ['.'],
-        },
-        hoverProvider: false,
-        documentSymbolProvider: true,
-        foldingRangeProvider: true, // Enable folding range support
-        diagnosticProvider: {
-          interFileDependencies: false,
-          workspaceDiagnostics: false,
-        },
-        workspace: {
-          workspaceFolders: {
-            supported: true,
-            changeNotifications: true,
-          },
-        },
-      },
-    };
+    // Get capabilities based on environment and mode
+    // Check for extension mode in initialization options first, then fall back to NODE_ENV
+    const extensionMode = initOptions?.extensionMode as
+      | 'production'
+      | 'development'
+      | 'test'
+      | undefined;
+    const mode =
+      extensionMode ||
+      ((process.env.NODE_ENV === 'development'
+        ? 'development'
+        : 'production') as 'production' | 'development' | 'test');
+
+    // Set the mode and get capabilities
+    configurationManager.setMode(mode);
+    const capabilities = configurationManager.getCapabilities();
+
+    logger.info(
+      `Using ${mode} mode capabilities for Node.js environment (extension mode: ${extensionMode || 'not specified'})`,
+    );
+
+    return { capabilities };
   });
 
   // Handle client connection
   connection.onInitialized(() => {
     logger.info('Language server initialized and connected to client.');
-
-    // Register for configuration changes
-    configurationManager.registerForConfigurationChanges();
 
     // Register the apexlib/resolve request handler
     connection.onRequest('apexlib/resolve', async (params) => {

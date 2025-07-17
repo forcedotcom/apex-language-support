@@ -35,6 +35,7 @@ import {
   dispatchProcessOnFoldingRange,
   dispatchProcessOnDiagnostic,
   ApexStorage,
+  ApexCapabilitiesManager,
 } from '@salesforce/apex-lsp-compliant-services';
 import {
   setLogNotificationHandler,
@@ -65,6 +66,9 @@ setLogNotificationHandler(
   BrowserLogNotificationHandler.getInstance(connection),
 );
 
+// Initialize capabilities manager
+const capabilitiesManager = ApexCapabilitiesManager.getInstance();
+
 // Server state
 let isShutdown = false;
 // Track open, change and close text document events
@@ -73,29 +77,15 @@ const documents = new TextDocuments(TextDocument);
 // Initialize server capabilities
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   logger.info('Apex Language Server initializing...');
-  // TODO: Add startup tasks here if needed
-  return {
-    capabilities: {
-      textDocumentSync: {
-        openClose: true,
-        change: 1, // Full text document sync
-        save: true,
-        willSave: false, // Enable willSave support
-        willSaveWaitUntil: false, // Enable willSaveWaitUntil support
-      },
-      completionProvider: {
-        resolveProvider: false,
-        triggerCharacters: ['.'],
-      },
-      hoverProvider: false,
-      documentSymbolProvider: true,
-      foldingRangeProvider: true, // Enable folding range support
-      diagnosticProvider: {
-        interFileDependencies: false,
-        workspaceDiagnostics: false,
-      },
-    },
-  };
+
+  // For browser server, we'll use production mode by default
+  // This can be overridden via settings or environment detection
+  const mode = 'production' as 'production' | 'development';
+  const capabilities = capabilitiesManager.getCapabilitiesForMode(mode);
+
+  logger.info(`Using ${mode} mode capabilities for browser environment`);
+
+  return { capabilities };
 });
 
 // Handle initialized notification
