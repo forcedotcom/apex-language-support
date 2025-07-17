@@ -754,4 +754,208 @@ describe('Apex Language Server', () => {
       });
     });
   });
+
+  describe('Server Mode Configuration', () => {
+    let originalEnv: NodeJS.ProcessEnv;
+
+    beforeEach(() => {
+      originalEnv = { ...process.env };
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+    });
+
+    it('should use APEX_LS_MODE environment variable when set to production', () => {
+      // Set the environment variable
+      process.env.APEX_LS_MODE = 'production';
+
+      // Reset modules and restart server to pick up new env var
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from APEX_LS_MODE environment variable: production',
+      );
+    });
+
+    it('should use APEX_LS_MODE environment variable when set to development', () => {
+      // Set the environment variable
+      process.env.APEX_LS_MODE = 'development';
+
+      // Reset modules and restart server to pick up new env var
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from APEX_LS_MODE environment variable: development',
+      );
+    });
+
+    it('should use APEX_LS_MODE environment variable when set to test', () => {
+      // Set the environment variable
+      process.env.APEX_LS_MODE = 'test';
+
+      // Reset modules and restart server to pick up new env var
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from APEX_LS_MODE environment variable: test',
+      );
+    });
+
+    it('should fall back to extension mode when APEX_LS_MODE is not set', () => {
+      // Ensure APEX_LS_MODE is not set
+      delete process.env.APEX_LS_MODE;
+
+      // Reset modules and restart server
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+        initializationOptions: {
+          extensionMode: 'development',
+        },
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from extension initialization options: development',
+      );
+    });
+
+    it('should fall back to NODE_ENV when neither APEX_LS_MODE nor extension mode is set', () => {
+      // Ensure neither environment variable is set
+      delete process.env.APEX_LS_MODE;
+      delete process.env.NODE_ENV;
+
+      // Reset modules and restart server
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert - should default to production when NODE_ENV is not set
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from NODE_ENV: production',
+      );
+    });
+
+    it('should prioritize APEX_LS_MODE over extension mode', () => {
+      // Set APEX_LS_MODE
+      process.env.APEX_LS_MODE = 'production';
+
+      // Reset modules and restart server
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+        initializationOptions: {
+          extensionMode: 'development', // This should be ignored
+        },
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert - should use APEX_LS_MODE, not extension mode
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from APEX_LS_MODE environment variable: production',
+      );
+    });
+
+    it('should ignore invalid APEX_LS_MODE values', () => {
+      // Set an invalid APEX_LS_MODE value
+      process.env.APEX_LS_MODE = 'invalid';
+
+      // Reset modules and restart server
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+        initializationOptions: {
+          extensionMode: 'development',
+        },
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert - should fall back to extension mode since APEX_LS_MODE is invalid
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from extension initialization options: development',
+      );
+    });
+  });
 });

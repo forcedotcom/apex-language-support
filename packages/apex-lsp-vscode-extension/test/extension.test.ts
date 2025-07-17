@@ -147,8 +147,14 @@ describe('Apex Language Server Extension', () => {
       // Get the server options from the LanguageClient constructor call
       const serverOptions = MockLanguageClient.mock.calls[0][2];
 
-      // Debug options should not be set
-      expect(serverOptions.debug.options).toBeUndefined();
+      // Debug options should only contain environment variables, no execArgv
+      expect(serverOptions.debug.options).toBeDefined();
+      expect(serverOptions.debug.options.env).toBeDefined();
+      expect(serverOptions.debug.options.env.NODE_OPTIONS).toBe(
+        '--enable-source-maps',
+      );
+      expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe('development');
+      expect(serverOptions.debug.options.execArgv).toBeUndefined();
     });
 
     it('should enable inspection without break when debug is set to "inspect"', async () => {
@@ -167,8 +173,12 @@ describe('Apex Language Server Extension', () => {
       // Get the server options from the LanguageClient constructor call
       const serverOptions = MockLanguageClient.mock.calls[0][2];
 
-      // Debug options should be set with inspect (no break)
+      // Debug options should be set with inspect (no break) and environment variables
       expect(serverOptions.debug.options).toEqual({
+        env: expect.objectContaining({
+          NODE_OPTIONS: '--enable-source-maps',
+          APEX_LS_MODE: 'development',
+        }),
         execArgv: ['--nolazy', '--inspect=6009'],
       });
     });
@@ -189,8 +199,12 @@ describe('Apex Language Server Extension', () => {
       // Get the server options from the LanguageClient constructor call
       const serverOptions = MockLanguageClient.mock.calls[0][2];
 
-      // Debug options should be set with inspect-brk
+      // Debug options should be set with inspect-brk and environment variables
       expect(serverOptions.debug.options).toEqual({
+        env: expect.objectContaining({
+          NODE_OPTIONS: '--enable-source-maps',
+          APEX_LS_MODE: 'development',
+        }),
         execArgv: ['--nolazy', '--inspect-brk=6009'],
       });
     });
@@ -211,8 +225,12 @@ describe('Apex Language Server Extension', () => {
       // Get the server options from the LanguageClient constructor call
       const serverOptions = MockLanguageClient.mock.calls[0][2];
 
-      // Debug options should be set with custom port
+      // Debug options should be set with custom port and environment variables
       expect(serverOptions.debug.options).toEqual({
+        env: expect.objectContaining({
+          NODE_OPTIONS: '--enable-source-maps',
+          APEX_LS_MODE: 'development',
+        }),
         execArgv: ['--nolazy', '--inspect=9229'],
       });
     });
@@ -233,8 +251,12 @@ describe('Apex Language Server Extension', () => {
       // Get the server options from the LanguageClient constructor call
       const serverOptions = MockLanguageClient.mock.calls[0][2];
 
-      // Debug options should be set with the configured port (0)
+      // Debug options should be set with the configured port (0) and environment variables
       expect(serverOptions.debug.options).toEqual({
+        env: expect.objectContaining({
+          NODE_OPTIONS: '--enable-source-maps',
+          APEX_LS_MODE: 'development',
+        }),
         execArgv: ['--nolazy', '--inspect=0'],
       });
     });

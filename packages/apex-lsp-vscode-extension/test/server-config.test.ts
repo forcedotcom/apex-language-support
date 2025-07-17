@@ -86,7 +86,7 @@ describe('Server Config Module', () => {
 
   describe('createServerOptions', () => {
     it('should create server options with correct module path', () => {
-      const serverOptions = createServerOptions(mockContext);
+      const serverOptions = createServerOptions(mockContext) as any;
 
       expect(mockContext.asAbsolutePath).toHaveBeenCalledWith('out/server.js');
       expect(serverOptions.run.module).toBe('/mock/path/out/server.js');
@@ -96,9 +96,12 @@ describe('Server Config Module', () => {
     });
 
     it('should create server options for production mode', () => {
-      mockContext.extensionMode = vscode.ExtensionMode.Production;
+      const productionContext = {
+        ...mockContext,
+        extensionMode: vscode.ExtensionMode.Production,
+      } as vscode.ExtensionContext;
 
-      const serverOptions = createServerOptions(mockContext);
+      const serverOptions = createServerOptions(productionContext) as any;
 
       expect(mockContext.asAbsolutePath).toHaveBeenCalledWith('server.js');
       expect(serverOptions.run.module).toBe('/mock/path/server.js');
@@ -109,10 +112,61 @@ describe('Server Config Module', () => {
       const { getDebugConfig } = require('../src/configuration');
       getDebugConfig.mockReturnValue({ mode: 'inspect', port: 6009 });
 
-      const serverOptions = createServerOptions(mockContext);
+      const serverOptions = createServerOptions(mockContext) as any;
 
       expect(serverOptions.debug.options).toBeDefined();
       expect(serverOptions.debug.options.execArgv).toContain('--inspect=6009');
+    });
+
+    it('should set correct APEX_LS_MODE for test mode', () => {
+      const testContext = {
+        ...mockContext,
+        extensionMode: vscode.ExtensionMode.Test,
+      } as vscode.ExtensionContext;
+
+      const serverOptions = createServerOptions(testContext) as any;
+
+      expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('test');
+    });
+
+    it('should override extension mode with APEX_LS_MODE environment variable', () => {
+      // Save original environment
+      const originalEnv = process.env.APEX_LS_MODE;
+
+      try {
+        // Set environment variable to override extension mode
+        process.env.APEX_LS_MODE = 'production';
+
+        const serverOptions = createServerOptions(mockContext) as any;
+
+        // Should use environment variable instead of extension mode
+        expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('production');
+        expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe('production');
+      } finally {
+        // Restore original environment
+        process.env.APEX_LS_MODE = originalEnv;
+      }
+    });
+
+    it('should use extension mode when APEX_LS_MODE is not set', () => {
+      // Save original environment
+      const originalEnv = process.env.APEX_LS_MODE;
+
+      try {
+        // Clear environment variable
+        delete process.env.APEX_LS_MODE;
+
+        const serverOptions = createServerOptions(mockContext) as any;
+
+        // Should use extension mode (development)
+        expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('development');
+        expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe(
+          'development',
+        );
+      } finally {
+        // Restore original environment
+        process.env.APEX_LS_MODE = originalEnv;
+      }
     });
   });
 
@@ -129,8 +183,8 @@ describe('Server Config Module', () => {
       const clientOptions = createClientOptions(mockContext);
 
       expect(clientOptions.errorHandler).toBeDefined();
-      expect(typeof clientOptions.errorHandler.error).toBe('function');
-      expect(typeof clientOptions.errorHandler.closed).toBe('function');
+      expect(typeof clientOptions.errorHandler!.error).toBe('function');
+      expect(typeof clientOptions.errorHandler!.closed).toBe('function');
     });
 
     it('should include workspace settings in initialization options', () => {
@@ -152,6 +206,22 @@ describe('Server Config Module', () => {
           enableDocumentSymbols: true,
           extensionMode: 'development',
           ...testSettings,
+        }),
+      );
+    });
+
+    it('should set correct extension mode for test mode', () => {
+      const testContext = {
+        ...mockContext,
+        extensionMode: vscode.ExtensionMode.Test,
+      } as vscode.ExtensionContext;
+
+      const clientOptions = createClientOptions(testContext);
+
+      expect(clientOptions.initializationOptions).toEqual(
+        expect.objectContaining({
+          enableDocumentSymbols: true,
+          extensionMode: 'test',
         }),
       );
     });

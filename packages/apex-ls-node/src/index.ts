@@ -119,25 +119,46 @@ export function startServer() {
     const apexLibManager = createApexLibManager('apex', 'apex', 'cls', client); // this is needed for future work
 
     // Get capabilities based on environment and mode
-    // Check for extension mode in initialization options first, then fall back to NODE_ENV
+    // Priority order: APEX_LS_MODE env var > extension mode in init options > NODE_ENV
     const extensionMode = initOptions?.extensionMode as
       | 'production'
       | 'development'
       | 'test'
       | undefined;
-    const mode =
-      extensionMode ||
-      ((process.env.NODE_ENV === 'development'
-        ? 'development'
-        : 'production') as 'production' | 'development' | 'test');
+
+    let mode: 'production' | 'development' | 'test';
+
+    // First check for APEX_LS_MODE environment variable
+    if (
+      process.env.APEX_LS_MODE === 'production' ||
+      process.env.APEX_LS_MODE === 'development' ||
+      process.env.APEX_LS_MODE === 'test'
+    ) {
+      mode = process.env.APEX_LS_MODE;
+      logger.info(
+        `Using server mode from APEX_LS_MODE environment variable: ${mode}`,
+      );
+    }
+    // Then check for extension mode in initialization options
+    else if (extensionMode) {
+      mode = extensionMode;
+      logger.info(
+        `Using server mode from extension initialization options: ${mode}`,
+      );
+    }
+    // Finally fall back to NODE_ENV
+    else {
+      mode = (
+        process.env.NODE_ENV === 'development' ? 'development' : 'production'
+      ) as 'production' | 'development' | 'test';
+      logger.info(`Using server mode from NODE_ENV: ${mode}`);
+    }
 
     // Set the mode and get capabilities
     configurationManager.setMode(mode);
     const capabilities = configurationManager.getCapabilities();
 
-    logger.info(
-      `Using ${mode} mode capabilities for Node.js environment (extension mode: ${extensionMode || 'not specified'})`,
-    );
+    logger.info(`Using ${mode} mode capabilities for Node.js environment`);
 
     return { capabilities };
   });

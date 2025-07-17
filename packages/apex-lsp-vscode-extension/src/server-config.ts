@@ -80,17 +80,55 @@ export const createServerOptions = (
   // Get debug options
   const debugOptions = getDebugOptions();
 
+  // Determine server mode with environment variable override
+  let serverMode: 'production' | 'development' | 'test';
+  if (
+    process.env.APEX_LS_MODE === 'production' ||
+    process.env.APEX_LS_MODE === 'development' ||
+    process.env.APEX_LS_MODE === 'test'
+  ) {
+    serverMode = process.env.APEX_LS_MODE;
+    logToOutputChannel(
+      `Using server mode from environment variable: ${serverMode}`,
+      'info',
+    );
+  } else {
+    // Default to extension mode
+    serverMode =
+      context.extensionMode === vscode.ExtensionMode.Development
+        ? 'development'
+        : context.extensionMode === vscode.ExtensionMode.Test
+          ? 'test'
+          : 'production';
+    logToOutputChannel(
+      `Using server mode from extension mode: ${serverMode}`,
+      'debug',
+    );
+  }
+
   return {
     run: {
       module: serverModule,
       transport: TransportKind.ipc,
+      options: {
+        env: {
+          NODE_OPTIONS: '--enable-source-maps',
+          APEX_LS_MODE: serverMode,
+        },
+      },
     },
     debug: {
       module: serverModule,
       transport: TransportKind.ipc,
-      ...(debugOptions && {
-        options: { execArgv: debugOptions },
-      }),
+      options: {
+        env: {
+          NODE_OPTIONS: '--enable-source-maps',
+          APEX_LS_MODE: serverMode,
+        },
+        ...(debugOptions && {
+          execArgv: debugOptions,
+        }),
+      },
     },
   };
 };
