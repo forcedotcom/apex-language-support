@@ -41,7 +41,10 @@ public class TestClass {
         code,
         'TestClass.cls',
         symbolCollector,
-        { includeComments: true, includeSingleLineComments: true },
+        {
+          includeComments: true,
+          includeSingleLineComments: true,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
@@ -71,7 +74,9 @@ public class TestClass {
         code,
         'TestClass.cls',
         symbolCollector,
-        { includeComments: true },
+        {
+          includeComments: true,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
@@ -102,7 +107,10 @@ public class TestClass {
         code,
         'TestClass.cls',
         symbolCollector,
-        { includeComments: true, includeSingleLineComments: true },
+        {
+          includeComments: true,
+          includeSingleLineComments: true,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
@@ -140,7 +148,9 @@ public class TestClass {
         code,
         'TestClass.cls',
         symbolCollector,
-        { includeComments: true },
+        {
+          includeComments: true,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       const docComments = result.comments.filter((c) => c.isDocumentation);
@@ -162,7 +172,10 @@ public class TestClass {
         code,
         'TestClass.cls',
         symbolCollector,
-        { includeComments: true, includeSingleLineComments: true },
+        {
+          includeComments: true,
+          includeSingleLineComments: true,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       const docComments = result.comments.filter((c) => c.isDocumentation);
@@ -183,7 +196,10 @@ public class TestClass {
         code,
         'TestClass.cls',
         symbolCollector,
-        { includeComments: true, includeSingleLineComments: true },
+        {
+          includeComments: true,
+          includeSingleLineComments: true,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments.length).toBeGreaterThanOrEqual(2);
@@ -216,7 +232,9 @@ public class TestClass {
         code,
         'TestClass.cls',
         symbolCollector,
-        { includeComments: true },
+        {
+          includeComments: true,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       const blockComment = result.comments.find(
@@ -285,7 +303,9 @@ public class TestClass {
         testCode,
         'TestClass.cls',
         symbolCollector,
-        { includeSingleLineComments: true },
+        {
+          includeSingleLineComments: true,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
@@ -308,7 +328,9 @@ public class TestClass {
         testCode,
         'TestClass.cls',
         symbolCollector,
-        { includeSingleLineComments: false },
+        {
+          includeSingleLineComments: false,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
@@ -341,7 +363,9 @@ public class TestClass {
         docCode,
         'TestClass.cls',
         symbolCollector,
-        { includeSingleLineComments: true },
+        {
+          includeSingleLineComments: true,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
@@ -401,7 +425,10 @@ public class TestClass {
         invalidCode,
         'TestClass.cls',
         symbolCollector,
-        { includeComments: true, includeSingleLineComments: true },
+        {
+          includeComments: true,
+          includeSingleLineComments: true,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       // Should still collect comments even if there are syntax errors
@@ -466,7 +493,9 @@ public class TestClass {
         code,
         'TestClass.cls',
         symbolCollector,
-        { includeComments: true },
+        {
+          includeComments: true,
+        },
       ) as CompilationResultWithComments<SymbolTable>;
 
       // Should have comments property

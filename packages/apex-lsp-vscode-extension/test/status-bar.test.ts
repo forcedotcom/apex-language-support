@@ -43,16 +43,19 @@ describe('Apex Server Status LanguageStatusItem', () => {
   it('should create the LanguageStatusItem and add to subscriptions', () => {
     createApexServerStatusItem(mockContext);
     expect(vscode.languages.createLanguageStatusItem).toHaveBeenCalledWith(
-      'apex.serverStatus',
-      { language: 'apex', scheme: 'file' },
+      'apex-ls-ts.serverStatus',
+      {
+        language: 'apex',
+        scheme: 'file',
+      },
     );
     expect(mockContext.subscriptions).toContain(mockStatusItem);
-    expect(mockStatusItem.name).toBe('Apex Language Server Status');
+    expect(mockStatusItem.name).toBe('Apex-LS-TS Language Server Status');
     expect(mockStatusItem.text).toContain('Starting');
     expect(mockStatusItem.busy).toBe(true);
     expect(mockStatusItem.command).toEqual({
-      title: 'Restart Apex Language Server',
-      command: 'apex.restart.server',
+      title: 'Restart Apex-LS-TS Language Server',
+      command: 'apex-ls-ts.restart.server',
     });
   });
 

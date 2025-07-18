@@ -207,11 +207,51 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
     }),
   },
   LSPConfigurationManager: jest.fn().mockImplementation(() => ({
-    setConnection: jest.fn(),
-    processInitializeParams: jest.fn(),
-    handleConfigurationChange: jest.fn(),
-    requestConfiguration: jest.fn(),
-    registerForConfigurationChanges: jest.fn(),
+    setMode: jest.fn(),
+    getCapabilities: jest.fn().mockReturnValue({
+      publishDiagnostics: true,
+      textDocumentSync: {
+        openClose: true,
+        change: 1,
+        save: true,
+        willSave: false,
+        willSaveWaitUntil: false,
+      },
+      documentSymbolProvider: true,
+      foldingRangeProvider: true,
+      diagnosticProvider: {
+        interFileDependencies: false,
+        workspaceDiagnostics: false,
+      },
+      workspace: {
+        workspaceFolders: {
+          supported: true,
+          changeNotifications: true,
+        },
+      },
+    }),
+    getExtendedServerCapabilities: jest.fn().mockReturnValue({
+      publishDiagnostics: true,
+      textDocumentSync: {
+        openClose: true,
+        change: 1,
+        save: true,
+        willSave: false,
+        willSaveWaitUntil: false,
+      },
+      documentSymbolProvider: true,
+      foldingRangeProvider: true,
+      diagnosticProvider: {
+        interFileDependencies: false,
+        workspaceDiagnostics: false,
+      },
+      workspace: {
+        workspaceFolders: {
+          supported: true,
+          changeNotifications: true,
+        },
+      },
+    }),
   })),
   createApexLibManager: jest.fn().mockReturnValue({
     initialize: jest.fn(),
@@ -333,6 +373,7 @@ describe('Apex Language Server', () => {
     );
     expect(result).toEqual({
       capabilities: {
+        publishDiagnostics: true,
         textDocumentSync: {
           openClose: true,
           change: 1,
@@ -340,17 +381,12 @@ describe('Apex Language Server', () => {
           willSave: false,
           willSaveWaitUntil: false,
         },
-        completionProvider: {
-          resolveProvider: false,
-          triggerCharacters: ['.'],
-        },
-        hoverProvider: false,
+        documentSymbolProvider: true,
+        foldingRangeProvider: true,
         diagnosticProvider: {
           interFileDependencies: false,
           workspaceDiagnostics: false,
         },
-        documentSymbolProvider: true,
-        foldingRangeProvider: true,
         workspace: {
           workspaceFolders: {
             supported: true,
@@ -740,6 +776,184 @@ describe('Apex Language Server', () => {
         uri: 'file:///test.cls',
         diagnostics: [],
       });
+    });
+  });
+
+  describe('Server Mode Configuration', () => {
+    let originalEnv: NodeJS.ProcessEnv;
+
+    beforeEach(() => {
+      originalEnv = { ...process.env };
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+    });
+
+    it('should use APEX_LS_MODE environment variable when set to production', () => {
+      // Set the environment variable
+      process.env.APEX_LS_MODE = 'production';
+
+      // Reset modules and restart server to pick up new env var
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from APEX_LS_MODE environment variable: production',
+      );
+    });
+
+    it('should use APEX_LS_MODE environment variable when set to development', () => {
+      // Set the environment variable
+      process.env.APEX_LS_MODE = 'development';
+
+      // Reset modules and restart server to pick up new env var
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from APEX_LS_MODE environment variable: development',
+      );
+    });
+
+    it('should fall back to extension mode when APEX_LS_MODE is not set', () => {
+      // Ensure APEX_LS_MODE is not set
+      delete process.env.APEX_LS_MODE;
+
+      // Reset modules and restart server
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+        initializationOptions: {
+          extensionMode: 'development',
+        },
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from extension initialization options: development',
+      );
+    });
+
+    it('should fall back to NODE_ENV when neither APEX_LS_MODE nor extension mode is set', () => {
+      // Ensure neither environment variable is set
+      delete process.env.APEX_LS_MODE;
+      delete process.env.NODE_ENV;
+
+      // Reset modules and restart server
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert - should default to production when NODE_ENV is not set
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from NODE_ENV: production',
+      );
+    });
+
+    it('should prioritize APEX_LS_MODE over extension mode', () => {
+      // Set APEX_LS_MODE
+      process.env.APEX_LS_MODE = 'production';
+
+      // Reset modules and restart server
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+        initializationOptions: {
+          extensionMode: 'development', // This should be ignored
+        },
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert - should use APEX_LS_MODE, not extension mode
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from APEX_LS_MODE environment variable: production',
+      );
+    });
+
+    it('should ignore invalid APEX_LS_MODE values', () => {
+      // Set an invalid APEX_LS_MODE value
+      process.env.APEX_LS_MODE = 'invalid';
+
+      // Reset modules and restart server
+      jest.resetModules();
+      const module = require('../src/index');
+      module.startServer();
+
+      // Get the initialize handler
+      const initializeHandler = mockConnection.onInitialize.mock.calls[0][0];
+      const params: InitializeParams = {
+        processId: 1,
+        rootUri: null,
+        capabilities: {},
+        initializationOptions: {
+          extensionMode: 'development',
+        },
+      };
+
+      // Act
+      initializeHandler(params);
+
+      // Assert - should fall back to extension mode since APEX_LS_MODE is invalid
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from extension initialization options: development',
+      );
     });
   });
 });

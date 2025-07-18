@@ -9,7 +9,10 @@
         "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension"
       ],
       "outFiles": [
-        "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js"
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js",
+        "${workspaceFolder}/packages/apex-ls-node/out/**/*.js",
+        "${workspaceFolder}/packages/apex-parser-ast/out/**/*.js",
+        "${workspaceFolder}/packages/lsp-compliant-services/out/**/*.js"
       ],
       "sourceMaps": true,
       "smartStep": true,
@@ -30,8 +33,43 @@
         "../../apex-lsp-logging/src/*": "${workspaceFolder}/packages/apex-lsp-logging/src/*",
         "../../apex-parser-ast/src/*": "${workspaceFolder}/packages/apex-parser-ast/src/*",
         "../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
-        "../../apex-ls-node/src/*": "${workspaceFolder}/packages/apex-ls-node/src/*",
-        "../../src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*"
+        "../../apex-ls-node/src/*": "${workspaceFolder}/packages/apex-ls-node/src/*"
+      }
+    },
+    {
+      "name": "Run Extension (Production Mode)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js",
+        "${workspaceFolder}/packages/apex-ls-node/out/**/*.js",
+        "${workspaceFolder}/packages/apex-parser-ast/out/**/*.js",
+        "${workspaceFolder}/packages/lsp-compliant-services/out/**/*.js"
+      ],
+      "sourceMaps": true,
+      "smartStep": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/packages/apex-lsp-vscode-extension/**",
+        "${workspaceFolder}/packages/apex-lsp-logging/**",
+        "${workspaceFolder}/packages/apex-parser-ast/**",
+        "${workspaceFolder}/packages/lsp-compliant-services/**",
+        "${workspaceFolder}/packages/apex-ls-node/**",
+        "!**/node_modules/**"
+      ],
+      "preLaunchTask": "npm: compile",
+      "env": {
+        "NODE_OPTIONS": "--enable-source-maps",
+        "APEX_LS_MODE": "production"
+      },
+      "sourceMapPathOverrides": {
+        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*",
+        "../../apex-lsp-logging/src/*": "${workspaceFolder}/packages/apex-lsp-logging/src/*",
+        "../../apex-parser-ast/src/*": "${workspaceFolder}/packages/apex-parser-ast/src/*",
+        "../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
+        "../../apex-ls-node/src/*": "${workspaceFolder}/packages/apex-ls-node/src/*"
       }
     },
     {
@@ -40,7 +78,6 @@
       "request": "attach",
       "port": 6009,
       "restart": true,
-      "protocol": "inspector",
       "sourceMaps": true,
       "outFiles": [
         "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js",

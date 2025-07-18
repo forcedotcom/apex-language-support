@@ -23,15 +23,15 @@ export const EXTENSION_CONSTANTS = {
   /** Server output channel name */
   SERVER_OUTPUT_CHANNEL_NAME: 'Apex Language Server (Typescript)',
   /** Restart command ID */
-  RESTART_COMMAND_ID: 'apex.restart.server',
+  RESTART_COMMAND_ID: 'apex-ls-ts.restart.server',
   /** Configuration section name */
   CONFIG_SECTION: 'apex-ls-ts',
   /** Log level command IDs */
   LOG_LEVEL_COMMANDS: {
-    ERROR: 'apex.setLogLevel.error',
-    WARNING: 'apex.setLogLevel.warning',
-    INFO: 'apex.setLogLevel.info',
-    DEBUG: 'apex.setLogLevel.debug',
+    ERROR: 'apex-ls-ts.setLogLevel.error',
+    WARNING: 'apex-ls-ts.setLogLevel.warning',
+    INFO: 'apex-ls-ts.setLogLevel.info',
+    DEBUG: 'apex-ls-ts.setLogLevel.debug',
   },
 } as const;
 

@@ -81,7 +81,6 @@ graph TD
 The repository provides two parallel implementations of the language server:
 
 1. **Node.js implementation** (`apex-ls-node`):
-
    - Runs in Node.js environment
    - Uses file system for storage
    - Designed for desktop IDE integration (VS Code)
@@ -92,6 +91,29 @@ The repository provides two parallel implementations of the language server:
    - Designed for web-based editors
 
 Both implementations maintain feature parity by implementing the same set of LSP handlers and capabilities, allowing for a consistent experience across different environments.
+
+## Server Mode Configuration
+
+The Apex Language Server supports different operational modes optimized for different environments:
+
+### Server Modes
+
+- **Production Mode**: Optimized for performance and stability in production environments
+- **Development Mode**: Full feature set with enhanced debugging and development workflows
+- **Test Mode**: Testing-specific features and configurations
+
+### Mode Configuration
+
+The server mode can be configured through multiple methods:
+
+1. **Environment Variable Override**: Set `APEX_LS_MODE=production` or `APEX_LS_MODE=development`
+2. **Extension Mode**: Automatically determined based on VS Code extension mode
+3. **NODE_ENV**: Falls back to `NODE_ENV` environment variable
+
+For detailed information about server mode configuration and capabilities, see:
+
+- [Server Mode Override Documentation](packages/apex-lsp-vscode-extension/docs/server-mode-override.md)
+- [Capabilities Documentation](packages/lsp-compliant-services/docs/CAPABILITIES.md)
 
 ## Client Libraries
 
