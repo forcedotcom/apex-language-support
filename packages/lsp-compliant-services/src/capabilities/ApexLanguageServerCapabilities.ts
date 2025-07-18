@@ -41,7 +41,7 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   },
   // Released features only
   documentSymbolProvider: true,
-  foldingRangeProvider: true,
+  foldingRangeProvider: false,
   diagnosticProvider: {
     identifier: 'apex-ls-ts',
     interFileDependencies: false,
@@ -97,6 +97,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
     resolveProvider: false,
     triggerCharacters: ['.'],
   },
+  foldingRangeProvider: true,
   diagnosticProvider: {
     identifier: 'apex-ls-ts',
     interFileDependencies: true,
