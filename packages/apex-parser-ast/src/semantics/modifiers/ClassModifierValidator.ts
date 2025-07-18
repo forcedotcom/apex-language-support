@@ -8,7 +8,12 @@
 
 import { ParserRuleContext } from 'antlr4ts';
 
-import { SymbolModifiers, SymbolVisibility, TypeSymbol, Annotation } from '../../types/symbol';
+import {
+  SymbolModifiers,
+  SymbolVisibility,
+  TypeSymbol,
+  Annotation,
+} from '../../types/symbol';
 import { ErrorReporter } from '../../utils/ErrorReporter';
 
 /**
@@ -23,7 +28,9 @@ export class ClassModifierValidator {
    * @returns True if @isTest annotation is present
    */
   private static hasIsTestAnnotation(annotations: Annotation[]): boolean {
-    return annotations.some((annotation) => annotation.name.toLowerCase() === 'istest');
+    return annotations.some(
+      (annotation) => annotation.name.toLowerCase() === 'istest',
+    );
   }
 
   /**
@@ -90,12 +97,15 @@ export class ClassModifierValidator {
       if (currentTypeSymbol) {
         // Check if inner class visibility is wider than outer class
         if (
-          (currentTypeSymbol.modifiers.visibility === SymbolVisibility.Private &&
+          (currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Private &&
             modifiers.visibility !== SymbolVisibility.Private) ||
-          (currentTypeSymbol.modifiers.visibility === SymbolVisibility.Default &&
+          (currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Default &&
             modifiers.visibility !== SymbolVisibility.Default &&
             modifiers.visibility !== SymbolVisibility.Private) ||
-          (currentTypeSymbol.modifiers.visibility === SymbolVisibility.Protected &&
+          (currentTypeSymbol.modifiers.visibility ===
+            SymbolVisibility.Protected &&
             modifiers.visibility === SymbolVisibility.Public) ||
           (currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global &&
             modifiers.visibility === SymbolVisibility.Global)
@@ -135,7 +145,10 @@ export class ClassModifierValidator {
     }
 
     // Interfaces can only have public or global visibility
-    if (modifiers.visibility !== SymbolVisibility.Public && modifiers.visibility !== SymbolVisibility.Global) {
+    if (
+      modifiers.visibility !== SymbolVisibility.Public &&
+      modifiers.visibility !== SymbolVisibility.Global
+    ) {
       errorReporter.addError(
         `Interface '${interfaceName}' must be declared as 'public' or 'global'. ` +
           'Other visibility modifiers are not allowed for interfaces',
@@ -147,12 +160,18 @@ export class ClassModifierValidator {
 
     // Check for invalid modifiers on interfaces
     if (modifiers.isFinal) {
-      errorReporter.addError(`Interface '${interfaceName}' cannot be declared as 'final'`, ctx);
+      errorReporter.addError(
+        `Interface '${interfaceName}' cannot be declared as 'final'`,
+        ctx,
+      );
       modifiers.isFinal = false;
     }
 
     if (modifiers.isVirtual) {
-      errorReporter.addError(`Interface '${interfaceName}' cannot be declared as 'virtual'`, ctx);
+      errorReporter.addError(
+        `Interface '${interfaceName}' cannot be declared as 'virtual'`,
+        ctx,
+      );
       modifiers.isVirtual = false;
     }
 

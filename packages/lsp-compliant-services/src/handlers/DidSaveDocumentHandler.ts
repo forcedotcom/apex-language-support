@@ -25,13 +25,21 @@ export class DidSaveDocumentHandler {
    * Handle document save event
    * @param event The document save event
    */
-  public async handleDocumentSave(event: TextDocumentChangeEvent<TextDocument>): Promise<void> {
+  public async handleDocumentSave(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<void> {
     this.logger.debug(() => `Processing document save: ${event.document.uri}`);
 
     try {
-      await dispatch(this.documentSaveProcessor.processDocumentSave(event), 'Error processing document save');
+      await dispatch(
+        this.documentSaveProcessor.processDocumentSave(event),
+        'Error processing document save',
+      );
     } catch (error) {
-      this.logger.error(() => `Error processing document save for ${event.document.uri}: ${error}`);
+      this.logger.error(
+        () =>
+          `Error processing document save for ${event.document.uri}: ${error}`,
+      );
       throw error;
     }
   }

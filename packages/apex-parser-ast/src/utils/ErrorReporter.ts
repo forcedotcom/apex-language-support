@@ -17,7 +17,9 @@ export interface ErrorReporter {
    */
   addError(
     message: string,
-    context: ParserRuleContext | { line: number; column: number; endLine?: number; endColumn?: number },
+    context:
+      | ParserRuleContext
+      | { line: number; column: number; endLine?: number; endColumn?: number },
   ): void;
 
   /**

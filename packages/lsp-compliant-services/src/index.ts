@@ -52,7 +52,10 @@ export * from './services/DiagnosticProcessingService';
 // Export factories
 export * from './factories/HandlerFactory';
 
-export type { ApexReference, ApexStorageInterface } from './storage/ApexStorageInterface';
+export type {
+  ApexReference,
+  ApexStorageInterface,
+} from './storage/ApexStorageInterface';
 
 // Export settings management
 export * from './settings/ApexLanguageServerSettings';
@@ -86,7 +89,9 @@ export const dispatchProcessOnChangeDocument = async (
  * @param event The document close event
  * @returns Promise resolving to void
  */
-export const dispatchProcessOnCloseDocument = async (event: TextDocumentChangeEvent<TextDocument>): Promise<void> => {
+export const dispatchProcessOnCloseDocument = async (
+  event: TextDocumentChangeEvent<TextDocument>,
+): Promise<void> => {
   const handler = HandlerFactory.createDidCloseDocumentHandler();
   return await handler.handleDocumentClose(event);
 };
@@ -96,7 +101,9 @@ export const dispatchProcessOnCloseDocument = async (event: TextDocumentChangeEv
  * @param event The document save event
  * @returns Promise resolving to void
  */
-export const dispatchProcessOnSaveDocument = async (event: TextDocumentChangeEvent<TextDocument>): Promise<void> => {
+export const dispatchProcessOnSaveDocument = async (
+  event: TextDocumentChangeEvent<TextDocument>,
+): Promise<void> => {
   const handler = HandlerFactory.createDidSaveDocumentHandler();
   return await handler.handleDocumentSave(event);
 };
@@ -114,4 +121,8 @@ export const dispatchProcessOnDocumentSymbol = async (
 };
 
 // Re-export the existing dispatch functions
-export { dispatchProcessOnDiagnostic, dispatchProcessOnFoldingRange, dispatchProcessOnResolve };
+export {
+  dispatchProcessOnDiagnostic,
+  dispatchProcessOnFoldingRange,
+  dispatchProcessOnResolve,
+};

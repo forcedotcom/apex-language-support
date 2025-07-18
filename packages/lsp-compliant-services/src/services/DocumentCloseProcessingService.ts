@@ -18,7 +18,9 @@ export interface IDocumentCloseProcessor {
    * Process a document close event
    * @param event The document close event
    */
-  processDocumentClose(event: TextDocumentChangeEvent<TextDocument>): Promise<void>;
+  processDocumentClose(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<void>;
 }
 
 /**
@@ -31,8 +33,13 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
    * Process a document close event
    * @param event The document close event
    */
-  public async processDocumentClose(event: TextDocumentChangeEvent<TextDocument>): Promise<void> {
-    this.logger.debug(() => `Common Apex Language Server close document handler invoked with: ${event}`);
+  public async processDocumentClose(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<void> {
+    this.logger.debug(
+      () =>
+        `Common Apex Language Server close document handler invoked with: ${event}`,
+    );
 
     // Note: We intentionally do NOT remove documents from storage when they're closed
     // in the UI, as the storage system is designed to persist for the entire session

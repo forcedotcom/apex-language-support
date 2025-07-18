@@ -7,7 +7,10 @@
  */
 
 import { CompilerService } from '../../src/parser/compilerService';
-import { ApexFoldingRangeListener, FoldingRange } from '../../src/parser/listeners/ApexFoldingRangeListener';
+import {
+  ApexFoldingRangeListener,
+  FoldingRange,
+} from '../../src/parser/listeners/ApexFoldingRangeListener';
 import { TestLogger } from '../utils/testLogger';
 
 describe('CompilerService Folding Range Integration', () => {
@@ -54,7 +57,9 @@ describe('CompilerService Folding Range Integration', () => {
       expect(classRange?.endLine).toBe(13);
 
       // Find method ranges (exclude class range starting at line 2)
-      const methodRanges = ranges.filter((r) => r.kind === 'region' && r.startLine >= 3);
+      const methodRanges = ranges.filter(
+        (r) => r.kind === 'region' && r.startLine >= 3,
+      );
       expect(methodRanges.length).toBeGreaterThanOrEqual(2);
 
       // Find ranges by start line instead of relying on order

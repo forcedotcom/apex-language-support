@@ -73,7 +73,10 @@ export function createPrimitiveType(name: string): TypeInfo {
 /**
  * Helper function to create a TypeInfo object for a collection type
  */
-export function createCollectionType(name: string, typeParameters: TypeInfo[] = []): TypeInfo {
+export function createCollectionType(
+  name: string,
+  typeParameters: TypeInfo[] = [],
+): TypeInfo {
   return {
     name,
     isArray: false,
@@ -103,7 +106,10 @@ export function createArrayType(elementType: TypeInfo): TypeInfo {
 /**
  * Helper function to create a TypeInfo object for a Map type
  */
-export function createMapType(keyType: TypeInfo, valueType: TypeInfo): TypeInfo {
+export function createMapType(
+  keyType: TypeInfo,
+  valueType: TypeInfo,
+): TypeInfo {
   return {
     name: 'Map',
     isArray: false,
@@ -119,7 +125,10 @@ export function createMapType(keyType: TypeInfo, valueType: TypeInfo): TypeInfo 
 /**
  * Helper function to build type string with generics
  */
-function buildTypeString(baseName: string, typeParameters: TypeInfo[] = []): string {
+function buildTypeString(
+  baseName: string,
+  typeParameters: TypeInfo[] = [],
+): string {
   if (typeParameters.length === 0) {
     return baseName;
   }

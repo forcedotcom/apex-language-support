@@ -28,12 +28,25 @@ export class FieldModifierValidator {
     const typeKind = currentTypeSymbol.kind;
 
     // Check if field is in interface
-    if (!BaseModifierValidator.validateNotInInterface(typeKind, ctx, errorReporter, 'Fields')) {
+    if (
+      !BaseModifierValidator.validateNotInInterface(
+        typeKind,
+        ctx,
+        errorReporter,
+        'Fields',
+      )
+    ) {
       return;
     }
 
     // Validate common modifiers
-    BaseModifierValidator.validateNotAbstract(typeKind, modifiers, ctx, errorReporter, 'Field');
+    BaseModifierValidator.validateNotAbstract(
+      typeKind,
+      modifiers,
+      ctx,
+      errorReporter,
+      'Field',
+    );
     BaseModifierValidator.validateVisibilityNotWiderThanClass(
       modifiers,
       currentTypeSymbol,
@@ -41,8 +54,19 @@ export class FieldModifierValidator {
       errorReporter,
       'Field',
     );
-    BaseModifierValidator.validateWebServiceModifier(modifiers, currentTypeSymbol, ctx, errorReporter, 'Field');
-    BaseModifierValidator.validateNotOverride(modifiers, ctx, errorReporter, 'Field');
+    BaseModifierValidator.validateWebServiceModifier(
+      modifiers,
+      currentTypeSymbol,
+      ctx,
+      errorReporter,
+      'Field',
+    );
+    BaseModifierValidator.validateNotOverride(
+      modifiers,
+      ctx,
+      errorReporter,
+      'Field',
+    );
 
     // Field-specific validations
     // Virtual fields are not allowed

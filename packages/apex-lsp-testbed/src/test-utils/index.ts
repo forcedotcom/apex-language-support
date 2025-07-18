@@ -25,7 +25,10 @@ export interface LspTestStepBase {
  * @param rootUri The root URI of the workspace
  * @param capabilities Client capabilities to include
  */
-export function createInitializeParams(rootUri: string, capabilities?: any): any {
+export function createInitializeParams(
+  rootUri: string,
+  capabilities?: any,
+): any {
   return {
     processId: null,
     clientInfo: {
@@ -68,7 +71,11 @@ export function createInitializeParams(rootUri: string, capabilities?: any): any
  * @param text The document text
  * @param languageId The document language ID
  */
-export function createDidOpenParams(uri: string, text: string, languageId = 'apex'): any {
+export function createDidOpenParams(
+  uri: string,
+  text: string,
+  languageId = 'apex',
+): any {
   return {
     textDocument: {
       uri,
@@ -85,7 +92,11 @@ export function createDidOpenParams(uri: string, text: string, languageId = 'ape
  * @param line The line number (0-based)
  * @param character The character position (0-based)
  */
-export function createPositionParams(uri: string, line: number, character: number): any {
+export function createPositionParams(
+  uri: string,
+  line: number,
+  character: number,
+): any {
   return {
     textDocument: {
       uri,

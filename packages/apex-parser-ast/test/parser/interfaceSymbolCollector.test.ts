@@ -6,10 +6,22 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CompilerService, CompilationResult } from '../../src/parser/compilerService';
+import {
+  CompilerService,
+  CompilationResult,
+} from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { SymbolTable, SymbolKind, SymbolVisibility, MethodSymbol, ApexSymbol } from '../../src/types/symbol';
-import { ErrorType, ErrorSeverity } from '../../src/parser/listeners/ApexErrorListener';
+import {
+  SymbolTable,
+  SymbolKind,
+  SymbolVisibility,
+  MethodSymbol,
+  ApexSymbol,
+} from '../../src/types/symbol';
+import {
+  ErrorType,
+  ErrorSeverity,
+} from '../../src/parser/listeners/ApexErrorListener';
 
 describe('Interface Symbol Collection and Validation', () => {
   let compilerService: CompilerService;
@@ -47,22 +59,30 @@ describe('Interface Symbol Collection and Validation', () => {
       const interfaceSymbol = allSymbols?.[0];
       expect(interfaceSymbol?.name).toBe('TestInterface');
       expect(interfaceSymbol?.kind).toBe(SymbolKind.Interface);
-      expect(interfaceSymbol?.modifiers.visibility).toBe(SymbolVisibility.Public);
+      expect(interfaceSymbol?.modifiers.visibility).toBe(
+        SymbolVisibility.Public,
+      );
 
       // Check interface methods
       const interfaceScopes = globalScope?.getChildren();
       expect(interfaceScopes?.length).toBe(1);
 
       const interfaceScope = interfaceScopes?.[0];
-      const methods = interfaceScope?.getAllSymbols().filter((s: ApexSymbol) => s.kind === SymbolKind.Method);
+      const methods = interfaceScope
+        ?.getAllSymbols()
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Method);
       expect(methods?.length).toBe(2);
 
-      const getName = methods?.find((m: ApexSymbol) => m.name === 'getName') as MethodSymbol;
+      const getName = methods?.find(
+        (m: ApexSymbol) => m.name === 'getName',
+      ) as MethodSymbol;
       expect(getName).toBeDefined();
       expect(getName?.modifiers.visibility).toBe(SymbolVisibility.Public);
       expect(getName?.modifiers.isAbstract).toBe(true);
 
-      const setName = methods?.find((m: ApexSymbol) => m.name === 'setName') as MethodSymbol;
+      const setName = methods?.find(
+        (m: ApexSymbol) => m.name === 'setName',
+      ) as MethodSymbol;
       expect(setName).toBeDefined();
       expect(setName?.modifiers.visibility).toBe(SymbolVisibility.Public);
       expect(setName?.modifiers.isAbstract).toBe(true);
@@ -88,7 +108,9 @@ describe('Interface Symbol Collection and Validation', () => {
       const allSymbols = globalScope?.getAllSymbols();
       const interfaceSymbol = allSymbols?.[0];
 
-      expect(interfaceSymbol?.modifiers.visibility).toBe(SymbolVisibility.Global);
+      expect(interfaceSymbol?.modifiers.visibility).toBe(
+        SymbolVisibility.Global,
+      );
     });
 
     it('should capture error for interface with private visibility', () => {
@@ -106,7 +128,8 @@ describe('Interface Symbol Collection and Validation', () => {
 
       // Should have a semantic error
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(semanticErrors.length).toBeGreaterThan(0);
@@ -130,7 +153,8 @@ describe('Interface Symbol Collection and Validation', () => {
 
       // Should have a semantic error
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(semanticErrors.length).toBeGreaterThan(0);
@@ -154,11 +178,14 @@ describe('Interface Symbol Collection and Validation', () => {
 
       // Should have a semantic error
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(semanticErrors.length).toBeGreaterThan(0);
-      expect(semanticErrors[0].message).toContain("Interface 'FinalInterface' cannot be declared as 'final'");
+      expect(semanticErrors[0].message).toContain(
+        "Interface 'FinalInterface' cannot be declared as 'final'",
+      );
     });
 
     it('should capture error for interface with virtual modifier', () => {
@@ -176,11 +203,14 @@ describe('Interface Symbol Collection and Validation', () => {
 
       // Should have a semantic error
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(semanticErrors.length).toBeGreaterThan(0);
-      expect(semanticErrors[0].message).toContain("Interface 'VirtualInterface' cannot be declared as 'virtual'");
+      expect(semanticErrors[0].message).toContain(
+        "Interface 'VirtualInterface' cannot be declared as 'virtual'",
+      );
     });
 
     it('should produce warning for redundant abstract interface modifier', () => {
@@ -198,11 +228,14 @@ describe('Interface Symbol Collection and Validation', () => {
 
       // Should have a semantic warning
       const semanticWarnings = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Warning,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Warning,
       );
 
       expect(semanticWarnings.length).toBeGreaterThan(0);
-      expect(semanticWarnings[0].message).toContain("Interface 'AbstractInterface' has redundant 'abstract' modifier");
+      expect(semanticWarnings[0].message).toContain(
+        "Interface 'AbstractInterface' has redundant 'abstract' modifier",
+      );
     });
   });
 
@@ -227,14 +260,19 @@ describe('Interface Symbol Collection and Validation', () => {
 
       // Should have semantic errors for each invalid modifier
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(semanticErrors.length).toBe(6);
 
       // Validate that we have errors for each modifier type
       const errorMessages = semanticErrors.map((e) => e.message);
-      expect(errorMessages.some((msg) => msg.includes('Modifiers are not allowed on interface methods'))).toBe(true);
+      expect(
+        errorMessages.some((msg) =>
+          msg.includes('Modifiers are not allowed on interface methods'),
+        ),
+      ).toBe(true);
     });
 
     it('should successfully parse method with parameter', () => {
@@ -256,9 +294,13 @@ describe('Interface Symbol Collection and Validation', () => {
       const globalScope = symbolTable?.getCurrentScope();
       const interfaceScope = globalScope?.getChildren()?.[0];
 
-      const methods = interfaceScope?.getAllSymbols().filter((s: ApexSymbol) => s.kind === SymbolKind.Method);
+      const methods = interfaceScope
+        ?.getAllSymbols()
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Method);
 
-      const process = methods?.find((m: ApexSymbol) => m.name === 'process') as MethodSymbol;
+      const process = methods?.find(
+        (m: ApexSymbol) => m.name === 'process',
+      ) as MethodSymbol;
       expect(process).toBeDefined();
       expect(process.parameters.length).toBe(2);
       expect(process.parameters[0].name).toBe('data');
@@ -283,7 +325,9 @@ describe('Interface Symbol Collection and Validation', () => {
       );
 
       // Check for syntax/semantic errors
-      const errors = result.errors.filter((e) => e.type === ErrorType.Semantic || e.type === ErrorType.Syntax);
+      const errors = result.errors.filter(
+        (e) => e.type === ErrorType.Semantic || e.type === ErrorType.Syntax,
+      );
 
       // Parsing could result in syntax errors instead of semantic errors
       // due to how the parser processes invalid field declarations
@@ -299,7 +343,11 @@ describe('Interface Symbol Collection and Validation', () => {
         }
       `;
 
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'OuterClass.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'OuterClass.cls',
+        listener,
+      );
 
       // Most parsers will throw some form of error on inner interfaces,
       // but we can't guarantee exactly which error until the system is fully integrated

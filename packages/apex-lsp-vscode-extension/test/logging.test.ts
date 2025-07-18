@@ -15,7 +15,12 @@ jest.mock('@salesforce/apex-lsp-logging', () => ({
 }));
 
 // Import after mocking
-import { initializeExtensionLogging, logToOutputChannel, updateLogLevel, getOutputChannel } from '../src/logging';
+import {
+  initializeExtensionLogging,
+  logToOutputChannel,
+  updateLogLevel,
+  getOutputChannel,
+} from '../src/logging';
 
 describe('Logging Module', () => {
   let mockContext: vscode.ExtensionContext;
@@ -31,7 +36,9 @@ describe('Logging Module', () => {
     } as unknown as vscode.LogOutputChannel;
 
     // Mock vscode.window.createOutputChannel
-    jest.spyOn(vscode.window, 'createOutputChannel').mockReturnValue(mockOutputChannel as any);
+    jest
+      .spyOn(vscode.window, 'createOutputChannel')
+      .mockReturnValue(mockOutputChannel as any);
 
     // Create mock context
     mockContext = {
@@ -54,7 +61,9 @@ describe('Logging Module', () => {
     it('should create output channel and add to subscriptions', () => {
       initializeExtensionLogging(mockContext);
 
-      expect(vscode.window.createOutputChannel).toHaveBeenCalledWith('Apex Language Extension (Typescript)');
+      expect(vscode.window.createOutputChannel).toHaveBeenCalledWith(
+        'Apex Language Extension (Typescript)',
+      );
       expect(mockContext.subscriptions).toContain(mockOutputChannel);
     });
 
@@ -83,7 +92,9 @@ describe('Logging Module', () => {
       logToOutputChannel(message, messageType as any);
 
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
-        expect.stringMatching(/\[\d{1,2}:\d{2}:\d{2} [AP]M\] \[INFO\] Test message/),
+        expect.stringMatching(
+          /\[\d{1,2}:\d{2}:\d{2} [AP]M\] \[INFO\] Test message/,
+        ),
       );
     });
 
@@ -92,20 +103,28 @@ describe('Logging Module', () => {
 
       logToOutputChannel(message);
 
-      expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(expect.stringMatching(/\[INFO\] Test message/));
+      expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
+        expect.stringMatching(/\[INFO\] Test message/),
+      );
     });
 
     it('should handle different message types', () => {
       const message = 'Test message';
 
       logToOutputChannel(message, 'error' as any);
-      expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(expect.stringMatching(/\[ERROR\] Test message/));
+      expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
+        expect.stringMatching(/\[ERROR\] Test message/),
+      );
 
       logToOutputChannel(message, 'warning' as any);
-      expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(expect.stringMatching(/\[WARNING\] Test message/));
+      expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
+        expect.stringMatching(/\[WARNING\] Test message/),
+      );
 
       logToOutputChannel(message, 'debug' as any);
-      expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(expect.stringMatching(/\[DEBUG\] Test message/));
+      expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
+        expect.stringMatching(/\[DEBUG\] Test message/),
+      );
     });
   });
 
@@ -129,7 +148,9 @@ describe('Logging Module', () => {
       jest.resetModules();
 
       // Re-import the module to get fresh state
-      const { getOutputChannel: freshGetOutputChannel } = require('../src/logging');
+      const {
+        getOutputChannel: freshGetOutputChannel,
+      } = require('../src/logging');
 
       const outputChannel = freshGetOutputChannel();
 

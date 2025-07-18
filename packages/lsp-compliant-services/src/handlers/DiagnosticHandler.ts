@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Diagnostic, DocumentDiagnosticParams } from 'vscode-languageserver-protocol';
+import {
+  Diagnostic,
+  DocumentDiagnosticParams,
+} from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { dispatch } from '../utils/handlerUtil';
@@ -21,11 +24,15 @@ import { DiagnosticProcessingService } from '../services/DiagnosticProcessingSer
  * @param params - The diagnostic request parameters
  * @returns Array of diagnostics for the document
  */
-export async function processOnDiagnostic(params: DocumentDiagnosticParams): Promise<Diagnostic[]> {
+export async function processOnDiagnostic(
+  params: DocumentDiagnosticParams,
+): Promise<Diagnostic[]> {
   const logger = getLogger();
 
   try {
-    logger.debug(() => `Processing diagnostic request for: ${params.textDocument.uri}`);
+    logger.debug(
+      () => `Processing diagnostic request for: ${params.textDocument.uri}`,
+    );
 
     const diagnosticProcessor = new DiagnosticProcessingService();
     const diagnostics = await dispatch(
@@ -33,11 +40,17 @@ export async function processOnDiagnostic(params: DocumentDiagnosticParams): Pro
       'Error processing diagnostic request',
     );
 
-    logger.debug(() => `Returning ${diagnostics.length} diagnostics for: ${params.textDocument.uri}`);
+    logger.debug(
+      () =>
+        `Returning ${diagnostics.length} diagnostics for: ${params.textDocument.uri}`,
+    );
     return diagnostics;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(() => `Error processing diagnostic request for ${params.textDocument.uri}: ${errorMessage}`);
+    logger.error(
+      () =>
+        `Error processing diagnostic request for ${params.textDocument.uri}: ${errorMessage}`,
+    );
     return [];
   }
 }
@@ -48,6 +61,11 @@ export async function processOnDiagnostic(params: DocumentDiagnosticParams): Pro
  * @param params - The diagnostic request parameters
  * @returns Promise resolving to diagnostics array
  */
-export function dispatchProcessOnDiagnostic(params: DocumentDiagnosticParams): Promise<Diagnostic[]> {
-  return dispatch(processOnDiagnostic(params), 'Error processing diagnostic request');
+export function dispatchProcessOnDiagnostic(
+  params: DocumentDiagnosticParams,
+): Promise<Diagnostic[]> {
+  return dispatch(
+    processOnDiagnostic(params),
+    'Error processing diagnostic request',
+  );
 }

@@ -107,7 +107,9 @@ describe('ApexJsonRpcClient', () => {
     });
 
     it('should throw error if serverPath is not provided', () => {
-      expect(() => new ApexJsonRpcClient({} as any)).toThrow(/serverPath is required/);
+      expect(() => new ApexJsonRpcClient({} as any)).toThrow(
+        /serverPath is required/,
+      );
     });
   });
 
@@ -120,7 +122,11 @@ describe('ApexJsonRpcClient', () => {
 
       await client.start();
 
-      expect(cp.spawn).toHaveBeenCalledWith('mock-server', ['--arg1', '--arg2'], expect.any(Object));
+      expect(cp.spawn).toHaveBeenCalledWith(
+        'mock-server',
+        ['--arg1', '--arg2'],
+        expect.any(Object),
+      );
     });
   });
 

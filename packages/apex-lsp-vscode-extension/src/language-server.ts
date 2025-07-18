@@ -10,9 +10,17 @@ import * as vscode from 'vscode';
 import { LanguageClient, State } from 'vscode-languageclient/node';
 import { createServerOptions, createClientOptions } from './server-config';
 import { logToOutputChannel } from './logging';
-import { setStartingFlag, getStartingFlag, resetServerStartRetries } from './commands';
+import {
+  setStartingFlag,
+  getStartingFlag,
+  resetServerStartRetries,
+} from './commands';
 import { registerConfigurationChangeListener } from './configuration';
-import { updateApexServerStatusStarting, updateApexServerStatusReady, updateApexServerStatusError } from './status-bar';
+import {
+  updateApexServerStatusStarting,
+  updateApexServerStatusReady,
+  updateApexServerStatusError,
+} from './status-bar';
 
 /**
  * Global language client instance
@@ -45,14 +53,22 @@ export const createAndStartClient = (
     }
 
     // Create the language client
-    client = new LanguageClient('apex-ls-ts', 'Apex Language Server (Typescript)', serverOptions, clientOptions);
+    client = new LanguageClient(
+      'apex-ls-ts',
+      'Apex Language Server (Typescript)',
+      serverOptions,
+      clientOptions,
+    );
 
     // Track the new output channel
     lastServerOutputChannel = client.outputChannel;
 
     // Track client state changes
     client.onDidChangeState((event) => {
-      logToOutputChannel(`Client state changed: ${State[event.oldState]} -> ${State[event.newState]}`, 'debug');
+      logToOutputChannel(
+        `Client state changed: ${State[event.oldState]} -> ${State[event.newState]}`,
+        'debug',
+      );
 
       if (event.newState === State.Running) {
         updateApexServerStatusReady();
@@ -116,7 +132,9 @@ export const startLanguageServer = async (
     createAndStartClient(serverOptions, clientOptions, context, restartHandler);
   } catch (error) {
     logToOutputChannel(`Error in startLanguageServer: ${error}`, 'error');
-    vscode.window.showErrorMessage(`Failed to start Apex Language Server: ${error}`);
+    vscode.window.showErrorMessage(
+      `Failed to start Apex Language Server: ${error}`,
+    );
     setStartingFlag(false);
     updateApexServerStatusError();
   }
@@ -131,7 +149,10 @@ export const restartLanguageServer = async (
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> => {
-  logToOutputChannel(`Restarting Apex Language Server at ${new Date().toISOString()}...`, 'info');
+  logToOutputChannel(
+    `Restarting Apex Language Server at ${new Date().toISOString()}...`,
+    'info',
+  );
   await startLanguageServer(context, restartHandler);
 };
 

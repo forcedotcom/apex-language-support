@@ -10,7 +10,10 @@ import { join } from 'path';
 
 import Benchmark from 'benchmark';
 
-import { createTestServer, ServerOptions } from '../../src/test-utils/serverFactory';
+import {
+  createTestServer,
+  ServerOptions,
+} from '../../src/test-utils/serverFactory';
 
 // --- Load test data synchronously ---
 const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
@@ -21,7 +24,9 @@ jest.setTimeout(1000 * 60 * 15); // 15 minutes timeout
 
 // Extract relevant request/response pairs
 const testData: [string, any][] = Object.values(logData)
-  .filter((entry) => entry.type === 'request' && /^textDocument/.test(entry.method))
+  .filter(
+    (entry) => entry.type === 'request' && /^textDocument/.test(entry.method),
+  )
   .reduce((acc: [string, any][], request) => {
     // Only add if we haven't seen this method before
     if (!acc.some(([method]) => method === request.method)) {
@@ -97,7 +102,9 @@ describe.skip('Server Type Performance Comparison', () => {
       for (const serverType of serverTypes) {
         const serverContext = serverContexts[serverType];
         if (!serverContext) {
-          console.warn(`Skipping ${serverType} for ${method} (server not available)`);
+          console.warn(
+            `Skipping ${serverType} for ${method} (server not available)`,
+          );
           continue;
         }
 
@@ -113,10 +120,19 @@ describe.skip('Server Type Performance Comparison', () => {
           defer: true,
           fn: function (deferred: { resolve: () => void }) {
             const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error(`Request timed out after ${requestTimeout}ms`)), requestTimeout);
+              setTimeout(
+                () =>
+                  reject(
+                    new Error(`Request timed out after ${requestTimeout}ms`),
+                  ),
+                requestTimeout,
+              );
             });
 
-            const req = serverContext.client.sendRequest(method, request.params);
+            const req = serverContext.client.sendRequest(
+              method,
+              request.params,
+            );
 
             Promise.race([Promise.resolve(req), timeoutPromise])
               .then(() => deferred.resolve())
@@ -135,7 +151,9 @@ describe.skip('Server Type Performance Comparison', () => {
             console.log(String(benchmark));
 
             // Parse the server type and method from the name
-            const [serverType, methodName] = (benchmark.name || '').split(' - ');
+            const [serverType, methodName] = (benchmark.name || '').split(
+              ' - ',
+            );
 
             if (serverType && methodName && benchmark.stats) {
               results.push({
@@ -154,7 +172,9 @@ describe.skip('Server Type Performance Comparison', () => {
           })
           .on('complete', function (this: Benchmark.Suite) {
             const fastest = this.filter('fastest');
-            console.log(`Fastest server for ${method} is ${fastest.map('name').toString().split(' - ')[0]}`);
+            console.log(
+              `Fastest server for ${method} is ${fastest.map('name').toString().split(' - ')[0]}`,
+            );
             resolve();
           })
           .run({ async: true });

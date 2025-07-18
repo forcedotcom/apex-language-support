@@ -19,11 +19,19 @@ import {} from 'jest';
 
 // Define handler types
 type OnDidOpenHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
-type OnDidChangeContentHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
-type OnDidCloseHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
+type OnDidChangeContentHandler = (
+  params: TextDocumentChangeEvent<TextDocument>,
+) => void;
+type OnDidCloseHandler = (
+  params: TextDocumentChangeEvent<TextDocument>,
+) => void;
 type OnDidSaveHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
-type OnDocumentSymbolHandler = (params: DocumentSymbolParams) => Promise<any[] | null>;
-type OnFoldingRangeHandler = (params: FoldingRangeParams) => Promise<FoldingRange[] | null>;
+type OnDocumentSymbolHandler = (
+  params: DocumentSymbolParams,
+) => Promise<any[] | null>;
+type OnFoldingRangeHandler = (
+  params: FoldingRangeParams,
+) => Promise<FoldingRange[] | null>;
 type InitializeHandler = (params: InitializeParams) => InitializeResult;
 type VoidHandler = () => void;
 
@@ -130,22 +138,28 @@ mockConnection.onInitialize.mockImplementation((handler: InitializeHandler) => {
 mockConnection.onInitialized.mockImplementation((handler: VoidHandler) => {
   mockHandlers.initialized = handler;
 });
-mockConnection.onDocumentSymbol.mockImplementation((handler: OnDocumentSymbolHandler) => {
-  mockHandlers.onDocumentSymbol = handler;
-});
-mockConnection.onFoldingRanges.mockImplementation((handler: OnFoldingRangeHandler) => {
-  mockHandlers.onFoldingRange = handler;
-});
+mockConnection.onDocumentSymbol.mockImplementation(
+  (handler: OnDocumentSymbolHandler) => {
+    mockHandlers.onDocumentSymbol = handler;
+  },
+);
+mockConnection.onFoldingRanges.mockImplementation(
+  (handler: OnFoldingRangeHandler) => {
+    mockHandlers.onFoldingRange = handler;
+  },
+);
 
 mockDocuments.onDidOpen.mockImplementation((handler: OnDidOpenHandler) => {
   mockHandlers.onDidOpen = handler;
   return mockHandlers;
 });
 
-mockDocuments.onDidChangeContent.mockImplementation((handler: OnDidChangeContentHandler) => {
-  mockHandlers.onDidChangeContent = handler;
-  return mockHandlers;
-});
+mockDocuments.onDidChangeContent.mockImplementation(
+  (handler: OnDidChangeContentHandler) => {
+    mockHandlers.onDidChangeContent = handler;
+    return mockHandlers;
+  },
+);
 
 mockDocuments.onDidClose.mockImplementation((handler: OnDidCloseHandler) => {
   mockHandlers.onDidClose = handler;
@@ -306,8 +320,12 @@ describe('Apex Language Server', () => {
 
     // Reset mock documents
     Object.keys(mockDocuments).forEach((key) => {
-      if (typeof mockDocuments[key as keyof typeof mockDocuments] === 'function') {
-        (mockDocuments[key as keyof typeof mockDocuments] as jest.Mock).mockClear();
+      if (
+        typeof mockDocuments[key as keyof typeof mockDocuments] === 'function'
+      ) {
+        (
+          mockDocuments[key as keyof typeof mockDocuments] as jest.Mock
+        ).mockClear();
       }
     });
 
@@ -350,7 +368,9 @@ describe('Apex Language Server', () => {
     const result = initializeHandler(params);
 
     // Assert
-    expect(mockLogger.info).toHaveBeenCalledWith('Apex Language Server initializing...');
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'Apex Language Server initializing...',
+    );
     expect(result).toEqual({
       capabilities: {
         publishDiagnostics: true,
@@ -388,8 +408,12 @@ describe('Apex Language Server', () => {
     shutdownHandler();
 
     // Assert
-    expect(mockLogger.info).toHaveBeenCalledWith('Apex Language Server shutting down...');
-    expect(mockLogger.info).toHaveBeenCalledWith('Apex Language Server shutdown complete');
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'Apex Language Server shutting down...',
+    );
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'Apex Language Server shutdown complete',
+    );
   });
 
   it('should handle the exit request', () => {
@@ -403,7 +427,9 @@ describe('Apex Language Server', () => {
     exitHandler();
 
     // Assert
-    expect(mockLogger.info).toHaveBeenCalledWith('Apex Language Server exiting...');
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'Apex Language Server exiting...',
+    );
     expect(mockLogger.info).toHaveBeenCalledWith('Apex Language Server exited');
   });
 
@@ -454,7 +480,10 @@ describe('Apex Language Server', () => {
       textDocument: { uri: 'file:///test.cls' },
     } as FoldingRangeParams;
     await mockHandlers.onFoldingRange!(params);
-    expect(mockDispatchProcessOnFoldingRange).toHaveBeenCalledWith(params, undefined);
+    expect(mockDispatchProcessOnFoldingRange).toHaveBeenCalledWith(
+      params,
+      undefined,
+    );
   });
 
   it('should correctly handle the initialized notification', () => {
@@ -473,7 +502,9 @@ describe('Apex Language Server', () => {
     initializedHandler(params);
 
     // Assert
-    expect(mockLogger.info).toHaveBeenCalledWith('Language server initialized and connected to client.');
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      'Language server initialized and connected to client.',
+    );
   });
 
   describe('Document Management', () => {
@@ -608,7 +639,9 @@ describe('Apex Language Server', () => {
           severity: 1,
         },
       ];
-      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(mockDiagnostics);
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(
+        mockDiagnostics,
+      );
 
       const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
       const doc = { document: { uri: 'file:///test.cls' } };
@@ -681,7 +714,9 @@ describe('Apex Language Server', () => {
           severity: 2,
         },
       ];
-      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(mockDiagnostics);
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(
+        mockDiagnostics,
+      );
 
       const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
       const doc = { document: { uri: 'file:///test.cls' } };
@@ -715,7 +750,9 @@ describe('Apex Language Server', () => {
           severity: 1,
         },
       ];
-      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(mockDiagnosticsWithErrors);
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(
+        mockDiagnosticsWithErrors,
+      );
 
       await handler(doc);
       await new Promise((resolve) => setImmediate(resolve));
@@ -856,7 +893,9 @@ describe('Apex Language Server', () => {
       initializeHandler(params);
 
       // Assert - should default to production when NODE_ENV is not set
-      expect(mockLogger.info).toHaveBeenCalledWith('Using server mode from NODE_ENV: production');
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Using server mode from NODE_ENV: production',
+      );
     });
 
     it('should prioritize APEX_LS_MODE over extension mode', () => {

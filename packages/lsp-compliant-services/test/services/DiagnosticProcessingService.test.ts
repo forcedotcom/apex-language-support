@@ -95,7 +95,9 @@ describe('DiagnosticProcessingService', () => {
       };
 
       // Mock the getDiagnosticsFromErrors function
-      const { getDiagnosticsFromErrors } = require('../../src/utils/handlerUtil');
+      const {
+        getDiagnosticsFromErrors,
+      } = require('../../src/utils/handlerUtil');
       getDiagnosticsFromErrors.mockReturnValue([
         {
           range: {

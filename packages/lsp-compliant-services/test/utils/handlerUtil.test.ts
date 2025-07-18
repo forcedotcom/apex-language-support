@@ -6,10 +6,17 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { dispatch, getDiagnosticsFromErrors } from '../../src/utils/handlerUtil';
+import {
+  dispatch,
+  getDiagnosticsFromErrors,
+} from '../../src/utils/handlerUtil';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 import { DiagnosticSeverity } from 'vscode-languageserver';
-import { ApexError, ErrorType, ErrorSeverity } from '@salesforce/apex-lsp-parser-ast';
+import {
+  ApexError,
+  ErrorType,
+  ErrorSeverity,
+} from '@salesforce/apex-lsp-parser-ast';
 
 jest.mock('@salesforce/apex-lsp-logging');
 
@@ -49,7 +56,10 @@ describe('handlerUtil', () => {
       const errorMessage = 'Failed operation';
 
       await expect(dispatch(operation, errorMessage)).rejects.toThrow(error);
-      expect(mockLogger.log).toHaveBeenCalledWith('error', expect.stringContaining('Error in dispatch'));
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'error',
+        expect.stringContaining('Error in dispatch'),
+      );
     });
 
     it('should handle non-Error objects in catch', async () => {
@@ -58,7 +68,10 @@ describe('handlerUtil', () => {
       const errorMessage = 'Failed operation';
 
       await expect(dispatch(operation, errorMessage)).rejects.toBe(error);
-      expect(mockLogger.log).toHaveBeenCalledWith('error', expect.stringContaining('Error in dispatch'));
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'error',
+        expect.stringContaining('Error in dispatch'),
+      );
     });
 
     it('should handle complex return types', async () => {
@@ -74,7 +87,9 @@ describe('handlerUtil', () => {
   });
 
   describe('getDiagnosticsFromErrors', () => {
-    const createMockError = (overrides: Partial<ApexError> = {}): ApexError => ({
+    const createMockError = (
+      overrides: Partial<ApexError> = {},
+    ): ApexError => ({
       type: ErrorType.Syntax,
       severity: ErrorSeverity.Error,
       message: 'Test error',

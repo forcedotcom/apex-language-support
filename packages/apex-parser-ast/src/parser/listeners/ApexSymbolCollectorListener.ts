@@ -73,7 +73,10 @@ interface SemanticError {
  * A listener that collects symbols from Apex code and organizes them into symbol tables.
  * This listener builds a hierarchy of symbol scopes and tracks symbols defined in each scope.
  */
-export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTable> implements ErrorReporter {
+export class ApexSymbolCollectorListener
+  extends BaseApexParserListener<SymbolTable>
+  implements ErrorReporter
+{
   private readonly logger;
   private symbolTable: SymbolTable;
   private currentTypeSymbol: TypeSymbol | null = null;
@@ -214,7 +217,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       const modifier = ctx.text.toLowerCase();
 
       // Check for modifiers in interface methods
-      if (this.currentTypeSymbol && isInterfaceSymbol(this.currentTypeSymbol) && this.currentMethodSymbol && modifier) {
+      if (
+        this.currentTypeSymbol &&
+        isInterfaceSymbol(this.currentTypeSymbol) &&
+        this.currentMethodSymbol &&
+        modifier
+      ) {
         this.addError('Modifiers are not allowed on interface methods', ctx);
       }
 
@@ -237,7 +245,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       this.logger.debug(() => `Entering class declaration: ${name}`);
 
       // Validate class in interface
-      InterfaceBodyValidator.validateClassInInterface(name, ctx, this.currentTypeSymbol, this);
+      InterfaceBodyValidator.validateClassInInterface(
+        name,
+        ctx,
+        this.currentTypeSymbol,
+        this,
+      );
 
       // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
@@ -288,7 +301,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       }
 
       // Create a new class symbol
-      const classSymbol = this.createTypeSymbol(ctx, name, SymbolKind.Class, modifiers);
+      const classSymbol = this.createTypeSymbol(
+        ctx,
+        name,
+        SymbolKind.Class,
+        modifiers,
+      );
 
       // Set superclass and interfaces
       if (superclass) {
@@ -341,7 +359,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       this.logger.debug(() => `Entering interface declaration: ${name}`);
 
       // Validate interface in interface
-      InterfaceBodyValidator.validateInterfaceInInterface(name, ctx, this.currentTypeSymbol, this);
+      InterfaceBodyValidator.validateInterfaceInInterface(
+        name,
+        ctx,
+        this.currentTypeSymbol,
+        this,
+      );
 
       // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
@@ -365,7 +388,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
           .map((t) => t.text) || [];
 
       // Create a new interface symbol
-      const interfaceSymbol = this.createTypeSymbol(ctx, name, SymbolKind.Interface, modifiers);
+      const interfaceSymbol = this.createTypeSymbol(
+        ctx,
+        name,
+        SymbolKind.Interface,
+        modifiers,
+      );
 
       // Set interfaces
       interfaceSymbol.interfaces = interfaces;
@@ -410,7 +438,10 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownMethod';
-      this.logger.debug(() => `Entering method declaration: ${name} in class: ${this.currentTypeSymbol?.name}`);
+      this.logger.debug(
+        () =>
+          `Entering method declaration: ${name} in class: ${this.currentTypeSymbol?.name}`,
+      );
 
       // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
@@ -432,7 +463,10 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       if (modifiers.isOverride) {
         const parentClass = this.currentTypeSymbol?.parent;
         if (!parentClass) {
-          this.addWarning(`Override method ${name} must ensure a parent class has a compatible method`, ctx);
+          this.addWarning(
+            `Override method ${name} must ensure a parent class has a compatible method`,
+            ctx,
+          );
         }
       }
 
@@ -454,7 +488,10 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
           if (!isMethodSymbol(s) || s.name !== name) {
             return false;
           }
-          const existingParamTypes = s.parameters?.map((param) => param.type.originalTypeString).join(',') || '';
+          const existingParamTypes =
+            s.parameters
+              ?.map((param) => param.type.originalTypeString)
+              .join(',') || '';
           return existingParamTypes === currentParamTypes;
         });
 
@@ -465,7 +502,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       }
 
       // Create a new method symbol
-      const methodSymbol = this.createMethodSymbol(ctx, name, modifiers, returnType);
+      const methodSymbol = this.createMethodSymbol(
+        ctx,
+        name,
+        modifiers,
+        returnType,
+      );
 
       // Add annotations to the method symbol
       if (annotations.length > 0) {
@@ -513,7 +555,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     try {
       const name = this.currentTypeSymbol?.name ?? 'unknownConstructor';
       // Validate constructor in interface
-      InterfaceBodyValidator.validateConstructorInInterface(name, ctx, this.currentTypeSymbol, this);
+      InterfaceBodyValidator.validateConstructorInInterface(
+        name,
+        ctx,
+        this.currentTypeSymbol,
+        this,
+      );
 
       // Check for duplicate constructor
       if (this.currentTypeSymbol) {
@@ -533,7 +580,10 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
           if (!isMethodSymbol(s) || s.name !== name || !s.isConstructor) {
             return false;
           }
-          const existingParamTypes = s.parameters?.map((param) => param.type.originalTypeString).join(',') || '';
+          const existingParamTypes =
+            s.parameters
+              ?.map((param) => param.type.originalTypeString)
+              .join(',') || '';
           return existingParamTypes === currentParamTypes;
         });
 
@@ -548,7 +598,9 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       // Get the qualified name id location which is the last id in the qualified name
       const ids = ctx.qualifiedName()?.id();
       const lastId = ids && ids.length > 0 ? ids[ids.length - 1] : undefined;
-      const qualifiedNameIdLocation = lastId ? this.getIdentifierLocation(lastId) : undefined;
+      const qualifiedNameIdLocation = lastId
+        ? this.getIdentifierLocation(lastId)
+        : undefined;
 
       // Create constructor symbol using createMethodSymbol method
       const constructorSymbol = this.createMethodSymbol(
@@ -586,7 +638,9 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
    * Processes the interface method declaration, its modifiers, and annotations.
    * @param ctx The parser context for the interface method declaration.
    */
-  enterInterfaceMethodDeclaration(ctx: InterfaceMethodDeclarationContext): void {
+  enterInterfaceMethodDeclaration(
+    ctx: InterfaceMethodDeclarationContext,
+  ): void {
     try {
       // Get the method name
       const name = ctx.id()?.text ?? 'unknownMethod';
@@ -598,7 +652,9 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       if (this.currentTypeSymbol) {
         const currentScope = this.symbolTable.getCurrentScope();
         const existingSymbols = currentScope.getAllSymbols();
-        const duplicateMethod = existingSymbols.find((s) => isMethodSymbol(s) && s.name === name);
+        const duplicateMethod = existingSymbols.find(
+          (s) => isMethodSymbol(s) && s.name === name,
+        );
 
         if (duplicateMethod) {
           this.addError(`Duplicate interface method declaration: ${name}`, ctx);
@@ -623,7 +679,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       const returnType = this.getReturnType(ctx);
 
       // Create a new method symbol
-      const methodSymbol = this.createMethodSymbol(ctx, name, implicitModifiers, returnType);
+      const methodSymbol = this.createMethodSymbol(
+        ctx,
+        name,
+        implicitModifiers,
+        returnType,
+      );
 
       // Add annotations to the method symbol
       if (annotations.length > 0) {
@@ -644,7 +705,10 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       this.resetAnnotations();
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error in interface method declaration: ${errorMessage}`, ctx);
+      this.addError(
+        `Error in interface method declaration: ${errorMessage}`,
+        ctx,
+      );
     }
   }
 
@@ -668,7 +732,13 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       const modifiers = this.getCurrentModifiers();
 
       // Create parameter symbol using createVariableSymbol method
-      const paramSymbol = this.createVariableSymbol(ctx, modifiers, name, SymbolKind.Parameter, type);
+      const paramSymbol = this.createVariableSymbol(
+        ctx,
+        modifiers,
+        name,
+        SymbolKind.Parameter,
+        type,
+      );
 
       if (this.currentMethodSymbol) {
         this.currentMethodSymbol.parameters.push(paramSymbol);
@@ -687,20 +757,38 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     try {
       const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
       const name = ctx.id?.()?.text ?? 'unknownProperty';
-      this.logger.debug(`Entering property declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`);
+      this.logger.debug(
+        `Entering property declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
+      );
 
       // Get current modifiers
       const modifiers = this.getCurrentModifiers();
 
       // Validate property declaration in interface
       if (this.currentTypeSymbol) {
-        InterfaceBodyValidator.validatePropertyInInterface(modifiers, ctx, this.currentTypeSymbol, this);
+        InterfaceBodyValidator.validatePropertyInInterface(
+          modifiers,
+          ctx,
+          this.currentTypeSymbol,
+          this,
+        );
         // Additional field/property modifier validations
-        PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, this.currentTypeSymbol, this);
+        PropertyModifierValidator.validatePropertyVisibilityModifiers(
+          modifiers,
+          ctx,
+          this.currentTypeSymbol,
+          this,
+        );
       }
 
       // Create and add the property symbol
-      const propertySymbol = this.createVariableSymbol(ctx, modifiers, name, SymbolKind.Property, type);
+      const propertySymbol = this.createVariableSymbol(
+        ctx,
+        modifiers,
+        name,
+        SymbolKind.Property,
+        type,
+      );
       this.symbolTable.addSymbol(propertySymbol);
 
       // Reset modifiers and annotations for the next symbol
@@ -719,7 +807,8 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     try {
       const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
       this.logger.debug(
-        () => `Entering field declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
+        () =>
+          `Entering field declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
       );
 
       // Get current modifiers
@@ -727,15 +816,32 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
 
       // Validate field declaration in interface
       if (this.currentTypeSymbol) {
-        InterfaceBodyValidator.validateFieldInInterface(modifiers, ctx, this.currentTypeSymbol, this);
+        InterfaceBodyValidator.validateFieldInInterface(
+          modifiers,
+          ctx,
+          this.currentTypeSymbol,
+          this,
+        );
 
         // Additional field modifier validations
-        FieldModifierValidator.validateFieldVisibilityModifiers(modifiers, ctx, this.currentTypeSymbol, this);
+        FieldModifierValidator.validateFieldVisibilityModifiers(
+          modifiers,
+          ctx,
+          this.currentTypeSymbol,
+          this,
+        );
       }
 
       // Process each variable declarator in the field declaration
-      for (const declarator of ctx.variableDeclarators()?.variableDeclarator() || []) {
-        this.processVariableDeclarator(declarator, type, modifiers, SymbolKind.Field);
+      for (const declarator of ctx
+        .variableDeclarators()
+        ?.variableDeclarator() || []) {
+        this.processVariableDeclarator(
+          declarator,
+          type,
+          modifiers,
+          SymbolKind.Field,
+        );
       }
 
       // Reset modifiers and annotations for the next symbol
@@ -757,11 +863,15 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       this.resetModifiers();
 
       // Get the type
-      const varTypeText = ctx.typeRef() ? this.getTextFromContext(ctx.typeRef()) : 'Object';
+      const varTypeText = ctx.typeRef()
+        ? this.getTextFromContext(ctx.typeRef())
+        : 'Object';
       const varType = this.createTypeInfo(varTypeText);
 
       // Process each variable declared
-      const variableDeclarators = ctx.variableDeclarators().variableDeclarator();
+      const variableDeclarators = ctx
+        .variableDeclarators()
+        .variableDeclarator();
       for (const declarator of variableDeclarators) {
         const name = declarator.id()?.text ?? 'unknownVariable';
 
@@ -774,11 +884,19 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
         }
 
         // Always process the variable in the current scope
-        this.processVariableDeclarator(declarator, varType, modifiers, SymbolKind.Variable);
+        this.processVariableDeclarator(
+          declarator,
+          varType,
+          modifiers,
+          SymbolKind.Variable,
+        );
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error in local variable declaration: ${errorMessage}`, ctx);
+      this.addError(
+        `Error in local variable declaration: ${errorMessage}`,
+        ctx,
+      );
     }
   }
 
@@ -790,12 +908,22 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       const name = ctx.id()?.text ?? 'unknownEnum';
 
       // Validate enum in interface
-      InterfaceBodyValidator.validateEnumInInterface(name, ctx, this.currentTypeSymbol, this);
+      InterfaceBodyValidator.validateEnumInInterface(
+        name,
+        ctx,
+        this.currentTypeSymbol,
+        this,
+      );
 
       const modifiers = this.getCurrentModifiers();
 
       // Create enum symbol using createTypeSymbol method
-      const enumSymbol = this.createTypeSymbol(ctx, name, SymbolKind.Enum, modifiers);
+      const enumSymbol = this.createTypeSymbol(
+        ctx,
+        name,
+        SymbolKind.Enum,
+        modifiers,
+      );
 
       this.currentTypeSymbol = enumSymbol;
       this.symbolTable.addSymbol(enumSymbol);
@@ -811,7 +939,9 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
    */
   enterEnumConstants(ctx: EnumConstantsContext): void {
     try {
-      const enumType = this.createTypeInfo(this.currentTypeSymbol?.name ?? 'Object');
+      const enumType = this.createTypeInfo(
+        this.currentTypeSymbol?.name ?? 'Object',
+      );
       const enumSymbol = this.currentTypeSymbol as EnumSymbol | null;
 
       if (!enumSymbol || !isEnumSymbol(enumSymbol)) {
@@ -824,7 +954,13 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
         const modifiers = this.getCurrentModifiers();
 
         // Create enum value symbol using createVariableSymbol method
-        const valueSymbol = this.createVariableSymbol(id, modifiers, name, SymbolKind.EnumValue, enumType);
+        const valueSymbol = this.createVariableSymbol(
+          id,
+          modifiers,
+          name,
+          SymbolKind.EnumValue,
+          enumType,
+        );
 
         enumSymbol.values.push(valueSymbol);
         this.symbolTable.addSymbol(valueSymbol);
@@ -900,7 +1036,13 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   ): void {
     try {
       const name = ctx.id()?.text ?? 'unknownVariable';
-      const variableSymbol = this.createVariableSymbol(ctx, modifiers, name, kind, type);
+      const variableSymbol = this.createVariableSymbol(
+        ctx,
+        modifiers,
+        name,
+        kind,
+        type,
+      );
 
       this.symbolTable.addSymbol(variableSymbol);
     } catch (e) {
@@ -917,7 +1059,9 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       startLine: ctx.start.line,
       startColumn: ctx.start.charPositionInLine,
       endLine: ctx.stop?.line ?? ctx.start.line,
-      endColumn: (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) + (ctx.stop?.text?.length ?? 0),
+      endColumn:
+        (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
+        (ctx.stop?.text?.length ?? 0),
     };
   }
 
@@ -945,7 +1089,9 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
         startLine: identifierNode.start.line,
         startColumn: identifierNode.start.charPositionInLine,
         endLine: identifierNode.stop.line,
-        endColumn: identifierNode.stop.charPositionInLine + identifierNode.stop.text.length,
+        endColumn:
+          identifierNode.stop.charPositionInLine +
+          identifierNode.stop.text.length,
       };
     }
     // Final fallback - return the full context location
@@ -1008,7 +1154,9 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
    * Get the return type from a method declaration context
    * Handles both typeRef and VOID cases
    */
-  private getReturnType(ctx: MethodDeclarationContext | InterfaceMethodDeclarationContext): TypeInfo {
+  private getReturnType(
+    ctx: MethodDeclarationContext | InterfaceMethodDeclarationContext,
+  ): TypeInfo {
     if (ctx.typeRef()) {
       return this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
     }
@@ -1020,16 +1168,23 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
    * Create a TypeInfo object from a type string
    */
   private createTypeInfo(typeString: string): TypeInfo {
-    this.logger.debug(() => `createTypeInfo called with typeString: ${typeString}`);
+    this.logger.debug(
+      () => `createTypeInfo called with typeString: ${typeString}`,
+    );
 
     // Handle qualified type names (e.g., System.PageReference)
     if (typeString.includes('.')) {
       const [namespace, typeName] = typeString.split('.');
-      this.logger.debug(() => `Processing qualified type - namespace: ${namespace}, typeName: ${typeName}`);
+      this.logger.debug(
+        () =>
+          `Processing qualified type - namespace: ${namespace}, typeName: ${typeName}`,
+      );
 
       // Use predefined namespaces for built-in types
       if (namespace === 'System') {
-        this.logger.debug(() => 'Using Namespaces.SYSTEM for System namespace type');
+        this.logger.debug(
+          () => 'Using Namespaces.SYSTEM for System namespace type',
+        );
         return {
           name: typeName,
           isArray: false,
@@ -1041,7 +1196,9 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
         };
       }
       // For other namespaces, create a new namespace instance
-      this.logger.debug(() => 'Creating new namespace instance for non-System namespace');
+      this.logger.debug(
+        () => 'Creating new namespace instance for non-System namespace',
+      );
       return {
         name: typeName,
         isArray: false,
@@ -1161,7 +1318,11 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
   private createTypeSymbol(
     ctx: ParserRuleContext,
     name: string,
-    kind: SymbolKind.Class | SymbolKind.Interface | SymbolKind.Trigger | SymbolKind.Enum,
+    kind:
+      | SymbolKind.Class
+      | SymbolKind.Interface
+      | SymbolKind.Trigger
+      | SymbolKind.Enum,
     modifiers: SymbolModifiers,
   ): TypeSymbol | EnumSymbol {
     const location = this.getLocation(ctx);
@@ -1237,7 +1398,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
     ctx: ParserRuleContext,
     modifiers: SymbolModifiers,
     name: string,
-    kind: SymbolKind.Property | SymbolKind.Variable | SymbolKind.Parameter | SymbolKind.Field | SymbolKind.EnumValue,
+    kind:
+      | SymbolKind.Property
+      | SymbolKind.Variable
+      | SymbolKind.Parameter
+      | SymbolKind.Field
+      | SymbolKind.EnumValue,
     type: TypeInfo,
   ): VariableSymbol {
     const location = this.getLocation(ctx);
@@ -1288,7 +1454,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       const modifiers = this.getCurrentModifiers();
 
       // Create trigger symbol
-      const triggerSymbol = this.createTypeSymbol(ctx, name, SymbolKind.Trigger, modifiers);
+      const triggerSymbol = this.createTypeSymbol(
+        ctx,
+        name,
+        SymbolKind.Trigger,
+        modifiers,
+      );
 
       // Store the current type symbol
       this.currentTypeSymbol = triggerSymbol;
@@ -1327,7 +1498,12 @@ export class ApexSymbolCollectorListener extends BaseApexParserListener<SymbolTa
       const modifiers = this.getCurrentModifiers();
 
       // Create trigger symbol
-      const triggerSymbol = this.createTypeSymbol(ctx, name, SymbolKind.Trigger, modifiers);
+      const triggerSymbol = this.createTypeSymbol(
+        ctx,
+        name,
+        SymbolKind.Trigger,
+        modifiers,
+      );
 
       // Store the current type symbol
       this.currentTypeSymbol = triggerSymbol;

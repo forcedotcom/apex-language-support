@@ -18,7 +18,10 @@ import {
   setStartingFlag,
   getGlobalContext,
 } from './commands';
-import { updateApexServerStatusStopped, updateApexServerStatusError } from './status-bar';
+import {
+  updateApexServerStatusStopped,
+  updateApexServerStatusError,
+} from './status-bar';
 
 /**
  * Handles auto-restart logic with exponential backoff
@@ -39,7 +42,10 @@ export const handleAutoRestart = async (
     setLastRestartTime(now);
 
     // Exponential backoff between retries
-    const delay = Math.min(2000 * Math.pow(2, getServerStartRetries() - 1), 10000);
+    const delay = Math.min(
+      2000 * Math.pow(2, getServerStartRetries() - 1),
+      10000,
+    );
     logToOutputChannel(
       // eslint-disable-next-line max-len
       `Will retry server start (${getServerStartRetries()}/${EXTENSION_CONSTANTS.MAX_RETRIES}) after ${delay}ms delay...`,
@@ -64,8 +70,13 @@ export const handleAutoRestart = async (
  * Handles the case when max retries are exceeded
  * @param restartHandler The function to handle server restart
  */
-export const handleMaxRetriesExceeded = (restartHandler: (context: vscode.ExtensionContext) => Promise<void>): void => {
-  logToOutputChannel(`Max retries (${EXTENSION_CONSTANTS.MAX_RETRIES}) exceeded. Auto-restart disabled.`, 'info');
+export const handleMaxRetriesExceeded = (
+  restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
+): void => {
+  logToOutputChannel(
+    `Max retries (${EXTENSION_CONSTANTS.MAX_RETRIES}) exceeded. Auto-restart disabled.`,
+    'info',
+  );
 
   // Update status to show error state
   updateApexServerStatusError();
@@ -92,7 +103,10 @@ export const handleMaxRetriesExceeded = (restartHandler: (context: vscode.Extens
 export const handleClientClosed = async (
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> => {
-  logToOutputChannel(`Connection to server closed - ${new Date().toISOString()}`, 'info');
+  logToOutputChannel(
+    `Connection to server closed - ${new Date().toISOString()}`,
+    'info',
+  );
 
   setStartingFlag(false);
   updateApexServerStatusStopped();
@@ -107,7 +121,10 @@ export const handleClientClosed = async (
  * @param message The error message
  */
 export const handleClientError = (error: Error, message: any): void => {
-  logToOutputChannel(`LSP Error: ${message?.toString() || 'Unknown error'}`, 'error');
+  logToOutputChannel(
+    `LSP Error: ${message?.toString() || 'Unknown error'}`,
+    'error',
+  );
   if (error) {
     logToOutputChannel(`Error details: ${error}`, 'debug');
   }

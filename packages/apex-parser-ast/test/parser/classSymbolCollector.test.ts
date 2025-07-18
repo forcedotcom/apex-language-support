@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CompilerService, CompilationResult } from '../../src/parser/compilerService';
+import {
+  CompilerService,
+  CompilationResult,
+} from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import {
   SymbolTable,
@@ -16,7 +19,10 @@ import {
   ApexSymbol,
   SymbolScope,
 } from '../../src/types/symbol';
-import { ErrorType, ErrorSeverity } from '../../src/parser/listeners/ApexErrorListener';
+import {
+  ErrorType,
+  ErrorSeverity,
+} from '../../src/parser/listeners/ApexErrorListener';
 import { TestLogger } from '../utils/testLogger';
 
 describe('ApexSymbolCollectorListener', () => {
@@ -33,7 +39,9 @@ describe('ApexSymbolCollectorListener', () => {
 
   describe('collect Class Symbols', () => {
     it('should collect class, method, field, property and parameter symbols', () => {
-      logger.debug('Starting test: collect class, method, field, property and parameter symbols');
+      logger.debug(
+        'Starting test: collect class, method, field, property and parameter symbols',
+      );
       // Sample Apex code with a class, methods, fields, properties and parameters
       const fileContent = `
         public class TestClass {
@@ -63,7 +71,11 @@ describe('ApexSymbolCollectorListener', () => {
 
       logger.debug('Compiling test file');
       // Parse the file
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'TestClass.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'TestClass.cls',
+        listener,
+      );
 
       // Check no errors
       expect(result.errors.length).toBe(0);
@@ -101,12 +113,16 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('Class scope retrieved');
 
       // Check fields
-      const fields = classScope?.getAllSymbols().filter((s: ApexSymbol) => s.kind === SymbolKind.Field);
+      const fields = classScope
+        ?.getAllSymbols()
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Field);
       expect(fields?.length).toBe(2);
       logger.debug(() => `Found ${fields?.length} field symbols`);
 
       // Check properties
-      const properties = classScope?.getAllSymbols().filter((s: ApexSymbol) => s.kind === SymbolKind.Property);
+      const properties = classScope
+        ?.getAllSymbols()
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Property);
       expect(properties?.length).toBe(2);
       logger.debug(() => `Found ${properties?.length} property symbols`);
 
@@ -115,7 +131,9 @@ describe('ApexSymbolCollectorListener', () => {
       expect(nameField?.kind).toBe(SymbolKind.Field);
       expect(nameField?.modifiers.visibility).toBe(SymbolVisibility.Private);
       logger.debug(
-        () => `Name field verified: kind=${nameField?.kind}, ` + `visibility=${nameField?.modifiers.visibility}`,
+        () =>
+          `Name field verified: kind=${nameField?.kind}, ` +
+          `visibility=${nameField?.modifiers.visibility}`,
       );
 
       const countField = fields?.find((p: ApexSymbol) => p.name === 'count');
@@ -123,25 +141,35 @@ describe('ApexSymbolCollectorListener', () => {
       expect(countField?.kind).toBe(SymbolKind.Field);
       expect(countField?.modifiers.visibility).toBe(SymbolVisibility.Public);
       logger.debug(
-        () => `Count field verified: kind=${countField?.kind}, visibility=${countField?.modifiers.visibility}`,
+        () =>
+          `Count field verified: kind=${countField?.kind}, visibility=${countField?.modifiers.visibility}`,
       );
 
       // Check methods
-      const methods = classScope?.getAllSymbols().filter((s: ApexSymbol) => s.kind === SymbolKind.Method);
+      const methods = classScope
+        ?.getAllSymbols()
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Method);
       expect(methods?.length).toBe(3); // getName, setName, incrementCount
       logger.debug(() => `Found ${methods?.length} method symbols`);
 
       // Check constructor
-      const constructors = classScope?.getAllSymbols().filter((s: ApexSymbol) => s.kind === SymbolKind.Constructor);
+      const constructors = classScope
+        ?.getAllSymbols()
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Constructor);
       expect(constructors?.length).toBe(1);
       const constructor = constructors?.[0] as MethodSymbol;
       expect(constructor).toBeDefined();
       expect(constructor.name).toBe('TestClass');
       expect(constructor.isConstructor).toBe(true);
-      logger.debug(() => `Constructor verified: isConstructor=${constructor?.isConstructor}`);
+      logger.debug(
+        () =>
+          `Constructor verified: isConstructor=${constructor?.isConstructor}`,
+      );
 
       // Check getName method
-      const getName = methods?.find((m: ApexSymbol) => m.name === 'getName') as MethodSymbol;
+      const getName = methods?.find(
+        (m: ApexSymbol) => m.name === 'getName',
+      ) as MethodSymbol;
       expect(getName).toBeDefined();
       expect(getName?.modifiers.visibility).toBe(SymbolVisibility.Public);
       expect(getName?.isConstructor).toBe(false);
@@ -152,35 +180,56 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check setName method
-      const setName = methods?.find((m: ApexSymbol) => m.name === 'setName') as MethodSymbol;
+      const setName = methods?.find(
+        (m: ApexSymbol) => m.name === 'setName',
+      ) as MethodSymbol;
       expect(setName).toBeDefined();
       expect(setName?.isConstructor).toBe(false);
-      logger.debug(() => `setName method verified: isConstructor=${setName?.isConstructor}`);
+      logger.debug(
+        () =>
+          `setName method verified: isConstructor=${setName?.isConstructor}`,
+      );
 
       // Check incrementCount method
-      const incrementCount = methods?.find((m: ApexSymbol) => m.name === 'incrementCount') as MethodSymbol;
+      const incrementCount = methods?.find(
+        (m: ApexSymbol) => m.name === 'incrementCount',
+      ) as MethodSymbol;
       expect(incrementCount).toBeDefined();
       expect(incrementCount?.isConstructor).toBe(false);
-      logger.debug(() => `incrementCount method verified: isConstructor=${incrementCount?.isConstructor}`);
+      logger.debug(
+        () =>
+          `incrementCount method verified: isConstructor=${incrementCount?.isConstructor}`,
+      );
 
       // Check method scope for parameters
       const methodScopes = classScope?.getChildren();
       expect(methodScopes?.length).toBe(4); // One for each method
-      logger.debug(() => `Method scopes verified: count=${methodScopes?.length}`);
+      logger.debug(
+        () => `Method scopes verified: count=${methodScopes?.length}`,
+      );
 
       // Check setName method parameters
-      const setNameScope = methodScopes?.find((s: SymbolScope) => s.name === 'setName');
+      const setNameScope = methodScopes?.find(
+        (s: SymbolScope) => s.name === 'setName',
+      );
       expect(setNameScope).toBeDefined();
       logger.debug('setName scope found');
 
-      const setNameParams = setNameScope?.getAllSymbols().filter((s: ApexSymbol) => s.kind === SymbolKind.Parameter);
+      const setNameParams = setNameScope
+        ?.getAllSymbols()
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.Parameter);
       expect(setNameParams?.length).toBe(1);
-      logger.debug(() => `setName parameters found: count=${setNameParams?.length}`);
+      logger.debug(
+        () => `setName parameters found: count=${setNameParams?.length}`,
+      );
 
       const nameParam = setNameParams?.[0];
       expect(nameParam?.name).toBe('name');
       expect(nameParam?.kind).toBe(SymbolKind.Parameter);
-      logger.debug(() => `name parameter verified: name=${nameParam?.name}, kind=${nameParam?.kind}`);
+      logger.debug(
+        () =>
+          `name parameter verified: name=${nameParam?.name}, kind=${nameParam?.kind}`,
+      );
     });
 
     it('should correctly identify an inner class constructor', () => {
@@ -193,23 +242,33 @@ describe('ApexSymbolCollectorListener', () => {
           }
         }
       `;
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'OuterClass.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'OuterClass.cls',
+        listener,
+      );
       expect(result.errors.length).toBe(0);
 
       const fileScope = result.result!.getCurrentScope();
       const outerClassSymbol = fileScope.getSymbol('OuterClass');
       expect(outerClassSymbol).toBeDefined();
 
-      const outerClassScope = fileScope.getChildren().find((s) => s.name === 'OuterClass');
+      const outerClassScope = fileScope
+        .getChildren()
+        .find((s) => s.name === 'OuterClass');
       expect(outerClassScope).toBeDefined();
 
       const innerClassSymbol = outerClassScope!.getSymbol('InnerClass');
       expect(innerClassSymbol).toBeDefined();
 
-      const innerClassScope = outerClassScope!.getChildren().find((s) => s.name === 'InnerClass');
+      const innerClassScope = outerClassScope!
+        .getChildren()
+        .find((s) => s.name === 'InnerClass');
       expect(innerClassScope).toBeDefined();
 
-      const constructorSymbol = innerClassScope!.getSymbol('InnerClass') as MethodSymbol;
+      const constructorSymbol = innerClassScope!.getSymbol(
+        'InnerClass',
+      ) as MethodSymbol;
       expect(constructorSymbol).toBeDefined();
       expect(constructorSymbol.isConstructor).toBe(true);
       expect(constructorSymbol.location.startLine).toBe(4);
@@ -245,7 +304,9 @@ describe('ApexSymbolCollectorListener', () => {
       const interfaceSymbol = allSymbols?.[0];
       expect(interfaceSymbol?.name).toBe('TestInterface');
       expect(interfaceSymbol?.kind).toBe(SymbolKind.Interface);
-      expect(interfaceSymbol?.modifiers.visibility).toBe(SymbolVisibility.Public);
+      expect(interfaceSymbol?.modifiers.visibility).toBe(
+        SymbolVisibility.Public,
+      );
       logger.debug(
         () =>
           `Interface symbol properties verified: name=${interfaceSymbol?.name}, ` +
@@ -264,7 +325,11 @@ describe('ApexSymbolCollectorListener', () => {
       `;
 
       logger.debug('Compiling test file');
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'TestEnum.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'TestEnum.cls',
+        listener,
+      );
 
       expect(result.errors).toEqual([]);
       logger.debug('No compilation errors found');
@@ -292,28 +357,38 @@ describe('ApexSymbolCollectorListener', () => {
       expect(enumScope?.name).toBe('TestEnum');
       logger.debug('Enum scope retrieved');
 
-      const values = enumScope?.getAllSymbols().filter((s: ApexSymbol) => s.kind === SymbolKind.EnumValue);
+      const values = enumScope
+        ?.getAllSymbols()
+        .filter((s: ApexSymbol) => s.kind === SymbolKind.EnumValue);
       expect(values?.length).toBe(3);
       logger.debug(() => `Found ${values?.length} enum values`);
 
       const value1 = values?.find((v: ApexSymbol) => v.name === 'VALUE1');
       expect(value1).toBeDefined();
       expect(value1?.kind).toBe(SymbolKind.EnumValue);
-      logger.debug(() => `Enum value verified: name=${value1?.name}, kind=${value1?.kind}`);
+      logger.debug(
+        () => `Enum value verified: name=${value1?.name}, kind=${value1?.kind}`,
+      );
 
       const value2 = values?.find((v: ApexSymbol) => v.name === 'VALUE2');
       expect(value2).toBeDefined();
       expect(value2?.kind).toBe(SymbolKind.EnumValue);
-      logger.debug(() => `Enum value verified: name=${value2?.name}, kind=${value2?.kind}`);
+      logger.debug(
+        () => `Enum value verified: name=${value2?.name}, kind=${value2?.kind}`,
+      );
 
       const value3 = values?.find((v: ApexSymbol) => v.name === 'VALUE3');
       expect(value3).toBeDefined();
       expect(value3?.kind).toBe(SymbolKind.EnumValue);
-      logger.debug(() => `Enum value verified: name=${value3?.name}, kind=${value3?.kind}`);
+      logger.debug(
+        () => `Enum value verified: name=${value3?.name}, kind=${value3?.kind}`,
+      );
     });
 
     it('should collect local variable symbols within blocks', () => {
-      logger.debug('Starting test: collect local variable symbols within blocks');
+      logger.debug(
+        'Starting test: collect local variable symbols within blocks',
+      );
       const fileContent = `
         public class BlocksTest {
           public void m1() {
@@ -353,14 +428,18 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Helper to recursively collect all variables from all block scopes
       function getAllVariablesFromScopes(scope: SymbolScope): ApexSymbol[] {
-        let vars = scope.getAllSymbols().filter((s: ApexSymbol) => s.kind === SymbolKind.Variable);
+        let vars = scope
+          .getAllSymbols()
+          .filter((s: ApexSymbol) => s.kind === SymbolKind.Variable);
         for (const child of scope.getChildren()) {
           vars = vars.concat(getAllVariablesFromScopes(child));
         }
         return vars;
       }
 
-      const allBlockVariables = getAllVariablesFromScopes(methodScope as SymbolScope);
+      const allBlockVariables = getAllVariablesFromScopes(
+        methodScope as SymbolScope,
+      );
       const varNames = allBlockVariables.map((v: ApexSymbol) => v.name);
       expect(varNames).toContain('outerVar');
       expect(varNames).toContain('innerVar');
@@ -389,7 +468,11 @@ describe('ApexSymbolCollectorListener', () => {
       `;
 
       logger.debug('Compiling test file');
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'Outer.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'Outer.cls',
+        listener,
+      );
 
       expect(result.errors.length).toBe(0);
       logger.debug('No compilation errors found');
@@ -407,7 +490,9 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('Outer scope retrieved');
 
       // Check outer class field
-      const outerField = outerScope?.getAllSymbols().find((s) => s.name === 'outerField');
+      const outerField = outerScope
+        ?.getAllSymbols()
+        .find((s) => s.name === 'outerField');
       expect(outerField).toBeDefined();
       logger.debug(
         () =>
@@ -416,17 +501,26 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check inner class
-      const innerClass = outerScope?.getAllSymbols().find((s) => s.name === 'Inner');
+      const innerClass = outerScope
+        ?.getAllSymbols()
+        .find((s) => s.name === 'Inner');
       expect(innerClass?.kind).toBe(SymbolKind.Class);
-      logger.debug(() => `Found inner class: name=${innerClass?.name}, kind=${innerClass?.kind}`);
+      logger.debug(
+        () =>
+          `Found inner class: name=${innerClass?.name}, kind=${innerClass?.kind}`,
+      );
 
       // Check inner class scope
-      const innerScope = outerScope?.getChildren().find((s) => s.name === 'Inner');
+      const innerScope = outerScope
+        ?.getChildren()
+        .find((s) => s.name === 'Inner');
 
       if (innerScope) {
         logger.debug('Inner scope found');
         // If inner class scoping is implemented, check inner field and method
-        const innerField = innerScope.getAllSymbols().find((s) => s.name === 'innerField');
+        const innerField = innerScope
+          .getAllSymbols()
+          .find((s) => s.name === 'innerField');
         expect(innerField).toBeDefined();
         logger.debug(
           () =>
@@ -434,7 +528,9 @@ describe('ApexSymbolCollectorListener', () => {
             `kind=${innerField?.kind}, visibility=${innerField?.modifiers.visibility}`,
         );
 
-        const innerMethod = innerScope.getAllSymbols().find((s) => s.name === 'innerMethod');
+        const innerMethod = innerScope
+          .getAllSymbols()
+          .find((s) => s.name === 'innerMethod');
         expect(innerMethod).toBeDefined();
         logger.debug(
           () =>
@@ -473,7 +569,9 @@ describe('ApexSymbolCollectorListener', () => {
       const triggerSymbol = allSymbols?.[0];
       expect(triggerSymbol?.name).toBe('TestTrigger');
       expect(triggerSymbol?.kind).toBe(SymbolKind.Trigger);
-      expect(triggerSymbol?.modifiers.visibility).toBe(SymbolVisibility.Default);
+      expect(triggerSymbol?.modifiers.visibility).toBe(
+        SymbolVisibility.Default,
+      );
       logger.debug(
         () =>
           `Trigger symbol properties verified: name=${triggerSymbol?.name}, ` +
@@ -494,7 +592,11 @@ describe('ApexSymbolCollectorListener', () => {
       `;
 
       logger.debug('Compiling test file');
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'OuterClass.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'OuterClass.cls',
+        listener,
+      );
 
       expect(result.errors.length).toBe(0);
       logger.debug('No compilation errors found');
@@ -510,7 +612,9 @@ describe('ApexSymbolCollectorListener', () => {
       const outerClassSymbol = allSymbols?.[0];
       expect(outerClassSymbol?.name).toBe('OuterClass');
       expect(outerClassSymbol?.kind).toBe(SymbolKind.Class);
-      expect(outerClassSymbol?.modifiers.visibility).toBe(SymbolVisibility.Public);
+      expect(outerClassSymbol?.modifiers.visibility).toBe(
+        SymbolVisibility.Public,
+      );
       logger.debug(
         () =>
           `Outer class symbol properties verified: name=${outerClassSymbol?.name}, ` +
@@ -523,10 +627,14 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('Outer class scope retrieved');
 
       // Check inner class symbol
-      const innerClassSymbol = outerClassScope?.getAllSymbols().find((s: ApexSymbol) => s.kind === SymbolKind.Class);
+      const innerClassSymbol = outerClassScope
+        ?.getAllSymbols()
+        .find((s: ApexSymbol) => s.kind === SymbolKind.Class);
       expect(innerClassSymbol).toBeDefined();
       expect(innerClassSymbol?.name).toBe('InnerClass');
-      expect(innerClassSymbol?.modifiers.visibility).toBe(SymbolVisibility.Public);
+      expect(innerClassSymbol?.modifiers.visibility).toBe(
+        SymbolVisibility.Public,
+      );
       logger.debug(
         () =>
           `Inner class symbol properties verified: name=${innerClassSymbol?.name}, ` +
@@ -539,7 +647,9 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('Inner class scope retrieved');
 
       // Check inner class method
-      const innerMethod = innerClassScope?.getAllSymbols().find((s: ApexSymbol) => s.kind === SymbolKind.Method);
+      const innerMethod = innerClassScope
+        ?.getAllSymbols()
+        .find((s: ApexSymbol) => s.kind === SymbolKind.Method);
       expect(innerMethod).toBeDefined();
       expect(innerMethod?.name).toBe('innerMethod');
       expect(innerMethod?.modifiers.visibility).toBe(SymbolVisibility.Public);
@@ -560,11 +670,12 @@ describe('ApexSymbolCollectorListener', () => {
       `;
 
       logger.debug('Compiling interface file');
-      const interfaceResult: CompilationResult<SymbolTable> = compilerService.compile(
-        interfaceContent,
-        'TestInterface.cls',
-        listener,
-      );
+      const interfaceResult: CompilationResult<SymbolTable> =
+        compilerService.compile(
+          interfaceContent,
+          'TestInterface.cls',
+          listener,
+        );
 
       expect(interfaceResult.errors.length).toBe(0);
       logger.debug('No interface compilation errors found');
@@ -578,7 +689,9 @@ describe('ApexSymbolCollectorListener', () => {
       expect(interfaceSymbol).toBeDefined();
       expect(interfaceSymbol?.name).toBe('TestInterface');
       expect(interfaceSymbol?.kind).toBe(SymbolKind.Interface);
-      expect(interfaceSymbol?.modifiers.visibility).toBe(SymbolVisibility.Public);
+      expect(interfaceSymbol?.modifiers.visibility).toBe(
+        SymbolVisibility.Public,
+      );
       logger.debug(
         () =>
           `Interface symbol properties verified: name=${interfaceSymbol?.name}, ` +
@@ -596,11 +709,8 @@ describe('ApexSymbolCollectorListener', () => {
 
       logger.debug('Compiling implementing class file');
       const classListener = new ApexSymbolCollectorListener();
-      const classResult: CompilationResult<SymbolTable> = compilerService.compile(
-        classContent,
-        'TestClass.cls',
-        classListener,
-      );
+      const classResult: CompilationResult<SymbolTable> =
+        compilerService.compile(classContent, 'TestClass.cls', classListener);
 
       expect(classResult.errors.length).toBe(0);
       logger.debug('No class compilation errors found');
@@ -628,7 +738,9 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('Class scope retrieved');
 
       // Check method implementation
-      const method = classScope?.getAllSymbols().find((s: ApexSymbol) => s.kind === SymbolKind.Method);
+      const method = classScope
+        ?.getAllSymbols()
+        .find((s: ApexSymbol) => s.kind === SymbolKind.Method);
       expect(method).toBeDefined();
       expect(method?.name).toBe('doSomething');
       expect(method?.modifiers.visibility).toBe(SymbolVisibility.Public);
@@ -652,24 +764,34 @@ describe('ApexSymbolCollectorListener', () => {
       `;
 
       logger.debug('Compiling test file');
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'ErrorClass.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'ErrorClass.cls',
+        listener,
+      );
 
       // Should have a syntax error
       expect(result.errors.length).toBeGreaterThan(0);
       logger.debug(() => `Found ${result.errors.length} errors`);
 
       // Verify error details
-      const syntaxErrors = result.errors.filter((e) => e.type === ErrorType.Syntax);
+      const syntaxErrors = result.errors.filter(
+        (e) => e.type === ErrorType.Syntax,
+      );
       expect(syntaxErrors.length).toBeGreaterThan(0);
       expect(syntaxErrors[0].line).toBe(4); // The line with the missing semicolon
       expect(syntaxErrors[0].severity).toBe(ErrorSeverity.Error);
       logger.debug(
-        () => `Syntax error verified: line=${syntaxErrors[0].line}, ` + `severity=${syntaxErrors[0].severity}`,
+        () =>
+          `Syntax error verified: line=${syntaxErrors[0].line}, ` +
+          `severity=${syntaxErrors[0].severity}`,
       );
     });
 
     it('should capture semantic errors for duplicate variable declarations', () => {
-      logger.debug('Starting test: capture semantic errors for duplicate variable declarations');
+      logger.debug(
+        'Starting test: capture semantic errors for duplicate variable declarations',
+      );
       // Apex code with duplicate variable declaration
       const fileContent = `
         public class DuplicateVarClass {
@@ -689,19 +811,26 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Should have a semantic error
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(semanticErrors.length).toBeGreaterThan(0);
-      expect(semanticErrors[0].message).toContain('Duplicate variable declaration');
+      expect(semanticErrors[0].message).toContain(
+        'Duplicate variable declaration',
+      );
       expect(semanticErrors[0].line).toBe(5); // Line with the duplicate variable
       logger.debug(
-        () => `Semantic error verified: line=${semanticErrors[0].line}, ` + `message=${semanticErrors[0].message}`,
+        () =>
+          `Semantic error verified: line=${semanticErrors[0].line}, ` +
+          `message=${semanticErrors[0].message}`,
       );
     });
 
     it('should capture semantic errors for conflicting method modifiers', () => {
-      logger.debug('Starting test: capture semantic errors for conflicting method modifiers');
+      logger.debug(
+        'Starting test: capture semantic errors for conflicting method modifiers',
+      );
       // Apex code with conflicting method modifiers
       const fileContent = `
         public abstract class ModifierClass {
@@ -720,16 +849,23 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Should have a semantic error
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(semanticErrors.length).toBeGreaterThan(0);
-      expect(semanticErrors[0].message).toContain('cannot be both abstract and final');
-      logger.debug(() => `Semantic error verified: message=${semanticErrors[0].message}`);
+      expect(semanticErrors[0].message).toContain(
+        'cannot be both abstract and final',
+      );
+      logger.debug(
+        () => `Semantic error verified: message=${semanticErrors[0].message}`,
+      );
     });
 
     it('should capture semantic warnings for method overrides', () => {
-      logger.debug('Starting test: capture semantic warnings for method overrides');
+      logger.debug(
+        'Starting test: capture semantic warnings for method overrides',
+      );
       // Apex code with override method
       const fileContent = `
         public class OverrideClass {
@@ -748,13 +884,19 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Should have a semantic warning
       const semanticWarnings = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Warning,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Warning,
       );
 
       expect(semanticWarnings.length).toBeGreaterThan(0);
       expect(semanticWarnings[0].message).toContain('Override method');
-      expect(semanticWarnings[0].message).toContain('ensure a parent class has a compatible');
-      logger.debug(() => `Semantic warning verified: message=${semanticWarnings[0].message}`);
+      expect(semanticWarnings[0].message).toContain(
+        'ensure a parent class has a compatible',
+      );
+      logger.debug(
+        () =>
+          `Semantic warning verified: message=${semanticWarnings[0].message}`,
+      );
     });
 
     it('should capture multiple errors in a single file', () => {
@@ -786,18 +928,27 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug(() => `Found ${result.errors.length} errors`);
 
       // Check types of errors
-      const syntaxErrors = result.errors.filter((e) => e.type === ErrorType.Syntax);
+      const syntaxErrors = result.errors.filter(
+        (e) => e.type === ErrorType.Syntax,
+      );
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(syntaxErrors.length).toBeGreaterThan(0);
       expect(semanticErrors.length).toBeGreaterThan(0);
-      logger.debug(() => `Error types verified: syntax=${syntaxErrors.length}, ` + `semantic=${semanticErrors.length}`);
+      logger.debug(
+        () =>
+          `Error types verified: syntax=${syntaxErrors.length}, ` +
+          `semantic=${semanticErrors.length}`,
+      );
     });
 
     it('should capture semantic errors for invalid interface methods with implementation', () => {
-      logger.debug('Starting test: capture semantic errors for invalid interface methods with implementation');
+      logger.debug(
+        'Starting test: capture semantic errors for invalid interface methods with implementation',
+      );
       // Interface method with implementation
       const fileContent = `
         public interface BadInterface {
@@ -808,11 +959,17 @@ describe('ApexSymbolCollectorListener', () => {
       `;
 
       logger.debug('Compiling test file');
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'BadInterface.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'BadInterface.cls',
+        listener,
+      );
 
       // Check for syntax errors instead of semantic errors since
       // the parser treats this as a syntax error
-      const syntaxErrors = result.errors.filter((e) => e.type === ErrorType.Syntax);
+      const syntaxErrors = result.errors.filter(
+        (e) => e.type === ErrorType.Syntax,
+      );
 
       expect(syntaxErrors.length).toBeGreaterThan(0);
       expect(syntaxErrors[0].type).toBe(ErrorType.Syntax);
@@ -820,7 +977,9 @@ describe('ApexSymbolCollectorListener', () => {
     });
 
     it('should capture semantic errors for invalid visibility modifiers in interfaces', () => {
-      logger.debug('Starting test: capture semantic errors for invalid visibility modifiers in interfaces');
+      logger.debug(
+        'Starting test: capture semantic errors for invalid visibility modifiers in interfaces',
+      );
       const fileContent = `
         public interface VisibilityInterface {
           private void privateMethod(); // Interface methods cannot be private
@@ -835,16 +994,23 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(semanticErrors.length).toBeGreaterThan(0);
-      expect(semanticErrors[0].message).toContain('Modifiers are not allowed on interface methods');
-      logger.debug(() => `Semantic error verified: message=${semanticErrors[0].message}`);
+      expect(semanticErrors[0].message).toContain(
+        'Modifiers are not allowed on interface methods',
+      );
+      logger.debug(
+        () => `Semantic error verified: message=${semanticErrors[0].message}`,
+      );
     });
 
     it('should capture semantic errors for duplicate method declarations', () => {
-      logger.debug('Starting test: capture semantic errors for duplicate method declarations');
+      logger.debug(
+        'Starting test: capture semantic errors for duplicate method declarations',
+      );
       const fileContent = `
         public class DuplicateMethodClass {
           public void sameMethod() {
@@ -865,16 +1031,21 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(semanticErrors.length).toBeGreaterThan(0);
       expect(semanticErrors[0].message).toContain('Duplicate method');
-      logger.debug(() => `Semantic error verified: message=${semanticErrors[0].message}`);
+      logger.debug(
+        () => `Semantic error verified: message=${semanticErrors[0].message}`,
+      );
     });
 
     it('should capture semantic errors for duplicate constructor declarations', () => {
-      logger.debug('Starting test: capture semantic errors for duplicate constructor declarations');
+      logger.debug(
+        'Starting test: capture semantic errors for duplicate constructor declarations',
+      );
       const fileContent = `
         public class DuplicateConstructorClass {
           public DuplicateConstructorClass() {
@@ -895,16 +1066,23 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(semanticErrors.length).toBeGreaterThan(0);
-      expect(semanticErrors[0].message).toContain('Duplicate constructor declaration');
-      logger.debug(() => `Semantic error verified: message=${semanticErrors[0].message}`);
+      expect(semanticErrors[0].message).toContain(
+        'Duplicate constructor declaration',
+      );
+      logger.debug(
+        () => `Semantic error verified: message=${semanticErrors[0].message}`,
+      );
     });
 
     it('should capture semantic errors for duplicate interface method declarations', () => {
-      logger.debug('Starting test: capture semantic errors for duplicate interface method declarations');
+      logger.debug(
+        'Starting test: capture semantic errors for duplicate interface method declarations',
+      );
       const fileContent = `
         public interface DuplicateInterfaceMethodInterface {
           void sameMethod();
@@ -921,13 +1099,18 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       const semanticErrors = result.errors.filter(
-        (e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
+        (e) =>
+          e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
       );
 
       expect(semanticErrors.length).toBeGreaterThan(0);
-      expect(semanticErrors[0].message).toContain('Duplicate interface method declaration');
+      expect(semanticErrors[0].message).toContain(
+        'Duplicate interface method declaration',
+      );
       expect(semanticErrors[0].message).toContain('interface');
-      logger.debug(() => `Semantic error verified: message=${semanticErrors[0].message}`);
+      logger.debug(
+        () => `Semantic error verified: message=${semanticErrors[0].message}`,
+      );
     });
   });
 });

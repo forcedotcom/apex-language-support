@@ -44,10 +44,13 @@ export default defineConfig({
       cwd: sourceDir,
       stdio: 'inherit',
     });
-    execSync('shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* dist/grammars/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
+    execSync(
+      'shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* dist/grammars/',
+      {
+        cwd: sourceDir,
+        stdio: 'inherit',
+      },
+    );
 
     // Copy other required files
     execSync('shx cp README.md language-configuration.json LICENSE.txt dist/', {

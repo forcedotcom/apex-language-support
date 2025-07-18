@@ -52,7 +52,9 @@ export interface FoldingRange {
  * This listener tracks various code blocks and statements that can be folded
  * in the editor.
  */
-export class ApexFoldingRangeListener extends BaseApexParserListener<FoldingRange[]> {
+export class ApexFoldingRangeListener extends BaseApexParserListener<
+  FoldingRange[]
+> {
   private readonly logger = getLogger();
   private ranges: FoldingRange[] = [];
   private blockDepth: number = 0;
@@ -102,7 +104,9 @@ export class ApexFoldingRangeListener extends BaseApexParserListener<FoldingRang
   /**
    * Called when entering an interface method declaration
    */
-  enterInterfaceMethodDeclaration(ctx: InterfaceMethodDeclarationContext): void {
+  enterInterfaceMethodDeclaration(
+    ctx: InterfaceMethodDeclarationContext,
+  ): void {
     this.addRange(ctx, 'region');
   }
 
@@ -197,13 +201,18 @@ export class ApexFoldingRangeListener extends BaseApexParserListener<FoldingRang
         startLine: ctx.start.line,
         startColumn: ctx.start.charPositionInLine,
         endLine: ctx.stop?.line ?? ctx.start.line,
-        endColumn: (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) + (ctx.stop?.text?.length ?? 0),
+        endColumn:
+          (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
+          (ctx.stop?.text?.length ?? 0),
         kind,
         level: this.blockDepth,
       };
 
       this.ranges.push(range);
-      this.logger.debug(() => `Added folding range for ${kind} at lines ${range.startLine}-${range.endLine}`);
+      this.logger.debug(
+        () =>
+          `Added folding range for ${kind} at lines ${range.startLine}-${range.endLine}`,
+      );
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.logger.error(() => `Error adding folding range: ${errorMessage}`);

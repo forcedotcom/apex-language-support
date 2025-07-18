@@ -50,7 +50,9 @@ describe('NodeFileSystemApexStorage', () => {
     it('should initialize storage with options', async () => {
       const options = { test: 'option' };
       await storage.initialize(options);
-      expect(mockLogger.debug).toHaveBeenCalledWith(`Initializing Node.js storage with options: ${options}`);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Initializing Node.js storage with options: ${options}`,
+      );
     });
   });
 
@@ -58,7 +60,9 @@ describe('NodeFileSystemApexStorage', () => {
     it('should shutdown storage', async () => {
       await storage.initialize();
       await storage.shutdown();
-      expect(mockLogger.debug).toHaveBeenCalledWith('Shutting down Node.js storage');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Shutting down Node.js storage',
+      );
     });
   });
 
@@ -103,8 +107,12 @@ describe('NodeFileSystemApexStorage', () => {
         },
       ];
 
-      await expect(storage.storeAst(filePath, ast)).rejects.toThrow('Storage not initialized');
-      await expect(storage.retrieveAst(filePath)).rejects.toThrow('Storage not initialized');
+      await expect(storage.storeAst(filePath, ast)).rejects.toThrow(
+        'Storage not initialized',
+      );
+      await expect(storage.retrieveAst(filePath)).rejects.toThrow(
+        'Storage not initialized',
+      );
     });
   });
 
@@ -139,8 +147,12 @@ describe('NodeFileSystemApexStorage', () => {
         getNamespace: () => null,
       };
 
-      await expect(storage.storeTypeInfo(typeName, typeInfo)).rejects.toThrow('Storage not initialized');
-      await expect(storage.retrieveTypeInfo(typeName)).rejects.toThrow('Storage not initialized');
+      await expect(storage.storeTypeInfo(typeName, typeInfo)).rejects.toThrow(
+        'Storage not initialized',
+      );
+      await expect(storage.retrieveTypeInfo(typeName)).rejects.toThrow(
+        'Storage not initialized',
+      );
     });
   });
 
@@ -174,9 +186,15 @@ describe('NodeFileSystemApexStorage', () => {
         referenceType: 'method-call',
       };
 
-      await expect(storage.storeReference(reference)).rejects.toThrow('Storage not initialized');
-      await expect(storage.findReferencesTo('targetSymbol')).rejects.toThrow('Storage not initialized');
-      await expect(storage.findReferencesFrom('source.cls')).rejects.toThrow('Storage not initialized');
+      await expect(storage.storeReference(reference)).rejects.toThrow(
+        'Storage not initialized',
+      );
+      await expect(storage.findReferencesTo('targetSymbol')).rejects.toThrow(
+        'Storage not initialized',
+      );
+      await expect(storage.findReferencesFrom('source.cls')).rejects.toThrow(
+        'Storage not initialized',
+      );
     });
   });
 
@@ -219,7 +237,9 @@ describe('NodeFileSystemApexStorage', () => {
     });
 
     it('should throw error when not initialized', async () => {
-      await expect(storage.clearFile('test.cls')).rejects.toThrow('Storage not initialized');
+      await expect(storage.clearFile('test.cls')).rejects.toThrow(
+        'Storage not initialized',
+      );
     });
   });
 
@@ -227,11 +247,15 @@ describe('NodeFileSystemApexStorage', () => {
     it('should persist data', async () => {
       await storage.initialize();
       await storage.persist();
-      expect(mockLogger.debug).toHaveBeenCalledWith('Persisting data to Node.js storage');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Persisting data to Node.js storage',
+      );
     });
 
     it('should throw error when not initialized', async () => {
-      await expect(storage.persist()).rejects.toThrow('Storage not initialized');
+      await expect(storage.persist()).rejects.toThrow(
+        'Storage not initialized',
+      );
     });
   });
 
@@ -258,12 +282,17 @@ describe('NodeFileSystemApexStorage', () => {
       const result = await storage.getDocument(uri);
       expect(result).toBeDefined();
       expect(result!.getText()).toBe(content);
-      expect(mockFs.readFile).toHaveBeenCalledWith(URI.parse(uri).fsPath, 'utf-8');
+      expect(mockFs.readFile).toHaveBeenCalledWith(
+        URI.parse(uri).fsPath,
+        'utf-8',
+      );
     });
 
     it('should return null when file read fails', async () => {
       const uri = 'file:///test.apex';
-      jest.spyOn(fs, 'readFile').mockRejectedValueOnce(new Error('File not found'));
+      jest
+        .spyOn(fs, 'readFile')
+        .mockRejectedValueOnce(new Error('File not found'));
       await storage.initialize();
       const result = await storage.getDocument(uri);
       expect(result).toBeNull();
@@ -271,7 +300,9 @@ describe('NodeFileSystemApexStorage', () => {
     });
 
     it('should throw error when not initialized', async () => {
-      await expect(storage.getDocument('test.cls')).rejects.toThrow('Storage not initialized');
+      await expect(storage.getDocument('test.cls')).rejects.toThrow(
+        'Storage not initialized',
+      );
     });
   });
 });

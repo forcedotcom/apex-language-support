@@ -9,7 +9,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { ApexJsonRpcClient, ConsoleLogger, JsonRpcClientOptions } from '../../client/ApexJsonRpcClient';
+import {
+  ApexJsonRpcClient,
+  ConsoleLogger,
+  JsonRpcClientOptions,
+} from '../../client/ApexJsonRpcClient';
 import { RequestResponseCapturingMiddleware } from '../../test-utils/RequestResponseCapturingMiddleware';
 
 // Determine project root directory
@@ -139,7 +143,9 @@ export class ApexLanguageServerMock {
 
         this.logger.info('====================================');
         this.logger.info('Demonstration completed successfully');
-        this.logger.info('To use with a real server, set APEX_LSP_SERVER_PATH environment variable');
+        this.logger.info(
+          'To use with a real server, set APEX_LSP_SERVER_PATH environment variable',
+        );
         this.logger.info('====================================');
         return;
       }
@@ -150,7 +156,9 @@ export class ApexLanguageServerMock {
 
       // Get server capabilities
       const capabilities = this.client.getServerCapabilities();
-      this.logger.info(`Server capabilities: ${JSON.stringify(capabilities, null, 2)}`);
+      this.logger.info(
+        `Server capabilities: ${JSON.stringify(capabilities, null, 2)}`,
+      );
 
       // Run basic document test
       await this.testBasicDocument();
@@ -248,9 +256,13 @@ public class CompletionTest {
     const completionResult = await this.client.completion(uri, 2, 16);
 
     // Log completion results
-    this.logger.info(`Completion items: ${completionResult?.items?.length || 0}`);
+    this.logger.info(
+      `Completion items: ${completionResult?.items?.length || 0}`,
+    );
     if (completionResult?.items?.length > 0) {
-      this.logger.info(`First completion item: ${JSON.stringify(completionResult.items[0])}`);
+      this.logger.info(
+        `First completion item: ${JSON.stringify(completionResult.items[0])}`,
+      );
     }
 
     // Close document

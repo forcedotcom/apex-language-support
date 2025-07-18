@@ -16,18 +16,20 @@ import { hash } from '../utils/utils';
  * @author jspagnola
  */
 export class StructuredVersion implements Comparable<StructuredVersion> {
-  public static readonly DEFAULT_MIN_VERSION: StructuredVersion = new StructuredVersion(0, 0);
-  public static readonly DEFAULT_MAX_VERSION: StructuredVersion = new StructuredVersion(
-    Number.MAX_SAFE_INTEGER,
-    Number.MAX_SAFE_INTEGER,
-  );
+  public static readonly DEFAULT_MIN_VERSION: StructuredVersion =
+    new StructuredVersion(0, 0);
+  public static readonly DEFAULT_MAX_VERSION: StructuredVersion =
+    new StructuredVersion(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
 
   private constructor(
     private readonly majorVersion: number,
     private readonly minorVersion: number,
   ) {}
 
-  public static create(majorVersion: number, minorVersion: number): StructuredVersion {
+  public static create(
+    majorVersion: number,
+    minorVersion: number,
+  ): StructuredVersion {
     return new StructuredVersion(majorVersion, minorVersion);
   }
 
@@ -51,7 +53,10 @@ export class StructuredVersion implements Comparable<StructuredVersion> {
       return false;
     }
     const other = obj as StructuredVersion;
-    return this.majorVersion === other.majorVersion && this.minorVersion === other.minorVersion;
+    return (
+      this.majorVersion === other.majorVersion &&
+      this.minorVersion === other.minorVersion
+    );
   }
 
   public toString(): string {
@@ -74,17 +79,26 @@ interface Comparable<T> {
 }
 
 export class StructuredVersionRange {
-  private static readonly INTERNER: HashMap<string, StructuredVersionRange, [string, StructuredVersionRange]> =
-    new HashMap();
+  private static readonly INTERNER: HashMap<
+    string,
+    StructuredVersionRange,
+    [string, StructuredVersionRange]
+  > = new HashMap();
   private readonly minVersion: StructuredVersion;
   private readonly maxVersion: StructuredVersion;
 
-  private constructor(minVersion: StructuredVersion, maxVersion: StructuredVersion) {
+  private constructor(
+    minVersion: StructuredVersion,
+    maxVersion: StructuredVersion,
+  ) {
     this.minVersion = minVersion;
     this.maxVersion = maxVersion;
   }
 
-  public static create(minVersion: StructuredVersion, maxVersion: StructuredVersion): StructuredVersionRange {
+  public static create(
+    minVersion: StructuredVersion,
+    maxVersion: StructuredVersion,
+  ): StructuredVersionRange {
     const key = `${minVersion},${maxVersion}`;
     if (!StructuredVersionRange.INTERNER.has(key)) {
       const newRange = new StructuredVersionRange(minVersion, maxVersion);
@@ -108,7 +122,10 @@ export class StructuredVersionRange {
     }
 
     const other = obj as StructuredVersionRange;
-    return this.minVersion.equals(other.minVersion) && this.maxVersion.equals(other.maxVersion);
+    return (
+      this.minVersion.equals(other.minVersion) &&
+      this.maxVersion.equals(other.maxVersion)
+    );
   }
 
   public toString(): string {
@@ -119,7 +136,10 @@ export class StructuredVersionRange {
    * @returns true if version within [min, max] inclusive otherwise false
    */
   public within(version: StructuredVersion): boolean {
-    return version.compareTo(this.minVersion) >= 0 && version.compareTo(this.maxVersion) <= 0;
+    return (
+      version.compareTo(this.minVersion) >= 0 &&
+      version.compareTo(this.maxVersion) <= 0
+    );
   }
 
   /**
@@ -212,15 +232,22 @@ export class VersionUtils {
   static readonly COMPILER_RELEASE: Version = Version.V210;
   static readonly POST_RELEASE: Version = Version.V212;
 
-  private static readonly FROM_INTERNAL: HashMap<string | Version, Version, [string | Version, Version]> = new HashMap(
-    Object.entries(Version).map(([key, value]) => [value, Version[key as keyof typeof Version]]),
+  private static readonly FROM_INTERNAL: HashMap<
+    string | Version,
+    Version,
+    [string | Version, Version]
+  > = new HashMap(
+    Object.entries(Version).map(([key, value]) => [
+      value,
+      Version[key as keyof typeof Version],
+    ]),
   );
 
-  private static readonly EXTERNAL_VERSIONS: HashMap<Version, number, [Version, number]> = new HashMap<
+  private static readonly EXTERNAL_VERSIONS: HashMap<
     Version,
     number,
     [Version, number]
-  >([
+  > = new HashMap<Version, number, [Version, number]>([
     [Version.V140, 6],
     [Version.V142, 7],
     [Version.V144, 8],
@@ -325,15 +352,27 @@ export class VersionUtils {
    * So, 162 to 166 is true for 162, 164, and 166, otherwise its false.
    */
   static isBetween(version: Version, lower: Version, upper: Version): boolean {
-    console.assert(this.assertBounds(lower, upper), `non sense bounds: ${lower} - ${upper}`);
-    return this.isGreaterThanOrEqual(version, lower) && this.isLessThanOrEqual(version, upper);
+    console.assert(
+      this.assertBounds(lower, upper),
+      `non sense bounds: ${lower} - ${upper}`,
+    );
+    return (
+      this.isGreaterThanOrEqual(version, lower) &&
+      this.isLessThanOrEqual(version, upper)
+    );
   }
 
-  private static assertBounds(lower: Version | null, upper: Version | null): boolean {
+  private static assertBounds(
+    lower: Version | null,
+    upper: Version | null,
+  ): boolean {
     if (lower === null && upper === null) {
       return false;
     } else if (lower === null) {
-      return upper !== null && this.isGreaterThanOrEqual(upper, lower as unknown as Version);
+      return (
+        upper !== null &&
+        this.isGreaterThanOrEqual(upper, lower as unknown as Version)
+      );
     } else {
       return upper !== null && this.isLessThanOrEqual(lower, upper);
     }

@@ -58,7 +58,9 @@ async function generateZip() {
     }
 
     // Get all files from the StandardApexLibrary directory
-    const files = await getAllFiles(path.join('src', 'resources', 'StandardApexLibrary'));
+    const files = await getAllFiles(
+      path.join('src', 'resources', 'StandardApexLibrary'),
+    );
 
     // Create a zip file
     const zipData = zipSync(files);
@@ -84,9 +86,14 @@ async function generateZip() {
 // @ts-nocheck
 export const zipData = Buffer.from('${base64Data}', 'base64');
 `;
-    await writeFile(path.join('src', 'generated', 'apexSrcLoader.ts'), zipLoaderContent);
+    await writeFile(
+      path.join('src', 'generated', 'apexSrcLoader.ts'),
+      zipLoaderContent,
+    );
 
-    console.log('Resources zip file created successfully in src/generated and out/resources');
+    console.log(
+      'Resources zip file created successfully in src/generated and out/resources',
+    );
     console.log(`Zip file size: ${zipData.length} bytes`);
   } catch (error) {
     console.error('Error generating zip file:', error);

@@ -26,7 +26,11 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
     if (this.errorListener) {
       // Extract location information from the error node
       const token = node.symbol;
-      this.errorListener.semanticError(`Invalid syntax: ${token.text}`, token.line, token.charPositionInLine);
+      this.errorListener.semanticError(
+        `Invalid syntax: ${token.text}`,
+        token.line,
+        token.charPositionInLine,
+      );
     }
   }
   protected warnings: string[] = [];
@@ -109,7 +113,9 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
    */
   protected addError(
     message: string,
-    context: ParserRuleContext | { line: number; column: number; endLine?: number; endColumn?: number },
+    context:
+      | ParserRuleContext
+      | { line: number; column: number; endLine?: number; endColumn?: number },
   ): void {
     if (!this.errorListener) return;
 
@@ -122,7 +128,13 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
         context.stop?.charPositionInLine,
       );
     } else {
-      this.errorListener.semanticError(message, context.line, context.column, context.endLine, context.endColumn);
+      this.errorListener.semanticError(
+        message,
+        context.line,
+        context.column,
+        context.endLine,
+        context.endColumn,
+      );
     }
   }
 
@@ -141,7 +153,10 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
   }
 
   // Error recovery method - can be overridden by subclasses
-  protected handleSyntaxError(message: string, context: ParserRuleContext): void {
+  protected handleSyntaxError(
+    message: string,
+    context: ParserRuleContext,
+  ): void {
     this.addWarning(`Syntax error: ${message}`, context);
 
     // Also add to error listener

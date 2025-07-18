@@ -7,7 +7,12 @@
  */
 
 import { FoldingRange as LSPFoldingRange } from 'vscode-languageserver-protocol';
-import { CompilerService, ApexFoldingRangeListener, ApexComment, CommentType } from '@salesforce/apex-lsp-parser-ast';
+import {
+  CompilerService,
+  ApexFoldingRangeListener,
+  ApexComment,
+  CommentType,
+} from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
@@ -42,9 +47,13 @@ export class ApexFoldingRangeProvider {
    * @param documentUri - The URI of the document to analyze
    * @returns Array of LSP folding ranges
    */
-  public async getFoldingRanges(documentUri: string): Promise<LSPFoldingRange[]> {
+  public async getFoldingRanges(
+    documentUri: string,
+  ): Promise<LSPFoldingRange[]> {
     try {
-      logger.debug(() => `Computing folding ranges for document: ${documentUri}`);
+      logger.debug(
+        () => `Computing folding ranges for document: ${documentUri}`,
+      );
 
       // Get the document from storage
       const document = await this.storage.getDocument(documentUri);
@@ -57,10 +66,18 @@ export class ApexFoldingRangeProvider {
       const listener = new ApexFoldingRangeListener();
       const settingsManager = ApexSettingsManager.getInstance();
       const fileSize = document.getText().length;
-      const options = settingsManager.getCompilationOptions('foldingRanges', fileSize);
+      const options = settingsManager.getCompilationOptions(
+        'foldingRanges',
+        fileSize,
+      );
 
       // Parse the document using the compiler service
-      const result = this.compilerService.compile(document.getText(), documentUri, listener, options);
+      const result = this.compilerService.compile(
+        document.getText(),
+        documentUri,
+        listener,
+        options,
+      );
 
       if (result.errors.length > 0) {
         logger.debug(() => `Parse errors for ${documentUri}: ${result.errors}`);
@@ -68,13 +85,19 @@ export class ApexFoldingRangeProvider {
       }
 
       const astFoldingRanges = listener.getResult();
-      logger.debug(() => `Found ${astFoldingRanges.length} folding ranges in AST`);
+      logger.debug(
+        () => `Found ${astFoldingRanges.length} folding ranges in AST`,
+      );
 
       // Extract block comments and convert them to folding ranges if comments are available
       let blockCommentRanges: ASTFoldingRange[] = [];
       if ('comments' in result && result.comments) {
-        blockCommentRanges = this.convertBlockCommentsToFoldingRanges(result.comments);
-        logger.debug(() => `Found ${blockCommentRanges.length} block comment ranges`);
+        blockCommentRanges = this.convertBlockCommentsToFoldingRanges(
+          result.comments,
+        );
+        logger.debug(
+          () => `Found ${blockCommentRanges.length} block comment ranges`,
+        );
       }
 
       // Combine AST folding ranges with block comment ranges
@@ -83,11 +106,17 @@ export class ApexFoldingRangeProvider {
       // Convert to LSP folding ranges
       const lspFoldingRanges = this.convertToLSPFoldingRanges(allRanges);
 
-      logger.debug(() => `Converted to ${lspFoldingRanges.length} LSP folding ranges`);
+      logger.debug(
+        () => `Converted to ${lspFoldingRanges.length} LSP folding ranges`,
+      );
       return lspFoldingRanges;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error(() => `Error computing folding ranges for ${documentUri}: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(
+        () =>
+          `Error computing folding ranges for ${documentUri}: ${errorMessage}`,
+      );
       return [];
     }
   }
@@ -98,12 +127,17 @@ export class ApexFoldingRangeProvider {
    * @param comments - Comments collected during compilation
    * @returns Array of folding ranges for block comments
    */
-  private convertBlockCommentsToFoldingRanges(comments: ApexComment[]): ASTFoldingRange[] {
+  private convertBlockCommentsToFoldingRanges(
+    comments: ApexComment[],
+  ): ASTFoldingRange[] {
     const blockCommentRanges: ASTFoldingRange[] = [];
 
     for (const comment of comments) {
       // Only process block comments that span multiple lines
-      if (comment.type === CommentType.Block && comment.endLine > comment.startLine) {
+      if (
+        comment.type === CommentType.Block &&
+        comment.endLine > comment.startLine
+      ) {
         blockCommentRanges.push({
           startLine: comment.startLine,
           startColumn: comment.startColumn,
@@ -113,7 +147,10 @@ export class ApexFoldingRangeProvider {
           level: 0,
         });
 
-        logger.debug(() => `Added block comment folding range: ${comment.startLine}-${comment.endLine}`);
+        logger.debug(
+          () =>
+            `Added block comment folding range: ${comment.startLine}-${comment.endLine}`,
+        );
       }
     }
 
@@ -126,7 +163,9 @@ export class ApexFoldingRangeProvider {
    * @param astRanges - Folding ranges from the AST
    * @returns LSP-compliant folding ranges
    */
-  private convertToLSPFoldingRanges(astRanges: ASTFoldingRange[]): LSPFoldingRange[] {
+  private convertToLSPFoldingRanges(
+    astRanges: ASTFoldingRange[],
+  ): LSPFoldingRange[] {
     return astRanges
       .filter(this.isValidFoldingRange)
       .map(this.convertToLSPFoldingRange)
@@ -142,12 +181,16 @@ export class ApexFoldingRangeProvider {
   private isValidFoldingRange(range: ASTFoldingRange): boolean {
     // LSP folding ranges must have start line less than end line
     // and both must be non-negative
-    const isValidRange = range.startLine >= 0 && range.endLine >= 0 && range.startLine < range.endLine;
+    const isValidRange =
+      range.startLine >= 0 &&
+      range.endLine >= 0 &&
+      range.startLine < range.endLine;
 
     // Log validation for comment ranges
     if (range.kind === 'comment') {
       logger.debug(
-        () => `Validating comment folding range: ${range.startLine}-${range.endLine} (valid: ${isValidRange})`,
+        () =>
+          `Validating comment folding range: ${range.startLine}-${range.endLine} (valid: ${isValidRange})`,
       );
     }
 
@@ -160,7 +203,9 @@ export class ApexFoldingRangeProvider {
    * @param astRange - The AST folding range
    * @returns LSP folding range or null if invalid
    */
-  private convertToLSPFoldingRange(astRange: ASTFoldingRange): LSPFoldingRange | null {
+  private convertToLSPFoldingRange(
+    astRange: ASTFoldingRange,
+  ): LSPFoldingRange | null {
     try {
       const lspRange: LSPFoldingRange = {
         startLine: astRange.startLine - 1, // Convert from 1-based to 0-based
@@ -192,7 +237,8 @@ export class ApexFoldingRangeProvider {
 
       return lspRange;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       logger.error(() => `Failed to convert folding range: ${errorMessage}`);
       return null;
     }

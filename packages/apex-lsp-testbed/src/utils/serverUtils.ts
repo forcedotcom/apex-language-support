@@ -39,7 +39,9 @@ function findRepoRoot(currentPath: string): string {
     try {
       const packageJsonPath = path.join(currentPath, 'package.json');
       if (fs.existsSync(packageJsonPath)) {
-        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+        const packageJson = JSON.parse(
+          fs.readFileSync(packageJsonPath, 'utf8'),
+        );
         if (packageJson.name === '@salesforce/apex-language-server') {
           return currentPath;
         }
@@ -118,7 +120,13 @@ export async function createClientOptions(
     case 'nodeServer': {
       return {
         serverType: 'nodeServer',
-        serverPath: path.join(repoRoot, 'packages', 'apex-ls-node', 'out', 'index.js'),
+        serverPath: path.join(
+          repoRoot,
+          'packages',
+          'apex-ls-node',
+          'out',
+          'index.js',
+        ),
         nodeArgs: verbose ? ['--nolazy'] : [],
         serverArgs: ['--stdio'],
         env: {
@@ -177,7 +185,12 @@ export function parseArgs(): CliOptions {
 
     if (arg === '--server' || arg === '-s') {
       const value = args[++i]?.toLowerCase();
-      if (value === 'demo' || value === 'jorje' || value === 'nodeserver' || value === 'webserver') {
+      if (
+        value === 'demo' ||
+        value === 'jorje' ||
+        value === 'nodeserver' ||
+        value === 'webserver'
+      ) {
         // Map lowercase values back to correct case
         const serverTypeMap: Record<string, ServerType> = {
           demo: 'demo',
@@ -187,7 +200,9 @@ export function parseArgs(): CliOptions {
         };
         options.serverType = serverTypeMap[value];
       } else {
-        console.error(`Invalid server type: ${value}. Must be 'demo', 'jorje', 'nodeServer', or 'webServer'.`);
+        console.error(
+          `Invalid server type: ${value}. Must be 'demo', 'jorje', 'nodeServer', or 'webServer'.`,
+        );
         process.exit(1);
       }
     } else if (arg === '--verbose' || arg === '-v') {
@@ -211,7 +226,9 @@ export function parseArgs(): CliOptions {
   }
 
   if (!options.serverType) {
-    console.error("Error: --server <type> is required. Must be 'demo', 'jorje', 'nodeServer', or 'webServer'.");
+    console.error(
+      "Error: --server <type> is required. Must be 'demo', 'jorje', 'nodeServer', or 'webServer'.",
+    );
     process.exit(1);
   }
 
@@ -227,12 +244,20 @@ export function printHelp(): void {
   console.log('Usage: apex-lsp-testbed [options]');
   console.log('');
   console.log('Options:');
-  console.log('  -s, --server <type>      Server type to launch (demo, jorje, nodeServer, or webServer)');
+  console.log(
+    '  -s, --server <type>      Server type to launch (demo, jorje, nodeServer, or webServer)',
+  );
   console.log('  -v, --verbose            Enable verbose logging');
   console.log('  -i, --interactive        Start in interactive mode');
-  console.log('  -w, --workspace <path>   Path to test workspace or GitHub URL');
-  console.log('  --suspend                Suspend the Java process for debugging (JDWP port: 2739)');
-  console.log('  -t, --tests <tests>       Comma-separated list of tests to run');
+  console.log(
+    '  -w, --workspace <path>   Path to test workspace or GitHub URL',
+  );
+  console.log(
+    '  --suspend                Suspend the Java process for debugging (JDWP port: 2739)',
+  );
+  console.log(
+    '  -t, --tests <tests>       Comma-separated list of tests to run',
+  );
   console.log('  -b, --benchmark          Run tests with Benchmark');
   console.log('  -h, --help               Show this help message');
   console.log('');
@@ -247,10 +272,14 @@ export function printHelp(): void {
   console.log('  npm run start:jorje -- --suspend');
   console.log('');
   console.log('  # Start jorje server with a GitHub repository');
-  console.log('  npm run start:jorje -- --workspace https://github.com/username/repo.git');
+  console.log(
+    '  npm run start:jorje -- --workspace https://github.com/username/repo.git',
+  );
   console.log('');
   console.log('  # Start demo server with verbose logging and a workspace');
-  console.log('  npm run start:demo:verbose -- --workspace /path/to/apex/project');
+  console.log(
+    '  npm run start:demo:verbose -- --workspace /path/to/apex/project',
+  );
   console.log('');
   console.log('  # Start nodeServer with a local workspace');
   console.log('  npm run start:node -- --workspace /path/to/apex/project');

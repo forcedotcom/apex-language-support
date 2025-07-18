@@ -109,7 +109,10 @@ export class ApexStorage implements ApexStorageInterface {
     return this.definitionMap.get(symbolName);
   }
 
-  public async setDefinition(symbolName: string, definition: ApexReference): Promise<boolean> {
+  public async setDefinition(
+    symbolName: string,
+    definition: ApexReference,
+  ): Promise<boolean> {
     this.definitionMap.set(symbolName, definition);
     return true;
   }
@@ -118,7 +121,10 @@ export class ApexStorage implements ApexStorageInterface {
     return this.referencesMap.get(symbolName) || [];
   }
 
-  public async setReferences(symbolName: string, references: ApexReference[]): Promise<boolean> {
+  public async setReferences(
+    symbolName: string,
+    references: ApexReference[],
+  ): Promise<boolean> {
     this.referencesMap.set(symbolName, references);
     return true;
   }

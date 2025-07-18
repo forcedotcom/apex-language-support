@@ -7,7 +7,11 @@
  */
 
 import { CharStreams, CommonTokenStream } from 'antlr4ts';
-import { ApexLexer, ApexParser, ParseTreeWalker } from '@apexdevtools/apex-parser';
+import {
+  ApexLexer,
+  ApexParser,
+  ParseTreeWalker,
+} from '@apexdevtools/apex-parser';
 
 import { ApexFoldingRangeListener } from '../../src/parser/listeners/ApexFoldingRangeListener';
 

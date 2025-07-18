@@ -101,7 +101,9 @@ export const DEFAULT_ASSOCIATION_CONFIG: CommentAssociationConfig = {
  * Listener that collects comments from the token stream during parsing.
  * Uses the Token Stream Analysis approach to extract comments from hidden channels.
  */
-export class ApexCommentCollectorListener extends BaseApexParserListener<ApexComment[]> {
+export class ApexCommentCollectorListener extends BaseApexParserListener<
+  ApexComment[]
+> {
   private readonly logger = getLogger();
   private comments: ApexComment[] = [];
   private tokenStream: CommonTokenStream | null = null;
@@ -138,7 +140,8 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<ApexCom
     try {
       // Get hidden tokens to the left of the current context's start token
       const startTokenIndex = ctx.start.tokenIndex;
-      const hiddenTokens = this.tokenStream.getHiddenTokensToLeft(startTokenIndex);
+      const hiddenTokens =
+        this.tokenStream.getHiddenTokensToLeft(startTokenIndex);
 
       if (hiddenTokens) {
         for (const token of hiddenTokens) {
@@ -149,7 +152,8 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<ApexCom
       // Also check for hidden tokens to the right of the stop token
       if (ctx.stop) {
         const stopTokenIndex = ctx.stop.tokenIndex;
-        const rightHiddenTokens = this.tokenStream.getHiddenTokensToRight(stopTokenIndex);
+        const rightHiddenTokens =
+          this.tokenStream.getHiddenTokensToRight(stopTokenIndex);
 
         if (rightHiddenTokens) {
           for (const token of rightHiddenTokens) {
@@ -158,7 +162,9 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<ApexCom
         }
       }
     } catch (error) {
-      this.logger.warn(() => `Error collecting comments in enterEveryRule: ${error}`);
+      this.logger.warn(
+        () => `Error collecting comments in enterEveryRule: ${error}`,
+      );
     }
   }
 
@@ -174,12 +180,17 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<ApexCom
       // Get all tokens and process any remaining comment tokens
       const allTokens = this.tokenStream.getTokens();
       for (const token of allTokens) {
-        if (this.isCommentToken(token) && !this.processedTokens.has(token.tokenIndex)) {
+        if (
+          this.isCommentToken(token) &&
+          !this.processedTokens.has(token.tokenIndex)
+        ) {
           this.processCommentToken(token);
         }
       }
 
-      this.logger.debug(() => `Collected ${this.comments.length} total comments`);
+      this.logger.debug(
+        () => `Collected ${this.comments.length} total comments`,
+      );
     } catch (error) {
       this.logger.error(() => `Error collecting remaining comments: ${error}`);
     }
@@ -189,7 +200,10 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<ApexCom
    * Process a single token that might be a comment
    */
   private processCommentToken(token: Token): void {
-    if (!this.isCommentToken(token) || this.processedTokens.has(token.tokenIndex)) {
+    if (
+      !this.isCommentToken(token) ||
+      this.processedTokens.has(token.tokenIndex)
+    ) {
       return;
     }
 
@@ -212,14 +226,18 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<ApexCom
         startLine: token.line,
         startColumn: token.charPositionInLine,
         endLine: token.line + lines.length - 1,
-        endColumn: lines.length > 1 ? lines[lines.length - 1].length : token.charPositionInLine + text.length,
+        endColumn:
+          lines.length > 1
+            ? lines[lines.length - 1].length
+            : token.charPositionInLine + text.length,
         tokenIndex: token.tokenIndex,
         isDocumentation: this.isDocumentationComment(text),
       };
 
       this.comments.push(comment);
       this.logger.debug(
-        () => `Collected ${comment.type} comment at line ${comment.startLine}: ${text.substring(0, 50)}...`,
+        () =>
+          `Collected ${comment.type} comment at line ${comment.startLine}: ${text.substring(0, 50)}...`,
       );
     } catch (error) {
       this.logger.error(() => `Error processing comment token: ${error}`);
@@ -282,6 +300,8 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<ApexCom
    * Get comments within a specific line range
    */
   getCommentsInRange(startLine: number, endLine: number): ApexComment[] {
-    return this.comments.filter((comment) => comment.startLine >= startLine && comment.endLine <= endLine);
+    return this.comments.filter(
+      (comment) => comment.startLine >= startLine && comment.endLine <= endLine,
+    );
   }
 }

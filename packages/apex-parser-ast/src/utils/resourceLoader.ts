@@ -67,8 +67,10 @@ function isDecodedContent(contents: string | Uint8Array): contents is string {
  */
 export class ResourceLoader {
   private static instance: ResourceLoader;
-  private fileMap: CaseInsensitivePathMap<FileContent> = new CaseInsensitivePathMap();
-  private compiledArtifacts: CaseInsensitivePathMap<CompiledArtifact> = new CaseInsensitivePathMap();
+  private fileMap: CaseInsensitivePathMap<FileContent> =
+    new CaseInsensitivePathMap();
+  private compiledArtifacts: CaseInsensitivePathMap<CompiledArtifact> =
+    new CaseInsensitivePathMap();
   private initialized = false;
   private compilationPromise: Promise<void> | null = null;
   private loadMode: 'lazy' | 'full' = 'full';
@@ -132,7 +134,9 @@ export class ResourceLoader {
         totalFiles++;
       }
 
-      this.logger.debug(() => '\nResource Loading Statistics:\n---------------------------');
+      this.logger.debug(
+        () => '\nResource Loading Statistics:\n---------------------------',
+      );
       this.logger.debug(() => `Total files loaded: ${totalFiles}`);
       this.logger.debug(() => `Loading mode: ${this.loadMode}`);
       this.logger.debug(() => '\nFiles per directory:');
@@ -186,7 +190,9 @@ export class ResourceLoader {
 
   public getFile(path: string): string | undefined {
     if (!this.initialized) {
-      throw new Error('ResourceLoader not initialized. Call initialize() first.');
+      throw new Error(
+        'ResourceLoader not initialized. Call initialize() first.',
+      );
     }
     const fileContent = this.fileMap.get(path);
     if (!fileContent) {
@@ -209,7 +215,9 @@ export class ResourceLoader {
 
   public getAllFiles(): CaseInsensitivePathMap<string> {
     if (!this.initialized) {
-      throw new Error('ResourceLoader not initialized. Call initialize() first.');
+      throw new Error(
+        'ResourceLoader not initialized. Call initialize() first.',
+      );
     }
     const result = new CaseInsensitivePathMap<string>();
     for (const [_normalizedPath, content] of this.fileMap.entries()) {
@@ -218,7 +226,10 @@ export class ResourceLoader {
       if (isDecodedContent(content.contents)) {
         result.set(content.originalPath, content.contents);
       } else {
-        result.set(content.originalPath, new TextDecoder().decode(content.contents));
+        result.set(
+          content.originalPath,
+          new TextDecoder().decode(content.contents),
+        );
       }
     }
     return result;
@@ -229,7 +240,10 @@ export class ResourceLoader {
    * @private
    */
   private async compileAllArtifacts(): Promise<void> {
-    this.logger.debug(() => 'Starting parallel compilation of all artifacts using CompilerService...');
+    this.logger.debug(
+      () =>
+        'Starting parallel compilation of all artifacts using CompilerService...',
+    );
 
     const startTime = Date.now();
 
@@ -269,11 +283,16 @@ export class ResourceLoader {
     }
 
     try {
-      this.logger.debug(() => 'Calling compileMultipleWithConfigs with parallel processing');
+      this.logger.debug(
+        () => 'Calling compileMultipleWithConfigs with parallel processing',
+      );
 
-      const results = await this.compilerService.compileMultipleWithConfigs(filesToCompile);
+      const results =
+        await this.compilerService.compileMultipleWithConfigs(filesToCompile);
 
-      this.logger.debug(() => `CompileMultipleWithConfigs returned ${results.length} results`);
+      this.logger.debug(
+        () => `CompileMultipleWithConfigs returned ${results.length} results`,
+      );
 
       // Process and store results
       let compiledCount = 0;
@@ -281,7 +300,8 @@ export class ResourceLoader {
 
       results.forEach((result) => {
         if (result.result) {
-          const compilationResult = result as CompilationResultWithAssociations<SymbolTable>;
+          const compilationResult =
+            result as CompilationResultWithAssociations<SymbolTable>;
           this.compiledArtifacts.set(result.fileName, {
             path: result.fileName,
             compilationResult,
@@ -318,7 +338,9 @@ export class ResourceLoader {
    */
   public getCompiledArtifact(path: string): CompiledArtifact | undefined {
     if (!this.initialized) {
-      throw new Error('ResourceLoader not initialized. Call initialize() first.');
+      throw new Error(
+        'ResourceLoader not initialized. Call initialize() first.',
+      );
     }
     return this.compiledArtifacts.get(path);
   }
@@ -329,7 +351,9 @@ export class ResourceLoader {
    */
   public getAllCompiledArtifacts(): CaseInsensitivePathMap<CompiledArtifact> {
     if (!this.initialized) {
-      throw new Error('ResourceLoader not initialized. Call initialize() first.');
+      throw new Error(
+        'ResourceLoader not initialized. Call initialize() first.',
+      );
     }
     return this.compiledArtifacts;
   }

@@ -8,7 +8,12 @@
 
 import { ParserRuleContext } from 'antlr4ts';
 
-import { ApexSymbol, SymbolKind, TypeSymbol, Annotation } from '../../types/symbol';
+import {
+  ApexSymbol,
+  SymbolKind,
+  TypeSymbol,
+  Annotation,
+} from '../../types/symbol';
 import { ErrorReporter } from '../../utils/ErrorReporter';
 
 /**
@@ -65,7 +70,8 @@ export class AnnotationValidator {
       name: 'AuraEnabled',
       validTargets: [AnnotationTarget.Method, AnnotationTarget.Property],
       optionalParameters: ['cacheable'],
-      description: 'Enables a method or property to be used in Aura and LWC components',
+      description:
+        'Enables a method or property to be used in Aura and LWC components',
     },
     {
       name: 'InvocableMethod',
@@ -76,12 +82,14 @@ export class AnnotationValidator {
     {
       name: 'RemoteAction',
       validTargets: [AnnotationTarget.Method],
-      description: 'Exposes a method for use in Visualforce through JavaScript remoting',
+      description:
+        'Exposes a method for use in Visualforce through JavaScript remoting',
     },
     {
       name: 'TestSetup',
       validTargets: [AnnotationTarget.Method],
-      description: 'Indicates a method that runs once before all test methods in a test class',
+      description:
+        'Indicates a method that runs once before all test methods in a test class',
     },
     {
       name: 'Future',
@@ -92,18 +100,25 @@ export class AnnotationValidator {
     {
       name: 'ReadOnly',
       validTargets: [AnnotationTarget.Method],
-      description: "Indicates a method that doesn't make DML operations or calls to methods that make DML operations",
+      description:
+        "Indicates a method that doesn't make DML operations or calls to methods that make DML operations",
     },
     {
       name: 'TestVisible',
       validTargets: [AnnotationTarget.Property, AnnotationTarget.Method],
-      description: 'Makes a private or protected method or property accessible to test methods',
+      description:
+        'Makes a private or protected method or property accessible to test methods',
     },
     {
       name: 'Deprecated',
-      validTargets: [AnnotationTarget.Class, AnnotationTarget.Method, AnnotationTarget.Property],
+      validTargets: [
+        AnnotationTarget.Class,
+        AnnotationTarget.Method,
+        AnnotationTarget.Property,
+      ],
       optionalParameters: ['message'],
-      description: 'Indicates that a feature is deprecated and may be removed in a future release',
+      description:
+        'Indicates that a feature is deprecated and may be removed in a future release',
     },
     {
       name: 'SuppressWarnings',
@@ -114,27 +129,32 @@ export class AnnotationValidator {
     {
       name: 'HttpGet',
       validTargets: [AnnotationTarget.Method],
-      description: 'Exposes a method as a REST API that responds to HTTP GET requests',
+      description:
+        'Exposes a method as a REST API that responds to HTTP GET requests',
     },
     {
       name: 'HttpPost',
       validTargets: [AnnotationTarget.Method],
-      description: 'Exposes a method as a REST API that responds to HTTP POST requests',
+      description:
+        'Exposes a method as a REST API that responds to HTTP POST requests',
     },
     {
       name: 'HttpPut',
       validTargets: [AnnotationTarget.Method],
-      description: 'Exposes a method as a REST API that responds to HTTP PUT requests',
+      description:
+        'Exposes a method as a REST API that responds to HTTP PUT requests',
     },
     {
       name: 'HttpDelete',
       validTargets: [AnnotationTarget.Method],
-      description: 'Exposes a method as a REST API that responds to HTTP DELETE requests',
+      description:
+        'Exposes a method as a REST API that responds to HTTP DELETE requests',
     },
     {
       name: 'HttpPatch',
       validTargets: [AnnotationTarget.Method],
-      description: 'Exposes a method as a REST API that responds to HTTP PATCH requests',
+      description:
+        'Exposes a method as a REST API that responds to HTTP PATCH requests',
     },
   ];
 
@@ -142,7 +162,9 @@ export class AnnotationValidator {
    * Get annotation info by name
    */
   public static getAnnotationInfo(name: string): AnnotationInfo | undefined {
-    return this.ANNOTATIONS.find((a) => a.name.toLowerCase() === name.toLowerCase());
+    return this.ANNOTATIONS.find(
+      (a) => a.name.toLowerCase() === name.toLowerCase(),
+    );
   }
 
   /**
@@ -151,7 +173,11 @@ export class AnnotationValidator {
    * @param ctx The parser context for error reporting
    * @param errorReporter The error reporter for reporting validation errors
    */
-  public static validateAnnotations(symbol: ApexSymbol, ctx: ParserRuleContext, errorReporter: ErrorReporter): void {
+  public static validateAnnotations(
+    symbol: ApexSymbol,
+    ctx: ParserRuleContext,
+    errorReporter: ErrorReporter,
+  ): void {
     if (
       symbol.kind !== SymbolKind.Class &&
       symbol.kind !== SymbolKind.Interface &&
@@ -164,7 +190,10 @@ export class AnnotationValidator {
     }
 
     // Only TypeSymbols have annotations for now
-    if (symbol.kind === SymbolKind.Class || symbol.kind === SymbolKind.Interface) {
+    if (
+      symbol.kind === SymbolKind.Class ||
+      symbol.kind === SymbolKind.Interface
+    ) {
       const typeSymbol = symbol as TypeSymbol;
       const annotations = typeSymbol.annotations || [];
 
@@ -199,7 +228,9 @@ export class AnnotationValidator {
 
     // Check if the annotation is valid for this symbol type
     if (!this.isValidTarget(symbol, annotationInfo.validTargets)) {
-      const validTargetsStr = annotationInfo.validTargets.filter((t) => t !== AnnotationTarget.Any).join(', ');
+      const validTargetsStr = annotationInfo.validTargets
+        .filter((t) => t !== AnnotationTarget.Any)
+        .join(', ');
 
       errorReporter.addError(
         `The annotation @${annotation.name} cannot be used on a ${symbol.kind}. ` +
@@ -210,8 +241,14 @@ export class AnnotationValidator {
     }
 
     // Validate required parameters
-    if (annotationInfo.requiredParameters && annotationInfo.requiredParameters.length > 0) {
-      const missingParams = this.getMissingRequiredParameters(annotation, annotationInfo.requiredParameters);
+    if (
+      annotationInfo.requiredParameters &&
+      annotationInfo.requiredParameters.length > 0
+    ) {
+      const missingParams = this.getMissingRequiredParameters(
+        annotation,
+        annotationInfo.requiredParameters,
+      );
 
       if (missingParams.length > 0) {
         errorReporter.addError(
@@ -222,19 +259,34 @@ export class AnnotationValidator {
     }
 
     // Validate that the annotation has at least one parameter if required
-    if (annotationInfo.requiresAnyParameter && (!annotation.parameters || annotation.parameters.length === 0)) {
-      errorReporter.addError(`The annotation @${annotation.name} requires at least one parameter.`, ctx);
+    if (
+      annotationInfo.requiresAnyParameter &&
+      (!annotation.parameters || annotation.parameters.length === 0)
+    ) {
+      errorReporter.addError(
+        `The annotation @${annotation.name} requires at least one parameter.`,
+        ctx,
+      );
     }
 
     // Validate that all parameters are recognized
     if (annotation.parameters && annotation.parameters.length > 0) {
-      const validParams = [...(annotationInfo.requiredParameters || []), ...(annotationInfo.optionalParameters || [])];
+      const validParams = [
+        ...(annotationInfo.requiredParameters || []),
+        ...(annotationInfo.optionalParameters || []),
+      ];
 
       if (validParams.length > 0) {
         // Only check named parameters (positional parameters don't have names)
         const unrecognizedParams = annotation.parameters
           .filter((p) => p.name)
-          .filter((p) => !validParams.some((validParam) => validParam.toLowerCase() === p.name?.toLowerCase()))
+          .filter(
+            (p) =>
+              !validParams.some(
+                (validParam) =>
+                  validParam.toLowerCase() === p.name?.toLowerCase(),
+              ),
+          )
           .map((p) => p.name);
 
         if (unrecognizedParams.length > 0) {
@@ -263,7 +315,9 @@ export class AnnotationValidator {
   ): void {
     // Check for multiple HTTP method annotations (HttpGet, HttpPost, etc.)
     const httpMethodAnnotations = annotations.filter(
-      (a) => a.name.toLowerCase().startsWith('http') && a.name.toLowerCase() !== 'http',
+      (a) =>
+        a.name.toLowerCase().startsWith('http') &&
+        a.name.toLowerCase() !== 'http',
     );
 
     if (httpMethodAnnotations.length > 1) {
@@ -276,13 +330,25 @@ export class AnnotationValidator {
     }
 
     // Check for conflicting test-related annotations
-    if (this.hasAnnotation(annotations, 'isTest') && this.hasAnnotation(annotations, 'AuraEnabled')) {
-      errorReporter.addError('The annotations @isTest and @AuraEnabled cannot be used together.', ctx);
+    if (
+      this.hasAnnotation(annotations, 'isTest') &&
+      this.hasAnnotation(annotations, 'AuraEnabled')
+    ) {
+      errorReporter.addError(
+        'The annotations @isTest and @AuraEnabled cannot be used together.',
+        ctx,
+      );
     }
 
     // Check for conflicting transaction control annotations
-    if (this.hasAnnotation(annotations, 'Future') && this.hasAnnotation(annotations, 'ReadOnly')) {
-      errorReporter.addError('The annotations @Future and @ReadOnly cannot be used together.', ctx);
+    if (
+      this.hasAnnotation(annotations, 'Future') &&
+      this.hasAnnotation(annotations, 'ReadOnly')
+    ) {
+      errorReporter.addError(
+        'The annotations @Future and @ReadOnly cannot be used together.',
+        ctx,
+      );
     }
   }
 
@@ -291,7 +357,10 @@ export class AnnotationValidator {
    * @param symbol The symbol to check
    * @param validTargets Valid targets for the annotation
    */
-  private static isValidTarget(symbol: ApexSymbol, validTargets: AnnotationTarget[]): boolean {
+  private static isValidTarget(
+    symbol: ApexSymbol,
+    validTargets: AnnotationTarget[],
+  ): boolean {
     // If Any is a valid target, then any symbol is valid
     if (validTargets.includes(AnnotationTarget.Any)) {
       return true;
@@ -318,20 +387,29 @@ export class AnnotationValidator {
    * @param annotation The annotation to check
    * @param requiredParams Required parameters for the annotation
    */
-  private static getMissingRequiredParameters(annotation: Annotation, requiredParams: string[]): string[] {
+  private static getMissingRequiredParameters(
+    annotation: Annotation,
+    requiredParams: string[],
+  ): string[] {
     if (!annotation.parameters || annotation.parameters.length === 0) {
       return requiredParams;
     }
 
     return requiredParams.filter(
-      (requiredParam) => !annotation.parameters?.some((p) => p.name?.toLowerCase() === requiredParam.toLowerCase()),
+      (requiredParam) =>
+        !annotation.parameters?.some(
+          (p) => p.name?.toLowerCase() === requiredParam.toLowerCase(),
+        ),
     );
   }
 
   /**
    * Check if annotations include a specific annotation by name
    */
-  private static hasAnnotation(annotations: Annotation[], name: string): boolean {
+  private static hasAnnotation(
+    annotations: Annotation[],
+    name: string,
+  ): boolean {
     return annotations.some((a) => a.name.toLowerCase() === name.toLowerCase());
   }
 }

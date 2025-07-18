@@ -11,7 +11,10 @@ import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
-import { ApexStorageInterface, ApexReference } from '../storage/ApexStorageInterface';
+import {
+  ApexStorageInterface,
+  ApexReference,
+} from '../storage/ApexStorageInterface';
 /**
  * Interface for Apex references upserters
  */
@@ -40,7 +43,9 @@ export class DefaultApexReferencesUpserter implements ApexReferencesUpserter {
    * Upserts the references for the given document
    * @param params DidOpenTextDocumentParams
    */
-  async upsertReferences(event: TextDocumentChangeEvent<TextDocument>): Promise<void> {
+  async upsertReferences(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<void> {
     try {
       const documentUri = event.document.uri;
 
@@ -53,7 +58,9 @@ export class DefaultApexReferencesUpserter implements ApexReferencesUpserter {
           column: symbol.location.startColumn,
           referenceType: 'type-reference',
         };
-        const references: ApexReference[] = await this.storage.getReferences(symbol.name);
+        const references: ApexReference[] = await this.storage.getReferences(
+          symbol.name,
+        );
         references.push(reference);
         await this.storage.setReferences(symbol.name, references);
       }

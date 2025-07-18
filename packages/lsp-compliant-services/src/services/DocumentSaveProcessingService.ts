@@ -18,7 +18,9 @@ export interface IDocumentSaveProcessor {
    * Process a document save event
    * @param event The document save event
    */
-  processDocumentSave(event: TextDocumentChangeEvent<TextDocument>): Promise<void>;
+  processDocumentSave(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<void>;
 }
 
 /**
@@ -31,10 +33,15 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
    * Process a document save event
    * @param event The document save event
    */
-  public async processDocumentSave(event: TextDocumentChangeEvent<TextDocument>): Promise<void> {
+  public async processDocumentSave(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<void> {
     // Client opened a document
     // TODO: Server will parse the document and populate the corresponding local maps
-    this.logger.debug(() => `Common Apex Language Server save document handler invoked with: ${event}`);
+    this.logger.debug(
+      () =>
+        `Common Apex Language Server save document handler invoked with: ${event}`,
+    );
 
     // TODO: Implement the logic to process the document save
     // This might involve updating the AST, type information, or other data structures

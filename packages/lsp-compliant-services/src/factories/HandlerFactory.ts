@@ -8,14 +8,26 @@
 
 import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-logging';
 
-import { DidChangeDocumentHandler, IDocumentProcessor } from '../handlers/DidChangeDocumentHandler';
+import {
+  DidChangeDocumentHandler,
+  IDocumentProcessor,
+} from '../handlers/DidChangeDocumentHandler';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
 import { DocumentSymbolHandler } from '../handlers/DocumentSymbolHandler';
-import { DocumentSymbolProcessingService, IDocumentSymbolProcessor } from '../services/DocumentSymbolProcessingService';
+import {
+  DocumentSymbolProcessingService,
+  IDocumentSymbolProcessor,
+} from '../services/DocumentSymbolProcessingService';
 import { DidSaveDocumentHandler } from '../handlers/DidSaveDocumentHandler';
-import { DocumentSaveProcessingService, IDocumentSaveProcessor } from '../services/DocumentSaveProcessingService';
+import {
+  DocumentSaveProcessingService,
+  IDocumentSaveProcessor,
+} from '../services/DocumentSaveProcessingService';
 import { DidCloseDocumentHandler } from '../handlers/DidCloseDocumentHandler';
-import { DocumentCloseProcessingService, IDocumentCloseProcessor } from '../services/DocumentCloseProcessingService';
+import {
+  DocumentCloseProcessingService,
+  IDocumentCloseProcessor,
+} from '../services/DocumentCloseProcessingService';
 
 /**
  * Factory for creating handlers with proper dependency injection

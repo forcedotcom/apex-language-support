@@ -8,7 +8,11 @@
 
 import { ParserRuleContext } from 'antlr4ts';
 
-import { SymbolModifiers, SymbolVisibility, TypeSymbol } from '../../types/symbol';
+import {
+  SymbolModifiers,
+  SymbolVisibility,
+  TypeSymbol,
+} from '../../types/symbol';
 import { ErrorReporter } from '../../utils/ErrorReporter';
 
 /**
@@ -36,23 +40,41 @@ export class MethodModifierValidator {
     if (!currentTypeSymbol) return;
 
     // Validate method visibility first
-    this.validateMethodVisibilityModifiers(methodName, modifiers, ctx, currentTypeSymbol, errorReporter);
+    this.validateMethodVisibilityModifiers(
+      methodName,
+      modifiers,
+      ctx,
+      currentTypeSymbol,
+      errorReporter,
+    );
 
     // Check for conflicting modifiers
     if (modifiers.isAbstract && modifiers.isVirtual) {
-      errorReporter.addError(`Method '${methodName}' cannot be both abstract and virtual`, ctx);
+      errorReporter.addError(
+        `Method '${methodName}' cannot be both abstract and virtual`,
+        ctx,
+      );
     }
 
     if (modifiers.isAbstract && modifiers.isFinal) {
-      errorReporter.addError(`Method '${methodName}' cannot be both abstract and final`, ctx);
+      errorReporter.addError(
+        `Method '${methodName}' cannot be both abstract and final`,
+        ctx,
+      );
     }
 
     if (modifiers.isVirtual && modifiers.isFinal) {
-      errorReporter.addError(`Method '${methodName}' cannot be both virtual and final`, ctx);
+      errorReporter.addError(
+        `Method '${methodName}' cannot be both virtual and final`,
+        ctx,
+      );
     }
 
     if (modifiers.isAbstract && modifiers.isOverride) {
-      errorReporter.addError(`Method '${methodName}' cannot be both abstract and override`, ctx);
+      errorReporter.addError(
+        `Method '${methodName}' cannot be both abstract and override`,
+        ctx,
+      );
     }
 
     // Check for abstract methods in non-abstract classes
@@ -62,7 +84,10 @@ export class MethodModifierValidator {
       currentTypeSymbol.kind === 'class' &&
       !currentTypeSymbol.modifiers.isAbstract
     ) {
-      errorReporter.addError(`Abstract method '${methodName}' cannot be declared in non-abstract class`, ctx);
+      errorReporter.addError(
+        `Abstract method '${methodName}' cannot be declared in non-abstract class`,
+        ctx,
+      );
     }
   }
 
@@ -100,7 +125,10 @@ export class MethodModifierValidator {
       (currentTypeSymbol.modifiers.visibility === SymbolVisibility.Public &&
         modifiers.visibility === SymbolVisibility.Global)
     ) {
-      errorReporter.addError(`Method '${methodName}' cannot have wider visibility than its containing class`, ctx);
+      errorReporter.addError(
+        `Method '${methodName}' cannot have wider visibility than its containing class`,
+        ctx,
+      );
       // Adjust to most permissive valid visibility for this class
       const classVisibility = currentTypeSymbol.modifiers.visibility;
 
@@ -117,19 +145,34 @@ export class MethodModifierValidator {
     }
 
     // Check if webService is used with non-global visibility
-    if (modifiers.isWebService && modifiers.visibility !== SymbolVisibility.Global) {
-      errorReporter.addError(`Method '${methodName}' with 'webService' modifier must be declared as 'global'`, ctx);
+    if (
+      modifiers.isWebService &&
+      modifiers.visibility !== SymbolVisibility.Global
+    ) {
+      errorReporter.addError(
+        `Method '${methodName}' with 'webService' modifier must be declared as 'global'`,
+        ctx,
+      );
       // Autocorrect the visibility to global
       modifiers.visibility = SymbolVisibility.Global;
     }
 
     // Check if webService is used in a non-global class
-    if (modifiers.isWebService && currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global) {
-      errorReporter.addError(`Method '${methodName}' with 'webService' modifier must be in a global class`, ctx);
+    if (
+      modifiers.isWebService &&
+      currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global
+    ) {
+      errorReporter.addError(
+        `Method '${methodName}' with 'webService' modifier must be in a global class`,
+        ctx,
+      );
     }
 
     // Check for protected access with method overrides (must maintain same or less restrictive access)
-    if (modifiers.isOverride && modifiers.visibility === SymbolVisibility.Private) {
+    if (
+      modifiers.isOverride &&
+      modifiers.visibility === SymbolVisibility.Private
+    ) {
       errorReporter.addWarning(
         `Override method '${methodName}' with 'private' visibility may not be correctly overriding a parent method`,
         ctx,
@@ -137,8 +180,14 @@ export class MethodModifierValidator {
     }
 
     // Virtual methods cannot be private
-    if (modifiers.isVirtual && modifiers.visibility === SymbolVisibility.Private) {
-      errorReporter.addError(`Virtual method '${methodName}' cannot be declared as 'private'`, ctx);
+    if (
+      modifiers.isVirtual &&
+      modifiers.visibility === SymbolVisibility.Private
+    ) {
+      errorReporter.addError(
+        `Virtual method '${methodName}' cannot be declared as 'private'`,
+        ctx,
+      );
       // Upgrade to protected as a reasonable default
       modifiers.visibility = SymbolVisibility.Protected;
     }
@@ -156,7 +205,10 @@ export class MethodModifierValidator {
 
     // Check for any explicit visibility modifiers
     if (modifiers.visibility !== SymbolVisibility.Default) {
-      errorReporter.addError('Interface methods cannot have explicit visibility modifiers', ctx);
+      errorReporter.addError(
+        'Interface methods cannot have explicit visibility modifiers',
+        ctx,
+      );
     }
 
     // No modifiers are allowed on interface methods
@@ -171,7 +223,10 @@ export class MethodModifierValidator {
       modifiers.isWebService;
 
     if (hasModifiers) {
-      errorReporter.addError('Modifiers are not allowed on interface methods', ctx);
+      errorReporter.addError(
+        'Modifiers are not allowed on interface methods',
+        ctx,
+      );
     }
 
     // Reset all modifiers - interface methods are implicitly public and abstract
@@ -207,7 +262,11 @@ export class MethodModifierValidator {
   /**
    * Validate method override semantics
    */
-  public static validateMethodOverride(methodName: string, ctx: ParserRuleContext, errorReporter: ErrorReporter): void {
+  public static validateMethodOverride(
+    methodName: string,
+    ctx: ParserRuleContext,
+    errorReporter: ErrorReporter,
+  ): void {
     // In a real implementation, we would check that:
     // 1. The parent class actually has a method with this name
     // 2. The method signatures are compatible
@@ -241,34 +300,52 @@ export class MethodModifierValidator {
 
     // Constructor cannot be more visible than the class
     if (
-      (classVisibility === SymbolVisibility.Private && modifiers.visibility !== SymbolVisibility.Private) ||
+      (classVisibility === SymbolVisibility.Private &&
+        modifiers.visibility !== SymbolVisibility.Private) ||
       (classVisibility === SymbolVisibility.Protected &&
-        (modifiers.visibility === SymbolVisibility.Public || modifiers.visibility === SymbolVisibility.Global)) ||
-      (classVisibility === SymbolVisibility.Public && modifiers.visibility === SymbolVisibility.Global)
+        (modifiers.visibility === SymbolVisibility.Public ||
+          modifiers.visibility === SymbolVisibility.Global)) ||
+      (classVisibility === SymbolVisibility.Public &&
+        modifiers.visibility === SymbolVisibility.Global)
     ) {
-      errorReporter.addError(`Constructor for '${constructorName}' cannot be more visible than its class`, ctx);
+      errorReporter.addError(
+        `Constructor for '${constructorName}' cannot be more visible than its class`,
+        ctx,
+      );
       // Adjust visibility to match class
       modifiers.visibility = classVisibility;
     }
 
     // Constructor cannot have certain modifiers
     if (modifiers.isAbstract) {
-      errorReporter.addError(`Constructor for '${constructorName}' cannot be declared as 'abstract'`, ctx);
+      errorReporter.addError(
+        `Constructor for '${constructorName}' cannot be declared as 'abstract'`,
+        ctx,
+      );
       modifiers.isAbstract = false;
     }
 
     if (modifiers.isVirtual) {
-      errorReporter.addError(`Constructor for '${constructorName}' cannot be declared as 'virtual'`, ctx);
+      errorReporter.addError(
+        `Constructor for '${constructorName}' cannot be declared as 'virtual'`,
+        ctx,
+      );
       modifiers.isVirtual = false;
     }
 
     if (modifiers.isOverride) {
-      errorReporter.addError(`Constructor for '${constructorName}' cannot be declared as 'override'`, ctx);
+      errorReporter.addError(
+        `Constructor for '${constructorName}' cannot be declared as 'override'`,
+        ctx,
+      );
       modifiers.isOverride = false;
     }
 
     // WebService and global constructors must be in global classes
-    if (modifiers.isWebService || modifiers.visibility === SymbolVisibility.Global) {
+    if (
+      modifiers.isWebService ||
+      modifiers.visibility === SymbolVisibility.Global
+    ) {
       if (currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global) {
         errorReporter.addError(
           `Constructor with '${modifiers.isWebService ? 'webService' : 'global'}' modifier must be in a global class`,

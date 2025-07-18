@@ -7,8 +7,15 @@
  */
 
 export * from './notification';
-export { setLogNotificationHandler, getLogNotificationHandler } from './notification';
-export type { LogMessageType, LogMessageParams, LogNotificationHandler } from './notification';
+export {
+  setLogNotificationHandler,
+  getLogNotificationHandler,
+} from './notification';
+export type {
+  LogMessageType,
+  LogMessageParams,
+  LogNotificationHandler,
+} from './notification';
 import { LogMessageType } from './notification';
 
 /**
@@ -50,7 +57,9 @@ const stringToLogLevel = (level: string): LogMessageType => {
  * @param messageType The log message type
  * @returns Corresponding log level
  */
-export const messageTypeToLogLevel = (messageType: LogMessageType): LogMessageType => messageType;
+export const messageTypeToLogLevel = (
+  messageType: LogMessageType,
+): LogMessageType => messageType;
 
 // Global log level setting
 let currentLogLevel: LogMessageType = 'error';
@@ -75,7 +84,8 @@ export const getLogLevel = (): LogMessageType => currentLogLevel;
  * @returns True if the message should be logged
  */
 export const shouldLog = (messageType: LogMessageType): boolean => {
-  const messagePriority = LOG_LEVEL_PRIORITY[messageType] || LOG_LEVEL_PRIORITY.log;
+  const messagePriority =
+    LOG_LEVEL_PRIORITY[messageType] || LOG_LEVEL_PRIORITY.log;
   const currentPriority = LOG_LEVEL_PRIORITY[currentLogLevel];
   return messagePriority >= currentPriority;
 };
@@ -161,7 +171,10 @@ export interface LoggerFactory {
 
 // Default no-op logger implementation
 class NoOpLogger implements LoggerInterface {
-  public log(messageType: LogMessageType, message: string | (() => string)): void {
+  public log(
+    messageType: LogMessageType,
+    message: string | (() => string),
+  ): void {
     // No-op implementation - does nothing
   }
 
@@ -210,7 +223,10 @@ class ConsoleLogger implements LoggerInterface {
     }
   }
 
-  public log(messageType: LogMessageType, message: string | (() => string)): void {
+  public log(
+    messageType: LogMessageType,
+    message: string | (() => string),
+  ): void {
     if (!shouldLog(messageType)) {
       return;
     }

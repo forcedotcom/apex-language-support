@@ -79,7 +79,9 @@ describe('ApexLanguageServerSettings Validation', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.invalidKeys).toContain('logLevel');
-      expect(result.details).toContain('Property logLevel should be string but is number');
+      expect(result.details).toContain(
+        'Property logLevel should be string but is number',
+      );
     });
 
     it('should reject configuration with wrong type for object properties', () => {
@@ -93,8 +95,12 @@ describe('ApexLanguageServerSettings Validation', () => {
       expect(result.isValid).toBe(false);
       expect(result.invalidKeys).toContain('commentCollection');
       expect(result.invalidKeys).toContain('performance');
-      expect(result.details).toContain('Property commentCollection should be object but is string');
-      expect(result.details).toContain('Property performance should be an object but is null');
+      expect(result.details).toContain(
+        'Property commentCollection should be object but is string',
+      );
+      expect(result.details).toContain(
+        'Property performance should be an object but is null',
+      );
     });
 
     it('should handle unknown properties gracefully', () => {
@@ -115,18 +121,24 @@ describe('ApexLanguageServerSettings Validation', () => {
     it('should reject null or undefined configuration', () => {
       const nullResult = validateApexSettings(null);
       expect(nullResult.isValid).toBe(false);
-      expect(nullResult.details).toContain('Configuration object is null, undefined, or not an object');
+      expect(nullResult.details).toContain(
+        'Configuration object is null, undefined, or not an object',
+      );
 
       const undefinedResult = validateApexSettings(undefined);
       expect(undefinedResult.isValid).toBe(false);
-      expect(undefinedResult.details).toContain('Configuration object is null, undefined, or not an object');
+      expect(undefinedResult.details).toContain(
+        'Configuration object is null, undefined, or not an object',
+      );
     });
 
     it('should reject non-object configuration', () => {
       const result = validateApexSettings('not an object');
 
       expect(result.isValid).toBe(false);
-      expect(result.details).toContain('Configuration object is null, undefined, or not an object');
+      expect(result.details).toContain(
+        'Configuration object is null, undefined, or not an object',
+      );
     });
 
     it('should handle empty configuration object', () => {
@@ -298,7 +310,9 @@ describe('ApexLanguageServerSettings Validation', () => {
 
       // Resource mode should be updated, but other user settings preserved
       expect(manager.getResourceLoadMode()).toBe('full');
-      expect(manager.getSettings().performance.commentCollectionMaxFileSize).toBe(50000);
+      expect(
+        manager.getSettings().performance.commentCollectionMaxFileSize,
+      ).toBe(50000);
       expect(manager.getSettings().logLevel).toBe('info');
     });
   });

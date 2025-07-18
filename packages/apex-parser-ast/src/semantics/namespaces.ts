@@ -25,17 +25,27 @@ export class Namespace {
   }
 
   static isEmptyOrNull(namespace: Namespace | null): boolean {
-    return namespace == null || (namespace.global === '' && namespace.module === '');
+    return (
+      namespace == null || (namespace.global === '' && namespace.module === '')
+    );
   }
 
   static equals(left: TypeInfo, right: TypeInfo): boolean {
-    if (left == null || right == null || left.getNamespace() == null || right.getNamespace() == null) {
+    if (
+      left == null ||
+      right == null ||
+      left.getNamespace() == null ||
+      right.getNamespace() == null
+    ) {
       throw new Error('TypeInfo and its namespace must not be null');
     }
     return Object.is(left.getNamespace(), right.getNamespace());
   }
 
-  static equalsNamespaces(left: Namespace | null, right: Namespace | null): boolean {
+  static equalsNamespaces(
+    left: Namespace | null,
+    right: Namespace | null,
+  ): boolean {
     return Object.is(left ?? Namespaces.EMPTY, right ?? Namespaces.EMPTY);
   }
 
@@ -60,7 +70,9 @@ export class Namespace {
 
   getBytecodeNameLower(): string {
     if (this.bytecodeNameLower === null) {
-      this.bytecodeNameLower = !this.module ? this.global.toLowerCase() : `${this.global}/${this.module}`.toLowerCase();
+      this.bytecodeNameLower = !this.module
+        ? this.global.toLowerCase()
+        : `${this.global}/${this.module}`.toLowerCase();
     }
     return this.bytecodeNameLower;
   }
@@ -93,15 +105,33 @@ export class Namespaces {
   public static readonly EMPTY: Namespace = Namespaces.create('', '');
   public static readonly SYSTEM: Namespace = Namespaces.create('System', '');
   public static readonly SCHEMA: Namespace = Namespaces.create('Schema', '');
-  public static readonly VF_COMPONENT: Namespace = Namespaces.create('Component', '');
+  public static readonly VF_COMPONENT: Namespace = Namespaces.create(
+    'Component',
+    '',
+  );
   public static readonly VF: Namespace = Namespaces.create('c', '');
-  public static readonly APEX_PAGES: Namespace = Namespaces.create('ApexPages', '');
+  public static readonly APEX_PAGES: Namespace = Namespaces.create(
+    'ApexPages',
+    '',
+  );
   public static readonly APEX: Namespace = Namespaces.create('Apex', '');
-  public static readonly DATABASE: Namespace = Namespaces.create('Database', '');
+  public static readonly DATABASE: Namespace = Namespaces.create(
+    'Database',
+    '',
+  );
   public static readonly FLOW: Namespace = Namespaces.create('Flow', '');
-  public static readonly CONNECT_API: Namespace = Namespaces.create('ConnectApi', '');
-  public static readonly CUSTOM_METADATA: Namespace = Namespaces.create('CustomMetadata', '');
-  public static readonly MESSAGING: Namespace = Namespaces.create('Messaging', '');
+  public static readonly CONNECT_API: Namespace = Namespaces.create(
+    'ConnectApi',
+    '',
+  );
+  public static readonly CUSTOM_METADATA: Namespace = Namespaces.create(
+    'CustomMetadata',
+    '',
+  );
+  public static readonly MESSAGING: Namespace = Namespaces.create(
+    'Messaging',
+    '',
+  );
 
   private static readonly NAMESPACES: Set<Namespace> = new Set<Namespace>();
 
@@ -113,7 +143,10 @@ export class Namespaces {
     const index = fullNamespace.indexOf('__');
     const namespace =
       index > -1
-        ? Namespaces.create(fullNamespace.substring(0, index), fullNamespace.substring(index + 2))
+        ? Namespaces.create(
+            fullNamespace.substring(0, index),
+            fullNamespace.substring(index + 2),
+          )
         : Namespaces.create(fullNamespace);
 
     return Namespaces.intern(namespace);
@@ -134,7 +167,10 @@ export class Namespaces {
 
   private static intern(namespace: Namespace): Namespace {
     for (const existingNamespace of Namespaces.NAMESPACES) {
-      if (existingNamespace.global === namespace.global && existingNamespace.module === namespace.module) {
+      if (
+        existingNamespace.global === namespace.global &&
+        existingNamespace.module === namespace.module
+      ) {
         return existingNamespace;
       }
     }

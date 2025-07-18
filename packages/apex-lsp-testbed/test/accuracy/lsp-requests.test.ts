@@ -23,7 +23,9 @@ jest.setTimeout(10000);
 
 // Extract relevant request/response pairs
 const testData: [string, any][] = Object.values(logData)
-  .filter((entry) => entry.type === 'request' && /^textDocument/.test(entry.method))
+  .filter(
+    (entry) => entry.type === 'request' && /^textDocument/.test(entry.method),
+  )
   // .filter((entry) => entry.id === 33)
   .map((request) => [request.method, request]);
 
@@ -45,18 +47,24 @@ describe.skip('LSP Request/Response Accuracy', () => {
     }
   });
 
-  it.each(testData)('LSP %s request/response matches snapshot for request %s', async (method, request) => {
-    const actualResponse = await serverContext.client.sendRequest(method, request.params);
+  it.each(testData)(
+    'LSP %s request/response matches snapshot for request %s',
+    async (method, request) => {
+      const actualResponse = await serverContext.client.sendRequest(
+        method,
+        request.params,
+      );
 
-    const snapshotData = {
-      request: {
-        method: request.method,
-        params: request.params,
-      },
-      expectedResponse: request?.result,
-      actualResponse,
-    };
+      const snapshotData = {
+        request: {
+          method: request.method,
+          params: request.params,
+        },
+        expectedResponse: request?.result,
+        actualResponse,
+      };
 
-    expect(snapshotData).toMatchSnapshot();
-  });
+      expect(snapshotData).toMatchSnapshot();
+    },
+  );
 });

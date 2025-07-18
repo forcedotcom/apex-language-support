@@ -50,13 +50,16 @@ export class DefaultLogNotificationHandler implements LogNotificationHandler {
 }
 
 // Singleton instance of the log notification handler
-let logNotificationHandler: LogNotificationHandler = new DefaultLogNotificationHandler();
+let logNotificationHandler: LogNotificationHandler =
+  new DefaultLogNotificationHandler();
 
 /**
  * Set the log notification handler
  * @param handler The log notification handler to use
  */
-export const setLogNotificationHandler = (handler: LogNotificationHandler): void => {
+export const setLogNotificationHandler = (
+  handler: LogNotificationHandler,
+): void => {
   logNotificationHandler = handler;
 };
 
@@ -64,4 +67,5 @@ export const setLogNotificationHandler = (handler: LogNotificationHandler): void
  * Get the current log notification handler
  * @returns The current log notification handler
  */
-export const getLogNotificationHandler = (): LogNotificationHandler => logNotificationHandler;
+export const getLogNotificationHandler = (): LogNotificationHandler =>
+  logNotificationHandler;

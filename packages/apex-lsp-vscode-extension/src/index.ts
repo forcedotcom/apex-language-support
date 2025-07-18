@@ -13,7 +13,12 @@ export { activate, deactivate } from './extension';
 export type { ExtensionState, WorkspaceSettings, DebugConfig } from './types';
 
 // Export constants
-export { EXTENSION_CONSTANTS, STATUS_BAR_TEXT, STATUS_BAR_TOOLTIPS, DEBUG_CONFIG } from './constants';
+export {
+  EXTENSION_CONSTANTS,
+  STATUS_BAR_TEXT,
+  STATUS_BAR_TOOLTIPS,
+  DEBUG_CONFIG,
+} from './constants';
 
 // Export logging utilities
 export {
@@ -59,10 +64,19 @@ export {
 } from './configuration';
 
 // Export server configuration utilities
-export { getDebugOptions, createServerOptions, createClientOptions } from './server-config';
+export {
+  getDebugOptions,
+  createServerOptions,
+  createClientOptions,
+} from './server-config';
 
 // Export error handling utilities
-export { handleAutoRestart, handleMaxRetriesExceeded, handleClientClosed, handleClientError } from './error-handling';
+export {
+  handleAutoRestart,
+  handleMaxRetriesExceeded,
+  handleClientClosed,
+  handleClientError,
+} from './error-handling';
 
 // Export language server utilities
 export {

@@ -6,9 +6,18 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CompilerService, CompilationResult } from '../../src/parser/compilerService';
+import {
+  CompilerService,
+  CompilationResult,
+} from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { SymbolTable, SymbolKind, VariableSymbol, SymbolScope, ApexSymbol } from '../../src/types/symbol';
+import {
+  SymbolTable,
+  SymbolKind,
+  VariableSymbol,
+  SymbolScope,
+  ApexSymbol,
+} from '../../src/types/symbol';
 
 describe('Method Variable Declaration', () => {
   let compilerService: CompilerService;
@@ -24,7 +33,9 @@ describe('Method Variable Declaration', () => {
     return scopes.flatMap((scope) => {
       const variables = scope
         .getAllSymbols()
-        .filter((s: ApexSymbol) => s.kind === SymbolKind.Variable) as VariableSymbol[];
+        .filter(
+          (s: ApexSymbol) => s.kind === SymbolKind.Variable,
+        ) as VariableSymbol[];
       const childVariables = getAllVariablesFromScopes(scope.getChildren());
       return [...variables, ...childVariables];
     });
@@ -48,7 +59,11 @@ describe('Method Variable Declaration', () => {
         }
       `;
 
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'TestClass.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'TestClass.cls',
+        listener,
+      );
 
       console.log(
         'Test 1 Errors:',
@@ -125,7 +140,11 @@ describe('Method Variable Declaration', () => {
         }
       `;
 
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'BlocksTest.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'BlocksTest.cls',
+        listener,
+      );
 
       console.log(
         'Test 2 Errors:',

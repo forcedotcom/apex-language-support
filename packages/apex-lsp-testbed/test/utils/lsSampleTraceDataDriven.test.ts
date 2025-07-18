@@ -14,10 +14,14 @@ import type { LSPMessage } from '../../src/utils/lspTraceParser';
 describe('LSP trace log data-driven tests', () => {
   // Load the JSON map of test cases
   const tracePath = path.resolve(__dirname, '../ls-sample-trace.log.json');
-  const traceData: Record<string, LSPMessage> = JSON.parse(fs.readFileSync(tracePath, 'utf8'));
+  const traceData: Record<string, LSPMessage> = JSON.parse(
+    fs.readFileSync(tracePath, 'utf8'),
+  );
 
   // Filter to only include textDocument methods
-  const textDocumentMessages = Object.entries(traceData).filter(([, msg]) => msg.method.startsWith('textDocument/'));
+  const textDocumentMessages = Object.entries(traceData).filter(([, msg]) =>
+    msg.method.startsWith('textDocument/'),
+  );
 
   // Each key is a test case (numeric string)
   for (const [key, msg] of textDocumentMessages) {
@@ -42,25 +46,43 @@ describe('LSP trace log data-driven tests', () => {
       // If telemetry exists, check its structure
       if ('telemetry' in msg && msg.telemetry !== undefined) {
         expect(typeof msg.telemetry).toBe('object');
-        if ('properties' in msg.telemetry && msg.telemetry.properties !== undefined) {
+        if (
+          'properties' in msg.telemetry &&
+          msg.telemetry.properties !== undefined
+        ) {
           expect(typeof msg.telemetry.properties).toBe('object');
         }
-        if ('measures' in msg.telemetry && msg.telemetry.measures !== undefined) {
+        if (
+          'measures' in msg.telemetry &&
+          msg.telemetry.measures !== undefined
+        ) {
           expect(typeof msg.telemetry.measures).toBe('object');
         }
       }
       // If performance exists, check duration/memory
       if ('performance' in msg && msg.performance !== undefined) {
         expect(typeof msg.performance).toBe('object');
-        if ('duration' in msg.performance && msg.performance.duration !== undefined) {
+        if (
+          'duration' in msg.performance &&
+          msg.performance.duration !== undefined
+        ) {
           expect(typeof msg.performance.duration).toBe('number');
         }
-        if ('memory' in msg.performance && msg.performance.memory !== undefined) {
+        if (
+          'memory' in msg.performance &&
+          msg.performance.memory !== undefined
+        ) {
           expect(typeof msg.performance.memory).toBe('object');
-          if ('total' in msg.performance.memory && msg.performance.memory.total !== undefined) {
+          if (
+            'total' in msg.performance.memory &&
+            msg.performance.memory.total !== undefined
+          ) {
             expect(typeof msg.performance.memory.total).toBe('number');
           }
-          if ('used' in msg.performance.memory && msg.performance.memory.used !== undefined) {
+          if (
+            'used' in msg.performance.memory &&
+            msg.performance.memory.used !== undefined
+          ) {
             expect(typeof msg.performance.memory.used).toBe('number');
           }
         }

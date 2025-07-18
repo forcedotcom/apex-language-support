@@ -5,7 +5,11 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { getLogger, type LogMessageType, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import {
+  getLogger,
+  type LogMessageType,
+  LoggerInterface,
+} from '@salesforce/apex-lsp-logging';
 
 /**
  * Test logger configuration for apex-parser-ast tests
@@ -49,7 +53,10 @@ export class TestLogger implements LoggerInterface {
   /**
    * Log a message with the specified type
    */
-  public log(messageType: LogMessageType, message: string | (() => string)): void {
+  public log(
+    messageType: LogMessageType,
+    message: string | (() => string),
+  ): void {
     if (this.shouldLog(messageType)) {
       if (typeof message === 'function') {
         this.logger.log(messageType, message);
@@ -119,7 +126,13 @@ export class TestLogger implements LoggerInterface {
    * Check if a message at the given level should be logged
    */
   private shouldLog(level: LogMessageType): boolean {
-    const levels: LogMessageType[] = ['error', 'warning', 'info', 'log', 'debug'];
+    const levels: LogMessageType[] = [
+      'error',
+      'warning',
+      'info',
+      'log',
+      'debug',
+    ];
     return levels.indexOf(level) <= levels.indexOf(this.logLevel);
   }
 }

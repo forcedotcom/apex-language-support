@@ -36,7 +36,9 @@ interface ResolveResponse {
  * @param params - The resolve request parameters
  * @returns Promise resolving to the content of the requested artifact
  */
-export async function processOnResolve(params: ResolveRequestParams): Promise<ResolveResponse> {
+export async function processOnResolve(
+  params: ResolveRequestParams,
+): Promise<ResolveResponse> {
   try {
     logger.debug(`Processing resolve request for: ${params.uri}`);
 
@@ -56,7 +58,9 @@ export async function processOnResolve(params: ResolveRequestParams): Promise<Re
     return { content };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`Error processing resolve request for ${params.uri}: ${errorMessage}`);
+    logger.error(
+      `Error processing resolve request for ${params.uri}: ${errorMessage}`,
+    );
     throw error;
   }
 }
@@ -67,6 +71,8 @@ export async function processOnResolve(params: ResolveRequestParams): Promise<Re
  * @param params - The resolve request parameters
  * @returns Promise resolving to the content of the requested artifact
  */
-export function dispatchProcessOnResolve(params: ResolveRequestParams): Promise<ResolveResponse> {
+export function dispatchProcessOnResolve(
+  params: ResolveRequestParams,
+): Promise<ResolveResponse> {
   return dispatch(processOnResolve(params), 'Error processing resolve request');
 }

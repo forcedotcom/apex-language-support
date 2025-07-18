@@ -12,4 +12,7 @@ export {
   createExtensionLanguageServerHarness,
 } from './extensionServer/extensionLanguageServerHarness';
 
-export { WebLanguageServerHarness, createWebLanguageServerHarness } from './webServer/webLanguageServerHarness';
+export {
+  WebLanguageServerHarness,
+  createWebLanguageServerHarness,
+} from './webServer/webLanguageServerHarness';

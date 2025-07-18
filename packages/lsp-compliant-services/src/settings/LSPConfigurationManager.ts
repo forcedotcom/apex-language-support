@@ -8,10 +8,20 @@
 
 import { ServerCapabilities } from 'vscode-languageserver-protocol';
 
-import { ApexCapabilitiesManager, ServerMode } from '../capabilities/ApexCapabilitiesManager';
+import {
+  ApexCapabilitiesManager,
+  ServerMode,
+} from '../capabilities/ApexCapabilitiesManager';
 import { ExtendedServerCapabilities } from '../capabilities/ApexLanguageServerCapabilities';
-import { ApexSettingsManager, SettingsChangeListener } from './ApexSettingsManager';
-import { ApexLanguageServerSettings, mergeWithDefaults, validateApexSettings } from './ApexLanguageServerSettings';
+import {
+  ApexSettingsManager,
+  SettingsChangeListener,
+} from './ApexSettingsManager';
+import {
+  ApexLanguageServerSettings,
+  mergeWithDefaults,
+  validateApexSettings,
+} from './ApexLanguageServerSettings';
 
 /**
  * Configuration options for the LSP server
@@ -120,7 +130,9 @@ export class LSPConfigurationManager {
    * Set custom capabilities to override defaults
    * @param capabilities - The custom capabilities to apply
    */
-  public setCustomCapabilities(capabilities: Partial<ExtendedServerCapabilities>): void {
+  public setCustomCapabilities(
+    capabilities: Partial<ExtendedServerCapabilities>,
+  ): void {
     this.customCapabilities = capabilities;
   }
 
@@ -137,7 +149,8 @@ export class LSPConfigurationManager {
    * @returns The capabilities for the specified mode with any custom overrides applied
    */
   public getCapabilitiesForMode(mode: ServerMode): ExtendedServerCapabilities {
-    const baseCapabilities = this.capabilitiesManager.getCapabilitiesForMode(mode);
+    const baseCapabilities =
+      this.capabilitiesManager.getCapabilitiesForMode(mode);
 
     // Apply custom overrides if any
     if (this.customCapabilities) {
@@ -152,9 +165,14 @@ export class LSPConfigurationManager {
    * @param capability - The capability to check
    * @returns True if the capability is enabled
    */
-  public isCapabilityEnabled<T extends ServerCapabilities>(capability: keyof T): boolean {
+  public isCapabilityEnabled<T extends ServerCapabilities>(
+    capability: keyof T,
+  ): boolean {
     const capabilities = this.getCapabilities();
-    return capability in capabilities && capabilities[capability as keyof ServerCapabilities] !== false;
+    return (
+      capability in capabilities &&
+      capabilities[capability as keyof ServerCapabilities] !== false
+    );
   }
 
   /**
@@ -178,7 +196,9 @@ export class LSPConfigurationManager {
    * Update settings directly
    * @param newSettings - The new settings to apply
    */
-  public updateSettings(newSettings: Partial<ApexLanguageServerSettings>): void {
+  public updateSettings(
+    newSettings: Partial<ApexLanguageServerSettings>,
+  ): void {
     this.settingsManager.updateSettings(newSettings);
   }
 
@@ -208,7 +228,10 @@ export class LSPConfigurationManager {
 
     // Update settings manager with new environment
     const currentSettings = this.settingsManager.getSettings();
-    const newSettings = mergeWithDefaults(currentSettings, environment === 'browser' ? 'browser' : 'node');
+    const newSettings = mergeWithDefaults(
+      currentSettings,
+      environment === 'browser' ? 'browser' : 'node',
+    );
     this.settingsManager.updateSettings(newSettings);
 
     // Auto-detect mode if enabled
@@ -224,7 +247,11 @@ export class LSPConfigurationManager {
    * @returns Compilation options for the operation
    */
   public getCompilationOptions(
-    operationType: 'documentChange' | 'documentOpen' | 'documentSymbols' | 'foldingRanges',
+    operationType:
+      | 'documentChange'
+      | 'documentOpen'
+      | 'documentSymbols'
+      | 'foldingRanges',
     fileSize?: number,
   ) {
     return this.settingsManager.getCompilationOptions(operationType, fileSize);
@@ -276,7 +303,9 @@ export class LSPConfigurationManager {
    * @returns Default settings for the current environment
    */
   public getDefaultSettings(): ApexLanguageServerSettings {
-    return ApexSettingsManager.getDefaultSettings(this.environment === 'browser' ? 'browser' : 'node');
+    return ApexSettingsManager.getDefaultSettings(
+      this.environment === 'browser' ? 'browser' : 'node',
+    );
   }
 
   /**
@@ -308,7 +337,11 @@ export class LSPConfigurationManager {
       return 'browser';
     }
     // Check for web worker environment
-    if (typeof globalThis !== 'undefined' && 'self' in globalThis && 'importScripts' in globalThis) {
+    if (
+      typeof globalThis !== 'undefined' &&
+      'self' in globalThis &&
+      'importScripts' in globalThis
+    ) {
       return 'web-worker';
     }
     // Default to node environment
@@ -347,13 +380,18 @@ export class LSPConfigurationManager {
    * Set up settings change listener to handle configuration updates
    */
   private setupSettingsChangeListener(): void {
-    this.settingsChangeListener = this.settingsManager.onSettingsChange((newSettings) => {
-      // Handle settings changes that might affect capabilities
-      if (newSettings.environment.enablePerformanceLogging && this.capabilitiesManager.getMode() === 'production') {
-        // Switch to development mode if performance logging is enabled
-        this.capabilitiesManager.setMode('development');
-      }
-    });
+    this.settingsChangeListener = this.settingsManager.onSettingsChange(
+      (newSettings) => {
+        // Handle settings changes that might affect capabilities
+        if (
+          newSettings.environment.enablePerformanceLogging &&
+          this.capabilitiesManager.getMode() === 'production'
+        ) {
+          // Switch to development mode if performance logging is enabled
+          this.capabilitiesManager.setMode('development');
+        }
+      },
+    );
   }
 
   /**
@@ -362,7 +400,10 @@ export class LSPConfigurationManager {
    * @param overrides - The custom overrides to apply
    * @returns The merged capabilities
    */
-  private mergeCapabilities<T extends ServerCapabilities>(base: T, overrides: Partial<T>): T {
+  private mergeCapabilities<T extends ServerCapabilities>(
+    base: T,
+    overrides: Partial<T>,
+  ): T {
     return { ...base, ...overrides };
   }
 }

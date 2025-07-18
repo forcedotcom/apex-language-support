@@ -9,7 +9,10 @@
 import { FoldingRangeParams, FoldingRange } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { processOnFoldingRange, dispatchProcessOnFoldingRange } from '../../src/handlers/FoldingRangeHandler';
+import {
+  processOnFoldingRange,
+  dispatchProcessOnFoldingRange,
+} from '../../src/handlers/FoldingRangeHandler';
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 import { dispatch } from '../../src/utils/handlerUtil';
 
@@ -48,11 +51,15 @@ describe('FoldingRangeHandler', () => {
     mockDispatch = dispatch as jest.MockedFunction<typeof dispatch>;
 
     // Set up mock provider
-    const { ApexFoldingRangeProvider } = require('../../src/foldingRange/ApexFoldingRangeProvider');
+    const {
+      ApexFoldingRangeProvider,
+    } = require('../../src/foldingRange/ApexFoldingRangeProvider');
     mockProvider = {
       getFoldingRanges: jest.fn(),
     };
-    (ApexFoldingRangeProvider as jest.MockedClass<any>).mockImplementation(() => mockProvider);
+    (ApexFoldingRangeProvider as jest.MockedClass<any>).mockImplementation(
+      () => mockProvider,
+    );
   });
 
   afterEach(() => {
@@ -72,7 +79,9 @@ describe('FoldingRangeHandler', () => {
 
       // Assert
       expect(result).toBeNull();
-      expect(mockProvider.getFoldingRanges).toHaveBeenCalledWith('file:///nonexistent/file.cls');
+      expect(mockProvider.getFoldingRanges).toHaveBeenCalledWith(
+        'file:///nonexistent/file.cls',
+      );
     });
 
     it('should return folding ranges for valid document', async () => {
@@ -94,7 +103,12 @@ public class TestClass {
     }
 }`;
 
-      const mockDocument = TextDocument.create('file:///test.cls', 'apex', 1, apexCode);
+      const mockDocument = TextDocument.create(
+        'file:///test.cls',
+        'apex',
+        1,
+        apexCode,
+      );
 
       const expectedFoldingRanges: FoldingRange[] = [
         {
@@ -134,12 +148,19 @@ public class TestClass {
 
       // Assert
       expect(result).toEqual(expectedFoldingRanges);
-      expect(mockProvider.getFoldingRanges).toHaveBeenCalledWith('file:///test.cls');
+      expect(mockProvider.getFoldingRanges).toHaveBeenCalledWith(
+        'file:///test.cls',
+      );
     });
 
     it('should return null when provider returns empty array', async () => {
       // Arrange
-      const mockDocument = TextDocument.create('file:///empty.cls', 'apex', 1, 'public class Empty {}');
+      const mockDocument = TextDocument.create(
+        'file:///empty.cls',
+        'apex',
+        1,
+        'public class Empty {}',
+      );
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
@@ -155,12 +176,19 @@ public class TestClass {
 
       // Assert
       expect(result).toBeNull();
-      expect(mockProvider.getFoldingRanges).toHaveBeenCalledWith('file:///empty.cls');
+      expect(mockProvider.getFoldingRanges).toHaveBeenCalledWith(
+        'file:///empty.cls',
+      );
     });
 
     it('should handle provider errors gracefully', async () => {
       // Arrange
-      const mockDocument = TextDocument.create('file:///error.cls', 'apex', 1, 'invalid apex code');
+      const mockDocument = TextDocument.create(
+        'file:///error.cls',
+        'apex',
+        1,
+        'invalid apex code',
+      );
 
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
@@ -169,14 +197,18 @@ public class TestClass {
       };
 
       // Mock the ApexFoldingRangeProvider to throw error
-      mockProvider.getFoldingRanges.mockRejectedValue(new Error('Parser error'));
+      mockProvider.getFoldingRanges.mockRejectedValue(
+        new Error('Parser error'),
+      );
 
       // Act
       const result = await processOnFoldingRange(params, mockStorage);
 
       // Assert
       expect(result).toBeNull();
-      expect(mockProvider.getFoldingRanges).toHaveBeenCalledWith('file:///error.cls');
+      expect(mockProvider.getFoldingRanges).toHaveBeenCalledWith(
+        'file:///error.cls',
+      );
     });
 
     it('should handle storage errors gracefully', async () => {
@@ -266,7 +298,10 @@ public class TestClass {
 
       // Assert
       expect(mockDispatch).toHaveBeenCalledTimes(1);
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Promise), 'Error processing folding range request');
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.any(Promise),
+        'Error processing folding range request',
+      );
     });
 
     it('should handle dispatch error', async () => {
@@ -279,7 +314,9 @@ public class TestClass {
       mockDispatch.mockRejectedValueOnce(error);
 
       // Act & Assert
-      await expect(dispatchProcessOnFoldingRange(params, mockStorage)).rejects.toThrow(error);
+      await expect(
+        dispatchProcessOnFoldingRange(params, mockStorage),
+      ).rejects.toThrow(error);
       expect(mockDispatch).toHaveBeenCalledTimes(1);
     });
 

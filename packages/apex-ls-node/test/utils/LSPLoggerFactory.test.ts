@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { type LogMessageType, getLogNotificationHandler, shouldLog } from '@salesforce/apex-lsp-logging';
+import {
+  type LogMessageType,
+  getLogNotificationHandler,
+  shouldLog,
+} from '@salesforce/apex-lsp-logging';
 
 import { LSPLoggerFactory } from '../../src/utils/LSPLoggerFactory';
 
@@ -71,7 +75,9 @@ describe('LSPLoggerFactory', () => {
 
         expect(mockHandler.sendLogMessage).toHaveBeenCalledWith({
           type: 'info',
-          message: expect.stringMatching(/^\[\d{1,2}:\d{2}:\d{2} [AP]M\] \[INFO\] test message$/),
+          message: expect.stringMatching(
+            /^\[\d{1,2}:\d{2}:\d{2} [AP]M\] \[INFO\] test message$/,
+          ),
         });
 
         jest.restoreAllMocks();
@@ -209,7 +215,9 @@ describe('LSPLoggerFactory', () => {
 
         expect(mockHandler.sendLogMessage).toHaveBeenCalledWith({
           type: 'info',
-          message: expect.stringMatching(/^\[\d{1,2}:\d{2}:\d{2} [AP]M\] \[INFO\] test message$/),
+          message: expect.stringMatching(
+            /^\[\d{1,2}:\d{2}:\d{2} [AP]M\] \[INFO\] test message$/,
+          ),
         });
       });
     });
@@ -268,7 +276,9 @@ describe('LSPLoggerFactory', () => {
         logger.log('info', 'test message');
 
         expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining('[LSPLogger] LogNotificationHandler not available or invalid'),
+          expect.stringContaining(
+            '[LSPLogger] LogNotificationHandler not available or invalid',
+          ),
         );
 
         consoleSpy.mockRestore();
@@ -283,7 +293,9 @@ describe('LSPLoggerFactory', () => {
         logger.log('info', 'test message');
 
         expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining('[LSPLogger] LogNotificationHandler not available or invalid'),
+          expect.stringContaining(
+            '[LSPLogger] LogNotificationHandler not available or invalid',
+          ),
         );
 
         consoleSpy.mockRestore();
@@ -295,7 +307,9 @@ describe('LSPLoggerFactory', () => {
 
         logger.log('error', 'test error message');
 
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/Fallback log \(error\):.*test error message/));
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringMatching(/Fallback log \(error\):.*test error message/),
+        );
 
         consoleSpy.mockRestore();
       });
@@ -308,7 +322,9 @@ describe('LSPLoggerFactory', () => {
         logger.log('info', messageProvider);
 
         expect(messageProvider).toHaveBeenCalled();
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('function message'));
+        expect(consoleSpy).toHaveBeenCalledWith(
+          expect.stringContaining('function message'),
+        );
 
         consoleSpy.mockRestore();
       });
@@ -325,7 +341,9 @@ describe('LSPLoggerFactory', () => {
         expect(getLogNotificationHandler).toHaveBeenCalled();
         expect(mockHandler.sendLogMessage).toHaveBeenCalledWith({
           type: 'info',
-          message: expect.stringMatching(/^\[\d{1,2}:\d{2}:\d{2} [AP]M\] \[INFO\] Integration test message$/),
+          message: expect.stringMatching(
+            /^\[\d{1,2}:\d{2}:\d{2} [AP]M\] \[INFO\] Integration test message$/,
+          ),
         });
 
         jest.restoreAllMocks();

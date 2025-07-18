@@ -118,7 +118,9 @@ export class LspTestRunner {
     console.log(`Loading test scripts from ${this.options.scriptsDir}`);
 
     if (!fs.existsSync(this.options.scriptsDir)) {
-      throw new Error(`Scripts directory does not exist: ${this.options.scriptsDir}`);
+      throw new Error(
+        `Scripts directory does not exist: ${this.options.scriptsDir}`,
+      );
     }
 
     const scriptFiles = fs
@@ -134,7 +136,10 @@ export class LspTestRunner {
         const script = JSON.parse(scriptContent) as LspTestScript;
 
         // Filter by script names if provided
-        if (!this.options.scriptNames || this.options.scriptNames.includes(script.name)) {
+        if (
+          !this.options.scriptNames ||
+          this.options.scriptNames.includes(script.name)
+        ) {
           this.scripts.push(script);
         }
       } catch (error) {
@@ -168,10 +173,15 @@ export class LspTestRunner {
 
     if (this.options.parallel && this.scripts.length > 1) {
       // Run tests in parallel with maximum concurrency
-      const chunks = this.chunkArray(this.scripts, this.options.maxParallel || 1);
+      const chunks = this.chunkArray(
+        this.scripts,
+        this.options.maxParallel || 1,
+      );
 
       for (const chunk of chunks) {
-        const chunkResults = await Promise.all(chunk.map((script) => this.runSingleTest(script)));
+        const chunkResults = await Promise.all(
+          chunk.map((script) => this.runSingleTest(script)),
+        );
         results = results.concat(chunkResults);
       }
     } else {

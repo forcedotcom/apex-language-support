@@ -84,7 +84,9 @@ export class ApexCapabilitiesManager {
    * Check if a specific capability is enabled for the current mode
    * @param capability - The capability to check
    */
-  public isCapabilityEnabled(capability: keyof ExtendedServerCapabilities): boolean {
+  public isCapabilityEnabled(
+    capability: keyof ExtendedServerCapabilities,
+  ): boolean {
     const currentCapabilities = this.getCapabilities();
     return (
       capability in currentCapabilities &&
@@ -98,7 +100,10 @@ export class ApexCapabilitiesManager {
    * @param mode - The server mode to check
    * @param capability - The capability to check
    */
-  public isCapabilityEnabledForMode(mode: ServerMode, capability: keyof ExtendedServerCapabilities): boolean {
+  public isCapabilityEnabledForMode(
+    mode: ServerMode,
+    capability: keyof ExtendedServerCapabilities,
+  ): boolean {
     const modeCapabilities = this.getCapabilitiesForMode(mode);
     return (
       capability in modeCapabilities &&

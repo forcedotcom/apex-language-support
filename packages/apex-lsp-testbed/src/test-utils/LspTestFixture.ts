@@ -10,7 +10,10 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 import { ApexJsonRpcClient } from '../client/ApexJsonRpcClient';
-import { RequestResponseCapturingMiddleware, RequestResponsePair } from './RequestResponseCapturingMiddleware';
+import {
+  RequestResponseCapturingMiddleware,
+  RequestResponsePair,
+} from './RequestResponseCapturingMiddleware';
 
 export interface LspTestStep {
   description: string;
@@ -72,7 +75,8 @@ export class LspTestFixture {
     });
 
     this.middleware = new RequestResponseCapturingMiddleware();
-    this.snapshotDir = options.snapshotDir || path.join(process.cwd(), '__snapshots__');
+    this.snapshotDir =
+      options.snapshotDir || path.join(process.cwd(), '__snapshots__');
     this.updateSnapshots = options.updateSnapshots || false;
 
     // Create snapshot directory if it doesn't exist
@@ -130,7 +134,10 @@ export class LspTestFixture {
       }
 
       // Create or verify snapshot
-      await this.handleSnapshot(script.name, this.middleware.getCapturedRequests());
+      await this.handleSnapshot(
+        script.name,
+        this.middleware.getCapturedRequests(),
+      );
     } catch (error) {
       result.success = false;
       console.error(`Error running test script ${script.name}:`, error);
@@ -144,7 +151,9 @@ export class LspTestFixture {
    * Execute a single test step
    * @param step The test step to execute
    */
-  private async executeTestStep(step: LspTestStep): Promise<LspTestResult['steps'][0]> {
+  private async executeTestStep(
+    step: LspTestStep,
+  ): Promise<LspTestResult['steps'][0]> {
     try {
       // Send the request via the client
 
@@ -160,7 +169,9 @@ export class LspTestFixture {
           description: step.description,
           success: matches,
           requestResponsePair: pair,
-          error: matches ? undefined : new Error('Response did not match expected result'),
+          error: matches
+            ? undefined
+            : new Error('Response did not match expected result'),
         };
       }
 
@@ -196,12 +207,16 @@ export class LspTestFixture {
         return false;
       }
 
-      return expected.every((item, index) => this.compareResults(actual[index], item));
+      return expected.every((item, index) =>
+        this.compareResults(actual[index], item),
+      );
     }
 
     // For objects, every key in expected must exist in actual with matching values
     return Object.keys(expected).every(
-      (key) => Object.prototype.hasOwnProperty.call(actual, key) && this.compareResults(actual[key], expected[key]),
+      (key) =>
+        Object.prototype.hasOwnProperty.call(actual, key) &&
+        this.compareResults(actual[key], expected[key]),
     );
   }
 
@@ -210,9 +225,15 @@ export class LspTestFixture {
    * @param testName The name of the test
    * @param capturedRequests The captured request-response pairs
    */
-  private async handleSnapshot(testName: string, capturedRequests: RequestResponsePair[]): Promise<void> {
+  private async handleSnapshot(
+    testName: string,
+    capturedRequests: RequestResponsePair[],
+  ): Promise<void> {
     const sanitizedName = testName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const snapshotPath = path.join(this.snapshotDir, `${sanitizedName}.snapshot.json`);
+    const snapshotPath = path.join(
+      this.snapshotDir,
+      `${sanitizedName}.snapshot.json`,
+    );
 
     // Prepare the snapshot data
     const snapshotData = {
@@ -223,29 +244,40 @@ export class LspTestFixture {
 
     if (this.updateSnapshots || !fs.existsSync(snapshotPath)) {
       // Create or update the snapshot
-      fs.writeFileSync(snapshotPath, JSON.stringify(snapshotData, null, 2), 'utf8');
+      fs.writeFileSync(
+        snapshotPath,
+        JSON.stringify(snapshotData, null, 2),
+        'utf8',
+      );
       console.log(`  Created/updated snapshot: ${snapshotPath}`);
     } else {
       // Verify against existing snapshot
-      const existingSnapshot = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
+      const existingSnapshot = JSON.parse(
+        fs.readFileSync(snapshotPath, 'utf8'),
+      );
 
       // Compare captured requests with snapshot
       // This is a simplified comparison - you may need more sophisticated comparison
-      const currentRequests = capturedRequests.map((req: RequestResponsePair) => ({
-        method: req.method,
-        request: req.request,
-        response: req.response,
-        error: req.error,
-      }));
+      const currentRequests = capturedRequests.map(
+        (req: RequestResponsePair) => ({
+          method: req.method,
+          request: req.request,
+          response: req.response,
+          error: req.error,
+        }),
+      );
 
-      const snapshotRequests = existingSnapshot.capturedRequests.map((req: RequestResponsePair) => ({
-        method: req.method,
-        request: req.request,
-        response: req.response,
-        error: req.error,
-      }));
+      const snapshotRequests = existingSnapshot.capturedRequests.map(
+        (req: RequestResponsePair) => ({
+          method: req.method,
+          request: req.request,
+          response: req.response,
+          error: req.error,
+        }),
+      );
 
-      const equal = JSON.stringify(currentRequests) === JSON.stringify(snapshotRequests);
+      const equal =
+        JSON.stringify(currentRequests) === JSON.stringify(snapshotRequests);
       if (!equal) {
         console.error('  Snapshot comparison failed!');
         throw new Error(`Snapshot verification failed for test: ${testName}`);

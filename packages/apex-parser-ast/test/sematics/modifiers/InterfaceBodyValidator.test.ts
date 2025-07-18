@@ -8,7 +8,13 @@
 
 import { ParserRuleContext } from 'antlr4ts';
 
-import { SymbolKind, SymbolLocation, SymbolModifiers, SymbolVisibility, TypeSymbol } from '../../../src/types/symbol';
+import {
+  SymbolKind,
+  SymbolLocation,
+  SymbolModifiers,
+  SymbolVisibility,
+  TypeSymbol,
+} from '../../../src/types/symbol';
 import { InterfaceBodyValidator } from '../../../src/semantics/modifiers/InterfaceBodyValidator';
 import { ErrorReporter } from '../../../src/utils/ErrorReporter';
 
@@ -107,7 +113,12 @@ describe('InterfaceBodyValidator', () => {
         isWebService: false,
       };
 
-      InterfaceBodyValidator.validateFieldInInterface(modifiers, mockContext, interfaceSymbol, mockErrorReporter);
+      InterfaceBodyValidator.validateFieldInInterface(
+        modifiers,
+        mockContext,
+        interfaceSymbol,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toContain(
         'Fields are not allowed in interfaces. Interfaces can only contain method declarations',
@@ -127,7 +138,12 @@ describe('InterfaceBodyValidator', () => {
         isWebService: false,
       };
 
-      InterfaceBodyValidator.validateFieldInInterface(modifiers, mockContext, classSymbol, mockErrorReporter);
+      InterfaceBodyValidator.validateFieldInInterface(
+        modifiers,
+        mockContext,
+        classSymbol,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toHaveLength(0);
     });
@@ -149,13 +165,23 @@ describe('InterfaceBodyValidator', () => {
     });
 
     it('should not report error when constructor is declared in class', () => {
-      InterfaceBodyValidator.validateConstructorInInterface('TestClass', mockContext, classSymbol, mockErrorReporter);
+      InterfaceBodyValidator.validateConstructorInInterface(
+        'TestClass',
+        mockContext,
+        classSymbol,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toHaveLength(0);
     });
 
     it('should not report error when currentTypeSymbol is null', () => {
-      InterfaceBodyValidator.validateConstructorInInterface('TestConstructor', mockContext, null, mockErrorReporter);
+      InterfaceBodyValidator.validateConstructorInInterface(
+        'TestConstructor',
+        mockContext,
+        null,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toHaveLength(0);
     });
@@ -163,7 +189,12 @@ describe('InterfaceBodyValidator', () => {
 
   describe('validateEnumInInterface', () => {
     it('should report error when enum is declared in interface', () => {
-      InterfaceBodyValidator.validateEnumInInterface('TestEnum', mockContext, interfaceSymbol, mockErrorReporter);
+      InterfaceBodyValidator.validateEnumInInterface(
+        'TestEnum',
+        mockContext,
+        interfaceSymbol,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toContain(
         "Enum 'TestEnum' is not allowed in interfaces. Interfaces can only contain method declarations",
@@ -171,13 +202,23 @@ describe('InterfaceBodyValidator', () => {
     });
 
     it('should not report error when enum is declared in class', () => {
-      InterfaceBodyValidator.validateEnumInInterface('TestEnum', mockContext, classSymbol, mockErrorReporter);
+      InterfaceBodyValidator.validateEnumInInterface(
+        'TestEnum',
+        mockContext,
+        classSymbol,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toHaveLength(0);
     });
 
     it('should not report error when currentTypeSymbol is null', () => {
-      InterfaceBodyValidator.validateEnumInInterface('TestEnum', mockContext, null, mockErrorReporter);
+      InterfaceBodyValidator.validateEnumInInterface(
+        'TestEnum',
+        mockContext,
+        null,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toHaveLength(0);
     });
@@ -185,7 +226,12 @@ describe('InterfaceBodyValidator', () => {
 
   describe('validateClassInInterface', () => {
     it('should report error when class is declared in interface', () => {
-      InterfaceBodyValidator.validateClassInInterface('InnerClass', mockContext, interfaceSymbol, mockErrorReporter);
+      InterfaceBodyValidator.validateClassInInterface(
+        'InnerClass',
+        mockContext,
+        interfaceSymbol,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toContain(
         "Inner class 'InnerClass' is not allowed in interfaces. Interfaces can only contain method declarations",
@@ -193,13 +239,23 @@ describe('InterfaceBodyValidator', () => {
     });
 
     it('should not report error when class is declared in class', () => {
-      InterfaceBodyValidator.validateClassInInterface('InnerClass', mockContext, classSymbol, mockErrorReporter);
+      InterfaceBodyValidator.validateClassInInterface(
+        'InnerClass',
+        mockContext,
+        classSymbol,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toHaveLength(0);
     });
 
     it('should not report error when currentTypeSymbol is null', () => {
-      InterfaceBodyValidator.validateClassInInterface('InnerClass', mockContext, null, mockErrorReporter);
+      InterfaceBodyValidator.validateClassInInterface(
+        'InnerClass',
+        mockContext,
+        null,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toHaveLength(0);
     });
@@ -232,7 +288,12 @@ describe('InterfaceBodyValidator', () => {
     });
 
     it('should not report error when currentTypeSymbol is null', () => {
-      InterfaceBodyValidator.validateInterfaceInInterface('InnerInterface', mockContext, null, mockErrorReporter);
+      InterfaceBodyValidator.validateInterfaceInInterface(
+        'InnerInterface',
+        mockContext,
+        null,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toHaveLength(0);
     });
@@ -252,7 +313,12 @@ describe('InterfaceBodyValidator', () => {
         isWebService: false,
       };
 
-      InterfaceBodyValidator.validatePropertyInInterface(modifiers, mockContext, interfaceSymbol, mockErrorReporter);
+      InterfaceBodyValidator.validatePropertyInInterface(
+        modifiers,
+        mockContext,
+        interfaceSymbol,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toContain(
         'Properties are not allowed in interfaces. Interfaces can only contain method declarations',
@@ -272,7 +338,12 @@ describe('InterfaceBodyValidator', () => {
         isWebService: false,
       };
 
-      InterfaceBodyValidator.validatePropertyInInterface(modifiers, mockContext, classSymbol, mockErrorReporter);
+      InterfaceBodyValidator.validatePropertyInInterface(
+        modifiers,
+        mockContext,
+        classSymbol,
+        mockErrorReporter,
+      );
 
       expect(mockErrorReporter.errors).toHaveLength(0);
     });

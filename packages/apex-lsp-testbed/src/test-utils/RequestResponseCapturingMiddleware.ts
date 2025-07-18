@@ -39,7 +39,8 @@ export class RequestResponseCapturingMiddleware {
     this.connection = connection;
     this.originalSendRequest = connection.sendRequest;
     // Replace the sendRequest method with our instrumented version
-    connection.sendRequest = this.createInstrumentedSendRequest() as typeof connection.sendRequest;
+    connection.sendRequest =
+      this.createInstrumentedSendRequest() as typeof connection.sendRequest;
   }
 
   /**
@@ -50,7 +51,8 @@ export class RequestResponseCapturingMiddleware {
       return;
     }
 
-    this.connection.sendRequest = this.originalSendRequest as typeof this.connection.sendRequest;
+    this.connection.sendRequest = this
+      .originalSendRequest as typeof this.connection.sendRequest;
     this.connection = null;
     this.originalSendRequest = null;
   }
@@ -82,7 +84,9 @@ export class RequestResponseCapturingMiddleware {
    * Get the most recent request-response pair
    */
   public getLastCapturedRequest(): RequestResponsePair | undefined {
-    return this.capturedRequests.length > 0 ? this.capturedRequests[this.capturedRequests.length - 1] : undefined;
+    return this.capturedRequests.length > 0
+      ? this.capturedRequests[this.capturedRequests.length - 1]
+      : undefined;
   }
 
   /**
@@ -93,7 +97,12 @@ export class RequestResponseCapturingMiddleware {
     const originalSendRequest = this.originalSendRequest!;
     const middleware = this;
 
-    return function (this: MessageConnection, method: string, params?: any, ...additionalArgs: any[]) {
+    return function (
+      this: MessageConnection,
+      method: string,
+      params?: any,
+      ...additionalArgs: any[]
+    ) {
       const id = typeof params?.id === 'number' ? params.id : Date.now();
       const timestamp = Date.now();
 

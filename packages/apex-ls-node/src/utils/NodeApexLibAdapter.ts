@@ -39,7 +39,10 @@ export class NodeEditorContext implements EditorContext {
     private documents: TextDocuments<TextDocument>,
   ) {}
 
-  registerTextDocumentContentProvider(scheme: string, provider: TextDocumentContentProvider): void {
+  registerTextDocumentContentProvider(
+    scheme: string,
+    provider: TextDocumentContentProvider,
+  ): void {
     // In Node.js, we don't need to register a content provider
     // as we handle document content through the TextDocuments instance
   }
@@ -56,7 +59,10 @@ export class NodeEditorContext implements EditorContext {
  * @param documents The text documents instance
  * @returns An object containing the language server client and editor context
  */
-export function createNodeApexLibAdapter(connection: Connection, documents: TextDocuments<TextDocument>) {
+export function createNodeApexLibAdapter(
+  connection: Connection,
+  documents: TextDocuments<TextDocument>,
+) {
   return {
     client: new NodeLanguageServerClient(connection),
     editorContext: new NodeEditorContext(connection, documents),

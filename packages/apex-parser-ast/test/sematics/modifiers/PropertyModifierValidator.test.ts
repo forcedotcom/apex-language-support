@@ -10,7 +10,12 @@ import { ParserRuleContext } from 'antlr4ts';
 
 import { PropertyModifierValidator } from '../../../src/semantics/modifiers/PropertyModifierValidator';
 import { ErrorReporter } from '../../../src/utils/ErrorReporter';
-import { SymbolKind, SymbolModifiers, SymbolVisibility, TypeSymbol } from '../../../src/types/symbol';
+import {
+  SymbolKind,
+  SymbolModifiers,
+  SymbolVisibility,
+  TypeSymbol,
+} from '../../../src/types/symbol';
 
 // Mock implementation for ParserRuleContext
 class MockContext extends ParserRuleContext {}
@@ -19,13 +24,17 @@ class MockContext extends ParserRuleContext {}
 class MockErrorReporter implements ErrorReporter {
   public errors: Array<{
     message: string;
-    context: ParserRuleContext | { line: number; column: number; endLine?: number; endColumn?: number };
+    context:
+      | ParserRuleContext
+      | { line: number; column: number; endLine?: number; endColumn?: number };
   }> = [];
   public warnings: Array<{ message: string; context?: ParserRuleContext }> = [];
 
   addError(
     message: string,
-    context: ParserRuleContext | { line: number; column: number; endLine?: number; endColumn?: number },
+    context:
+      | ParserRuleContext
+      | { line: number; column: number; endLine?: number; endColumn?: number },
   ): void {
     this.errors.push({ message, context });
   }
@@ -36,7 +45,9 @@ class MockErrorReporter implements ErrorReporter {
 
   getErrors(): Array<{
     message: string;
-    context: ParserRuleContext | { line: number; column: number; endLine?: number; endColumn?: number };
+    context:
+      | ParserRuleContext
+      | { line: number; column: number; endLine?: number; endColumn?: number };
   }> {
     return this.errors;
   }
@@ -47,7 +58,9 @@ class MockErrorReporter implements ErrorReporter {
 }
 
 // Helper to create symbol modifiers
-function createSymbolModifiers(options: Partial<SymbolModifiers> = {}): SymbolModifiers {
+function createSymbolModifiers(
+  options: Partial<SymbolModifiers> = {},
+): SymbolModifiers {
   return {
     visibility: SymbolVisibility.Default,
     isStatic: false,
@@ -79,10 +92,17 @@ describe('PropertyModifierValidator', () => {
         modifiers: createSymbolModifiers(),
       } as TypeSymbol;
 
-      PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, interfaceSymbol, errorReporter);
+      PropertyModifierValidator.validatePropertyVisibilityModifiers(
+        modifiers,
+        ctx,
+        interfaceSymbol,
+        errorReporter,
+      );
 
       expect(errorReporter.errors.length).toBe(1);
-      expect(errorReporter.errors[0].message).toContain('Properties are not allowed in interfaces');
+      expect(errorReporter.errors[0].message).toContain(
+        'Properties are not allowed in interfaces',
+      );
     });
 
     test('should reject abstract properties in classes', () => {
@@ -93,10 +113,17 @@ describe('PropertyModifierValidator', () => {
         modifiers: createSymbolModifiers(),
       } as TypeSymbol;
 
-      PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
+      PropertyModifierValidator.validatePropertyVisibilityModifiers(
+        modifiers,
+        ctx,
+        classSymbol,
+        errorReporter,
+      );
 
       expect(errorReporter.errors.length).toBe(1);
-      expect(errorReporter.errors[0].message).toContain("Property cannot be declared as 'abstract'");
+      expect(errorReporter.errors[0].message).toContain(
+        "Property cannot be declared as 'abstract'",
+      );
       expect(modifiers.isAbstract).toBe(false); // Should fix the modifier
     });
 
@@ -120,7 +147,9 @@ describe('PropertyModifierValidator', () => {
       );
 
       expect(errorReporter.errors.length).toBe(1);
-      expect(errorReporter.errors[0].message).toContain('Property cannot have wider visibility');
+      expect(errorReporter.errors[0].message).toContain(
+        'Property cannot have wider visibility',
+      );
       expect(publicPropertyModifiers.visibility).toBe(SymbolVisibility.Private);
     });
 
@@ -137,7 +166,12 @@ describe('PropertyModifierValidator', () => {
         visibility: SymbolVisibility.Public,
       });
 
-      PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
+      PropertyModifierValidator.validatePropertyVisibilityModifiers(
+        modifiers,
+        ctx,
+        classSymbol,
+        errorReporter,
+      );
 
       expect(errorReporter.errors.length).toBe(1);
       expect(errorReporter.errors[0].message).toContain(
@@ -159,10 +193,17 @@ describe('PropertyModifierValidator', () => {
         visibility: SymbolVisibility.Global,
       });
 
-      PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
+      PropertyModifierValidator.validatePropertyVisibilityModifiers(
+        modifiers,
+        ctx,
+        classSymbol,
+        errorReporter,
+      );
 
       expect(errorReporter.errors.length).toBe(3);
-      expect(errorReporter.errors[0].message).toContain('Property cannot have wider visibility');
+      expect(errorReporter.errors[0].message).toContain(
+        'Property cannot have wider visibility',
+      );
       expect(errorReporter.errors[1].message).toContain(
         "Property with 'webService' modifier must be declared as 'global'",
       );
@@ -179,10 +220,17 @@ describe('PropertyModifierValidator', () => {
 
       const modifiers = createSymbolModifiers({ isOverride: true });
 
-      PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
+      PropertyModifierValidator.validatePropertyVisibilityModifiers(
+        modifiers,
+        ctx,
+        classSymbol,
+        errorReporter,
+      );
 
       expect(errorReporter.errors.length).toBe(1);
-      expect(errorReporter.errors[0].message).toContain("Property cannot be declared as 'override'");
+      expect(errorReporter.errors[0].message).toContain(
+        "Property cannot be declared as 'override'",
+      );
       expect(modifiers.isOverride).toBe(false); // Should fix the modifier
     });
 
@@ -194,10 +242,17 @@ describe('PropertyModifierValidator', () => {
 
       const modifiers = createSymbolModifiers({ isTestMethod: true });
 
-      PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
+      PropertyModifierValidator.validatePropertyVisibilityModifiers(
+        modifiers,
+        ctx,
+        classSymbol,
+        errorReporter,
+      );
 
       expect(errorReporter.errors.length).toBe(1);
-      expect(errorReporter.errors[0].message).toContain("Property cannot be declared as 'testMethod'");
+      expect(errorReporter.errors[0].message).toContain(
+        "Property cannot be declared as 'testMethod'",
+      );
       expect(modifiers.isTestMethod).toBe(false); // Should fix the modifier
     });
 
@@ -216,7 +271,12 @@ describe('PropertyModifierValidator', () => {
         isTransient: true,
       });
 
-      PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
+      PropertyModifierValidator.validatePropertyVisibilityModifiers(
+        modifiers,
+        ctx,
+        classSymbol,
+        errorReporter,
+      );
 
       expect(errorReporter.errors.length).toBe(0);
       expect(modifiers.visibility).toBe(SymbolVisibility.Public);
@@ -238,7 +298,12 @@ describe('PropertyModifierValidator', () => {
         isWebService: true,
       });
 
-      PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
+      PropertyModifierValidator.validatePropertyVisibilityModifiers(
+        modifiers,
+        ctx,
+        classSymbol,
+        errorReporter,
+      );
 
       expect(errorReporter.errors.length).toBe(0);
       expect(modifiers.visibility).toBe(SymbolVisibility.Global);
@@ -256,7 +321,12 @@ describe('PropertyModifierValidator', () => {
         visibility: SymbolVisibility.Public, // Too wide
       });
 
-      PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
+      PropertyModifierValidator.validatePropertyVisibilityModifiers(
+        modifiers,
+        ctx,
+        classSymbol,
+        errorReporter,
+      );
 
       expect(errorReporter.errors.length).toBe(1);
       expect(modifiers.visibility).toBe(SymbolVisibility.Default); // Should be adjusted
@@ -274,7 +344,12 @@ describe('PropertyModifierValidator', () => {
         visibility: SymbolVisibility.Global, // Too wide
       });
 
-      PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
+      PropertyModifierValidator.validatePropertyVisibilityModifiers(
+        modifiers,
+        ctx,
+        classSymbol,
+        errorReporter,
+      );
 
       expect(errorReporter.errors.length).toBe(1);
       expect(modifiers.visibility).toBe(SymbolVisibility.Protected); // Should be adjusted
@@ -292,7 +367,12 @@ describe('PropertyModifierValidator', () => {
         visibility: SymbolVisibility.Global,
       });
 
-      PropertyModifierValidator.validatePropertyVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
+      PropertyModifierValidator.validatePropertyVisibilityModifiers(
+        modifiers,
+        ctx,
+        classSymbol,
+        errorReporter,
+      );
 
       expect(errorReporter.errors.length).toBe(1); // Global is not allowed in public class
       expect(modifiers.visibility).toBe(SymbolVisibility.Public); // Should be adjusted

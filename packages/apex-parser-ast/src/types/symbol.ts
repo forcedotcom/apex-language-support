@@ -163,7 +163,11 @@ export class RuntimeSymbol implements ApexSymbol {
  * Represents a class, interface, enum, or trigger
  */
 export interface TypeSymbol extends ApexSymbol {
-  kind: SymbolKind.Class | SymbolKind.Interface | SymbolKind.Trigger | SymbolKind.Enum;
+  kind:
+    | SymbolKind.Class
+    | SymbolKind.Interface
+    | SymbolKind.Trigger
+    | SymbolKind.Enum;
   /**
    * The superclass that this class extends.
    * Only applicable for classes (not interfaces or triggers).
@@ -198,7 +202,12 @@ export interface MethodSymbol extends ApexSymbol {
  * Represents a property, field, variable, parameter, or enum value
  */
 export interface VariableSymbol extends ApexSymbol {
-  kind: SymbolKind.Property | SymbolKind.Field | SymbolKind.Variable | SymbolKind.Parameter | SymbolKind.EnumValue;
+  kind:
+    | SymbolKind.Property
+    | SymbolKind.Field
+    | SymbolKind.Variable
+    | SymbolKind.Parameter
+    | SymbolKind.EnumValue;
   type: TypeInfo;
   initialValue?: string;
 }

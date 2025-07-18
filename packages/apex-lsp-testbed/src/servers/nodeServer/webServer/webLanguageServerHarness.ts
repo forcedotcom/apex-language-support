@@ -9,7 +9,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { ApexJsonRpcClient, ConsoleLogger, JsonRpcClientOptions } from '../../../client/ApexJsonRpcClient';
+import {
+  ApexJsonRpcClient,
+  ConsoleLogger,
+  JsonRpcClientOptions,
+} from '../../../client/ApexJsonRpcClient';
 import { RequestResponseCapturingMiddleware } from '../../../test-utils/RequestResponseCapturingMiddleware';
 import { ServerType } from '../../../utils/serverUtils';
 
@@ -75,12 +79,18 @@ export class WebLanguageServerHarness {
   private findServerPath(): string {
     // First, check if path is provided via environment variable
     if (process.env.WEB_LS_SERVER_PATH) {
-      this.logger.info(`Using server path from environment: ${process.env.WEB_LS_SERVER_PATH}`);
+      this.logger.info(
+        `Using server path from environment: ${process.env.WEB_LS_SERVER_PATH}`,
+      );
       return process.env.WEB_LS_SERVER_PATH;
     }
 
     // Look for the built server module in the web-apex-ls package
-    const webLsPackagePath = path.join(this.projectRoot, 'packages', 'apex-ls-browser');
+    const webLsPackagePath = path.join(
+      this.projectRoot,
+      'packages',
+      'apex-ls-browser',
+    );
 
     const outPath = path.join(webLsPackagePath, 'out', 'src', 'index.js');
 
@@ -108,7 +118,9 @@ export class WebLanguageServerHarness {
 
       // Get server capabilities
       const capabilities = this.client.getServerCapabilities();
-      this.logger.info(`Server capabilities: ${JSON.stringify(capabilities, null, 2)}`);
+      this.logger.info(
+        `Server capabilities: ${JSON.stringify(capabilities, null, 2)}`,
+      );
 
       // Run basic document test
       await this.testBasicDocument();
@@ -169,7 +181,10 @@ public class TestClass {
 
     // Update document
     this.logger.info('Updating document content');
-    const updatedContent = documentContent.replace('this.count++;', 'this.count += 2;');
+    const updatedContent = documentContent.replace(
+      'this.count++;',
+      'this.count += 2;',
+    );
     this.client.updateTextDocument(testDocumentUri, updatedContent, 2);
 
     // Close document
@@ -199,11 +214,21 @@ public class CompletionTest {
 
     // Request completion
     this.logger.info('Requesting completion at line 3, character 13');
-    const completionResult = await this.client.completion(testDocumentUri, 3, 13);
+    const completionResult = await this.client.completion(
+      testDocumentUri,
+      3,
+      13,
+    );
 
     // Log completion results
-    if (completionResult && completionResult.items && completionResult.items.length > 0) {
-      this.logger.info(`Received ${completionResult.items.length} completion items`);
+    if (
+      completionResult &&
+      completionResult.items &&
+      completionResult.items.length > 0
+    ) {
+      this.logger.info(
+        `Received ${completionResult.items.length} completion items`,
+      );
       completionResult.items.forEach((item: any) => {
         this.logger.info(` - ${item.label} (${item.kind})`);
       });
@@ -249,7 +274,9 @@ public class HoverTest {
         this.logger.info(`Hover content (${hoverResult.contents.kind}):`);
         this.logger.info(hoverResult.contents.value);
       } else {
-        this.logger.info(`Hover content: ${JSON.stringify(hoverResult.contents)}`);
+        this.logger.info(
+          `Hover content: ${JSON.stringify(hoverResult.contents)}`,
+        );
       }
     } else {
       this.logger.info('No hover information received');

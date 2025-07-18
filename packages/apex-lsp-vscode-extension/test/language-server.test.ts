@@ -126,8 +126,13 @@ describe('Language Server Module', () => {
     it('should handle client state changes', async () => {
       const restartHandler = jest.fn();
       const { updateApexServerStatusReady } = require('../src/status-bar');
-      const { resetServerStartRetries, setStartingFlag } = require('../src/commands');
-      const { registerConfigurationChangeListener } = require('../src/configuration');
+      const {
+        resetServerStartRetries,
+        setStartingFlag,
+      } = require('../src/commands');
+      const {
+        registerConfigurationChangeListener,
+      } = require('../src/configuration');
 
       await startLanguageServer(mockContext, restartHandler);
 
@@ -138,7 +143,10 @@ describe('Language Server Module', () => {
       expect(updateApexServerStatusReady).toHaveBeenCalled();
       expect(resetServerStartRetries).toHaveBeenCalled();
       expect(setStartingFlag).toHaveBeenCalledWith(false);
-      expect(registerConfigurationChangeListener).toHaveBeenCalledWith(mockClient, mockContext);
+      expect(registerConfigurationChangeListener).toHaveBeenCalledWith(
+        mockClient,
+        mockContext,
+      );
     });
 
     it('should handle other states', async () => {
@@ -171,7 +179,10 @@ describe('Language Server Module', () => {
 
       expect(setStartingFlag).toHaveBeenCalledWith(false);
       expect(updateApexServerStatusError).toHaveBeenCalled();
-      expect(logToOutputChannel).toHaveBeenCalledWith('Failed to start client: Error: Start failed', 'error');
+      expect(logToOutputChannel).toHaveBeenCalledWith(
+        'Failed to start client: Error: Start failed',
+        'error',
+      );
     });
   });
 
@@ -184,7 +195,10 @@ describe('Language Server Module', () => {
       await startLanguageServer(mockContext, restartHandler);
 
       expect(setStartingFlag).toHaveBeenCalledWith(true);
-      expect(logToOutputChannel).toHaveBeenCalledWith('Starting language server...', 'info');
+      expect(logToOutputChannel).toHaveBeenCalledWith(
+        'Starting language server...',
+        'info',
+      );
       expect(MockLanguageClient).toHaveBeenCalled();
       expect(mockClient.start).toHaveBeenCalled();
     });
@@ -201,7 +215,10 @@ describe('Language Server Module', () => {
       await startLanguageServer(mockContext, restartHandler);
 
       expect(setStartingFlag).toHaveBeenCalledWith(false);
-      expect(logToOutputChannel).toHaveBeenCalledWith('Error creating client: Error: Start failed', 'error');
+      expect(logToOutputChannel).toHaveBeenCalledWith(
+        'Error creating client: Error: Start failed',
+        'error',
+      );
     });
   });
 
@@ -240,7 +257,9 @@ describe('Language Server Module', () => {
     it('should handle stop when no client exists', async () => {
       // Reset the module to clear any existing client
       jest.resetModules();
-      const { stopLanguageServer: stopServer } = require('../src/language-server');
+      const {
+        stopLanguageServer: stopServer,
+      } = require('../src/language-server');
 
       await stopServer();
 
@@ -262,7 +281,9 @@ describe('Language Server Module', () => {
     it('should return undefined when no client exists', () => {
       // Reset modules to clear any previous state
       jest.resetModules();
-      const { getLanguageClient: getClient } = require('../src/language-server');
+      const {
+        getLanguageClient: getClient,
+      } = require('../src/language-server');
 
       const client = getClient();
 

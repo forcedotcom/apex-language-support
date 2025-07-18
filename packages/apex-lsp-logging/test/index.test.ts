@@ -21,11 +21,13 @@ describe('apex-lsp-logging', () => {
 
   beforeEach(() => {
     mockLogger = {
-      log: jest.fn((messageType: LogMessageType, message: string | (() => string)) => {
-        if (typeof message === 'function') {
-          message();
-        }
-      }),
+      log: jest.fn(
+        (messageType: LogMessageType, message: string | (() => string)) => {
+          if (typeof message === 'function') {
+            message();
+          }
+        },
+      ),
     } as unknown as jest.Mocked<LoggerInterface>;
 
     mockLogNotificationHandler = {
@@ -164,7 +166,9 @@ describe('apex-lsp-logging', () => {
 
       mockLogNotificationHandler.sendLogMessage(params);
 
-      expect(mockLogNotificationHandler.sendLogMessage).toHaveBeenCalledWith(params);
+      expect(mockLogNotificationHandler.sendLogMessage).toHaveBeenCalledWith(
+        params,
+      );
     });
   });
 });

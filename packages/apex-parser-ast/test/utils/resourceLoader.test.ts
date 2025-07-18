@@ -94,7 +94,9 @@ describe('ResourceLoader', () => {
       const content1 = loader.getFile(TEST_FILE);
       const content2 = loader.getFile(TEST_FILE.toUpperCase());
       if (!content1 || !content2) {
-        throw new Error(`Expected to find files ${TEST_FILE} and ${TEST_FILE.toUpperCase()} but got undefined`);
+        throw new Error(
+          `Expected to find files ${TEST_FILE} and ${TEST_FILE.toUpperCase()} but got undefined`,
+        );
       }
       expect(content1).toBe(content2);
     });
@@ -183,7 +185,9 @@ describe('ResourceLoader Compilation', () => {
       expect(compiledArtifact!.path).toBe(fileName);
       expect(compiledArtifact!.compilationResult).toBeDefined();
       expect(compiledArtifact!.compilationResult.comments).toBeDefined();
-      expect(compiledArtifact!.compilationResult.commentAssociations).toBeDefined();
+      expect(
+        compiledArtifact!.compilationResult.commentAssociations,
+      ).toBeDefined();
     }
   }, 30000);
 
@@ -192,12 +196,15 @@ describe('ResourceLoader Compilation', () => {
     const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
 
     // Test System namespace
-    const systemArtifact = resourceLoader.getCompiledArtifact('System/System.cls');
+    const systemArtifact =
+      resourceLoader.getCompiledArtifact('System/System.cls');
     expect(systemArtifact).toBeDefined();
     expect(systemArtifact!.compilationResult.result).toBeDefined();
 
     // Test Apex namespace
-    const apexArtifact = resourceLoader.getCompiledArtifact('apexpages.action.cls');
+    const apexArtifact = resourceLoader.getCompiledArtifact(
+      'apexpages.action.cls',
+    );
     expect(apexArtifact).toBeDefined();
     expect(apexArtifact!.compilationResult.result).toBeDefined();
 
@@ -221,7 +228,10 @@ describe('ResourceLoader Compilation', () => {
     const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
     const artifacts = Array.from(compiledArtifacts.values());
 
-    const rootFiles = artifacts.filter((artifact) => !artifact.path.includes('/') && !artifact.path.includes('\\'));
+    const rootFiles = artifacts.filter(
+      (artifact) =>
+        !artifact.path.includes('/') && !artifact.path.includes('\\'),
+    );
 
     if (rootFiles.length > 0) {
       const rootFile = rootFiles[0];

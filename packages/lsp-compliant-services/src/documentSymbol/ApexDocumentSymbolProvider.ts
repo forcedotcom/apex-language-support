@@ -57,14 +57,18 @@ export interface ApexDocumentSymbolProvider {
    * @param params The document symbol parameters
    * @returns Array of document symbols or symbol information
    */
-  provideDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[] | SymbolInformation[] | null>;
+  provideDocumentSymbols(
+    params: DocumentSymbolParams,
+  ): Promise<DocumentSymbol[] | SymbolInformation[] | null>;
 }
 
 /**
  * Implementation of Apex document symbol provider
  * Converts Apex symbols from the parser into LSP DocumentSymbol format
  */
-export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProvider {
+export class DefaultApexDocumentSymbolProvider
+  implements ApexDocumentSymbolProvider
+{
   private readonly compilerService: CompilerService;
 
   constructor(private readonly storage: ApexStorageInterface) {
@@ -76,34 +80,56 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
    * @param params The document symbol parameters
    * @returns Array of document symbols or symbol information
    */
-  async provideDocumentSymbols(params: DocumentSymbolParams): Promise<DocumentSymbol[] | SymbolInformation[] | null> {
+  async provideDocumentSymbols(
+    params: DocumentSymbolParams,
+  ): Promise<DocumentSymbol[] | SymbolInformation[] | null> {
     const logger = getLogger();
     try {
       const documentUri = params.textDocument.uri;
-      logger.debug(() => `Attempting to get document from storage for URI: ${documentUri}`);
+      logger.debug(
+        () => `Attempting to get document from storage for URI: ${documentUri}`,
+      );
 
       const document = await this.storage.getDocument(documentUri);
 
       if (!document) {
-        logger.warn(() => `Document not found in storage for URI: ${documentUri}`);
+        logger.warn(
+          () => `Document not found in storage for URI: ${documentUri}`,
+        );
         return null;
       }
 
       const documentText = document.getText();
-      logger.debug(() => `Document found in storage. Content length: ${documentText.length}`);
-      logger.debug(() => `Document content preview: ${documentText.substring(0, 100)}...`);
+      logger.debug(
+        () =>
+          `Document found in storage. Content length: ${documentText.length}`,
+      );
+      logger.debug(
+        () => `Document content preview: ${documentText.substring(0, 100)}...`,
+      );
 
       // Create a symbol collector listener to parse the document
       const table = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(table);
       const settingsManager = ApexSettingsManager.getInstance();
-      const options = settingsManager.getCompilationOptions('documentSymbols', documentText.length);
+      const options = settingsManager.getCompilationOptions(
+        'documentSymbols',
+        documentText.length,
+      );
 
       // Parse the document using the compiler service
-      const result = this.compilerService.compile(documentText, documentUri, listener, options);
+      const result = this.compilerService.compile(
+        documentText,
+        documentUri,
+        listener,
+        options,
+      );
 
       if (result.errors.length > 0) {
-        logger.warn(() => `Parsed with ${result.errors.length} errors, continuing with partial symbols.`);
+        logger.warn(
+          () =>
+            `Parsed with ${result.errors.length} errors, continuing with partial symbols.`,
+        );
         logger.debug(() => `Parse errors: ${JSON.stringify(result.errors)}`);
       }
 
@@ -113,7 +139,9 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
 
       // Get all symbols from the global scope
       const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
-      logger.debug(() => `Found ${globalSymbols.length} global symbols in document`);
+      logger.debug(
+        () => `Found ${globalSymbols.length} global symbols in document`,
+      );
 
       // Process each symbol and convert to LSP DocumentSymbol format
       for (const symbol of globalSymbols) {
@@ -122,11 +150,18 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
         // Recursively collect children for top-level symbol types (classes, interfaces, etc.)
         if (inTypeSymbolGroup(symbol)) {
           const childScopes = symbolTable.getCurrentScope().getChildren();
-          const typeScope = childScopes.find((scope: any) => scope.name === symbol.name);
+          const typeScope = childScopes.find(
+            (scope: any) => scope.name === symbol.name,
+          );
 
           if (typeScope) {
-            logger.debug(() => `Collecting children for ${symbol.kind} '${symbol.name}'`);
-            documentSymbol.children = this.collectChildren(typeScope, symbol.kind);
+            logger.debug(
+              () => `Collecting children for ${symbol.kind} '${symbol.name}'`,
+            );
+            documentSymbol.children = this.collectChildren(
+              typeScope,
+              symbol.kind,
+            );
           }
         }
 
@@ -168,7 +203,9 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
         const methodSymbol = symbol;
 
         // Build parameter list
-        const parameterList = this.buildParameterList(methodSymbol.parameters || []);
+        const parameterList = this.buildParameterList(
+          methodSymbol.parameters || [],
+        );
 
         // Build return type string
         const returnTypeString = this.formatReturnType(methodSymbol.returnType);
@@ -176,7 +213,10 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
         // Format: methodName(paramTypes) : ReturnType
         return `${symbol.name}(${parameterList}) : ${returnTypeString}`;
       } catch (error) {
-        getLogger().warn(() => `Error formatting method symbol name for '${symbol.name}': ${error}`);
+        getLogger().warn(
+          () =>
+            `Error formatting method symbol name for '${symbol.name}': ${error}`,
+        );
         // Fallback to original name if anything goes wrong
         return symbol.name;
       }
@@ -195,7 +235,9 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
       return '';
     }
 
-    return parameters.map((param) => this.formatTypeInfo(param.type)).join(', ');
+    return parameters
+      .map((param) => this.formatTypeInfo(param.type))
+      .join(', ');
   }
 
   /**
@@ -241,12 +283,20 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
     const childSymbols = scope.getAllSymbols();
     const logger = getLogger();
 
-    logger.debug(() => `Collecting children for ${parentKind} '${scope.name}': ${childSymbols.length} symbols found`);
+    logger.debug(
+      () =>
+        `Collecting children for ${parentKind} '${scope.name}': ${childSymbols.length} symbols found`,
+    );
 
     for (const childSymbol of childSymbols) {
       // For interfaces, only include methods (Apex interfaces can only contain method signatures)
-      if (parentKind.toLowerCase() === 'interface' && !isMethodSymbol(childSymbol)) {
-        logger.debug(() => `Skipping non-method symbol '${childSymbol.name}' in interface`);
+      if (
+        parentKind.toLowerCase() === 'interface' &&
+        !isMethodSymbol(childSymbol)
+      ) {
+        logger.debug(
+          () => `Skipping non-method symbol '${childSymbol.name}' in interface`,
+        );
         continue;
       }
 
@@ -254,18 +304,29 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
 
       // Recursively collect children for top-level symbol types
       if (inTypeSymbolGroup(childSymbol)) {
-        const childScope = scope.getChildren().find((s: any) => s.name === childSymbol.name);
+        const childScope = scope
+          .getChildren()
+          .find((s: any) => s.name === childSymbol.name);
 
         if (childScope) {
-          logger.debug(() => `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}'`);
-          childDocumentSymbol.children = this.collectChildren(childScope, childSymbol.kind);
+          logger.debug(
+            () =>
+              `Recursively collecting children for nested ${childSymbol.kind} '${childSymbol.name}'`,
+          );
+          childDocumentSymbol.children = this.collectChildren(
+            childScope,
+            childSymbol.kind,
+          );
         }
       }
 
       children.push(childDocumentSymbol);
     }
 
-    logger.debug(() => `Collected ${children.length} children for ${parentKind} '${scope.name}'`);
+    logger.debug(
+      () =>
+        `Collected ${children.length} children for ${parentKind} '${scope.name}'`,
+    );
     return children;
   }
 
@@ -277,7 +338,10 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
     const { location, identifierLocation } = symbol;
 
     // The end position is always the end of the full symbol location.
-    const endPosition = Position.create(location.endLine - 1, location.endColumn);
+    const endPosition = Position.create(
+      location.endLine - 1,
+      location.endColumn,
+    );
 
     // Use the precise identifier location for the start of the range.
     // This provides a "tighter" range that excludes leading modifiers/keywords.
@@ -298,9 +362,16 @@ export class DefaultApexDocumentSymbolProvider implements ApexDocumentSymbolProv
     const startLine = (identifierLocation?.startLine ?? location.startLine) - 1;
     const startColumn = identifierLocation?.startColumn ?? location.startColumn;
 
-    const endLine = (identifierLocation?.endLine ?? identifierLocation?.startLine ?? location.startLine) - 1;
-    const endColumn = identifierLocation?.endColumn ?? startColumn + name.length;
+    const endLine =
+      (identifierLocation?.endLine ??
+        identifierLocation?.startLine ??
+        location.startLine) - 1;
+    const endColumn =
+      identifierLocation?.endColumn ?? startColumn + name.length;
 
-    return Range.create(Position.create(startLine, startColumn), Position.create(endLine, endColumn));
+    return Range.create(
+      Position.create(startLine, startColumn),
+      Position.create(endLine, endColumn),
+    );
   }
 }

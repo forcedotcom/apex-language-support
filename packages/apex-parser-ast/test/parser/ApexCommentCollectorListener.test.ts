@@ -6,9 +6,15 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexCommentCollectorListener, CommentType } from '../../src/parser/listeners/ApexCommentCollectorListener';
+import {
+  ApexCommentCollectorListener,
+  CommentType,
+} from '../../src/parser/listeners/ApexCommentCollectorListener';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { CompilerService, CompilationResultWithComments } from '../../src/parser/compilerService';
+import {
+  CompilerService,
+  CompilationResultWithComments,
+} from '../../src/parser/compilerService';
 import { SymbolTable } from '../../src/types/symbol';
 
 describe('ApexCommentCollectorListener', () => {
@@ -31,15 +37,22 @@ public class TestClass {
     }
 }`;
 
-      const result = compilerService.compile(code, 'TestClass.cls', symbolCollector, {
-        includeComments: true,
-        includeSingleLineComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        code,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeComments: true,
+          includeSingleLineComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
       expect(result.comments.length).toBeGreaterThan(0);
 
-      const lineComments = result.comments.filter((c) => c.type === CommentType.Line);
+      const lineComments = result.comments.filter(
+        (c) => c.type === CommentType.Line,
+      );
       expect(lineComments.length).toBeGreaterThan(0);
       expect(lineComments[0].text).toContain('This is a single-line comment');
     });
@@ -57,14 +70,21 @@ public class TestClass {
     }
 }`;
 
-      const result = compilerService.compile(code, 'TestClass.cls', symbolCollector, {
-        includeComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        code,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
       expect(result.comments.length).toBeGreaterThan(0);
 
-      const blockComments = result.comments.filter((c) => c.type === CommentType.Block);
+      const blockComments = result.comments.filter(
+        (c) => c.type === CommentType.Block,
+      );
       expect(blockComments.length).toBeGreaterThan(0);
       expect(blockComments[0].text).toContain('This is a block comment');
     });
@@ -83,16 +103,25 @@ public class TestClass {
     }
 }`;
 
-      const result = compilerService.compile(code, 'TestClass.cls', symbolCollector, {
-        includeComments: true,
-        includeSingleLineComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        code,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeComments: true,
+          includeSingleLineComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
       expect(result.comments.length).toBeGreaterThan(0);
 
-      const lineComments = result.comments.filter((c) => c.type === CommentType.Line);
-      const blockComments = result.comments.filter((c) => c.type === CommentType.Block);
+      const lineComments = result.comments.filter(
+        (c) => c.type === CommentType.Line,
+      );
+      const blockComments = result.comments.filter(
+        (c) => c.type === CommentType.Block,
+      );
 
       expect(lineComments.length).toBeGreaterThan(0);
       expect(blockComments.length).toBeGreaterThan(0);
@@ -115,9 +144,14 @@ public class TestClass {
     }
 }`;
 
-      const result = compilerService.compile(code, 'TestClass.cls', symbolCollector, {
-        includeComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        code,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       const docComments = result.comments.filter((c) => c.isDocumentation);
       expect(docComments.length).toBeGreaterThan(0);
@@ -134,10 +168,15 @@ public class TestClass {
     }
 }`;
 
-      const result = compilerService.compile(code, 'TestClass.cls', symbolCollector, {
-        includeComments: true,
-        includeSingleLineComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        code,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeComments: true,
+          includeSingleLineComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       const docComments = result.comments.filter((c) => c.isDocumentation);
       expect(docComments.length).toBeGreaterThan(0);
@@ -153,20 +192,29 @@ public class TestClass {
     }
 }`;
 
-      const result = compilerService.compile(code, 'TestClass.cls', symbolCollector, {
-        includeComments: true,
-        includeSingleLineComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        code,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeComments: true,
+          includeSingleLineComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments.length).toBeGreaterThanOrEqual(2);
 
       // Find the first comment
-      const firstComment = result.comments.find((c) => c.text.includes('Line 1 comment'));
+      const firstComment = result.comments.find((c) =>
+        c.text.includes('Line 1 comment'),
+      );
       expect(firstComment).toBeDefined();
       expect(firstComment!.startLine).toBe(1);
 
       // Find the second comment
-      const secondComment = result.comments.find((c) => c.text.includes('Line 3 comment'));
+      const secondComment = result.comments.find((c) =>
+        c.text.includes('Line 3 comment'),
+      );
       expect(secondComment).toBeDefined();
       expect(secondComment!.startLine).toBe(3);
     });
@@ -180,11 +228,18 @@ public class TestClass {
 public class TestClass {
 }`;
 
-      const result = compilerService.compile(code, 'TestClass.cls', symbolCollector, {
-        includeComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        code,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
-      const blockComment = result.comments.find((c) => c.type === CommentType.Block);
+      const blockComment = result.comments.find(
+        (c) => c.type === CommentType.Block,
+      );
       expect(blockComment).toBeDefined();
       expect(blockComment!.startLine).toBe(1);
       expect(blockComment!.endLine).toBe(5);
@@ -231,8 +286,12 @@ public class TestClass {
       expect(result.comments).toBeDefined();
 
       // Should only have block comments (2 of them)
-      const blockComments = result.comments.filter((c) => c.type === CommentType.Block);
-      const lineComments = result.comments.filter((c) => c.type === CommentType.Line);
+      const blockComments = result.comments.filter(
+        (c) => c.type === CommentType.Block,
+      );
+      const lineComments = result.comments.filter(
+        (c) => c.type === CommentType.Line,
+      );
 
       expect(blockComments.length).toBe(2);
       expect(lineComments.length).toBe(0);
@@ -240,15 +299,24 @@ public class TestClass {
     });
 
     it('should include single-line comments when explicitly requested', () => {
-      const result = compilerService.compile(testCode, 'TestClass.cls', symbolCollector, {
-        includeSingleLineComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        testCode,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeSingleLineComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
 
       // Should have both block and line comments
-      const blockComments = result.comments.filter((c) => c.type === CommentType.Block);
-      const lineComments = result.comments.filter((c) => c.type === CommentType.Line);
+      const blockComments = result.comments.filter(
+        (c) => c.type === CommentType.Block,
+      );
+      const lineComments = result.comments.filter(
+        (c) => c.type === CommentType.Line,
+      );
 
       expect(blockComments.length).toBe(2);
       expect(lineComments.length).toBe(2);
@@ -256,15 +324,24 @@ public class TestClass {
     });
 
     it('should exclude single-line comments when explicitly set to false', () => {
-      const result = compilerService.compile(testCode, 'TestClass.cls', symbolCollector, {
-        includeSingleLineComments: false,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        testCode,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeSingleLineComments: false,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
 
       // Should only have block comments
-      const blockComments = result.comments.filter((c) => c.type === CommentType.Block);
-      const lineComments = result.comments.filter((c) => c.type === CommentType.Line);
+      const blockComments = result.comments.filter(
+        (c) => c.type === CommentType.Block,
+      );
+      const lineComments = result.comments.filter(
+        (c) => c.type === CommentType.Line,
+      );
 
       expect(blockComments.length).toBe(2);
       expect(lineComments.length).toBe(0);
@@ -282,9 +359,14 @@ public class TestClass {
     }
 }`;
 
-      const result = compilerService.compile(docCode, 'TestClass.cls', symbolCollector, {
-        includeSingleLineComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        docCode,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeSingleLineComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
       expect(result.comments.length).toBe(3);
@@ -300,20 +382,30 @@ public class TestClass {
     });
 
     it('should work with both includeComments and includeSingleLineComments options', () => {
-      const result = compilerService.compile(testCode, 'TestClass.cls', symbolCollector, {
-        includeComments: true,
-        includeSingleLineComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        testCode,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeComments: true,
+          includeSingleLineComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       expect(result.comments).toBeDefined();
       expect(result.comments.length).toBe(4);
     });
 
     it('should respect includeComments: false even when includeSingleLineComments is true', () => {
-      const result = compilerService.compile(testCode, 'TestClass.cls', symbolCollector, {
-        includeComments: false,
-        includeSingleLineComments: true,
-      });
+      const result = compilerService.compile(
+        testCode,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeComments: false,
+          includeSingleLineComments: true,
+        },
+      );
 
       // Result should not have comments property when includeComments is false
       expect('comments' in result).toBe(false);
@@ -329,10 +421,15 @@ public class TestClass {
     // Comment after invalid syntax
 }`;
 
-      const result = compilerService.compile(invalidCode, 'TestClass.cls', symbolCollector, {
-        includeComments: true,
-        includeSingleLineComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        invalidCode,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeComments: true,
+          includeSingleLineComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       // Should still collect comments even if there are syntax errors
       expect(result.comments).toBeDefined();
@@ -351,7 +448,12 @@ public class TestClass {
     }
 }`;
 
-      const result = compilerService.compile(code, 'TestClass.cls', symbolCollector, { includeComments: false });
+      const result = compilerService.compile(
+        code,
+        'TestClass.cls',
+        symbolCollector,
+        { includeComments: false },
+      );
 
       // Should not have comments property
       expect('comments' in result).toBe(false);
@@ -387,9 +489,14 @@ public class TestClass {
     }
 }`;
 
-      const result = compilerService.compile(code, 'TestClass.cls', symbolCollector, {
-        includeComments: true,
-      }) as CompilationResultWithComments<SymbolTable>;
+      const result = compilerService.compile(
+        code,
+        'TestClass.cls',
+        symbolCollector,
+        {
+          includeComments: true,
+        },
+      ) as CompilationResultWithComments<SymbolTable>;
 
       // Should have comments property
       expect('comments' in result).toBe(true);

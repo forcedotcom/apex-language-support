@@ -39,7 +39,10 @@ export function createWorkerMessageReader(worker: Worker): MessageReader {
     },
     onError: (listener) => {
       worker.onerror = (event) => {
-        const error = new ResponseError(ErrorCodes.InternalError, `Worker error: ${event.message}`);
+        const error = new ResponseError(
+          ErrorCodes.InternalError,
+          `Worker error: ${event.message}`,
+        );
         listener(error);
       };
       return {

@@ -48,7 +48,10 @@ export interface EditorContext {
    * @param scheme The URI scheme to register for
    * @param provider The content provider to register
    */
-  registerTextDocumentContentProvider(scheme: string, provider: TextDocumentContentProvider): void;
+  registerTextDocumentContentProvider(
+    scheme: string,
+    provider: TextDocumentContentProvider,
+  ): void;
 
   /**
    * Creates a file system watcher

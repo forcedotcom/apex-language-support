@@ -174,7 +174,9 @@ export function validateApexSettings(obj: any): ValidationResult {
 
   if (!obj || typeof obj !== 'object') {
     result.isValid = false;
-    result.details.push('Configuration object is null, undefined, or not an object');
+    result.details.push(
+      'Configuration object is null, undefined, or not an object',
+    );
     return result;
   }
 
@@ -194,13 +196,16 @@ export function validateApexSettings(obj: any): ValidationResult {
       result.details.push(`Unknown property: ${prop}`);
       // Don't mark as invalid for unknown properties, just log them
     } else {
-      const expectedType = validTopLevelProps[prop as keyof typeof validTopLevelProps];
+      const expectedType =
+        validTopLevelProps[prop as keyof typeof validTopLevelProps];
       const actualType = typeof value;
 
       if (actualType !== expectedType) {
         result.isValid = false;
         result.invalidKeys.push(prop);
-        result.details.push(`Property ${prop} should be ${expectedType} but is ${actualType}`);
+        result.details.push(
+          `Property ${prop} should be ${expectedType} but is ${actualType}`,
+        );
       } else if (expectedType === 'object' && value === null) {
         result.isValid = false;
         result.invalidKeys.push(prop);
@@ -215,7 +220,9 @@ export function validateApexSettings(obj: any): ValidationResult {
 /**
  * Type guard to check if an object is valid ApexLanguageServerSettings
  */
-export function isValidApexSettings(obj: any): obj is ApexLanguageServerSettings {
+export function isValidApexSettings(
+  obj: any,
+): obj is ApexLanguageServerSettings {
   return validateApexSettings(obj).isValid;
 }
 
@@ -226,7 +233,10 @@ export function mergeWithDefaults(
   userSettings: Partial<ApexLanguageServerSettings>,
   environment: 'node' | 'browser' = 'node',
 ): ApexLanguageServerSettings {
-  const baseDefaults = environment === 'browser' ? BROWSER_DEFAULT_APEX_SETTINGS : DEFAULT_APEX_SETTINGS;
+  const baseDefaults =
+    environment === 'browser'
+      ? BROWSER_DEFAULT_APEX_SETTINGS
+      : DEFAULT_APEX_SETTINGS;
 
   return {
     commentCollection: {

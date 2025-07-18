@@ -103,12 +103,18 @@ describe('LSPConfigurationManager', () => {
       }),
     } as unknown as jest.Mocked<ApexSettingsManager>;
 
-    (ApexCapabilitiesManager.getInstance as jest.Mock).mockReturnValue(mockCapabilitiesManager);
+    (ApexCapabilitiesManager.getInstance as jest.Mock).mockReturnValue(
+      mockCapabilitiesManager,
+    );
 
-    (ApexSettingsManager.getInstance as jest.Mock).mockReturnValue(mockSettingsManager);
+    (ApexSettingsManager.getInstance as jest.Mock).mockReturnValue(
+      mockSettingsManager,
+    );
 
     // Mock the static getDefaultSettings method
-    (ApexSettingsManager.getDefaultSettings as jest.Mock) = jest.fn().mockReturnValue(mockSettings);
+    (ApexSettingsManager.getDefaultSettings as jest.Mock) = jest
+      .fn()
+      .mockReturnValue(mockSettings);
 
     // Create configuration manager instance
     configurationManager = new LSPConfigurationManager();
@@ -123,7 +129,8 @@ describe('LSPConfigurationManager', () => {
     });
 
     it('should return the same capabilities as getCapabilities but with extended type', () => {
-      const extendedCapabilities = configurationManager.getExtendedServerCapabilities();
+      const extendedCapabilities =
+        configurationManager.getExtendedServerCapabilities();
       const baseCapabilities = configurationManager.getCapabilities();
 
       // Both should return the same data structure
@@ -168,7 +175,9 @@ describe('LSPConfigurationManager', () => {
   describe('setMode and getMode', () => {
     it('should set and get the server mode', () => {
       configurationManager.setMode('development');
-      expect(mockCapabilitiesManager.setMode).toHaveBeenCalledWith('development');
+      expect(mockCapabilitiesManager.setMode).toHaveBeenCalledWith(
+        'development',
+      );
       expect(configurationManager.getMode()).toBe('production'); // Mock returns production
     });
   });
@@ -180,10 +189,14 @@ describe('LSPConfigurationManager', () => {
       };
 
       configurationManager.setCustomCapabilities(customCapabilities);
-      expect(configurationManager.getCapabilities().documentSymbolProvider).toBe(false);
+      expect(
+        configurationManager.getCapabilities().documentSymbolProvider,
+      ).toBe(false);
 
       configurationManager.clearCustomCapabilities();
-      expect(configurationManager.getCapabilities().documentSymbolProvider).toBe(true);
+      expect(
+        configurationManager.getCapabilities().documentSymbolProvider,
+      ).toBe(true);
     });
   });
 
@@ -196,14 +209,18 @@ describe('LSPConfigurationManager', () => {
       configurationManager.setCustomCapabilities(customCapabilities);
       const result = configurationManager.getCapabilitiesForMode('development');
 
-      expect(mockCapabilitiesManager.getCapabilitiesForMode).toHaveBeenCalledWith('development');
+      expect(
+        mockCapabilitiesManager.getCapabilitiesForMode,
+      ).toHaveBeenCalledWith('development');
       expect(result.publishDiagnostics).toBe(false);
     });
   });
 
   describe('isCapabilityEnabled', () => {
     it('should return true for enabled capabilities', () => {
-      const result = configurationManager.isCapabilityEnabled('publishDiagnostics' as keyof ExtendedServerCapabilities);
+      const result = configurationManager.isCapabilityEnabled(
+        'publishDiagnostics' as keyof ExtendedServerCapabilities,
+      );
       expect(result).toBe(true);
     });
 
@@ -213,7 +230,9 @@ describe('LSPConfigurationManager', () => {
       };
 
       configurationManager.setCustomCapabilities(customCapabilities);
-      const result = configurationManager.isCapabilityEnabled('publishDiagnostics' as keyof ExtendedServerCapabilities);
+      const result = configurationManager.isCapabilityEnabled(
+        'publishDiagnostics' as keyof ExtendedServerCapabilities,
+      );
       expect(result).toBe(false);
     });
   });
@@ -229,7 +248,9 @@ describe('LSPConfigurationManager', () => {
       const config = { apex: { logLevel: 'debug' } };
       const result = configurationManager.updateFromLSPConfiguration(config);
 
-      expect(mockSettingsManager.updateFromLSPConfiguration).toHaveBeenCalledWith(config);
+      expect(
+        mockSettingsManager.updateFromLSPConfiguration,
+      ).toHaveBeenCalledWith(config);
       expect(result).toBe(true);
     });
 
@@ -237,14 +258,18 @@ describe('LSPConfigurationManager', () => {
       const newSettings = { logLevel: 'debug' };
       configurationManager.updateSettings(newSettings);
 
-      expect(mockSettingsManager.updateSettings).toHaveBeenCalledWith(newSettings);
+      expect(mockSettingsManager.updateSettings).toHaveBeenCalledWith(
+        newSettings,
+      );
     });
 
     it('should register settings change listener', () => {
       const listener = jest.fn();
       const unsubscribe = configurationManager.onSettingsChange(listener);
 
-      expect(mockSettingsManager.onSettingsChange).toHaveBeenCalledWith(listener);
+      expect(mockSettingsManager.onSettingsChange).toHaveBeenCalledWith(
+        listener,
+      );
       expect(typeof unsubscribe).toBe('function');
     });
   });
@@ -265,9 +290,15 @@ describe('LSPConfigurationManager', () => {
 
   describe('Compilation Options', () => {
     it('should get compilation options for document change', () => {
-      const options = configurationManager.getCompilationOptions('documentChange', 50000);
+      const options = configurationManager.getCompilationOptions(
+        'documentChange',
+        50000,
+      );
 
-      expect(mockSettingsManager.getCompilationOptions).toHaveBeenCalledWith('documentChange', 50000);
+      expect(mockSettingsManager.getCompilationOptions).toHaveBeenCalledWith(
+        'documentChange',
+        50000,
+      );
       expect(options).toEqual({
         includeComments: true,
         includeSingleLineComments: false,
@@ -276,9 +307,13 @@ describe('LSPConfigurationManager', () => {
     });
 
     it('should get compilation options for document symbols', () => {
-      const _options = configurationManager.getCompilationOptions('documentSymbols');
+      const _options =
+        configurationManager.getCompilationOptions('documentSymbols');
 
-      expect(mockSettingsManager.getCompilationOptions).toHaveBeenCalledWith('documentSymbols', undefined);
+      expect(mockSettingsManager.getCompilationOptions).toHaveBeenCalledWith(
+        'documentSymbols',
+        undefined,
+      );
     });
   });
 
@@ -286,21 +321,27 @@ describe('LSPConfigurationManager', () => {
     it('should check if performance logging is enabled', () => {
       const enabled = configurationManager.isPerformanceLoggingEnabled();
 
-      expect(mockSettingsManager.isPerformanceLoggingEnabled).toHaveBeenCalled();
+      expect(
+        mockSettingsManager.isPerformanceLoggingEnabled,
+      ).toHaveBeenCalled();
       expect(enabled).toBe(false);
     });
 
     it('should get document change debounce delay', () => {
       const delay = configurationManager.getDocumentChangeDebounceMs();
 
-      expect(mockSettingsManager.getDocumentChangeDebounceMs).toHaveBeenCalled();
+      expect(
+        mockSettingsManager.getDocumentChangeDebounceMs,
+      ).toHaveBeenCalled();
       expect(delay).toBe(300);
     });
 
     it('should check if async comment processing should be used', () => {
       const shouldUse = configurationManager.shouldUseAsyncCommentProcessing();
 
-      expect(mockSettingsManager.shouldUseAsyncCommentProcessing).toHaveBeenCalled();
+      expect(
+        mockSettingsManager.shouldUseAsyncCommentProcessing,
+      ).toHaveBeenCalled();
       expect(shouldUse).toBe(true);
     });
 
@@ -353,7 +394,9 @@ describe('LSPConfigurationManager', () => {
     it('should initialize with custom mode', () => {
       const _manager = new LSPConfigurationManager({ mode: 'development' });
 
-      expect(mockCapabilitiesManager.setMode).toHaveBeenCalledWith('development');
+      expect(mockCapabilitiesManager.setMode).toHaveBeenCalledWith(
+        'development',
+      );
     });
 
     it('should initialize with custom capabilities', () => {
@@ -374,7 +417,10 @@ describe('LSPConfigurationManager', () => {
       const initialSettings = { logLevel: 'debug' };
       const _manager = new LSPConfigurationManager({ initialSettings });
 
-      expect(ApexSettingsManager.getInstance).toHaveBeenCalledWith(initialSettings, 'node');
+      expect(ApexSettingsManager.getInstance).toHaveBeenCalledWith(
+        initialSettings,
+        'node',
+      );
     });
   });
 });

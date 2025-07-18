@@ -11,7 +11,10 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 import { ApexSymbol } from '@salesforce/apex-lsp-parser-ast';
 
-import { ApexStorageInterface, ApexReference } from '../storage/ApexStorageInterface';
+import {
+  ApexStorageInterface,
+  ApexReference,
+} from '../storage/ApexStorageInterface';
 
 /**
  * Interface for Apex definition upserter
@@ -41,7 +44,9 @@ export class DefaultApexDefinitionUpserter implements ApexDefinitionUpserter {
    * Upserts the definitions for the given document
    * @param params DidOpenTextDocumentParams
    */
-  async upsertDefinition(event: TextDocumentChangeEvent<TextDocument>): Promise<void> {
+  async upsertDefinition(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<void> {
     try {
       const documentUri = event.document.uri;
 

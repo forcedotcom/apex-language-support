@@ -17,13 +17,17 @@ let globalContext: vscode.ExtensionContext;
 let serverStartRetries = 0;
 let lastRestartTime = 0;
 let isStarting = false;
-let restartHandler: ((context: vscode.ExtensionContext) => Promise<void>) | undefined;
+let restartHandler:
+  | ((context: vscode.ExtensionContext) => Promise<void>)
+  | undefined;
 
 /**
  * Initialize command state
  * @param context The extension context
  */
-export const initializeCommandState = (context: vscode.ExtensionContext): void => {
+export const initializeCommandState = (
+  context: vscode.ExtensionContext,
+): void => {
   globalContext = context;
   serverStartRetries = 0;
   lastRestartTime = 0;
@@ -34,7 +38,9 @@ export const initializeCommandState = (context: vscode.ExtensionContext): void =
  * Sets the restart handler function
  * @param handler The restart handler function
  */
-export const setRestartHandler = (handler: (context: vscode.ExtensionContext) => Promise<void>): void => {
+export const setRestartHandler = (
+  handler: (context: vscode.ExtensionContext) => Promise<void>,
+): void => {
   restartHandler = handler;
 };
 
@@ -42,26 +48,37 @@ export const setRestartHandler = (handler: (context: vscode.ExtensionContext) =>
  * Registers the command to restart the Apex Language Server
  * @param context The extension context
  */
-export const registerRestartCommand = (context: vscode.ExtensionContext): void => {
-  const restartCommand = vscode.commands.registerCommand(EXTENSION_CONSTANTS.RESTART_COMMAND_ID, async () => {
-    // Only allow manual restart if we're not already starting and we're outside cooldown period
-    const now = Date.now();
-    if (!isStarting && now - lastRestartTime > EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS) {
-      lastRestartTime = now;
-      serverStartRetries = 0; // Reset retry counter on manual restart
+export const registerRestartCommand = (
+  context: vscode.ExtensionContext,
+): void => {
+  const restartCommand = vscode.commands.registerCommand(
+    EXTENSION_CONSTANTS.RESTART_COMMAND_ID,
+    async () => {
+      // Only allow manual restart if we're not already starting and we're outside cooldown period
+      const now = Date.now();
+      if (
+        !isStarting &&
+        now - lastRestartTime > EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS
+      ) {
+        lastRestartTime = now;
+        serverStartRetries = 0; // Reset retry counter on manual restart
 
-      if (restartHandler) {
-        await restartHandler(context);
+        if (restartHandler) {
+          await restartHandler(context);
+        } else {
+          logToOutputChannel('Restart handler not set', 'error');
+        }
       } else {
-        logToOutputChannel('Restart handler not set', 'error');
+        logToOutputChannel(
+          'Restart blocked: Server is already starting or in cooldown period',
+          'info',
+        );
+        vscode.window.showInformationMessage(
+          'Server restart was requested too soon after previous attempt. Please wait a moment before trying again.',
+        );
       }
-    } else {
-      logToOutputChannel('Restart blocked: Server is already starting or in cooldown period', 'info');
-      vscode.window.showInformationMessage(
-        'Server restart was requested too soon after previous attempt. Please wait a moment before trying again.',
-      );
-    }
-  });
+    },
+  );
 
   context.subscriptions.push(restartCommand);
 };
@@ -70,7 +87,9 @@ export const registerRestartCommand = (context: vscode.ExtensionContext): void =
  * Registers commands for setting log levels
  * @param context The extension context
  */
-export const registerLogLevelCommands = (context: vscode.ExtensionContext): void => {
+export const registerLogLevelCommands = (
+  context: vscode.ExtensionContext,
+): void => {
   const logLevelCommands = [
     {
       commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.ERROR,
@@ -98,17 +117,30 @@ export const registerLogLevelCommands = (context: vscode.ExtensionContext): void
     const command = vscode.commands.registerCommand(commandId, async () => {
       try {
         // Update the workspace configuration
-        const config = vscode.workspace.getConfiguration(EXTENSION_CONSTANTS.CONFIG_SECTION);
-        await config.update('ls.logLevel', logLevel, vscode.ConfigurationTarget.Workspace);
+        const config = vscode.workspace.getConfiguration(
+          EXTENSION_CONSTANTS.CONFIG_SECTION,
+        );
+        await config.update(
+          'ls.logLevel',
+          logLevel,
+          vscode.ConfigurationTarget.Workspace,
+        );
 
         // Update the log level immediately
         updateLogLevel(logLevel);
 
         logToOutputChannel(`Log level set to: ${logLevel}`, 'info');
-        vscode.window.showInformationMessage(`Apex log level set to: ${logLevel}`);
+        vscode.window.showInformationMessage(
+          `Apex log level set to: ${logLevel}`,
+        );
       } catch (error) {
-        logToOutputChannel(`Failed to set log level to ${logLevel}: ${error}`, 'error');
-        vscode.window.showErrorMessage(`Failed to set log level to ${logLevel}`);
+        logToOutputChannel(
+          `Failed to set log level to ${logLevel}: ${error}`,
+          'error',
+        );
+        vscode.window.showErrorMessage(
+          `Failed to set log level to ${logLevel}`,
+        );
       }
     });
 

@@ -64,7 +64,10 @@ describe('Apex Language Server Extension', () => {
     // The client should be started
     expect(MockLanguageClient.mock.results[0].value.start).toHaveBeenCalled();
     // The restart command should be registered
-    expect(vscode.commands.registerCommand).toHaveBeenCalledWith('apex.restart.server', expect.any(Function));
+    expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
+      'apex-ls-ts.restart.server',
+      expect.any(Function),
+    );
   });
 
   it('should handle connection closure gracefully', async () => {
@@ -147,7 +150,9 @@ describe('Apex Language Server Extension', () => {
       // Debug options should only contain environment variables, no execArgv
       expect(serverOptions.debug.options).toBeDefined();
       expect(serverOptions.debug.options.env).toBeDefined();
-      expect(serverOptions.debug.options.env.NODE_OPTIONS).toBe('--enable-source-maps');
+      expect(serverOptions.debug.options.env.NODE_OPTIONS).toBe(
+        '--enable-source-maps',
+      );
       expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe('development');
       expect(serverOptions.debug.options.execArgv).toBeUndefined();
     });

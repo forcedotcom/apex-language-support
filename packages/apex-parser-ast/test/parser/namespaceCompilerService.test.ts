@@ -35,7 +35,9 @@ describe('CompilerService Namespace Integration', () => {
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
       const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope.getAllSymbols().find((s) => s.name === 'MyClass');
+      const classSymbol = globalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'MyClass');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();
@@ -62,7 +64,9 @@ describe('CompilerService Namespace Integration', () => {
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
       const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope.getAllSymbols().find((s) => s.name === 'MyClass');
+      const classSymbol = globalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'MyClass');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();
@@ -71,8 +75,12 @@ describe('CompilerService Namespace Integration', () => {
       // expect(classSymbol?.namespace).toBe('TestNamespace');
 
       // Check method symbols as well
-      const scopeForClass = globalScope.getChildren().find((s) => s.name === 'MyClass');
-      const methodSymbol = scopeForClass?.getAllSymbols().find((s) => s.kind === SymbolKind.Method);
+      const scopeForClass = globalScope
+        .getChildren()
+        .find((s) => s.name === 'MyClass');
+      const methodSymbol = scopeForClass
+        ?.getAllSymbols()
+        .find((s) => s.kind === SymbolKind.Method);
 
       expect(methodSymbol).toBeDefined();
 
@@ -100,7 +108,9 @@ describe('CompilerService Namespace Integration', () => {
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
       const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope.getAllSymbols().find((s) => s.name === 'MyClass');
+      const classSymbol = globalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'MyClass');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();
@@ -143,7 +153,9 @@ describe('CompilerService Namespace Integration', () => {
       const firstResult = results[0];
       const firstSymbolTable = firstResult.result as SymbolTable;
       const firstGlobalScope = firstSymbolTable.getCurrentScope();
-      const firstClass = firstGlobalScope.getAllSymbols().find((s) => s.name === 'FirstClass');
+      const firstClass = firstGlobalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'FirstClass');
 
       expect(firstClass).toBeDefined();
 
@@ -154,7 +166,9 @@ describe('CompilerService Namespace Integration', () => {
       const secondResult = results[1];
       const secondSymbolTable = secondResult.result as SymbolTable;
       const secondGlobalScope = secondSymbolTable.getCurrentScope();
-      const secondClass = secondGlobalScope.getAllSymbols().find((s) => s.name === 'SecondClass');
+      const secondClass = secondGlobalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'SecondClass');
 
       expect(secondClass).toBeDefined();
 
@@ -193,7 +207,9 @@ describe('CompilerService Namespace Integration', () => {
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
       const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope.getAllSymbols().find((s) => s.name === 'MyClass');
+      const classSymbol = globalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'MyClass');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();
@@ -226,7 +242,11 @@ describe('CompilerService Namespace Integration', () => {
       }
       `;
 
-      const result = service.compile(code, 'IdeaStandardController.cls', listener);
+      const result = service.compile(
+        code,
+        'IdeaStandardController.cls',
+        listener,
+      );
 
       // Log compilation errors with details
       if (result.errors.length > 0) {
@@ -286,12 +306,17 @@ describe('CompilerService Namespace Integration', () => {
 
       // Get the symbol table and find our class
       const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope.getAllSymbols().find((s) => s.name === 'IdeaStandardController');
+      const classSymbol = globalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'IdeaStandardController');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();
 
-      const methods = classScope?.getAllSymbols().filter((s) => s.kind === SymbolKind.Method) ?? [];
+      const methods =
+        classScope
+          ?.getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Method) ?? [];
 
       // Verify we have the expected methods
       expect(methods.length).toBe(11);
@@ -326,7 +351,9 @@ describe('CompilerService Namespace Integration', () => {
         expect(method).toBeDefined();
         expect(method.returnType.name).toBe(expectedType.name);
         if (expectedType.namespace) {
-          expect(method.returnType.namespace?.global).toBe(expectedType.namespace);
+          expect(method.returnType.namespace?.global).toBe(
+            expectedType.namespace,
+          );
         } else {
           expect(method.returnType.namespace).toBeNull();
         }
@@ -359,16 +386,23 @@ describe('CompilerService Namespace Integration', () => {
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
       const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope.getAllSymbols().find((s) => s.name === 'MixedCaseClass');
+      const classSymbol = globalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'MixedCaseClass');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();
 
       // Get the class scope and verify methods
-      const classScope = globalScope.getChildren().find((s) => s.name === 'MixedCaseClass');
+      const classScope = globalScope
+        .getChildren()
+        .find((s) => s.name === 'MixedCaseClass');
 
       // Verify we have the expected method
-      const methods = classScope?.getAllSymbols().filter((s) => s.kind === SymbolKind.Method) ?? [];
+      const methods =
+        classScope
+          ?.getAllSymbols()
+          .filter((s) => s.kind === SymbolKind.Method) ?? [];
 
       expect(methods.length).toBe(1);
       expect(methods[0].name).toBe('myMethod');
@@ -405,7 +439,9 @@ describe('CompilerService Namespace Integration', () => {
       // Get the symbol table and find our class
       const symbolTable = result.result as SymbolTable;
       const globalScope = symbolTable.getCurrentScope();
-      const classSymbol = globalScope.getAllSymbols().find((s) => s.name === 'SOQLCaseTest');
+      const classSymbol = globalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'SOQLCaseTest');
 
       // Check that symbol exists
       expect(classSymbol).toBeDefined();

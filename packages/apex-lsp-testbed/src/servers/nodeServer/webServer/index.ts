@@ -7,7 +7,10 @@
  */
 
 // Export the WebLanguageServerHarness and its factory function
-export { WebLanguageServerHarness, createWebLanguageServerHarness } from './webLanguageServerHarness';
+export {
+  WebLanguageServerHarness,
+  createWebLanguageServerHarness,
+} from './webLanguageServerHarness';
 
 // Export the runWebServer function
 export { runWebServer } from './runWebServer';

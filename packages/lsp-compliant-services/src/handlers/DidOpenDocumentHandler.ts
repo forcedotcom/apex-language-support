@@ -7,7 +7,11 @@
  */
 import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { CompilerService, SymbolTable, ApexSymbolCollectorListener } from '@salesforce/apex-lsp-parser-ast';
+import {
+  CompilerService,
+  SymbolTable,
+  ApexSymbolCollectorListener,
+} from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { dispatch, getDiagnosticsFromErrors } from '../utils/handlerUtil';
@@ -22,7 +26,10 @@ export const processOnOpenDocument = async (
 ): Promise<Diagnostic[] | undefined> => {
   // Client opened a document
   const logger = getLogger();
-  logger.debug(() => `Common Apex Language Server open document handler invoked with: ${event}`);
+  logger.debug(
+    () =>
+      `Common Apex Language Server open document handler invoked with: ${event}`,
+  );
 
   // Get the storage manager instance
   const storageManager = ApexStorageManager.getInstance();
@@ -41,12 +48,22 @@ export const processOnOpenDocument = async (
   // Parse the document
   const settingsManager = ApexSettingsManager.getInstance();
   const fileSize = document.getText().length;
-  const options = settingsManager.getCompilationOptions('documentOpen', fileSize);
+  const options = settingsManager.getCompilationOptions(
+    'documentOpen',
+    fileSize,
+  );
 
-  const result = compilerService.compile(document.getText(), document.uri, listener, options);
+  const result = compilerService.compile(
+    document.getText(),
+    document.uri,
+    listener,
+    options,
+  );
 
   if (result.errors.length > 0) {
-    logger.debug(() => `Errors parsing document: ${JSON.stringify(result.errors)}`);
+    logger.debug(
+      () => `Errors parsing document: ${JSON.stringify(result.errors)}`,
+    );
     const diagnostics = getDiagnosticsFromErrors(result.errors);
     return diagnostics;
   }
@@ -58,21 +75,34 @@ export const processOnOpenDocument = async (
   const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
 
   // Create the definition provider
-  const definitionUpserter = new DefaultApexDefinitionUpserter(storage, globalSymbols);
+  const definitionUpserter = new DefaultApexDefinitionUpserter(
+    storage,
+    globalSymbols,
+  );
 
   // Create the references provider
-  const referencesUpserter = new DefaultApexReferencesUpserter(storage, globalSymbols);
+  const referencesUpserter = new DefaultApexReferencesUpserter(
+    storage,
+    globalSymbols,
+  );
 
   // Upsert the definitions
-  const defPromise = dispatch(definitionUpserter.upsertDefinition(event), 'Error upserting definitions');
+  const defPromise = dispatch(
+    definitionUpserter.upsertDefinition(event),
+    'Error upserting definitions',
+  );
   // Upsert the references
-  const refPromise = dispatch(referencesUpserter.upsertReferences(event), 'Error upserting references');
+  const refPromise = dispatch(
+    referencesUpserter.upsertReferences(event),
+    'Error upserting references',
+  );
   // Wait for both to complete (or fail)
   await Promise.all([defPromise, refPromise]);
 };
 
-export const dispatchProcessOnOpenDocument = async (event: TextDocumentChangeEvent<TextDocument>) =>
-  processOnOpenDocument(event);
+export const dispatchProcessOnOpenDocument = async (
+  event: TextDocumentChangeEvent<TextDocument>,
+) => processOnOpenDocument(event);
 
 /**
  * Handler for document open events
@@ -85,13 +115,18 @@ export class DidOpenDocumentHandler {
    * @param event The document open event
    * @returns Diagnostics for the opened document
    */
-  public async handleDocumentOpen(event: TextDocumentChangeEvent<TextDocument>): Promise<Diagnostic[] | undefined> {
+  public async handleDocumentOpen(
+    event: TextDocumentChangeEvent<TextDocument>,
+  ): Promise<Diagnostic[] | undefined> {
     this.logger.debug(() => `Processing document open: ${event.document.uri}`);
 
     try {
       return await dispatchProcessOnOpenDocument(event);
     } catch (error) {
-      this.logger.error(() => `Error processing document open for ${event.document.uri}: ${error}`);
+      this.logger.error(
+        () =>
+          `Error processing document open for ${event.document.uri}: ${error}`,
+      );
       throw error;
     }
   }

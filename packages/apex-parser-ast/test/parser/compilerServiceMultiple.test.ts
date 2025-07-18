@@ -6,9 +6,16 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CompilerService, CompilationOptions, CompilationResultWithComments } from '../../src/parser/compilerService';
+import {
+  CompilerService,
+  CompilationOptions,
+  CompilationResultWithComments,
+} from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { ApexFoldingRangeListener, FoldingRange } from '../../src/parser/listeners/ApexFoldingRangeListener';
+import {
+  ApexFoldingRangeListener,
+  FoldingRange,
+} from '../../src/parser/listeners/ApexFoldingRangeListener';
 import { SymbolTable } from '../../src/types/symbol';
 import { TestLogger } from '../utils/testLogger';
 
@@ -52,7 +59,9 @@ describe('CompilerService Multiple Files Compilation', () => {
       const firstResult = results[0];
       const firstSymbolTable = firstResult.result as SymbolTable;
       const firstGlobalScope = firstSymbolTable.getCurrentScope();
-      const firstClass = firstGlobalScope.getAllSymbols().find((s) => s.name === 'FirstClass');
+      const firstClass = firstGlobalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'FirstClass');
 
       expect(firstClass).toBeDefined();
 
@@ -60,7 +69,9 @@ describe('CompilerService Multiple Files Compilation', () => {
       const secondResult = results[1];
       const secondSymbolTable = secondResult.result as SymbolTable;
       const secondGlobalScope = secondSymbolTable.getCurrentScope();
-      const secondClass = secondGlobalScope.getAllSymbols().find((s) => s.name === 'SecondClass');
+      const secondClass = secondGlobalScope
+        .getAllSymbols()
+        .find((s) => s.name === 'SecondClass');
 
       expect(secondClass).toBeDefined();
     });
@@ -84,7 +95,9 @@ describe('CompilerService Multiple Files Compilation', () => {
         options: { includeComments: true } as CompilationOptions,
       };
 
-      const symbolResults = await service.compileMultipleWithConfigs([symbolConfig]);
+      const symbolResults = await service.compileMultipleWithConfigs([
+        symbolConfig,
+      ]);
       expect(symbolResults.length).toBe(1);
       expect(symbolResults[0].errors.length).toBe(0);
       expect(symbolResults[0].result).toBeInstanceOf(SymbolTable);
@@ -114,7 +127,9 @@ describe('CompilerService Multiple Files Compilation', () => {
         options: { includeComments: false } as CompilationOptions,
       };
 
-      const foldingResults = await service.compileMultipleWithConfigs([foldingConfig]);
+      const foldingResults = await service.compileMultipleWithConfigs([
+        foldingConfig,
+      ]);
       expect(foldingResults.length).toBe(1);
       expect(foldingResults[0].errors.length).toBe(0);
       expect(Array.isArray(foldingResults[0].result)).toBe(true);
@@ -172,7 +187,9 @@ describe('CompilerService Multiple Files Compilation', () => {
         },
       ];
 
-      const results = await service.compileMultipleWithConfigs(fileCompilationConfigs);
+      const results = await service.compileMultipleWithConfigs(
+        fileCompilationConfigs,
+      );
 
       // Both compilations should succeed
       expect(results.length).toBe(2);
@@ -183,11 +200,20 @@ describe('CompilerService Multiple Files Compilation', () => {
       const firstResult = results[0];
       expect('comments' in firstResult).toBe(true);
       if ('comments' in firstResult) {
-        const resultWithComments = firstResult as CompilationResultWithComments<SymbolTable>;
+        const resultWithComments =
+          firstResult as CompilationResultWithComments<SymbolTable>;
         expect(resultWithComments.comments.length).toBeGreaterThan(0);
         // Should include both multi-line and single-line comments
-        expect(resultWithComments.comments.some((c) => c.text.includes('Class with comments'))).toBe(true);
-        expect(resultWithComments.comments.some((c) => c.text.includes('Method comment'))).toBe(true);
+        expect(
+          resultWithComments.comments.some((c) =>
+            c.text.includes('Class with comments'),
+          ),
+        ).toBe(true);
+        expect(
+          resultWithComments.comments.some((c) =>
+            c.text.includes('Method comment'),
+          ),
+        ).toBe(true);
       }
 
       // Check second result has no comments
@@ -228,7 +254,9 @@ describe('CompilerService Multiple Files Compilation', () => {
         },
       ];
 
-      const results = await service.compileMultipleWithConfigs(fileCompilationConfigs);
+      const results = await service.compileMultipleWithConfigs(
+        fileCompilationConfigs,
+      );
 
       // Both compilations should complete
       expect(results.length).toBe(2);

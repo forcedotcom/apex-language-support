@@ -8,7 +8,12 @@
 
 import { IntPair, OldVersionProvider, SourceInfo } from '../types/source';
 import { Namespace, Namespaces } from './namespaces';
-import { StructuredVersion, StructuredVersionRange, Version, VersionUtils } from './versions';
+import {
+  StructuredVersion,
+  StructuredVersionRange,
+  Version,
+  VersionUtils,
+} from './versions';
 
 export class SourceFile implements SourceInfo {
   private readonly body: string;
@@ -18,9 +23,16 @@ export class SourceFile implements SourceInfo {
   private readonly lengthWithComments: number;
   private readonly knownName: string;
   private readonly oldVersionProvider: OldVersionProvider;
-  private readonly referencedPackageVersions: Map<string, StructuredVersion> = new Map();
-  private readonly exportedPackageVersions: Map<string, StructuredVersionRange> = new Map();
-  private readonly interfacePackageVersions: Map<string, Map<string, StructuredVersion>> = new Map();
+  private readonly referencedPackageVersions: Map<string, StructuredVersion> =
+    new Map();
+  private readonly exportedPackageVersions: Map<
+    string,
+    StructuredVersionRange
+  > = new Map();
+  private readonly interfacePackageVersions: Map<
+    string,
+    Map<string, StructuredVersion>
+  > = new Map();
 
   constructor(builder: SourceFileBuilder) {
     this.body = builder.body;
@@ -29,7 +41,8 @@ export class SourceFile implements SourceInfo {
     this.isTrusted = builder.isTrusted;
     this.isFileBased = builder.isFileBased;
     this.isMocked = builder.isMocked;
-    this.supportsLongTopLevelIdentifier = builder.supportsLongTopLevelIdentifier;
+    this.supportsLongTopLevelIdentifier =
+      builder.supportsLongTopLevelIdentifier;
     this.allPackageId = builder.allPackageId;
     this.lengthWithComments = builder.lengthWithComments ?? this.body.length;
     this.knownName = builder.knownName;
@@ -148,7 +161,9 @@ export class SourceFile implements SourceInfo {
     return new SourceFileBuilder().setSeed(this);
   }
 
-  setReferencedPackageVersions(referencedPackageVersions: Map<string, StructuredVersion>): this {
+  setReferencedPackageVersions(
+    referencedPackageVersions: Map<string, StructuredVersion>,
+  ): this {
     this.referencedPackageVersions.clear();
     referencedPackageVersions.forEach((value, key) => {
       this.referencedPackageVersions.set(key, value);
@@ -156,7 +171,9 @@ export class SourceFile implements SourceInfo {
     return this;
   }
 
-  setExportedPackageVersions(exportedPackageVersions: Map<IntPair, StructuredVersionRange>): this {
+  setExportedPackageVersions(
+    exportedPackageVersions: Map<IntPair, StructuredVersionRange>,
+  ): this {
     this.exportedPackageVersions.clear();
     exportedPackageVersions.forEach((value, key) => {
       const [major, minor] = key;
@@ -165,7 +182,9 @@ export class SourceFile implements SourceInfo {
     return this;
   }
 
-  setInterfacePackageVersions(interfacePackageVersions: Map<IntPair, Map<string, StructuredVersion>>): this {
+  setInterfacePackageVersions(
+    interfacePackageVersions: Map<IntPair, Map<string, StructuredVersion>>,
+  ): this {
     this.interfacePackageVersions.clear();
     interfacePackageVersions.forEach((value, key) => {
       const [major, minor] = key;
@@ -220,17 +239,23 @@ export class SourceFileBuilder {
     return this;
   }
 
-  setReferencedPackageVersions(referencedPackageVersions: Map<string, StructuredVersion>): this {
+  setReferencedPackageVersions(
+    referencedPackageVersions: Map<string, StructuredVersion>,
+  ): this {
     this._referencedPackageVersions = new Map(referencedPackageVersions);
     return this;
   }
 
-  setExportedPackageVersions(exportedPackageVersions: Map<IntPair, StructuredVersionRange>): this {
+  setExportedPackageVersions(
+    exportedPackageVersions: Map<IntPair, StructuredVersionRange>,
+  ): this {
     this._exportedPackageVersions = new Map(exportedPackageVersions);
     return this;
   }
 
-  setInterfacePackageVersions(interfacePackageVersions: Map<IntPair, Map<string, StructuredVersion>>): this {
+  setInterfacePackageVersions(
+    interfacePackageVersions: Map<IntPair, Map<string, StructuredVersion>>,
+  ): this {
     this._interfacePackageVersions = new Map(interfacePackageVersions);
     return this;
   }
@@ -255,7 +280,9 @@ export class SourceFileBuilder {
     return this;
   }
 
-  setSupportsLongTopLevelIdentifier(supportsLongTopLevelIdentifier: boolean): this {
+  setSupportsLongTopLevelIdentifier(
+    supportsLongTopLevelIdentifier: boolean,
+  ): this {
     this.supportsLongTopLevelIdentifier = supportsLongTopLevelIdentifier;
     return this;
   }

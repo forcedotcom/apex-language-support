@@ -16,10 +16,10 @@
   "configuration.apex-ls-ts.environment.enablePerformanceLogging.description": "Enable performance logging for the language server",
   "configuration.apex-ls-ts.resources.loadMode.description": "Resource loading mode for Apex-LS-TS standard library files. 'full' loads all resources immediately (faster access, higher memory usage), 'lazy' loads resources on-demand (lower memory usage, slight access delay)",
   "configuration.apex-ls-ts.logLevel.description": "Controls the minimum log level for Apex-LS-TS Language Server logging. Messages at this level or higher will be logged.",
-  "commands.apex.restart.server.title": "Restart Apex-LS-TS Language Server",
-  "commands.apex.setLogLevel.error.title": "Set Apex-LS-TS Log Level: Error",
-  "commands.apex.setLogLevel.warning.title": "Set Apex-LS-TS Log Level: Warning",
-  "commands.apex.setLogLevel.info.title": "Set Apex-LS-TS Log Level: Info",
-  "commands.apex.setLogLevel.debug.title": "Set Apex-LS-TS Log Level: Debug",
+  "commands.apex-ls-ts.restart.server.title": "Restart Apex-LS-TS Language Server",
+  "commands.apex-ls-ts.setLogLevel.error.title": "Set Apex-LS-TS Log Level: Error",
+  "commands.apex-ls-ts.setLogLevel.warning.title": "Set Apex-LS-TS Log Level: Warning",
+  "commands.apex-ls-ts.setLogLevel.info.title": "Set Apex-LS-TS Log Level: Info",
+  "commands.apex-ls-ts.setLogLevel.debug.title": "Set Apex-LS-TS Log Level: Debug",
   "viewsContainers.apex-explorer.title": "Apex-LS-TS Explorer"
 }

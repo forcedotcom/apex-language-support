@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CompilerService, CompilationResult } from '../../src/parser/compilerService';
+import {
+  CompilerService,
+  CompilationResult,
+} from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolTable, SymbolKind, MethodSymbol } from '../../src/types/symbol';
 
@@ -34,7 +37,11 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
         }
       `;
 
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'TestClass.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'TestClass.cls',
+        listener,
+      );
 
       expect(result.errors.length).toBe(0);
       const symbolTable = result.result;
@@ -46,7 +53,9 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
       expect(classSymbol?.annotations?.[0].name).toBe('isTest');
 
       const classScope = globalScope?.getChildren()[0];
-      const m1 = classScope?.getAllSymbols().find((s) => s.name === 'm1') as MethodSymbol;
+      const m1 = classScope
+        ?.getAllSymbols()
+        .find((s) => s.name === 'm1') as MethodSymbol;
 
       expect(m1?.annotations).toBeDefined();
       expect(m1?.annotations?.length).toBe(1);
@@ -101,7 +110,11 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
         }
       `;
 
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'TestClass.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'TestClass.cls',
+        listener,
+      );
 
       expect(result.errors.length).toBe(0);
       const symbolTable = result.result;
@@ -110,10 +123,16 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
 
       expect(classSymbol?.annotations).toBeDefined();
       expect(classSymbol?.annotations?.length).toBe(1);
-      expect(classSymbol?.annotations?.[0].name).toBe("RestResource(urlMapping='/api/records')");
+      expect(classSymbol?.annotations?.[0].name).toBe(
+        "RestResource(urlMapping='/api/records')",
+      );
       expect(classSymbol?.annotations?.[0].parameters).toBeDefined();
-      expect(classSymbol?.annotations?.[0].parameters?.[0].name).toBe('urlMapping');
-      expect(classSymbol?.annotations?.[0].parameters?.[0].value).toBe("'/api/records'");
+      expect(classSymbol?.annotations?.[0].parameters?.[0].name).toBe(
+        'urlMapping',
+      );
+      expect(classSymbol?.annotations?.[0].parameters?.[0].value).toBe(
+        "'/api/records'",
+      );
     });
   });
 
@@ -133,7 +152,11 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
         }
       `;
 
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'TestClass.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'TestClass.cls',
+        listener,
+      );
 
       expect(result.errors.length).toBe(0);
       const symbolTable = result.result;
@@ -146,7 +169,9 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
       expect(blockScopes?.length).toBe(1); // One nested block directly under method
 
       // Check variables in the first block scope (outer block)
-      const firstBlockVars = blockScopes?.[0].getAllSymbols().filter((s) => s.kind === SymbolKind.Variable);
+      const firstBlockVars = blockScopes?.[0]
+        .getAllSymbols()
+        .filter((s) => s.kind === SymbolKind.Variable);
       expect(firstBlockVars?.length).toBe(1); // Only x in the outer block
       expect(firstBlockVars?.[0].name).toBe('x');
 
@@ -155,7 +180,9 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
       expect(nestedBlockScopes?.length).toBe(1); // One nested block inside the first block
 
       // Check variables in the middle block scope
-      const middleBlockVars = nestedBlockScopes?.[0].getAllSymbols().filter((s) => s.kind === SymbolKind.Variable);
+      const middleBlockVars = nestedBlockScopes?.[0]
+        .getAllSymbols()
+        .filter((s) => s.kind === SymbolKind.Variable);
       expect(middleBlockVars?.length).toBe(1); // Only y in the middle block
       expect(middleBlockVars?.[0].name).toBe('y');
 
@@ -164,7 +191,9 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
       expect(innerBlockScopes?.length).toBe(1); // One nested block inside the middle block
 
       // Check variables in the innermost block scope
-      const innerBlockVars = innerBlockScopes?.[0].getAllSymbols().filter((s) => s.kind === SymbolKind.Variable);
+      const innerBlockVars = innerBlockScopes?.[0]
+        .getAllSymbols()
+        .filter((s) => s.kind === SymbolKind.Variable);
       expect(innerBlockVars?.length).toBe(1); // Only z in the innermost block
       expect(innerBlockVars?.[0].name).toBe('z');
     });
@@ -185,7 +214,9 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
       );
 
       expect(result.errors.length).toBe(1);
-      expect(result.errors[0].message).toContain('Modifiers are not allowed on interface methods');
+      expect(result.errors[0].message).toContain(
+        'Modifiers are not allowed on interface methods',
+      );
     });
 
     it('should enforce interface method modifiers', () => {
@@ -202,8 +233,12 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
       );
 
       expect(result.errors.length).toBe(2);
-      expect(result.errors[0].message).toContain('Modifiers are not allowed on interface methods');
-      expect(result.errors[1].message).toContain('Modifiers are not allowed on interface methods');
+      expect(result.errors[0].message).toContain(
+        'Modifiers are not allowed on interface methods',
+      );
+      expect(result.errors[1].message).toContain(
+        'Modifiers are not allowed on interface methods',
+      );
     });
   });
 
@@ -221,14 +256,20 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
         }
       `;
 
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'OuterClass.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'OuterClass.cls',
+        listener,
+      );
 
       expect(result.errors.length).toBe(0);
       const symbolTable = result.result;
       const globalScope = symbolTable?.getCurrentScope();
       const outerClass = globalScope?.getAllSymbols()[0];
       const outerScope = globalScope?.getChildren()[0];
-      const innerClass = outerScope?.getAllSymbols().find((s) => s.name === 'InnerClass');
+      const innerClass = outerScope
+        ?.getAllSymbols()
+        .find((s) => s.name === 'InnerClass');
 
       expect(innerClass).toBeDefined();
       expect(innerClass?.parent).toBe(outerClass);
@@ -244,7 +285,11 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
         }
       `;
 
-      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'OuterClass.cls', listener);
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'OuterClass.cls',
+        listener,
+      );
 
       expect(result.errors.length).toBe(1);
       expect(result.errors[0].message).toContain(

@@ -10,7 +10,10 @@ import { join } from 'path';
 
 import Benchmark from 'benchmark';
 
-import { createTestServer, ServerOptions } from '../../src/test-utils/serverFactory';
+import {
+  createTestServer,
+  ServerOptions,
+} from '../../src/test-utils/serverFactory';
 
 // --- Load test data synchronously ---
 const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
@@ -21,7 +24,9 @@ jest.setTimeout(1000 * 60 * 10);
 
 // Extract relevant request/response pairs
 const testData: [string, any][] = Object.values(logData)
-  .filter((entry) => entry.type === 'request' && /^textDocument/.test(entry.method))
+  .filter(
+    (entry) => entry.type === 'request' && /^textDocument/.test(entry.method),
+  )
   .reduce((acc: [string, any][], request) => {
     // Only add if we haven't seen this method before
     if (!acc.some(([method]) => method === request.method)) {
@@ -67,7 +72,13 @@ describe.skip('NodeServer LSP Performance Benchmarks', () => {
         defer: true,
         fn: function (deferred: { resolve: () => void }) {
           const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error(`Request timed out after ${requestTimeout}ms`)), requestTimeout);
+            setTimeout(
+              () =>
+                reject(
+                  new Error(`Request timed out after ${requestTimeout}ms`),
+                ),
+              requestTimeout,
+            );
           });
 
           const req = serverContext.client.sendRequest(method, request.params);
@@ -92,12 +103,21 @@ describe.skip('NodeServer LSP Performance Benchmarks', () => {
           console.log(String(benchmark));
         })
         .on('complete', function (this: Benchmark.Suite) {
-          console.log('Fastest nodeServer method is ' + this.filter('fastest').map('name'));
+          console.log(
+            'Fastest nodeServer method is ' +
+              this.filter('fastest').map('name'),
+          );
 
           // Write results to disk
-          const outputPath = join(__dirname, '../nodeserver-benchmark-results.json');
+          const outputPath = join(
+            __dirname,
+            '../nodeserver-benchmark-results.json',
+          );
 
-          require('fs').writeFileSync(outputPath, JSON.stringify(results, null, 2));
+          require('fs').writeFileSync(
+            outputPath,
+            JSON.stringify(results, null, 2),
+          );
           resolve();
         })
         .run({ async: true });

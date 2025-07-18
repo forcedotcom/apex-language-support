@@ -33,11 +33,16 @@ jest.mock('../../src/utils/handlerUtil');
 jest.mock('../../src/storage/ApexStorageManager');
 
 // Import the handler after the logger mock is set up
-import { processOnResolve, dispatchProcessOnResolve } from '../../src/handlers/ApexLibResolveHandler';
+import {
+  processOnResolve,
+  dispatchProcessOnResolve,
+} from '../../src/handlers/ApexLibResolveHandler';
 
 describe('ApexLibResolveHandler', () => {
   let mockDispatch: jest.MockedFunction<typeof dispatch>;
-  let mockStorage: jest.Mocked<ReturnType<typeof ApexStorageManager.getInstance>>;
+  let mockStorage: jest.Mocked<
+    ReturnType<typeof ApexStorageManager.getInstance>
+  >;
   let mockDocument: TextDocument;
   let mockGetDocument: jest.Mock;
 
@@ -63,7 +68,9 @@ describe('ApexLibResolveHandler', () => {
       getStorage: jest.fn().mockReturnValue({
         getDocument: mockGetDocument,
       }),
-    } as unknown as jest.Mocked<ReturnType<typeof ApexStorageManager.getInstance>>;
+    } as unknown as jest.Mocked<
+      ReturnType<typeof ApexStorageManager.getInstance>
+    >;
 
     (ApexStorageManager.getInstance as jest.Mock).mockReturnValue(mockStorage);
   });
@@ -76,8 +83,12 @@ describe('ApexLibResolveHandler', () => {
 
       await processOnResolve(params);
 
-      expect(mockLogger.debug).toHaveBeenCalledWith(`Processing resolve request for: ${params.uri}`);
-      expect(mockLogger.debug).toHaveBeenCalledWith(`Successfully resolved content for: ${params.uri}`);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Processing resolve request for: ${params.uri}`,
+      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Successfully resolved content for: ${params.uri}`,
+      );
     });
 
     it('should return document content', async () => {
@@ -98,7 +109,9 @@ describe('ApexLibResolveHandler', () => {
 
       mockGetDocument.mockResolvedValueOnce(null);
 
-      await expect(processOnResolve(params)).rejects.toThrow(`Document not found: ${params.uri}`);
+      await expect(processOnResolve(params)).rejects.toThrow(
+        `Document not found: ${params.uri}`,
+      );
       expect(mockLogger.error).toHaveBeenCalledWith(
         `Error processing resolve request for ${params.uri}: Document not found: ${params.uri}`,
       );
@@ -128,7 +141,10 @@ describe('ApexLibResolveHandler', () => {
       dispatchProcessOnResolve(params);
 
       expect(mockDispatch).toHaveBeenCalledTimes(1);
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Promise), 'Error processing resolve request');
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.any(Promise),
+        'Error processing resolve request',
+      );
     });
 
     it('should handle dispatch error', async () => {
@@ -141,7 +157,10 @@ describe('ApexLibResolveHandler', () => {
 
       await expect(dispatchProcessOnResolve(params)).rejects.toThrow(error);
       expect(mockDispatch).toHaveBeenCalledTimes(1);
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Promise), 'Error processing resolve request');
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.any(Promise),
+        'Error processing resolve request',
+      );
     });
   });
 });
