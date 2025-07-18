@@ -325,67 +325,7 @@ jobs:
       artifact-name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
       dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
 
-  create-github-releases:
-    needs:
-      [
-        determine-build-type,
-        determine-changes,
-        package,
-        bump-versions,
-        calculate-artifact-name,
-      ]
-    runs-on: ubuntu-latest
-    if: needs.determine-changes.outputs.selected-extensions != ''
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ inputs.branch || github.ref }}
 
-      - name: Download VSIX artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
-          path: ./vsix-artifacts
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      - name: Install dependencies
-        uses: ./.github/actions/npm-install-with-retries
-
-      - name: Validate GitHub authentication
-        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
-        run: |
-          # Validate that required tokens are present
-          if [ -z "$GITHUB_TOKEN" ]; then
-            echo "❌ Error: GITHUB_TOKEN is not set"
-            exit 1
-          fi
-
-          # Test GitHub CLI authentication
-          if ! gh auth status >/dev/null 2>&1; then
-            echo "❌ Error: GitHub CLI authentication failed"
-            exit 1
-          fi
-
-          echo "✅ GitHub authentication validated"
-
-      - name: Create GitHub Releases
-        env:
-          # Ensure GitHub CLI has proper authentication
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
-          PRE_RELEASE: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
-          VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
-          SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
-          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
-          VSIX_ARTIFACTS_PATH: './vsix-artifacts'
-        run: |
-          npx tsx .github/scripts/index.ts ext-github-releases
 
   determine-publish-matrix:
     needs: [determine-changes, calculate-artifact-name]
@@ -417,7 +357,6 @@ jobs:
       [
         bump-versions,
         package,
-        create-github-releases,
         calculate-artifact-name,
         determine-publish-matrix,
       ]
@@ -539,7 +478,7 @@ jobs:
 
   slack-notify:
     name: Slack Notification
-    needs: [determine-build-type, determine-changes, publish]
+    needs: [determine-build-type, determine-changes, bump-versions, package, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'success' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
@@ -645,7 +584,7 @@ jobs:
 
   slack-notify-failure:
     name: Slack Failure Notification
-    needs: [determine-build-type, determine-changes, publish]
+    needs: [determine-build-type, determine-changes, bump-versions, package, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'failure' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
