@@ -69,6 +69,93 @@ graph TB
     class Y,Z,AA additional
 ```
 
+## Script Integration
+
+The workflows use TypeScript-based release scripts located in `.github/scripts/` for automation. These scripts provide:
+
+- **Type Safety**: Full TypeScript with proper interfaces
+- **Environment Variables**: All inputs/outputs use environment variables
+- **Package Filtering**: Automatic separation of VS Code extensions and NPM packages
+- **Error Handling**: Consistent error handling with proper exit codes
+
+### Script Usage in Workflows
+
+#### Extension Release Scripts
+
+```yaml
+# Determine build type
+- name: Check build type
+  env:
+    INPUT_VERSION_BUMP: ${{ inputs.version-bump || 'auto' }}
+    INPUT_PRE_RELEASE: ${{ inputs.pre-release || 'false' }}
+  run: npx tsx .github/scripts/index.ts ext-build-type
+
+# Detect changes
+- name: Determine changes and version bumps
+  env:
+    IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+    VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
+    PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
+    IS_PROMOTION: ${{ needs.determine-build-type.outputs.is-promotion }}
+    PROMOTION_COMMIT_SHA: ${{ env.PROMOTION_COMMIT_SHA || '' }}
+    SELECTED_EXTENSIONS: ${{ inputs.extensions }}
+  run: npx tsx .github/scripts/index.ts ext-change-detector
+
+# Bump versions
+- name: Bump versions and tag for selected extensions
+  env:
+    VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
+    SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
+    PRE_RELEASE: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
+    IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+    IS_PROMOTION: ${{ needs.determine-build-type.outputs.is-promotion }}
+    PROMOTION_COMMIT_SHA: ${{ needs.determine-changes.outputs.promotion-commit-sha }}
+  run: npx tsx .github/scripts/index.ts ext-version-bumper
+```
+
+#### NPM Release Scripts
+
+```yaml
+# Detect NPM changes
+- name: Determine changed NPM packages
+  env:
+    INPUT_BASE_BRANCH: 'main'
+  run: npx tsx .github/scripts/index.ts npm-change-detector
+
+# Select packages
+- name: Determine selected packages
+  env:
+    SELECTED_PACKAGE: ${{ github.event.inputs.packages || inputs.packages }}
+    AVAILABLE_PACKAGES: ${{ inputs.available-packages }}
+    CHANGED_PACKAGES: ${{ steps.changes.outputs.packages }}
+  run: npx tsx .github/scripts/index.ts npm-package-selector
+```
+
+### Available Scripts
+
+#### Extension Scripts (ext-\*)
+
+- `ext-build-type`: Determine build type (nightly/promotion/regular)
+- `ext-promotion-finder`: Find promotion candidates for nightly builds
+- `ext-change-detector`: Detect changes in VS Code extensions
+- `ext-package-selector`: Select VS Code extensions for release
+- `ext-release-plan`: Display extension release plan
+- `ext-version-bumper`: Bump versions for selected extensions
+- `ext-publish-matrix`: Determine publish matrix for extensions
+- `ext-github-releases`: Create GitHub releases for extensions
+- `ext-publish-vsix`: Publish VSIX file to VS Code Marketplace
+
+#### NPM Scripts (npm-\*)
+
+- `npm-change-detector`: Detect changes in NPM packages
+- `npm-package-selector`: Select NPM packages for release
+- `npm-release-plan`: Display NPM release plan
+- `npm-package-details`: Extract package details for notifications
+
+#### Utility Scripts
+
+- `audit-logger`: Log audit events for compliance
+
 ## Workflow Details
 
 ### 1. CI Workflow (`ci.yml`)
@@ -162,7 +249,31 @@ graph TB
 
 **Purpose:** Release VS Code extensions to multiple registries.
 
-### 4. Package Workflow (`package.yml`)
+**Script Integration:**
+
+- Uses `ext-build-type` to determine build type
+- Uses `ext-change-detector` to detect changes
+- Uses `ext-version-bumper` to bump versions
+- Uses `ext-github-releases` to create releases
+- Uses `ext-publish-matrix` to determine publish targets
+
+### 4. NPM Release Workflow (`release-npm.yml`)
+
+**Triggers:**
+
+- Push to main
+- Manual dispatch
+
+**Purpose:** Release NPM packages to npmjs.org.
+
+**Script Integration:**
+
+- Uses `npm-change-detector` to detect changes
+- Uses `npm-package-selector` to select packages
+- Uses `npm-release-plan` to display plans
+- Uses `npm-package-details` for notifications
+
+### 5. Package Workflow (`package.yml`)
 
 **Triggers:**
 
@@ -181,7 +292,7 @@ graph LR
 
 **Purpose:** Create VSIX files for extensions.
 
-### 5. Additional Workflows
+### 6. Additional Workflows
 
 #### Performance Benchmarks (`benchmark.yml`)
 
@@ -355,7 +466,7 @@ sequenceDiagram
 - `apex-lsp-vscode-client`
 - `apex-lsp-testbed`
 
-**Note:** NPM package releases are currently disabled in the main release workflow.
+**Note:** NPM package releases are currently enabled and functional.
 
 ### VS Code Extensions (2 total)
 
@@ -385,6 +496,7 @@ sequenceDiagram
 4. **Dry-run Support**: Full dry-run capability for testing
 5. **Artifact Isolation**: PR artifacts don't interfere with releases
 6. **Performance Monitoring**: Automatic performance regression detection
+7. **Audit Logging**: All release attempts are logged for compliance
 
 ## Common Commands
 
@@ -422,7 +534,7 @@ gh workflow run benchmark.yml
 2. **Version conflicts**: Ensure semantic-release is configured correctly
 3. **Permission errors**: Verify NPM_TOKEN and OVSX_PAT secrets are set
 4. **Branch issues**: Ensure workflows are called with correct branch parameter
-5. **NPM releases disabled**: NPM package releases are currently commented out
+5. **Script errors**: Check environment variables are set correctly
 
 ### Debug Steps
 
@@ -430,6 +542,7 @@ gh workflow run benchmark.yml
 2. Verify artifact upload/download
 3. Confirm package.json versions
 4. Check composite action outputs
+5. Verify script environment variables
 
 ## Smart Version Bumping Strategy
 
@@ -487,19 +600,14 @@ gh workflow run release-extensions.yml --field pre-release=false
 
 ## Current Status and Notes
 
-### Disabled Features
-
-1. **NPM Package Releases**: The NPM release workflow is commented out in `release.yml`
-2. **Automatic Releases**: Push-to-main triggers are commented out
-3. **Nightly Builds**: Scheduled nightly builds are commented out
-
 ### Active Features
 
 1. **Extension Releases**: Fully functional with manual triggers
-2. **Performance Benchmarks**: Active monitoring and alerting
-3. **PR Validation**: Active validation for develop branch
-4. **Automerge**: Active for labeled PRs
-5. **Stale Management**: Active cleanup of stale issues/PRs
+2. **NPM Package Releases**: Fully functional with manual triggers
+3. **Performance Benchmarks**: Active monitoring and alerting
+4. **PR Validation**: Active validation for develop branch
+5. **Automerge**: Active for labeled PRs
+6. **Stale Management**: Active cleanup of stale issues/PRs
 
 ### Composite Actions Benefits
 
@@ -509,12 +617,19 @@ gh workflow run release-extensions.yml --field pre-release=false
 4. **Consistency**: All workflows use identical logic for common operations
 5. **Flexibility**: Easy to modify behavior without touching multiple files
 
+### Script Integration Benefits
+
+1. **Type Safety**: Full TypeScript with proper interfaces
+2. **Error Handling**: Consistent error handling with proper exit codes
+3. **Maintainability**: Clear function signatures and documentation
+4. **Debugging**: Better stack traces and logging
+5. **Package Filtering**: Automatic separation of extensions and NPM packages
+
 ### Future Enhancements
 
-1. **Re-enable NPM Releases**: When needed, uncomment NPM release workflow
-2. **Re-enable Automatic Releases**: When ready, uncomment push triggers
-3. **Re-enable Nightly Builds**: When needed, uncomment scheduled builds
-4. **Versioning**: Composite actions can be versioned independently if needed
-5. **Testing**: Add dedicated tests for composite actions
-6. **Documentation**: Expand documentation for each action
-7. **Validation**: Add input validation to composite actions
+1. **Re-enable Automatic Releases**: When ready, uncomment push triggers
+2. **Re-enable Nightly Builds**: When needed, uncomment scheduled builds
+3. **Versioning**: Composite actions can be versioned independently if needed
+4. **Testing**: Add dedicated tests for composite actions and scripts
+5. **Documentation**: Expand documentation for each action and script
+6. **Validation**: Add input validation to composite actions and scripts

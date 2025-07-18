@@ -1,0 +1,317 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+import { simpleGit } from 'simple-git';
+import { readdirSync, existsSync } from 'fs';
+import { join } from 'path';
+import { BuildContext, ChangeDetectionResult, ExtensionInfo } from './types';
+import { log, setOutput, getExtensionInfo } from './utils';
+
+/**
+ * Get all available VS Code extensions (packages with publisher field)
+ */
+function getAvailableExtensions(): ExtensionInfo[] {
+  const extensions: ExtensionInfo[] = [];
+  const packagesDir = join(process.cwd(), 'packages');
+
+  if (!existsSync(packagesDir)) {
+    log.warning('packages directory not found');
+    return extensions;
+  }
+
+  const packageDirs = readdirSync(packagesDir, { withFileTypes: true })
+    .filter((dirent) => dirent.isDirectory())
+    .map((dirent) => dirent.name);
+
+  for (const packageName of packageDirs) {
+    const packagePath = join(packagesDir, packageName);
+    const packageJsonPath = join(packagePath, 'package.json');
+
+    if (existsSync(packageJsonPath)) {
+      try {
+        const info = getExtensionInfo(packagePath);
+
+        // Only include packages that have a publisher (VS Code extensions)
+        if (info.publisher) {
+          extensions.push({
+            name: packageName,
+            path: packagePath,
+            currentVersion: info.version,
+            publisher: info.publisher,
+            displayName: info.displayName,
+          });
+          log.debug(
+            `Found VS Code extension: ${packageName} (publisher: ${info.publisher})`,
+          );
+        } else {
+          log.debug(`Skipping NPM package: ${packageName} (no publisher)`);
+        }
+      } catch (error) {
+        log.warning(`Failed to read package.json for ${packageName}: ${error}`);
+      }
+    }
+  }
+
+  return extensions;
+}
+
+/**
+ * Check if extension has changes since last release
+ */
+async function hasExtensionChanges(
+  git: any,
+  extensionPath: string,
+  lastTag: string | null,
+): Promise<boolean> {
+  if (!lastTag) {
+    // No previous tag, check if extension has any files
+    const files = readdirSync(extensionPath, { recursive: true });
+    return files.length > 0;
+  }
+
+  try {
+    // Check for changes since the last release tag
+    const diff = await git.diff([lastTag, 'HEAD', '--', extensionPath]);
+    return diff.trim().length > 0;
+  } catch (error) {
+    log.warning(`Failed to check changes for ${extensionPath}: ${error}`);
+    return false;
+  }
+}
+
+/**
+ * Find the last release tag
+ */
+async function findLastReleaseTag(git: any): Promise<string | null> {
+  try {
+    const tags = await git.tags();
+    const versionTags = tags.all
+      .filter((tag: string) => tag.startsWith('v'))
+      .sort((a: string, b: string) => {
+        // Simple version comparison (could be improved with semver)
+        const versionA = a.substring(1);
+        const versionB = b.substring(1);
+        return versionB.localeCompare(versionA, undefined, { numeric: true });
+      });
+
+    return versionTags.length > 0 ? versionTags[0] : null;
+  } catch (error) {
+    log.warning(`Failed to get tags: ${error}`);
+    return null;
+  }
+}
+
+/**
+ * Parse user-selected extensions from environment variable
+ */
+function parseUserSelectedExtensions(
+  selectedExtensionsInput?: string,
+): string[] {
+  if (!selectedExtensionsInput || selectedExtensionsInput.trim() === '') {
+    log.info('No user selection provided - will use all available extensions');
+    return [];
+  }
+
+  const selected = selectedExtensionsInput
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  log.info(`User selected extensions: ${selected.join(', ')}`);
+  return selected;
+}
+
+/**
+ * Intersect user selection with detected changes
+ */
+function intersectExtensions(
+  userSelected: string[],
+  changedExtensions: string[],
+  availableExtensions: ExtensionInfo[],
+  buildContext: BuildContext,
+): string[] {
+  const availableNames = availableExtensions.map((e) => e.name);
+
+  // If no user selection, use all changed extensions
+  if (userSelected.length === 0) {
+    log.info('No user selection - using all detected changes');
+    return changedExtensions;
+  }
+
+  // Validate user selection against available extensions
+  const validUserSelected = userSelected.filter((ext) => {
+    if (!availableNames.includes(ext)) {
+      log.warning(
+        `User selected extension '${ext}' is not available - skipping`,
+      );
+      return false;
+    }
+    return true;
+  });
+
+  if (validUserSelected.length === 0) {
+    log.warning('No valid extensions in user selection');
+    return [];
+  }
+
+  // For nightly builds and promotions, use user selection if provided
+  if (buildContext.isNightly || buildContext.isPromotion) {
+    const buildType = buildContext.isNightly ? 'Nightly' : 'Promotion';
+    log.info(
+      `${buildType} build - using user selection: ${validUserSelected.join(', ')}`,
+    );
+    return validUserSelected;
+  }
+
+  // For regular builds, intersect user selection with detected changes
+  const intersection = validUserSelected.filter((ext) =>
+    changedExtensions.includes(ext),
+  );
+
+  log.info(`User selection: ${validUserSelected.join(', ')}`);
+  log.info(`Detected changes: ${changedExtensions.join(', ')}`);
+  log.info(`Intersection: ${intersection.join(', ')}`);
+
+  return intersection;
+}
+
+/**
+ * Detect changes in extensions
+ */
+export async function detectExtensionChanges(
+  buildContext: BuildContext,
+  promotionCommitSha?: string,
+  userSelectedExtensions?: string,
+): Promise<ChangeDetectionResult> {
+  log.info('Detecting changes in extensions...');
+  log.debug(`Build context: ${JSON.stringify(buildContext)}`);
+  log.debug(`Promotion commit SHA: ${promotionCommitSha || 'none'}`);
+  log.debug(`User selected extensions: ${userSelectedExtensions || 'none'}`);
+
+  const git = simpleGit();
+  const extensions = getAvailableExtensions();
+  const changedExtensions: string[] = [];
+  let versionBumps = buildContext.versionBump;
+
+  log.info(
+    `Found ${extensions.length} extensions: ${extensions.map((e) => e.name).join(', ')}`,
+  );
+
+  // Parse user selection
+  const userSelected = parseUserSelectedExtensions(userSelectedExtensions);
+
+  // For nightly builds, always include all extensions
+  if (buildContext.isNightly) {
+    log.info('Nightly build detected - including all extensions');
+    changedExtensions.push(...extensions.map((e) => e.name));
+  }
+  // For promotions, always include all extensions
+  else if (buildContext.isPromotion) {
+    log.info('Promotion detected - including all extensions');
+    changedExtensions.push(...extensions.map((e) => e.name));
+  }
+  // For regular builds, check for actual changes
+  else {
+    log.info('Regular build - checking for changes...');
+    const lastTag = await findLastReleaseTag(git);
+
+    if (lastTag) {
+      log.info(`Comparing against last release tag: ${lastTag}`);
+    } else {
+      log.info('No previous release tag found - treating as first release');
+    }
+
+    for (const extension of extensions) {
+      log.debug(`Checking extension: ${extension.name}`);
+
+      const hasChanges = await hasExtensionChanges(
+        git,
+        extension.path,
+        lastTag,
+      );
+
+      if (hasChanges) {
+        log.info(`Found changes in ${extension.name} - including in release`);
+        changedExtensions.push(extension.name);
+      } else {
+        log.info(`No changes found in ${extension.name} - skipping release`);
+      }
+    }
+  }
+
+  // Intersect user selection with detected changes
+  const finalSelectedExtensions = intersectExtensions(
+    userSelected,
+    changedExtensions,
+    extensions,
+    buildContext,
+  );
+
+  log.info(`Final selected extensions: ${finalSelectedExtensions.join(', ')}`);
+  log.info(`Version bump type: ${versionBumps}`);
+
+  return {
+    selectedExtensions: finalSelectedExtensions,
+    versionBumps,
+    promotionCommitSha,
+  };
+}
+
+/**
+ * Set GitHub Actions outputs for change detection
+ */
+export function setChangeDetectionOutputs(result: ChangeDetectionResult): void {
+  setOutput('selected-extensions', result.selectedExtensions.join(','));
+  setOutput('version-bumps', result.versionBumps);
+  if (result.promotionCommitSha) {
+    setOutput('promotion-commit-sha', result.promotionCommitSha);
+  }
+
+  log.success('Change detection outputs set');
+}
+
+/**
+ * Main function for CLI usage
+ */
+export async function main(): Promise<void> {
+  try {
+    // For CLI usage, we need to parse the build context from environment
+    // This would typically come from the previous job's outputs
+    const isNightly = process.env.IS_NIGHTLY === 'true';
+    const versionBump = (process.env.VERSION_BUMP as any) || 'auto';
+    const preRelease = process.env.PRE_RELEASE === 'true';
+    const isPromotion = process.env.IS_PROMOTION === 'true';
+    const promotionCommitSha = process.env.PROMOTION_COMMIT_SHA;
+    const userSelectedExtensions = process.env.SELECTED_EXTENSIONS;
+    log.info(
+      `Raw SELECTED_EXTENSIONS env var: "${process.env.SELECTED_EXTENSIONS}"`,
+    );
+
+    const buildContext: BuildContext = {
+      isNightly,
+      versionBump,
+      preRelease,
+      isPromotion,
+      promotionCommitSha,
+    };
+
+    const result = await detectExtensionChanges(
+      buildContext,
+      promotionCommitSha,
+      userSelectedExtensions,
+    );
+    setChangeDetectionOutputs(result);
+  } catch (error) {
+    log.error(`Failed to determine changes: ${error}`);
+    process.exit(1);
+  }
+}
+
+// Run if called directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}
