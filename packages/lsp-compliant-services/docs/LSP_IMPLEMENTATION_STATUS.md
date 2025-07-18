@@ -11,6 +11,7 @@ The Apex Language Server implements a subset of LSP features based on the capabi
 - ✅ **Implemented**: Fully implemented and tested
 - 🔄 **In Progress**: Currently being implemented
 - 📋 **Planned**: Planned for implementation
+- 🚫 **Stub Required**: Stub implementation exists for runtime compatibility (not supported)
 - ❌ **Not Supported**: Not planned for implementation
 
 ## Implementation Priority
@@ -75,10 +76,11 @@ Based on the implementation priorities:
 
 ### Diagnostics
 
-| LSP Request/Notification          | Direction       | Status         | Released | Notes                 |
-| --------------------------------- | --------------- | -------------- | -------- | --------------------- |
-| `textDocument/diagnostic`         | Client → Server | ✅ Implemented | -        | Pull diagnostics      |
-| `textDocument/publishDiagnostics` | Server → Client | ✅ Implemented | -        | Diagnostic publishing |
+| LSP Request/Notification          | Direction       | Status           | Released | Notes                 |
+| --------------------------------- | --------------- | ---------------- | -------- | --------------------- |
+| `textDocument/diagnostic`         | Client → Server | ✅ Implemented   | -        | Pull diagnostics      |
+| `workspace/diagnostic`            | Client → Server | 🚫 Stub Required | -        | Pull diagnostics      |
+| `textDocument/publishDiagnostics` | Server → Client | ✅ Implemented   | -        | Diagnostic publishing |
 
 ### Completion and Hover
 
@@ -216,6 +218,10 @@ Based on the implementation priorities:
 ### 🔄 In Progress (1 feature)
 
 - completionItem/resolve (Completion item resolution)
+
+### 🚫 Stub Required (1 feature)
+
+- workspace/diagnostic (Pull diagnostics - stub for runtime compatibility)
 
 ### ❌ Not Supported (All other LSP features)
 

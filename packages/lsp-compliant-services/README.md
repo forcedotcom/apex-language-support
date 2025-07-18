@@ -15,6 +15,9 @@ This package implements services that conform to the standard Language Server Pr
 - Document formatting
 - Additional LSP-specified capabilities
 - Persistent storage interface for AST, symbol tables, and references
+- Platform-agnostic capabilities system with mode-based optimization
+- Server mode configuration (Production/Development/Test)
+- Environment-specific feature enablement
 
 ## Dependencies
 
@@ -30,6 +33,75 @@ import {} from /* specific services */ '@salesforce/apex-lsp-compliant-services'
 
 // Use the imported services
 ```
+
+## Capabilities System
+
+This package provides a platform-agnostic capabilities system that enables consistent language server features across different environments while allowing for mode-specific optimizations.
+
+### Server Modes
+
+The system supports three server modes:
+
+- **Production Mode**: Optimized for performance and stability
+  - Disabled features: hover provider, completion resolve provider, will-save notifications
+  - Full text document sync for reliability
+  - Minimal diagnostic processing
+
+- **Development Mode**: Full feature set for development workflows
+  - Enabled features: hover provider, completion resolve provider, will-save notifications
+  - Incremental text document sync for better performance
+  - Enhanced diagnostic processing
+
+- **Test Mode**: Testing-specific features and configurations
+  - Optimized for testing environments
+  - Consistent behavior across test runs
+
+### Capabilities Management
+
+The capabilities system provides:
+
+- **ApexCapabilitiesManager**: Singleton manager for server mode and capabilities
+- **ApexLanguageServerCapabilities**: Defines capability configurations for different modes
+- **LSPConfigurationManager**: High-level configuration interface with custom overrides
+
+### Usage Examples
+
+#### Basic Usage
+
+```typescript
+import { ApexCapabilitiesManager } from '@salesforce/apex-lsp-compliant-services';
+
+// Get the capabilities manager instance
+const manager = ApexCapabilitiesManager.getInstance();
+
+// Set the server mode
+manager.setMode('development');
+
+// Get capabilities for the current mode
+const capabilities = manager.getCapabilities();
+```
+
+#### With Custom Configuration
+
+```typescript
+import { LSPConfigurationManager } from '@salesforce/apex-lsp-compliant-services';
+
+// Create configuration manager with custom options
+const configManager = new LSPConfigurationManager({
+  mode: 'development',
+  customCapabilities: {
+    hoverProvider: false, // Override hover provider
+  },
+});
+
+// Get capabilities with custom overrides applied
+const capabilities = configManager.getCapabilities();
+```
+
+For detailed information about the capabilities system, see:
+
+- [Capabilities Documentation](docs/CAPABILITIES.md)
+- [LSP Implementation Status](docs/LSP_IMPLEMENTATION_STATUS.md)
 
 ## Configuration
 
@@ -75,28 +147,22 @@ The server looks for configuration in these sections (in order of precedence):
 ##### Options:
 
 - **`enableCommentCollection`** (boolean, default: `true`)
-
   - Master switch for comment collection. When disabled, no comments are collected regardless of other settings.
 
 - **`includeSingleLineComments`** (boolean, default: `false`)
-
   - Whether to include single-line (`//`) comments in addition to block comments (`/* */`).
 
 - **`associateCommentsWithSymbols`** (boolean, default: `false`)
-
   - Whether to associate comments with nearby symbols for enhanced language features.
   - Note: This is more computationally expensive and may impact performance.
 
 - **`enableForDocumentChanges`** (boolean, default: `true`)
-
   - Enable comment collection when documents are modified.
 
 - **`enableForDocumentOpen`** (boolean, default: `true`)
-
   - Enable comment collection when documents are opened.
 
 - **`enableForDocumentSymbols`** (boolean, default: `false`)
-
   - Enable comment collection for document symbol requests.
   - Disabled by default for performance reasons.
 
@@ -121,12 +187,10 @@ The server looks for configuration in these sections (in order of precedence):
 ##### Options:
 
 - **`commentCollectionMaxFileSize`** (number, default: `102400` for Node.js, `51200` for browser)
-
   - Maximum file size in bytes for enabling comment collection.
   - Files larger than this will skip comment collection for performance.
 
 - **`useAsyncCommentProcessing`** (boolean, default: `true`)
-
   - Whether to use asynchronous processing for comment collection in large files.
 
 - **`documentChangeDebounceMs`** (number, default: `300` for Node.js, `500` for browser)
@@ -148,7 +212,6 @@ The server looks for configuration in these sections (in order of precedence):
 ##### Options:
 
 - **`enablePerformanceLogging`** (boolean, default: `false`)
-
   - Enable detailed performance logging for comment collection operations.
 
 - **`commentCollectionLogLevel`** (string, default: `"info"`)
@@ -170,7 +233,6 @@ The server looks for configuration in these sections (in order of precedence):
 ##### Options:
 
 - **`loadMode`** (string, default: `"full"` for Node.js, `"lazy"` for browser)
-
   - Resource loading strategy for Apex standard library files.
   - `"full"`: Load all resources immediately during initialization (faster access, higher memory usage)
   - `"lazy"`: Load resources on-demand when accessed (lower memory usage, slight access delay)

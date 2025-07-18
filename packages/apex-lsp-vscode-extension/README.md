@@ -132,6 +132,52 @@ These settings are for low-level control and compatibility with other tooling:
 }
 ```
 
+## Server Mode Configuration
+
+The Apex Language Server supports different operational modes that affect performance and feature availability:
+
+### Server Modes
+
+- **Production Mode**: Optimized for performance and stability
+  - Disabled features: hover provider, completion resolve provider, will-save notifications
+  - Full text document sync for reliability
+  - Minimal diagnostic processing
+
+- **Development Mode**: Full feature set for development workflows
+  - Enabled features: hover provider, completion resolve provider, will-save notifications
+  - Incremental text document sync for better performance
+  - Enhanced diagnostic processing
+
+### Mode Determination
+
+The server mode is determined by the following priority order:
+
+1. **Environment Variable**: `APEX_LS_MODE=production` or `APEX_LS_MODE=development`
+2. **Extension Mode**: Automatically based on VS Code extension mode
+   - Development/Test extension mode → Development server mode
+   - Production extension mode → Production server mode
+3. **NODE_ENV**: Falls back to `NODE_ENV` environment variable
+
+### Environment Variable Override
+
+You can force the server to run in a specific mode regardless of the extension mode:
+
+```bash
+# Force production mode
+export APEX_LS_MODE=production
+
+# Force development mode
+export APEX_LS_MODE=development
+```
+
+This is useful for:
+
+- Testing production behavior during development
+- Debugging with enhanced logging in production environments
+- CI/CD environments requiring specific modes
+
+For detailed information, see [Server Mode Override Documentation](docs/server-mode-override.md).
+
 ## Commands
 
 The extension provides the following commands, which can be accessed from the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`):
