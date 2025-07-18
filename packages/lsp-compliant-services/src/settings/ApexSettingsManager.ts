@@ -21,9 +21,7 @@ import {
 /**
  * Event listener for settings changes
  */
-export type SettingsChangeListener = (
-  settings: ApexLanguageServerSettings,
-) => void;
+export type SettingsChangeListener = (settings: ApexLanguageServerSettings) => void;
 
 /**
  * Settings manager for the Apex Language Server
@@ -35,21 +33,10 @@ export class ApexSettingsManager {
   private changeListeners: SettingsChangeListener[] = [];
   private readonly logger = getLogger();
 
-  private constructor(
-    initialSettings?: Partial<ApexLanguageServerSettings>,
-    environment: 'node' | 'browser' = 'node',
-  ) {
-    this.currentSettings = mergeWithDefaults(
-      initialSettings || {},
-      environment,
-    );
-    this.logger.debug(
-      () => `ApexSettingsManager initialized for ${environment} environment`,
-    );
-    this.logger.debug(
-      () =>
-        `Initial settings: ${JSON.stringify(this.currentSettings, null, 2)}`,
-    );
+  private constructor(initialSettings?: Partial<ApexLanguageServerSettings>, environment: 'node' | 'browser' = 'node') {
+    this.currentSettings = mergeWithDefaults(initialSettings || {}, environment);
+    this.logger.debug(() => `ApexSettingsManager initialized for ${environment} environment`);
+    this.logger.debug(() => `Initial settings: ${JSON.stringify(this.currentSettings, null, 2)}`);
   }
 
   /**
@@ -60,10 +47,7 @@ export class ApexSettingsManager {
     environment: 'node' | 'browser' = 'node',
   ): ApexSettingsManager {
     if (!ApexSettingsManager.instance) {
-      ApexSettingsManager.instance = new ApexSettingsManager(
-        initialSettings,
-        environment,
-      );
+      ApexSettingsManager.instance = new ApexSettingsManager(initialSettings, environment);
     }
     return ApexSettingsManager.instance;
   }
@@ -85,13 +69,9 @@ export class ApexSettingsManager {
   /**
    * Update settings (typically called from LSP didChangeConfiguration)
    */
-  public updateSettings(
-    newSettings: Partial<ApexLanguageServerSettings>,
-  ): void {
+  public updateSettings(newSettings: Partial<ApexLanguageServerSettings>): void {
     this.logger.debug('Updating Apex Language Server settings');
-    this.logger.debug(
-      () => `New settings: ${JSON.stringify(newSettings, null, 2)}`,
-    );
+    this.logger.debug(() => `New settings: ${JSON.stringify(newSettings, null, 2)}`);
 
     // Set log level if provided
     if (newSettings.logLevel) {
@@ -122,18 +102,13 @@ export class ApexSettingsManager {
       }
 
       // Log the received configuration for debugging
-      this.logger.debug(
-        () => `Received LSP configuration: ${JSON.stringify(config, null, 2)}`,
-      );
+      this.logger.debug(() => `Received LSP configuration: ${JSON.stringify(config, null, 2)}`);
 
       // Extract apex-specific settings from the configuration
       const apexConfig = config.apex || config.apexLanguageServer || config;
 
       // Log the extracted apex configuration
-      this.logger.debug(
-        () =>
-          `Extracted apex configuration: ${JSON.stringify(apexConfig, null, 2)}`,
-      );
+      this.logger.debug(() => `Extracted apex configuration: ${JSON.stringify(apexConfig, null, 2)}`);
 
       // Set log level if provided
       if (apexConfig.logLevel) {
@@ -151,15 +126,11 @@ export class ApexSettingsManager {
       } else {
         // Log validation errors for invalid keys/types
         this.logger.warn(
-          () =>
-            `LSP configuration has invalid properties. Details: ${validationResult.details.join(', ')}`,
+          () => `LSP configuration has invalid properties. Details: ${validationResult.details.join(', ')}`,
         );
 
         if (validationResult.invalidKeys.length > 0) {
-          this.logger.warn(
-            () =>
-              `Invalid keys (wrong type): ${validationResult.invalidKeys.join(', ')}`,
-          );
+          this.logger.warn(() => `Invalid keys (wrong type): ${validationResult.invalidKeys.join(', ')}`);
         }
 
         // Still merge the configuration, but warn about the issues
@@ -177,11 +148,7 @@ export class ApexSettingsManager {
    * Get CompilationOptions for a specific operation type
    */
   public getCompilationOptions(
-    operationType:
-      | 'documentChange'
-      | 'documentOpen'
-      | 'documentSymbols'
-      | 'foldingRanges',
+    operationType: 'documentChange' | 'documentOpen' | 'documentSymbols' | 'foldingRanges',
     fileSize?: number,
   ): CompilationOptions {
     const settings = this.currentSettings;
@@ -199,8 +166,7 @@ export class ApexSettingsManager {
     // Check file size limits
     if (fileSize && fileSize > performance.commentCollectionMaxFileSize) {
       this.logger.debug(
-        () =>
-          `File size ${fileSize} exceeds limit ${performance.commentCollectionMaxFileSize}, disabling comments`,
+        () => `File size ${fileSize} exceeds limit ${performance.commentCollectionMaxFileSize}, disabling comments`,
       );
       return {
         includeComments: false,
@@ -228,15 +194,12 @@ export class ApexSettingsManager {
 
     const compilationOptions = {
       includeComments,
-      includeSingleLineComments:
-        includeComments && commentCollection.includeSingleLineComments,
-      associateComments:
-        includeComments && commentCollection.associateCommentsWithSymbols,
+      includeSingleLineComments: includeComments && commentCollection.includeSingleLineComments,
+      associateComments: includeComments && commentCollection.associateCommentsWithSymbols,
     };
 
     this.logger.debug(
-      () =>
-        `Final CompilationOptions for ${operationType}: ${JSON.stringify(compilationOptions, null, 2)}`,
+      () => `Final CompilationOptions for ${operationType}: ${JSON.stringify(compilationOptions, null, 2)}`,
     );
 
     return compilationOptions;
@@ -260,12 +223,8 @@ export class ApexSettingsManager {
   /**
    * Get environment-specific default settings
    */
-  public static getDefaultSettings(
-    environment: 'node' | 'browser' = 'node',
-  ): ApexLanguageServerSettings {
-    return environment === 'browser'
-      ? BROWSER_DEFAULT_APEX_SETTINGS
-      : DEFAULT_APEX_SETTINGS;
+  public static getDefaultSettings(environment: 'node' | 'browser' = 'node'): ApexLanguageServerSettings {
+    return environment === 'browser' ? BROWSER_DEFAULT_APEX_SETTINGS : DEFAULT_APEX_SETTINGS;
   }
 
   /**
@@ -301,36 +260,25 @@ export class ApexSettingsManager {
       try {
         listener(settings);
       } catch (error) {
-        this.logger.error(
-          () => `Error notifying settings change listener: ${error}`,
-        );
+        this.logger.error(() => `Error notifying settings change listener: ${error}`);
       }
     });
   }
 
-  private logSettingsChanges(
-    previous: ApexLanguageServerSettings,
-    current: ApexLanguageServerSettings,
-  ): void {
+  private logSettingsChanges(previous: ApexLanguageServerSettings, current: ApexLanguageServerSettings): void {
     const changes: string[] = [];
 
     // Check comment collection changes
     const prevComment = previous.commentCollection;
     const currComment = current.commentCollection;
 
-    if (
-      prevComment.enableCommentCollection !==
-      currComment.enableCommentCollection
-    ) {
+    if (prevComment.enableCommentCollection !== currComment.enableCommentCollection) {
       changes.push(
         `comment collection: ${prevComment.enableCommentCollection} → ${currComment.enableCommentCollection}`,
       );
     }
 
-    if (
-      prevComment.associateCommentsWithSymbols !==
-      currComment.associateCommentsWithSymbols
-    ) {
+    if (prevComment.associateCommentsWithSymbols !== currComment.associateCommentsWithSymbols) {
       changes.push(
         // eslint-disable-next-line max-len
         `comment association: ${prevComment.associateCommentsWithSymbols} → ${currComment.associateCommentsWithSymbols}`,
@@ -341,10 +289,7 @@ export class ApexSettingsManager {
     const prevPerf = previous.performance;
     const currPerf = current.performance;
 
-    if (
-      prevPerf.commentCollectionMaxFileSize !==
-      currPerf.commentCollectionMaxFileSize
-    ) {
+    if (prevPerf.commentCollectionMaxFileSize !== currPerf.commentCollectionMaxFileSize) {
       changes.push(
         `max file size: ${prevPerf.commentCollectionMaxFileSize} → ${currPerf.commentCollectionMaxFileSize}`,
       );
@@ -355,9 +300,7 @@ export class ApexSettingsManager {
     const currResources = current.resources;
 
     if (prevResources.loadMode !== currResources.loadMode) {
-      changes.push(
-        `resource load mode: ${prevResources.loadMode} → ${currResources.loadMode}`,
-      );
+      changes.push(`resource load mode: ${prevResources.loadMode} → ${currResources.loadMode}`);
     }
 
     if (changes.length > 0) {

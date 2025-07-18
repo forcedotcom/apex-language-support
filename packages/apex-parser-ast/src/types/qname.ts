@@ -45,25 +45,16 @@ export class QName {
     }
 
     if (qNameAsString.startsWith('{}')) {
-      const prolog =
-        '`Namespace URI .equals(XMLConstants.NULL_NS_URI), .equals(\"\"), only the local part, \"';
-      throw new Error(
-        `${prolog}${qNameAsString.substring(2 + ''.length)}\", should be provided.`,
-      );
+      const prolog = '`Namespace URI .equals(XMLConstants.NULL_NS_URI), .equals(\"\"), only the local part, \"';
+      throw new Error(`${prolog}${qNameAsString.substring(2 + ''.length)}\", should be provided.`);
     }
 
     const endOfNamespaceURI = qNameAsString.indexOf('}');
     if (endOfNamespaceURI === -1) {
-      throw new Error(
-        `cannot create QName from \"${qNameAsString}\", missing closing \"}\"`,
-      );
+      throw new Error(`cannot create QName from \"${qNameAsString}\", missing closing \"}\"`);
     }
 
-    return new QName(
-      qNameAsString.substring(1, endOfNamespaceURI),
-      qNameAsString.substring(endOfNamespaceURI + 1),
-      '',
-    );
+    return new QName(qNameAsString.substring(1, endOfNamespaceURI), qNameAsString.substring(endOfNamespaceURI + 1), '');
   }
 
   getNamespaceURI(): string {
@@ -85,10 +76,7 @@ export class QName {
 
     if (objectToTest instanceof QName) {
       const qName = objectToTest as QName;
-      return (
-        this.localPart === qName.localPart &&
-        this.namespaceURI === qName.namespaceURI
-      );
+      return this.localPart === qName.localPart && this.namespaceURI === qName.namespaceURI;
     }
 
     return false;
@@ -99,8 +87,6 @@ export class QName {
   }
 
   toString(): string {
-    return this.namespaceURI === ''
-      ? this.localPart
-      : `{${this.namespaceURI}}${this.localPart}`;
+    return this.namespaceURI === '' ? this.localPart : `{${this.namespaceURI}}${this.localPart}`;
   }
 }

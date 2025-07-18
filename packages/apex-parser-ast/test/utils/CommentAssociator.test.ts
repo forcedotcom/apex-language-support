@@ -12,17 +12,9 @@ import {
   CommentType,
   CommentAssociationType,
 } from '../../src/parser/listeners/ApexCommentCollectorListener';
-import {
-  CompilerService,
-  CompilationResultWithAssociations,
-} from '../../src/parser/compilerService';
+import { CompilerService, CompilationResultWithAssociations } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import {
-  SymbolTable,
-  ApexSymbol,
-  SymbolKind,
-  SymbolLocation,
-} from '../../src/types/symbol';
+import { SymbolTable, ApexSymbol, SymbolKind, SymbolLocation } from '../../src/types/symbol';
 
 describe('CommentAssociator', () => {
   let associator: CommentAssociator;
@@ -39,12 +31,7 @@ describe('CommentAssociator', () => {
   });
 
   // Helper function to create a mock symbol
-  const createMockSymbol = (
-    name: string,
-    kind: SymbolKind,
-    line: number,
-    column: number = 0,
-  ): ApexSymbol => ({
+  const createMockSymbol = (name: string, kind: SymbolKind, line: number, column: number = 0): ApexSymbol => ({
     name,
     kind,
     location: {
@@ -91,51 +78,31 @@ describe('CommentAssociator', () => {
 
   describe('Basic Association Logic', () => {
     it('should associate preceding comments with symbols', () => {
-      const comments = [
-        createMockComment(
-          '/** Class documentation */',
-          1,
-          CommentType.Block,
-          true,
-        ),
-      ];
+      const comments = [createMockComment('/** Class documentation */', 1, CommentType.Block, true)];
       const symbols = [createMockSymbol('TestClass', SymbolKind.Class, 3)];
 
       const associations = associator.associateComments(comments, symbols);
 
       expect(associations).toHaveLength(1);
       expect(associations[0].symbolKey).toBe('TestClass');
-      expect(associations[0].associationType).toBe(
-        CommentAssociationType.Preceding,
-      );
+      expect(associations[0].associationType).toBe(CommentAssociationType.Preceding);
       expect(associations[0].confidence).toBeGreaterThan(0.5);
     });
 
     it('should associate inline comments with symbols', () => {
-      const comments = [
-        createMockComment('// Inline comment', 5, CommentType.Line),
-      ];
+      const comments = [createMockComment('// Inline comment', 5, CommentType.Line)];
       const symbols = [createMockSymbol('testMethod', SymbolKind.Method, 5)];
 
       const associations = associator.associateComments(comments, symbols);
 
       expect(associations).toHaveLength(1);
       expect(associations[0].symbolKey).toBe('testMethod');
-      expect(associations[0].associationType).toBe(
-        CommentAssociationType.Inline,
-      );
+      expect(associations[0].associationType).toBe(CommentAssociationType.Inline);
       expect(associations[0].confidence).toBeGreaterThan(0.8);
     });
 
     it('should not associate comments that are too far away', () => {
-      const comments = [
-        createMockComment(
-          '/** Far away comment */',
-          1,
-          CommentType.Block,
-          true,
-        ),
-      ];
+      const comments = [createMockComment('/** Far away comment */', 1, CommentType.Block, true)];
       const symbols = [
         createMockSymbol('TestClass', SymbolKind.Class, 10), // 9 lines away
       ];
@@ -146,9 +113,7 @@ describe('CommentAssociator', () => {
     });
 
     it('should prefer closer symbols for association', () => {
-      const comments = [
-        createMockComment('/** Documentation */', 5, CommentType.Block, true),
-      ];
+      const comments = [createMockComment('/** Documentation */', 5, CommentType.Block, true)];
       const symbols = [
         createMockSymbol('FarSymbol', SymbolKind.Class, 10), // 5 lines away
         createMockSymbol('CloseSymbol', SymbolKind.Class, 7), // 2 lines away
@@ -164,92 +129,49 @@ describe('CommentAssociator', () => {
 
   describe('Documentation Comment Boost', () => {
     it('should give higher confidence to documentation comments', () => {
-      const docComment = createMockComment(
-        '/** Documentation */',
-        1,
-        CommentType.Block,
-        true,
-      );
-      const regularComment = createMockComment(
-        '/* Regular comment */',
-        2,
-        CommentType.Block,
-        false,
-      );
+      const docComment = createMockComment('/** Documentation */', 1, CommentType.Block, true);
+      const regularComment = createMockComment('/* Regular comment */', 2, CommentType.Block, false);
 
       const symbols = [createMockSymbol('TestClass', SymbolKind.Class, 4)];
 
-      const docAssociations = associator.associateComments(
-        [docComment],
-        symbols,
-      );
-      const regularAssociations = associator.associateComments(
-        [regularComment],
-        symbols,
-      );
+      const docAssociations = associator.associateComments([docComment], symbols);
+      const regularAssociations = associator.associateComments([regularComment], symbols);
 
-      expect(docAssociations[0].confidence).toBeGreaterThan(
-        regularAssociations[0].confidence,
-      );
+      expect(docAssociations[0].confidence).toBeGreaterThan(regularAssociations[0].confidence);
     });
 
     it('should boost confidence for classes and methods', () => {
-      const comment = createMockComment(
-        '/** Documentation */',
-        1,
-        CommentType.Block,
-        true,
-      );
+      const comment = createMockComment('/** Documentation */', 1, CommentType.Block, true);
 
       const classSymbol = createMockSymbol('TestClass', SymbolKind.Class, 3);
-      const variableSymbol = createMockSymbol(
-        'testVar',
-        SymbolKind.Variable,
-        3,
-      );
+      const variableSymbol = createMockSymbol('testVar', SymbolKind.Variable, 3);
 
-      const classAssociations = associator.associateComments(
-        [comment],
-        [classSymbol],
-      );
-      const varAssociations = associator.associateComments(
-        [comment],
-        [variableSymbol],
-      );
+      const classAssociations = associator.associateComments([comment], [classSymbol]);
+      const varAssociations = associator.associateComments([comment], [variableSymbol]);
 
-      expect(classAssociations[0].confidence).toBeGreaterThan(
-        varAssociations[0].confidence,
-      );
+      expect(classAssociations[0].confidence).toBeGreaterThan(varAssociations[0].confidence);
     });
   });
 
   describe('Association Types', () => {
     it('should identify internal comments correctly', () => {
-      const comments = [
-        createMockComment('// Internal comment', 8, CommentType.Line),
-      ];
+      const comments = [createMockComment('// Internal comment', 8, CommentType.Line)];
       const symbols = [createMockSymbol('TestMethod', SymbolKind.Method, 5)];
 
       const associations = associator.associateComments(comments, symbols);
 
       expect(associations).toHaveLength(1);
-      expect(associations[0].associationType).toBe(
-        CommentAssociationType.Internal,
-      );
+      expect(associations[0].associationType).toBe(CommentAssociationType.Internal);
     });
 
     it('should identify trailing comments correctly', () => {
-      const comments = [
-        createMockComment('// Trailing comment', 6, CommentType.Line),
-      ];
+      const comments = [createMockComment('// Trailing comment', 6, CommentType.Line)];
       const symbols = [createMockSymbol('TestField', SymbolKind.Property, 5)];
 
       const associations = associator.associateComments(comments, symbols);
 
       expect(associations).toHaveLength(1);
-      expect(associations[0].associationType).toBe(
-        CommentAssociationType.Trailing,
-      );
+      expect(associations[0].associationType).toBe(CommentAssociationType.Trailing);
     });
   });
 
@@ -265,10 +187,7 @@ describe('CommentAssociator', () => {
       ];
 
       const allAssociations = associator.associateComments(comments, symbols);
-      const classAssociations = associator.getAssociationsForSymbol(
-        'TestClass',
-        allAssociations,
-      );
+      const classAssociations = associator.getAssociationsForSymbol('TestClass', allAssociations);
 
       expect(allAssociations).toHaveLength(2);
       expect(classAssociations).toHaveLength(1);
@@ -286,34 +205,21 @@ describe('CommentAssociator', () => {
       ];
 
       const allAssociations = associator.associateComments(comments, symbols);
-      const precedingAssociations = associator.getAssociationsByType(
-        CommentAssociationType.Preceding,
-        allAssociations,
-      );
+      const precedingAssociations = associator.getAssociationsByType(CommentAssociationType.Preceding, allAssociations);
 
       expect(precedingAssociations).toHaveLength(1);
-      expect(precedingAssociations[0].associationType).toBe(
-        CommentAssociationType.Preceding,
-      );
+      expect(precedingAssociations[0].associationType).toBe(CommentAssociationType.Preceding);
     });
 
     it('should get documentation for symbol', () => {
       const comments = [
-        createMockComment(
-          '/** Class documentation */',
-          1,
-          CommentType.Block,
-          true,
-        ),
+        createMockComment('/** Class documentation */', 1, CommentType.Block, true),
         createMockComment('// Regular comment', 2, CommentType.Line, false),
       ];
       const symbols = [createMockSymbol('TestClass', SymbolKind.Class, 4)];
 
       const associations = associator.associateComments(comments, symbols);
-      const documentation = associator.getDocumentationForSymbol(
-        'TestClass',
-        associations,
-      );
+      const documentation = associator.getDocumentationForSymbol('TestClass', associations);
 
       expect(documentation).toHaveLength(1);
       expect(documentation[0].text).toBe('/** Class documentation */');
@@ -328,17 +234,12 @@ describe('CommentAssociator', () => {
         minConfidence: 0.1, // Very permissive
       });
 
-      const comments = [
-        createMockComment('/** Far comment */', 1, CommentType.Block, true),
-      ];
+      const comments = [createMockComment('/** Far comment */', 1, CommentType.Block, true)];
       const symbols = [
         createMockSymbol('TestClass', SymbolKind.Class, 3), // 2 lines away
       ];
 
-      const associations = customAssociator.associateComments(
-        comments,
-        symbols,
-      );
+      const associations = customAssociator.associateComments(comments, symbols);
 
       // Should not associate because distance > maxPrecedingDistance
       expect(associations).toHaveLength(0);
@@ -376,16 +277,11 @@ public class TestClass {
     }
 }`;
 
-    const result = compilerService.compile(
-      apexCode,
-      'TestClass.cls',
-      symbolCollector,
-      {
-        includeComments: true,
-        includeSingleLineComments: true,
-        associateComments: true,
-      },
-    ) as CompilationResultWithAssociations<SymbolTable>;
+    const result = compilerService.compile(apexCode, 'TestClass.cls', symbolCollector, {
+      includeComments: true,
+      includeSingleLineComments: true,
+      associateComments: true,
+    }) as CompilationResultWithAssociations<SymbolTable>;
 
     expect(result.comments).toBeDefined();
     expect(result.commentAssociations).toBeDefined();
@@ -410,15 +306,10 @@ public class TestClass {
 public class TestClass {
 }`;
 
-    const result = compilerService.compile(
-      apexCode,
-      'TestClass.cls',
-      symbolCollector,
-      {
-        includeComments: true,
-        associateComments: false,
-      },
-    );
+    const result = compilerService.compile(apexCode, 'TestClass.cls', symbolCollector, {
+      includeComments: true,
+      associateComments: false,
+    });
 
     expect('comments' in result && result.comments).toBeDefined();
     expect('commentAssociations' in result).toBe(false);
@@ -429,16 +320,11 @@ public class TestClass {
 // Just a comment
 `;
 
-    const result = compilerService.compile(
-      apexCode,
-      'TestClass.cls',
-      symbolCollector,
-      {
-        includeComments: true,
-        includeSingleLineComments: true,
-        associateComments: true,
-      },
-    ) as CompilationResultWithAssociations<SymbolTable>;
+    const result = compilerService.compile(apexCode, 'TestClass.cls', symbolCollector, {
+      includeComments: true,
+      includeSingleLineComments: true,
+      associateComments: true,
+    }) as CompilationResultWithAssociations<SymbolTable>;
 
     expect(result.comments).toBeDefined();
     expect(result.commentAssociations).toBeDefined();

@@ -20,13 +20,8 @@ const logData = JSON.parse(rawData);
 jest.setTimeout(1000 * 60 * 10);
 
 // Extract relevant request/response pairs
-const testData = (
-  Object.values(logData) as Array<{ type: string; method: string }>
-)
-  .filter(
-    (entry: { type: string; method: string }) =>
-      entry.type === 'request' && /^textDocument/.test(entry.method),
-  )
+const testData = (Object.values(logData) as Array<{ type: string; method: string }>)
+  .filter((entry: { type: string; method: string }) => entry.type === 'request' && /^textDocument/.test(entry.method))
   .reduce((acc: [string, unknown][], request: { method: string }) => {
     // Only add if we haven't seen this method before
     if (!acc.some(([method]) => method === request.method)) {
@@ -72,20 +67,12 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
     const requestTimeout = 10000; // 10 second timeout per request
     const results: Record<string, any> = {};
     // Add benchmark for each LSP method type
-    (
-      testData as [string, { method: string; id: string; params: unknown }][]
-    ).forEach(([method, request]) => {
+    (testData as [string, { method: string; id: string; params: unknown }][]).forEach(([method, request]) => {
       suite.add(`WebServer LSP ${method} Id: ${request.id}`, {
         defer: true,
         fn: function (deferred: any) {
           const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(
-              () =>
-                reject(
-                  new Error(`Request timed out after ${requestTimeout}ms`),
-                ),
-              requestTimeout,
-            );
+            setTimeout(() => reject(new Error(`Request timed out after ${requestTimeout}ms`)), requestTimeout);
           });
 
           const req = serverContext.client.sendRequest(method, request.params);
@@ -110,15 +97,10 @@ describe.skip('WebServer LSP Performance Benchmarks', () => {
           console.log(String(benchmark));
         })
         .on('complete', function (this: any) {
-          console.log(
-            'Fastest webServer method is ' + this.filter('fastest').map('name'),
-          );
+          console.log('Fastest webServer method is ' + this.filter('fastest').map('name'));
 
           // Write results to disk
-          const outputPath = path.join(
-            __dirname,
-            '../webserver-benchmark-results.json',
-          );
+          const outputPath = path.join(__dirname, '../webserver-benchmark-results.json');
 
           fs.writeFileSync(outputPath, JSON.stringify(results, null, 2));
           resolve();

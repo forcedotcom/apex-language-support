@@ -13,12 +13,8 @@ import { ApexJsonRpcClient } from '../client/ApexJsonRpcClient';
 /**
  * Start interactive mode with a running client
  */
-export async function startInteractiveMode(
-  client: ApexJsonRpcClient,
-): Promise<void> {
-  console.log(
-    '\nInteractive mode. Type commands or "help" for assistance. Press Ctrl+C to exit.',
-  );
+export async function startInteractiveMode(client: ApexJsonRpcClient): Promise<void> {
+  console.log('\nInteractive mode. Type commands or "help" for assistance. Press Ctrl+C to exit.');
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -89,9 +85,7 @@ public class TestClass {
     }
 }`;
           client.updateTextDocument(testUri, updatedCode, documentVersion);
-          console.log(
-            `Updated document ${testUri} (version ${documentVersion})`,
-          );
+          console.log(`Updated document ${testUri} (version ${documentVersion})`);
         }
       } else if (cmd === 'close') {
         if (!documentOpened) {
@@ -131,17 +125,12 @@ public class TestClass {
         }
       } else if (cmd === 'capabilities') {
         const capabilities = client.getServerCapabilities();
-        console.log(
-          'Server capabilities:',
-          JSON.stringify(capabilities, null, 2),
-        );
+        console.log('Server capabilities:', JSON.stringify(capabilities, null, 2));
       } else if (cmd === 'exit' || cmd === 'quit') {
         rl.close();
         return;
       } else {
-        console.log(
-          `Unknown command: ${cmd}. Type 'help' for available commands.`,
-        );
+        console.log(`Unknown command: ${cmd}. Type 'help' for available commands.`);
       }
     } catch (error) {
       console.error('Error executing command:', error);

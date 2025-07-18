@@ -6,11 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  DocumentSymbolParams,
-  SymbolInformation,
-  DocumentSymbol,
-} from 'vscode-languageserver';
+import { DocumentSymbolParams, SymbolInformation, DocumentSymbol } from 'vscode-languageserver';
 import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { DefaultApexDocumentSymbolProvider } from '../documentSymbol/ApexDocumentSymbolProvider';
@@ -25,17 +21,13 @@ export interface IDocumentSymbolProcessor {
    * @param params The document symbol parameters
    * @returns Document symbols for the requested document
    */
-  processDocumentSymbol(
-    params: DocumentSymbolParams,
-  ): Promise<SymbolInformation[] | DocumentSymbol[] | null>;
+  processDocumentSymbol(params: DocumentSymbolParams): Promise<SymbolInformation[] | DocumentSymbol[] | null>;
 }
 
 /**
  * Service for processing document symbol requests
  */
-export class DocumentSymbolProcessingService
-  implements IDocumentSymbolProcessor
-{
+export class DocumentSymbolProcessingService implements IDocumentSymbolProcessor {
   constructor(private readonly logger: LoggerInterface) {}
 
   /**
@@ -46,10 +38,7 @@ export class DocumentSymbolProcessingService
   public async processDocumentSymbol(
     params: DocumentSymbolParams,
   ): Promise<SymbolInformation[] | DocumentSymbol[] | null> {
-    this.logger.debug(
-      () =>
-        `Common Apex Language Server document symbol handler invoked with: ${params}`,
-    );
+    this.logger.debug(() => `Common Apex Language Server document symbol handler invoked with: ${params}`);
 
     try {
       // Get the storage manager instance

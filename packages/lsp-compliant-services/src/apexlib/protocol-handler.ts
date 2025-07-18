@@ -8,11 +8,7 @@
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import {
-  TextDocumentContentProvider,
-  LanguageServerClient,
-  ApexLibConfig,
-} from './types';
+import { TextDocumentContentProvider, LanguageServerClient, ApexLibConfig } from './types';
 
 /**
  * Handles protocol operations for ApexLib
@@ -31,20 +27,14 @@ export class ApexLibProtocolHandler implements TextDocumentContentProvider {
   async provideTextDocumentContent(uri: string): Promise<string> {
     try {
       // Request content resolution from the language server
-      const result = await this.client.sendRequest<{ content: string }>(
-        `${this.config.customScheme}/resolve`,
-        { uri },
-      );
+      const result = await this.client.sendRequest<{ content: string }>(`${this.config.customScheme}/resolve`, { uri });
 
       // Notify the language server about the opened document
       this.notifyDocumentOpened(uri, result.content);
 
       return result.content;
     } catch (error) {
-      console.error(
-        `Failed to resolve ${this.config.customScheme} URI: ${uri}`,
-        error,
-      );
+      console.error(`Failed to resolve ${this.config.customScheme} URI: ${uri}`, error);
       throw error;
     }
   }
@@ -77,9 +67,6 @@ export class ApexLibProtocolHandler implements TextDocumentContentProvider {
  * @param config The configuration to use
  * @returns A new ApexLibProtocolHandler instance
  */
-export function createProtocolHandler(
-  client: LanguageServerClient,
-  config: ApexLibConfig,
-): ApexLibProtocolHandler {
+export function createProtocolHandler(client: LanguageServerClient, config: ApexLibConfig): ApexLibProtocolHandler {
   return new ApexLibProtocolHandler(client, config);
 }

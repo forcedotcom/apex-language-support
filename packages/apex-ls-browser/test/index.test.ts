@@ -23,19 +23,11 @@ import { ExtendedServerCapabilities } from '@salesforce/apex-lsp-compliant-servi
 type InitializeHandler = (params: InitializeParams) => InitializeResult;
 type VoidHandler = () => void;
 type OnDidOpenHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
-type OnDidChangeContentHandler = (
-  params: TextDocumentChangeEvent<TextDocument>,
-) => void;
-type OnDidCloseHandler = (
-  params: TextDocumentChangeEvent<TextDocument>,
-) => void;
+type OnDidChangeContentHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
+type OnDidCloseHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
 type OnDidSaveHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
-type OnDocumentSymbolHandler = (
-  params: DocumentSymbolParams,
-) => Promise<any[] | null>;
-type OnFoldingRangeHandler = (
-  params: FoldingRangeParams,
-) => Promise<FoldingRange[] | null>;
+type OnDocumentSymbolHandler = (params: DocumentSymbolParams) => Promise<any[] | null>;
+type OnFoldingRangeHandler = (params: FoldingRangeParams) => Promise<FoldingRange[] | null>;
 type OnRequestHandler = (params: DocumentSymbolParams) => Promise<any[]>;
 
 // Define mock handlers type
@@ -144,40 +136,32 @@ mockConnection.onExit.mockImplementation((handler: VoidHandler) => {
   return mockConnection;
 });
 
-mockConnection.onDocumentSymbol.mockImplementation(
-  (handler: OnDocumentSymbolHandler) => {
-    mockHandlers.onDocumentSymbol = handler;
-    return mockConnection;
-  },
-);
+mockConnection.onDocumentSymbol.mockImplementation((handler: OnDocumentSymbolHandler) => {
+  mockHandlers.onDocumentSymbol = handler;
+  return mockConnection;
+});
 
-mockConnection.onFoldingRanges.mockImplementation(
-  (handler: OnFoldingRangeHandler) => {
-    mockHandlers.onFoldingRange = handler;
-    return mockConnection;
-  },
-);
+mockConnection.onFoldingRanges.mockImplementation((handler: OnFoldingRangeHandler) => {
+  mockHandlers.onFoldingRange = handler;
+  return mockConnection;
+});
 
-mockConnection.onRequest.mockImplementation(
-  (method: string, handler: OnRequestHandler) => {
-    if (method === 'textDocument/diagnostic') {
-      mockHandlers.onRequest = handler;
-    }
-    return mockConnection;
-  },
-);
+mockConnection.onRequest.mockImplementation((method: string, handler: OnRequestHandler) => {
+  if (method === 'textDocument/diagnostic') {
+    mockHandlers.onRequest = handler;
+  }
+  return mockConnection;
+});
 
 mockDocuments.onDidOpen.mockImplementation((handler: OnDidOpenHandler) => {
   mockHandlers.onDidOpen = handler;
   return mockDocuments;
 });
 
-mockDocuments.onDidChangeContent.mockImplementation(
-  (handler: OnDidChangeContentHandler) => {
-    mockHandlers.onDidChangeContent = handler;
-    return mockDocuments;
-  },
-);
+mockDocuments.onDidChangeContent.mockImplementation((handler: OnDidChangeContentHandler) => {
+  mockHandlers.onDidChangeContent = handler;
+  return mockDocuments;
+});
 
 mockDocuments.onDidClose.mockImplementation((handler: OnDidCloseHandler) => {
   mockHandlers.onDidClose = handler;
@@ -442,9 +426,7 @@ describe('Apex Language Server Browser', () => {
 
     // Verify capabilities
     expect(result).toHaveProperty('capabilities');
-    expect(
-      (result.capabilities as ExtendedServerCapabilities).publishDiagnostics,
-    ).toBe(true);
+    expect((result.capabilities as ExtendedServerCapabilities).publishDiagnostics).toBe(true);
     expect(result.capabilities).toHaveProperty('textDocumentSync');
     expect(result.capabilities.textDocumentSync).toEqual({
       openClose: true,
@@ -458,21 +440,15 @@ describe('Apex Language Server Browser', () => {
     expect(result.capabilities).toHaveProperty('diagnosticProvider');
 
     // Verify logging
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      'Apex Language Server initializing...',
-    );
+    expect(mockLogger.info).toHaveBeenCalledWith('Apex Language Server initializing...');
 
     // Verify that the server capabilities are correctly set
     const initResult = mockHandlers.initialize!({} as InitializeParams);
-    expect(
-      (initResult.capabilities as ExtendedServerCapabilities)
-        .publishDiagnostics,
-    ).toBe(true);
+    expect((initResult.capabilities as ExtendedServerCapabilities).publishDiagnostics).toBe(true);
     expect(initResult.capabilities.documentSymbolProvider).toBe(true);
     expect(initResult.capabilities.foldingRangeProvider).toBe(true);
     expect(initResult.capabilities.textDocumentSync).toBeDefined();
-    const syncOptions = initResult.capabilities
-      .textDocumentSync as TextDocumentSyncOptions;
+    const syncOptions = initResult.capabilities.textDocumentSync as TextDocumentSyncOptions;
     expect(syncOptions.openClose).toBe(true);
   });
 
@@ -485,16 +461,11 @@ describe('Apex Language Server Browser', () => {
     initializedHandler();
 
     // Verify logging and notification
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      'Apex Language Server initialized',
-    );
-    expect(mockConnection.sendNotification).toHaveBeenCalledWith(
-      'initialized',
-      {
-        type: MessageType.Info,
-        message: 'Apex Language Server is now running in the browser',
-      },
-    );
+    expect(mockLogger.info).toHaveBeenCalledWith('Apex Language Server initialized');
+    expect(mockConnection.sendNotification).toHaveBeenCalledWith('initialized', {
+      type: MessageType.Info,
+      message: 'Apex Language Server is now running in the browser',
+    });
   });
 
   it('should handle shutdown request', () => {
@@ -506,12 +477,8 @@ describe('Apex Language Server Browser', () => {
     shutdownHandler();
 
     // Verify shutdown logging
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      'Apex Language Server shutting down...',
-    );
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      'Apex Language Server shutdown complete',
-    );
+    expect(mockLogger.info).toHaveBeenCalledWith('Apex Language Server shutting down...');
+    expect(mockLogger.info).toHaveBeenCalledWith('Apex Language Server shutdown complete');
   });
 
   it('should warn when exiting without shutdown', () => {
@@ -523,9 +490,7 @@ describe('Apex Language Server Browser', () => {
     exitHandler();
 
     // Should warn about improper shutdown
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      'Apex Language Server exiting without proper shutdown',
-    );
+    expect(mockLogger.warn).toHaveBeenCalledWith('Apex Language Server exiting without proper shutdown');
   });
 
   it('should not warn when exiting after shutdown', () => {
@@ -629,8 +594,7 @@ describe('Apex Language Server Browser', () => {
       };
 
       // Call the onDidChangeTextDocument handler
-      const onDidChangeContentHandler =
-        mockHandlers.onDidChangeContent as OnDidChangeContentHandler;
+      const onDidChangeContentHandler = mockHandlers.onDidChangeContent as OnDidChangeContentHandler;
       onDidChangeContentHandler(event);
 
       // Verify logging
@@ -667,13 +631,10 @@ describe('Apex Language Server Browser', () => {
       ];
 
       // Mock the dispatch function to return diagnostics
-      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(
-        mockDiagnostics,
-      );
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(mockDiagnostics);
 
       // Call the onDidChangeContent handler
-      const onDidChangeContentHandler =
-        mockHandlers.onDidChangeContent as OnDidChangeContentHandler;
+      const onDidChangeContentHandler = mockHandlers.onDidChangeContent as OnDidChangeContentHandler;
       await onDidChangeContentHandler(event);
 
       // Verify diagnostics were sent
@@ -727,9 +688,7 @@ describe('Apex Language Server Browser', () => {
       onDidSaveHandler(event);
 
       // Verify logging
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        `Web Apex Language Server saved document: ${JSON.stringify(event)}`,
-      );
+      expect(mockLogger.info).toHaveBeenCalledWith(`Web Apex Language Server saved document: ${JSON.stringify(event)}`);
 
       // Verify document processing
       expect(mockDispatchProcessOnSaveDocument).toHaveBeenCalledWith(event);
@@ -784,8 +743,7 @@ describe('Apex Language Server Browser', () => {
         },
       };
 
-      const onDidChangeContentHandler =
-        mockHandlers.onDidChangeContent as OnDidChangeContentHandler;
+      const onDidChangeContentHandler = mockHandlers.onDidChangeContent as OnDidChangeContentHandler;
       await onDidChangeContentHandler(event);
 
       // Allow promises to resolve
@@ -843,12 +801,9 @@ describe('Apex Language Server Browser', () => {
           severity: 1,
         },
       ];
-      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(
-        mockDiagnosticsWithErrors,
-      );
+      mockDispatchProcessOnChangeDocument.mockResolvedValueOnce(mockDiagnosticsWithErrors);
 
-      const onDidChangeContentHandler =
-        mockHandlers.onDidChangeContent as OnDidChangeContentHandler;
+      const onDidChangeContentHandler = mockHandlers.onDidChangeContent as OnDidChangeContentHandler;
       await onDidChangeContentHandler(event);
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -907,10 +862,7 @@ describe('Apex Language Server Browser', () => {
       textDocument: { uri: 'file:///test.cls' },
     } as FoldingRangeParams;
     await mockHandlers.onFoldingRange!(params);
-    expect(mockDispatchProcessOnFoldingRange).toHaveBeenCalledWith(
-      params,
-      undefined,
-    );
+    expect(mockDispatchProcessOnFoldingRange).toHaveBeenCalledWith(params, undefined);
   });
 
   it('should send diagnostics on document open', async () => {
@@ -921,8 +873,7 @@ describe('Apex Language Server Browser', () => {
     expect(initResult.capabilities.documentSymbolProvider).toBe(true);
     expect(initResult.capabilities.foldingRangeProvider).toBe(true);
     expect(initResult.capabilities.textDocumentSync).toBeDefined();
-    const syncOptions = initResult.capabilities
-      .textDocumentSync as TextDocumentSyncOptions;
+    const syncOptions = initResult.capabilities.textDocumentSync as TextDocumentSyncOptions;
     expect(syncOptions.openClose).toBe(true);
   });
 

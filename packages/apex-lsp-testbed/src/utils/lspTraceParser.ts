@@ -28,16 +28,13 @@ export interface LSPMessage {
 export class LSPTraceParser {
   private static readonly MESSAGE_PATTERNS = {
     // Matches "[Trace - HH:MM:SS AM/PM] Sending request 'method - (id)'"
-    REQUEST:
-      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] Sending request '([^']+) - \((\d+)\)'/,
+    REQUEST: /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] Sending request '([^']+) - \((\d+)\)'/,
 
     // Matches "[Trace - HH:MM:SS AM/PM] Received response 'method - (id)' in Xms"
-    RESPONSE:
-      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] Received response '([^']+) - \((\d+)\)' in (\d+)ms/,
+    RESPONSE: /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] Received response '([^']+) - \((\d+)\)' in (\d+)ms/,
 
     // Matches "[Trace - HH:MM:SS AM/PM] (Sending|Received) notification 'method'"
-    NOTIFICATION:
-      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] (Sending|Received) notification '([^']+)'/,
+    NOTIFICATION: /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] (Sending|Received) notification '([^']+)'/,
 
     // Matches log lines with memory information
     MEMORY: /Total Memory \(MB\): (\d+).*Used Memory \(MB\): (\d+)/,
@@ -104,9 +101,7 @@ export class LSPTraceParser {
     // Check for new message patterns
     const requestMatch = line.match(LSPTraceParser.MESSAGE_PATTERNS.REQUEST);
     const responseMatch = line.match(LSPTraceParser.MESSAGE_PATTERNS.RESPONSE);
-    const notificationMatch = line.match(
-      LSPTraceParser.MESSAGE_PATTERNS.NOTIFICATION,
-    );
+    const notificationMatch = line.match(LSPTraceParser.MESSAGE_PATTERNS.NOTIFICATION);
 
     if (requestMatch) {
       this.handleRequest(requestMatch);
@@ -177,9 +172,7 @@ export class LSPTraceParser {
   private handleNotification(match: RegExpMatchArray) {
     const [, , direction, method] = match;
     const serialId = this.nextSerialId++;
-    const normalizedDirection = direction
-      .toLowerCase()
-      .replace(/ing$|d$/, '') as 'send' | 'receive';
+    const normalizedDirection = direction.toLowerCase().replace(/ing$|d$/, '') as 'send' | 'receive';
     const notification: LSPMessage = {
       type: 'notification',
       method,

@@ -18,14 +18,8 @@ describe.skip('Standard Apex Library Generation', () => {
   logger.setLogLevel('debug');
 
   it('should generate the Standard Apex Library', async () => {
-    const sourceDir = path.join(
-      __dirname,
-      '../../src/resources/StandardApexLibrary',
-    );
-    const outputDir = path.join(
-      __dirname,
-      '../../out/resources/StandardApexLibrary',
-    );
+    const sourceDir = path.join(__dirname, '../../src/resources/StandardApexLibrary');
+    const outputDir = path.join(__dirname, '../../out/resources/StandardApexLibrary');
 
     logger.info('Generating Standard Apex Library...');
     logger.info(`Source directory: ${sourceDir}`);
@@ -51,12 +45,8 @@ describe.skip('Standard Apex Library Generation', () => {
 
     // Verify the results
     if (summary.failed !== 0) {
-      const errorDetails = summary.errors
-        .map((err: any) => `File: ${err.file}\nError: ${err.error}`)
-        .join('\n\n');
-      throw new Error(
-        `Expected no failures but got ${summary.failed} errors:\n\n${errorDetails}`,
-      );
+      const errorDetails = summary.errors.map((err: any) => `File: ${err.file}\nError: ${err.error}`).join('\n\n');
+      throw new Error(`Expected no failures but got ${summary.failed} errors:\n\n${errorDetails}`);
     }
 
     if (summary.successful === 0) {

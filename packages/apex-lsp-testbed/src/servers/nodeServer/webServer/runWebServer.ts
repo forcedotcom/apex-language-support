@@ -30,9 +30,7 @@ function findWebServerPath(): string {
 
   // Check if this is the correct package.json
   try {
-    const packageJson = JSON.parse(
-      fs.readFileSync(path.join(currentDir, 'package.json'), 'utf8'),
-    );
+    const packageJson = JSON.parse(fs.readFileSync(path.join(currentDir, 'package.json'), 'utf8'));
     if (packageJson.name !== '@salesforce/apex-language-server') {
       console.error('Not in the apex-language-support repository');
       process.exit(1);
@@ -43,20 +41,11 @@ function findWebServerPath(): string {
   }
 
   // Find apex-ls-browser package
-  const webServerPath = path.join(
-    currentDir,
-    'packages',
-    'apex-ls-browser',
-    'out',
-    'src',
-    'index.js',
-  );
+  const webServerPath = path.join(currentDir, 'packages', 'apex-ls-browser', 'out', 'src', 'index.js');
 
   if (!fs.existsSync(webServerPath)) {
     console.error(`Web server module not found at: ${webServerPath}`);
-    console.error(
-      'Make sure to build the apex-ls-browser package first with: npm run build',
-    );
+    console.error('Make sure to build the apex-ls-browser package first with: npm run build');
     process.exit(1);
   }
 

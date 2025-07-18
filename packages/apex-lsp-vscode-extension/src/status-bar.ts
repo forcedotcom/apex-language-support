@@ -40,10 +40,7 @@ export const createApexLanguageStatusActions = (
       language: 'apex',
       scheme: 'file',
     }),
-    warning: vscode.languages.createLanguageStatusItem(
-      'ApexLSPLogLevelWarning',
-      { language: 'apex', scheme: 'file' },
-    ),
+    warning: vscode.languages.createLanguageStatusItem('ApexLSPLogLevelWarning', { language: 'apex', scheme: 'file' }),
     info: vscode.languages.createLanguageStatusItem('ApexLSPLogLevelInfo', {
       language: 'apex',
       scheme: 'file',
@@ -96,10 +93,7 @@ export const registerApexLanguageStatusMenu = (
   setLogLevel: (level: string) => Promise<void>,
   restartHandler: () => Promise<void>,
 ): void => {
-  const langStatusItem = vscode.languages.createLanguageStatusItem(
-    'apex.actions',
-    'apex',
-  );
+  const langStatusItem = vscode.languages.createLanguageStatusItem('apex.actions', 'apex');
   langStatusItem.name = 'Apex';
   langStatusItem.text = 'Apex';
   langStatusItem.detail = 'Apex Language Actions';
@@ -110,54 +104,45 @@ export const registerApexLanguageStatusMenu = (
   context.subscriptions.push(langStatusItem);
 
   // Register the menu command
-  const menuCommand = vscode.commands.registerCommand(
-    'apex.languageStatusMenu',
-    async () => {
-      const currentLogLevel = getCurrentLogLevel();
-      const logLevels = ['error', 'warning', 'info', 'debug'];
-      const quickPickItems: vscode.QuickPickItem[] = [
-        ...logLevels.map((level) => ({
-          label: `Log Level: ${level.charAt(0).toUpperCase() + level.slice(1)}`,
-          picked: currentLogLevel === level,
-          description: currentLogLevel === level ? 'Current' : undefined,
-        })),
-        { label: 'Restart Apex Language Server', alwaysShow: true },
-      ];
-      const pick = await vscode.window.showQuickPick(quickPickItems, {
-        placeHolder: 'Select an action',
-      });
-      if (!pick) return;
-      if (pick.label.startsWith('Log Level:')) {
-        const selectedLevel = pick.label
-          .split(':')[1]
-          .replace('$(check)', '')
-          .trim()
-          .toLowerCase();
-        await setLogLevel(selectedLevel);
-      } else if (pick.label === 'Restart Apex Language Server') {
-        await restartHandler();
-      }
-    },
-  );
+  const menuCommand = vscode.commands.registerCommand('apex.languageStatusMenu', async () => {
+    const currentLogLevel = getCurrentLogLevel();
+    const logLevels = ['error', 'warning', 'info', 'debug'];
+    const quickPickItems: vscode.QuickPickItem[] = [
+      ...logLevels.map((level) => ({
+        label: `Log Level: ${level.charAt(0).toUpperCase() + level.slice(1)}`,
+        picked: currentLogLevel === level,
+        description: currentLogLevel === level ? 'Current' : undefined,
+      })),
+      { label: 'Restart Apex Language Server', alwaysShow: true },
+    ];
+    const pick = await vscode.window.showQuickPick(quickPickItems, {
+      placeHolder: 'Select an action',
+    });
+    if (!pick) return;
+    if (pick.label.startsWith('Log Level:')) {
+      const selectedLevel = pick.label.split(':')[1].replace('$(check)', '').trim().toLowerCase();
+      await setLogLevel(selectedLevel);
+    } else if (pick.label === 'Restart Apex Language Server') {
+      await restartHandler();
+    }
+  });
   context.subscriptions.push(menuCommand);
 };
 
 /**
  * Creates the persistent LanguageStatusItem for Apex server status
  */
-export const createApexServerStatusItem = (
-  context: vscode.ExtensionContext,
-) => {
-  apexServerStatusItem = vscode.languages.createLanguageStatusItem(
-    'apex.serverStatus',
-    { language: 'apex', scheme: 'file' },
-  );
-  apexServerStatusItem.name = 'Apex Language Server Status';
-  apexServerStatusItem.text = '$(sync~spin) Starting Apex Server';
-  apexServerStatusItem.detail = 'Apex Language Server is starting';
+export const createApexServerStatusItem = (context: vscode.ExtensionContext) => {
+  apexServerStatusItem = vscode.languages.createLanguageStatusItem('apex.serverStatus', {
+    language: 'apex',
+    scheme: 'file',
+  });
+  apexServerStatusItem.name = 'Apex-LS-TS Language Server Status';
+  apexServerStatusItem.text = '$(sync~spin) Starting Apex-LS-TS Server';
+  apexServerStatusItem.detail = 'Apex-LS-TS Language Server is starting';
   apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Information;
   apexServerStatusItem.command = {
-    title: 'Restart Apex Language Server',
+    title: 'Restart Apex-LS-TS Language Server',
     command: 'apex.restart.server',
   };
   apexServerStatusItem.busy = true;
@@ -166,8 +151,8 @@ export const createApexServerStatusItem = (
 
 export const updateApexServerStatusStarting = () => {
   if (apexServerStatusItem) {
-    apexServerStatusItem.text = '$(sync~spin) Starting Apex Server';
-    apexServerStatusItem.detail = 'Apex Language Server is starting';
+    apexServerStatusItem.text = '$(sync~spin) Starting Apex-LS-TS Server';
+    apexServerStatusItem.detail = 'Apex-LS-TS Language Server is starting';
     apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Information;
     apexServerStatusItem.busy = true;
   }
@@ -175,8 +160,8 @@ export const updateApexServerStatusStarting = () => {
 
 export const updateApexServerStatusReady = () => {
   if (apexServerStatusItem) {
-    apexServerStatusItem.text = '$(check) Apex Server Ready';
-    apexServerStatusItem.detail = 'Apex Language Server is running';
+    apexServerStatusItem.text = '$(check) Apex-LS-TS Server Ready';
+    apexServerStatusItem.detail = 'Apex-LS-TS Language Server is running';
     apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Information;
     apexServerStatusItem.busy = false;
   }
@@ -184,8 +169,8 @@ export const updateApexServerStatusReady = () => {
 
 export const updateApexServerStatusStopped = () => {
   if (apexServerStatusItem) {
-    apexServerStatusItem.text = '$(error) Apex Server Stopped';
-    apexServerStatusItem.detail = 'Apex Language Server has stopped';
+    apexServerStatusItem.text = '$(error) Apex-LS-TS Server Stopped';
+    apexServerStatusItem.detail = 'Apex-LS-TS Language Server has stopped';
     apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Error;
     apexServerStatusItem.busy = false;
   }
@@ -193,8 +178,8 @@ export const updateApexServerStatusStopped = () => {
 
 export const updateApexServerStatusError = () => {
   if (apexServerStatusItem) {
-    apexServerStatusItem.text = '$(error) Apex Server Error';
-    apexServerStatusItem.detail = 'Apex Language Server encountered an error';
+    apexServerStatusItem.text = '$(error) Apex-LS-TS Server Error';
+    apexServerStatusItem.detail = 'Apex-LS-TS Language Server encountered an error';
     apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Error;
     apexServerStatusItem.busy = false;
   }

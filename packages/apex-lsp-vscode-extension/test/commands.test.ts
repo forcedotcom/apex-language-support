@@ -49,9 +49,7 @@ describe('Commands Module', () => {
     } as unknown as vscode.Disposable);
 
     // Mock vscode.window.showInformationMessage
-    jest
-      .spyOn(vscode.window, 'showInformationMessage')
-      .mockResolvedValue(undefined);
+    jest.spyOn(vscode.window, 'showInformationMessage').mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -103,12 +101,10 @@ describe('Commands Module', () => {
       registerRestartCommand(mockContext);
 
       // Get the registered command function
-      const registeredCommand = (vscode.commands.registerCommand as jest.Mock)
-        .mock.calls[0][1];
+      const registeredCommand = (vscode.commands.registerCommand as jest.Mock).mock.calls[0][1];
 
       // Mock Date.now to return a time that's outside the cooldown period
-      const mockTime =
-        Date.now() + EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS + 1000;
+      const mockTime = Date.now() + EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS + 1000;
       jest.spyOn(Date, 'now').mockReturnValue(mockTime);
 
       // Execute the command
@@ -121,8 +117,7 @@ describe('Commands Module', () => {
       setStartingFlag(true);
       registerRestartCommand(mockContext);
 
-      const registeredCommand = (vscode.commands.registerCommand as jest.Mock)
-        .mock.calls[0][1];
+      const registeredCommand = (vscode.commands.registerCommand as jest.Mock).mock.calls[0][1];
 
       await registeredCommand();
 
@@ -134,8 +129,7 @@ describe('Commands Module', () => {
       setLastRestartTime(Date.now());
       registerRestartCommand(mockContext);
 
-      const registeredCommand = (vscode.commands.registerCommand as jest.Mock)
-        .mock.calls[0][1];
+      const registeredCommand = (vscode.commands.registerCommand as jest.Mock).mock.calls[0][1];
 
       await registeredCommand();
 
@@ -150,12 +144,10 @@ describe('Commands Module', () => {
 
       registerRestartCommand(mockContext);
 
-      const registeredCommand = (vscode.commands.registerCommand as jest.Mock)
-        .mock.calls[0][1];
+      const registeredCommand = (vscode.commands.registerCommand as jest.Mock).mock.calls[0][1];
 
       // Mock Date.now to return a time that's outside the cooldown period
-      const mockTime =
-        Date.now() + EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS + 1000;
+      const mockTime = Date.now() + EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS + 1000;
       jest.spyOn(Date, 'now').mockReturnValue(mockTime);
 
       await registeredCommand();

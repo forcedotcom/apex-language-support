@@ -20,12 +20,8 @@ let extensionOutputChannel: vscode.OutputChannel;
  * Initializes the logging system
  * @param context The extension context
  */
-export const initializeExtensionLogging = (
-  context: vscode.ExtensionContext,
-): void => {
-  extensionOutputChannel = vscode.window.createOutputChannel(
-    EXTENSION_CONSTANTS.EXTENSION_OUTPUT_CHANNEL_NAME,
-  );
+export const initializeExtensionLogging = (context: vscode.ExtensionContext): void => {
+  extensionOutputChannel = vscode.window.createOutputChannel(EXTENSION_CONSTANTS.EXTENSION_OUTPUT_CHANNEL_NAME);
   context.subscriptions.push(extensionOutputChannel);
 
   // Set initial log level from workspace settings
@@ -39,10 +35,7 @@ export const initializeExtensionLogging = (
  * @param message The message to log
  * @param messageType The type of log message
  */
-export const logToOutputChannel = (
-  message: string,
-  messageType: LogMessageType = 'info',
-): void => {
+export const logToOutputChannel = (message: string, messageType: LogMessageType = 'info'): void => {
   if (!shouldLog(messageType)) return;
 
   const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
@@ -64,5 +57,4 @@ export const updateLogLevel = (logLevel: string): void => {
  * Gets the extension output channel instance
  * @returns The extension output channel
  */
-export const getOutputChannel = (): vscode.OutputChannel =>
-  extensionOutputChannel;
+export const getOutputChannel = (): vscode.OutputChannel => extensionOutputChannel;

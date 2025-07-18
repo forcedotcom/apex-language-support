@@ -36,12 +36,7 @@ import {
   dispatchProcessOnResolve,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {
-  setLogNotificationHandler,
-  getLogger,
-  setLoggerFactory,
-  setLogLevel,
-} from '@salesforce/apex-lsp-logging';
+import { setLogNotificationHandler, getLogger, setLoggerFactory, setLogLevel } from '@salesforce/apex-lsp-logging';
 
 import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
 import { LSPLoggerFactory } from './utils/LSPLoggerFactory';
@@ -72,9 +67,7 @@ export function startServer() {
     const [reader, writer] = createServerSocketTransport(port);
     connection = createConnection(reader, writer);
   } else {
-    throw new Error(
-      'Connection type not specified. Use --stdio, --node-ipc, or --socket={number}',
-    );
+    throw new Error('Connection type not specified. Use --stdio, --node-ipc, or --socket={number}');
   }
 
   // Set up logging BEFORE anything else to ensure all loggers get proper configuration
@@ -103,9 +96,7 @@ export function startServer() {
     logger.info('Apex Language Server initializing...');
 
     // Extract and set log level from initialization options
-    const initOptions = params.initializationOptions as
-      | ApexServerInitializationOptions
-      | undefined;
+    const initOptions = params.initializationOptions as ApexServerInitializationOptions | undefined;
     const logLevel = initOptions?.logLevel || 'error';
 
     logger.info(`Setting log level to: ${logLevel}`);
@@ -120,35 +111,23 @@ export function startServer() {
 
     // Get capabilities based on environment and mode
     // Priority order: APEX_LS_MODE env var > extension mode in init options > NODE_ENV
-    const extensionMode = initOptions?.extensionMode as
-      | 'production'
-      | 'development'
-      | undefined;
+    const extensionMode = initOptions?.extensionMode as 'production' | 'development' | undefined;
 
     let mode: 'production' | 'development';
 
     // First check for APEX_LS_MODE environment variable
-    if (
-      process.env.APEX_LS_MODE === 'production' ||
-      process.env.APEX_LS_MODE === 'development'
-    ) {
+    if (process.env.APEX_LS_MODE === 'production' || process.env.APEX_LS_MODE === 'development') {
       mode = process.env.APEX_LS_MODE;
-      logger.info(
-        `Using server mode from APEX_LS_MODE environment variable: ${mode}`,
-      );
+      logger.info(`Using server mode from APEX_LS_MODE environment variable: ${mode}`);
     }
     // Then check for extension mode in initialization options
     else if (extensionMode) {
       mode = extensionMode;
-      logger.info(
-        `Using server mode from extension initialization options: ${mode}`,
-      );
+      logger.info(`Using server mode from extension initialization options: ${mode}`);
     }
     // Finally fall back to NODE_ENV
     else {
-      mode = (
-        process.env.NODE_ENV === 'development' ? 'development' : 'production'
-      ) as 'production' | 'development';
+      mode = (process.env.NODE_ENV === 'development' ? 'development' : 'production') as 'production' | 'development';
       logger.info(`Using server mode from NODE_ENV: ${mode}`);
     }
 
@@ -167,19 +146,13 @@ export function startServer() {
 
     // Register the apexlib/resolve request handler
     connection.onRequest('apexlib/resolve', async (params) => {
-      logger.debug(
-        `[SERVER] Received apexlib/resolve request for: ${params.uri}`,
-      );
+      logger.debug(`[SERVER] Received apexlib/resolve request for: ${params.uri}`);
       try {
         const result = await dispatchProcessOnResolve(params);
-        logger.debug(
-          `[SERVER] Successfully resolved content for: ${params.uri}`,
-        );
+        logger.debug(`[SERVER] Successfully resolved content for: ${params.uri}`);
         return result;
       } catch (error) {
-        logger.error(
-          `[SERVER] Error resolving content for ${params.uri}: ${error}`,
-        );
+        logger.error(`[SERVER] Error resolving content for ${params.uri}: ${error}`);
         throw error;
       }
     });
@@ -193,50 +166,35 @@ export function startServer() {
 
   // Handle document symbol requests
   connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-    logger.debug(
-      `[SERVER] Received documentSymbol request for: ${params.textDocument.uri}`,
-    );
+    logger.debug(`[SERVER] Received documentSymbol request for: ${params.textDocument.uri}`);
     logger.debug(`[SERVER] DocumentSymbolParams: ${JSON.stringify(params)}`);
 
     try {
       const result = await dispatchProcessOnDocumentSymbol(params);
-      logger.debug(
-        `[SERVER] Result for documentSymbol (${params.textDocument.uri}): ${JSON.stringify(result)}`,
-      );
+      logger.debug(`[SERVER] Result for documentSymbol (${params.textDocument.uri}): ${JSON.stringify(result)}`);
       return result;
     } catch (error) {
-      logger.error(
-        `[SERVER] Error processing documentSymbol for ${params.textDocument.uri}: ${error}`,
-      );
+      logger.error(`[SERVER] Error processing documentSymbol for ${params.textDocument.uri}: ${error}`);
       // Return null or an empty array in case of error, as per LSP spec for graceful failure
       return null;
     }
   });
 
   // Handle diagnostic requests
-  connection.onRequest(
-    'textDocument/diagnostic',
-    async (params: DocumentSymbolParams) => {
-      logger.debug(
-        `[SERVER] Received diagnostic request for: ${params.textDocument.uri}`,
-      );
-      logger.debug(`[SERVER] DiagnosticParams: ${JSON.stringify(params)}`);
+  connection.onRequest('textDocument/diagnostic', async (params: DocumentSymbolParams) => {
+    logger.debug(`[SERVER] Received diagnostic request for: ${params.textDocument.uri}`);
+    logger.debug(`[SERVER] DiagnosticParams: ${JSON.stringify(params)}`);
 
-      try {
-        const result = await dispatchProcessOnDiagnostic(params);
-        logger.debug(
-          `[SERVER] Result for diagnostic (${params.textDocument.uri}): ${JSON.stringify(result)}`,
-        );
-        return result;
-      } catch (error) {
-        logger.error(
-          `[SERVER] Error processing diagnostic for ${params.textDocument.uri}: ${error}`,
-        );
-        // Return empty array in case of error, as per LSP spec for graceful failure
-        return [];
-      }
-    },
-  );
+    try {
+      const result = await dispatchProcessOnDiagnostic(params);
+      logger.debug(`[SERVER] Result for diagnostic (${params.textDocument.uri}): ${JSON.stringify(result)}`);
+      return result;
+    } catch (error) {
+      logger.error(`[SERVER] Error processing diagnostic for ${params.textDocument.uri}: ${error}`);
+      // Return empty array in case of error, as per LSP spec for graceful failure
+      return [];
+    }
+  });
 
   // Handle workspace diagnostic requests (no-op for now)
   connection.onRequest('workspace/diagnostic', async (params) => {
@@ -248,33 +206,19 @@ export function startServer() {
   // through its enhanced registration system in registerForConfigurationChanges()
 
   // Add a handler for folding ranges
-  connection.onFoldingRanges(
-    async (params: FoldingRangeParams): Promise<FoldingRange[] | null> => {
-      logger.debug(
-        () =>
-          `[SERVER] Received foldingRange request for: ${params.textDocument.uri}`,
-      );
+  connection.onFoldingRanges(async (params: FoldingRangeParams): Promise<FoldingRange[] | null> => {
+    logger.debug(() => `[SERVER] Received foldingRange request for: ${params.textDocument.uri}`);
 
-      try {
-        const result = await dispatchProcessOnFoldingRange(
-          params,
-          storageManager.getStorage(),
-        );
-        logger.debug(
-          () =>
-            `[SERVER] Result for foldingRanges (${params.textDocument.uri}): ${JSON.stringify(result)}`,
-        );
-        return result;
-      } catch (error) {
-        logger.error(
-          () =>
-            `[SERVER] Error processing foldingRanges for ${params.textDocument.uri}: ${error}`,
-        );
-        // Return null or an empty array in case of error, as per LSP spec for graceful failure
-        return null;
-      }
-    },
-  );
+    try {
+      const result = await dispatchProcessOnFoldingRange(params, storageManager.getStorage());
+      logger.debug(() => `[SERVER] Result for foldingRanges (${params.textDocument.uri}): ${JSON.stringify(result)}`);
+      return result;
+    } catch (error) {
+      logger.error(() => `[SERVER] Error processing foldingRanges for ${params.textDocument.uri}: ${error}`);
+      // Return null or an empty array in case of error, as per LSP spec for graceful failure
+      return null;
+    }
+  });
 
   // Handle completion requests
   connection.onCompletion((_textDocumentPosition: any) => [
@@ -314,18 +258,12 @@ export function startServer() {
   });
 
   // Helper function to handle diagnostics
-  const handleDiagnostics = (
-    uri: string,
-    diagnostics: Diagnostic[] | undefined,
-  ) => {
+  const handleDiagnostics = (uri: string, diagnostics: Diagnostic[] | undefined) => {
     // Check if publishDiagnostics is enabled in capabilities
     const capabilities = configurationManager.getExtendedServerCapabilities();
     if (!capabilities.publishDiagnostics) {
       // Don't send diagnostics if publishDiagnostics is disabled
-      logger.debug(
-        () =>
-          `Publish diagnostics disabled, skipping diagnostic send for: ${uri}`,
-      );
+      logger.debug(() => `Publish diagnostics disabled, skipping diagnostic send for: ${uri}`);
       return;
     }
 
@@ -341,35 +279,23 @@ export function startServer() {
   documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
     // Client opened a document
     // Server will parse the document and populate the corresponding local maps
-    logger.debug(
-      `Extension Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
-    );
+    logger.debug(`Extension Apex Language Server opened and processed document: ${JSON.stringify(event)}`);
 
-    dispatchProcessOnOpenDocument(event).then((diagnostics) =>
-      handleDiagnostics(event.document.uri, diagnostics),
-    );
+    dispatchProcessOnOpenDocument(event).then((diagnostics) => handleDiagnostics(event.document.uri, diagnostics));
   });
 
-  documents.onDidChangeContent(
-    (event: TextDocumentChangeEvent<TextDocument>) => {
-      // Client changed a open document
-      // Server will parse the document and populate the corresponding local maps
-      logger.debug(
-        `Extension Apex Language Server changed and processed document: ${JSON.stringify(event)}`,
-      );
+  documents.onDidChangeContent((event: TextDocumentChangeEvent<TextDocument>) => {
+    // Client changed a open document
+    // Server will parse the document and populate the corresponding local maps
+    logger.debug(`Extension Apex Language Server changed and processed document: ${JSON.stringify(event)}`);
 
-      dispatchProcessOnChangeDocument(event).then((diagnostics) =>
-        handleDiagnostics(event.document.uri, diagnostics),
-      );
-    },
-  );
+    dispatchProcessOnChangeDocument(event).then((diagnostics) => handleDiagnostics(event.document.uri, diagnostics));
+  });
 
   documents.onDidClose((event: TextDocumentChangeEvent<TextDocument>) => {
     // Client closed a open document
     // Server will update the corresponding local maps
-    logger.debug(
-      `Extension Apex Language Server closed document: ${JSON.stringify(event)}`,
-    );
+    logger.debug(`Extension Apex Language Server closed document: ${JSON.stringify(event)}`);
 
     dispatchProcessOnCloseDocument(event);
 
@@ -380,9 +306,7 @@ export function startServer() {
   documents.onDidSave((event: TextDocumentChangeEvent<TextDocument>) => {
     // Client saved a document
     // Server will parse the document and update storage as needed
-    logger.debug(
-      `Extension Apex Language Server saved document: ${JSON.stringify(event)}`,
-    );
+    logger.debug(`Extension Apex Language Server saved document: ${JSON.stringify(event)}`);
 
     dispatchProcessOnSaveDocument(event);
   });

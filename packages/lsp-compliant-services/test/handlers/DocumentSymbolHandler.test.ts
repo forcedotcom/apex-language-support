@@ -33,10 +33,7 @@ describe('DocumentSymbolHandler', () => {
     };
 
     // Create handler with mocked dependencies
-    handler = new DocumentSymbolHandler(
-      mockLogger,
-      mockDocumentSymbolProcessor,
-    );
+    handler = new DocumentSymbolHandler(mockLogger, mockDocumentSymbolProcessor);
   });
 
   afterEach(() => {
@@ -64,9 +61,7 @@ describe('DocumentSymbolHandler', () => {
         },
       ];
 
-      mockDocumentSymbolProcessor.processDocumentSymbol.mockResolvedValue(
-        mockSymbols,
-      );
+      mockDocumentSymbolProcessor.processDocumentSymbol.mockResolvedValue(mockSymbols);
 
       // Act
       const result = await handler.handleDocumentSymbol(mockParams);
@@ -75,12 +70,8 @@ describe('DocumentSymbolHandler', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
       // Verify the debug message function was called with correct content
       const debugCall = mockLogger.debug.mock.calls[0];
-      expect(debugCall[0]()).toBe(
-        'Processing document symbol request: file:///test.cls',
-      );
-      expect(
-        mockDocumentSymbolProcessor.processDocumentSymbol,
-      ).toHaveBeenCalledWith(mockParams);
+      expect(debugCall[0]()).toBe('Processing document symbol request: file:///test.cls');
+      expect(mockDocumentSymbolProcessor.processDocumentSymbol).toHaveBeenCalledWith(mockParams);
       expect(result).toEqual(mockSymbols);
     });
 
@@ -91,22 +82,16 @@ describe('DocumentSymbolHandler', () => {
       };
       const mockError = new Error('Document symbol processing failed');
 
-      mockDocumentSymbolProcessor.processDocumentSymbol.mockRejectedValue(
-        mockError,
-      );
+      mockDocumentSymbolProcessor.processDocumentSymbol.mockRejectedValue(mockError);
 
       // Act & Assert
-      await expect(handler.handleDocumentSymbol(mockParams)).rejects.toThrow(
-        'Document symbol processing failed',
-      );
+      await expect(handler.handleDocumentSymbol(mockParams)).rejects.toThrow('Document symbol processing failed');
 
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
       // Verify the error message function was called with correct content
       const errorLogCall = mockLogger.error.mock.calls[0];
       expect(typeof errorLogCall[0]).toBe('function');
-      expect(errorLogCall[0]()).toContain(
-        'Error processing document symbol request for file:///test.cls',
-      );
+      expect(errorLogCall[0]()).toContain('Error processing document symbol request for file:///test.cls');
       expect(errorLogCall[0]()).toContain('Document symbol processing failed');
     });
   });

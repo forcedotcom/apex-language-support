@@ -194,10 +194,7 @@ describe('AnnotationUtils', () => {
         ],
       };
 
-      const result = AnnotationUtils.getAnnotationParameter(
-        annotation,
-        'urlMapping',
-      );
+      const result = AnnotationUtils.getAnnotationParameter(annotation, 'urlMapping');
       expect(result).toBe('/api/records');
     });
 
@@ -216,18 +213,10 @@ describe('AnnotationUtils', () => {
         ],
       };
 
-      const firstResult = AnnotationUtils.getAnnotationParameter(
-        annotation,
-        undefined,
-        0,
-      );
+      const firstResult = AnnotationUtils.getAnnotationParameter(annotation, undefined, 0);
       expect(firstResult).toBe('first');
 
-      const secondResult = AnnotationUtils.getAnnotationParameter(
-        annotation,
-        undefined,
-        1,
-      );
+      const secondResult = AnnotationUtils.getAnnotationParameter(annotation, undefined, 1);
       expect(secondResult).toBe('second');
     });
 
@@ -244,10 +233,7 @@ describe('AnnotationUtils', () => {
         ],
       };
 
-      const result = AnnotationUtils.getAnnotationParameter(
-        annotation,
-        'nonExistentParam',
-      );
+      const result = AnnotationUtils.getAnnotationParameter(annotation, 'nonExistentParam');
       expect(result).toBeUndefined();
     });
   });

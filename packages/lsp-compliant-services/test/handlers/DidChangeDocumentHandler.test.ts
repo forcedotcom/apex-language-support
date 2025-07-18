@@ -7,11 +7,7 @@
  */
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {
-  TextDocumentChangeEvent,
-  Diagnostic,
-  DiagnosticSeverity,
-} from 'vscode-languageserver';
+import { TextDocumentChangeEvent, Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { LoggerInterface, getLogger } from '@salesforce/apex-lsp-logging';
 
 jest.mock('@salesforce/apex-lsp-logging', () => {
@@ -22,10 +18,7 @@ jest.mock('@salesforce/apex-lsp-logging', () => {
   };
 });
 
-import {
-  DidChangeDocumentHandler,
-  IDocumentProcessor,
-} from '../../src/handlers/DidChangeDocumentHandler';
+import { DidChangeDocumentHandler, IDocumentProcessor } from '../../src/handlers/DidChangeDocumentHandler';
 
 describe('DidChangeDocumentHandler', () => {
   let handler: DidChangeDocumentHandler;
@@ -60,12 +53,7 @@ describe('DidChangeDocumentHandler', () => {
   describe('handleDocumentChange', () => {
     it('should process document change event successfully', async () => {
       // Arrange
-      const mockDocument = TextDocument.create(
-        'file:///test.cls',
-        'apex',
-        1,
-        'public class TestClass {}',
-      );
+      const mockDocument = TextDocument.create('file:///test.cls', 'apex', 1, 'public class TestClass {}');
       const mockEvent: TextDocumentChangeEvent<typeof mockDocument> = {
         document: mockDocument,
       };
@@ -80,9 +68,7 @@ describe('DidChangeDocumentHandler', () => {
         },
       ];
 
-      mockDocumentProcessor.processDocumentChange.mockResolvedValue(
-        mockDiagnostics,
-      );
+      mockDocumentProcessor.processDocumentChange.mockResolvedValue(mockDiagnostics);
 
       // Act
       const result = await handler.handleDocumentChange(mockEvent);
@@ -91,23 +77,14 @@ describe('DidChangeDocumentHandler', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
       const debugCall = mockLogger.debug.mock.calls[0][0];
       expect(typeof debugCall).toBe('function');
-      expect(debugCall()).toContain(
-        'Processing document change: file:///test.cls',
-      );
-      expect(mockDocumentProcessor.processDocumentChange).toHaveBeenCalledWith(
-        mockEvent,
-      );
+      expect(debugCall()).toContain('Processing document change: file:///test.cls');
+      expect(mockDocumentProcessor.processDocumentChange).toHaveBeenCalledWith(mockEvent);
       expect(result).toEqual(mockDiagnostics);
     });
 
     it('should log error and rethrow when document processor fails', async () => {
       // Arrange
-      const mockDocument = TextDocument.create(
-        'file:///test.cls',
-        'apex',
-        1,
-        'public class TestClass {}',
-      );
+      const mockDocument = TextDocument.create('file:///test.cls', 'apex', 1, 'public class TestClass {}');
       const mockEvent: TextDocumentChangeEvent<typeof mockDocument> = {
         document: mockDocument,
       };
@@ -116,17 +93,13 @@ describe('DidChangeDocumentHandler', () => {
       mockDocumentProcessor.processDocumentChange.mockRejectedValue(mockError);
 
       // Act & Assert
-      await expect(handler.handleDocumentChange(mockEvent)).rejects.toThrow(
-        'Document processing failed',
-      );
+      await expect(handler.handleDocumentChange(mockEvent)).rejects.toThrow('Document processing failed');
 
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
       const errorCall = mockLogger.error.mock.calls[0][0];
       expect(typeof errorCall).toBe('function');
       const errorMsg = errorCall();
-      expect(errorMsg).toContain(
-        'Error processing document change for file:///test.cls',
-      );
+      expect(errorMsg).toContain('Error processing document change for file:///test.cls');
       expect(errorMsg).toContain('Document processing failed');
     });
   });

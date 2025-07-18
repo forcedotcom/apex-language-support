@@ -5,11 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import {
-  ApexSymbol,
-  SymbolVisibility,
-  SymbolKind,
-} from '@salesforce/apex-lsp-parser-ast';
+import { ApexSymbol, SymbolVisibility, SymbolKind } from '@salesforce/apex-lsp-parser-ast';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -57,10 +53,7 @@ describe('DefaultApexReferencesUpserter', () => {
       },
     ];
 
-    upserter = new DefaultApexReferencesUpserter(
-      mockStorage,
-      mockGlobalSymbols,
-    );
+    upserter = new DefaultApexReferencesUpserter(mockStorage, mockGlobalSymbols);
   });
 
   it('should populate references for new document', async () => {
@@ -159,10 +152,7 @@ describe('DefaultApexReferencesUpserter', () => {
       },
     ];
 
-    const upserter = new DefaultApexReferencesUpserter(
-      mockStorage,
-      mockGlobalSymbols,
-    );
+    const upserter = new DefaultApexReferencesUpserter(mockStorage, mockGlobalSymbols);
     // Act
     await upserter.upsertReferences(event);
 

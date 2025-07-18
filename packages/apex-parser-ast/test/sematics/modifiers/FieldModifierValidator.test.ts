@@ -10,12 +10,7 @@ import { ParserRuleContext } from 'antlr4ts';
 
 import { FieldModifierValidator } from '../../../src/semantics/modifiers/FieldModifierValidator';
 import { ErrorReporter } from '../../../src/utils/ErrorReporter';
-import {
-  SymbolKind,
-  SymbolModifiers,
-  SymbolVisibility,
-  TypeSymbol,
-} from '../../../src/types/symbol';
+import { SymbolKind, SymbolModifiers, SymbolVisibility, TypeSymbol } from '../../../src/types/symbol';
 
 // Mock implementation for ParserRuleContext
 class MockContext extends ParserRuleContext {}
@@ -24,17 +19,13 @@ class MockContext extends ParserRuleContext {}
 class MockErrorReporter implements ErrorReporter {
   public errors: Array<{
     message: string;
-    context:
-      | ParserRuleContext
-      | { line: number; column: number; endLine?: number; endColumn?: number };
+    context: ParserRuleContext | { line: number; column: number; endLine?: number; endColumn?: number };
   }> = [];
   public warnings: Array<{ message: string; context?: ParserRuleContext }> = [];
 
   addError(
     message: string,
-    context:
-      | ParserRuleContext
-      | { line: number; column: number; endLine?: number; endColumn?: number },
+    context: ParserRuleContext | { line: number; column: number; endLine?: number; endColumn?: number },
   ): void {
     this.errors.push({ message, context });
   }
@@ -45,9 +36,7 @@ class MockErrorReporter implements ErrorReporter {
 
   getErrors(): Array<{
     message: string;
-    context:
-      | ParserRuleContext
-      | { line: number; column: number; endLine?: number; endColumn?: number };
+    context: ParserRuleContext | { line: number; column: number; endLine?: number; endColumn?: number };
   }> {
     return this.errors;
   }
@@ -58,9 +47,7 @@ class MockErrorReporter implements ErrorReporter {
 }
 
 // Helper to create symbol modifiers
-function createSymbolModifiers(
-  options: Partial<SymbolModifiers> = {},
-): SymbolModifiers {
+function createSymbolModifiers(options: Partial<SymbolModifiers> = {}): SymbolModifiers {
   return {
     visibility: SymbolVisibility.Default,
     isStatic: false,
@@ -91,17 +78,10 @@ describe('FieldModifierValidator', () => {
       modifiers: createSymbolModifiers(),
     } as TypeSymbol;
 
-    FieldModifierValidator.validateFieldVisibilityModifiers(
-      modifiers,
-      ctx,
-      interfaceSymbol,
-      errorReporter,
-    );
+    FieldModifierValidator.validateFieldVisibilityModifiers(modifiers, ctx, interfaceSymbol, errorReporter);
 
     expect(errorReporter.errors.length).toBe(1);
-    expect(errorReporter.errors[0].message).toContain(
-      'Fields are not allowed in interfaces',
-    );
+    expect(errorReporter.errors[0].message).toContain('Fields are not allowed in interfaces');
   });
 
   test('should reject abstract fields in classes', () => {
@@ -112,17 +92,10 @@ describe('FieldModifierValidator', () => {
       modifiers: createSymbolModifiers(),
     } as TypeSymbol;
 
-    FieldModifierValidator.validateFieldVisibilityModifiers(
-      modifiers,
-      ctx,
-      classSymbol,
-      errorReporter,
-    );
+    FieldModifierValidator.validateFieldVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
 
     expect(errorReporter.errors.length).toBe(1);
-    expect(errorReporter.errors[0].message).toContain(
-      "Field cannot be declared as 'abstract'",
-    );
+    expect(errorReporter.errors[0].message).toContain("Field cannot be declared as 'abstract'");
     expect(modifiers.isAbstract).toBe(false); // Should fix the modifier
   });
 
@@ -146,9 +119,7 @@ describe('FieldModifierValidator', () => {
     );
 
     expect(errorReporter.errors.length).toBe(1);
-    expect(errorReporter.errors[0].message).toContain(
-      'Field cannot have wider visibility',
-    );
+    expect(errorReporter.errors[0].message).toContain('Field cannot have wider visibility');
     expect(publicFieldModifiers.visibility).toBe(SymbolVisibility.Private);
   });
 
@@ -163,17 +134,10 @@ describe('FieldModifierValidator', () => {
       visibility: SymbolVisibility.Public,
     });
 
-    FieldModifierValidator.validateFieldVisibilityModifiers(
-      modifiers,
-      ctx,
-      classSymbol,
-      errorReporter,
-    );
+    FieldModifierValidator.validateFieldVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
 
     expect(errorReporter.errors.length).toBe(1);
-    expect(errorReporter.errors[0].message).toContain(
-      "Field with 'webService' modifier must be declared as 'global'",
-    );
+    expect(errorReporter.errors[0].message).toContain("Field with 'webService' modifier must be declared as 'global'");
     expect(modifiers.visibility).toBe(SymbolVisibility.Global);
   });
 
@@ -188,20 +152,13 @@ describe('FieldModifierValidator', () => {
       visibility: SymbolVisibility.Global,
     });
 
-    FieldModifierValidator.validateFieldVisibilityModifiers(
-      modifiers,
-      ctx,
-      classSymbol,
-      errorReporter,
-    );
+    FieldModifierValidator.validateFieldVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
 
     // With the implementation, the actual expected count should be what's returned
     expect(errorReporter.errors.length).toBeGreaterThan(0);
     expect(
       errorReporter.errors.some((e) =>
-        e.message.includes(
-          "Field with 'webService' modifier must be in a global class",
-        ),
+        e.message.includes("Field with 'webService' modifier must be in a global class"),
       ),
     ).toBe(true);
   });
@@ -214,17 +171,10 @@ describe('FieldModifierValidator', () => {
 
     const modifiers = createSymbolModifiers({ isVirtual: true });
 
-    FieldModifierValidator.validateFieldVisibilityModifiers(
-      modifiers,
-      ctx,
-      classSymbol,
-      errorReporter,
-    );
+    FieldModifierValidator.validateFieldVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
 
     expect(errorReporter.errors.length).toBe(1);
-    expect(errorReporter.errors[0].message).toContain(
-      "Field cannot be declared as 'virtual'",
-    );
+    expect(errorReporter.errors[0].message).toContain("Field cannot be declared as 'virtual'");
     expect(modifiers.isVirtual).toBe(false);
   });
 
@@ -236,17 +186,10 @@ describe('FieldModifierValidator', () => {
 
     const modifiers = createSymbolModifiers({ isOverride: true });
 
-    FieldModifierValidator.validateFieldVisibilityModifiers(
-      modifiers,
-      ctx,
-      classSymbol,
-      errorReporter,
-    );
+    FieldModifierValidator.validateFieldVisibilityModifiers(modifiers, ctx, classSymbol, errorReporter);
 
     expect(errorReporter.errors.length).toBe(1);
-    expect(errorReporter.errors[0].message).toContain(
-      "Field cannot be declared as 'override'",
-    );
+    expect(errorReporter.errors[0].message).toContain("Field cannot be declared as 'override'");
     expect(modifiers.isOverride).toBe(false);
   });
 });

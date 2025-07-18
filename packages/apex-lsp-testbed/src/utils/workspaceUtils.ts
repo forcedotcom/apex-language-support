@@ -102,9 +102,7 @@ export async function cloneGitHubRepository(
       isTemporary: options?.isTemporary || true,
     };
   } catch (error) {
-    throw new Error(
-      `Failed to clone repository: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    throw new Error(`Failed to clone repository: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -134,10 +132,7 @@ export function registerWorkspaceCleanup(workspace: WorkspaceConfig): void {
       try {
         // Use recursive option only on Node versions that support it
         const nodeVersion = process.versions.node.split('.').map(Number);
-        if (
-          nodeVersion[0] >= 14 ||
-          (nodeVersion[0] === 12 && nodeVersion[1] >= 10)
-        ) {
+        if (nodeVersion[0] >= 14 || (nodeVersion[0] === 12 && nodeVersion[1] >= 10)) {
           fs.rmSync(workspace.rootPath, { recursive: true, force: true });
         } else {
           // Fallback for older Node versions

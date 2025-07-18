@@ -12,10 +12,7 @@ import { WorkspaceConfig } from '../utils/workspaceUtils';
 const fs = require('fs');
 const path = require('path');
 
-const {
-  ApexJsonRpcClient,
-  ConsoleLogger,
-} = require('../client/ApexJsonRpcClient');
+const { ApexJsonRpcClient, ConsoleLogger } = require('../client/ApexJsonRpcClient');
 const { createClientOptions } = require('../utils/serverUtils');
 const { prepareWorkspace } = require('../utils/workspaceUtils');
 
@@ -66,10 +63,7 @@ public class TestClass {
     }
 }`;
 
-  await fs.promises.writeFile(
-    path.join(workspacePath, 'TestClass.cls'),
-    sampleCode.trim(),
-  );
+  await fs.promises.writeFile(path.join(workspacePath, 'TestClass.cls'), sampleCode.trim());
 
   return {
     rootUri: `file://${workspacePath}`,
@@ -84,15 +78,11 @@ public class TestClass {
  * @param {ServerOptions} options
  * @returns {Promise<ServerTestContext>}
  */
-export async function createTestServer(
-  options: ServerOptions,
-): Promise<ServerTestContext> {
+export async function createTestServer(options: ServerOptions): Promise<ServerTestContext> {
   const logger = new ConsoleLogger(options.verbose ? 'VERBOSE' : 'ERROR');
 
   // Set up workspace if provided
-  const workspace = options.workspacePath
-    ? await prepareWorkspace(options.workspacePath)
-    : undefined;
+  const workspace = options.workspacePath ? await prepareWorkspace(options.workspacePath) : undefined;
 
   if (workspace) {
     logger.info(`Test workspace initialized at: ${workspace.rootPath}`);
@@ -118,10 +108,7 @@ export async function createTestServer(
       throw new Error('Server failed to initialize - no capabilities received');
     }
 
-    logger.info(
-      'Server initialized successfully with capabilities:',
-      capabilities,
-    );
+    logger.info('Server initialized successfully with capabilities:', capabilities);
 
     // Return context with cleanup function
     return {

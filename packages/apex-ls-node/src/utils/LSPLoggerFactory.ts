@@ -55,19 +55,13 @@ class LSPLogger implements LoggerInterface {
    * @param messageType The LSP message type.
    * @param messageOrProvider The message to log or a function that returns it.
    */
-  public log(
-    messageType: LogMessageType,
-    messageOrProvider: string | (() => string),
-  ): void {
+  public log(messageType: LogMessageType, messageOrProvider: string | (() => string)): void {
     // Check log level first
     if (!shouldLog(messageType)) {
       return;
     }
 
-    const rawMessage =
-      typeof messageOrProvider === 'function'
-        ? messageOrProvider()
-        : messageOrProvider;
+    const rawMessage = typeof messageOrProvider === 'function' ? messageOrProvider() : messageOrProvider;
 
     // Format the message with timestamp and message type prefix
     const timestamp = this.formatTimestamp();
@@ -87,8 +81,7 @@ class LSPLogger implements LoggerInterface {
     } else {
       const fallbackType = messageType.toString();
       console.warn(
-        '[LSPLogger] LogNotificationHandler not available or invalid. ' +
-          `Fallback log (${fallbackType}): ${message}`,
+        '[LSPLogger] LogNotificationHandler not available or invalid. ' + `Fallback log (${fallbackType}): ${message}`,
       );
     }
   }

@@ -7,11 +7,7 @@
  */
 
 import { Connection, MessageType } from 'vscode-languageserver/browser';
-import {
-  LogMessageParams,
-  LogNotificationHandler,
-  shouldLog,
-} from '@salesforce/apex-lsp-logging';
+import { LogMessageParams, LogNotificationHandler, shouldLog } from '@salesforce/apex-lsp-logging';
 import type { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 /**
@@ -31,12 +27,9 @@ export class BrowserLogNotificationHandler implements LogNotificationHandler {
    * @param connection The LSP connection to use for sending notifications
    * @returns The BrowserLogNotificationHandler instance
    */
-  public static getInstance(
-    connection: Connection,
-  ): BrowserLogNotificationHandler {
+  public static getInstance(connection: Connection): BrowserLogNotificationHandler {
     if (!BrowserLogNotificationHandler.instance) {
-      BrowserLogNotificationHandler.instance =
-        new BrowserLogNotificationHandler(connection);
+      BrowserLogNotificationHandler.instance = new BrowserLogNotificationHandler(connection);
     }
     return BrowserLogNotificationHandler.instance;
   }

@@ -102,21 +102,16 @@ if (require.main === module) {
   // Parse command line arguments
   const args = process.argv.slice(2);
   if (args.length < 3) {
-    console.error(
-      'Usage: node generateTestScript.js <input-file> <output-file> <script-name> [script-description]',
-    );
+    console.error('Usage: node generateTestScript.js <input-file> <output-file> <script-name> [script-description]');
     process.exit(1);
   }
 
   const [inputFile, outputFile, scriptName] = args;
-  const scriptDescription =
-    args[3] || `Generated test script for ${scriptName}`;
+  const scriptDescription = args[3] || `Generated test script for ${scriptName}`;
 
   try {
     // Read input file
-    const capturedRequests: RequestResponsePair[] = JSON.parse(
-      fs.readFileSync(inputFile, 'utf8'),
-    );
+    const capturedRequests: RequestResponsePair[] = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
 
     // Generate script
     generateTestScript({

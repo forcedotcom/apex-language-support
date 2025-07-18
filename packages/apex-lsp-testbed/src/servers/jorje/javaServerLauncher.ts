@@ -123,9 +123,7 @@ const getJavaHome = async (): Promise<string> => {
 
           javaHome = stdout.trim();
         } catch (e) {
-          throw new Error(
-            `Failed to locate Java on macOS: ${e instanceof Error ? e.message : String(e)}`,
-          );
+          throw new Error(`Failed to locate Java on macOS: ${e instanceof Error ? e.message : String(e)}`);
         }
       } else if (isWin) {
         // For Windows, try to find Java in Program Files
@@ -150,9 +148,7 @@ const getJavaHome = async (): Promise<string> => {
                 break;
               }
             } catch (e) {
-              console.warn(
-                `Error reading directory ${basePath}: ${e instanceof Error ? e.message : String(e)}`,
-              );
+              console.warn(`Error reading directory ${basePath}: ${e instanceof Error ? e.message : String(e)}`);
             }
           }
         }
@@ -175,12 +171,9 @@ const getJavaHome = async (): Promise<string> => {
 
     if (!javaHome) {
       const errorMessages = {
-        win32:
-          'Java runtime not found in Program Files. Please install JDK 11+ and set JAVA_HOME.',
-        darwin:
-          'Java runtime not found using /usr/libexec/java_home. Please install JDK 11+ and set JAVA_HOME.',
-        linux:
-          'Java runtime not found in common locations. Please install JDK 11+ and set JAVA_HOME.',
+        win32: 'Java runtime not found in Program Files. Please install JDK 11+ and set JAVA_HOME.',
+        darwin: 'Java runtime not found using /usr/libexec/java_home. Please install JDK 11+ and set JAVA_HOME.',
+        linux: 'Java runtime not found in common locations. Please install JDK 11+ and set JAVA_HOME.',
       };
 
       throw new Error(
@@ -211,9 +204,7 @@ const checkJavaVersion = async (javaHome: string): Promise<number> => {
     const match = versionRegExp.exec(output);
 
     if (!match) {
-      throw new Error(
-        'Could not determine Java version from output: ' + output,
-      );
+      throw new Error('Could not determine Java version from output: ' + output);
     }
 
     const versionString = match[1];
@@ -233,9 +224,7 @@ const checkJavaVersion = async (javaHome: string): Promise<number> => {
     }
 
     if (majorVersion < 11) {
-      throw new Error(
-        `Java version ${majorVersion} is not supported. Please install Java 11 or later.`,
-      );
+      throw new Error(`Java version ${majorVersion} is not supported. Please install Java 11 or later.`);
     }
 
     return majorVersion;
@@ -243,16 +232,12 @@ const checkJavaVersion = async (javaHome: string): Promise<number> => {
     // Check if java executable exists
     const javaExecutable = path.join(javaHome, 'bin', 'java');
     if (!fs.existsSync(javaExecutable)) {
-      throw new Error(
-        `Java executable not found at path: ${javaExecutable}. Please check your Java installation.`,
-      );
+      throw new Error(`Java executable not found at path: ${javaExecutable}. Please check your Java installation.`);
     }
 
     console.error('Error checking Java version:', error);
     const errorMsg = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Failed to check Java version. Please ensure Java 11+ is installed. Error: ${errorMsg}`,
-    );
+    throw new Error(`Failed to check Java version. Please ensure Java 11+ is installed. Error: ${errorMsg}`);
   }
 };
 
@@ -291,9 +276,7 @@ const findJarFile = (customPath?: string, fallbackPath?: string): string => {
     }
   }
 
-  throw new Error(
-    `Could not find ${JAR_FILE_NAME}. Please specify the path explicitly.`,
-  );
+  throw new Error(`Could not find ${JAR_FILE_NAME}. Please specify the path explicitly.`);
 };
 
 /**
@@ -310,9 +293,7 @@ export const createJavaServerOptions = async (
     // Check Java version
     const javaVersion = await checkJavaVersion(javaHome);
     if (javaVersion < 11) {
-      console.warn(
-        `Java version ${javaVersion} detected. Java 11 or higher is recommended.`,
-      );
+      console.warn(`Java version ${javaVersion} detected. Java 11 or higher is recommended.`);
     }
 
     // Find jar file
@@ -321,8 +302,7 @@ export const createJavaServerOptions = async (
     // Configuration options with defaults
     const jvmMaxHeap = options.javaMemory || 4096;
     const enableSemanticErrors = options.enableSemanticErrors || false;
-    const enableCompletionStatistics =
-      options.enableCompletionStatistics || false;
+    const enableCompletionStatistics = options.enableCompletionStatistics || false;
     const debugPort = options.debugPort || JDWP_DEBUG_PORT;
     const logLevel = options.logLevel || 'ERROR';
     const suspendStartup = options.suspendStartup || false;
@@ -364,10 +344,7 @@ export const createJavaServerOptions = async (
       },
     };
   } catch (err) {
-    console.error(
-      'Error creating Java server options:',
-      err instanceof Error ? err.message : String(err),
-    );
+    console.error('Error creating Java server options:', err instanceof Error ? err.message : String(err));
     throw err;
   }
 };
@@ -381,18 +358,14 @@ export const launchJavaServer = async (
 ): Promise<cp.ChildProcess> => {
   const execInfo = await createJavaServerOptions(options, fallbackJarPath);
 
-  console.log(
-    `Starting Java language server: ${execInfo.command} ${execInfo.args?.join(' ')}`,
-  );
+  console.log(`Starting Java language server: ${execInfo.command} ${execInfo.args?.join(' ')}`);
 
   // Set up spawn options
   const spawnOptions = execInfo.options || {};
 
   // Set the current working directory to the workspace path if provided
   if (options.workspacePath) {
-    console.log(
-      `Setting working directory to workspace path: ${options.workspacePath}`,
-    );
+    console.log(`Setting working directory to workspace path: ${options.workspacePath}`);
     spawnOptions.cwd = options.workspacePath;
   }
 
@@ -416,9 +389,7 @@ export const launchJavaServer = async (
   });
 
   process.on('exit', (code, signal) => {
-    console.log(
-      `Language server process exited with code ${code} and signal ${signal}`,
-    );
+    console.log(`Language server process exited with code ${code} and signal ${signal}`);
   });
 
   return process;
@@ -427,9 +398,7 @@ export const launchJavaServer = async (
 /**
  * Helper function to execute a command and return a promise
  */
-export const asyncExec = (
-  command: string,
-): Promise<{ stdout: string; stderr: string }> =>
+export const asyncExec = (command: string): Promise<{ stdout: string; stderr: string }> =>
   new Promise((resolve, reject) => {
     cp.exec(command, (error, stdout, stderr) => {
       if (error) {

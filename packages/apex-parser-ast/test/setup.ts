@@ -16,13 +16,7 @@ const logger = TestLogger.getInstance();
 if (process.env.TEST_LOG_LEVEL) {
   // Convert string env to log level, fallback to info if invalid
   const logLevel = process.env.TEST_LOG_LEVEL as LogMessageType;
-  const validLevels: LogMessageType[] = [
-    'error',
-    'warning',
-    'info',
-    'log',
-    'debug',
-  ];
+  const validLevels: LogMessageType[] = ['error', 'warning', 'info', 'log', 'debug'];
   logger.setLogLevel(validLevels.includes(logLevel) ? logLevel : 'info');
 } else {
   // Default to info level in CI, debug in local development

@@ -28,25 +28,12 @@ export class PropertyModifierValidator {
     const typeKind = currentTypeSymbol.kind;
 
     // Check if property is in interface
-    if (
-      !BaseModifierValidator.validateNotInInterface(
-        typeKind,
-        ctx,
-        errorReporter,
-        'Properties',
-      )
-    ) {
+    if (!BaseModifierValidator.validateNotInInterface(typeKind, ctx, errorReporter, 'Properties')) {
       return;
     }
 
     // Validate common modifiers
-    BaseModifierValidator.validateNotAbstract(
-      typeKind,
-      modifiers,
-      ctx,
-      errorReporter,
-      'Property',
-    );
+    BaseModifierValidator.validateNotAbstract(typeKind, modifiers, ctx, errorReporter, 'Property');
     BaseModifierValidator.validateVisibilityNotWiderThanClass(
       modifiers,
       currentTypeSymbol,
@@ -54,27 +41,13 @@ export class PropertyModifierValidator {
       errorReporter,
       'Property',
     );
-    BaseModifierValidator.validateWebServiceModifier(
-      modifiers,
-      currentTypeSymbol,
-      ctx,
-      errorReporter,
-      'Property',
-    );
-    BaseModifierValidator.validateNotOverride(
-      modifiers,
-      ctx,
-      errorReporter,
-      'Property',
-    );
+    BaseModifierValidator.validateWebServiceModifier(modifiers, currentTypeSymbol, ctx, errorReporter, 'Property');
+    BaseModifierValidator.validateNotOverride(modifiers, ctx, errorReporter, 'Property');
 
     // Property-specific validations
     // TestMethod properties are not allowed
     if (modifiers.isTestMethod) {
-      errorReporter.addError(
-        "Property cannot be declared as 'testMethod'",
-        ctx,
-      );
+      errorReporter.addError("Property cannot be declared as 'testMethod'", ctx);
       modifiers.isTestMethod = false;
     }
 

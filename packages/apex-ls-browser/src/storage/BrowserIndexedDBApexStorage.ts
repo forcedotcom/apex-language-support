@@ -7,10 +7,7 @@
  */
 
 import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
-import type {
-  ApexReference,
-  ApexStorageInterface,
-} from '@salesforce/apex-lsp-compliant-services';
+import type { ApexReference, ApexStorageInterface } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { HashMap } from 'data-structure-typed';
 import { getLogger } from '@salesforce/apex-lsp-logging';
@@ -22,8 +19,7 @@ import { getLogger } from '@salesforce/apex-lsp-logging';
 export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
   // In-memory storage for the no-op implementation
   private initialized: boolean = false;
-  private astMap: HashMap<string, ApexClassInfo[], [string, ApexClassInfo[]]> =
-    new HashMap();
+  private astMap: HashMap<string, ApexClassInfo[], [string, ApexClassInfo[]]> = new HashMap();
   private typeInfoMap: Map<string, TypeInfo> = new Map();
   private references: ApexReference[] = [];
   private readonly logger = getLogger();
@@ -143,9 +139,7 @@ export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
     }
 
     this.astMap.delete(filePath);
-    this.references = this.references.filter(
-      (ref) => ref.sourceFile !== filePath,
-    );
+    this.references = this.references.filter((ref) => ref.sourceFile !== filePath);
     return true;
   }
 
@@ -178,10 +172,7 @@ export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
     throw new Error('Method not implemented.');
   }
 
-  async setDefinition(
-    symbolName: string,
-    definition: ApexReference,
-  ): Promise<boolean> {
+  async setDefinition(symbolName: string, definition: ApexReference): Promise<boolean> {
     throw new Error('Method not implemented.');
   }
 
@@ -189,10 +180,7 @@ export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
     throw new Error('Method not implemented.');
   }
 
-  async setReferences(
-    symbolName: string,
-    references: ApexReference[],
-  ): Promise<boolean> {
+  async setReferences(symbolName: string, references: ApexReference[]): Promise<boolean> {
     throw new Error('Method not implemented.');
   }
 

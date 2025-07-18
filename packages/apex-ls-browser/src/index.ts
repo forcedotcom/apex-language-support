@@ -37,23 +37,15 @@ import {
   LSPConfigurationManager,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {
-  setLogNotificationHandler,
-  getLogger,
-  setLoggerFactory,
-} from '@salesforce/apex-lsp-logging';
+import { setLogNotificationHandler, getLogger, setLoggerFactory } from '@salesforce/apex-lsp-logging';
 
 import { BrowserLogNotificationHandler } from './utils/BrowserLogNotificationHandler';
 import { BrowserLoggerFactory } from './utils/BrowserLoggerFactory';
 
 /* browser specific setup code */
 
-const messageReader = new BrowserMessageReader(
-  self as DedicatedWorkerGlobalScope,
-);
-const messageWriter = new BrowserMessageWriter(
-  self as DedicatedWorkerGlobalScope,
-);
+const messageReader = new BrowserMessageReader(self as DedicatedWorkerGlobalScope);
+const messageWriter = new BrowserMessageWriter(self as DedicatedWorkerGlobalScope);
 
 const connection = createConnection(messageReader, messageWriter);
 
@@ -62,9 +54,7 @@ setLoggerFactory(new BrowserLoggerFactory());
 
 // Set up logging
 const logger = getLogger();
-setLogNotificationHandler(
-  BrowserLogNotificationHandler.getInstance(connection),
-);
+setLogNotificationHandler(BrowserLogNotificationHandler.getInstance(connection));
 
 // Initialize capabilities manager
 const capabilitiesManager = new LSPConfigurationManager();
@@ -100,23 +90,15 @@ connection.onInitialized(() => {
 
 // Handle document symbol requests
 connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-  logger.info(
-    `[SERVER] Received documentSymbol request for: ${params.textDocument.uri}`,
-  );
+  logger.info(`[SERVER] Received documentSymbol request for: ${params.textDocument.uri}`);
   logger.info(`[SERVER] DocumentSymbolParams: ${JSON.stringify(params)}`);
 
   try {
     const result = await dispatchProcessOnDocumentSymbol(params);
-    logger.info(
-      `[SERVER] Result for documentSymbol (${params.textDocument.uri}): ${JSON.stringify(
-        result,
-      )}`,
-    );
+    logger.info(`[SERVER] Result for documentSymbol (${params.textDocument.uri}): ${JSON.stringify(result)}`);
     return result;
   } catch (error) {
-    logger.error(
-      `[SERVER] Error processing documentSymbol for ${params.textDocument.uri}: ${error}`,
-    );
+    logger.error(`[SERVER] Error processing documentSymbol for ${params.textDocument.uri}: ${error}`);
     // Return null or an empty array in case of error, as per LSP spec for graceful failure
     return null;
   }
@@ -125,29 +107,20 @@ connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
 // Handle diagnostic requests
 // enabling pull diagnostics enables both 'textDocument/diagnostic' and 'workspace/diagnostic' requests
 // only one of them is implemented, the other one is a no-op for now
-connection.onRequest(
-  'textDocument/diagnostic',
-  async (params: DocumentSymbolParams) => {
-    logger.info(
-      `[SERVER] Received diagnostic request for: ${params.textDocument.uri}`,
-    );
-    logger.info(`[SERVER] DiagnosticParams: ${JSON.stringify(params)}`);
+connection.onRequest('textDocument/diagnostic', async (params: DocumentSymbolParams) => {
+  logger.info(`[SERVER] Received diagnostic request for: ${params.textDocument.uri}`);
+  logger.info(`[SERVER] DiagnosticParams: ${JSON.stringify(params)}`);
 
-    try {
-      const result = await dispatchProcessOnDiagnostic(params);
-      logger.info(
-        `[SERVER] Result for diagnostic (${params.textDocument.uri}): ${JSON.stringify(result)}`,
-      );
-      return result;
-    } catch (error) {
-      logger.error(
-        `[SERVER] Error processing diagnostic for ${params.textDocument.uri}: ${error}`,
-      );
-      // Return empty array in case of error, as per LSP spec for graceful failure
-      return [];
-    }
-  },
-);
+  try {
+    const result = await dispatchProcessOnDiagnostic(params);
+    logger.info(`[SERVER] Result for diagnostic (${params.textDocument.uri}): ${JSON.stringify(result)}`);
+    return result;
+  } catch (error) {
+    logger.error(`[SERVER] Error processing diagnostic for ${params.textDocument.uri}: ${error}`);
+    // Return empty array in case of error, as per LSP spec for graceful failure
+    return [];
+  }
+});
 
 connection.onRequest('workspace/diagnostic', async (params) => {
   logger.debug('workspace/diagnostic requested by client');
@@ -155,46 +128,28 @@ connection.onRequest('workspace/diagnostic', async (params) => {
 });
 
 // Add a handler for folding ranges
-connection.onFoldingRanges(
-  async (params: FoldingRangeParams): Promise<FoldingRange[] | null> => {
-    logger.debug(
-      () =>
-        `[SERVER] Received foldingRange request for: ${params.textDocument.uri}`,
-    );
+connection.onFoldingRanges(async (params: FoldingRangeParams): Promise<FoldingRange[] | null> => {
+  logger.debug(() => `[SERVER] Received foldingRange request for: ${params.textDocument.uri}`);
 
-    try {
-      const result = await dispatchProcessOnFoldingRange(
-        params,
-        storageManager.getStorage(),
-      );
-      logger.debug(
-        () =>
-          `[SERVER] Result for foldingRanges (${params.textDocument.uri}): ${JSON.stringify(
-            result,
-          )}`,
-      );
-      return result;
-    } catch (error) {
-      logger.error(
-        () =>
-          `[SERVER] Error processing foldingRanges for ${params.textDocument.uri}: ${error}`,
-      );
-      // Return null or an empty array in case of error, as per LSP spec for graceful failure
-      return null;
-    }
-  },
-);
+  try {
+    const result = await dispatchProcessOnFoldingRange(params, storageManager.getStorage());
+    logger.debug(() => `[SERVER] Result for foldingRanges (${params.textDocument.uri}): ${JSON.stringify(result)}`);
+    return result;
+  } catch (error) {
+    logger.error(() => `[SERVER] Error processing foldingRanges for ${params.textDocument.uri}: ${error}`);
+    // Return null or an empty array in case of error, as per LSP spec for graceful failure
+    return null;
+  }
+});
 
 // Handle completion requests
-connection.onCompletion(
-  (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => [
-    {
-      label: 'ExampleCompletion',
-      kind: 1, // Text completion
-      data: 1,
-    },
-  ],
-);
+connection.onCompletion((_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => [
+  {
+    label: 'ExampleCompletion',
+    kind: 1, // Text completion
+    data: 1,
+  },
+]);
 
 // Handle hover requests
 connection.onHover(
@@ -237,18 +192,12 @@ const storageManager = ApexStorageManager.getInstance({
 storageManager.initialize();
 
 // Helper function to handle diagnostics
-const handleDiagnostics = (
-  uri: string,
-  diagnostics: Diagnostic[] | undefined,
-) => {
+const handleDiagnostics = (uri: string, diagnostics: Diagnostic[] | undefined) => {
   // Check if publishDiagnostics is enabled in capabilities
   const capabilities = capabilitiesManager.getExtendedServerCapabilities();
   if (!capabilities.publishDiagnostics) {
     // Don't send diagnostics if publishDiagnostics is disabled
-    logger.debug(
-      () =>
-        `Publish diagnostics disabled, skipping diagnostic send for: ${uri}`,
-    );
+    logger.debug(() => `Publish diagnostics disabled, skipping diagnostic send for: ${uri}`);
     return;
   }
 
@@ -264,33 +213,23 @@ const handleDiagnostics = (
 documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client opened a document
   // Server will parse the document and populate the corresponding local maps
-  logger.info(
-    `Web Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
-  );
+  logger.info(`Web Apex Language Server opened and processed document: ${JSON.stringify(event)}`);
 
-  dispatchProcessOnOpenDocument(event).then((diagnostics) =>
-    handleDiagnostics(event.document.uri, diagnostics),
-  );
+  dispatchProcessOnOpenDocument(event).then((diagnostics) => handleDiagnostics(event.document.uri, diagnostics));
 });
 
 documents.onDidChangeContent((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client changed a open document
   // Server will parse the document and populate the corresponding local maps
-  logger.info(
-    `Web Apex Language Server changed and processed document: ${JSON.stringify(event)}`,
-  );
+  logger.info(`Web Apex Language Server changed and processed document: ${JSON.stringify(event)}`);
 
-  dispatchProcessOnChangeDocument(event).then((diagnostics) =>
-    handleDiagnostics(event.document.uri, diagnostics),
-  );
+  dispatchProcessOnChangeDocument(event).then((diagnostics) => handleDiagnostics(event.document.uri, diagnostics));
 });
 
 documents.onDidClose((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client closed a open document
   // Server will update the corresponding local maps
-  logger.info(
-    `Web Apex Language Server closed document: ${JSON.stringify(event)}`,
-  );
+  logger.info(`Web Apex Language Server closed document: ${JSON.stringify(event)}`);
 
   dispatchProcessOnCloseDocument(event);
 
@@ -301,9 +240,7 @@ documents.onDidClose((event: TextDocumentChangeEvent<TextDocument>) => {
 documents.onDidSave((event: TextDocumentChangeEvent<TextDocument>) => {
   // Client saved a document
   // Server will parse the document and update storage as needed
-  logger.info(
-    `Web Apex Language Server saved document: ${JSON.stringify(event)}`,
-  );
+  logger.info(`Web Apex Language Server saved document: ${JSON.stringify(event)}`);
 
   dispatchProcessOnSaveDocument(event);
 });

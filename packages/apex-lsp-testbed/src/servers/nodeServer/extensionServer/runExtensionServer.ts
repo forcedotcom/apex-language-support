@@ -24,9 +24,7 @@ function findExtensionServerPath(): string {
     const packageJsonPath = path.join(currentDir, 'package.json');
     if (fs.existsSync(packageJsonPath)) {
       try {
-        const packageJson = JSON.parse(
-          fs.readFileSync(packageJsonPath, 'utf8'),
-        );
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
         if (packageJson.name === '@salesforce/apex-language-server') {
           foundPackageJson = true;
           break;
@@ -46,9 +44,7 @@ function findExtensionServerPath(): string {
       const packageJsonPath = path.join(currentDir, 'package.json');
       if (fs.existsSync(packageJsonPath)) {
         try {
-          const packageJson = JSON.parse(
-            fs.readFileSync(packageJsonPath, 'utf8'),
-          );
+          const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
           if (packageJson.name === '@salesforce/apex-language-server') {
             foundPackageJson = true;
             break;
@@ -67,22 +63,11 @@ function findExtensionServerPath(): string {
   }
 
   // Find apex-ls-node package
-  const extensionServerPath = path.join(
-    currentDir,
-    'packages',
-    'apex-ls-node',
-    'out',
-    'src',
-    'index.js',
-  );
+  const extensionServerPath = path.join(currentDir, 'packages', 'apex-ls-node', 'out', 'src', 'index.js');
 
   if (!fs.existsSync(extensionServerPath)) {
-    console.error(
-      `Extension server module not found at: ${extensionServerPath}`,
-    );
-    console.error(
-      'Make sure to build the apex-ls-node package first with: npm run build',
-    );
+    console.error(`Extension server module not found at: ${extensionServerPath}`);
+    console.error('Make sure to build the apex-ls-node package first with: npm run build');
     process.exit(1);
   }
 
@@ -97,9 +82,7 @@ async function main(): Promise<void> {
 
   // Set environment variables for the server
   process.env.EXTENSION_LS_SERVER_PATH = findExtensionServerPath();
-  console.log(
-    `Using extension server at: ${process.env.EXTENSION_LS_SERVER_PATH}`,
-  );
+  console.log(`Using extension server at: ${process.env.EXTENSION_LS_SERVER_PATH}`);
 
   try {
     // Create and start the harness

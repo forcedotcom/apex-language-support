@@ -32,20 +32,11 @@ export const getDebugOptions = (): string[] | undefined => {
   // Determine debug flags based on mode
   let debugFlags: string[];
   if (debugConfig.mode === DEBUG_CONFIG.INSPECT_BRK_MODE) {
-    logToOutputChannel(
-      `Enabling debug mode with break on port ${debugConfig.port}`,
-      'info',
-    );
-    debugFlags = [
-      DEBUG_CONFIG.NOLAZY_FLAG,
-      `--inspect-brk=${debugConfig.port}`,
-    ];
+    logToOutputChannel(`Enabling debug mode with break on port ${debugConfig.port}`, 'info');
+    debugFlags = [DEBUG_CONFIG.NOLAZY_FLAG, `--inspect-brk=${debugConfig.port}`];
   } else {
     // Default to 'inspect' mode
-    logToOutputChannel(
-      `Enabling debug mode on port ${debugConfig.port}`,
-      'info',
-    );
+    logToOutputChannel(`Enabling debug mode on port ${debugConfig.port}`, 'info');
     debugFlags = [DEBUG_CONFIG.NOLAZY_FLAG, `--inspect=${debugConfig.port}`];
   }
 
@@ -57,51 +48,33 @@ export const getDebugOptions = (): string[] | undefined => {
  * @param context The extension context
  * @returns Server options configuration
  */
-export const createServerOptions = (
-  context: vscode.ExtensionContext,
-): ServerOptions => {
+export const createServerOptions = (context: vscode.ExtensionContext): ServerOptions => {
   // Check if we're running in development mode (from project) or production (installed)
-  const isDevelopment =
-    context.extensionMode === vscode.ExtensionMode.Development;
+  const isDevelopment = context.extensionMode === vscode.ExtensionMode.Development;
 
   // The server is bundled into 'server.js' within the VSIX.
   // In development mode, it's in the 'out' directory (compiled)
   // In production mode, it's in the extension root (bundled)
-  const serverModule = isDevelopment
-    ? context.asAbsolutePath('out/server.js')
-    : context.asAbsolutePath('server.js');
+  const serverModule = isDevelopment ? context.asAbsolutePath('out/server.js') : context.asAbsolutePath('server.js');
 
   logToOutputChannel(`Server module path: ${serverModule}`, 'debug');
-  logToOutputChannel(
-    `Running in ${isDevelopment ? 'development' : 'production'} mode`,
-    'debug',
-  );
+  logToOutputChannel(`Running in ${isDevelopment ? 'development' : 'production'} mode`, 'debug');
 
   // Get debug options
   const debugOptions = getDebugOptions();
 
   // Determine server mode with environment variable override
   let serverMode: 'production' | 'development';
-  if (
-    process.env.APEX_LS_MODE === 'production' ||
-    process.env.APEX_LS_MODE === 'development'
-  ) {
+  if (process.env.APEX_LS_MODE === 'production' || process.env.APEX_LS_MODE === 'development') {
     serverMode = process.env.APEX_LS_MODE;
-    logToOutputChannel(
-      `Using server mode from environment variable: ${serverMode}`,
-      'info',
-    );
+    logToOutputChannel(`Using server mode from environment variable: ${serverMode}`, 'info');
   } else {
     // Default to extension mode
     serverMode =
-      context.extensionMode === vscode.ExtensionMode.Development ||
-      context.extensionMode === vscode.ExtensionMode.Test
+      context.extensionMode === vscode.ExtensionMode.Development || context.extensionMode === vscode.ExtensionMode.Test
         ? 'development'
         : 'production';
-    logToOutputChannel(
-      `Using server mode from extension mode: ${serverMode}`,
-      'debug',
-    );
+    logToOutputChannel(`Using server mode from extension mode: ${serverMode}`, 'debug');
   }
 
   return {
@@ -136,24 +109,20 @@ export const createServerOptions = (
  * @param context The extension context
  * @returns Client options configuration
  */
-export const createClientOptions = (
-  context: vscode.ExtensionContext,
-): LanguageClientOptions => {
+export const createClientOptions = (context: vscode.ExtensionContext): LanguageClientOptions => {
   const settings = getWorkspaceSettings();
 
   // Map VS Code extension mode to server mode
   const extensionMode = context.extensionMode;
   const serverMode =
-    extensionMode === vscode.ExtensionMode.Development ||
-    extensionMode === vscode.ExtensionMode.Test
+    extensionMode === vscode.ExtensionMode.Development || extensionMode === vscode.ExtensionMode.Test
       ? 'development'
       : 'production';
 
   return {
     documentSelector: [{ scheme: 'file', language: 'apex' }],
     synchronize: {
-      fileEvents:
-        vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
+      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
       configurationSection: 'apex',
     },
     // Add error handling with proper retry logic
@@ -179,15 +148,8 @@ export const createClientOptions = (
  * @param _count The error count
  * @returns Error action to take
  */
-const handleClientError = (
-  error: Error,
-  message: any,
-  _count: number | undefined,
-): { action: ErrorAction } => {
-  logToOutputChannel(
-    `LSP Error: ${message?.toString() || 'Unknown error'}`,
-    'error',
-  );
+const handleClientError = (error: Error, message: any, _count: number | undefined): { action: ErrorAction } => {
+  logToOutputChannel(`LSP Error: ${message?.toString() || 'Unknown error'}`, 'error');
   if (error) {
     logToOutputChannel(`Error details: ${error}`, 'debug');
   }
@@ -200,10 +162,7 @@ const handleClientError = (
  * @returns Close action to take
  */
 const handleClientClosed = (): { action: CloseAction } => {
-  logToOutputChannel(
-    `Connection to server closed - ${new Date().toISOString()}`,
-    'info',
-  );
+  logToOutputChannel(`Connection to server closed - ${new Date().toISOString()}`, 'info');
 
   // Always return DoNotRestart since we handle restart logic separately
   return { action: CloseAction.DoNotRestart };

@@ -13,18 +13,10 @@ import {
   getNamespaceFromFQN,
   isGlobalSymbol,
 } from '../../src/utils/FQNUtils';
-import {
-  SymbolKind,
-  SymbolVisibility,
-  ApexSymbol,
-} from '../../src/types/symbol';
+import { SymbolKind, SymbolVisibility, ApexSymbol } from '../../src/types/symbol';
 
 describe('FQN Utilities', () => {
-  const createTestSymbol = (
-    name: string,
-    kind: SymbolKind,
-    parent: ApexSymbol | null = null,
-  ): ApexSymbol => ({
+  const createTestSymbol = (name: string, kind: SymbolKind, parent: ApexSymbol | null = null): ApexSymbol => ({
     name,
     kind,
     modifiers: {
@@ -66,19 +58,10 @@ describe('FQN Utilities', () => {
     });
 
     it('should calculate FQN for a symbol with multiple parents', () => {
-      const grandparent = createTestSymbol(
-        'GrandparentClass',
-        SymbolKind.Class,
-      );
-      const parent = createTestSymbol(
-        'ParentClass',
-        SymbolKind.Class,
-        grandparent,
-      );
+      const grandparent = createTestSymbol('GrandparentClass', SymbolKind.Class);
+      const parent = createTestSymbol('ParentClass', SymbolKind.Class, grandparent);
       const child = createTestSymbol('ChildMethod', SymbolKind.Method, parent);
-      expect(calculateFQN(child)).toBe(
-        'GrandparentClass.ParentClass.ChildMethod',
-      );
+      expect(calculateFQN(child)).toBe('GrandparentClass.ParentClass.ChildMethod');
     });
 
     it('should handle namespace in FQN', () => {
@@ -89,70 +72,36 @@ describe('FQN Utilities', () => {
 
     it('should calculate FQN for a symbol with parent', () => {
       const parentSymbol = createTestSymbol('ParentClass', SymbolKind.Class);
-      const childSymbol = createTestSymbol(
-        'ChildMethod',
-        SymbolKind.Method,
-        parentSymbol,
-      );
+      const childSymbol = createTestSymbol('ChildMethod', SymbolKind.Method, parentSymbol);
       expect(calculateFQN(childSymbol)).toBe('ParentClass.ChildMethod');
     });
 
     it('should calculate FQN with nested hierarchy', () => {
-      const grandparentSymbol = createTestSymbol(
-        'OuterClass',
-        SymbolKind.Class,
-      );
-      const parentSymbol = createTestSymbol(
-        'InnerClass',
-        SymbolKind.Class,
-        grandparentSymbol,
-      );
-      const childSymbol = createTestSymbol(
-        'myMethod',
-        SymbolKind.Method,
-        parentSymbol,
-      );
+      const grandparentSymbol = createTestSymbol('OuterClass', SymbolKind.Class);
+      const parentSymbol = createTestSymbol('InnerClass', SymbolKind.Class, grandparentSymbol);
+      const childSymbol = createTestSymbol('myMethod', SymbolKind.Method, parentSymbol);
       expect(calculateFQN(childSymbol)).toBe('OuterClass.InnerClass.myMethod');
     });
 
     it.skip('should not apply namespace if already inherited from parent', () => {
-      const parentWithNamespace = createTestSymbol(
-        'ParentClass',
-        SymbolKind.Class,
-      );
+      const parentWithNamespace = createTestSymbol('ParentClass', SymbolKind.Class);
       parentWithNamespace.namespace = 'ExistingNamespace';
-      const childSymbol = createTestSymbol(
-        'ChildMethod',
-        SymbolKind.Method,
-        parentWithNamespace,
-      );
-      expect(
-        calculateFQN(childSymbol, { defaultNamespace: 'NewNamespace' }),
-      ).toBe('ParentClass.ChildMethod');
+      const childSymbol = createTestSymbol('ChildMethod', SymbolKind.Method, parentWithNamespace);
+      expect(calculateFQN(childSymbol, { defaultNamespace: 'NewNamespace' })).toBe('ParentClass.ChildMethod');
       expect(childSymbol.namespace).toBe('ExistingNamespace');
     });
 
     it('should apply namespace to top-level symbols when provided', () => {
       const symbol = createTestSymbol('MyClass', SymbolKind.Class);
-      expect(calculateFQN(symbol, { defaultNamespace: 'MyNamespace' })).toBe(
-        'MyNamespace.MyClass',
-      );
+      expect(calculateFQN(symbol, { defaultNamespace: 'MyNamespace' })).toBe('MyNamespace.MyClass');
       expect(symbol.namespace).toBe('MyNamespace');
     });
 
     it.skip('should not apply namespace to child symbols even when provided', () => {
       const parentSymbol = createTestSymbol('ParentClass', SymbolKind.Class);
-      const childSymbol = createTestSymbol(
-        'ChildMethod',
-        SymbolKind.Method,
-        parentSymbol,
-      );
-      expect(
-        calculateFQN(parentSymbol, { defaultNamespace: 'MyNamespace' }),
-      ).toBe('MyNamespace.ParentClass');
-      expect(
-        calculateFQN(childSymbol, { defaultNamespace: 'MyNamespace' }),
-      ).toBe('ParentClass.ChildMethod');
+      const childSymbol = createTestSymbol('ChildMethod', SymbolKind.Method, parentSymbol);
+      expect(calculateFQN(parentSymbol, { defaultNamespace: 'MyNamespace' })).toBe('MyNamespace.ParentClass');
+      expect(calculateFQN(childSymbol, { defaultNamespace: 'MyNamespace' })).toBe('ParentClass.ChildMethod');
       expect(childSymbol.namespace).toBe('MyNamespace');
     });
   });
@@ -167,15 +116,11 @@ describe('FQN Utilities', () => {
     });
 
     it('should return default namespace if provided and no namespace is in name', () => {
-      expect(extractNamespace('MyClass', 'DefaultNamespace')).toBe(
-        'DefaultNamespace',
-      );
+      expect(extractNamespace('MyClass', 'DefaultNamespace')).toBe('DefaultNamespace');
     });
 
     it('should prioritize built-in namespace over default namespace', () => {
-      expect(extractNamespace('System.String', 'DefaultNamespace')).toBe(
-        'System',
-      );
+      expect(extractNamespace('System.String', 'DefaultNamespace')).toBe('System');
     });
   });
 

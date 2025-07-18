@@ -6,10 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  getSalesforceVersionPathNode,
-  getSalesforceVersionPathBrowser,
-} from '../../src/utils/PlatformUtils';
+import { getSalesforceVersionPathNode, getSalesforceVersionPathBrowser } from '../../src/utils/PlatformUtils';
 
 // Mock process.cwd() for consistent testing
 const originalCwd = process.cwd;
@@ -29,9 +26,7 @@ describe('PlatformUtils', () => {
     it('should return the path to the Salesforce version file in Node', () => {
       const versionPath = getSalesforceVersionPathNode();
 
-      expect(versionPath).toBe(
-        '/mock/current/dir/resources/StandardApexLibrary/.version.json',
-      );
+      expect(versionPath).toBe('/mock/current/dir/resources/StandardApexLibrary/.version.json');
     });
   });
 
@@ -46,9 +41,7 @@ describe('PlatformUtils', () => {
       const basePath = '/custom/path';
       const versionPath = getSalesforceVersionPathBrowser(basePath);
 
-      expect(versionPath).toBe(
-        '/custom/path/resources/StandardApexLibrary/.version.json',
-      );
+      expect(versionPath).toBe('/custom/path/resources/StandardApexLibrary/.version.json');
     });
   });
 });

@@ -8,12 +8,7 @@
 
 import { ParserRuleContext } from 'antlr4ts';
 
-import {
-  SymbolKind,
-  SymbolModifiers,
-  SymbolVisibility,
-  TypeSymbol,
-} from '../../types/symbol';
+import { SymbolKind, SymbolModifiers, SymbolVisibility, TypeSymbol } from '../../types/symbol';
 import { ErrorReporter } from '../../utils/ErrorReporter';
 
 /**
@@ -50,10 +45,7 @@ export class BaseModifierValidator {
     memberType: string,
   ): void {
     if (typeKind === SymbolKind.Class && modifiers.isAbstract) {
-      errorReporter.addError(
-        `${memberType} cannot be declared as 'abstract'`,
-        ctx,
-      );
+      errorReporter.addError(`${memberType} cannot be declared as 'abstract'`, ctx);
       modifiers.isAbstract = false;
     }
   }
@@ -85,10 +77,7 @@ export class BaseModifierValidator {
       (currentTypeSymbol.modifiers.visibility === SymbolVisibility.Public &&
         modifiers.visibility === SymbolVisibility.Global)
     ) {
-      errorReporter.addError(
-        `${memberType} cannot have wider visibility than its containing class`,
-        ctx,
-      );
+      errorReporter.addError(`${memberType} cannot have wider visibility than its containing class`, ctx);
       // Adjust to most permissive valid visibility for this class
       const classVisibility = currentTypeSymbol.modifiers.visibility;
 
@@ -116,27 +105,15 @@ export class BaseModifierValidator {
     memberType: string,
   ): void {
     // WebService members must be global
-    if (
-      modifiers.isWebService &&
-      modifiers.visibility !== SymbolVisibility.Global
-    ) {
-      errorReporter.addError(
-        `${memberType} with 'webService' modifier must be declared as 'global'`,
-        ctx,
-      );
+    if (modifiers.isWebService && modifiers.visibility !== SymbolVisibility.Global) {
+      errorReporter.addError(`${memberType} with 'webService' modifier must be declared as 'global'`, ctx);
       // Correct the visibility
       modifiers.visibility = SymbolVisibility.Global;
     }
 
     // WebService members must be in global classes
-    if (
-      modifiers.isWebService &&
-      currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global
-    ) {
-      errorReporter.addError(
-        `${memberType} with 'webService' modifier must be in a global class`,
-        ctx,
-      );
+    if (modifiers.isWebService && currentTypeSymbol.modifiers.visibility !== SymbolVisibility.Global) {
+      errorReporter.addError(`${memberType} with 'webService' modifier must be in a global class`, ctx);
     }
   }
 
@@ -150,10 +127,7 @@ export class BaseModifierValidator {
     memberType: string,
   ): void {
     if (modifiers.isOverride) {
-      errorReporter.addError(
-        `${memberType} cannot be declared as 'override'`,
-        ctx,
-      );
+      errorReporter.addError(`${memberType} cannot be declared as 'override'`, ctx);
       modifiers.isOverride = false;
     }
   }

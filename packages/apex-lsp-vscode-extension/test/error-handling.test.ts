@@ -67,20 +67,13 @@ describe('Error Handling Module', () => {
 
   describe('handleAutoRestart', () => {
     beforeEach(() => {
-      const {
-        getServerStartRetries,
-        getLastRestartTime,
-      } = require('../src/commands');
+      const { getServerStartRetries, getLastRestartTime } = require('../src/commands');
       getServerStartRetries.mockReturnValue(0);
       getLastRestartTime.mockReturnValue(0);
     });
 
     it('should initiate auto-restart when conditions are met', async () => {
-      const {
-        incrementServerStartRetries,
-        setLastRestartTime,
-        getServerStartRetries,
-      } = require('../src/commands');
+      const { incrementServerStartRetries, setLastRestartTime, getServerStartRetries } = require('../src/commands');
       const { logToOutputChannel } = require('../src/logging');
 
       // Mock increment to update the return value
@@ -96,9 +89,7 @@ describe('Error Handling Module', () => {
       expect(incrementServerStartRetries).toHaveBeenCalled();
       expect(setLastRestartTime).toHaveBeenCalled();
       expect(logToOutputChannel).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /Will retry server start \(1\/3\) after \d+ms delay\.\.\./,
-        ),
+        expect.stringMatching(/Will retry server start \(1\/3\) after \d+ms delay\.\.\./),
         'info',
       );
     });
@@ -142,9 +133,7 @@ describe('Error Handling Module', () => {
       // Should call handleMaxRetriesExceeded
       const { logToOutputChannel } = require('../src/logging');
       expect(logToOutputChannel).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /Max retries \(3\) exceeded\. Auto-restart disabled\./,
-        ),
+        expect.stringMatching(/Max retries \(3\) exceeded\. Auto-restart disabled\./),
         'info',
       );
     });
@@ -167,9 +156,7 @@ describe('Error Handling Module', () => {
 
       expect(updateApexServerStatusError).toHaveBeenCalled();
       expect(logToOutputChannel).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /Max retries \(3\) exceeded\. Auto-restart disabled\./,
-        ),
+        expect.stringMatching(/Max retries \(3\) exceeded\. Auto-restart disabled\./),
         'info',
       );
       expect(mockShowErrorMessage).toHaveBeenCalledWith(
@@ -210,19 +197,13 @@ describe('Error Handling Module', () => {
       expect(setStartingFlag).toHaveBeenCalledWith(false);
       expect(updateApexServerStatusStopped).toHaveBeenCalled();
       expect(logToOutputChannel).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /Connection to server closed - \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/,
-        ),
+        expect.stringMatching(/Connection to server closed - \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/),
         'info',
       );
     });
 
     it('should attempt auto-restart after client closed', async () => {
-      const {
-        getServerStartRetries,
-        getLastRestartTime,
-        getGlobalContext,
-      } = require('../src/commands');
+      const { getServerStartRetries, getLastRestartTime, getGlobalContext } = require('../src/commands');
       getServerStartRetries.mockReturnValue(0);
       getLastRestartTime.mockReturnValue(0);
       getGlobalContext.mockReturnValue(mockContext);
@@ -244,14 +225,8 @@ describe('Error Handling Module', () => {
 
       handleClientError(error, message);
 
-      expect(logToOutputChannel).toHaveBeenCalledWith(
-        'LSP Error: Test message',
-        'error',
-      );
-      expect(logToOutputChannel).toHaveBeenCalledWith(
-        'Error details: Error: Test error',
-        'debug',
-      );
+      expect(logToOutputChannel).toHaveBeenCalledWith('LSP Error: Test message', 'error');
+      expect(logToOutputChannel).toHaveBeenCalledWith('Error details: Error: Test error', 'debug');
     });
 
     it('should handle undefined message', () => {
@@ -260,10 +235,7 @@ describe('Error Handling Module', () => {
 
       handleClientError(error, undefined);
 
-      expect(logToOutputChannel).toHaveBeenCalledWith(
-        'LSP Error: Unknown error',
-        'error',
-      );
+      expect(logToOutputChannel).toHaveBeenCalledWith('LSP Error: Unknown error', 'error');
     });
 
     it('should handle undefined error', () => {
@@ -272,14 +244,8 @@ describe('Error Handling Module', () => {
 
       handleClientError(undefined as any, message);
 
-      expect(logToOutputChannel).toHaveBeenCalledWith(
-        'LSP Error: Test message',
-        'error',
-      );
-      expect(logToOutputChannel).not.toHaveBeenCalledWith(
-        expect.stringMatching(/Error details:/),
-        'debug',
-      );
+      expect(logToOutputChannel).toHaveBeenCalledWith('LSP Error: Test message', 'error');
+      expect(logToOutputChannel).not.toHaveBeenCalledWith(expect.stringMatching(/Error details:/), 'debug');
     });
   });
 });

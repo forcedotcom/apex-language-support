@@ -101,12 +101,7 @@ describe('ApexFoldingRangeProvider', () => {
       // Arrange
       const apexCode = 'public class Empty {}';
       const documentUri = 'file:///Empty.cls';
-      const mockDocument = TextDocument.create(
-        documentUri,
-        'apex',
-        1,
-        apexCode,
-      );
+      const mockDocument = TextDocument.create(documentUri, 'apex', 1, apexCode);
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
       // Act
@@ -133,12 +128,7 @@ describe('ApexFoldingRangeProvider', () => {
       // Arrange
       const apexCode = 'public class Test {}';
       const documentUri = 'file:///Test.cls';
-      const mockDocument = TextDocument.create(
-        documentUri,
-        'apex',
-        1,
-        apexCode,
-      );
+      const mockDocument = TextDocument.create(documentUri, 'apex', 1, apexCode);
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
       // Mock the CompilerService to throw an error
@@ -148,9 +138,7 @@ describe('ApexFoldingRangeProvider', () => {
           throw new Error('Compiler service error');
         }),
       };
-      (CompilerService as jest.MockedClass<any>).mockImplementation(
-        () => mockCompilerService,
-      );
+      (CompilerService as jest.MockedClass<any>).mockImplementation(() => mockCompilerService);
 
       // Recreate provider to use the new mock
       provider = new ApexFoldingRangeProvider(mockStorage);
@@ -166,12 +154,7 @@ describe('ApexFoldingRangeProvider', () => {
       // Arrange
       const documentUri = 'file:///TestClass.cls';
       const apexCode = 'public class TestClass {}';
-      const mockDocument = TextDocument.create(
-        documentUri,
-        'apex',
-        1,
-        apexCode,
-      );
+      const mockDocument = TextDocument.create(documentUri, 'apex', 1, apexCode);
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
       // Act
@@ -192,12 +175,7 @@ describe('ApexFoldingRangeProvider', () => {
 
       for (const documentUri of testCases) {
         const apexCode = 'public class Test {}';
-        const mockDocument = TextDocument.create(
-          documentUri,
-          'apex',
-          1,
-          apexCode,
-        );
+        const mockDocument = TextDocument.create(documentUri, 'apex', 1, apexCode);
         mockStorage.getDocument.mockResolvedValue(mockDocument);
 
         // Act
@@ -228,14 +206,8 @@ describe('ApexFoldingRangeProvider', () => {
     it('should handle very large documents', async () => {
       // Arrange
       const documentUri = 'file:///Large.cls';
-      const largeApexCode =
-        'public class Large {\n' + '  // comment\n'.repeat(10000) + '}';
-      const mockDocument = TextDocument.create(
-        documentUri,
-        'apex',
-        1,
-        largeApexCode,
-      );
+      const largeApexCode = 'public class Large {\n' + '  // comment\n'.repeat(10000) + '}';
+      const mockDocument = TextDocument.create(documentUri, 'apex', 1, largeApexCode);
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
       // Act
@@ -261,22 +233,10 @@ describe('ApexFoldingRangeProvider', () => {
       const documentUri2 = 'file:///Test2.cls';
       const apexCode = 'public class Test {}';
 
-      const mockDocument1 = TextDocument.create(
-        documentUri1,
-        'apex',
-        1,
-        apexCode,
-      );
-      const mockDocument2 = TextDocument.create(
-        documentUri2,
-        'apex',
-        1,
-        apexCode,
-      );
+      const mockDocument1 = TextDocument.create(documentUri1, 'apex', 1, apexCode);
+      const mockDocument2 = TextDocument.create(documentUri2, 'apex', 1, apexCode);
 
-      mockStorage.getDocument
-        .mockResolvedValueOnce(mockDocument1)
-        .mockResolvedValueOnce(mockDocument2);
+      mockStorage.getDocument.mockResolvedValueOnce(mockDocument1).mockResolvedValueOnce(mockDocument2);
 
       // Act
       const [result1, result2] = await Promise.all([
@@ -298,17 +258,10 @@ describe('ApexFoldingRangeProvider', () => {
       // Arrange
       const documentUri = 'file:///Test.cls';
       const apexCode = 'public class Test {}';
-      const mockDocument = TextDocument.create(
-        documentUri,
-        'apex',
-        1,
-        apexCode,
-      );
+      const mockDocument = TextDocument.create(documentUri, 'apex', 1, apexCode);
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const {
-        ApexSettingsManager,
-      } = require('../../src/settings/ApexSettingsManager');
+      const { ApexSettingsManager } = require('../../src/settings/ApexSettingsManager');
       const mockGetCompilationOptions = jest.fn().mockReturnValue({});
       ApexSettingsManager.getInstance.mockReturnValue({
         getCompilationOptions: mockGetCompilationOptions,
@@ -319,10 +272,7 @@ describe('ApexFoldingRangeProvider', () => {
 
       // Assert
       expect(ApexSettingsManager.getInstance).toHaveBeenCalled();
-      expect(mockGetCompilationOptions).toHaveBeenCalledWith(
-        'foldingRanges',
-        apexCode.length,
-      );
+      expect(mockGetCompilationOptions).toHaveBeenCalledWith('foldingRanges', apexCode.length);
     });
   });
 });

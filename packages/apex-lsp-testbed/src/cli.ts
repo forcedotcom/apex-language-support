@@ -7,15 +7,8 @@
  */
 
 const { ConsoleLogger } = require('./client/ApexJsonRpcClient');
-const {
-  parseArgs,
-  printHelp,
-  createClientOptions,
-} = require('./utils/serverUtils');
-const {
-  prepareWorkspace,
-  registerWorkspaceCleanup,
-} = require('./utils/workspaceUtils');
+const { parseArgs, printHelp, createClientOptions } = require('./utils/serverUtils');
+const { prepareWorkspace, registerWorkspaceCleanup } = require('./utils/workspaceUtils');
 const { createClient } = require('./utils/clientFactory');
 const { startInteractiveMode } = require('./utils/interactiveMode');
 
@@ -36,23 +29,17 @@ async function main(): Promise<void> {
     // Create logger with appropriate verbosity
     const logger = new ConsoleLogger();
     if (options.verbose) {
-      console.log(
-        `Starting Apex Language Server Testbed with ${options.serverType} server`,
-      );
+      console.log(`Starting Apex Language Server Testbed with ${options.serverType} server`);
     }
 
     // Prepare workspace if specified
-    const workspace = options.workspace
-      ? await prepareWorkspace(options.workspace)
-      : undefined;
+    const workspace = options.workspace ? await prepareWorkspace(options.workspace) : undefined;
 
     if (workspace) {
       console.log(`Using workspace at: ${workspace.rootPath}`);
       console.log(`Workspace URI: ${workspace.rootUri}`);
       if (workspace.isTemporary) {
-        console.log(
-          'This is a temporary cloned workspace that will be deleted on exit',
-        );
+        console.log('This is a temporary cloned workspace that will be deleted on exit');
 
         // Register cleanup handler for temporary workspace
         registerWorkspaceCleanup(workspace);
@@ -60,21 +47,14 @@ async function main(): Promise<void> {
     }
 
     // Create client options with workspace configuration
-    const clientOptions = await createClientOptions(
-      options.serverType,
-      options.verbose,
-      workspace,
-      options.suspend,
-    );
+    const clientOptions = await createClientOptions(options.serverType, options.verbose, workspace, options.suspend);
 
     // Create either a real or mock client based on server type
     const client = createClient(clientOptions, options.serverType, logger);
 
     // Start client
     await client.start();
-    console.log(
-      `Connected to ${options.serverType} language server successfully`,
-    );
+    console.log(`Connected to ${options.serverType} language server successfully`);
 
     // Register exit handler
     process.on('SIGINT', async () => {
@@ -89,10 +69,7 @@ async function main(): Promise<void> {
     } else {
       // Non-interactive mode: Just show server capabilities and exit
       const capabilities = client.getServerCapabilities();
-      console.log(
-        'Server capabilities:',
-        JSON.stringify(capabilities, null, 2),
-      );
+      console.log('Server capabilities:', JSON.stringify(capabilities, null, 2));
 
       // Wait a moment before shutting down to ensure all messages are processed
       setTimeout(async () => {

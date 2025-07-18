@@ -17,11 +17,7 @@ import { ApexError } from '@salesforce/apex-lsp-parser-ast';
  * @param error The error that occurred
  * @param context Optional context information about the error
  */
-export function logHandlerError(
-  handlerName: string,
-  error: Error,
-  context?: string,
-): void {
+export function logHandlerError(handlerName: string, error: Error, context?: string): void {
   const logger = getLogger();
 
   const contextInfo = context ? ` (${context})` : '';
@@ -46,10 +42,7 @@ export function logHandlerError(
  * @param errorContext The context for error logging
  * @returns The result of the promise
  */
-export async function dispatch<T>(
-  promise: Promise<T>,
-  errorContext: string,
-): Promise<T> {
+export async function dispatch<T>(promise: Promise<T>, errorContext: string): Promise<T> {
   try {
     return await promise;
   } catch (error) {

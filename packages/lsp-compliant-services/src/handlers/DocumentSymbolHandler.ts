@@ -5,11 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import {
-  DocumentSymbolParams,
-  SymbolInformation,
-  DocumentSymbol,
-} from 'vscode-languageserver';
+import { DocumentSymbolParams, SymbolInformation, DocumentSymbol } from 'vscode-languageserver';
 import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { dispatch } from '../utils/handlerUtil';
@@ -32,9 +28,7 @@ export class DocumentSymbolHandler {
   public async handleDocumentSymbol(
     params: DocumentSymbolParams,
   ): Promise<SymbolInformation[] | DocumentSymbol[] | null> {
-    this.logger.debug(
-      () => `Processing document symbol request: ${params.textDocument.uri}`,
-    );
+    this.logger.debug(() => `Processing document symbol request: ${params.textDocument.uri}`);
 
     try {
       return await dispatch(
@@ -42,10 +36,7 @@ export class DocumentSymbolHandler {
         'Error processing document symbol request',
       );
     } catch (error) {
-      this.logger.error(
-        () =>
-          `Error processing document symbol request for ${params.textDocument.uri}: ${error}`,
-      );
+      this.logger.error(() => `Error processing document symbol request for ${params.textDocument.uri}: ${error}`);
       throw error;
     }
   }

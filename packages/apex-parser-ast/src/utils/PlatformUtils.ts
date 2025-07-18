@@ -31,11 +31,7 @@ export function getSalesforceVersionPathBrowser(basePath?: string): string {
 // It will be properly tree-shaken by most bundlers when used in browser contexts
 export let getSalesforceVersionPathNode: () => string;
 
-if (
-  typeof process !== 'undefined' &&
-  process.versions &&
-  process.versions.node
-) {
+if (typeof process !== 'undefined' && process.versions && process.versions.node) {
   // We're in a Node.js environment
   getSalesforceVersionPathNode = () => {
     // Get the current directory where the code is running
@@ -47,8 +43,6 @@ if (
 } else {
   // Not in Node.js - provide a function that throws a helpful error
   getSalesforceVersionPathNode = () => {
-    throw new Error(
-      'getSalesforceVersionPathNode is only available in Node.js environments',
-    );
+    throw new Error('getSalesforceVersionPathNode is only available in Node.js environments');
   };
 }

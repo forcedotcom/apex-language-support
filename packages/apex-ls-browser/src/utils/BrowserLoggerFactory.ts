@@ -6,12 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  LoggerInterface,
-  LoggerFactory,
-  getLogNotificationHandler,
-  shouldLog,
-} from '@salesforce/apex-lsp-logging';
+import { LoggerInterface, LoggerFactory, getLogNotificationHandler, shouldLog } from '@salesforce/apex-lsp-logging';
 import type { LogMessageType } from '@salesforce/apex-lsp-logging';
 
 /**
@@ -24,19 +19,13 @@ class BrowserLogger implements LoggerInterface {
    * @param messageType The LSP message type.
    * @param messageOrProvider The message to log or a function that returns it.
    */
-  public log(
-    messageType: LogMessageType,
-    messageOrProvider: string | (() => string),
-  ): void {
+  public log(messageType: LogMessageType, messageOrProvider: string | (() => string)): void {
     // Check log level first
     if (!shouldLog(messageType)) {
       return;
     }
 
-    const message =
-      typeof messageOrProvider === 'function'
-        ? messageOrProvider()
-        : messageOrProvider;
+    const message = typeof messageOrProvider === 'function' ? messageOrProvider() : messageOrProvider;
     const handler = getLogNotificationHandler();
 
     if (handler && typeof handler.sendLogMessage === 'function') {

@@ -65,10 +65,7 @@ interface CompilationResults {
  * @param specificFiles Optional list of specific files to process
  * @returns Array of file paths
  */
-function findApexFiles(
-  dir: string,
-  specificFiles: string[] | null = null,
-): string[] {
+function findApexFiles(dir: string, specificFiles: string[] | null = null): string[] {
   if (specificFiles) {
     return specificFiles.map((file) => path.join(dir, file));
   }
@@ -117,14 +114,7 @@ export async function compileStubs(
   outputDir?: string,
 ): Promise<void> {
   const logger = getLogger();
-  const resourcesPath = path.join(
-    __dirname,
-    '..',
-    '..',
-    'out',
-    'resources',
-    'StandardApexLibrary',
-  );
+  const resourcesPath = path.join(__dirname, '..', '..', 'out', 'resources', 'StandardApexLibrary');
   const defaultSourceDir = path.join(resourcesPath);
   const defaultOutputDir = path.join(resourcesPath);
 
@@ -165,10 +155,7 @@ export async function compileStubs(
 
       // Create output path
       const relativePath = path.relative(finalSourceDir, file);
-      const outputPath = path.join(
-        finalOutputDir,
-        relativePath.replace('.cls', '.ast.json'),
-      );
+      const outputPath = path.join(finalOutputDir, relativePath.replace('.cls', '.ast.json'));
 
       // Create output directory if it doesn't exist
       const outputDirPath = path.dirname(outputPath);
@@ -215,21 +202,16 @@ export async function compileStubs(
           const enumSymbol = symbol as EnumSymbol;
           if (enumSymbol.values) {
             // Create a clean copy of values without parent references
-            const cleanValues = enumSymbol.values.map(
-              (value: VariableSymbol) => {
-                const { parent, ...rest } = value;
-                return rest;
-              },
-            );
+            const cleanValues = enumSymbol.values.map((value: VariableSymbol) => {
+              const { parent, ...rest } = value;
+              return rest;
+            });
             // Store the clean values
             enumSymbol.values = cleanValues;
           }
         }
 
-        runtimeSymbols[symbol.key.name] = new RuntimeSymbol(
-          symbol,
-          symbolTable,
-        );
+        runtimeSymbols[symbol.key.name] = new RuntimeSymbol(symbol, symbolTable);
       }
 
       // Create a clean version of the symbol table for serialization
@@ -270,13 +252,11 @@ export async function compileStubs(
                   })) || [],
               }),
               ...(symbol.kind === SymbolKind.Method && {
-                parameters: (symbol as MethodSymbol).parameters?.map(
-                  (param) => ({
-                    name: param.name,
-                    type: param.type,
-                    modifiers: param.modifiers,
-                  }),
-                ),
+                parameters: (symbol as MethodSymbol).parameters?.map((param) => ({
+                  name: param.name,
+                  type: param.type,
+                  modifiers: param.modifiers,
+                })),
                 returnType: (symbol as MethodSymbol).returnType,
               }),
               ...(symbol.kind === SymbolKind.Enum && {
@@ -311,9 +291,7 @@ export async function compileStubs(
 
       // Check if there are any compilation errors
       if (result.errors && result.errors.length > 0) {
-        throw new Error(
-          `Compilation failed: ${result.errors.map((e) => e.message || e).join(', ')}`,
-        );
+        throw new Error(`Compilation failed: ${result.errors.map((e) => e.message || e).join(', ')}`);
       }
 
       // Ensure the output directory exists
@@ -354,7 +332,6 @@ export async function compileStubs(
 
 // Only run if this file is being executed directly
 if (require.main === module) {
-  const specificFiles =
-    process.argv.slice(2).length > 0 ? process.argv.slice(2) : null;
+  const specificFiles = process.argv.slice(2).length > 0 ? process.argv.slice(2) : null;
   compileStubs(specificFiles).catch(console.error);
 }

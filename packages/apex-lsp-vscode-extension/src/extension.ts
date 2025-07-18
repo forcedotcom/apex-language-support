@@ -7,35 +7,17 @@
  */
 
 import * as vscode from 'vscode';
-import {
-  initializeExtensionLogging,
-  logToOutputChannel,
-  updateLogLevel,
-} from './logging';
-import {
-  createApexLanguageStatusActions,
-  updateLogLevelStatusItems,
-  createApexServerStatusItem,
-} from './status-bar';
-import {
-  initializeCommandState,
-  registerRestartCommand,
-  setRestartHandler,
-} from './commands';
-import {
-  startLanguageServer,
-  restartLanguageServer,
-  stopLanguageServer,
-} from './language-server';
+import { initializeExtensionLogging, logToOutputChannel, updateLogLevel } from './logging';
+import { createApexLanguageStatusActions, updateLogLevelStatusItems, createApexServerStatusItem } from './status-bar';
+import { initializeCommandState, registerRestartCommand, setRestartHandler } from './commands';
+import { startLanguageServer, restartLanguageServer, stopLanguageServer } from './language-server';
 import { getWorkspaceSettings } from './configuration';
 
 /**
  * Wrapper function for restart that matches the expected signature
  * @param context The extension context
  */
-const handleRestart = async (
-  context: vscode.ExtensionContext,
-): Promise<void> => {
+const handleRestart = async (context: vscode.ExtensionContext): Promise<void> => {
   await restartLanguageServer(context, handleRestart);
 };
 
@@ -73,11 +55,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const commandId = `apex.setLogLevel.${level}`;
     const disposable = vscode.commands.registerCommand(commandId, async () => {
       const config = vscode.workspace.getConfiguration('apex-ls-ts');
-      await config.update(
-        'logLevel',
-        level,
-        vscode.ConfigurationTarget.Workspace,
-      );
+      await config.update('logLevel', level, vscode.ConfigurationTarget.Workspace);
       updateLogLevel(level);
       updateLogLevelStatusItems(level);
     });
@@ -90,11 +68,7 @@ export function activate(context: vscode.ExtensionContext): void {
     () => getWorkspaceSettings().apex.logLevel,
     async (level: string) => {
       const config = vscode.workspace.getConfiguration('apex-ls-ts');
-      await config.update(
-        'logLevel',
-        level,
-        vscode.ConfigurationTarget.Workspace,
-      );
+      await config.update('logLevel', level, vscode.ConfigurationTarget.Workspace);
       updateLogLevel(level);
       updateLogLevelStatusItems(level);
     },

@@ -11,9 +11,7 @@ import type { ApexStorageInterface } from './ApexStorageInterface';
 /**
  * Factory type for creating storage implementations
  */
-export type ApexStorageFactory = (
-  options?: Record<string, unknown>,
-) => ApexStorageInterface;
+export type ApexStorageFactory = (options?: Record<string, unknown>) => ApexStorageInterface;
 
 /**
  * Configuration options for the storage manager
@@ -49,9 +47,7 @@ export class ApexStorageManager {
    * Get or create the singleton instance
    * @param options Configuration options (only used when creating)
    */
-  public static getInstance(
-    options?: ApexStorageManagerOptions,
-  ): ApexStorageManager {
+  public static getInstance(options?: ApexStorageManagerOptions): ApexStorageManager {
     if (!ApexStorageManager.instance) {
       if (!options) {
         throw new Error('Initial call to getInstance must provide options');
@@ -73,10 +69,7 @@ export class ApexStorageManager {
     await this.storage.initialize(this.options.storageOptions);
 
     // Set up auto-persist if configured
-    if (
-      this.options.autoPersistIntervalMs &&
-      this.options.autoPersistIntervalMs > 0
-    ) {
+    if (this.options.autoPersistIntervalMs && this.options.autoPersistIntervalMs > 0) {
       this.autoPersistInterval = setInterval(async () => {
         await this.persist();
       }, this.options.autoPersistIntervalMs);

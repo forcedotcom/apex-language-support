@@ -6,12 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  ANTLRErrorListener,
-  RecognitionException,
-  Recognizer,
-  Token,
-} from 'antlr4ts';
+import { ANTLRErrorListener, RecognitionException, Recognizer, Token } from 'antlr4ts';
 
 /**
  * Error types that can be captured during parsing and analysis
@@ -153,20 +148,14 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
    * Get semantic errors only
    */
   getSemanticErrors(): ApexError[] {
-    return this.errors.filter(
-      (e) =>
-        e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error,
-    );
+    return this.errors.filter((e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Error);
   }
 
   /**
    * Get semantic warnings only
    */
   getSemanticWarnings(): ApexError[] {
-    return this.errors.filter(
-      (e) =>
-        e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Warning,
-    );
+    return this.errors.filter((e) => e.type === ErrorType.Semantic && e.severity === ErrorSeverity.Warning);
   }
 
   /**
@@ -199,13 +188,6 @@ export class ApexLexerErrorListener implements ANTLRErrorListener<number> {
     e: RecognitionException | undefined,
   ): void {
     // Delegate to the parser error listener
-    this.errorListener.semanticError(
-      msg,
-      line,
-      charPositionInLine,
-      undefined,
-      undefined,
-      undefined,
-    );
+    this.errorListener.semanticError(msg, line, charPositionInLine, undefined, undefined, undefined);
   }
 }

@@ -7,11 +7,7 @@
  */
 
 import { Connection, MessageType } from 'vscode-languageserver/node';
-import {
-  LogMessageParams,
-  type LogMessageType,
-  setLogLevel,
-} from '@salesforce/apex-lsp-logging';
+import { LogMessageParams, type LogMessageType, setLogLevel } from '@salesforce/apex-lsp-logging';
 
 import { NodeLogNotificationHandler } from '../../src/utils/NodeLogNotificationHandler';
 
@@ -51,13 +47,10 @@ describe('NodeLogNotificationHandler', () => {
 
       handler.sendLogMessage(params);
 
-      expect(mockConnection.sendNotification).toHaveBeenCalledWith(
-        'window/logMessage',
-        {
-          type: MessageType.Error,
-          message: 'Test error message',
-        },
-      );
+      expect(mockConnection.sendNotification).toHaveBeenCalledWith('window/logMessage', {
+        type: MessageType.Error,
+        message: 'Test error message',
+      });
     });
 
     it('should send warning message to connection only', () => {
@@ -68,13 +61,10 @@ describe('NodeLogNotificationHandler', () => {
 
       handler.sendLogMessage(params);
 
-      expect(mockConnection.sendNotification).toHaveBeenCalledWith(
-        'window/logMessage',
-        {
-          type: MessageType.Warning,
-          message: 'Test warning message',
-        },
-      );
+      expect(mockConnection.sendNotification).toHaveBeenCalledWith('window/logMessage', {
+        type: MessageType.Warning,
+        message: 'Test warning message',
+      });
     });
 
     it('should send info message to connection only', () => {
@@ -85,13 +75,10 @@ describe('NodeLogNotificationHandler', () => {
 
       handler.sendLogMessage(params);
 
-      expect(mockConnection.sendNotification).toHaveBeenCalledWith(
-        'window/logMessage',
-        {
-          type: MessageType.Info,
-          message: 'Test info message',
-        },
-      );
+      expect(mockConnection.sendNotification).toHaveBeenCalledWith('window/logMessage', {
+        type: MessageType.Info,
+        message: 'Test info message',
+      });
     });
 
     it('should send debug message to connection only', () => {
@@ -102,13 +89,10 @@ describe('NodeLogNotificationHandler', () => {
 
       handler.sendLogMessage(params);
 
-      expect(mockConnection.sendNotification).toHaveBeenCalledWith(
-        'window/logMessage',
-        {
-          type: MessageType.Log, // Debug maps to Log for backward compatibility
-          message: 'Test debug message',
-        },
-      );
+      expect(mockConnection.sendNotification).toHaveBeenCalledWith('window/logMessage', {
+        type: MessageType.Log, // Debug maps to Log for backward compatibility
+        message: 'Test debug message',
+      });
     });
 
     it('should handle unknown message type', () => {
@@ -119,13 +103,10 @@ describe('NodeLogNotificationHandler', () => {
 
       handler.sendLogMessage(params);
 
-      expect(mockConnection.sendNotification).toHaveBeenCalledWith(
-        'window/logMessage',
-        {
-          type: MessageType.Log, // Unknown types map to Log
-          message: 'Test unknown message',
-        },
-      );
+      expect(mockConnection.sendNotification).toHaveBeenCalledWith('window/logMessage', {
+        type: MessageType.Log, // Unknown types map to Log
+        message: 'Test unknown message',
+      });
     });
   });
 });

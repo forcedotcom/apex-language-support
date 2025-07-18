@@ -85,12 +85,8 @@ describe('DidOpenDocumentHandler', () => {
     jest.clearAllMocks();
 
     // Reset the upserter mocks to their default implementation
-    const {
-      DefaultApexDefinitionUpserter,
-    } = require('../../src/definition/ApexDefinitionUpserter');
-    const {
-      DefaultApexReferencesUpserter,
-    } = require('../../src/references/ApexReferencesUpserter');
+    const { DefaultApexDefinitionUpserter } = require('../../src/definition/ApexDefinitionUpserter');
+    const { DefaultApexReferencesUpserter } = require('../../src/references/ApexReferencesUpserter');
 
     DefaultApexDefinitionUpserter.mockImplementation(() => ({
       upsertDefinition: jest.fn().mockResolvedValue(undefined),
@@ -116,17 +112,13 @@ describe('DidOpenDocumentHandler', () => {
     };
 
     // Setup storage manager mock
-    mockStorageManager = ApexStorageManager as jest.Mocked<
-      typeof ApexStorageManager
-    >;
+    mockStorageManager = ApexStorageManager as jest.Mocked<typeof ApexStorageManager>;
     mockStorageManager.getInstance.mockReturnValue({
       getStorage: jest.fn().mockReturnValue(mockStorage),
     } as any);
 
     // Setup settings manager mock
-    mockSettingsManager = ApexSettingsManager as jest.Mocked<
-      typeof ApexSettingsManager
-    >;
+    mockSettingsManager = ApexSettingsManager as jest.Mocked<typeof ApexSettingsManager>;
     mockSettingsManager.getInstance.mockReturnValue({
       getCompilationOptions: jest.fn().mockReturnValue({}),
     } as any);
@@ -154,10 +146,7 @@ describe('DidOpenDocumentHandler', () => {
       // Verify the debug message function was called with correct content
       const debugCall = mockLogger.debug.mock.calls[0];
       expect(debugCall[0]()).toBe('Processing document open: file:///test.cls');
-      expect(mockStorage.setDocument).toHaveBeenCalledWith(
-        mockEvent.document.uri,
-        mockEvent.document,
-      );
+      expect(mockStorage.setDocument).toHaveBeenCalledWith(mockEvent.document.uri, mockEvent.document);
       expect(result).toBeUndefined();
     });
 
@@ -167,52 +156,40 @@ describe('DidOpenDocumentHandler', () => {
       mockStorage.setDocument.mockRejectedValue(storageError);
 
       // Act & Assert
-      await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow(
-        'Storage failed',
-      );
+      await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow('Storage failed');
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
 
       // Verify the error message function was called with correct content
       const errorCall = mockLogger.error.mock.calls[0];
       expect(typeof errorCall[0]).toBe('function');
       const errorMsg = errorCall[0]();
-      expect(errorMsg).toContain(
-        'Error processing document open for file:///test.cls',
-      );
+      expect(errorMsg).toContain('Error processing document open for file:///test.cls');
       expect(errorMsg).toContain('Storage failed');
     });
 
     it('should log error and rethrow when definition upserter fails', async () => {
       // Arrange
-      const {
-        DefaultApexDefinitionUpserter,
-      } = require('../../src/definition/ApexDefinitionUpserter');
+      const { DefaultApexDefinitionUpserter } = require('../../src/definition/ApexDefinitionUpserter');
       const definitionError = new Error('Definition failed');
       DefaultApexDefinitionUpserter.mockImplementation(() => ({
         upsertDefinition: jest.fn().mockRejectedValue(definitionError),
       }));
 
       // Act & Assert
-      await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow(
-        'Definition failed',
-      );
+      await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow('Definition failed');
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
     it('should log error and rethrow when references upserter fails', async () => {
       // Arrange
-      const {
-        DefaultApexReferencesUpserter,
-      } = require('../../src/references/ApexReferencesUpserter');
+      const { DefaultApexReferencesUpserter } = require('../../src/references/ApexReferencesUpserter');
       const referencesError = new Error('References failed');
       DefaultApexReferencesUpserter.mockImplementation(() => ({
         upsertReferences: jest.fn().mockRejectedValue(referencesError),
       }));
 
       // Act & Assert
-      await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow(
-        'References failed',
-      );
+      await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow('References failed');
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
   });

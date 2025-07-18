@@ -23,8 +23,7 @@ export interface ImplcitCapabilties {
   publishDiagnostics: boolean;
 }
 
-export type ExtendedServerCapabilities = ServerCapabilities &
-  ImplcitCapabilties;
+export type ExtendedServerCapabilities = ServerCapabilities & ImplcitCapabilties;
 
 /**
  * Production capabilities - exposes which features are available in production

@@ -25,21 +25,13 @@ export class DidCloseDocumentHandler {
    * Handle document close event
    * @param event The document close event
    */
-  public async handleDocumentClose(
-    event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<void> {
+  public async handleDocumentClose(event: TextDocumentChangeEvent<TextDocument>): Promise<void> {
     this.logger.debug(() => `Processing document close: ${event.document.uri}`);
 
     try {
-      await dispatch(
-        this.documentCloseProcessor.processDocumentClose(event),
-        'Error processing document close',
-      );
+      await dispatch(this.documentCloseProcessor.processDocumentClose(event), 'Error processing document close');
     } catch (error) {
-      this.logger.error(
-        () =>
-          `Error processing document close for ${event.document.uri}: ${error}`,
-      );
+      this.logger.error(() => `Error processing document close for ${event.document.uri}: ${error}`);
       throw error;
     }
   }

@@ -76,15 +76,11 @@ Params: {
     if (notif) {
       expect(notif.params).toBeDefined();
       if (!notif.params) {
-        throw new Error(
-          'Notification params were not attached. Check parser logic.',
-        );
+        throw new Error('Notification params were not attached. Check parser logic.');
       }
       expect(notif.method).toBe('telemetry/event');
       expect(notif.direction).toBe('receive');
-      expect(notif.params.properties.Feature).toBe(
-        'ApexLanguageServerLauncher',
-      );
+      expect(notif.params.properties.Feature).toBe('ApexLanguageServerLauncher');
     }
     // Check response
     const response = result.find((item) => item.method === 'initialize');
@@ -194,9 +190,7 @@ Result: {
     // Check response (should be the same id, type 'request', and have result)
     expect(hoverMsg!.result).toBeDefined();
     expect(hoverMsg!.result.contents.kind).toBe('markdown');
-    expect(hoverMsg!.result.contents.value).toContain(
-      'FileUtilities.createFile',
-    );
+    expect(hoverMsg!.result.contents.value).toContain('FileUtilities.createFile');
     // Check notification (should be id=2)
     const notif = result.get(2);
     expect(notif).toBeDefined();
@@ -236,26 +230,18 @@ Params: {
     expect(result).toHaveLength(3);
 
     // Check didClose notification
-    const didClose = result.find(
-      (msg) => msg.method === 'textDocument/didClose',
-    );
+    const didClose = result.find((msg) => msg.method === 'textDocument/didClose');
     expect(didClose).toBeDefined();
     expect(didClose?.type).toBe('notification');
     expect(didClose?.direction).toBe('send');
-    expect(didClose?.params.textDocument.uri).toContain(
-      'TestSampleDataController.cls',
-    );
+    expect(didClose?.params.textDocument.uri).toContain('TestSampleDataController.cls');
 
     // Check publishDiagnostics notification
-    const publishDiagnostics = result.find(
-      (msg) => msg.method === 'textDocument/publishDiagnostics',
-    );
+    const publishDiagnostics = result.find((msg) => msg.method === 'textDocument/publishDiagnostics');
     expect(publishDiagnostics).toBeDefined();
     expect(publishDiagnostics?.type).toBe('notification');
     expect(publishDiagnostics?.direction).toBe('receive');
-    expect(publishDiagnostics?.params.uri).toContain(
-      'TestSampleDataController.cls',
-    );
+    expect(publishDiagnostics?.params.uri).toContain('TestSampleDataController.cls');
     expect(publishDiagnostics?.params.diagnostics).toEqual([]);
 
     // Check didOpen notification
@@ -263,9 +249,7 @@ Params: {
     expect(didOpen).toBeDefined();
     expect(didOpen?.type).toBe('notification');
     expect(didOpen?.direction).toBe('send');
-    expect(didOpen?.params.textDocument.uri).toContain(
-      'TestPropertyController.cls',
-    );
+    expect(didOpen?.params.textDocument.uri).toContain('TestPropertyController.cls');
     expect(didOpen?.params.textDocument.languageId).toBe('apex');
     expect(didOpen?.params.textDocument.version).toBe(1);
     expect(didOpen?.params.textDocument.text).toBeDefined();
@@ -632,9 +616,7 @@ Params: {
     expect(diagnostics.direction).toBe('receive');
     expect(diagnostics.params).toBeDefined();
     expect(diagnostics.params.diagnostics).toHaveLength(3);
-    expect(diagnostics.params.diagnostics[0].message).toBe(
-      'Field does not exist: Price__c on Property__c',
-    );
+    expect(diagnostics.params.diagnostics[0].message).toBe('Field does not exist: Price__c on Property__c');
 
     // Check telemetry notification
     const telemetry = result[3];

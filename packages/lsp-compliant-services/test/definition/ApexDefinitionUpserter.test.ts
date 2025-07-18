@@ -5,11 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import {
-  ApexSymbol,
-  SymbolVisibility,
-  SymbolKind,
-} from '@salesforce/apex-lsp-parser-ast';
+import { ApexSymbol, SymbolVisibility, SymbolKind } from '@salesforce/apex-lsp-parser-ast';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -79,10 +75,7 @@ describe('DefaultApexDefinitionPopulator', () => {
       },
     ];
 
-    populator = new DefaultApexDefinitionUpserter(
-      mockStorage,
-      mockGlobalSymbols,
-    );
+    populator = new DefaultApexDefinitionUpserter(mockStorage, mockGlobalSymbols);
   });
 
   it('should populate definitions for new document', async () => {
@@ -200,10 +193,7 @@ describe('DefaultApexDefinitionPopulator', () => {
       },
     ];
 
-    const populator = new DefaultApexDefinitionUpserter(
-      mockStorage,
-      updatedSymbols,
-    );
+    const populator = new DefaultApexDefinitionUpserter(mockStorage, updatedSymbols);
     // Act
     await populator.upsertDefinition(event);
 
@@ -292,22 +282,12 @@ describe('DefaultApexDefinitionPopulator', () => {
     ];
 
     // Act & Assert for first edit
-    const populator = new DefaultApexDefinitionUpserter(
-      mockStorage,
-      firstSymbols,
-    );
-    await populator.upsertDefinition(
-      events[0] as TextDocumentChangeEvent<TextDocument>,
-    );
+    const populator = new DefaultApexDefinitionUpserter(mockStorage, firstSymbols);
+    await populator.upsertDefinition(events[0] as TextDocumentChangeEvent<TextDocument>);
 
     // Act & Assert for second edit
-    const populator2 = new DefaultApexDefinitionUpserter(
-      mockStorage,
-      secondSymbols,
-    );
-    await populator2.upsertDefinition(
-      events[1] as TextDocumentChangeEvent<TextDocument>,
-    );
+    const populator2 = new DefaultApexDefinitionUpserter(mockStorage, secondSymbols);
+    await populator2.upsertDefinition(events[1] as TextDocumentChangeEvent<TextDocument>);
 
     // Final assertions
     expect(mockStorage.setDefinition).toHaveBeenCalledTimes(2);

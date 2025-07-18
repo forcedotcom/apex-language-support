@@ -8,11 +8,7 @@
 
 import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {
-  SymbolTable,
-  CompilerService,
-  ApexSymbolCollectorListener,
-} from '@salesforce/apex-lsp-parser-ast';
+import { SymbolTable, CompilerService, ApexSymbolCollectorListener } from '@salesforce/apex-lsp-parser-ast';
 import { LoggerInterface } from '@salesforce/apex-lsp-logging';
 
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
@@ -33,22 +29,15 @@ export class DocumentProcessingService implements IDocumentProcessor {
    * @param event The document change event
    * @returns Diagnostics for the changed document
    */
-  public async processDocumentChange(
-    event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined> {
-    this.logger.debug(
-      () =>
-        `Common Apex Language Server change document handler invoked with: ${event}`,
-    );
+  public async processDocumentChange(event: TextDocumentChangeEvent<TextDocument>): Promise<Diagnostic[] | undefined> {
+    this.logger.debug(() => `Common Apex Language Server change document handler invoked with: ${event}`);
 
     // Get the storage manager instance
     const storageManager = ApexStorageManager.getInstance();
     const storage = storageManager.getStorage();
     const document = event.document;
     if (!document) {
-      this.logger.error(
-        () => `Document not found for URI: ${event.document.uri}`,
-      );
+      this.logger.error(() => `Document not found for URI: ${event.document.uri}`);
     }
 
     // Store the document in storage for later retrieval by other handlers
@@ -62,17 +51,9 @@ export class DocumentProcessingService implements IDocumentProcessor {
     // Parse the document
     const settingsManager = ApexSettingsManager.getInstance();
     const fileSize = document.getText().length;
-    const options = settingsManager.getCompilationOptions(
-      'documentChange',
-      fileSize,
-    );
+    const options = settingsManager.getCompilationOptions('documentChange', fileSize);
 
-    const result = compilerService.compile(
-      document.getText(),
-      document.uri,
-      listener,
-      options,
-    );
+    const result = compilerService.compile(document.getText(), document.uri, listener, options);
 
     if (result.errors.length > 0) {
       this.logger.debug(() => `Errors parsing document: ${result.errors}`);
@@ -87,16 +68,10 @@ export class DocumentProcessingService implements IDocumentProcessor {
     const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
 
     // Create the definition provider
-    const definitionUpserter = new DefaultApexDefinitionUpserter(
-      storage,
-      globalSymbols,
-    );
+    const definitionUpserter = new DefaultApexDefinitionUpserter(storage, globalSymbols);
 
     // Create the references provider
-    const referencesUpserter = new DefaultApexReferencesUpserter(
-      storage,
-      globalSymbols,
-    );
+    const referencesUpserter = new DefaultApexReferencesUpserter(storage, globalSymbols);
 
     // Upsert the definitions and references (these are fire-and-forget operations)
     // In a real implementation, you might want to handle these differently

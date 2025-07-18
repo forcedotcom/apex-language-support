@@ -8,13 +8,7 @@
 
 import { ParserRuleContext } from 'antlr4ts';
 
-import {
-  SymbolKind,
-  SymbolLocation,
-  SymbolModifiers,
-  SymbolVisibility,
-  TypeSymbol,
-} from '../../../src/types/symbol';
+import { SymbolKind, SymbolLocation, SymbolModifiers, SymbolVisibility, TypeSymbol } from '../../../src/types/symbol';
 import { AnnotationValidator } from '../../../src/semantics/annotations/index';
 import { ErrorReporter } from '../../../src/utils/ErrorReporter';
 
@@ -118,9 +112,7 @@ describe('AnnotationValidator', () => {
 
       AnnotationValidator.validateAnnotations(classSymbol, ctx, errorReporter);
       expect(errorReporter.errors.length).toBe(1);
-      expect(errorReporter.errors[0]).toContain(
-        'HttpGet cannot be used on a class',
-      );
+      expect(errorReporter.errors[0]).toContain('HttpGet cannot be used on a class');
     });
 
     it('should report error for missing required parameters', () => {
@@ -149,9 +141,7 @@ describe('AnnotationValidator', () => {
 
       AnnotationValidator.validateAnnotations(classSymbol, ctx, errorReporter);
       expect(errorReporter.errors.length).toBe(1);
-      expect(errorReporter.errors[0]).toContain(
-        'missing required parameter(s): urlMapping',
-      );
+      expect(errorReporter.errors[0]).toContain('missing required parameter(s): urlMapping');
     });
 
     it('should report warning for unrecognized parameters', () => {
@@ -185,9 +175,7 @@ describe('AnnotationValidator', () => {
 
       AnnotationValidator.validateAnnotations(classSymbol, ctx, errorReporter);
       expect(errorReporter.warnings.length).toBe(1);
-      expect(errorReporter.warnings[0]).toContain(
-        'unrecognized parameter(s): invalidParam',
-      );
+      expect(errorReporter.warnings[0]).toContain('unrecognized parameter(s): invalidParam');
     });
 
     it('should validate required parameters correctly', () => {
@@ -252,11 +240,9 @@ describe('AnnotationValidator', () => {
 
       AnnotationValidator.validateAnnotations(classSymbol, ctx, errorReporter);
       expect(errorReporter.errors.length).toBeGreaterThan(0);
-      expect(
-        errorReporter.errors.some(
-          (error) => error.includes('isTest') && error.includes('AuraEnabled'),
-        ),
-      ).toBe(true);
+      expect(errorReporter.errors.some((error) => error.includes('isTest') && error.includes('AuraEnabled'))).toBe(
+        true,
+      );
     });
 
     it('should detect multiple HTTP method annotations', () => {
@@ -300,9 +286,7 @@ describe('AnnotationValidator', () => {
     });
 
     it('should return undefined for unknown annotations', () => {
-      const info = AnnotationValidator.getAnnotationInfo(
-        'nonExistentAnnotation',
-      );
+      const info = AnnotationValidator.getAnnotationInfo('nonExistentAnnotation');
       expect(info).toBeUndefined();
     });
 

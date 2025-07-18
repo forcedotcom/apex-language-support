@@ -293,9 +293,7 @@ describe('isInterfaceSymbol', () => {
       const interfaceSymbol: TypeSymbol = symbol;
       expect(interfaceSymbol.interfaces).toEqual([]);
     } else {
-      fail(
-        'isInterfaceSymbol should have returned true for an interface symbol',
-      );
+      fail('isInterfaceSymbol should have returned true for an interface symbol');
     }
   });
 });

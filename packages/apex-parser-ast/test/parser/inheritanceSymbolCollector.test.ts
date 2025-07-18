@@ -6,16 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  CompilerService,
-  CompilationResult,
-} from '../../src/parser/compilerService';
-import {
-  ApexSymbolCollectorListener,
-  SymbolTable,
-  SymbolKind,
-  TypeSymbol,
-} from '../../src';
+import { CompilerService, CompilationResult } from '../../src/parser/compilerService';
+import { ApexSymbolCollectorListener, SymbolTable, SymbolKind, TypeSymbol } from '../../src';
 
 describe('Inheritance Symbol Collection', () => {
   let compilerService: CompilerService;
@@ -36,11 +28,7 @@ describe('Inheritance Symbol Collection', () => {
         }
       `;
 
-      const result: CompilationResult<SymbolTable> = compilerService.compile(
-        fileContent,
-        'ChildClass.cls',
-        listener,
-      );
+      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'ChildClass.cls', listener);
 
       expect(result.errors.length).toBe(0);
 
@@ -100,11 +88,7 @@ describe('Inheritance Symbol Collection', () => {
         }
       `;
 
-      const result: CompilationResult<SymbolTable> = compilerService.compile(
-        fileContent,
-        'ComplexClass.cls',
-        listener,
-      );
+      const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'ComplexClass.cls', listener);
 
       expect(result.errors.length).toBe(0);
 

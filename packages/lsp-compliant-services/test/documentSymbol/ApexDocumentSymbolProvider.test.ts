@@ -5,13 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import {
-  DocumentSymbolParams,
-  SymbolKind,
-  DocumentSymbol,
-  Range,
-  Position,
-} from 'vscode-languageserver-protocol';
+import { DocumentSymbolParams, SymbolKind, DocumentSymbol, Range, Position } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   CompilerService,
@@ -54,16 +48,12 @@ describe('DefaultApexDocumentSymbolProvider', () => {
     mockCompilerService = {
       compile: jest.fn(),
     } as any;
-    (CompilerService as jest.Mock).mockImplementation(
-      () => mockCompilerService,
-    );
+    (CompilerService as jest.Mock).mockImplementation(() => mockCompilerService);
 
     mockListener = {
       getResult: jest.fn(),
     } as any;
-    (ApexSymbolCollectorListener as jest.Mock).mockImplementation(
-      () => mockListener,
-    );
+    (ApexSymbolCollectorListener as jest.Mock).mockImplementation(() => mockListener);
 
     mockLogger = {
       info: jest.fn(),
@@ -102,9 +92,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           }
         }
       `;
-      mockStorage.getDocument.mockResolvedValue(
-        TextDocument.create('test.apex', 'apex', 1, invalidApex),
-      );
+      mockStorage.getDocument.mockResolvedValue(TextDocument.create('test.apex', 'apex', 1, invalidApex));
 
       mockCompilerService.compile.mockReturnValue({
         errors: [
@@ -185,9 +173,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
                     }
                 }
             `;
-      mockStorage.getDocument.mockResolvedValue(
-        TextDocument.create('test.apex', 'apex', 1, validApex),
-      );
+      mockStorage.getDocument.mockResolvedValue(TextDocument.create('test.apex', 'apex', 1, validApex));
 
       mockCompilerService.compile.mockReturnValue({
         errors: [],
@@ -474,9 +460,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(result).toHaveLength(1);
       const classSymbol = result![0] as any;
       expect(classSymbol.children).toHaveLength(1);
-      expect(classSymbol.children[0].name).toBe(
-        'getValue(Integer, String) : String',
-      );
+      expect(classSymbol.children[0].name).toBe('getValue(Integer, String) : String');
     });
 
     it('should handle symbols with identifier location for precise ranges', async () => {
@@ -522,12 +506,8 @@ describe('DefaultApexDocumentSymbolProvider', () => {
 
       expect(result).toHaveLength(1);
       const symbol = result![0] as DocumentSymbol;
-      expect(symbol.range).toEqual(
-        Range.create(Position.create(0, 14), Position.create(0, 27)),
-      );
-      expect(symbol.selectionRange).toEqual(
-        Range.create(Position.create(0, 14), Position.create(0, 25)),
-      );
+      expect(symbol.range).toEqual(Range.create(Position.create(0, 14), Position.create(0, 27)));
+      expect(symbol.selectionRange).toEqual(Range.create(Position.create(0, 14), Position.create(0, 25)));
     });
 
     it('should handle nested classes with children', async () => {
@@ -597,9 +577,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(outerSymbol.children).toHaveLength(1);
       expect(outerSymbol.children![0].name).toBe('InnerClass');
       expect(outerSymbol.children![0].children).toHaveLength(1);
-      expect(outerSymbol.children![0].children![0].name).toBe(
-        'innerMethod() : void',
-      );
+      expect(outerSymbol.children![0].children![0].name).toBe('innerMethod() : void');
     });
 
     it('should handle interface with only methods', async () => {
@@ -815,11 +793,9 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
 
       // Mock an error during processing
-      jest
-        .spyOn(symbolProvider as any, 'createDocumentSymbol')
-        .mockImplementation(() => {
-          throw new Error('Processing error');
-        });
+      jest.spyOn(symbolProvider as any, 'createDocumentSymbol').mockImplementation(() => {
+        throw new Error('Processing error');
+      });
 
       const result = await symbolProvider.provideDocumentSymbols({
         textDocument: { uri: docUri },
@@ -841,9 +817,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
                     }
                 }
             `;
-      mockStorage.getDocument.mockResolvedValue(
-        TextDocument.create('test.apex', 'apex', 1, validApex),
-      );
+      mockStorage.getDocument.mockResolvedValue(TextDocument.create('test.apex', 'apex', 1, validApex));
 
       mockCompilerService.compile.mockReturnValue({
         errors: [],
@@ -909,9 +883,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(result).not.toBeNull();
       const firstSymbol = result![0] as DocumentSymbol;
       expect(Array.isArray(firstSymbol.children)).toBe(true);
-      expect((firstSymbol.children as DocumentSymbol[]).length).toBeGreaterThan(
-        0,
-      );
+      expect((firstSymbol.children as DocumentSymbol[]).length).toBeGreaterThan(0);
     });
 
     it('should only include methods for interfaces', async () => {
@@ -921,9 +893,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
                     String method2();
                 }
             `;
-      mockStorage.getDocument.mockResolvedValue(
-        TextDocument.create('test.apex', 'apex', 1, validApex),
-      );
+      mockStorage.getDocument.mockResolvedValue(TextDocument.create('test.apex', 'apex', 1, validApex));
 
       mockCompilerService.compile.mockReturnValue({
         errors: [],
@@ -959,11 +929,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       expect(result).not.toBeNull();
       const firstSymbol = result![0] as DocumentSymbol;
       expect(Array.isArray(firstSymbol.children)).toBe(true);
-      expect(
-        (firstSymbol.children as DocumentSymbol[]).every(
-          (child) => child.kind === SymbolKind.Method,
-        ),
-      ).toBe(true);
+      expect((firstSymbol.children as DocumentSymbol[]).every((child) => child.kind === SymbolKind.Method)).toBe(true);
     });
   });
 
@@ -997,10 +963,7 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       const methodSymbol = {
         name: 'testMethod',
         kind: 'method',
-        parameters: [
-          { type: { originalTypeString: 'String' } },
-          { type: { originalTypeString: 'Integer' } },
-        ],
+        parameters: [{ type: { originalTypeString: 'String' } }, { type: { originalTypeString: 'Integer' } }],
         returnType: { originalTypeString: 'Boolean' },
       };
 

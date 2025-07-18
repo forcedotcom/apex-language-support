@@ -6,12 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  CompilerService,
-  CompilationResult,
-  ApexSymbolCollectorListener,
-  SymbolTable,
-} from '../../src';
+import { CompilerService, CompilationResult, ApexSymbolCollectorListener, SymbolTable } from '../../src';
 import { ErrorType } from '../../src/parser/listeners/ApexErrorListener';
 
 describe('Inner Class Validation', () => {
@@ -35,17 +30,11 @@ describe('Inner Class Validation', () => {
       }
     `;
 
-    const result: CompilationResult<SymbolTable> = compilerService.compile(
-      fileContent,
-      'OuterClass.cls',
-      listener,
-    );
+    const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'OuterClass.cls', listener);
 
     // Filter for semantic errors related to inner class naming
     const innerClassNameErrors = result.errors.filter(
-      (e) =>
-        e.type === ErrorType.Semantic &&
-        e.message.includes('cannot have the same name as its outer class'),
+      (e) => e.type === ErrorType.Semantic && e.message.includes('cannot have the same name as its outer class'),
     );
 
     expect(innerClassNameErrors.length).toBeGreaterThan(0);
@@ -66,17 +55,11 @@ describe('Inner Class Validation', () => {
       }
     `;
 
-    const result: CompilationResult<SymbolTable> = compilerService.compile(
-      fileContent,
-      'OuterClass.cls',
-      listener,
-    );
+    const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'OuterClass.cls', listener);
 
     // Filter for semantic errors related to inner class nesting
     const nestedInnerClassErrors = result.errors.filter(
-      (e) =>
-        e.type === ErrorType.Semantic &&
-        e.message.includes('cannot be defined within another inner class'),
+      (e) => e.type === ErrorType.Semantic && e.message.includes('cannot be defined within another inner class'),
     );
 
     expect(nestedInnerClassErrors.length).toBeGreaterThan(0);
@@ -101,18 +84,11 @@ describe('Inner Class Validation', () => {
       }
     `;
 
-    const result: CompilationResult<SymbolTable> = compilerService.compile(
-      fileContent,
-      'OuterClass.cls',
-      listener,
-    );
+    const result: CompilationResult<SymbolTable> = compilerService.compile(fileContent, 'OuterClass.cls', listener);
 
     // Check for any semantic errors related to inner classes
     const innerClassErrors = result.errors.filter(
-      (e) =>
-        e.type === ErrorType.Semantic &&
-        (e.message.includes('inner class') ||
-          e.message.includes('Inner class')),
+      (e) => e.type === ErrorType.Semantic && (e.message.includes('inner class') || e.message.includes('Inner class')),
     );
 
     expect(innerClassErrors.length).toBe(0);
@@ -266,19 +242,14 @@ describe('Inner Class Validation', () => {
 
     // Check for any semantic errors related to inner classes
     const innerClassErrors = result.errors.filter(
-      (e) =>
-        e.type === ErrorType.Semantic &&
-        (e.message.includes('inner class') ||
-          e.message.includes('Inner class')),
+      (e) => e.type === ErrorType.Semantic && (e.message.includes('inner class') || e.message.includes('Inner class')),
     );
 
     expect(innerClassErrors.length).toBe(0);
 
     // Verify that the parser successfully created the symbol table
     expect(result.result).toBeDefined();
-    expect(
-      result.result?.getCurrentScope().getAllSymbols().length,
-    ).toBeGreaterThan(0);
+    expect(result.result?.getCurrentScope().getAllSymbols().length).toBeGreaterThan(0);
   });
   it('should parse ClassWithVirtualInnerClass with complex inner class hierarchy w/errors', () => {
     const fileContent = `
@@ -430,23 +401,16 @@ describe('Inner Class Validation', () => {
 
     // Check for expected semantic errors
     const virtialSyntaxErrors = result.errors.filter(
-      (e) =>
-        e.type === ErrorType.Semantic &&
-        e.message.includes('Invalid syntax: virtial'),
+      (e) => e.type === ErrorType.Semantic && e.message.includes('Invalid syntax: virtial'),
     );
 
     const virtualFieldErrors = result.errors.filter(
-      (e) =>
-        e.type === ErrorType.Semantic &&
-        e.message.includes("Field cannot be declared as 'virtual'"),
+      (e) => e.type === ErrorType.Semantic && e.message.includes("Field cannot be declared as 'virtual'"),
     );
 
     const syntaxErrors = result.errors.filter(
       (e) =>
-        e.type === ErrorType.Syntax &&
-        e.message.includes(
-          "no viable alternative at input 'virtial String badBunny'",
-        ),
+        e.type === ErrorType.Syntax && e.message.includes("no viable alternative at input 'virtial String badBunny'"),
     );
 
     // Verify that the expected errors are present
@@ -457,10 +421,7 @@ describe('Inner Class Validation', () => {
 
     // Verify inner class structure is not affected by these errors
     const innerClassErrors = result.errors.filter(
-      (e) =>
-        e.type === ErrorType.Semantic &&
-        (e.message.includes('inner class') ||
-          e.message.includes('Inner class')),
+      (e) => e.type === ErrorType.Semantic && (e.message.includes('inner class') || e.message.includes('Inner class')),
     );
 
     expect(innerClassErrors.length).toBe(0);

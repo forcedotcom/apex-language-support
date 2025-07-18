@@ -7,12 +7,7 @@
  */
 
 import { Connection, MessageType } from 'vscode-languageserver/node';
-import {
-  LogMessageParams,
-  type LogMessageType,
-  LogNotificationHandler,
-  shouldLog,
-} from '@salesforce/apex-lsp-logging';
+import { LogMessageParams, type LogMessageType, LogNotificationHandler, shouldLog } from '@salesforce/apex-lsp-logging';
 
 /**
  * Node-specific implementation of LogNotificationHandler
@@ -31,13 +26,9 @@ export class NodeLogNotificationHandler implements LogNotificationHandler {
    * @param connection The LSP connection to use for sending notifications
    * @returns The NodeLogNotificationHandler instance
    */
-  public static getInstance(
-    connection: Connection,
-  ): NodeLogNotificationHandler {
+  public static getInstance(connection: Connection): NodeLogNotificationHandler {
     if (!NodeLogNotificationHandler.instance) {
-      NodeLogNotificationHandler.instance = new NodeLogNotificationHandler(
-        connection,
-      );
+      NodeLogNotificationHandler.instance = new NodeLogNotificationHandler(connection);
     }
     return NodeLogNotificationHandler.instance;
   }

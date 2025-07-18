@@ -137,11 +137,7 @@ export function getAncestorChain(symbol: any): any[] {
 
   while (current) {
     // Only add type-level symbols to the chain
-    if (
-      current.kind === 'Class' ||
-      current.kind === 'Interface' ||
-      current.kind === 'Enum'
-    ) {
+    if (current.kind === 'Class' || current.kind === 'Interface' || current.kind === 'Enum') {
       ancestors.unshift(current);
     }
     current = current.parent;
@@ -176,11 +172,7 @@ export function isBuiltInType(symbol: any): boolean {
   if (primitives.includes(symbol.name)) return true;
 
   // Check for List, Set, Map types
-  if (
-    symbol.name.startsWith('List<') ||
-    symbol.name.startsWith('Set<') ||
-    symbol.name.startsWith('Map<')
-  ) {
+  if (symbol.name.startsWith('List<') || symbol.name.startsWith('Set<') || symbol.name.startsWith('Map<')) {
     return true;
   }
 
@@ -192,11 +184,7 @@ export function isBuiltInType(symbol: any): boolean {
 /**
  * Get the appropriate delimiter between two symbols in an FQN
  */
-export function getMemberDelimiter(
-  symbol: any,
-  parent: any,
-  options: FQNOptions,
-): string {
+export function getMemberDelimiter(symbol: any, parent: any, options: FQNOptions): string {
   if (!parent) return '';
 
   // Default delimiters
@@ -204,11 +192,7 @@ export function getMemberDelimiter(
   const memberDelimiter = options.memberDelimiter || '.';
 
   // Use inner class delimiter for class, interface, and enum types
-  if (
-    symbol.kind === 'Class' ||
-    symbol.kind === 'Interface' ||
-    symbol.kind === 'Enum'
-  ) {
+  if (symbol.kind === 'Class' || symbol.kind === 'Interface' || symbol.kind === 'Enum') {
     return innerDelimiter;
   }
 
@@ -222,10 +206,7 @@ export function getMemberDelimiter(
  * @param defaultNamespace Default namespace to use if none is found
  * @returns The extracted namespace or empty string
  */
-export function extractNamespace(
-  name: string,
-  defaultNamespace?: string,
-): string {
+export function extractNamespace(name: string, defaultNamespace?: string): string {
   if (!name) return '';
 
   // If it's a built-in namespace, return the name itself
@@ -281,9 +262,7 @@ export function getMethodSignature(methodSymbol: any): string {
   // Build parameter string
   let params = '';
   if (methodSymbol.parameters && methodSymbol.parameters.length > 0) {
-    params = methodSymbol.parameters
-      .map((p: any) => p.type || 'Object')
-      .join(',');
+    params = methodSymbol.parameters.map((p: any) => p.type || 'Object').join(',');
   }
 
   return `${methodSymbol.name}(${params})`;

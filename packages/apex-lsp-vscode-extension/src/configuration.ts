@@ -17,9 +17,7 @@ import { EXTENSION_CONSTANTS } from './constants';
  * @returns The workspace settings object
  */
 export const getWorkspaceSettings = (): WorkspaceSettings => {
-  const config = vscode.workspace.getConfiguration(
-    EXTENSION_CONSTANTS.CONFIG_SECTION,
-  );
+  const config = vscode.workspace.getConfiguration(EXTENSION_CONSTANTS.CONFIG_SECTION);
   const logLevel = config.get<string>('logLevel') ?? 'info';
 
   // Update the log level for the extension's logging system
@@ -29,59 +27,24 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
   return {
     apex: {
       commentCollection: {
-        enableCommentCollection: config.get<boolean>(
-          'commentCollection.enableCommentCollection',
-          true,
-        ),
-        includeSingleLineComments: config.get<boolean>(
-          'commentCollection.includeSingleLineComments',
-          false,
-        ),
-        associateCommentsWithSymbols: config.get<boolean>(
-          'commentCollection.associateCommentsWithSymbols',
-          false,
-        ),
-        enableForDocumentChanges: config.get<boolean>(
-          'commentCollection.enableForDocumentChanges',
-          true,
-        ),
-        enableForDocumentOpen: config.get<boolean>(
-          'commentCollection.enableForDocumentOpen',
-          true,
-        ),
-        enableForDocumentSymbols: config.get<boolean>(
-          'commentCollection.enableForDocumentSymbols',
-          false,
-        ),
-        enableForFoldingRanges: config.get<boolean>(
-          'commentCollection.enableForFoldingRanges',
-          false,
-        ),
+        enableCommentCollection: config.get<boolean>('commentCollection.enableCommentCollection', true),
+        includeSingleLineComments: config.get<boolean>('commentCollection.includeSingleLineComments', false),
+        associateCommentsWithSymbols: config.get<boolean>('commentCollection.associateCommentsWithSymbols', false),
+        enableForDocumentChanges: config.get<boolean>('commentCollection.enableForDocumentChanges', true),
+        enableForDocumentOpen: config.get<boolean>('commentCollection.enableForDocumentOpen', true),
+        enableForDocumentSymbols: config.get<boolean>('commentCollection.enableForDocumentSymbols', false),
+        enableForFoldingRanges: config.get<boolean>('commentCollection.enableForFoldingRanges', false),
       },
       performance: {
-        commentCollectionMaxFileSize: config.get<number>(
-          'performance.commentCollectionMaxFileSize',
-          102400,
-        ),
-        useAsyncCommentProcessing: config.get<boolean>(
-          'performance.useAsyncCommentProcessing',
-          true,
-        ),
-        documentChangeDebounceMs: config.get<number>(
-          'performance.documentChangeDebounceMs',
-          300,
-        ),
+        commentCollectionMaxFileSize: config.get<number>('performance.commentCollectionMaxFileSize', 102400),
+        useAsyncCommentProcessing: config.get<boolean>('performance.useAsyncCommentProcessing', true),
+        documentChangeDebounceMs: config.get<number>('performance.documentChangeDebounceMs', 300),
       },
       environment: {
-        enablePerformanceLogging: config.get<boolean>(
-          'environment.enablePerformanceLogging',
-          false,
-        ),
+        enablePerformanceLogging: config.get<boolean>('environment.enablePerformanceLogging', false),
       },
       resources: {
-        loadMode: config.get<string>('resources.loadMode', 'lazy') as
-          | 'lazy'
-          | 'full',
+        loadMode: config.get<string>('resources.loadMode', 'lazy') as 'lazy' | 'full',
       },
       logLevel,
     },
@@ -93,15 +56,10 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
  * @returns The debug configuration
  */
 export const getDebugConfig = (): DebugConfig => {
-  const config = vscode.workspace.getConfiguration(
-    EXTENSION_CONSTANTS.CONFIG_SECTION,
-  );
+  const config = vscode.workspace.getConfiguration(EXTENSION_CONSTANTS.CONFIG_SECTION);
 
   return {
-    mode: config.get<string>('debug', 'off') as
-      | 'off'
-      | 'inspect'
-      | 'inspect-brk',
+    mode: config.get<string>('debug', 'off') as 'off' | 'inspect' | 'inspect-brk',
     port: config.get<number>('debugPort', 6009),
   };
 };
@@ -111,9 +69,7 @@ export const getDebugConfig = (): DebugConfig => {
  * @returns The trace server setting as a Trace enum value
  */
 export const getTraceServerConfig = (): Trace => {
-  const config = vscode.workspace.getConfiguration(
-    EXTENSION_CONSTANTS.CONFIG_SECTION,
-  );
+  const config = vscode.workspace.getConfiguration(EXTENSION_CONSTANTS.CONFIG_SECTION);
   const traceValue = config.get<string>('trace.server', 'off');
 
   // Map string values to Trace enum
@@ -133,10 +89,7 @@ export const getTraceServerConfig = (): Trace => {
  * @param client The language client
  * @param context The extension context
  */
-export const registerConfigurationChangeListener = (
-  client: LanguageClient,
-  context: vscode.ExtensionContext,
-): void => {
+export const registerConfigurationChangeListener = (client: LanguageClient, context: vscode.ExtensionContext): void => {
   // Listen for configuration changes
   const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
     if (event.affectsConfiguration(EXTENSION_CONSTANTS.CONFIG_SECTION)) {

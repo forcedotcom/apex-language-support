@@ -7,10 +7,7 @@
  */
 
 import { enableConsoleLogging, getLogger } from '../src/index';
-import {
-  CompilerService,
-  ApexSymbolCollectorListener,
-} from '@salesforce/apex-parser-ast';
+import { CompilerService, ApexSymbolCollectorListener } from '@salesforce/apex-parser-ast';
 
 /**
  * Example demonstrating how to use the Apex parser with console logging
@@ -50,14 +47,10 @@ async function main() {
 
     if (result.result) {
       logger.info('Compilation successful');
-      logger.info(
-        `Found ${result.result.getCurrentScope().getAllSymbols().size} symbols`,
-      );
+      logger.info(`Found ${result.result.getCurrentScope().getAllSymbols().size} symbols`);
 
       // Log some details about what was found
-      const symbols = Array.from(
-        result.result.getCurrentScope().getAllSymbols(),
-      );
+      const symbols = Array.from(result.result.getCurrentScope().getAllSymbols());
       symbols.forEach((symbol) => {
         logger.debug(`Found symbol: ${symbol.name} (${symbol.kind})`);
       });
@@ -79,9 +72,7 @@ async function main() {
       });
     }
   } catch (error) {
-    logger.error(
-      `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    logger.error(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   logger.info('Standalone example completed');

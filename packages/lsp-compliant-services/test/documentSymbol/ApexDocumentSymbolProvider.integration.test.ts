@@ -11,10 +11,7 @@
  * These use real parsing (no mocks) to detect breaking changes in document symbol generation
  */
 
-import {
-  DocumentSymbolParams,
-  DocumentSymbol,
-} from 'vscode-languageserver-protocol';
+import { DocumentSymbolParams, DocumentSymbol } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-logging';
 
@@ -100,12 +97,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       ].join('\n');
 
       const docUri = 'file:///CommunitiesLandingController.cls';
-      const textDocument = TextDocument.create(
-        docUri,
-        'apex',
-        1,
-        apexClassContent,
-      );
+      const textDocument = TextDocument.create(docUri, 'apex', 1, apexClassContent);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
       const params: DocumentSymbolParams = { textDocument: { uri: docUri } };
@@ -228,12 +220,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       ].join('\n');
 
       const docUri = 'file:///OuterClass.cls';
-      const textDocument = TextDocument.create(
-        docUri,
-        'apex',
-        1,
-        apexClassContent,
-      );
+      const textDocument = TextDocument.create(docUri, 'apex', 1, apexClassContent);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
       const params: DocumentSymbolParams = { textDocument: { uri: docUri } };
@@ -297,12 +284,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       ].join('\n');
 
       const docUri = 'file:///TestInterface.cls';
-      const textDocument = TextDocument.create(
-        docUri,
-        'apex',
-        1,
-        interfaceApex,
-      );
+      const textDocument = TextDocument.create(docUri, 'apex', 1, interfaceApex);
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
       const result = await symbolProvider.provideDocumentSymbols({
@@ -314,25 +296,17 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       expect((result![0] as DocumentSymbol).children).toHaveLength(3);
 
       // All children should be methods
-      (result![0] as DocumentSymbol).children!.forEach(
-        (child: DocumentSymbol) => {
-          expect(child.kind).toBe(6); // SymbolKind.Method
-          expect(child.name).toMatch(/.*\(.*\) : .*/); // Should have method signature format
-        },
-      );
+      (result![0] as DocumentSymbol).children!.forEach((child: DocumentSymbol) => {
+        expect(child.kind).toBe(6); // SymbolKind.Method
+        expect(child.name).toMatch(/.*\(.*\) : .*/); // Should have method signature format
+      });
     });
 
     /**
      * Tests enum handling to ensure proper symbol hierarchy
      */
     it('correctly handles enum declarations with values', async () => {
-      const enumApex = [
-        'public enum AccountType {',
-        '    CUSTOMER,',
-        '    PARTNER,',
-        '    VENDOR',
-        '}',
-      ].join('\n');
+      const enumApex = ['public enum AccountType {', '    CUSTOMER,', '    PARTNER,', '    VENDOR', '}'].join('\n');
 
       const docUri = 'file:///AccountType.cls';
       const textDocument = TextDocument.create(docUri, 'apex', 1, enumApex);
@@ -347,11 +321,9 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       expect((result![0] as DocumentSymbol).children).toHaveLength(3);
 
       // All children should be enum members
-      (result![0] as DocumentSymbol).children!.forEach(
-        (child: DocumentSymbol) => {
-          expect(child.kind).toBe(22); // SymbolKind.EnumMember
-        },
-      );
+      (result![0] as DocumentSymbol).children!.forEach((child: DocumentSymbol) => {
+        expect(child.kind).toBe(22); // SymbolKind.EnumMember
+      });
 
       expect((result![0] as DocumentSymbol).children![0].name).toBe('CUSTOMER');
       expect((result![0] as DocumentSymbol).children![1].name).toBe('PARTNER');

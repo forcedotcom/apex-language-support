@@ -8,10 +8,7 @@
 
 import { ApexLibConfig, LanguageServerClient } from './types';
 import { createProtocolHandler } from './protocol-handler';
-import {
-  createDocumentSupport,
-  createLanguageConfig,
-} from './document-support';
+import { createDocumentSupport, createLanguageConfig } from './document-support';
 
 /**
  * Interface for the ApexLib manager

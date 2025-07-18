@@ -38,12 +38,8 @@ describe('processOnDiagnostic', () => {
     };
 
     (getLogger as jest.Mock).mockReturnValue(mockLogger);
-    const {
-      DiagnosticProcessingService,
-    } = require('../../src/services/DiagnosticProcessingService');
-    DiagnosticProcessingService.mockImplementation(
-      () => mockDiagnosticProcessor,
-    );
+    const { DiagnosticProcessingService } = require('../../src/services/DiagnosticProcessingService');
+    DiagnosticProcessingService.mockImplementation(() => mockDiagnosticProcessor);
   });
 
   afterEach(() => {
@@ -67,16 +63,12 @@ describe('processOnDiagnostic', () => {
         },
       ];
 
-      mockDiagnosticProcessor.processDiagnostic.mockResolvedValue(
-        mockDiagnostics,
-      );
+      mockDiagnosticProcessor.processDiagnostic.mockResolvedValue(mockDiagnostics);
 
       const result = await processOnDiagnostic(mockParams);
 
       expect(result).toEqual(mockDiagnostics);
-      expect(mockDiagnosticProcessor.processDiagnostic).toHaveBeenCalledWith(
-        mockParams,
-      );
+      expect(mockDiagnosticProcessor.processDiagnostic).toHaveBeenCalledWith(mockParams);
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
     });
 
@@ -104,9 +96,7 @@ describe('processOnDiagnostic', () => {
       const result = await processOnDiagnostic(mockParams);
 
       expect(result).toEqual([]);
-      expect(mockDiagnosticProcessor.processDiagnostic).toHaveBeenCalledWith(
-        mockParams,
-      );
+      expect(mockDiagnosticProcessor.processDiagnostic).toHaveBeenCalledWith(mockParams);
     });
   });
 });

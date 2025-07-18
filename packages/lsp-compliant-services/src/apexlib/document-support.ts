@@ -6,10 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  DocumentSelector,
-  DocumentFilter,
-} from 'vscode-languageserver-protocol';
+import { DocumentSelector, DocumentFilter } from 'vscode-languageserver-protocol';
 
 import { ApexLibConfig, EditorContext } from './types';
 
@@ -51,9 +48,7 @@ export class ApexLibDocumentSupport {
    * @returns A file system watcher
    */
   createFileWatcher(editorContext: EditorContext) {
-    return editorContext.createFileSystemWatcher(
-      `**/*.${this.config.fileExtension}`,
-    );
+    return editorContext.createFileSystemWatcher(`**/*.${this.config.fileExtension}`);
   }
 }
 
@@ -62,9 +57,7 @@ export class ApexLibDocumentSupport {
  * @param config The configuration to use
  * @returns A new ApexLibDocumentSupport instance
  */
-export function createDocumentSupport(
-  config: ApexLibConfig,
-): ApexLibDocumentSupport {
+export function createDocumentSupport(config: ApexLibConfig): ApexLibDocumentSupport {
   return new ApexLibDocumentSupport(config);
 }
 
@@ -75,11 +68,7 @@ export function createDocumentSupport(
  * @param fileExtension The file extension
  * @returns A new ApexLibConfig instance
  */
-export function createLanguageConfig(
-  languageId: string,
-  customScheme: string,
-  fileExtension: string,
-): ApexLibConfig {
+export function createLanguageConfig(languageId: string, customScheme: string, fileExtension: string): ApexLibConfig {
   const fileFilter: DocumentFilter = { scheme: 'file', language: languageId };
   const customFilter: DocumentFilter = {
     scheme: customScheme,

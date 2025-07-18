@@ -34,38 +34,23 @@ export class CommentAssociator {
    * @param symbols Array of symbols to associate with
    * @returns Array of comment associations
    */
-  public associateComments(
-    comments: ApexComment[],
-    symbols: ApexSymbol[],
-  ): CommentAssociation[] {
+  public associateComments(comments: ApexComment[], symbols: ApexSymbol[]): CommentAssociation[] {
     const associations: CommentAssociation[] = [];
 
     // Sort comments and symbols by line number for efficient processing
-    const sortedComments = [...comments].sort(
-      (a, b) => a.startLine - b.startLine,
-    );
-    const sortedSymbols = [...symbols].sort(
-      (a, b) => a.location.startLine - b.location.startLine,
-    );
+    const sortedComments = [...comments].sort((a, b) => a.startLine - b.startLine);
+    const sortedSymbols = [...symbols].sort((a, b) => a.location.startLine - b.location.startLine);
 
-    this.logger.debug(
-      `Associating ${sortedComments.length} comments with ${sortedSymbols.length} symbols`,
-    );
+    this.logger.debug(`Associating ${sortedComments.length} comments with ${sortedSymbols.length} symbols`);
 
     // For each comment, find the best symbol association
     for (const comment of sortedComments) {
-      const candidateAssociations = this.findCandidateAssociations(
-        comment,
-        sortedSymbols,
-      );
+      const candidateAssociations = this.findCandidateAssociations(comment, sortedSymbols);
 
       // Get the best association based on confidence
       const bestAssociation = this.getBestAssociation(candidateAssociations);
 
-      if (
-        bestAssociation &&
-        bestAssociation.confidence >= this.config.minConfidence
-      ) {
+      if (bestAssociation && bestAssociation.confidence >= this.config.minConfidence) {
         associations.push(bestAssociation);
         this.logger.debug(
           () =>
@@ -73,10 +58,7 @@ export class CommentAssociator {
             `(${bestAssociation.associationType}, confidence: ${bestAssociation.confidence.toFixed(2)})`,
         );
       } else {
-        this.logger.debug(
-          () =>
-            `No suitable association found for comment at line ${comment.startLine}`,
-        );
+        this.logger.debug(() => `No suitable association found for comment at line ${comment.startLine}`);
       }
     }
 
@@ -86,10 +68,7 @@ export class CommentAssociator {
   /**
    * Find all candidate associations for a comment
    */
-  private findCandidateAssociations(
-    comment: ApexComment,
-    symbols: ApexSymbol[],
-  ): CommentAssociation[] {
+  private findCandidateAssociations(comment: ApexComment, symbols: ApexSymbol[]): CommentAssociation[] {
     const candidates: CommentAssociation[] = [];
 
     for (const symbol of symbols) {
@@ -105,10 +84,7 @@ export class CommentAssociator {
   /**
    * Analyze the spatial relationship between a comment and symbol
    */
-  private analyzeAssociation(
-    comment: ApexComment,
-    symbol: ApexSymbol,
-  ): CommentAssociation | null {
+  private analyzeAssociation(comment: ApexComment, symbol: ApexSymbol): CommentAssociation | null {
     const commentLine = comment.startLine;
     const symbolLine = symbol.location.startLine;
     const distance = Math.abs(commentLine - symbolLine);
@@ -127,10 +103,7 @@ export class CommentAssociator {
         return null; // Too far away
       }
       associationType = CommentAssociationType.Preceding;
-      baseConfidence = Math.max(
-        0.3,
-        1.0 - (distance / this.config.maxPrecedingDistance) * 0.5,
-      );
+      baseConfidence = Math.max(0.3, 1.0 - (distance / this.config.maxPrecedingDistance) * 0.5);
     } else {
       // Comment is after the symbol
       // Check if comment is inside the symbol's body first
@@ -143,10 +116,7 @@ export class CommentAssociator {
           return null; // Too far away
         }
         associationType = CommentAssociationType.Trailing;
-        baseConfidence = Math.max(
-          0.2,
-          1.0 - (distance / this.config.maxTrailingDistance) * 0.3,
-        );
+        baseConfidence = Math.max(0.2, 1.0 - (distance / this.config.maxTrailingDistance) * 0.3);
       }
     }
 
@@ -154,14 +124,8 @@ export class CommentAssociator {
     let finalConfidence = baseConfidence;
 
     // Boost for documentation comments
-    if (
-      comment.isDocumentation &&
-      associationType === CommentAssociationType.Preceding
-    ) {
-      finalConfidence = Math.min(
-        1.0,
-        finalConfidence + this.config.documentationBoost,
-      );
+    if (comment.isDocumentation && associationType === CommentAssociationType.Preceding) {
+      finalConfidence = Math.min(1.0, finalConfidence + this.config.documentationBoost);
     }
 
     // Boost for symbol importance (classes and methods get higher priority)
@@ -170,10 +134,7 @@ export class CommentAssociator {
     }
 
     // Penalty for very short comments (likely not documentation)
-    if (
-      comment.text.trim().length < 10 &&
-      associationType === CommentAssociationType.Preceding
-    ) {
+    if (comment.text.trim().length < 10 && associationType === CommentAssociationType.Preceding) {
       finalConfidence *= 0.7;
     }
 
@@ -189,10 +150,7 @@ export class CommentAssociator {
   /**
    * Check if a comment is inside a symbol's body (for classes and methods)
    */
-  private isCommentInsideSymbol(
-    comment: ApexComment,
-    symbol: ApexSymbol,
-  ): boolean {
+  private isCommentInsideSymbol(comment: ApexComment, symbol: ApexSymbol): boolean {
     // This is a simplified check - in a full implementation, we'd need to track
     // the end position of symbols to determine if a comment is truly "inside"
     if (symbol.kind !== SymbolKind.Class && symbol.kind !== SymbolKind.Method) {
@@ -200,18 +158,13 @@ export class CommentAssociator {
     }
 
     // For now, assume comments after the symbol line are internal if they're close
-    return (
-      comment.startLine > symbol.location.startLine &&
-      comment.startLine - symbol.location.startLine <= 10
-    );
+    return comment.startLine > symbol.location.startLine && comment.startLine - symbol.location.startLine <= 10;
   }
 
   /**
    * Get the best association from a list of candidates
    */
-  private getBestAssociation(
-    candidates: CommentAssociation[],
-  ): CommentAssociation | null {
+  private getBestAssociation(candidates: CommentAssociation[]): CommentAssociation | null {
     if (candidates.length === 0) {
       return null;
     }
@@ -230,30 +183,21 @@ export class CommentAssociator {
   /**
    * Get associations for a specific symbol
    */
-  public getAssociationsForSymbol(
-    symbolKey: string,
-    associations: CommentAssociation[],
-  ): CommentAssociation[] {
+  public getAssociationsForSymbol(symbolKey: string, associations: CommentAssociation[]): CommentAssociation[] {
     return associations.filter((assoc) => assoc.symbolKey === symbolKey);
   }
 
   /**
    * Get associations of a specific type
    */
-  public getAssociationsByType(
-    type: CommentAssociationType,
-    associations: CommentAssociation[],
-  ): CommentAssociation[] {
+  public getAssociationsByType(type: CommentAssociationType, associations: CommentAssociation[]): CommentAssociation[] {
     return associations.filter((assoc) => assoc.associationType === type);
   }
 
   /**
    * Get documentation comments for a symbol (preceding + high confidence)
    */
-  public getDocumentationForSymbol(
-    symbolKey: string,
-    associations: CommentAssociation[],
-  ): ApexComment[] {
+  public getDocumentationForSymbol(symbolKey: string, associations: CommentAssociation[]): ApexComment[] {
     return associations
       .filter(
         (assoc) =>

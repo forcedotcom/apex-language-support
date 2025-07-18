@@ -14,8 +14,7 @@ import { ChildProcess } from 'node:child_process';
 
 // Constants
 const APEX_LANGUAGE_SERVER_MAIN = 'apex.jorje.lsp.ApexLanguageServerLauncher';
-const LANGUAGE_SERVER_LOG_LEVEL =
-  process.env.LANGUAGE_SERVER_LOG_LEVEL ?? 'ERROR';
+const LANGUAGE_SERVER_LOG_LEVEL = process.env.LANGUAGE_SERVER_LOG_LEVEL ?? 'ERROR';
 const JAR_FILE_NAME = 'apex-jorje-lsp.jar';
 const JAVA_MEMORY = 4096; // 4GB default memory allocation
 
@@ -60,9 +59,7 @@ const checkJavaRuntime = async (): Promise<string> => {
     }
 
     if (!javaHome) {
-      throw new Error(
-        'Java runtime could not be located. Please set JAVA_HOME environment variable.',
-      );
+      throw new Error('Java runtime could not be located. Please set JAVA_HOME environment variable.');
     }
 
     return javaHome;
@@ -108,18 +105,14 @@ const checkJavaVersion = async (javaHome: string): Promise<number> => {
       }
     }
   } catch (error) {
-    throw new Error(
-      `Failed to check Java version: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    throw new Error(`Failed to check Java version: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
 /**
  * Helper function to execute a command and return a promise
  */
-const asyncExec = (
-  command: string,
-): Promise<{ stdout: string; stderr: string }> =>
+const asyncExec = (command: string): Promise<{ stdout: string; stderr: string }> =>
   new Promise((resolve, reject) => {
     cp.exec(command, (error, stdout, stderr) => {
       if (error) {
@@ -149,9 +142,7 @@ const findJarFile = (): string => {
   if (!fs.existsSync(jarFilePath)) {
     jarFilePath = path.join(outResourcesPath, JAR_FILE_NAME);
     if (!fs.existsSync(jarFilePath)) {
-      throw new Error(
-        `Could not find ${JAR_FILE_NAME} in either ${resourcesPath} or ${outResourcesPath}`,
-      );
+      throw new Error(`Could not find ${JAR_FILE_NAME} in either ${resourcesPath} or ${outResourcesPath}`);
     }
   }
 
@@ -169,9 +160,7 @@ const startLanguageServer = async (): Promise<ChildProcess> => {
     console.log(`Using Java ${javaVersion} from ${javaHome}`);
 
     if (javaVersion < 11) {
-      throw new Error(
-        'Java 11 or later is required for the Apex Language Server.',
-      );
+      throw new Error('Java 11 or later is required for the Apex Language Server.');
     }
 
     const jarFilePath = findJarFile();
@@ -304,11 +293,7 @@ const initializeServer = (process: ChildProcess): void => {
 /**
  * Open a document in the language server
  */
-const openDocument = (
-  process: ChildProcess,
-  uri: string,
-  text: string,
-): void => {
+const openDocument = (process: ChildProcess, uri: string, text: string): void => {
   const openDocumentParams = {
     jsonrpc: '2.0',
     method: 'textDocument/didOpen',
@@ -346,12 +331,7 @@ const getDocumentSymbols = (process: ChildProcess, uri: string): void => {
 /**
  * Get hover information
  */
-const getHoverInfo = (
-  process: ChildProcess,
-  uri: string,
-  line: number,
-  character: number,
-): void => {
+const getHoverInfo = (process: ChildProcess, uri: string, line: number, character: number): void => {
   const hoverParams = {
     jsonrpc: '2.0',
     id: 3,

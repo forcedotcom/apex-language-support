@@ -8,11 +8,7 @@
 
 import { Diagnostic, DocumentDiagnosticParams } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-logging';
-import {
-  CompilerService,
-  SymbolTable,
-  ApexSymbolCollectorListener,
-} from '@salesforce/apex-lsp-parser-ast';
+import { CompilerService, SymbolTable, ApexSymbolCollectorListener } from '@salesforce/apex-lsp-parser-ast';
 
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -102,14 +98,9 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    * @see {@link CompilerService} - For document parsing
    * @see {@link getDiagnosticsFromErrors} - For error conversion
    */
-  public async processDiagnostic(
-    params: DocumentDiagnosticParams,
-  ): Promise<Diagnostic[]> {
+  public async processDiagnostic(params: DocumentDiagnosticParams): Promise<Diagnostic[]> {
     const logger = getLogger();
-    logger.debug(
-      () =>
-        `Common Apex Language Server diagnostic handler invoked with: ${params}`,
-    );
+    logger.debug(() => `Common Apex Language Server diagnostic handler invoked with: ${params}`);
 
     try {
       // Get the storage manager instance
@@ -119,10 +110,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       // Get the document from storage
       const document = await storage.getDocument(params.textDocument.uri);
       if (!document) {
-        logger.warn(
-          () =>
-            `Document not found for diagnostic request: ${params.textDocument.uri}`,
-        );
+        logger.warn(() => `Document not found for diagnostic request: ${params.textDocument.uri}`);
         return [];
       }
 
@@ -138,12 +126,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         associateComments: false,
       };
 
-      const result = compilerService.compile(
-        document.getText(),
-        document.uri,
-        listener,
-        options,
-      );
+      const result = compilerService.compile(document.getText(), document.uri, listener, options);
 
       if (result.errors.length > 0) {
         logger.debug(() => `Errors parsing document: ${result.errors}`);

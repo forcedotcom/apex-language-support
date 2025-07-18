@@ -17,9 +17,7 @@ let outputChannel: vscode.OutputChannel;
  */
 export function activate(context: vscode.ExtensionContext) {
   // Create output channel
-  outputChannel = vscode.window.createOutputChannel(
-    'Apex Language Server (Typescript)',
-  );
+  outputChannel = vscode.window.createOutputChannel('Apex Language Server (Typescript)');
   context.subscriptions.push(outputChannel);
 
   outputChannel.appendLine('Apex Language Support extension is now active!');
@@ -34,21 +32,14 @@ export function activate(context: vscode.ExtensionContext) {
   registerRestartCommand(context, statusBarItem);
 
   // Log activation success
-  outputChannel.appendLine(
-    `Extension activated at ${new Date().toISOString()}`,
-  );
+  outputChannel.appendLine(`Extension activated at ${new Date().toISOString()}`);
 }
 
 /**
  * Creates and initializes the status bar item
  */
-function createStatusBarItem(
-  context: vscode.ExtensionContext,
-): vscode.StatusBarItem {
-  const statusBarItem = vscode.window.createStatusBarItem(
-    vscode.StatusBarAlignment.Right,
-    100,
-  );
+function createStatusBarItem(context: vscode.ExtensionContext): vscode.StatusBarItem {
+  const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   context.subscriptions.push(statusBarItem);
   return statusBarItem;
 }
@@ -57,18 +48,12 @@ function createStatusBarItem(
  * Registers the command to restart the extension functionality
  * This is kept as a placeholder for future language server integration
  */
-function registerRestartCommand(
-  context: vscode.ExtensionContext,
-  statusBarItem: vscode.StatusBarItem,
-): void {
-  const restartCommand = vscode.commands.registerCommand(
-    'apex.restart.server',
-    () => {
-      outputChannel.appendLine('Restart command triggered - currently a no-op');
-      vscode.window.showInformationMessage('Apex Language Support restarted');
-      statusBarItem.text = '$(check) Apex Support Active';
-    },
-  );
+function registerRestartCommand(context: vscode.ExtensionContext, statusBarItem: vscode.StatusBarItem): void {
+  const restartCommand = vscode.commands.registerCommand('apex.restart.server', () => {
+    outputChannel.appendLine('Restart command triggered - currently a no-op');
+    vscode.window.showInformationMessage('Apex Language Support restarted');
+    statusBarItem.text = '$(check) Apex Support Active';
+  });
 
   context.subscriptions.push(restartCommand);
 }

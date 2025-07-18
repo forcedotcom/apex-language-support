@@ -6,12 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  Annotation,
-  ApexSymbol,
-  SymbolKind,
-  TypeSymbol,
-} from '../types/symbol';
+import { Annotation, ApexSymbol, SymbolKind, TypeSymbol } from '../types/symbol';
 
 /**
  * Helper utilities for working with Apex annotations
@@ -23,10 +18,7 @@ export class AnnotationUtils {
    * @param annotationName The name of the annotation to look for
    * @returns True if the symbol has the annotation, false otherwise
    */
-  public static hasAnnotation(
-    symbol: ApexSymbol,
-    annotationName: string,
-  ): boolean {
+  public static hasAnnotation(symbol: ApexSymbol, annotationName: string): boolean {
     if (
       (symbol.kind === SymbolKind.Class ||
         symbol.kind === SymbolKind.Interface ||
@@ -35,10 +27,8 @@ export class AnnotationUtils {
     ) {
       const typeSymbol = symbol as TypeSymbol;
       return (
-        typeSymbol.annotations?.some(
-          (annotation) =>
-            annotation.name.toLowerCase() === annotationName.toLowerCase(),
-        ) || false
+        typeSymbol.annotations?.some((annotation) => annotation.name.toLowerCase() === annotationName.toLowerCase()) ||
+        false
       );
     }
 
@@ -51,10 +41,7 @@ export class AnnotationUtils {
    * @param annotationName The name of the annotation to get
    * @returns The annotation if found, undefined otherwise
    */
-  public static getAnnotation(
-    symbol: ApexSymbol,
-    annotationName: string,
-  ): Annotation | undefined {
+  public static getAnnotation(symbol: ApexSymbol, annotationName: string): Annotation | undefined {
     if (
       (symbol.kind === SymbolKind.Class ||
         symbol.kind === SymbolKind.Interface ||
@@ -63,8 +50,7 @@ export class AnnotationUtils {
     ) {
       const typeSymbol = symbol as TypeSymbol;
       return typeSymbol.annotations?.find(
-        (annotation) =>
-          annotation.name.toLowerCase() === annotationName.toLowerCase(),
+        (annotation) => annotation.name.toLowerCase() === annotationName.toLowerCase(),
       );
     }
 
@@ -89,9 +75,7 @@ export class AnnotationUtils {
 
     if (paramName) {
       // Find by name
-      const param = annotation.parameters.find(
-        (p) => p.name?.toLowerCase() === paramName.toLowerCase(),
-      );
+      const param = annotation.parameters.find((p) => p.name?.toLowerCase() === paramName.toLowerCase());
       return param?.value;
     } else {
       // Find by position (for positional parameters)
@@ -123,9 +107,7 @@ export class AnnotationUtils {
    * @param symbol The REST resource class symbol
    * @returns The URL mapping if found, undefined otherwise
    */
-  public static getRestResourceUrlMapping(
-    symbol: ApexSymbol,
-  ): string | undefined {
+  public static getRestResourceUrlMapping(symbol: ApexSymbol): string | undefined {
     const annotation = this.getAnnotation(symbol, 'RestResource');
     if (annotation) {
       return this.getAnnotationParameter(annotation, 'urlMapping');

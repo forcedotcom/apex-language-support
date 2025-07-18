@@ -10,10 +10,7 @@ import { promises as fs } from 'fs';
 
 import { HashMap } from 'data-structure-typed';
 import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
-import type {
-  ApexReference,
-  ApexStorageInterface,
-} from '@salesforce/apex-lsp-compliant-services';
+import type { ApexReference, ApexStorageInterface } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { getLogger } from '@salesforce/apex-lsp-logging';
@@ -25,8 +22,7 @@ import { getLogger } from '@salesforce/apex-lsp-logging';
  */
 export class NodeFileSystemApexStorage implements ApexStorageInterface {
   // In-memory storage
-  private astMap: HashMap<string, ApexClassInfo[], [string, ApexClassInfo[]]> =
-    new HashMap();
+  private astMap: HashMap<string, ApexClassInfo[], [string, ApexClassInfo[]]> = new HashMap();
   private typeInfoMap: Map<string, TypeInfo> = new Map();
   private references: ApexReference[] = [];
   private documents: Map<string, TextDocument> = new Map();
@@ -150,9 +146,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
     }
 
     this.astMap.delete(filePath);
-    this.references = this.references.filter(
-      (ref) => ref.sourceFile !== filePath,
-    );
+    this.references = this.references.filter((ref) => ref.sourceFile !== filePath);
     return true;
   }
 
@@ -232,10 +226,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
     return undefined;
   }
 
-  async setDefinition(
-    symbolName: string,
-    definition: ApexReference,
-  ): Promise<boolean> {
+  async setDefinition(symbolName: string, definition: ApexReference): Promise<boolean> {
     if (!this.initialized) {
       throw new Error('Storage not initialized');
     }
@@ -252,18 +243,13 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
     return this.references.filter((ref) => ref.targetSymbol === symbolName);
   }
 
-  async setReferences(
-    symbolName: string,
-    references: ApexReference[],
-  ): Promise<boolean> {
+  async setReferences(symbolName: string, references: ApexReference[]): Promise<boolean> {
     if (!this.initialized) {
       throw new Error('Storage not initialized');
     }
 
     // Remove existing references for this symbol
-    this.references = this.references.filter(
-      (ref) => ref.targetSymbol !== symbolName,
-    );
+    this.references = this.references.filter((ref) => ref.targetSymbol !== symbolName);
     // Add new references
     this.references.push(...references);
     return true;

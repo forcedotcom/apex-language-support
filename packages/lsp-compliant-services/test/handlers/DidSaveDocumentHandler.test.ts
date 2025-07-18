@@ -44,19 +44,12 @@ describe('DidSaveDocumentHandler', () => {
   describe('handleDocumentSave', () => {
     it('should process document save event successfully', async () => {
       // Arrange
-      const mockDocument = TextDocument.create(
-        'file:///test.cls',
-        'apex',
-        1,
-        'public class TestClass {}',
-      );
+      const mockDocument = TextDocument.create('file:///test.cls', 'apex', 1, 'public class TestClass {}');
       const mockEvent: TextDocumentChangeEvent<typeof mockDocument> = {
         document: mockDocument,
       };
 
-      mockDocumentSaveProcessor.processDocumentSave.mockResolvedValue(
-        undefined,
-      );
+      mockDocumentSaveProcessor.processDocumentSave.mockResolvedValue(undefined);
 
       // Act
       await handler.handleDocumentSave(mockEvent);
@@ -67,41 +60,28 @@ describe('DidSaveDocumentHandler', () => {
       // Verify the debug message function was called with correct content
       const debugCall = mockLogger.debug.mock.calls[0];
       expect(debugCall[0]()).toBe('Processing document save: file:///test.cls');
-      expect(
-        mockDocumentSaveProcessor.processDocumentSave,
-      ).toHaveBeenCalledWith(mockEvent);
+      expect(mockDocumentSaveProcessor.processDocumentSave).toHaveBeenCalledWith(mockEvent);
     });
 
     it('should log error and rethrow when document save processor fails', async () => {
       // Arrange
-      const mockDocument = TextDocument.create(
-        'file:///test.cls',
-        'apex',
-        1,
-        'public class TestClass {}',
-      );
+      const mockDocument = TextDocument.create('file:///test.cls', 'apex', 1, 'public class TestClass {}');
       const mockEvent: TextDocumentChangeEvent<typeof mockDocument> = {
         document: mockDocument,
       };
       const mockError = new Error('Document save processing failed');
 
-      mockDocumentSaveProcessor.processDocumentSave.mockRejectedValue(
-        mockError,
-      );
+      mockDocumentSaveProcessor.processDocumentSave.mockRejectedValue(mockError);
 
       // Act & Assert
-      await expect(handler.handleDocumentSave(mockEvent)).rejects.toThrow(
-        'Document save processing failed',
-      );
+      await expect(handler.handleDocumentSave(mockEvent)).rejects.toThrow('Document save processing failed');
 
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
 
       // Verify the error message function was called with correct content
       const errorCall = mockLogger.error.mock.calls[0];
       expect(typeof errorCall[0]).toBe('function');
-      expect(errorCall[0]()).toContain(
-        'Error processing document save for file:///test.cls',
-      );
+      expect(errorCall[0]()).toContain('Error processing document save for file:///test.cls');
       expect(errorCall[0]()).toContain('Document save processing failed');
     });
   });

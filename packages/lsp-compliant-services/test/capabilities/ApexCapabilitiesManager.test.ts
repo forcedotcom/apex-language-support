@@ -60,12 +60,8 @@ describe('ApexCapabilitiesManager', () => {
     });
 
     it('should return capabilities for specific modes', () => {
-      expect(manager.getCapabilitiesForMode('production')).toEqual(
-        PRODUCTION_CAPABILITIES,
-      );
-      expect(manager.getCapabilitiesForMode('development')).toEqual(
-        DEVELOPMENT_CAPABILITIES,
-      );
+      expect(manager.getCapabilitiesForMode('production')).toEqual(PRODUCTION_CAPABILITIES);
+      expect(manager.getCapabilitiesForMode('development')).toEqual(DEVELOPMENT_CAPABILITIES);
     });
 
     it('should return all capabilities configurations', () => {
@@ -110,32 +106,14 @@ describe('ApexCapabilitiesManager', () => {
 
     it('should check capabilities for specific modes', () => {
       // Check production mode capabilities
-      expect(
-        manager.isCapabilityEnabledForMode('production', 'hoverProvider'),
-      ).toBe(false);
-      expect(
-        manager.isCapabilityEnabledForMode('production', 'completionProvider'),
-      ).toBe(false);
-      expect(
-        manager.isCapabilityEnabledForMode(
-          'production',
-          'documentSymbolProvider',
-        ),
-      ).toBe(true);
+      expect(manager.isCapabilityEnabledForMode('production', 'hoverProvider')).toBe(false);
+      expect(manager.isCapabilityEnabledForMode('production', 'completionProvider')).toBe(false);
+      expect(manager.isCapabilityEnabledForMode('production', 'documentSymbolProvider')).toBe(true);
 
       // Check development mode capabilities
-      expect(
-        manager.isCapabilityEnabledForMode('development', 'hoverProvider'),
-      ).toBe(false);
-      expect(
-        manager.isCapabilityEnabledForMode('development', 'completionProvider'),
-      ).toBe(true);
-      expect(
-        manager.isCapabilityEnabledForMode(
-          'development',
-          'documentSymbolProvider',
-        ),
-      ).toBe(true);
+      expect(manager.isCapabilityEnabledForMode('development', 'hoverProvider')).toBe(false);
+      expect(manager.isCapabilityEnabledForMode('development', 'completionProvider')).toBe(true);
+      expect(manager.isCapabilityEnabledForMode('development', 'documentSymbolProvider')).toBe(true);
     });
   });
 
@@ -145,10 +123,7 @@ describe('ApexCapabilitiesManager', () => {
       expect(capabilities.textDocumentSync).toBeDefined();
 
       // Check if textDocumentSync is an object (not a number)
-      if (
-        typeof capabilities.textDocumentSync === 'object' &&
-        capabilities.textDocumentSync !== null
-      ) {
+      if (typeof capabilities.textDocumentSync === 'object' && capabilities.textDocumentSync !== null) {
         expect(typeof capabilities.textDocumentSync.openClose).toBe('boolean');
         expect(typeof capabilities.textDocumentSync.change).toBe('number');
         expect(typeof capabilities.textDocumentSync.save).toBe('boolean');
@@ -159,12 +134,8 @@ describe('ApexCapabilitiesManager', () => {
       manager.setMode('development');
       const capabilities = manager.getCapabilities();
       expect(capabilities.completionProvider).toBeDefined();
-      expect(typeof capabilities.completionProvider?.resolveProvider).toBe(
-        'boolean',
-      );
-      expect(
-        Array.isArray(capabilities.completionProvider?.triggerCharacters),
-      ).toBe(true);
+      expect(typeof capabilities.completionProvider?.resolveProvider).toBe('boolean');
+      expect(Array.isArray(capabilities.completionProvider?.triggerCharacters)).toBe(true);
     });
 
     it('should not have completionProvider in production mode', () => {
@@ -177,9 +148,7 @@ describe('ApexCapabilitiesManager', () => {
       const capabilities = manager.getCapabilities();
       expect(capabilities.workspace).toBeDefined();
       expect(capabilities.workspace?.workspaceFolders).toBeDefined();
-      expect(typeof capabilities.workspace?.workspaceFolders?.supported).toBe(
-        'boolean',
-      );
+      expect(typeof capabilities.workspace?.workspaceFolders?.supported).toBe('boolean');
     });
   });
 

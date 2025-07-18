@@ -27,8 +27,7 @@ export const RESOURCE_URIS = {
   /**
    * URI to the version file in the package
    */
-  VERSION_FILE_URI:
-    'apex-resources:/resources/StandardApexLibrary/.version.json',
+  VERSION_FILE_URI: 'apex-resources:/resources/StandardApexLibrary/.version.json',
 };
 
 /**
@@ -82,17 +81,12 @@ export function uriToNodePath(uri: string, basePath?: string): string {
   const resourcePath = uri.replace('apex-resources:/', '');
 
   // Make sure the resource path starts with a slash if it's not empty
-  const formattedPath =
-    resourcePath && !resourcePath.startsWith('/')
-      ? `/${resourcePath}`
-      : resourcePath;
+  const formattedPath = resourcePath && !resourcePath.startsWith('/') ? `/${resourcePath}` : resourcePath;
 
   // Return the path with or without the basePath
   if (basePath) {
     // Remove trailing slash from basePath if present
-    const cleanBasePath = basePath.endsWith('/')
-      ? basePath.slice(0, -1)
-      : basePath;
+    const cleanBasePath = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;
 
     return `${cleanBasePath}${formattedPath}`;
   }
@@ -115,10 +109,7 @@ export function uriToBrowserUrl(uri: string, baseUrl?: string): string {
   const resourcePath = uri.replace('apex-resources:/', '');
 
   // Make sure the resource path starts with a slash if it's not empty
-  const formattedPath =
-    resourcePath && !resourcePath.startsWith('/')
-      ? `/${resourcePath}`
-      : resourcePath;
+  const formattedPath = resourcePath && !resourcePath.startsWith('/') ? `/${resourcePath}` : resourcePath;
 
   // Return the URL with or without the baseUrl
   if (baseUrl) {
@@ -143,14 +134,10 @@ export function joinUri(baseUri: string, relativePath: string): string {
   }
 
   // Ensure the relative path doesn't start with a slash
-  const cleanPath = relativePath.startsWith('/')
-    ? relativePath.substring(1)
-    : relativePath;
+  const cleanPath = relativePath.startsWith('/') ? relativePath.substring(1) : relativePath;
 
   // Join with a slash if the baseUri doesn't end with one
-  return baseUri.endsWith('/')
-    ? `${baseUri}${cleanPath}`
-    : `${baseUri}/${cleanPath}`;
+  return baseUri.endsWith('/') ? `${baseUri}${cleanPath}` : `${baseUri}/${cleanPath}`;
 }
 
 /**

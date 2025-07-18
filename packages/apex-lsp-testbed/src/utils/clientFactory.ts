@@ -6,11 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  ApexJsonRpcClient,
-  ConsoleLogger,
-  JsonRpcClientOptions,
-} from '../client/ApexJsonRpcClient';
+import { ApexJsonRpcClient, ConsoleLogger, JsonRpcClientOptions } from '../client/ApexJsonRpcClient';
 import { ServerType } from './serverUtils';
 
 /**
@@ -122,16 +118,10 @@ export class MockApexJsonRpcClient extends ApexJsonRpcClient {
     // Handle document notifications
     switch (method) {
       case 'textDocument/didOpen':
-        this.documentContents.set(
-          params.textDocument.uri,
-          params.textDocument.text,
-        );
+        this.documentContents.set(params.textDocument.uri, params.textDocument.text);
         break;
       case 'textDocument/didChange':
-        this.documentContents.set(
-          params.textDocument.uri,
-          params.contentChanges[0].text,
-        );
+        this.documentContents.set(params.textDocument.uri, params.contentChanges[0].text);
         break;
       case 'textDocument/didClose':
         this.documentContents.delete(params.textDocument.uri);

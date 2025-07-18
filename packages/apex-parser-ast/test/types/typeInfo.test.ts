@@ -6,12 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  createPrimitiveType,
-  createCollectionType,
-  createArrayType,
-  createMapType,
-} from '../../src/types/typeInfo';
+import { createPrimitiveType, createCollectionType, createArrayType, createMapType } from '../../src/types/typeInfo';
 
 describe('TypeInfo', () => {
   describe('createPrimitiveType', () => {

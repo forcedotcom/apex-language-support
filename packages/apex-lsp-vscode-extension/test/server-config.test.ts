@@ -149,9 +149,7 @@ describe('Server Config Module', () => {
 
         // Should use extension mode (development)
         expect(serverOptions.run.options.env.APEX_LS_MODE).toBe('development');
-        expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe(
-          'development',
-        );
+        expect(serverOptions.debug.options.env.APEX_LS_MODE).toBe('development');
       } finally {
         // Restore original environment
         process.env.APEX_LS_MODE = originalEnv;
@@ -174,9 +172,7 @@ describe('Server Config Module', () => {
     it('should create client options with correct document selector', () => {
       const clientOptions = createClientOptions(mockContext);
 
-      expect(clientOptions.documentSelector).toEqual([
-        { scheme: 'file', language: 'apex' },
-      ]);
+      expect(clientOptions.documentSelector).toEqual([{ scheme: 'file', language: 'apex' }]);
     });
 
     it('should include error and close action handlers', () => {

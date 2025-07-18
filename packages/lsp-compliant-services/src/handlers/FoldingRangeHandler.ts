@@ -34,33 +34,21 @@ export async function processOnFoldingRange(
   storage: ApexStorageInterface,
 ): Promise<FoldingRange[] | null> {
   try {
-    logger.debug(
-      () => `Processing folding range request for: ${params.textDocument.uri}`,
-    );
+    logger.debug(() => `Processing folding range request for: ${params.textDocument.uri}`);
 
     const provider = new ApexFoldingRangeProvider(storage);
-    const foldingRanges = await provider.getFoldingRanges(
-      params.textDocument.uri,
-    );
+    const foldingRanges = await provider.getFoldingRanges(params.textDocument.uri);
 
     if (foldingRanges.length === 0) {
-      logger.debug(
-        () => `No folding ranges found for: ${params.textDocument.uri}`,
-      );
+      logger.debug(() => `No folding ranges found for: ${params.textDocument.uri}`);
       return null;
     }
 
-    logger.debug(
-      () =>
-        `Returning ${foldingRanges.length} folding ranges for: ${params.textDocument.uri}`,
-    );
+    logger.debug(() => `Returning ${foldingRanges.length} folding ranges for: ${params.textDocument.uri}`);
     return foldingRanges;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(
-      () =>
-        `Error processing folding range request for ${params.textDocument.uri}: ${errorMessage}`,
-    );
+    logger.error(() => `Error processing folding range request for ${params.textDocument.uri}: ${errorMessage}`);
     return null;
   }
 }
@@ -76,8 +64,5 @@ export function dispatchProcessOnFoldingRange(
   params: FoldingRangeParams,
   storage: ApexStorageInterface,
 ): Promise<FoldingRange[] | null> {
-  return dispatch(
-    processOnFoldingRange(params, storage),
-    'Error processing folding range request',
-  );
+  return dispatch(processOnFoldingRange(params, storage), 'Error processing folding range request');
 }

@@ -18,11 +18,7 @@ import {
 import { getLogger } from '@salesforce/apex-lsp-logging';
 
 import { BaseApexParserListener } from './listeners/BaseApexParserListener';
-import {
-  ApexError,
-  ApexErrorListener,
-  ApexLexerErrorListener,
-} from './listeners/ApexErrorListener';
+import { ApexError, ApexErrorListener, ApexLexerErrorListener } from './listeners/ApexErrorListener';
 import {
   ApexComment,
   ApexCommentCollectorListener,
@@ -51,8 +47,7 @@ export interface CompilationResultWithComments<T> extends CompilationResult<T> {
 /**
  * Result with comments and associations included
  */
-export interface CompilationResultWithAssociations<T>
-  extends CompilationResultWithComments<T> {
+export interface CompilationResultWithAssociations<T> extends CompilationResultWithComments<T> {
   commentAssociations: CommentAssociation[];
 }
 
@@ -95,10 +90,7 @@ export class CompilerService {
    */
   constructor(projectNamespace?: string) {
     this.projectNamespace = projectNamespace;
-    this.logger.debug(
-      () =>
-        `CompilerService initialized with namespace: ${projectNamespace || 'none'}`,
-    );
+    this.logger.debug(() => `CompilerService initialized with namespace: ${projectNamespace || 'none'}`);
   }
 
   /**
@@ -108,10 +100,7 @@ export class CompilerService {
    * @param fileName The name of the file, used for error reporting and trigger detection.
    * @returns A ParseTreeResult containing the parse tree and related objects.
    */
-  private createParseTree(
-    fileContent: string,
-    fileName: string = 'unknown.cls',
-  ): ParseTreeResult {
+  private createParseTree(fileContent: string, fileName: string = 'unknown.cls'): ParseTreeResult {
     this.logger.debug(() => `Creating parse tree for ${fileName}`);
 
     // Create error listener
@@ -133,9 +122,7 @@ export class CompilerService {
 
     // Parse the compilation unit
     const isTrigger = fileName.endsWith('.trigger');
-    const parseTree = isTrigger
-      ? parser.triggerUnit()
-      : parser.compilationUnit();
+    const parseTree = isTrigger ? parser.triggerUnit() : parser.compilationUnit();
 
     return {
       fileName,
@@ -160,25 +147,17 @@ export class CompilerService {
     fileName: string = 'unknown.cls',
     listener: BaseApexParserListener<T>,
     options: CompilationOptions = {},
-  ):
-    | CompilationResult<T>
-    | CompilationResultWithComments<T>
-    | CompilationResultWithAssociations<T> {
+  ): CompilationResult<T> | CompilationResultWithComments<T> | CompilationResultWithAssociations<T> {
     this.logger.debug(() => `Starting compilation of ${fileName}`);
 
     try {
       // Create parse tree and get associated components
-      const { parseTree, errorListener, tokenStream } = this.createParseTree(
-        fileContent,
-        fileName,
-      );
+      const { parseTree, errorListener, tokenStream } = this.createParseTree(fileContent, fileName);
 
       // Create comment collector by default (opt-out behavior)
       let commentCollector: ApexCommentCollectorListener | null = null;
       if (options.includeComments !== false) {
-        commentCollector = new ApexCommentCollectorListener(
-          options.includeSingleLineComments || false,
-        );
+        commentCollector = new ApexCommentCollectorListener(options.includeSingleLineComments || false);
       }
 
       // Set up the main listener
@@ -215,20 +194,12 @@ export class CompilerService {
 
       if (options.includeComments !== false) {
         // Handle comment association if requested
-        if (
-          options.associateComments &&
-          baseResult.result instanceof SymbolTable
-        ) {
+        if (options.associateComments && baseResult.result instanceof SymbolTable) {
           const symbolTable = baseResult.result as SymbolTable;
-          const symbols = Array.from(
-            symbolTable.getCurrentScope().getAllSymbols(),
-          );
+          const symbols = Array.from(symbolTable.getCurrentScope().getAllSymbols());
 
           const associator = new CommentAssociator();
-          const commentAssociations = associator.associateComments(
-            comments,
-            symbols,
-          );
+          const commentAssociations = associator.associateComments(comments, symbols);
 
           const resultWithAssociations: CompilationResultWithAssociations<T> = {
             ...baseResult,
@@ -260,27 +231,17 @@ export class CompilerService {
         }
       } else {
         if (baseResult.errors.length > 0) {
-          this.logger.debug(
-            () =>
-              `Compilation completed with ${baseResult.errors.length} errors in ${fileName}`,
-          );
+          this.logger.debug(() => `Compilation completed with ${baseResult.errors.length} errors in ${fileName}`);
         } else if (baseResult.warnings.length > 0) {
-          this.logger.debug(
-            () =>
-              `Compilation completed with ${baseResult.warnings.length} warnings in ${fileName}`,
-          );
+          this.logger.debug(() => `Compilation completed with ${baseResult.warnings.length} warnings in ${fileName}`);
         } else {
-          this.logger.debug(
-            () => `Compilation completed successfully for ${fileName}`,
-          );
+          this.logger.debug(() => `Compilation completed successfully for ${fileName}`);
         }
 
         return baseResult;
       }
     } catch (error) {
-      this.logger.error(
-        () => `Unexpected error during compilation of ${fileName}`,
-      );
+      this.logger.error(() => `Unexpected error during compilation of ${fileName}`);
 
       // Create an error object for any unexpected errors
       const errorObject: ApexError = {
@@ -323,16 +284,12 @@ export class CompilerService {
     listener: BaseApexParserListener<T>,
     options: CompilationOptions = {},
   ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
-    this.logger.debug(
-      () => `Starting parallel compilation of ${files.length} files`,
-    );
+    this.logger.debug(() => `Starting parallel compilation of ${files.length} files`);
 
     // Transform the files array into the structure needed by compileMultipleWithConfigs
     const fileCompilationConfigs = files.map((file) => {
       // Create a fresh listener for each file if needed
-      const fileListener = listener.createNewInstance
-        ? listener.createNewInstance()
-        : listener;
+      const fileListener = listener.createNewInstance ? listener.createNewInstance() : listener;
 
       return {
         content: file.content,
@@ -360,8 +317,7 @@ export class CompilerService {
     }>,
   ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
     this.logger.debug(
-      () =>
-        `Starting parallel compilation of ${fileCompilationConfigs.length} files with individual configurations`,
+      () => `Starting parallel compilation of ${fileCompilationConfigs.length} files with individual configurations`,
     );
 
     const startTime = Date.now();
@@ -370,18 +326,12 @@ export class CompilerService {
     const settledResults = await Promise.allSettled(
       fileCompilationConfigs.map(async (config) =>
         // Use the listener as provided - assume it's already properly prepared
-        this.compile(
-          config.content,
-          config.fileName,
-          config.listener,
-          config.options || {},
-        ),
+        this.compile(config.content, config.fileName, config.listener, config.options || {}),
       ),
     );
 
     // Process the settled results and handle any rejections
-    const results: (CompilationResult<T> | CompilationResultWithComments<T>)[] =
-      [];
+    const results: (CompilationResult<T> | CompilationResultWithComments<T>)[] = [];
     let rejectedCount = 0;
 
     for (let i = 0; i < settledResults.length; i++) {
@@ -399,10 +349,7 @@ export class CompilerService {
         const errorObject: ApexError = {
           type: 'semantic' as any,
           severity: 'error' as any,
-          message:
-            settledResult.reason instanceof Error
-              ? settledResult.reason.message
-              : String(settledResult.reason),
+          message: settledResult.reason instanceof Error ? settledResult.reason.message : String(settledResult.reason),
           line: 0,
           column: 0,
           filePath: config.fileName,
@@ -439,8 +386,7 @@ export class CompilerService {
       );
     } else {
       this.logger.debug(
-        () =>
-          `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed`,
+        () => `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed`,
       );
     }
 

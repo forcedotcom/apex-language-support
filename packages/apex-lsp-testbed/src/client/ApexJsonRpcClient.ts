@@ -9,12 +9,7 @@
 import * as cp from 'child_process';
 import { EventEmitter } from 'events';
 
-import {
-  createMessageConnection,
-  MessageConnection,
-  Logger as VscodeLogger,
-  ResponseError,
-} from 'vscode-jsonrpc';
+import { createMessageConnection, MessageConnection, Logger as VscodeLogger, ResponseError } from 'vscode-jsonrpc';
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node';
 
 import { ServerType } from '../utils/serverUtils';
@@ -209,9 +204,7 @@ export class ApexJsonRpcClient {
     // Listen for errors
     this.connection.onError((error) => {
       if (error instanceof ResponseError) {
-        this.logger.error(
-          `Connection error: ${error.message} (code: ${error.code})`,
-        );
+        this.logger.error(`Connection error: ${error.message} (code: ${error.code})`);
       } else if (Array.isArray(error) && error[0] instanceof Error) {
         this.logger.error(`Connection error: ${error[0].message}`);
       } else {
@@ -283,10 +276,7 @@ export class ApexJsonRpcClient {
    * @param callback - Callback function
    * @returns Disposable to unregister the listener
    */
-  public onNotification(
-    method: string,
-    callback: (params: unknown) => void,
-  ): Disposable {
+  public onNotification(method: string, callback: (params: unknown) => void): Disposable {
     this.eventEmitter.on(`notification:${method}`, callback);
     const disposable: any = {
       dispose: () => {
@@ -335,11 +325,7 @@ export class ApexJsonRpcClient {
    * @param text - Document content
    * @param languageId - Language identifier (default: 'apex')
    */
-  public openTextDocument(
-    uri: string,
-    text: string,
-    languageId: string = 'apex',
-  ): void {
+  public openTextDocument(uri: string, text: string, languageId: string = 'apex'): void {
     this.sendNotification('textDocument/didOpen', {
       textDocument: {
         uri,
@@ -383,11 +369,7 @@ export class ApexJsonRpcClient {
    * @param character - Zero-based character position
    * @returns Promise that resolves with completion items
    */
-  public async completion(
-    uri: string,
-    line: number,
-    character: number,
-  ): Promise<any> {
+  public async completion(uri: string, line: number, character: number): Promise<any> {
     return this.sendRequest('textDocument/completion', {
       textDocument: { uri },
       position: { line, character },
@@ -401,11 +383,7 @@ export class ApexJsonRpcClient {
    * @param character - Zero-based character position
    * @returns Promise that resolves with hover information
    */
-  public async hover(
-    uri: string,
-    line: number,
-    character: number,
-  ): Promise<any> {
+  public async hover(uri: string, line: number, character: number): Promise<any> {
     return this.sendRequest('textDocument/hover', {
       textDocument: { uri },
       position: { line, character },
@@ -429,10 +407,7 @@ export class ApexJsonRpcClient {
    * @param options - Formatting options
    * @returns Promise that resolves with text edits
    */
-  public async formatting(
-    uri: string,
-    options: any = { tabSize: 4, insertSpaces: true },
-  ): Promise<any> {
+  public async formatting(uri: string, options: any = { tabSize: 4, insertSpaces: true }): Promise<any> {
     return this.sendRequest('textDocument/formatting', {
       textDocument: { uri },
       options,
@@ -445,14 +420,7 @@ export class ApexJsonRpcClient {
    * @private
    */
   private startServerProcess(): cp.ChildProcess {
-    const {
-      nodePath,
-      serverPath,
-      nodeArgs,
-      serverArgs,
-      env,
-      initializeParams,
-    } = this.options;
+    const { nodePath, serverPath, nodeArgs, serverArgs, env, initializeParams } = this.options;
 
     this.logger.debug(
       `Starting server process: ${nodePath} ${nodeArgs?.join(' ') || ''} ${serverPath} ${serverArgs?.join(' ') || ''}`,
@@ -466,15 +434,11 @@ export class ApexJsonRpcClient {
 
     switch (this.serverType) {
       case 'demo':
-        return cp.spawn(
-          nodePath as string,
-          [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
-          {
-            env: { ...process.env, ...env },
-            stdio: ['pipe', 'pipe', 'pipe'],
-            cwd: workspacePath, // Set the current working directory
-          },
-        );
+        return cp.spawn(nodePath as string, [...(nodeArgs || []), serverPath, ...(serverArgs || [])], {
+          env: { ...process.env, ...env },
+          stdio: ['pipe', 'pipe', 'pipe'],
+          cwd: workspacePath, // Set the current working directory
+        });
       case 'jorje':
         return cp.spawn(serverPath, serverArgs || [], {
           env: { ...process.env, ...env },
@@ -482,25 +446,17 @@ export class ApexJsonRpcClient {
           cwd: workspacePath, // Set the current working directory
         });
       case 'nodeServer':
-        return cp.spawn(
-          nodePath as string,
-          [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
-          {
-            env: { ...process.env, ...env },
-            stdio: ['pipe', 'pipe', 'pipe'],
-            cwd: workspacePath, // Set the current working directory
-          },
-        );
+        return cp.spawn(nodePath as string, [...(nodeArgs || []), serverPath, ...(serverArgs || [])], {
+          env: { ...process.env, ...env },
+          stdio: ['pipe', 'pipe', 'pipe'],
+          cwd: workspacePath, // Set the current working directory
+        });
       case 'webServer':
-        return cp.spawn(
-          nodePath as string,
-          [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
-          {
-            env: { ...process.env, ...env },
-            stdio: ['pipe', 'pipe', 'pipe'],
-            cwd: workspacePath, // Set the current working directory
-          },
-        );
+        return cp.spawn(nodePath as string, [...(nodeArgs || []), serverPath, ...(serverArgs || [])], {
+          env: { ...process.env, ...env },
+          stdio: ['pipe', 'pipe', 'pipe'],
+          cwd: workspacePath, // Set the current working directory
+        });
       default:
         throw new Error(`unknown serverType: ${this.serverType}`);
     }
@@ -605,28 +561,19 @@ export class ApexJsonRpcClient {
           },
         },
         ...(this.options.initializeParams ? this.options.initializeParams : {}),
-        rootUri:
-          this.options.initializeParams?.rootUri || `file://${process.cwd()}`,
+        rootUri: this.options.initializeParams?.rootUri || `file://${process.cwd()}`,
       };
 
       this.logger.debug('Initializing server...');
-      this.logger.debug(
-        'Initialize params: ' + JSON.stringify(initializeParams, null, 2),
-      );
-      const result = (await this.connection.sendRequest(
-        'initialize',
-        initializeParams,
-      )) as { capabilities: any };
+      this.logger.debug('Initialize params: ' + JSON.stringify(initializeParams, null, 2));
+      const result = (await this.connection.sendRequest('initialize', initializeParams)) as { capabilities: any };
       this.serverCapabilities = result.capabilities;
 
       // Send initialized notification
       this.connection.sendNotification('initialized', {});
 
       this.isInitialized = true;
-      this.logger.debug(
-        'Server initialized with capabilities: ' +
-          JSON.stringify(this.serverCapabilities, null, 2),
-      );
+      this.logger.debug('Server initialized with capabilities: ' + JSON.stringify(this.serverCapabilities, null, 2));
     } catch (error) {
       this.logger.error(`Failed to initialize server: ${error}`);
       throw error;

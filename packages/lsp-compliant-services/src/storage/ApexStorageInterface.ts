@@ -136,10 +136,7 @@ export interface ApexStorageInterface {
    * @param definition The ApexReference to store as the definition
    * @returns Promise resolving to success boolean
    */
-  setDefinition(
-    symbolName: string,
-    definition: ApexReference,
-  ): Promise<boolean>;
+  setDefinition(symbolName: string, definition: ApexReference): Promise<boolean>;
 
   /**
    * Set references for a given symbol
@@ -147,10 +144,7 @@ export interface ApexStorageInterface {
    * @param references The ApexReference[] to store as references
    * @returns Promise resolving to success boolean
    */
-  setReferences(
-    symbolName: string,
-    references: ApexReference[],
-  ): Promise<boolean>;
+  setReferences(symbolName: string, references: ApexReference[]): Promise<boolean>;
 
   /**
    * Get references for a given symbol

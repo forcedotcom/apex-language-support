@@ -20,9 +20,7 @@ export interface IDocumentProcessor {
    * @param event The document change event
    * @returns Diagnostics for the changed document
    */
-  processDocumentChange(
-    event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined>;
+  processDocumentChange(event: TextDocumentChangeEvent<TextDocument>): Promise<Diagnostic[] | undefined>;
 }
 
 /**
@@ -39,23 +37,13 @@ export class DidChangeDocumentHandler {
    * @param event The document change event
    * @returns Diagnostics for the changed document
    */
-  public async handleDocumentChange(
-    event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined> {
-    this.logger.debug(
-      () => `Processing document change: ${event.document.uri}`,
-    );
+  public async handleDocumentChange(event: TextDocumentChangeEvent<TextDocument>): Promise<Diagnostic[] | undefined> {
+    this.logger.debug(() => `Processing document change: ${event.document.uri}`);
 
     try {
-      return await dispatch(
-        this.documentProcessor.processDocumentChange(event),
-        'Error processing document change',
-      );
+      return await dispatch(this.documentProcessor.processDocumentChange(event), 'Error processing document change');
     } catch (error) {
-      this.logger.error(
-        () =>
-          `Error processing document change for ${event.document.uri}: ${error}`,
-      );
+      this.logger.error(() => `Error processing document change for ${event.document.uri}: ${error}`);
       throw error;
     }
   }

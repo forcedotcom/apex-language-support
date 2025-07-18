@@ -80,27 +80,22 @@ describe('Configuration Module', () => {
   describe('getWorkspaceSettings', () => {
     it('should return workspace settings with default values', () => {
       // Mock configuration values
-      mockGetConfiguration.mockImplementation(
-        (key: string, defaultValue: any) => {
-          if (key === 'logLevel') return 'info';
-          if (key === 'commentCollection.enableCommentCollection') return true;
-          if (key === 'commentCollection.includeSingleLineComments')
-            return false;
-          if (key === 'commentCollection.associateCommentsWithSymbols')
-            return false;
-          if (key === 'commentCollection.enableForDocumentChanges') return true;
-          if (key === 'commentCollection.enableForDocumentOpen') return true;
-          if (key === 'commentCollection.enableForDocumentSymbols')
-            return false;
-          if (key === 'commentCollection.enableForFoldingRanges') return false;
-          if (key === 'performance.commentCollectionMaxFileSize') return 102400;
-          if (key === 'performance.useAsyncCommentProcessing') return true;
-          if (key === 'performance.documentChangeDebounceMs') return 300;
-          if (key === 'environment.enablePerformanceLogging') return false;
-          if (key === 'resources.loadMode') return 'lazy';
-          return defaultValue;
-        },
-      );
+      mockGetConfiguration.mockImplementation((key: string, defaultValue: any) => {
+        if (key === 'logLevel') return 'info';
+        if (key === 'commentCollection.enableCommentCollection') return true;
+        if (key === 'commentCollection.includeSingleLineComments') return false;
+        if (key === 'commentCollection.associateCommentsWithSymbols') return false;
+        if (key === 'commentCollection.enableForDocumentChanges') return true;
+        if (key === 'commentCollection.enableForDocumentOpen') return true;
+        if (key === 'commentCollection.enableForDocumentSymbols') return false;
+        if (key === 'commentCollection.enableForFoldingRanges') return false;
+        if (key === 'performance.commentCollectionMaxFileSize') return 102400;
+        if (key === 'performance.useAsyncCommentProcessing') return true;
+        if (key === 'performance.documentChangeDebounceMs') return 300;
+        if (key === 'environment.enablePerformanceLogging') return false;
+        if (key === 'resources.loadMode') return 'lazy';
+        return defaultValue;
+      });
 
       const settings = getWorkspaceSettings();
 
@@ -151,28 +146,20 @@ describe('Configuration Module', () => {
 
       const settings = getWorkspaceSettings();
 
-      expect(settings.apex.commentCollection.enableCommentCollection).toBe(
-        true,
-      );
-      expect(settings.apex.commentCollection.includeSingleLineComments).toBe(
-        false,
-      );
-      expect(settings.apex.performance.commentCollectionMaxFileSize).toBe(
-        102400,
-      );
+      expect(settings.apex.commentCollection.enableCommentCollection).toBe(true);
+      expect(settings.apex.commentCollection.includeSingleLineComments).toBe(false);
+      expect(settings.apex.performance.commentCollectionMaxFileSize).toBe(102400);
       expect(settings.apex.environment.enablePerformanceLogging).toBe(false);
     });
   });
 
   describe('getDebugConfig', () => {
     it('should return debug configuration with default values', () => {
-      mockGetConfiguration.mockImplementation(
-        (key: string, defaultValue: any) => {
-          if (key === 'debug') return 'off';
-          if (key === 'debugPort') return 6009;
-          return defaultValue;
-        },
-      );
+      mockGetConfiguration.mockImplementation((key: string, defaultValue: any) => {
+        if (key === 'debug') return 'off';
+        if (key === 'debugPort') return 6009;
+        return defaultValue;
+      });
 
       const config = getDebugConfig();
 
@@ -183,13 +170,11 @@ describe('Configuration Module', () => {
     });
 
     it('should return custom debug configuration', () => {
-      mockGetConfiguration.mockImplementation(
-        (key: string, defaultValue: any) => {
-          if (key === 'debug') return 'inspect-brk';
-          if (key === 'debugPort') return 9229;
-          return defaultValue;
-        },
-      );
+      mockGetConfiguration.mockImplementation((key: string, defaultValue: any) => {
+        if (key === 'debug') return 'inspect-brk';
+        if (key === 'debugPort') return 9229;
+        return defaultValue;
+      });
 
       const config = getDebugConfig();
 
@@ -235,8 +220,7 @@ describe('Configuration Module', () => {
       registerConfigurationChangeListener(mockClient, mockContext);
 
       // Get the registered listener
-      const listener = (vscode.workspace.onDidChangeConfiguration as jest.Mock)
-        .mock.calls[0][0];
+      const listener = (vscode.workspace.onDidChangeConfiguration as jest.Mock).mock.calls[0][0];
 
       // Mock getWorkspaceSettings to return test settings
       const testSettings = {
@@ -264,9 +248,7 @@ describe('Configuration Module', () => {
           logLevel: 'info',
         },
       };
-      jest
-        .spyOn(require('../src/configuration'), 'getWorkspaceSettings')
-        .mockReturnValue(testSettings);
+      jest.spyOn(require('../src/configuration'), 'getWorkspaceSettings').mockReturnValue(testSettings);
 
       // Mock configuration change event
       const mockEvent = {
@@ -276,20 +258,16 @@ describe('Configuration Module', () => {
       // Call the listener
       listener(mockEvent);
 
-      expect(mockClient.sendNotification).toHaveBeenCalledWith(
-        'workspace/didChangeConfiguration',
-        {
-          settings: testSettings,
-        },
-      );
+      expect(mockClient.sendNotification).toHaveBeenCalledWith('workspace/didChangeConfiguration', {
+        settings: testSettings,
+      });
     });
 
     it('should not send notification when apex config is not affected', () => {
       registerConfigurationChangeListener(mockClient, mockContext);
 
       // Get the registered listener
-      const listener = (vscode.workspace.onDidChangeConfiguration as jest.Mock)
-        .mock.calls[0][0];
+      const listener = (vscode.workspace.onDidChangeConfiguration as jest.Mock).mock.calls[0][0];
 
       // Mock configuration change event
       const mockEvent = {

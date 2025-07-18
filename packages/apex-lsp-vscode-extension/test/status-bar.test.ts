@@ -34,18 +34,16 @@ describe('Apex Server Status LanguageStatusItem', () => {
       hide: jest.fn(),
       dispose: jest.fn(),
     };
-    jest
-      .spyOn(vscode.languages, 'createLanguageStatusItem')
-      .mockReturnValue(mockStatusItem);
+    jest.spyOn(vscode.languages, 'createLanguageStatusItem').mockReturnValue(mockStatusItem);
     mockContext = { subscriptions: [] } as unknown as vscode.ExtensionContext;
   });
 
   it('should create the LanguageStatusItem and add to subscriptions', () => {
     createApexServerStatusItem(mockContext);
-    expect(vscode.languages.createLanguageStatusItem).toHaveBeenCalledWith(
-      'apex.serverStatus',
-      { language: 'apex', scheme: 'file' },
-    );
+    expect(vscode.languages.createLanguageStatusItem).toHaveBeenCalledWith('apex.serverStatus', {
+      language: 'apex',
+      scheme: 'file',
+    });
     expect(mockContext.subscriptions).toContain(mockStatusItem);
     expect(mockStatusItem.name).toBe('Apex Language Server Status');
     expect(mockStatusItem.text).toContain('Starting');
@@ -61,9 +59,7 @@ describe('Apex Server Status LanguageStatusItem', () => {
     updateApexServerStatusStarting();
     expect(mockStatusItem.text).toContain('Starting');
     expect(mockStatusItem.detail).toContain('starting');
-    expect(mockStatusItem.severity).toBe(
-      vscode.LanguageStatusSeverity.Information,
-    );
+    expect(mockStatusItem.severity).toBe(vscode.LanguageStatusSeverity.Information);
     expect(mockStatusItem.busy).toBe(true);
   });
 
@@ -72,9 +68,7 @@ describe('Apex Server Status LanguageStatusItem', () => {
     updateApexServerStatusReady();
     expect(mockStatusItem.text).toContain('Ready');
     expect(mockStatusItem.detail).toContain('running');
-    expect(mockStatusItem.severity).toBe(
-      vscode.LanguageStatusSeverity.Information,
-    );
+    expect(mockStatusItem.severity).toBe(vscode.LanguageStatusSeverity.Information);
     expect(mockStatusItem.busy).toBe(false);
   });
 
