@@ -23,9 +23,9 @@ interface PublishMatrixOptions {
 function getVsixPattern(extension: string): string {
   switch (extension) {
     case 'apex-lsp-vscode-extension':
-      return '*apex-language-server-extension*.vsix';
+      return '*apex-language-server-extension-*.vsix';
     case 'apex-lsp-vscode-extension-web':
-      return '*apex-language-server-extension-web*.vsix';
+      return '*apex-language-server-extension-web-*.vsix';
     default:
       return `*${extension}*.vsix`;
   }

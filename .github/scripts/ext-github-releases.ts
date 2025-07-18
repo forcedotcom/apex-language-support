@@ -52,10 +52,10 @@ function findVsixFiles(extension: string, artifactsPath: string): string[] {
     let vsixPattern: string;
     switch (extension) {
       case 'apex-lsp-vscode-extension':
-        vsixPattern = '*apex-language-server-extension*.vsix';
+        vsixPattern = '*apex-language-server-extension-*.vsix';
         break;
       case 'apex-lsp-vscode-extension-web':
-        vsixPattern = '*apex-language-server-extension-web*.vsix';
+        vsixPattern = '*apex-language-server-extension-web-*.vsix';
         break;
       default:
         vsixPattern = `*${extension}*.vsix`;
