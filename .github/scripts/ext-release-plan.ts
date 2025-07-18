@@ -135,24 +135,25 @@ function displayReleasePlan(options: ReleasePlanOptions): void {
     const preReleaseText = preRelease === 'true' ? ' (pre-release)' : '';
     console.log(`  Would create GitHub release: ${ext}${preReleaseText}`);
 
-    const registryList = registries.split(',').filter(Boolean);
+    // Determine which registries to include (same logic as ext-publish-matrix.ts)
+    const registryList =
+      registries === 'all'
+        ? ['vsce', 'ovsx']
+        : registries.split(',').filter(Boolean);
+
+    // Show publishing destinations for each registry
     for (const registry of registryList) {
       switch (registry) {
         case 'vsce':
-        case 'all':
-          if (ext === 'apex-lsp-vscode-extension') {
-            console.log(
-              `  Would publish to: VSCode Marketplace${preReleaseText}`,
-            );
-          }
+          console.log(
+            `  Would publish to: VSCode Marketplace${preReleaseText}`,
+          );
           break;
         case 'ovsx':
-        case 'all':
-          if (ext === 'apex-lsp-vscode-extension-web') {
-            console.log(
-              `  Would publish to: OpenVSX Registry${preReleaseText}`,
-            );
-          }
+          console.log(`  Would publish to: Open VSX Registry${preReleaseText}`);
+          break;
+        default:
+          console.log(`  Would publish to: ${registry}${preReleaseText}`);
           break;
       }
     }
