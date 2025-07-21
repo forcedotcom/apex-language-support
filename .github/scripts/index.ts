@@ -28,10 +28,7 @@ import {
   detectNpmChanges,
   setNpmChangeDetectionOutputs,
 } from './npm-change-detector';
-import {
-  getAvailableNpmPackages,
-  setPackageDiscoveryOutputs,
-} from './npm-package-selector';
+import { npmPackageSelectorMain } from './npm-package-selector';
 
 import {
   extractPackageDetails,
@@ -129,13 +126,14 @@ program
 
 program
   .command('npm-package-selector')
-  .description('Discover available NPM packages')
+  .description(
+    'Discover available NPM packages or select packages based on user input',
+  )
   .action(async () => {
     try {
-      const npmPackages = getAvailableNpmPackages();
-      setPackageDiscoveryOutputs(npmPackages);
+      await npmPackageSelectorMain();
     } catch (error) {
-      log.error(`Failed to discover NPM packages: ${error}`);
+      log.error(`Failed to handle NPM packages: ${error}`);
       process.exit(1);
     }
   });
