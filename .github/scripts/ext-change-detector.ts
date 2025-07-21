@@ -142,6 +142,24 @@ function intersectExtensions(
     return changedExtensions;
   }
 
+  // Handle special values
+  const normalizedSelection = userSelected.map((s) => s.toLowerCase());
+
+  if (normalizedSelection.includes('none')) {
+    log.info('User selected "none" - returning empty selection');
+    return [];
+  }
+
+  if (normalizedSelection.includes('all')) {
+    log.info('User selected "all" - using all available extensions');
+    return availableNames;
+  }
+
+  if (normalizedSelection.includes('changed')) {
+    log.info('User selected "changed" - using all detected changes');
+    return changedExtensions;
+  }
+
   // Validate user selection against available extensions
   const validUserSelected = userSelected.filter((ext) => {
     if (!availableNames.includes(ext)) {
