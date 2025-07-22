@@ -204,7 +204,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.IDEE_GH_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -226,7 +226,8 @@ jobs:
           npx tsx .github/scripts/index.ts ext-version-bumper
 
       - name: Validate GitHub authentication
-        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
         run: |
           # Validate that required tokens are present
           if [ -z "$GITHUB_TOKEN" ]; then
@@ -245,7 +246,7 @@ jobs:
       - name: Commit version bumps with tags
         env:
           # Ensure GitHub CLI has proper authentication
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
           DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
         run: |
           IS_PROMOTION="${{ needs.determine-build-type.outputs.is-promotion }}"
@@ -325,8 +326,6 @@ jobs:
       artifact-name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
       dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
 
-
-
   determine-publish-matrix:
     needs: [determine-changes, calculate-artifact-name]
     runs-on: ubuntu-latest
@@ -395,7 +394,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.IDEE_GH_TOKEN }}
           ref: ${{ inputs.branch || github.ref }}
 
       - name: Download VSIX artifacts
@@ -404,7 +403,7 @@ jobs:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
 
-      - name: Debug - List downloaded artifacts
+      - name: List downloaded artifacts
         run: |
           echo "=== DEBUG: Downloaded Artifacts ==="
           echo "Artifact name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}"
@@ -478,7 +477,8 @@ jobs:
 
   slack-notify:
     name: Slack Notification
-    needs: [determine-build-type, determine-changes, bump-versions, package, publish]
+    needs:
+      [determine-build-type, determine-changes, bump-versions, package, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'success' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
@@ -584,7 +584,8 @@ jobs:
 
   slack-notify-failure:
     name: Slack Failure Notification
-    needs: [determine-build-type, determine-changes, bump-versions, package, publish]
+    needs:
+      [determine-build-type, determine-changes, bump-versions, package, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'failure' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
