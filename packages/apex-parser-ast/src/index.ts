@@ -46,6 +46,10 @@ export * from './utils/PlatformUtils';
 export * from './utils/AnnotationUtils';
 export * from './utils/symbolNarrowing';
 
+// Export cross-file symbol management
+export * from './utils/GlobalSymbolRegistry';
+export * from './utils/CrossFileSymbolManager';
+
 // Export semantic validators
 export * from './semantics/modifiers/index';
 export * from './semantics/annotations/index';

@@ -8,7 +8,7 @@
 
 import { promises as fs } from 'fs';
 
-import { HashMap } from 'data-structure-typed';
+// HashMap replaced with native Map
 import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
 import type {
   ApexReference,
@@ -25,8 +25,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
  */
 export class NodeFileSystemApexStorage implements ApexStorageInterface {
   // In-memory storage
-  private astMap: HashMap<string, ApexClassInfo[], [string, ApexClassInfo[]]> =
-    new HashMap();
+  private astMap: Map<string, ApexClassInfo[]> = new Map();
   private typeInfoMap: Map<string, TypeInfo> = new Map();
   private references: ApexReference[] = [];
   private documents: Map<string, TextDocument> = new Map();

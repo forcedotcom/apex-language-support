@@ -5,13 +5,13 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { HashMap } from 'data-structure-typed';
+// HashMap replaced with native Map
 
 /**
- * A HashMap implementation that uses case-insensitive string keys.
+ * A Map implementation that uses case-insensitive string keys.
  * All keys are converted to lowercase before being stored or retrieved.
  */
-export class CaseInsensitiveMap<V> extends HashMap<string, V> {
+export class CaseInsensitiveMap<V> extends Map<string, V> {
   constructor() {
     super();
   }
@@ -40,13 +40,13 @@ export class CaseInsensitiveMap<V> extends HashMap<string, V> {
   /**
    * Override the set method to convert keys to lowercase
    */
-  set(key: string, value: V): boolean {
+  set(key: string, value: V): this {
     return super.set(key.toLowerCase(), value);
   }
 }
 
 /**
- * A HashMap implementation that uses case-insensitive string keys and normalizes paths.
+ * A Map implementation that uses case-insensitive string keys and normalizes paths.
  * All keys are converted to lowercase and normalized to use dots as separators.
  * Paths are expected to end with .cls extension.
  */
@@ -87,7 +87,7 @@ export class CaseInsensitivePathMap<V> extends CaseInsensitiveMap<V> {
   /**
    * Override the set method to normalize paths
    */
-  set(key: string, value: V): boolean {
+  set(key: string, value: V): this {
     return super.set(this.normalizePath(key), value);
   }
 }

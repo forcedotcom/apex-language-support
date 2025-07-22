@@ -43,7 +43,6 @@ import {
   VariableSymbol,
   Annotation,
   AnnotationParameter,
-  ApexSymbol,
 } from '../../types/symbol';
 import {
   ClassModifierValidator,
@@ -82,6 +81,7 @@ export class ApexSymbolCollectorListener
   private currentTypeSymbol: TypeSymbol | null = null;
   private currentMethodSymbol: MethodSymbol | null = null;
   private blockDepth: number = 0;
+  private blockCounter: number = 0; // Separate counter for unique block names
   private currentModifiers: SymbolModifiers = this.createDefaultModifiers();
   private currentAnnotations: Annotation[] = [];
   private currentFilePath: string = '';
@@ -985,29 +985,15 @@ export class ApexSymbolCollectorListener
   enterBlock(ctx: BlockContext): void {
     try {
       this.blockDepth++;
-      const name = `block${this.blockDepth}`;
-      const modifiers = this.getCurrentModifiers();
-      const location = this.getLocation(ctx);
-      const parent = this.currentTypeSymbol || this.currentMethodSymbol;
-      const parentKey = parent ? parent.key : null;
-      const key = {
-        prefix: SymbolKind.Method,
-        name,
-        path: this.getCurrentPath(),
-      };
+      this.blockCounter++; // Increment the unique block counter
+      const name = `block${this.blockCounter}`; // Use blockCounter for unique names
 
-      const blockSymbol: ApexSymbol = {
-        name,
-        kind: SymbolKind.Method,
-        location,
-        modifiers,
-        parent,
-        key,
-        parentKey,
-      };
-
+      // Only create scope for block management, don't register as a symbol
+      // Blocks are only needed for local scope management within a file
       this.symbolTable.enterScope(name, 'block');
-      this.symbolTable.addSymbol(blockSymbol);
+
+      // Note: We don't add block symbols to the symbol table since they're
+      // only needed for scope management, not as trackable symbols
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in block: ${errorMessage}`, ctx);

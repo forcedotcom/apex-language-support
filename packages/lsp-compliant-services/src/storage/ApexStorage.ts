@@ -8,7 +8,7 @@
 
 import { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { HashMap } from 'data-structure-typed';
+// HashMap replaced with native Map
 
 import { ApexReference, ApexStorageInterface } from './ApexStorageInterface';
 
@@ -18,13 +18,13 @@ import { ApexReference, ApexStorageInterface } from './ApexStorageInterface';
  */
 export class ApexStorage implements ApexStorageInterface {
   private static instance: ApexStorage;
-  private hoverMap: HashMap<string, string> = new HashMap();
-  private definitionMap: HashMap<string, ApexReference> = new HashMap();
-  private referencesMap: HashMap<string, ApexReference[]> = new HashMap();
-  private astMap: HashMap<string, ApexClassInfo[]> = new HashMap();
-  private typeInfoMap: HashMap<string, TypeInfo> = new HashMap();
+  private hoverMap: Map<string, string> = new Map();
+  private definitionMap: Map<string, ApexReference> = new Map();
+  private referencesMap: Map<string, ApexReference[]> = new Map();
+  private astMap: Map<string, ApexClassInfo[]> = new Map();
+  private typeInfoMap: Map<string, TypeInfo> = new Map();
   private initialized = false;
-  private documents: HashMap<string, TextDocument> = new HashMap();
+  private documents: Map<string, TextDocument> = new Map();
   private constructor() {}
 
   public static getInstance(): ApexStorage {
