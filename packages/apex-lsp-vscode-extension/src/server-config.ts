@@ -80,27 +80,74 @@ export const createServerOptions = (
   // Get debug options
   const debugOptions = getDebugOptions();
 
+  // Determine server mode with environment variable override
+  let serverMode: 'production' | 'development';
+  if (
+    process.env.APEX_LS_MODE === 'production' ||
+    process.env.APEX_LS_MODE === 'development'
+  ) {
+    serverMode = process.env.APEX_LS_MODE;
+    logToOutputChannel(
+      `Using server mode from environment variable: ${serverMode}`,
+      'info',
+    );
+  } else {
+    // Default to extension mode
+    serverMode =
+      context.extensionMode === vscode.ExtensionMode.Development ||
+      context.extensionMode === vscode.ExtensionMode.Test
+        ? 'development'
+        : 'production';
+    logToOutputChannel(
+      `Using server mode from extension mode: ${serverMode}`,
+      'debug',
+    );
+  }
+
   return {
     run: {
       module: serverModule,
       transport: TransportKind.ipc,
+      options: {
+        env: {
+          NODE_OPTIONS: '--enable-source-maps',
+          APEX_LS_MODE: serverMode,
+        },
+      },
     },
     debug: {
       module: serverModule,
       transport: TransportKind.ipc,
-      ...(debugOptions && {
-        options: { execArgv: debugOptions },
-      }),
+      options: {
+        env: {
+          NODE_OPTIONS: '--enable-source-maps',
+          APEX_LS_MODE: serverMode,
+        },
+        ...(debugOptions && {
+          execArgv: debugOptions,
+        }),
+      },
     },
   };
 };
 
 /**
  * Creates client options for the language server
+ * @param context The extension context
  * @returns Client options configuration
  */
-export const createClientOptions = (): LanguageClientOptions => {
+export const createClientOptions = (
+  context: vscode.ExtensionContext,
+): LanguageClientOptions => {
   const settings = getWorkspaceSettings();
+
+  // Map VS Code extension mode to server mode
+  const extensionMode = context.extensionMode;
+  const serverMode =
+    extensionMode === vscode.ExtensionMode.Development ||
+    extensionMode === vscode.ExtensionMode.Test
+      ? 'development'
+      : 'production';
 
   return {
     documentSelector: [{ scheme: 'file', language: 'apex' }],
@@ -114,9 +161,10 @@ export const createClientOptions = (): LanguageClientOptions => {
       error: handleClientError,
       closed: () => handleClientClosed(),
     },
-    // Include workspace settings in initialization options
+    // Include workspace settings and extension mode in initialization options
     initializationOptions: {
       enableDocumentSymbols: true,
+      extensionMode: serverMode, // Pass extension mode to server
       ...settings,
     },
     // Explicitly enable workspace configuration capabilities

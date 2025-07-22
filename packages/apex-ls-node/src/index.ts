@@ -32,7 +32,6 @@ import {
   dispatchProcessOnFoldingRange,
   dispatchProcessOnDiagnostic,
   ApexStorageManager,
-  ApexSettingsManager,
   LSPConfigurationManager,
   dispatchProcessOnResolve,
 } from '@salesforce/apex-lsp-compliant-services';
@@ -84,11 +83,7 @@ export function startServer() {
   const logger = getLogger();
 
   // Initialize settings and configuration managers
-  const settingsManager = ApexSettingsManager.getInstance({}, 'node');
-  const configurationManager = new LSPConfigurationManager(settingsManager);
-
-  // Set up configuration management
-  configurationManager.setConnection(connection);
+  const configurationManager = new LSPConfigurationManager();
 
   // Server state
   let isShutdown = false;
@@ -118,50 +113,57 @@ export function startServer() {
     // Set the log level in the logging system
     setLogLevel(logLevel);
 
-    // Process initialization parameters and settings
-    configurationManager.processInitializeParams(params);
-
     // Initialize ApexLib
     const { client } = createNodeApexLibAdapter(connection, documents);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const apexLibManager = createApexLibManager('apex', 'apex', 'cls', client); // this is needed for future work
 
-    return {
-      capabilities: {
-        textDocumentSync: {
-          openClose: true,
-          change: 1, // Full text document sync
-          save: true,
-          willSave: false, // Enable willSave support
-          willSaveWaitUntil: false, // Enable willSaveWaitUntil support
-        },
-        completionProvider: {
-          resolveProvider: false,
-          triggerCharacters: ['.'],
-        },
-        hoverProvider: false,
-        documentSymbolProvider: true,
-        foldingRangeProvider: true, // Enable folding range support
-        diagnosticProvider: {
-          interFileDependencies: false,
-          workspaceDiagnostics: false,
-        },
-        workspace: {
-          workspaceFolders: {
-            supported: true,
-            changeNotifications: true,
-          },
-        },
-      },
-    };
+    // Get capabilities based on environment and mode
+    // Priority order: APEX_LS_MODE env var > extension mode in init options > NODE_ENV
+    const extensionMode = initOptions?.extensionMode as
+      | 'production'
+      | 'development'
+      | undefined;
+
+    let mode: 'production' | 'development';
+
+    // First check for APEX_LS_MODE environment variable
+    if (
+      process.env.APEX_LS_MODE === 'production' ||
+      process.env.APEX_LS_MODE === 'development'
+    ) {
+      mode = process.env.APEX_LS_MODE;
+      logger.info(
+        `Using server mode from APEX_LS_MODE environment variable: ${mode}`,
+      );
+    }
+    // Then check for extension mode in initialization options
+    else if (extensionMode) {
+      mode = extensionMode;
+      logger.info(
+        `Using server mode from extension initialization options: ${mode}`,
+      );
+    }
+    // Finally fall back to NODE_ENV
+    else {
+      mode = (
+        process.env.NODE_ENV === 'development' ? 'development' : 'production'
+      ) as 'production' | 'development';
+      logger.info(`Using server mode from NODE_ENV: ${mode}`);
+    }
+
+    // Set the mode and get capabilities
+    configurationManager.setMode(mode);
+    const capabilities = configurationManager.getCapabilities();
+
+    logger.info(`Using ${mode} mode capabilities for Node.js environment`);
+
+    return { capabilities };
   });
 
   // Handle client connection
   connection.onInitialized(() => {
     logger.info('Language server initialized and connected to client.');
-
-    // Register for configuration changes
-    configurationManager.registerForConfigurationChanges();
 
     // Register the apexlib/resolve request handler
     connection.onRequest('apexlib/resolve', async (params) => {
@@ -235,6 +237,12 @@ export function startServer() {
       }
     },
   );
+
+  // Handle workspace diagnostic requests (no-op for now)
+  connection.onRequest('workspace/diagnostic', async (params) => {
+    logger.debug('workspace/diagnostic requested by client');
+    return { items: [] };
+  });
 
   // Configuration change handling is now managed by the LSPConfigurationManager
   // through its enhanced registration system in registerForConfigurationChanges()
@@ -310,6 +318,17 @@ export function startServer() {
     uri: string,
     diagnostics: Diagnostic[] | undefined,
   ) => {
+    // Check if publishDiagnostics is enabled in capabilities
+    const capabilities = configurationManager.getExtendedServerCapabilities();
+    if (!capabilities.publishDiagnostics) {
+      // Don't send diagnostics if publishDiagnostics is disabled
+      logger.debug(
+        () =>
+          `Publish diagnostics disabled, skipping diagnostic send for: ${uri}`,
+      );
+      return;
+    }
+
     // Always send diagnostics to the client, even if empty array
     // This ensures diagnostics are cleared when there are no errors
     connection.sendDiagnostics({

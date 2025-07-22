@@ -173,9 +173,7 @@ describe.skip('Server Type Performance Comparison', () => {
           .on('complete', function (this: Benchmark.Suite) {
             const fastest = this.filter('fastest');
             console.log(
-              `Fastest server for ${method} is ${
-                fastest.map('name').toString().split(' - ')[0]
-              }`,
+              `Fastest server for ${method} is ${fastest.map('name').toString().split(' - ')[0]}`,
             );
             resolve();
           })

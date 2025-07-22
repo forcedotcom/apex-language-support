@@ -62,6 +62,10 @@ export * from './settings/ApexLanguageServerSettings';
 export * from './settings/ApexSettingsManager';
 export * from './settings/LSPConfigurationManager';
 
+// Export capabilities management
+export * from './capabilities/ApexLanguageServerCapabilities';
+export * from './capabilities/ApexCapabilitiesManager';
+
 // Export ApexLib
 export * from './apexlib';
 

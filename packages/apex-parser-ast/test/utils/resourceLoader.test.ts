@@ -143,33 +143,46 @@ describe('ResourceLoader', () => {
 
 describe('ResourceLoader Compilation', () => {
   let resourceLoader: ResourceLoader;
+  let sharedCompiledLoader: ResourceLoader | null = null;
 
-  beforeEach(() => {
-    // Reset the singleton instance before each test
-    (ResourceLoader as any).instance = null;
+  beforeAll(async () => {
+    // Set up a shared compiled loader once for all tests in this describe block
+    sharedCompiledLoader = ResourceLoader.getInstance({ loadMode: 'full' });
+    await sharedCompiledLoader.initialize();
+    await sharedCompiledLoader.waitForCompilation();
   });
 
-  afterEach(async () => {
-    // Reset the singleton instance after each test
+  beforeEach(() => {
+    // Use the shared compiled loader for tests that need it
+    resourceLoader = sharedCompiledLoader!;
+  });
+
+  afterAll(async () => {
+    // Clean up the shared instance
     (ResourceLoader as any).instance = null;
-    // Reduced wait time since we don't need to wait for full cleanup
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    sharedCompiledLoader = null;
   });
 
   // Shared setup for tests that need compiled artifacts
-  const setupCompiledLoader = async () => {
-    const loader = ResourceLoader.getInstance({ loadMode: 'full' });
-    await loader.initialize();
-    await loader.waitForCompilation();
-    return loader;
-  };
-
+  const setupCompiledLoader = async () =>
+    // Return the shared loader instead of creating a new one
+    sharedCompiledLoader!;
   it('should not compile artifacts when loadMode is lazy', async () => {
-    const lazyLoader = ResourceLoader.getInstance({ loadMode: 'lazy' });
-    await lazyLoader.initialize();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    const compiledArtifacts = lazyLoader.getAllCompiledArtifacts();
-    expect(compiledArtifacts.size).toBe(0);
+    // Create a separate lazy loader instance for this test
+    // We need to temporarily reset the singleton to test lazy mode properly
+    const originalInstance = (ResourceLoader as any).instance;
+    (ResourceLoader as any).instance = null;
+
+    try {
+      const lazyLoader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+      await lazyLoader.initialize();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const compiledArtifacts = lazyLoader.getAllCompiledArtifacts();
+      expect(compiledArtifacts.size).toBe(0);
+    } finally {
+      // Restore the original instance
+      (ResourceLoader as any).instance = originalInstance;
+    }
   });
 
   it('should get compiled artifact for specific file', async () => {

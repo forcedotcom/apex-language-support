@@ -127,7 +127,7 @@ export const startLanguageServer = async (
 
     // Set up server and client components
     const serverOptions = createServerOptions(context);
-    const clientOptions = createClientOptions();
+    const clientOptions = createClientOptions(context);
 
     createAndStartClient(serverOptions, clientOptions, context, restartHandler);
   } catch (error) {
