@@ -19,12 +19,12 @@ export interface CapabilitiesConfiguration {
   development: ExtendedServerCapabilities;
 }
 
-export interface ImplcitCapabilties {
+export interface ImplicitCapabilties {
   publishDiagnostics: boolean;
 }
 
 export type ExtendedServerCapabilities = ServerCapabilities &
-  ImplcitCapabilties;
+  ImplicitCapabilties;
 
 /**
  * Production capabilities - exposes which features are available in production

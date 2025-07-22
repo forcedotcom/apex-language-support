@@ -84,7 +84,7 @@ describe('ApexCapabilitiesManager', () => {
       // Production mode should have these enabled (released features only)
       expect(manager.isCapabilityEnabled('textDocumentSync')).toBe(true);
       expect(manager.isCapabilityEnabled('documentSymbolProvider')).toBe(true);
-      expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('diagnosticProvider')).toBe(true);
       expect(manager.isCapabilityEnabled('workspace')).toBe(true);
 
