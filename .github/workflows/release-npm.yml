@@ -1,8 +1,8 @@
 name: Release NPM Packages
 
 on:
-  push:
-    branches: [main]
+  # push:
+  #   branches: [main]
   workflow_call:
     inputs:
       branch:
@@ -145,7 +145,7 @@ jobs:
           cd packages/${{ matrix.package }}
           npx semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Dry Run Complete

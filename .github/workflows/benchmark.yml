@@ -42,7 +42,7 @@ jobs:
           name: 'LSP Performance Benchmarks'
           tool: 'benchmarkjs'
           output-file-path: 'benchmark-output.json'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.IDEE_GH_TOKEN }}
           auto-push: true
           alert-threshold: '130%'
           comment-on-alert: true
@@ -56,7 +56,7 @@ jobs:
           name: 'LSP Performance Benchmarks'
           tool: 'benchmarkjs'
           output-file-path: 'benchmark-output.json'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.IDEE_GH_TOKEN }}
           auto-push: false
           save-data-file: false
           alert-threshold: '130%'
