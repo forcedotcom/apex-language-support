@@ -280,6 +280,9 @@ jobs:
               git config --local user.email "action@github.com"
               git config --local user.name "GitHub Action"
               
+              # Configure git to use the PAT for authentication
+              git remote set-url origin https://x-access-token:${{ secrets.IDEE_GH_TOKEN }}@github.com/${{ github.repository }}.git
+              
               # Add all changes (including version bumps and tags)
               git add .
               

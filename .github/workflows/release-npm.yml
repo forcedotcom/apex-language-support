@@ -64,6 +64,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.IDEE_GH_TOKEN }}
           fetch-depth: 0
           ref: ${{ inputs.branch || github.ref }}
 
@@ -111,6 +112,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.IDEE_GH_TOKEN }}
           fetch-depth: 0
           ref: ${{ inputs.branch || github.ref }}
 
