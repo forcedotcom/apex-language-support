@@ -10,6 +10,8 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { z } from 'zod';
 import chalk from 'chalk';
+import type { SemanticVersion } from './types.js';
+import semver from 'semver';
 
 /**
  * Parse version string into components
@@ -119,11 +121,53 @@ export function parseEnvironment(): {
  * Set GitHub Actions output using environment files
  */
 export function setOutput(name: string, value: string): void {
-  const outputPath = process.env.GITHUB_OUTPUT;
-  if (outputPath) {
-    const fs = require('fs');
-    fs.appendFileSync(outputPath, `${name}=${value}\n`);
+  console.log(`::set-output name=${name}::${value}`);
+}
+
+/**
+ * Type guard to check if a string is a valid semantic version
+ */
+export function isSemanticVersion(version: string): version is SemanticVersion {
+  return semver.valid(version) !== null;
+}
+
+/**
+ * Parse semantic version string into components
+ */
+export function parseSemver(version: SemanticVersion): {
+  major: number;
+  minor: number;
+  patch: number;
+} {
+  const parsed = semver.parse(version);
+  if (!parsed) {
+    throw new Error(`Invalid semantic version: ${version}`);
   }
+  return {
+    major: parsed.major,
+    minor: parsed.minor,
+    patch: parsed.patch,
+  };
+}
+
+/**
+ * Compare two semantic versions
+ * Returns: -1 if a < b, 0 if a === b, 1 if a > b
+ */
+export function compareSemver(a: SemanticVersion, b: SemanticVersion): number {
+  return semver.compare(a, b);
+}
+
+/**
+ * Extract semantic version from tag using regex pattern
+ */
+export function extractVersionFromTag(tag: string): SemanticVersion | null {
+  // Match semantic version pattern: v followed by major.minor.patch
+  const versionMatch = tag.match(/v(\d+\.\d+\.\d+)/);
+  if (!versionMatch) return null;
+
+  const version = versionMatch[1];
+  return isSemanticVersion(version) ? version : null;
 }
 
 /**

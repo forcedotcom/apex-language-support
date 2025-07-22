@@ -88,3 +88,13 @@ export interface Environment {
     versionBump?: string;
   };
 }
+
+/**
+ * Type representing a semantic version string (major.minor.patch)
+ */
+export type SemanticVersion = `${number}.${number}.${number}`;
+
+/**
+ * Type representing a tag with its extracted version
+ */
+export type TagWithVersion = { tag: string; version: SemanticVersion | null };

@@ -9,8 +9,19 @@
 import { simpleGit } from 'simple-git';
 import { readdirSync, existsSync } from 'fs';
 import { join } from 'path';
-import { BuildContext, ChangeDetectionResult, ExtensionInfo } from './types';
-import { log, setOutput, getExtensionInfo } from './utils';
+import {
+  BuildContext,
+  ChangeDetectionResult,
+  ExtensionInfo,
+  TagWithVersion,
+} from './types';
+import {
+  log,
+  setOutput,
+  getExtensionInfo,
+  compareSemver,
+  extractVersionFromTag,
+} from './utils';
 
 /**
  * Get all available VS Code extensions (packages with publisher field)
@@ -85,23 +96,29 @@ async function hasExtensionChanges(
 }
 
 /**
- * Find the last release tag
+ * Find the last release tag for a specific extension
  */
-async function findLastReleaseTag(git: any): Promise<string | null> {
+async function findLastReleaseTagForExtension(
+  git: any,
+  extensionName: string,
+): Promise<string | null> {
   try {
     const tags = await git.tags();
-    const versionTags = tags.all
-      .filter((tag: string) => tag.startsWith('v'))
-      .sort((a: string, b: string) => {
-        // Simple version comparison (could be improved with semver)
-        const versionA = a.substring(1);
-        const versionB = b.substring(1);
-        return versionB.localeCompare(versionA, undefined, { numeric: true });
-      });
+    const extensionTags: TagWithVersion[] = tags.all
+      .filter((tag: string) => tag.startsWith(`${extensionName}-v`))
+      .map((tag: string) => {
+        const version = extractVersionFromTag(tag);
+        return { tag, version };
+      })
+      .filter((item) => item.version !== null) // Filter out tags we couldn't parse
+      .sort((a, b) =>
+        // Use proper semver comparison (descending order - newest first)
+        compareSemver(b.version!, a.version!),
+      );
 
-    return versionTags.length > 0 ? versionTags[0] : null;
+    return extensionTags.length > 0 ? extensionTags[0].tag : null;
   } catch (error) {
-    log.warning(`Failed to get tags: ${error}`);
+    log.warning(`Failed to get tags for ${extensionName}: ${error}`);
     return null;
   }
 }
@@ -222,29 +239,31 @@ export async function detectExtensionChanges(
   // Parse user selection
   const userSelected = parseUserSelectedExtensions(userSelectedExtensions);
 
-  // For nightly builds, always include all extensions
-  if (buildContext.isNightly) {
-    log.info('Nightly build detected - including all extensions');
-    changedExtensions.push(...extensions.map((e) => e.name));
-  }
   // For promotions, always include all extensions
-  else if (buildContext.isPromotion) {
+  if (buildContext.isPromotion) {
     log.info('Promotion detected - including all extensions');
     changedExtensions.push(...extensions.map((e) => e.name));
   }
-  // For regular builds, check for actual changes
+  // For nightly and regular builds, check for changes since last release
   else {
-    log.info('Regular build - checking for changes...');
-    const lastTag = await findLastReleaseTag(git);
-
-    if (lastTag) {
-      log.info(`Comparing against last release tag: ${lastTag}`);
-    } else {
-      log.info('No previous release tag found - treating as first release');
-    }
+    const buildType = buildContext.isNightly ? 'Nightly' : 'Regular';
+    log.info(`${buildType} build - checking for changes...`);
 
     for (const extension of extensions) {
       log.debug(`Checking extension: ${extension.name}`);
+
+      // Find the last release tag for this specific extension
+      const lastTag = await findLastReleaseTagForExtension(git, extension.name);
+
+      if (lastTag) {
+        log.info(
+          `Comparing ${extension.name} against last release tag: ${lastTag}`,
+        );
+      } else {
+        log.info(
+          `No previous release tag found for ${extension.name} - treating as first release`,
+        );
+      }
 
       const hasChanges = await hasExtensionChanges(
         git,
@@ -253,10 +272,14 @@ export async function detectExtensionChanges(
       );
 
       if (hasChanges) {
-        log.info(`Found changes in ${extension.name} - including in release`);
+        log.info(
+          `Found changes in ${extension.name} - including in ${buildType.toLowerCase()} release`,
+        );
         changedExtensions.push(extension.name);
       } else {
-        log.info(`No changes found in ${extension.name} - skipping release`);
+        log.info(
+          `No changes found in ${extension.name} - skipping ${buildType.toLowerCase()} release`,
+        );
       }
     }
   }
