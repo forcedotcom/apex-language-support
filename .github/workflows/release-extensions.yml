@@ -451,7 +451,7 @@ jobs:
         env:
           # Pass tokens as environment variables for better security
           VSCE_PERSONAL_ACCESS_TOKEN: ${{ matrix.registry == 'vsce' && secrets.VSCE_PERSONAL_ACCESS_TOKEN || '' }}
-          OVSX_PAT: ${{ matrix.registry == 'ovsx' && secrets.OVSX_PAT || '' }}
+          OVSX_PAT: ${{ matrix.registry == 'ovsx' && secrets.IDEE_OVSX_PAT || '' }}
         with:
           vsix-path: ${{ steps.find_vsix.outputs.vsix_file }}
           publish-tool: ${{ matrix.registry }}
