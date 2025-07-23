@@ -105,7 +105,7 @@ runs:
           if [ "${{ inputs.publish-tool }}" = "ovsx" ]; then
             echo "  Command: npx ovsx publish \"${{ inputs.vsix-path }}\" -p $TOKEN_MASK $PRE_RELEASE_FLAG"
           else
-            echo "  Command: npx vsce publish --packagePath \"${{ inputs.vsix-path }}\" --skip-duplicate $PRE_RELEASE_FLAG"
+            echo "  Command: npx @vscode/vsce publish --packagePath \"${{ inputs.vsix-path }}\" --skip-duplicate $PRE_RELEASE_FLAG"
           fi
           echo "✅ Dry run completed - no actual publish performed"
         else

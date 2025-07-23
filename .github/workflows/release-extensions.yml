@@ -536,13 +536,13 @@ jobs:
         with:
           payload: |
             {
-              "text": "🎉 VS Code Extensions Released Successfully!",
+              "text": "🎉 Apex Language Support Extensions Released Successfully!",
               "blocks": [
                 {
                   "type": "header",
                   "text": {
                     "type": "plain_text",
-                    "text": "🎉 VS Code Extensions Released Successfully!"
+                    "text": "🎉 Apex Language Support Extensions Released Successfully!"
                   }
                 },
                 {
