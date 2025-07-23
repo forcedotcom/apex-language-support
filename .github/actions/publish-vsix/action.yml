@@ -1,28 +1,21 @@
-name: 'Publish VSIX'
-description: 'Publishes VSIX files to a marketplace with dry-run support'
+name: "Publish VSIX"
+description: "Publishes VSIX files to a marketplace with dry-run support"
 
 inputs:
   vsix-path:
-    description: 'Path to the VSIX file to publish'
+    description: "Path to the VSIX file to publish"
     required: true
-    type: string
   publish-tool:
-    description: 'Publishing tool to use'
+    description: "Publishing tool to use"
     required: true
-    type: choice
-    options:
-      - ovsx
-      - vsce
   pre-release:
-    description: 'Publish as pre-release version'
+    description: "Publish as pre-release version"
     required: false
-    default: 'false'
-    type: string
+    default: "false"
   dry-run:
-    description: 'Run in dry-run mode'
+    description: "Run in dry-run mode"
     required: false
-    default: 'false'
-    type: string
+    default: "false"
 
 runs:
   using: composite
@@ -35,19 +28,19 @@ runs:
           echo "❌ Error: VSIX file not found at ${{ inputs.vsix-path }}"
           exit 1
         fi
-        
+
         # Validate VSIX file extension
         if [[ ! "${{ inputs.vsix-path }}" =~ \.vsix$ ]]; then
           echo "❌ Error: File must have .vsix extension"
           exit 1
         fi
-        
+
         # Validate publish tool
         if [[ ! "${{ inputs.publish-tool }}" =~ ^(ovsx|vsce)$ ]]; then
           echo "❌ Error: Invalid publish tool: ${{ inputs.publish-tool }}"
           exit 1
         fi
-        
+
         echo "✅ Input validation passed"
 
     - name: Audit publish attempt
@@ -60,14 +53,14 @@ runs:
         REPO="${{ github.repository }}"
         RUN_ID="${{ github.run_id }}"
         WORKFLOW="${{ github.workflow }}"
-        
+
         # Get file info for audit
         FILE_SIZE=$(stat -c%s "${{ inputs.vsix-path }}" 2>/dev/null || stat -f%z "${{ inputs.vsix-path }}" 2>/dev/null || echo "unknown")
         FILE_HASH=$(sha256sum "${{ inputs.vsix-path }}" 2>/dev/null | cut -d' ' -f1 || echo "unknown")
-        
+
         # Log audit information
         echo "[$TIMESTAMP] PUBLISH_ATTEMPT: actor=$ACTOR, repo=$REPO, run_id=$RUN_ID, workflow=$WORKFLOW, tool=${{ inputs.publish-tool }}, file=${{ inputs.vsix-path }}, size=$FILE_SIZE, hash=$FILE_HASH, pre_release=${{ inputs.pre-release }}, dry_run=${{ inputs.dry-run }}" >> "$AUDIT_LOG"
-        
+
         # Also log to GitHub Actions output for visibility
         echo "🔍 AUDIT: Publish attempt logged - $TIMESTAMP"
         echo "  Actor: $ACTOR"
@@ -85,7 +78,7 @@ runs:
       shell: bash
       run: |
         echo "Publishing ${{ inputs.vsix-path }}"
-        
+
         # Calculate marketplace name based on publish tool
         if [ "${{ inputs.publish-tool }}" = "ovsx" ]; then
           MARKETPLACE_NAME="Open VSX Registry"
@@ -94,16 +87,16 @@ runs:
           MARKETPLACE_NAME="Visual Studio Marketplace"
           TOKEN_ENV="VSCE_PERSONAL_ACCESS_TOKEN"
         fi
-        
+
         PRE_RELEASE_FLAG=""
         if [ "${{ inputs.pre-release }}" = "true" ]; then
           PRE_RELEASE_FLAG="--pre-release"
           echo "Would publish as pre-release version"
         fi
-        
+
         # Mask token in logs for security
         TOKEN_MASK="***"
-        
+
         if [ "${{ inputs.dry-run }}" = "true" ]; then
           echo "🔍 DRY RUN MODE - Would publish to $MARKETPLACE_NAME:"
           echo "  VSIX: ${{ inputs.vsix-path }}"
@@ -124,13 +117,13 @@ runs:
             exit 1
           fi
           
-          if [ "${{ inputs.publish-tool }}" = "ovsx" ]; then
-            # Use environment variable instead of command-line argument
-            npx ovsx publish "${{ inputs.vsix-path }}" -p "${!TOKEN_ENV}" $PRE_RELEASE_FLAG
+          if [ "${{ inputs.publish-tool }}" = "vsce" ]; then
+            export VSCE_PAT="${!TOKEN_ENV}"  # ensure the expected env var is set
+            npx @vscode/vsce publish --packagePath "${{ inputs.vsix-path }}" --skip-duplicate $PRE_RELEASE_FLAG
           else
-            # Use environment variable instead of command-line argument
-            npx vsce publish --packagePath "${{ inputs.vsix-path }}" --skip-duplicate $PRE_RELEASE_FLAG
+            npx ovsx publish "${{ inputs.vsix-path }}" -p "${!TOKEN_ENV}" $PRE_RELEASE_FLAG
           fi
+          
           echo "✅ Successfully published to $MARKETPLACE_NAME"
         fi
 
@@ -144,11 +137,11 @@ runs:
         ACTOR="${{ github.actor }}"
         REPO="${{ github.repository }}"
         RUN_ID="${{ github.run_id }}"
-        
+
         if [ $? -eq 0 ]; then
           echo "[$TIMESTAMP] PUBLISH_SUCCESS: actor=$ACTOR, repo=$REPO, run_id=$RUN_ID, tool=${{ inputs.publish-tool }}, file=${{ inputs.vsix-path }}" >> "$AUDIT_LOG"
           echo "✅ AUDIT: Publish successful - $TIMESTAMP"
         else
           echo "[$TIMESTAMP] PUBLISH_FAILURE: actor=$ACTOR, repo=$REPO, run_id=$RUN_ID, tool=${{ inputs.publish-tool }}, file=${{ inputs.vsix-path }}" >> "$AUDIT_LOG"
           echo "❌ AUDIT: Publish failed - $TIMESTAMP"
-        fi 
+        fi
