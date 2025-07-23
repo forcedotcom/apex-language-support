@@ -37,14 +37,6 @@ on:
           - changed
           - apex-lsp-vscode-extension
           - apex-lsp-vscode-extension-web
-      dry-run:
-        description: 'Run in dry-run mode (no actual publishing)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
       pre-release:
         description: 'Publish as pre-release version'
         required: false
@@ -72,6 +64,15 @@ on:
           - all
           - vsce
           - ovsx
+      dry-run:
+        description: 'Run in dry-run mode (no actual publishing)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
   # schedule:
   #   # Nightly pre-release build at 2 AM UTC
   #   - cron: '0 2 * * *'
