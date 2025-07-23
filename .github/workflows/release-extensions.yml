@@ -169,7 +169,7 @@ jobs:
   display-release-plan:
     needs: [determine-build-type, determine-changes]
     runs-on: ubuntu-latest
-    if: (inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true') && needs.determine-changes.outputs.selected-extensions != ''
+    if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
