@@ -328,6 +328,7 @@ jobs:
       branch: ${{ inputs.branch || github.ref_name }}
       artifact-name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
       dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
+      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
 
   determine-publish-matrix:
     needs: [determine-changes, calculate-artifact-name]
