@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { HashMap } from 'data-structure-typed';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
   GlobalSymbolRegistry,
@@ -53,7 +54,7 @@ export class CrossFileSymbolManager {
   /**
    * Get all symbols across all files
    */
-  getAllSymbols(): Map<string, GlobalSymbolEntry[]> {
+  getAllSymbols(): HashMap<string, GlobalSymbolEntry[]> {
     this.ensureInitialized();
     return this.globalRegistry.getAllSymbols();
   }
@@ -120,10 +121,10 @@ export class CrossFileSymbolManager {
   /**
    * Find all symbols matching a pattern (simple string contains)
    */
-  findSymbolsByPattern(pattern: string): Map<string, GlobalSymbolEntry[]> {
+  findSymbolsByPattern(pattern: string): HashMap<string, GlobalSymbolEntry[]> {
     this.ensureInitialized();
     const allSymbols = this.globalRegistry.getAllSymbols();
-    const result = new Map<string, GlobalSymbolEntry[]>();
+    const result = new HashMap<string, GlobalSymbolEntry[]>();
 
     for (const [symbolName, entries] of allSymbols) {
       if (symbolName.toLowerCase().includes(pattern.toLowerCase())) {
@@ -137,10 +138,10 @@ export class CrossFileSymbolManager {
   /**
    * Find all symbols of a specific kind
    */
-  findSymbolsByKind(kind: string): Map<string, GlobalSymbolEntry[]> {
+  findSymbolsByKind(kind: string): HashMap<string, GlobalSymbolEntry[]> {
     this.ensureInitialized();
     const allSymbols = this.globalRegistry.getAllSymbols();
-    const result = new Map<string, GlobalSymbolEntry[]>();
+    const result = new HashMap<string, GlobalSymbolEntry[]>();
 
     for (const [symbolName, entries] of allSymbols) {
       const matchingEntries = entries.filter(
@@ -155,30 +156,30 @@ export class CrossFileSymbolManager {
   }
 
   /**
-   * Get all classes across all files
+   * Get all class symbols
    */
-  getAllClasses(): Map<string, GlobalSymbolEntry[]> {
+  getAllClasses(): HashMap<string, GlobalSymbolEntry[]> {
     return this.findSymbolsByKind('class');
   }
 
   /**
-   * Get all methods across all files
+   * Get all method symbols
    */
-  getAllMethods(): Map<string, GlobalSymbolEntry[]> {
+  getAllMethods(): HashMap<string, GlobalSymbolEntry[]> {
     return this.findSymbolsByKind('method');
   }
 
   /**
-   * Get all fields across all files
+   * Get all field symbols
    */
-  getAllFields(): Map<string, GlobalSymbolEntry[]> {
+  getAllFields(): HashMap<string, GlobalSymbolEntry[]> {
     return this.findSymbolsByKind('field');
   }
 
   /**
-   * Get all variables across all files
+   * Get all variable symbols
    */
-  getAllVariables(): Map<string, GlobalSymbolEntry[]> {
+  getAllVariables(): HashMap<string, GlobalSymbolEntry[]> {
     return this.findSymbolsByKind('variable');
   }
 

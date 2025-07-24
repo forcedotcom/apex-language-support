@@ -6,8 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// HashMap and DoublyLinkedList replaced with native Map and Array
-
+import { HashMap } from 'data-structure-typed';
 import { TypeInfo } from './typeInfo';
 
 /**
@@ -237,7 +236,7 @@ export interface SymbolKey {
  * Maintains a hierarchy of scopes and provides symbol lookup functionality.
  */
 export class SymbolScope {
-  private symbols: Map<string, ApexSymbol> = new Map();
+  private symbols: HashMap<string, ApexSymbol> = new HashMap();
   private children: SymbolScope[] = [];
   private readonly key: SymbolKey;
 
@@ -345,8 +344,8 @@ export class SymbolScope {
 export class SymbolTable {
   private root: SymbolScope;
   private current: SymbolScope;
-  private symbolMap: Map<string, ApexSymbol> = new Map();
-  private scopeMap: Map<string, SymbolScope> = new Map();
+  private symbolMap: HashMap<string, ApexSymbol> = new HashMap();
+  private scopeMap: HashMap<string, SymbolScope> = new HashMap();
 
   /**
    * Creates a new symbol table.

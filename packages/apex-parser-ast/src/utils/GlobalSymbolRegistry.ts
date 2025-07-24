@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// HashMap replaced with native Map
+import { HashMap } from 'data-structure-typed';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ApexSymbol, SymbolTable } from '../types/symbol';
 
@@ -48,16 +48,16 @@ export class GlobalSymbolRegistry {
   private readonly logger = getLogger();
 
   // Primary storage: symbol name -> symbol entries
-  private symbolMap: Map<string, GlobalSymbolEntry[]> = new Map();
+  private symbolMap: HashMap<string, GlobalSymbolEntry[]> = new HashMap();
 
   // File mapping: file path -> symbol table
-  private fileToSymbolTable: Map<string, SymbolTable> = new Map();
+  private fileToSymbolTable: HashMap<string, SymbolTable> = new HashMap();
 
   // Symbol to file mapping: symbol key -> file paths
-  private symbolToFiles: Map<string, string[]> = new Map();
+  private symbolToFiles: HashMap<string, string[]> = new HashMap();
 
   // File to symbols mapping: file path -> symbol names
-  private fileToSymbols: Map<string, string[]> = new Map();
+  private fileToSymbols: HashMap<string, string[]> = new HashMap();
 
   /**
    * Register a symbol from a specific file
@@ -201,17 +201,8 @@ export class GlobalSymbolRegistry {
   /**
    * Get all registered symbols
    */
-  getAllSymbols(): Map<string, GlobalSymbolEntry[]> {
-    const result = new Map<string, GlobalSymbolEntry[]>();
-
-    // Convert HashMap to Map properly
-    const entries = this.symbolMap.entries();
-    for (const [symbolName, symbolEntries] of entries) {
-      if (symbolEntries) {
-        result.set(symbolName, symbolEntries);
-      }
-    }
-    return result;
+  getAllSymbols(): HashMap<string, GlobalSymbolEntry[]> {
+    return this.symbolMap;
   }
 
   /**
