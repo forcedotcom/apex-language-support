@@ -27,7 +27,7 @@ export default defineConfig({
     '@salesforce/apex-ls-node',
     '@salesforce/apex-lsp-compliant-services',
     '@salesforce/apex-lsp-custom-services',
-    '@salesforce/apex-lsp-logging',
+    '@salesforce/apex-lsp-shared',
     '@salesforce/apex-lsp-parser-ast',
   ],
   onSuccess: async () => {

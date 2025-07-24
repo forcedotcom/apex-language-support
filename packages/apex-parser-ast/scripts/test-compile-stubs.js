@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const { glob } = require('glob');
-const { getLogger } = require('@salesforce/apex-lsp-logging');
+const { getLogger } = require('@salesforce/apex-lsp-shared');
 
 /**
  * Get test files based on glob pattern or default to core System classes

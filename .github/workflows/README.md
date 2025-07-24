@@ -456,7 +456,7 @@ sequenceDiagram
 
 ### NPM Packages (9 total)
 
-- `apex-lsp-logging`
+- `apex-lsp-shared`
 - `apex-parser-ast`
 - `apex-ls-browser`
 - `apex-ls-node`

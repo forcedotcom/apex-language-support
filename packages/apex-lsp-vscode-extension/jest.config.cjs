@@ -7,9 +7,9 @@ module.exports = {
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
     '^vscode$': path.join(__dirname, 'test', 'mocks', 'vscode.ts'),
-    '^@salesforce/apex-lsp-logging$': path.resolve(
+    '^@salesforce/apex-lsp-shared$': path.resolve(
       __dirname,
-      '../apex-lsp-logging/out/index.js',
+      '../apex-lsp-shared/out/index.js',
     ),
   },
   transformIgnorePatterns: [

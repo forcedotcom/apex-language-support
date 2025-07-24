@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LogMessageParams } from '@salesforce/apex-lsp-logging';
+import { LogMessageParams } from '@salesforce/apex-lsp-shared';
 
 /**
  * Interface for the log notification handler

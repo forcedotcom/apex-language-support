@@ -10,12 +10,12 @@ import {
   type LogMessageType,
   getLogNotificationHandler,
   shouldLog,
-} from '@salesforce/apex-lsp-logging';
+} from '@salesforce/apex-lsp-shared';
 
 import { LSPLoggerFactory } from '../../src/utils/LSPLoggerFactory';
 
 // Mock the logging module
-jest.mock('@salesforce/apex-lsp-logging', () => ({
+jest.mock('@salesforce/apex-lsp-shared', () => ({
   setLogLevel: jest.fn(),
   setLogNotificationHandler: jest.fn(),
   getLogNotificationHandler: jest.fn(),

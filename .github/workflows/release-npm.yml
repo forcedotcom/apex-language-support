@@ -35,7 +35,7 @@ on:
         options:
           - none
           - all
-          - apex-lsp-logging
+          - apex-lsp-shared
           - apex-parser-ast
           - apex-ls-browser
           - apex-ls-node

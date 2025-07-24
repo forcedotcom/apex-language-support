@@ -7,12 +7,12 @@
  */
 
 import { Diagnostic, DocumentSymbolParams } from 'vscode-languageserver';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { processOnDiagnostic } from '../../src/handlers/DiagnosticHandler';
 
 // Mock the logging module
-jest.mock('@salesforce/apex-lsp-logging', () => ({
+jest.mock('@salesforce/apex-lsp-shared', () => ({
   getLogger: jest.fn(),
 }));
 

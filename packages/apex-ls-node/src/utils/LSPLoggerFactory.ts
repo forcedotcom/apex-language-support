@@ -12,7 +12,7 @@ import {
   type LogMessageType,
   getLogNotificationHandler,
   shouldLog,
-} from '@salesforce/apex-lsp-logging';
+} from '@salesforce/apex-lsp-shared';
 
 /**
  * An LSP logger implementation that sends log messages through the

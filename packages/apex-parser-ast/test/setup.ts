@@ -5,7 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import type { LogMessageType } from '@salesforce/apex-lsp-logging';
+import type { LogMessageType } from '@salesforce/apex-lsp-shared';
 
 import { TestLogger } from './utils/testLogger';
 

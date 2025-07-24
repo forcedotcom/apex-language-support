@@ -39,7 +39,7 @@ The project is organized as a **monorepo** using npm workspaces with multiple in
 ```
 packages/
 ├── apex-parser-ast/              # Core AST parsing functionality
-├── apex-lsp-logging/             # Centralized logging utilities
+├── apex-lsp-shared/             # Centralized logging utilities
 ├── lsp-compliant-services/       # Standard LSP protocol implementations
 ├── custom-services/              # Custom language server services
 ├── apex-ls-node/                 # Node.js language server implementation
@@ -55,7 +55,7 @@ packages/
 
 1. **Foundation Layer**:
 
-   - `apex-lsp-logging`: Centralized logging across all packages
+   - `apex-lsp-shared`: Centralized logging across all packages
    - `apex-parser-ast`: Core parsing, AST generation, and symbol analysis
 
 2. **Service Layer**:
@@ -154,7 +154,7 @@ precompile → compile → bundle → package
 The build system automatically resolves dependencies in this order:
 
 ```
-apex-lsp-logging (foundation)
+apex-lsp-shared (foundation)
          ↓
 apex-parser-ast (core parsing)
          ↓
@@ -206,7 +206,7 @@ Each package supports these build targets:
 
 ```mermaid
 graph TD
-    A[apex-lsp-logging] --> B[apex-parser-ast]
+    A[apex-lsp-shared] --> B[apex-parser-ast]
     A --> C[lsp-compliant-services]
     A --> D[custom-services]
     A --> E[apex-ls-node]
@@ -243,7 +243,7 @@ The root `tsconfig.json` defines path mappings for cross-package imports:
 ```json
 {
   "paths": {
-    "@salesforce/apex-lsp-logging": ["packages/apex-lsp-logging/src"],
+    "@salesforce/apex-lsp-shared": ["packages/apex-lsp-shared/src"],
     "@salesforce/apex-lsp-parser-ast": ["packages/apex-parser-ast/src"],
     "@salesforce/apex-lsp-compliant-services": [
       "packages/lsp-compliant-services/src"

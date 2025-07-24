@@ -10,7 +10,7 @@ import {
   dispatch,
   getDiagnosticsFromErrors,
 } from '../../src/utils/handlerUtil';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 import { DiagnosticSeverity } from 'vscode-languageserver';
 import {
   ApexError,
@@ -18,7 +18,7 @@ import {
   ErrorSeverity,
 } from '@salesforce/apex-lsp-parser-ast';
 
-jest.mock('@salesforce/apex-lsp-logging');
+jest.mock('@salesforce/apex-lsp-shared');
 
 describe('handlerUtil', () => {
   let mockLogger: any;

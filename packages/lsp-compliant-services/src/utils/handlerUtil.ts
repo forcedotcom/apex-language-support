@@ -7,7 +7,7 @@
  */
 
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { ApexError } from '@salesforce/apex-lsp-parser-ast';
 

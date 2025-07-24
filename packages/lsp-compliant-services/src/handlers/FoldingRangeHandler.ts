@@ -7,7 +7,7 @@
  */
 
 import { FoldingRangeParams, FoldingRange } from 'vscode-languageserver';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { dispatch } from '../utils/handlerUtil';
 import { ApexFoldingRangeProvider } from '../foldingRange/ApexFoldingRangeProvider';

@@ -12,7 +12,7 @@ import {
   SymbolTable,
   ApexSymbolCollectorListener,
 } from '@salesforce/apex-lsp-parser-ast';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { dispatch, getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';

@@ -8,7 +8,7 @@
   "include": ["src/**/*"],
   "exclude": ["node_modules", "out", "dist", "tsup.config.ts"],
   "references": [
-    { "path": "../apex-lsp-logging" },
+    { "path": "../apex-lsp-shared" },
     { "path": "../apex-parser-ast" }
   ]
 }

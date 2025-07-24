@@ -26,7 +26,7 @@ The scripts automatically filter packages based on their type:
 #### NPM Packages (npm-\* scripts)
 
 - **Scope**: Only packages without a `publisher` field in `package.json`
-- **Examples**: `apex-lsp-logging`, `apex-parser-ast`, `lsp-compliant-services`
+- **Examples**: `apex-lsp-shared`, `apex-parser-ast`, `lsp-compliant-services`
 - **Purpose**: NPM registry publishing
 
 This filtering ensures each release process only operates on the appropriate package types and prevents cross-contamination between extension and NPM workflows.
@@ -122,15 +122,15 @@ INPUT_BASE_BRANCH=main \
 npx tsx .github/scripts/index.ts npm-change-detector
 
 # npm-package-selector
-SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-logging,apex-parser-ast CHANGED_PACKAGES=apex-lsp-logging \
+SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-shared,apex-parser-ast CHANGED_PACKAGES=apex-lsp-shared \
 npx tsx .github/scripts/index.ts npm-package-selector
 
 # npm-release-plan
-MATRIX_PACKAGE=apex-lsp-logging VERSION_BUMP=patch DRY_RUN=true \
+MATRIX_PACKAGE=apex-lsp-shared VERSION_BUMP=patch DRY_RUN=true \
 npx tsx .github/scripts/index.ts npm-release-plan
 
 # npm-package-details
-SELECTED_PACKAGES='["apex-lsp-logging"]' VERSION_BUMP=patch \
+SELECTED_PACKAGES='["apex-lsp-shared"]' VERSION_BUMP=patch \
 npx tsx .github/scripts/index.ts npm-package-details
 ```
 
@@ -138,7 +138,7 @@ npx tsx .github/scripts/index.ts npm-package-details
 
 ```bash
 # audit-logger
-ACTION=release ACTOR=github-actions REPOSITORY=forcedotcom/apex-language-support BRANCH=main WORKFLOW=release RUN_ID=123456789 DETAILS='{"packages":"apex-lsp-logging","version":"1.0.0"}' \
+ACTION=release ACTOR=github-actions REPOSITORY=forcedotcom/apex-language-support BRANCH=main WORKFLOW=release RUN_ID=123456789 DETAILS='{"packages":"apex-lsp-shared","version":"1.0.0"}' \
 npx tsx .github/scripts/index.ts audit-logger
 ```
 
@@ -254,11 +254,11 @@ jobs:
 
 | Variable             | Description                      | Example                                      |
 | -------------------- | -------------------------------- | -------------------------------------------- |
-| `SELECTED_PACKAGE`   | NPM package selection mode       | `none`, `all`, `changed`, `apex-lsp-logging` |
-| `AVAILABLE_PACKAGES` | Available NPM packages           | `apex-lsp-logging,apex-parser-ast`           |
-| `CHANGED_PACKAGES`   | Changed NPM packages             | `apex-lsp-logging`                           |
-| `SELECTED_PACKAGES`  | JSON array of selected packages  | `["apex-lsp-logging"]`                       |
-| `MATRIX_PACKAGE`     | Current matrix package           | `apex-lsp-logging`                           |
+| `SELECTED_PACKAGE`   | NPM package selection mode       | `none`, `all`, `changed`, `apex-lsp-shared` |
+| `AVAILABLE_PACKAGES` | Available NPM packages           | `apex-lsp-shared,apex-parser-ast`           |
+| `CHANGED_PACKAGES`   | Changed NPM packages             | `apex-lsp-shared`                           |
+| `SELECTED_PACKAGES`  | JSON array of selected packages  | `["apex-lsp-shared"]`                       |
+| `MATRIX_PACKAGE`     | Current matrix package           | `apex-lsp-shared`                           |
 | `INPUT_BASE_BRANCH`  | Base branch for change detection | `main`                                       |
 
 ### Utility Variables
@@ -272,7 +272,7 @@ jobs:
 | `WORKFLOW`          | Workflow name            | `release`                           |
 | `RUN_ID`            | Workflow run ID          | `123456789`                         |
 | `ACTOR`             | Actor performing action  | `github-actions`                    |
-| `DETAILS`           | JSON details             | `{"packages":"apex-lsp-logging"}`   |
+| `DETAILS`           | JSON details             | `{"packages":"apex-lsp-shared"}`   |
 | `ACTION`            | Action being performed   | `release`                           |
 | `LOG_FILE`          | Custom log file path     | `./custom-audit.log`                |
 
@@ -298,7 +298,7 @@ IS_NIGHTLY=true VERSION_BUMP=minor PRE_RELEASE=false IS_PROMOTION=false \
 npx tsx .github/scripts/index.ts ext-change-detector
 
 # Test NPM package selection
-SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-logging,apex-parser-ast CHANGED_PACKAGES=apex-lsp-logging \
+SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-shared,apex-parser-ast CHANGED_PACKAGES=apex-lsp-shared \
 npx tsx .github/scripts/index.ts npm-package-selector
 ```
 
