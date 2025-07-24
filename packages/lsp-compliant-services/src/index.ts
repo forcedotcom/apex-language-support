@@ -21,7 +21,7 @@ import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
 import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
 
 // Export storage interfaces and classes
-export * from './storage/ApexStorageInterface';
+export * from './storage/ApexStorageBase';
 export * from './storage/ApexStorage';
 export * from './storage/ApexStorageManager';
 
@@ -52,10 +52,7 @@ export * from './services/DiagnosticProcessingService';
 // Export factories
 export * from './factories/HandlerFactory';
 
-export type {
-  ApexReference,
-  ApexStorageInterface,
-} from './storage/ApexStorageInterface';
+export type { ApexReference } from './storage/ApexStorageInterface';
 
 // Export settings management
 export * from './settings/ApexLanguageServerSettings';

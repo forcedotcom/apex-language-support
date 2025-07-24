@@ -117,11 +117,11 @@ export interface SymbolInfo {
 }
 
 /**
- * Abstract class for persistent storage of Apex language artifacts
+ * Abstract base class for persistent storage of Apex language artifacts
  * This supports storing and retrieving AST, symbol tables, and references
  * between symbols. Parser data access methods are "final" and cannot be overridden.
  */
-export abstract class ApexStorageInterface {
+export abstract class ApexStorageBase {
   /**
    * Initialize the storage system
    * @param options Configuration options for the storage
