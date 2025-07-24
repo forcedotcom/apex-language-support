@@ -1,6 +1,6 @@
-# Apex LSP Logging Examples
+# Apex LSP Shared Examples
 
-This directory contains examples of how to use the Apex LSP Logging package in different contexts.
+This directory contains examples of how to use the Apex LSP Shared package in different contexts.
 
 ## Standalone Usage
 

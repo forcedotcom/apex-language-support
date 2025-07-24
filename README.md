@@ -14,6 +14,7 @@ graph TD
         apex-parser-ast[apex-parser-ast]
         custom-services[custom-services]
         lsp-compliant-services[lsp-compliant-services]
+        apex-lsp-shared[apex-lsp-shared]
     end
 
     subgraph "Node.js Runtime"
@@ -34,6 +35,8 @@ graph TD
     %% Core dependencies
     apex-parser-ast --> custom-services
     apex-parser-ast --> lsp-compliant-services
+    apex-lsp-shared --> custom-services
+    apex-lsp-shared --> lsp-compliant-services
 
     %% Node.js implementation
     custom-services --> apex-ls-node
@@ -60,6 +63,7 @@ graph TD
 - **apex-parser-ast**: Provides AST (Abstract Syntax Tree) parsing capabilities for Apex code
 - **custom-services**: Implements custom services beyond the standard LSP specification
 - **lsp-compliant-services**: Implements standard LSP services (completion, hover, etc.)
+- **apex-lsp-shared**: Provides shared utilities including logging, notifications, and common functionality used across the language server ecosystem
 
 ### Node.js Runtime
 

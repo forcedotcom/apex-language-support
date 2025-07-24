@@ -1,6 +1,6 @@
-# Apex LSP Logging (`@salesforce/apex-lsp-shared`)
+# Apex LSP Shared (`@salesforce/apex-lsp-shared`)
 
-This package provides a unified logging system for the Apex Language Server ecosystem, supporting both LSP-based logging and standalone console logging.
+This package provides shared utilities for the Apex Language Server ecosystem, including a unified logging system that supports both LSP-based logging and standalone console logging.
 
 ## Features
 
