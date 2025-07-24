@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { HashMap } from 'data-structure-typed';
 import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
 import type { ApexReference } from '@salesforce/apex-lsp-compliant-services';
 import { ApexStorageBase } from '@salesforce/apex-lsp-compliant-services';
@@ -19,8 +20,8 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 export class BrowserIndexedDBApexStorage extends ApexStorageBase {
   // In-memory storage for the no-op implementation
   private initialized: boolean = false;
-  private astMap: Map<string, ApexClassInfo[]> = new Map();
-  private typeInfoMap: Map<string, TypeInfo> = new Map();
+  private astMap: HashMap<string, ApexClassInfo[]> = new HashMap();
+  private typeInfoMap: HashMap<string, TypeInfo> = new HashMap();
   private references: ApexReference[] = [];
   private readonly logger = getLogger();
   /**

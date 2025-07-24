@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { HashMap } from 'data-structure-typed';
 import { unzipSync } from 'fflate';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
@@ -119,7 +120,7 @@ export class ResourceLoader {
       this.logger.debug(() => `Processed files: ${processedFiles}`);
 
       // Calculate and log statistics
-      const dirStats = new Map<string, number>();
+      const dirStats = new HashMap<string, number>();
       let totalFiles = 0;
 
       for (const [_normalizedPath, content] of this.fileMap.entries()) {
