@@ -7,7 +7,7 @@
  */
 
 // HashMap replaced with native Map
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ApexSymbol, SymbolTable } from '../types/symbol';
 
 /**

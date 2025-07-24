@@ -8,120 +8,19 @@
 
 import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import type {
+  ApexReference,
+  DocumentSymbolInfo,
+  SymbolInfo,
+} from './ApexStorageInterface';
+import { ApexStorageInterface } from './ApexStorageInterface';
 
 /**
- * Interface for type references between Apex symbols
+ * Abstract base class that implements ApexStorageInterface
+ * Provides common implementations for parser data access methods
+ * while requiring subclasses to implement storage-specific operations
  */
-export interface ApexReference {
-  /** Source file where the reference originates */
-  sourceFile: string;
-
-  /** Target type or symbol being referenced */
-  targetSymbol: string;
-
-  /** Line number in source file */
-  line: number;
-
-  /** Column number in source file */
-  column: number;
-
-  /** Reference type (e.g., 'method-call', 'field-access', 'type-reference') */
-  referenceType: string;
-
-  /** Any additional context for the reference */
-  context?: Record<string, unknown>;
-}
-
-/**
- * Information about a document symbol for LSP requests
- */
-export interface DocumentSymbolInfo {
-  /** Symbol name */
-  name: string;
-  /** Symbol kind (class, method, field, etc.) */
-  kind: string;
-  /** Symbol location */
-  location: SymbolLocation;
-  /** Child symbols */
-  children?: DocumentSymbolInfo[];
-  /** Symbol details */
-  details?: SymbolDetails;
-}
-
-/**
- * Location information for a symbol
- */
-export interface SymbolLocation {
-  /** Start line (1-based) */
-  startLine: number;
-  /** Start column (1-based) */
-  startColumn: number;
-  /** End line (1-based) */
-  endLine: number;
-  /** End column (1-based) */
-  endColumn: number;
-  /** Identifier start line (1-based) */
-  identifierStartLine?: number;
-  /** Identifier start column (1-based) */
-  identifierStartColumn?: number;
-  /** Identifier end line (1-based) */
-  identifierEndLine?: number;
-  /** Identifier end column (1-based) */
-  identifierEndColumn?: number;
-}
-
-/**
- * Detailed information about a symbol
- */
-export interface SymbolDetails {
-  /** Return type for methods */
-  returnType?: string;
-  /** Parameters for methods */
-  parameters?: ParameterInfo[];
-  /** Visibility modifier */
-  visibility?: string;
-  /** Whether the symbol is static */
-  isStatic?: boolean;
-  /** Whether the symbol is final */
-  isFinal?: boolean;
-  /** Whether the symbol is abstract */
-  isAbstract?: boolean;
-  /** Fully qualified name */
-  fqn?: string;
-}
-
-/**
- * Parameter information for methods
- */
-export interface ParameterInfo {
-  /** Parameter name */
-  name: string;
-  /** Parameter type */
-  type: string;
-  /** Whether parameter is optional */
-  optional?: boolean;
-}
-
-/**
- * Symbol information for general use
- */
-export interface SymbolInfo {
-  /** Symbol name */
-  name: string;
-  /** Symbol kind */
-  kind: string;
-  /** Symbol location */
-  location: SymbolLocation;
-  /** Symbol details */
-  details?: SymbolDetails;
-}
-
-/**
- * Abstract base class for persistent storage of Apex language artifacts
- * This supports storing and retrieving AST, symbol tables, and references
- * between symbols. Parser data access methods are "final" and cannot be overridden.
- */
-export abstract class ApexStorageBase {
+export abstract class ApexStorageBase implements ApexStorageInterface {
   /**
    * Initialize the storage system
    * @param options Configuration options for the storage
@@ -270,14 +169,14 @@ export abstract class ApexStorageBase {
    */
   abstract setHover(symbolName: string, hoverText: string): Promise<boolean>;
 
-  // "Final" methods for immutable parser data access - cannot be overridden
+  // Concrete implementations for parser data access methods
 
   /**
    * Parse document and return document symbols
    * @param documentUri URI of the document to parse
    * @returns Promise resolving to array of document symbol information
    */
-  getDocumentSymbols(documentUri: string): Promise<DocumentSymbolInfo[]> {
+  async getDocumentSymbols(documentUri: string): Promise<DocumentSymbolInfo[]> {
     return this._getDocumentSymbolsImpl(documentUri);
   }
 
@@ -288,7 +187,7 @@ export abstract class ApexStorageBase {
    * @param column Column number (1-based)
    * @returns Promise resolving to symbol information or null if not found
    */
-  getSymbolAtLocation(
+  async getSymbolAtLocation(
     documentUri: string,
     line: number,
     column: number,
@@ -301,7 +200,7 @@ export abstract class ApexStorageBase {
    * @param documentUri URI of the document
    * @returns Promise resolving to array of symbol information
    */
-  getAllSymbolsInDocument(documentUri: string): Promise<SymbolInfo[]> {
+  async getAllSymbolsInDocument(documentUri: string): Promise<SymbolInfo[]> {
     return this._getAllSymbolsInDocumentImpl(documentUri);
   }
 
@@ -311,7 +210,7 @@ export abstract class ApexStorageBase {
    * @param documentUri URI of the document to search in
    * @returns Promise resolving to symbol information or null if not found
    */
-  findSymbolInDocument(
+  async findSymbolInDocument(
     symbolName: string,
     documentUri: string,
   ): Promise<SymbolInfo | null> {
@@ -319,12 +218,12 @@ export abstract class ApexStorageBase {
   }
 
   /**
-   * Get type information for a symbol
-   * @param symbolName Name of the symbol
-   * @param documentUri URI of the document containing the symbol
+   * Get type information for a symbol in a specific document
+   * @param symbolName Name of the symbol to get type info for
+   * @param documentUri URI of the document
    * @returns Promise resolving to type information or null if not found
    */
-  getSymbolTypeInfo(
+  async getSymbolTypeInfo(
     symbolName: string,
     documentUri: string,
   ): Promise<TypeInfo | null> {

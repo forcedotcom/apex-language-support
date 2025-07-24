@@ -89,14 +89,13 @@ export function startServer() {
   let isShutdown = false;
   const documents = new TextDocuments(TextDocument);
 
-  // Initialize storage
+  // Initialize storage manager (but defer actual storage initialization)
   const storageManager = ApexStorageManager.getInstance({
     storageFactory: (options) => new NodeFileSystemApexStorage(),
     storageOptions: {
       /* your options */
     },
   });
-  storageManager.initialize();
 
   // Initialize server capabilities and properties
   connection.onInitialize((params: InitializeParams): InitializeResult => {
@@ -256,6 +255,8 @@ export function startServer() {
       );
 
       try {
+        // Ensure storage is initialized before use
+        await storageManager.initialize();
         const result = await dispatchProcessOnFoldingRange(
           params,
           storageManager.getStorage(),

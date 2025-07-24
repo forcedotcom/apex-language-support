@@ -179,10 +179,55 @@ const mockDispatchProcessOnSaveDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnDocumentSymbol = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnFoldingRange = jest.fn().mockResolvedValue([]);
 
+// Mock the NodeFileSystemApexStorage to avoid circular dependency
+jest.mock('../src/storage/NodeFileSystemApexStorage', () => ({
+  NodeFileSystemApexStorage: jest.fn().mockImplementation(() => ({
+    initialize: jest.fn(),
+    shutdown: jest.fn(),
+    storeAst: jest.fn(),
+    retrieveAst: jest.fn(),
+    storeTypeInfo: jest.fn(),
+    retrieveTypeInfo: jest.fn(),
+    storeReference: jest.fn(),
+    findReferencesTo: jest.fn(),
+    findReferencesFrom: jest.fn(),
+    clearFile: jest.fn(),
+    persist: jest.fn(),
+    getDocument: jest.fn(),
+    getHover: jest.fn(),
+    setHover: jest.fn(),
+    getDefinition: jest.fn(),
+    setDefinition: jest.fn(),
+    getReferences: jest.fn(),
+    setReferences: jest.fn(),
+    setDocument: jest.fn(),
+  })),
+}));
+
 jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   ApexStorageManager: {
     getInstance: jest.fn().mockReturnValue({
-      getStorage: jest.fn(),
+      getStorage: jest.fn(() => ({
+        initialize: jest.fn(),
+        shutdown: jest.fn(),
+        storeAst: jest.fn(),
+        retrieveAst: jest.fn(),
+        storeTypeInfo: jest.fn(),
+        retrieveTypeInfo: jest.fn(),
+        storeReference: jest.fn(),
+        findReferencesTo: jest.fn(),
+        findReferencesFrom: jest.fn(),
+        clearFile: jest.fn(),
+        persist: jest.fn(),
+        getDocument: jest.fn(),
+        getHover: jest.fn(),
+        setHover: jest.fn(),
+        getDefinition: jest.fn(),
+        setDefinition: jest.fn(),
+        getReferences: jest.fn(),
+        setReferences: jest.fn(),
+        setDocument: jest.fn(),
+      })),
       initialize: jest.fn(),
     }),
   },
@@ -482,7 +527,7 @@ describe('Apex Language Server', () => {
     await mockHandlers.onFoldingRange!(params);
     expect(mockDispatchProcessOnFoldingRange).toHaveBeenCalledWith(
       params,
-      undefined,
+      expect.any(Object),
     );
   });
 

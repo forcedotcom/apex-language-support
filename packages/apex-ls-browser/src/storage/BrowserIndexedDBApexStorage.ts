@@ -7,18 +7,12 @@
  */
 
 import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
-import type {
-  ApexReference,
-  DocumentSymbolInfo,
-  SymbolInfo,
-} from '@salesforce/apex-lsp-compliant-services';
+import type { ApexReference } from '@salesforce/apex-lsp-compliant-services';
 import { ApexStorageBase } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-// HashMap replaced with native Map
 import { getLogger } from '@salesforce/apex-lsp-shared';
-
 /**
- * Implementation of ApexStorageInterface for browser environments.
+ * Implementation of ApexStorageBase for browser environments.
  * This is a no-op implementation that doesn't actually persist data.
  * In a real implementation, this would use IndexedDB or other browser storage.
  */
@@ -28,16 +22,7 @@ export class BrowserIndexedDBApexStorage extends ApexStorageBase {
   private astMap: Map<string, ApexClassInfo[]> = new Map();
   private typeInfoMap: Map<string, TypeInfo> = new Map();
   private references: ApexReference[] = [];
-  private documents: Map<string, TextDocument> = new Map();
-  private hoverMap: Map<string, string> = new Map();
-  private definitionMap: Map<string, ApexReference> = new Map();
-  private referencesMap: Map<string, ApexReference[]> = new Map();
   private readonly logger = getLogger();
-
-  constructor() {
-    super();
-  }
-
   /**
    * Initialize the storage system
    * @param options Configuration options for storage
@@ -48,9 +33,7 @@ export class BrowserIndexedDBApexStorage extends ApexStorageBase {
     // - Create object stores if needed
     // - Initialize caches
 
-    this.logger.info(
-      () => `Initializing browser storage with options: ${options}`,
-    );
+    this.logger.info(`Initializing browser storage with options: ${options}`);
     this.initialized = true;
   }
 
@@ -62,7 +45,7 @@ export class BrowserIndexedDBApexStorage extends ApexStorageBase {
     // - Close database connections
     // - Perform any final cleanup
 
-    this.logger.info(() => 'Shutting down browser storage');
+    this.logger.info('Shutting down browser storage');
     this.initialized = false;
   }
 
@@ -170,182 +153,78 @@ export class BrowserIndexedDBApexStorage extends ApexStorageBase {
       throw new Error('Storage not initialized');
     }
 
-    // In a real implementation, this would flush to IndexedDB
-    this.logger.debug(() => 'Persisting data to browser storage');
+    // In a real implementation, this would ensure all
+    // pending changes are synced to storage
+    this.logger.info('Persisting data to browser storage');
   }
 
-  /**
-   * Get the text document for a given URI
-   */
   async getDocument(uri: string): Promise<TextDocument | null> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    return this.documents.get(uri) || null;
+    throw new Error('Method not implemented.');
   }
 
-  /**
-   * Set a document for a given URI
-   */
-  async setDocument(uri: string, document: TextDocument): Promise<boolean> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    this.documents.set(uri, document);
-    return true;
-  }
-
-  /**
-   * Get hover information for a given symbol
-   */
   async getHover(symbolName: string): Promise<string | undefined> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    return this.hoverMap.get(symbolName);
+    throw new Error('Method not implemented.');
   }
 
-  /**
-   * Set hover information for a given symbol
-   */
   async setHover(symbolName: string, hoverText: string): Promise<boolean> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    this.hoverMap.set(symbolName, hoverText);
-    return true;
+    throw new Error('Method not implemented.');
   }
 
-  /**
-   * Get definition for a given symbol
-   */
   async getDefinition(symbolName: string): Promise<ApexReference | undefined> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    return this.definitionMap.get(symbolName);
+    throw new Error('Method not implemented.');
   }
 
-  /**
-   * Set definition for a given symbol
-   */
   async setDefinition(
     symbolName: string,
     definition: ApexReference,
   ): Promise<boolean> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    this.definitionMap.set(symbolName, definition);
-    return true;
+    throw new Error('Method not implemented.');
   }
 
-  /**
-   * Get references for a given symbol
-   */
   async getReferences(symbolName: string): Promise<ApexReference[]> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    return this.referencesMap.get(symbolName) || [];
+    throw new Error('Method not implemented.');
   }
 
-  /**
-   * Set references for a given symbol
-   */
   async setReferences(
     symbolName: string,
     references: ApexReference[],
   ): Promise<boolean> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    this.referencesMap.set(symbolName, references);
-    return true;
+    throw new Error('Method not implemented.');
   }
 
-  // Override protected implementation methods for parser data access
-  protected async _getDocumentSymbolsImpl(
-    documentUri: string,
-  ): Promise<DocumentSymbolInfo[]> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
+  async setDocument(uri: string, document: TextDocument): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
 
-    this.logger.debug(() => `Getting document symbols for: ${documentUri}`);
-    // Implementation would parse document and return document symbols
-    // This is a placeholder - actual implementation would use parser internally
-    return [];
+  protected async _getDocumentSymbolsImpl(documentUri: string): Promise<any[]> {
+    throw new Error('Method not implemented.');
   }
 
   protected async _getSymbolAtLocationImpl(
     documentUri: string,
     line: number,
     column: number,
-  ): Promise<SymbolInfo | null> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    this.logger.debug(
-      () => `Getting symbol at location ${line}:${column} in ${documentUri}`,
-    );
-    // Implementation would find symbol at specific location
-    // This is a placeholder - actual implementation would use parser internally
-    return null;
+  ): Promise<any | null> {
+    throw new Error('Method not implemented.');
   }
 
   protected async _getAllSymbolsInDocumentImpl(
     documentUri: string,
-  ): Promise<SymbolInfo[]> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    this.logger.debug(() => `Getting all symbols in document: ${documentUri}`);
-    // Implementation would get all symbols in document
-    // This is a placeholder - actual implementation would use parser internally
-    return [];
+  ): Promise<any[]> {
+    throw new Error('Method not implemented.');
   }
 
   protected async _findSymbolInDocumentImpl(
     symbolName: string,
     documentUri: string,
-  ): Promise<SymbolInfo | null> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    this.logger.debug(
-      () => `Finding symbol ${symbolName} in document: ${documentUri}`,
-    );
-    // Implementation would find symbol by name in document
-    // This is a placeholder - actual implementation would use parser internally
-    return null;
+  ): Promise<any | null> {
+    throw new Error('Method not implemented.');
   }
 
   protected async _getSymbolTypeInfoImpl(
     symbolName: string,
     documentUri: string,
   ): Promise<TypeInfo | null> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    this.logger.debug(
-      () =>
-        `Getting type info for symbol ${symbolName} in document: ${documentUri}`,
-    );
-    // Implementation would get type info for symbol
-    // This is a placeholder - actual implementation would use parser internally
-    return null;
+    throw new Error('Method not implemented.');
   }
 }

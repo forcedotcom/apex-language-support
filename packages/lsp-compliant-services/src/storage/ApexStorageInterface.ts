@@ -117,23 +117,23 @@ export interface SymbolInfo {
 }
 
 /**
- * Abstract class for persistent storage of Apex language artifacts
- * This supports storing and retrieving AST, symbol tables, and references
- * between symbols. Parser data access methods are "final" and cannot be overridden.
+ * Interface for persistent storage of Apex language artifacts
+ * This defines the contract for storing and retrieving AST, symbol tables, and references
+ * between symbols.
  */
-export abstract class ApexStorageInterface {
+export interface ApexStorageInterface {
   /**
    * Initialize the storage system
    * @param options Configuration options for the storage
    * @returns Promise that resolves when initialization is complete
    */
-  abstract initialize(options?: Record<string, unknown>): Promise<void>;
+  initialize(options?: Record<string, unknown>): Promise<void>;
 
   /**
    * Close and clean up the storage system
    * @returns Promise that resolves when shutdown is complete
    */
-  abstract shutdown(): Promise<void>;
+  shutdown(): Promise<void>;
 
   /**
    * Store AST for a specified Apex file
@@ -141,14 +141,14 @@ export abstract class ApexStorageInterface {
    * @param ast AST structure to store
    * @returns Promise resolving to success boolean
    */
-  abstract storeAst(filePath: string, ast: ApexClassInfo[]): Promise<boolean>;
+  storeAst(filePath: string, ast: ApexClassInfo[]): Promise<boolean>;
 
   /**
    * Retrieve AST for a specified Apex file
    * @param filePath Path to the Apex file
    * @returns Promise resolving to the AST or null if not found
    */
-  abstract retrieveAst(filePath: string): Promise<ApexClassInfo[] | null>;
+  retrieveAst(filePath: string): Promise<ApexClassInfo[] | null>;
 
   /**
    * Store type information for a specific type
@@ -156,58 +156,55 @@ export abstract class ApexStorageInterface {
    * @param typeInfo Type information to store
    * @returns Promise resolving to success boolean
    */
-  abstract storeTypeInfo(
-    typeName: string,
-    typeInfo: TypeInfo,
-  ): Promise<boolean>;
+  storeTypeInfo(typeName: string, typeInfo: TypeInfo): Promise<boolean>;
 
   /**
    * Retrieve type information for a specific type
    * @param typeName Fully qualified name of the type
    * @returns Promise resolving to type info or null if not found
    */
-  abstract retrieveTypeInfo(typeName: string): Promise<TypeInfo | null>;
+  retrieveTypeInfo(typeName: string): Promise<TypeInfo | null>;
 
   /**
    * Store a reference between symbols
    * @param reference Reference information to store
    * @returns Promise resolving to success boolean
    */
-  abstract storeReference(reference: ApexReference): Promise<boolean>;
+  storeReference(reference: ApexReference): Promise<boolean>;
 
   /**
    * Retrieve all references to a specific symbol
    * @param targetSymbol Symbol to find references for
    * @returns Promise resolving to array of references
    */
-  abstract findReferencesTo(targetSymbol: string): Promise<ApexReference[]>;
+  findReferencesTo(targetSymbol: string): Promise<ApexReference[]>;
 
   /**
    * Retrieve all references from a specific file
    * @param sourceFile Source file to find references from
    * @returns Promise resolving to array of references
    */
-  abstract findReferencesFrom(sourceFile: string): Promise<ApexReference[]>;
+  findReferencesFrom(sourceFile: string): Promise<ApexReference[]>;
 
   /**
    * Delete all stored data for a specific file
    * @param filePath Path to the file to clear data for
    * @returns Promise resolving to success boolean
    */
-  abstract clearFile(filePath: string): Promise<boolean>;
+  clearFile(filePath: string): Promise<boolean>;
 
   /**
    * Persist all in-memory changes to storage
    * @returns Promise resolving when persistence is complete
    */
-  abstract persist(): Promise<void>;
+  persist(): Promise<void>;
 
   /**
    * Get the text document for a given URI
    * @param uri The URI of the document to retrieve
    * @returns Promise resolving to the TextDocument or null if not found
    */
-  abstract getDocument(uri: string): Promise<TextDocument | null>;
+  getDocument(uri: string): Promise<TextDocument | null>;
 
   /**
    * Set a document for a given URI
@@ -215,7 +212,7 @@ export abstract class ApexStorageInterface {
    * @param document The TextDocument to store
    * @returns Promise resolving to success boolean
    */
-  abstract setDocument(uri: string, document: TextDocument): Promise<boolean>;
+  setDocument(uri: string, document: TextDocument): Promise<boolean>;
 
   /**
    * Set a definition for a given symbol
@@ -223,7 +220,7 @@ export abstract class ApexStorageInterface {
    * @param definition The ApexReference to store as the definition
    * @returns Promise resolving to success boolean
    */
-  abstract setDefinition(
+  setDefinition(
     symbolName: string,
     definition: ApexReference,
   ): Promise<boolean>;
@@ -234,7 +231,7 @@ export abstract class ApexStorageInterface {
    * @param references The ApexReference[] to store as references
    * @returns Promise resolving to success boolean
    */
-  abstract setReferences(
+  setReferences(
     symbolName: string,
     references: ApexReference[],
   ): Promise<boolean>;
@@ -244,23 +241,21 @@ export abstract class ApexStorageInterface {
    * @param symbolName The name of the symbol to get references for
    * @returns Promise resolving to array of references
    */
-  abstract getReferences(symbolName: string): Promise<ApexReference[]>;
+  getReferences(symbolName: string): Promise<ApexReference[]>;
 
   /**
    * Get definition for a given symbol
    * @param symbolName The name of the symbol to get definition for
    * @returns Promise resolving to definition reference or undefined if not found
    */
-  abstract getDefinition(
-    symbolName: string,
-  ): Promise<ApexReference | undefined>;
+  getDefinition(symbolName: string): Promise<ApexReference | undefined>;
 
   /**
    * Get hover information for a given symbol
    * @param symbolName The name of the symbol to get hover info for
    * @returns Promise resolving to hover text or undefined if not found
    */
-  abstract getHover(symbolName: string): Promise<string | undefined>;
+  getHover(symbolName: string): Promise<string | undefined>;
 
   /**
    * Set hover information for a given symbol
@@ -268,18 +263,14 @@ export abstract class ApexStorageInterface {
    * @param hoverText The hover text to store
    * @returns Promise resolving to success boolean
    */
-  abstract setHover(symbolName: string, hoverText: string): Promise<boolean>;
-
-  // "Final" methods for immutable parser data access - cannot be overridden
+  setHover(symbolName: string, hoverText: string): Promise<boolean>;
 
   /**
    * Parse document and return document symbols
    * @param documentUri URI of the document to parse
    * @returns Promise resolving to array of document symbol information
    */
-  getDocumentSymbols(documentUri: string): Promise<DocumentSymbolInfo[]> {
-    return this._getDocumentSymbolsImpl(documentUri);
-  }
+  getDocumentSymbols(documentUri: string): Promise<DocumentSymbolInfo[]>;
 
   /**
    * Get symbol information for a specific location in a document
@@ -292,18 +283,14 @@ export abstract class ApexStorageInterface {
     documentUri: string,
     line: number,
     column: number,
-  ): Promise<SymbolInfo | null> {
-    return this._getSymbolAtLocationImpl(documentUri, line, column);
-  }
+  ): Promise<SymbolInfo | null>;
 
   /**
    * Get all symbols in a document with their locations
    * @param documentUri URI of the document
    * @returns Promise resolving to array of symbol information
    */
-  getAllSymbolsInDocument(documentUri: string): Promise<SymbolInfo[]> {
-    return this._getAllSymbolsInDocumentImpl(documentUri);
-  }
+  getAllSymbolsInDocument(documentUri: string): Promise<SymbolInfo[]>;
 
   /**
    * Find symbol by name in a specific document
@@ -314,66 +301,16 @@ export abstract class ApexStorageInterface {
   findSymbolInDocument(
     symbolName: string,
     documentUri: string,
-  ): Promise<SymbolInfo | null> {
-    return this._findSymbolInDocumentImpl(symbolName, documentUri);
-  }
+  ): Promise<SymbolInfo | null>;
 
   /**
-   * Get type information for a symbol
-   * @param symbolName Name of the symbol
-   * @param documentUri URI of the document containing the symbol
+   * Get type information for a symbol in a specific document
+   * @param symbolName Name of the symbol to get type info for
+   * @param documentUri URI of the document
    * @returns Promise resolving to type information or null if not found
    */
   getSymbolTypeInfo(
     symbolName: string,
     documentUri: string,
-  ): Promise<TypeInfo | null> {
-    return this._getSymbolTypeInfoImpl(symbolName, documentUri);
-  }
-
-  // Protected implementation methods - can be overridden by subclasses
-
-  protected async _getDocumentSymbolsImpl(
-    documentUri: string,
-  ): Promise<DocumentSymbolInfo[]> {
-    throw new Error(
-      "Operation 'getDocumentSymbols' not implemented. Parser data access requires concrete implementation.",
-    );
-  }
-
-  protected async _getSymbolAtLocationImpl(
-    documentUri: string,
-    line: number,
-    column: number,
-  ): Promise<SymbolInfo | null> {
-    throw new Error(
-      "Operation 'getSymbolAtLocation' not implemented. Parser data access requires concrete implementation.",
-    );
-  }
-
-  protected async _getAllSymbolsInDocumentImpl(
-    documentUri: string,
-  ): Promise<SymbolInfo[]> {
-    throw new Error(
-      "Operation 'getAllSymbolsInDocument' not implemented. Parser data access requires concrete implementation.",
-    );
-  }
-
-  protected async _findSymbolInDocumentImpl(
-    symbolName: string,
-    documentUri: string,
-  ): Promise<SymbolInfo | null> {
-    throw new Error(
-      "Operation 'findSymbolInDocument' not implemented. Parser data access requires concrete implementation.",
-    );
-  }
-
-  protected async _getSymbolTypeInfoImpl(
-    symbolName: string,
-    documentUri: string,
-  ): Promise<TypeInfo | null> {
-    throw new Error(
-      "Operation 'getSymbolTypeInfo' not implemented. Parser data access requires concrete implementation.",
-    );
-  }
+  ): Promise<TypeInfo | null>;
 }

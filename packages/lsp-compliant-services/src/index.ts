@@ -53,6 +53,7 @@ export * from './services/DiagnosticProcessingService';
 export * from './factories/HandlerFactory';
 
 export type { ApexReference } from './storage/ApexStorageInterface';
+export * from './storage/ApexStorageInterface';
 
 // Export settings management
 export * from './settings/ApexLanguageServerSettings';

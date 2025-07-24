@@ -10,12 +10,12 @@ import { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 // HashMap replaced with native Map
 
-import {
+import { ApexStorageBase } from './ApexStorageBase';
+import type {
   ApexReference,
-  ApexStorageBase,
   DocumentSymbolInfo,
   SymbolInfo,
-} from './ApexStorageBase';
+} from './ApexStorageInterface';
 
 /**
  * ApexStorage is a singleton class that stores the hover, definition, and references for a given key.
