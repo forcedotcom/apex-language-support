@@ -19,7 +19,7 @@ import {
   ErrorSeverity,
   ErrorType,
 } from '@salesforce/apex-lsp-parser-ast';
-import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import {
   DefaultApexDocumentSymbolProvider,
@@ -35,7 +35,7 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => {
     ApexSymbolCollectorListener: jest.fn(),
   };
 });
-jest.mock('@salesforce/apex-lsp-logging');
+jest.mock('@salesforce/apex-lsp-shared');
 
 const mockedGetLogger = getLogger as jest.Mock;
 

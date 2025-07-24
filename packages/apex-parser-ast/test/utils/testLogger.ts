@@ -9,7 +9,7 @@ import {
   getLogger,
   type LogMessageType,
   LoggerInterface,
-} from '@salesforce/apex-lsp-logging';
+} from '@salesforce/apex-lsp-shared';
 
 /**
  * Test logger configuration for apex-parser-ast tests

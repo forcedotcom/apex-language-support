@@ -7,7 +7,7 @@
  */
 
 import { Diagnostic, DocumentDiagnosticParams } from 'vscode-languageserver';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
   SymbolTable,

@@ -22,8 +22,8 @@ module.exports = {
     '^.+\\.ts$': 'ts-jest',
   },
   moduleNameMapper: {
-    '^@salesforce/apex-lsp-logging$':
-      '<rootDir>/packages/apex-lsp-logging/src/index.ts',
+    '^@salesforce/apex-lsp-shared$':
+      '<rootDir>/packages/apex-lsp-shared/src/index.ts',
     '^@salesforce/apex-lsp-parser-ast$':
       '<rootDir>/packages/apex-parser-ast/src/index.ts',
     '^@salesforce/apex-lsp-compliant-services$':

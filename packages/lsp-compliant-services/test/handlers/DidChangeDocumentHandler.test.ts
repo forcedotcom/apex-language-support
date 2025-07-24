@@ -12,10 +12,10 @@ import {
   Diagnostic,
   DiagnosticSeverity,
 } from 'vscode-languageserver';
-import { LoggerInterface, getLogger } from '@salesforce/apex-lsp-logging';
+import { LoggerInterface, getLogger } from '@salesforce/apex-lsp-shared';
 
-jest.mock('@salesforce/apex-lsp-logging', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-logging');
+jest.mock('@salesforce/apex-lsp-shared', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
     getLogger: jest.fn(),

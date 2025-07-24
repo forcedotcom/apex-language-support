@@ -11,8 +11,8 @@ import {
   LoggerFactory,
   getLogNotificationHandler,
   shouldLog,
-} from '@salesforce/apex-lsp-logging';
-import type { LogMessageType } from '@salesforce/apex-lsp-logging';
+} from '@salesforce/apex-lsp-shared';
+import type { LogMessageType } from '@salesforce/apex-lsp-shared';
 
 /**
  * A browser logger implementation that sends log messages through the

@@ -4,8 +4,8 @@ module.exports = {
   ...baseConfig,
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
-    '^@salesforce/apex-lsp-logging$':
-      '<rootDir>/../apex-lsp-logging/src/index.ts',
+    '^@salesforce/apex-lsp-shared$':
+      '<rootDir>/../apex-lsp-shared/src/index.ts',
     '^@salesforce/apex-lsp-parser-ast$':
       '<rootDir>/../apex-parser-ast/src/index.ts',
     '^@salesforce/apex-lsp-compliant-services$':

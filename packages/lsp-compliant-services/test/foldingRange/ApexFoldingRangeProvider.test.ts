@@ -12,7 +12,7 @@ import { ApexFoldingRangeProvider } from '../../src/foldingRange/ApexFoldingRang
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 
 // Mock the dependencies
-jest.mock('@salesforce/apex-lsp-logging', () => ({
+jest.mock('@salesforce/apex-lsp-shared', () => ({
   getLogger: jest.fn(() => ({
     log: jest.fn(),
     debug: jest.fn(),

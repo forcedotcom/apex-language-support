@@ -11,8 +11,8 @@ import {
   LogMessageParams,
   LogNotificationHandler,
   shouldLog,
-} from '@salesforce/apex-lsp-logging';
-import type { LogMessageType } from '@salesforce/apex-lsp-logging';
+} from '@salesforce/apex-lsp-shared';
+import type { LogMessageType } from '@salesforce/apex-lsp-shared';
 
 /**
  * Browser-specific implementation of LogNotificationHandler

@@ -9,7 +9,7 @@
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import { dispatch } from '../../src/utils/handlerUtil';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 // Mock the logger before importing the handler
 const mockLogger = {
@@ -21,8 +21,8 @@ const mockLogger = {
 } as any;
 (getLogger as jest.Mock).mockReturnValue(mockLogger);
 
-jest.mock('@salesforce/apex-lsp-logging', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-logging');
+jest.mock('@salesforce/apex-lsp-shared', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
     getLogger: jest.fn(),

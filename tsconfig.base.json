@@ -20,8 +20,8 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@salesforce/apex-lsp-logging": ["packages/apex-lsp-logging/out"],
-      "@salesforce/apex-lsp-logging/*": ["packages/apex-lsp-logging/out/*"],
+      "@salesforce/apex-lsp-shared": ["packages/apex-lsp-shared/out"],
+      "@salesforce/apex-lsp-shared/*": ["packages/apex-lsp-shared/out/*"],
 
       "@salesforce/apex-lsp-parser-ast": ["packages/apex-parser-ast/out"],
       "@salesforce/apex-lsp-parser-ast/*": ["packages/apex-parser-ast/out/*"],
@@ -71,7 +71,7 @@
   },
   "exclude": ["node_modules", "out", "dist"],
   "references": [
-    { "path": "./packages/apex-lsp-logging" },
+    { "path": "./packages/apex-lsp-shared" },
     { "path": "./packages/apex-parser-ast" },
     { "path": "./packages/lsp-compliant-services" },
     { "path": "./packages/custom-services" },

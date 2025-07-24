@@ -15,8 +15,8 @@ module.exports = {
     '**/test/**/generate-Standard-Apex-Library.ts',
   ],
   moduleNameMapper: {
-    '^@salesforce/apex-lsp-logging$':
-      '<rootDir>/../apex-lsp-logging/src/index.ts',
+    '^@salesforce/apex-lsp-shared$':
+      '<rootDir>/../apex-lsp-shared/src/index.ts',
   },
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
   collectCoverageFrom: ['src/**/*.ts', '!src/generated/**', '!**/*.d.ts'],

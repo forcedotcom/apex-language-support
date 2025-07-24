@@ -16,7 +16,7 @@ import type {
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 /**
  * Implementation of ApexStorageInterface for Node.js environments (VSCode extension).

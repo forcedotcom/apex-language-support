@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import {
   DidChangeDocumentHandler,

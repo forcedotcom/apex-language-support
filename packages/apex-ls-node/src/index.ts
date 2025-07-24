@@ -40,7 +40,7 @@ import {
   getLogger,
   setLoggerFactory,
   setLogLevel,
-} from '@salesforce/apex-lsp-logging';
+} from '@salesforce/apex-lsp-shared';
 
 import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
 import { LSPLoggerFactory } from './utils/LSPLoggerFactory';

@@ -41,7 +41,7 @@ import {
   setLogNotificationHandler,
   getLogger,
   setLoggerFactory,
-} from '@salesforce/apex-lsp-logging';
+} from '@salesforce/apex-lsp-shared';
 
 import { BrowserLogNotificationHandler } from './utils/BrowserLogNotificationHandler';
 import { BrowserLoggerFactory } from './utils/BrowserLoggerFactory';
