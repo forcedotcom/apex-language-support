@@ -1,7 +1,7 @@
 {
   "name": "@salesforce/apex-lsp-shared",
   "version": "1.0.0",
-  "description": "Logging interface for Apex Language Server",
+  "description": "Apex LSP shared utilities",
   "main": "out/index.js",
   "module": "out/index.js",
   "types": "out/index.d.ts",
