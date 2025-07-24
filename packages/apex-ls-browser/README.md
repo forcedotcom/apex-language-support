@@ -12,6 +12,8 @@ This package provides the integration layer for using the Apex Language Server i
 - Web worker compatibility
 - Language server initialization for web environments
 - Basic language features (completion, hover)
+- Server mode configuration for performance optimization
+- Platform-agnostic capabilities system
 
 ## Dependencies
 
@@ -50,6 +52,39 @@ npm run build
 npm run dev
 ```
 
+## Server Mode and Capabilities
+
+The browser language server supports different operational modes optimized for web environments:
+
+### Server Modes
+
+- **Production Mode**: Optimized for performance and stability in browser environments
+  - Conservative memory usage
+  - Disabled expensive features for better performance
+  - Optimized for web worker constraints
+
+- **Development Mode**: Full feature set for development workflows
+  - Enhanced debugging capabilities
+  - Full feature set when performance allows
+  - Better error reporting and logging
+
+### Mode Configuration
+
+The server mode is automatically determined based on the environment and can be configured through:
+
+1. **Environment Variable**: `APEX_LS_MODE=production` or `APEX_LS_MODE=development`
+2. **Initialization Options**: Passed during server initialization
+3. **Auto-detection**: Based on environment and performance settings
+
+### Capabilities System
+
+The browser server uses the same platform-agnostic capabilities system as the Node.js implementation, ensuring consistent behavior across environments while optimizing for browser constraints.
+
+For detailed information about capabilities and server modes, see:
+
+- [Capabilities Documentation](../lsp-compliant-services/docs/CAPABILITIES.md)
+- [LSP Implementation Status](../lsp-compliant-services/docs/LSP_IMPLEMENTATION_STATUS.md)
+
 ## Web Integration
 
 To integrate this language server into a web-based editor:
@@ -57,6 +92,7 @@ To integrate this language server into a web-based editor:
 1. Add this package as a dependency
 2. Set up the proper message passing between your editor and the language server
 3. Configure the editor to use the language server for Apex files
+4. Configure server mode based on your application's needs
 
 See the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/) documentation for more details on LSP integration in web environments.
 

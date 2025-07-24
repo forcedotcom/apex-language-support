@@ -17,6 +17,7 @@ import {
   TextDocumentSyncOptions,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import { ExtendedServerCapabilities } from '@salesforce/apex-lsp-compliant-services';
 
 // Define handler types
 type InitializeHandler = (params: InitializeParams) => InitializeResult;
@@ -263,6 +264,104 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
       initialize: jest.fn(),
     }),
   },
+  ApexCapabilitiesManager: {
+    getInstance: jest.fn().mockReturnValue({
+      getCapabilitiesForMode: jest.fn().mockReturnValue({
+        publishDiagnostics: true,
+        textDocumentSync: {
+          openClose: true,
+          change: 1,
+          save: true,
+          willSave: false,
+          willSaveWaitUntil: false,
+        },
+        documentSymbolProvider: true,
+        foldingRangeProvider: true,
+        diagnosticProvider: {
+          identifier: 'apex-ls-ts',
+          interFileDependencies: false,
+          workspaceDiagnostics: false,
+        },
+        workspace: {
+          workspaceFolders: {
+            supported: true,
+            changeNotifications: true,
+          },
+        },
+      }),
+      getCapabilities: jest.fn().mockReturnValue({
+        publishDiagnostics: true,
+        textDocumentSync: {
+          openClose: true,
+          change: 1,
+          save: true,
+          willSave: false,
+          willSaveWaitUntil: false,
+        },
+        documentSymbolProvider: true,
+        foldingRangeProvider: true,
+        diagnosticProvider: {
+          identifier: 'apex-ls-ts',
+          interFileDependencies: false,
+          workspaceDiagnostics: false,
+        },
+        workspace: {
+          workspaceFolders: {
+            supported: true,
+            changeNotifications: true,
+          },
+        },
+      }),
+    }),
+  },
+  LSPConfigurationManager: jest.fn().mockImplementation(() => ({
+    getCapabilitiesForMode: jest.fn().mockReturnValue({
+      publishDiagnostics: true,
+      textDocumentSync: {
+        openClose: true,
+        change: 1,
+        save: true,
+        willSave: false,
+        willSaveWaitUntil: false,
+      },
+      documentSymbolProvider: true,
+      foldingRangeProvider: true,
+      diagnosticProvider: {
+        identifier: 'apex-ls-ts',
+        interFileDependencies: false,
+        workspaceDiagnostics: false,
+      },
+      workspace: {
+        workspaceFolders: {
+          supported: true,
+          changeNotifications: true,
+        },
+      },
+    }),
+    getExtendedServerCapabilities: jest.fn().mockReturnValue({
+      publishDiagnostics: true,
+      textDocumentSync: {
+        openClose: true,
+        change: 1,
+        save: true,
+        willSave: false,
+        willSaveWaitUntil: false,
+      },
+      documentSymbolProvider: true,
+      foldingRangeProvider: true,
+      diagnosticProvider: {
+        identifier: 'apex-ls-ts',
+        interFileDependencies: false,
+        workspaceDiagnostics: false,
+      },
+      workspace: {
+        workspaceFolders: {
+          supported: true,
+          changeNotifications: true,
+        },
+      },
+    }),
+  })),
 }));
 
 // Mock the logger abstraction
@@ -355,6 +454,9 @@ describe('Apex Language Server Browser', () => {
 
     // Verify capabilities
     expect(result).toHaveProperty('capabilities');
+    expect(
+      (result.capabilities as ExtendedServerCapabilities).publishDiagnostics,
+    ).toBe(true);
     expect(result.capabilities).toHaveProperty('textDocumentSync');
     expect(result.capabilities.textDocumentSync).toEqual({
       openClose: true,
@@ -363,8 +465,9 @@ describe('Apex Language Server Browser', () => {
       willSave: false,
       willSaveWaitUntil: false,
     });
-    expect(result.capabilities).toHaveProperty('completionProvider');
-    expect(result.capabilities).toHaveProperty('hoverProvider', false);
+    expect(result.capabilities).toHaveProperty('documentSymbolProvider', true);
+    expect(result.capabilities).toHaveProperty('foldingRangeProvider', true);
+    expect(result.capabilities).toHaveProperty('diagnosticProvider');
 
     // Verify logging
     expect(mockLogger.info).toHaveBeenCalledWith(
@@ -373,6 +476,10 @@ describe('Apex Language Server Browser', () => {
 
     // Verify that the server capabilities are correctly set
     const initResult = mockHandlers.initialize!({} as InitializeParams);
+    expect(
+      (initResult.capabilities as ExtendedServerCapabilities)
+        .publishDiagnostics,
+    ).toBe(true);
     expect(initResult.capabilities.documentSymbolProvider).toBe(true);
     expect(initResult.capabilities.foldingRangeProvider).toBe(true);
     expect(initResult.capabilities.textDocumentSync).toBeDefined();

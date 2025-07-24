@@ -23,6 +23,11 @@ on:
         required: false
         default: 'false'
         type: string
+      pre-release:
+        description: 'Indicates if this is a pre-release version'
+        required: false
+        default: 'false'
+        type: string
     outputs:
       artifact-name:
         description: 'The calculated artifact name'
@@ -41,6 +46,11 @@ on:
         type: string
       dry-run:
         description: 'Run in dry-run mode'
+        required: false
+        default: 'false'
+        type: string
+      pre-release:
+        description: 'Indicates if this is a pre-release version'
         required: false
         default: 'false'
         type: string
@@ -71,7 +81,12 @@ jobs:
         uses: ./.github/actions/npm-install-with-retries
 
       - name: Package packages
-        run: npm run package:packages
+        run: |
+          if [ "${{ inputs.pre-release }}" = "true" ]; then
+            npm run package:packages -- -- --pre-release
+          else
+            npm run package:packages
+          fi
 
       - name: Calculate artifact name
         id: calc-artifact-name

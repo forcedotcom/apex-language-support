@@ -25,8 +25,9 @@ if (process.env.TEST_LOG_LEVEL) {
   ];
   logger.setLogLevel(validLevels.includes(logLevel) ? logLevel : 'info');
 } else {
-  // Default to info level in CI, debug in local development
-  logger.setLogLevel(process.env.CI ? 'info' : 'debug');
+  // Default to error level for better test performance
+  // Use info level in CI for more verbose output when needed
+  logger.setLogLevel(process.env.CI ? 'info' : 'error');
 }
 
 // Log test environment setup

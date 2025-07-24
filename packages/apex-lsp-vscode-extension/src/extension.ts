@@ -70,7 +70,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Register log level commands for each log level
   const logLevels = ['error', 'warning', 'info', 'debug'];
   logLevels.forEach((level) => {
-    const commandId = `apex.setLogLevel.${level}`;
+    const commandId = `apex-ls-ts.setLogLevel.${level}`;
     const disposable = vscode.commands.registerCommand(commandId, async () => {
       const config = vscode.workspace.getConfiguration('apex-ls-ts');
       await config.update(

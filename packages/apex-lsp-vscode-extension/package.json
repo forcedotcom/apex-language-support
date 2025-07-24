@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.1.0",
+  "version": "0.1.9",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -167,24 +167,24 @@
     },
     "commands": [
       {
-        "command": "apex.restart.server",
-        "title": "%commands.apex.restart.server.title%"
+        "command": "apex-ls-ts.restart.server",
+        "title": "%commands.apex-ls-ts.restart.server.title%"
       },
       {
-        "command": "apex.setLogLevel.error",
-        "title": "%commands.apex.setLogLevel.error.title%"
+        "command": "apex-ls-ts.setLogLevel.error",
+        "title": "%commands.apex-ls-ts.setLogLevel.error.title%"
       },
       {
-        "command": "apex.setLogLevel.warning",
-        "title": "%commands.apex.setLogLevel.warning.title%"
+        "command": "apex-ls-ts.setLogLevel.warning",
+        "title": "%commands.apex-ls-ts.setLogLevel.warning.title%"
       },
       {
-        "command": "apex.setLogLevel.info",
-        "title": "%commands.apex.setLogLevel.info.title%"
+        "command": "apex-ls-ts.setLogLevel.info",
+        "title": "%commands.apex-ls-ts.setLogLevel.info.title%"
       },
       {
-        "command": "apex.setLogLevel.debug",
-        "title": "%commands.apex.setLogLevel.debug.title%"
+        "command": "apex-ls-ts.setLogLevel.debug",
+        "title": "%commands.apex-ls-ts.setLogLevel.debug.title%"
       }
     ],
     "viewsContainers": {

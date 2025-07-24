@@ -110,12 +110,46 @@ import { createConnection } from 'vscode-languageserver/node';
 const connection = createConnection(process.stdin, process.stdout);
 ```
 
+## Server Mode and Capabilities
+
+The language server supports different operational modes that affect available features and performance:
+
+### Server Modes
+
+- **Production Mode**: Optimized for performance and stability
+  - Disabled features: hover provider, completion resolve provider, will-save notifications
+  - Full text document sync for reliability
+  - Minimal diagnostic processing
+
+- **Development Mode**: Full feature set for development workflows
+  - Enabled features: hover provider, completion resolve provider, will-save notifications
+  - Incremental text document sync for better performance
+  - Enhanced diagnostic processing
+
+### Mode Configuration
+
+The server mode is determined by the following priority order:
+
+1. **Environment Variable**: `APEX_LS_MODE=production` or `APEX_LS_MODE=development`
+2. **Extension Mode**: From initialization options (when used with VS Code)
+3. **NODE_ENV**: Falls back to `NODE_ENV` environment variable
+
+### Capabilities System
+
+The server uses a platform-agnostic capabilities system that provides consistent features across different environments while allowing for mode-specific optimizations. Capabilities are automatically configured based on the server mode.
+
+For detailed information about capabilities and server modes, see:
+
+- [Capabilities Documentation](../lsp-compliant-services/docs/CAPABILITIES.md)
+- [LSP Implementation Status](../lsp-compliant-services/docs/LSP_IMPLEMENTATION_STATUS.md)
+
 ## Architecture
 
 The server integrates with:
 
 - **ApexSettingsManager**: Manages server settings lifecycle
-- **LSPConfigurationManager**: Handles LSP configuration protocol
+- **LSPConfigurationManager**: Handles LSP configuration protocol and capabilities
+- **ApexCapabilitiesManager**: Manages server mode and capabilities
 - **ApexStorageManager**: Manages document storage and retrieval
 - **CompilerService**: Processes Apex code parsing and analysis
 

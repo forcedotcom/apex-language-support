@@ -32,11 +32,7 @@ on:
         required: false
         default: 'false'
         type: string
-      base-branch:
-        description: 'Base branch to compare against for change detection'
-        required: false
-        default: 'main'
-        type: string
+
       version-bump:
         description: 'Version bump type (auto, patch, minor, major)'
         required: false
@@ -86,100 +82,94 @@ jobs:
       is-nightly: ${{ steps.check.outputs.is-nightly }}
       version-bump: ${{ steps.check.outputs.version-bump }}
       pre-release: ${{ steps.check.outputs.pre-release }}
+      is-promotion: ${{ steps.check.outputs.is-promotion }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
       - name: Check build type
         id: check
+        env:
+          INPUT_VERSION_BUMP: ${{ inputs.version-bump || 'auto' }}
+          INPUT_PRE_RELEASE: ${{ inputs.pre-release || 'false' }}
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "is-nightly=true" >> $GITHUB_OUTPUT
-            echo "version-bump=patch" >> $GITHUB_OUTPUT
-            echo "pre-release=true" >> $GITHUB_OUTPUT
-          else
-            echo "is-nightly=false" >> $GITHUB_OUTPUT
-            echo "version-bump=${{ inputs.version-bump || 'auto' }}" >> $GITHUB_OUTPUT
-            echo "pre-release=${{ inputs.pre-release || 'false' }}" >> $GITHUB_OUTPUT
-          fi
+          npx tsx .github/scripts/index.ts ext-build-type
 
-  determine-changes:
+  find-promotion-candidate:
     needs: determine-build-type
     runs-on: ubuntu-latest
+    if: needs.determine-build-type.outputs.is-promotion == 'true'
     outputs:
-      selected-extensions: ${{ steps.changes.outputs.selected-extensions }}
-      version-bumps: ${{ steps.changes.outputs.version-bumps }}
+      promotion-commit-sha: ${{ steps.find.outputs.commit-sha }}
+      promotion-nightly-tag: ${{ steps.find.outputs.nightly-tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
+      - name: Find nightly build to promote
+        id: find
+        run: |
+          npx tsx .github/scripts/index.ts ext-promotion-finder
+
+      - name: Set promotion commit SHA
+        run: |
+          echo "PROMOTION_COMMIT_SHA=${{ steps.find.outputs.commit-sha }}" >> $GITHUB_ENV
+
+  determine-changes:
+    needs: [determine-build-type]
+    runs-on: ubuntu-latest
+    outputs:
+      selected-extensions: ${{ steps.changes.outputs.selected-extensions }}
+      version-bumps: ${{ steps.changes.outputs.version-bumps }}
+      promotion-commit-sha: ${{ steps.changes.outputs.promotion-commit-sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
       - name: Determine changes and version bumps
         id: changes
+        env:
+          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
+          PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
+          IS_PROMOTION: ${{ needs.determine-build-type.outputs.is-promotion }}
+          PROMOTION_COMMIT_SHA: ${{ env.PROMOTION_COMMIT_SHA || '' }}
+          SELECTED_EXTENSIONS: ${{ inputs.extensions }}
         run: |
-          # Get build context
-          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
-          VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
-          PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
-
-          echo "Build context:"
-          echo "  Is nightly: $IS_NIGHTLY"
-          echo "  Version bump: $VERSION_BUMP"
-          echo "  Pre-release: $PRE_RELEASE"
-
-          # For nightly builds, always use patch bump and ensure pre-release
-          if [ "$IS_NIGHTLY" = "true" ]; then
-            echo "Nightly build detected - using patch bump strategy"
-            VERSION_BUMP="patch"
-            PRE_RELEASE="true"
-          fi
-
-          # Determine which extensions have changes
-          EXTENSIONS_WITH_CHANGES=""
-          VERSION_BUMP_TYPES=""
-
-          # Check each extension for changes
-          for ext in apex-lsp-vscode-extension apex-lsp-vscode-extension-web; do
-            if [ -d "packages/$ext" ]; then
-              # For nightly builds, always include extensions
-              if [ "$IS_NIGHTLY" = "true" ]; then
-                if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
-                  EXTENSIONS_WITH_CHANGES="$ext"
-                else
-                  EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
-                fi
-                VERSION_BUMP_TYPES="$VERSION_BUMP"
-              else
-                # Check for actual changes
-                BASE_BRANCH="${{ inputs.base-branch || 'main' }}"
-                
-                # Check if the base branch exists, fall back to main if it doesn't
-                if ! git ls-remote --heads origin "$BASE_BRANCH" | grep -q "$BASE_BRANCH"; then
-                  echo "Warning: Base branch 'origin/$BASE_BRANCH' does not exist, falling back to 'main'"
-                  BASE_BRANCH="main"
-                fi
-                
-                CHANGES=$(git diff --name-only origin/$BASE_BRANCH..HEAD -- "packages/$ext/")
-                if [ -n "$CHANGES" ]; then
-                  if [ -z "$EXTENSIONS_WITH_CHANGES" ]; then
-                    EXTENSIONS_WITH_CHANGES="$ext"
-                  else
-                    EXTENSIONS_WITH_CHANGES="$EXTENSIONS_WITH_CHANGES,$ext"
-                  fi
-                  VERSION_BUMP_TYPES="$VERSION_BUMP"
-                fi
-              fi
-            fi
-          done
-
-          echo "Selected extensions: $EXTENSIONS_WITH_CHANGES"
-          echo "Version bump types: $VERSION_BUMP_TYPES"
-
-          echo "selected-extensions=$EXTENSIONS_WITH_CHANGES" >> $GITHUB_OUTPUT
-          echo "version-bumps=$VERSION_BUMP_TYPES" >> $GITHUB_OUTPUT
+          npx tsx .github/scripts/index.ts ext-change-detector
 
   display-release-plan:
     needs: [determine-build-type, determine-changes]
     runs-on: ubuntu-latest
-    if: (inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true') && needs.determine-changes.outputs.selected-extensions != ''
+    if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -191,112 +181,30 @@ jobs:
         with:
           node-version: '20.x'
 
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
       - name: Display Extension Release Plan
+        env:
+          BRANCH: ${{ inputs.branch || github.ref_name }}
+          BUILD_TYPE: ${{ github.event_name }}
+          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          VERSION_BUMP: ${{ needs.determine-build-type.outputs.version-bump }}
+          REGISTRIES: ${{ inputs.registries }}
+          PRE_RELEASE: ${{ needs.determine-build-type.outputs.pre-release }}
+          SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
         run: |
-          # Get build context variables
-          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
-          VERSION_BUMP="${{ needs.determine-build-type.outputs.version-bump }}"
-          PRE_RELEASE="${{ needs.determine-build-type.outputs.pre-release }}"
-
-          echo "=== EXTENSION RELEASE PLAN ==="
-          echo "Branch: ${{ inputs.branch || github.ref_name }}"
-          echo "Build type: ${{ github.event_name }}"
-          echo "Is nightly: $IS_NIGHTLY"
-          echo "Version bump type: $VERSION_BUMP"
-          echo "Registries: ${{ inputs.registries }}"
-          echo "Pre-release: $PRE_RELEASE"
-          echo "Dry run mode: ENABLED"
-          echo ""
-
-          # Determine which extensions to release
-          EXTENSIONS_TO_RELEASE="${{ needs.determine-changes.outputs.selected-extensions }}"
-          echo "Extensions to release: $EXTENSIONS_TO_RELEASE"
-          echo ""
-
-          # Show what would happen for each extension
-          IFS=',' read -ra EXT_ARRAY <<< "$EXTENSIONS_TO_RELEASE"
-          for ext in "${EXT_ARRAY[@]}"; do
-            if [ -n "$ext" ] && [ -d "packages/$ext" ]; then
-              echo "Extension: $ext"
-              
-              # Get current version and publisher
-              CURRENT_VERSION=$(node -p "require('./packages/$ext/package.json').version")
-              PUBLISHER=$(node -p "require('./packages/$ext/package.json').publisher")
-              echo "  Current version: $CURRENT_VERSION"
-              echo "  Publisher: $PUBLISHER"
-              
-              # Calculate new version
-              IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
-              MAJOR="${VERSION_PARTS[0]}"
-              MINOR="${VERSION_PARTS[1]}"
-              PATCH="${VERSION_PARTS[2]}"
-              
-              # Use VERSION_BUMP from determine-build-type job
-              case "$VERSION_BUMP" in
-                "major")
-                  NEW_VERSION="$((MAJOR + 1)).0.0"
-                  ;;
-                "minor")
-                  NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
-                  ;;
-                "patch")
-                  NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-                  ;;
-                "auto")
-                  # For auto, default to patch
-                  NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-                  ;;
-                *)
-                  # Default to patch if unknown
-                  NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-                  ;;
-              esac
-              
-              # Show version bump information
-              echo "  Would bump to: $NEW_VERSION"
-              if [ "$IS_NIGHTLY" = "true" ]; then
-                echo "  Version strategy: Nightly build (odd minor + nightly timestamp)"
-              else
-                echo "  Version strategy: $VERSION_BUMP (conventional commit) + VS Code even/odd (pre-release: $PRE_RELEASE)"
-              fi
-              
-              # Show release information
-              PRE_RELEASE_TEXT=""
-              if [ "${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}" = "true" ]; then
-                PRE_RELEASE_TEXT=" (pre-release)"
-              fi
-              echo "  Would create GitHub release: $ext$PRE_RELEASE_TEXT"
-              
-              # Show marketplace publishing information
-              IFS=',' read -ra REG_ARRAY <<< "${{ inputs.registries }}"
-              for registry in "${REG_ARRAY[@]}"; do
-                case "$registry" in
-                  "vsce"|"all")
-                    if [ "$ext" = "apex-lsp-vscode-extension" ]; then
-                      echo "  Would publish to: VSCode Marketplace$PRE_RELEASE_TEXT"
-                    fi
-                    ;;
-                  "ovsx"|"all")
-                    if [ "$ext" = "apex-lsp-vscode-extension-web" ]; then
-                      echo "  Would publish to: OpenVSX Registry$PRE_RELEASE_TEXT"
-                    fi
-                    ;;
-                esac
-              done
-            fi
-          done
-
-          echo "✅ Extension release dry run completed"
+          npx tsx .github/scripts/index.ts ext-release-plan
 
   bump-versions:
-    needs: [determine-changes]
+    needs: [determine-build-type, determine-changes]
     runs-on: ubuntu-latest
     if: needs.determine-changes.outputs.selected-extensions != ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.IDEE_GH_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -306,135 +214,20 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/npm-install-with-retries
 
-      - name: Bump versions for selected extensions
+      - name: Bump versions and tag for selected extensions
+        env:
+          VERSION_BUMP: ${{ needs.determine-changes.outputs.version-bumps }}
+          SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
+          PRE_RELEASE: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
+          IS_NIGHTLY: ${{ needs.determine-build-type.outputs.is-nightly }}
+          IS_PROMOTION: ${{ needs.determine-build-type.outputs.is-promotion }}
+          PROMOTION_COMMIT_SHA: ${{ needs.determine-changes.outputs.promotion-commit-sha }}
         run: |
-          DRY_RUN="${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
-          VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
-          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
-          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
-
-          echo "Mode: $([ "$DRY_RUN" = "true" ] && echo "DRY RUN" || echo "LIVE")"
-          echo "Version bump type: $VERSION_BUMP"
-          echo "Selected extensions: $SELECTED_EXTENSIONS"
-          echo "Pre-release mode: $PRE_RELEASE"
-          echo "Is nightly build: $IS_NIGHTLY"
-
-          # Convert comma-separated list to array
-          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
-
-          for pkg in "${EXTENSIONS[@]}"; do
-            if [ -n "$pkg" ] && [ -f "packages/$pkg/package.json" ]; then
-              echo "Processing $pkg..."
-              
-              # Get current version
-              CURRENT_VERSION=$(node -p "require('./packages/$pkg/package.json').version")
-              echo "Current version: $CURRENT_VERSION"
-              
-              # Parse current version components
-              IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
-              CURRENT_MAJOR="${VERSION_PARTS[0]}"
-              CURRENT_MINOR="${VERSION_PARTS[1]}"
-              CURRENT_PATCH="${VERSION_PARTS[2]}"
-              
-              # Determine target version based on build type and pre-release status
-              TARGET_MAJOR="$CURRENT_MAJOR"
-              TARGET_MINOR="$CURRENT_MINOR"
-              TARGET_PATCH="$CURRENT_PATCH"
-              
-              if [ "$IS_NIGHTLY" = "true" ]; then
-                # Nightly build strategy: ensure odd minor version and add nightly timestamp
-                echo "Applying nightly build version strategy..."
-                
-                # For nightly builds, we want to ensure odd minor version
-                if [ $((CURRENT_MINOR % 2)) -eq 0 ]; then
-                  # Current is even, bump to next odd
-                  TARGET_MINOR=$((CURRENT_MINOR + 1))
-                  TARGET_PATCH=0
-                else
-                  # Current is already odd, just increment patch
-                  TARGET_PATCH=$((CURRENT_PATCH + 1))
-                fi
-                
-                # Use proper major.minor.patch version for package.json
-                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
-                echo "Nightly version: $NEW_VERSION (odd minor: $TARGET_MINOR)"
-                echo "Note: Nightly timestamp will be added as release tag/metadata"
-              else
-                # Regular build strategy: use smart version bumping
-                case "$VERSION_BUMP" in
-                  "patch")
-                    # For patch bumps, just increment patch
-                    TARGET_PATCH=$((CURRENT_PATCH + 1))
-                    ;;
-                  "minor")
-                    # For minor bumps, we need to be smart about even/odd
-                    if [ "$PRE_RELEASE" = "true" ]; then
-                      # Pre-release: ensure odd minor version
-                      if [ $((CURRENT_MINOR % 2)) -eq 0 ]; then
-                        # Current is even, bump to next odd
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
-                      else
-                        # Current is already odd, just increment
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
-                      fi
-                    else
-                      # Stable release: ensure even minor version
-                      if [ $((CURRENT_MINOR % 2)) -eq 1 ]; then
-                        # Current is odd, bump to next even
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
-                      else
-                        # Current is already even, just increment
-                        TARGET_MINOR=$((CURRENT_MINOR + 1))
-                      fi
-                    fi
-                    TARGET_PATCH=0
-                    ;;
-                  "major")
-                    # For major bumps, reset minor and patch
-                    TARGET_MAJOR=$((CURRENT_MAJOR + 1))
-                    if [ "$PRE_RELEASE" = "true" ]; then
-                      # Pre-release: start with odd minor
-                      TARGET_MINOR=1
-                    else
-                      # Stable release: start with even minor
-                      TARGET_MINOR=0
-                    fi
-                    TARGET_PATCH=0
-                    ;;
-                esac
-                
-                # Construct new version
-                NEW_VERSION="$TARGET_MAJOR.$TARGET_MINOR.$TARGET_PATCH"
-                echo "Regular version: $NEW_VERSION (bump: $VERSION_BUMP, pre-release: $PRE_RELEASE)"
-              fi
-              
-              if [ "$DRY_RUN" = "true" ]; then
-                echo "✅ DRY RUN: Would bump $pkg from $CURRENT_VERSION to $NEW_VERSION"
-              else
-                echo "🔄 LIVE: Bumping $pkg from $CURRENT_VERSION to $NEW_VERSION"
-                # Update package.json version
-                cd packages/$pkg
-                npm version "$NEW_VERSION" --no-git-tag-version
-                cd ../..
-                
-                # Update package-lock.json if it exists
-                if [ -f "package-lock.json" ]; then
-                  # Consider wrapping this with retry logic if network failures are a concern
-                  npm install
-                fi
-              fi
-            fi
-          done
-
-          if [ "$DRY_RUN" = "true" ]; then
-            echo "✅ DRY RUN: Version bump simulation completed"
-          else
-            echo "✅ LIVE: Version bumps applied"
-          fi
+          npx tsx .github/scripts/index.ts ext-version-bumper
 
       - name: Validate GitHub authentication
-        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
         run: |
           # Validate that required tokens are present
           if [ -z "$GITHUB_TOKEN" ]; then
@@ -450,27 +243,68 @@ jobs:
 
           echo "✅ GitHub authentication validated"
 
-      - name: Commit version bumps
-        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
+      - name: Commit version bumps with tags
         env:
           # Ensure GitHub CLI has proper authentication
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+          DRY_RUN: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add .
-          git commit -m "chore: bump versions for release [skip ci]"
+          IS_PROMOTION="${{ needs.determine-build-type.outputs.is-promotion }}"
+          PROMOTION_COMMIT_SHA="${{ needs.determine-changes.outputs.promotion-commit-sha }}"
 
-          # Push version bumps - fail if branch protection blocks it
-          echo "Pushing version bumps to ${{ inputs.branch || github.ref_name }}..."
-          if ! git push origin HEAD:${{ inputs.branch || github.ref_name }}; then
-            echo "❌ Error: Direct push failed. This may be due to branch protection rules."
-            echo "The workflow requires direct push access to ${{ inputs.branch || github.ref_name }}"
-            echo "Please ensure the workflow has proper permissions or run manually."
-            exit 1
+          if [ "$IS_PROMOTION" = "true" ] && [ -n "$PROMOTION_COMMIT_SHA" ]; then
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "🔄 PROMOTION DRY RUN: Would push tags created by version bumper script"
+              echo "✅ DRY RUN: Promotion tags would be pushed"
+            else
+              echo "🔄 PROMOTION: Tags already created by version bumper script"
+              echo "✅ Promotion tags are ready for pushing"
+            fi
+          else
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "🔄 REGULAR DRY RUN: Would commit and push version bumps..."
+              
+              # Show what would be committed
+              echo "📋 DRY RUN: Changes that would be committed:"
+              git status --porcelain
+              
+              # Show what tags would be pushed
+              echo "📋 DRY RUN: Tags that would be pushed:"
+              git tag --list | tail -10 || echo "No tags found"
+              
+              echo "✅ DRY RUN: Would commit version bumps and push tags"
+            else
+              echo "🔄 REGULAR: Committing version bumps..."
+              
+              # Configure git for the action
+              git config --local user.email "action@github.com"
+              git config --local user.name "GitHub Action"
+              
+              # Configure git to use the PAT for authentication
+              git remote set-url origin https://x-access-token:${{ secrets.IDEE_GH_TOKEN }}@github.com/${{ github.repository }}.git
+              
+              # Add all changes (including version bumps and tags)
+              git add .
+              
+              # Create commit with version bump message
+              git commit -m "chore: bump versions for release [skip ci]"
+
+              # Push version bumps and tags - fail if branch protection blocks it
+              echo "Pushing version bumps and tags to ${{ inputs.branch || github.ref_name }}..."
+              if ! git push origin HEAD:${{ inputs.branch || github.ref_name }}; then
+                echo "❌ Error: Direct push failed. This may be due to branch protection rules."
+                echo "The workflow requires direct push access to ${{ inputs.branch || github.ref_name }}"
+                echo "Please ensure the workflow has proper permissions or run manually."
+                exit 1
+              fi
+              
+              # Push all tags
+              echo "Pushing tags..."
+              git push origin --tags
+              
+              echo "✅ Version bumps and tags pushed successfully"
+            fi
           fi
-
-          echo "✅ Version bumps pushed successfully"
 
   calculate-artifact-name:
     runs-on: ubuntu-latest
@@ -488,164 +322,13 @@ jobs:
           dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
 
   package:
-    needs: [bump-versions, calculate-artifact-name]
+    needs: [bump-versions, calculate-artifact-name, determine-changes]
     uses: ./.github/workflows/package.yml
     with:
       branch: ${{ inputs.branch || github.ref_name }}
       artifact-name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
       dry-run: ${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}
-
-  create-github-releases:
-    needs: [determine-changes, package, bump-versions, calculate-artifact-name]
-    runs-on: ubuntu-latest
-    if: needs.determine-changes.outputs.selected-extensions != ''
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ inputs.branch || github.ref }}
-
-      - name: Download VSIX artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
-          path: ./vsix-artifacts
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      - name: Validate GitHub authentication
-        if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
-        run: |
-          # Validate that required tokens are present
-          if [ -z "$GITHUB_TOKEN" ]; then
-            echo "❌ Error: GITHUB_TOKEN is not set"
-            exit 1
-          fi
-
-          # Test GitHub CLI authentication
-          if ! gh auth status >/dev/null 2>&1; then
-            echo "❌ Error: GitHub CLI authentication failed"
-            exit 1
-          fi
-
-          echo "✅ GitHub authentication validated"
-
-      - name: Create GitHub Releases
-        env:
-          # Ensure GitHub CLI has proper authentication
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          DRY_RUN="${{ inputs.dry-run || github.event.inputs.dry-run || 'false' }}"
-          PRE_RELEASE="${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}"
-          VERSION_BUMP="${{ needs.determine-changes.outputs.version-bumps }}"
-          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-          IS_NIGHTLY="${{ needs.determine-build-type.outputs.is-nightly }}"
-
-          echo "Mode: $([ "$DRY_RUN" = "true" ] && echo "DRY RUN" || echo "LIVE")"
-          echo "Creating GitHub releases..."
-          echo "Pre-release: $PRE_RELEASE"
-          echo "Version bump: $VERSION_BUMP"
-          echo "Extensions: $SELECTED_EXTENSIONS"
-
-          # Convert comma-separated list to array
-          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
-
-          for ext in "${EXTENSIONS[@]}"; do
-            if [ -n "$ext" ] && [ -d "packages/$ext" ]; then
-              echo "Processing extension: $ext"
-              
-              # Get current version
-              CURRENT_VERSION=$(node -p "require('./packages/$ext/package.json').version")
-              echo "Current version: $CURRENT_VERSION"
-              
-              # Find VSIX file for this extension
-              VSIX_PATTERN="*${ext}*.vsix"
-              VSIX_FILES=$(find "./vsix-artifacts" -name "$VSIX_PATTERN")
-              
-              if [ -z "$VSIX_FILES" ]; then
-                echo "No VSIX files found for $ext in ./vsix-artifacts"
-                continue
-              fi
-              
-              # Create release tag
-              RELEASE_TAG="v$CURRENT_VERSION"
-              RELEASE_TITLE="$ext v$CURRENT_VERSION"
-              
-              # For nightly builds, add timestamp to tag and title
-              if [ "$IS_NIGHTLY" = "true" ]; then
-                NIGHTLY_DATE=$(date +%Y%m%d)
-                RELEASE_TAG="v$CURRENT_VERSION-nightly.$NIGHTLY_DATE"
-                RELEASE_TITLE="$ext v$CURRENT_VERSION (Nightly $NIGHTLY_DATE)"
-              fi
-              
-              # Generate release notes
-              RELEASE_NOTES="## $ext v$CURRENT_VERSION\n\n"
-              RELEASE_NOTES+="### Changes\n\n"
-              
-              # Get recent commits for this extension
-              RECENT_COMMITS=$(git log --oneline HEAD~10..HEAD -- "packages/$ext/")
-              if [ -n "$RECENT_COMMITS" ]; then
-                echo "$RECENT_COMMITS" | while read -r commit; do
-                  RELEASE_NOTES+="- $commit\n"
-                done
-              else
-                RELEASE_NOTES+="- General improvements and bug fixes\n"
-              fi
-              
-              RELEASE_NOTES+="\n### Installation\n\n"
-              RELEASE_NOTES+="Download the VSIX file and install via:\n"
-              RELEASE_NOTES+="- VS Code: Install from VSIX...\n"
-              RELEASE_NOTES+="- Command line: \`code --install-extension <vsix-file>\`\n"
-              
-              if [ "$PRE_RELEASE" = "true" ]; then
-                RELEASE_NOTES+="\n⚠️ **This is a pre-release version**\n"
-              fi
-              
-              if [ "$IS_NIGHTLY" = "true" ]; then
-                RELEASE_NOTES+="\n🌙 **This is a nightly build from $NIGHTLY_DATE**\n"
-                RELEASE_NOTES+="\n### Nightly Build Information\n"
-                RELEASE_NOTES+="- **Build Date**: $NIGHTLY_DATE\n"
-                RELEASE_NOTES+="- **Version**: $CURRENT_VERSION (odd minor for pre-release)\n"
-                RELEASE_NOTES+="- **Type**: Nightly pre-release for testing\n"
-              fi
-              
-              if [ "$DRY_RUN" = "true" ]; then
-                echo "✅ DRY RUN: Would create GitHub release:"
-                echo "  - Tag: $RELEASE_TAG"
-                echo "  - Title: $RELEASE_TITLE"
-                echo "  - Pre-release: $PRE_RELEASE"
-                echo "  - VSIX files: $VSIX_FILES"
-                echo "  - Release notes preview:"
-                echo "$RELEASE_NOTES" | head -20
-                echo "  ... (truncated)"
-              else
-                echo "🔄 LIVE: Creating GitHub release..."
-                echo "Creating release: $RELEASE_TITLE"
-                echo "Tag: $RELEASE_TAG"
-                echo "Pre-release: $PRE_RELEASE"
-                
-                # Create release using GitHub CLI with proper authentication
-                gh release create "$RELEASE_TAG" \
-                  --title "$RELEASE_TITLE" \
-                  --notes "$RELEASE_NOTES" \
-                  --prerelease="$PRE_RELEASE" \
-                  --repo "$GITHUB_REPOSITORY" \
-                  $VSIX_FILES
-                
-                echo "✅ Release created for $ext"
-              fi
-            fi
-          done
-
-          if [ "$DRY_RUN" = "true" ]; then
-            echo "✅ DRY RUN: GitHub release simulation completed"
-          else
-            echo "✅ LIVE: GitHub releases created"
-          fi
+      pre-release: ${{ inputs.pre-release || github.event.inputs.pre-release || 'false' }}
 
   determine-publish-matrix:
     needs: [determine-changes, calculate-artifact-name]
@@ -656,88 +339,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install jq
-        run: |
-          # jq should be pre-installed on Ubuntu runners, but let's ensure it's available
-          if ! command -v jq &> /dev/null; then
-            echo "jq not found, installing..."
-            sudo apt-get update && sudo apt-get install -y jq
-          else
-            echo "jq is already installed: $(jq --version)"
-          fi
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
 
       - name: Determine publish matrix
         id: matrix
+        env:
+          REGISTRIES: ${{ inputs.registries }}
+          SELECTED_EXTENSIONS: ${{ needs.determine-changes.outputs.selected-extensions }}
         run: |
-          REGISTRIES="${{ inputs.registries }}"
-          SELECTED_EXTENSIONS="${{ needs.determine-changes.outputs.selected-extensions }}"
-
-          # Initialize empty JSON array
-          MATRIX_ENTRIES='[]'
-
-          # Determine which registries to include
-          REGISTRY_LIST=""
-          if [ "$REGISTRIES" = "all" ]; then
-            REGISTRY_LIST="vsce ovsx"
-          else
-            REGISTRY_LIST="$REGISTRIES"
-          fi
-
-          # Create matrix entries for each extension-registry combination
-          IFS=',' read -ra EXTENSIONS <<< "$SELECTED_EXTENSIONS"
-          for ext in "${EXTENSIONS[@]}"; do
-            if [ -n "$ext" ]; then
-              # Create VSIX pattern for this extension
-              # Map extension names to their actual VSIX file patterns
-              case "$ext" in
-                "apex-lsp-vscode-extension")
-                  VSIX_PATTERN="*apex-language-server-extension*.vsix"
-                  ;;
-                "apex-lsp-vscode-extension-web")
-                  VSIX_PATTERN="*apex-language-server-extension-web*.vsix"
-                  ;;
-                *)
-                  # Fallback to original pattern
-                  VSIX_PATTERN="*${ext}*.vsix"
-                  ;;
-              esac
-              
-              # Add entry for each selected registry
-              for registry in $REGISTRY_LIST; do
-                case "$registry" in
-                  "vsce")
-                    MARKETPLACE="VS Code Marketplace"
-                    ;;
-                  "ovsx")
-                    MARKETPLACE="Open VSX Registry"
-                    ;;
-                  *)
-                    MARKETPLACE="$registry"
-                    ;;
-                esac
-                
-                # Create JSON entry and add to matrix
-                ENTRY=$(jq -n \
-                  --arg registry "$registry" \
-                  --arg vsix_pattern "$VSIX_PATTERN" \
-                  --arg marketplace "$MARKETPLACE" \
-                  '{registry: $registry, vsix_pattern: $vsix_pattern, marketplace: $marketplace}')
-                
-                MATRIX_ENTRIES=$(echo "$MATRIX_ENTRIES" | jq --argjson entry "$ENTRY" '. += [$entry]')
-              done
-            fi
-          done
-
-          # Output the matrix as a single line to avoid formatting issues
-          echo "matrix=$(echo "$MATRIX_ENTRIES" | jq -c .)" >> "$GITHUB_OUTPUT"
-          echo "Publish matrix: $MATRIX_ENTRIES"
+          npx tsx .github/scripts/index.ts ext-publish-matrix
 
   publish:
     needs:
       [
         bump-versions,
         package,
-        create-github-releases,
         calculate-artifact-name,
         determine-publish-matrix,
       ]
@@ -776,7 +398,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.IDEE_GH_TOKEN }}
           ref: ${{ inputs.branch || github.ref }}
 
       - name: Download VSIX artifacts
@@ -785,7 +407,7 @@ jobs:
           name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}
           path: ./vsix-artifacts
 
-      - name: Debug - List downloaded artifacts
+      - name: List downloaded artifacts
         run: |
           echo "=== DEBUG: Downloaded Artifacts ==="
           echo "Artifact name: ${{ needs.calculate-artifact-name.outputs.artifact-name }}"
@@ -830,7 +452,7 @@ jobs:
         env:
           # Pass tokens as environment variables for better security
           VSCE_PERSONAL_ACCESS_TOKEN: ${{ matrix.registry == 'vsce' && secrets.VSCE_PERSONAL_ACCESS_TOKEN || '' }}
-          OVSX_PAT: ${{ matrix.registry == 'ovsx' && secrets.OVSX_PAT || '' }}
+          OVSX_PAT: ${{ matrix.registry == 'ovsx' && secrets.IDEE_OVSX_PAT || '' }}
         with:
           vsix-path: ${{ steps.find_vsix.outputs.vsix_file }}
           publish-tool: ${{ matrix.registry }}
@@ -859,7 +481,8 @@ jobs:
 
   slack-notify:
     name: Slack Notification
-    needs: [publish]
+    needs:
+      [determine-build-type, determine-changes, bump-versions, package, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'success' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:
@@ -913,13 +536,13 @@ jobs:
         with:
           payload: |
             {
-              "text": "🎉 VS Code Extensions Released Successfully!",
+              "text": "🎉 Apex Language Support Extensions Released Successfully!",
               "blocks": [
                 {
                   "type": "header",
                   "text": {
                     "type": "plain_text",
-                    "text": "🎉 VS Code Extensions Released Successfully!"
+                    "text": "🎉 Apex Language Support Extensions Released Successfully!"
                   }
                 },
                 {
@@ -965,7 +588,8 @@ jobs:
 
   slack-notify-failure:
     name: Slack Failure Notification
-    needs: [publish]
+    needs:
+      [determine-build-type, determine-changes, bump-versions, package, publish]
     runs-on: ubuntu-latest
     if: always() && needs.publish.result == 'failure' && (inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true')
     steps:

@@ -124,7 +124,7 @@
     "compile": "tsc --build",
     "bundle": "tsup",
     "copy:files": "shx mkdir -p out/snippets out/grammars && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* out/grammars/ && shx cp -R snippets/* out/snippets/",
-    "package": "cd dist && vsce package --out ../apex-language-server-extension-web.vsix",
+    "package": "cd dist && vsce package --out ../",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
     "clean": "rimraf out dist bundle .turbo grammars tsconfig.tsbuildinfo coverage *.vsix",

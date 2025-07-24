@@ -8,25 +8,23 @@
 
 import {
   createConnection,
-  BrowserMessageReader,
-  BrowserMessageWriter,
-  CompletionItem,
-  Hover,
-  InitializedNotification,
   InitializeParams,
   InitializeResult,
+  InitializedNotification,
   MessageType,
-  TextDocumentPositionParams,
+  DocumentSymbolParams,
   TextDocuments,
   TextDocumentChangeEvent,
   Diagnostic,
-  DocumentSymbolParams,
   FoldingRangeParams,
   FoldingRange,
+  TextDocumentPositionParams,
+  CompletionItem,
+  Hover,
+  BrowserMessageReader,
+  BrowserMessageWriter,
 } from 'vscode-languageserver/browser';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
-  ApexStorageManager,
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnOpenDocument,
@@ -34,8 +32,11 @@ import {
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnDiagnostic,
+  ApexStorageManager,
   ApexStorage,
+  LSPConfigurationManager,
 } from '@salesforce/apex-lsp-compliant-services';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   setLogNotificationHandler,
   getLogger,
@@ -65,6 +66,9 @@ setLogNotificationHandler(
   BrowserLogNotificationHandler.getInstance(connection),
 );
 
+// Initialize capabilities manager
+const capabilitiesManager = new LSPConfigurationManager();
+
 // Server state
 let isShutdown = false;
 // Track open, change and close text document events
@@ -73,29 +77,15 @@ const documents = new TextDocuments(TextDocument);
 // Initialize server capabilities
 connection.onInitialize((params: InitializeParams): InitializeResult => {
   logger.info('Apex Language Server initializing...');
-  // TODO: Add startup tasks here if needed
-  return {
-    capabilities: {
-      textDocumentSync: {
-        openClose: true,
-        change: 1, // Full text document sync
-        save: true,
-        willSave: false, // Enable willSave support
-        willSaveWaitUntil: false, // Enable willSaveWaitUntil support
-      },
-      completionProvider: {
-        resolveProvider: false,
-        triggerCharacters: ['.'],
-      },
-      hoverProvider: false,
-      documentSymbolProvider: true,
-      foldingRangeProvider: true, // Enable folding range support
-      diagnosticProvider: {
-        interFileDependencies: false,
-        workspaceDiagnostics: false,
-      },
-    },
-  };
+
+  // For browser server, we'll use production mode by default
+  // This can be overridden via settings or environment detection
+  const mode = 'production' as 'production' | 'development';
+  const capabilities = capabilitiesManager.getCapabilitiesForMode(mode);
+
+  logger.info(`Using ${mode} mode capabilities for browser environment`);
+
+  return { capabilities };
 });
 
 // Handle initialized notification
@@ -138,9 +128,7 @@ connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
   try {
     const result = await dispatchProcessOnDocumentSymbol(params);
     logger.info(
-      `[SERVER] Result for documentSymbol (${params.textDocument.uri}): ${JSON.stringify(
-        result,
-      )}`,
+      `[SERVER] Result for documentSymbol (${params.textDocument.uri}): ${JSON.stringify(result)}`,
     );
     return result;
   } catch (error) {
@@ -153,6 +141,8 @@ connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
 });
 
 // Handle diagnostic requests
+// enabling pull diagnostics enables both 'textDocument/diagnostic' and 'workspace/diagnostic' requests
+// only one of them is implemented, the other one is a no-op for now
 connection.onRequest(
   'textDocument/diagnostic',
   async (params: DocumentSymbolParams) => {
@@ -177,6 +167,11 @@ connection.onRequest(
   },
 );
 
+connection.onRequest('workspace/diagnostic', async (params) => {
+  logger.debug('workspace/diagnostic requested by client');
+  return { items: [] };
+});
+
 // Add a handler for folding ranges
 connection.onFoldingRanges(
   async (params: FoldingRangeParams): Promise<FoldingRange[] | null> => {
@@ -192,9 +187,7 @@ connection.onFoldingRanges(
       );
       logger.debug(
         () =>
-          `[SERVER] Result for foldingRanges (${params.textDocument.uri}): ${JSON.stringify(
-            result,
-          )}`,
+          `[SERVER] Result for foldingRanges (${params.textDocument.uri}): ${JSON.stringify(result)}`,
       );
       return result;
     } catch (error) {
@@ -264,6 +257,17 @@ const handleDiagnostics = (
   uri: string,
   diagnostics: Diagnostic[] | undefined,
 ) => {
+  // Check if publishDiagnostics is enabled in capabilities
+  const capabilities = capabilitiesManager.getExtendedServerCapabilities();
+  if (!capabilities.publishDiagnostics) {
+    // Don't send diagnostics if publishDiagnostics is disabled
+    logger.debug(
+      () =>
+        `Publish diagnostics disabled, skipping diagnostic send for: ${uri}`,
+    );
+    return;
+  }
+
   // Always send diagnostics to the client, even if empty array
   // This ensures diagnostics are cleared when there are no errors
   connection.sendDiagnostics({

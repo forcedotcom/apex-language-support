@@ -15,6 +15,9 @@ This package implements services that conform to the standard Language Server Pr
 - Document formatting
 - Additional LSP-specified capabilities
 - Persistent storage interface for AST, symbol tables, and references
+- Platform-agnostic capabilities system with mode-based optimization
+- Server mode configuration (Production/Development/Test)
+- Environment-specific feature enablement
 
 ## Dependencies
 
@@ -30,6 +33,75 @@ import {} from /* specific services */ '@salesforce/apex-lsp-compliant-services'
 
 // Use the imported services
 ```
+
+## Capabilities System
+
+This package provides a platform-agnostic capabilities system that enables consistent language server features across different environments while allowing for mode-specific optimizations.
+
+### Server Modes
+
+The system supports three server modes:
+
+- **Production Mode**: Optimized for performance and stability
+  - Disabled features: hover provider, completion resolve provider, will-save notifications
+  - Full text document sync for reliability
+  - Minimal diagnostic processing
+
+- **Development Mode**: Full feature set for development workflows
+  - Enabled features: hover provider, completion resolve provider, will-save notifications
+  - Incremental text document sync for better performance
+  - Enhanced diagnostic processing
+
+- **Test Mode**: Testing-specific features and configurations
+  - Optimized for testing environments
+  - Consistent behavior across test runs
+
+### Capabilities Management
+
+The capabilities system provides:
+
+- **ApexCapabilitiesManager**: Singleton manager for server mode and capabilities
+- **ApexLanguageServerCapabilities**: Defines capability configurations for different modes
+- **LSPConfigurationManager**: High-level configuration interface with custom overrides
+
+### Usage Examples
+
+#### Basic Usage
+
+```typescript
+import { ApexCapabilitiesManager } from '@salesforce/apex-lsp-compliant-services';
+
+// Get the capabilities manager instance
+const manager = ApexCapabilitiesManager.getInstance();
+
+// Set the server mode
+manager.setMode('development');
+
+// Get capabilities for the current mode
+const capabilities = manager.getCapabilities();
+```
+
+#### With Custom Configuration
+
+```typescript
+import { LSPConfigurationManager } from '@salesforce/apex-lsp-compliant-services';
+
+// Create configuration manager with custom options
+const configManager = new LSPConfigurationManager({
+  mode: 'development',
+  customCapabilities: {
+    hoverProvider: false, // Override hover provider
+  },
+});
+
+// Get capabilities with custom overrides applied
+const capabilities = configManager.getCapabilities();
+```
+
+For detailed information about the capabilities system, see:
+
+- [Capabilities Documentation](docs/CAPABILITIES.md)
+- [LSP Implementation Status](docs/LSP_IMPLEMENTATION_STATUS.md)
 
 ## Configuration
 
