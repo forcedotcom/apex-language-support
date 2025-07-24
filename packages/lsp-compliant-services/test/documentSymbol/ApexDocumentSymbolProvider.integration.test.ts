@@ -16,7 +16,7 @@ import {
   DocumentSymbol,
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import {
   DefaultApexDocumentSymbolProvider,
@@ -26,7 +26,7 @@ import {
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 
 // Mock only logging to keep test output clean
-jest.mock('@salesforce/apex-lsp-logging');
+jest.mock('@salesforce/apex-lsp-shared');
 
 const mockedGetLogger = getLogger as jest.Mock;
 

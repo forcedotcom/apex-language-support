@@ -8,7 +8,7 @@
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
-import { LoggerInterface } from '@salesforce/apex-lsp-logging';
+import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { DidCloseDocumentHandler } from '../../src/handlers/DidCloseDocumentHandler';
 import { IDocumentCloseProcessor } from '../../src/services/DocumentCloseProcessingService';

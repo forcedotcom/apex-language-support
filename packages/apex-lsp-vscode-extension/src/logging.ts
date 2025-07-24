@@ -7,8 +7,8 @@
  */
 
 import * as vscode from 'vscode';
-import { shouldLog, setLogLevel } from '@salesforce/apex-lsp-logging';
-import type { LogMessageType } from '@salesforce/apex-lsp-logging';
+import { shouldLog, setLogLevel } from '@salesforce/apex-lsp-shared';
+import type { LogMessageType } from '@salesforce/apex-lsp-shared';
 import { EXTENSION_CONSTANTS } from './constants';
 
 /**

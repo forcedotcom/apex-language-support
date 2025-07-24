@@ -1,6 +1,6 @@
-# Apex LSP Logging Examples
+# Apex LSP Shared Examples
 
-This directory contains examples of how to use the Apex LSP Logging package in different contexts.
+This directory contains examples of how to use the Apex LSP Shared package in different contexts.
 
 ## Standalone Usage
 
@@ -42,7 +42,7 @@ node out/examples/standalone-usage.js
 To enable console logging in your standalone application:
 
 ```typescript
-import { enableConsoleLogging, getLogger } from '@salesforce/apex-lsp-logging';
+import { enableConsoleLogging, getLogger } from '@salesforce/apex-lsp-shared';
 
 // Enable console logging with timestamps
 enableConsoleLogging();
@@ -58,7 +58,7 @@ logger.error('Error message');
 To disable logging (for production):
 
 ```typescript
-import { disableLogging } from '@salesforce/apex-lsp-logging';
+import { disableLogging } from '@salesforce/apex-lsp-shared';
 
 // Disable all logging
 disableLogging();
@@ -69,7 +69,7 @@ disableLogging();
 This package is designed to work seamlessly with the Apex parser:
 
 ```typescript
-import { enableConsoleLogging } from '@salesforce/apex-lsp-logging';
+import { enableConsoleLogging } from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
   ApexSymbolCollectorListener,

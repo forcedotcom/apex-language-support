@@ -23,7 +23,7 @@ import {
   TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 

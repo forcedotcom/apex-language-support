@@ -9,7 +9,7 @@
 import * as vscode from 'vscode';
 
 // Mock the logging module before importing the module under test
-jest.mock('@salesforce/apex-lsp-logging', () => ({
+jest.mock('@salesforce/apex-lsp-shared', () => ({
   shouldLog: jest.fn().mockReturnValue(true),
   setLogLevel: jest.fn(),
 }));

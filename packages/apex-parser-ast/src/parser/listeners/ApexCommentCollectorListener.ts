@@ -7,7 +7,7 @@
  */
 
 import { CommonTokenStream, Token, ParserRuleContext } from 'antlr4ts';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 

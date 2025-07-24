@@ -13,7 +13,7 @@ import type {
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { HashMap } from 'data-structure-typed';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 /**
  * Implementation of ApexStorageInterface for browser environments.
  * This is a no-op implementation that doesn't actually persist data.

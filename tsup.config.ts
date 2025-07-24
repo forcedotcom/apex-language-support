@@ -38,7 +38,7 @@ export const config: Options = {
     '@apexdevtools/apex-parser',
     'antlr4ts',
     // Internal dependencies
-    '@salesforce/apex-lsp-logging',
+    '@salesforce/apex-lsp-shared',
     '@salesforce/apex-lsp-parser-ast',
     '@salesforce/apex-lsp-custom-services',
     '@salesforce/apex-lsp-compliant-services',

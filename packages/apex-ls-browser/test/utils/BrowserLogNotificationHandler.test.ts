@@ -11,7 +11,7 @@ import {
   LogMessageParams,
   type LogMessageType,
   setLogLevel,
-} from '@salesforce/apex-lsp-logging';
+} from '@salesforce/apex-lsp-shared';
 
 import { BrowserLogNotificationHandler } from '../../src/utils/BrowserLogNotificationHandler';
 

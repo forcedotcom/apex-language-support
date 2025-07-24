@@ -8,11 +8,11 @@
 
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 // Mock the logging module
-jest.mock('@salesforce/apex-lsp-logging', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-logging');
+jest.mock('@salesforce/apex-lsp-shared', () => {
+  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
     getLogger: jest.fn(),

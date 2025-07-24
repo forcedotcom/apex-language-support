@@ -361,7 +361,7 @@ const mockLogger = {
   log: jest.fn(),
 };
 
-jest.mock('@salesforce/apex-lsp-logging', () => ({
+jest.mock('@salesforce/apex-lsp-shared', () => ({
   LogMessageType: {
     Error: 1,
     Warning: 2,

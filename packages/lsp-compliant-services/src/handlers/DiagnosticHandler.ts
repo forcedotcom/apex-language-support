@@ -10,7 +10,7 @@ import {
   Diagnostic,
   DocumentDiagnosticParams,
 } from 'vscode-languageserver-protocol';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { dispatch } from '../utils/handlerUtil';
 import { DiagnosticProcessingService } from '../services/DiagnosticProcessingService';

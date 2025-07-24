@@ -176,7 +176,7 @@ The scripts implement automatic package filtering to ensure proper separation be
 
 - **Filter**: Only packages without a `publisher` field in `package.json`
 - **Purpose**: NPM registry publishing
-- **Examples**: `apex-lsp-logging`, `apex-parser-ast`, `lsp-compliant-services`
+- **Examples**: `apex-lsp-shared`, `apex-parser-ast`, `lsp-compliant-services`
 - **Scripts**: `npm-change-detector`, `npm-package-selector`, `npm-release-plan`, etc.
 
 This filtering prevents cross-contamination between extension and NPM workflows and ensures each release process operates on the appropriate package types.
@@ -303,8 +303,8 @@ INPUT_BASE_BRANCH=main \
 npx tsx .github/scripts/index.ts npm-change-detector
 
 # Package selection
-SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-logging,apex-parser-ast \
-CHANGED_PACKAGES=apex-lsp-logging \
+SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-shared,apex-parser-ast \
+CHANGED_PACKAGES=apex-lsp-shared \
 npx tsx .github/scripts/index.ts npm-package-selector
 ```
 
@@ -320,8 +320,8 @@ IS_NIGHTLY=true VERSION_BUMP=minor PRE_RELEASE=false IS_PROMOTION=false \
 npx tsx .github/scripts/index.ts ext-change-detector
 
 # Test NPM package selection
-SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-logging,apex-parser-ast \
-CHANGED_PACKAGES=apex-lsp-logging \
+SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-shared,apex-parser-ast \
+CHANGED_PACKAGES=apex-lsp-shared \
 npx tsx .github/scripts/index.ts npm-package-selector
 ```
 

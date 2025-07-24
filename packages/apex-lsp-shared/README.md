@@ -1,6 +1,6 @@
-# Apex LSP Logging (`@salesforce/apex-lsp-logging`)
+# Apex LSP Shared (`@salesforce/apex-lsp-shared`)
 
-This package provides a unified logging system for the Apex Language Server ecosystem, supporting both LSP-based logging and standalone console logging.
+This package provides shared utilities for the Apex Language Server ecosystem, including a unified logging system that supports both LSP-based logging and standalone console logging.
 
 ## Features
 
@@ -14,7 +14,7 @@ This package provides a unified logging system for the Apex Language Server ecos
 ## Installation
 
 ```bash
-npm install @salesforce/apex-lsp-logging
+npm install @salesforce/apex-lsp-shared
 ```
 
 ## Usage
@@ -24,7 +24,7 @@ npm install @salesforce/apex-lsp-logging
 When used within a Language Server, the package automatically integrates with the LSP logging system:
 
 ```typescript
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 const logger = getLogger();
 logger.info('Language server started');
@@ -37,7 +37,7 @@ logger.error('Compilation error occurred');
 For standalone applications or when running outside of an LSP context:
 
 ```typescript
-import { enableConsoleLogging, getLogger } from '@salesforce/apex-lsp-logging';
+import { enableConsoleLogging, getLogger } from '@salesforce/apex-lsp-shared';
 
 // Enable console logging with timestamps
 enableConsoleLogging();
@@ -54,7 +54,7 @@ logger.error('Error message');
 To disable all logging (useful for production environments):
 
 ```typescript
-import { disableLogging } from '@salesforce/apex-lsp-logging';
+import { disableLogging } from '@salesforce/apex-lsp-shared';
 
 // Disable all logging
 disableLogging();

@@ -25,7 +25,7 @@ import {
   isMethodSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { ApexSettingsManager } from '../settings/ApexSettingsManager';

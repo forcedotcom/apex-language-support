@@ -15,7 +15,7 @@ import {
   ParseTreeWalker,
   TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
-import { getLogger } from '@salesforce/apex-lsp-logging';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { BaseApexParserListener } from './listeners/BaseApexParserListener';
 import {

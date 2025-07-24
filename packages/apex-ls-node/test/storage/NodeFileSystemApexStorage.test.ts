@@ -33,7 +33,7 @@ const mockLogger = {
   warn: jest.fn(),
 };
 
-jest.mock('@salesforce/apex-lsp-logging', () => ({
+jest.mock('@salesforce/apex-lsp-shared', () => ({
   getLogger: jest.fn(() => mockLogger),
 }));
 

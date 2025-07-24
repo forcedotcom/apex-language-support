@@ -15,7 +15,7 @@ import {
   setLoggerFactory,
 } from '../src';
 
-describe('apex-lsp-logging', () => {
+describe('apex-lsp-shared', () => {
   let mockLogger: jest.Mocked<LoggerInterface>;
   let mockLogNotificationHandler: jest.Mocked<LogNotificationHandler>;
 
