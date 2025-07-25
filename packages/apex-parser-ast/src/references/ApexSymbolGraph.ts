@@ -41,6 +41,10 @@ export enum ReferenceType {
   COMPONENT_REFERENCE = 'component-reference',
   CUSTOM_METADATA_REFERENCE = 'custom-metadata-reference',
   EXTERNAL_SERVICE_REFERENCE = 'external-service-reference',
+  // Phase 6.5: Scope Hierarchy Integration
+  SCOPE_PARENT = 'scope-parent',
+  SCOPE_CHILD = 'scope-child',
+  SCOPE_CONTAINS = 'scope-contains',
 }
 
 /**
