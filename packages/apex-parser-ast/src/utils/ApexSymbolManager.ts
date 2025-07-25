@@ -13,7 +13,7 @@ import {
   SymbolTable,
   SymbolKind,
   SymbolVisibility,
-  SymbolKeyUtils,
+  createFromSymbol,
 } from '../types/symbol';
 import {
   ApexSymbolGraph,
@@ -1540,7 +1540,7 @@ export class ApexSymbolManager {
     }
 
     // Generate unified ID and cache it
-    const unifiedKey = SymbolKeyUtils.createFromSymbol(symbol, filePath);
+    const unifiedKey = createFromSymbol(symbol, filePath);
     symbol.key = unifiedKey;
 
     return unifiedKey.unifiedId!;

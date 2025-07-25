@@ -9,7 +9,7 @@
 import Graph from 'graphology';
 import { HashMap } from 'data-structure-typed';
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ApexSymbol, SymbolKeyUtils } from '../types/symbol';
+import { ApexSymbol, createFromSymbol } from '../types/symbol';
 
 /**
  * Types of references between Apex symbols
@@ -668,7 +668,7 @@ export class ApexSymbolGraph {
     }
 
     // Generate unified ID and cache it
-    const unifiedKey = SymbolKeyUtils.createFromSymbol(symbol, filePath);
+    const unifiedKey = createFromSymbol(symbol, filePath);
     symbol.key = unifiedKey;
 
     return unifiedKey.unifiedId!;

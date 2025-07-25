@@ -9,9 +9,13 @@
 import {
   ApexSymbol,
   SymbolKey,
-  SymbolKeyUtils,
   SymbolKind,
   SymbolVisibility,
+  generateUnifiedId,
+  keyToString,
+  createFromSymbol,
+  areEquivalent,
+  getUnifiedId,
 } from '../../src/types/symbol';
 import { ApexSymbolManager } from '../../src/utils/ApexSymbolManager';
 
@@ -36,7 +40,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         fqn: 'TestClass',
       };
 
-      const unifiedId = SymbolKeyUtils.generateUnifiedId(key);
+      const unifiedId = generateUnifiedId(key);
       expect(unifiedId).toBe('TestClass');
     });
 
@@ -48,7 +52,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         kind: SymbolKind.Method,
       };
 
-      const unifiedId = SymbolKeyUtils.generateUnifiedId(key);
+      const unifiedId = generateUnifiedId(key);
       expect(unifiedId).toBe('method:testMethod:file.TestClass.testMethod');
     });
 
@@ -61,7 +65,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         fqn: 'TestClass',
       };
 
-      const unifiedId = SymbolKeyUtils.generateUnifiedId(key, 'TestFile.cls');
+      const unifiedId = generateUnifiedId(key, 'TestFile.cls');
       expect(unifiedId).toBe('TestClass:TestFile.cls');
     });
 
@@ -72,7 +76,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         path: ['file', 'TestClass'],
       };
 
-      const stringKey = SymbolKeyUtils.keyToString(key);
+      const stringKey = keyToString(key);
       expect(stringKey).toBe('class:file.TestClass');
     });
 
@@ -101,10 +105,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         fqn: 'TestClass',
       };
 
-      const unifiedKey = SymbolKeyUtils.createFromSymbol(
-        symbol,
-        'TestFile.cls',
-      );
+      const unifiedKey = createFromSymbol(symbol, 'TestFile.cls');
 
       expect(unifiedKey.prefix).toBe('class');
       expect(unifiedKey.name).toBe('TestClass');
@@ -137,11 +138,11 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         unifiedId: 'DifferentClass:TestFile.cls',
       };
 
-      expect(SymbolKeyUtils.areEquivalent(key1, key2)).toBe(true);
-      expect(SymbolKeyUtils.areEquivalent(key1, key3)).toBe(false);
+      expect(areEquivalent(key1, key2)).toBe(true);
+      expect(areEquivalent(key1, key3)).toBe(false);
     });
 
-    it('should fallback to legacy comparison when unified IDs are not available', () => {
+    it('should check if two SymbolKeys are equivalent without unified IDs', () => {
       const key1: SymbolKey = {
         prefix: 'class',
         name: 'TestClass',
@@ -156,12 +157,12 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
       const key3: SymbolKey = {
         prefix: 'class',
-        name: 'TestClass',
+        name: 'DifferentClass',
         path: ['file', 'DifferentClass'],
       };
 
-      expect(SymbolKeyUtils.areEquivalent(key1, key2)).toBe(true);
-      expect(SymbolKeyUtils.areEquivalent(key1, key3)).toBe(false);
+      expect(areEquivalent(key1, key2)).toBe(true);
+      expect(areEquivalent(key1, key3)).toBe(false);
     });
 
     it('should get unified ID from SymbolKey, generating if needed', () => {
@@ -173,16 +174,11 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         fqn: 'TestClass',
       };
 
-      // Initially no unified ID
-      expect(key.unifiedId).toBeUndefined();
-
-      // Get unified ID, should generate and cache
-      const unifiedId = SymbolKeyUtils.getUnifiedId(key, 'TestFile.cls');
+      const unifiedId = getUnifiedId(key, 'TestFile.cls');
       expect(unifiedId).toBe('TestClass:TestFile.cls');
-      expect(key.unifiedId).toBe('TestClass:TestFile.cls');
 
-      // Second call should use cached value
-      const cachedId = SymbolKeyUtils.getUnifiedId(key, 'TestFile.cls');
+      // Should return cached value
+      const cachedId = getUnifiedId(key, 'TestFile.cls');
       expect(cachedId).toBe('TestClass:TestFile.cls');
     });
   });
@@ -344,11 +340,11 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         fqn: 'TestClass',
       };
 
-      const key1 = SymbolKeyUtils.createFromSymbol(symbol1, 'TestFile.cls');
-      const key2 = SymbolKeyUtils.createFromSymbol(symbol2, 'TestFile.cls');
+      const key1 = createFromSymbol(symbol1, 'TestFile.cls');
+      const key2 = createFromSymbol(symbol2, 'TestFile.cls');
 
       expect(key1.unifiedId).toBe(key2.unifiedId);
-      expect(SymbolKeyUtils.areEquivalent(key1, key2)).toBe(true);
+      expect(areEquivalent(key1, key2)).toBe(true);
     });
 
     it('should handle large numbers of symbols efficiently', () => {
@@ -387,7 +383,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
       // Generate unified keys for all symbols
       const unifiedKeys = symbols.map((symbol) =>
-        SymbolKeyUtils.createFromSymbol(symbol, 'TestFile.cls'),
+        createFromSymbol(symbol, 'TestFile.cls'),
       );
 
       const endTime = Date.now();

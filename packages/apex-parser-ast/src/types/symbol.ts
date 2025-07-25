@@ -243,103 +243,100 @@ export interface SymbolKey {
 }
 
 /**
- * Utility class for unified symbol key operations
- * Phase 6.5.2: Symbol Key System Unification
+ * Generate a unified symbol ID from a SymbolKey
+ * @param key The symbol key
+ * @param filePath Optional file path for uniqueness
+ * @returns Unified symbol ID string
  */
-export class SymbolKeyUtils {
-  /**
-   * Generate a unified symbol ID from a SymbolKey
-   * @param key The symbol key
-   * @param filePath Optional file path for uniqueness
-   * @returns Unified symbol ID string
-   */
-  static generateUnifiedId(key: SymbolKey, filePath?: string): string {
-    // Use FQN if available, otherwise construct from key components
-    const baseId =
-      key.fqn || `${key.kind || 'unknown'}:${key.name}:${key.path.join('.')}`;
-    return filePath ? `${baseId}:${filePath}` : baseId;
+export const generateUnifiedId = (
+  key: SymbolKey,
+  filePath?: string,
+): string => {
+  // Use FQN if available, otherwise construct from key components
+  const baseId =
+    key.fqn || `${key.kind || 'unknown'}:${key.name}:${key.path.join('.')}`;
+  return filePath ? `${baseId}:${filePath}` : baseId;
+};
+
+/**
+ * Convert a SymbolKey to a string for use as a map key (legacy compatibility)
+ * @param key The symbol key
+ * @returns String representation
+ */
+export const keyToString = (key: SymbolKey): string =>
+  `${key.prefix}:${key.path.join('.')}`;
+
+/**
+ * Create a SymbolKey from an ApexSymbol with unified ID
+ * @param symbol The Apex symbol
+ * @param filePath Optional file path
+ * @returns Enhanced SymbolKey with unified ID
+ */
+export const createFromSymbol = (
+  symbol: ApexSymbol,
+  filePath?: string,
+): SymbolKey => {
+  const key: SymbolKey = {
+    prefix: symbol.key.prefix,
+    name: symbol.key.name,
+    path: symbol.key.path,
+    kind: symbol.kind,
+    fqn: symbol.fqn,
+    filePath: filePath,
+  };
+
+  // Generate unified ID
+  key.unifiedId = generateUnifiedId(key, filePath);
+
+  return key;
+};
+
+/**
+ * Create a SymbolKey from a parent symbol (for parentKey relationships)
+ * @param parentSymbol The parent Apex symbol
+ * @param filePath Optional file path
+ * @returns Enhanced SymbolKey for parent relationship
+ */
+export const createParentKey = (
+  parentSymbol: ApexSymbol,
+  filePath?: string,
+): SymbolKey => createFromSymbol(parentSymbol, filePath);
+
+/**
+ * Check if two SymbolKeys are equivalent
+ * @param key1 First symbol key
+ * @param key2 Second symbol key
+ * @returns True if keys are equivalent
+ */
+export const areEquivalent = (key1: SymbolKey, key2: SymbolKey): boolean => {
+  // Compare unified IDs if available
+  if (key1.unifiedId && key2.unifiedId) {
+    return key1.unifiedId === key2.unifiedId;
   }
 
-  /**
-   * Convert a SymbolKey to a string for use as a map key (legacy compatibility)
-   * @param key The symbol key
-   * @returns String representation
-   */
-  static keyToString(key: SymbolKey): string {
-    return `${key.prefix}:${key.path.join('.')}`;
-  }
+  // Fallback to legacy comparison
+  return (
+    key1.prefix === key2.prefix &&
+    key1.name === key2.name &&
+    key1.path.join('.') === key2.path.join('.')
+  );
+};
 
-  /**
-   * Create a SymbolKey from an ApexSymbol with unified ID
-   * @param symbol The Apex symbol
-   * @param filePath Optional file path
-   * @returns Enhanced SymbolKey with unified ID
-   */
-  static createFromSymbol(symbol: ApexSymbol, filePath?: string): SymbolKey {
-    const key: SymbolKey = {
-      prefix: symbol.key.prefix,
-      name: symbol.key.name,
-      path: symbol.key.path,
-      kind: symbol.kind,
-      fqn: symbol.fqn,
-      filePath: filePath,
-    };
-
-    // Generate unified ID
-    key.unifiedId = this.generateUnifiedId(key, filePath);
-
-    return key;
-  }
-
-  /**
-   * Create a SymbolKey from a parent symbol (for parentKey relationships)
-   * @param parentSymbol The parent Apex symbol
-   * @param filePath Optional file path
-   * @returns Enhanced SymbolKey for parent relationship
-   */
-  static createParentKey(
-    parentSymbol: ApexSymbol,
-    filePath?: string,
-  ): SymbolKey {
-    return this.createFromSymbol(parentSymbol, filePath);
-  }
-
-  /**
-   * Check if two SymbolKeys are equivalent
-   * @param key1 First symbol key
-   * @param key2 Second symbol key
-   * @returns True if keys are equivalent
-   */
-  static areEquivalent(key1: SymbolKey, key2: SymbolKey): boolean {
-    // Compare unified IDs if available
-    if (key1.unifiedId && key2.unifiedId) {
-      return key1.unifiedId === key2.unifiedId;
-    }
-
-    // Fallback to legacy comparison
-    return (
-      key1.prefix === key2.prefix &&
-      key1.name === key2.name &&
-      key1.path.join('.') === key2.path.join('.')
-    );
-  }
-
-  /**
-   * Get the unified ID from a SymbolKey, generating if needed
-   * @param key The symbol key
-   * @param filePath Optional file path for generation
-   * @returns Unified symbol ID
-   */
-  static getUnifiedId(key: SymbolKey, filePath?: string): string {
-    if (key.unifiedId) {
-      return key.unifiedId;
-    }
-
-    // Generate and cache the unified ID
-    key.unifiedId = this.generateUnifiedId(key, filePath);
+/**
+ * Get the unified ID from a SymbolKey, generating if needed
+ * @param key The symbol key
+ * @param filePath Optional file path for generation
+ * @returns Unified symbol ID
+ */
+export const getUnifiedId = (key: SymbolKey, filePath?: string): string => {
+  if (key.unifiedId) {
     return key.unifiedId;
   }
-}
+
+  // Generate and cache the unified ID
+  key.unifiedId = generateUnifiedId(key, filePath);
+  return key.unifiedId;
+};
 
 /**
  * Represents a scope in which symbols are defined within a source file.
@@ -473,7 +470,7 @@ export class SymbolTable {
    * Updated for Phase 6.5.2: Symbol Key System Unification
    */
   private keyToString(key: SymbolKey): string {
-    return SymbolKeyUtils.keyToString(key);
+    return keyToString(key);
   }
 
   /**
@@ -492,7 +489,7 @@ export class SymbolTable {
 
     // Ensure symbol key has unified ID for graph operations
     if (!symbol.key.unifiedId) {
-      symbol.key = SymbolKeyUtils.createFromSymbol(symbol);
+      symbol.key = createFromSymbol(symbol);
     }
 
     this.current.addSymbol(symbol);
