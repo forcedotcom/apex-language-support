@@ -179,14 +179,6 @@ export class ApexSymbolGraph {
     const sourceId = this.findSymbolId(sourceSymbol);
     const targetId = this.findSymbolId(targetSymbol);
 
-    console.log(
-      `Adding reference: ${sourceSymbol.name} -> ${targetSymbol.name}`,
-    );
-    console.log(`Source ID: ${sourceId}, Target ID: ${targetId}`);
-    console.log(
-      `Source FQN: ${sourceSymbol.fqn}, Target FQN: ${targetSymbol.fqn}`,
-    );
-
     // Handle case where symbols are not found
     if (!sourceId) {
       this.logger.debug(() => `Source symbol not found: ${sourceSymbol.name}`);
@@ -209,20 +201,15 @@ export class ApexSymbolGraph {
     }
 
     // Add edge to graphology graph (check if edge already exists)
-    const existingEdges = this.referenceGraph.edges(sourceId, targetId);
-    console.log(
-      `Checking edges from ${sourceId} to ${targetId}: ${existingEdges.length} existing edges`,
-    );
+    // Use outEdges to get only edges going FROM sourceId TO targetId
+    const existingEdges = this.referenceGraph
+      .outEdges(sourceId)
+      .filter((edgeId) => this.referenceGraph.target(edgeId) === targetId);
 
     const hasEdge = existingEdges.some((edgeId) => {
       const edge = this.referenceGraph.getEdgeAttributes(edgeId);
-      console.log(
-        `Existing edge ${edgeId}: type=${edge.type}, checking against ${referenceType}`,
-      );
       return edge.type === referenceType;
     });
-
-    console.log(`Has edge: ${hasEdge}`);
 
     if (!hasEdge) {
       this.referenceGraph.addEdge(sourceId, targetId, {
@@ -610,30 +597,24 @@ export class ApexSymbolGraph {
    * Find the symbol ID for a given symbol by searching through our indexes
    */
   private findSymbolId(symbol: ApexSymbol): string | null {
-    console.log(`Finding symbol ID for: ${symbol.name} (FQN: ${symbol.fqn})`);
-
     // First try to find by FQN
     if (symbol.fqn) {
       const symbolId = this.fqnIndex.get(symbol.fqn);
       if (symbolId) {
-        console.log(`Found by FQN: ${symbolId}`);
         return symbolId;
       }
     }
 
     // If not found by FQN, search by name and match the symbol
     const symbolIds = this.nameIndex.get(symbol.name) || [];
-    console.log(`Found ${symbolIds.length} symbols with name: ${symbol.name}`);
 
     for (const symbolId of symbolIds) {
       const storedSymbol = this.symbolIndex.get(symbolId);
       if (storedSymbol && this.symbolsMatch(storedSymbol, symbol)) {
-        console.log(`Found by name match: ${symbolId}`);
         return symbolId;
       }
     }
 
-    console.log(`Symbol not found: ${symbol.name}`);
     return null;
   }
 

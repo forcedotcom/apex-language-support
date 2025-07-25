@@ -382,7 +382,6 @@ describe('ApexSymbolGraph', () => {
       graph.addSymbol(classB, 'ClassB.cls');
 
       // Create circular dependency: ClassA -> ClassB -> ClassA
-      console.log('Adding reference from ClassA to ClassB');
       graph.addReference(classA, classB, ReferenceType.TYPE_REFERENCE, {
         startLine: 1,
         startColumn: 1,
@@ -390,7 +389,6 @@ describe('ApexSymbolGraph', () => {
         endColumn: 10,
       });
 
-      console.log('Adding reference from ClassB to ClassA');
       graph.addReference(classB, classA, ReferenceType.TYPE_REFERENCE, {
         startLine: 1,
         startColumn: 1,
@@ -398,17 +396,7 @@ describe('ApexSymbolGraph', () => {
         endColumn: 10,
       });
 
-      // Debug: Check if references were added correctly
-      const stats = graph.getStats();
-      console.log('Graph stats:', stats);
-
-      const referencesFromA = graph.findReferencesFrom(classA);
-      const referencesFromB = graph.findReferencesFrom(classB);
-      console.log('References from ClassA:', referencesFromA.length);
-      console.log('References from ClassB:', referencesFromB.length);
-
       const cycles = graph.detectCircularDependencies();
-      console.log('Cycles found:', cycles);
       expect(cycles.length).toBeGreaterThan(0);
 
       // Check that the cycle contains both classes
