@@ -615,6 +615,63 @@ export class ApexSymbolManager {
   }
 
   // ============================================================================
+  // Phase 4.1: Enhanced Context Resolution
+  // ============================================================================
+
+  /**
+   * Resolve a symbol by name with advanced context awareness
+   */
+  resolveSymbol(
+    name: string,
+    context: SymbolResolutionContext,
+  ): SymbolResolutionResult {
+    this.logger.debug(
+      () => `Resolving symbol: ${name} with context from ${context.sourceFile}`,
+    );
+
+    // Step 1: Find all candidates with the given name
+    const candidates = this.findSymbolByName(name);
+
+    if (candidates.length === 0) {
+      return {
+        symbol: null as any,
+        filePath: '',
+        confidence: 0,
+        isAmbiguous: false,
+        resolutionContext: 'No symbols found with this name',
+      };
+    }
+
+    if (candidates.length === 1) {
+      // Single candidate - high confidence
+      const candidate = candidates[0];
+      return {
+        symbol: candidate,
+        filePath: this.getSymbolFilePath(candidate),
+        confidence: 0.9,
+        isAmbiguous: false,
+        resolutionContext: 'Single symbol found',
+      };
+    }
+
+    // Step 2: Apply context-aware resolution for multiple candidates
+    const resolved = this.resolveAmbiguousSymbolWithContext(
+      name,
+      candidates,
+      context,
+    );
+
+    return {
+      symbol: resolved.symbol,
+      filePath: resolved.filePath,
+      confidence: resolved.confidence,
+      isAmbiguous: true,
+      candidates,
+      resolutionContext: resolved.resolutionContext,
+    };
+  }
+
+  // ============================================================================
   // Utility Methods
   // ============================================================================
 
@@ -1008,5 +1065,344 @@ export class ApexSymbolManager {
     } else {
       return 'active';
     }
+  }
+
+  /**
+   * Enhanced confidence scoring based on relationship strength
+   */
+  private computeContextConfidence(
+    symbol: ApexSymbol,
+    context: SymbolResolutionContext,
+  ): number {
+    let confidence = 0.5; // Base confidence for ambiguous symbols
+
+    // Import statement analysis (highest weight)
+    if (context.importStatements.length > 0) {
+      const importConfidence = this.analyzeImportStatements(
+        symbol,
+        context.importStatements,
+      );
+      confidence += importConfidence * 0.3; // 30% weight
+    }
+
+    // Namespace context analysis
+    if (context.namespaceContext) {
+      const namespaceConfidence = this.analyzeNamespaceContext(
+        symbol,
+        context.namespaceContext,
+      );
+      confidence += namespaceConfidence * 0.2; // 20% weight
+    }
+
+    // Scope chain analysis
+    if (context.scopeChain.length > 0) {
+      const scopeConfidence = this.analyzeScopeChain(
+        symbol,
+        context.scopeChain,
+      );
+      confidence += scopeConfidence * 0.15; // 15% weight
+    }
+
+    // Type context analysis
+    if (
+      context.expectedType ||
+      context.parameterTypes.length > 0 ||
+      context.returnType
+    ) {
+      const typeConfidence = this.analyzeTypeContext(symbol, context);
+      confidence += typeConfidence * 0.15; // 15% weight
+    }
+
+    // Access modifier analysis
+    const accessConfidence = this.analyzeAccessContext(symbol, context);
+    confidence += accessConfidence * 0.1; // 10% weight
+
+    // Relationship context analysis
+    if (context.relationshipType) {
+      const relationshipConfidence = this.analyzeRelationshipContext(
+        symbol,
+        context,
+      );
+      confidence += relationshipConfidence * 0.1; // 10% weight
+    }
+
+    return Math.min(confidence, 1.0); // Cap at 1.0
+  }
+
+  /**
+   * Analyze import statements for namespace resolution
+   */
+  private analyzeImportStatements(
+    symbol: ApexSymbol,
+    importStatements: string[],
+  ): number {
+    let confidence = 0;
+
+    for (const importStatement of importStatements) {
+      // Check if the import statement matches the symbol's namespace
+      if (symbol.fqn && importStatement.includes(symbol.fqn.split('.')[0])) {
+        confidence += 0.8; // High confidence for namespace match
+      }
+
+      // Check for wildcard imports
+      if (importStatement.endsWith('.*')) {
+        const namespace = importStatement.replace('.*', '');
+        if (symbol.fqn && symbol.fqn.startsWith(namespace)) {
+          confidence += 0.6; // Medium confidence for wildcard import
+        }
+      }
+
+      // Check for specific class imports
+      if (importStatement.includes(symbol.name)) {
+        confidence += 0.9; // Very high confidence for specific import
+      }
+    }
+
+    return Math.min(confidence, 1.0);
+  }
+
+  /**
+   * Analyze namespace context for resolution
+   */
+  private analyzeNamespaceContext(
+    symbol: ApexSymbol,
+    namespaceContext: string,
+  ): number {
+    if (!symbol.fqn) {
+      return 0;
+    }
+
+    const symbolNamespace = symbol.fqn.split('.')[0];
+
+    if (symbolNamespace === namespaceContext) {
+      return 0.9; // High confidence for exact namespace match
+    }
+
+    if (symbolNamespace.toLowerCase() === namespaceContext.toLowerCase()) {
+      return 0.7; // Medium confidence for case-insensitive match
+    }
+
+    return 0.1; // Low confidence for no match
+  }
+
+  /**
+   * Analyze scope chain for resolution
+   */
+  private analyzeScopeChain(symbol: ApexSymbol, scopeChain: string[]): number {
+    let confidence = 0;
+
+    // Check if symbol is in the current scope
+    if (scopeChain.includes(symbol.name)) {
+      confidence += 0.5;
+    }
+
+    // Check for nested scope matches
+    for (const scope of scopeChain) {
+      if (symbol.fqn && symbol.fqn.includes(scope)) {
+        confidence += 0.3;
+      }
+    }
+
+    return Math.min(confidence, 1.0);
+  }
+
+  /**
+   * Analyze type context for resolution
+   */
+  private analyzeTypeContext(
+    symbol: ApexSymbol,
+    context: SymbolResolutionContext,
+  ): number {
+    let confidence = 0;
+
+    // Check expected type
+    if (context.expectedType && symbol.fqn) {
+      if (symbol.fqn === context.expectedType) {
+        confidence += 0.8;
+      } else if (symbol.fqn.includes(context.expectedType)) {
+        confidence += 0.5;
+      }
+    }
+
+    // Check parameter types
+    for (const paramType of context.parameterTypes) {
+      if (symbol.fqn && symbol.fqn.includes(paramType)) {
+        confidence += 0.3;
+      }
+    }
+
+    // Check return type
+    if (context.returnType && symbol.fqn) {
+      if (symbol.fqn === context.returnType) {
+        confidence += 0.6;
+      } else if (symbol.fqn.includes(context.returnType)) {
+        confidence += 0.3;
+      }
+    }
+
+    return Math.min(confidence, 1.0);
+  }
+
+  /**
+   * Analyze access context for resolution
+   */
+  private analyzeAccessContext(
+    symbol: ApexSymbol,
+    context: SymbolResolutionContext,
+  ): number {
+    let confidence = 0;
+
+    // Check access modifier compatibility
+    const symbolVisibility = symbol.modifiers.visibility;
+    const contextAccess = context.accessModifier;
+
+    // Public symbols are always accessible
+    if (symbolVisibility === 'public' || symbolVisibility === 'global') {
+      confidence += 0.5;
+    }
+
+    // Private symbols only in same class
+    if (symbolVisibility === 'private' && contextAccess === 'private') {
+      confidence += 0.8;
+    }
+
+    // Protected symbols in inheritance chain
+    if (symbolVisibility === 'protected' && contextAccess === 'protected') {
+      confidence += 0.7;
+    }
+
+    // Check static access
+    if (symbol.modifiers.isStatic === context.isStatic) {
+      confidence += 0.3;
+    }
+
+    return Math.min(confidence, 1.0);
+  }
+
+  /**
+   * Analyze relationship context for resolution
+   */
+  private analyzeRelationshipContext(
+    symbol: ApexSymbol,
+    context: SymbolResolutionContext,
+  ): number {
+    if (!context.relationshipType) {
+      return 0;
+    }
+
+    let confidence = 0;
+
+    // Check if symbol supports the expected relationship type
+    switch (context.relationshipType) {
+      case ReferenceType.METHOD_CALL:
+        if (symbol.kind === 'method') {
+          confidence += 0.8;
+        }
+        break;
+      case ReferenceType.FIELD_ACCESS:
+        if (symbol.kind === 'field') {
+          confidence += 0.8;
+        }
+        break;
+      case ReferenceType.TYPE_REFERENCE:
+        if (symbol.kind === 'class' || symbol.kind === 'interface') {
+          confidence += 0.8;
+        }
+        break;
+      case ReferenceType.INHERITANCE:
+        if (symbol.kind === 'class') {
+          confidence += 0.8;
+        }
+        break;
+      case ReferenceType.INTERFACE_IMPLEMENTATION:
+        if (symbol.kind === 'interface') {
+          confidence += 0.8;
+        }
+        break;
+    }
+
+    return Math.min(confidence, 1.0);
+  }
+
+  /**
+   * Resolve ambiguous symbol using advanced context analysis
+   */
+  private resolveAmbiguousSymbolWithContext(
+    name: string,
+    candidates: ApexSymbol[],
+    context: SymbolResolutionContext,
+  ): {
+    symbol: ApexSymbol;
+    filePath: string;
+    confidence: number;
+    resolutionContext: string;
+  } {
+    // Calculate confidence scores for all candidates
+    const scoredCandidates = candidates.map((candidate) => ({
+      symbol: candidate,
+      confidence: this.computeContextConfidence(candidate, context),
+      filePath: this.getSymbolFilePath(candidate),
+    }));
+
+    // Sort by confidence (descending)
+    scoredCandidates.sort((a, b) => b.confidence - a.confidence);
+
+    const bestMatch = scoredCandidates[0];
+
+    // Generate resolution context explanation
+    let resolutionContext = `Resolved from ${candidates.length} candidates`;
+
+    if (bestMatch.confidence > 0.8) {
+      resolutionContext += ` - High confidence (${(bestMatch.confidence * 100).toFixed(1)}%)`;
+    } else if (bestMatch.confidence > 0.6) {
+      resolutionContext += ` - Medium confidence (${(bestMatch.confidence * 100).toFixed(1)}%)`;
+    } else {
+      resolutionContext += ` - Low confidence (${(bestMatch.confidence * 100).toFixed(1)}%)`;
+    }
+
+    // Add context details
+    if (context.importStatements.length > 0) {
+      resolutionContext += ' - Import analysis applied';
+    }
+    if (context.namespaceContext) {
+      resolutionContext += ` - Namespace context: ${context.namespaceContext}`;
+    }
+
+    return {
+      symbol: bestMatch.symbol,
+      filePath: bestMatch.filePath,
+      confidence: bestMatch.confidence,
+      resolutionContext,
+    };
+  }
+
+  /**
+   * Get the file path for a symbol
+   */
+  private getSymbolFilePath(symbol: ApexSymbol): string {
+    // Try to find the symbol in our cache to get the file path
+    for (const [symbolId, cachedSymbol] of this.symbolCache) {
+      if (this.symbolsMatch(cachedSymbol, symbol)) {
+        // Extract file path from symbol ID
+        const parts = symbolId.split(':');
+        if (parts.length > 2) {
+          return parts[parts.length - 1]; // Last part should be the file path
+        }
+      }
+    }
+
+    // Fallback to symbol key path
+    return symbol.key.path[0] || 'unknown';
+  }
+
+  /**
+   * Check if two symbols match
+   */
+  private symbolsMatch(symbol1: ApexSymbol, symbol2: ApexSymbol): boolean {
+    return (
+      symbol1.name === symbol2.name &&
+      symbol1.kind === symbol2.kind &&
+      symbol1.fqn === symbol2.fqn
+    );
   }
 }

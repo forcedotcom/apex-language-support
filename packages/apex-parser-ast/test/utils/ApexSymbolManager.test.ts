@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbolManager } from '../../src/utils/ApexSymbolManager';
+import {
+  ApexSymbolManager,
+  SymbolResolutionContext,
+} from '../../src/utils/ApexSymbolManager';
 import {
   ApexSymbol,
   SymbolKind,
@@ -771,6 +774,478 @@ describe('ApexSymbolManager', () => {
       expect(interfaceImpact.riskAssessment).toBeDefined();
       expect(classImpact.riskAssessment).toBeDefined();
       expect(methodImpact.riskAssessment).toBeDefined();
+    });
+  });
+
+  // ============================================================================
+  // Phase 4.1: Enhanced Context Resolution
+  // ============================================================================
+
+  describe('Enhanced Context Resolution', () => {
+    it('should resolve symbols with context awareness', () => {
+      const class1 = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        'Namespace1.MyClass',
+      );
+      const class2 = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        'Namespace2.MyClass',
+      );
+
+      manager.addSymbol(class1, 'Class1.cls');
+      manager.addSymbol(class2, 'Class2.cls');
+
+      const context: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: ['Namespace1.*'],
+        namespaceContext: 'Namespace1',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass', 'TestMethod'],
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const result = manager.resolveSymbol('MyClass', context);
+
+      expect(result).toBeDefined();
+      expect(result.symbol).toBeDefined();
+      expect(result.confidence).toBeGreaterThan(0.5);
+      expect(result.isAmbiguous).toBe(true);
+      expect(result.candidates).toHaveLength(2);
+      expect(result.resolutionContext).toContain('Resolved from 2 candidates');
+    });
+
+    it('should handle single symbol resolution with high confidence', () => {
+      const class1 = createTestSymbol('UniqueClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'UniqueClass.cls');
+
+      const context: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: [],
+        namespaceContext: '',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const result = manager.resolveSymbol('UniqueClass', context);
+
+      expect(result.symbol).toBeDefined();
+      expect(result.confidence).toBe(0.9);
+      expect(result.isAmbiguous).toBe(false);
+      expect(result.candidates).toBeUndefined();
+      expect(result.resolutionContext).toBe('Single symbol found');
+    });
+
+    it('should handle no symbol found gracefully', () => {
+      const context: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: [],
+        namespaceContext: '',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const result = manager.resolveSymbol('NonExistentClass', context);
+
+      expect(result.symbol).toBeNull();
+      expect(result.confidence).toBe(0);
+      expect(result.isAmbiguous).toBe(false);
+      expect(result.resolutionContext).toBe('No symbols found with this name');
+    });
+
+    it('should analyze import statements for resolution', () => {
+      const class1 = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        'Namespace1.MyClass',
+      );
+      const class2 = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        'Namespace2.MyClass',
+      );
+
+      manager.addSymbol(class1, 'Class1.cls');
+      manager.addSymbol(class2, 'Class2.cls');
+
+      // Test with specific import
+      const contextWithSpecificImport: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: ['Namespace1.MyClass'],
+        namespaceContext: '',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const result1 = manager.resolveSymbol(
+        'MyClass',
+        contextWithSpecificImport,
+      );
+      expect(result1.confidence).toBeGreaterThan(0.8);
+
+      // Test with wildcard import
+      const contextWithWildcardImport: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: ['Namespace1.*'],
+        namespaceContext: '',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const result2 = manager.resolveSymbol(
+        'MyClass',
+        contextWithWildcardImport,
+      );
+      expect(result2.confidence).toBeGreaterThan(0.6);
+    });
+
+    it('should analyze namespace context for resolution', () => {
+      const class1 = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        'Namespace1.MyClass',
+      );
+      const class2 = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        'Namespace2.MyClass',
+      );
+
+      manager.addSymbol(class1, 'Class1.cls');
+      manager.addSymbol(class2, 'Class2.cls');
+
+      const context: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: [],
+        namespaceContext: 'Namespace1',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const result = manager.resolveSymbol('MyClass', context);
+      expect(result.confidence).toBeGreaterThan(0.6);
+      expect(result.resolutionContext).toContain(
+        'Namespace context: Namespace1',
+      );
+    });
+
+    it('should analyze type context for resolution', () => {
+      const class1 = createTestSymbol(
+        'String',
+        SymbolKind.Class,
+        'System.String',
+      );
+      const class2 = createTestSymbol(
+        'String',
+        SymbolKind.Class,
+        'Custom.String',
+      );
+
+      manager.addSymbol(class1, 'SystemString.cls');
+      manager.addSymbol(class2, 'CustomString.cls');
+
+      const context: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: [],
+        namespaceContext: '',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        expectedType: 'System.String',
+        parameterTypes: ['System.String'],
+        returnType: 'System.String',
+        accessModifier: 'public',
+        isStatic: false,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const result = manager.resolveSymbol('String', context);
+      expect(result.confidence).toBeGreaterThan(0.6);
+    });
+
+    it('should analyze access context for resolution', () => {
+      const publicClass = createTestSymbol('PublicClass', SymbolKind.Class);
+      const privateClass = createTestSymbol('PrivateClass', SymbolKind.Class);
+
+      // Set modifiers
+      publicClass.modifiers.visibility = SymbolVisibility.Public;
+      privateClass.modifiers.visibility = SymbolVisibility.Private;
+
+      manager.addSymbol(publicClass, 'PublicClass.cls');
+      manager.addSymbol(privateClass, 'PrivateClass.cls');
+
+      const publicContext: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: [],
+        namespaceContext: '',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const privateContext: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: [],
+        namespaceContext: '',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: [],
+        accessModifier: 'private',
+        isStatic: false,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const publicResult = manager.resolveSymbol('PublicClass', publicContext);
+      const privateResult = manager.resolveSymbol(
+        'PrivateClass',
+        privateContext,
+      );
+
+      expect(publicResult.confidence).toBeGreaterThan(0.5);
+      expect(privateResult.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('should analyze relationship context for resolution', () => {
+      const method1 = createTestSymbol('myMethod', SymbolKind.Method);
+      const field1 = createTestSymbol('myField', SymbolKind.Field);
+      const class1 = createTestSymbol('MyClass', SymbolKind.Class);
+
+      manager.addSymbol(method1, 'MyClass.cls');
+      manager.addSymbol(field1, 'MyClass.cls');
+      manager.addSymbol(class1, 'MyClass.cls');
+
+      // Test method call context
+      const methodContext: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: [],
+        namespaceContext: '',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        relationshipType: ReferenceType.METHOD_CALL,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      // Test field access context
+      const fieldContext: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: [],
+        namespaceContext: '',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        relationshipType: ReferenceType.FIELD_ACCESS,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const methodResult = manager.resolveSymbol('myMethod', methodContext);
+      const fieldResult = manager.resolveSymbol('myField', fieldContext);
+
+      expect(methodResult.confidence).toBeGreaterThan(0.5);
+      expect(fieldResult.confidence).toBeGreaterThan(0.5);
+    });
+
+    it('should provide detailed resolution context explanations', () => {
+      const class1 = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        'Namespace1.MyClass',
+      );
+      const class2 = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        'Namespace2.MyClass',
+      );
+
+      manager.addSymbol(class1, 'Class1.cls');
+      manager.addSymbol(class2, 'Class2.cls');
+
+      const context: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: ['Namespace1.*'],
+        namespaceContext: 'Namespace1',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const result = manager.resolveSymbol('MyClass', context);
+
+      expect(result.resolutionContext).toContain('Resolved from 2 candidates');
+      expect(result.resolutionContext).toContain('Import analysis applied');
+      expect(result.resolutionContext).toContain(
+        'Namespace context: Namespace1',
+      );
+      expect(result.resolutionContext).toMatch(/confidence \(\d+\.\d+%\)/);
+    });
+  });
+
+  // ============================================================================
+  // Phase 4 Integration Tests
+  // ============================================================================
+
+  describe('Phase 4 Integration', () => {
+    it('should integrate context resolution with existing functionality', () => {
+      // Setup: Add symbols with different namespaces
+      const systemClass = createTestSymbol(
+        'String',
+        SymbolKind.Class,
+        'System.String',
+      );
+      const customClass = createTestSymbol(
+        'String',
+        SymbolKind.Class,
+        'Custom.String',
+      );
+      const method1 = createTestSymbol(
+        'toString',
+        SymbolKind.Method,
+        'System.String.toString',
+      );
+
+      manager.addSymbol(systemClass, 'SystemString.cls');
+      manager.addSymbol(customClass, 'CustomString.cls');
+      manager.addSymbol(method1, 'SystemString.cls');
+
+      // Test context resolution
+      const context: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: ['System.*'],
+        namespaceContext: 'System',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass', 'TestMethod'],
+        expectedType: 'System.String',
+        parameterTypes: ['System.String'],
+        returnType: 'System.String',
+        accessModifier: 'public',
+        isStatic: false,
+        relationshipType: ReferenceType.METHOD_CALL,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const result = manager.resolveSymbol('String', context);
+
+      // Verify integration with existing functionality
+      expect(result.symbol).toBeDefined();
+      expect(result.confidence).toBeGreaterThan(0.7);
+
+      // Test that resolved symbol works with other methods
+      const metrics = manager.computeMetrics(result.symbol);
+      expect(metrics).toBeDefined();
+
+      const impact = manager.getImpactAnalysis(result.symbol);
+      expect(impact).toBeDefined();
+    });
+
+    it('should handle complex resolution scenarios', () => {
+      // Create a complex scenario with multiple ambiguous symbols
+      const class1 = createTestSymbol(
+        'Utils',
+        SymbolKind.Class,
+        'Namespace1.Utils',
+      );
+      const class2 = createTestSymbol(
+        'Utils',
+        SymbolKind.Class,
+        'Namespace2.Utils',
+      );
+      const method1 = createTestSymbol(
+        'format',
+        SymbolKind.Method,
+        'Namespace1.Utils.format',
+      );
+      const method2 = createTestSymbol(
+        'format',
+        SymbolKind.Method,
+        'Namespace2.Utils.format',
+      );
+
+      manager.addSymbol(class1, 'Utils1.cls');
+      manager.addSymbol(class2, 'Utils2.cls');
+      manager.addSymbol(method1, 'Utils1.cls');
+      manager.addSymbol(method2, 'Utils2.cls');
+
+      // Test class resolution
+      const classContext: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: ['Namespace1.*'],
+        namespaceContext: 'Namespace1',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        relationshipType: ReferenceType.TYPE_REFERENCE,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const classResult = manager.resolveSymbol('Utils', classContext);
+      expect(classResult.confidence).toBeGreaterThan(0.6);
+
+      // Test method resolution
+      const methodContext: SymbolResolutionContext = {
+        sourceFile: 'TestFile.cls',
+        importStatements: ['Namespace1.Utils'],
+        namespaceContext: 'Namespace1',
+        currentScope: 'TestClass',
+        scopeChain: ['TestClass'],
+        parameterTypes: ['String'],
+        accessModifier: 'public',
+        isStatic: false,
+        relationshipType: ReferenceType.METHOD_CALL,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+      };
+
+      const methodResult = manager.resolveSymbol('format', methodContext);
+      expect(methodResult.confidence).toBeGreaterThan(0.6);
     });
   });
 });
