@@ -20,5 +20,11 @@ export type {
 // Export enum utilities
 export * from './enumUtils';
 
+// Export optimized enum utilities for memory efficiency
+export * from './optimizedEnumUtils';
+
 // Export logger functionality
 export * from './logger';
+
+// Export smaller numeric types for memory optimization
+export * from './smallNumericTypes';
