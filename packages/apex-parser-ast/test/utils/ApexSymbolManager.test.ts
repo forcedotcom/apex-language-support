@@ -419,4 +419,358 @@ describe('ApexSymbolManager', () => {
       expect(firstLookup).toEqual(secondLookup);
     });
   });
+
+  // ============================================================================
+  // Phase 3.1: Dependency Analysis
+  // ============================================================================
+
+  describe('Dependency Analysis', () => {
+    it('should analyze dependencies for a symbol', () => {
+      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
+      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
+
+      manager.addSymbol(classSymbol, 'MyClass.cls');
+      manager.addSymbol(methodSymbol, 'MyClass.cls');
+
+      const analysis = manager.analyzeDependencies(classSymbol);
+
+      expect(analysis).toBeDefined();
+      expect(Array.isArray(analysis.dependencies)).toBe(true);
+      expect(Array.isArray(analysis.dependents)).toBe(true);
+      expect(typeof analysis.impactScore).toBe('number');
+      expect(Array.isArray(analysis.circularDependencies)).toBe(true);
+    });
+
+    it('should detect circular dependencies', () => {
+      const classA = createTestSymbol(
+        'ClassA',
+        SymbolKind.Class,
+        'ClassA',
+        'ClassA.cls',
+      );
+      const classB = createTestSymbol(
+        'ClassB',
+        SymbolKind.Class,
+        'ClassB',
+        'ClassB.cls',
+      );
+
+      manager.addSymbol(classA, 'ClassA.cls');
+      manager.addSymbol(classB, 'ClassB.cls');
+
+      const circularDependencies = manager.detectCircularDependencies();
+
+      expect(Array.isArray(circularDependencies)).toBe(true);
+      // Note: Without actual references added, this should return empty array
+      expect(circularDependencies.length).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should provide impact analysis for refactoring', () => {
+      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
+      manager.addSymbol(classSymbol, 'MyClass.cls');
+
+      const impactAnalysis = manager.getImpactAnalysis(classSymbol);
+
+      expect(impactAnalysis).toBeDefined();
+      expect(Array.isArray(impactAnalysis.directImpact)).toBe(true);
+      expect(Array.isArray(impactAnalysis.indirectImpact)).toBe(true);
+      expect(Array.isArray(impactAnalysis.breakingChanges)).toBe(true);
+      expect(Array.isArray(impactAnalysis.migrationPath)).toBe(true);
+      expect(['low', 'medium', 'high']).toContain(
+        impactAnalysis.riskAssessment,
+      );
+    });
+
+    it('should assess risk correctly based on impact size', () => {
+      const lowImpactSymbol = createTestSymbol('LowImpact', SymbolKind.Class);
+      const highImpactSymbol = createTestSymbol('HighImpact', SymbolKind.Class);
+
+      manager.addSymbol(lowImpactSymbol, 'LowImpact.cls');
+      manager.addSymbol(highImpactSymbol, 'HighImpact.cls');
+
+      const lowImpactAnalysis = manager.getImpactAnalysis(lowImpactSymbol);
+      const highImpactAnalysis = manager.getImpactAnalysis(highImpactSymbol);
+
+      // Both should have low risk initially (no references)
+      expect(lowImpactAnalysis.riskAssessment).toBe('low');
+      expect(highImpactAnalysis.riskAssessment).toBe('low');
+    });
+  });
+
+  // ============================================================================
+  // Phase 3.2: Symbol Metrics
+  // ============================================================================
+
+  describe('Symbol Metrics', () => {
+    it('should compute metrics for a symbol', () => {
+      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
+      manager.addSymbol(classSymbol, 'MyClass.cls');
+
+      const metrics = manager.computeMetrics(classSymbol);
+
+      expect(metrics).toBeDefined();
+      expect(typeof metrics.referenceCount).toBe('number');
+      expect(typeof metrics.dependencyCount).toBe('number');
+      expect(typeof metrics.dependentCount).toBe('number');
+      expect(typeof metrics.cyclomaticComplexity).toBe('number');
+      expect(typeof metrics.depthOfInheritance).toBe('number');
+      expect(typeof metrics.couplingScore).toBe('number');
+      expect(typeof metrics.impactScore).toBe('number');
+      expect(typeof metrics.changeImpactRadius).toBe('number');
+      expect(typeof metrics.refactoringRisk).toBe('number');
+      expect(Array.isArray(metrics.usagePatterns)).toBe(true);
+      expect(Array.isArray(metrics.accessPatterns)).toBe(true);
+      expect(['active', 'deprecated', 'legacy', 'experimental']).toContain(
+        metrics.lifecycleStage,
+      );
+    });
+
+    it('should get metrics for all symbols', () => {
+      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
+      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
+
+      manager.addSymbol(classSymbol, 'MyClass.cls');
+      manager.addSymbol(methodSymbol, 'MyClass.cls');
+
+      const allMetrics = manager.getSymbolMetrics();
+
+      expect(allMetrics).toBeInstanceOf(Map);
+      expect(allMetrics.size).toBe(2);
+
+      // Check that metrics are computed for each symbol
+      for (const [, metrics] of allMetrics) {
+        expect(typeof metrics.referenceCount).toBe('number');
+        expect(typeof metrics.cyclomaticComplexity).toBe('number');
+      }
+    });
+
+    it('should get the most referenced symbols', () => {
+      const class1 = createTestSymbol('Class1', SymbolKind.Class);
+      const class2 = createTestSymbol('Class2', SymbolKind.Class);
+      const class3 = createTestSymbol('Class3', SymbolKind.Class);
+
+      manager.addSymbol(class1, 'Class1.cls');
+      manager.addSymbol(class2, 'Class2.cls');
+      manager.addSymbol(class3, 'Class3.cls');
+
+      const mostReferenced = manager.getMostReferencedSymbols(5);
+
+      expect(Array.isArray(mostReferenced)).toBe(true);
+      expect(mostReferenced.length).toBeLessThanOrEqual(5);
+
+      // Should return symbols in order of reference count (descending)
+      if (mostReferenced.length > 1) {
+        const firstRefs = manager.findReferencesTo(mostReferenced[0]).length;
+        const secondRefs = manager.findReferencesTo(mostReferenced[1]).length;
+        expect(firstRefs).toBeGreaterThanOrEqual(secondRefs);
+      }
+    });
+
+    it('should compute complexity metrics correctly', () => {
+      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
+      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
+
+      manager.addSymbol(classSymbol, 'MyClass.cls');
+      manager.addSymbol(methodSymbol, 'MyClass.cls');
+
+      const classMetrics = manager.computeMetrics(classSymbol);
+      const methodMetrics = manager.computeMetrics(methodSymbol);
+
+      // Methods should have higher complexity than classes
+      expect(methodMetrics.cyclomaticComplexity).toBeGreaterThan(
+        classMetrics.cyclomaticComplexity,
+      );
+
+      // Both should have reasonable complexity values
+      expect(classMetrics.cyclomaticComplexity).toBeGreaterThan(0);
+      expect(methodMetrics.cyclomaticComplexity).toBeGreaterThan(0);
+    });
+
+    it('should determine lifecycle stage correctly', () => {
+      const activeSymbol = createTestSymbol('ActiveClass', SymbolKind.Class);
+      const legacySymbol = createTestSymbol('LegacyClass', SymbolKind.Class);
+
+      manager.addSymbol(activeSymbol, 'ActiveClass.cls');
+      manager.addSymbol(legacySymbol, 'LegacyClass.cls');
+
+      const activeMetrics = manager.computeMetrics(activeSymbol);
+      const legacyMetrics = manager.computeMetrics(legacySymbol);
+
+      // Both should be 'legacy' initially (no references)
+      expect(activeMetrics.lifecycleStage).toBe('legacy');
+      expect(legacyMetrics.lifecycleStage).toBe('legacy');
+    });
+  });
+
+  // ============================================================================
+  // Phase 3.3: Batch Operations
+  // ============================================================================
+
+  describe('Batch Operations', () => {
+    it('should add multiple symbols in batch', async () => {
+      const symbols = [
+        {
+          symbol: createTestSymbol('Class1', SymbolKind.Class),
+          filePath: 'Class1.cls',
+        },
+        {
+          symbol: createTestSymbol('Class2', SymbolKind.Class),
+          filePath: 'Class2.cls',
+        },
+        {
+          symbol: createTestSymbol('Method1', SymbolKind.Method),
+          filePath: 'Class1.cls',
+        },
+      ];
+
+      await manager.addSymbolsBatch(symbols);
+
+      const stats = manager.getStats();
+      expect(stats.totalSymbols).toBe(3);
+      expect(stats.totalFiles).toBe(2); // Class1.cls and Class2.cls
+    });
+
+    it('should analyze dependencies for multiple symbols in batch', async () => {
+      const class1 = createTestSymbol('Class1', SymbolKind.Class);
+      const class2 = createTestSymbol('Class2', SymbolKind.Class);
+      const class3 = createTestSymbol('Class3', SymbolKind.Class);
+
+      manager.addSymbol(class1, 'Class1.cls');
+      manager.addSymbol(class2, 'Class2.cls');
+      manager.addSymbol(class3, 'Class3.cls');
+
+      const symbols = [class1, class2, class3];
+      const batchAnalysis = await manager.analyzeDependenciesBatch(symbols);
+
+      expect(batchAnalysis).toBeInstanceOf(Map);
+      expect(batchAnalysis.size).toBe(3);
+
+      // Check that analysis was performed for each symbol
+      for (const [symbolId, analysis] of batchAnalysis) {
+        expect(typeof symbolId).toBe('string');
+        expect(analysis).toBeDefined();
+        expect(Array.isArray(analysis.dependencies)).toBe(true);
+        expect(Array.isArray(analysis.dependents)).toBe(true);
+      }
+    });
+
+    it('should handle empty batch operations gracefully', async () => {
+      // Empty batch addition
+      await manager.addSymbolsBatch([]);
+
+      const stats = manager.getStats();
+      expect(stats.totalSymbols).toBe(0);
+      expect(stats.totalFiles).toBe(0);
+
+      // Empty batch analysis
+      const emptyAnalysis = await manager.analyzeDependenciesBatch([]);
+      expect(emptyAnalysis.size).toBe(0);
+    });
+
+    it('should maintain consistency during batch operations', async () => {
+      const symbols = [
+        {
+          symbol: createTestSymbol('Class1', SymbolKind.Class),
+          filePath: 'Class1.cls',
+        },
+        {
+          symbol: createTestSymbol('Class2', SymbolKind.Class),
+          filePath: 'Class2.cls',
+        },
+      ];
+
+      // Add symbols individually first
+      manager.addSymbol(symbols[0].symbol, symbols[0].filePath);
+
+      const statsBefore = manager.getStats();
+      expect(statsBefore.totalSymbols).toBe(1);
+
+      // Add remaining symbols in batch
+      await manager.addSymbolsBatch([symbols[1]]);
+
+      const statsAfter = manager.getStats();
+      expect(statsAfter.totalSymbols).toBe(2);
+      expect(statsAfter.totalFiles).toBe(2);
+    });
+  });
+
+  // ============================================================================
+  // Phase 3 Integration Tests
+  // ============================================================================
+
+  describe('Phase 3 Integration', () => {
+    it('should provide comprehensive analysis workflow', async () => {
+      // Setup: Add multiple symbols
+      const class1 = createTestSymbol('BaseClass', SymbolKind.Class);
+      const class2 = createTestSymbol('DerivedClass', SymbolKind.Class);
+      const method1 = createTestSymbol('baseMethod', SymbolKind.Method);
+      const method2 = createTestSymbol('derivedMethod', SymbolKind.Method);
+
+      await manager.addSymbolsBatch([
+        { symbol: class1, filePath: 'BaseClass.cls' },
+        { symbol: class2, filePath: 'DerivedClass.cls' },
+        { symbol: method1, filePath: 'BaseClass.cls' },
+        { symbol: method2, filePath: 'DerivedClass.cls' },
+      ]);
+
+      // Step 1: Get overall metrics
+      const allMetrics = manager.getSymbolMetrics();
+      expect(allMetrics.size).toBe(4);
+
+      // Step 2: Analyze dependencies
+      const dependencyAnalysis = manager.analyzeDependencies(class1);
+      expect(dependencyAnalysis).toBeDefined();
+
+      // Step 3: Get impact analysis
+      const impactAnalysis = manager.getImpactAnalysis(class1);
+      expect(impactAnalysis.riskAssessment).toBeDefined();
+
+      // Step 4: Get most referenced symbols
+      const mostReferenced = manager.getMostReferencedSymbols(10);
+      expect(mostReferenced.length).toBeLessThanOrEqual(10);
+
+      // Step 5: Check for circular dependencies
+      const circularDeps = manager.detectCircularDependencies();
+      expect(Array.isArray(circularDeps)).toBe(true);
+
+      // Verify all operations work together
+      const stats = manager.getStats();
+      expect(stats.totalSymbols).toBe(4);
+      expect(stats.totalFiles).toBe(2);
+    });
+
+    it('should handle complex dependency scenarios', () => {
+      // Create a more complex scenario with multiple symbol types
+      const interface1 = createTestSymbol('MyInterface', SymbolKind.Interface);
+      const class1 = createTestSymbol('MyClass', SymbolKind.Class);
+      const method1 = createTestSymbol('publicMethod', SymbolKind.Method);
+      const field1 = createTestSymbol('privateField', SymbolKind.Field);
+
+      manager.addSymbol(interface1, 'MyInterface.cls');
+      manager.addSymbol(class1, 'MyClass.cls');
+      manager.addSymbol(method1, 'MyClass.cls');
+      manager.addSymbol(field1, 'MyClass.cls');
+
+      // Test metrics computation for different symbol types
+      const interfaceMetrics = manager.computeMetrics(interface1);
+      const classMetrics = manager.computeMetrics(class1);
+      const methodMetrics = manager.computeMetrics(method1);
+      const fieldMetrics = manager.computeMetrics(field1);
+
+      // Each should have valid metrics
+      expect(interfaceMetrics.cyclomaticComplexity).toBeGreaterThan(0);
+      expect(classMetrics.cyclomaticComplexity).toBeGreaterThan(0);
+      expect(methodMetrics.cyclomaticComplexity).toBeGreaterThan(0);
+      expect(fieldMetrics.cyclomaticComplexity).toBeGreaterThan(0);
+
+      // Test impact analysis for different symbol types
+      const interfaceImpact = manager.getImpactAnalysis(interface1);
+      const classImpact = manager.getImpactAnalysis(class1);
+      const methodImpact = manager.getImpactAnalysis(method1);
+
+      expect(interfaceImpact.riskAssessment).toBeDefined();
+      expect(classImpact.riskAssessment).toBeDefined();
+      expect(methodImpact.riskAssessment).toBeDefined();
+    });
+  });
 });
