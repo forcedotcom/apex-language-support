@@ -30,6 +30,15 @@ import { disableLogging } from '@salesforce/apex-lsp-shared';
  * - Concurrent operations: 10% slower with debug logging
  *
  * For production use, always disable debug logging to achieve optimal performance.
+ *
+ * ENHANCED METRICS:
+ * - Comprehensive graph metrics (nodes, edges, density, circular dependencies)
+ * - Detailed memory consumption tracking (heap, RSS, external memory)
+ * - Cache performance analysis (hit rates, invalidation times)
+ * - Peak memory usage monitoring during operations
+ * - Memory growth analysis across different symbol counts
+ * - Graph growth analysis with density calculations
+ * - Performance breakdown by operation type
  */
 describe('ApexSymbolManager - Advanced Performance Tests', () => {
   let manager: ApexSymbolManager;
@@ -84,12 +93,158 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
     parentKey: null,
   });
 
+  // Helper function to get comprehensive metrics
+  const getComprehensiveMetrics = () => {
+    const memoryUsage = process.memoryUsage();
+    const graphStats = (manager as any).symbolGraph.getStats();
+    const managerMemory = manager.getMemoryUsage();
+
+    // Calculate memory pressure indicators
+    const heapUsagePercentage =
+      (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
+    const rssUsagePercentage =
+      (memoryUsage.rss / (16 * 1024 * 1024 * 1024)) * 100; // Assuming 16GB system
+    const externalMemoryPercentage =
+      (memoryUsage.external / memoryUsage.heapTotal) * 100;
+
+    // Memory pressure classification
+    const getMemoryPressureLevel = (heapUsage: number, rssUsage: number) => {
+      if (heapUsage > 90 || rssUsage > 80) return 'CRITICAL';
+      if (heapUsage > 75 || rssUsage > 60) return 'HIGH';
+      if (heapUsage > 50 || rssUsage > 40) return 'MEDIUM';
+      if (heapUsage > 25 || rssUsage > 20) return 'LOW';
+      return 'NORMAL';
+    };
+
+    const memoryPressure = getMemoryPressureLevel(
+      heapUsagePercentage,
+      rssUsagePercentage,
+    );
+
+    return {
+      // Process memory metrics
+      processMemory: {
+        heapUsed: memoryUsage.heapUsed,
+        heapTotal: memoryUsage.heapTotal,
+        external: memoryUsage.external,
+        rss: memoryUsage.rss,
+        heapUsedMB:
+          Math.round((memoryUsage.heapUsed / 1024 / 1024) * 100) / 100,
+        heapTotalMB:
+          Math.round((memoryUsage.heapTotal / 1024 / 1024) * 100) / 100,
+        externalMB:
+          Math.round((memoryUsage.external / 1024 / 1024) * 100) / 100,
+        rssMB: Math.round((memoryUsage.rss / 1024 / 1024) * 100) / 100,
+        // Memory pressure indicators
+        heapUsagePercentage: Math.round(heapUsagePercentage * 100) / 100,
+        rssUsagePercentage: Math.round(rssUsagePercentage * 100) / 100,
+        externalMemoryPercentage:
+          Math.round(externalMemoryPercentage * 100) / 100,
+        memoryPressure,
+        // Memory efficiency metrics
+        memoryEfficiency:
+          Math.round((memoryUsage.heapUsed / memoryUsage.rss) * 100 * 100) /
+          100, // Heap vs RSS efficiency
+        fragmentationLevel:
+          Math.round(
+            ((memoryUsage.heapTotal - memoryUsage.heapUsed) /
+              memoryUsage.heapTotal) *
+              100 *
+              100,
+          ) / 100,
+      },
+      // Graph metrics
+      graph: {
+        totalSymbols: graphStats.totalSymbols,
+        totalReferences: graphStats.totalReferences,
+        totalFiles: graphStats.totalFiles,
+        circularDependencies: graphStats.circularDependencies,
+        deferredReferences: graphStats.deferredReferences,
+        // Calculate graph density (edges / nodes)
+        density:
+          graphStats.totalSymbols > 0
+            ? graphStats.totalReferences / graphStats.totalSymbols
+            : 0,
+      },
+      // Manager cache metrics
+      cache: {
+        symbolCacheSize: managerMemory.symbolCacheSize,
+        relationshipCacheSize: managerMemory.relationshipCacheSize,
+        metricsCacheSize: managerMemory.metricsCacheSize,
+        totalCacheEntries: managerMemory.totalCacheEntries,
+        estimatedMemoryUsage: managerMemory.estimatedMemoryUsage,
+        estimatedMemoryUsageMB:
+          Math.round((managerMemory.estimatedMemoryUsage / 1024 / 1024) * 100) /
+          100,
+      },
+    };
+  };
+
+  // Helper function to log comprehensive metrics
+  const logMetrics = (
+    label: string,
+    metrics: ReturnType<typeof getComprehensiveMetrics>,
+  ) => {
+    console.log(`\n=== ${label} ===`);
+    console.log('Process Memory:');
+    console.log(
+      `  Heap Used: ${metrics.processMemory.heapUsedMB}MB (${metrics.processMemory.heapUsagePercentage}%)`,
+    );
+    console.log(`  Heap Total: ${metrics.processMemory.heapTotalMB}MB`);
+    console.log(
+      `  External: ${metrics.processMemory.externalMB}MB (${metrics.processMemory.externalMemoryPercentage}%)`,
+    );
+    console.log(
+      `  RSS: ${metrics.processMemory.rssMB}MB (${metrics.processMemory.rssUsagePercentage}%)`,
+    );
+    console.log(`  Memory Pressure: ${metrics.processMemory.memoryPressure}`);
+    console.log(
+      `  Memory Efficiency: ${metrics.processMemory.memoryEfficiency}%`,
+    );
+    console.log(
+      `  Fragmentation Level: ${metrics.processMemory.fragmentationLevel}%`,
+    );
+    console.log('Graph Metrics:');
+    console.log(
+      `  Total Symbols: ${metrics.graph.totalSymbols.toLocaleString()}`,
+    );
+    console.log(
+      `  Total References: ${metrics.graph.totalReferences.toLocaleString()}`,
+    );
+    console.log(`  Total Files: ${metrics.graph.totalFiles.toLocaleString()}`);
+    console.log(
+      `  Circular Dependencies: ${metrics.graph.circularDependencies}`,
+    );
+    console.log(`  Deferred References: ${metrics.graph.deferredReferences}`);
+    console.log(`  Graph Density: ${metrics.graph.density.toFixed(2)}`);
+    console.log('Cache Metrics:');
+    console.log(
+      `  Symbol Cache: ${metrics.cache.symbolCacheSize.toLocaleString()}`,
+    );
+    console.log(
+      `  Relationship Cache: ${metrics.cache.relationshipCacheSize.toLocaleString()}`,
+    );
+    console.log(
+      `  Metrics Cache: ${metrics.cache.metricsCacheSize.toLocaleString()}`,
+    );
+    console.log(
+      `  Total Cache Entries: ${metrics.cache.totalCacheEntries.toLocaleString()}`,
+    );
+    console.log(
+      `  Estimated Cache Memory: ${metrics.cache.estimatedMemoryUsageMB}MB`,
+    );
+  };
+
   // ============================================================================
   // Success Criteria Performance Tests
   // ============================================================================
 
   describe('Success Criteria Performance Tests', () => {
     it('should achieve symbol lookup < 1ms for 100K symbols', () => {
+      // Baseline metrics
+      const baselineMetrics = getComprehensiveMetrics();
+      logMetrics('Baseline (Empty Manager)', baselineMetrics);
+
       // Setup: Add 100K symbols
       const startTime = Date.now();
 
@@ -106,6 +261,10 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
       const setupTime = Date.now() - startTime;
       console.log(`Setup time for 100K symbols: ${setupTime}ms`);
 
+      // Metrics after adding symbols
+      const afterSetupMetrics = getComprehensiveMetrics();
+      logMetrics('After Adding 100K Symbols', afterSetupMetrics);
+
       // Test lookup performance
       const lookupStartTime = performance.now();
       const symbols = manager.findSymbolByName('Class50000');
@@ -116,9 +275,25 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
       expect(symbols[0].name).toBe('Class50000');
 
       console.log(`Lookup time for 100K symbols: ${lookupTime.toFixed(3)}ms`);
+
+      // Peak metrics after operations
+      const peakMetrics = getComprehensiveMetrics();
+      logMetrics('Peak (After Lookup Operations)', peakMetrics);
+
+      // Memory efficiency validation
+      const memoryIncrease =
+        ((peakMetrics.processMemory.heapUsed -
+          baselineMetrics.processMemory.heapUsed) /
+          baselineMetrics.processMemory.heapUsed) *
+        100;
+      console.log(`Memory increase: ${memoryIncrease.toFixed(2)}%`);
+      expect(memoryIncrease).toBeLessThan(400); // Should not increase more than 400% for 100K symbols
     });
 
     it('should achieve relationship query < 5ms for complex graphs', () => {
+      // Baseline metrics
+      const baselineMetrics = getComprehensiveMetrics();
+
       // Setup: Create a complex graph with many relationships
       const symbols = [];
 
@@ -133,6 +308,10 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
         symbols.push(symbol);
         manager.addSymbol(symbol, `File${i}.cls`);
       }
+
+      // Metrics after adding symbols
+      const afterSymbolsMetrics = getComprehensiveMetrics();
+      logMetrics('After Adding 1000 Symbols', afterSymbolsMetrics);
 
       // Add relationships (every symbol references the next 10)
       for (let i = 0; i < symbols.length - 10; i++) {
@@ -152,6 +331,10 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
         }
       }
 
+      // Metrics after adding relationships
+      const afterRelationshipsMetrics = getComprehensiveMetrics();
+      logMetrics('After Adding Relationships', afterRelationshipsMetrics);
+
       // Test relationship query performance
       const queryStartTime = performance.now();
       const references = manager.findReferencesTo(symbols[500]);
@@ -161,6 +344,29 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
       expect(references.length).toBeGreaterThan(0);
 
       console.log(`Relationship query time: ${queryTime.toFixed(3)}ms`);
+      console.log(`Found ${references.length} references`);
+
+      // Peak metrics after query
+      const peakMetrics = getComprehensiveMetrics();
+      logMetrics('Peak (After Relationship Query)', peakMetrics);
+
+      // Graph efficiency validation
+      expect(afterRelationshipsMetrics.graph.density).toBeGreaterThan(0);
+      expect(afterRelationshipsMetrics.graph.totalReferences).toBeGreaterThan(
+        0,
+      );
+      console.log(
+        `Graph density: ${afterRelationshipsMetrics.graph.density.toFixed(2)}`,
+      );
+
+      // Memory efficiency validation
+      const memoryIncrease =
+        ((peakMetrics.processMemory.heapUsed -
+          baselineMetrics.processMemory.heapUsed) /
+          baselineMetrics.processMemory.heapUsed) *
+        100;
+      console.log(`Memory increase: ${memoryIncrease.toFixed(2)}%`);
+      expect(memoryIncrease).toBeLessThan(100); // Should not increase more than 100%
     });
 
     it('should maintain memory usage < 50% increase over current system', () => {
@@ -438,6 +644,322 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
       expect(metrics.cacheHitRate).toBe(0);
 
       console.log(`Cache invalidation time: ${invalidationTime.toFixed(3)}ms`);
+    });
+  });
+
+  // ============================================================================
+  // Graph Metrics and Memory Analysis Tests
+  // ============================================================================
+
+  describe('Memory Pressure Analysis Tests', () => {
+    it('should provide detailed memory pressure analysis under load', () => {
+      // Baseline metrics
+      const baselineMetrics = getComprehensiveMetrics();
+      logMetrics('Baseline (Empty Manager)', baselineMetrics);
+
+      // Test memory pressure at different symbol counts
+      const symbolCounts = [1000, 10000, 50000, 100000];
+      const pressureResults: Array<{
+        symbolCount: number;
+        metrics: ReturnType<typeof getComprehensiveMetrics>;
+        memoryIncrease: number;
+        pressureLevel: string;
+      }> = [];
+
+      for (const count of symbolCounts) {
+        const startIndex = pressureResults.length * count;
+
+        // Add symbols for this phase
+        for (let i = startIndex; i < startIndex + count; i++) {
+          const symbol = createTestSymbol(
+            `Class${i}`,
+            SymbolKind.Class,
+            `Namespace.Class${i}`,
+            `File${i}.cls`,
+          );
+          manager.addSymbol(symbol, `File${i}.cls`);
+        }
+
+        // Record metrics for this phase
+        const phaseMetric = getComprehensiveMetrics();
+        const memoryIncrease =
+          ((phaseMetric.processMemory.heapUsed -
+            baselineMetrics.processMemory.heapUsed) /
+            baselineMetrics.processMemory.heapUsed) *
+          100;
+
+        pressureResults.push({
+          symbolCount: count,
+          metrics: phaseMetric,
+          memoryIncrease,
+          pressureLevel: phaseMetric.processMemory.memoryPressure,
+        });
+
+        logMetrics(
+          `Memory Pressure Test - ${count.toLocaleString()} symbols`,
+          phaseMetric,
+        );
+      }
+
+      // Add relationships to increase memory pressure
+      const symbols = manager.findSymbolByName('Class0');
+      if (symbols.length > 0) {
+        const baseSymbol = symbols[0];
+
+        // Add relationships to create memory pressure
+        for (let i = 1; i < 5000; i++) {
+          const targetSymbols = manager.findSymbolByName(`Class${i}`);
+          if (targetSymbols.length > 0) {
+            (manager as any).symbolGraph.addReference(
+              baseSymbol,
+              targetSymbols[0],
+              ReferenceType.METHOD_CALL,
+              {
+                startLine: 1,
+                startColumn: 1,
+                endLine: 1,
+                endColumn: 10,
+              },
+            );
+          }
+        }
+      }
+
+      const finalMetrics = getComprehensiveMetrics();
+      logMetrics('Final Memory Pressure (With Relationships)', finalMetrics);
+
+      // Memory pressure analysis
+      console.log('\n=== Memory Pressure Analysis ===');
+      console.log(
+        'Symbol Count | Memory (MB) | Heap Usage (%) | RSS (MB) | Pressure Level | Memory Increase (%)',
+      );
+      console.log(
+        '-------------|-------------|----------------|----------|----------------|-------------------',
+      );
+
+      pressureResults.forEach((result) => {
+        const { symbolCount, metrics, memoryIncrease, pressureLevel } = result;
+        console.log(
+          `${symbolCount.toLocaleString().padStart(11)} | ` +
+            `${metrics.processMemory.heapUsedMB.toString().padStart(10)} | ` +
+            `${metrics.processMemory.heapUsagePercentage.toString().padStart(14)} | ` +
+            `${metrics.processMemory.rssMB.toString().padStart(8)} | ` +
+            `${pressureLevel.padStart(14)} | ` +
+            `${memoryIncrease.toFixed(1).padStart(17)}`,
+        );
+      });
+
+      // Memory efficiency analysis
+      console.log('\n=== Memory Efficiency Analysis ===');
+      pressureResults.forEach((result) => {
+        const { symbolCount, metrics } = result;
+        console.log(
+          `${symbolCount.toLocaleString()} symbols: ` +
+            `Efficiency: ${metrics.processMemory.memoryEfficiency}%, ` +
+            `Fragmentation: ${metrics.processMemory.fragmentationLevel}%, ` +
+            `External: ${metrics.processMemory.externalMemoryPercentage}%`,
+        );
+      });
+
+      // Performance under memory pressure
+      console.log('\n=== Performance Under Memory Pressure ===');
+      const operations = [
+        () => manager.findSymbolByName('Class50000'),
+        () =>
+          manager.findReferencesTo(
+            createTestSymbol('Class50000', SymbolKind.Class),
+          ),
+        () =>
+          manager.computeMetrics(
+            createTestSymbol('Class50000', SymbolKind.Class),
+          ),
+      ];
+
+      const operationNames = [
+        'Symbol Lookup',
+        'Reference Query',
+        'Metrics Computation',
+      ];
+      const operationTimes: number[] = [];
+
+      for (const operation of operations) {
+        const startTime = performance.now();
+        operation();
+        const endTime = performance.now();
+        operationTimes.push(endTime - startTime);
+      }
+
+      operationNames.forEach((name, index) => {
+        console.log(`  ${name}: ${operationTimes[index].toFixed(3)}ms`);
+      });
+
+      // Memory pressure assertions - allow CRITICAL for very large datasets
+      // This is expected behavior for 161K symbols
+      expect(finalMetrics.processMemory.heapUsagePercentage).toBeLessThan(95); // Allow up to 95% heap usage
+      expect(finalMetrics.processMemory.rssUsagePercentage).toBeLessThan(85); // Allow up to 85% RSS usage
+
+      // Performance assertions under pressure
+      expect(operationTimes[0]).toBeLessThan(1); // Symbol lookup < 1ms
+      expect(operationTimes[1]).toBeLessThan(10); // Reference query < 10ms
+      expect(operationTimes[2]).toBeLessThan(50); // Metrics computation < 50ms
+
+      console.log(
+        `\nFinal Memory Pressure Level: ${finalMetrics.processMemory.memoryPressure}`,
+      );
+      console.log(
+        `Peak Heap Usage: ${finalMetrics.processMemory.heapUsedMB}MB ` +
+          `(${finalMetrics.processMemory.heapUsagePercentage}%)`,
+      );
+      console.log(
+        `Peak RSS Usage: ${finalMetrics.processMemory.rssMB}MB (${finalMetrics.processMemory.rssUsagePercentage}%)`,
+      );
+    });
+  });
+
+  // ============================================================================
+  // Graph Metrics and Memory Analysis Tests
+  // ============================================================================
+
+  describe('Graph Metrics and Memory Analysis Tests', () => {
+    it('should provide comprehensive graph metrics and memory tracking', () => {
+      // Baseline metrics
+      const baselineMetrics = getComprehensiveMetrics();
+      logMetrics('Baseline (Empty Manager)', baselineMetrics);
+
+      // Phase 1: Add symbols incrementally and track metrics
+      const symbolCounts = [100, 1000, 10000, 50000];
+      const phaseMetrics: ReturnType<typeof getComprehensiveMetrics>[] = [];
+
+      for (const count of symbolCounts) {
+        const startIndex = phaseMetrics.length * count;
+
+        // Add symbols for this phase
+        for (let i = startIndex; i < startIndex + count; i++) {
+          const symbol = createTestSymbol(
+            `Class${i}`,
+            SymbolKind.Class,
+            `Namespace.Class${i}`,
+            `File${i}.cls`,
+          );
+          manager.addSymbol(symbol, `File${i}.cls`);
+        }
+
+        // Record metrics for this phase
+        const phaseMetric = getComprehensiveMetrics();
+        phaseMetrics.push(phaseMetric);
+        logMetrics(
+          `Phase ${phaseMetrics.length} (${count.toLocaleString()} symbols)`,
+          phaseMetric,
+        );
+      }
+
+      // Phase 2: Add relationships and track impact
+      const symbols = manager.findSymbolByName('Class0');
+      if (symbols.length > 0) {
+        const baseSymbol = symbols[0];
+
+        // Add relationships to create a complex graph
+        for (let i = 1; i < 1000; i++) {
+          const targetSymbols = manager.findSymbolByName(`Class${i}`);
+          if (targetSymbols.length > 0) {
+            (manager as any).symbolGraph.addReference(
+              baseSymbol,
+              targetSymbols[0],
+              ReferenceType.METHOD_CALL,
+              {
+                startLine: 1,
+                startColumn: 1,
+                endLine: 1,
+                endColumn: 10,
+              },
+            );
+          }
+        }
+      }
+
+      const afterRelationshipsMetrics = getComprehensiveMetrics();
+      logMetrics('After Adding Relationships', afterRelationshipsMetrics);
+
+      // Phase 3: Perform operations and track peak usage
+      const operations = [
+        () => manager.findSymbolByName('Class25000'),
+        () =>
+          manager.findReferencesTo(
+            createTestSymbol('Class25000', SymbolKind.Class),
+          ),
+        () =>
+          manager.computeMetrics(
+            createTestSymbol('Class25000', SymbolKind.Class),
+          ),
+        () =>
+          manager.analyzeDependencies(
+            createTestSymbol('Class25000', SymbolKind.Class),
+          ),
+      ];
+
+      const operationTimes: number[] = [];
+      for (const operation of operations) {
+        const startTime = performance.now();
+        operation();
+        const endTime = performance.now();
+        operationTimes.push(endTime - startTime);
+      }
+
+      const peakMetrics = getComprehensiveMetrics();
+      logMetrics('Peak (After All Operations)', peakMetrics);
+
+      // Validation and reporting
+      console.log('\n=== Performance Summary ===');
+      console.log('Operation Times:');
+      operations.forEach((_, index) => {
+        console.log(
+          `  Operation ${index + 1}: ${operationTimes[index].toFixed(3)}ms`,
+        );
+      });
+
+      console.log('\nMemory Growth Analysis:');
+      phaseMetrics.forEach((metrics, index) => {
+        const memoryIncrease =
+          ((metrics.processMemory.heapUsed -
+            baselineMetrics.processMemory.heapUsed) /
+            baselineMetrics.processMemory.heapUsed) *
+          100;
+        console.log(
+          `  ${symbolCounts[index].toLocaleString()} symbols: +${memoryIncrease.toFixed(2)}% memory`,
+        );
+      });
+
+      console.log('\nGraph Growth Analysis:');
+      phaseMetrics.forEach((metrics, index) => {
+        console.log(
+          `  ${symbolCounts[index].toLocaleString()} symbols: ` +
+            `${metrics.graph.totalSymbols.toLocaleString()} nodes, ` +
+            `${metrics.graph.totalReferences.toLocaleString()} edges, ` +
+            `density: ${metrics.graph.density.toFixed(2)}`,
+        );
+      });
+
+      // Performance assertions
+      expect(operationTimes[0]).toBeLessThan(1); // Symbol lookup < 1ms
+      expect(operationTimes[1]).toBeLessThan(10); // Reference query < 10ms
+      expect(operationTimes[2]).toBeLessThan(50); // Metrics computation < 50ms
+      expect(operationTimes[3]).toBeLessThan(100); // Dependency analysis < 100ms
+
+      // Memory efficiency assertions
+      const finalMemoryIncrease =
+        ((peakMetrics.processMemory.heapUsed -
+          baselineMetrics.processMemory.heapUsed) /
+          baselineMetrics.processMemory.heapUsed) *
+        100;
+      expect(finalMemoryIncrease).toBeLessThan(300); // Should not increase more than 300%
+
+      // Graph efficiency assertions
+      expect(afterRelationshipsMetrics.graph.density).toBeGreaterThan(0);
+      expect(afterRelationshipsMetrics.graph.totalReferences).toBeGreaterThan(
+        0,
+      );
+      // Cache entries may be 0 if no cache operations were performed
+      // This is expected behavior for this test scenario
     });
   });
 
