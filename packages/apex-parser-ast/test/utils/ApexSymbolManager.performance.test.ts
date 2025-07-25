@@ -236,6 +236,187 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
   };
 
   // ============================================================================
+  // Baseline Memory Tests
+  // ============================================================================
+
+  describe('Baseline Memory Tests', () => {
+    it('should establish baseline memory consumption for empty graph', () => {
+      // Force garbage collection to get clean baseline
+      if (global.gc) {
+        global.gc();
+      }
+
+      // Get initial memory state before creating manager
+      const initialMemory = process.memoryUsage();
+
+      // Create manager and get baseline metrics
+      const _manager = new ApexSymbolManager();
+      const baselineMetrics = getComprehensiveMetrics();
+
+      // Log detailed baseline information
+      console.log('\n=== BASELINE MEMORY CONSUMPTION (EMPTY GRAPH) ===');
+      console.log('Initial Process Memory (before manager creation):');
+      console.log(
+        `  Heap Used: ${(initialMemory.heapUsed / 1024 / 1024).toFixed(2)}MB`,
+      );
+      console.log(
+        `  Heap Total: ${(initialMemory.heapTotal / 1024 / 1024).toFixed(2)}MB`,
+      );
+      console.log(
+        `  External: ${(initialMemory.external / 1024 / 1024).toFixed(2)}MB`,
+      );
+      console.log(`  RSS: ${(initialMemory.rss / 1024 / 1024).toFixed(2)}MB`);
+
+      console.log('\nBaseline Manager Memory (empty graph):');
+      logMetrics('EMPTY GRAPH BASELINE', baselineMetrics);
+
+      // Calculate memory overhead of empty manager
+      const managerOverhead = {
+        heapUsed:
+          baselineMetrics.processMemory.heapUsed - initialMemory.heapUsed,
+        heapTotal:
+          baselineMetrics.processMemory.heapTotal - initialMemory.heapTotal,
+        external:
+          baselineMetrics.processMemory.external - initialMemory.external,
+        rss: baselineMetrics.processMemory.rss - initialMemory.rss,
+      };
+
+      console.log('\nManager Overhead (empty graph):');
+      console.log(
+        `  Heap Used Overhead: ${(managerOverhead.heapUsed / 1024 / 1024).toFixed(2)}MB`,
+      );
+      console.log(
+        `  Heap Total Overhead: ${(managerOverhead.heapTotal / 1024 / 1024).toFixed(2)}MB`,
+      );
+      console.log(
+        `  External Overhead: ${(managerOverhead.external / 1024 / 1024).toFixed(2)}MB`,
+      );
+      console.log(
+        `  RSS Overhead: ${(managerOverhead.rss / 1024 / 1024).toFixed(2)}MB`,
+      );
+
+      // Graph structure baseline
+      console.log('\nEmpty Graph Structure:');
+      console.log(`  Total Symbols: ${baselineMetrics.graph.totalSymbols}`);
+      console.log(
+        `  Total References: ${baselineMetrics.graph.totalReferences}`,
+      );
+      console.log(`  Total Files: ${baselineMetrics.graph.totalFiles}`);
+      console.log(`  Graph Density: ${baselineMetrics.graph.density}`);
+      console.log(
+        `  Circular Dependencies: ${baselineMetrics.graph.circularDependencies}`,
+      );
+      console.log(
+        `  Deferred References: ${baselineMetrics.graph.deferredReferences}`,
+      );
+
+      // Cache baseline
+      console.log('\nEmpty Cache Structure:');
+      console.log(`  Symbol Cache: ${baselineMetrics.cache.symbolCache}`);
+      console.log(
+        `  Relationship Cache: ${baselineMetrics.cache.relationshipCache}`,
+      );
+      console.log(`  Metrics Cache: ${baselineMetrics.cache.metricsCache}`);
+      console.log(
+        `  Total Cache Entries: ${baselineMetrics.cache.totalCacheEntries}`,
+      );
+      console.log(
+        `  Estimated Cache Memory: ${baselineMetrics.cache.estimatedCacheMemory}MB`,
+      );
+
+      // Memory efficiency baseline
+      console.log('\nBaseline Memory Efficiency:');
+      console.log(
+        `  Memory Efficiency: ${baselineMetrics.processMemory.memoryEfficiency}%`,
+      );
+      console.log(
+        `  Fragmentation Level: ${baselineMetrics.processMemory.fragmentationLevel}%`,
+      );
+      console.log(
+        `  External Memory Percentage: ${baselineMetrics.processMemory.externalMemoryPercentage}%`,
+      );
+      console.log(
+        `  Memory Pressure Level: ${baselineMetrics.processMemory.memoryPressureLevel}`,
+      );
+
+      // Validate baseline expectations
+      expect(baselineMetrics.graph.totalSymbols).toBe(0);
+      expect(baselineMetrics.graph.totalReferences).toBe(0);
+      expect(baselineMetrics.graph.totalFiles).toBe(0);
+      expect(baselineMetrics.graph.density).toBe(0);
+      expect(baselineMetrics.graph.circularDependencies).toBe(0);
+      expect(baselineMetrics.graph.deferredReferences).toBe(0);
+
+      // Validate cache is empty
+      expect(baselineMetrics.cache.symbolCache).toBe(0);
+      expect(baselineMetrics.cache.relationshipCache).toBe(0);
+      expect(baselineMetrics.cache.metricsCache).toBe(0);
+      expect(baselineMetrics.cache.totalCacheEntries).toBe(0);
+      expect(baselineMetrics.cache.estimatedCacheMemory).toBe(0);
+
+      // Store baseline for comparison in other tests
+      (global as any).__apexSymbolManagerBaseline = {
+        initialMemory,
+        baselineMetrics,
+        managerOverhead,
+        timestamp: Date.now(),
+      };
+
+      console.log('\n=== BASELINE ESTABLISHED ===');
+      console.log(`Baseline timestamp: ${new Date().toISOString()}`);
+      console.log(
+        `Manager overhead: ${(managerOverhead.heapUsed / 1024 / 1024).toFixed(2)}MB heap used`,
+      );
+    });
+
+    it('should provide consistent baseline across multiple manager instances', () => {
+      const baselines: ReturnType<typeof getComprehensiveMetrics>[] = [];
+
+      // Create multiple manager instances and measure their baseline
+      for (let i = 0; i < 5; i++) {
+        const manager = new ApexSymbolManager();
+        const baseline = getComprehensiveMetrics();
+        baselines.push(baseline);
+      }
+
+      // Calculate variance in baseline measurements
+      const heapUsedValues = baselines.map((b) => b.processMemory.heapUsed);
+      const avgHeapUsed =
+        heapUsedValues.reduce((a, b) => a + b, 0) / heapUsedValues.length;
+      const variance =
+        heapUsedValues.reduce(
+          (sum, val) => sum + Math.pow(val - avgHeapUsed, 2),
+          0,
+        ) / heapUsedValues.length;
+      const stdDev = Math.sqrt(variance);
+      const coefficientOfVariation = (stdDev / avgHeapUsed) * 100;
+
+      console.log('\n=== BASELINE CONSISTENCY ANALYSIS ===');
+      console.log(`Number of manager instances tested: ${baselines.length}`);
+      console.log(
+        `Average heap used: ${(avgHeapUsed / 1024 / 1024).toFixed(2)}MB`,
+      );
+      console.log(`Standard deviation: ${(stdDev / 1024 / 1024).toFixed(2)}MB`);
+      console.log(
+        `Coefficient of variation: ${coefficientOfVariation.toFixed(2)}%`,
+      );
+
+      // All baselines should be consistent (low variance)
+      expect(coefficientOfVariation).toBeLessThan(5); // Less than 5% variance
+
+      // All instances should have identical graph structure
+      baselines.forEach((baseline, index) => {
+        expect(baseline.graph.totalSymbols).toBe(0);
+        expect(baseline.graph.totalReferences).toBe(0);
+        expect(baseline.graph.totalFiles).toBe(0);
+        expect(baseline.graph.density).toBe(0);
+      });
+
+      console.log('✅ Baseline consistency validated');
+    });
+  });
+
+  // ============================================================================
   // Success Criteria Performance Tests
   // ============================================================================
 
