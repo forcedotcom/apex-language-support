@@ -12,6 +12,7 @@ import {
   CompilerService,
   SymbolTable,
   ApexSymbolCollectorListener,
+  ApexSymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
 
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
@@ -36,11 +37,13 @@ export interface IDiagnosticProcessor {
 }
 
 /**
- * Service for processing LSP diagnostic requests.
+ * Service for processing LSP diagnostic requests using ApexSymbolManager.
  *
  * This service handles the core logic for generating diagnostics from Apex
  * source code. It retrieves documents from storage, parses them using the
  * Apex parser, and converts any parsing errors into LSP diagnostic format.
+ * Additionally, it uses ApexSymbolManager for cross-file analysis and
+ * relationship-based error detection.
  *
  * The service implements the pull-based diagnostic model where diagnostics
  * are generated on-demand when requested by the client.
@@ -57,10 +60,15 @@ export interface IDiagnosticProcessor {
  * @see {@link getDiagnosticsFromErrors} - Utility for converting parser errors to diagnostics
  */
 export class DiagnosticProcessingService implements IDiagnosticProcessor {
+  private readonly logger = getLogger();
+  private symbolManager: ApexSymbolManager;
+
   /**
    * Creates a new DiagnosticProcessingService instance.
    */
-  constructor() {}
+  constructor() {
+    this.symbolManager = new ApexSymbolManager();
+  }
 
   /**
    * Process a diagnostic request for a specific document.
@@ -70,7 +78,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    * 2. Creates a symbol collector listener for parsing
    * 3. Compiles the document using the Apex parser
    * 4. Converts any parsing errors to LSP diagnostics
-   * 5. Returns the diagnostics array
+   * 5. Enhances diagnostics with cross-file analysis using ApexSymbolManager
+   * 6. Returns the enhanced diagnostics array
    *
    * If the document is not found in storage, an empty array is returned.
    * If compilation succeeds without errors, an empty array is returned.
@@ -98,17 +107,12 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    *
    * @see {@link DocumentDiagnosticParams} - The request parameters interface
    * @see {@link Diagnostic} - The diagnostic result interface
-   * @see {@link ApexStorageManager} - For document retrieval
-   * @see {@link CompilerService} - For document parsing
-   * @see {@link getDiagnosticsFromErrors} - For error conversion
    */
   public async processDiagnostic(
     params: DocumentDiagnosticParams,
   ): Promise<Diagnostic[]> {
-    const logger = getLogger();
-    logger.debug(
-      () =>
-        `Common Apex Language Server diagnostic handler invoked with: ${params}`,
+    this.logger.debug(
+      () => `Processing diagnostic request for: ${params.textDocument.uri}`,
     );
 
     try {
@@ -118,10 +122,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
       // Get the document from storage
       const document = await storage.getDocument(params.textDocument.uri);
+
       if (!document) {
-        logger.warn(
-          () =>
-            `Document not found for diagnostic request: ${params.textDocument.uri}`,
+        this.logger.warn(
+          () => `Document not found in storage: ${params.textDocument.uri}`,
         );
         return [];
       }
@@ -132,30 +136,107 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       const compilerService = new CompilerService();
 
       // Parse the document
-      const options = {
-        includeComments: false,
-        includeSingleLineComments: false,
-        associateComments: false,
-      };
-
       const result = compilerService.compile(
         document.getText(),
         document.uri,
         listener,
-        options,
+        {},
       );
 
-      if (result.errors.length > 0) {
-        logger.debug(() => `Errors parsing document: ${result.errors}`);
-        const diagnostics = getDiagnosticsFromErrors(result.errors);
-        return diagnostics;
+      // Convert parsing errors to diagnostics
+      const diagnostics = getDiagnosticsFromErrors(result.errors);
+
+      // Enhance diagnostics with cross-file analysis using ApexSymbolManager
+      const enhancedDiagnostics =
+        await this.enhanceDiagnosticsWithGraphAnalysis(
+          diagnostics,
+          params.textDocument.uri,
+          result.errors,
+        );
+
+      this.logger.debug(
+        () =>
+          `Returning ${enhancedDiagnostics.length} diagnostics for: ${params.textDocument.uri}`,
+      );
+
+      return enhancedDiagnostics;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        () =>
+          `Error processing diagnostic request for ${params.textDocument.uri}: ${errorMessage}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Enhance diagnostics with cross-file analysis using ApexSymbolManager
+   */
+  private async enhanceDiagnosticsWithGraphAnalysis(
+    diagnostics: Diagnostic[],
+    documentUri: string,
+    parsingErrors: any[],
+  ): Promise<Diagnostic[]> {
+    try {
+      const enhancedDiagnostics = [...diagnostics];
+
+      // Get symbols from ApexSymbolManager for this file
+      const fileSymbols = this.symbolManager.findSymbolsInFile(documentUri);
+
+      if (fileSymbols.length === 0) {
+        return diagnostics; // Return original diagnostics if no graph data available
       }
 
-      // No errors found
-      return [];
+      // Add cross-file dependency warnings
+      for (const symbol of fileSymbols) {
+        try {
+          const dependencyAnalysis =
+            this.symbolManager.analyzeDependencies(symbol);
+
+          // Check for circular dependencies
+          if (dependencyAnalysis.circularDependencies.length > 0) {
+            const circularDepDiagnostic: Diagnostic = {
+              range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 },
+              },
+              message: `Circular dependency detected for ${symbol.name}`,
+              severity: 2, // Warning
+              code: 'CIRCULAR_DEPENDENCY',
+              source: 'apex-symbol-manager',
+            };
+            enhancedDiagnostics.push(circularDepDiagnostic);
+          }
+
+          // Check for high impact symbols
+          if (dependencyAnalysis.impactScore > 0.8) {
+            const highImpactDiagnostic: Diagnostic = {
+              range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 },
+              },
+              message: `High impact symbol: ${symbol.name} affects ${dependencyAnalysis.dependents.length} symbols`,
+              severity: 1, // Information
+              code: 'HIGH_IMPACT_SYMBOL',
+              source: 'apex-symbol-manager',
+            };
+            enhancedDiagnostics.push(highImpactDiagnostic);
+          }
+        } catch (error) {
+          this.logger.debug(
+            () => `Error analyzing symbol ${symbol.name}: ${error}`,
+          );
+        }
+      }
+
+      return enhancedDiagnostics;
     } catch (error) {
-      logger.error(() => `Error processing diagnostic: ${error}`);
-      return [];
+      this.logger.debug(
+        () => `Error enhancing diagnostics with graph analysis: ${error}`,
+      );
+      return diagnostics; // Return original diagnostics on error
     }
   }
 }
