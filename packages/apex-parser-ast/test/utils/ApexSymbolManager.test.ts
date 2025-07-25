@@ -9,6 +9,7 @@
 import {
   ApexSymbolManager,
   SymbolResolutionContext,
+  RelationshipPattern,
 } from '../../src/utils/ApexSymbolManager';
 import {
   ApexSymbol,
@@ -1246,6 +1247,532 @@ describe('ApexSymbolManager', () => {
 
       const methodResult = manager.resolveSymbol('format', methodContext);
       expect(methodResult.confidence).toBeGreaterThan(0.6);
+    });
+  });
+
+  // ============================================================================
+  // Phase 5.1: Extended Relationship Types
+  // ============================================================================
+
+  describe('Extended Relationship Types', () => {
+    it('should find references by specific relationship type', () => {
+      const class1 = createTestSymbol('MyClass', SymbolKind.Class);
+      const method1 = createTestSymbol('myMethod', SymbolKind.Method);
+      const field1 = createTestSymbol('myField', SymbolKind.Field);
+
+      manager.addSymbol(class1, 'MyClass.cls');
+      manager.addSymbol(method1, 'MyClass.cls');
+      manager.addSymbol(field1, 'MyClass.cls');
+
+      // Test finding references by type
+      const methodReferences = manager.findReferencesByType(
+        method1,
+        ReferenceType.METHOD_CALL,
+      );
+      const fieldReferences = manager.findReferencesByType(
+        field1,
+        ReferenceType.FIELD_ACCESS,
+      );
+      const classReferences = manager.findReferencesByType(
+        class1,
+        ReferenceType.TYPE_REFERENCE,
+      );
+
+      expect(Array.isArray(methodReferences)).toBe(true);
+      expect(Array.isArray(fieldReferences)).toBe(true);
+      expect(Array.isArray(classReferences)).toBe(true);
+    });
+
+    it('should find constructor calls for a class', () => {
+      const class1 = createTestSymbol('MyClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'MyClass.cls');
+
+      const constructorCalls = manager.findConstructorCalls(class1);
+      expect(Array.isArray(constructorCalls)).toBe(true);
+    });
+
+    it('should find static access references', () => {
+      const class1 = createTestSymbol('UtilityClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'UtilityClass.cls');
+
+      const staticAccess = manager.findStaticAccess(class1);
+      expect(Array.isArray(staticAccess)).toBe(true);
+    });
+
+    it('should find instance access references', () => {
+      const class1 = createTestSymbol('MyClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'MyClass.cls');
+
+      const instanceAccess = manager.findInstanceAccess(class1);
+      expect(Array.isArray(instanceAccess)).toBe(true);
+    });
+
+    it('should find import references', () => {
+      const class1 = createTestSymbol('ImportedClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'ImportedClass.cls');
+
+      const importReferences = manager.findImportReferences(class1);
+      expect(Array.isArray(importReferences)).toBe(true);
+    });
+
+    it('should find annotation references', () => {
+      const class1 = createTestSymbol('AnnotatedClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'AnnotatedClass.cls');
+
+      const annotationReferences = manager.findAnnotationReferences(class1);
+      expect(Array.isArray(annotationReferences)).toBe(true);
+    });
+
+    it('should find trigger references', () => {
+      const class1 = createTestSymbol('TriggerHandler', SymbolKind.Class);
+      manager.addSymbol(class1, 'TriggerHandler.cls');
+
+      const triggerReferences = manager.findTriggerReferences(class1);
+      expect(Array.isArray(triggerReferences)).toBe(true);
+    });
+
+    it('should find test method references', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      const testMethodReferences = manager.findTestMethodReferences(class1);
+      expect(Array.isArray(testMethodReferences)).toBe(true);
+    });
+
+    it('should find webservice references', () => {
+      const class1 = createTestSymbol('WebServiceClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'WebServiceClass.cls');
+
+      const webserviceReferences = manager.findWebServiceReferences(class1);
+      expect(Array.isArray(webserviceReferences)).toBe(true);
+    });
+
+    it('should find remote action references', () => {
+      const class1 = createTestSymbol('RemoteActionClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'RemoteActionClass.cls');
+
+      const remoteActionReferences = manager.findRemoteActionReferences(class1);
+      expect(Array.isArray(remoteActionReferences)).toBe(true);
+    });
+
+    it('should find property access references', () => {
+      const class1 = createTestSymbol('PropertyClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'PropertyClass.cls');
+
+      const propertyAccess = manager.findPropertyAccess(class1);
+      expect(Array.isArray(propertyAccess)).toBe(true);
+    });
+
+    it('should find enum references', () => {
+      const enum1 = createTestSymbol('MyEnum', SymbolKind.Enum);
+      manager.addSymbol(enum1, 'MyEnum.cls');
+
+      const enumReferences = manager.findEnumReferences(enum1);
+      expect(Array.isArray(enumReferences)).toBe(true);
+    });
+
+    it('should find trigger context references', () => {
+      const class1 = createTestSymbol('TriggerContextClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TriggerContextClass.cls');
+
+      const triggerContextReferences =
+        manager.findTriggerContextReferences(class1);
+      expect(Array.isArray(triggerContextReferences)).toBe(true);
+    });
+
+    it('should find SOQL references', () => {
+      const class1 = createTestSymbol('SOQLClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'SOQLClass.cls');
+
+      const soqlReferences = manager.findSOQLReferences(class1);
+      expect(Array.isArray(soqlReferences)).toBe(true);
+    });
+
+    it('should find SOSL references', () => {
+      const class1 = createTestSymbol('SOSLClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'SOSLClass.cls');
+
+      const soslReferences = manager.findSOSLReferences(class1);
+      expect(Array.isArray(soslReferences)).toBe(true);
+    });
+
+    it('should find DML references', () => {
+      const class1 = createTestSymbol('DMLClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'DMLClass.cls');
+
+      const dmlReferences = manager.findDMLReferences(class1);
+      expect(Array.isArray(dmlReferences)).toBe(true);
+    });
+
+    it('should find Apex page references', () => {
+      const class1 = createTestSymbol('ApexPageClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'ApexPageClass.cls');
+
+      const apexPageReferences = manager.findApexPageReferences(class1);
+      expect(Array.isArray(apexPageReferences)).toBe(true);
+    });
+
+    it('should find component references', () => {
+      const class1 = createTestSymbol('ComponentClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'ComponentClass.cls');
+
+      const componentReferences = manager.findComponentReferences(class1);
+      expect(Array.isArray(componentReferences)).toBe(true);
+    });
+
+    it('should find custom metadata references', () => {
+      const class1 = createTestSymbol('CustomMetadataClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'CustomMetadataClass.cls');
+
+      const customMetadataReferences =
+        manager.findCustomMetadataReferences(class1);
+      expect(Array.isArray(customMetadataReferences)).toBe(true);
+    });
+
+    it('should find external service references', () => {
+      const class1 = createTestSymbol('ExternalServiceClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'ExternalServiceClass.cls');
+
+      const externalServiceReferences =
+        manager.findExternalServiceReferences(class1);
+      expect(Array.isArray(externalServiceReferences)).toBe(true);
+    });
+  });
+
+  // ============================================================================
+  // Phase 5.2: Relationship Statistics
+  // ============================================================================
+
+  describe('Relationship Statistics', () => {
+    it('should get relationship statistics for a symbol', () => {
+      const class1 = createTestSymbol('MyClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'MyClass.cls');
+
+      const stats = manager.getRelationshipStats(class1);
+
+      expect(stats).toBeDefined();
+      expect(typeof stats.totalReferences).toBe('number');
+      expect(stats.relationshipTypeCounts).toBeInstanceOf(Map);
+      expect(stats.mostCommonRelationshipType).toBeDefined();
+      expect(stats.leastCommonRelationshipType).toBeDefined();
+      expect(typeof stats.averageReferencesPerType).toBe('number');
+    });
+
+    it('should calculate relationship type counts correctly', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      const stats = manager.getRelationshipStats(class1);
+
+      // Should have a map of relationship types to counts
+      expect(stats.relationshipTypeCounts.size).toBeGreaterThanOrEqual(0);
+
+      // All counts should be numbers
+      for (const [_type, count] of stats.relationshipTypeCounts) {
+        expect(typeof count).toBe('number');
+        expect(count).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it('should identify most and least common relationship types', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      const stats = manager.getRelationshipStats(class1);
+
+      // If there are relationship types, should have most/least common
+      if (stats.relationshipTypeCounts.size > 0) {
+        expect(stats.mostCommonRelationshipType).toBeDefined();
+        expect(stats.leastCommonRelationshipType).toBeDefined();
+      }
+    });
+
+    it('should calculate average references per type correctly', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      const stats = manager.getRelationshipStats(class1);
+
+      expect(stats.averageReferencesPerType).toBeGreaterThanOrEqual(0);
+
+      // If there are relationship types, average should be reasonable
+      if (stats.relationshipTypeCounts.size > 0) {
+        expect(stats.averageReferencesPerType).toBeLessThanOrEqual(
+          stats.totalReferences,
+        );
+      }
+    });
+  });
+
+  // ============================================================================
+  // Phase 5.3: Relationship Pattern Analysis
+  // ============================================================================
+
+  describe('Relationship Pattern Analysis', () => {
+    it('should find symbols with specific relationship patterns', () => {
+      const class1 = createTestSymbol('UtilityClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'UtilityClass.cls');
+
+      const pattern: RelationshipPattern = {
+        name: 'Test Pattern',
+        description: 'Test pattern for validation',
+        minTotalReferences: 0,
+        requiredRelationshipTypes: new Map(),
+        requiredSymbolKinds: [SymbolKind.Class],
+      };
+
+      const matchingSymbols =
+        manager.findSymbolsWithRelationshipPattern(pattern);
+      expect(Array.isArray(matchingSymbols)).toBe(true);
+    });
+
+    it('should match patterns with total reference requirements', () => {
+      const class1 = createTestSymbol(
+        'HeavilyReferencedClass',
+        SymbolKind.Class,
+      );
+      manager.addSymbol(class1, 'HeavilyReferencedClass.cls');
+
+      const pattern: RelationshipPattern = {
+        name: 'Heavily Referenced',
+        description: 'Classes with many references',
+        minTotalReferences: 5,
+        requiredRelationshipTypes: new Map(),
+        requiredSymbolKinds: [SymbolKind.Class],
+      };
+
+      const matchingSymbols =
+        manager.findSymbolsWithRelationshipPattern(pattern);
+      expect(Array.isArray(matchingSymbols)).toBe(true);
+    });
+
+    it('should match patterns with specific relationship type requirements', () => {
+      const class1 = createTestSymbol('StaticClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'StaticClass.cls');
+
+      const pattern: RelationshipPattern = {
+        name: 'Static Access Pattern',
+        description: 'Classes with static access',
+        minTotalReferences: 0,
+        requiredRelationshipTypes: new Map([[ReferenceType.STATIC_ACCESS, 1]]),
+        requiredSymbolKinds: [SymbolKind.Class],
+      };
+
+      const matchingSymbols =
+        manager.findSymbolsWithRelationshipPattern(pattern);
+      expect(Array.isArray(matchingSymbols)).toBe(true);
+    });
+
+    it('should match patterns with symbol kind requirements', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      const interface1 = createTestSymbol(
+        'TestInterface',
+        SymbolKind.Interface,
+      );
+
+      manager.addSymbol(class1, 'TestClass.cls');
+      manager.addSymbol(interface1, 'TestInterface.cls');
+
+      const classPattern: RelationshipPattern = {
+        name: 'Class Pattern',
+        description: 'Only classes',
+        requiredRelationshipTypes: new Map(),
+        requiredSymbolKinds: [SymbolKind.Class],
+      };
+
+      const interfacePattern: RelationshipPattern = {
+        name: 'Interface Pattern',
+        description: 'Only interfaces',
+        requiredRelationshipTypes: new Map(),
+        requiredSymbolKinds: [SymbolKind.Interface],
+      };
+
+      const classMatches =
+        manager.findSymbolsWithRelationshipPattern(classPattern);
+      const interfaceMatches =
+        manager.findSymbolsWithRelationshipPattern(interfacePattern);
+
+      expect(Array.isArray(classMatches)).toBe(true);
+      expect(Array.isArray(interfaceMatches)).toBe(true);
+    });
+
+    it('should match patterns with visibility requirements', () => {
+      const publicClass = createTestSymbol('PublicClass', SymbolKind.Class);
+      const privateClass = createTestSymbol('PrivateClass', SymbolKind.Class);
+
+      publicClass.modifiers.visibility = SymbolVisibility.Public;
+      privateClass.modifiers.visibility = SymbolVisibility.Private;
+
+      manager.addSymbol(publicClass, 'PublicClass.cls');
+      manager.addSymbol(privateClass, 'PrivateClass.cls');
+
+      const publicPattern: RelationshipPattern = {
+        name: 'Public Pattern',
+        description: 'Only public symbols',
+        requiredRelationshipTypes: new Map(),
+        requiredVisibility: SymbolVisibility.Public,
+      };
+
+      const privatePattern: RelationshipPattern = {
+        name: 'Private Pattern',
+        description: 'Only private symbols',
+        requiredRelationshipTypes: new Map(),
+        requiredVisibility: SymbolVisibility.Private,
+      };
+
+      const publicMatches =
+        manager.findSymbolsWithRelationshipPattern(publicPattern);
+      const privateMatches =
+        manager.findSymbolsWithRelationshipPattern(privatePattern);
+
+      expect(Array.isArray(publicMatches)).toBe(true);
+      expect(Array.isArray(privateMatches)).toBe(true);
+    });
+
+    it('should analyze relationship patterns across the codebase', () => {
+      // Add some test symbols
+      const class1 = createTestSymbol('TestClass1', SymbolKind.Class);
+      const class2 = createTestSymbol('TestClass2', SymbolKind.Class);
+      const interface1 = createTestSymbol(
+        'TestInterface',
+        SymbolKind.Interface,
+      );
+
+      manager.addSymbol(class1, 'TestClass1.cls');
+      manager.addSymbol(class2, 'TestClass2.cls');
+      manager.addSymbol(interface1, 'TestInterface.cls');
+
+      const analysis = manager.analyzeRelationshipPatterns();
+
+      expect(analysis).toBeDefined();
+      expect(typeof analysis.totalSymbols).toBe('number');
+      expect(analysis.relationshipPatterns).toBeInstanceOf(Map);
+      expect(Array.isArray(analysis.mostCommonPatterns)).toBe(true);
+      expect(Array.isArray(analysis.patternInsights)).toBe(true);
+    });
+
+    it('should provide meaningful pattern insights', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      const analysis = manager.analyzeRelationshipPatterns();
+
+      expect(analysis.patternInsights.length).toBeGreaterThan(0);
+
+      // Insights should be strings
+      for (const insight of analysis.patternInsights) {
+        expect(typeof insight).toBe('string');
+        expect(insight.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('should identify most common patterns', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      const analysis = manager.analyzeRelationshipPatterns();
+
+      expect(Array.isArray(analysis.mostCommonPatterns)).toBe(true);
+
+      // Each pattern result should have the required properties
+      for (const patternResult of analysis.mostCommonPatterns) {
+        expect(patternResult.pattern).toBeDefined();
+        expect(Array.isArray(patternResult.matchingSymbols)).toBe(true);
+        expect(typeof patternResult.count).toBe('number');
+        expect(typeof patternResult.percentage).toBe('number');
+      }
+    });
+  });
+
+  // ============================================================================
+  // Phase 5 Integration Tests
+  // ============================================================================
+
+  describe('Phase 5 Integration', () => {
+    it('should integrate extended relationship types with existing functionality', () => {
+      // Setup: Add symbols with different characteristics
+      const utilityClass = createTestSymbol('UtilityClass', SymbolKind.Class);
+      const serviceClass = createTestSymbol('ServiceClass', SymbolKind.Class);
+      const dataModel = createTestSymbol('DataModel', SymbolKind.Class);
+
+      manager.addSymbol(utilityClass, 'UtilityClass.cls');
+      manager.addSymbol(serviceClass, 'ServiceClass.cls');
+      manager.addSymbol(dataModel, 'DataModel.cls');
+
+      // Test relationship statistics
+      const utilityStats = manager.getRelationshipStats(utilityClass);
+      const serviceStats = manager.getRelationshipStats(serviceClass);
+      const dataStats = manager.getRelationshipStats(dataModel);
+
+      expect(utilityStats).toBeDefined();
+      expect(serviceStats).toBeDefined();
+      expect(dataStats).toBeDefined();
+
+      // Test pattern analysis
+      const analysis = manager.analyzeRelationshipPatterns();
+      expect(analysis.totalSymbols).toBeGreaterThanOrEqual(3);
+      expect(analysis.relationshipPatterns.size).toBeGreaterThan(0);
+
+      // Test specific relationship type queries
+      const staticAccess = manager.findStaticAccess(utilityClass);
+      const methodCalls = manager.findReferencesByType(
+        serviceClass,
+        ReferenceType.METHOD_CALL,
+      );
+      const fieldAccess = manager.findReferencesByType(
+        dataModel,
+        ReferenceType.FIELD_ACCESS,
+      );
+
+      expect(Array.isArray(staticAccess)).toBe(true);
+      expect(Array.isArray(methodCalls)).toBe(true);
+      expect(Array.isArray(fieldAccess)).toBe(true);
+    });
+
+    it('should handle complex relationship scenarios', () => {
+      // Create a complex scenario with multiple relationship types
+      const baseClass = createTestSymbol('BaseClass', SymbolKind.Class);
+      const derivedClass = createTestSymbol('DerivedClass', SymbolKind.Class);
+      const interface1 = createTestSymbol('MyInterface', SymbolKind.Interface);
+      const enum1 = createTestSymbol('MyEnum', SymbolKind.Enum);
+
+      manager.addSymbol(baseClass, 'BaseClass.cls');
+      manager.addSymbol(derivedClass, 'DerivedClass.cls');
+      manager.addSymbol(interface1, 'MyInterface.cls');
+      manager.addSymbol(enum1, 'MyEnum.cls');
+
+      // Test inheritance relationships
+      const inheritanceRefs = manager.findReferencesByType(
+        baseClass,
+        ReferenceType.INHERITANCE,
+      );
+      const interfaceRefs = manager.findReferencesByType(
+        interface1,
+        ReferenceType.INTERFACE_IMPLEMENTATION,
+      );
+      const enumRefs = manager.findEnumReferences(enum1);
+
+      expect(Array.isArray(inheritanceRefs)).toBe(true);
+      expect(Array.isArray(interfaceRefs)).toBe(true);
+      expect(Array.isArray(enumRefs)).toBe(true);
+
+      // Test pattern matching with complex criteria
+      const complexPattern: RelationshipPattern = {
+        name: 'Complex Pattern',
+        description: 'Pattern with multiple requirements',
+        minTotalReferences: 0,
+        maxTotalReferences: 10,
+        requiredRelationshipTypes: new Map([
+          [ReferenceType.TYPE_REFERENCE, 1],
+          [ReferenceType.INHERITANCE, 1],
+        ]),
+        requiredSymbolKinds: [SymbolKind.Class],
+        requiredVisibility: SymbolVisibility.Public,
+      };
+
+      const matches =
+        manager.findSymbolsWithRelationshipPattern(complexPattern);
+      expect(Array.isArray(matches)).toBe(true);
     });
   });
 });

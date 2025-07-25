@@ -8,7 +8,12 @@
 
 import { HashMap } from 'data-structure-typed';
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ApexSymbol, SymbolTable } from '../types/symbol';
+import {
+  ApexSymbol,
+  SymbolTable,
+  SymbolKind,
+  SymbolVisibility,
+} from '../types/symbol';
 import {
   ApexSymbolGraph,
   ReferenceType,
@@ -47,9 +52,6 @@ export interface SymbolResolutionContext {
   interfaceImplementations: string[];
 }
 
-/**
- * Result of a symbol resolution
- */
 export interface SymbolResolutionResult {
   symbol: ApexSymbol;
   filePath: string;
@@ -59,9 +61,6 @@ export interface SymbolResolutionResult {
   resolutionContext?: string;
 }
 
-/**
- * Impact analysis for refactoring
- */
 export interface ImpactAnalysis {
   directImpact: ApexSymbol[];
   indirectImpact: ApexSymbol[];
@@ -70,9 +69,6 @@ export interface ImpactAnalysis {
   riskAssessment: 'low' | 'medium' | 'high';
 }
 
-/**
- * Symbol metrics for analysis
- */
 export interface SymbolMetrics {
   // Basic metrics
   referenceCount: number;
@@ -93,6 +89,39 @@ export interface SymbolMetrics {
   usagePatterns: string[];
   accessPatterns: string[];
   lifecycleStage: 'active' | 'deprecated' | 'legacy' | 'experimental';
+}
+
+// Phase 5: Extended Relationship Types
+export interface RelationshipStats {
+  totalReferences: number;
+  relationshipTypeCounts: Map<ReferenceType, number>;
+  mostCommonRelationshipType: ReferenceType | null;
+  leastCommonRelationshipType: ReferenceType | null;
+  averageReferencesPerType: number;
+}
+
+export interface RelationshipPattern {
+  name: string;
+  description: string;
+  minTotalReferences?: number;
+  maxTotalReferences?: number;
+  requiredRelationshipTypes: Map<ReferenceType, number>;
+  requiredSymbolKinds?: SymbolKind[];
+  requiredVisibility?: SymbolVisibility;
+}
+
+export interface RelationshipPatternResult {
+  pattern: RelationshipPattern;
+  matchingSymbols: ApexSymbol[];
+  count: number;
+  percentage: number;
+}
+
+export interface RelationshipPatternAnalysis {
+  totalSymbols: number;
+  relationshipPatterns: Map<string, RelationshipPatternResult>;
+  mostCommonPatterns: RelationshipPatternResult[];
+  patternInsights: string[];
 }
 
 /**
@@ -670,6 +699,479 @@ export class ApexSymbolManager {
       resolutionContext: resolved.resolutionContext,
     };
   }
+
+  // ============================================================================
+  // Phase 5.1: Extended Relationship Types
+  // ============================================================================
+
+  /**
+   * Find references by specific relationship type
+   */
+  findReferencesByType(
+    symbol: ApexSymbol,
+    referenceType: ReferenceType,
+  ): ReferenceResult[] {
+    this.logger.debug(
+      () =>
+        `Finding references of type ${referenceType} for symbol: ${symbol.name}`,
+    );
+
+    const references = this.symbolGraph.findReferencesTo(symbol);
+
+    return references.filter((ref) => ref.referenceType === referenceType);
+  }
+
+  /**
+   * Find all constructor calls for a class
+   */
+  findConstructorCalls(classSymbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(
+      classSymbol,
+      ReferenceType.CONSTRUCTOR_CALL,
+    );
+  }
+
+  /**
+   * Find all static access references for a symbol
+   */
+  findStaticAccess(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.STATIC_ACCESS);
+  }
+
+  /**
+   * Find all instance access references for a symbol
+   */
+  findInstanceAccess(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.INSTANCE_ACCESS);
+  }
+
+  /**
+   * Find all import references for a symbol
+   */
+  findImportReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.IMPORT_REFERENCE);
+  }
+
+  /**
+   * Find all annotation references for a symbol
+   */
+  findAnnotationReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(
+      symbol,
+      ReferenceType.ANNOTATION_REFERENCE,
+    );
+  }
+
+  /**
+   * Find all trigger references for a symbol
+   */
+  findTriggerReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.TRIGGER_REFERENCE);
+  }
+
+  /**
+   * Find all test method references for a symbol
+   */
+  findTestMethodReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(
+      symbol,
+      ReferenceType.TEST_METHOD_REFERENCE,
+    );
+  }
+
+  /**
+   * Find all webservice references for a symbol
+   */
+  findWebServiceReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(
+      symbol,
+      ReferenceType.WEBSERVICE_REFERENCE,
+    );
+  }
+
+  /**
+   * Find all remote action references for a symbol
+   */
+  findRemoteActionReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(
+      symbol,
+      ReferenceType.REMOTE_ACTION_REFERENCE,
+    );
+  }
+
+  /**
+   * Find all property access references for a symbol
+   */
+  findPropertyAccess(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.PROPERTY_ACCESS);
+  }
+
+  /**
+   * Find all enum references for a symbol
+   */
+  findEnumReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.ENUM_REFERENCE);
+  }
+
+  /**
+   * Find all trigger context references for a symbol
+   */
+  findTriggerContextReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(
+      symbol,
+      ReferenceType.TRIGGER_CONTEXT_REFERENCE,
+    );
+  }
+
+  /**
+   * Find all SOQL references for a symbol
+   */
+  findSOQLReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.SOQL_REFERENCE);
+  }
+
+  /**
+   * Find all SOSL references for a symbol
+   */
+  findSOSLReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.SOSL_REFERENCE);
+  }
+
+  /**
+   * Find all DML references for a symbol
+   */
+  findDMLReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.DML_REFERENCE);
+  }
+
+  /**
+   * Find all Apex page references for a symbol
+   */
+  findApexPageReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.APEX_PAGE_REFERENCE);
+  }
+
+  /**
+   * Find all component references for a symbol
+   */
+  findComponentReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.COMPONENT_REFERENCE);
+  }
+
+  /**
+   * Find all custom metadata references for a symbol
+   */
+  findCustomMetadataReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(
+      symbol,
+      ReferenceType.CUSTOM_METADATA_REFERENCE,
+    );
+  }
+
+  /**
+   * Find all external service references for a symbol
+   */
+  findExternalServiceReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(
+      symbol,
+      ReferenceType.EXTERNAL_SERVICE_REFERENCE,
+    );
+  }
+
+  /**
+   * Get relationship statistics for a symbol
+   */
+  getRelationshipStats(symbol: ApexSymbol): RelationshipStats {
+    this.logger.debug(
+      () => `Getting relationship stats for symbol: ${symbol.name}`,
+    );
+
+    const allReferences = this.symbolGraph.findReferencesTo(symbol);
+
+    const stats: RelationshipStats = {
+      totalReferences: allReferences.length,
+      relationshipTypeCounts: new Map(),
+      mostCommonRelationshipType: null,
+      leastCommonRelationshipType: null,
+      averageReferencesPerType: 0,
+    };
+
+    // Count references by type
+    const typeCounts = new Map<ReferenceType, number>();
+    for (const ref of allReferences) {
+      const count = typeCounts.get(ref.referenceType) || 0;
+      typeCounts.set(ref.referenceType, count + 1);
+    }
+
+    // Find most and least common types
+    let maxCount = 0;
+    let minCount = Infinity;
+    let totalTypes = 0;
+
+    for (const [type, count] of typeCounts) {
+      stats.relationshipTypeCounts.set(type, count);
+      totalTypes++;
+
+      if (count > maxCount) {
+        maxCount = count;
+        stats.mostCommonRelationshipType = type;
+      }
+
+      if (count < minCount) {
+        minCount = count;
+        stats.leastCommonRelationshipType = type;
+      }
+    }
+
+    stats.averageReferencesPerType =
+      totalTypes > 0 ? allReferences.length / totalTypes : 0;
+
+    return stats;
+  }
+
+  /**
+   * Find symbols with specific relationship patterns
+   */
+  findSymbolsWithRelationshipPattern(
+    pattern: RelationshipPattern,
+  ): ApexSymbol[] {
+    this.logger.debug(
+      () => `Finding symbols with relationship pattern: ${pattern.name}`,
+    );
+
+    const matchingSymbols: ApexSymbol[] = [];
+
+    for (const [_symbolId, symbol] of this.symbolCache) {
+      const stats = this.getRelationshipStats(symbol);
+
+      // Check if symbol matches the pattern
+      if (this.matchesRelationshipPattern(symbol, stats, pattern)) {
+        matchingSymbols.push(symbol);
+      }
+    }
+
+    return matchingSymbols;
+  }
+
+  /**
+   * Check if a symbol matches a relationship pattern
+   */
+  private matchesRelationshipPattern(
+    symbol: ApexSymbol,
+    stats: RelationshipStats,
+    pattern: RelationshipPattern,
+  ): boolean {
+    // Check total references count
+    if (
+      pattern.minTotalReferences &&
+      stats.totalReferences < pattern.minTotalReferences
+    ) {
+      return false;
+    }
+    if (
+      pattern.maxTotalReferences &&
+      stats.totalReferences > pattern.maxTotalReferences
+    ) {
+      return false;
+    }
+
+    // Check specific relationship type requirements
+    for (const [
+      requiredType,
+      requiredCount,
+    ] of pattern.requiredRelationshipTypes) {
+      const actualCount = stats.relationshipTypeCounts.get(requiredType) || 0;
+      if (actualCount < requiredCount) {
+        return false;
+      }
+    }
+
+    // Check symbol kind requirements
+    if (
+      pattern.requiredSymbolKinds &&
+      !pattern.requiredSymbolKinds.includes(symbol.kind)
+    ) {
+      return false;
+    }
+
+    // Check visibility requirements
+    if (
+      pattern.requiredVisibility &&
+      symbol.modifiers.visibility !== pattern.requiredVisibility
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Analyze relationship patterns across the entire codebase
+   */
+  analyzeRelationshipPatterns(): RelationshipPatternAnalysis {
+    this.logger.debug(() => 'Analyzing relationship patterns across codebase');
+
+    const analysis: RelationshipPatternAnalysis = {
+      totalSymbols: this.symbolCache.size,
+      relationshipPatterns: new Map(),
+      mostCommonPatterns: [],
+      patternInsights: [],
+    };
+
+    // Define common patterns to look for
+    const patterns = this.getCommonRelationshipPatterns();
+
+    for (const pattern of patterns) {
+      const matchingSymbols = this.findSymbolsWithRelationshipPattern(pattern);
+      analysis.relationshipPatterns.set(pattern.name, {
+        pattern,
+        matchingSymbols,
+        count: matchingSymbols.length,
+        percentage: (matchingSymbols.length / this.symbolCache.size) * 100,
+      });
+    }
+
+    // Find most common patterns
+    const sortedPatterns = Array.from(
+      analysis.relationshipPatterns.values(),
+    ).sort((a, b) => b.count - a.count);
+
+    analysis.mostCommonPatterns = sortedPatterns.slice(0, 10);
+
+    // Generate insights
+    analysis.patternInsights = this.generatePatternInsights(analysis);
+
+    return analysis;
+  }
+
+  /**
+   * Get common relationship patterns to analyze
+   */
+  private getCommonRelationshipPatterns(): RelationshipPattern[] {
+    return [
+      {
+        name: 'Heavily Referenced Classes',
+        description: 'Classes with many references from other symbols',
+        minTotalReferences: 10,
+        requiredSymbolKinds: [SymbolKind.Class],
+        requiredRelationshipTypes: new Map(),
+      },
+      {
+        name: 'Utility Classes',
+        description: 'Classes with mostly static access',
+        minTotalReferences: 5,
+        requiredRelationshipTypes: new Map([[ReferenceType.STATIC_ACCESS, 3]]),
+        requiredSymbolKinds: [SymbolKind.Class],
+      },
+      {
+        name: 'Data Models',
+        description: 'Classes with many field access references',
+        minTotalReferences: 5,
+        requiredRelationshipTypes: new Map([[ReferenceType.FIELD_ACCESS, 3]]),
+        requiredSymbolKinds: [SymbolKind.Class],
+      },
+      {
+        name: 'Service Classes',
+        description: 'Classes with many method calls',
+        minTotalReferences: 5,
+        requiredRelationshipTypes: new Map([[ReferenceType.METHOD_CALL, 3]]),
+        requiredSymbolKinds: [SymbolKind.Class],
+      },
+      {
+        name: 'Test Classes',
+        description: 'Classes with test method references',
+        requiredRelationshipTypes: new Map([
+          [ReferenceType.TEST_METHOD_REFERENCE, 1],
+        ]),
+        requiredSymbolKinds: [SymbolKind.Class],
+      },
+      {
+        name: 'Web Services',
+        description: 'Classes with webservice references',
+        requiredRelationshipTypes: new Map([
+          [ReferenceType.WEBSERVICE_REFERENCE, 1],
+        ]),
+        requiredSymbolKinds: [SymbolKind.Class],
+      },
+      {
+        name: 'Triggers',
+        description: 'Classes with trigger references',
+        requiredRelationshipTypes: new Map([
+          [ReferenceType.TRIGGER_REFERENCE, 1],
+        ]),
+        requiredSymbolKinds: [SymbolKind.Class],
+      },
+      {
+        name: 'Public APIs',
+        description: 'Public symbols with many external references',
+        minTotalReferences: 5,
+        requiredVisibility: SymbolVisibility.Public,
+        requiredRelationshipTypes: new Map(),
+      },
+      {
+        name: 'Private Implementation',
+        description: 'Private symbols with few references',
+        maxTotalReferences: 3,
+        requiredVisibility: SymbolVisibility.Private,
+        requiredRelationshipTypes: new Map(),
+      },
+    ];
+  }
+
+  /**
+   * Generate insights from relationship pattern analysis
+   */
+  private generatePatternInsights(
+    analysis: RelationshipPatternAnalysis,
+  ): string[] {
+    const insights: string[] = [];
+
+    // Most common patterns
+    if (analysis.mostCommonPatterns.length > 0) {
+      const topPattern = analysis.mostCommonPatterns[0];
+      insights.push(
+        `Most common pattern: "${topPattern.pattern.name}" with ${topPattern.count} symbols ` +
+          `(${topPattern.percentage.toFixed(1)}%)`,
+      );
+    }
+
+    // Pattern distribution
+    const patternsWithSymbols = Array.from(
+      analysis.relationshipPatterns.values(),
+    ).filter((p) => p.count > 0);
+
+    insights.push(
+      `Found ${patternsWithSymbols.length} relationship patterns across the codebase`,
+    );
+
+    // Specific insights
+    const utilityClasses = analysis.relationshipPatterns.get('Utility Classes');
+    if (utilityClasses && utilityClasses.count > 0) {
+      insights.push(
+        `Utility classes: ${utilityClasses.count} classes with static access patterns`,
+      );
+    }
+
+    const testClasses = analysis.relationshipPatterns.get('Test Classes');
+    if (testClasses && testClasses.count > 0) {
+      insights.push(
+        `Test coverage: ${testClasses.count} classes with test methods`,
+      );
+    }
+
+    const publicAPIs = analysis.relationshipPatterns.get('Public APIs');
+    if (publicAPIs && publicAPIs.count > 0) {
+      insights.push(
+        `Public APIs: ${publicAPIs.count} symbols with high external usage`,
+      );
+    }
+
+    return insights;
+  }
+
+  // ============================================================================
+  // Enhanced Context Resolution Methods
+  // ============================================================================
 
   // ============================================================================
   // Utility Methods
