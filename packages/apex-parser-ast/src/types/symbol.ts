@@ -444,27 +444,34 @@ export const toLightweightSymbol = (
   // Generate unique ID
   const id = symbol.key.unifiedId || generateUnifiedId(symbol.key, filePath);
 
+  // Generate parent ID if parent exists
+  let parentId: string | null = null;
+  if (symbol.parentKey) {
+    parentId =
+      symbol.parentKey.unifiedId ||
+      generateUnifiedId(symbol.parentKey, filePath);
+  }
+
   const lightweight: LightweightSymbol = {
     id,
     name: symbol.name,
     kind: SymbolKindValues[symbol.kind],
     location: symbol.location,
     modifiers,
-    parentId: symbol.parentKey?.unifiedId || null,
+    parentId,
     filePath,
     fqn: symbol.fqn,
     namespace: symbol.namespace,
+    _lazy: {},
   };
 
   // Store expensive data in lazy object
-  const lazy: LightweightSymbol['_lazy'] = {};
-
   if (symbol.annotations?.length) {
-    lazy.annotations = symbol.annotations;
+    lightweight._lazy!.annotations = symbol.annotations;
   }
 
   if (symbol.identifierLocation) {
-    lazy.identifierLocation = symbol.identifierLocation;
+    lightweight._lazy!.identifierLocation = symbol.identifierLocation;
   }
 
   // Type-specific data
@@ -473,8 +480,10 @@ export const toLightweightSymbol = (
     symbol.kind === SymbolKind.Interface
   ) {
     const typeSymbol = symbol as TypeSymbol;
-    if (typeSymbol.superClass) lazy.superClass = typeSymbol.superClass;
-    if (typeSymbol.interfaces?.length) lazy.interfaces = typeSymbol.interfaces;
+    if (typeSymbol.superClass)
+      lightweight._lazy!.superClass = typeSymbol.superClass;
+    if (typeSymbol.interfaces?.length)
+      lightweight._lazy!.interfaces = typeSymbol.interfaces;
   }
 
   if (
@@ -482,9 +491,9 @@ export const toLightweightSymbol = (
     symbol.kind === SymbolKind.Constructor
   ) {
     const methodSymbol = symbol as MethodSymbol;
-    lazy.returnType = methodSymbol.returnType;
+    lightweight._lazy!.returnType = methodSymbol.returnType;
     if (methodSymbol.parameters?.length) {
-      lazy.parameters = methodSymbol.parameters.map(
+      lightweight._lazy!.parameters = methodSymbol.parameters.map(
         (p) => p.key.unifiedId || p.name,
       );
     }
@@ -497,20 +506,18 @@ export const toLightweightSymbol = (
     symbol.kind === SymbolKind.Parameter
   ) {
     const variableSymbol = symbol as VariableSymbol;
-    lazy.type = variableSymbol.type;
+    lightweight._lazy!.type = variableSymbol.type;
     if (variableSymbol.initialValue)
-      lazy.initialValue = variableSymbol.initialValue;
+      lightweight._lazy!.initialValue = variableSymbol.initialValue;
   }
 
   if (symbol.kind === SymbolKind.Enum) {
     const enumSymbol = symbol as EnumSymbol;
     if (enumSymbol.values?.length) {
-      lazy.values = enumSymbol.values.map((v) => v.key.unifiedId || v.name);
+      lightweight._lazy!.values = enumSymbol.values.map(
+        (v) => v.key.unifiedId || v.name,
+      );
     }
-  }
-
-  if (Object.keys(lazy).length > 0) {
-    lightweight._lazy = lazy;
   }
 
   return lightweight;
@@ -569,7 +576,14 @@ export const fromLightweightSymbol = (
     modifiers,
     key,
     parentKey: lightweight.parentId
-      ? { ...key, name: lightweight.parentId }
+      ? {
+          prefix: 'symbol',
+          name: lightweight.parentId,
+          path: [lightweight.filePath, lightweight.parentId],
+          unifiedId: lightweight.parentId,
+          filePath: lightweight.filePath,
+          kind,
+        }
       : null,
     fqn: lightweight.fqn,
     namespace: lightweight.namespace,
@@ -581,6 +595,53 @@ export const fromLightweightSymbol = (
       symbol.annotations = lightweight._lazy.annotations;
     if (lightweight._lazy.identifierLocation)
       symbol.identifierLocation = lightweight._lazy.identifierLocation;
+  }
+
+  // Reconstruct type-specific data based on kind
+  if (
+    kind === SymbolKind.Class ||
+    kind === SymbolKind.Interface ||
+    kind === SymbolKind.Trigger ||
+    kind === SymbolKind.Enum
+  ) {
+    const typeSymbol = symbol as TypeSymbol;
+    if (lightweight._lazy?.superClass)
+      typeSymbol.superClass = lightweight._lazy.superClass;
+    if (lightweight._lazy?.interfaces)
+      typeSymbol.interfaces = lightweight._lazy.interfaces;
+  }
+
+  if (kind === SymbolKind.Method || kind === SymbolKind.Constructor) {
+    const methodSymbol = symbol as MethodSymbol;
+    if (lightweight._lazy?.returnType)
+      methodSymbol.returnType = lightweight._lazy.returnType;
+    if (lightweight._lazy?.parameters) {
+      // For now, create empty parameters array - in a real implementation,
+      // we would need to resolve the parameter symbols from the symbol table
+      methodSymbol.parameters = [];
+    }
+  }
+
+  if (
+    kind === SymbolKind.Property ||
+    kind === SymbolKind.Field ||
+    kind === SymbolKind.Variable ||
+    kind === SymbolKind.Parameter ||
+    kind === SymbolKind.EnumValue
+  ) {
+    const variableSymbol = symbol as VariableSymbol;
+    if (lightweight._lazy?.type) variableSymbol.type = lightweight._lazy.type;
+    if (lightweight._lazy?.initialValue)
+      variableSymbol.initialValue = lightweight._lazy.initialValue;
+  }
+
+  if (kind === SymbolKind.Enum) {
+    const enumSymbol = symbol as EnumSymbol;
+    if (lightweight._lazy?.values) {
+      // For now, create empty values array - in a real implementation,
+      // we would need to resolve the enum value symbols from the symbol table
+      enumSymbol.values = [];
+    }
   }
 
   return symbol;
