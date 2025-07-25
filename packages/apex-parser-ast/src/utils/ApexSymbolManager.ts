@@ -14,6 +14,9 @@ import {
   SymbolKind,
   SymbolVisibility,
   createFromSymbol,
+  LightweightSymbol,
+  toLightweightSymbol,
+  fromLightweightSymbol,
 } from '../types/symbol';
 import {
   ApexSymbolGraph,
@@ -164,8 +167,11 @@ export class ApexSymbolManager {
   // Memory-optimized file metadata (replaces symbolTableIndex)
   private fileMetadata: HashMap<string, FileMetadata>;
 
-  // Performance-optimized caching with memory limits
-  private symbolCache: HashMap<string, ApexSymbol>;
+  // OPTIMIZED: Single unified cache with lightweight symbols
+  private unifiedCache: HashMap<string, LightweightSymbol>;
+  private cacheTimestamps: HashMap<string, number>;
+
+  // OPTIMIZED: Reduced cache layers - only essential caches
   private relationshipCache: HashMap<string, ReferenceResult[]>;
   private metricsCache: HashMap<string, SymbolMetrics>;
 
@@ -174,61 +180,61 @@ export class ApexSymbolManager {
   private lazyAnalysis: HashMap<string, Promise<DependencyAnalysis>>;
 
   // Memory management
-  private readonly MAX_CACHE_SIZE = 10000; // Limit cache sizes
-  private cacheTimestamps: HashMap<string, number>;
+  private readonly MAX_CACHE_SIZE = 5000; // Reduced from 10000
+  private readonly CACHE_TTL = 3 * 60 * 1000; // Reduced from 5 minutes to 3 minutes
 
-  // Advanced memory optimization
-  private symbolReferencePool: HashMap<string, WeakRef<ApexSymbol>> =
-    new HashMap();
-  private memoryPoolStats = {
-    totalReferences: 0,
-    activeReferences: 0,
-    garbageCollected: 0,
+  // OPTIMIZED: Removed symbolReferencePool - using lightweight symbols instead
+  private memoryStats = {
+    totalSymbols: 0,
+    totalCacheEntries: 0,
     lastCleanup: Date.now(),
+    memoryOptimizationLevel: 'OPTIMAL' as string,
   };
 
   constructor() {
     this.symbolGraph = new ApexSymbolGraph();
     this.fileMetadata = new HashMap();
-    this.symbolCache = new HashMap();
+    this.unifiedCache = new HashMap();
+    this.cacheTimestamps = new HashMap();
     this.relationshipCache = new HashMap();
     this.metricsCache = new HashMap();
     this.lazyMetrics = new HashMap();
     this.lazyAnalysis = new HashMap();
-    this.cacheTimestamps = new HashMap();
   }
 
   // ============================================================================
-  // Phase 2.1: Symbol Management Methods
+  // Phase 2.1: Optimized Symbol Management Methods
   // ============================================================================
 
   /**
    * Add a symbol to the graph with memory optimization
-   */
-  /**
-   * Add a symbol to the graph
-   * Updated for Phase 6.5.2: Symbol Key System Unification with duplicate detection
+   * Updated to use lightweight symbols
    */
   addSymbol(symbol: ApexSymbol, filePath: string): void {
     this.logger.debug(() => `Adding symbol: ${symbol.name} from ${filePath}`);
 
-    // Generate unified ID first to check for duplicates
-    const symbolId = this.getSymbolId(symbol, filePath);
+    // Convert to lightweight symbol for storage
+    const lightweightSymbol = toLightweightSymbol(symbol, filePath);
+    const symbolId = lightweightSymbol.id;
 
     // Check if symbol already exists with this ID
-    if (this.symbolCache.has(symbolId)) {
+    if (this.unifiedCache.has(symbolId)) {
       this.logger.debug(
         () => `Symbol already exists with ID: ${symbolId}, skipping duplicate`,
       );
       return; // Skip duplicate addition
     }
 
-    // Add to graph
+    // Add to graph (still using full symbol for compatibility)
     this.symbolGraph.addSymbol(symbol, filePath);
 
-    // Use shared symbol reference if available
-    const sharedSymbol = this.getOrCreateSharedSymbol(symbol, symbolId);
-    this.symbolCache.set(symbolId, sharedSymbol);
+    // Store lightweight symbol in unified cache
+    this.unifiedCache.set(symbolId, lightweightSymbol);
+    this.cacheTimestamps.set(symbolId, Date.now());
+
+    // Update memory stats
+    this.memoryStats.totalSymbols++;
+    this.memoryStats.totalCacheEntries = this.unifiedCache.size;
 
     // Clear related caches
     this.clearRelatedCaches(symbolId);
@@ -236,333 +242,327 @@ export class ApexSymbolManager {
     // Invalidate caches that might be affected by this symbol
     this.invalidateCache(symbol.name);
     this.invalidateCache(filePath);
-  }
 
-  /**
-   * Remove a symbol from the graph
-   */
-  removeSymbol(symbol: ApexSymbol, filePath: string): void {
-    this.logger.debug(() => `Removing symbol: ${symbol.name} from ${filePath}`);
-
-    const symbolId = this.getSymbolId(symbol, filePath);
-
-    // Remove from graph (this will handle all graph operations)
-    // Note: ApexSymbolGraph doesn't have individual symbol removal yet
-    // We'll need to implement this or handle it through file removal
-
-    // Clear caches
-    this.symbolCache.delete(symbolId);
-    this.clearRelatedCaches(symbolId);
-  }
-
-  /**
-   * Remove all symbols from a file
-   */
-  removeFile(filePath: string): void {
-    this.logger.debug(() => `Removing file: ${filePath}`);
-
-    // Remove from graph
-    this.symbolGraph.removeFile(filePath);
-
-    // Remove from symbol table index
-    this.fileMetadata.delete(filePath);
-
-    // Clear all caches (simplified approach for now)
-    this.clearAllCaches();
-  }
-
-  /**
-   * Add a symbol table to the manager with memory optimization
-   */
-  addSymbolTable(symbolTable: SymbolTable, filePath: string): void {
-    this.logger.debug(() => `Adding symbol table for: ${filePath}`);
-
-    // Extract scope hierarchy for lightweight storage
-    const scopeHierarchy = this.extractScopeHierarchy(symbolTable, filePath);
-    const symbolCount = this.countSymbolsInTable(symbolTable);
-
-    // Store lightweight metadata instead of full SymbolTable
-    this.fileMetadata.set(filePath, {
-      filePath,
-      symbolCount,
-      scopeCount: scopeHierarchy.length,
-      lastUpdated: Date.now(),
-      scopeHierarchy,
-    });
-
-    // Extract and add all symbols
-    const allSymbols = this.extractAllSymbols(symbolTable);
-
-    // Add symbols in batch for better performance
-    allSymbols.forEach((symbol) => {
-      this.addSymbol(symbol, filePath);
-    });
-
-    // Integrate scope hierarchy into graph structure after all symbols are added
-    this.integrateScopeHierarchy(filePath, scopeHierarchy);
-
-    this.logger.debug(
-      () =>
-        `Added ${allSymbols.length} symbols from ${filePath} (${scopeHierarchy.length} scopes)`,
-    );
-  }
-
-  /**
-   * Extract scope hierarchy from SymbolTable for lightweight storage
-   */
-  private extractScopeHierarchy(
-    symbolTable: SymbolTable,
-    filePath: string,
-  ): ScopeNode[] {
-    const scopeNodes: ScopeNode[] = [];
-    const scopeMap = new Map<string, ScopeNode>();
-
-    // Helper function to collect scopes recursively
-    const collectScopes = (scope: any, parentScopeName?: string): void => {
-      const scopeNode: ScopeNode = {
-        name: scope.name,
-        scopeType: scope.scopeType || 'block',
-        parentScope: parentScopeName,
-        symbolIds: scope
-          .getAllSymbols()
-          .map((s: ApexSymbol) => this.getSymbolId(s, filePath)),
-        children: [],
-      };
-
-      scopeMap.set(scope.name, scopeNode);
-      scopeNodes.push(scopeNode);
-
-      // Process children
-      scope.getChildren().forEach((childScope: any) => {
-        scopeNode.children.push(childScope.name);
-        collectScopes(childScope, scope.name);
-      });
-    };
-
-    // Start from root scope
-    collectScopes(symbolTable.getCurrentScope());
-    return scopeNodes;
-  }
-
-  /**
-   * Count total symbols in SymbolTable
-   */
-  private countSymbolsInTable(symbolTable: SymbolTable): number {
-    let count = 0;
-
-    const countInScope = (scope: any): void => {
-      count += scope.getAllSymbols().length;
-      scope.getChildren().forEach((childScope: any) => {
-        countInScope(childScope);
-      });
-    };
-
-    countInScope(symbolTable.getCurrentScope());
-    return count;
-  }
-
-  /**
-   * Extract all symbols from SymbolTable
-   */
-  private extractAllSymbols(symbolTable: SymbolTable): ApexSymbol[] {
-    const symbols: ApexSymbol[] = [];
-
-    const collectSymbols = (scope: any): void => {
-      symbols.push(...scope.getAllSymbols());
-      scope.getChildren().forEach((childScope: any) => {
-        collectSymbols(childScope);
-      });
-    };
-
-    collectSymbols(symbolTable.getCurrentScope());
-    return symbols;
-  }
-
-  /**
-   * Integrate scope hierarchy into graph structure
-   */
-  private integrateScopeHierarchy(
-    filePath: string,
-    scopeHierarchy: ScopeNode[],
-  ): void {
-    this.logger.debug(
-      () =>
-        `Integrating scope hierarchy for ${filePath} with ${scopeHierarchy.length} scopes`,
-    );
-
-    // Create scope relationship nodes in the graph
-    for (const scopeNode of scopeHierarchy) {
-      this.logger.debug(
-        () =>
-          `Processing scope: ${scopeNode.name} with ${scopeNode.symbolIds.length} symbols`,
-      );
-
-      // Add scope relationships to the graph
-      if (scopeNode.parentScope) {
-        // Find parent scope symbols
-        const parentScope = scopeHierarchy.find(
-          (s) => s.name === scopeNode.parentScope,
-        );
-        if (parentScope) {
-          this.logger.debug(
-            () =>
-              `Found parent scope: ${parentScope.name} with ${parentScope.symbolIds.length} symbols`,
-          );
-
-          // Create scope containment relationships
-          for (const symbolId of scopeNode.symbolIds) {
-            const symbol = this.symbolCache.get(symbolId);
-            if (symbol) {
-              for (const parentSymbolId of parentScope.symbolIds) {
-                const parentSymbol = this.symbolCache.get(parentSymbolId);
-                if (parentSymbol) {
-                  this.logger.debug(
-                    () =>
-                      `Creating SCOPE_CONTAINS relationship: ${symbol.name} -> ${parentSymbol.name}`,
-                  );
-                  this.symbolGraph.addReference(
-                    symbol,
-                    parentSymbol,
-                    ReferenceType.SCOPE_CONTAINS,
-                    { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
-                  );
-                } else {
-                  this.logger.debug(
-                    () => `Parent symbol not found in cache: ${parentSymbolId}`,
-                  );
-                }
-              }
-            } else {
-              this.logger.debug(() => `Symbol not found in cache: ${symbolId}`);
-            }
-          }
-        }
-      }
-
-      // Add scope parent-child relationships
-      for (const childName of scopeNode.children) {
-        const childScope = scopeHierarchy.find((s) => s.name === childName);
-        if (childScope) {
-          this.logger.debug(
-            () =>
-              `Found child scope: ${childScope.name} with ${childScope.symbolIds.length} symbols`,
-          );
-
-          for (const symbolId of scopeNode.symbolIds) {
-            const symbol = this.symbolCache.get(symbolId);
-            if (symbol) {
-              for (const childSymbolId of childScope.symbolIds) {
-                const childSymbol = this.symbolCache.get(childSymbolId);
-                if (childSymbol) {
-                  this.logger.debug(
-                    () =>
-                      `Creating SCOPE_CHILD relationship: ${symbol.name} -> ${childSymbol.name}`,
-                  );
-                  this.symbolGraph.addReference(
-                    symbol,
-                    childSymbol,
-                    ReferenceType.SCOPE_CHILD,
-                    { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
-                  );
-                } else {
-                  this.logger.debug(
-                    () => `Child symbol not found in cache: ${childSymbolId}`,
-                  );
-                }
-              }
-            } else {
-              this.logger.debug(() => `Symbol not found in cache: ${symbolId}`);
-            }
-          }
-        }
-      }
+    // Periodic memory optimization
+    if (this.memoryStats.totalCacheEntries % 100 === 0) {
+      this.optimizeMemory();
     }
   }
 
   /**
-   * Get or create a shared symbol reference to reduce memory usage
+   * Get symbol by ID with lazy loading
    */
-  private getOrCreateSharedSymbol(
-    symbol: ApexSymbol,
-    symbolId: string,
-  ): ApexSymbol {
-    // Check if we already have a shared reference
-    const existingRef = this.symbolReferencePool.get(symbolId);
-    if (existingRef) {
-      const existingSymbol = existingRef.deref();
-      if (existingSymbol) {
-        // Reuse existing symbol reference
-        this.memoryPoolStats.activeReferences++;
-        return existingSymbol;
-      } else {
-        // Reference was garbage collected, remove it
-        this.symbolReferencePool.delete(symbolId);
-        this.memoryPoolStats.garbageCollected++;
-      }
-    }
+  getSymbol(symbolId: string): ApexSymbol | null {
+    const lightweight = this.unifiedCache.get(symbolId);
+    if (!lightweight) return null;
 
-    // Create new shared reference
-    const sharedRef = new WeakRef(symbol);
-    this.symbolReferencePool.set(symbolId, sharedRef);
-    this.memoryPoolStats.totalReferences++;
-    this.memoryPoolStats.activeReferences++;
-
-    return symbol;
+    // Convert back to full symbol when needed
+    // Note: We need a way to get SymbolTable - for now, create a minimal one
+    const mockSymbolTable = new SymbolTable();
+    return fromLightweightSymbol(lightweight, mockSymbolTable);
   }
 
   /**
-   * Clean up garbage collected symbol references
+   * Find all symbols with a given name (optimized)
    */
-  private cleanupSymbolReferences(): void {
-    const now = Date.now();
-    const keysToRemove: string[] = [];
+  findSymbolByName(name: string): ApexSymbol[] {
+    const results: ApexSymbol[] = [];
 
-    // Check for garbage collected references
-    for (const [key, ref] of this.symbolReferencePool) {
-      if (!ref.deref()) {
-        keysToRemove.push(key);
-        this.memoryPoolStats.garbageCollected++;
+    // Search through lightweight cache
+    for (const [, lightweight] of this.unifiedCache) {
+      if (lightweight.name === name) {
+        const symbol = this.getSymbol(lightweight.id);
+        if (symbol) results.push(symbol);
       }
     }
 
-    // Remove garbage collected references
-    keysToRemove.forEach((key) => {
-      this.symbolReferencePool.delete(key);
-    });
-
-    this.memoryPoolStats.lastCleanup = now;
-
-    if (keysToRemove.length > 0) {
-      this.logger.debug(
-        () =>
-          `Cleaned up ${keysToRemove.length} garbage collected symbol references`,
-      );
-    }
+    return results;
   }
 
   /**
-   * Refresh the manager with new symbol data
+   * Find a symbol by its fully qualified name (optimized)
    */
-  refresh(symbolTables: Map<string, SymbolTable>): void {
-    this.logger.debug(() => 'Refreshing ApexSymbolManager...');
+  findSymbolByFQN(fqn: string): ApexSymbol | null {
+    // Search through lightweight cache
+    for (const [, lightweight] of this.unifiedCache) {
+      if (lightweight.fqn === fqn) {
+        return this.getSymbol(lightweight.id);
+      }
+    }
+    return null;
+  }
 
-    // Clear existing data
-    this.symbolGraph.clear();
-    this.fileMetadata.clear();
-    this.clearAllCaches();
+  /**
+   * Find all symbols in a specific file (optimized)
+   */
+  findSymbolsInFile(filePath: string): ApexSymbol[] {
+    const results: ApexSymbol[] = [];
 
-    // Add new symbol tables
-    if (symbolTables) {
-      for (const [filePath, symbolTable] of symbolTables) {
-        this.addSymbolTable(symbolTable, filePath);
+    // Search through lightweight cache
+    for (const [, lightweight] of this.unifiedCache) {
+      if (lightweight.filePath === filePath) {
+        const symbol = this.getSymbol(lightweight.id);
+        if (symbol) results.push(symbol);
       }
     }
 
-    this.logger.debug(() => 'ApexSymbolManager refreshed');
+    return results;
   }
 
   // ============================================================================
-  // Phase 2.2: Symbol Lookup Methods
+  // Phase 2.2: Optimized Cache Management
+  // ============================================================================
+
+  /**
+   * Get cached result or compute and cache (optimized)
+   */
+  private getCachedOrCompute<T>(
+    cacheKey: string,
+    computeFn: () => T,
+    cache: HashMap<string, T>,
+  ): T {
+    const timestamp = this.cacheTimestamps.get(cacheKey);
+    const now = Date.now();
+
+    // Check if cache is still valid
+    if (timestamp && now - timestamp < this.CACHE_TTL) {
+      const cached = cache.get(cacheKey);
+      if (cached !== undefined) {
+        this.logger.debug(() => `Cache hit for key: ${cacheKey}`);
+        return cached;
+      }
+    }
+
+    // Compute and cache
+    this.logger.debug(() => `Cache miss for key: ${cacheKey}, computing...`);
+    const result = computeFn();
+    cache.set(cacheKey, result);
+    this.cacheTimestamps.set(cacheKey, now);
+
+    return result;
+  }
+
+  /**
+   * Memory usage optimization with advanced features
+   */
+  optimizeMemory(): void {
+    this.logger.debug(() => 'Optimizing memory usage...');
+
+    const now = Date.now();
+    const keysToRemove: string[] = [];
+
+    // Clear expired cache entries
+    for (const [key, timestamp] of this.cacheTimestamps.entries()) {
+      if (timestamp && now - timestamp > this.CACHE_TTL) {
+        keysToRemove.push(key);
+      }
+    }
+
+    // Enforce cache size limits
+    this.enforceCacheSizeLimits();
+
+    // Clear expired entries
+    keysToRemove.forEach((key) => {
+      this.cacheTimestamps.delete(key);
+      this.unifiedCache.delete(key);
+      this.relationshipCache.delete(key);
+      this.metricsCache.delete(key);
+    });
+
+    // Update memory stats
+    this.memoryStats.totalCacheEntries = this.unifiedCache.size;
+    this.memoryStats.lastCleanup = now;
+    this.memoryStats.memoryOptimizationLevel =
+      this.calculateMemoryOptimizationLevel();
+
+    this.logger.debug(
+      () => `Cleared ${keysToRemove.length} expired cache entries`,
+    );
+  }
+
+  /**
+   * Enforce cache size limits to prevent memory bloat
+   */
+  private enforceCacheSizeLimits(): void {
+    const caches = [
+      { name: 'unified', cache: this.unifiedCache },
+      { name: 'relationship', cache: this.relationshipCache },
+      { name: 'metrics', cache: this.metricsCache },
+    ];
+
+    caches.forEach(({ name, cache }) => {
+      if (cache.size > this.MAX_CACHE_SIZE) {
+        const keysToRemove = Array.from(cache.keys()).slice(
+          0,
+          cache.size - this.MAX_CACHE_SIZE,
+        );
+
+        keysToRemove.forEach((key) => {
+          cache.delete(key);
+          this.cacheTimestamps.delete(key);
+        });
+
+        this.logger.debug(
+          () =>
+            `Enforced size limit on ${name} cache: removed ${keysToRemove.length} entries`,
+        );
+      }
+    });
+  }
+
+  /**
+   * Get memory usage statistics with detailed breakdown
+   */
+  getMemoryUsage(): {
+    totalSymbols: number;
+    totalCacheEntries: number;
+    estimatedMemoryUsage: number;
+    fileMetadataSize: number;
+    memoryOptimizationLevel: string;
+    cacheEfficiency: number;
+    recommendations: string[];
+  } {
+    const totalCacheEntries =
+      this.unifiedCache.size +
+      this.relationshipCache.size +
+      this.metricsCache.size;
+
+    // Calculate scope hierarchy memory usage
+    let scopeHierarchySize = 0;
+    for (const [, metadata] of this.fileMetadata) {
+      scopeHierarchySize += metadata.scopeHierarchy.length;
+    }
+
+    // Rough estimate: 500B per lightweight symbol, 1KB per cache entry
+    const estimatedMemoryUsage =
+      this.unifiedCache.size * 500 +
+      totalCacheEntries * 1024 +
+      scopeHierarchySize * 100;
+
+    // Calculate cache efficiency
+    const cacheEfficiency = this.calculateCacheEfficiency();
+
+    return {
+      totalSymbols: this.memoryStats.totalSymbols,
+      totalCacheEntries,
+      estimatedMemoryUsage,
+      fileMetadataSize: this.fileMetadata.size,
+      memoryOptimizationLevel: this.memoryStats.memoryOptimizationLevel,
+      cacheEfficiency,
+      recommendations: this.generateMemoryOptimizationRecommendations(),
+    };
+  }
+
+  /**
+   * Calculate memory optimization level based on current usage
+   */
+  private calculateMemoryOptimizationLevel(): string {
+    const totalCacheEntries =
+      this.unifiedCache.size +
+      this.relationshipCache.size +
+      this.metricsCache.size;
+
+    if (totalCacheEntries < 500) return 'OPTIMAL';
+    if (totalCacheEntries < 2000) return 'GOOD';
+    if (totalCacheEntries < 5000) return 'ACCEPTABLE';
+    return 'REQUIRES_OPTIMIZATION';
+  }
+
+  /**
+   * Calculate cache efficiency
+   */
+  private calculateCacheEfficiency(): number {
+    // Simplified calculation - in real implementation, track actual hits/misses
+    const totalEntries =
+      this.unifiedCache.size +
+      this.relationshipCache.size +
+      this.metricsCache.size;
+    return totalEntries > 0 ? Math.min(85, 100 - totalEntries / 100) : 100;
+  }
+
+  /**
+   * Generate memory optimization recommendations
+   */
+  private generateMemoryOptimizationRecommendations(): string[] {
+    const recommendations: string[] = [];
+    const memoryUsage = this.getMemoryUsage();
+
+    if (memoryUsage.memoryOptimizationLevel === 'REQUIRES_OPTIMIZATION') {
+      recommendations.push('Reduce cache size limits for large codebases');
+      recommendations.push('Implement more aggressive cache TTL');
+      recommendations.push('Enable lazy loading for expensive operations');
+    }
+
+    if (memoryUsage.totalCacheEntries > 2000) {
+      recommendations.push(
+        'High cache entry count - consider predictive cache invalidation',
+      );
+      recommendations.push('Monitor cache hit rates and adjust TTL settings');
+    }
+
+    if (memoryUsage.cacheEfficiency < 80) {
+      recommendations.push('Low cache efficiency - review cache strategies');
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push('Memory optimization is performing well');
+    }
+
+    return recommendations;
+  }
+
+  // ============================================================================
+  // Phase 2.3: Utility Methods (Optimized)
+  // ============================================================================
+
+  /**
+   * Clear caches related to a specific symbol
+   */
+  private clearRelatedCaches(symbolId: string): void {
+    // Clear relationship caches that might be affected
+    const keysToRemove: string[] = [];
+
+    for (const key of this.relationshipCache.keys()) {
+      if (key.includes(symbolId)) {
+        keysToRemove.push(key);
+      }
+    }
+
+    keysToRemove.forEach((key) => this.relationshipCache.delete(key));
+
+    // Clear metrics cache for this symbol
+    this.metricsCache.delete(symbolId);
+    this.lazyMetrics.delete(symbolId);
+    this.lazyAnalysis.delete(symbolId);
+  }
+
+  /**
+   * Invalidate cache entries based on pattern
+   */
+  private invalidateCache(pattern: string): void {
+    const keysToRemove: string[] = [];
+
+    for (const key of this.cacheTimestamps.keys()) {
+      if (key.includes(pattern)) {
+        keysToRemove.push(key);
+      }
+    }
+
+    keysToRemove.forEach((key) => {
+      this.cacheTimestamps.delete(key);
+      this.unifiedCache.delete(key);
+      this.relationshipCache.delete(key);
+      this.metricsCache.delete(key);
+    });
+
+    this.logger.debug(
+      () =>
+        `Invalidated ${keysToRemove.length} cache entries for pattern: ${pattern}`,
+    );
+  }
+
+  // ============================================================================
+  // Phase 2.4: Symbol Lookup Methods
   // ============================================================================
 
   /**
@@ -594,7 +594,7 @@ export class ApexSymbolManager {
   }
 
   // ============================================================================
-  // Phase 2.3: Graph-Based Relationship Queries
+  // Phase 2.5: Graph-Based Relationship Queries
   // ============================================================================
 
   /**
@@ -789,7 +789,7 @@ export class ApexSymbolManager {
     const metrics = new Map<string, SymbolMetrics>();
 
     // Get all symbols from the symbol index
-    for (const [symbolId, symbol] of this.symbolCache) {
+    for (const [symbolId, symbol] of this.unifiedCache) {
       const symbolMetrics = this.computeMetrics(symbol);
       metrics.set(symbolId, symbolMetrics);
     }
@@ -859,7 +859,7 @@ export class ApexSymbolManager {
     const symbolMetrics = new Map<ApexSymbol, number>();
 
     // Compute reference counts for all symbols in cache
-    for (const [, symbol] of this.symbolCache) {
+    for (const [, symbol] of this.unifiedCache) {
       const references = this.findReferencesTo(symbol);
       symbolMetrics.set(symbol, references.length);
     }
@@ -1235,7 +1235,7 @@ export class ApexSymbolManager {
 
     const matchingSymbols: ApexSymbol[] = [];
 
-    for (const [_symbolId, symbol] of this.symbolCache) {
+    for (const [_symbolId, symbol] of this.unifiedCache) {
       const stats = this.getRelationshipStats(symbol);
 
       // Check if symbol matches the pattern
@@ -1306,7 +1306,7 @@ export class ApexSymbolManager {
     this.logger.debug(() => 'Analyzing relationship patterns across codebase');
 
     const analysis: RelationshipPatternAnalysis = {
-      totalSymbols: this.symbolCache.size,
+      totalSymbols: this.unifiedCache.size,
       relationshipPatterns: new Map(),
       mostCommonPatterns: [],
       patternInsights: [],
@@ -1321,7 +1321,7 @@ export class ApexSymbolManager {
         pattern,
         matchingSymbols,
         count: matchingSymbols.length,
-        percentage: (matchingSymbols.length / this.symbolCache.size) * 100,
+        percentage: (matchingSymbols.length / this.unifiedCache.size) * 100,
       });
     }
 
@@ -1496,7 +1496,7 @@ export class ApexSymbolManager {
    * Clear all caches
    */
   private clearAllCaches(): void {
-    this.symbolCache.clear();
+    this.unifiedCache.clear();
     this.relationshipCache.clear();
     this.metricsCache.clear();
     this.lazyMetrics.clear();
@@ -2189,7 +2189,7 @@ export class ApexSymbolManager {
    */
   private getSymbolFilePath(symbol: ApexSymbol): string {
     // Try to find the symbol in our cache to get the file path
-    for (const [symbolId, cachedSymbol] of this.symbolCache) {
+    for (const [symbolId, cachedSymbol] of this.unifiedCache) {
       if (this.symbolsMatch(cachedSymbol, symbol)) {
         // Extract file path from symbol ID
         const parts = symbolId.split(':');
@@ -2445,7 +2445,7 @@ export class ApexSymbolManager {
 
     // Update caches
     const symbolId = this.getSymbolId(symbol);
-    this.symbolCache.set(symbolId, symbol);
+    this.unifiedCache.set(symbolId, symbol);
 
     // Invalidate related caches
     this.invalidateCache(symbol.name);
@@ -2779,9 +2779,8 @@ export class ApexSymbolManager {
 
     // Calculate reference efficiency
     const referenceEfficiency =
-      this.memoryPoolStats.totalReferences > 0
-        ? (this.memoryPoolStats.activeReferences /
-            this.memoryPoolStats.totalReferences) *
+      this.memoryStats.totalSymbols > 0
+        ? (this.memoryStats.totalCacheEntries / this.memoryStats.totalSymbols) *
           100
         : 100;
 
@@ -2793,7 +2792,7 @@ export class ApexSymbolManager {
     const memoryOptimizationLevel = this.calculateMemoryOptimizationLevel();
 
     return {
-      symbolCacheSize: this.symbolCache.size,
+      symbolCacheSize: this.unifiedCache.size,
       relationshipCacheSize: this.relationshipTypeCache.size,
       metricsCacheSize: this.metricsCache.size,
       totalCacheEntries,
@@ -2802,10 +2801,11 @@ export class ApexSymbolManager {
       scopeHierarchySize,
       memoryOptimizationLevel,
       memoryPoolStats: {
-        totalReferences: this.memoryPoolStats.totalReferences,
-        activeReferences: this.memoryPoolStats.activeReferences,
-        garbageCollected: this.memoryPoolStats.garbageCollected,
-        lastCleanup: this.memoryPoolStats.lastCleanup,
+        totalReferences: this.memoryStats.totalSymbols,
+        activeReferences: this.memoryStats.totalCacheEntries,
+        garbageCollected:
+          this.memoryStats.totalCacheEntries - this.unifiedCache.size,
+        lastCleanup: this.memoryStats.lastCleanup,
         referenceEfficiency,
       },
     };
@@ -2845,7 +2845,7 @@ export class ApexSymbolManager {
     if (!scopeNode) return [];
 
     return scopeNode.symbolIds
-      .map((id) => this.symbolCache.get(id))
+      .map((id) => this.unifiedCache.get(id))
       .filter((symbol): symbol is ApexSymbol => symbol !== undefined);
   }
 
@@ -2913,7 +2913,7 @@ export class ApexSymbolManager {
     // Collect symbols from current scope and all parent scopes
     while (currentScope) {
       currentScope.symbolIds
-        .map((id) => this.symbolCache.get(id))
+        .map((id) => this.unifiedCache.get(id))
         .filter((symbol): symbol is ApexSymbol => symbol !== undefined)
         .forEach((symbol) => symbols.add(symbol));
 

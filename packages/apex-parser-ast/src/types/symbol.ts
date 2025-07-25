@@ -339,6 +339,254 @@ export const getUnifiedId = (key: SymbolKey, filePath?: string): string => {
 };
 
 /**
+ * Lightweight symbol representation for memory optimization
+ * Stores only essential data, with lazy loading for optional fields
+ */
+export interface LightweightSymbol {
+  /** Unique identifier for the symbol */
+  id: string;
+  /** Symbol name */
+  name: string;
+  /** Symbol kind as number for memory efficiency */
+  kind: number; // Index into SymbolKind enum
+  /** Basic location info (compressed) */
+  location: {
+    startLine: number;
+    startColumn: number;
+    endLine: number;
+    endColumn: number;
+  };
+  /** Modifiers as bit flags for memory efficiency */
+  modifiers: number; // Bit flags for modifiers
+  /** Parent symbol ID (null if none) */
+  parentId: string | null;
+  /** File path where symbol is defined */
+  filePath: string;
+  /** Fully qualified name (optional) */
+  fqn?: string;
+  /** Namespace (optional) */
+  namespace?: string;
+  /** Lazy-loaded data */
+  _lazy?: {
+    annotations?: Annotation[];
+    identifierLocation?: SymbolLocation;
+    superClass?: string;
+    interfaces?: string[];
+    returnType?: TypeInfo;
+    parameters?: string[]; // Array of parameter IDs
+    type?: TypeInfo;
+    initialValue?: string;
+    values?: string[]; // Array of enum value IDs
+  };
+}
+
+/**
+ * Modifier bit flags for memory efficiency
+ */
+export const ModifierFlags = {
+  PUBLIC: 1 << 0,
+  PRIVATE: 1 << 1,
+  PROTECTED: 1 << 2,
+  GLOBAL: 1 << 3,
+  STATIC: 1 << 4,
+  FINAL: 1 << 5,
+  ABSTRACT: 1 << 6,
+  VIRTUAL: 1 << 7,
+  OVERRIDE: 1 << 8,
+  TRANSIENT: 1 << 9,
+  TEST_METHOD: 1 << 10,
+  WEB_SERVICE: 1 << 11,
+} as const;
+
+/**
+ * Symbol kind enum as numbers for memory efficiency
+ */
+export const SymbolKindValues = {
+  [SymbolKind.Class]: 0,
+  [SymbolKind.Interface]: 1,
+  [SymbolKind.Trigger]: 2,
+  [SymbolKind.Method]: 3,
+  [SymbolKind.Constructor]: 4,
+  [SymbolKind.Property]: 5,
+  [SymbolKind.Field]: 6,
+  [SymbolKind.Variable]: 7,
+  [SymbolKind.Parameter]: 8,
+  [SymbolKind.Enum]: 9,
+  [SymbolKind.EnumValue]: 10,
+} as const;
+
+/**
+ * Convert ApexSymbol to LightweightSymbol for memory optimization
+ */
+export const toLightweightSymbol = (
+  symbol: ApexSymbol,
+  filePath: string,
+): LightweightSymbol => {
+  // Convert modifiers to bit flags
+  let modifiers = 0;
+  if (symbol.modifiers.visibility === SymbolVisibility.Public)
+    modifiers |= ModifierFlags.PUBLIC;
+  if (symbol.modifiers.visibility === SymbolVisibility.Private)
+    modifiers |= ModifierFlags.PRIVATE;
+  if (symbol.modifiers.visibility === SymbolVisibility.Protected)
+    modifiers |= ModifierFlags.PROTECTED;
+  if (symbol.modifiers.visibility === SymbolVisibility.Global)
+    modifiers |= ModifierFlags.GLOBAL;
+  if (symbol.modifiers.isStatic) modifiers |= ModifierFlags.STATIC;
+  if (symbol.modifiers.isFinal) modifiers |= ModifierFlags.FINAL;
+  if (symbol.modifiers.isAbstract) modifiers |= ModifierFlags.ABSTRACT;
+  if (symbol.modifiers.isVirtual) modifiers |= ModifierFlags.VIRTUAL;
+  if (symbol.modifiers.isOverride) modifiers |= ModifierFlags.OVERRIDE;
+  if (symbol.modifiers.isTransient) modifiers |= ModifierFlags.TRANSIENT;
+  if (symbol.modifiers.isTestMethod) modifiers |= ModifierFlags.TEST_METHOD;
+  if (symbol.modifiers.isWebService) modifiers |= ModifierFlags.WEB_SERVICE;
+
+  // Generate unique ID
+  const id = symbol.key.unifiedId || generateUnifiedId(symbol.key, filePath);
+
+  const lightweight: LightweightSymbol = {
+    id,
+    name: symbol.name,
+    kind: SymbolKindValues[symbol.kind],
+    location: symbol.location,
+    modifiers,
+    parentId: symbol.parentKey?.unifiedId || null,
+    filePath,
+    fqn: symbol.fqn,
+    namespace: symbol.namespace,
+  };
+
+  // Store expensive data in lazy object
+  const lazy: LightweightSymbol['_lazy'] = {};
+
+  if (symbol.annotations?.length) {
+    lazy.annotations = symbol.annotations;
+  }
+
+  if (symbol.identifierLocation) {
+    lazy.identifierLocation = symbol.identifierLocation;
+  }
+
+  // Type-specific data
+  if (
+    symbol.kind === SymbolKind.Class ||
+    symbol.kind === SymbolKind.Interface
+  ) {
+    const typeSymbol = symbol as TypeSymbol;
+    if (typeSymbol.superClass) lazy.superClass = typeSymbol.superClass;
+    if (typeSymbol.interfaces?.length) lazy.interfaces = typeSymbol.interfaces;
+  }
+
+  if (
+    symbol.kind === SymbolKind.Method ||
+    symbol.kind === SymbolKind.Constructor
+  ) {
+    const methodSymbol = symbol as MethodSymbol;
+    lazy.returnType = methodSymbol.returnType;
+    if (methodSymbol.parameters?.length) {
+      lazy.parameters = methodSymbol.parameters.map(
+        (p) => p.key.unifiedId || p.name,
+      );
+    }
+  }
+
+  if (
+    symbol.kind === SymbolKind.Property ||
+    symbol.kind === SymbolKind.Field ||
+    symbol.kind === SymbolKind.Variable ||
+    symbol.kind === SymbolKind.Parameter
+  ) {
+    const variableSymbol = symbol as VariableSymbol;
+    lazy.type = variableSymbol.type;
+    if (variableSymbol.initialValue)
+      lazy.initialValue = variableSymbol.initialValue;
+  }
+
+  if (symbol.kind === SymbolKind.Enum) {
+    const enumSymbol = symbol as EnumSymbol;
+    if (enumSymbol.values?.length) {
+      lazy.values = enumSymbol.values.map((v) => v.key.unifiedId || v.name);
+    }
+  }
+
+  if (Object.keys(lazy).length > 0) {
+    lightweight._lazy = lazy;
+  }
+
+  return lightweight;
+};
+
+/**
+ * Convert LightweightSymbol back to ApexSymbol (for compatibility)
+ */
+export const fromLightweightSymbol = (
+  lightweight: LightweightSymbol,
+  symbolTable: SymbolTable,
+): ApexSymbol => {
+  // Convert kind back to enum
+  const kind = Object.entries(SymbolKindValues).find(
+    ([, value]) => value === lightweight.kind,
+  )?.[0] as SymbolKind;
+
+  // Convert modifiers back to object
+  const modifiers: SymbolModifiers = {
+    visibility:
+      lightweight.modifiers & ModifierFlags.PUBLIC
+        ? SymbolVisibility.Public
+        : lightweight.modifiers & ModifierFlags.PRIVATE
+          ? SymbolVisibility.Private
+          : lightweight.modifiers & ModifierFlags.PROTECTED
+            ? SymbolVisibility.Protected
+            : lightweight.modifiers & ModifierFlags.GLOBAL
+              ? SymbolVisibility.Global
+              : SymbolVisibility.Default,
+    isStatic: !!(lightweight.modifiers & ModifierFlags.STATIC),
+    isFinal: !!(lightweight.modifiers & ModifierFlags.FINAL),
+    isAbstract: !!(lightweight.modifiers & ModifierFlags.ABSTRACT),
+    isVirtual: !!(lightweight.modifiers & ModifierFlags.VIRTUAL),
+    isOverride: !!(lightweight.modifiers & ModifierFlags.OVERRIDE),
+    isTransient: !!(lightweight.modifiers & ModifierFlags.TRANSIENT),
+    isTestMethod: !!(lightweight.modifiers & ModifierFlags.TEST_METHOD),
+    isWebService: !!(lightweight.modifiers & ModifierFlags.WEB_SERVICE),
+  };
+
+  // Reconstruct symbol key
+  const key: SymbolKey = {
+    prefix: 'symbol',
+    name: lightweight.name,
+    path: [lightweight.filePath, lightweight.name],
+    unifiedId: lightweight.id,
+    filePath: lightweight.filePath,
+    fqn: lightweight.fqn,
+    kind,
+  };
+
+  // Base symbol
+  const symbol: ApexSymbol = {
+    name: lightweight.name,
+    kind,
+    location: lightweight.location,
+    modifiers,
+    key,
+    parentKey: lightweight.parentId
+      ? { ...key, name: lightweight.parentId }
+      : null,
+    fqn: lightweight.fqn,
+    namespace: lightweight.namespace,
+  };
+
+  // Add lazy-loaded data
+  if (lightweight._lazy) {
+    if (lightweight._lazy.annotations)
+      symbol.annotations = lightweight._lazy.annotations;
+    if (lightweight._lazy.identifierLocation)
+      symbol.identifierLocation = lightweight._lazy.identifierLocation;
+  }
+
+  return symbol;
+};
+
+/**
  * Represents a scope in which symbols are defined within a source file.
  * Maintains a hierarchy of scopes and provides symbol lookup functionality.
  */

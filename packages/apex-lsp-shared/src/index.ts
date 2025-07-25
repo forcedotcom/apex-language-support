@@ -16,6 +16,10 @@ export type {
   LogMessageParams,
   LogNotificationHandler,
 } from './notification';
+
+// Export enum utilities
+export * from './enumUtils';
+
 import { LogMessageType } from './notification';
 
 /**
