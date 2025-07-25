@@ -312,16 +312,16 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
 
       // Cache baseline
       console.log('\nEmpty Cache Structure:');
-      console.log(`  Symbol Cache: ${baselineMetrics.cache.symbolCache}`);
+      console.log(`  Symbol Cache: ${baselineMetrics.cache.symbolCacheSize}`);
       console.log(
-        `  Relationship Cache: ${baselineMetrics.cache.relationshipCache}`,
+        `  Relationship Cache: ${baselineMetrics.cache.relationshipCacheSize}`,
       );
-      console.log(`  Metrics Cache: ${baselineMetrics.cache.metricsCache}`);
+      console.log(`  Metrics Cache: ${baselineMetrics.cache.metricsCacheSize}`);
       console.log(
         `  Total Cache Entries: ${baselineMetrics.cache.totalCacheEntries}`,
       );
       console.log(
-        `  Estimated Cache Memory: ${baselineMetrics.cache.estimatedCacheMemory}MB`,
+        `  Estimated Cache Memory: ${baselineMetrics.cache.estimatedMemoryUsageMB}MB`,
       );
 
       // Memory efficiency baseline
@@ -336,7 +336,7 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
         `  External Memory Percentage: ${baselineMetrics.processMemory.externalMemoryPercentage}%`,
       );
       console.log(
-        `  Memory Pressure Level: ${baselineMetrics.processMemory.memoryPressureLevel}`,
+        `  Memory Pressure Level: ${baselineMetrics.processMemory.memoryPressure}`,
       );
 
       // Validate baseline expectations
@@ -348,11 +348,11 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
       expect(baselineMetrics.graph.deferredReferences).toBe(0);
 
       // Validate cache is empty
-      expect(baselineMetrics.cache.symbolCache).toBe(0);
-      expect(baselineMetrics.cache.relationshipCache).toBe(0);
-      expect(baselineMetrics.cache.metricsCache).toBe(0);
+      expect(baselineMetrics.cache.symbolCacheSize).toBe(0);
+      expect(baselineMetrics.cache.relationshipCacheSize).toBe(0);
+      expect(baselineMetrics.cache.metricsCacheSize).toBe(0);
       expect(baselineMetrics.cache.totalCacheEntries).toBe(0);
-      expect(baselineMetrics.cache.estimatedCacheMemory).toBe(0);
+      expect(baselineMetrics.cache.estimatedMemoryUsage).toBe(0);
 
       // Store baseline for comparison in other tests
       (global as any).__apexSymbolManagerBaseline = {
@@ -374,7 +374,7 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
 
       // Create multiple manager instances and measure their baseline
       for (let i = 0; i < 5; i++) {
-        const manager = new ApexSymbolManager();
+        const _manager = new ApexSymbolManager();
         const baseline = getComprehensiveMetrics();
         baselines.push(baseline);
       }

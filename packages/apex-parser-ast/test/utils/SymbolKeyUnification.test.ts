@@ -1,0 +1,405 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+import {
+  ApexSymbol,
+  SymbolKey,
+  SymbolKeyUtils,
+  SymbolKind,
+  SymbolVisibility,
+} from '../../src/types/symbol';
+import { ApexSymbolManager } from '../../src/utils/ApexSymbolManager';
+
+/**
+ * Tests for Phase 6.5.2: Symbol Key System Unification
+ * These tests validate the unified key system that combines SymbolKey and getSymbolId()
+ */
+describe('Phase 6.5.2: Symbol Key System Unification', () => {
+  let manager: ApexSymbolManager;
+
+  beforeEach(() => {
+    manager = new ApexSymbolManager();
+  });
+
+  describe('SymbolKeyUtils', () => {
+    it('should generate unified IDs from SymbolKey', () => {
+      const key: SymbolKey = {
+        prefix: 'class',
+        name: 'TestClass',
+        path: ['file', 'TestClass'],
+        kind: SymbolKind.Class,
+        fqn: 'TestClass',
+      };
+
+      const unifiedId = SymbolKeyUtils.generateUnifiedId(key);
+      expect(unifiedId).toBe('TestClass');
+    });
+
+    it('should generate unified IDs without FQN', () => {
+      const key: SymbolKey = {
+        prefix: 'method',
+        name: 'testMethod',
+        path: ['file', 'TestClass', 'testMethod'],
+        kind: SymbolKind.Method,
+      };
+
+      const unifiedId = SymbolKeyUtils.generateUnifiedId(key);
+      expect(unifiedId).toBe('method:testMethod:file.TestClass.testMethod');
+    });
+
+    it('should include file path in unified ID when provided', () => {
+      const key: SymbolKey = {
+        prefix: 'class',
+        name: 'TestClass',
+        path: ['file', 'TestClass'],
+        kind: SymbolKind.Class,
+        fqn: 'TestClass',
+      };
+
+      const unifiedId = SymbolKeyUtils.generateUnifiedId(key, 'TestFile.cls');
+      expect(unifiedId).toBe('TestClass:TestFile.cls');
+    });
+
+    it('should convert SymbolKey to string for legacy compatibility', () => {
+      const key: SymbolKey = {
+        prefix: 'class',
+        name: 'TestClass',
+        path: ['file', 'TestClass'],
+      };
+
+      const stringKey = SymbolKeyUtils.keyToString(key);
+      expect(stringKey).toBe('class:file.TestClass');
+    });
+
+    it('should create SymbolKey from ApexSymbol with unified ID', () => {
+      const symbol: ApexSymbol = {
+        name: 'TestClass',
+        kind: SymbolKind.Class,
+        location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        key: {
+          prefix: 'class',
+          name: 'TestClass',
+          path: ['file', 'TestClass'],
+        },
+        parentKey: null,
+        fqn: 'TestClass',
+      };
+
+      const unifiedKey = SymbolKeyUtils.createFromSymbol(
+        symbol,
+        'TestFile.cls',
+      );
+
+      expect(unifiedKey.prefix).toBe('class');
+      expect(unifiedKey.name).toBe('TestClass');
+      expect(unifiedKey.path).toEqual(['file', 'TestClass']);
+      expect(unifiedKey.kind).toBe(SymbolKind.Class);
+      expect(unifiedKey.fqn).toBe('TestClass');
+      expect(unifiedKey.filePath).toBe('TestFile.cls');
+      expect(unifiedKey.unifiedId).toBe('TestClass:TestFile.cls');
+    });
+
+    it('should check if two SymbolKeys are equivalent', () => {
+      const key1: SymbolKey = {
+        prefix: 'class',
+        name: 'TestClass',
+        path: ['file', 'TestClass'],
+        unifiedId: 'TestClass:TestFile.cls',
+      };
+
+      const key2: SymbolKey = {
+        prefix: 'class',
+        name: 'TestClass',
+        path: ['file', 'TestClass'],
+        unifiedId: 'TestClass:TestFile.cls',
+      };
+
+      const key3: SymbolKey = {
+        prefix: 'class',
+        name: 'DifferentClass',
+        path: ['file', 'DifferentClass'],
+        unifiedId: 'DifferentClass:TestFile.cls',
+      };
+
+      expect(SymbolKeyUtils.areEquivalent(key1, key2)).toBe(true);
+      expect(SymbolKeyUtils.areEquivalent(key1, key3)).toBe(false);
+    });
+
+    it('should fallback to legacy comparison when unified IDs are not available', () => {
+      const key1: SymbolKey = {
+        prefix: 'class',
+        name: 'TestClass',
+        path: ['file', 'TestClass'],
+      };
+
+      const key2: SymbolKey = {
+        prefix: 'class',
+        name: 'TestClass',
+        path: ['file', 'TestClass'],
+      };
+
+      const key3: SymbolKey = {
+        prefix: 'class',
+        name: 'TestClass',
+        path: ['file', 'DifferentClass'],
+      };
+
+      expect(SymbolKeyUtils.areEquivalent(key1, key2)).toBe(true);
+      expect(SymbolKeyUtils.areEquivalent(key1, key3)).toBe(false);
+    });
+
+    it('should get unified ID from SymbolKey, generating if needed', () => {
+      const key: SymbolKey = {
+        prefix: 'class',
+        name: 'TestClass',
+        path: ['file', 'TestClass'],
+        kind: SymbolKind.Class,
+        fqn: 'TestClass',
+      };
+
+      // Initially no unified ID
+      expect(key.unifiedId).toBeUndefined();
+
+      // Get unified ID, should generate and cache
+      const unifiedId = SymbolKeyUtils.getUnifiedId(key, 'TestFile.cls');
+      expect(unifiedId).toBe('TestClass:TestFile.cls');
+      expect(key.unifiedId).toBe('TestClass:TestFile.cls');
+
+      // Second call should use cached value
+      const cachedId = SymbolKeyUtils.getUnifiedId(key, 'TestFile.cls');
+      expect(cachedId).toBe('TestClass:TestFile.cls');
+    });
+  });
+
+  describe('ApexSymbolManager Integration', () => {
+    it('should use unified key system in getSymbolId', () => {
+      const symbol: ApexSymbol = {
+        name: 'TestClass',
+        kind: SymbolKind.Class,
+        location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        key: {
+          prefix: 'class',
+          name: 'TestClass',
+          path: ['file', 'TestClass'],
+          fqn: 'TestClass',
+        },
+        parentKey: null,
+        fqn: 'TestClass',
+      };
+
+      // Add symbol to manager
+      manager.addSymbol(symbol, 'TestFile.cls');
+
+      // Verify unified ID was generated and cached
+      expect(symbol.key.unifiedId).toBe('TestClass:TestFile.cls');
+    });
+
+    it('should maintain backward compatibility with existing SymbolKey usage', () => {
+      const symbol: ApexSymbol = {
+        name: 'TestClass',
+        kind: SymbolKind.Class,
+        location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        key: {
+          prefix: 'class',
+          name: 'TestClass',
+          path: ['file', 'TestClass'],
+        },
+        parentKey: null,
+      };
+
+      // Add symbol to manager
+      manager.addSymbol(symbol, 'TestFile.cls');
+
+      // Verify legacy key properties are preserved
+      expect(symbol.key.prefix).toBe('class');
+      expect(symbol.key.name).toBe('TestClass');
+      expect(symbol.key.path).toEqual(['file', 'TestClass']);
+
+      // Verify unified ID was added
+      expect(symbol.key.unifiedId).toBeDefined();
+      expect(symbol.key.kind).toBe(SymbolKind.Class);
+    });
+
+    it('should handle symbols without FQN correctly', () => {
+      const symbol: ApexSymbol = {
+        name: 'testMethod',
+        kind: SymbolKind.Method,
+        location: { startLine: 5, startColumn: 1, endLine: 5, endColumn: 20 },
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        key: {
+          prefix: 'method',
+          name: 'testMethod',
+          path: ['file', 'TestClass', 'testMethod'],
+        },
+        parentKey: null,
+      };
+
+      // Add symbol to manager
+      manager.addSymbol(symbol, 'TestFile.cls');
+
+      // Verify unified ID was generated without FQN
+      expect(symbol.key.unifiedId).toBe(
+        'method:testMethod:file.TestClass.testMethod:TestFile.cls',
+      );
+    });
+  });
+
+  describe('Performance and Consistency', () => {
+    it('should generate consistent unified IDs for same symbols', () => {
+      const symbol1: ApexSymbol = {
+        name: 'TestClass',
+        kind: SymbolKind.Class,
+        location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        key: {
+          prefix: 'class',
+          name: 'TestClass',
+          path: ['file', 'TestClass'],
+          fqn: 'TestClass',
+        },
+        parentKey: null,
+        fqn: 'TestClass',
+      };
+
+      const symbol2: ApexSymbol = {
+        name: 'TestClass',
+        kind: SymbolKind.Class,
+        location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        modifiers: {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        key: {
+          prefix: 'class',
+          name: 'TestClass',
+          path: ['file', 'TestClass'],
+          fqn: 'TestClass',
+        },
+        parentKey: null,
+        fqn: 'TestClass',
+      };
+
+      const key1 = SymbolKeyUtils.createFromSymbol(symbol1, 'TestFile.cls');
+      const key2 = SymbolKeyUtils.createFromSymbol(symbol2, 'TestFile.cls');
+
+      expect(key1.unifiedId).toBe(key2.unifiedId);
+      expect(SymbolKeyUtils.areEquivalent(key1, key2)).toBe(true);
+    });
+
+    it('should handle large numbers of symbols efficiently', () => {
+      const symbols: ApexSymbol[] = [];
+      const startTime = Date.now();
+
+      // Create 1000 symbols
+      for (let i = 0; i < 1000; i++) {
+        const symbol: ApexSymbol = {
+          name: `TestClass${i}`,
+          kind: SymbolKind.Class,
+          location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+          modifiers: {
+            visibility: SymbolVisibility.Public,
+            isStatic: false,
+            isFinal: false,
+            isAbstract: false,
+            isVirtual: false,
+            isOverride: false,
+            isTransient: false,
+            isTestMethod: false,
+            isWebService: false,
+          },
+          key: {
+            prefix: 'class',
+            name: `TestClass${i}`,
+            path: ['file', `TestClass${i}`],
+            fqn: `TestClass${i}`,
+          },
+          parentKey: null,
+          fqn: `TestClass${i}`,
+        };
+
+        symbols.push(symbol);
+      }
+
+      // Generate unified keys for all symbols
+      const unifiedKeys = symbols.map((symbol) =>
+        SymbolKeyUtils.createFromSymbol(symbol, 'TestFile.cls'),
+      );
+
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      // Should complete in reasonable time (less than 100ms)
+      expect(duration).toBeLessThan(100);
+
+      // Verify all keys have unique unified IDs
+      const unifiedIds = unifiedKeys.map((key) => key.unifiedId);
+      const uniqueIds = new Set(unifiedIds);
+      expect(uniqueIds.size).toBe(1000);
+    });
+  });
+});

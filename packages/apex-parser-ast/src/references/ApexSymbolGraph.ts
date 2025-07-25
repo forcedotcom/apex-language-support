@@ -9,7 +9,7 @@
 import Graph from 'graphology';
 import { HashMap } from 'data-structure-typed';
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ApexSymbol } from '../types/symbol';
+import { ApexSymbol, SymbolKeyUtils } from '../types/symbol';
 
 /**
  * Types of references between Apex symbols
@@ -651,12 +651,20 @@ export class ApexSymbolGraph {
 
   /**
    * Generate a unique ID for a symbol
+   * Updated for Phase 6.5.2: Symbol Key System Unification
    */
   private getSymbolId(symbol: ApexSymbol, filePath?: string): string {
-    const baseId =
-      symbol.fqn ||
-      `${symbol.kind}:${symbol.name}:${symbol.key.path.join('.')}`;
-    // Include file path to ensure uniqueness when symbols have same FQN
-    return filePath ? `${baseId}:${filePath}` : baseId;
+    // Use unified key system if available, fallback to legacy method
+    if (symbol.key.unifiedId) {
+      return filePath
+        ? `${symbol.key.unifiedId}:${filePath}`
+        : symbol.key.unifiedId;
+    }
+
+    // Generate unified ID and cache it
+    const unifiedKey = SymbolKeyUtils.createFromSymbol(symbol, filePath);
+    symbol.key = unifiedKey;
+
+    return unifiedKey.unifiedId!;
   }
 }

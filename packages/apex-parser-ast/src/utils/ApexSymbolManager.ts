@@ -13,6 +13,7 @@ import {
   SymbolTable,
   SymbolKind,
   SymbolVisibility,
+  SymbolKeyUtils,
 } from '../types/symbol';
 import {
   ApexSymbolGraph,
@@ -204,14 +205,28 @@ export class ApexSymbolManager {
   /**
    * Add a symbol to the graph with memory optimization
    */
+  /**
+   * Add a symbol to the graph
+   * Updated for Phase 6.5.2: Symbol Key System Unification with duplicate detection
+   */
   addSymbol(symbol: ApexSymbol, filePath: string): void {
     this.logger.debug(() => `Adding symbol: ${symbol.name} from ${filePath}`);
+
+    // Generate unified ID first to check for duplicates
+    const symbolId = this.getSymbolId(symbol, filePath);
+
+    // Check if symbol already exists with this ID
+    if (this.symbolCache.has(symbolId)) {
+      this.logger.debug(
+        () => `Symbol already exists with ID: ${symbolId}, skipping duplicate`,
+      );
+      return; // Skip duplicate addition
+    }
 
     // Add to graph
     this.symbolGraph.addSymbol(symbol, filePath);
 
     // Use shared symbol reference if available
-    const symbolId = this.getSymbolId(symbol, filePath);
     const sharedSymbol = this.getOrCreateSharedSymbol(symbol, symbolId);
     this.symbolCache.set(symbolId, sharedSymbol);
 
@@ -1512,11 +1527,23 @@ export class ApexSymbolManager {
   /**
    * Generate a unique ID for a symbol
    */
+  /**
+   * Generate a unique symbol ID for caching and graph operations
+   * Updated for Phase 6.5.2: Symbol Key System Unification
+   */
   private getSymbolId(symbol: ApexSymbol, filePath?: string): string {
-    const baseId =
-      symbol.fqn ||
-      `${symbol.kind}:${symbol.name}:${symbol.key.path.join('.')}`;
-    return filePath ? `${baseId}:${filePath}` : baseId;
+    // Use unified key system if available, fallback to legacy method
+    if (symbol.key.unifiedId) {
+      return filePath
+        ? `${symbol.key.unifiedId}:${filePath}`
+        : symbol.key.unifiedId;
+    }
+
+    // Generate unified ID and cache it
+    const unifiedKey = SymbolKeyUtils.createFromSymbol(symbol, filePath);
+    symbol.key = unifiedKey;
+
+    return unifiedKey.unifiedId!;
   }
 
   /**
