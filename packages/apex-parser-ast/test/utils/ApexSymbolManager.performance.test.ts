@@ -680,6 +680,31 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
           manager.addSymbol(symbol, `File${i}.cls`);
         }
 
+        // Add relationships to create meaningful graph density
+        // Create a network of relationships between symbols in this phase
+        const relationshipCount = Math.min(count / 10, 1000); // Add relationships proportional to symbol count
+        for (let i = 0; i < relationshipCount; i++) {
+          const sourceIndex = startIndex + (i % count);
+          const targetIndex = startIndex + ((i + 1) % count);
+
+          const sourceSymbols = manager.findSymbolByName(`Class${sourceIndex}`);
+          const targetSymbols = manager.findSymbolByName(`Class${targetIndex}`);
+
+          if (sourceSymbols.length > 0 && targetSymbols.length > 0) {
+            (manager as any).symbolGraph.addReference(
+              sourceSymbols[0],
+              targetSymbols[0],
+              ReferenceType.METHOD_CALL,
+              {
+                startLine: 1,
+                startColumn: 1,
+                endLine: 1,
+                endColumn: 10,
+              },
+            );
+          }
+        }
+
         // Record metrics for this phase
         const phaseMetric = getComprehensiveMetrics();
         const memoryIncrease =
@@ -842,6 +867,31 @@ describe('ApexSymbolManager - Advanced Performance Tests', () => {
             `File${i}.cls`,
           );
           manager.addSymbol(symbol, `File${i}.cls`);
+        }
+
+        // Add relationships to create meaningful graph density
+        // Create a network of relationships between symbols in this phase
+        const relationshipCount = Math.min(count / 5, 2000); // Add relationships proportional to symbol count
+        for (let i = 0; i < relationshipCount; i++) {
+          const sourceIndex = startIndex + (i % count);
+          const targetIndex = startIndex + ((i + 1) % count);
+
+          const sourceSymbols = manager.findSymbolByName(`Class${sourceIndex}`);
+          const targetSymbols = manager.findSymbolByName(`Class${targetIndex}`);
+
+          if (sourceSymbols.length > 0 && targetSymbols.length > 0) {
+            (manager as any).symbolGraph.addReference(
+              sourceSymbols[0],
+              targetSymbols[0],
+              ReferenceType.METHOD_CALL,
+              {
+                startLine: 1,
+                startColumn: 1,
+                endLine: 1,
+                endColumn: 10,
+              },
+            );
+          }
         }
 
         // Record metrics for this phase
