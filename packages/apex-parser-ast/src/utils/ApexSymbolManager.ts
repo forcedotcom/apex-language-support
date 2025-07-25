@@ -263,7 +263,7 @@ export class ApexSymbolManager {
     this.logger.debug(() => `Adding symbol table for: ${filePath}`);
 
     // Extract scope hierarchy for lightweight storage
-    const scopeHierarchy = this.extractScopeHierarchy(symbolTable);
+    const scopeHierarchy = this.extractScopeHierarchy(symbolTable, filePath);
     const symbolCount = this.countSymbolsInTable(symbolTable);
 
     // Store lightweight metadata instead of full SymbolTable
@@ -283,7 +283,7 @@ export class ApexSymbolManager {
       this.addSymbol(symbol, filePath);
     });
 
-    // Integrate scope hierarchy into graph structure
+    // Integrate scope hierarchy into graph structure after all symbols are added
     this.integrateScopeHierarchy(filePath, scopeHierarchy);
 
     this.logger.debug(
@@ -295,7 +295,10 @@ export class ApexSymbolManager {
   /**
    * Extract scope hierarchy from SymbolTable for lightweight storage
    */
-  private extractScopeHierarchy(symbolTable: SymbolTable): ScopeNode[] {
+  private extractScopeHierarchy(
+    symbolTable: SymbolTable,
+    filePath: string,
+  ): ScopeNode[] {
     const scopeNodes: ScopeNode[] = [];
     const scopeMap = new Map<string, ScopeNode>();
 
@@ -307,7 +310,7 @@ export class ApexSymbolManager {
         parentScope: parentScopeName,
         symbolIds: scope
           .getAllSymbols()
-          .map((s: ApexSymbol) => this.getSymbolId(s)),
+          .map((s: ApexSymbol) => this.getSymbolId(s, filePath)),
         children: [],
       };
 
@@ -367,8 +370,18 @@ export class ApexSymbolManager {
     filePath: string,
     scopeHierarchy: ScopeNode[],
   ): void {
+    this.logger.debug(
+      () =>
+        `Integrating scope hierarchy for ${filePath} with ${scopeHierarchy.length} scopes`,
+    );
+
     // Create scope relationship nodes in the graph
     for (const scopeNode of scopeHierarchy) {
+      this.logger.debug(
+        () =>
+          `Processing scope: ${scopeNode.name} with ${scopeNode.symbolIds.length} symbols`,
+      );
+
       // Add scope relationships to the graph
       if (scopeNode.parentScope) {
         // Find parent scope symbols
@@ -376,15 +389,36 @@ export class ApexSymbolManager {
           (s) => s.name === scopeNode.parentScope,
         );
         if (parentScope) {
+          this.logger.debug(
+            () =>
+              `Found parent scope: ${parentScope.name} with ${parentScope.symbolIds.length} symbols`,
+          );
+
           // Create scope containment relationships
           for (const symbolId of scopeNode.symbolIds) {
-            for (const parentSymbolId of parentScope.symbolIds) {
-              this.symbolGraph.addReference(
-                this.symbolCache.get(symbolId)!,
-                this.symbolCache.get(parentSymbolId)!,
-                ReferenceType.SCOPE_CONTAINS,
-                { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
-              );
+            const symbol = this.symbolCache.get(symbolId);
+            if (symbol) {
+              for (const parentSymbolId of parentScope.symbolIds) {
+                const parentSymbol = this.symbolCache.get(parentSymbolId);
+                if (parentSymbol) {
+                  this.logger.debug(
+                    () =>
+                      `Creating SCOPE_CONTAINS relationship: ${symbol.name} -> ${parentSymbol.name}`,
+                  );
+                  this.symbolGraph.addReference(
+                    symbol,
+                    parentSymbol,
+                    ReferenceType.SCOPE_CONTAINS,
+                    { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
+                  );
+                } else {
+                  this.logger.debug(
+                    () => `Parent symbol not found in cache: ${parentSymbolId}`,
+                  );
+                }
+              }
+            } else {
+              this.logger.debug(() => `Symbol not found in cache: ${symbolId}`);
             }
           }
         }
@@ -394,14 +428,35 @@ export class ApexSymbolManager {
       for (const childName of scopeNode.children) {
         const childScope = scopeHierarchy.find((s) => s.name === childName);
         if (childScope) {
+          this.logger.debug(
+            () =>
+              `Found child scope: ${childScope.name} with ${childScope.symbolIds.length} symbols`,
+          );
+
           for (const symbolId of scopeNode.symbolIds) {
-            for (const childSymbolId of childScope.symbolIds) {
-              this.symbolGraph.addReference(
-                this.symbolCache.get(symbolId)!,
-                this.symbolCache.get(childSymbolId)!,
-                ReferenceType.SCOPE_CHILD,
-                { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
-              );
+            const symbol = this.symbolCache.get(symbolId);
+            if (symbol) {
+              for (const childSymbolId of childScope.symbolIds) {
+                const childSymbol = this.symbolCache.get(childSymbolId);
+                if (childSymbol) {
+                  this.logger.debug(
+                    () =>
+                      `Creating SCOPE_CHILD relationship: ${symbol.name} -> ${childSymbol.name}`,
+                  );
+                  this.symbolGraph.addReference(
+                    symbol,
+                    childSymbol,
+                    ReferenceType.SCOPE_CHILD,
+                    { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 },
+                  );
+                } else {
+                  this.logger.debug(
+                    () => `Child symbol not found in cache: ${childSymbolId}`,
+                  );
+                }
+              }
+            } else {
+              this.logger.debug(() => `Symbol not found in cache: ${symbolId}`);
             }
           }
         }
@@ -2712,7 +2767,7 @@ export class ApexSymbolManager {
 
     return {
       symbolCacheSize: this.symbolCache.size,
-      relationshipCacheSize: this.relationshipCache.size,
+      relationshipCacheSize: this.relationshipTypeCache.size,
       metricsCacheSize: this.metricsCache.size,
       totalCacheEntries,
       estimatedMemoryUsage,
@@ -2839,6 +2894,17 @@ export class ApexSymbolManager {
       currentScope = parentScopeName
         ? metadata.scopeHierarchy.find((s) => s.name === parentScopeName)
         : undefined;
+    }
+
+    // Also find symbols that are contained by this scope through graph relationships
+    const scopeSymbols = Array.from(symbols);
+    for (const scopeSymbol of scopeSymbols) {
+      const references = this.symbolGraph.findReferencesFrom(scopeSymbol);
+      for (const ref of references) {
+        if (ref.referenceType === ReferenceType.SCOPE_CONTAINS) {
+          symbols.add(ref.symbol);
+        }
+      }
     }
 
     return Array.from(symbols);
