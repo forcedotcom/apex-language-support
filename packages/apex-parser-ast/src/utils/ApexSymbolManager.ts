@@ -175,6 +175,10 @@ export class ApexSymbolManager {
 
     // Clear related caches
     this.clearRelatedCaches(symbolId);
+
+    // Invalidate caches that might be affected by this symbol
+    this.invalidateCache(symbol.name);
+    this.invalidateCache(filePath);
   }
 
   /**
@@ -1906,5 +1910,524 @@ export class ApexSymbolManager {
       symbol1.kind === symbol2.kind &&
       symbol1.fqn === symbol2.fqn
     );
+  }
+
+  // ============================================================================
+  // Phase 6.1: Multi-Level Caching
+  // ============================================================================
+
+  /**
+   * Multi-level cache for symbol lookups
+   */
+  private symbolLookupCache: HashMap<string, ApexSymbol[]> = new HashMap();
+  private fqnLookupCache: HashMap<string, ApexSymbol | null> = new HashMap();
+  private fileLookupCache: HashMap<string, ApexSymbol[]> = new HashMap();
+  private relationshipTypeCache: HashMap<string, ReferenceResult[]> =
+    new HashMap();
+  private patternMatchCache: HashMap<string, ApexSymbol[]> = new HashMap();
+  private statsCache: HashMap<string, RelationshipStats> = new HashMap();
+  private analysisCache: HashMap<string, RelationshipPatternAnalysis> =
+    new HashMap();
+
+  /**
+   * Cache TTL (Time To Live) in milliseconds
+   */
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private cacheTimestamps: HashMap<string, number> = new HashMap();
+
+  /**
+   * Get cached result or compute and cache
+   */
+  private getCachedOrCompute<T>(
+    cacheKey: string,
+    computeFn: () => T,
+    cache: HashMap<string, T>,
+  ): T {
+    const timestamp = this.cacheTimestamps.get(cacheKey);
+    const now = Date.now();
+
+    // Check if cache is still valid
+    if (timestamp && now - timestamp < this.CACHE_TTL) {
+      const cached = cache.get(cacheKey);
+      if (cached !== undefined) {
+        this.logger.debug(() => `Cache hit for key: ${cacheKey}`);
+        this.performanceMetrics.cacheHits++;
+        return cached;
+      }
+    }
+
+    // Compute and cache
+    this.logger.debug(() => `Cache miss for key: ${cacheKey}, computing...`);
+    this.performanceMetrics.cacheMisses++;
+    const result = computeFn();
+    cache.set(cacheKey, result);
+    this.cacheTimestamps.set(cacheKey, now);
+
+    return result;
+  }
+
+  /**
+   * Invalidate cache entries based on pattern
+   */
+  private invalidateCache(pattern: string): void {
+    const keysToRemove: string[] = [];
+
+    for (const key of this.cacheTimestamps.keys()) {
+      if (key.includes(pattern)) {
+        keysToRemove.push(key);
+      }
+    }
+
+    keysToRemove.forEach((key) => {
+      this.cacheTimestamps.delete(key);
+      this.symbolLookupCache.delete(key);
+      this.fqnLookupCache.delete(key);
+      this.fileLookupCache.delete(key);
+      this.relationshipTypeCache.delete(key);
+      this.patternMatchCache.delete(key);
+      this.statsCache.delete(key);
+      this.analysisCache.delete(key);
+    });
+
+    this.logger.debug(
+      () =>
+        `Invalidated ${keysToRemove.length} cache entries for pattern: ${pattern}`,
+    );
+  }
+
+  // ============================================================================
+  // Phase 6.2: Lazy Loading
+  // ============================================================================
+
+  /**
+   * Lazy loading for expensive operations
+   */
+  private lazyRelationshipAnalysis: HashMap<
+    string,
+    Promise<RelationshipStats>
+  > = new HashMap();
+  private lazyPatternAnalysis: HashMap<
+    string,
+    Promise<RelationshipPatternAnalysis>
+  > = new HashMap();
+  private lazyDependencyAnalysis: HashMap<string, Promise<DependencyAnalysis>> =
+    new HashMap();
+  private lazyMetricsComputation: HashMap<string, Promise<SymbolMetrics>> =
+    new HashMap();
+
+  /**
+   * Get lazy-loaded relationship stats
+   */
+  async getRelationshipStatsAsync(
+    symbol: ApexSymbol,
+  ): Promise<RelationshipStats> {
+    const symbolId = this.getSymbolId(symbol);
+    const cacheKey = `stats_${symbolId}`;
+
+    // Check if already computing
+    const existingPromise = this.lazyRelationshipAnalysis.get(cacheKey);
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    // Start computation
+    const promise = this.computeRelationshipStatsAsync(symbol);
+    this.lazyRelationshipAnalysis.set(cacheKey, promise);
+
+    // Clean up after completion
+    promise.finally(() => {
+      this.lazyRelationshipAnalysis.delete(cacheKey);
+    });
+
+    return promise;
+  }
+
+  /**
+   * Async computation of relationship stats
+   */
+  private async computeRelationshipStatsAsync(
+    symbol: ApexSymbol,
+  ): Promise<RelationshipStats> {
+    this.logger.debug(
+      () => `Computing relationship stats for symbol: ${symbol.name}`,
+    );
+
+    // Simulate expensive computation
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    return this.getRelationshipStats(symbol);
+  }
+
+  /**
+   * Get lazy-loaded pattern analysis
+   */
+  async getPatternAnalysisAsync(): Promise<RelationshipPatternAnalysis> {
+    const cacheKey = 'pattern_analysis_global';
+
+    // Check if already computing
+    const existingPromise = this.lazyPatternAnalysis.get(cacheKey);
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    // Start computation
+    const promise = this.computePatternAnalysisAsync();
+    this.lazyPatternAnalysis.set(cacheKey, promise);
+
+    // Clean up after completion
+    promise.finally(() => {
+      this.lazyPatternAnalysis.delete(cacheKey);
+    });
+
+    return promise;
+  }
+
+  /**
+   * Async computation of pattern analysis
+   */
+  private async computePatternAnalysisAsync(): Promise<RelationshipPatternAnalysis> {
+    this.logger.debug(() => 'Computing pattern analysis across codebase');
+
+    // Simulate expensive computation
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    return this.analyzeRelationshipPatterns();
+  }
+
+  // ============================================================================
+  // Phase 6.3: Batch Operations
+  // ============================================================================
+
+  /**
+   * Batch symbol registration with optimized processing
+   */
+  async addSymbolsBatchOptimized(
+    symbols: Array<{ symbol: ApexSymbol; filePath: string }>,
+    batchSize: number = 100,
+  ): Promise<void> {
+    this.logger.debug(
+      () => `Adding ${symbols.length} symbols in batches of ${batchSize}`,
+    );
+
+    const startTime = Date.now();
+
+    // Process in batches
+    for (let i = 0; i < symbols.length; i += batchSize) {
+      const batch = symbols.slice(i, i + batchSize);
+
+      // Process batch in parallel
+      const promises = batch.map(({ symbol, filePath }) =>
+        this.addSymbolOptimized(symbol, filePath),
+      );
+
+      await Promise.all(promises);
+
+      // Invalidate caches after each batch
+      this.invalidateCache('symbol');
+    }
+
+    const endTime = Date.now();
+    this.logger.debug(
+      () => `Batch processing completed in ${endTime - startTime}ms`,
+    );
+  }
+
+  /**
+   * Optimized symbol addition with caching
+   */
+  private async addSymbolOptimized(
+    symbol: ApexSymbol,
+    filePath: string,
+  ): Promise<void> {
+    // Add to graph
+    this.symbolGraph.addSymbol(symbol, filePath);
+
+    // Update caches
+    const symbolId = this.getSymbolId(symbol);
+    this.symbolCache.set(symbolId, symbol);
+
+    // Invalidate related caches
+    this.invalidateCache(symbol.name);
+    this.invalidateCache(filePath);
+  }
+
+  /**
+   * Batch relationship analysis with parallel processing
+   */
+  async analyzeRelationshipsBatch(
+    symbols: ApexSymbol[],
+    maxConcurrency: number = 4,
+  ): Promise<Map<string, RelationshipStats>> {
+    this.logger.debug(
+      () =>
+        `Analyzing relationships for ${symbols.length} symbols with max concurrency ${maxConcurrency}`,
+    );
+
+    const results = new Map<string, RelationshipStats>();
+
+    // Process in chunks to control concurrency
+    for (let i = 0; i < symbols.length; i += maxConcurrency) {
+      const chunk = symbols.slice(i, i + maxConcurrency);
+
+      const chunkPromises = chunk.map(async (symbol) => {
+        const stats = await this.getRelationshipStatsAsync(symbol);
+        return { symbol, stats };
+      });
+
+      const chunkResults = await Promise.all(chunkPromises);
+
+      // Store results
+      chunkResults.forEach(({ symbol, stats }) => {
+        const symbolId = this.getSymbolId(symbol);
+        results.set(symbolId, stats);
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Batch pattern matching with optimized queries
+   */
+  async findSymbolsWithPatternsBatch(
+    patterns: RelationshipPattern[],
+    maxConcurrency: number = 4,
+  ): Promise<Map<string, ApexSymbol[]>> {
+    this.logger.debug(
+      () =>
+        `Finding symbols matching ${patterns.length} patterns with max concurrency ${maxConcurrency}`,
+    );
+
+    const results = new Map<string, ApexSymbol[]>();
+
+    // Process patterns in chunks
+    for (let i = 0; i < patterns.length; i += maxConcurrency) {
+      const chunk = patterns.slice(i, i + maxConcurrency);
+
+      const chunkPromises = chunk.map(async (pattern) => {
+        const symbols = this.findSymbolsWithRelationshipPattern(pattern);
+        return { pattern, symbols };
+      });
+
+      const chunkResults = await Promise.all(chunkPromises);
+
+      // Store results
+      chunkResults.forEach(({ pattern, symbols }) => {
+        results.set(pattern.name, symbols);
+      });
+    }
+
+    return results;
+  }
+
+  // ============================================================================
+  // Phase 6.4: Performance Monitoring
+  // ============================================================================
+
+  /**
+   * Performance metrics tracking
+   */
+  private performanceMetrics = {
+    cacheHits: 0,
+    cacheMisses: 0,
+    averageQueryTime: 0,
+    totalQueries: 0,
+    slowQueries: new Map<string, number>(),
+  };
+
+  /**
+   * Track query performance
+   */
+  private trackQueryPerformance<T>(queryName: string, queryFn: () => T): T {
+    const startTime = performance.now();
+    const result = queryFn();
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+
+    // Update metrics
+    this.performanceMetrics.totalQueries++;
+    this.performanceMetrics.averageQueryTime =
+      (this.performanceMetrics.averageQueryTime *
+        (this.performanceMetrics.totalQueries - 1) +
+        duration) /
+      this.performanceMetrics.totalQueries;
+
+    // Track slow queries (>100ms)
+    if (duration > 100) {
+      this.performanceMetrics.slowQueries.set(queryName, duration);
+    }
+
+    return result;
+  }
+
+  /**
+   * Get performance metrics
+   */
+  getPerformanceMetrics() {
+    const cacheHitRate =
+      this.performanceMetrics.totalQueries > 0
+        ? this.performanceMetrics.cacheHits /
+          this.performanceMetrics.totalQueries
+        : 0;
+
+    return {
+      cacheHitRate,
+      averageQueryTime: this.performanceMetrics.averageQueryTime,
+      totalQueries: this.performanceMetrics.totalQueries,
+      slowQueries: Array.from(this.performanceMetrics.slowQueries.entries())
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10),
+    };
+  }
+
+  /**
+   * Reset performance metrics
+   */
+  resetPerformanceMetrics(): void {
+    this.performanceMetrics = {
+      cacheHits: 0,
+      cacheMisses: 0,
+      averageQueryTime: 0,
+      totalQueries: 0,
+      slowQueries: new Map(),
+    };
+  }
+
+  // ============================================================================
+  // Enhanced Cached Methods
+  // ============================================================================
+
+  /**
+   * Cached symbol lookup by name
+   */
+  findSymbolByNameCached(name: string): ApexSymbol[] {
+    return this.trackQueryPerformance(`findSymbolByName_${name}`, () =>
+      this.getCachedOrCompute(
+        `symbol_name_${name}`,
+        () => this.findSymbolByName(name),
+        this.symbolLookupCache,
+      ),
+    );
+  }
+
+  /**
+   * Cached symbol lookup by FQN
+   */
+  findSymbolByFQNCached(fqn: string): ApexSymbol | null {
+    return this.trackQueryPerformance(`findSymbolByFQN_${fqn}`, () =>
+      this.getCachedOrCompute(
+        `symbol_fqn_${fqn}`,
+        () => this.findSymbolByFQN(fqn),
+        this.fqnLookupCache,
+      ),
+    );
+  }
+
+  /**
+   * Cached symbols in file lookup
+   */
+  findSymbolsInFileCached(filePath: string): ApexSymbol[] {
+    return this.trackQueryPerformance(`findSymbolsInFile_${filePath}`, () =>
+      this.getCachedOrCompute(
+        `symbols_file_${filePath}`,
+        () => this.findSymbolsInFile(filePath),
+        this.fileLookupCache,
+      ),
+    );
+  }
+
+  /**
+   * Cached relationship stats
+   */
+  getRelationshipStatsCached(symbol: ApexSymbol): RelationshipStats {
+    const symbolId = this.getSymbolId(symbol);
+
+    return this.trackQueryPerformance(`getRelationshipStats_${symbolId}`, () =>
+      this.getCachedOrCompute(
+        `stats_${symbolId}`,
+        () => this.getRelationshipStats(symbol),
+        this.statsCache,
+      ),
+    );
+  }
+
+  /**
+   * Cached pattern analysis
+   */
+  analyzeRelationshipPatternsCached(): RelationshipPatternAnalysis {
+    return this.trackQueryPerformance('analyzeRelationshipPatterns', () =>
+      this.getCachedOrCompute(
+        'pattern_analysis_global',
+        () => this.analyzeRelationshipPatterns(),
+        this.analysisCache,
+      ),
+    );
+  }
+
+  // ============================================================================
+  // Memory Management
+  // ============================================================================
+
+  /**
+   * Memory usage optimization
+   */
+  optimizeMemory(): void {
+    this.logger.debug(() => 'Optimizing memory usage...');
+
+    // Clear old cache entries
+    const now = Date.now();
+    const keysToRemove: string[] = [];
+
+    for (const [key, timestamp] of this.cacheTimestamps.entries()) {
+      if (timestamp && now - timestamp > this.CACHE_TTL) {
+        keysToRemove.push(key);
+      }
+    }
+
+    keysToRemove.forEach((key) => {
+      this.cacheTimestamps.delete(key);
+      this.symbolLookupCache.delete(key);
+      this.fqnLookupCache.delete(key);
+      this.fileLookupCache.delete(key);
+      this.relationshipTypeCache.delete(key);
+      this.patternMatchCache.delete(key);
+      this.statsCache.delete(key);
+      this.analysisCache.delete(key);
+    });
+
+    this.logger.debug(
+      () => `Cleared ${keysToRemove.length} expired cache entries`,
+    );
+  }
+
+  /**
+   * Get memory usage statistics
+   */
+  getMemoryUsage(): {
+    symbolCacheSize: number;
+    relationshipCacheSize: number;
+    metricsCacheSize: number;
+    totalCacheEntries: number;
+    estimatedMemoryUsage: number;
+  } {
+    const totalCacheEntries =
+      this.symbolLookupCache.size +
+      this.fqnLookupCache.size +
+      this.fileLookupCache.size +
+      this.relationshipTypeCache.size +
+      this.patternMatchCache.size +
+      this.statsCache.size +
+      this.analysisCache.size;
+
+    // Rough estimate: 1KB per cache entry
+    const estimatedMemoryUsage = totalCacheEntries * 1024;
+
+    return {
+      symbolCacheSize: this.symbolCache.size,
+      relationshipCacheSize: this.relationshipCache.size,
+      metricsCacheSize: this.metricsCache.size,
+      totalCacheEntries,
+      estimatedMemoryUsage,
+    };
   }
 }

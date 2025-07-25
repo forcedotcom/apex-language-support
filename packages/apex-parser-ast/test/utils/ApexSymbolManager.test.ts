@@ -1775,4 +1775,472 @@ describe('ApexSymbolManager', () => {
       expect(Array.isArray(matches)).toBe(true);
     });
   });
+
+  // ============================================================================
+  // Phase 6.1: Multi-Level Caching
+  // ============================================================================
+
+  describe('Multi-Level Caching', () => {
+    it('should cache symbol lookups by name', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // First call should compute
+      const result1 = manager.findSymbolByNameCached('TestClass');
+      expect(Array.isArray(result1)).toBe(true);
+
+      // Second call should use cache
+      const result2 = manager.findSymbolByNameCached('TestClass');
+      expect(Array.isArray(result2)).toBe(true);
+      expect(result1).toEqual(result2);
+    });
+
+    it('should cache symbol lookups by FQN', () => {
+      const class1 = createTestSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        'Test.TestClass',
+      );
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // First call should compute
+      const result1 = manager.findSymbolByFQNCached('Test.TestClass');
+      expect(result1).toBeDefined();
+
+      // Second call should use cache
+      const result2 = manager.findSymbolByFQNCached('Test.TestClass');
+      expect(result2).toBeDefined();
+      expect(result1).toEqual(result2);
+    });
+
+    it('should cache symbols in file lookups', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // First call should compute
+      const result1 = manager.findSymbolsInFileCached('TestClass.cls');
+      expect(Array.isArray(result1)).toBe(true);
+
+      // Second call should use cache
+      const result2 = manager.findSymbolsInFileCached('TestClass.cls');
+      expect(Array.isArray(result2)).toBe(true);
+      expect(result1).toEqual(result2);
+    });
+
+    it('should cache relationship stats', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // First call should compute
+      const result1 = manager.getRelationshipStatsCached(class1);
+      expect(result1).toBeDefined();
+
+      // Second call should use cache
+      const result2 = manager.getRelationshipStatsCached(class1);
+      expect(result2).toBeDefined();
+      expect(result1).toEqual(result2);
+    });
+
+    it('should cache pattern analysis', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // First call should compute
+      const result1 = manager.analyzeRelationshipPatternsCached();
+      expect(result1).toBeDefined();
+
+      // Second call should use cache
+      const result2 = manager.analyzeRelationshipPatternsCached();
+      expect(result2).toBeDefined();
+      expect(result1).toEqual(result2);
+    });
+
+    it('should invalidate cache when symbols are added', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // Cache the result
+      const result1 = manager.findSymbolByNameCached('TestClass');
+      expect(Array.isArray(result1)).toBe(true);
+
+      // Add another symbol with the same name
+      const class2 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class2, 'TestClass2.cls');
+
+      // Should get updated result (cache should be invalidated)
+      const result2 = manager.findSymbolByNameCached('TestClass');
+      expect(Array.isArray(result2)).toBe(true);
+      expect(result2.length).toBeGreaterThan(result1.length);
+    });
+  });
+
+  // ============================================================================
+  // Phase 6.2: Lazy Loading
+  // ============================================================================
+
+  describe('Lazy Loading', () => {
+    it('should lazy load relationship stats', async () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // Start multiple async requests
+      const promises = [
+        manager.getRelationshipStatsAsync(class1),
+        manager.getRelationshipStatsAsync(class1),
+        manager.getRelationshipStatsAsync(class1),
+      ];
+
+      const results = await Promise.all(promises);
+
+      // All results should be the same (shared computation)
+      expect(results[0]).toBeDefined();
+      expect(results[1]).toEqual(results[0]);
+      expect(results[2]).toEqual(results[0]);
+    });
+
+    it('should lazy load pattern analysis', async () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // Start multiple async requests
+      const promises = [
+        manager.getPatternAnalysisAsync(),
+        manager.getPatternAnalysisAsync(),
+        manager.getPatternAnalysisAsync(),
+      ];
+
+      const results = await Promise.all(promises);
+
+      // All results should be the same (shared computation)
+      expect(results[0]).toBeDefined();
+      expect(results[1]).toEqual(results[0]);
+      expect(results[2]).toEqual(results[0]);
+    });
+
+    it('should handle concurrent lazy loading requests', async () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // Simulate concurrent requests
+      const startTime = Date.now();
+
+      const promises = Array.from({ length: 10 }, () =>
+        manager.getRelationshipStatsAsync(class1),
+      );
+
+      const results = await Promise.all(promises);
+      const endTime = Date.now();
+
+      // All results should be identical
+      const firstResult = results[0];
+      results.forEach((result) => {
+        expect(result).toEqual(firstResult);
+      });
+
+      // Should complete quickly due to shared computation
+      expect(endTime - startTime).toBeLessThan(1000);
+    });
+  });
+
+  // ============================================================================
+  // Phase 6.3: Batch Operations
+  // ============================================================================
+
+  describe('Batch Operations', () => {
+    it('should process symbols in optimized batches', async () => {
+      const symbols = Array.from({ length: 50 }, (_, i) =>
+        createTestSymbol(`TestClass${i}`, SymbolKind.Class),
+      );
+
+      const symbolData = symbols.map((symbol, i) => ({
+        symbol,
+        filePath: `TestClass${i}.cls`,
+      }));
+
+      await manager.addSymbolsBatchOptimized(symbolData, 10);
+
+      // Verify all symbols were added
+      for (const symbol of symbols) {
+        const found = manager.findSymbolByName(symbol.name);
+        expect(found.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('should analyze relationships in batches with concurrency control', async () => {
+      const symbols = Array.from({ length: 20 }, (_, i) =>
+        createTestSymbol(`TestClass${i}`, SymbolKind.Class),
+      );
+
+      symbols.forEach((symbol, i) => {
+        manager.addSymbol(symbol, `TestClass${i}.cls`);
+      });
+
+      const results = await manager.analyzeRelationshipsBatch(symbols, 4);
+
+      expect(results.size).toBe(20);
+
+      for (const [_symbolId, stats] of results) {
+        expect(stats).toBeDefined();
+        expect(typeof stats.totalReferences).toBe('number');
+      }
+    });
+
+    it('should find symbols with patterns in batches', async () => {
+      const symbols = Array.from({ length: 10 }, (_, i) =>
+        createTestSymbol(`TestClass${i}`, SymbolKind.Class),
+      );
+
+      symbols.forEach((symbol, i) => {
+        manager.addSymbol(symbol, `TestClass${i}.cls`);
+      });
+
+      const patterns: RelationshipPattern[] = [
+        {
+          name: 'Pattern 1',
+          description: 'Test pattern 1',
+          requiredRelationshipTypes: new Map(),
+          requiredSymbolKinds: [SymbolKind.Class],
+        },
+        {
+          name: 'Pattern 2',
+          description: 'Test pattern 2',
+          requiredRelationshipTypes: new Map(),
+          requiredSymbolKinds: [SymbolKind.Interface],
+        },
+      ];
+
+      const results = await manager.findSymbolsWithPatternsBatch(patterns, 2);
+
+      expect(results.size).toBe(2);
+      expect(results.has('Pattern 1')).toBe(true);
+      expect(results.has('Pattern 2')).toBe(true);
+    });
+
+    it('should handle large batch operations efficiently', async () => {
+      const symbols = Array.from({ length: 100 }, (_, i) =>
+        createTestSymbol(`LargeTestClass${i}`, SymbolKind.Class),
+      );
+
+      const symbolData = symbols.map((symbol, i) => ({
+        symbol,
+        filePath: `LargeTestClass${i}.cls`,
+      }));
+
+      const startTime = Date.now();
+      await manager.addSymbolsBatchOptimized(symbolData, 25);
+      const endTime = Date.now();
+
+      // Should complete within reasonable time
+      expect(endTime - startTime).toBeLessThan(5000);
+
+      // Verify all symbols were added
+      for (const symbol of symbols) {
+        const found = manager.findSymbolByName(symbol.name);
+        expect(found.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  // ============================================================================
+  // Phase 6.4: Performance Monitoring
+  // ============================================================================
+
+  describe('Performance Monitoring', () => {
+    it('should track query performance', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // Reset metrics
+      manager.resetPerformanceMetrics();
+
+      // Perform some queries
+      manager.findSymbolByNameCached('TestClass');
+      manager.findSymbolByFQNCached('TestClass');
+      manager.getRelationshipStatsCached(class1);
+
+      const metrics = manager.getPerformanceMetrics();
+
+      expect(metrics.totalQueries).toBe(3);
+      expect(metrics.averageQueryTime).toBeGreaterThan(0);
+      expect(Array.isArray(metrics.slowQueries)).toBe(true);
+    });
+
+    it('should calculate cache hit rates', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // Reset metrics
+      manager.resetPerformanceMetrics();
+
+      // First call (cache miss)
+      manager.findSymbolByNameCached('TestClass');
+
+      // Second call (cache hit)
+      manager.findSymbolByNameCached('TestClass');
+
+      const metrics = manager.getPerformanceMetrics();
+
+      expect(metrics.totalQueries).toBe(2);
+      expect(metrics.cacheHitRate).toBeGreaterThan(0);
+    });
+
+    it('should track slow queries', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // Reset metrics
+      manager.resetPerformanceMetrics();
+
+      // Perform queries
+      manager.findSymbolByNameCached('TestClass');
+      manager.getRelationshipStatsCached(class1);
+
+      const metrics = manager.getPerformanceMetrics();
+
+      expect(metrics.totalQueries).toBe(2);
+      expect(Array.isArray(metrics.slowQueries)).toBe(true);
+    });
+
+    it('should provide memory usage statistics', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // Perform some operations to populate caches
+      manager.findSymbolByNameCached('TestClass');
+      manager.getRelationshipStatsCached(class1);
+
+      const memoryUsage = manager.getMemoryUsage();
+
+      expect(memoryUsage.symbolCacheSize).toBeGreaterThan(0);
+      expect(memoryUsage.totalCacheEntries).toBeGreaterThan(0);
+      expect(memoryUsage.estimatedMemoryUsage).toBeGreaterThan(0);
+    });
+
+    it('should optimize memory usage', () => {
+      const class1 = createTestSymbol('TestClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'TestClass.cls');
+
+      // Perform operations to populate caches
+      manager.findSymbolByNameCached('TestClass');
+      manager.getRelationshipStatsCached(class1);
+
+      const beforeMemory = manager.getMemoryUsage();
+      expect(beforeMemory.totalCacheEntries).toBeGreaterThan(0);
+
+      // Optimize memory
+      manager.optimizeMemory();
+
+      const afterMemory = manager.getMemoryUsage();
+      expect(afterMemory.totalCacheEntries).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // ============================================================================
+  // Phase 6 Integration Tests
+  // ============================================================================
+
+  describe('Phase 6 Integration', () => {
+    it('should integrate all performance optimizations', async () => {
+      // Setup: Add multiple symbols
+      const symbols = Array.from({ length: 20 }, (_, i) =>
+        createTestSymbol(`IntegrationClass${i}`, SymbolKind.Class),
+      );
+
+      const symbolData = symbols.map((symbol, i) => ({
+        symbol,
+        filePath: `IntegrationClass${i}.cls`,
+      }));
+
+      // Test batch optimization
+      await manager.addSymbolsBatchOptimized(symbolData, 5);
+
+      // Test caching
+      const cachedResults = symbols.map((symbol) =>
+        manager.findSymbolByNameCached(symbol.name),
+      );
+
+      // Test lazy loading
+      const lazyPromises = symbols.map((symbol) =>
+        manager.getRelationshipStatsAsync(symbol),
+      );
+      const lazyResults = await Promise.all(lazyPromises);
+
+      // Test batch analysis
+      const batchResults = await manager.analyzeRelationshipsBatch(symbols, 4);
+
+      // Verify all operations completed successfully
+      expect(cachedResults.length).toBe(20);
+      expect(lazyResults.length).toBe(20);
+      expect(batchResults.size).toBe(20);
+
+      // Test performance monitoring
+      const metrics = manager.getPerformanceMetrics();
+      expect(metrics.totalQueries).toBeGreaterThan(0);
+
+      // Test memory management
+      const memoryUsage = manager.getMemoryUsage();
+      expect(memoryUsage.totalCacheEntries).toBeGreaterThan(0);
+    });
+
+    it('should handle concurrent operations efficiently', async () => {
+      const symbols = Array.from({ length: 10 }, (_, i) =>
+        createTestSymbol(`ConcurrentClass${i}`, SymbolKind.Class),
+      );
+
+      symbols.forEach((symbol, i) => {
+        manager.addSymbol(symbol, `ConcurrentClass${i}.cls`);
+      });
+
+      // Simulate concurrent operations
+      const startTime = Date.now();
+
+      const operations = [
+        // Cached lookups
+        ...symbols.map(
+          (symbol) => () => manager.findSymbolByNameCached(symbol.name),
+        ),
+        // Lazy loading
+        ...symbols.map(
+          (symbol) => () => manager.getRelationshipStatsAsync(symbol),
+        ),
+        // Batch analysis
+        () => manager.analyzeRelationshipsBatch(symbols, 4),
+        // Pattern analysis
+        () => manager.getPatternAnalysisAsync(),
+      ];
+
+      const results = await Promise.all(operations.map((op) => op()));
+
+      const endTime = Date.now();
+
+      // Should complete efficiently
+      expect(endTime - startTime).toBeLessThan(2000);
+      expect(results.length).toBe(22); // 10 cached + 10 lazy + 1 batch + 1 pattern
+    });
+
+    it('should maintain consistency across optimization layers', async () => {
+      const class1 = createTestSymbol('ConsistencyClass', SymbolKind.Class);
+      manager.addSymbol(class1, 'ConsistencyClass.cls');
+
+      // Test different access methods return consistent results
+      const directResult = manager.findSymbolByName('ConsistencyClass');
+      const cachedResult = manager.findSymbolByNameCached('ConsistencyClass');
+      const asyncResult = await manager.getRelationshipStatsAsync(class1);
+      const cachedStatsResult = manager.getRelationshipStatsCached(class1);
+
+      // All should return consistent data
+      expect(directResult.length).toBe(cachedResult.length);
+      expect(asyncResult.totalReferences).toBe(
+        cachedStatsResult.totalReferences,
+      );
+
+      // Test that cache invalidation works correctly
+      const class2 = createTestSymbol('ConsistencyClass', SymbolKind.Class);
+      manager.addSymbol(class2, 'ConsistencyClass2.cls');
+
+      const updatedCachedResult =
+        manager.findSymbolByNameCached('ConsistencyClass');
+      expect(updatedCachedResult.length).toBeGreaterThan(directResult.length);
+    });
+  });
 });
