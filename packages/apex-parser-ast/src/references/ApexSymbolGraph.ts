@@ -142,6 +142,14 @@ export class ApexSymbolGraph {
   addSymbol(symbol: ApexSymbol, filePath: string): void {
     const symbolId = this.getSymbolId(symbol, filePath);
 
+    // Check if symbol already exists to prevent duplicates
+    if (this.symbolIndex.has(symbolId)) {
+      this.logger.debug(
+        () => `Symbol already exists: ${symbolId}, skipping duplicate addition`,
+      );
+      return;
+    }
+
     // Add to data-structure-typed indexes for fast lookups
     this.symbolIndex.set(symbolId, symbol);
     this.symbolFileMap.set(symbolId, filePath);
@@ -656,9 +664,7 @@ export class ApexSymbolGraph {
   private getSymbolId(symbol: ApexSymbol, filePath?: string): string {
     // Use unified key system if available, fallback to legacy method
     if (symbol.key.unifiedId) {
-      return filePath
-        ? `${symbol.key.unifiedId}:${filePath}`
-        : symbol.key.unifiedId;
+      return symbol.key.unifiedId;
     }
 
     // Generate unified ID and cache it

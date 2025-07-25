@@ -575,8 +575,9 @@ describe('ApexSymbolGraph', () => {
     it('should handle duplicate symbol additions', () => {
       const symbol = createTestSymbol('MyClass', SymbolKind.Class);
 
+      // Add the same symbol object twice
       graph.addSymbol(symbol, 'MyClass.cls');
-      graph.addSymbol(symbol, 'MyClass.cls'); // Add same symbol again
+      graph.addSymbol(symbol, 'MyClass.cls'); // Add same symbol object again
 
       const stats = graph.getStats();
       expect(stats.totalSymbols).toBe(1); // Should only count once
