@@ -10,13 +10,9 @@ import { HashMap } from 'data-structure-typed';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbol,
-  SymbolTable,
   SymbolKind,
   SymbolVisibility,
   createFromSymbol,
-  LightweightSymbol,
-  toLightweightSymbol,
-  fromLightweightSymbol,
 } from '../types/symbol';
 import {
   ApexSymbolGraph,
@@ -154,8 +150,421 @@ export interface RelationshipPatternAnalysis {
   patternInsights: string[];
 }
 
+// ============================================================================
+// Phase 3: Cache Consolidation - Unified Cache System
+// ============================================================================
+
 /**
- * Unified graph-based symbol manager
+ * Unified cache entry with metadata for efficient storage and retrieval
+ */
+interface UnifiedCacheEntry<T> {
+  value: T;
+  timestamp: number;
+  accessCount: number;
+  lastAccessed: number;
+  type: CacheEntryType;
+  size: number; // Estimated memory size in bytes
+}
+
+/**
+ * Cache entry types for categorization and optimization
+ */
+type CacheEntryType =
+  | 'symbol_lookup'
+  | 'fqn_lookup'
+  | 'file_lookup'
+  | 'relationship'
+  | 'metrics'
+  | 'pattern_match'
+  | 'stats'
+  | 'analysis'
+  | 'lazy_metrics'
+  | 'lazy_analysis';
+
+/**
+ * Unified cache statistics for monitoring and optimization
+ */
+interface UnifiedCacheStats {
+  totalEntries: number;
+  totalSize: number;
+  hitCount: number;
+  missCount: number;
+  evictionCount: number;
+  hitRate: number;
+  averageEntrySize: number;
+  typeDistribution: Map<CacheEntryType, number>;
+  lastOptimization: number;
+}
+
+/**
+ * Unified cache system with LRU eviction and memory optimization
+ * Replaces multiple HashMap caches with single efficient cache
+ */
+export class UnifiedCache {
+  private readonly logger = getLogger();
+
+  // Core cache storage with WeakRef for automatic GC
+  private cache: Map<string, WeakRef<UnifiedCacheEntry<any>>> = new Map();
+  private readonly registry = new FinalizationRegistry<string>((key) => {
+    this.handleGarbageCollected(key);
+  });
+
+  // LRU tracking
+  private accessOrder: string[] = [];
+
+  // Statistics and monitoring
+  private stats: UnifiedCacheStats = {
+    totalEntries: 0,
+    totalSize: 0,
+    hitCount: 0,
+    missCount: 0,
+    evictionCount: 0,
+    hitRate: 0,
+    averageEntrySize: 0,
+    typeDistribution: new Map(),
+    lastOptimization: Date.now(),
+  };
+
+  // Configuration
+  private readonly maxSize: number;
+  private readonly maxMemoryBytes: number;
+  private readonly ttl: number;
+  private readonly enableWeakRef: boolean;
+
+  constructor(
+    maxSize: number = 5000,
+    maxMemoryBytes: number = 50 * 1024 * 1024, // 50MB
+    ttl: number = 3 * 60 * 1000, // 3 minutes
+    enableWeakRef: boolean = true,
+  ) {
+    this.maxSize = maxSize;
+    this.maxMemoryBytes = maxMemoryBytes;
+    this.ttl = ttl;
+    this.enableWeakRef = enableWeakRef;
+  }
+
+  /**
+   * Get value from cache with automatic cleanup
+   */
+  get<T>(key: string): T | undefined {
+    const entryRef = this.cache.get(key);
+    if (!entryRef) {
+      this.stats.missCount++;
+      this.updateHitRate();
+      return undefined;
+    }
+
+    const entry = entryRef.deref();
+    if (!entry) {
+      // Entry was garbage collected
+      this.cache.delete(key);
+      this.removeFromAccessOrder(key);
+      this.stats.missCount++;
+      this.updateHitRate();
+      return undefined;
+    }
+
+    // Check TTL
+    if (Date.now() - entry.timestamp > this.ttl) {
+      this.delete(key);
+      this.stats.missCount++;
+      this.updateHitRate();
+      return undefined;
+    }
+
+    // Update access statistics
+    entry.accessCount++;
+    entry.lastAccessed = Date.now();
+    this.updateAccessOrder(key);
+
+    this.stats.hitCount++;
+    this.updateHitRate();
+
+    return entry.value;
+  }
+
+  /**
+   * Set value in cache with automatic size management
+   */
+  set<T>(
+    key: string,
+    value: T,
+    type: CacheEntryType,
+    estimatedSize?: number,
+  ): void {
+    const size = estimatedSize || this.estimateSize(value);
+    const entry: UnifiedCacheEntry<T> = {
+      value,
+      timestamp: Date.now(),
+      accessCount: 1,
+      lastAccessed: Date.now(),
+      type,
+      size,
+    };
+
+    // Check if we need to evict entries
+    this.ensureCapacity(size);
+
+    // Store with WeakRef if enabled
+    if (this.enableWeakRef) {
+      const entryRef = new WeakRef(entry);
+      this.registry.register(entry, key);
+      this.cache.set(key, entryRef);
+    } else {
+      this.cache.set(key, new WeakRef(entry));
+    }
+
+    this.updateAccessOrder(key);
+    this.updateStats(entry, type, size);
+  }
+
+  /**
+   * Delete entry from cache
+   */
+  delete(key: string): boolean {
+    const entryRef = this.cache.get(key);
+    if (entryRef) {
+      const entry = entryRef.deref();
+      if (entry) {
+        this.stats.totalSize -= entry.size;
+        this.updateTypeDistribution(entry.type, -1);
+      }
+    }
+
+    this.cache.delete(key);
+    this.removeFromAccessOrder(key);
+    this.stats.totalEntries--;
+
+    return true;
+  }
+
+  /**
+   * Check if key exists in cache
+   */
+  has(key: string): boolean {
+    const entryRef = this.cache.get(key);
+    if (!entryRef) return false;
+
+    const entry = entryRef.deref();
+    if (!entry) {
+      this.cache.delete(key);
+      this.removeFromAccessOrder(key);
+      return false;
+    }
+
+    return Date.now() - entry.timestamp <= this.ttl;
+  }
+
+  /**
+   * Clear all entries
+   */
+  clear(): void {
+    this.cache.clear();
+    this.accessOrder = [];
+    this.stats = {
+      totalEntries: 0,
+      totalSize: 0,
+      hitCount: 0,
+      missCount: 0,
+      evictionCount: 0,
+      hitRate: 0,
+      averageEntrySize: 0,
+      typeDistribution: new Map(),
+      lastOptimization: Date.now(),
+    };
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getStats(): UnifiedCacheStats {
+    return { ...this.stats };
+  }
+
+  /**
+   * Optimize cache by removing expired entries and enforcing limits
+   */
+  optimize(): void {
+    const now = Date.now();
+    const keysToRemove: string[] = [];
+
+    // Remove expired entries
+    for (const [key, entryRef] of this.cache.entries()) {
+      const entry = entryRef.deref();
+      if (!entry) {
+        keysToRemove.push(key);
+        continue;
+      }
+
+      if (now - entry.timestamp > this.ttl) {
+        keysToRemove.push(key);
+      }
+    }
+
+    // Remove expired entries
+    keysToRemove.forEach((key) => this.delete(key));
+
+    // Enforce size limits
+    this.enforceSizeLimits();
+
+    this.stats.lastOptimization = now;
+    this.logger.debug(
+      () =>
+        `Cache optimization completed: removed ${keysToRemove.length} entries`,
+    );
+  }
+
+  /**
+   * Invalidate entries matching pattern
+   */
+  invalidatePattern(pattern: string): number {
+    const keysToRemove: string[] = [];
+
+    for (const key of this.cache.keys()) {
+      if (key.includes(pattern)) {
+        keysToRemove.push(key);
+      }
+    }
+
+    keysToRemove.forEach((key) => this.delete(key));
+    return keysToRemove.length;
+  }
+
+  // ============================================================================
+  // Private Methods
+  // ============================================================================
+
+  /**
+   * Ensure cache has capacity for new entry
+   */
+  private ensureCapacity(newEntrySize: number): void {
+    while (
+      (this.stats.totalEntries >= this.maxSize ||
+        this.stats.totalSize + newEntrySize > this.maxMemoryBytes) &&
+      this.accessOrder.length > 0
+    ) {
+      this.evictLRU();
+    }
+  }
+
+  /**
+   * Evict least recently used entry
+   */
+  private evictLRU(): void {
+    if (this.accessOrder.length === 0) return;
+
+    const lruKey = this.accessOrder.shift()!;
+    this.delete(lruKey);
+    this.stats.evictionCount++;
+  }
+
+  /**
+   * Enforce size limits
+   */
+  private enforceSizeLimits(): void {
+    while (
+      this.stats.totalEntries > this.maxSize &&
+      this.accessOrder.length > 0
+    ) {
+      this.evictLRU();
+    }
+
+    while (
+      this.stats.totalSize > this.maxMemoryBytes &&
+      this.accessOrder.length > 0
+    ) {
+      this.evictLRU();
+    }
+  }
+
+  /**
+   * Update access order for LRU tracking
+   */
+  private updateAccessOrder(key: string): void {
+    this.removeFromAccessOrder(key);
+    this.accessOrder.push(key);
+  }
+
+  /**
+   * Remove key from access order
+   */
+  private removeFromAccessOrder(key: string): void {
+    const index = this.accessOrder.indexOf(key);
+    if (index > -1) {
+      this.accessOrder.splice(index, 1);
+    }
+  }
+
+  /**
+   * Update cache statistics
+   */
+  private updateStats(
+    entry: UnifiedCacheEntry<any>,
+    type: CacheEntryType,
+    size: number,
+  ): void {
+    this.stats.totalEntries++;
+    this.stats.totalSize += size;
+    this.updateTypeDistribution(type, 1);
+    this.updateAverageEntrySize();
+  }
+
+  /**
+   * Update type distribution statistics
+   */
+  private updateTypeDistribution(type: CacheEntryType, delta: number): void {
+    const current = this.stats.typeDistribution.get(type) || 0;
+    this.stats.typeDistribution.set(type, current + delta);
+  }
+
+  /**
+   * Update average entry size
+   */
+  private updateAverageEntrySize(): void {
+    this.stats.averageEntrySize =
+      this.stats.totalEntries > 0
+        ? this.stats.totalSize / this.stats.totalEntries
+        : 0;
+  }
+
+  /**
+   * Update hit rate
+   */
+  private updateHitRate(): void {
+    const total = this.stats.hitCount + this.stats.missCount;
+    this.stats.hitRate = total > 0 ? this.stats.hitCount / total : 0;
+  }
+
+  /**
+   * Estimate memory size of value
+   */
+  private estimateSize(value: any): number {
+    if (typeof value === 'string') return value.length * 2;
+    if (typeof value === 'number') return 8;
+    if (typeof value === 'boolean') return 4;
+    if (Array.isArray(value)) return value.length * 8;
+    if (value && typeof value === 'object') {
+      return Object.keys(value).length * 16;
+    }
+    return 16; // Default estimate
+  }
+
+  /**
+   * Handle garbage collected entries
+   */
+  private handleGarbageCollected(key: string): void {
+    this.cache.delete(key);
+    this.removeFromAccessOrder(key);
+    this.stats.totalEntries--;
+  }
+}
+
+// ============================================================================
+// Updated ApexSymbolManager with Unified Cache
+// ============================================================================
+
+/**
+ * Unified graph-based symbol manager with consolidated cache system
  * Replaces CrossFileSymbolManager and GlobalSymbolRegistry
  */
 export class ApexSymbolManager {
@@ -167,23 +576,14 @@ export class ApexSymbolManager {
   // Memory-optimized file metadata (replaces symbolTableIndex)
   private fileMetadata: HashMap<string, FileMetadata>;
 
-  // OPTIMIZED: Single unified cache with lightweight symbols
-  private unifiedCache: HashMap<string, LightweightSymbol>;
-  private cacheTimestamps: HashMap<string, number>;
-
-  // OPTIMIZED: Reduced cache layers - only essential caches
-  private relationshipCache: HashMap<string, ReferenceResult[]>;
-  private metricsCache: HashMap<string, SymbolMetrics>;
-
-  // Lazy loading for expensive operations
-  private lazyMetrics: HashMap<string, Promise<SymbolMetrics>>;
-  private lazyAnalysis: HashMap<string, Promise<DependencyAnalysis>>;
+  // PHASE 3: Unified cache system (replaces multiple HashMap caches)
+  private unifiedCache: UnifiedCache;
 
   // Memory management
   private readonly MAX_CACHE_SIZE = 5000; // Reduced from 10000
   private readonly CACHE_TTL = 3 * 60 * 1000; // Reduced from 5 minutes to 3 minutes
 
-  // OPTIMIZED: Removed symbolReferencePool - using lightweight symbols instead
+  // Memory statistics
   private memoryStats = {
     totalSymbols: 0,
     totalCacheEntries: 0,
@@ -194,12 +594,14 @@ export class ApexSymbolManager {
   constructor() {
     this.symbolGraph = new ApexSymbolGraph();
     this.fileMetadata = new HashMap();
-    this.unifiedCache = new HashMap();
-    this.cacheTimestamps = new HashMap();
-    this.relationshipCache = new HashMap();
-    this.metricsCache = new HashMap();
-    this.lazyMetrics = new HashMap();
-    this.lazyAnalysis = new HashMap();
+
+    // Initialize unified cache with optimized settings
+    this.unifiedCache = new UnifiedCache(
+      this.MAX_CACHE_SIZE,
+      50 * 1024 * 1024, // 50MB max memory
+      this.CACHE_TTL,
+      true, // Enable WeakRef for automatic GC
+    );
   }
 
   // ============================================================================
@@ -208,14 +610,12 @@ export class ApexSymbolManager {
 
   /**
    * Add a symbol to the graph with memory optimization
-   * Updated to use lightweight symbols
+   * Updated to use unified cache system
    */
   addSymbol(symbol: ApexSymbol, filePath: string): void {
     this.logger.debug(() => `Adding symbol: ${symbol.name} from ${filePath}`);
 
-    // Convert to lightweight symbol for storage
-    const lightweightSymbol = toLightweightSymbol(symbol, filePath);
-    const symbolId = lightweightSymbol.id;
+    const symbolId = this.getSymbolId(symbol, filePath);
 
     // Check if symbol already exists with this ID
     if (this.unifiedCache.has(symbolId)) {
@@ -228,20 +628,17 @@ export class ApexSymbolManager {
     // Add to graph (still using full symbol for compatibility)
     this.symbolGraph.addSymbol(symbol, filePath);
 
-    // Store lightweight symbol in unified cache
-    this.unifiedCache.set(symbolId, lightweightSymbol);
-    this.cacheTimestamps.set(symbolId, Date.now());
+    // Store symbol in unified cache
+    this.unifiedCache.set(symbolId, symbol, 'symbol_lookup');
 
     // Update memory stats
     this.memoryStats.totalSymbols++;
-    this.memoryStats.totalCacheEntries = this.unifiedCache.size;
-
-    // Clear related caches
-    this.clearRelatedCaches(symbolId);
+    this.memoryStats.totalCacheEntries =
+      this.unifiedCache.getStats().totalEntries;
 
     // Invalidate caches that might be affected by this symbol
-    this.invalidateCache(symbol.name);
-    this.invalidateCache(filePath);
+    this.unifiedCache.invalidatePattern(symbol.name);
+    this.unifiedCache.invalidatePattern(filePath);
 
     // Periodic memory optimization
     if (this.memoryStats.totalCacheEntries % 100 === 0) {
@@ -250,63 +647,70 @@ export class ApexSymbolManager {
   }
 
   /**
-   * Get symbol by ID with lazy loading
+   * Get symbol by ID with unified cache
    */
   getSymbol(symbolId: string): ApexSymbol | null {
-    const lightweight = this.unifiedCache.get(symbolId);
-    if (!lightweight) return null;
-
-    // Convert back to full symbol when needed
-    // Note: We need a way to get SymbolTable - for now, create a minimal one
-    const mockSymbolTable = new SymbolTable();
-    return fromLightweightSymbol(lightweight, mockSymbolTable);
+    return this.unifiedCache.get<ApexSymbol>(symbolId) || null;
   }
 
   /**
    * Find all symbols with a given name (optimized)
    */
   findSymbolByName(name: string): ApexSymbol[] {
-    const results: ApexSymbol[] = [];
-
-    // Search through lightweight cache
-    for (const [, lightweight] of this.unifiedCache) {
-      if (lightweight.name === name) {
-        const symbol = this.getSymbol(lightweight.id);
-        if (symbol) results.push(symbol);
-      }
+    // Use cached result if available
+    const cacheKey = `symbol_name_${name}`;
+    const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
+    if (cached) {
+      return cached;
     }
 
-    return results;
+    // Search through symbol graph
+    const symbols = this.symbolGraph.lookupSymbolByName(name);
+
+    // Cache the result
+    this.unifiedCache.set(cacheKey, symbols, 'symbol_lookup');
+
+    return symbols;
   }
 
   /**
    * Find a symbol by its fully qualified name (optimized)
    */
   findSymbolByFQN(fqn: string): ApexSymbol | null {
-    // Search through lightweight cache
-    for (const [, lightweight] of this.unifiedCache) {
-      if (lightweight.fqn === fqn) {
-        return this.getSymbol(lightweight.id);
-      }
+    // Use cached result if available
+    const cacheKey = `symbol_fqn_${fqn}`;
+    const cached = this.unifiedCache.get<ApexSymbol>(cacheKey);
+    if (cached) {
+      return cached;
     }
-    return null;
+
+    // Search through symbol graph
+    const symbol = this.symbolGraph.lookupSymbolByFQN(fqn);
+
+    // Cache the result
+    this.unifiedCache.set(cacheKey, symbol, 'fqn_lookup');
+
+    return symbol;
   }
 
   /**
    * Find all symbols in a specific file (optimized)
    */
   findSymbolsInFile(filePath: string): ApexSymbol[] {
-    const results: ApexSymbol[] = [];
-
-    // Search through lightweight cache
-    for (const [, lightweight] of this.unifiedCache) {
-      if (lightweight.filePath === filePath) {
-        const symbol = this.getSymbol(lightweight.id);
-        if (symbol) results.push(symbol);
-      }
+    // Use cached result if available
+    const cacheKey = `file_symbols_${filePath}`;
+    const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
+    if (cached) {
+      return cached;
     }
 
-    return results;
+    // Search through symbol graph
+    const symbols = this.symbolGraph.getSymbolsInFile(filePath);
+
+    // Cache the result
+    this.unifiedCache.set(cacheKey, symbols, 'file_lookup');
+
+    return symbols;
   }
 
   // ============================================================================
@@ -314,100 +718,25 @@ export class ApexSymbolManager {
   // ============================================================================
 
   /**
-   * Get cached result or compute and cache (optimized)
-   */
-  private getCachedOrCompute<T>(
-    cacheKey: string,
-    computeFn: () => T,
-    cache: HashMap<string, T>,
-  ): T {
-    const timestamp = this.cacheTimestamps.get(cacheKey);
-    const now = Date.now();
-
-    // Check if cache is still valid
-    if (timestamp && now - timestamp < this.CACHE_TTL) {
-      const cached = cache.get(cacheKey);
-      if (cached !== undefined) {
-        this.logger.debug(() => `Cache hit for key: ${cacheKey}`);
-        return cached;
-      }
-    }
-
-    // Compute and cache
-    this.logger.debug(() => `Cache miss for key: ${cacheKey}, computing...`);
-    const result = computeFn();
-    cache.set(cacheKey, result);
-    this.cacheTimestamps.set(cacheKey, now);
-
-    return result;
-  }
-
-  /**
-   * Memory usage optimization with advanced features
+   * Memory usage optimization with unified cache
    */
   optimizeMemory(): void {
     this.logger.debug(() => 'Optimizing memory usage...');
 
-    const now = Date.now();
-    const keysToRemove: string[] = [];
-
-    // Clear expired cache entries
-    for (const [key, timestamp] of this.cacheTimestamps.entries()) {
-      if (timestamp && now - timestamp > this.CACHE_TTL) {
-        keysToRemove.push(key);
-      }
-    }
-
-    // Enforce cache size limits
-    this.enforceCacheSizeLimits();
-
-    // Clear expired entries
-    keysToRemove.forEach((key) => {
-      this.cacheTimestamps.delete(key);
-      this.unifiedCache.delete(key);
-      this.relationshipCache.delete(key);
-      this.metricsCache.delete(key);
-    });
+    // Use unified cache optimization
+    this.unifiedCache.optimize();
 
     // Update memory stats
-    this.memoryStats.totalCacheEntries = this.unifiedCache.size;
-    this.memoryStats.lastCleanup = now;
+    const stats = this.unifiedCache.getStats();
+    this.memoryStats.totalCacheEntries = stats.totalEntries;
+    this.memoryStats.lastCleanup = Date.now();
     this.memoryStats.memoryOptimizationLevel =
       this.calculateMemoryOptimizationLevel();
 
     this.logger.debug(
-      () => `Cleared ${keysToRemove.length} expired cache entries`,
+      () =>
+        `Cache optimization completed: ${stats.totalEntries} entries, ${stats.hitRate.toFixed(2)} hit rate`,
     );
-  }
-
-  /**
-   * Enforce cache size limits to prevent memory bloat
-   */
-  private enforceCacheSizeLimits(): void {
-    const caches = [
-      { name: 'unified', cache: this.unifiedCache },
-      { name: 'relationship', cache: this.relationshipCache },
-      { name: 'metrics', cache: this.metricsCache },
-    ];
-
-    caches.forEach(({ name, cache }) => {
-      if (cache.size > this.MAX_CACHE_SIZE) {
-        const keysToRemove = Array.from(cache.keys()).slice(
-          0,
-          cache.size - this.MAX_CACHE_SIZE,
-        );
-
-        keysToRemove.forEach((key) => {
-          cache.delete(key);
-          this.cacheTimestamps.delete(key);
-        });
-
-        this.logger.debug(
-          () =>
-            `Enforced size limit on ${name} cache: removed ${keysToRemove.length} entries`,
-        );
-      }
-    });
   }
 
   /**
@@ -422,10 +751,8 @@ export class ApexSymbolManager {
     cacheEfficiency: number;
     recommendations: string[];
   } {
-    const totalCacheEntries =
-      this.unifiedCache.size +
-      this.relationshipCache.size +
-      this.metricsCache.size;
+    const stats = this.unifiedCache.getStats();
+    const totalCacheEntries = stats.totalEntries;
 
     // Calculate scope hierarchy memory usage
     let scopeHierarchySize = 0;
@@ -433,14 +760,11 @@ export class ApexSymbolManager {
       scopeHierarchySize += metadata.scopeHierarchy.length;
     }
 
-    // Rough estimate: 500B per lightweight symbol, 1KB per cache entry
-    const estimatedMemoryUsage =
-      this.unifiedCache.size * 500 +
-      totalCacheEntries * 1024 +
-      scopeHierarchySize * 100;
+    // Rough estimate: 1KB per cache entry, 100B per scope hierarchy entry
+    const estimatedMemoryUsage = stats.totalSize + scopeHierarchySize * 100;
 
     // Calculate cache efficiency
-    const cacheEfficiency = this.calculateCacheEfficiency();
+    const cacheEfficiency = stats.hitRate * 100;
 
     return {
       totalSymbols: this.memoryStats.totalSymbols,
@@ -457,10 +781,8 @@ export class ApexSymbolManager {
    * Calculate memory optimization level based on current usage
    */
   private calculateMemoryOptimizationLevel(): string {
-    const totalCacheEntries =
-      this.unifiedCache.size +
-      this.relationshipCache.size +
-      this.metricsCache.size;
+    const stats = this.unifiedCache.getStats();
+    const totalCacheEntries = stats.totalEntries;
 
     if (totalCacheEntries < 500) return 'OPTIMAL';
     if (totalCacheEntries < 2000) return 'GOOD';
@@ -472,12 +794,8 @@ export class ApexSymbolManager {
    * Calculate cache efficiency
    */
   private calculateCacheEfficiency(): number {
-    // Simplified calculation - in real implementation, track actual hits/misses
-    const totalEntries =
-      this.unifiedCache.size +
-      this.relationshipCache.size +
-      this.metricsCache.size;
-    return totalEntries > 0 ? Math.min(85, 100 - totalEntries / 100) : 100;
+    const stats = this.unifiedCache.getStats();
+    return stats.hitRate * 100;
   }
 
   /**
