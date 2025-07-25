@@ -49,6 +49,7 @@ export * from './utils/symbolNarrowing';
 // Export cross-file symbol management
 export * from './utils/GlobalSymbolRegistry';
 export * from './utils/CrossFileSymbolManager';
+export * from './utils/ApexSymbolManager';
 
 // Export semantic validators
 export * from './semantics/modifiers/index';
