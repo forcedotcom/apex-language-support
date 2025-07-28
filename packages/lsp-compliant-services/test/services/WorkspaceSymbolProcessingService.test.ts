@@ -11,40 +11,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { WorkspaceSymbolProcessingService } from '../../src/services/WorkspaceSymbolProcessingService';
 
-// Mock ApexSymbolManager
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  ApexSymbolManager: jest.fn(),
-  ReferenceType: {
-    METHOD_CALL: 1,
-    FIELD_ACCESS: 2,
-    TYPE_REFERENCE: 3,
-    INHERITANCE: 4,
-    INTERFACE_IMPLEMENTATION: 5,
-    CONSTRUCTOR_CALL: 6,
-    STATIC_ACCESS: 7,
-    INSTANCE_ACCESS: 8,
-    IMPORT_REFERENCE: 9,
-    NAMESPACE_REFERENCE: 10,
-    ANNOTATION_REFERENCE: 11,
-    TRIGGER_REFERENCE: 12,
-    TEST_METHOD_REFERENCE: 13,
-    WEBSERVICE_REFERENCE: 14,
-    REMOTE_ACTION_REFERENCE: 15,
-    PROPERTY_ACCESS: 16,
-    ENUM_REFERENCE: 17,
-    TRIGGER_CONTEXT_REFERENCE: 18,
-    SOQL_REFERENCE: 19,
-    SOSL_REFERENCE: 20,
-    DML_REFERENCE: 21,
-    APEX_PAGE_REFERENCE: 22,
-    COMPONENT_REFERENCE: 23,
-    CUSTOM_METADATA_REFERENCE: 24,
-    EXTERNAL_SERVICE_REFERENCE: 25,
-    SCOPE_PARENT: 26,
-    SCOPE_CHILD: 27,
-    SCOPE_CONTAINS: 28,
-  },
-}));
+// Mock is now handled globally in test/setup.ts
 
 describe('WorkspaceSymbolProcessingService', () => {
   let service: WorkspaceSymbolProcessingService;

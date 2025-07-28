@@ -17,10 +17,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import { CodeActionProcessingService } from '../../src/services/CodeActionProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 
-// Mock ApexSymbolManager
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  ApexSymbolManager: jest.fn(),
-}));
+// Mock is now handled globally in test/setup.ts
 
 // Mock ApexStorageManager
 jest.mock('../../src/storage/ApexStorageManager', () => ({
