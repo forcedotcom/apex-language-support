@@ -8,7 +8,12 @@
 
 import { HashMap } from 'data-structure-typed';
 import { getLogger, type EnumValue } from '@salesforce/apex-lsp-shared';
-import { ApexSymbol, SymbolKind, SymbolVisibility } from '../types/symbol';
+import {
+  ApexSymbol,
+  SymbolKind,
+  SymbolVisibility,
+  SymbolFactory,
+} from '../types/symbol';
 import {
   ApexSymbolGraph,
   ReferenceType,
@@ -1303,12 +1308,12 @@ export class ApexSymbolManager implements ISymbolManager {
 
   // Missing helper methods
   private createPlaceholderSymbol(name: string): ApexSymbol {
-    return {
+    return SymbolFactory.createFullSymbol(
       name,
-      kind: SymbolKind.Class,
-      fqn: name,
-      location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
-      modifiers: {
+      SymbolKind.Class,
+      { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
+      'unknown',
+      {
         visibility: SymbolVisibility.Public,
         isStatic: false,
         isFinal: false,
@@ -1319,9 +1324,10 @@ export class ApexSymbolManager implements ISymbolManager {
         isTestMethod: false,
         isWebService: false,
       },
-      key: { prefix: 'unknown', name, path: [name] },
-      parentKey: null,
-    };
+      null, // parentId
+      undefined, // typeData
+      name, // fqn
+    );
   }
 
   private resolveAmbiguousSymbolWithContext(

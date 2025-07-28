@@ -38,6 +38,207 @@ export enum SymbolVisibility {
 }
 
 /**
+ * Modifier bit flags for memory efficiency
+ */
+export const ModifierFlags = {
+  PUBLIC: 1 << 0,
+  PRIVATE: 1 << 1,
+  PROTECTED: 1 << 2,
+  GLOBAL: 1 << 3,
+  STATIC: 1 << 4,
+  FINAL: 1 << 5,
+  ABSTRACT: 1 << 6,
+  VIRTUAL: 1 << 7,
+  OVERRIDE: 1 << 8,
+  TRANSIENT: 1 << 9,
+  TEST_METHOD: 1 << 10,
+  WEB_SERVICE: 1 << 11,
+} as const;
+
+/**
+ * Symbol kind enum as numbers for memory efficiency
+ */
+export const SymbolKindValues = {
+  [SymbolKind.Class]: 0,
+  [SymbolKind.Interface]: 1,
+  [SymbolKind.Trigger]: 2,
+  [SymbolKind.Method]: 3,
+  [SymbolKind.Constructor]: 4,
+  [SymbolKind.Property]: 5,
+  [SymbolKind.Field]: 6,
+  [SymbolKind.Variable]: 7,
+  [SymbolKind.Parameter]: 8,
+  [SymbolKind.Enum]: 9,
+  [SymbolKind.EnumValue]: 10,
+} as const;
+
+/**
+ * Factory for creating unified ApexSymbol instances
+ */
+export class SymbolFactory {
+  /**
+   * Create a minimal symbol with lazy loading support
+   */
+  static createMinimalSymbol(
+    name: string,
+    kind: SymbolKind,
+    location: SymbolLocation,
+    filePath: string,
+    parentId: string | null = null,
+    modifierFlags: number = 0,
+  ): ApexSymbol {
+    const id = this.generateId(name, filePath);
+    const key: SymbolKey = {
+      prefix: kind,
+      name,
+      path: [filePath, name],
+      unifiedId: id,
+      filePath,
+      kind,
+    };
+
+    return {
+      id,
+      name,
+      kind,
+      location,
+      filePath,
+      parentId,
+      key,
+      parentKey: parentId
+        ? {
+            prefix: kind,
+            name: parentId,
+            path: [filePath, parentId],
+            unifiedId: parentId,
+            filePath,
+            kind,
+          }
+        : null,
+      _modifierFlags: modifierFlags,
+      _isLoaded: false,
+      modifiers: this.flagsToModifiers(modifierFlags),
+      parent: null,
+    };
+  }
+
+  /**
+   * Create a full symbol with all data loaded
+   */
+  static createFullSymbol(
+    name: string,
+    kind: SymbolKind,
+    location: SymbolLocation,
+    filePath: string,
+    modifiers: SymbolModifiers,
+    parentId: string | null = null,
+    typeData?: any,
+    fqn?: string,
+    namespace?: string,
+    annotations?: Annotation[],
+    identifierLocation?: SymbolLocation,
+  ): ApexSymbol {
+    const id = this.generateId(name, filePath);
+    const modifierFlags = this.modifiersToFlags(modifiers);
+    const key: SymbolKey = {
+      prefix: kind,
+      name,
+      path: [filePath, name],
+      unifiedId: id,
+      filePath,
+      fqn,
+      kind,
+    };
+
+    return {
+      id,
+      name,
+      kind,
+      location,
+      filePath,
+      parentId,
+      key,
+      parentKey: parentId
+        ? {
+            prefix: kind,
+            name: parentId,
+            path: [filePath, parentId],
+            unifiedId: parentId,
+            filePath,
+            kind,
+          }
+        : null,
+      fqn,
+      namespace,
+      annotations,
+      identifierLocation,
+      _typeData: typeData,
+      _modifierFlags: modifierFlags,
+      _isLoaded: true,
+      modifiers,
+      parent: null,
+    };
+  }
+
+  /**
+   * Convert modifiers object to bit flags
+   */
+  private static modifiersToFlags(modifiers: SymbolModifiers): number {
+    let flags = 0;
+    if (modifiers.visibility === SymbolVisibility.Public)
+      flags |= ModifierFlags.PUBLIC;
+    if (modifiers.visibility === SymbolVisibility.Private)
+      flags |= ModifierFlags.PRIVATE;
+    if (modifiers.visibility === SymbolVisibility.Protected)
+      flags |= ModifierFlags.PROTECTED;
+    if (modifiers.visibility === SymbolVisibility.Global)
+      flags |= ModifierFlags.GLOBAL;
+    if (modifiers.isStatic) flags |= ModifierFlags.STATIC;
+    if (modifiers.isFinal) flags |= ModifierFlags.FINAL;
+    if (modifiers.isAbstract) flags |= ModifierFlags.ABSTRACT;
+    if (modifiers.isVirtual) flags |= ModifierFlags.VIRTUAL;
+    if (modifiers.isOverride) flags |= ModifierFlags.OVERRIDE;
+    if (modifiers.isTransient) flags |= ModifierFlags.TRANSIENT;
+    if (modifiers.isTestMethod) flags |= ModifierFlags.TEST_METHOD;
+    if (modifiers.isWebService) flags |= ModifierFlags.WEB_SERVICE;
+    return flags;
+  }
+
+  /**
+   * Convert bit flags to modifiers object
+   */
+  private static flagsToModifiers(flags: number): SymbolModifiers {
+    return {
+      visibility:
+        flags & ModifierFlags.PUBLIC
+          ? SymbolVisibility.Public
+          : flags & ModifierFlags.PRIVATE
+            ? SymbolVisibility.Private
+            : flags & ModifierFlags.PROTECTED
+              ? SymbolVisibility.Protected
+              : flags & ModifierFlags.GLOBAL
+                ? SymbolVisibility.Global
+                : SymbolVisibility.Default,
+      isStatic: !!(flags & ModifierFlags.STATIC),
+      isFinal: !!(flags & ModifierFlags.FINAL),
+      isAbstract: !!(flags & ModifierFlags.ABSTRACT),
+      isVirtual: !!(flags & ModifierFlags.VIRTUAL),
+      isOverride: !!(flags & ModifierFlags.OVERRIDE),
+      isTransient: !!(flags & ModifierFlags.TRANSIENT),
+      isTestMethod: !!(flags & ModifierFlags.TEST_METHOD),
+      isWebService: !!(flags & ModifierFlags.WEB_SERVICE),
+    };
+  }
+
+  /**
+   * Generate a unique ID for a symbol
+   */
+  private static generateId(name: string, filePath: string): string {
+    return `${filePath}:${name}`;
+  }
+}
+
+/**
  * Represents an Apex annotation
  */
 export interface Annotation {
@@ -85,30 +286,55 @@ export interface SymbolLocation {
 }
 
 /**
- * Base interface for all Apex symbols
+ * Unified Apex symbol interface with lazy loading support
+ * Supports both minimal (lazy) and full (eager) loading modes
  */
 export interface ApexSymbol {
-  name: string; // name of the symbol based on the id
+  // Core properties (always present)
+  id: string;
+  name: string;
   kind: SymbolKind;
   location: SymbolLocation;
-  modifiers: SymbolModifiers;
+  filePath: string;
+  parentId: string | null;
+
+  // Legacy compatibility - will be removed in Phase 5
   key: SymbolKey;
   parentKey: SymbolKey | null;
-  /** The fully qualified name of the symbol */
+
+  // Optional properties (lazy loaded)
   fqn?: string;
-  /** Namespace of the symbol, if applicable */
   namespace?: string;
-  /** Annotations for this symbol */
   annotations?: Annotation[];
-  /** Precise location of the identifier (symbol name) */
   identifierLocation?: SymbolLocation;
-  /** Runtime parent reference - not serialized */
+
+  // Type-specific data (lazy loaded)
+  _typeData?: {
+    superClass?: string;
+    interfaces?: string[];
+    returnType?: TypeInfo;
+    parameters?: string[]; // Array of parameter IDs
+    type?: TypeInfo;
+    initialValue?: string;
+    values?: string[]; // Array of enum value IDs
+  };
+
+  // Modifiers (stored as bit flags internally, exposed as object)
+  _modifierFlags: number;
+
+  // Lazy loading support
+  _isLoaded: boolean;
+  _loadPromise?: Promise<void>;
+
+  // Legacy compatibility - will be removed in Phase 5
+  modifiers: SymbolModifiers;
   parent?: ApexSymbol | null;
 }
 
 /**
  * Runtime wrapper for ApexSymbol that maintains direct references
  * while using keys for serialization
+ * @deprecated Will be removed in Phase 5 - use unified ApexSymbol directly
  */
 export class RuntimeSymbol implements ApexSymbol {
   private _parent: ApexSymbol | null = null;
@@ -118,6 +344,10 @@ export class RuntimeSymbol implements ApexSymbol {
     private symbolTable: SymbolTable,
   ) {}
 
+  // Core properties
+  get id() {
+    return this.symbol.id;
+  }
   get name() {
     return this.symbol.name;
   }
@@ -127,8 +357,11 @@ export class RuntimeSymbol implements ApexSymbol {
   get location() {
     return this.symbol.location;
   }
-  get modifiers() {
-    return this.symbol.modifiers;
+  get filePath() {
+    return this.symbol.filePath;
+  }
+  get parentId() {
+    return this.symbol.parentId;
   }
   get key() {
     return this.symbol.key;
@@ -148,7 +381,21 @@ export class RuntimeSymbol implements ApexSymbol {
   get identifierLocation() {
     return this.symbol.identifierLocation;
   }
-
+  get _typeData() {
+    return this.symbol._typeData;
+  }
+  get _modifierFlags() {
+    return this.symbol._modifierFlags;
+  }
+  get _isLoaded() {
+    return this.symbol._isLoaded;
+  }
+  get _loadPromise() {
+    return this.symbol._loadPromise;
+  }
+  get modifiers() {
+    return this.symbol.modifiers;
+  }
   get parent(): ApexSymbol | null {
     if (!this._parent && this.symbol.parentKey) {
       const parent = this.symbolTable.lookupByKey(this.symbol.parentKey);
@@ -381,41 +628,6 @@ export interface LightweightSymbol {
 }
 
 /**
- * Modifier bit flags for memory efficiency
- */
-export const ModifierFlags = {
-  PUBLIC: 1 << 0,
-  PRIVATE: 1 << 1,
-  PROTECTED: 1 << 2,
-  GLOBAL: 1 << 3,
-  STATIC: 1 << 4,
-  FINAL: 1 << 5,
-  ABSTRACT: 1 << 6,
-  VIRTUAL: 1 << 7,
-  OVERRIDE: 1 << 8,
-  TRANSIENT: 1 << 9,
-  TEST_METHOD: 1 << 10,
-  WEB_SERVICE: 1 << 11,
-} as const;
-
-/**
- * Symbol kind enum as numbers for memory efficiency
- */
-export const SymbolKindValues = {
-  [SymbolKind.Class]: 0,
-  [SymbolKind.Interface]: 1,
-  [SymbolKind.Trigger]: 2,
-  [SymbolKind.Method]: 3,
-  [SymbolKind.Constructor]: 4,
-  [SymbolKind.Property]: 5,
-  [SymbolKind.Field]: 6,
-  [SymbolKind.Variable]: 7,
-  [SymbolKind.Parameter]: 8,
-  [SymbolKind.Enum]: 9,
-  [SymbolKind.EnumValue]: 10,
-} as const;
-
-/**
  * Convert ApexSymbol to LightweightSymbol for memory optimization
  */
 export const toLightweightSymbol = (
@@ -570,10 +782,12 @@ export const fromLightweightSymbol = (
 
   // Base symbol
   const symbol: ApexSymbol = {
+    id: lightweight.id,
     name: lightweight.name,
     kind,
     location: lightweight.location,
-    modifiers,
+    filePath: lightweight.filePath,
+    parentId: lightweight.parentId,
     key,
     parentKey: lightweight.parentId
       ? {
@@ -587,6 +801,10 @@ export const fromLightweightSymbol = (
       : null,
     fqn: lightweight.fqn,
     namespace: lightweight.namespace,
+    _modifierFlags: lightweight.modifiers,
+    _isLoaded: true,
+    modifiers,
+    parent: null,
   };
 
   // Add lazy-loaded data

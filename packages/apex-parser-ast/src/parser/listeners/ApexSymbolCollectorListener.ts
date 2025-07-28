@@ -43,6 +43,7 @@ import {
   VariableSymbol,
   Annotation,
   AnnotationParameter,
+  SymbolFactory,
 } from '../../types/symbol';
 import {
   ClassModifierValidator,
@@ -1313,28 +1314,23 @@ export class ApexSymbolCollectorListener
   ): TypeSymbol | EnumSymbol {
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol;
-    const parentKey = parent ? parent.key : null;
-    const key = {
-      prefix: kind,
-      name,
-      path: this.getCurrentPath(),
-    };
 
     // Get the identifier location for the type symbol
     const identifierLocation = this.getIdentifierLocation(ctx);
 
-    const typeSymbol: TypeSymbol = {
+    const typeSymbol = SymbolFactory.createFullSymbol(
       name,
       kind,
       location,
+      this.currentFilePath,
       modifiers,
-      interfaces: [],
-      parent,
-      key,
-      parentKey,
-      annotations: this.getCurrentAnnotations(),
+      parent?.id || null,
+      { interfaces: [] },
+      undefined, // fqn
+      undefined, // namespace
+      this.getCurrentAnnotations(),
       identifierLocation,
-    };
+    ) as TypeSymbol;
 
     // For enums, we need to add the values array
     // TODO: change to a more generic approach
@@ -1355,27 +1351,22 @@ export class ApexSymbolCollectorListener
   ): MethodSymbol {
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol;
-    const parentKey = parent ? parent.key : null;
-    const key = {
-      prefix: SymbolKind.Method,
-      name,
-      path: this.getCurrentPath(),
-    };
 
-    const methodSymbol: MethodSymbol = {
+    const methodSymbol = SymbolFactory.createFullSymbol(
       name,
-      kind: SymbolKind.Method,
+      SymbolKind.Method,
       location,
+      this.currentFilePath,
       modifiers,
-      returnType,
-      parameters: [],
-      parent,
-      key,
-      parentKey,
-      isConstructor: false,
-      annotations: this.getCurrentAnnotations(),
-      identifierLocation: identifierLocation ?? this.getIdentifierLocation(ctx),
-    };
+      parent?.id || null,
+      { returnType, parameters: [] },
+      undefined, // fqn
+      undefined, // namespace
+      this.getCurrentAnnotations(),
+      identifierLocation ?? this.getIdentifierLocation(ctx),
+    ) as MethodSymbol;
+
+    methodSymbol.isConstructor = false;
 
     return methodSymbol;
   }
@@ -1394,27 +1385,23 @@ export class ApexSymbolCollectorListener
   ): VariableSymbol {
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol || this.currentMethodSymbol;
-    const parentKey = parent ? parent.key : null;
-    const key = {
-      prefix: kind,
-      name,
-      path: this.getCurrentPath(),
-    };
 
     // Get the identifier location for the variable symbol
     const identifierLocation = this.getIdentifierLocation(ctx);
 
-    const variableSymbol: VariableSymbol = {
+    const variableSymbol = SymbolFactory.createFullSymbol(
       name,
       kind,
       location,
+      this.currentFilePath,
       modifiers,
-      type,
-      parent,
-      key,
-      parentKey,
+      parent?.id || null,
+      { type },
+      undefined, // fqn
+      undefined, // namespace
+      undefined, // annotations
       identifierLocation,
-    };
+    ) as VariableSymbol;
 
     return variableSymbol;
   }
