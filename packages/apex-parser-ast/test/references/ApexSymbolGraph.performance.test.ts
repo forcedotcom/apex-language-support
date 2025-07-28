@@ -33,15 +33,24 @@ describe('ApexSymbolGraph - Performance Tests', () => {
     fqn?: string,
     filePath: string = 'TestFile.cls',
   ): ApexSymbol => ({
+    id: `${filePath}:${name}`,
     name,
     kind,
-    fqn: fqn || name,
+    filePath,
+    parentId: null,
     key: {
       prefix: 'symbol',
       name,
       path: [filePath],
+      unifiedId: `${filePath}:${name}`,
+      filePath,
+      fqn: fqn || name,
+      kind,
     },
     parentKey: null,
+    fqn: fqn || name,
+    _modifierFlags: 1, // PUBLIC flag
+    _isLoaded: true,
     modifiers: {
       visibility: SymbolVisibility.Public,
       isStatic: false,
@@ -397,7 +406,6 @@ describe('ApexSymbolGraph - Performance Tests', () => {
       console.log('Graph Stats:', stats);
 
       expect(memoryStats.totalSymbols).toBe(1000);
-      expect(memoryStats.totalLightweightSymbols).toBe(1000);
       expect(memoryStats.totalVertices).toBe(1000);
       expect(memoryStats.memoryOptimizationLevel).toBe('OPTIMAL');
       expect(memoryStats.estimatedMemorySavings).toBeGreaterThan(0);

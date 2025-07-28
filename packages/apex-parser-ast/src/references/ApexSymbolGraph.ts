@@ -18,13 +18,7 @@ import {
   toUint16,
 } from '@salesforce/apex-lsp-shared';
 
-import {
-  ApexSymbol,
-  LightweightSymbol,
-  toLightweightSymbol,
-  fromLightweightSymbol,
-  SymbolTable,
-} from '../types/symbol';
+import { ApexSymbol, SymbolTable } from '../types/symbol';
 
 /**
  * Types of references between Apex symbols
@@ -210,8 +204,7 @@ export class ApexSymbolGraph {
     new DirectedGraph();
 
   // PHASE 5: Lightweight symbol storage for memory efficiency (eliminates redundant full symbol storage)
-  private lightweightSymbols: HashMap<string, LightweightSymbol> =
-    new HashMap();
+  private symbols: HashMap<string, ApexSymbol> = new HashMap();
 
   // Symbol to vertex mapping for efficient lookups
   private symbolToVertex: HashMap<string, DirectedVertex<OptimizedSymbolNode>> =
@@ -247,7 +240,6 @@ export class ApexSymbolGraph {
   // PHASE 5: Memory optimization statistics
   private memoryStats = {
     totalSymbols: 0,
-    totalLightweightSymbols: 0,
     totalVertices: 0,
     totalEdges: 0,
     memoryOptimizationLevel: 'OPTIMAL' as string,
@@ -267,16 +259,15 @@ export class ApexSymbolGraph {
     const symbolId = this.getSymbolId(symbol, filePath);
 
     // Check if symbol already exists to prevent duplicates
-    if (this.lightweightSymbols.has(symbolId)) {
+    if (this.symbols.has(symbolId)) {
       this.logger.debug(
         () => `Symbol already exists: ${symbolId}, skipping duplicate addition`,
       );
       return;
     }
 
-    // PHASE 5: Create lightweight symbol for memory efficiency
-    const lightweightSymbol = toLightweightSymbol(symbol, filePath);
-    this.lightweightSymbols.set(symbolId, lightweightSymbol);
+    // PHASE 3: Store unified symbol directly for better performance
+    this.symbols.set(symbolId, symbol);
 
     // Add to data-structure-typed indexes for fast lookups
     this.symbolFileMap.set(symbolId, filePath);
@@ -329,7 +320,6 @@ export class ApexSymbolGraph {
 
     // Update memory statistics
     this.memoryStats.totalSymbols++;
-    this.memoryStats.totalLightweightSymbols++;
     this.memoryStats.totalVertices++;
 
     // Process any deferred references to this symbol
@@ -534,20 +524,13 @@ export class ApexSymbolGraph {
     for (const edge of incomingEdges) {
       this.logger.debug(() => `Processing edge: ${JSON.stringify(edge)}`);
       const sourceSymbolId = edge.src;
-      const sourceLightweight = this.lightweightSymbols.get(
-        String(sourceSymbolId),
-      );
+      const sourceSymbol = this.symbols.get(String(sourceSymbolId));
 
-      if (sourceLightweight && edge.value) {
-        // Convert lightweight to full symbol for API compatibility
-        const sourceSymbol = fromLightweightSymbol(
-          sourceLightweight,
-          this.createSymbolTable(),
-        );
+      if (sourceSymbol && edge.value) {
         results.push({
           symbolId: String(sourceSymbolId),
           symbol: sourceSymbol,
-          filePath: sourceLightweight.filePath || 'unknown',
+          filePath: sourceSymbol.filePath || 'unknown',
           referenceType: edge.value.type,
           location: fromCompactLocation(edge.value.location),
           context: edge.value.context
@@ -618,20 +601,13 @@ export class ApexSymbolGraph {
 
     for (const edge of outgoingEdges) {
       const targetSymbolId = edge.dest;
-      const targetLightweight = this.lightweightSymbols.get(
-        String(targetSymbolId),
-      );
+      const targetSymbol = this.symbols.get(String(targetSymbolId));
 
-      if (targetLightweight && edge.value) {
-        // Convert lightweight to full symbol for API compatibility
-        const targetSymbol = fromLightweightSymbol(
-          targetLightweight,
-          this.createSymbolTable(),
-        );
+      if (targetSymbol && edge.value) {
         results.push({
           symbolId: String(targetSymbolId),
           symbol: targetSymbol,
-          filePath: targetLightweight.filePath || 'unknown',
+          filePath: targetSymbol.filePath || 'unknown',
           referenceType: edge.value.type,
           location: fromCompactLocation(edge.value.location),
           context: edge.value.context
@@ -753,14 +729,8 @@ export class ApexSymbolGraph {
   lookupSymbolByName(name: string): ApexSymbol[] {
     const symbolIds = this.nameIndex.get(name) || [];
     return symbolIds
-      .map((id) => this.lightweightSymbols.get(id))
-      .filter(
-        (lightweight): lightweight is LightweightSymbol =>
-          lightweight !== undefined,
-      )
-      .map((lightweight) =>
-        fromLightweightSymbol(lightweight, this.createSymbolTable()),
-      );
+      .map((id) => this.symbols.get(id))
+      .filter((symbol): symbol is ApexSymbol => symbol !== undefined);
   }
 
   /**
@@ -770,10 +740,7 @@ export class ApexSymbolGraph {
     const symbolId = this.fqnIndex.get(fqn);
     if (!symbolId) return undefined;
 
-    const lightweight = this.lightweightSymbols.get(symbolId);
-    if (!lightweight) return undefined;
-
-    return fromLightweightSymbol(lightweight, this.createSymbolTable());
+    return this.symbols.get(symbolId);
   }
 
   /**
@@ -782,14 +749,8 @@ export class ApexSymbolGraph {
   getSymbolsInFile(filePath: string): ApexSymbol[] {
     const symbolIds = this.fileIndex.get(filePath) || [];
     return symbolIds
-      .map((id) => this.lightweightSymbols.get(id))
-      .filter(
-        (lightweight): lightweight is LightweightSymbol =>
-          lightweight !== undefined,
-      )
-      .map((lightweight) =>
-        fromLightweightSymbol(lightweight, this.createSymbolTable()),
-      );
+      .map((id) => this.symbols.get(id))
+      .filter((symbol): symbol is ApexSymbol => symbol !== undefined);
   }
 
   /**
@@ -814,7 +775,7 @@ export class ApexSymbolGraph {
    */
   clear(): void {
     this.referenceGraph.clear();
-    this.lightweightSymbols.clear();
+    this.symbols.clear();
     this.symbolToVertex.clear();
     this.symbolFileMap.clear();
     this.nameIndex.clear();
@@ -824,7 +785,6 @@ export class ApexSymbolGraph {
 
     this.memoryStats = {
       totalSymbols: 0,
-      totalLightweightSymbols: 0,
       totalVertices: 0,
       totalEdges: 0,
       memoryOptimizationLevel: 'OPTIMAL',
@@ -849,7 +809,7 @@ export class ApexSymbolGraph {
       // Remove from data-structure-typed indexes
       this.symbolFileMap.delete(symbolId);
       this.fqnIndex.delete(symbolId);
-      this.lightweightSymbols.delete(symbolId);
+      this.symbols.delete(symbolId);
       this.symbolToVertex.delete(symbolId);
 
       // Update name index
@@ -870,7 +830,6 @@ export class ApexSymbolGraph {
 
     // Update memory statistics
     this.memoryStats.totalSymbols -= symbolIds.length;
-    this.memoryStats.totalLightweightSymbols -= symbolIds.length;
 
     this.logger.debug(
       () => `Removed file: ${filePath} with ${symbolIds.length} symbols`,
@@ -893,11 +852,11 @@ export class ApexSymbolGraph {
     // Try to find by name and file path
     const nameMatches = this.nameIndex.get(symbol.name) || [];
     for (const symbolId of nameMatches) {
-      const storedSymbol = this.lightweightSymbols.get(symbolId);
+      const storedSymbol = this.symbols.get(symbolId);
       if (storedSymbol) {
         // Try to match by file path from symbolFileMap
         const storedFilePath = this.symbolFileMap.get(symbolId);
-        const symbolFilePath = symbol.key.path[0];
+        const symbolFilePath = symbol.filePath;
 
         if (storedFilePath === symbolFilePath) {
           return symbolId;
@@ -939,11 +898,11 @@ export class ApexSymbolGraph {
 
   private processDeferredReferences(symbolId: string): void {
     // Try to find deferred references by symbolId, FQN, or name
-    const lightweight = this.lightweightSymbols.get(symbolId);
-    if (!lightweight) return;
+    const symbol = this.symbols.get(symbolId);
+    if (!symbol) return;
 
     // Try different keys for deferred references
-    const possibleKeys = [symbolId, lightweight.fqn, lightweight.name].filter(
+    const possibleKeys = [symbolId, symbol.fqn, symbol.name].filter(
       Boolean,
     ) as string[];
 
@@ -953,7 +912,7 @@ export class ApexSymbolGraph {
         for (const deferredRef of deferredRefs) {
           this.addReference(
             deferredRef.sourceSymbol,
-            fromLightweightSymbol(lightweight, this.createSymbolTable()),
+            symbol,
             deferredRef.referenceType,
             deferredRef.location,
             deferredRef.context,
