@@ -112,6 +112,9 @@ export async function createTestServer(
   try {
     await client.start();
 
+    // Wait for server to be healthy and responsive
+    await client.waitForHealthy(120_000);
+
     // Verify server initialized properly
     const capabilities = client.getServerCapabilities();
     if (!capabilities) {
@@ -128,24 +131,42 @@ export async function createTestServer(
       client,
       workspace,
       cleanup: async () => {
-        await client.stop();
+        try {
+          await client.stop();
+        } catch (error) {
+          console.warn(`Error stopping client: ${error}`);
+        }
+
         if (workspace?.isTemporary) {
-          // Clean up temporary workspace
-          await fs.promises.rm(workspace.rootPath, {
-            recursive: true,
-            force: true,
-          });
+          try {
+            // Clean up temporary workspace
+            await fs.promises.rm(workspace.rootPath, {
+              recursive: true,
+              force: true,
+            });
+          } catch (error) {
+            console.warn(`Error cleaning up workspace: ${error}`);
+          }
         }
       },
     };
   } catch (error) {
     // Clean up on failure
-    await client.stop();
+    try {
+      await client.stop();
+    } catch (stopError) {
+      console.warn(`Error stopping client during cleanup: ${stopError}`);
+    }
+
     if (workspace?.isTemporary) {
-      await fs.promises.rm(workspace.rootPath, {
-        recursive: true,
-        force: true,
-      });
+      try {
+        await fs.promises.rm(workspace.rootPath, {
+          recursive: true,
+          force: true,
+        });
+      } catch (rmError) {
+        console.warn(`Error removing workspace during cleanup: ${rmError}`);
+      }
     }
     throw error;
   }

@@ -214,20 +214,20 @@ public class TestClass {
 }`.trim();
 
     // Open document
-    this.client.openTextDocument(uri, content);
+    await this.client.openTextDocument(uri, content);
 
     // Wait for server to process document
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Update document
     const updatedContent = content.replace('Hello,', 'Hi,');
-    this.client.updateTextDocument(uri, updatedContent, 2);
+    await this.client.updateTextDocument(uri, updatedContent, 2);
 
     // Wait for server to process update
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Close document
-    this.client.closeTextDocument(uri);
+    await this.client.closeTextDocument(uri);
 
     this.logger.info('Basic document operations test passed');
   }
@@ -247,7 +247,7 @@ public class CompletionTest {
 }`.trim();
 
     // Open document
-    this.client.openTextDocument(uri, content);
+    await this.client.openTextDocument(uri, content);
 
     // Wait for server to process document
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -266,7 +266,7 @@ public class CompletionTest {
     }
 
     // Close document
-    this.client.closeTextDocument(uri);
+    await this.client.closeTextDocument(uri);
 
     this.logger.info('Completion test completed');
   }
@@ -286,7 +286,7 @@ public class HoverTest {
 }`.trim();
 
     // Open document
-    this.client.openTextDocument(uri, content);
+    await this.client.openTextDocument(uri, content);
 
     // Wait for server to process document
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -298,7 +298,7 @@ public class HoverTest {
     this.logger.info(`Hover result: ${JSON.stringify(hoverResult)}`);
 
     // Close document
-    this.client.closeTextDocument(uri);
+    await this.client.closeTextDocument(uri);
 
     this.logger.info('Hover test completed');
   }
@@ -330,7 +330,7 @@ public class SymbolsTest {
 }`.trim();
 
     // Open document
-    this.client.openTextDocument(uri, content);
+    await this.client.openTextDocument(uri, content);
 
     // Wait for server to process document
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -347,7 +347,7 @@ public class SymbolsTest {
     }
 
     // Close document
-    this.client.closeTextDocument(uri);
+    await this.client.closeTextDocument(uri);
 
     this.logger.info('Document symbols test completed');
   }

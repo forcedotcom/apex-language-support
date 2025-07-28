@@ -14,16 +14,20 @@ import {
   createTestServer,
   ServerOptions,
 } from '../../src/test-utils/serverFactory';
+import { normalizeTraceData } from '../../src/test-utils/traceDataUtils';
 
 // --- Load test data synchronously ---
 const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
 const rawData = readFileSync(logPath, 'utf8');
 const logData: Record<string, any> = JSON.parse(rawData);
 
+// Normalize the trace data for portability
+const normalizedLogData = normalizeTraceData(logData);
+
 jest.setTimeout(1000 * 60 * 15); // 15 minutes timeout
 
 // Extract relevant request/response pairs
-const testData: [string, any][] = Object.values(logData)
+const testData: [string, any][] = Object.values(normalizedLogData)
   .filter(
     (entry) => entry.type === 'request' && /^textDocument/.test(entry.method),
   )

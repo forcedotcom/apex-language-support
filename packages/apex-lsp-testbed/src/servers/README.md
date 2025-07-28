@@ -24,14 +24,14 @@ The testbed supports multiple different language server implementations:
 
 ### Node.js-based Servers
 
-- **nodeServer/extensionServer/** - TypeScript implementation for Node.js (`apex-ls-node`)
+- **nodeServer/** - TypeScript implementation for Node.js (`apex-ls-node`)
   - Designed for VS Code integration
   - Uses Node.js standard I/O for communication
   - Provides core LSP functionality
 
 - **nodeServer/webServer/** - TypeScript implementation for web browsers (`apex-ls-browser`)
-  - *Coming soon*
-  - Will adapt the extension server for browser environments
+  - _Coming soon_
+  - Will adapt the node server for browser environments
 
 ### Demo Server
 
@@ -43,12 +43,14 @@ The testbed supports multiple different language server implementations:
 ## Installation
 
 1. Clone the repository:
+
    ```
    git clone https://github.com/forcedotcom/apex-language-support.git
    cd apex-language-support
    ```
 
 2. Install dependencies:
+
    ```
    npm install
    ```
@@ -111,7 +113,10 @@ The Java-based server (Jorje) includes an interactive mode with a sample Apex cl
 You can use the Java-based Apex Language Server programmatically in your Node applications:
 
 ```javascript
-import { createJavaServerOptions, launchJavaServer } from './jorje/javaServerLauncher';
+import {
+  createJavaServerOptions,
+  launchJavaServer,
+} from './jorje/javaServerLauncher';
 
 // Launch the server with default options
 const server = await launchJavaServer();
@@ -121,22 +126,22 @@ const server = await launchJavaServer({
   javaHome: '/path/to/java',
   javaMemory: 8192,
   enableSemanticErrors: true,
-  logLevel: 'DEBUG'
+  logLevel: 'DEBUG',
 });
 
 // Alternatively, get the executable info without launching
 const execInfo = await createJavaServerOptions({
   javaHome: '/path/to/java',
-  javaMemory: 8192
+  javaMemory: 8192,
 });
 console.log(`Command: ${execInfo.command} ${execInfo.args?.join(' ')}`);
 
 // Send JSON-RPC messages to the server...
 ```
 
-### Node.js Extension Server
+### Node.js Server
 
-Run the extension server harness:
+Run the node server harness:
 
 ```bash
 npm run start:extension-server
@@ -166,18 +171,18 @@ npm run start:demo:verbose
 
 ### Java-based Server Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `javaHome` | Path to the Java home directory | Uses `JAVA_HOME` environment variable |
-| `jarPath` | Path to the `apex-jorje-lsp.jar` file | Auto-detected |
-| `javaMemory` | Memory allocation in MB | 4096 |
-| `enableSemanticErrors` | Enable semantic error reporting | false |
-| `enableCompletionStatistics` | Enable completion statistics | false |
-| `debugPort` | Debug port for JDWP | 2739 |
-| `logLevel` | Log level (ERROR, WARN, INFO, DEBUG) | ERROR |
-| `suspendStartup` | Whether to suspend on startup (for debugging) | false |
+| Option                       | Description                                   | Default                               |
+| ---------------------------- | --------------------------------------------- | ------------------------------------- |
+| `javaHome`                   | Path to the Java home directory               | Uses `JAVA_HOME` environment variable |
+| `jarPath`                    | Path to the `apex-jorje-lsp.jar` file         | Auto-detected                         |
+| `javaMemory`                 | Memory allocation in MB                       | 4096                                  |
+| `enableSemanticErrors`       | Enable semantic error reporting               | false                                 |
+| `enableCompletionStatistics` | Enable completion statistics                  | false                                 |
+| `debugPort`                  | Debug port for JDWP                           | 2739                                  |
+| `logLevel`                   | Log level (ERROR, WARN, INFO, DEBUG)          | ERROR                                 |
+| `suspendStartup`             | Whether to suspend on startup (for debugging) | false                                 |
 
-### Node.js Extension Server Environment Variables
+### Node.js Server Environment Variables
 
 - `EXTENSION_LS_SERVER_PATH`: Optional path to the server module. If not provided, the harness will attempt to locate it automatically.
 
@@ -221,6 +226,7 @@ All servers implement the [Language Server Protocol](https://microsoft.github.io
 Initialize the language server.
 
 Request:
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -241,6 +247,7 @@ Request:
 Notify the server about a new document.
 
 Request:
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -261,6 +268,7 @@ Request:
 Get document symbols.
 
 Request:
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -279,6 +287,7 @@ Request:
 Get hover information.
 
 Request:
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -322,4 +331,4 @@ Followed by:
 Copyright (c) 2025, salesforce.com, inc.
 All rights reserved.
 Licensed under the BSD 3-Clause license.
-For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause 
+For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause

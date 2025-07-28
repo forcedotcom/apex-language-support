@@ -10,13 +10,17 @@ import fs from 'fs';
 import path from 'path';
 
 import type { LSPMessage } from '../../src/utils/lspTraceParser';
+import { normalizeTraceData } from '../../src/test-utils/traceDataUtils';
 
 describe('LSP trace log data-driven tests', () => {
   // Load the JSON map of test cases
   const tracePath = path.resolve(__dirname, '../ls-sample-trace.log.json');
-  const traceData: Record<string, LSPMessage> = JSON.parse(
+  const rawTraceData: Record<string, LSPMessage> = JSON.parse(
     fs.readFileSync(tracePath, 'utf8'),
   );
+
+  // Normalize the trace data for portability
+  const traceData = normalizeTraceData(rawTraceData);
 
   // Filter to only include textDocument methods
   const textDocumentMessages = Object.entries(traceData).filter(([, msg]) =>

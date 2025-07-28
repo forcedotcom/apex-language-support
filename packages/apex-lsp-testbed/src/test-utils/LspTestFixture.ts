@@ -89,9 +89,18 @@ export class LspTestFixture {
    * Setup the fixture before running tests
    */
   public async setup(): Promise<void> {
-    await this.client.start();
-    // Install middleware after client is started
-    this.middleware.installOnClient(this.client);
+    try {
+      await this.client.start();
+
+      // Wait for server to be healthy
+      await this.client.waitForHealthy(30000);
+
+      // Install middleware after client is started
+      this.middleware.installOnClient(this.client);
+    } catch (error) {
+      console.error('Failed to setup LSP test fixture:', error);
+      throw error;
+    }
   }
 
   /**
@@ -155,8 +164,12 @@ export class LspTestFixture {
     step: LspTestStep,
   ): Promise<LspTestResult['steps'][0]> {
     try {
-      // Send the request via the client
+      // Check if client is still healthy before sending request
+      if (!(await this.client.isHealthy())) {
+        throw new Error('Server is not healthy, cannot execute test step');
+      }
 
+      // Send the request via the client
       await this.client.sendRequest(step.method, step.params);
 
       // Get the captured request-response pair
@@ -181,6 +194,18 @@ export class LspTestFixture {
         requestResponsePair: pair,
       };
     } catch (error) {
+      // Handle specific EPIPE errors more gracefully
+      if (error instanceof Error && error.message.includes('EPIPE')) {
+        console.error(
+          `EPIPE error in test step "${step.description}": ${error.message}`,
+        );
+        return {
+          description: step.description,
+          success: false,
+          error: new Error(`Server connection lost (EPIPE): ${error.message}`),
+        };
+      }
+
       return {
         description: step.description,
         success: false,

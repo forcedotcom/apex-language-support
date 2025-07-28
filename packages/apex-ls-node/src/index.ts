@@ -23,7 +23,6 @@ import {
   FoldingRange,
 } from 'vscode-languageserver/node';
 import {
-  createApexLibManager,
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnOpenDocument,
@@ -46,7 +45,6 @@ import {
 import { NodeLogNotificationHandler } from './utils/NodeLogNotificationHandler';
 import { LSPLoggerFactory } from './utils/LSPLoggerFactory';
 import { NodeFileSystemApexStorage } from './storage/NodeFileSystemApexStorage';
-import { createNodeApexLibAdapter } from './utils/NodeApexLibAdapter';
 
 /**
  * Interface for server initialization options
@@ -114,9 +112,9 @@ export function startServer() {
     setLogLevel(logLevel);
 
     // Initialize ApexLib
-    const { client } = createNodeApexLibAdapter(connection, documents);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const apexLibManager = createApexLibManager('apex', 'apex', 'cls', client); // this is needed for future work
+    // const { client } = createNodeApexLibAdapter(connection, documents);
+    // TODO: Use apexLibManager for future work
+    // const apexLibManager = createApexLibManager('apex', 'apex', 'cls', client);
 
     // Get capabilities based on environment and mode
     // Priority order: APEX_LS_MODE env var > extension mode in init options > NODE_ENV
@@ -180,6 +178,25 @@ export function startServer() {
         logger.error(
           `[SERVER] Error resolving content for ${params.uri}: ${error}`,
         );
+        throw error;
+      }
+    });
+
+    // Register the $/ping request handler
+    connection.onRequest('$/ping', async () => {
+      logger.debug('[SERVER] Received $/ping request');
+      try {
+        const response = {
+          message: 'pong',
+          timestamp: new Date().toISOString(),
+          server: 'apex-ls-node',
+        };
+        logger.debug(
+          `[SERVER] Responding to $/ping with: ${JSON.stringify(response)}`,
+        );
+        return response;
+      } catch (error) {
+        logger.error(`[SERVER] Error processing $/ping request: ${error}`);
         throw error;
       }
     });
@@ -393,4 +410,9 @@ export function startServer() {
 
   // Listen on the connection
   connection.listen();
+}
+
+// Start the server when this module is executed directly
+if (require.main === module) {
+  startServer();
 }

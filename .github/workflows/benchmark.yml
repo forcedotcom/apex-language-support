@@ -8,8 +8,11 @@ on:
 
 jobs:
   benchmark:
-    name: LSP Performance Benchmark
-    runs-on: ubuntu-latest
+    name: LSP Performance Benchmark - ${{ matrix.server-type }}
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        server-type: [nodeServer, jorje]
 
     permissions:
       # deployments permission to deploy GitHub pages website
@@ -29,38 +32,103 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/npm-install-with-retries
 
-      - name: Run performance benchmarks
-        run: npm run benchmark
-        env:
-          LSP_SERVER_PATH: 'mock-server.js'
+      - name: Compile packages
+        run: npm run compile
 
-      # Only store benchmark results for push events to main, not PRs
-      - name: Store benchmark results
-        if: github.event_name == 'push'
+      - name: Run performance benchmarks
+        run: npm run test:perf
+        env:
+          CI: 'true'
+          SERVER_TYPE: ${{ matrix.server-type }}
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ matrix.server-type }}
+          path: packages/apex-lsp-testbed/test/${{ matrix.server-type }}-benchmark-results.json
+          retention-days: 30
+
+  collect-results:
+    name: Collect and Store Benchmark Results
+    runs-on: ubuntu-latest
+    needs: benchmark
+    if: github.event_name == 'push'
+    permissions:
+      deployments: write
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: benchmark-artifacts
+
+      - name: Store nodeServer benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'LSP Performance Benchmarks'
+          name: 'LSP Performance Benchmarks - NodeServer'
           tool: 'benchmarkjs'
-          output-file-path: 'benchmark-output.json'
-          github-token: ${{ secrets.IDEE_GH_TOKEN }}
+          output-file-path: 'benchmark-artifacts/benchmark-results-nodeServer/packages/apex-lsp-testbed/test/nodeserver-benchmark-results.json'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           alert-threshold: '130%'
           comment-on-alert: true
           fail-on-alert: true
 
-      # For pull requests, compare with main without storing results
-      - name: Compare benchmark results in PR
-        if: github.event_name == 'pull_request'
+      - name: Store jorje benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         with:
-          name: 'LSP Performance Benchmarks'
+          name: 'LSP Performance Benchmarks - Jorje'
           tool: 'benchmarkjs'
-          output-file-path: 'benchmark-output.json'
-          github-token: ${{ secrets.IDEE_GH_TOKEN }}
+          output-file-path: 'benchmark-artifacts/benchmark-results-jorje/packages/apex-lsp-testbed/test/jorje-benchmark-results.json'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: '130%'
+          comment-on-alert: true
+          fail-on-alert: true
+
+  compare-results:
+    name: Compare Benchmark Results in PR
+    runs-on: ubuntu-latest
+    needs: benchmark
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: benchmark-artifacts
+
+      - name: Compare nodeServer benchmark results in PR
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: 'LSP Performance Benchmarks - NodeServer'
+          tool: 'benchmarkjs'
+          output-file-path: 'benchmark-artifacts/benchmark-results-nodeServer/packages/apex-lsp-testbed/test/nodeserver-benchmark-results.json'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: false
           save-data-file: false
           alert-threshold: '130%'
           comment-on-alert: true
           fail-on-alert: false
-          # Display results in PR via job summary
+          summary-always: true
+
+      - name: Compare jorje benchmark results in PR
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: 'LSP Performance Benchmarks - Jorje'
+          tool: 'benchmarkjs'
+          output-file-path: 'benchmark-artifacts/benchmark-results-jorje/packages/apex-lsp-testbed/test/jorje-benchmark-results.json'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: false
+          save-data-file: false
+          alert-threshold: '130%'
+          comment-on-alert: true
+          fail-on-alert: false
           summary-always: true

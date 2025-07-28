@@ -9,6 +9,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { LSPTraceParser } from '../../src/utils/lspTraceParser';
+import { normalizeTraceData } from '../../src/test-utils/traceDataUtils';
 
 describe('LSPTraceParser', () => {
   let parser: LSPTraceParser;
@@ -138,7 +139,22 @@ Params: {
     const result = parser.parse(logContent);
     // Convert Map to object for JSON output
     const objResult = Object.fromEntries(result.entries());
+
+    // Write the raw parsed data (for parser testing)
     fs.writeFileSync(outPath, JSON.stringify(objResult, null, 2), 'utf8');
+
+    // Also write a normalized version for use by other tests
+    const normalizedData = normalizeTraceData(objResult);
+    const normalizedOutPath = path.join(
+      __dirname,
+      '../ls-sample-trace-normalized.log.json',
+    );
+    fs.writeFileSync(
+      normalizedOutPath,
+      JSON.stringify(normalizedData, null, 2),
+      'utf8',
+    );
+
     // Basic assertion: result is a non-empty Map
     expect(result.size).toBeGreaterThan(0);
     // Optionally, check that all values are LSPMessage-like

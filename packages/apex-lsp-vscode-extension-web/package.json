@@ -130,8 +130,8 @@
     "clean": "rimraf out dist bundle .turbo grammars tsconfig.tsbuildinfo coverage *.vsix",
     "clean:all": "npm run clean && rimraf node_modules .turbo",
     "clean:coverage": "rimraf coverage",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix"
   },
   "dependencies": {},
   "devDependencies": {
