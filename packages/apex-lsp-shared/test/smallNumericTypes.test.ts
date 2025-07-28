@@ -7,6 +7,7 @@
  */
 
 import {
+  Uint24,
   toUint8,
   toUint16,
   toUint24,
@@ -103,7 +104,7 @@ describe('Small Numeric Types - Phase 5 Memory Optimization', () => {
     });
 
     it('should convert compact timestamp back to milliseconds', () => {
-      const compact = 1704067200; // seconds since epoch
+      const compact = 1704067200 as CompactTimestamp; // seconds since epoch
       const timestamp = fromCompactTimestamp(compact);
       expect(timestamp).toBe(1704067200000); // milliseconds
     });
@@ -133,14 +134,18 @@ describe('Small Numeric Types - Phase 5 Memory Optimization', () => {
       };
 
       const compact = toCompactLocation(location);
-      expect(compact.start).toBe((10 << 16) | 5); // 655365
-      expect(compact.end).toBe((15 << 16) | 20); // 983060
+      expect(compact.startLine).toBe(10);
+      expect(compact.startColumn).toBe(5);
+      expect(compact.endLine).toBe(15);
+      expect(compact.endColumn).toBe(20);
     });
 
     it('should convert compact location back to standard format', () => {
       const compact = {
-        start: (10 << 16) | 5, // 655365
-        end: (15 << 16) | 20, // 983060
+        startLine: 10 as Uint24,
+        startColumn: 5 as Uint24,
+        endLine: 15 as Uint24,
+        endColumn: 20 as Uint24,
       };
 
       const location = fromCompactLocation(compact);
@@ -154,10 +159,10 @@ describe('Small Numeric Types - Phase 5 Memory Optimization', () => {
 
     it('should handle large line numbers', () => {
       const location = {
-        startLine: 65535,
-        startColumn: 65535,
-        endLine: 65535,
-        endColumn: 65535,
+        startLine: 16777215, // Max Uint24
+        startColumn: 16777215,
+        endLine: 16777215,
+        endColumn: 16777215,
       };
 
       const compact = toCompactLocation(location);
@@ -167,10 +172,10 @@ describe('Small Numeric Types - Phase 5 Memory Optimization', () => {
 
     it('should handle maximum safe line numbers', () => {
       const location = {
-        startLine: 65535,
-        startColumn: 65535,
-        endLine: 65535,
-        endColumn: 65535,
+        startLine: 500000, // Apex file limit
+        startColumn: 1000000, // Apex file limit
+        endLine: 500000,
+        endColumn: 1000000,
       };
 
       const compact = toCompactLocation(location);
@@ -178,29 +183,29 @@ describe('Small Numeric Types - Phase 5 Memory Optimization', () => {
       expect(restored).toEqual(location);
     });
 
-    it('should reject line numbers exceeding Uint16 range', () => {
+    it('should reject line numbers exceeding Uint24 range', () => {
       const location = {
-        startLine: 65536,
+        startLine: 16777216, // Exceeds Uint24
         startColumn: 5,
         endLine: 15,
         endColumn: 20,
       };
 
       expect(() => toCompactLocation(location)).toThrow(
-        'Line numbers exceed Uint16 range',
+        'Line numbers exceed Uint24 range',
       );
     });
 
-    it('should reject column numbers exceeding Uint16 range', () => {
+    it('should reject column numbers exceeding Uint24 range', () => {
       const location = {
         startLine: 10,
-        startColumn: 65536,
+        startColumn: 16777216, // Exceeds Uint24
         endLine: 15,
         endColumn: 20,
       };
 
       expect(() => toCompactLocation(location)).toThrow(
-        'Column numbers exceed Uint16 range',
+        'Column numbers exceed Uint24 range',
       );
     });
   });
@@ -313,8 +318,10 @@ describe('Small Numeric Types - Phase 5 Memory Optimization', () => {
       expect(ultra.parentId).toBe('parent-symbol');
       expect(ultra.fqn).toBe('TestClass.TestMethod');
       expect(ultra.namespace).toBe('test');
-      expect(ultra.location.start).toBe((10 << 16) | 5);
-      expect(ultra.location.end).toBe((15 << 16) | 20);
+      expect(ultra.location.startLine).toBe(10);
+      expect(ultra.location.startColumn).toBe(5);
+      expect(ultra.location.endLine).toBe(15);
+      expect(ultra.location.endColumn).toBe(20);
       expect(ultra.referenceCount).toBe(0);
       expect(ultra.nodeId).toBe(1);
       expect(ultra.lastUpdated).toBeGreaterThan(0);
@@ -330,13 +337,15 @@ describe('Small Numeric Types - Phase 5 Memory Optimization', () => {
         fqn: 'TestClass.TestMethod',
         namespace: 'test',
         location: {
-          start: (10 << 16) | 5,
-          end: (15 << 16) | 20,
+          startLine: 10 as Uint24,
+          startColumn: 5 as Uint24,
+          endLine: 15 as Uint24,
+          endColumn: 20 as Uint24,
         },
-        enumData: 54, // (3 << 4) | (1 << 2) | (1 << 1) | 0
-        referenceCount: 0,
-        nodeId: 1,
-        lastUpdated: 1704067200,
+        enumData: 54 as Uint8, // (3 << 4) | (1 << 2) | (1 << 1) | 0
+        referenceCount: 0 as Uint16,
+        nodeId: 1 as Uint32,
+        lastUpdated: 1704067200 as CompactTimestamp,
         _lazy: {},
       };
 
