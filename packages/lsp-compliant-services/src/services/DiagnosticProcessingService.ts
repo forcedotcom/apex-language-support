@@ -7,12 +7,12 @@
  */
 
 import { Diagnostic, DocumentDiagnosticParams } from 'vscode-languageserver';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
   SymbolTable,
   ApexSymbolCollectorListener,
-  ApexSymbolManager,
+  SymbolManagerFactory,
 } from '@salesforce/apex-lsp-parser-ast';
 
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
@@ -60,14 +60,15 @@ export interface IDiagnosticProcessor {
  * @see {@link getDiagnosticsFromErrors} - Utility for converting parser errors to diagnostics
  */
 export class DiagnosticProcessingService implements IDiagnosticProcessor {
-  private readonly logger = getLogger();
-  private symbolManager: ApexSymbolManager;
+  private readonly logger: LoggerInterface;
+  private symbolManager: any;
 
   /**
    * Creates a new DiagnosticProcessingService instance.
    */
-  constructor() {
-    this.symbolManager = new ApexSymbolManager();
+  constructor(logger: LoggerInterface) {
+    this.logger = logger;
+    this.symbolManager = SymbolManagerFactory.createSymbolManager();
   }
 
   /**

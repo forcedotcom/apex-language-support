@@ -15,9 +15,8 @@ import {
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
-
-import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { SymbolManagerFactory } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for completion processing functionality
@@ -51,11 +50,11 @@ export interface CompletionContext {
  */
 export class CompletionProcessingService implements ICompletionProcessor {
   private readonly logger: LoggerInterface;
-  private symbolManager: ApexSymbolManager;
+  private symbolManager: any; // Changed from ApexSymbolManager to any
 
   constructor(logger: LoggerInterface) {
     this.logger = logger;
-    this.symbolManager = new ApexSymbolManager();
+    this.symbolManager = SymbolManagerFactory.createSymbolManager(); // Changed from new ApexSymbolManager()
   }
 
   /**

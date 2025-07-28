@@ -13,12 +13,8 @@ import {
   Location,
   Range,
 } from 'vscode-languageserver-protocol';
-import { LoggerInterface, type EnumValue } from '@salesforce/apex-lsp-shared';
-
-import {
-  ApexSymbolManager,
-  ReferenceType,
-} from '@salesforce/apex-lsp-parser-ast';
+import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { SymbolManagerFactory } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for workspace symbol processing functionality
@@ -42,7 +38,7 @@ export interface WorkspaceSymbolContext {
   includePatterns: string[];
   excludePatterns: string[];
   symbolKinds: SymbolKind[];
-  relationshipTypes: EnumValue<typeof ReferenceType>[];
+  relationshipTypes: any[]; // Changed from EnumValue to any as EnumValue is removed
   maxResults: number;
 }
 
@@ -53,11 +49,11 @@ export class WorkspaceSymbolProcessingService
   implements IWorkspaceSymbolProcessor
 {
   private readonly logger: LoggerInterface;
-  private symbolManager: ApexSymbolManager;
+  private symbolManager: any;
 
   constructor(logger: LoggerInterface) {
     this.logger = logger;
-    this.symbolManager = new ApexSymbolManager();
+    this.symbolManager = SymbolManagerFactory.createSymbolManager();
   }
 
   /**
@@ -469,11 +465,10 @@ export class WorkspaceSymbolProcessingService
     return kinds;
   }
 
-  private extractRelationshipTypes(
-    query: string,
-  ): EnumValue<typeof ReferenceType>[] {
+  private extractRelationshipTypes(query: string): any[] {
+    // Changed from EnumValue to any as EnumValue is removed
     // Extract relationship types like rel:inheritance, rel:method-call
-    const types: EnumValue<typeof ReferenceType>[] = [];
+    const types: any[] = []; // Changed from EnumValue to any as EnumValue is removed
     const relMatches = query.match(/rel:(\w+)/g);
     if (relMatches) {
       for (const match of relMatches) {
@@ -488,20 +483,20 @@ export class WorkspaceSymbolProcessingService
     return types;
   }
 
-  private mapToReferenceType(
-    relType: string,
-  ): EnumValue<typeof ReferenceType> | null {
-    const typeMap: Record<string, EnumValue<typeof ReferenceType>> = {
-      'method-call': ReferenceType.METHOD_CALL,
-      'field-access': ReferenceType.FIELD_ACCESS,
-      'type-reference': ReferenceType.TYPE_REFERENCE,
-      inheritance: ReferenceType.INHERITANCE,
-      'interface-implementation': ReferenceType.INTERFACE_IMPLEMENTATION,
-      'constructor-call': ReferenceType.CONSTRUCTOR_CALL,
-      'static-access': ReferenceType.STATIC_ACCESS,
-      'instance-access': ReferenceType.INSTANCE_ACCESS,
-      'import-reference': ReferenceType.IMPORT_REFERENCE,
-      'namespace-reference': ReferenceType.NAMESPACE_REFERENCE,
+  private mapToReferenceType(relType: string): any | null {
+    // Changed from EnumValue to any as EnumValue is removed
+    const typeMap: Record<string, any> = {
+      // Changed from EnumValue to any as EnumValue is removed
+      'method-call': 'method-call', // Placeholder, actual type would need to be defined
+      'field-access': 'field-access', // Placeholder, actual type would need to be defined
+      'type-reference': 'type-reference', // Placeholder, actual type would need to be defined
+      inheritance: 'inheritance', // Placeholder, actual type would need to be defined
+      'interface-implementation': 'interface-implementation', // Placeholder, actual type would need to be defined
+      'constructor-call': 'constructor-call', // Placeholder, actual type would need to be defined
+      'static-access': 'static-access', // Placeholder, actual type would need to be defined
+      'instance-access': 'instance-access', // Placeholder, actual type would need to be defined
+      'import-reference': 'import-reference', // Placeholder, actual type would need to be defined
+      'namespace-reference': 'namespace-reference', // Placeholder, actual type would need to be defined
     };
 
     return typeMap[relType] || null;

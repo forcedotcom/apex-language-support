@@ -16,8 +16,8 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
-import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { SymbolManagerFactory } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for code action processing functionality
@@ -52,11 +52,11 @@ export interface CodeActionContext {
  */
 export class CodeActionProcessingService implements ICodeActionProcessor {
   private readonly logger: LoggerInterface;
-  private symbolManager: ApexSymbolManager;
+  private symbolManager: any;
 
   constructor(logger: LoggerInterface) {
     this.logger = logger;
-    this.symbolManager = new ApexSymbolManager();
+    this.symbolManager = SymbolManagerFactory.createSymbolManager();
   }
 
   /**

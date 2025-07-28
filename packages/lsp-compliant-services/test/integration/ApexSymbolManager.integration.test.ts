@@ -8,27 +8,31 @@
 
 // Mock dependencies
 jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  ApexSymbolManager: jest.fn().mockImplementation(() => ({
-    addSymbol: jest.fn(),
-    findSymbolByName: jest.fn().mockReturnValue([]),
-    findSymbolByFQN: jest.fn().mockReturnValue(null),
-    findSymbolsInFile: jest.fn().mockReturnValue([]),
-    findReferencesTo: jest.fn().mockReturnValue([]),
-    findReferencesFrom: jest.fn().mockReturnValue([]),
-    analyzeDependencies: jest.fn().mockReturnValue({
-      dependencies: [],
-      dependents: [],
-      impactScore: 0,
-      circularDependencies: [],
-    }),
-    getStats: jest.fn().mockReturnValue({
-      totalSymbols: 0,
-      totalFiles: 0,
-      totalReferences: 0,
-      circularDependencies: 0,
-      cacheHitRate: 0,
-    }),
-  })),
+  SymbolManagerFactory: {
+    setTestMode: jest.fn(),
+    createSymbolManager: jest.fn().mockImplementation(() => ({
+      addSymbol: jest.fn(),
+      findSymbolByName: jest.fn().mockReturnValue([]),
+      findSymbolByFQN: jest.fn().mockReturnValue(null),
+      findSymbolsInFile: jest.fn().mockReturnValue([]),
+      findReferencesTo: jest.fn().mockReturnValue([]),
+      findReferencesFrom: jest.fn().mockReturnValue([]),
+      analyzeDependencies: jest.fn().mockReturnValue({
+        dependencies: [],
+        dependents: [],
+        impactScore: 0,
+        circularDependencies: [],
+      }),
+      getStats: jest.fn().mockReturnValue({
+        totalSymbols: 0,
+        totalFiles: 0,
+        totalReferences: 0,
+        circularDependencies: 0,
+        cacheHitRate: 0,
+      }),
+    })),
+    reset: jest.fn(),
+  },
 }));
 
 jest.mock('../../src/storage/ApexStorageManager', () => ({
@@ -48,7 +52,6 @@ import {
   WorkspaceSymbolParams,
 } from 'vscode-languageserver-protocol';
 
-import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import {
   CompletionProcessingService,
   DefinitionProcessingService,
@@ -59,6 +62,7 @@ import {
   WorkspaceSymbolProcessingService,
   DiagnosticProcessingService,
 } from '../../src/services';
+import { SymbolManagerFactory } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 
 /**
@@ -68,7 +72,7 @@ import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
  * to ensure they work correctly together and provide accurate results.
  */
 describe('ApexSymbolManager - LSP Integration Tests', () => {
-  let symbolManager: ApexSymbolManager;
+  let symbolManager: any;
   let completionService: CompletionProcessingService;
   let definitionService: DefinitionProcessingService;
   let referencesService: ReferencesProcessingService;
@@ -81,8 +85,9 @@ describe('ApexSymbolManager - LSP Integration Tests', () => {
   let mockDocument: TextDocument;
 
   beforeEach(() => {
-    // Initialize symbol manager
-    symbolManager = new ApexSymbolManager();
+    // Enable test mode and create symbol manager
+    SymbolManagerFactory.setTestMode(true);
+    symbolManager = SymbolManagerFactory.createSymbolManager();
 
     // Setup mock storage
     mockStorage = {

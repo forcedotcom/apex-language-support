@@ -15,8 +15,8 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
-import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { SymbolManagerFactory } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for references processing functionality
@@ -35,11 +35,11 @@ export interface IReferencesProcessor {
  */
 export class ReferencesProcessingService implements IReferencesProcessor {
   private readonly logger: LoggerInterface;
-  private symbolManager: ApexSymbolManager;
+  private symbolManager: any;
 
   constructor(logger: LoggerInterface) {
     this.logger = logger;
-    this.symbolManager = new ApexSymbolManager();
+    this.symbolManager = SymbolManagerFactory.createSymbolManager();
   }
 
   /**
