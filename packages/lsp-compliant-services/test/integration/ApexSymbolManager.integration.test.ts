@@ -8,7 +8,27 @@
 
 // Mock dependencies
 jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  ApexSymbolManager: jest.fn(),
+  ApexSymbolManager: jest.fn().mockImplementation(() => ({
+    addSymbol: jest.fn(),
+    findSymbolByName: jest.fn().mockReturnValue([]),
+    findSymbolByFQN: jest.fn().mockReturnValue(null),
+    findSymbolsInFile: jest.fn().mockReturnValue([]),
+    findReferencesTo: jest.fn().mockReturnValue([]),
+    findReferencesFrom: jest.fn().mockReturnValue([]),
+    analyzeDependencies: jest.fn().mockReturnValue({
+      dependencies: [],
+      dependents: [],
+      impactScore: 0,
+      circularDependencies: [],
+    }),
+    getStats: jest.fn().mockReturnValue({
+      totalSymbols: 0,
+      totalFiles: 0,
+      totalReferences: 0,
+      circularDependencies: 0,
+      cacheHitRate: 0,
+    }),
+  })),
 }));
 
 jest.mock('../../src/storage/ApexStorageManager', () => ({
@@ -26,7 +46,6 @@ import {
   SignatureHelpParams,
   CodeActionParams,
   WorkspaceSymbolParams,
-  DiagnosticParams,
 } from 'vscode-languageserver-protocol';
 
 import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
@@ -74,6 +93,15 @@ describe('ApexSymbolManager - LSP Integration Tests', () => {
       getStorage: jest.fn().mockReturnValue(mockStorage),
     });
 
+    // Create mock logger
+    const mockLogger = {
+      log: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+
     // Setup mock document
     mockDocument = TextDocument.create(
       'file:///test/TestClass.cls',
@@ -109,14 +137,14 @@ public class TestClass {
     );
 
     // Initialize all LSP services
-    completionService = new CompletionProcessingService();
-    definitionService = new DefinitionProcessingService();
-    referencesService = new ReferencesProcessingService();
-    hoverService = new HoverProcessingService();
-    signatureHelpService = new SignatureHelpProcessingService();
-    codeActionService = new CodeActionProcessingService();
-    workspaceSymbolService = new WorkspaceSymbolProcessingService();
-    diagnosticService = new DiagnosticProcessingService();
+    completionService = new CompletionProcessingService(mockLogger);
+    definitionService = new DefinitionProcessingService(mockLogger);
+    referencesService = new ReferencesProcessingService(mockLogger);
+    hoverService = new HoverProcessingService(mockLogger);
+    signatureHelpService = new SignatureHelpProcessingService(mockLogger);
+    codeActionService = new CodeActionProcessingService(mockLogger);
+    workspaceSymbolService = new WorkspaceSymbolProcessingService(mockLogger);
+    diagnosticService = new DiagnosticProcessingService(mockLogger);
 
     // Setup storage to return our mock document
     mockStorage.getDocument.mockResolvedValue(mockDocument);
