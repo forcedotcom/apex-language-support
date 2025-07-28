@@ -4,7 +4,7 @@
 
 This document outlines a comprehensive plan to consolidate the overlapping symbol types in the Apex parser AST system. The current system has multiple redundant types (`ApexSymbol`, `RuntimeSymbol`, `LightweightSymbol`) that create conversion overhead, memory inefficiency, and maintenance complexity.
 
-**Goal**: Reduce the symbol system from 5 types to 1 unified type while maintaining or improving performance and memory efficiency.
+**Goal**: Reduce the symbol system from 7 types to 1 unified type while maintaining or improving performance and memory efficiency.
 
 ## Current State Analysis
 
@@ -15,6 +15,8 @@ This document outlines a comprehensive plan to consolidate the overlapping symbo
 3. **`LightweightSymbol`** - Memory-optimized version with bit flags and lazy loading
 4. **`SymbolTable`** - Manages scopes and symbol lookup within a file
 5. **`SymbolScope`** - Represents a scope hierarchy within a file
+6. **`GlobalSymbolRegistry`** - Manages symbols across multiple files with resolution context
+7. **`CrossFileSymbolManager`** - High-level interface for cross-file symbol operations
 
 ### Key Problems Identified
 
@@ -22,7 +24,8 @@ This document outlines a comprehensive plan to consolidate the overlapping symbo
 
 - **`RuntimeSymbol` vs `ApexSymbol`**: `RuntimeSymbol` is essentially a wrapper that adds lazy parent resolution
 - **`LightweightSymbol` vs `ApexSymbol`**: Significant overlap with expensive conversion functions
-- **Multiple storage systems**: `SymbolTable`, `ApexSymbolGraph`, and various caches all store symbols
+- **`GlobalSymbolRegistry` vs `ApexSymbolGraph`**: Both provide cross-file symbol management with overlapping functionality
+- **Multiple storage systems**: `SymbolTable`, `ApexSymbolGraph`, `GlobalSymbolRegistry`, and various caches all store symbols
 
 #### 2. Conversion Overhead (Medium Impact)
 
@@ -38,9 +41,10 @@ This document outlines a comprehensive plan to consolidate the overlapping symbo
 
 #### 4. Maintenance Complexity (Low Impact)
 
-- 5 different types to maintain and debug
+- 7 different types to maintain and debug
 - Conversion logic scattered across multiple files
 - Inconsistent APIs between different symbol types
+- Duplicate cross-file symbol management systems
 
 ## Consolidation Strategy
 
@@ -171,25 +175,38 @@ interface ApexSymbol {
 - [x] Implement caching for frequently accessed symbols
 - [x] Add memory usage monitoring
 
-### Phase 4: Consumer Updates (Week 4)
+### Phase 4: Consumer Updates and Registry Consolidation (Week 4)
 
-#### 4.1 Update All Consumers ✅ **PARTIALLY COMPLETED**
+#### 4.1 GlobalSymbolRegistry Consolidation into ApexSymbolGraph
+
+- [ ] Enhance `ApexSymbolGraph` with GlobalSymbolRegistry capabilities:
+  - [ ] Add `ResolutionContext` interface for symbol resolution
+  - [ ] Add `SymbolLookupResult` interface with confidence scoring
+  - [ ] Implement `lookupSymbolWithContext()` method with ambiguity resolution
+  - [ ] Add context-based symbol resolution logic
+  - [ ] Maintain backward compatibility with existing GlobalSymbolRegistry API
+
+#### 4.2 Update All Consumers
 
 - [x] Update `ApexSymbolManager` to use unified symbols
-- [ ] Update `GlobalSymbolRegistry` to use unified symbols
+- [ ] Update `CrossFileSymbolManager` to use `ApexSymbolGraph` instead of `GlobalSymbolRegistry`
 - [ ] Update all test files to use unified symbols
+- [ ] Add compatibility layer for existing GlobalSymbolRegistry consumers
 
-#### 4.2 API Compatibility ✅ **MAINTAINED**
+#### 4.3 API Compatibility and Documentation
 
 - [x] Ensure public APIs remain compatible
-- [ ] Update documentation for new symbol interface
-- [ ] Add deprecation warnings for old types
+- [ ] Update documentation for new unified symbol interface
+- [ ] Add deprecation warnings for `GlobalSymbolRegistry`
+- [ ] Document migration path from GlobalSymbolRegistry to ApexSymbolGraph
 
-#### 4.3 Performance Validation ✅ **INITIAL VALIDATION COMPLETE**
+#### 4.4 Performance Validation and Testing
 
 - [x] Run comprehensive performance tests
 - [x] Compare memory usage before and after
 - [ ] Validate that all functionality is preserved
+- [ ] Benchmark symbol resolution performance with context
+- [ ] Test ambiguity resolution accuracy
 
 ### Phase 5: Cleanup and Optimization (Week 5)
 
@@ -198,6 +215,8 @@ interface ApexSymbol {
 - [ ] Remove `RuntimeSymbol` class
 - [ ] Remove `LightweightSymbol` interface
 - [ ] Remove conversion functions (`toLightweightSymbol`, `fromLightweightSymbol`)
+- [ ] Remove `GlobalSymbolRegistry` class (consolidated into ApexSymbolGraph)
+- [ ] Remove `CrossFileSymbolManager` class (functionality moved to ApexSymbolGraph)
 
 #### 5.2 Code Cleanup
 
@@ -371,10 +390,11 @@ During the migration, we'll maintain backward compatibility by:
 
 ### Maintenance Metrics ✅ **PARTIALLY ACHIEVED**
 
-- **Type Count**: Reduce from 5 types to 1 type
+- **Type Count**: Reduce from 7 types to 1 type
 - **Conversion Functions**: Eliminate all conversion functions
 - **File Count**: Reduce number of files by removing deprecated types
 - **Documentation**: Simplify documentation with single symbol type
+- **Cross-file Management**: Consolidate into single ApexSymbolGraph system
 
 ### Phase 2 Achievements ✅ **COMPLETED**
 
@@ -429,9 +449,10 @@ During the migration, we'll maintain backward compatibility by:
 - [x] Optimize reference management
 - [x] Performance validation
 
-### Week 4: Consumer Updates
+### Week 4: Consumer Updates and Registry Consolidation
 
-- [ ] Update all consumers
+- [ ] Consolidate GlobalSymbolRegistry into ApexSymbolGraph
+- [ ] Update CrossFileSymbolManager to use ApexSymbolGraph
 - [ ] API compatibility validation
 - [ ] Performance benchmarking
 
@@ -520,19 +541,19 @@ During the migration, we'll maintain backward compatibility by:
 
 Phase 3 has been successfully completed! The ApexSymbolGraph migration is done and the graph now uses unified symbols directly, eliminating the LightweightSymbol conversion overhead. The remaining work focuses on:
 
-1. **Phase 4: Consumer Updates** - Fix remaining test failures and update all consumers
+1. **Phase 4: Consumer Updates and Registry Consolidation** - Consolidate GlobalSymbolRegistry into ApexSymbolGraph and update all consumers
 2. **Phase 5: Cleanup** - Remove deprecated types and final optimization
 
-The unified symbol system foundation is solid and the graph operations are now more efficient. The enhanced SymbolKey system with unified IDs provides excellent performance for graph operations.
+The unified symbol system foundation is solid and the graph operations are now more efficient. The enhanced SymbolKey system with unified IDs provides excellent performance for graph operations. The consolidation of GlobalSymbolRegistry will eliminate the last major redundancy in the symbol system.
 
 ## Conclusion
 
 This consolidation plan will significantly improve the symbol system by:
 
-1. **Eliminating redundancy** between multiple symbol types
-2. **Improving performance** by removing conversion overhead
-3. **Reducing memory usage** through optimized storage
-4. **Simplifying maintenance** with a single symbol type
-5. **Enhancing developer experience** with a cleaner API
+1. **Eliminating redundancy** between multiple symbol types and cross-file management systems
+2. **Improving performance** by removing conversion overhead and duplicate storage
+3. **Reducing memory usage** through optimized storage and unified symbol management
+4. **Simplifying maintenance** with a single symbol type and consolidated cross-file operations
+5. **Enhancing developer experience** with a cleaner API and unified graph-based symbol system
 
-The unified symbol system will provide a solid foundation for future enhancements while maintaining backward compatibility and performance requirements.
+The unified symbol system with consolidated cross-file management will provide a solid foundation for future enhancements while maintaining backward compatibility and performance requirements. The ApexSymbolGraph will become the single source of truth for all symbol operations across the entire codebase.
