@@ -64,6 +64,32 @@ jobs:
           name: coverage-report-${{ matrix.os }}-${{ steps.node-label.outputs.value }}
           path: ./coverage
 
+  test-quality:
+    name: Test Quality
+    needs: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        node-version: ['20.x']
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-install-with-retries
+
+      - name: Run quality tests
+        run: npm run test:quality
+
   package:
     name: Package
     needs: test

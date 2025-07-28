@@ -62,7 +62,7 @@ public class TestClass {
         return this.name;
     }
 }`;
-        client.openTextDocument(testUri, sampleCode);
+        await client.openTextDocument(testUri, sampleCode);
         documentOpened = true;
         console.log(`Opened document ${testUri}`);
       } else if (cmd === 'update') {
@@ -88,7 +88,11 @@ public class TestClass {
         return this.count;
     }
 }`;
-          client.updateTextDocument(testUri, updatedCode, documentVersion);
+          await client.updateTextDocument(
+            testUri,
+            updatedCode,
+            documentVersion,
+          );
           console.log(
             `Updated document ${testUri} (version ${documentVersion})`,
           );
@@ -97,7 +101,7 @@ public class TestClass {
         if (!documentOpened) {
           console.log('No document is currently open');
         } else {
-          client.closeTextDocument(testUri);
+          await client.closeTextDocument(testUri);
           documentOpened = false;
           console.log(`Closed document ${testUri}`);
         }
@@ -152,7 +156,12 @@ public class TestClass {
 
   rl.on('close', async () => {
     console.log('Exiting interactive mode...');
-    await client.stop();
+    try {
+      await client.stop();
+    } catch (_error) {
+      // Ignore shutdown errors - they're expected during exit
+      console.log('Server stopped');
+    }
     process.exit(0);
   });
 }

@@ -2,6 +2,10 @@ const baseConfig = require('../../jest.config.cjs');
 
 module.exports = {
   ...baseConfig,
+  testPathIgnorePatterns: [
+    ...(baseConfig.testPathIgnorePatterns || []),
+    '/node_modules/',
+  ],
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
     '^@salesforce/apex-lsp-shared$':

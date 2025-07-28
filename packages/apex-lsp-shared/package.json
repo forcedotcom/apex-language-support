@@ -24,8 +24,8 @@
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix"
   },
   "dependencies": {
     "zod": "^3.22.4"
