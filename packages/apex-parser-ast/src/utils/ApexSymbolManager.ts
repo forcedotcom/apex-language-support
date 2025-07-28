@@ -15,6 +15,7 @@ import {
   ReferenceResult,
   DependencyAnalysis,
 } from '../references/ApexSymbolGraph';
+import { ISymbolManager } from './ISymbolManager';
 
 /**
  * File metadata for tracking symbol relationships
@@ -404,7 +405,7 @@ export class UnifiedCache {
 /**
  * Main Apex Symbol Manager with DST integration
  */
-export class ApexSymbolManager {
+export class ApexSymbolManager implements ISymbolManager {
   private readonly logger = getLogger();
   private symbolGraph: ApexSymbolGraph;
   private fileMetadata: HashMap<string, FileMetadata>;

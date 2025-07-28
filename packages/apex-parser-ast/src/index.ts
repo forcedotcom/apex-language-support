@@ -50,6 +50,8 @@ export * from './utils/symbolNarrowing';
 export * from './utils/GlobalSymbolRegistry';
 export * from './utils/CrossFileSymbolManager';
 export * from './utils/ApexSymbolManager';
+export * from './utils/ISymbolManager';
+export * from './utils/SymbolManagerFactory';
 
 // Export reference graph and types
 export * from './references/ApexSymbolGraph';
