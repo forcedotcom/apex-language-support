@@ -11,13 +11,9 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { CompletionProcessingService } from '../../src/services/CompletionProcessingService';
-import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 
-// Mock ApexSymbolManager
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  ApexSymbolManager: jest.fn(),
-}));
+// Mock is now handled globally in test/setup.ts
 
 // Mock ApexStorageManager
 jest.mock('../../src/storage/ApexStorageManager', () => ({
@@ -28,7 +24,7 @@ jest.mock('../../src/storage/ApexStorageManager', () => ({
 
 describe('CompletionProcessingService', () => {
   let service: CompletionProcessingService;
-  let mockSymbolManager: jest.Mocked<ApexSymbolManager>;
+  let mockSymbolManager: any;
   let mockStorage: any;
   let mockDocument: TextDocument;
   let logger: any;
@@ -70,9 +66,7 @@ describe('CompletionProcessingService', () => {
       getCacheStats: jest.fn(),
     } as any;
 
-    (
-      ApexSymbolManager as jest.MockedClass<typeof ApexSymbolManager>
-    ).mockImplementation(() => mockSymbolManager);
+    // The mock is now handled in the jest.mock above
 
     // Setup mock storage
     mockStorage = {

@@ -2,6 +2,7 @@ const baseConfig = require('../../jest.config.cjs');
 
 module.exports = {
   ...baseConfig,
+  setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
     '^@salesforce/apex-lsp-shared$':
