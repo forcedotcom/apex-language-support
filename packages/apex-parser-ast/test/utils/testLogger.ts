@@ -11,11 +11,23 @@
  * for debugging and testing purposes
  */
 export class TestLogger {
+  private static instance: TestLogger | null = null;
+
   private logs: Array<{
     level: 'debug' | 'info' | 'warn' | 'error';
     message: string;
     timestamp: number;
   }> = [];
+
+  /**
+   * Get singleton instance
+   */
+  static getInstance(): TestLogger {
+    if (!TestLogger.instance) {
+      TestLogger.instance = new TestLogger();
+    }
+    return TestLogger.instance;
+  }
 
   /**
    * Get all captured logs
@@ -84,6 +96,14 @@ export class TestLogger {
    */
   getLogCount(): number {
     return this.logs.length;
+  }
+
+  /**
+   * Set the log level (for compatibility with other logger interfaces)
+   */
+  setLogLevel(level: string): void {
+    // This is a test logger, so we don't actually filter by level
+    // All logs are captured regardless of level
   }
 
   /**

@@ -1366,6 +1366,9 @@ export class ApexSymbolCollectorListener
       identifierLocation ?? this.getIdentifierLocation(ctx),
     ) as MethodSymbol;
 
+    // Initialize the parameters array for MethodSymbol interface
+    methodSymbol.parameters = [];
+    methodSymbol.returnType = returnType;
     methodSymbol.isConstructor = false;
 
     return methodSymbol;

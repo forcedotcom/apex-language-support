@@ -78,6 +78,12 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check no errors
+      if (result.errors.length > 0) {
+        console.log(`Compilation errors found: ${result.errors.length}`);
+        result.errors.forEach((error, index) => {
+          console.log(`Error ${index + 1}: ${error.message}`);
+        });
+      }
       expect(result.errors.length).toBe(0);
       logger.debug('No compilation errors found');
 

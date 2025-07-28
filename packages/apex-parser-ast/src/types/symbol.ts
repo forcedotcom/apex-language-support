@@ -524,16 +524,16 @@ export const createFromSymbol = (
   filePath?: string,
 ): SymbolKey => {
   const key: SymbolKey = {
-    prefix: symbol.key.prefix,
-    name: symbol.key.name,
-    path: symbol.key.path,
+    prefix: symbol.key.prefix || symbol.kind,
+    name: symbol.key.name || symbol.name,
+    path: symbol.key.path || [symbol.filePath, symbol.name],
     kind: symbol.kind,
     fqn: symbol.fqn,
-    filePath: filePath,
+    filePath: filePath || symbol.filePath,
   };
 
   // Generate unified ID
-  key.unifiedId = generateUnifiedId(key, filePath);
+  key.unifiedId = generateUnifiedId(key, filePath || symbol.filePath);
 
   return key;
 };
