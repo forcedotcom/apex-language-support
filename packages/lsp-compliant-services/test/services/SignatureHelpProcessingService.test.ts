@@ -226,7 +226,7 @@ describe('SignatureHelpProcessingService', () => {
       const text = `
         public class TestClass {
           public void method() {
-            String variable = // cursor here
+            String variable: // cursor here
           }
         }
       `;

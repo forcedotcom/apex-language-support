@@ -7,7 +7,7 @@
  */
 
 import { HashMap } from 'data-structure-typed';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, type EnumValue } from '@salesforce/apex-lsp-shared';
 import { ApexSymbol, SymbolKind, SymbolVisibility } from '../types/symbol';
 import {
   ApexSymbolGraph,
@@ -40,7 +40,7 @@ export interface SymbolResolutionContext {
   returnType?: string;
   accessModifier: 'public' | 'private' | 'protected' | 'global';
   isStatic: boolean;
-  relationshipType?: ReferenceType;
+  relationshipType?: EnumValue<typeof ReferenceType>;
   inheritanceChain: string[];
   interfaceImplementations: string[];
 }
@@ -549,7 +549,7 @@ export class ApexSymbolManager {
    */
   findRelatedSymbols(
     symbol: ApexSymbol,
-    relationshipType: ReferenceType,
+    relationshipType: EnumValue<typeof ReferenceType>,
   ): ApexSymbol[] {
     const references = this.findReferencesFrom(symbol);
     return references
@@ -815,6 +815,107 @@ export class ApexSymbolManager {
       cacheEfficiency: cacheStats.hitRate,
       recommendations: this.generateMemoryOptimizationRecommendations(),
     };
+  }
+
+  /**
+   * Get relationship statistics for a symbol
+   */
+  getRelationshipStats(symbol: ApexSymbol): {
+    totalReferences: number;
+    methodCalls: number;
+    fieldAccess: number;
+    typeReferences: number;
+    constructorCalls: number;
+    staticAccess: number;
+    importReferences: number;
+    relationshipTypeCounts: Map<string, number>;
+    mostCommonRelationshipType: string | null;
+  } {
+    const referencesTo = this.findReferencesTo(symbol);
+    const _referencesFrom = this.findReferencesFrom(symbol);
+
+    const methodCalls = referencesTo.filter(
+      (ref) => ref.referenceType === ReferenceType.METHOD_CALL,
+    ).length;
+    const fieldAccess = referencesTo.filter(
+      (ref) => ref.referenceType === ReferenceType.FIELD_ACCESS,
+    ).length;
+    const typeReferences = referencesTo.filter(
+      (ref) => ref.referenceType === ReferenceType.TYPE_REFERENCE,
+    ).length;
+    const constructorCalls = referencesTo.filter(
+      (ref) => ref.referenceType === ReferenceType.CONSTRUCTOR_CALL,
+    ).length;
+    const staticAccess = referencesTo.filter(
+      (ref) => ref.referenceType === ReferenceType.STATIC_ACCESS,
+    ).length;
+    const importReferences = referencesTo.filter(
+      (ref) => ref.referenceType === ReferenceType.IMPORT_REFERENCE,
+    ).length;
+
+    // Calculate relationship type counts
+    const relationshipTypeCounts = new Map<string, number>();
+    for (const ref of referencesTo) {
+      const typeName = String(ref.referenceType);
+      relationshipTypeCounts.set(
+        typeName,
+        (relationshipTypeCounts.get(typeName) || 0) + 1,
+      );
+    }
+
+    // Find most common relationship type
+    let mostCommonRelationshipType: string | null = null;
+    let maxCount = 0;
+    for (const [type, count] of relationshipTypeCounts.entries()) {
+      if (count > maxCount) {
+        maxCount = count;
+        mostCommonRelationshipType = type;
+      }
+    }
+
+    return {
+      totalReferences: referencesTo.length,
+      methodCalls,
+      fieldAccess,
+      typeReferences,
+      constructorCalls,
+      staticAccess,
+      importReferences,
+      relationshipTypeCounts,
+      mostCommonRelationshipType,
+    };
+  }
+
+  /**
+   * Find references by specific type
+   */
+  findReferencesByType(
+    symbol: ApexSymbol,
+    referenceType: EnumValue<typeof ReferenceType>,
+  ): ReferenceResult[] {
+    const referencesTo = this.findReferencesTo(symbol);
+    return referencesTo.filter((ref) => ref.referenceType === referenceType);
+  }
+
+  /**
+   * Find constructor calls for a symbol
+   */
+  findConstructorCalls(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.CONSTRUCTOR_CALL);
+  }
+
+  /**
+   * Find static access references for a symbol
+   */
+  findStaticAccess(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.STATIC_ACCESS);
+  }
+
+  /**
+   * Find import references for a symbol
+   */
+  findImportReferences(symbol: ApexSymbol): ReferenceResult[] {
+    return this.findReferencesByType(symbol, ReferenceType.IMPORT_REFERENCE);
   }
 
   // Private helper methods

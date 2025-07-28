@@ -13,10 +13,12 @@ import {
   Location,
   Range,
 } from 'vscode-languageserver-protocol';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { LoggerInterface, type EnumValue } from '@salesforce/apex-lsp-shared';
 
-import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
-import { ReferenceType } from '@salesforce/apex-lsp-parser-ast/src/references/ApexSymbolGraph';
+import {
+  ApexSymbolManager,
+  ReferenceType,
+} from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for workspace symbol processing functionality
@@ -40,7 +42,7 @@ export interface WorkspaceSymbolContext {
   includePatterns: string[];
   excludePatterns: string[];
   symbolKinds: SymbolKind[];
-  relationshipTypes: ReferenceType[];
+  relationshipTypes: EnumValue<typeof ReferenceType>[];
   maxResults: number;
 }
 
@@ -467,9 +469,11 @@ export class WorkspaceSymbolProcessingService
     return kinds;
   }
 
-  private extractRelationshipTypes(query: string): ReferenceType[] {
+  private extractRelationshipTypes(
+    query: string,
+  ): EnumValue<typeof ReferenceType>[] {
     // Extract relationship types like rel:inheritance, rel:method-call
-    const types: ReferenceType[] = [];
+    const types: EnumValue<typeof ReferenceType>[] = [];
     const relMatches = query.match(/rel:(\w+)/g);
     if (relMatches) {
       for (const match of relMatches) {
@@ -484,8 +488,10 @@ export class WorkspaceSymbolProcessingService
     return types;
   }
 
-  private mapToReferenceType(relType: string): ReferenceType | null {
-    const typeMap: Record<string, ReferenceType> = {
+  private mapToReferenceType(
+    relType: string,
+  ): EnumValue<typeof ReferenceType> | null {
+    const typeMap: Record<string, EnumValue<typeof ReferenceType>> = {
       'method-call': ReferenceType.METHOD_CALL,
       'field-access': ReferenceType.FIELD_ACCESS,
       'type-reference': ReferenceType.TYPE_REFERENCE,

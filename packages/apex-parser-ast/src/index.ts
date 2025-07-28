@@ -51,6 +51,9 @@ export * from './utils/GlobalSymbolRegistry';
 export * from './utils/CrossFileSymbolManager';
 export * from './utils/ApexSymbolManager';
 
+// Export reference graph and types
+export * from './references/ApexSymbolGraph';
+
 // Export semantic validators
 export * from './semantics/modifiers/index';
 export * from './semantics/annotations/index';

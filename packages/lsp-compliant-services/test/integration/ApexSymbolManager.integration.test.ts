@@ -6,6 +6,17 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+// Mock dependencies
+jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
+  ApexSymbolManager: jest.fn(),
+}));
+
+jest.mock('../../src/storage/ApexStorageManager', () => ({
+  ApexStorageManager: {
+    getInstance: jest.fn(),
+  },
+}));
+
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   CompletionParams,

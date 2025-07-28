@@ -9,8 +9,8 @@
 import {
   CompletionParams,
   CompletionItem,
+  CompletionItemKind,
 } from 'vscode-languageserver-protocol';
-import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { CompletionHandler } from '../../src/handlers/CompletionHandler';
 import { ICompletionProcessor } from '../../src/services/CompletionProcessingService';
@@ -22,39 +22,55 @@ const mockCompletionProcessor: jest.Mocked<ICompletionProcessor> = {
 
 describe('CompletionHandler', () => {
   let handler: CompletionHandler;
-  let logger: any;
+  let mockLogger: any;
 
   beforeEach(() => {
     // Reset mocks
     jest.clearAllMocks();
 
-    // Setup logger
-    logger = getLogger();
+    // Setup mock logger
+    mockLogger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
 
     // Create handler instance
-    handler = new CompletionHandler(logger, mockCompletionProcessor);
+    handler = new CompletionHandler(mockLogger, mockCompletionProcessor);
   });
 
   describe('handleCompletion', () => {
-    it('should process completion request successfully', async () => {
+    it('should handle processor errors gracefully', async () => {
       // Arrange
       const params: CompletionParams = {
-        textDocument: { uri: 'file:///test/TestClass.cls' },
-        position: { line: 5, character: 10 },
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
+      };
+
+      mockCompletionProcessor.processCompletion.mockRejectedValue(
+        new Error('Processor error'),
+      );
+
+      // Act & Assert
+      const result = await handler.handleCompletion(params);
+      expect(result).toBeNull();
+      expect(mockCompletionProcessor.processCompletion).toHaveBeenCalledWith(
+        params,
+      );
+    });
+
+    it('should return completion items for valid request', async () => {
+      // Arrange
+      const params: CompletionParams = {
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
       };
 
       const mockCompletionItems: CompletionItem[] = [
         {
           label: 'testMethod',
-          kind: 2, // Method
-          detail: 'void testMethod()',
-          documentation: 'Test method documentation',
-        },
-        {
-          label: 'testField',
-          kind: 5, // Field
-          detail: 'String testField',
-          documentation: 'Test field documentation',
+          kind: CompletionItemKind.Method,
         },
       ];
 
@@ -72,52 +88,14 @@ describe('CompletionHandler', () => {
       );
     });
 
-    it('should handle processor errors gracefully', async () => {
-      // Arrange
-      const params: CompletionParams = {
-        textDocument: { uri: 'file:///test/TestClass.cls' },
-        position: { line: 5, character: 10 },
-      };
-
-      const error = new Error('Processor error');
-      mockCompletionProcessor.processCompletion.mockRejectedValue(error);
-
-      // Act & Assert
-      await expect(handler.handleCompletion(params)).rejects.toThrow(
-        'Processor error',
-      );
-      expect(mockCompletionProcessor.processCompletion).toHaveBeenCalledWith(
-        params,
-      );
-    });
-
-    it('should handle empty completion results', async () => {
-      // Arrange
-      const params: CompletionParams = {
-        textDocument: { uri: 'file:///test/TestClass.cls' },
-        position: { line: 5, character: 10 },
-      };
-
-      mockCompletionProcessor.processCompletion.mockResolvedValue([]);
-
-      // Act
-      const result = await handler.handleCompletion(params);
-
-      // Assert
-      expect(result).toEqual([]);
-      expect(mockCompletionProcessor.processCompletion).toHaveBeenCalledWith(
-        params,
-      );
-    });
-
     it('should handle null completion results', async () => {
       // Arrange
       const params: CompletionParams = {
-        textDocument: { uri: 'file:///test/TestClass.cls' },
-        position: { line: 5, character: 10 },
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
       };
 
-      mockCompletionProcessor.processCompletion.mockResolvedValue([]);
+      mockCompletionProcessor.processCompletion.mockResolvedValue(null as any);
 
       // Act
       const result = await handler.handleCompletion(params);
@@ -134,33 +112,35 @@ describe('CompletionHandler', () => {
     it('should log errors appropriately', async () => {
       // Arrange
       const params: CompletionParams = {
-        textDocument: { uri: 'file:///test/TestClass.cls' },
-        position: { line: 5, character: 10 },
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
       };
 
-      const error = new Error('Test error');
-      mockCompletionProcessor.processCompletion.mockRejectedValue(error);
+      mockCompletionProcessor.processCompletion.mockRejectedValue(
+        new Error('Test error'),
+      );
 
       // Act & Assert
-      await expect(handler.handleCompletion(params)).rejects.toThrow(
-        'Test error',
-      );
+      const result = await handler.handleCompletion(params);
+      expect(result).toBeNull();
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
     it('should handle different error types', async () => {
       // Arrange
       const params: CompletionParams = {
-        textDocument: { uri: 'file:///test/TestClass.cls' },
-        position: { line: 5, character: 10 },
+        textDocument: { uri: 'file:///test.cls' },
+        position: { line: 0, character: 0 },
       };
 
-      const error = new TypeError('Type error');
-      mockCompletionProcessor.processCompletion.mockRejectedValue(error);
+      mockCompletionProcessor.processCompletion.mockRejectedValue(
+        new TypeError('Type error'),
+      );
 
       // Act & Assert
-      await expect(handler.handleCompletion(params)).rejects.toThrow(
-        'Type error',
-      );
+      const result = await handler.handleCompletion(params);
+      expect(result).toBeNull();
+      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
   });
 

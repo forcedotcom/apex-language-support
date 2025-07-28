@@ -119,7 +119,7 @@ describe('CompletionProcessingService', () => {
           kind: 'method',
           fqn: 'TestClass.testMethod',
           modifiers: { visibility: 'public', isStatic: false },
-          location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+          location: { startLine: 2, startColumn: 1, endLine: 2, endColumn: 10 },
           key: { prefix: 'method', name: 'testMethod', path: ['TestClass'] },
           parentKey: { prefix: 'class', name: 'TestClass', path: [] },
         },
@@ -134,7 +134,14 @@ describe('CompletionProcessingService', () => {
         },
       ];
 
-      mockSymbolManager.findSymbolsInFile.mockReturnValue(mockSymbols);
+      // Mock resolveSymbol to return symbols
+      mockSymbolManager.resolveSymbol.mockReturnValue({
+        symbol: mockSymbols[0],
+        confidence: 0.8,
+        resolutionContext: 'test context',
+        filePath: 'file:///test/TestClass.cls',
+        isAmbiguous: false,
+      } as any);
 
       // Act
       const result = await service.processCompletion(params);

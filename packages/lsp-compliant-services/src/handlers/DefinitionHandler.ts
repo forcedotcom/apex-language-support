@@ -32,10 +32,13 @@ export class DefinitionHandler {
     );
 
     try {
-      return await dispatch(
+      const result = await dispatch(
         this.definitionProcessor.processDefinition(params),
         'Error processing definition request',
       );
+
+      // Return empty array if result is null
+      return result || [];
     } catch (error) {
       this.logger.error(
         () =>

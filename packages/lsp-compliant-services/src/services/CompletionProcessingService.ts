@@ -171,6 +171,8 @@ export class CompletionProcessingService implements ICompletionProcessor {
       parameterTypes: [],
       accessModifier: context.accessModifier,
       isStatic: context.isStatic,
+      inheritanceChain: [],
+      interfaceImplementations: [],
     };
 
     // Get symbols by name patterns (for partial matches)
@@ -415,25 +417,47 @@ export class CompletionProcessingService implements ICompletionProcessor {
     return 'default';
   }
 
-  private isInStaticContext(text: string, offset: number): boolean {
-    // Simplified - would use AST analysis in practice
-    return false;
+  /**
+   * Extract expected type from context
+   * @param text The document text
+   * @param offset The offset in the text
+   * @returns The expected type or undefined
+   */
+  public extractExpectedType(text: string, offset: number): string | undefined {
+    // Simple implementation - look for type hints before the offset
+    const beforeOffset = text.substring(0, offset);
+    const typeMatch = beforeOffset.match(/(\w+)\s*[:=]\s*$/);
+    return typeMatch ? typeMatch[1] : undefined;
   }
 
-  private getAccessModifierContext(
+  /**
+   * Check if the context is static
+   * @param text The document text
+   * @param offset The offset in the text
+   * @returns True if in static context
+   */
+  public isInStaticContext(text: string, offset: number): boolean {
+    const beforeOffset = text.substring(0, offset);
+    return beforeOffset.includes('static');
+  }
+
+  /**
+   * Get access modifier context
+   * @param text The document text
+   * @param offset The offset in the text
+   * @returns The access modifier or 'public' as default
+   */
+  public getAccessModifierContext(
     text: string,
     offset: number,
   ): 'public' | 'private' | 'protected' | 'global' {
-    // Simplified - would use AST analysis in practice
-    return 'public';
-  }
+    const beforeOffset = text.substring(0, offset);
 
-  private extractExpectedType(
-    text: string,
-    offset: number,
-  ): string | undefined {
-    // Simplified - would use AST analysis in practice
-    return undefined;
+    if (beforeOffset.includes('private')) return 'private';
+    if (beforeOffset.includes('protected')) return 'protected';
+    if (beforeOffset.includes('global')) return 'global';
+
+    return 'public'; // Default
   }
 
   private getWordRangeAtPosition(document: TextDocument, position: any): any {

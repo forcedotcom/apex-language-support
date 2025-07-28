@@ -162,8 +162,18 @@ export interface ReferenceResult {
   symbol: ApexSymbol;
   filePath: string;
   referenceType: EnumValue<typeof ReferenceType>;
-  location: ReferenceEdge['location'];
-  context?: ReferenceEdge['context'];
+  location: {
+    startLine: number;
+    startColumn: number;
+    endLine: number;
+    endColumn: number;
+  };
+  context?: {
+    methodName?: string;
+    parameterIndex?: number;
+    isStatic?: boolean;
+    namespace?: string;
+  };
 }
 
 /**
@@ -173,6 +183,7 @@ export interface DependencyAnalysis {
   dependencies: ApexSymbol[];
   dependents: ApexSymbol[];
   impactScore: number;
+  circularDependencies: string[][];
 }
 
 /**
@@ -493,8 +504,18 @@ export class ApexSymbolGraph {
       symbol: ApexSymbol;
       filePath: string;
       referenceType: EnumValue<typeof ReferenceType>;
-      location: ReferenceEdge['location'];
-      context?: ReferenceEdge['context'];
+      location: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+      context?: {
+        methodName?: string;
+        parameterIndex?: number;
+        isStatic?: boolean;
+        namespace?: string;
+      };
     }> = [];
     // Get incoming edges using vertex key
     const incomingEdges = this.referenceGraph.incomingEdgesOf(vertex.key);
@@ -580,8 +601,18 @@ export class ApexSymbolGraph {
       symbol: ApexSymbol;
       filePath: string;
       referenceType: EnumValue<typeof ReferenceType>;
-      location: ReferenceEdge['location'];
-      context?: ReferenceEdge['context'];
+      location: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+      };
+      context?: {
+        methodName?: string;
+        parameterIndex?: number;
+        isStatic?: boolean;
+        namespace?: string;
+      };
     }> = [];
     const outgoingEdges = this.referenceGraph.outgoingEdgesOf(vertex.key);
 
@@ -645,15 +676,26 @@ export class ApexSymbolGraph {
     dependencies: ApexSymbol[];
     dependents: ApexSymbol[];
     impactScore: number;
+    circularDependencies: string[][];
   } {
     const symbolId = this.findSymbolId(symbol);
     if (!symbolId) {
-      return { dependencies: [], dependents: [], impactScore: 0 };
+      return {
+        dependencies: [],
+        dependents: [],
+        impactScore: 0,
+        circularDependencies: [],
+      };
     }
 
     const vertex = this.symbolToVertex.get(symbolId);
     if (!vertex) {
-      return { dependencies: [], dependents: [], impactScore: 0 };
+      return {
+        dependencies: [],
+        dependents: [],
+        impactScore: 0,
+        circularDependencies: [],
+      };
     }
 
     // Get dependencies (what this symbol depends on)
@@ -667,10 +709,14 @@ export class ApexSymbolGraph {
     // Calculate impact score based on dependency graph
     const impactScore = this.calculateImpactScore(dependents, dependencies);
 
+    // Get circular dependencies
+    const circularDependencies = this.detectCircularDependencies();
+
     return {
       dependencies,
       dependents,
       impactScore,
+      circularDependencies,
     };
   }
 

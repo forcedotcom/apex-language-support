@@ -28,7 +28,7 @@ export class CompletionHandler {
    */
   public async handleCompletion(
     params: CompletionParams,
-  ): Promise<CompletionItem[]> {
+  ): Promise<CompletionItem[] | null> {
     this.logger.debug(
       () => `Processing completion request: ${params.textDocument.uri}`,
     );
@@ -43,7 +43,7 @@ export class CompletionHandler {
         () =>
           `Error processing completion request for ${params.textDocument.uri}: ${error}`,
       );
-      throw error;
+      return null;
     }
   }
 }

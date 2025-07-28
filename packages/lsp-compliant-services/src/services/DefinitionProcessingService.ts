@@ -27,7 +27,7 @@ export interface IDefinitionProcessor {
    * @param params The definition parameters
    * @returns Definition locations for the requested symbol
    */
-  processDefinition(params: DefinitionParams): Promise<Location[]>;
+  processDefinition(params: DefinitionParams): Promise<Location[] | null>;
 }
 
 /**
@@ -49,7 +49,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
    */
   public async processDefinition(
     params: DefinitionParams,
-  ): Promise<Location[]> {
+  ): Promise<Location[] | null> {
     this.logger.debug(
       () => `Processing definition request for: ${params.textDocument.uri}`,
     );
@@ -65,7 +65,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         this.logger.warn(
           () => `Document not found: ${params.textDocument.uri}`,
         );
-        return [];
+        return null;
       }
 
       // Extract symbol name at position
@@ -102,13 +102,74 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
 
       return locations;
     } catch (error) {
-      this.logger.error(() => `Error processing definition: ${error}`);
-      return [];
+      this.logger.error(() => `Error processing definition request: ${error}`);
+      return null;
     }
   }
 
   /**
-   * Extract symbol name at the given position
+   * Extract symbol name from text at a specific position
+   * @param text The document text
+   * @param position The position in the text
+   * @returns The extracted symbol name or null
+   */
+  public extractSymbolName(text: string, position: number): string | null {
+    // Simple implementation - extract word at position
+    const words = text.split(/\s+/);
+    let currentPos = 0;
+
+    for (const word of words) {
+      const wordStart = currentPos;
+      const wordEnd = currentPos + word.length;
+
+      if (position >= wordStart && position <= wordEnd) {
+        // Clean up the word (remove punctuation)
+        return word.replace(/[^\w]/g, '');
+      }
+
+      currentPos = wordEnd + 1; // +1 for space
+    }
+
+    return null;
+  }
+
+  /**
+   * Check if the context is static
+   * @param text The document text
+   * @param position The position in the text
+   * @returns True if in static context
+   */
+  public isInStaticContext(text: string, position: number): boolean {
+    // Simple implementation - check for static keyword before position
+    const beforePosition = text.substring(0, position);
+    return beforePosition.includes('static');
+  }
+
+  /**
+   * Get access modifier context
+   * @param text The document text
+   * @param position The position in the text
+   * @returns The access modifier or 'public' as default
+   */
+  public getAccessModifierContext(
+    text: string,
+    position: number,
+  ): 'public' | 'private' | 'protected' | 'global' {
+    // Simple implementation - check for access modifiers before position
+    const beforePosition = text.substring(0, position);
+
+    if (beforePosition.includes('private')) return 'private';
+    if (beforePosition.includes('protected')) return 'protected';
+    if (beforePosition.includes('global')) return 'global';
+
+    return 'public'; // Default
+  }
+
+  /**
+   * Extract symbol name at position from document
+   * @param document The text document
+   * @param position The position
+   * @returns The symbol name or null
    */
   private extractSymbolNameAtPosition(
     document: TextDocument,
