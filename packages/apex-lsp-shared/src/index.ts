@@ -20,8 +20,17 @@ export type {
 // Export enum utilities
 export * from './enumUtils';
 
-// Export optimized enum utilities for memory efficiency
-export * from './optimizedEnumUtils';
+// Export optimized enum utilities for memory efficiency (excluding duplicates)
+export {
+  defineOptimizedEnum,
+  getOptimizedEnumKeys,
+  getOptimizedEnumValues,
+  getOptimizedEnumEntries,
+  isValidOptimizedEnumKey,
+  isValidOptimizedEnumValue,
+  calculateOptimizedEnumSavings,
+  compareEnumMemoryUsage,
+} from './optimizedEnumUtils';
 
 // Export logger functionality
 export * from './logger';

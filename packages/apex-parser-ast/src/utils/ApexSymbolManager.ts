@@ -8,12 +8,7 @@
 
 import { HashMap } from 'data-structure-typed';
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import {
-  ApexSymbol,
-  SymbolKind,
-  SymbolVisibility,
-  createFromSymbol,
-} from '../types/symbol';
+import { ApexSymbol, SymbolKind, SymbolVisibility } from '../types/symbol';
 import {
   ApexSymbolGraph,
   ReferenceType,
@@ -21,63 +16,38 @@ import {
   DependencyAnalysis,
 } from '../references/ApexSymbolGraph';
 
-// ============================================================================
-// Phase 6.5: Memory Optimization - SymbolTable Integration
-// ============================================================================
-
 /**
- * Lightweight file metadata to replace full SymbolTable storage
+ * File metadata for tracking symbol relationships
  */
 interface FileMetadata {
   filePath: string;
   symbolCount: number;
-  scopeCount: number;
   lastUpdated: number;
-  scopeHierarchy: ScopeNode[];
 }
 
 /**
- * Scope hierarchy node for graph integration
- */
-interface ScopeNode {
-  name: string;
-  scopeType: string;
-  parentScope?: string;
-  symbolIds: string[];
-  children: string[];
-}
-
-/**
- * Context for symbol resolution
+ * Symbol resolution context for disambiguation
  */
 export interface SymbolResolutionContext {
-  // Source context
   sourceFile: string;
   sourceSymbol?: ApexSymbol;
-
-  // Import context
   importStatements: string[];
   namespaceContext: string;
-
-  // Scope context
   currentScope: string;
-  scopeChain: string[]; // Full scope hierarchy
-
-  // Type context
+  scopeChain: string[];
   expectedType?: string;
   parameterTypes: string[];
   returnType?: string;
-
-  // Access context
   accessModifier: 'public' | 'private' | 'protected' | 'global';
   isStatic: boolean;
-
-  // Relationship context
   relationshipType?: ReferenceType;
   inheritanceChain: string[];
   interfaceImplementations: string[];
 }
 
+/**
+ * Result of symbol resolution
+ */
 export interface SymbolResolutionResult {
   symbol: ApexSymbol;
   filePath: string;
@@ -87,6 +57,9 @@ export interface SymbolResolutionResult {
   resolutionContext?: string;
 }
 
+/**
+ * Impact analysis for refactoring
+ */
 export interface ImpactAnalysis {
   directImpact: ApexSymbol[];
   indirectImpact: ApexSymbol[];
@@ -95,67 +68,26 @@ export interface ImpactAnalysis {
   riskAssessment: 'low' | 'medium' | 'high';
 }
 
+/**
+ * Symbol metrics for analysis
+ */
 export interface SymbolMetrics {
-  // Basic metrics
   referenceCount: number;
   dependencyCount: number;
   dependentCount: number;
-
-  // Complexity metrics
   cyclomaticComplexity: number;
   depthOfInheritance: number;
   couplingScore: number;
-
-  // Impact metrics
   impactScore: number;
   changeImpactRadius: number;
   refactoringRisk: number;
-
-  // Usage patterns
   usagePatterns: string[];
   accessPatterns: string[];
   lifecycleStage: 'active' | 'deprecated' | 'legacy' | 'experimental';
 }
 
-// Phase 5: Extended Relationship Types
-export interface RelationshipStats {
-  totalReferences: number;
-  relationshipTypeCounts: Map<ReferenceType, number>;
-  mostCommonRelationshipType: ReferenceType | null;
-  leastCommonRelationshipType: ReferenceType | null;
-  averageReferencesPerType: number;
-}
-
-export interface RelationshipPattern {
-  name: string;
-  description: string;
-  minTotalReferences?: number;
-  maxTotalReferences?: number;
-  requiredRelationshipTypes: Map<ReferenceType, number>;
-  requiredSymbolKinds?: SymbolKind[];
-  requiredVisibility?: SymbolVisibility;
-}
-
-export interface RelationshipPatternResult {
-  pattern: RelationshipPattern;
-  matchingSymbols: ApexSymbol[];
-  count: number;
-  percentage: number;
-}
-
-export interface RelationshipPatternAnalysis {
-  totalSymbols: number;
-  relationshipPatterns: Map<string, RelationshipPatternResult>;
-  mostCommonPatterns: RelationshipPatternResult[];
-  patternInsights: string[];
-}
-
-// ============================================================================
-// Phase 3: Cache Consolidation - Unified Cache System
-// ============================================================================
-
 /**
- * Unified cache entry with metadata for efficient storage and retrieval
+ * Unified cache entry
  */
 interface UnifiedCacheEntry<T> {
   value: T;
@@ -163,11 +95,11 @@ interface UnifiedCacheEntry<T> {
   accessCount: number;
   lastAccessed: number;
   type: CacheEntryType;
-  size: number; // Estimated memory size in bytes
+  size: number;
 }
 
 /**
- * Cache entry types for categorization and optimization
+ * Cache entry types
  */
 type CacheEntryType =
   | 'symbol_lookup'
@@ -177,12 +109,10 @@ type CacheEntryType =
   | 'metrics'
   | 'pattern_match'
   | 'stats'
-  | 'analysis'
-  | 'lazy_metrics'
-  | 'lazy_analysis';
+  | 'analysis';
 
 /**
- * Unified cache statistics for monitoring and optimization
+ * Unified cache statistics
  */
 interface UnifiedCacheStats {
   totalEntries: number;
@@ -197,22 +127,15 @@ interface UnifiedCacheStats {
 }
 
 /**
- * Unified cache system with LRU eviction and memory optimization
- * Replaces multiple HashMap caches with single efficient cache
+ * Unified cache implementation for memory optimization
  */
 export class UnifiedCache {
   private readonly logger = getLogger();
-
-  // Core cache storage with WeakRef for automatic GC
   private cache: Map<string, WeakRef<UnifiedCacheEntry<any>>> = new Map();
   private readonly registry = new FinalizationRegistry<string>((key) => {
     this.handleGarbageCollected(key);
   });
-
-  // LRU tracking
   private accessOrder: string[] = [];
-
-  // Statistics and monitoring
   private stats: UnifiedCacheStats = {
     totalEntries: 0,
     totalSize: 0,
@@ -224,8 +147,6 @@ export class UnifiedCache {
     typeDistribution: new Map(),
     lastOptimization: Date.now(),
   };
-
-  // Configuration
   private readonly maxSize: number;
   private readonly maxMemoryBytes: number;
   private readonly ttl: number;
@@ -243,9 +164,6 @@ export class UnifiedCache {
     this.enableWeakRef = enableWeakRef;
   }
 
-  /**
-   * Get value from cache with automatic cleanup
-   */
   get<T>(key: string): T | undefined {
     const entryRef = this.cache.get(key);
     if (!entryRef) {
@@ -276,16 +194,12 @@ export class UnifiedCache {
     entry.accessCount++;
     entry.lastAccessed = Date.now();
     this.updateAccessOrder(key);
-
     this.stats.hitCount++;
     this.updateHitRate();
 
     return entry.value;
   }
 
-  /**
-   * Set value in cache with automatic size management
-   */
   set<T>(
     key: string,
     value: T,
@@ -302,14 +216,14 @@ export class UnifiedCache {
       size,
     };
 
-    // Check if we need to evict entries
+    // Ensure capacity before adding
     this.ensureCapacity(size);
 
-    // Store with WeakRef if enabled
+    // Add to cache
     if (this.enableWeakRef) {
       const entryRef = new WeakRef(entry);
-      this.registry.register(entry, key);
       this.cache.set(key, entryRef);
+      this.registry.register(entry, key);
     } else {
       this.cache.set(key, new WeakRef(entry));
     }
@@ -318,17 +232,14 @@ export class UnifiedCache {
     this.updateStats(entry, type, size);
   }
 
-  /**
-   * Delete entry from cache
-   */
   delete(key: string): boolean {
     const entryRef = this.cache.get(key);
-    if (entryRef) {
-      const entry = entryRef.deref();
-      if (entry) {
-        this.stats.totalSize -= entry.size;
-        this.updateTypeDistribution(entry.type, -1);
-      }
+    if (!entryRef) return false;
+
+    const entry = entryRef.deref();
+    if (entry) {
+      this.stats.totalSize -= entry.size;
+      this.updateTypeDistribution(entry.type, -1);
     }
 
     this.cache.delete(key);
@@ -338,9 +249,6 @@ export class UnifiedCache {
     return true;
   }
 
-  /**
-   * Check if key exists in cache
-   */
   has(key: string): boolean {
     const entryRef = this.cache.get(key);
     if (!entryRef) return false;
@@ -355,9 +263,6 @@ export class UnifiedCache {
     return Date.now() - entry.timestamp <= this.ttl;
   }
 
-  /**
-   * Clear all entries
-   */
   clear(): void {
     this.cache.clear();
     this.accessOrder = [];
@@ -374,35 +279,21 @@ export class UnifiedCache {
     };
   }
 
-  /**
-   * Get cache statistics
-   */
   getStats(): UnifiedCacheStats {
     return { ...this.stats };
   }
 
-  /**
-   * Optimize cache by removing expired entries and enforcing limits
-   */
   optimize(): void {
-    const now = Date.now();
-    const keysToRemove: string[] = [];
+    this.logger.debug(() => 'Optimizing unified cache...');
 
     // Remove expired entries
+    const now = Date.now();
     for (const [key, entryRef] of this.cache.entries()) {
       const entry = entryRef.deref();
-      if (!entry) {
-        keysToRemove.push(key);
-        continue;
-      }
-
-      if (now - entry.timestamp > this.ttl) {
-        keysToRemove.push(key);
+      if (!entry || now - entry.timestamp > this.ttl) {
+        this.delete(key);
       }
     }
-
-    // Remove expired entries
-    keysToRemove.forEach((key) => this.delete(key));
 
     // Enforce size limits
     this.enforceSizeLimits();
@@ -410,84 +301,57 @@ export class UnifiedCache {
     this.stats.lastOptimization = now;
     this.logger.debug(
       () =>
-        `Cache optimization completed: removed ${keysToRemove.length} entries`,
+        `Cache optimization completed: ${this.stats.totalEntries} entries, ${this.stats.hitRate.toFixed(2)} hit rate`,
     );
   }
 
-  /**
-   * Invalidate entries matching pattern
-   */
   invalidatePattern(pattern: string): number {
-    const keysToRemove: string[] = [];
+    const regex = new RegExp(pattern, 'i');
+    let invalidatedCount = 0;
 
     for (const key of this.cache.keys()) {
-      if (key.includes(pattern)) {
-        keysToRemove.push(key);
+      if (regex.test(key)) {
+        if (this.delete(key)) {
+          invalidatedCount++;
+        }
       }
     }
 
-    keysToRemove.forEach((key) => this.delete(key));
-    return keysToRemove.length;
+    return invalidatedCount;
   }
 
-  // ============================================================================
-  // Private Methods
-  // ============================================================================
-
-  /**
-   * Ensure cache has capacity for new entry
-   */
   private ensureCapacity(newEntrySize: number): void {
     while (
-      (this.stats.totalEntries >= this.maxSize ||
-        this.stats.totalSize + newEntrySize > this.maxMemoryBytes) &&
-      this.accessOrder.length > 0
+      this.stats.totalEntries >= this.maxSize ||
+      this.stats.totalSize + newEntrySize > this.maxMemoryBytes
     ) {
       this.evictLRU();
     }
   }
 
-  /**
-   * Evict least recently used entry
-   */
   private evictLRU(): void {
     if (this.accessOrder.length === 0) return;
 
-    const lruKey = this.accessOrder.shift()!;
-    this.delete(lruKey);
-    this.stats.evictionCount++;
+    const lruKey = this.accessOrder[0];
+    if (this.delete(lruKey)) {
+      this.stats.evictionCount++;
+    }
   }
 
-  /**
-   * Enforce size limits
-   */
   private enforceSizeLimits(): void {
     while (
-      this.stats.totalEntries > this.maxSize &&
-      this.accessOrder.length > 0
-    ) {
-      this.evictLRU();
-    }
-
-    while (
-      this.stats.totalSize > this.maxMemoryBytes &&
-      this.accessOrder.length > 0
+      this.stats.totalEntries > this.maxSize ||
+      this.stats.totalSize > this.maxMemoryBytes
     ) {
       this.evictLRU();
     }
   }
 
-  /**
-   * Update access order for LRU tracking
-   */
   private updateAccessOrder(key: string): void {
     this.removeFromAccessOrder(key);
     this.accessOrder.push(key);
   }
 
-  /**
-   * Remove key from access order
-   */
   private removeFromAccessOrder(key: string): void {
     const index = this.accessOrder.indexOf(key);
     if (index > -1) {
@@ -495,9 +359,6 @@ export class UnifiedCache {
     }
   }
 
-  /**
-   * Update cache statistics
-   */
   private updateStats(
     entry: UnifiedCacheEntry<any>,
     type: CacheEntryType,
@@ -509,81 +370,48 @@ export class UnifiedCache {
     this.updateAverageEntrySize();
   }
 
-  /**
-   * Update type distribution statistics
-   */
   private updateTypeDistribution(type: CacheEntryType, delta: number): void {
     const current = this.stats.typeDistribution.get(type) || 0;
     this.stats.typeDistribution.set(type, current + delta);
   }
 
-  /**
-   * Update average entry size
-   */
   private updateAverageEntrySize(): void {
-    this.stats.averageEntrySize =
-      this.stats.totalEntries > 0
-        ? this.stats.totalSize / this.stats.totalEntries
-        : 0;
+    if (this.stats.totalEntries > 0) {
+      this.stats.averageEntrySize =
+        this.stats.totalSize / this.stats.totalEntries;
+    }
   }
 
-  /**
-   * Update hit rate
-   */
   private updateHitRate(): void {
     const total = this.stats.hitCount + this.stats.missCount;
     this.stats.hitRate = total > 0 ? this.stats.hitCount / total : 0;
   }
 
-  /**
-   * Estimate memory size of value
-   */
   private estimateSize(value: any): number {
-    if (typeof value === 'string') return value.length * 2;
-    if (typeof value === 'number') return 8;
-    if (typeof value === 'boolean') return 4;
-    if (Array.isArray(value)) return value.length * 8;
-    if (value && typeof value === 'object') {
-      return Object.keys(value).length * 16;
-    }
-    return 16; // Default estimate
+    // Simple size estimation
+    const jsonString = JSON.stringify(value);
+    return new Blob([jsonString]).size;
   }
 
-  /**
-   * Handle garbage collected entries
-   */
   private handleGarbageCollected(key: string): void {
+    this.logger.debug(() => `Cache entry garbage collected: ${key}`);
     this.cache.delete(key);
     this.removeFromAccessOrder(key);
     this.stats.totalEntries--;
   }
 }
 
-// ============================================================================
-// Updated ApexSymbolManager with Unified Cache
-// ============================================================================
-
 /**
- * Unified graph-based symbol manager with consolidated cache system
- * Replaces CrossFileSymbolManager and GlobalSymbolRegistry
+ * Main Apex Symbol Manager with DST integration
  */
 export class ApexSymbolManager {
   private readonly logger = getLogger();
-
-  // Core graph-based storage
   private symbolGraph: ApexSymbolGraph;
-
-  // Memory-optimized file metadata (replaces symbolTableIndex)
   private fileMetadata: HashMap<string, FileMetadata>;
-
-  // PHASE 3: Unified cache system (replaces multiple HashMap caches)
   private unifiedCache: UnifiedCache;
+  private readonly MAX_CACHE_SIZE = 5000;
+  private readonly CACHE_TTL = 3 * 60 * 1000; // 3 minutes
 
-  // Memory management
-  private readonly MAX_CACHE_SIZE = 5000; // Reduced from 10000
-  private readonly CACHE_TTL = 3 * 60 * 1000; // Reduced from 5 minutes to 3 minutes
-
-  // Memory statistics
   private memoryStats = {
     totalSymbols: 0,
     totalCacheEntries: 0,
@@ -594,366 +422,125 @@ export class ApexSymbolManager {
   constructor() {
     this.symbolGraph = new ApexSymbolGraph();
     this.fileMetadata = new HashMap();
-
-    // Initialize unified cache with optimized settings
     this.unifiedCache = new UnifiedCache(
       this.MAX_CACHE_SIZE,
-      50 * 1024 * 1024, // 50MB max memory
+      50 * 1024 * 1024, // 50MB
       this.CACHE_TTL,
-      true, // Enable WeakRef for automatic GC
+      true,
     );
   }
 
-  // ============================================================================
-  // Phase 2.1: Optimized Symbol Management Methods
-  // ============================================================================
-
   /**
-   * Add a symbol to the graph with memory optimization
-   * Updated to use unified cache system
+   * Add a symbol to the manager
    */
   addSymbol(symbol: ApexSymbol, filePath: string): void {
-    this.logger.debug(() => `Adding symbol: ${symbol.name} from ${filePath}`);
-
-    const symbolId = this.getSymbolId(symbol, filePath);
-
-    // Check if symbol already exists with this ID
-    if (this.unifiedCache.has(symbolId)) {
-      this.logger.debug(
-        () => `Symbol already exists with ID: ${symbolId}, skipping duplicate`,
-      );
-      return; // Skip duplicate addition
-    }
-
-    // Add to graph (still using full symbol for compatibility)
     this.symbolGraph.addSymbol(symbol, filePath);
-
-    // Store symbol in unified cache
-    this.unifiedCache.set(symbolId, symbol, 'symbol_lookup');
-
-    // Update memory stats
     this.memoryStats.totalSymbols++;
-    this.memoryStats.totalCacheEntries =
-      this.unifiedCache.getStats().totalEntries;
 
-    // Invalidate caches that might be affected by this symbol
-    this.unifiedCache.invalidatePattern(symbol.name);
-    this.unifiedCache.invalidatePattern(filePath);
-
-    // Periodic memory optimization
-    if (this.memoryStats.totalCacheEntries % 100 === 0) {
-      this.optimizeMemory();
+    // Update file metadata
+    const existing = this.fileMetadata.get(filePath);
+    if (existing) {
+      existing.symbolCount++;
+      existing.lastUpdated = Date.now();
+    } else {
+      this.fileMetadata.set(filePath, {
+        filePath,
+        symbolCount: 1,
+        lastUpdated: Date.now(),
+      });
     }
+
+    // Cache the symbol
+    const symbolId = this.getSymbolId(symbol, filePath);
+    this.unifiedCache.set(symbolId, symbol, 'symbol_lookup');
   }
 
   /**
-   * Get symbol by ID with unified cache
+   * Get symbol by ID
    */
   getSymbol(symbolId: string): ApexSymbol | null {
     return this.unifiedCache.get<ApexSymbol>(symbolId) || null;
   }
 
   /**
-   * Find all symbols with a given name (optimized)
+   * Find all symbols with a given name
    */
   findSymbolByName(name: string): ApexSymbol[] {
-    // Use cached result if available
     const cacheKey = `symbol_name_${name}`;
     const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
     if (cached) {
       return cached;
     }
 
-    // Search through symbol graph
     const symbols = this.symbolGraph.lookupSymbolByName(name);
-
-    // Cache the result
     this.unifiedCache.set(cacheKey, symbols, 'symbol_lookup');
-
     return symbols;
-  }
-
-  /**
-   * Find a symbol by its fully qualified name (optimized)
-   */
-  findSymbolByFQN(fqn: string): ApexSymbol | null {
-    // Use cached result if available
-    const cacheKey = `symbol_fqn_${fqn}`;
-    const cached = this.unifiedCache.get<ApexSymbol>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    // Search through symbol graph
-    const symbol = this.symbolGraph.lookupSymbolByFQN(fqn);
-
-    // Cache the result
-    this.unifiedCache.set(cacheKey, symbol, 'fqn_lookup');
-
-    return symbol;
-  }
-
-  /**
-   * Find all symbols in a specific file (optimized)
-   */
-  findSymbolsInFile(filePath: string): ApexSymbol[] {
-    // Use cached result if available
-    const cacheKey = `file_symbols_${filePath}`;
-    const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    // Search through symbol graph
-    const symbols = this.symbolGraph.getSymbolsInFile(filePath);
-
-    // Cache the result
-    this.unifiedCache.set(cacheKey, symbols, 'file_lookup');
-
-    return symbols;
-  }
-
-  // ============================================================================
-  // Phase 2.2: Optimized Cache Management
-  // ============================================================================
-
-  /**
-   * Memory usage optimization with unified cache
-   */
-  optimizeMemory(): void {
-    this.logger.debug(() => 'Optimizing memory usage...');
-
-    // Use unified cache optimization
-    this.unifiedCache.optimize();
-
-    // Update memory stats
-    const stats = this.unifiedCache.getStats();
-    this.memoryStats.totalCacheEntries = stats.totalEntries;
-    this.memoryStats.lastCleanup = Date.now();
-    this.memoryStats.memoryOptimizationLevel =
-      this.calculateMemoryOptimizationLevel();
-
-    this.logger.debug(
-      () =>
-        `Cache optimization completed: ${stats.totalEntries} entries, ${stats.hitRate.toFixed(2)} hit rate`,
-    );
-  }
-
-  /**
-   * Get memory usage statistics with detailed breakdown
-   */
-  getMemoryUsage(): {
-    totalSymbols: number;
-    totalCacheEntries: number;
-    estimatedMemoryUsage: number;
-    fileMetadataSize: number;
-    memoryOptimizationLevel: string;
-    cacheEfficiency: number;
-    recommendations: string[];
-  } {
-    const stats = this.unifiedCache.getStats();
-    const totalCacheEntries = stats.totalEntries;
-
-    // Calculate scope hierarchy memory usage
-    let scopeHierarchySize = 0;
-    for (const [, metadata] of this.fileMetadata) {
-      scopeHierarchySize += metadata.scopeHierarchy.length;
-    }
-
-    // Rough estimate: 1KB per cache entry, 100B per scope hierarchy entry
-    const estimatedMemoryUsage = stats.totalSize + scopeHierarchySize * 100;
-
-    // Calculate cache efficiency
-    const cacheEfficiency = stats.hitRate * 100;
-
-    return {
-      totalSymbols: this.memoryStats.totalSymbols,
-      totalCacheEntries,
-      estimatedMemoryUsage,
-      fileMetadataSize: this.fileMetadata.size,
-      memoryOptimizationLevel: this.memoryStats.memoryOptimizationLevel,
-      cacheEfficiency,
-      recommendations: this.generateMemoryOptimizationRecommendations(),
-    };
-  }
-
-  /**
-   * Calculate memory optimization level based on current usage
-   */
-  private calculateMemoryOptimizationLevel(): string {
-    const stats = this.unifiedCache.getStats();
-    const totalCacheEntries = stats.totalEntries;
-
-    if (totalCacheEntries < 500) return 'OPTIMAL';
-    if (totalCacheEntries < 2000) return 'GOOD';
-    if (totalCacheEntries < 5000) return 'ACCEPTABLE';
-    return 'REQUIRES_OPTIMIZATION';
-  }
-
-  /**
-   * Calculate cache efficiency
-   */
-  private calculateCacheEfficiency(): number {
-    const stats = this.unifiedCache.getStats();
-    return stats.hitRate * 100;
-  }
-
-  /**
-   * Generate memory optimization recommendations
-   */
-  private generateMemoryOptimizationRecommendations(): string[] {
-    const recommendations: string[] = [];
-    const memoryUsage = this.getMemoryUsage();
-
-    if (memoryUsage.memoryOptimizationLevel === 'REQUIRES_OPTIMIZATION') {
-      recommendations.push('Reduce cache size limits for large codebases');
-      recommendations.push('Implement more aggressive cache TTL');
-      recommendations.push('Enable lazy loading for expensive operations');
-    }
-
-    if (memoryUsage.totalCacheEntries > 2000) {
-      recommendations.push(
-        'High cache entry count - consider predictive cache invalidation',
-      );
-      recommendations.push('Monitor cache hit rates and adjust TTL settings');
-    }
-
-    if (memoryUsage.cacheEfficiency < 80) {
-      recommendations.push('Low cache efficiency - review cache strategies');
-    }
-
-    if (recommendations.length === 0) {
-      recommendations.push('Memory optimization is performing well');
-    }
-
-    return recommendations;
-  }
-
-  // ============================================================================
-  // Phase 2.3: Utility Methods (Optimized)
-  // ============================================================================
-
-  /**
-   * Clear caches related to a specific symbol
-   */
-  private clearRelatedCaches(symbolId: string): void {
-    // Clear relationship caches that might be affected
-    const keysToRemove: string[] = [];
-
-    for (const key of this.relationshipCache.keys()) {
-      if (key.includes(symbolId)) {
-        keysToRemove.push(key);
-      }
-    }
-
-    keysToRemove.forEach((key) => this.relationshipCache.delete(key));
-
-    // Clear metrics cache for this symbol
-    this.metricsCache.delete(symbolId);
-    this.lazyMetrics.delete(symbolId);
-    this.lazyAnalysis.delete(symbolId);
-  }
-
-  /**
-   * Invalidate cache entries based on pattern
-   */
-  private invalidateCache(pattern: string): void {
-    const keysToRemove: string[] = [];
-
-    for (const key of this.cacheTimestamps.keys()) {
-      if (key.includes(pattern)) {
-        keysToRemove.push(key);
-      }
-    }
-
-    keysToRemove.forEach((key) => {
-      this.cacheTimestamps.delete(key);
-      this.unifiedCache.delete(key);
-      this.relationshipCache.delete(key);
-      this.metricsCache.delete(key);
-    });
-
-    this.logger.debug(
-      () =>
-        `Invalidated ${keysToRemove.length} cache entries for pattern: ${pattern}`,
-    );
-  }
-
-  // ============================================================================
-  // Phase 2.4: Symbol Lookup Methods
-  // ============================================================================
-
-  /**
-   * Find all symbols with a given name
-   */
-  findSymbolByName(name: string): ApexSymbol[] {
-    return this.symbolGraph.lookupSymbolByName(name);
   }
 
   /**
    * Find a symbol by its fully qualified name
    */
   findSymbolByFQN(fqn: string): ApexSymbol | null {
-    return this.symbolGraph.lookupSymbolByFQN(fqn);
+    const cacheKey = `symbol_fqn_${fqn}`;
+    const cached = this.unifiedCache.get<ApexSymbol>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const symbol = this.symbolGraph.lookupSymbolByFQN(fqn);
+    this.unifiedCache.set(cacheKey, symbol, 'fqn_lookup');
+    return symbol || null;
   }
 
   /**
    * Find all symbols in a specific file
    */
   findSymbolsInFile(filePath: string): ApexSymbol[] {
-    return this.symbolGraph.getSymbolsInFile(filePath);
+    const cacheKey = `file_symbols_${filePath}`;
+    const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const symbols = this.symbolGraph.getSymbolsInFile(filePath);
+    this.unifiedCache.set(cacheKey, symbols, 'file_lookup');
+    return symbols;
   }
 
   /**
-   * Find all files containing a symbol with the given name
+   * Find files containing a symbol with the given name
    */
   findFilesForSymbol(name: string): string[] {
     return this.symbolGraph.getFilesForSymbol(name);
   }
 
-  // ============================================================================
-  // Phase 2.5: Graph-Based Relationship Queries
-  // ============================================================================
-
   /**
    * Find all references to a symbol
    */
   findReferencesTo(symbol: ApexSymbol): ReferenceResult[] {
-    const cacheKey = `refs_to_${this.getSymbolId(symbol)}`;
-
-    // Check cache first
-    const cached = this.relationshipCache.get(cacheKey);
+    const cacheKey = `refs_to_${symbol.name}`;
+    const cached = this.unifiedCache.get<ReferenceResult[]>(cacheKey);
     if (cached) {
       return cached;
     }
 
-    // Query graph
     const results = this.symbolGraph.findReferencesTo(symbol);
-
-    // Cache results
-    this.relationshipCache.set(cacheKey, results);
-
+    this.unifiedCache.set(cacheKey, results, 'relationship');
     return results;
   }
 
   /**
-   * Find all symbols that reference this symbol
+   * Find all references from a symbol
    */
   findReferencesFrom(symbol: ApexSymbol): ReferenceResult[] {
-    const cacheKey = `refs_from_${this.getSymbolId(symbol)}`;
-
-    // Check cache first
-    const cached = this.relationshipCache.get(cacheKey);
+    const cacheKey = `refs_from_${symbol.name}`;
+    const cached = this.unifiedCache.get<ReferenceResult[]>(cacheKey);
     if (cached) {
       return cached;
     }
 
-    // Query graph
     const results = this.symbolGraph.findReferencesFrom(symbol);
-
-    // Cache results
-    this.relationshipCache.set(cacheKey, results);
-
+    this.unifiedCache.set(cacheKey, results, 'relationship');
     return results;
   }
 
@@ -964,833 +551,179 @@ export class ApexSymbolManager {
     symbol: ApexSymbol,
     relationshipType: ReferenceType,
   ): ApexSymbol[] {
-    const cacheKey = `related_${this.getSymbolId(symbol)}_${relationshipType}`;
-
-    // Check cache first
-    const cached = this.relationshipCache.get(cacheKey);
-    if (cached) {
-      return cached.map((ref) => ref.symbol);
-    }
-
-    // Query graph and filter by relationship type
-    const allReferences = this.symbolGraph.findReferencesFrom(symbol);
-    const filteredReferences = allReferences.filter(
-      (ref) => ref.referenceType === relationshipType,
-    );
-
-    // Cache results
-    this.relationshipCache.set(cacheKey, filteredReferences);
-
-    return filteredReferences.map((ref) => ref.symbol);
+    const references = this.findReferencesFrom(symbol);
+    return references
+      .filter((ref) => ref.referenceType === relationshipType)
+      .map((ref) => ref.symbol);
   }
 
-  // ============================================================================
-  // Phase 3.1: Dependency Analysis
-  // ============================================================================
-
   /**
-   * Analyze dependencies for a specific symbol
+   * Analyze dependencies for a symbol
    */
   analyzeDependencies(symbol: ApexSymbol): DependencyAnalysis {
-    const _symbolId = this.getSymbolId(symbol);
-
-    // Check lazy analysis cache
-    const cachedAnalysis = this.lazyAnalysis.get(_symbolId);
-    if (cachedAnalysis) {
-      return cachedAnalysis as any; // Type assertion for now
+    const cacheKey = `deps_${symbol.name}`;
+    const cached = this.unifiedCache.get<DependencyAnalysis>(cacheKey);
+    if (cached) {
+      return cached;
     }
 
-    // Perform dependency analysis
     const analysis = this.symbolGraph.analyzeDependencies(symbol);
-
-    // Cache the result
-    this.lazyAnalysis.set(_symbolId, Promise.resolve(analysis));
-
+    this.unifiedCache.set(cacheKey, analysis, 'analysis');
     return analysis;
   }
 
   /**
-   * Detect all circular dependencies in the graph
+   * Detect circular dependencies
    */
   detectCircularDependencies(): string[][] {
     return this.symbolGraph.detectCircularDependencies();
   }
 
   /**
-   * Get impact analysis for refactoring a symbol
+   * Get impact analysis for refactoring
    */
   getImpactAnalysis(symbol: ApexSymbol): ImpactAnalysis {
-    // Get direct impact (symbols that directly reference this symbol)
-    const directReferences = this.findReferencesTo(symbol);
-    const directImpact = directReferences.map((ref) => ref.symbol);
-
-    // Get indirect impact (symbols that reference symbols that reference this symbol)
+    const dependencies = this.analyzeDependencies(symbol);
+    const directImpact = dependencies.dependents;
     const indirectImpact: ApexSymbol[] = [];
-    const visited = new Set<string>();
 
+    // Find indirect impact (dependents of dependents)
     const findIndirectImpact = (
       currentSymbol: ApexSymbol,
       depth: number = 0,
     ) => {
-      if (depth > 3 || visited.has(this.getSymbolId(currentSymbol))) {
-        return; // Limit depth and avoid cycles
-      }
-
-      visited.add(this.getSymbolId(currentSymbol));
-
-      const references = this.findReferencesTo(currentSymbol);
-      for (const ref of references) {
+      if (depth > 3) return; // Limit depth to prevent infinite recursion
+      const dependents = this.analyzeDependencies(currentSymbol).dependents;
+      for (const dependent of dependents) {
         if (
-          !directImpact.some(
-            (s) => this.getSymbolId(s) === this.getSymbolId(ref.symbol),
-          )
+          !directImpact.includes(dependent) &&
+          !indirectImpact.includes(dependent)
         ) {
-          indirectImpact.push(ref.symbol);
-          findIndirectImpact(ref.symbol, depth + 1);
+          indirectImpact.push(dependent);
+          findIndirectImpact(dependent, depth + 1);
         }
       }
     };
 
-    // Find indirect impact for each directly impacted symbol
-    for (const impactedSymbol of directImpact) {
-      findIndirectImpact(impactedSymbol, 1);
+    for (const dependent of directImpact) {
+      findIndirectImpact(dependent, 1);
     }
-
-    // Remove duplicates from indirect impact
-    const uniqueIndirectImpact = indirectImpact.filter(
-      (symbol, index, array) =>
-        index ===
-        array.findIndex(
-          (s) => this.getSymbolId(s) === this.getSymbolId(symbol),
-        ),
-    );
-
-    // Assess risk based on impact size
-    const totalImpact = directImpact.length + uniqueIndirectImpact.length;
-    let riskAssessment: 'low' | 'medium' | 'high';
-
-    if (totalImpact <= 5) {
-      riskAssessment = 'low';
-    } else if (totalImpact <= 20) {
-      riskAssessment = 'medium';
-    } else {
-      riskAssessment = 'high';
-    }
-
-    // Generate migration path
-    const migrationPath = this.generateMigrationPath(
-      symbol,
-      directImpact,
-      uniqueIndirectImpact,
-    );
-
-    // Identify potential breaking changes
-    const breakingChanges = this.identifyBreakingChanges(symbol, directImpact);
 
     return {
       directImpact,
-      indirectImpact: uniqueIndirectImpact,
-      breakingChanges,
-      migrationPath,
-      riskAssessment,
+      indirectImpact,
+      breakingChanges: this.identifyBreakingChanges(symbol, directImpact),
+      migrationPath: this.generateMigrationPath(
+        symbol,
+        directImpact,
+        indirectImpact,
+      ),
+      riskAssessment: this.assessRisk(
+        directImpact.length + indirectImpact.length,
+      ),
     };
   }
 
-  // ============================================================================
-  // Phase 3.2: Symbol Metrics
-  // ============================================================================
-
   /**
-   * Get metrics for all symbols
+   * Get symbol metrics
    */
   getSymbolMetrics(): Map<string, SymbolMetrics> {
     const metrics = new Map<string, SymbolMetrics>();
+    const symbols = this.getAllSymbols();
 
-    // Get all symbols from the symbol index
-    for (const [symbolId, symbol] of this.unifiedCache) {
-      const symbolMetrics = this.computeMetrics(symbol);
-      metrics.set(symbolId, symbolMetrics);
+    for (const symbol of symbols) {
+      metrics.set(symbol.name, this.computeMetrics(symbol));
     }
 
     return metrics;
   }
 
   /**
-   * Compute metrics for a specific symbol
+   * Compute metrics for a single symbol
    */
   computeMetrics(symbol: ApexSymbol): SymbolMetrics {
-    const symbolId = this.getSymbolId(symbol);
-
-    // Check cache first
-    const cached = this.metricsCache.get(symbolId);
-    if (cached) {
-      return cached;
-    }
-
-    // Compute basic metrics
+    const dependencies = this.analyzeDependencies(symbol);
     const referencesTo = this.findReferencesTo(symbol);
-    const referencesFrom = this.findReferencesFrom(symbol);
-    const referenceCount = referencesTo.length;
-    const dependencyCount = referencesFrom.length;
-    const dependentCount = referencesTo.length;
+    const _referencesFrom = this.findReferencesFrom(symbol);
 
-    // Compute complexity metrics
-    const cyclomaticComplexity = this.computeCyclomaticComplexity(symbol);
-    const depthOfInheritance = this.computeDepthOfInheritance(symbol);
-    const couplingScore = this.computeCouplingScore(symbol);
-
-    // Compute impact metrics
-    const impactScore = this.computeImpactScore(symbol);
-    const changeImpactRadius = this.computeChangeImpactRadius(symbol);
-    const refactoringRisk = this.computeRefactoringRisk(symbol);
-
-    // Determine usage patterns
-    const usagePatterns = this.analyzeUsagePatterns(symbol);
-    const accessPatterns = this.analyzeAccessPatterns(symbol);
-    const lifecycleStage = this.determineLifecycleStage(symbol);
-
-    const metrics: SymbolMetrics = {
-      referenceCount,
-      dependencyCount,
-      dependentCount,
-      cyclomaticComplexity,
-      depthOfInheritance,
-      couplingScore,
-      impactScore,
-      changeImpactRadius,
-      refactoringRisk,
-      usagePatterns,
-      accessPatterns,
-      lifecycleStage,
+    return {
+      referenceCount: referencesTo.length,
+      dependencyCount: dependencies.dependencies.length,
+      dependentCount: dependencies.dependents.length,
+      cyclomaticComplexity: this.computeCyclomaticComplexity(symbol),
+      depthOfInheritance: this.computeDepthOfInheritance(symbol),
+      couplingScore: this.computeCouplingScore(symbol),
+      impactScore: dependencies.impactScore,
+      changeImpactRadius: this.computeChangeImpactRadius(symbol),
+      refactoringRisk: this.computeRefactoringRisk(symbol),
+      usagePatterns: this.analyzeUsagePatterns(symbol),
+      accessPatterns: this.analyzeAccessPatterns(symbol),
+      lifecycleStage: this.determineLifecycleStage(symbol),
     };
-
-    // Cache the result
-    this.metricsCache.set(symbolId, metrics);
-
-    return metrics;
   }
 
   /**
-   * Get the most referenced symbols
+   * Get most referenced symbols
    */
   getMostReferencedSymbols(limit: number = 10): ApexSymbol[] {
-    const symbolMetrics = new Map<ApexSymbol, number>();
-
-    // Compute reference counts for all symbols in cache
-    for (const [, symbol] of this.unifiedCache) {
-      const references = this.findReferencesTo(symbol);
-      symbolMetrics.set(symbol, references.length);
-    }
-
-    // Sort by reference count and return top N
-    return Array.from(symbolMetrics.entries())
-      .sort(([, a], [, b]) => b - a)
+    const metrics = this.getSymbolMetrics();
+    const sortedSymbols = Array.from(metrics.entries())
+      .sort(([, a], [, b]) => b.referenceCount - a.referenceCount)
       .slice(0, limit)
-      .map(([symbol]) => symbol);
-  }
+      .map(([name]) => this.findSymbolByName(name)[0])
+      .filter(Boolean);
 
-  // ============================================================================
-  // Phase 3.3: Batch Operations
-  // ============================================================================
-
-  /**
-   * Add multiple symbols in batch for better performance
-   */
-  async addSymbolsBatch(
-    symbols: Array<{ symbol: ApexSymbol; filePath: string }>,
-  ): Promise<void> {
-    this.logger.debug(() => `Adding ${symbols.length} symbols in batch`);
-
-    // Group symbols by file for efficient processing
-    const symbolsByFile = new Map<string, ApexSymbol[]>();
-
-    for (const { symbol, filePath } of symbols) {
-      if (!symbolsByFile.has(filePath)) {
-        symbolsByFile.set(filePath, []);
-      }
-      symbolsByFile.get(filePath)!.push(symbol);
-    }
-
-    // Process each file's symbols
-    for (const [filePath, fileSymbols] of symbolsByFile) {
-      for (const symbol of fileSymbols) {
-        this.addSymbol(symbol, filePath);
-      }
-    }
-
-    this.logger.debug(
-      () => `Batch addition completed for ${symbols.length} symbols`,
-    );
+    return sortedSymbols;
   }
 
   /**
-   * Analyze dependencies for multiple symbols in batch
-   */
-  async analyzeDependenciesBatch(
-    symbols: ApexSymbol[],
-  ): Promise<Map<string, DependencyAnalysis>> {
-    this.logger.debug(
-      () => `Analyzing dependencies for ${symbols.length} symbols in batch`,
-    );
-
-    const results = new Map<string, DependencyAnalysis>();
-
-    // Process symbols in parallel for better performance
-    const analysisPromises = symbols.map(async (symbol) => {
-      const symbolId = this.getSymbolId(symbol);
-      const analysis = this.analyzeDependencies(symbol);
-      return { symbolId, analysis };
-    });
-
-    const analysisResults = await Promise.all(analysisPromises);
-
-    for (const { symbolId, analysis } of analysisResults) {
-      results.set(symbolId, analysis);
-    }
-
-    this.logger.debug(
-      () => `Batch dependency analysis completed for ${symbols.length} symbols`,
-    );
-
-    return results;
-  }
-
-  // ============================================================================
-  // Phase 4.1: Enhanced Context Resolution
-  // ============================================================================
-
-  /**
-   * Resolve a symbol by name with advanced context awareness
+   * Resolve symbol with context
    */
   resolveSymbol(
     name: string,
     context: SymbolResolutionContext,
   ): SymbolResolutionResult {
-    this.logger.debug(
-      () => `Resolving symbol: ${name} with context from ${context.sourceFile}`,
-    );
-
-    // Step 1: Find all candidates with the given name
     const candidates = this.findSymbolByName(name);
 
     if (candidates.length === 0) {
       return {
-        symbol: null as any,
-        filePath: '',
+        symbol: this.createPlaceholderSymbol(name),
+        filePath: context.sourceFile,
         confidence: 0,
         isAmbiguous: false,
-        resolutionContext: 'No symbols found with this name',
+        resolutionContext: 'No candidates found',
       };
     }
 
     if (candidates.length === 1) {
-      // Single candidate - high confidence
-      const candidate = candidates[0];
       return {
-        symbol: candidate,
-        filePath: this.getSymbolFilePath(candidate),
-        confidence: 0.9,
+        symbol: candidates[0],
+        filePath: candidates[0].key.path[0] || context.sourceFile,
+        confidence: 0.8,
         isAmbiguous: false,
-        resolutionContext: 'Single symbol found',
+        resolutionContext: 'Single candidate',
       };
     }
 
-    // Step 2: Apply context-aware resolution for multiple candidates
-    const resolved = this.resolveAmbiguousSymbolWithContext(
+    // Multiple candidates - use context to disambiguate
+    const bestMatch = this.resolveAmbiguousSymbolWithContext(
       name,
       candidates,
       context,
     );
 
     return {
-      symbol: resolved.symbol,
-      filePath: resolved.filePath,
-      confidence: resolved.confidence,
+      symbol: bestMatch.symbol,
+      filePath: bestMatch.filePath,
+      confidence: bestMatch.confidence,
       isAmbiguous: true,
       candidates,
-      resolutionContext: resolved.resolutionContext,
+      resolutionContext: bestMatch.resolutionContext,
     };
   }
 
-  // ============================================================================
-  // Phase 5.1: Extended Relationship Types
-  // ============================================================================
-
   /**
-   * Find references by specific relationship type
-   */
-  findReferencesByType(
-    symbol: ApexSymbol,
-    referenceType: ReferenceType,
-  ): ReferenceResult[] {
-    this.logger.debug(
-      () =>
-        `Finding references of type ${referenceType} for symbol: ${symbol.name}`,
-    );
-
-    const references = this.symbolGraph.findReferencesTo(symbol);
-
-    return references.filter((ref) => ref.referenceType === referenceType);
-  }
-
-  /**
-   * Find all constructor calls for a class
-   */
-  findConstructorCalls(classSymbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(
-      classSymbol,
-      ReferenceType.CONSTRUCTOR_CALL,
-    );
-  }
-
-  /**
-   * Find all static access references for a symbol
-   */
-  findStaticAccess(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.STATIC_ACCESS);
-  }
-
-  /**
-   * Find all instance access references for a symbol
-   */
-  findInstanceAccess(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.INSTANCE_ACCESS);
-  }
-
-  /**
-   * Find all import references for a symbol
-   */
-  findImportReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.IMPORT_REFERENCE);
-  }
-
-  /**
-   * Find all annotation references for a symbol
-   */
-  findAnnotationReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(
-      symbol,
-      ReferenceType.ANNOTATION_REFERENCE,
-    );
-  }
-
-  /**
-   * Find all trigger references for a symbol
-   */
-  findTriggerReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.TRIGGER_REFERENCE);
-  }
-
-  /**
-   * Find all test method references for a symbol
-   */
-  findTestMethodReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(
-      symbol,
-      ReferenceType.TEST_METHOD_REFERENCE,
-    );
-  }
-
-  /**
-   * Find all webservice references for a symbol
-   */
-  findWebServiceReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(
-      symbol,
-      ReferenceType.WEBSERVICE_REFERENCE,
-    );
-  }
-
-  /**
-   * Find all remote action references for a symbol
-   */
-  findRemoteActionReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(
-      symbol,
-      ReferenceType.REMOTE_ACTION_REFERENCE,
-    );
-  }
-
-  /**
-   * Find all property access references for a symbol
-   */
-  findPropertyAccess(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.PROPERTY_ACCESS);
-  }
-
-  /**
-   * Find all enum references for a symbol
-   */
-  findEnumReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.ENUM_REFERENCE);
-  }
-
-  /**
-   * Find all trigger context references for a symbol
-   */
-  findTriggerContextReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(
-      symbol,
-      ReferenceType.TRIGGER_CONTEXT_REFERENCE,
-    );
-  }
-
-  /**
-   * Find all SOQL references for a symbol
-   */
-  findSOQLReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.SOQL_REFERENCE);
-  }
-
-  /**
-   * Find all SOSL references for a symbol
-   */
-  findSOSLReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.SOSL_REFERENCE);
-  }
-
-  /**
-   * Find all DML references for a symbol
-   */
-  findDMLReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.DML_REFERENCE);
-  }
-
-  /**
-   * Find all Apex page references for a symbol
-   */
-  findApexPageReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.APEX_PAGE_REFERENCE);
-  }
-
-  /**
-   * Find all component references for a symbol
-   */
-  findComponentReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.COMPONENT_REFERENCE);
-  }
-
-  /**
-   * Find all custom metadata references for a symbol
-   */
-  findCustomMetadataReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(
-      symbol,
-      ReferenceType.CUSTOM_METADATA_REFERENCE,
-    );
-  }
-
-  /**
-   * Find all external service references for a symbol
-   */
-  findExternalServiceReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(
-      symbol,
-      ReferenceType.EXTERNAL_SERVICE_REFERENCE,
-    );
-  }
-
-  /**
-   * Get relationship statistics for a symbol
-   */
-  getRelationshipStats(symbol: ApexSymbol): RelationshipStats {
-    this.logger.debug(
-      () => `Getting relationship stats for symbol: ${symbol.name}`,
-    );
-
-    const allReferences = this.symbolGraph.findReferencesTo(symbol);
-
-    const stats: RelationshipStats = {
-      totalReferences: allReferences.length,
-      relationshipTypeCounts: new Map(),
-      mostCommonRelationshipType: null,
-      leastCommonRelationshipType: null,
-      averageReferencesPerType: 0,
-    };
-
-    // Count references by type
-    const typeCounts = new Map<ReferenceType, number>();
-    for (const ref of allReferences) {
-      const count = typeCounts.get(ref.referenceType) || 0;
-      typeCounts.set(ref.referenceType, count + 1);
-    }
-
-    // Find most and least common types
-    let maxCount = 0;
-    let minCount = Infinity;
-    let totalTypes = 0;
-
-    for (const [type, count] of typeCounts) {
-      stats.relationshipTypeCounts.set(type, count);
-      totalTypes++;
-
-      if (count > maxCount) {
-        maxCount = count;
-        stats.mostCommonRelationshipType = type;
-      }
-
-      if (count < minCount) {
-        minCount = count;
-        stats.leastCommonRelationshipType = type;
-      }
-    }
-
-    stats.averageReferencesPerType =
-      totalTypes > 0 ? allReferences.length / totalTypes : 0;
-
-    return stats;
-  }
-
-  /**
-   * Find symbols with specific relationship patterns
-   */
-  findSymbolsWithRelationshipPattern(
-    pattern: RelationshipPattern,
-  ): ApexSymbol[] {
-    this.logger.debug(
-      () => `Finding symbols with relationship pattern: ${pattern.name}`,
-    );
-
-    const matchingSymbols: ApexSymbol[] = [];
-
-    for (const [_symbolId, symbol] of this.unifiedCache) {
-      const stats = this.getRelationshipStats(symbol);
-
-      // Check if symbol matches the pattern
-      if (this.matchesRelationshipPattern(symbol, stats, pattern)) {
-        matchingSymbols.push(symbol);
-      }
-    }
-
-    return matchingSymbols;
-  }
-
-  /**
-   * Check if a symbol matches a relationship pattern
-   */
-  private matchesRelationshipPattern(
-    symbol: ApexSymbol,
-    stats: RelationshipStats,
-    pattern: RelationshipPattern,
-  ): boolean {
-    // Check total references count
-    if (
-      pattern.minTotalReferences &&
-      stats.totalReferences < pattern.minTotalReferences
-    ) {
-      return false;
-    }
-    if (
-      pattern.maxTotalReferences &&
-      stats.totalReferences > pattern.maxTotalReferences
-    ) {
-      return false;
-    }
-
-    // Check specific relationship type requirements
-    for (const [
-      requiredType,
-      requiredCount,
-    ] of pattern.requiredRelationshipTypes) {
-      const actualCount = stats.relationshipTypeCounts.get(requiredType) || 0;
-      if (actualCount < requiredCount) {
-        return false;
-      }
-    }
-
-    // Check symbol kind requirements
-    if (
-      pattern.requiredSymbolKinds &&
-      !pattern.requiredSymbolKinds.includes(symbol.kind)
-    ) {
-      return false;
-    }
-
-    // Check visibility requirements
-    if (
-      pattern.requiredVisibility &&
-      symbol.modifiers.visibility !== pattern.requiredVisibility
-    ) {
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Analyze relationship patterns across the entire codebase
-   */
-  analyzeRelationshipPatterns(): RelationshipPatternAnalysis {
-    this.logger.debug(() => 'Analyzing relationship patterns across codebase');
-
-    const analysis: RelationshipPatternAnalysis = {
-      totalSymbols: this.unifiedCache.size,
-      relationshipPatterns: new Map(),
-      mostCommonPatterns: [],
-      patternInsights: [],
-    };
-
-    // Define common patterns to look for
-    const patterns = this.getCommonRelationshipPatterns();
-
-    for (const pattern of patterns) {
-      const matchingSymbols = this.findSymbolsWithRelationshipPattern(pattern);
-      analysis.relationshipPatterns.set(pattern.name, {
-        pattern,
-        matchingSymbols,
-        count: matchingSymbols.length,
-        percentage: (matchingSymbols.length / this.unifiedCache.size) * 100,
-      });
-    }
-
-    // Find most common patterns
-    const sortedPatterns = Array.from(
-      analysis.relationshipPatterns.values(),
-    ).sort((a, b) => b.count - a.count);
-
-    analysis.mostCommonPatterns = sortedPatterns.slice(0, 10);
-
-    // Generate insights
-    analysis.patternInsights = this.generatePatternInsights(analysis);
-
-    return analysis;
-  }
-
-  /**
-   * Get common relationship patterns to analyze
-   */
-  private getCommonRelationshipPatterns(): RelationshipPattern[] {
-    return [
-      {
-        name: 'Heavily Referenced Classes',
-        description: 'Classes with many references from other symbols',
-        minTotalReferences: 10,
-        requiredSymbolKinds: [SymbolKind.Class],
-        requiredRelationshipTypes: new Map(),
-      },
-      {
-        name: 'Utility Classes',
-        description: 'Classes with mostly static access',
-        minTotalReferences: 5,
-        requiredRelationshipTypes: new Map([[ReferenceType.STATIC_ACCESS, 3]]),
-        requiredSymbolKinds: [SymbolKind.Class],
-      },
-      {
-        name: 'Data Models',
-        description: 'Classes with many field access references',
-        minTotalReferences: 5,
-        requiredRelationshipTypes: new Map([[ReferenceType.FIELD_ACCESS, 3]]),
-        requiredSymbolKinds: [SymbolKind.Class],
-      },
-      {
-        name: 'Service Classes',
-        description: 'Classes with many method calls',
-        minTotalReferences: 5,
-        requiredRelationshipTypes: new Map([[ReferenceType.METHOD_CALL, 3]]),
-        requiredSymbolKinds: [SymbolKind.Class],
-      },
-      {
-        name: 'Test Classes',
-        description: 'Classes with test method references',
-        requiredRelationshipTypes: new Map([
-          [ReferenceType.TEST_METHOD_REFERENCE, 1],
-        ]),
-        requiredSymbolKinds: [SymbolKind.Class],
-      },
-      {
-        name: 'Web Services',
-        description: 'Classes with webservice references',
-        requiredRelationshipTypes: new Map([
-          [ReferenceType.WEBSERVICE_REFERENCE, 1],
-        ]),
-        requiredSymbolKinds: [SymbolKind.Class],
-      },
-      {
-        name: 'Triggers',
-        description: 'Classes with trigger references',
-        requiredRelationshipTypes: new Map([
-          [ReferenceType.TRIGGER_REFERENCE, 1],
-        ]),
-        requiredSymbolKinds: [SymbolKind.Class],
-      },
-      {
-        name: 'Public APIs',
-        description: 'Public symbols with many external references',
-        minTotalReferences: 5,
-        requiredVisibility: SymbolVisibility.Public,
-        requiredRelationshipTypes: new Map(),
-      },
-      {
-        name: 'Private Implementation',
-        description: 'Private symbols with few references',
-        maxTotalReferences: 3,
-        requiredVisibility: SymbolVisibility.Private,
-        requiredRelationshipTypes: new Map(),
-      },
-    ];
-  }
-
-  /**
-   * Generate insights from relationship pattern analysis
-   */
-  private generatePatternInsights(
-    analysis: RelationshipPatternAnalysis,
-  ): string[] {
-    const insights: string[] = [];
-
-    // Most common patterns
-    if (analysis.mostCommonPatterns.length > 0) {
-      const topPattern = analysis.mostCommonPatterns[0];
-      insights.push(
-        `Most common pattern: "${topPattern.pattern.name}" with ${topPattern.count} symbols ` +
-          `(${topPattern.percentage.toFixed(1)}%)`,
-      );
-    }
-
-    // Pattern distribution
-    const patternsWithSymbols = Array.from(
-      analysis.relationshipPatterns.values(),
-    ).filter((p) => p.count > 0);
-
-    insights.push(
-      `Found ${patternsWithSymbols.length} relationship patterns across the codebase`,
-    );
-
-    // Specific insights
-    const utilityClasses = analysis.relationshipPatterns.get('Utility Classes');
-    if (utilityClasses && utilityClasses.count > 0) {
-      insights.push(
-        `Utility classes: ${utilityClasses.count} classes with static access patterns`,
-      );
-    }
-
-    const testClasses = analysis.relationshipPatterns.get('Test Classes');
-    if (testClasses && testClasses.count > 0) {
-      insights.push(
-        `Test coverage: ${testClasses.count} classes with test methods`,
-      );
-    }
-
-    const publicAPIs = analysis.relationshipPatterns.get('Public APIs');
-    if (publicAPIs && publicAPIs.count > 0) {
-      insights.push(
-        `Public APIs: ${publicAPIs.count} symbols with high external usage`,
-      );
-    }
-
-    return insights;
-  }
-
-  // ============================================================================
-  // Enhanced Context Resolution Methods
-  // ============================================================================
-
-  // ============================================================================
-  // Utility Methods
-  // ============================================================================
-
-  /**
-   * Get statistics about the symbol manager
+   * Get statistics
    */
   getStats(): {
     totalSymbols: number;
@@ -1800,659 +733,126 @@ export class ApexSymbolManager {
     cacheHitRate: number;
   } {
     const graphStats = this.symbolGraph.getStats();
+    const cacheStats = this.unifiedCache.getStats();
 
     return {
-      totalSymbols: graphStats.totalSymbols,
+      totalSymbols: this.memoryStats.totalSymbols,
       totalFiles: graphStats.totalFiles,
       totalReferences: graphStats.totalReferences,
       circularDependencies: graphStats.circularDependencies,
-      cacheHitRate: this.calculateCacheHitRate(),
+      cacheHitRate: cacheStats.hitRate,
     };
   }
 
   /**
-   * Clear all caches
+   * Clear all data
    */
-  private clearAllCaches(): void {
+  clear(): void {
+    this.symbolGraph.clear();
+    this.fileMetadata.clear();
     this.unifiedCache.clear();
-    this.relationshipCache.clear();
-    this.metricsCache.clear();
-    this.lazyMetrics.clear();
-    this.lazyAnalysis.clear();
+    this.memoryStats = {
+      totalSymbols: 0,
+      totalCacheEntries: 0,
+      lastCleanup: Date.now(),
+      memoryOptimizationLevel: 'OPTIMAL',
+    };
   }
 
   /**
-   * Clear caches related to a specific symbol
+   * Remove a file's symbols
    */
-  private clearRelatedCaches(symbolId: string): void {
-    // Clear relationship caches that might be affected
-    const keysToRemove: string[] = [];
+  removeFile(filePath: string): void {
+    this.symbolGraph.removeFile(filePath);
+    this.fileMetadata.delete(filePath);
 
-    for (const key of this.relationshipCache.keys()) {
-      if (key.includes(symbolId)) {
-        keysToRemove.push(key);
-      }
-    }
-
-    keysToRemove.forEach((key) => this.relationshipCache.delete(key));
-
-    // Clear metrics cache for this symbol
-    this.metricsCache.delete(symbolId);
-    this.lazyMetrics.delete(symbolId);
-    this.lazyAnalysis.delete(symbolId);
+    // Invalidate related cache entries
+    this.unifiedCache.invalidatePattern(filePath);
   }
 
   /**
-   * Generate a unique ID for a symbol
+   * Optimize memory usage
    */
-  /**
-   * Generate a unique symbol ID for caching and graph operations
-   * Updated for Phase 6.5.2: Symbol Key System Unification
-   */
-  private getSymbolId(symbol: ApexSymbol, filePath?: string): string {
-    // Use unified key system if available, fallback to legacy method
-    if (symbol.key.unifiedId) {
-      return filePath
-        ? `${symbol.key.unifiedId}:${filePath}`
-        : symbol.key.unifiedId;
-    }
+  optimizeMemory(): void {
+    this.logger.debug(() => 'Optimizing memory usage...');
+    this.unifiedCache.optimize();
 
-    // Generate unified ID and cache it
-    const unifiedKey = createFromSymbol(symbol, filePath);
-    symbol.key = unifiedKey;
+    const stats = this.unifiedCache.getStats();
+    this.memoryStats.totalCacheEntries = stats.totalEntries;
+    this.memoryStats.lastCleanup = Date.now();
+    this.memoryStats.memoryOptimizationLevel =
+      this.calculateMemoryOptimizationLevel();
 
-    return unifiedKey.unifiedId!;
-  }
-
-  /**
-   * Calculate cache hit rate (simplified implementation)
-   */
-  private calculateCacheHitRate(): number {
-    // This is a simplified implementation
-    // In a real system, you'd track actual hits vs misses
-    return 0.85; // Placeholder value
-  }
-
-  // ============================================================================
-  // Phase 3 Helper Methods
-  // ============================================================================
-
-  /**
-   * Generate migration path for refactoring
-   */
-  private generateMigrationPath(
-    symbol: ApexSymbol,
-    directImpact: ApexSymbol[],
-    indirectImpact: ApexSymbol[],
-  ): string[] {
-    const path: string[] = [];
-
-    // Step 1: Create backup/version
-    path.push(`Create backup of ${symbol.name} and all impacted files`);
-
-    // Step 2: Update direct dependencies first
-    if (directImpact.length > 0) {
-      path.push(`Update ${directImpact.length} direct dependencies`);
-    }
-
-    // Step 3: Update indirect dependencies
-    if (indirectImpact.length > 0) {
-      path.push(`Update ${indirectImpact.length} indirect dependencies`);
-    }
-
-    // Step 4: Update the target symbol
-    path.push(`Refactor ${symbol.name}`);
-
-    // Step 5: Run tests
-    path.push('Run comprehensive test suite');
-
-    return path;
-  }
-
-  /**
-   * Identify potential breaking changes
-   */
-  private identifyBreakingChanges(
-    symbol: ApexSymbol,
-    directImpact: ApexSymbol[],
-  ): string[] {
-    const breakingChanges: string[] = [];
-
-    // Check for public API changes
-    if (
-      symbol.modifiers.visibility === 'public' ||
-      symbol.modifiers.visibility === 'global'
-    ) {
-      breakingChanges.push(
-        `Public API change: ${symbol.name} is publicly accessible`,
-      );
-    }
-
-    // Check for interface implementations
-    if (
-      symbol.kind === 'class' &&
-      directImpact.some((s) => s.kind === 'interface')
-    ) {
-      breakingChanges.push(
-        `Interface implementation: ${symbol.name} implements interfaces`,
-      );
-    }
-
-    // Check for inheritance relationships
-    if (directImpact.some((s) => s.kind === 'class')) {
-      breakingChanges.push(
-        `Inheritance relationship: ${symbol.name} has subclasses`,
-      );
-    }
-
-    // Check for high usage
-    if (directImpact.length > 10) {
-      breakingChanges.push(
-        `High usage: ${symbol.name} is referenced by ${directImpact.length} symbols`,
-      );
-    }
-
-    return breakingChanges;
-  }
-
-  /**
-   * Compute cyclomatic complexity for a symbol
-   */
-  private computeCyclomaticComplexity(symbol: ApexSymbol): number {
-    // Simplified implementation - in a real system, this would analyze the actual code
-    let complexity = 1; // Base complexity
-
-    // Add complexity based on symbol kind
-    switch (symbol.kind) {
-      case 'method':
-        complexity += 2; // Methods have higher complexity
-        break;
-      case 'class':
-        complexity += 1; // Classes have moderate complexity
-        break;
-      case 'interface':
-        complexity += 0.5; // Interfaces have low complexity
-        break;
-      default:
-        complexity += 1;
-    }
-
-    // Add complexity based on references
-    const references = this.findReferencesFrom(symbol);
-    complexity += Math.min(references.length * 0.1, 5); // Cap at 5 additional complexity
-
-    return Math.round(complexity * 10) / 10; // Round to 1 decimal place
-  }
-
-  /**
-   * Compute depth of inheritance for a symbol
-   */
-  private computeDepthOfInheritance(symbol: ApexSymbol): number {
-    if (symbol.kind !== 'class') {
-      return 0; // Only classes have inheritance
-    }
-
-    let depth = 0;
-    let currentSymbol = symbol;
-
-    // Traverse up the inheritance chain
-    while (currentSymbol) {
-      const inheritanceRefs = this.findRelatedSymbols(
-        currentSymbol,
-        ReferenceType.INHERITANCE,
-      );
-      if (inheritanceRefs.length > 0) {
-        depth++;
-        currentSymbol = inheritanceRefs[0]; // Assume single inheritance
-      } else {
-        break;
-      }
-
-      // Prevent infinite loops
-      if (depth > 10) {
-        break;
-      }
-    }
-
-    return depth;
-  }
-
-  /**
-   * Compute coupling score for a symbol
-   */
-  private computeCouplingScore(symbol: ApexSymbol): number {
-    const referencesFrom = this.findReferencesFrom(symbol);
-    const referencesTo = this.findReferencesTo(symbol);
-
-    // Afferent coupling (incoming dependencies)
-    const afferentCoupling = referencesTo.length;
-
-    // Efferent coupling (outgoing dependencies)
-    const efferentCoupling = referencesFrom.length;
-
-    // Total coupling
-    const totalCoupling = afferentCoupling + efferentCoupling;
-
-    // Normalize to 0-1 scale
-    return Math.min(totalCoupling / 100, 1);
-  }
-
-  /**
-   * Compute impact score for a symbol
-   */
-  private computeImpactScore(symbol: ApexSymbol): number {
-    const referencesTo = this.findReferencesTo(symbol);
-    const directImpact = referencesTo.length;
-
-    // Calculate indirect impact (simplified)
-    let indirectImpact = 0;
-    for (const ref of referencesTo) {
-      const secondaryRefs = this.findReferencesTo(ref.symbol);
-      indirectImpact += secondaryRefs.length;
-    }
-
-    const totalImpact = directImpact + indirectImpact;
-
-    // Normalize to 0-1 scale
-    return Math.min(totalImpact / 200, 1);
-  }
-
-  /**
-   * Compute change impact radius
-   */
-  private computeChangeImpactRadius(symbol: ApexSymbol): number {
-    const referencesTo = this.findReferencesTo(symbol);
-    const uniqueFiles = new Set(
-      referencesTo.map((ref) => ref.filePath || 'unknown'),
+    this.logger.debug(
+      () =>
+        `Memory optimization completed: ${stats.totalEntries} entries, ${stats.hitRate.toFixed(2)} hit rate`,
     );
-
-    // Impact radius is the number of files that would be affected
-    return uniqueFiles.size;
   }
 
   /**
-   * Compute refactoring risk score
+   * Get memory usage statistics
    */
-  private computeRefactoringRisk(symbol: ApexSymbol): number {
-    let risk = 0;
+  getMemoryUsage(): {
+    totalSymbols: number;
+    totalCacheEntries: number;
+    estimatedMemoryUsage: number;
+    fileMetadataSize: number;
+    memoryOptimizationLevel: string;
+    cacheEfficiency: number;
+    recommendations: string[];
+  } {
+    const cacheStats = this.unifiedCache.getStats();
+    const estimatedMemoryUsage =
+      this.memoryStats.totalSymbols * 200 + cacheStats.totalSize;
+    const fileMetadataSize = this.fileMetadata.size * 100;
 
-    // High risk factors
-    if (
-      symbol.modifiers.visibility === 'public' ||
-      symbol.modifiers.visibility === 'global'
-    ) {
-      risk += 0.3;
-    }
-
-    const referencesTo = this.findReferencesTo(symbol);
-    if (referencesTo.length > 10) {
-      risk += 0.3;
-    }
-
-    if (
-      symbol.kind === 'class' &&
-      this.findRelatedSymbols(symbol, ReferenceType.INHERITANCE).length > 0
-    ) {
-      risk += 0.2;
-    }
-
-    // Medium risk factors
-    if (symbol.modifiers.isStatic) {
-      risk += 0.1;
-    }
-
-    if (symbol.modifiers.isFinal) {
-      risk += 0.1;
-    }
-
-    return Math.min(risk, 1);
+    return {
+      totalSymbols: this.memoryStats.totalSymbols,
+      totalCacheEntries: cacheStats.totalEntries,
+      estimatedMemoryUsage,
+      fileMetadataSize,
+      memoryOptimizationLevel: this.memoryStats.memoryOptimizationLevel,
+      cacheEfficiency: cacheStats.hitRate,
+      recommendations: this.generateMemoryOptimizationRecommendations(),
+    };
   }
 
-  /**
-   * Analyze usage patterns for a symbol
-   */
-  private analyzeUsagePatterns(symbol: ApexSymbol): string[] {
-    const patterns: string[] = [];
-    const referencesTo = this.findReferencesTo(symbol);
+  // Private helper methods
 
-    // Analyze reference types
-    const referenceTypes = new Map<ReferenceType, number>();
-    for (const ref of referencesTo) {
-      const count = referenceTypes.get(ref.referenceType) || 0;
-      referenceTypes.set(ref.referenceType, count + 1);
-    }
-
-    // Add patterns based on usage
-    for (const [type, count] of referenceTypes) {
-      if (count > 5) {
-        patterns.push(`Heavy ${type} usage (${count} references)`);
-      }
-    }
-
-    // Add patterns based on symbol kind
-    if (
-      symbol.kind === 'class' &&
-      referenceTypes.has(ReferenceType.INHERITANCE)
-    ) {
-      patterns.push('Inheritance pattern');
-    }
-
-    if (
-      symbol.kind === 'method' &&
-      referenceTypes.has(ReferenceType.METHOD_CALL)
-    ) {
-      patterns.push('Method call pattern');
-    }
-
-    return patterns;
+  private getSymbolId(symbol: ApexSymbol, filePath?: string): string {
+    const path = filePath || symbol.key.path[0] || 'unknown';
+    return `${symbol.name}:${path}`;
   }
 
-  /**
-   * Analyze access patterns for a symbol
-   */
-  private analyzeAccessPatterns(symbol: ApexSymbol): string[] {
-    const patterns: string[] = [];
-
-    // Add patterns based on modifiers
-    if (symbol.modifiers.isStatic) {
-      patterns.push('Static access');
-    }
-
-    if (symbol.modifiers.visibility === 'public') {
-      patterns.push('Public access');
-    } else if (symbol.modifiers.visibility === 'private') {
-      patterns.push('Private access');
-    } else if (symbol.modifiers.visibility === 'protected') {
-      patterns.push('Protected access');
-    }
-
-    if (symbol.modifiers.isFinal) {
-      patterns.push('Final access');
-    }
-
-    return patterns;
+  private getAllSymbols(): ApexSymbol[] {
+    // This is a simplified implementation - in practice, you'd want to track all symbols
+    const symbols: ApexSymbol[] = [];
+    // Implementation would depend on how you want to track all symbols
+    return symbols;
   }
 
-  /**
-   * Determine lifecycle stage for a symbol
-   */
-  private determineLifecycleStage(
-    symbol: ApexSymbol,
-  ): 'active' | 'deprecated' | 'legacy' | 'experimental' {
-    // Simplified implementation - in a real system, this would analyze comments, usage patterns, etc.
-    const referencesTo = this.findReferencesTo(symbol);
-
-    if (referencesTo.length === 0) {
-      return 'legacy';
-    } else if (referencesTo.length < 3) {
-      return 'experimental';
-    } else if (symbol.name.toLowerCase().includes('deprecated')) {
-      return 'deprecated';
-    } else {
-      return 'active';
-    }
+  private createPlaceholderSymbol(name: string): ApexSymbol {
+    return {
+      name,
+      kind: SymbolKind.Class, // Using Class as default since Unknown doesn't exist
+      fqn: name,
+      location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
+      modifiers: {
+        visibility: SymbolVisibility.Public,
+        isStatic: false,
+        isFinal: false,
+        isAbstract: false,
+        isVirtual: false,
+        isOverride: false,
+        isTransient: false,
+        isTestMethod: false,
+        isWebService: false,
+      },
+      key: { prefix: 'unknown', name, path: [name] },
+      parentKey: null,
+    };
   }
 
-  /**
-   * Enhanced confidence scoring based on relationship strength
-   */
-  private computeContextConfidence(
-    symbol: ApexSymbol,
-    context: SymbolResolutionContext,
-  ): number {
-    let confidence = 0.5; // Base confidence for ambiguous symbols
-
-    // Import statement analysis (highest weight)
-    if (context.importStatements.length > 0) {
-      const importConfidence = this.analyzeImportStatements(
-        symbol,
-        context.importStatements,
-      );
-      confidence += importConfidence * 0.3; // 30% weight
-    }
-
-    // Namespace context analysis
-    if (context.namespaceContext) {
-      const namespaceConfidence = this.analyzeNamespaceContext(
-        symbol,
-        context.namespaceContext,
-      );
-      confidence += namespaceConfidence * 0.2; // 20% weight
-    }
-
-    // Scope chain analysis
-    if (context.scopeChain.length > 0) {
-      const scopeConfidence = this.analyzeScopeChain(
-        symbol,
-        context.scopeChain,
-      );
-      confidence += scopeConfidence * 0.15; // 15% weight
-    }
-
-    // Type context analysis
-    if (
-      context.expectedType ||
-      context.parameterTypes.length > 0 ||
-      context.returnType
-    ) {
-      const typeConfidence = this.analyzeTypeContext(symbol, context);
-      confidence += typeConfidence * 0.15; // 15% weight
-    }
-
-    // Access modifier analysis
-    const accessConfidence = this.analyzeAccessContext(symbol, context);
-    confidence += accessConfidence * 0.1; // 10% weight
-
-    // Relationship context analysis
-    if (context.relationshipType) {
-      const relationshipConfidence = this.analyzeRelationshipContext(
-        symbol,
-        context,
-      );
-      confidence += relationshipConfidence * 0.1; // 10% weight
-    }
-
-    return Math.min(confidence, 1.0); // Cap at 1.0
-  }
-
-  /**
-   * Analyze import statements for namespace resolution
-   */
-  private analyzeImportStatements(
-    symbol: ApexSymbol,
-    importStatements: string[],
-  ): number {
-    let confidence = 0;
-
-    for (const importStatement of importStatements) {
-      // Check if the import statement matches the symbol's namespace
-      if (symbol.fqn && importStatement.includes(symbol.fqn.split('.')[0])) {
-        confidence += 0.8; // High confidence for namespace match
-      }
-
-      // Check for wildcard imports
-      if (importStatement.endsWith('.*')) {
-        const namespace = importStatement.replace('.*', '');
-        if (symbol.fqn && symbol.fqn.startsWith(namespace)) {
-          confidence += 0.6; // Medium confidence for wildcard import
-        }
-      }
-
-      // Check for specific class imports
-      if (importStatement.includes(symbol.name)) {
-        confidence += 0.9; // Very high confidence for specific import
-      }
-    }
-
-    return Math.min(confidence, 1.0);
-  }
-
-  /**
-   * Analyze namespace context for resolution
-   */
-  private analyzeNamespaceContext(
-    symbol: ApexSymbol,
-    namespaceContext: string,
-  ): number {
-    if (!symbol.fqn) {
-      return 0;
-    }
-
-    const symbolNamespace = symbol.fqn.split('.')[0];
-
-    if (symbolNamespace === namespaceContext) {
-      return 0.9; // High confidence for exact namespace match
-    }
-
-    if (symbolNamespace.toLowerCase() === namespaceContext.toLowerCase()) {
-      return 0.7; // Medium confidence for case-insensitive match
-    }
-
-    return 0.1; // Low confidence for no match
-  }
-
-  /**
-   * Analyze scope chain for resolution
-   */
-  private analyzeScopeChain(symbol: ApexSymbol, scopeChain: string[]): number {
-    let confidence = 0;
-
-    // Check if symbol is in the current scope
-    if (scopeChain.includes(symbol.name)) {
-      confidence += 0.5;
-    }
-
-    // Check for nested scope matches
-    for (const scope of scopeChain) {
-      if (symbol.fqn && symbol.fqn.includes(scope)) {
-        confidence += 0.3;
-      }
-    }
-
-    return Math.min(confidence, 1.0);
-  }
-
-  /**
-   * Analyze type context for resolution
-   */
-  private analyzeTypeContext(
-    symbol: ApexSymbol,
-    context: SymbolResolutionContext,
-  ): number {
-    let confidence = 0;
-
-    // Check expected type
-    if (context.expectedType && symbol.fqn) {
-      if (symbol.fqn === context.expectedType) {
-        confidence += 0.8;
-      } else if (symbol.fqn.includes(context.expectedType)) {
-        confidence += 0.5;
-      }
-    }
-
-    // Check parameter types
-    for (const paramType of context.parameterTypes) {
-      if (symbol.fqn && symbol.fqn.includes(paramType)) {
-        confidence += 0.3;
-      }
-    }
-
-    // Check return type
-    if (context.returnType && symbol.fqn) {
-      if (symbol.fqn === context.returnType) {
-        confidence += 0.6;
-      } else if (symbol.fqn.includes(context.returnType)) {
-        confidence += 0.3;
-      }
-    }
-
-    return Math.min(confidence, 1.0);
-  }
-
-  /**
-   * Analyze access context for resolution
-   */
-  private analyzeAccessContext(
-    symbol: ApexSymbol,
-    context: SymbolResolutionContext,
-  ): number {
-    let confidence = 0;
-
-    // Check access modifier compatibility
-    const symbolVisibility = symbol.modifiers.visibility;
-    const contextAccess = context.accessModifier;
-
-    // Public symbols are always accessible
-    if (symbolVisibility === 'public' || symbolVisibility === 'global') {
-      confidence += 0.5;
-    }
-
-    // Private symbols only in same class
-    if (symbolVisibility === 'private' && contextAccess === 'private') {
-      confidence += 0.8;
-    }
-
-    // Protected symbols in inheritance chain
-    if (symbolVisibility === 'protected' && contextAccess === 'protected') {
-      confidence += 0.7;
-    }
-
-    // Check static access
-    if (symbol.modifiers.isStatic === context.isStatic) {
-      confidence += 0.3;
-    }
-
-    return Math.min(confidence, 1.0);
-  }
-
-  /**
-   * Analyze relationship context for resolution
-   */
-  private analyzeRelationshipContext(
-    symbol: ApexSymbol,
-    context: SymbolResolutionContext,
-  ): number {
-    if (!context.relationshipType) {
-      return 0;
-    }
-
-    let confidence = 0;
-
-    // Check if symbol supports the expected relationship type
-    switch (context.relationshipType) {
-      case ReferenceType.METHOD_CALL:
-        if (symbol.kind === 'method') {
-          confidence += 0.8;
-        }
-        break;
-      case ReferenceType.FIELD_ACCESS:
-        if (symbol.kind === 'field') {
-          confidence += 0.8;
-        }
-        break;
-      case ReferenceType.TYPE_REFERENCE:
-        if (symbol.kind === 'class' || symbol.kind === 'interface') {
-          confidence += 0.8;
-        }
-        break;
-      case ReferenceType.INHERITANCE:
-        if (symbol.kind === 'class') {
-          confidence += 0.8;
-        }
-        break;
-      case ReferenceType.INTERFACE_IMPLEMENTATION:
-        if (symbol.kind === 'interface') {
-          confidence += 0.8;
-        }
-        break;
-    }
-
-    return Math.min(confidence, 1.0);
-  }
-
-  /**
-   * Resolve ambiguous symbol using advanced context analysis
-   */
   private resolveAmbiguousSymbolWithContext(
     name: string,
     candidates: ApexSymbol[],
@@ -2463,917 +863,111 @@ export class ApexSymbolManager {
     confidence: number;
     resolutionContext: string;
   } {
-    // Calculate confidence scores for all candidates
-    const scoredCandidates = candidates.map((candidate) => ({
-      symbol: candidate,
-      confidence: this.computeContextConfidence(candidate, context),
-      filePath: this.getSymbolFilePath(candidate),
-    }));
-
-    // Sort by confidence (descending)
-    scoredCandidates.sort((a, b) => b.confidence - a.confidence);
-
-    const bestMatch = scoredCandidates[0];
-
-    // Generate resolution context explanation
-    let resolutionContext = `Resolved from ${candidates.length} candidates`;
-
-    if (bestMatch.confidence > 0.8) {
-      resolutionContext += ` - High confidence (${(bestMatch.confidence * 100).toFixed(1)}%)`;
-    } else if (bestMatch.confidence > 0.6) {
-      resolutionContext += ` - Medium confidence (${(bestMatch.confidence * 100).toFixed(1)}%)`;
-    } else {
-      resolutionContext += ` - Low confidence (${(bestMatch.confidence * 100).toFixed(1)}%)`;
-    }
-
-    // Add context details
-    if (context.importStatements.length > 0) {
-      resolutionContext += ' - Import analysis applied';
-    }
-    if (context.namespaceContext) {
-      resolutionContext += ` - Namespace context: ${context.namespaceContext}`;
-    }
-
+    // Simple implementation - return first candidate
+    // In practice, you'd implement sophisticated disambiguation logic
+    const bestMatch = candidates[0];
     return {
-      symbol: bestMatch.symbol,
-      filePath: bestMatch.filePath,
-      confidence: bestMatch.confidence,
-      resolutionContext,
+      symbol: bestMatch,
+      filePath: bestMatch.key.path[0] || context.sourceFile,
+      confidence: 0.5,
+      resolutionContext: 'First candidate selected',
     };
   }
 
-  /**
-   * Get the file path for a symbol
-   */
-  private getSymbolFilePath(symbol: ApexSymbol): string {
-    // Try to find the symbol in our cache to get the file path
-    for (const [symbolId, cachedSymbol] of this.unifiedCache) {
-      if (this.symbolsMatch(cachedSymbol, symbol)) {
-        // Extract file path from symbol ID
-        const parts = symbolId.split(':');
-        if (parts.length > 2) {
-          return parts[parts.length - 1]; // Last part should be the file path
-        }
-      }
-    }
-
-    // Fallback to symbol key path
-    return symbol.key.path[0] || 'unknown';
-  }
-
-  /**
-   * Check if two symbols match
-   */
-  private symbolsMatch(symbol1: ApexSymbol, symbol2: ApexSymbol): boolean {
-    return (
-      symbol1.name === symbol2.name &&
-      symbol1.kind === symbol2.kind &&
-      symbol1.fqn === symbol2.fqn
-    );
-  }
-
-  // ============================================================================
-  // Phase 6.1: Multi-Level Caching
-  // ============================================================================
-
-  /**
-   * Multi-level cache for symbol lookups
-   */
-  private symbolLookupCache: HashMap<string, ApexSymbol[]> = new HashMap();
-  private fqnLookupCache: HashMap<string, ApexSymbol | null> = new HashMap();
-  private fileLookupCache: HashMap<string, ApexSymbol[]> = new HashMap();
-  private relationshipTypeCache: HashMap<string, ReferenceResult[]> =
-    new HashMap();
-  private patternMatchCache: HashMap<string, ApexSymbol[]> = new HashMap();
-  private statsCache: HashMap<string, RelationshipStats> = new HashMap();
-  private analysisCache: HashMap<string, RelationshipPatternAnalysis> =
-    new HashMap();
-
-  /**
-   * Cache TTL (Time To Live) in milliseconds
-   */
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-  /**
-   * Get cached result or compute and cache
-   */
-  private getCachedOrCompute<T>(
-    cacheKey: string,
-    computeFn: () => T,
-    cache: HashMap<string, T>,
-  ): T {
-    const timestamp = this.cacheTimestamps.get(cacheKey);
-    const now = Date.now();
-
-    // Check if cache is still valid
-    if (timestamp && now - timestamp < this.CACHE_TTL) {
-      const cached = cache.get(cacheKey);
-      if (cached !== undefined) {
-        this.logger.debug(() => `Cache hit for key: ${cacheKey}`);
-        this.performanceMetrics.cacheHits++;
-        return cached;
-      }
-    }
-
-    // Compute and cache
-    this.logger.debug(() => `Cache miss for key: ${cacheKey}, computing...`);
-    this.performanceMetrics.cacheMisses++;
-    const result = computeFn();
-    cache.set(cacheKey, result);
-    this.cacheTimestamps.set(cacheKey, now);
-
-    return result;
-  }
-
-  /**
-   * Invalidate cache entries based on pattern
-   */
-  private invalidateCache(pattern: string): void {
-    const keysToRemove: string[] = [];
-
-    for (const key of this.cacheTimestamps.keys()) {
-      if (key.includes(pattern)) {
-        keysToRemove.push(key);
-      }
-    }
-
-    keysToRemove.forEach((key) => {
-      this.cacheTimestamps.delete(key);
-      this.symbolLookupCache.delete(key);
-      this.fqnLookupCache.delete(key);
-      this.fileLookupCache.delete(key);
-      this.relationshipTypeCache.delete(key);
-      this.patternMatchCache.delete(key);
-      this.statsCache.delete(key);
-      this.analysisCache.delete(key);
-    });
-
-    this.logger.debug(
-      () =>
-        `Invalidated ${keysToRemove.length} cache entries for pattern: ${pattern}`,
-    );
-  }
-
-  // ============================================================================
-  // Phase 6.2: Lazy Loading
-  // ============================================================================
-
-  /**
-   * Lazy loading for expensive operations
-   */
-  private lazyRelationshipAnalysis: HashMap<
-    string,
-    Promise<RelationshipStats>
-  > = new HashMap();
-  private lazyPatternAnalysis: HashMap<
-    string,
-    Promise<RelationshipPatternAnalysis>
-  > = new HashMap();
-  private lazyDependencyAnalysis: HashMap<string, Promise<DependencyAnalysis>> =
-    new HashMap();
-  private lazyMetricsComputation: HashMap<string, Promise<SymbolMetrics>> =
-    new HashMap();
-
-  /**
-   * Get lazy-loaded relationship stats
-   */
-  async getRelationshipStatsAsync(
+  private identifyBreakingChanges(
     symbol: ApexSymbol,
-  ): Promise<RelationshipStats> {
-    const symbolId = this.getSymbolId(symbol);
-    const cacheKey = `stats_${symbolId}`;
-
-    // Check if already computing
-    const existingPromise = this.lazyRelationshipAnalysis.get(cacheKey);
-    if (existingPromise) {
-      return existingPromise;
-    }
-
-    // Start computation
-    const promise = this.computeRelationshipStatsAsync(symbol);
-    this.lazyRelationshipAnalysis.set(cacheKey, promise);
-
-    // Clean up after completion
-    promise.finally(() => {
-      this.lazyRelationshipAnalysis.delete(cacheKey);
-    });
-
-    return promise;
+    directImpact: ApexSymbol[],
+  ): string[] {
+    return directImpact.map(
+      (impact) => `Breaking change: ${impact.name} depends on ${symbol.name}`,
+    );
   }
 
-  /**
-   * Async computation of relationship stats
-   */
-  private async computeRelationshipStatsAsync(
+  private generateMigrationPath(
     symbol: ApexSymbol,
-  ): Promise<RelationshipStats> {
-    this.logger.debug(
-      () => `Computing relationship stats for symbol: ${symbol.name}`,
-    );
-
-    // Simulate expensive computation
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
-    return this.getRelationshipStats(symbol);
-  }
-
-  /**
-   * Get lazy-loaded pattern analysis
-   */
-  async getPatternAnalysisAsync(): Promise<RelationshipPatternAnalysis> {
-    const cacheKey = 'pattern_analysis_global';
-
-    // Check if already computing
-    const existingPromise = this.lazyPatternAnalysis.get(cacheKey);
-    if (existingPromise) {
-      return existingPromise;
-    }
-
-    // Start computation
-    const promise = this.computePatternAnalysisAsync();
-    this.lazyPatternAnalysis.set(cacheKey, promise);
-
-    // Clean up after completion
-    promise.finally(() => {
-      this.lazyPatternAnalysis.delete(cacheKey);
-    });
-
-    return promise;
-  }
-
-  /**
-   * Async computation of pattern analysis
-   */
-  private async computePatternAnalysisAsync(): Promise<RelationshipPatternAnalysis> {
-    this.logger.debug(() => 'Computing pattern analysis across codebase');
-
-    // Simulate expensive computation
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    return this.analyzeRelationshipPatterns();
-  }
-
-  // ============================================================================
-  // Phase 6.3: Batch Operations
-  // ============================================================================
-
-  /**
-   * Batch symbol registration with optimized processing
-   */
-  async addSymbolsBatchOptimized(
-    symbols: Array<{ symbol: ApexSymbol; filePath: string }>,
-    batchSize: number = 100,
-  ): Promise<void> {
-    this.logger.debug(
-      () => `Adding ${symbols.length} symbols in batches of ${batchSize}`,
-    );
-
-    const startTime = Date.now();
-
-    // Process in batches
-    for (let i = 0; i < symbols.length; i += batchSize) {
-      const batch = symbols.slice(i, i + batchSize);
-
-      // Process batch in parallel
-      const promises = batch.map(({ symbol, filePath }) =>
-        this.addSymbolOptimized(symbol, filePath),
-      );
-
-      await Promise.all(promises);
-
-      // Invalidate caches after each batch
-      this.invalidateCache('symbol');
-    }
-
-    const endTime = Date.now();
-    this.logger.debug(
-      () => `Batch processing completed in ${endTime - startTime}ms`,
-    );
-  }
-
-  /**
-   * Optimized symbol addition with caching
-   */
-  private async addSymbolOptimized(
-    symbol: ApexSymbol,
-    filePath: string,
-  ): Promise<void> {
-    // Add to graph
-    this.symbolGraph.addSymbol(symbol, filePath);
-
-    // Update caches
-    const symbolId = this.getSymbolId(symbol);
-    this.unifiedCache.set(symbolId, symbol);
-
-    // Invalidate related caches
-    this.invalidateCache(symbol.name);
-    this.invalidateCache(filePath);
-  }
-
-  /**
-   * Batch relationship analysis with parallel processing
-   */
-  async analyzeRelationshipsBatch(
-    symbols: ApexSymbol[],
-    maxConcurrency: number = 4,
-  ): Promise<Map<string, RelationshipStats>> {
-    this.logger.debug(
-      () =>
-        `Analyzing relationships for ${symbols.length} symbols with max concurrency ${maxConcurrency}`,
-    );
-
-    const results = new Map<string, RelationshipStats>();
-
-    // Process in chunks to control concurrency
-    for (let i = 0; i < symbols.length; i += maxConcurrency) {
-      const chunk = symbols.slice(i, i + maxConcurrency);
-
-      const chunkPromises = chunk.map(async (symbol) => {
-        const stats = await this.getRelationshipStatsAsync(symbol);
-        return { symbol, stats };
-      });
-
-      const chunkResults = await Promise.all(chunkPromises);
-
-      // Store results
-      chunkResults.forEach(({ symbol, stats }) => {
-        const symbolId = this.getSymbolId(symbol);
-        results.set(symbolId, stats);
-      });
-    }
-
-    return results;
-  }
-
-  /**
-   * Batch pattern matching with optimized queries
-   */
-  async findSymbolsWithPatternsBatch(
-    patterns: RelationshipPattern[],
-    maxConcurrency: number = 4,
-  ): Promise<Map<string, ApexSymbol[]>> {
-    this.logger.debug(
-      () =>
-        `Finding symbols matching ${patterns.length} patterns with max concurrency ${maxConcurrency}`,
-    );
-
-    const results = new Map<string, ApexSymbol[]>();
-
-    // Process patterns in chunks
-    for (let i = 0; i < patterns.length; i += maxConcurrency) {
-      const chunk = patterns.slice(i, i + maxConcurrency);
-
-      const chunkPromises = chunk.map(async (pattern) => {
-        const symbols = this.findSymbolsWithRelationshipPattern(pattern);
-        return { pattern, symbols };
-      });
-
-      const chunkResults = await Promise.all(chunkPromises);
-
-      // Store results
-      chunkResults.forEach(({ pattern, symbols }) => {
-        results.set(pattern.name, symbols);
-      });
-    }
-
-    return results;
-  }
-
-  // ============================================================================
-  // Phase 6.4: Performance Monitoring
-  // ============================================================================
-
-  /**
-   * Performance metrics tracking
-   */
-  private performanceMetrics = {
-    cacheHits: 0,
-    cacheMisses: 0,
-    averageQueryTime: 0,
-    totalQueries: 0,
-    slowQueries: new Map<string, number>(),
-  };
-
-  /**
-   * Track query performance
-   */
-  private trackQueryPerformance<T>(queryName: string, queryFn: () => T): T {
-    const startTime = performance.now();
-    const result = queryFn();
-    const endTime = performance.now();
-    const duration = endTime - startTime;
-
-    // Update metrics
-    this.performanceMetrics.totalQueries++;
-    this.performanceMetrics.averageQueryTime =
-      (this.performanceMetrics.averageQueryTime *
-        (this.performanceMetrics.totalQueries - 1) +
-        duration) /
-      this.performanceMetrics.totalQueries;
-
-    // Track slow queries (>100ms)
-    if (duration > 100) {
-      this.performanceMetrics.slowQueries.set(queryName, duration);
-    }
-
-    return result;
-  }
-
-  /**
-   * Get performance metrics
-   */
-  getPerformanceMetrics() {
-    const cacheHitRate =
-      this.performanceMetrics.totalQueries > 0
-        ? this.performanceMetrics.cacheHits /
-          this.performanceMetrics.totalQueries
-        : 0;
-
-    return {
-      cacheHitRate,
-      averageQueryTime: this.performanceMetrics.averageQueryTime,
-      totalQueries: this.performanceMetrics.totalQueries,
-      slowQueries: Array.from(this.performanceMetrics.slowQueries.entries())
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 10),
-    };
-  }
-
-  /**
-   * Reset performance metrics
-   */
-  resetPerformanceMetrics(): void {
-    this.performanceMetrics = {
-      cacheHits: 0,
-      cacheMisses: 0,
-      averageQueryTime: 0,
-      totalQueries: 0,
-      slowQueries: new Map(),
-    };
-  }
-
-  // ============================================================================
-  // Enhanced Cached Methods
-  // ============================================================================
-
-  /**
-   * Cached symbol lookup by name
-   */
-  findSymbolByNameCached(name: string): ApexSymbol[] {
-    return this.trackQueryPerformance(`findSymbolByName_${name}`, () =>
-      this.getCachedOrCompute(
-        `symbol_name_${name}`,
-        () => this.findSymbolByName(name),
-        this.symbolLookupCache,
-      ),
-    );
-  }
-
-  /**
-   * Cached symbol lookup by FQN
-   */
-  findSymbolByFQNCached(fqn: string): ApexSymbol | null {
-    return this.trackQueryPerformance(`findSymbolByFQN_${fqn}`, () =>
-      this.getCachedOrCompute(
-        `symbol_fqn_${fqn}`,
-        () => this.findSymbolByFQN(fqn),
-        this.fqnLookupCache,
-      ),
-    );
-  }
-
-  /**
-   * Cached symbols in file lookup
-   */
-  findSymbolsInFileCached(filePath: string): ApexSymbol[] {
-    return this.trackQueryPerformance(`findSymbolsInFile_${filePath}`, () =>
-      this.getCachedOrCompute(
-        `symbols_file_${filePath}`,
-        () => this.findSymbolsInFile(filePath),
-        this.fileLookupCache,
-      ),
-    );
-  }
-
-  /**
-   * Cached relationship stats
-   */
-  getRelationshipStatsCached(symbol: ApexSymbol): RelationshipStats {
-    const symbolId = this.getSymbolId(symbol);
-
-    return this.trackQueryPerformance(`getRelationshipStats_${symbolId}`, () =>
-      this.getCachedOrCompute(
-        `stats_${symbolId}`,
-        () => this.getRelationshipStats(symbol),
-        this.statsCache,
-      ),
-    );
-  }
-
-  /**
-   * Cached pattern analysis
-   */
-  analyzeRelationshipPatternsCached(): RelationshipPatternAnalysis {
-    return this.trackQueryPerformance('analyzeRelationshipPatterns', () =>
-      this.getCachedOrCompute(
-        'pattern_analysis_global',
-        () => this.analyzeRelationshipPatterns(),
-        this.analysisCache,
-      ),
-    );
-  }
-
-  // ============================================================================
-  // Memory Management
-  // ============================================================================
-
-  /**
-   * Memory usage optimization with advanced features
-   */
-  optimizeMemory(): void {
-    this.logger.debug(() => 'Optimizing memory usage...');
-
-    const now = Date.now();
-    const keysToRemove: string[] = [];
-
-    // Clear expired cache entries
-    for (const [key, timestamp] of this.cacheTimestamps.entries()) {
-      if (timestamp && now - timestamp > this.CACHE_TTL) {
-        keysToRemove.push(key);
-      }
-    }
-
-    // Enforce cache size limits
-    this.enforceCacheSizeLimits();
-
-    // Clean up garbage collected symbol references
-    this.cleanupSymbolReferences();
-
-    // Clear expired entries
-    keysToRemove.forEach((key) => {
-      this.cacheTimestamps.delete(key);
-      this.symbolLookupCache.delete(key);
-      this.fqnLookupCache.delete(key);
-      this.fileLookupCache.delete(key);
-      this.relationshipTypeCache.delete(key);
-      this.patternMatchCache.delete(key);
-      this.statsCache.delete(key);
-      this.analysisCache.delete(key);
-    });
-
-    this.logger.debug(
-      () => `Cleared ${keysToRemove.length} expired cache entries`,
-    );
-  }
-
-  /**
-   * Enforce cache size limits to prevent memory bloat
-   */
-  private enforceCacheSizeLimits(): void {
-    const caches = [
-      { name: 'symbolLookup', cache: this.symbolLookupCache },
-      { name: 'fqnLookup', cache: this.fqnLookupCache },
-      { name: 'fileLookup', cache: this.fileLookupCache },
-      { name: 'relationshipType', cache: this.relationshipTypeCache },
-      { name: 'patternMatch', cache: this.patternMatchCache },
-      { name: 'stats', cache: this.statsCache },
-      { name: 'analysis', cache: this.analysisCache },
+    directImpact: ApexSymbol[],
+    indirectImpact: ApexSymbol[],
+  ): string[] {
+    return [
+      `1. Update ${symbol.name} implementation`,
+      `2. Update ${directImpact.length} directly impacted symbols`,
+      `3. Update ${indirectImpact.length} indirectly impacted symbols`,
+      '4. Run tests to verify changes',
     ];
-
-    caches.forEach(({ name, cache }) => {
-      if (cache.size > this.MAX_CACHE_SIZE) {
-        const keysToRemove = Array.from(cache.keys()).slice(
-          0,
-          cache.size - this.MAX_CACHE_SIZE,
-        );
-
-        keysToRemove.forEach((key) => {
-          cache.delete(key);
-          this.cacheTimestamps.delete(key);
-        });
-
-        this.logger.debug(
-          () =>
-            `Enforced size limit on ${name} cache: removed ${keysToRemove.length} entries`,
-        );
-      }
-    });
   }
 
-  /**
-   * Get memory usage statistics with detailed breakdown
-   */
-  getMemoryUsage(): {
-    symbolCacheSize: number;
-    relationshipCacheSize: number;
-    metricsCacheSize: number;
-    totalCacheEntries: number;
-    estimatedMemoryUsage: number;
-    fileMetadataSize: number;
-    scopeHierarchySize: number;
-    memoryOptimizationLevel: string;
-    memoryPoolStats: {
-      totalReferences: number;
-      activeReferences: number;
-      garbageCollected: number;
-      lastCleanup: number;
-      referenceEfficiency: number;
-    };
-  } {
-    const totalCacheEntries =
-      this.symbolLookupCache.size +
-      this.fqnLookupCache.size +
-      this.fileLookupCache.size +
-      this.relationshipTypeCache.size +
-      this.patternMatchCache.size +
-      this.statsCache.size +
-      this.analysisCache.size;
-
-    // Calculate scope hierarchy memory usage
-    let scopeHierarchySize = 0;
-    for (const [, metadata] of this.fileMetadata) {
-      scopeHierarchySize += metadata.scopeHierarchy.length;
-    }
-
-    // Calculate reference efficiency
-    const referenceEfficiency =
-      this.memoryStats.totalSymbols > 0
-        ? (this.memoryStats.totalCacheEntries / this.memoryStats.totalSymbols) *
-          100
-        : 100;
-
-    // Rough estimate: 1KB per cache entry, 100B per scope node
-    const estimatedMemoryUsage =
-      totalCacheEntries * 1024 + scopeHierarchySize * 100;
-
-    // Determine memory optimization level
-    const memoryOptimizationLevel = this.calculateMemoryOptimizationLevel();
-
-    return {
-      symbolCacheSize: this.unifiedCache.size,
-      relationshipCacheSize: this.relationshipTypeCache.size,
-      metricsCacheSize: this.metricsCache.size,
-      totalCacheEntries,
-      estimatedMemoryUsage,
-      fileMetadataSize: this.fileMetadata.size,
-      scopeHierarchySize,
-      memoryOptimizationLevel,
-      memoryPoolStats: {
-        totalReferences: this.memoryStats.totalSymbols,
-        activeReferences: this.memoryStats.totalCacheEntries,
-        garbageCollected:
-          this.memoryStats.totalCacheEntries - this.unifiedCache.size,
-        lastCleanup: this.memoryStats.lastCleanup,
-        referenceEfficiency,
-      },
-    };
+  private assessRisk(impactCount: number): 'low' | 'medium' | 'high' {
+    if (impactCount <= 5) return 'low';
+    if (impactCount <= 20) return 'medium';
+    return 'high';
   }
 
-  /**
-   * Calculate memory optimization level based on current usage
-   */
+  private computeCyclomaticComplexity(symbol: ApexSymbol): number {
+    // Simplified implementation
+    return 1;
+  }
+
+  private computeDepthOfInheritance(symbol: ApexSymbol): number {
+    // Simplified implementation
+    return 0;
+  }
+
+  private computeCouplingScore(symbol: ApexSymbol): number {
+    const dependencies = this.analyzeDependencies(symbol);
+    return dependencies.dependencies.length + dependencies.dependents.length;
+  }
+
+  private computeChangeImpactRadius(symbol: ApexSymbol): number {
+    const impact = this.getImpactAnalysis(symbol);
+    return impact.directImpact.length + impact.indirectImpact.length;
+  }
+
+  private computeRefactoringRisk(symbol: ApexSymbol): number {
+    const impact = this.getImpactAnalysis(symbol);
+    return impact.riskAssessment === 'high'
+      ? 0.9
+      : impact.riskAssessment === 'medium'
+        ? 0.6
+        : 0.3;
+  }
+
+  private analyzeUsagePatterns(symbol: ApexSymbol): string[] {
+    // Simplified implementation
+    return ['standard'];
+  }
+
+  private analyzeAccessPatterns(symbol: ApexSymbol): string[] {
+    // Simplified implementation
+    return ['direct'];
+  }
+
+  private determineLifecycleStage(
+    symbol: ApexSymbol,
+  ): 'active' | 'deprecated' | 'legacy' | 'experimental' {
+    // Simplified implementation
+    return 'active';
+  }
+
   private calculateMemoryOptimizationLevel(): string {
-    const totalCacheEntries =
-      this.symbolLookupCache.size +
-      this.fqnLookupCache.size +
-      this.fileLookupCache.size +
-      this.relationshipTypeCache.size +
-      this.patternMatchCache.size +
-      this.statsCache.size +
-      this.analysisCache.size;
-
-    if (totalCacheEntries < 1000) return 'OPTIMAL';
-    if (totalCacheEntries < 5000) return 'GOOD';
-    if (totalCacheEntries < 10000) return 'ACCEPTABLE';
-    return 'REQUIRES_OPTIMIZATION';
+    const cacheStats = this.unifiedCache.getStats();
+    if (cacheStats.hitRate > 0.8) return 'OPTIMAL';
+    if (cacheStats.hitRate > 0.6) return 'GOOD';
+    return 'NEEDS_OPTIMIZATION';
   }
 
-  // ============================================================================
-  // Phase 6.5.4: Scope-Based Query Enhancement
-  // ============================================================================
-
-  /**
-   * Find symbols in a specific scope within a file
-   */
-  findSymbolsInScope(filePath: string, scopeName: string): ApexSymbol[] {
-    const metadata = this.fileMetadata.get(filePath);
-    if (!metadata) return [];
-
-    const scopeNode = metadata.scopeHierarchy.find((s) => s.name === scopeName);
-    if (!scopeNode) return [];
-
-    return scopeNode.symbolIds
-      .map((id) => this.unifiedCache.get(id))
-      .filter((symbol): symbol is ApexSymbol => symbol !== undefined);
-  }
-
-  /**
-   * Find all scopes in a file
-   */
-  getScopesInFile(filePath: string): ScopeNode[] {
-    const metadata = this.fileMetadata.get(filePath);
-    return metadata?.scopeHierarchy || [];
-  }
-
-  /**
-   * Find parent scope of a given scope
-   */
-  getParentScope(filePath: string, scopeName: string): ScopeNode | null {
-    const metadata = this.fileMetadata.get(filePath);
-    if (!metadata) return null;
-
-    const scopeNode = metadata.scopeHierarchy.find((s) => s.name === scopeName);
-    if (!scopeNode?.parentScope) return null;
-
-    return (
-      metadata.scopeHierarchy.find((s) => s.name === scopeNode.parentScope) ||
-      null
-    );
-  }
-
-  /**
-   * Find child scopes of a given scope
-   */
-  getChildScopes(filePath: string, scopeName: string): ScopeNode[] {
-    const metadata = this.fileMetadata.get(filePath);
-    if (!metadata) return [];
-
-    const scopeNode = metadata.scopeHierarchy.find((s) => s.name === scopeName);
-    if (!scopeNode) return [];
-
-    const childScopes: ScopeNode[] = [];
-    for (const childName of scopeNode.children) {
-      const childScope = metadata.scopeHierarchy.find(
-        (s) => s.name === childName,
-      );
-      if (childScope) {
-        childScopes.push(childScope);
-      }
-    }
-    return childScopes;
-  }
-
-  /**
-   * Find symbols in scope hierarchy (current scope and all parent scopes)
-   */
-  findSymbolsInScopeHierarchy(
-    filePath: string,
-    scopeName: string,
-  ): ApexSymbol[] {
-    const metadata = this.fileMetadata.get(filePath);
-    if (!metadata) return [];
-
-    const symbols = new Set<ApexSymbol>();
-    let currentScope = metadata.scopeHierarchy.find(
-      (s) => s.name === scopeName,
-    );
-
-    // Collect symbols from current scope and all parent scopes
-    while (currentScope) {
-      currentScope.symbolIds
-        .map((id) => this.unifiedCache.get(id))
-        .filter((symbol): symbol is ApexSymbol => symbol !== undefined)
-        .forEach((symbol) => symbols.add(symbol));
-
-      const parentScopeName = currentScope.parentScope;
-      currentScope = parentScopeName
-        ? metadata.scopeHierarchy.find((s) => s.name === parentScopeName)
-        : undefined;
-    }
-
-    // Also find symbols that are contained by this scope through graph relationships
-    const scopeSymbols = Array.from(symbols);
-    for (const scopeSymbol of scopeSymbols) {
-      const references = this.symbolGraph.findReferencesFrom(scopeSymbol);
-      for (const ref of references) {
-        if (ref.referenceType === ReferenceType.SCOPE_CONTAINS) {
-          symbols.add(ref.symbol);
-        }
-      }
-    }
-
-    return Array.from(symbols);
-  }
-
-  // ============================================================================
-  // Phase 6.5: Advanced Memory Optimization Features
-  // ============================================================================
-
-  /**
-   * Get comprehensive memory optimization statistics
-   */
-  getMemoryOptimizationStats(): {
-    optimizationLevel: string;
-    memoryReduction: number;
-    cacheEfficiency: number;
-    referenceEfficiency: number;
-    scopeOptimization: number;
-    recommendations: string[];
-  } {
-    const memoryUsage = this.getMemoryUsage();
-
-    // Calculate memory reduction (estimated)
-    const estimatedReduction = this.calculateMemoryReduction();
-
-    // Calculate cache efficiency
-    const cacheEfficiency = this.calculateCacheEfficiency();
-
-    // Calculate scope optimization level
-    const scopeOptimization = this.calculateScopeOptimization();
-
-    // Generate recommendations
-    const recommendations = this.generateMemoryOptimizationRecommendations();
-
-    return {
-      optimizationLevel: memoryUsage.memoryOptimizationLevel,
-      memoryReduction: estimatedReduction,
-      cacheEfficiency,
-      referenceEfficiency: memoryUsage.memoryPoolStats.referenceEfficiency,
-      scopeOptimization,
-      recommendations,
-    };
-  }
-
-  /**
-   * Calculate estimated memory reduction from optimizations
-   */
-  private calculateMemoryReduction(): number {
-    // Estimate based on file metadata optimization and cache management
-    const fileMetadataOptimization = 0.8; // 80% reduction from SymbolTable replacement
-    const cacheOptimization = 0.6; // 60% reduction from size limits and TTL
-    const scopeOptimization = 0.9; // 90% reduction from lightweight scope storage
-
-    return Math.round(
-      ((fileMetadataOptimization + cacheOptimization + scopeOptimization) / 3) *
-        100,
-    );
-  }
-
-  /**
-   * Calculate cache efficiency based on hit rates
-   */
-  private calculateCacheEfficiency(): number {
-    const totalRequests =
-      this.performanceMetrics.cacheHits + this.performanceMetrics.cacheMisses;
-
-    return totalRequests > 0
-      ? (this.performanceMetrics.cacheHits / totalRequests) * 100
-      : 100;
-  }
-
-  /**
-   * Calculate scope optimization level
-   */
-  private calculateScopeOptimization(): number {
-    let totalScopes = 0;
-    let optimizedScopes = 0;
-
-    for (const [, metadata] of this.fileMetadata) {
-      totalScopes += metadata.scopeCount;
-      optimizedScopes += metadata.scopeHierarchy.length;
-    }
-
-    return totalScopes > 0 ? (optimizedScopes / totalScopes) * 100 : 100;
-  }
-
-  /**
-   * Generate memory optimization recommendations
-   */
   private generateMemoryOptimizationRecommendations(): string[] {
     const recommendations: string[] = [];
-    const memoryUsage = this.getMemoryUsage();
+    const cacheStats = this.unifiedCache.getStats();
 
-    if (memoryUsage.memoryOptimizationLevel === 'REQUIRES_OPTIMIZATION') {
+    if (cacheStats.hitRate < 0.7) {
       recommendations.push(
-        'Consider reducing cache size limits for large codebases',
-      );
-      recommendations.push(
-        'Implement more aggressive cache TTL for infrequently accessed data',
-      );
-      recommendations.push(
-        'Enable lazy loading for scope hierarchy reconstruction',
+        'Consider increasing cache size to improve hit rate',
       );
     }
 
-    if (memoryUsage.memoryPoolStats.referenceEfficiency < 80) {
+    if (cacheStats.evictionCount > 100) {
       recommendations.push(
-        'Symbol reference efficiency is low - consider manual cleanup',
-      );
-      recommendations.push(
-        'Review symbol lifecycle management to reduce garbage collection',
-      );
-    }
-
-    if (memoryUsage.totalCacheEntries > 5000) {
-      recommendations.push(
-        'High cache entry count - consider implementing predictive cache invalidation',
-      );
-      recommendations.push('Monitor cache hit rates and adjust TTL settings');
-    }
-
-    if (recommendations.length === 0) {
-      recommendations.push(
-        'Memory optimization is performing well - no immediate actions required',
+        'High eviction rate detected - consider cache tuning',
       );
     }
 

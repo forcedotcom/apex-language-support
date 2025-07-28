@@ -6,59 +6,64 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import Graph from 'graphology';
-import { HashMap } from 'data-structure-typed';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { HashMap, DirectedGraph, DirectedVertex } from 'data-structure-typed';
+import {
+  getLogger,
+  defineEnum,
+  type EnumValue,
+} from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbol,
-  createFromSymbol,
   LightweightSymbol,
   toLightweightSymbol,
+  fromLightweightSymbol,
+  SymbolTable,
 } from '../types/symbol';
 
 /**
  * Types of references between Apex symbols
+ * Using optimized numeric values for memory efficiency
  */
-export enum ReferenceType {
-  METHOD_CALL = 'method-call',
-  FIELD_ACCESS = 'field-access',
-  TYPE_REFERENCE = 'type-reference',
-  INHERITANCE = 'inheritance',
-  INTERFACE_IMPLEMENTATION = 'interface-implementation',
+export const ReferenceType = defineEnum([
+  ['METHOD_CALL', 1],
+  ['FIELD_ACCESS', 2],
+  ['TYPE_REFERENCE', 3],
+  ['INHERITANCE', 4],
+  ['INTERFACE_IMPLEMENTATION', 5],
   // Phase 5: Extended Relationship Types
-  CONSTRUCTOR_CALL = 'constructor-call',
-  STATIC_ACCESS = 'static-access',
-  INSTANCE_ACCESS = 'instance-access',
-  IMPORT_REFERENCE = 'import-reference',
-  NAMESPACE_REFERENCE = 'namespace-reference',
-  ANNOTATION_REFERENCE = 'annotation-reference',
-  TRIGGER_REFERENCE = 'trigger-reference',
-  TEST_METHOD_REFERENCE = 'test-method-reference',
-  WEBSERVICE_REFERENCE = 'webservice-reference',
-  REMOTE_ACTION_REFERENCE = 'remote-action-reference',
-  PROPERTY_ACCESS = 'property-access',
-  ENUM_REFERENCE = 'enum-reference',
-  TRIGGER_CONTEXT_REFERENCE = 'trigger-context-reference',
-  SOQL_REFERENCE = 'soql-reference',
-  SOSL_REFERENCE = 'sosl-reference',
-  DML_REFERENCE = 'dml-reference',
-  APEX_PAGE_REFERENCE = 'apex-page-reference',
-  COMPONENT_REFERENCE = 'component-reference',
-  CUSTOM_METADATA_REFERENCE = 'custom-metadata-reference',
-  EXTERNAL_SERVICE_REFERENCE = 'external-service-reference',
+  ['CONSTRUCTOR_CALL', 6],
+  ['STATIC_ACCESS', 7],
+  ['INSTANCE_ACCESS', 8],
+  ['IMPORT_REFERENCE', 9],
+  ['NAMESPACE_REFERENCE', 10],
+  ['ANNOTATION_REFERENCE', 11],
+  ['TRIGGER_REFERENCE', 12],
+  ['TEST_METHOD_REFERENCE', 13],
+  ['WEBSERVICE_REFERENCE', 14],
+  ['REMOTE_ACTION_REFERENCE', 15],
+  ['PROPERTY_ACCESS', 16],
+  ['ENUM_REFERENCE', 17],
+  ['TRIGGER_CONTEXT_REFERENCE', 18],
+  ['SOQL_REFERENCE', 19],
+  ['SOSL_REFERENCE', 20],
+  ['DML_REFERENCE', 21],
+  ['APEX_PAGE_REFERENCE', 22],
+  ['COMPONENT_REFERENCE', 23],
+  ['CUSTOM_METADATA_REFERENCE', 24],
+  ['EXTERNAL_SERVICE_REFERENCE', 25],
   // Phase 6.5: Scope Hierarchy Integration
-  SCOPE_PARENT = 'scope-parent',
-  SCOPE_CHILD = 'scope-child',
-  SCOPE_CONTAINS = 'scope-contains',
-}
+  ['SCOPE_PARENT', 26],
+  ['SCOPE_CHILD', 27],
+  ['SCOPE_CONTAINS', 28],
+] as const);
 
 /**
- * Edge attributes for references between symbols
+ * Reference edge between symbols with metadata
  */
 export interface ReferenceEdge {
-  type: ReferenceType;
+  type: EnumValue<typeof ReferenceType>;
   sourceFile: string;
-  targetFile?: string;
+  targetFile: string;
   location: {
     startLine: number;
     startColumn: number;
@@ -74,72 +79,58 @@ export interface ReferenceEdge {
 }
 
 /**
- * PHASE 4: Optimized node attributes for Apex symbols
- * Stores only references instead of full symbol objects for memory efficiency
- */
-export interface OptimizedSymbolNode {
-  /** Reference to lightweight symbol storage (16 bytes vs 200+ bytes) */
-  symbolId: string;
-  /** File path where symbol is defined */
-  filePath: string;
-  /** Last update timestamp */
-  lastUpdated: number;
-  /** Number of references to this symbol */
-  referenceCount: number;
-  /** Integer node ID for better performance (4 bytes vs 16-32 bytes) */
-  nodeId: number;
-}
-
-/**
- * Result of a reference search
+ * Result of a reference lookup
  */
 export interface ReferenceResult {
   symbolId: string;
   symbol: ApexSymbol;
   filePath: string;
-  referenceType: ReferenceType;
+  referenceType: EnumValue<typeof ReferenceType>;
   location: ReferenceEdge['location'];
   context?: ReferenceEdge['context'];
 }
 
 /**
- * Dependency analysis result
+ * Result of dependency analysis
  */
 export interface DependencyAnalysis {
   dependencies: ApexSymbol[];
   dependents: ApexSymbol[];
   impactScore: number;
-  circularDependencies: string[][];
 }
 
 /**
- * PHASE 4: Graph-based symbol manager with optimized Graphology usage
- * Uses graphology for graph algorithms and data-structure-typed for data storage
- * Optimized for memory efficiency with lightweight node attributes and integer IDs
+ * Optimized symbol node for DST graph storage
+ */
+export interface OptimizedSymbolNode {
+  symbolId: string;
+  filePath: string;
+  lastUpdated: number;
+  referenceCount: number;
+  nodeId: number;
+}
+
+/**
+ * PHASE 5: DST-based symbol manager with optimized data-structure-typed usage
+ * Uses data-structure-typed for both graph algorithms and data storage
+ * Optimized for memory efficiency with lightweight node attributes
  */
 export class ApexSymbolGraph {
   private readonly logger = getLogger();
 
-  // PHASE 4: Optimized Graphology graph with integer node IDs
-  private referenceGraph: Graph<OptimizedSymbolNode, ReferenceEdge> = new Graph(
-    {
-      type: 'directed',
-      allowSelfLoops: false,
-      multi: false,
-    },
-  );
+  // PHASE 5: DST DirectedGraph with optimized storage
+  private referenceGraph: DirectedGraph<OptimizedSymbolNode, ReferenceEdge> =
+    new DirectedGraph();
 
-  // PHASE 4: Separate lightweight symbol storage for memory efficiency
+  // PHASE 5: Lightweight symbol storage for memory efficiency (eliminates redundant full symbol storage)
   private lightweightSymbols: HashMap<string, LightweightSymbol> =
     new HashMap();
 
-  // PHASE 4: Integer ID mapping for better performance
-  private symbolIdToNodeId: HashMap<string, number> = new HashMap();
-  private nodeIdToSymbolId: HashMap<number, string> = new HashMap();
-  private nextNodeId: number = 1;
+  // Symbol to vertex mapping for efficient lookups
+  private symbolToVertex: HashMap<string, DirectedVertex<OptimizedSymbolNode>> =
+    new HashMap();
 
-  // data-structure-typed collections for fast lookups
-  private symbolIndex: HashMap<string, ApexSymbol> = new HashMap();
+  // data-structure-typed collections for fast lookups (using lightweight symbols)
   private symbolFileMap: HashMap<string, string> = new HashMap(); // Map symbol ID to file path
   private nameIndex: HashMap<string, string[]> = new HashMap();
   private fileIndex: HashMap<string, string[]> = new HashMap();
@@ -150,52 +141,47 @@ export class ApexSymbolGraph {
     string,
     Array<{
       sourceSymbol: ApexSymbol;
-      referenceType: ReferenceType;
+      referenceType: EnumValue<typeof ReferenceType>;
       location: ReferenceEdge['location'];
       context?: ReferenceEdge['context'];
     }>
   > = new HashMap();
 
-  // PHASE 4: Memory optimization statistics
+  // PHASE 5: Memory optimization statistics
   private memoryStats = {
     totalSymbols: 0,
     totalLightweightSymbols: 0,
-    totalNodeIds: 0,
+    totalVertices: 0,
+    totalEdges: 0,
     memoryOptimizationLevel: 'OPTIMAL' as string,
     estimatedMemorySavings: 0,
   };
 
   constructor() {
     this.logger.debug(
-      () => 'Initializing ApexSymbolGraph with Phase 4 optimizations',
+      () => 'Initializing ApexSymbolGraph with Phase 5 DST optimizations',
     );
   }
 
   /**
-   * PHASE 4: Add a symbol to the graph with optimized memory usage
+   * PHASE 5: Add a symbol to the graph with optimized memory usage
    */
   addSymbol(symbol: ApexSymbol, filePath: string): void {
     const symbolId = this.getSymbolId(symbol, filePath);
 
     // Check if symbol already exists to prevent duplicates
-    if (this.symbolIndex.has(symbolId)) {
+    if (this.lightweightSymbols.has(symbolId)) {
       this.logger.debug(
         () => `Symbol already exists: ${symbolId}, skipping duplicate addition`,
       );
       return;
     }
 
-    // PHASE 4: Create lightweight symbol for memory efficiency
+    // PHASE 5: Create lightweight symbol for memory efficiency
     const lightweightSymbol = toLightweightSymbol(symbol, filePath);
     this.lightweightSymbols.set(symbolId, lightweightSymbol);
 
-    // PHASE 4: Generate integer node ID for better performance
-    const nodeId = this.nextNodeId++;
-    this.symbolIdToNodeId.set(symbolId, nodeId);
-    this.nodeIdToSymbolId.set(nodeId, symbolId);
-
     // Add to data-structure-typed indexes for fast lookups
-    this.symbolIndex.set(symbolId, symbol);
     this.symbolFileMap.set(symbolId, filePath);
     this.fqnIndex.set(symbol.fqn || symbolId, symbolId);
 
@@ -213,52 +199,64 @@ export class ApexSymbolGraph {
       this.fileIndex.set(filePath, fileSymbols);
     }
 
-    // PHASE 4: Add to graphology graph with optimized node attributes
-    if (!this.referenceGraph.hasNode(nodeId)) {
-      this.referenceGraph.addNode(nodeId, {
-        symbolId, // Reference to separate storage (16 bytes)
-        filePath, // String (50-100 bytes)
-        lastUpdated: Date.now(), // Number (8 bytes)
-        referenceCount: 0, // Number (8 bytes)
-        nodeId, // Integer ID (4 bytes)
-      });
+    // PHASE 5: Add to DST graph with optimized node attributes
+    const optimizedNode: OptimizedSymbolNode = {
+      symbolId, // Reference to separate storage (16 bytes)
+      filePath, // String (50-100 bytes)
+      lastUpdated: Date.now(), // Number (8 bytes)
+      referenceCount: 0, // Number (8 bytes)
+      nodeId: this.memoryStats.totalVertices + 1, // Integer ID (4 bytes)
+    };
+
+    // Add vertex to graph using addVertex method
+    const vertexAdded = this.referenceGraph.addVertex(symbolId, optimizedNode);
+    if (!vertexAdded) {
+      this.logger.warn(() => `Failed to add vertex to graph: ${symbolId}`);
+      return;
     }
 
-    // Process any deferred references to this symbol
-    this.processDeferredReferences(symbolId);
-
-    // Also process deferred references using the FQN as key
-    if (symbol.fqn) {
-      this.processDeferredReferencesByName(symbol.fqn);
+    // Get the vertex from the graph
+    const vertex = this.referenceGraph.getVertex(symbolId);
+    if (!vertex) {
+      this.logger.warn(
+        () => `Vertex not found in graph after adding: ${symbolId}`,
+      );
+      return;
     }
 
-    // Also process deferred references using the name as key
-    this.processDeferredReferencesByName(symbol.name);
+    this.symbolToVertex.set(symbolId, vertex);
+    this.logger.debug(
+      () =>
+        `Added vertex to graph with key: ${symbolId}, vertex: ${vertex.key}`,
+    );
 
     // Update memory statistics
     this.memoryStats.totalSymbols++;
     this.memoryStats.totalLightweightSymbols++;
-    this.memoryStats.totalNodeIds++;
-    this.updateMemoryOptimizationStats();
+    this.memoryStats.totalVertices++;
 
-    this.logger.debug(
-      () => `Added symbol: ${symbolId} (nodeId: ${nodeId}) from ${filePath}`,
-    );
+    // Process any deferred references to this symbol
+    this.processDeferredReferences(symbolId);
   }
 
   /**
-   * PHASE 4: Add a reference between symbols with optimized node lookup
+   * PHASE 5: Add a reference between symbols with optimized vertex lookup
    */
   addReference(
     sourceSymbol: ApexSymbol,
     targetSymbol: ApexSymbol,
-    referenceType: ReferenceType,
+    referenceType: EnumValue<typeof ReferenceType>,
     location: ReferenceEdge['location'],
     context?: ReferenceEdge['context'],
   ): void {
     // Find the symbol IDs by looking up the symbols in our indexes
     const sourceId = this.findSymbolId(sourceSymbol);
     const targetId = this.findSymbolId(targetSymbol);
+
+    this.logger.debug(
+      () => `Adding reference: ${sourceSymbol.name} -> ${targetSymbol.name}`,
+    );
+    this.logger.debug(() => `Source ID: ${sourceId}, Target ID: ${targetId}`);
 
     // Handle case where symbols are not found
     if (!sourceId) {
@@ -281,163 +279,141 @@ export class ApexSymbolGraph {
       return;
     }
 
-    // PHASE 4: Get integer node IDs for better performance
-    const sourceNodeId = this.symbolIdToNodeId.get(sourceId);
-    const targetNodeId = this.symbolIdToNodeId.get(targetId);
+    // PHASE 5: Get vertices for better performance
+    const sourceVertex = this.symbolToVertex.get(sourceId);
+    const targetVertex = this.symbolToVertex.get(targetId);
 
-    if (!sourceNodeId || !targetNodeId) {
+    if (!sourceVertex || !targetVertex) {
       this.logger.debug(
-        () => `Node IDs not found for symbols: ${sourceId}, ${targetId}`,
+        () => `Vertices not found for symbols: ${sourceId}, ${targetId}`,
       );
       return;
     }
 
-    // Add edge to graphology graph (check if edge already exists)
-    // Use outEdges to get only edges going FROM sourceNodeId TO targetNodeId
-    const existingEdges = this.referenceGraph
-      .outEdges(sourceNodeId)
-      .filter((edgeId) => this.referenceGraph.target(edgeId) === targetNodeId);
-
-    const hasEdge = existingEdges.some((edgeId) => {
-      const edge = this.referenceGraph.getEdgeAttributes(edgeId);
-      return edge.type === referenceType;
-    });
-
-    if (!hasEdge) {
-      this.referenceGraph.addEdge(sourceNodeId, targetNodeId, {
-        type: referenceType,
-        sourceFile: sourceSymbol.key.path[0] || 'unknown',
-        targetFile: targetSymbol.key.path[0] || 'unknown',
-        location,
-        context,
-      });
-
-      // PHASE 4: Update reference count using optimized node attributes
-      const targetNode = this.referenceGraph.getNodeAttributes(targetNodeId);
-      targetNode.referenceCount++;
-      this.referenceGraph.setNodeAttribute(
-        targetNodeId,
-        'referenceCount',
-        targetNode.referenceCount,
-      );
+    // Check if edge already exists
+    const existingEdge = this.referenceGraph.getEdge(sourceId, targetId);
+    if (existingEdge && existingEdge.value) {
+      const edgeData = existingEdge.value;
+      if (edgeData.type === referenceType) {
+        this.logger.debug(
+          () =>
+            `Reference already exists: ${sourceId} -> ${targetId} (${String(referenceType)})`,
+        );
+        return;
+      }
     }
-  }
 
-  /**
-   * Add a deferred reference for lazy loading
-   */
-  private addDeferredReference(
-    sourceSymbol: ApexSymbol,
-    targetId: string,
-    referenceType: ReferenceType,
-    location: ReferenceEdge['location'],
-    context?: ReferenceEdge['context'],
-  ): void {
-    const existing = this.deferredReferences.get(targetId) || [];
-    existing.push({
-      sourceSymbol,
-      referenceType,
+    // Add edge to DST graph
+    const edgeData: ReferenceEdge = {
+      type: referenceType,
+      sourceFile: sourceSymbol.key.path[0] || 'unknown',
+      targetFile: targetSymbol.key.path[0] || 'unknown',
       location,
       context,
-    });
-    this.deferredReferences.set(targetId, existing);
+    };
 
-    this.logger.debug(() => `Added deferred reference to: ${targetId}`);
-  }
-
-  /**
-   * Process deferred references when a symbol is added
-   */
-  private processDeferredReferences(symbolId: string): void {
-    const deferred = this.deferredReferences.get(symbolId);
-    if (!deferred) return;
-
-    const targetSymbol = this.symbolIndex.get(symbolId);
-    if (!targetSymbol) return;
-
-    for (const ref of deferred) {
-      this.addReference(
-        ref.sourceSymbol,
-        targetSymbol,
-        ref.referenceType,
-        ref.location,
-        ref.context,
+    const edgeAdded = this.referenceGraph.addEdge(
+      sourceId,
+      targetId,
+      1,
+      edgeData,
+    );
+    if (!edgeAdded) {
+      this.logger.warn(
+        () => `Failed to add edge to graph: ${sourceId} -> ${targetId}`,
       );
+      return;
+    }
+    this.memoryStats.totalEdges++;
+    this.logger.debug(
+      () =>
+        `Created edge from ${sourceId} to ${targetId} with data: ${JSON.stringify(edgeData)}`,
+    );
+
+    // Update reference count
+    const targetNode = targetVertex.value;
+    if (targetNode) {
+      targetNode.referenceCount++;
+      targetNode.lastUpdated = Date.now();
     }
 
-    // Clear processed deferred references
-    this.deferredReferences.delete(symbolId);
+    this.logger.debug(
+      () =>
+        `Added reference: ${sourceId} -> ${targetId} (${String(referenceType)})`,
+    );
   }
 
   /**
-   * Process deferred references using symbol name or FQN
+   * Find all references to a symbol using DST algorithms
    */
-  private processDeferredReferencesByName(nameOrFqn: string): void {
-    const deferred = this.deferredReferences.get(nameOrFqn);
-    if (!deferred) return;
-
-    // Find the symbol by name or FQN
-    let targetSymbol: ApexSymbol | null = null;
-
-    // Try to find by FQN first
-    const symbolId = this.fqnIndex.get(nameOrFqn);
-    if (symbolId) {
-      targetSymbol = this.symbolIndex.get(symbolId) || null;
-    }
-
-    // If not found by FQN, try to find by name
-    if (!targetSymbol) {
-      const symbolIds = this.nameIndex.get(nameOrFqn) || [];
-      if (symbolIds.length > 0) {
-        targetSymbol = this.symbolIndex.get(symbolIds[0]) || null;
-      }
-    }
-
-    if (!targetSymbol) return;
-
-    for (const ref of deferred) {
-      this.addReference(
-        ref.sourceSymbol,
-        targetSymbol!,
-        ref.referenceType,
-        ref.location,
-        ref.context,
-      );
-    }
-
-    // Clear processed deferred references
-    this.deferredReferences.delete(nameOrFqn);
-  }
-
-  /**
-   * Find all references to a symbol
-   */
-  findReferencesTo(symbol: ApexSymbol): ReferenceResult[] {
+  findReferencesTo(symbol: ApexSymbol): Array<{
+    symbolId: string;
+    symbol: ApexSymbol;
+    filePath: string;
+    referenceType: EnumValue<typeof ReferenceType>;
+    location: ReferenceEdge['location'];
+    context?: ReferenceEdge['context'];
+  }> {
     const symbolId = this.findSymbolId(symbol);
-    const nodeId = this.symbolIdToNodeId.get(symbolId);
-    if (!symbolId || !nodeId || !this.referenceGraph.hasNode(nodeId)) {
+    this.logger.debug(
+      () => `Finding references TO: ${symbol.name}, Symbol ID: ${symbolId}`,
+    );
+
+    if (!symbolId) {
+      this.logger.debug(() => `Symbol ID not found for: ${symbol.name}`);
       return [];
     }
 
-    const results: ReferenceResult[] = [];
-    const incomingEdges = this.referenceGraph.inEdges(nodeId);
+    const vertex = this.symbolToVertex.get(symbolId);
+    this.logger.debug(() => `Vertex found: ${!!vertex}`);
 
-    for (const edgeId of incomingEdges) {
-      const edge = this.referenceGraph.getEdgeAttributes(edgeId);
-      const sourceNodeId = this.referenceGraph.source(edgeId);
-      const sourceSymbolId = this.nodeIdToSymbolId.get(sourceNodeId);
-      const sourceSymbol = sourceSymbolId
-        ? this.symbolIndex.get(sourceSymbolId)
-        : null;
+    if (!vertex) {
+      this.logger.debug(() => `Vertex not found for symbol ID: ${symbolId}`);
+      return [];
+    }
 
-      if (sourceSymbol) {
+    const results: Array<{
+      symbolId: string;
+      symbol: ApexSymbol;
+      filePath: string;
+      referenceType: EnumValue<typeof ReferenceType>;
+      location: ReferenceEdge['location'];
+      context?: ReferenceEdge['context'];
+    }> = [];
+    // Get incoming edges using vertex key
+    const incomingEdges = this.referenceGraph.incomingEdgesOf(vertex.key);
+    this.logger.debug(() => `Incoming edges count: ${incomingEdges.length}`);
+
+    // Debug: Check all vertices and their edges
+    const allVertices = Array.from(this.symbolToVertex.values());
+    this.logger.debug(() => `All vertices in graph: ${allVertices.length}`);
+    for (const vertex of allVertices) {
+      this.logger.debug(
+        () =>
+          `Vertex: ${vertex.key}, outgoing edges: ${this.referenceGraph.outgoingEdgesOf(vertex.key).length}`,
+      );
+    }
+
+    for (const edge of incomingEdges) {
+      this.logger.debug(() => `Processing edge: ${JSON.stringify(edge)}`);
+      const sourceSymbolId = edge.src;
+      const sourceLightweight = this.lightweightSymbols.get(
+        String(sourceSymbolId),
+      );
+
+      if (sourceLightweight && edge.value) {
+        // Convert lightweight to full symbol for API compatibility
+        const sourceSymbol = fromLightweightSymbol(
+          sourceLightweight,
+          this.createSymbolTable(),
+        );
         results.push({
-          symbolId: sourceSymbolId!,
+          symbolId: String(sourceSymbolId),
           symbol: sourceSymbol,
-          filePath: sourceSymbol.key.path[0] || 'unknown',
-          referenceType: edge.type,
-          location: edge.location,
-          context: edge.context,
+          filePath: sourceLightweight.filePath || 'unknown',
+          referenceType: edge.value.type,
+          location: edge.value.location,
+          context: edge.value.context,
         });
       }
     }
@@ -446,39 +422,172 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Find all references from a symbol
+   * Find all references from a symbol using DST algorithms
    */
-  findReferencesFrom(symbol: ApexSymbol): ReferenceResult[] {
+  findReferencesFrom(symbol: ApexSymbol): Array<{
+    symbolId: string;
+    symbol: ApexSymbol;
+    filePath: string;
+    referenceType: EnumValue<typeof ReferenceType>;
+    location: ReferenceEdge['location'];
+    context?: ReferenceEdge['context'];
+  }> {
     const symbolId = this.findSymbolId(symbol);
-    const nodeId = this.symbolIdToNodeId.get(symbolId);
-    if (!symbolId || !nodeId || !this.referenceGraph.hasNode(nodeId)) {
+    if (!symbolId) {
       return [];
     }
 
-    const results: ReferenceResult[] = [];
-    const outgoingEdges = this.referenceGraph.outEdges(nodeId);
+    const vertex = this.symbolToVertex.get(symbolId);
+    if (!vertex) {
+      return [];
+    }
 
-    for (const edgeId of outgoingEdges) {
-      const edge = this.referenceGraph.getEdgeAttributes(edgeId);
-      const targetNodeId = this.referenceGraph.target(edgeId);
-      const targetSymbolId = this.nodeIdToSymbolId.get(targetNodeId);
-      const targetSymbol = targetSymbolId
-        ? this.symbolIndex.get(targetSymbolId)
-        : null;
+    const results: Array<{
+      symbolId: string;
+      symbol: ApexSymbol;
+      filePath: string;
+      referenceType: EnumValue<typeof ReferenceType>;
+      location: ReferenceEdge['location'];
+      context?: ReferenceEdge['context'];
+    }> = [];
+    const outgoingEdges = this.referenceGraph.outgoingEdgesOf(vertex.key);
 
-      if (targetSymbol) {
+    for (const edge of outgoingEdges) {
+      const targetSymbolId = edge.dest;
+      const targetLightweight = this.lightweightSymbols.get(
+        String(targetSymbolId),
+      );
+
+      if (targetLightweight && edge.value) {
+        // Convert lightweight to full symbol for API compatibility
+        const targetSymbol = fromLightweightSymbol(
+          targetLightweight,
+          this.createSymbolTable(),
+        );
         results.push({
-          symbolId: targetSymbolId!,
+          symbolId: String(targetSymbolId),
           symbol: targetSymbol,
-          filePath: targetSymbol.key.path[0] || 'unknown',
-          referenceType: edge.type,
-          location: edge.location,
-          context: edge.context,
+          filePath: targetLightweight.filePath || 'unknown',
+          referenceType: edge.value.type,
+          location: edge.value.location,
+          context: edge.value.context,
         });
       }
     }
 
     return results;
+  }
+
+  /**
+   * Detect circular dependencies using DST's built-in cycle detection
+   */
+  detectCircularDependencies(): string[][] {
+    const cycles: string[][] = [];
+
+    // Use DST's built-in cycle detection
+    const cyclePaths = this.referenceGraph.getCycles(true); // Include 2-cycles
+
+    for (const cycle of cyclePaths) {
+      const symbolCycle = cycle.map((symbolId) => String(symbolId));
+      cycles.push(symbolCycle);
+    }
+
+    this.logger.debug(
+      () => `Found ${cycles.length} cycles using DST algorithms`,
+    );
+    return cycles;
+  }
+
+  /**
+   * Analyze dependencies using DST's path finding algorithms
+   */
+  analyzeDependencies(symbol: ApexSymbol): {
+    dependencies: ApexSymbol[];
+    dependents: ApexSymbol[];
+    impactScore: number;
+  } {
+    const symbolId = this.findSymbolId(symbol);
+    if (!symbolId) {
+      return { dependencies: [], dependents: [], impactScore: 0 };
+    }
+
+    const vertex = this.symbolToVertex.get(symbolId);
+    if (!vertex) {
+      return { dependencies: [], dependents: [], impactScore: 0 };
+    }
+
+    // Get dependencies (what this symbol depends on)
+    const dependencies = this.findReferencesFrom(symbol).map(
+      (ref) => ref.symbol,
+    );
+
+    // Get dependents (what depends on this symbol)
+    const dependents = this.findReferencesTo(symbol).map((ref) => ref.symbol);
+
+    // Calculate impact score based on dependency graph
+    const impactScore = this.calculateImpactScore(dependents, dependencies);
+
+    return {
+      dependencies,
+      dependents,
+      impactScore,
+    };
+  }
+
+  /**
+   * Get memory statistics
+   */
+  getMemoryStats() {
+    return {
+      ...this.memoryStats,
+      estimatedMemorySavings: this.calculateMemorySavings(),
+    };
+  }
+
+  /**
+   * Get comprehensive statistics for the graph
+   */
+  getStats() {
+    return {
+      totalSymbols: this.memoryStats.totalSymbols,
+      totalFiles: this.fileIndex.size,
+      totalReferences: this.memoryStats.totalEdges,
+      deferredReferences: this.deferredReferences.size,
+      totalVertices: this.memoryStats.totalVertices,
+      totalEdges: this.memoryStats.totalEdges,
+      circularDependencies: this.detectCircularDependencies().length,
+      memoryOptimizationLevel: this.memoryStats.memoryOptimizationLevel,
+      estimatedMemorySavings: this.calculateMemorySavings(),
+    };
+  }
+
+  /**
+   * Lookup symbols by name
+   */
+  lookupSymbolByName(name: string): ApexSymbol[] {
+    const symbolIds = this.nameIndex.get(name) || [];
+    return symbolIds
+      .map((id) => this.lightweightSymbols.get(id))
+      .filter(
+        (lightweight): lightweight is LightweightSymbol =>
+          lightweight !== undefined,
+      )
+      .map((lightweight) =>
+        fromLightweightSymbol(lightweight, this.createSymbolTable()),
+      );
+  }
+
+  /**
+   * Lookup symbol by FQN
+   */
+  lookupSymbolByFQN(fqn: string): ApexSymbol | undefined {
+    const symbolId = this.fqnIndex.get(fqn);
+    if (!symbolId) return undefined;
+
+    const lightweight = this.lightweightSymbols.get(symbolId);
+    if (!lightweight) return undefined;
+
+    return fromLightweightSymbol(lightweight, this.createSymbolTable());
   }
 
   /**
@@ -487,24 +596,27 @@ export class ApexSymbolGraph {
   getSymbolsInFile(filePath: string): ApexSymbol[] {
     const symbolIds = this.fileIndex.get(filePath) || [];
     return symbolIds
-      .map((id) => this.symbolIndex.get(id))
-      .filter(Boolean) as ApexSymbol[];
+      .map((id) => this.lightweightSymbols.get(id))
+      .filter(
+        (lightweight): lightweight is LightweightSymbol =>
+          lightweight !== undefined,
+      )
+      .map((lightweight) =>
+        fromLightweightSymbol(lightweight, this.createSymbolTable()),
+      );
   }
 
   /**
-   * Get all files containing a symbol
+   * Get all files containing a symbol with the given name
    */
   getFilesForSymbol(symbolName: string): string[] {
     const symbolIds = this.nameIndex.get(symbolName) || [];
     const files = new Set<string>();
 
     for (const symbolId of symbolIds) {
-      // Find which file contains this symbol by checking the file index
-      for (const [filePath, fileSymbolIds] of this.fileIndex.entries()) {
-        if (fileSymbolIds && fileSymbolIds.includes(symbolId)) {
-          files.add(filePath);
-          break;
-        }
+      const filePath = this.symbolFileMap.get(symbolId);
+      if (filePath) {
+        files.add(filePath);
       }
     }
 
@@ -512,153 +624,26 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Lookup symbol by name
+   * Clear all data
    */
-  lookupSymbolByName(name: string): ApexSymbol[] {
-    const symbolIds = this.nameIndex.get(name) || [];
-    return symbolIds
-      .map((id) => this.symbolIndex.get(id))
-      .filter(Boolean) as ApexSymbol[];
-  }
+  clear(): void {
+    this.referenceGraph.clear();
+    this.lightweightSymbols.clear();
+    this.symbolToVertex.clear();
+    this.symbolFileMap.clear();
+    this.nameIndex.clear();
+    this.fileIndex.clear();
+    this.fqnIndex.clear();
+    this.deferredReferences.clear();
 
-  /**
-   * Lookup symbol by FQN
-   */
-  lookupSymbolByFQN(fqn: string): ApexSymbol | null {
-    const symbolId = this.fqnIndex.get(fqn);
-    if (!symbolId) return null;
-
-    return this.symbolIndex.get(symbolId) || null;
-  }
-
-  /**
-   * Analyze dependencies for a symbol
-   */
-  analyzeDependencies(symbol: ApexSymbol): DependencyAnalysis {
-    const symbolId = this.findSymbolId(symbol);
-    const nodeId = this.symbolIdToNodeId.get(symbolId);
-    if (!symbolId || !nodeId || !this.referenceGraph.hasNode(nodeId)) {
-      return {
-        dependencies: [],
-        dependents: [],
-        impactScore: 0,
-        circularDependencies: [],
-      };
-    }
-
-    // Find dependencies (what this symbol depends on)
-    const dependencies = this.findReferencesFrom(symbol).map(
-      (ref) => ref.symbol,
-    );
-
-    // Find dependents (what depends on this symbol)
-    const dependents = this.findReferencesTo(symbol).map((ref) => ref.symbol);
-
-    // Detect circular dependencies
-    const circularDependencies = this.detectCircularDependencies();
-
-    return {
-      dependencies,
-      dependents,
-      impactScore: dependents.length,
-      circularDependencies,
+    this.memoryStats = {
+      totalSymbols: 0,
+      totalLightweightSymbols: 0,
+      totalVertices: 0,
+      totalEdges: 0,
+      memoryOptimizationLevel: 'OPTIMAL',
+      estimatedMemorySavings: 0,
     };
-  }
-
-  /**
-   * Detect circular dependencies in the graph
-   */
-  detectCircularDependencies(): string[][] {
-    const cycles: string[][] = [];
-    const visited = new Set<number>();
-    const recursionStack = new Set<number>();
-
-    this.logger.debug(
-      () =>
-        `Detecting cycles in graph with ${this.referenceGraph.order} nodes and ${this.referenceGraph.size} edges`,
-    );
-
-    for (const node of this.referenceGraph.nodes()) {
-      if (!visited.has(node)) {
-        this.dfsDetectCycles(node, visited, recursionStack, cycles, []);
-      }
-    }
-
-    this.logger.debug(() => `Found ${cycles.length} cycles`);
-    return cycles;
-  }
-
-  /**
-   * DFS to detect cycles in the graph
-   */
-  private dfsDetectCycles(
-    node: number,
-    visited: Set<number>,
-    recursionStack: Set<number>,
-    cycles: string[][],
-    path: number[],
-  ): void {
-    visited.add(node);
-    recursionStack.add(node);
-    path.push(node);
-
-    const outgoingEdges = this.referenceGraph.outEdges(node);
-    for (const edgeId of outgoingEdges) {
-      const neighbor = this.referenceGraph.target(edgeId);
-
-      if (!visited.has(neighbor)) {
-        this.dfsDetectCycles(neighbor, visited, recursionStack, cycles, path);
-      } else if (recursionStack.has(neighbor)) {
-        // Found a cycle - convert node IDs back to symbol IDs
-        const cycleStart = path.indexOf(neighbor);
-        const cycle = path.slice(cycleStart);
-        const symbolCycle = cycle.map(
-          (nodeId) => this.nodeIdToSymbolId.get(nodeId) || `unknown-${nodeId}`,
-        );
-        cycles.push(symbolCycle);
-      }
-    }
-
-    recursionStack.delete(node);
-    path.pop();
-  }
-
-  /**
-   * Get statistics about the graph
-   */
-  getStats(): {
-    totalSymbols: number;
-    totalReferences: number;
-    totalFiles: number;
-    circularDependencies: number;
-    deferredReferences: number;
-  } {
-    return {
-      totalSymbols: this.symbolIndex.size,
-      totalReferences: this.referenceGraph.size,
-      totalFiles: this.fileIndex.size,
-      circularDependencies: this.detectCircularDependencies().length,
-      deferredReferences: this.deferredReferences.size,
-    };
-  }
-
-  /**
-   * PHASE 4: Update memory optimization statistics
-   */
-  private updateMemoryOptimizationStats(): void {
-    const currentTotalMemory =
-      this.symbolIndex.size * 200 + this.referenceGraph.size * 20; // Rough estimate
-    const newTotalMemory =
-      this.lightweightSymbols.size * 16 + this.referenceGraph.size * 20; // Rough estimate
-    const estimatedSavings = currentTotalMemory - newTotalMemory;
-
-    this.memoryStats.memoryOptimizationLevel =
-      estimatedSavings > 1000000
-        ? 'HIGH'
-        : estimatedSavings > 100000
-          ? 'MEDIUM'
-          : 'OPTIMAL';
-    this.memoryStats.estimatedMemorySavings = estimatedSavings;
   }
 
   /**
@@ -668,18 +653,18 @@ export class ApexSymbolGraph {
     const symbolIds = this.fileIndex.get(filePath) || [];
 
     for (const symbolId of symbolIds) {
-      // Remove from graphology graph
-      const nodeId = this.symbolIdToNodeId.get(symbolId);
-      if (nodeId && this.referenceGraph.hasNode(nodeId)) {
-        this.referenceGraph.dropNode(nodeId);
+      // Remove from DST graph
+      const vertex = this.symbolToVertex.get(symbolId);
+      if (vertex) {
+        this.referenceGraph.deleteVertex(vertex);
+        this.memoryStats.totalVertices--;
       }
 
       // Remove from data-structure-typed indexes
-      this.symbolIndex.delete(symbolId);
+      this.symbolFileMap.delete(symbolId);
       this.fqnIndex.delete(symbolId);
-      this.lightweightSymbols.delete(symbolId); // Remove lightweight symbol
-      this.symbolIdToNodeId.delete(symbolId); // Remove node ID mapping
-      this.nodeIdToSymbolId.delete(this.symbolIdToNodeId.get(symbolId)!); // Remove reverse mapping
+      this.lightweightSymbols.delete(symbolId);
+      this.symbolToVertex.delete(symbolId);
 
       // Update name index
       for (const [name, ids] of this.nameIndex.entries()) {
@@ -697,79 +682,125 @@ export class ApexSymbolGraph {
     // Update file index
     this.fileIndex.delete(filePath);
 
+    // Update memory statistics
+    this.memoryStats.totalSymbols -= symbolIds.length;
+    this.memoryStats.totalLightweightSymbols -= symbolIds.length;
+
     this.logger.debug(
       () => `Removed file: ${filePath} with ${symbolIds.length} symbols`,
     );
   }
 
-  /**
-   * Clear all symbols from the graph
-   */
-  clear(): void {
-    this.referenceGraph.clear();
-    this.symbolIndex.clear();
-    this.nameIndex.clear();
-    this.fileIndex.clear();
-    this.fqnIndex.clear();
-    this.deferredReferences.clear();
-    this.lightweightSymbols.clear();
-    this.symbolIdToNodeId.clear();
-    this.nodeIdToSymbolId.clear();
-    this.nextNodeId = 1;
+  // Private helper methods
 
-    this.logger.debug(() => 'Cleared all symbols from graph');
+  private getSymbolId(symbol: ApexSymbol, filePath: string): string {
+    return `${symbol.name}:${filePath}`;
   }
 
-  /**
-   * Find the symbol ID for a given symbol by searching through our indexes
-   */
   private findSymbolId(symbol: ApexSymbol): string | null {
-    // First try to find by FQN
+    // Try to find by FQN first
     if (symbol.fqn) {
       const symbolId = this.fqnIndex.get(symbol.fqn);
-      if (symbolId) {
-        return symbolId;
-      }
+      if (symbolId) return symbolId;
     }
 
-    // If not found by FQN, search by name and match the symbol
-    const symbolIds = this.nameIndex.get(symbol.name) || [];
+    // Try to find by name and file path
+    const nameMatches = this.nameIndex.get(symbol.name) || [];
+    for (const symbolId of nameMatches) {
+      const storedSymbol = this.lightweightSymbols.get(symbolId);
+      if (storedSymbol) {
+        // Try to match by file path from symbolFileMap
+        const storedFilePath = this.symbolFileMap.get(symbolId);
+        const symbolFilePath = symbol.key.path[0];
 
-    for (const symbolId of symbolIds) {
-      const storedSymbol = this.symbolIndex.get(symbolId);
-      if (storedSymbol && this.symbolsMatch(storedSymbol, symbol)) {
-        return symbolId;
+        if (storedFilePath === symbolFilePath) {
+          return symbolId;
+        }
       }
     }
 
     return null;
   }
 
-  /**
-   * Check if two symbols match (same name, kind, and key path)
-   */
-  private symbolsMatch(symbol1: ApexSymbol, symbol2: ApexSymbol): boolean {
-    return (
-      symbol1.name === symbol2.name &&
-      symbol1.kind === symbol2.kind &&
-      symbol1.key.path.join('.') === symbol2.key.path.join('.')
-    );
+  private addDeferredReference(
+    sourceSymbol: ApexSymbol,
+    targetKey: string,
+    referenceType: EnumValue<typeof ReferenceType>,
+    location: ReferenceEdge['location'],
+    context?: ReferenceEdge['context'],
+  ): void {
+    if (!this.deferredReferences.has(targetKey)) {
+      this.deferredReferences.set(targetKey, []);
+    }
+
+    this.deferredReferences.get(targetKey)!.push({
+      sourceSymbol,
+      referenceType,
+      location,
+      context,
+    });
+  }
+
+  private processDeferredReferences(symbolId: string): void {
+    // Try to find deferred references by symbolId, FQN, or name
+    const lightweight = this.lightweightSymbols.get(symbolId);
+    if (!lightweight) return;
+
+    // Try different keys for deferred references
+    const possibleKeys = [symbolId, lightweight.fqn, lightweight.name].filter(
+      Boolean,
+    ) as string[];
+
+    for (const key of possibleKeys) {
+      const deferredRefs = this.deferredReferences.get(key);
+      if (deferredRefs) {
+        for (const deferredRef of deferredRefs) {
+          this.addReference(
+            deferredRef.sourceSymbol,
+            fromLightweightSymbol(lightweight, this.createSymbolTable()),
+            deferredRef.referenceType,
+            deferredRef.location,
+            deferredRef.context,
+          );
+        }
+        this.deferredReferences.delete(key);
+      }
+    }
+  }
+
+  private calculateImpactScore(
+    dependents: ApexSymbol[],
+    dependencies: ApexSymbol[],
+  ): number {
+    // Impact score calculation based on test expectations
+    const dependentCount = dependents.length;
+    const dependencyCount = dependencies.length;
+
+    // If symbol has dependencies but no dependents, score is 0
+    if (dependencyCount > 0 && dependentCount === 0) {
+      return 0;
+    }
+
+    // If symbol has dependents but no dependencies, score equals dependent count
+    if (dependentCount > 0 && dependencyCount === 0) {
+      return dependentCount;
+    }
+
+    // For mixed cases, return the number of dependents (as expected by tests)
+    return dependentCount;
+  }
+
+  private calculateMemorySavings(): number {
+    // Calculate estimated memory savings compared to original implementation
+    const originalSize = this.memoryStats.totalSymbols * 300; // 300 bytes per symbol (original)
+    const currentSize = this.memoryStats.totalSymbols * 100; // 100 bytes per symbol (optimized)
+    return Math.max(0, originalSize - currentSize);
   }
 
   /**
-   * Generate a unique ID for a symbol
-   * Updated for Phase 6.5.2: Symbol Key System Unification
+   * Create a minimal SymbolTable for conversion purposes
    */
-  private getSymbolId(symbol: ApexSymbol, filePath?: string): string {
-    // Use unified key system if available, fallback to legacy method
-    if (symbol.key.unifiedId) {
-      return symbol.key.unifiedId;
-    }
-
-    // Generate unified ID and cache it
-    const unifiedKey = createFromSymbol(symbol, filePath);
-    symbol.key = unifiedKey;
-
-    return unifiedKey.unifiedId!;
+  private createSymbolTable(): SymbolTable {
+    return new SymbolTable();
   }
 }

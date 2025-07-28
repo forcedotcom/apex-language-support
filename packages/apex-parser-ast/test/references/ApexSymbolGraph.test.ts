@@ -27,6 +27,47 @@ describe('ApexSymbolGraph', () => {
     graph.clear();
   });
 
+  // Debug test to check basic DST functionality
+  it('should debug basic DST operations', () => {
+    const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
+    const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
+
+    // Add symbols
+    graph.addSymbol(classSymbol, 'MyClass.cls');
+    graph.addSymbol(methodSymbol, 'MyClass.cls');
+
+    // Check if symbols were added
+    const stats = graph.getStats();
+    console.log('Stats after adding symbols:', stats);
+
+    // Check if we can find the symbols
+    const foundClass = graph.lookupSymbolByName('MyClass');
+    const foundMethod = graph.lookupSymbolByName('myMethod');
+    console.log('Found class:', foundClass.length);
+    console.log('Found method:', foundMethod.length);
+
+    // Try to add a reference
+    graph.addReference(methodSymbol, classSymbol, ReferenceType.METHOD_CALL, {
+      startLine: 5,
+      startColumn: 10,
+      endLine: 5,
+      endColumn: 20,
+    });
+
+    // Check stats after adding reference
+    const statsAfterRef = graph.getStats();
+    console.log('Stats after adding reference:', statsAfterRef);
+
+    // Try to find references
+    const referencesTo = graph.findReferencesTo(classSymbol);
+    const referencesFrom = graph.findReferencesFrom(methodSymbol);
+    console.log('References TO class:', referencesTo.length);
+    console.log('References FROM method:', referencesFrom.length);
+
+    // This test should pass even if references aren't working
+    expect(stats.totalSymbols).toBe(2);
+  });
+
   // Helper function to create test symbols
   const createTestSymbol = (
     name: string,

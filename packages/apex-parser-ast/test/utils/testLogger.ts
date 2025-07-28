@@ -5,134 +5,167 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import {
-  getLogger,
-  type LogMessageType,
-  LoggerInterface,
-} from '@salesforce/apex-lsp-shared';
 
 /**
- * Test logger configuration for apex-parser-ast tests
- * This logger will output to the console during tests and can be configured
- * to show different log levels based on test needs
+ * Test logger implementation that captures log lines to an array
+ * for debugging and testing purposes
  */
-export class TestLogger implements LoggerInterface {
-  private static instance: TestLogger;
-  private logger: LoggerInterface;
-  private logLevel: LogMessageType = 'info';
+export class TestLogger {
+  private logs: Array<{
+    level: 'debug' | 'info' | 'warn' | 'error';
+    message: string;
+    timestamp: number;
+  }> = [];
 
-  private constructor() {
-    this.logger = getLogger();
+  /**
+   * Get all captured logs
+   */
+  getLogs(): Array<{ level: string; message: string; timestamp: number }> {
+    return [...this.logs];
   }
 
   /**
-   * Get the singleton instance of the test logger
+   * Get logs filtered by level
    */
-  public static getInstance(): TestLogger {
-    if (!TestLogger.instance) {
-      TestLogger.instance = new TestLogger();
-    }
-    return TestLogger.instance;
+  getLogsByLevel(level: 'debug' | 'info' | 'warn' | 'error'): string[] {
+    return this.logs
+      .filter((log) => log.level === level)
+      .map((log) => log.message);
   }
 
   /**
-   * Set the log level for tests
-   * @param level The log level to use
+   * Get all debug logs
    */
-  public setLogLevel(level: LogMessageType): void {
-    this.logLevel = level;
+  getDebugLogs(): string[] {
+    return this.getLogsByLevel('debug');
   }
 
   /**
-   * Get the current log level
+   * Get all info logs
    */
-  public getLogLevel(): LogMessageType {
-    return this.logLevel;
+  getInfoLogs(): string[] {
+    return this.getLogsByLevel('info');
   }
 
   /**
-   * Log a message with the specified type
+   * Get all warning logs
    */
-  public log(
-    messageType: LogMessageType,
-    message: string | (() => string),
-  ): void {
-    if (this.shouldLog(messageType)) {
-      if (typeof message === 'function') {
-        this.logger.log(messageType, message);
-      } else {
-        this.logger.log(messageType, message);
-      }
-    }
+  getWarnLogs(): string[] {
+    return this.getLogsByLevel('warn');
   }
 
   /**
-   * Log a debug message
-   * @param message - The message to log or function that returns the message
+   * Get all error logs
    */
-  public debug(message: string | (() => string)): void {
-    if (this.shouldLog('debug')) {
-      if (typeof message === 'function') {
-        this.logger.log('debug', message);
-      } else {
-        this.logger.log('debug', message);
-      }
-    }
+  getErrorLogs(): string[] {
+    return this.getLogsByLevel('error');
   }
 
   /**
-   * Log an info message
-   * @param message - The message to log or function that returns the message
+   * Search logs for a specific message pattern
    */
-  public info(message: string | (() => string)): void {
-    if (this.shouldLog('info')) {
-      if (typeof message === 'function') {
-        this.logger.log('info', message);
-      } else {
-        this.logger.log('info', message);
-      }
-    }
+  searchLogs(pattern: string | RegExp): string[] {
+    const regex =
+      typeof pattern === 'string' ? new RegExp(pattern, 'i') : pattern;
+    return this.logs
+      .filter((log) => regex.test(log.message))
+      .map((log) => log.message);
   }
 
   /**
-   * Log a warning message
-   * @param message - The message to log or function that returns the message
+   * Clear all captured logs
    */
-  public warn(message: string | (() => string)): void {
-    if (this.shouldLog('warning')) {
-      if (typeof message === 'function') {
-        this.logger.log('warning', message);
-      } else {
-        this.logger.log('warning', message);
-      }
-    }
+  clear(): void {
+    this.logs = [];
   }
 
   /**
-   * Log an error message
-   * @param message - The message to log or function that returns the message
+   * Get the number of captured logs
    */
-  public error(message: string | (() => string)): void {
-    if (this.shouldLog('error')) {
-      if (typeof message === 'function') {
-        this.logger.log('error', message);
-      } else {
-        this.logger.log('error', message);
-      }
-    }
+  getLogCount(): number {
+    return this.logs.length;
   }
 
   /**
-   * Check if a message at the given level should be logged
+   * Debug logging
    */
-  private shouldLog(level: LogMessageType): boolean {
-    const levels: LogMessageType[] = [
-      'error',
-      'warning',
-      'info',
-      'log',
-      'debug',
-    ];
-    return levels.indexOf(level) <= levels.indexOf(this.logLevel);
+  debug(message: string | (() => string)): void {
+    const msg = typeof message === 'function' ? message() : message;
+    this.logs.push({
+      level: 'debug',
+      message: msg,
+      timestamp: Date.now(),
+    });
   }
+
+  /**
+   * Info logging
+   */
+  info(message: string | (() => string)): void {
+    const msg = typeof message === 'function' ? message() : message;
+    this.logs.push({
+      level: 'info',
+      message: msg,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
+   * Warning logging
+   */
+  warn(message: string | (() => string)): void {
+    const msg = typeof message === 'function' ? message() : message;
+    this.logs.push({
+      level: 'warn',
+      message: msg,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
+   * Error logging
+   */
+  error(message: string | (() => string)): void {
+    const msg = typeof message === 'function' ? message() : message;
+    this.logs.push({
+      level: 'error',
+      message: msg,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
+   * Print all logs to console (for debugging)
+   */
+  printLogs(): void {
+    console.log('=== Test Logger Output ===');
+    this.logs.forEach((log) => {
+      console.log(`[${log.level.toUpperCase()}] ${log.message}`);
+    });
+    console.log('=== End Test Logger Output ===');
+  }
+
+  /**
+   * Get logs as formatted string
+   */
+  toString(): string {
+    return this.logs
+      .map((log) => `[${log.level.toUpperCase()}] ${log.message}`)
+      .join('\n');
+  }
+}
+
+/**
+ * Factory function to create a test logger
+ */
+export function createTestLogger(): TestLogger {
+  return new TestLogger();
+}
+
+/**
+ * Mock logger factory that returns a test logger
+ * This can be used to replace the real logger in tests
+ */
+export function getTestLogger(): TestLogger {
+  return new TestLogger();
 }
