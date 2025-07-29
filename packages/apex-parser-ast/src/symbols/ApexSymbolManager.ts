@@ -447,17 +447,13 @@ export class ApexSymbolManager implements ISymbolManager {
     const symbolId = this.getSymbolId(symbol, filePath);
 
     // Get the count before adding
-    const symbolsBefore = this.symbolGraph.lookupSymbolByName(
-      symbol.name,
-    ).length;
+    const symbolsBefore = this.symbolGraph.findSymbolByName(symbol.name).length;
 
     // Add to symbol graph (it has its own duplicate detection)
     this.symbolGraph.addSymbol(symbol, filePath);
 
     // Check if the symbol was actually added by comparing counts
-    const symbolsAfter = this.symbolGraph.lookupSymbolByName(
-      symbol.name,
-    ).length;
+    const symbolsAfter = this.symbolGraph.findSymbolByName(symbol.name).length;
     const symbolWasAdded = symbolsAfter > symbolsBefore;
 
     if (symbolWasAdded) {
@@ -505,7 +501,8 @@ export class ApexSymbolManager implements ISymbolManager {
       return cached;
     }
 
-    const symbols = this.symbolGraph.lookupSymbolByName(name);
+    // OPTIMIZED: Delegate to graph which delegates to SymbolTable
+    const symbols = this.symbolGraph.findSymbolByName(name);
     this.unifiedCache.set(cacheKey, symbols, 'symbol_lookup');
     return symbols;
   }
@@ -520,7 +517,7 @@ export class ApexSymbolManager implements ISymbolManager {
       return cached;
     }
 
-    const symbol = this.symbolGraph.lookupSymbolByFQN(fqn);
+    const symbol = this.symbolGraph.findSymbolByFQN(fqn);
     this.unifiedCache.set(cacheKey, symbol, 'fqn_lookup');
     return symbol || null;
   }
@@ -535,6 +532,7 @@ export class ApexSymbolManager implements ISymbolManager {
       return cached;
     }
 
+    // OPTIMIZED: Delegate to graph which delegates to SymbolTable
     const symbols = this.symbolGraph.getSymbolsInFile(filePath);
     this.unifiedCache.set(cacheKey, symbols, 'file_lookup');
     return symbols;
@@ -544,7 +542,18 @@ export class ApexSymbolManager implements ISymbolManager {
    * Find files containing a symbol with the given name
    */
   findFilesForSymbol(name: string): string[] {
-    return this.symbolGraph.getFilesForSymbol(name);
+    // OPTIMIZED: Get files from symbol table references
+    const symbolIds = this.symbolGraph['nameIndex'].get(name) || [];
+    const files = new Set<string>();
+
+    for (const symbolId of symbolIds) {
+      const filePath = this.symbolGraph['symbolFileMap'].get(symbolId);
+      if (filePath) {
+        files.add(filePath);
+      }
+    }
+
+    return Array.from(files);
   }
 
   /**
