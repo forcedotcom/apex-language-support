@@ -82,12 +82,21 @@ export interface ISymbolManager {
   findFilesForSymbol(name: string): string[];
 
   /**
-   * Resolve symbol with context
+   * Resolve a symbol by name with context
+   * @param name The symbol name to resolve
+   * @param context The resolution context
+   * @returns The resolution result
    */
   resolveSymbol(
     name: string,
     context: SymbolResolutionContext,
   ): SymbolResolutionResult;
+
+  /**
+   * Get all symbols for completion purposes
+   * @returns Array of all available symbols
+   */
+  getAllSymbolsForCompletion(): ApexSymbol[];
 
   /**
    * Find references to a symbol

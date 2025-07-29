@@ -183,18 +183,30 @@ export class CompletionProcessingService implements ICompletionProcessor {
 
     for (const partialMatch of partialMatches) {
       try {
-        // Use ApexSymbolManager's context-aware resolution
-        const result = this.symbolManager.resolveSymbol(
-          partialMatch,
-          resolutionContext,
-        );
+        if (partialMatch === '*') {
+          // Handle wildcard pattern - get all symbols for completion
+          const allSymbols = this.symbolManager.getAllSymbolsForCompletion();
+          for (const symbol of allSymbols) {
+            candidates.push({
+              symbol,
+              relevance: 0.5, // Base relevance for wildcard matches
+              context: 'wildcard completion',
+            });
+          }
+        } else {
+          // Use ApexSymbolManager's context-aware resolution
+          const result = this.symbolManager.resolveSymbol(
+            partialMatch,
+            resolutionContext,
+          );
 
-        if (result.symbol) {
-          candidates.push({
-            symbol: result.symbol,
-            relevance: result.confidence,
-            context: result.resolutionContext || 'context-aware resolution',
-          });
+          if (result.symbol) {
+            candidates.push({
+              symbol: result.symbol,
+              relevance: result.confidence,
+              context: result.resolutionContext || 'context-aware resolution',
+            });
+          }
         }
       } catch (error) {
         // Continue with other candidates

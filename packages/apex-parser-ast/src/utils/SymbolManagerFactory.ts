@@ -133,15 +133,23 @@ class TestSymbolManager implements ISymbolManager {
       };
     }
 
-    // Multiple candidates - return the first one with ambiguity flag
+    // Multiple candidates - return the first one
     return {
       symbol: candidates[0],
       filePath: context.sourceFile,
-      confidence: 0.5,
+      confidence: 0.7,
       isAmbiguous: true,
       candidates,
-      resolutionContext: 'Multiple symbols found',
+      resolutionContext: 'Multiple candidates found',
     };
+  }
+
+  getAllSymbolsForCompletion(): ApexSymbol[] {
+    const allSymbols: ApexSymbol[] = [];
+    for (const symbols of this.fileSymbols.values()) {
+      allSymbols.push(...symbols);
+    }
+    return allSymbols;
   }
 
   findReferencesTo(symbol: ApexSymbol): any[] {

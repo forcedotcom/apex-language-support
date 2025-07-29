@@ -715,6 +715,13 @@ export class ApexSymbolManager implements ISymbolManager {
   }
 
   /**
+   * Get all symbols for completion purposes
+   */
+  getAllSymbolsForCompletion(): ApexSymbol[] {
+    return this.getAllSymbols();
+  }
+
+  /**
    * Get statistics
    */
   getStats(): {
