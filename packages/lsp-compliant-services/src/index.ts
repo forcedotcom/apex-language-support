@@ -12,6 +12,8 @@ import {
   SymbolInformation,
   DocumentSymbol,
   Diagnostic,
+  HoverParams,
+  Hover,
 } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -41,6 +43,7 @@ export * from './handlers/FoldingRangeHandler';
 export * from './handlers/ApexLibResolveHandler';
 export * from './handlers/LogNotificationHandler';
 export * from './handlers/DiagnosticHandler';
+export * from './handlers/HoverHandler';
 
 // Export services
 export * from './services/DocumentProcessingService';
@@ -48,6 +51,7 @@ export * from './services/DocumentSaveProcessingService';
 export * from './services/DocumentCloseProcessingService';
 export * from './services/DocumentSymbolProcessingService';
 export * from './services/DiagnosticProcessingService';
+export * from './services/HoverProcessingService';
 
 // Export factories
 export * from './factories/HandlerFactory';
@@ -116,6 +120,18 @@ export const dispatchProcessOnDocumentSymbol = async (
 ): Promise<SymbolInformation[] | DocumentSymbol[] | null> => {
   const handler = HandlerFactory.createDocumentSymbolHandler();
   return await handler.handleDocumentSymbol(params);
+};
+
+/**
+ * Dispatch function for hover requests
+ * @param params The hover parameters
+ * @returns Promise resolving to hover information or null
+ */
+export const dispatchProcessOnHover = async (
+  params: HoverParams,
+): Promise<Hover | null> => {
+  const handler = HandlerFactory.createHoverHandler();
+  return await handler.handleHover(params);
 };
 
 // Re-export the existing dispatch functions

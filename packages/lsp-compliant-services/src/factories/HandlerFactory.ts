@@ -28,6 +28,11 @@ import {
   DocumentCloseProcessingService,
   IDocumentCloseProcessor,
 } from '../services/DocumentCloseProcessingService';
+import { HoverHandler } from '../handlers/HoverHandler';
+import {
+  HoverProcessingService,
+  IHoverProcessor,
+} from '../services/HoverProcessingService';
 
 /**
  * Factory for creating handlers with proper dependency injection
@@ -127,5 +132,29 @@ export class HandlerFactory {
     documentCloseProcessor: IDocumentCloseProcessor,
   ): DidCloseDocumentHandler {
     return new DidCloseDocumentHandler(logger, documentCloseProcessor);
+  }
+
+  /**
+   * Create a HoverHandler with default dependencies
+   * @returns A configured HoverHandler instance
+   */
+  static createHoverHandler(): HoverHandler {
+    const logger = getLogger();
+    const hoverProcessor = new HoverProcessingService(logger);
+
+    return new HoverHandler(logger, hoverProcessor);
+  }
+
+  /**
+   * Create a HoverHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param hoverProcessor Custom hover processor implementation
+   * @returns A configured HoverHandler instance
+   */
+  static createHoverHandlerWithDependencies(
+    logger: LoggerInterface,
+    hoverProcessor: IHoverProcessor,
+  ): HoverHandler {
+    return new HoverHandler(logger, hoverProcessor);
   }
 }

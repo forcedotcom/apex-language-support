@@ -32,6 +32,7 @@ import {
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnDiagnostic,
+  dispatchProcessOnHover,
   ApexStorageManager,
   ApexStorage,
   LSPConfigurationManager,
@@ -214,12 +215,16 @@ connection.onCompletion(
 
 // Handle hover requests
 connection.onHover(
-  (_textDocumentPosition: TextDocumentPositionParams): Hover => ({
-    contents: {
-      kind: 'markdown',
-      value: 'This is an example hover text.',
-    },
-  }),
+  async (
+    textDocumentPosition: TextDocumentPositionParams,
+  ): Promise<Hover | null> => {
+    try {
+      return await dispatchProcessOnHover(textDocumentPosition);
+    } catch (error) {
+      logger.error(() => `Error handling hover request: ${error}`);
+      return null;
+    }
+  },
 );
 
 // Handle shutdown request

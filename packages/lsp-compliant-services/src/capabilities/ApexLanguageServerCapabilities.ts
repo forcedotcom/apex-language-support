@@ -98,6 +98,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
     triggerCharacters: ['.'],
   },
   foldingRangeProvider: true,
+  hoverProvider: true,
   diagnosticProvider: {
     identifier: 'apex-ls-ts',
     interFileDependencies: true,

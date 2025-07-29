@@ -30,6 +30,7 @@ import {
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnDiagnostic,
+  dispatchProcessOnHover,
   ApexStorageManager,
   LSPConfigurationManager,
   dispatchProcessOnResolve,
@@ -311,12 +312,14 @@ export function startServer() {
   ]);
 
   // Handle hover requests
-  connection.onHover((_textDocumentPosition: any) => ({
-    contents: {
-      kind: 'markdown',
-      value: 'This is an example hover text.',
-    },
-  }));
+  connection.onHover(async (textDocumentPosition: any) => {
+    try {
+      return await dispatchProcessOnHover(textDocumentPosition);
+    } catch (error) {
+      logger.error(() => `Error handling hover request: ${error}`);
+      return null;
+    }
+  });
 
   // Handle shutdown request
   connection.onShutdown(async () => {
