@@ -134,6 +134,18 @@ export class HoverProcessingService implements IHoverProcessor {
         return true;
       });
 
+      // Debug logging
+      this.logger.debug(
+        () =>
+          `Found ${symbolsAtPosition.length} symbols at position ${position.line}:${position.character}`,
+      );
+      symbolsAtPosition.forEach((symbol: any) => {
+        this.logger.debug(
+          () =>
+            `Symbol: ${symbol.name} (${symbol.kind}) at ${symbol.location.startLine}:${symbol.location.startColumn}-${symbol.location.endLine}:${symbol.location.endColumn}`,
+        );
+      });
+
       return symbolsAtPosition.length > 0 ? symbolsAtPosition : null;
     } catch (error) {
       this.logger.debug(() => `Error finding symbols at position: ${error}`);
@@ -228,6 +240,9 @@ export class HoverProcessingService implements IHoverProcessor {
         }
       }
 
+      // Symbol specificity analysis - favor more specific symbols over broader ones
+      confidence += this.analyzeSymbolSpecificity(symbol, symbols);
+
       // Update best match if this symbol has higher confidence
       if (confidence > bestConfidence) {
         bestSymbol = symbol;
@@ -278,6 +293,63 @@ export class HoverProcessingService implements IHoverProcessor {
     }
 
     return confidence;
+  }
+
+  /**
+   * Analyze symbol specificity to favor more specific symbols over broader ones
+   */
+  private analyzeSymbolSpecificity(symbol: any, allSymbols: any[]): number {
+    let confidence = 0;
+
+    // Calculate symbol span (how much of the file it covers)
+    const symbolSpan = this.calculateSymbolSpan(symbol);
+    
+    // Find the smallest span among all symbols at this position
+    const minSpan = Math.min(
+      ...allSymbols.map((s) => this.calculateSymbolSpan(s)),
+    );
+    
+    // If this symbol has the smallest span, it's more specific
+    if (symbolSpan === minSpan) {
+      confidence += 0.3; // High bonus for most specific symbol
+    } else {
+      // Reduce confidence for broader symbols
+      const spanRatio = minSpan / symbolSpan;
+      confidence += spanRatio * 0.1;
+    }
+
+    // Additional specificity based on symbol kind
+    switch (symbol.kind?.toLowerCase()) {
+      case 'method':
+        confidence += 0.2; // Methods are more specific than classes
+        break;
+      case 'property':
+        confidence += 0.15; // Properties are more specific than classes
+        break;
+      case 'field':
+        confidence += 0.15; // Fields are more specific than classes
+        break;
+      case 'class':
+        confidence -= 0.1; // Classes are less specific
+        break;
+    }
+
+    return confidence;
+  }
+
+  /**
+   * Calculate the span of a symbol (how much of the file it covers)
+   */
+  private calculateSymbolSpan(symbol: any): number {
+    if (!symbol.location) return 0;
+    
+    const { startLine, endLine, startColumn, endColumn } = symbol.location;
+    
+    // Calculate total characters spanned
+    const lineSpan = endLine - startLine;
+    const columnSpan = endColumn - startColumn;
+    
+    return lineSpan * 1000 + columnSpan; // Weight lines more heavily than columns
   }
 
   /**
