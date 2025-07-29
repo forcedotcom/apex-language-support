@@ -270,6 +270,12 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
     it('should handle large numbers of symbols efficiently', () => {
       const startTime = Date.now();
 
+      // Create SymbolTables per file (10 files for 1000 symbols)
+      const symbolTables = new Map<string, SymbolTable>();
+      for (let i = 0; i < 10; i++) {
+        symbolTables.set(`/large/file${i}.cls`, new SymbolTable());
+      }
+
       // Create 1000 symbols
       for (let i = 0; i < 1000; i++) {
         const symbol = SymbolFactory.createMinimalSymbol(
@@ -279,9 +285,10 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
           `/large/file${Math.floor(i / 100)}.cls`,
         );
 
-        const symbolTable = new SymbolTable();
+        const filePath = symbol.filePath;
+        const symbolTable = symbolTables.get(filePath)!;
         symbolTable.addSymbol(symbol);
-        symbolGraph.addSymbol(symbol, symbol.filePath, symbolTable);
+        symbolGraph.addSymbol(symbol, filePath, symbolTable);
       }
 
       const endTime = Date.now();

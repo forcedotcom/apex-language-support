@@ -294,6 +294,11 @@ export class ApexSymbolGraph {
       return;
     }
 
+    // OPTIMIZED: Register SymbolTable immediately for delegation
+    if (symbolTable) {
+      this.registerSymbolTable(symbolTable, filePath);
+    }
+
     // OPTIMIZED: Only track existence, don't store full symbol
     this.symbolIds.add(symbolId);
 
@@ -349,11 +354,6 @@ export class ApexSymbolGraph {
 
     // Process any deferred references to this symbol
     this.processDeferredReferences(symbolId);
-
-    // OPTIMIZED: Register SymbolTable for delegation
-    if (symbolTable) {
-      this.registerSymbolTable(symbolTable, filePath);
-    }
   }
 
   /**
@@ -362,18 +362,28 @@ export class ApexSymbolGraph {
   getSymbol(symbolId: string): ApexSymbol | null {
     const filePath = this.symbolFileMap.get(symbolId);
     if (!filePath) {
+      this.logger.debug(() => `No file path found for symbol ID: ${symbolId}`);
       return null;
     }
 
     const symbolTable = this.fileToSymbolTable.get(filePath);
     if (!symbolTable) {
+      this.logger.debug(() => `No SymbolTable found for file: ${filePath}`);
       return null;
     }
 
     // OPTIMIZED: Delegate to SymbolTable for actual symbol data
-    // Use lookupByKey with a constructed key, or find by name
     const symbolName = symbolId.split(':').pop() || '';
-    return symbolTable.lookup(symbolName) || null;
+    const symbol = symbolTable.lookup(symbolName);
+
+    if (!symbol) {
+      this.logger.debug(
+        () => `Symbol not found in SymbolTable: ${symbolName} in ${filePath}`,
+      );
+      return null;
+    }
+
+    return symbol;
   }
 
   /**
@@ -757,13 +767,48 @@ export class ApexSymbolGraph {
     }>,
     context?: ResolutionContext,
   ): { symbol: ApexSymbol; filePath: string; confidence: number } {
-    // Simple resolution strategy - can be enhanced
-    // For now, return the first entry with medium confidence
+    // If no context provided, return first candidate with medium confidence
+    if (!context) {
+      const candidate = candidates[0];
+      return {
+        symbol: candidate.symbol,
+        filePath: candidate.filePath,
+        confidence: 0.5,
+      };
+    }
+
+    // Try to match by source file first
+    if (context.sourceFile) {
+      const fileMatch = candidates.find(
+        (c) => c.filePath === context.sourceFile,
+      );
+      if (fileMatch) {
+        return {
+          symbol: fileMatch.symbol,
+          filePath: fileMatch.filePath,
+          confidence: 0.8,
+        };
+      }
+    }
+
+    // Try to match by scope if provided
+    if (context.currentScope) {
+      // For now, return first candidate with scope context
+      // This can be enhanced with actual scope hierarchy matching
+      const candidate = candidates[0];
+      return {
+        symbol: candidate.symbol,
+        filePath: candidate.filePath,
+        confidence: 0.7,
+      };
+    }
+
+    // Default: return first candidate with medium confidence
     const candidate = candidates[0];
     return {
       symbol: candidate.symbol,
       filePath: candidate.filePath,
-      confidence: 0.5, // Medium confidence for ambiguous symbols
+      confidence: 0.5,
     };
   }
 

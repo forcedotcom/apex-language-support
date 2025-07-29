@@ -739,13 +739,13 @@ export class SymbolTable {
 
   /**
    * Lookup a symbol by name, searching through nested scopes.
-   * Searches from current scope up through parent scopes.
+   * Searches from current scope up through parent scopes, and also down through child scopes.
    * @param name The name of the symbol to find
    * @returns The symbol if found, undefined otherwise
    */
   lookup(name: string): ApexSymbol | undefined {
+    // First, search from current scope up through parent scopes
     let scope: SymbolScope | null = this.current;
-
     while (scope) {
       const symbol = scope.getSymbol(name);
       if (symbol) {
@@ -754,7 +754,25 @@ export class SymbolTable {
       scope = scope.parent;
     }
 
-    return undefined;
+    // If not found in current scope or parents, search all child scopes
+    const searchChildren = (
+      currentScope: SymbolScope,
+    ): ApexSymbol | undefined => {
+      for (const child of currentScope.getChildren()) {
+        const symbol = child.getSymbol(name);
+        if (symbol) {
+          return symbol;
+        }
+        // Recursively search children of children
+        const foundInChild = searchChildren(child);
+        if (foundInChild) {
+          return foundInChild;
+        }
+      }
+      return undefined;
+    };
+
+    return searchChildren(this.current);
   }
 
   /**
