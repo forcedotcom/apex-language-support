@@ -172,9 +172,9 @@ export class HoverProcessingService implements IHoverProcessor {
       // Apex-specific context analysis
       confidence += this.analyzeApexContext(symbol, context);
 
-      // Namespace context analysis
-      if (context.namespaceContext && symbol.modifiers?.visibility) {
-        if (context.namespaceContext === symbol.modifiers.visibility) {
+      // Access modifier context analysis
+      if (context.accessModifierContext && symbol.modifiers?.visibility) {
+        if (context.accessModifierContext === symbol.modifiers.visibility) {
           confidence += 0.2;
         }
       }
@@ -288,7 +288,7 @@ export class HoverProcessingService implements IHoverProcessor {
     const position = params.position;
 
     // Extract Apex-specific context
-    const namespaceContext = this.extractApexNamespaceContext(text);
+    const accessModifierContext = this.extractAccessModifierContext(text);
     const currentScope = this.determineCurrentScope(text, position);
     const scopeChain = this.buildScopeChain(text, position);
     const expectedType = this.inferExpectedType(text, position);
@@ -300,7 +300,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
     return {
       sourceFile: document.uri,
-      namespaceContext,
+      accessModifierContext,
       currentScope,
       scopeChain,
       expectedType,
@@ -492,9 +492,9 @@ export class HoverProcessingService implements IHoverProcessor {
   }
 
   /**
-   * Extract Apex namespace context from document text
+   * Extract Apex access modifier context from document text
    */
-  private extractApexNamespaceContext(text: string): string {
+  private extractAccessModifierContext(text: string): string {
     const lines = text.split('\n');
 
     for (const line of lines) {

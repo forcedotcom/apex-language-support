@@ -440,16 +440,19 @@ export class ApexSymbolManager implements ISymbolManager {
     filePath: string,
     symbolTable?: SymbolTable,
   ): void {
+    // Normalize the file path to handle URIs
+    const normalizedPath = this.normalizeFilePath(filePath);
+
     // Generate unified ID for the symbol if not already present
     if (!symbol.key.unifiedId) {
       // Ensure the kind is set on the key for proper unified ID generation
       if (!symbol.key.kind) {
         symbol.key.kind = symbol.kind;
       }
-      symbol.key.unifiedId = generateUnifiedId(symbol.key, filePath);
+      symbol.key.unifiedId = generateUnifiedId(symbol.key, normalizedPath);
     }
 
-    const symbolId = this.getSymbolId(symbol, filePath);
+    const symbolId = this.getSymbolId(symbol, normalizedPath);
 
     // Get the count before adding
     const symbolsBefore = this.symbolGraph.findSymbolByName(symbol.name).length;
@@ -458,17 +461,17 @@ export class ApexSymbolManager implements ISymbolManager {
     let tempSymbolTable: SymbolTable | undefined = symbolTable;
     if (!tempSymbolTable) {
       // Check if we already have a SymbolTable for this file
-      tempSymbolTable = this.symbolGraph.getSymbolTableForFile(filePath);
+      tempSymbolTable = this.symbolGraph.getSymbolTableForFile(normalizedPath);
       if (!tempSymbolTable) {
         tempSymbolTable = new SymbolTable();
         // Register the SymbolTable with the graph immediately
-        this.symbolGraph.registerSymbolTable(tempSymbolTable, filePath);
+        this.symbolGraph.registerSymbolTable(tempSymbolTable, normalizedPath);
       }
       tempSymbolTable.addSymbol(symbol);
     }
 
     // Add to symbol graph (it has its own duplicate detection)
-    this.symbolGraph.addSymbol(symbol, filePath, tempSymbolTable);
+    this.symbolGraph.addSymbol(symbol, normalizedPath, tempSymbolTable);
 
     // Check if the symbol was actually added by comparing counts
     const symbolsAfter = this.symbolGraph.findSymbolByName(symbol.name).length;
@@ -478,13 +481,13 @@ export class ApexSymbolManager implements ISymbolManager {
       this.memoryStats.totalSymbols++;
 
       // Update file metadata
-      const existing = this.fileMetadata.get(filePath);
+      const existing = this.fileMetadata.get(normalizedPath);
       if (existing) {
         existing.symbolCount++;
         existing.lastUpdated = Date.now();
       } else {
-        this.fileMetadata.set(filePath, {
-          filePath,
+        this.fileMetadata.set(normalizedPath, {
+          filePath: normalizedPath,
           symbolCount: 1,
           lastUpdated: Date.now(),
         });
@@ -544,16 +547,39 @@ export class ApexSymbolManager implements ISymbolManager {
    * Find all symbols in a specific file
    */
   findSymbolsInFile(filePath: string): ApexSymbol[] {
-    const cacheKey = `file_symbols_${filePath}`;
+    // Normalize the file path to handle URIs
+    const normalizedPath = this.normalizeFilePath(filePath);
+
+    const cacheKey = `file_symbols_${normalizedPath}`;
     const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
     if (cached) {
       return cached;
     }
 
     // OPTIMIZED: Delegate to graph which delegates to SymbolTable
-    const symbols = this.symbolGraph.getSymbolsInFile(filePath);
+    const symbols = this.symbolGraph.getSymbolsInFile(normalizedPath);
     this.unifiedCache.set(cacheKey, symbols, 'file_lookup');
     return symbols;
+  }
+
+  /**
+   * Normalize file path to handle both URIs and regular file paths
+   * @param filePath The file path or URI to normalize
+   * @returns Normalized file path
+   */
+  private normalizeFilePath(filePath: string): string {
+    // If it's a file:// URI, extract the path
+    if (filePath.startsWith('file://')) {
+      return filePath.substring(7); // Remove 'file://' prefix
+    }
+
+    // If it's a file:/// URI (Windows style), extract the path
+    if (filePath.startsWith('file:///')) {
+      return filePath.substring(8); // Remove 'file:///' prefix
+    }
+
+    // Return as-is for regular file paths
+    return filePath;
   }
 
   /**
@@ -859,11 +885,14 @@ export class ApexSymbolManager implements ISymbolManager {
    * Remove a file's symbols
    */
   removeFile(filePath: string): void {
-    const symbols = this.findSymbolsInFile(filePath);
+    // Normalize the file path to handle URIs
+    const normalizedPath = this.normalizeFilePath(filePath);
+
+    const symbols = this.findSymbolsInFile(normalizedPath);
     const symbolCount = symbols.length;
 
     // Remove from symbol graph
-    this.symbolGraph.removeFile(filePath);
+    this.symbolGraph.removeFile(normalizedPath);
 
     // Update memory stats - ensure we don't go below 0
     this.memoryStats.totalSymbols = Math.max(
@@ -872,13 +901,13 @@ export class ApexSymbolManager implements ISymbolManager {
     );
 
     // Remove from file metadata
-    this.fileMetadata.delete(filePath);
+    this.fileMetadata.delete(normalizedPath);
 
     // Clear cache entries for this file
-    this.unifiedCache.invalidatePattern(filePath);
+    this.unifiedCache.invalidatePattern(normalizedPath);
 
     this.logger.debug(
-      () => `Removed file: ${filePath} with ${symbolCount} symbols`,
+      () => `Removed file: ${normalizedPath} with ${symbolCount} symbols`,
     );
   }
 

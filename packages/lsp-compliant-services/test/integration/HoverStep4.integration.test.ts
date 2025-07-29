@@ -186,8 +186,8 @@ describe('Hover Step 4: Symbol Resolution & Context Analysis Integration Tests',
     jest.clearAllMocks();
   });
 
-  describe('Apex Namespace Context Analysis', () => {
-    it('should resolve global class when in global namespace context', async () => {
+  describe('Apex Access Modifier Context Analysis', () => {
+    it('should resolve global class when in global access modifier context', async () => {
       const testDocument = TextDocument.create(
         'file://TestClass.cls',
         'apex',
@@ -224,7 +224,7 @@ describe('Hover Step 4: Symbol Resolution & Context Analysis Integration Tests',
       }
     });
 
-    it('should resolve public class when in public namespace context', async () => {
+    it('should resolve public class when in public access modifier context', async () => {
       const testDocument = TextDocument.create(
         'file://AnotherTestClass.cls',
         'apex',
