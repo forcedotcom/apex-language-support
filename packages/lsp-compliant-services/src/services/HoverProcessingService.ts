@@ -173,8 +173,8 @@ export class HoverProcessingService implements IHoverProcessor {
       confidence += this.analyzeApexContext(symbol, context);
 
       // Access modifier context analysis
-      if (context.accessModifierContext && symbol.modifiers?.visibility) {
-        if (context.accessModifierContext === symbol.modifiers.visibility) {
+      if (context.namespaceContext && symbol.modifiers?.visibility) {
+        if (context.namespaceContext === symbol.modifiers.visibility) {
           confidence += 0.2;
         }
       }
@@ -284,34 +284,12 @@ export class HoverProcessingService implements IHoverProcessor {
    * Create resolution context for symbol lookup
    */
   private createResolutionContext(document: TextDocument, params: HoverParams) {
-    const text = document.getText();
-    const position = params.position;
-
-    // Extract Apex-specific context
-    const accessModifierContext = this.extractAccessModifierContext(text);
-    const currentScope = this.determineCurrentScope(text, position);
-    const scopeChain = this.buildScopeChain(text, position);
-    const expectedType = this.inferExpectedType(text, position);
-    const parameterTypes = this.extractParameterTypes(text, position);
-    const accessModifier = this.determineAccessModifier(text, position);
-    const isStatic = this.determineIsStatic(text, position);
-    const inheritanceChain = this.extractInheritanceChain(text);
-    const interfaceImplementations = this.extractInterfaceImplementations(text);
-
-    return {
-      sourceFile: document.uri,
-      accessModifierContext,
-      currentScope,
-      scopeChain,
-      expectedType,
-      parameterTypes,
-      accessModifier,
-      isStatic,
-      inheritanceChain,
-      interfaceImplementations,
-      // Remove importStatements since Apex doesn't use imports
-      importStatements: [],
-    };
+    // Use shared context analysis from ApexSymbolManager
+    return this.symbolManager.createResolutionContext(
+      document.getText(),
+      params.position,
+      document.uri,
+    );
   }
 
   /**

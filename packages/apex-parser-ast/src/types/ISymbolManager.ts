@@ -151,4 +151,14 @@ export interface ISymbolManager {
    * Optimize memory usage
    */
   optimizeMemory(): void;
+
+  /**
+   * Create comprehensive resolution context for symbol lookup
+   * This is a shared utility for all LSP services that need context-aware symbol resolution
+   */
+  createResolutionContext(
+    documentText: string,
+    position: any,
+    sourceFile: string,
+  ): SymbolResolutionContext;
 }

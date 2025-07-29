@@ -191,21 +191,12 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     document: TextDocument,
     params: DefinitionParams,
   ) {
-    const text = document.getText();
-
-    return {
-      sourceFile: document.uri,
-      importStatements: this.extractImportStatements(text),
-      namespaceContext: this.extractNamespaceContext(text),
-      currentScope: 'current-scope', // Would be extracted from AST
-      scopeChain: ['current-scope'],
-      expectedType: undefined,
-      parameterTypes: [],
-      accessModifier: 'public' as const,
-      isStatic: false,
-      inheritanceChain: [],
-      interfaceImplementations: [],
-    };
+    // Use shared context analysis from ApexSymbolManager
+    return this.symbolManager.createResolutionContext(
+      document.getText(),
+      params.position,
+      document.uri,
+    );
   }
 
   /**

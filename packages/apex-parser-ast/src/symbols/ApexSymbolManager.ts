@@ -8,6 +8,7 @@
 
 import { HashMap } from 'data-structure-typed';
 import { getLogger, type EnumValue } from '@salesforce/apex-lsp-shared';
+import { Position } from 'vscode-languageserver-protocol';
 import {
   ApexSymbol,
   SymbolKind,
@@ -1751,5 +1752,232 @@ export class ApexSymbolManager implements ISymbolManager {
     }
 
     return recommendations;
+  }
+
+  /**
+   * Create comprehensive resolution context for symbol lookup
+   * This is a shared utility for all LSP services that need context-aware symbol resolution
+   */
+  public createResolutionContext(
+    documentText: string,
+    position: Position,
+    sourceFile: string,
+  ): SymbolResolutionContext {
+    return {
+      sourceFile,
+      namespaceContext: this.extractAccessModifierContext(documentText),
+      currentScope: this.determineCurrentScope(documentText, position),
+      scopeChain: this.buildScopeChain(documentText, position),
+      expectedType: this.inferExpectedType(documentText, position),
+      parameterTypes: this.extractParameterTypes(documentText, position),
+      accessModifier: this.determineAccessModifier(documentText, position),
+      isStatic: this.determineIsStatic(documentText, position),
+      inheritanceChain: this.extractInheritanceChain(documentText),
+      interfaceImplementations: this.extractInterfaceImplementations(documentText),
+      importStatements: [], // Apex doesn't use imports
+    };
+  }
+
+  /**
+   * Extract access modifier context from document text
+   */
+  private extractAccessModifierContext(text: string): string {
+    const lines = text.split('\n');
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (trimmedLine.startsWith('global class') || trimmedLine.startsWith('global interface')) {
+        return 'global';
+      }
+      if (trimmedLine.startsWith('public class') || trimmedLine.startsWith('public interface')) {
+        return 'public';
+      }
+      if (trimmedLine.startsWith('private class') || trimmedLine.startsWith('private interface')) {
+        return 'private';
+      }
+    }
+    return 'default';
+  }
+
+  /**
+   * Determine current scope at position
+   */
+  private determineCurrentScope(text: string, position: Position): string {
+    const lines = text.split('\n');
+    const currentLine = lines[position.line] || '';
+    
+    // Check for method context
+    if (currentLine.includes('(') && currentLine.includes(')') && 
+        (currentLine.includes('public') || currentLine.includes('private') || currentLine.includes('protected') || currentLine.includes('global'))) {
+      return 'method';
+    }
+    
+    // Check for class context
+    if (currentLine.includes('class') || currentLine.includes('interface')) {
+      return 'class';
+    }
+    
+    // Check for trigger context
+    if (currentLine.includes('trigger')) {
+      return 'trigger';
+    }
+    
+    return 'global';
+  }
+
+  /**
+   * Build scope chain for context analysis
+   */
+  private buildScopeChain(text: string, position: Position): string[] {
+    const currentScope = this.determineCurrentScope(text, position);
+    const scopeChain = [currentScope];
+    
+    // Add parent scopes based on current scope
+    if (currentScope === 'method') {
+      scopeChain.push('class', 'global');
+    } else if (currentScope === 'class') {
+      scopeChain.push('global');
+    }
+    
+    return scopeChain;
+  }
+
+  /**
+   * Infer expected type at position
+   */
+  private inferExpectedType(text: string, position: Position): string | undefined {
+    const lines = text.split('\n');
+    const currentLine = lines[position.line] || '';
+    
+    // Look for assignment context
+    if (currentLine.includes('=')) {
+      const beforeEquals = currentLine.substring(0, currentLine.indexOf('='));
+      const lastWord = beforeEquals.trim().split(/\s+/).pop();
+      if (lastWord && lastWord.length > 0) {
+        return lastWord;
+      }
+    }
+    
+    // Look for method parameter context
+    if (currentLine.includes('(') && currentLine.includes(')')) {
+      const paramMatch = currentLine.match(/\(([^)]*)\)/);
+      if (paramMatch) {
+        const params = paramMatch[1].split(',').map(p => p.trim());
+        const paramIndex = this.getParameterIndexAtPosition(currentLine, position.character);
+        if (paramIndex >= 0 && paramIndex < params.length) {
+          const param = params[paramIndex];
+          const typeMatch = param.match(/^(\w+)\s+\w+/);
+          if (typeMatch) {
+            return typeMatch[1];
+          }
+        }
+      }
+    }
+    
+    return undefined;
+  }
+
+  /**
+   * Extract parameter types from method signature
+   */
+  private extractParameterTypes(text: string, position: Position): string[] {
+    const lines = text.split('\n');
+    const currentLine = lines[position.line] || '';
+    
+    if (currentLine.includes('(') && currentLine.includes(')')) {
+      const paramMatch = currentLine.match(/\(([^)]*)\)/);
+      if (paramMatch) {
+        return paramMatch[1]
+          .split(',')
+          .map(p => p.trim())
+          .map(p => {
+            const typeMatch = p.match(/^(\w+)\s+\w+/);
+            return typeMatch ? typeMatch[1] : 'Object';
+          });
+      }
+    }
+    
+    return [];
+  }
+
+  /**
+   * Determine access modifier at position
+   */
+  private determineAccessModifier(
+    text: string,
+    position: Position,
+  ): 'public' | 'private' | 'protected' | 'global' {
+    const lines = text.split('\n');
+    const currentLine = lines[position.line] || '';
+    
+    if (currentLine.includes('global')) return 'global';
+    if (currentLine.includes('public')) return 'public';
+    if (currentLine.includes('private')) return 'private';
+    if (currentLine.includes('protected')) return 'protected';
+    
+    return 'public'; // Default
+  }
+
+  /**
+   * Determine if current context is static
+   */
+  private determineIsStatic(text: string, position: Position): boolean {
+    const lines = text.split('\n');
+    const currentLine = lines[position.line] || '';
+    
+    return currentLine.includes('static');
+  }
+
+  /**
+   * Extract inheritance chain from document
+   */
+  private extractInheritanceChain(text: string): string[] {
+    const lines = text.split('\n');
+    const inheritanceChain: string[] = [];
+    
+    for (const line of lines) {
+      if (line.includes('extends')) {
+        const extendsMatch = line.match(/extends\s+(\w+)/);
+        if (extendsMatch) {
+          inheritanceChain.push(extendsMatch[1]);
+        }
+      }
+    }
+    
+    return inheritanceChain;
+  }
+
+  /**
+   * Extract interface implementations from document
+   */
+  private extractInterfaceImplementations(text: string): string[] {
+    const lines = text.split('\n');
+    const implementations: string[] = [];
+    
+    for (const line of lines) {
+      if (line.includes('implements')) {
+        const implementsMatch = line.match(/implements\s+([^,\s]+)/g);
+        if (implementsMatch) {
+          for (const match of implementsMatch) {
+            const interfaceName = match.replace('implements', '').trim();
+            implementations.push(interfaceName);
+          }
+        }
+      }
+    }
+    
+    return implementations;
+  }
+
+  /**
+   * Helper method to get parameter index at character position
+   */
+  private getParameterIndexAtPosition(line: string, character: number): number {
+    const beforeCursor = line.substring(0, character);
+    const openParenIndex = beforeCursor.lastIndexOf('(');
+    if (openParenIndex === -1) return -1;
+    
+    const paramSection = beforeCursor.substring(openParenIndex + 1);
+    const commas = (paramSection.match(/,/g) || []).length;
+    return commas;
   }
 }
