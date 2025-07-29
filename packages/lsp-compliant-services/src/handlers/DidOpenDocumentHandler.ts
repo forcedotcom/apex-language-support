@@ -11,6 +11,7 @@ import {
   CompilerService,
   SymbolTable,
   ApexSymbolCollectorListener,
+  SymbolManagerFactory,
 } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
@@ -73,6 +74,12 @@ export const processOnOpenDocument = async (
 
   // Get all symbols from the global scope
   const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
+
+  // Add symbols to the ApexSymbolManager for hover and other features
+  const symbolManager = SymbolManagerFactory.createSymbolManager();
+  for (const symbol of globalSymbols) {
+    symbolManager.addSymbol(symbol, document.uri);
+  }
 
   // Create the definition provider
   const definitionUpserter = new DefaultApexDefinitionUpserter(
