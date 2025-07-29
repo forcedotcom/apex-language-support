@@ -159,8 +159,17 @@ export function startServer() {
   });
 
   // Handle client connection
-  connection.onInitialized(() => {
+  connection.onInitialized(async () => {
     logger.info('Language server initialized and connected to client.');
+
+    // Initialize storage after connection is established
+    try {
+      await storageManager.initialize();
+      logger.info('Storage manager initialized successfully');
+    } catch (error) {
+      logger.error(`Failed to initialize storage manager: ${error}`);
+      // Continue without storage if initialization fails
+    }
 
     // Register the apexlib/resolve request handler
     connection.onRequest('apexlib/resolve', async (params) => {
@@ -272,8 +281,6 @@ export function startServer() {
       );
 
       try {
-        // Ensure storage is initialized before use
-        await storageManager.initialize();
         const result = await dispatchProcessOnFoldingRange(
           params,
           storageManager.getStorage(),
@@ -312,8 +319,17 @@ export function startServer() {
   }));
 
   // Handle shutdown request
-  connection.onShutdown(() => {
+  connection.onShutdown(async () => {
     logger.info('Apex Language Server shutting down...');
+
+    // Shutdown storage manager
+    try {
+      await storageManager.shutdown();
+      logger.info('Storage manager shutdown complete');
+    } catch (error) {
+      logger.error(`Error shutting down storage manager: ${error}`);
+    }
+
     // Perform cleanup tasks, for now we'll just set a flag
     isShutdown = true;
     logger.info('Apex Language Server shutdown complete');

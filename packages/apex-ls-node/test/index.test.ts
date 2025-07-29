@@ -33,7 +33,7 @@ type OnFoldingRangeHandler = (
   params: FoldingRangeParams,
 ) => Promise<FoldingRange[] | null>;
 type InitializeHandler = (params: InitializeParams) => InitializeResult;
-type VoidHandler = () => void;
+type VoidHandler = () => void | Promise<void>;
 type PingHandler = () => Promise<any>;
 type ResolveHandler = (params: any) => Promise<any>;
 
@@ -571,7 +571,7 @@ describe('Apex Language Server', () => {
     // First trigger the initialized callback to register the request handlers
     expect(mockConnection.onInitialized).toHaveBeenCalled();
     const initializedHandler = mockConnection.onInitialized.mock.calls[0][0];
-    initializedHandler();
+    await initializedHandler();
 
     // Verify the handler was registered
     expect(mockConnection.onRequest).toHaveBeenCalled();
