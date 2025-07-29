@@ -66,34 +66,35 @@ export class HoverProcessingService implements IHoverProcessor {
         return null;
       }
 
-      // Extract symbol name at position
-      const symbolName = this.extractSymbolNameAtPosition(
+      // Use symbol manager to find symbols at the given position
+      const symbolsAtPosition = this.findSymbolsAtPosition(
         document,
         params.position,
       );
-      if (!symbolName) {
-        this.logger.debug(() => 'No symbol found at position');
+      if (!symbolsAtPosition || symbolsAtPosition.length === 0) {
+        this.logger.debug(() => 'No symbols found at position');
         return null;
       }
 
-      // Create resolution context
+      // Create resolution context for disambiguation
       const context = this.createResolutionContext(document, params);
 
-      // Use ApexSymbolManager for context-aware symbol resolution
-      const result = this.symbolManager.resolveSymbol(symbolName, context);
-
-      if (!result.symbol) {
-        this.logger.debug(() => `No symbol found for: ${symbolName}`);
+      // Resolve the best symbol using context-aware resolution
+      const resolvedSymbol = this.resolveBestSymbol(symbolsAtPosition, context);
+      if (!resolvedSymbol) {
+        this.logger.debug(() => 'Could not resolve symbol at position');
         return null;
       }
 
       // Create hover information
       const hover = await this.createHoverInformation(
-        result.symbol,
-        result.confidence,
+        resolvedSymbol.symbol,
+        resolvedSymbol.confidence,
       );
 
-      this.logger.debug(() => `Returning hover information for: ${symbolName}`);
+      this.logger.debug(
+        () => `Returning hover information for: ${resolvedSymbol.symbol.name}`,
+      );
 
       return hover;
     } catch (error) {
@@ -103,19 +104,71 @@ export class HoverProcessingService implements IHoverProcessor {
   }
 
   /**
-   * Extract symbol name at the given position
+   * Find symbols at the given position using symbol manager
    */
-  private extractSymbolNameAtPosition(
+  private findSymbolsAtPosition(
     document: TextDocument,
     position: any,
-  ): string | null {
-    // Simple word extraction (in practice would use AST analysis)
-    const wordRange = this.getWordRangeAtPosition(document, position);
-    if (wordRange) {
-      return document.getText(wordRange);
+  ): any[] | null {
+    try {
+      // Get all symbols in the current file
+      const fileSymbols = this.symbolManager.findSymbolsInFile(document.uri);
+
+      // Filter symbols that contain the position
+      const symbolsAtPosition = fileSymbols.filter((symbol: any) => {
+        if (!symbol.location) return false;
+
+        const { startLine, startColumn, endLine, endColumn } = symbol.location;
+
+        // Check if position is within symbol bounds
+        if (position.line < startLine || position.line > endLine) return false;
+        if (position.line === startLine && position.character < startColumn)
+          return false;
+        if (position.line === endLine && position.character > endColumn)
+          return false;
+
+        return true;
+      });
+
+      return symbolsAtPosition.length > 0 ? symbolsAtPosition : null;
+    } catch (error) {
+      this.logger.debug(() => `Error finding symbols at position: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Resolve the best symbol from multiple candidates using context
+   */
+  private resolveBestSymbol(
+    symbols: any[],
+    context: any,
+  ): { symbol: any; confidence: number } | null {
+    if (symbols.length === 1) {
+      return { symbol: symbols[0], confidence: 0.9 };
     }
 
-    return null;
+    // Multiple symbols at position - use context to find the best match
+    let bestSymbol = symbols[0];
+    let bestConfidence = 0.5;
+
+    for (const symbol of symbols) {
+      // Try to resolve the symbol name using the symbol manager's context-aware resolution
+      const resolutionResult = this.symbolManager.resolveSymbol(
+        symbol.name,
+        context,
+      );
+
+      if (
+        resolutionResult.symbol &&
+        resolutionResult.confidence > bestConfidence
+      ) {
+        bestSymbol = resolutionResult.symbol;
+        bestConfidence = resolutionResult.confidence;
+      }
+    }
+
+    return { symbol: bestSymbol, confidence: bestConfidence };
   }
 
   /**
@@ -291,14 +344,6 @@ export class HoverProcessingService implements IHoverProcessor {
     return {
       contents: markupContent,
     };
-  }
-
-  /**
-   * Get word range at position (simplified implementation)
-   */
-  private getWordRangeAtPosition(document: TextDocument, position: any): any {
-    // Simplified - would use proper word boundary detection
-    return { start: position, end: position };
   }
 
   /**
