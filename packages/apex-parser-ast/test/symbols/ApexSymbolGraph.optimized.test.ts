@@ -199,7 +199,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       const memoryStats = symbolGraph.getMemoryStats();
       expect(memoryStats.totalSymbols).toBe(100);
       expect(memoryStats.estimatedMemorySavings).toBeGreaterThan(0);
-      expect(memoryStats.memoryOptimizationLevel).toBe('OPTIMIZED');
+      expect(memoryStats.memoryOptimizationLevel).toBe('OPTIMAL');
     });
   });
 

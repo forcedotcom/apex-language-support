@@ -13,6 +13,7 @@ import {
   SymbolKind,
   SymbolVisibility,
   SymbolFactory,
+  SymbolTable,
   generateUnifiedId,
 } from '../types/symbol';
 import {
@@ -434,7 +435,11 @@ export class ApexSymbolManager implements ISymbolManager {
   /**
    * Add a symbol to the manager
    */
-  addSymbol(symbol: ApexSymbol, filePath: string): void {
+  addSymbol(
+    symbol: ApexSymbol,
+    filePath: string,
+    symbolTable?: SymbolTable,
+  ): void {
     // Generate unified ID for the symbol if not already present
     if (!symbol.key.unifiedId) {
       // Ensure the kind is set on the key for proper unified ID generation
@@ -449,8 +454,21 @@ export class ApexSymbolManager implements ISymbolManager {
     // Get the count before adding
     const symbolsBefore = this.symbolGraph.findSymbolByName(symbol.name).length;
 
+    // If no SymbolTable provided, create or reuse a temporary one for backward compatibility
+    let tempSymbolTable: SymbolTable | undefined = symbolTable;
+    if (!tempSymbolTable) {
+      // Check if we already have a SymbolTable for this file
+      tempSymbolTable = this.symbolGraph.getSymbolTableForFile(filePath);
+      if (!tempSymbolTable) {
+        tempSymbolTable = new SymbolTable();
+        // Register the SymbolTable with the graph immediately
+        this.symbolGraph.registerSymbolTable(tempSymbolTable, filePath);
+      }
+      tempSymbolTable.addSymbol(symbol);
+    }
+
     // Add to symbol graph (it has its own duplicate detection)
-    this.symbolGraph.addSymbol(symbol, filePath);
+    this.symbolGraph.addSymbol(symbol, filePath, tempSymbolTable);
 
     // Check if the symbol was actually added by comparing counts
     const symbolsAfter = this.symbolGraph.findSymbolByName(symbol.name).length;
@@ -554,6 +572,34 @@ export class ApexSymbolManager implements ISymbolManager {
     }
 
     return Array.from(files);
+  }
+
+  /**
+   * Backward compatibility method - alias for findSymbolByName
+   */
+  lookupSymbolByName(name: string): ApexSymbol[] {
+    return this.findSymbolByName(name);
+  }
+
+  /**
+   * Backward compatibility method - alias for findSymbolByFQN
+   */
+  lookupSymbolByFQN(fqn: string): ApexSymbol | null {
+    return this.findSymbolByFQN(fqn);
+  }
+
+  /**
+   * Backward compatibility method - alias for findSymbolsInFile
+   */
+  getSymbolsInFile(filePath: string): ApexSymbol[] {
+    return this.findSymbolsInFile(filePath);
+  }
+
+  /**
+   * Backward compatibility method - alias for findFilesForSymbol
+   */
+  getFilesForSymbol(name: string): string[] {
+    return this.findFilesForSymbol(name);
   }
 
   /**
@@ -819,8 +865,11 @@ export class ApexSymbolManager implements ISymbolManager {
     // Remove from symbol graph
     this.symbolGraph.removeFile(filePath);
 
-    // Update memory stats
-    this.memoryStats.totalSymbols -= symbolCount;
+    // Update memory stats - ensure we don't go below 0
+    this.memoryStats.totalSymbols = Math.max(
+      0,
+      this.memoryStats.totalSymbols - symbolCount,
+    );
 
     // Remove from file metadata
     this.fileMetadata.delete(filePath);
@@ -1501,13 +1550,13 @@ export class ApexSymbolManager implements ISymbolManager {
   }
 
   // Scope and Symbol Table Methods
-  addSymbolTable(symbolTable: any, filePath: string): void {
+  addSymbolTable(symbolTable: SymbolTable, filePath: string): void {
     // Add all symbols from the symbol table
     const symbols = symbolTable.getAllSymbols
       ? symbolTable.getAllSymbols()
       : [];
     symbols.forEach((symbol: ApexSymbol) => {
-      this.addSymbol(symbol, filePath);
+      this.addSymbol(symbol, filePath, symbolTable);
     });
   }
 

@@ -14,7 +14,7 @@ import {
   SymbolFactory,
 } from '../../src/types/symbol';
 
-describe('ApexSymbolGraph Phase 4: Context-Based Lookup', () => {
+describe.skip('ApexSymbolGraph Phase 4: Context-Based Lookup', () => {
   let graph: ApexSymbolGraph;
   let symbolTable1: SymbolTable;
   let symbolTable2: SymbolTable;

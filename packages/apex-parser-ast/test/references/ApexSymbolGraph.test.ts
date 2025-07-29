@@ -446,9 +446,9 @@ describe('ApexSymbolGraph', () => {
       const cycle = cycles[0];
       // The cycle contains symbol IDs, so we need to check if they contain the class names
       const cycleSymbolNames = cycle.map((symbolId) => {
-        // Extract the class name from the symbol ID (e.g., "ClassA:ClassA.cls" -> "ClassA")
+        // Extract the class name from the symbol ID (e.g., "ClassA.cls:ClassA" -> "ClassA")
         const parts = symbolId.split(':');
-        return parts[0];
+        return parts[1]; // Take the second part (the symbol name)
       });
       expect(cycleSymbolNames).toContain('ClassA');
       expect(cycleSymbolNames).toContain('ClassB');

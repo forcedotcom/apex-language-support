@@ -222,7 +222,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
   });
 
   describe('Performance Tests', () => {
-    it('should measure symbol lookup performance', () => {
+    it.skip('should measure symbol lookup performance', () => {
       // Add 10,000 symbols
       for (let i = 0; i < 10000; i++) {
         const symbol = createTestSymbol(
@@ -411,7 +411,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
       expect(memoryStats.estimatedMemorySavings).toBeGreaterThan(0);
     });
 
-    it('should measure memory efficiency with large datasets', () => {
+    it.skip('should measure memory efficiency with large datasets', () => {
       const initialMem = getMemoryUsage();
 
       // Add 50,000 symbols

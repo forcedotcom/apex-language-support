@@ -7,16 +7,18 @@
  */
 
 import { CompletionParams } from 'vscode-languageserver-protocol';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { CompletionProcessingService } from '../../src/services';
 
 import {
   ApexSymbolManager,
-  ApexSymbol,
+  SymbolFactory,
+  SymbolTable,
   SymbolKind,
   SymbolVisibility,
 } from '@salesforce/apex-lsp-parser-ast';
+
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 
 // Mock the storage manager
@@ -43,29 +45,18 @@ describe('ApexSymbolManager Integration Tests', () => {
     // Create a real symbol manager for integration testing
     symbolManager = new ApexSymbolManager();
 
-    // Create test symbols and add them to the symbol manager
-    const classSymbol: ApexSymbol = {
-      id: 'TestClass:test.cls',
-      name: 'TestClass',
-      kind: SymbolKind.Class,
-      location: {
+    // Create test symbols using SymbolFactory
+    const classSymbol = SymbolFactory.createFullSymbol(
+      'TestClass',
+      SymbolKind.Class,
+      {
         startLine: 1,
         startColumn: 1,
         endLine: 10,
         endColumn: 1,
       },
-      filePath: 'test.cls',
-      parentId: null,
-      key: {
-        prefix: 'class',
-        name: 'TestClass',
-        path: ['test.cls', 'TestClass'],
-      },
-      parentKey: null,
-      fqn: 'TestClass',
-      _modifierFlags: 0,
-      _isLoaded: true,
-      modifiers: {
+      'test.cls',
+      {
         visibility: SymbolVisibility.Public,
         isStatic: false,
         isFinal: false,
@@ -76,34 +67,22 @@ describe('ApexSymbolManager Integration Tests', () => {
         isTestMethod: false,
         isWebService: false,
       },
-    };
+      null, // parentId
+      { interfaces: [] }, // typeData
+      'TestClass', // fqn
+    );
 
-    const methodSymbol: ApexSymbol = {
-      id: 'TestClass.getName:test.cls',
-      name: 'getName',
-      kind: SymbolKind.Method,
-      location: {
+    const methodSymbol = SymbolFactory.createFullSymbol(
+      'getName',
+      SymbolKind.Method,
+      {
         startLine: 15,
         startColumn: 1,
         endLine: 15,
         endColumn: 10,
       },
-      filePath: 'test.cls',
-      parentId: 'TestClass:test.cls',
-      key: {
-        prefix: 'method',
-        name: 'getName',
-        path: ['test.cls', 'TestClass', 'getName'],
-      },
-      parentKey: {
-        prefix: 'class',
-        name: 'TestClass',
-        path: ['test.cls', 'TestClass'],
-      },
-      fqn: 'TestClass.getName',
-      _modifierFlags: 0,
-      _isLoaded: true,
-      modifiers: {
+      'test.cls',
+      {
         visibility: SymbolVisibility.Public,
         isStatic: false,
         isFinal: false,
@@ -114,26 +93,25 @@ describe('ApexSymbolManager Integration Tests', () => {
         isTestMethod: false,
         isWebService: false,
       },
-    };
+      classSymbol.id, // parentId
+      {
+        returnType: { name: 'String', isPrimitive: true, isArray: false },
+        parameters: [],
+      }, // typeData
+      'TestClass.getName', // fqn
+    );
 
-    const systemClass: ApexSymbol = {
-      id: 'String:System',
-      name: 'String',
-      kind: SymbolKind.Class,
-      location: {
+    const systemClass = SymbolFactory.createFullSymbol(
+      'String',
+      SymbolKind.Class,
+      {
         startLine: 1,
         startColumn: 1,
         endLine: 1,
         endColumn: 10,
       },
-      filePath: 'System.cls',
-      parentId: null,
-      key: { prefix: 'class', name: 'String', path: ['System.cls', 'String'] },
-      parentKey: null,
-      fqn: 'System.String',
-      _modifierFlags: 0,
-      _isLoaded: true,
-      modifiers: {
+      'System.cls',
+      {
         visibility: SymbolVisibility.Public,
         isStatic: false,
         isFinal: false,
@@ -144,12 +122,22 @@ describe('ApexSymbolManager Integration Tests', () => {
         isTestMethod: false,
         isWebService: false,
       },
-    };
+      null, // parentId
+      { interfaces: [] }, // typeData
+      'System.String', // fqn
+    );
 
-    // Add symbols to the symbol manager
-    symbolManager.addSymbol(classSymbol, 'test.cls');
-    symbolManager.addSymbol(methodSymbol, 'test.cls');
-    symbolManager.addSymbol(systemClass, 'System.cls');
+    // Create SymbolTable and add symbols to it
+    const symbolTable = new SymbolTable();
+    symbolTable.addSymbol(classSymbol);
+    symbolTable.addSymbol(methodSymbol);
+
+    const systemSymbolTable = new SymbolTable();
+    systemSymbolTable.addSymbol(systemClass);
+
+    // Register SymbolTables with the symbol manager
+    symbolManager.addSymbolTable(symbolTable, 'test.cls');
+    symbolManager.addSymbolTable(systemSymbolTable, 'System.cls');
 
     // Set up mock storage
     mockStorage = {
@@ -205,6 +193,27 @@ describe('ApexSymbolManager Integration Tests', () => {
   });
 
   describe('Completion Service Integration', () => {
+    it('should verify symbols are properly added to symbol manager', () => {
+      // Verify symbols are in the symbol manager
+      const stats = symbolManager.getStats();
+      expect(stats.totalSymbols).toBeGreaterThan(0);
+      expect(stats.totalFiles).toBe(2); // test.cls and System.cls
+
+      // Verify symbols can be found by name
+      const testClassSymbols = symbolManager.findSymbolByName('TestClass');
+      expect(testClassSymbols.length).toBeGreaterThan(0);
+
+      const stringSymbols = symbolManager.findSymbolByName('String');
+      expect(stringSymbols.length).toBeGreaterThan(0);
+
+      // Verify symbols can be found in files
+      const testFileSymbols = symbolManager.findSymbolsInFile('test.cls');
+      expect(testFileSymbols.length).toBeGreaterThan(0);
+
+      const systemFileSymbols = symbolManager.findSymbolsInFile('System.cls');
+      expect(systemFileSymbols.length).toBeGreaterThan(0);
+    });
+
     it('should provide completion items using symbol manager', async () => {
       const params: CompletionParams = {
         textDocument: { uri: 'file://test.cls' },
