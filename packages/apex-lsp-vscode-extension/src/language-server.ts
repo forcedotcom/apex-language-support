@@ -21,6 +21,7 @@ import {
   updateApexServerStatusReady,
   updateApexServerStatusError,
 } from './status-bar';
+import { baselineCollector } from './baseline-measurement';
 
 /**
  * Global language client instance
@@ -153,7 +154,14 @@ export const restartLanguageServer = async (
     `Restarting Apex Language Server at ${new Date().toISOString()}...`,
     'info',
   );
-  await startLanguageServer(context, restartHandler);
+
+  // Measure restart performance with baseline collector
+  await baselineCollector.measureOperation(
+    'restart-language-server',
+    async () => {
+      await startLanguageServer(context, restartHandler);
+    },
+  );
 };
 
 /**
@@ -176,3 +184,14 @@ export const stopLanguageServer = async (): Promise<void> => {
  * @returns The language client or undefined
  */
 export const getLanguageClient = (): LanguageClient | undefined => client;
+
+/**
+ * Saves current baseline statistics to file
+ * @param context The extension context
+ */
+export const saveBaselineStats = async (
+  context: vscode.ExtensionContext,
+): Promise<void> => {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  await baselineCollector.saveStats(workspaceRoot);
+};

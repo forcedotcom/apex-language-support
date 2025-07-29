@@ -185,6 +185,22 @@
       {
         "command": "apex-ls-ts.setLogLevel.debug",
         "title": "%commands.apex-ls-ts.setLogLevel.debug.title%"
+      },
+      {
+        "command": "apex.baseline.quickTest",
+        "title": "Apex: Run Quick Baseline Test (5 restarts)"
+      },
+      {
+        "command": "apex.baseline.fullTest",
+        "title": "Apex: Run Full Baseline Test (15 restarts)"
+      },
+      {
+        "command": "apex.baseline.saveStats",
+        "title": "Apex: Save Baseline Stats to File"
+      },
+      {
+        "command": "apex.baseline.clearStats",
+        "title": "Apex: Clear Baseline Stats"
       }
     ],
     "viewsContainers": {
@@ -211,6 +227,8 @@
     "lint:fix": "eslint src --fix"
   },
   "dependencies": {
+    "@effect/platform": "^0.90.0",
+    "@effect/schema": "^0.75.5",
     "@salesforce/apex-ls-node": "1.0.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
