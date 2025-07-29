@@ -65,6 +65,19 @@ describe('CompletionProcessingService', () => {
       clearCache: jest.fn(),
       getCacheStats: jest.fn(),
       getAllSymbolsForCompletion: jest.fn(),
+      createResolutionContext: jest.fn().mockReturnValue({
+        sourceFile: 'file:///test/TestClass.cls',
+        namespaceContext: 'public',
+        currentScope: 'global',
+        scopeChain: ['global'],
+        expectedType: undefined,
+        parameterTypes: [],
+        accessModifier: 'public',
+        isStatic: false,
+        inheritanceChain: [],
+        interfaceImplementations: [],
+        importStatements: [],
+      }),
     } as any;
 
     // The mock is now handled in the jest.mock above

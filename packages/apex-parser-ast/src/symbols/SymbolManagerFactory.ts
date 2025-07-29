@@ -217,4 +217,25 @@ class TestSymbolManager implements ISymbolManager {
   optimizeMemory(): void {
     // Mock implementation - no-op for tests
   }
+
+  createResolutionContext(
+    documentText: string,
+    position: any,
+    sourceFile: string,
+  ): SymbolResolutionContext {
+    // Mock implementation for tests
+    return {
+      sourceFile,
+      namespaceContext: 'public',
+      currentScope: 'global',
+      scopeChain: ['global'],
+      expectedType: undefined,
+      parameterTypes: [],
+      accessModifier: 'public',
+      isStatic: false,
+      inheritanceChain: [],
+      interfaceImplementations: [],
+      importStatements: [],
+    };
+  }
 }

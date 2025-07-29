@@ -1773,7 +1773,8 @@ export class ApexSymbolManager implements ISymbolManager {
       accessModifier: this.determineAccessModifier(documentText, position),
       isStatic: this.determineIsStatic(documentText, position),
       inheritanceChain: this.extractInheritanceChain(documentText),
-      interfaceImplementations: this.extractInterfaceImplementations(documentText),
+      interfaceImplementations:
+        this.extractInterfaceImplementations(documentText),
       importStatements: [], // Apex doesn't use imports
     };
   }
@@ -1785,13 +1786,22 @@ export class ApexSymbolManager implements ISymbolManager {
     const lines = text.split('\n');
     for (const line of lines) {
       const trimmedLine = line.trim();
-      if (trimmedLine.startsWith('global class') || trimmedLine.startsWith('global interface')) {
+      if (
+        trimmedLine.startsWith('global class') ||
+        trimmedLine.startsWith('global interface')
+      ) {
         return 'global';
       }
-      if (trimmedLine.startsWith('public class') || trimmedLine.startsWith('public interface')) {
+      if (
+        trimmedLine.startsWith('public class') ||
+        trimmedLine.startsWith('public interface')
+      ) {
         return 'public';
       }
-      if (trimmedLine.startsWith('private class') || trimmedLine.startsWith('private interface')) {
+      if (
+        trimmedLine.startsWith('private class') ||
+        trimmedLine.startsWith('private interface')
+      ) {
         return 'private';
       }
     }
@@ -1804,23 +1814,29 @@ export class ApexSymbolManager implements ISymbolManager {
   private determineCurrentScope(text: string, position: Position): string {
     const lines = text.split('\n');
     const currentLine = lines[position.line] || '';
-    
+
     // Check for method context
-    if (currentLine.includes('(') && currentLine.includes(')') && 
-        (currentLine.includes('public') || currentLine.includes('private') || currentLine.includes('protected') || currentLine.includes('global'))) {
+    if (
+      currentLine.includes('(') &&
+      currentLine.includes(')') &&
+      (currentLine.includes('public') ||
+        currentLine.includes('private') ||
+        currentLine.includes('protected') ||
+        currentLine.includes('global'))
+    ) {
       return 'method';
     }
-    
+
     // Check for class context
     if (currentLine.includes('class') || currentLine.includes('interface')) {
       return 'class';
     }
-    
+
     // Check for trigger context
     if (currentLine.includes('trigger')) {
       return 'trigger';
     }
-    
+
     return 'global';
   }
 
@@ -1830,24 +1846,27 @@ export class ApexSymbolManager implements ISymbolManager {
   private buildScopeChain(text: string, position: Position): string[] {
     const currentScope = this.determineCurrentScope(text, position);
     const scopeChain = [currentScope];
-    
+
     // Add parent scopes based on current scope
     if (currentScope === 'method') {
       scopeChain.push('class', 'global');
     } else if (currentScope === 'class') {
       scopeChain.push('global');
     }
-    
+
     return scopeChain;
   }
 
   /**
    * Infer expected type at position
    */
-  private inferExpectedType(text: string, position: Position): string | undefined {
+  private inferExpectedType(
+    text: string,
+    position: Position,
+  ): string | undefined {
     const lines = text.split('\n');
     const currentLine = lines[position.line] || '';
-    
+
     // Look for assignment context
     if (currentLine.includes('=')) {
       const beforeEquals = currentLine.substring(0, currentLine.indexOf('='));
@@ -1856,13 +1875,16 @@ export class ApexSymbolManager implements ISymbolManager {
         return lastWord;
       }
     }
-    
+
     // Look for method parameter context
     if (currentLine.includes('(') && currentLine.includes(')')) {
       const paramMatch = currentLine.match(/\(([^)]*)\)/);
       if (paramMatch) {
-        const params = paramMatch[1].split(',').map(p => p.trim());
-        const paramIndex = this.getParameterIndexAtPosition(currentLine, position.character);
+        const params = paramMatch[1].split(',').map((p) => p.trim());
+        const paramIndex = this.getParameterIndexAtPosition(
+          currentLine,
+          position.character,
+        );
         if (paramIndex >= 0 && paramIndex < params.length) {
           const param = params[paramIndex];
           const typeMatch = param.match(/^(\w+)\s+\w+/);
@@ -1872,7 +1894,7 @@ export class ApexSymbolManager implements ISymbolManager {
         }
       }
     }
-    
+
     return undefined;
   }
 
@@ -1882,20 +1904,20 @@ export class ApexSymbolManager implements ISymbolManager {
   private extractParameterTypes(text: string, position: Position): string[] {
     const lines = text.split('\n');
     const currentLine = lines[position.line] || '';
-    
+
     if (currentLine.includes('(') && currentLine.includes(')')) {
       const paramMatch = currentLine.match(/\(([^)]*)\)/);
       if (paramMatch) {
         return paramMatch[1]
           .split(',')
-          .map(p => p.trim())
-          .map(p => {
+          .map((p) => p.trim())
+          .map((p) => {
             const typeMatch = p.match(/^(\w+)\s+\w+/);
             return typeMatch ? typeMatch[1] : 'Object';
           });
       }
     }
-    
+
     return [];
   }
 
@@ -1908,12 +1930,12 @@ export class ApexSymbolManager implements ISymbolManager {
   ): 'public' | 'private' | 'protected' | 'global' {
     const lines = text.split('\n');
     const currentLine = lines[position.line] || '';
-    
+
     if (currentLine.includes('global')) return 'global';
     if (currentLine.includes('public')) return 'public';
     if (currentLine.includes('private')) return 'private';
     if (currentLine.includes('protected')) return 'protected';
-    
+
     return 'public'; // Default
   }
 
@@ -1923,7 +1945,7 @@ export class ApexSymbolManager implements ISymbolManager {
   private determineIsStatic(text: string, position: Position): boolean {
     const lines = text.split('\n');
     const currentLine = lines[position.line] || '';
-    
+
     return currentLine.includes('static');
   }
 
@@ -1933,7 +1955,7 @@ export class ApexSymbolManager implements ISymbolManager {
   private extractInheritanceChain(text: string): string[] {
     const lines = text.split('\n');
     const inheritanceChain: string[] = [];
-    
+
     for (const line of lines) {
       if (line.includes('extends')) {
         const extendsMatch = line.match(/extends\s+(\w+)/);
@@ -1942,7 +1964,7 @@ export class ApexSymbolManager implements ISymbolManager {
         }
       }
     }
-    
+
     return inheritanceChain;
   }
 
@@ -1952,7 +1974,7 @@ export class ApexSymbolManager implements ISymbolManager {
   private extractInterfaceImplementations(text: string): string[] {
     const lines = text.split('\n');
     const implementations: string[] = [];
-    
+
     for (const line of lines) {
       if (line.includes('implements')) {
         const implementsMatch = line.match(/implements\s+([^,\s]+)/g);
@@ -1964,7 +1986,7 @@ export class ApexSymbolManager implements ISymbolManager {
         }
       }
     }
-    
+
     return implementations;
   }
 
@@ -1975,7 +1997,7 @@ export class ApexSymbolManager implements ISymbolManager {
     const beforeCursor = line.substring(0, character);
     const openParenIndex = beforeCursor.lastIndexOf('(');
     if (openParenIndex === -1) return -1;
-    
+
     const paramSection = beforeCursor.substring(openParenIndex + 1);
     const commas = (paramSection.match(/,/g) || []).length;
     return commas;
