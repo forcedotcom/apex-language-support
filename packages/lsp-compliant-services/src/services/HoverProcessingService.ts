@@ -40,9 +40,10 @@ export class HoverProcessingService implements IHoverProcessor {
   private readonly logger: LoggerInterface;
   private symbolManager: ISymbolManager;
 
-  constructor(logger: LoggerInterface) {
+  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
-    this.symbolManager = SymbolManagerFactory.createSymbolManager();
+    this.symbolManager =
+      symbolManager || SymbolManagerFactory.createSymbolManager();
   }
 
   /**
