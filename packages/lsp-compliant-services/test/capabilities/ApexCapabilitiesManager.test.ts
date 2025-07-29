@@ -104,8 +104,8 @@ describe('ApexCapabilitiesManager', () => {
       expect(manager.isCapabilityEnabled('diagnosticProvider')).toBe(true);
       expect(manager.isCapabilityEnabled('workspace')).toBe(true);
 
-      // Development mode should have these disabled (not yet implemented)
-      expect(manager.isCapabilityEnabled('hoverProvider')).toBe(false);
+      // Development mode should have hover provider enabled
+      expect(manager.isCapabilityEnabled('hoverProvider')).toBe(true);
     });
 
     it('should check capabilities for specific modes', () => {
@@ -126,7 +126,7 @@ describe('ApexCapabilitiesManager', () => {
       // Check development mode capabilities
       expect(
         manager.isCapabilityEnabledForMode('development', 'hoverProvider'),
-      ).toBe(false);
+      ).toBe(true);
       expect(
         manager.isCapabilityEnabledForMode('development', 'completionProvider'),
       ).toBe(true);

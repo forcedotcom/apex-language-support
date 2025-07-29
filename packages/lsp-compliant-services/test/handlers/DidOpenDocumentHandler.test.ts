@@ -38,6 +38,11 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
       }),
     }),
   })),
+  SymbolManagerFactory: {
+    createSymbolManager: jest.fn().mockReturnValue({
+      addSymbol: jest.fn(),
+    }),
+  },
 }));
 
 // Mock the storage manager
