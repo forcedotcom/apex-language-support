@@ -16,7 +16,10 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { SymbolManagerFactory } from '@salesforce/apex-lsp-parser-ast';
+import {
+  SymbolManagerFactory,
+  ISymbolManager,
+} from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for hover processing functionality
@@ -35,7 +38,7 @@ export interface IHoverProcessor {
  */
 export class HoverProcessingService implements IHoverProcessor {
   private readonly logger: LoggerInterface;
-  private symbolManager: any;
+  private symbolManager: ISymbolManager;
 
   constructor(logger: LoggerInterface) {
     this.logger = logger;
@@ -265,24 +268,18 @@ export class HoverProcessingService implements IHoverProcessor {
       content.push(`**Extends:** ${symbol.interfaces.join(', ')}`);
     }
 
-    // Add relationship statistics
+    // Add relationship statistics using available methods
     try {
-      const relationshipStats = this.symbolManager.getRelationshipStats(symbol);
-      if (relationshipStats.totalReferences > 0) {
+      const referencesTo = this.symbolManager.findReferencesTo(symbol);
+      const referencesFrom = this.symbolManager.findReferencesFrom(symbol);
+      const totalReferences = referencesTo.length + referencesFrom.length;
+
+      if (totalReferences > 0) {
         content.push('');
         content.push('**Usage Statistics:**');
-        content.push(
-          `- Total references: ${relationshipStats.totalReferences}`,
-        );
-        content.push(
-          `- Relationship types: ${relationshipStats.relationshipTypeCounts.size}`,
-        );
-
-        if (relationshipStats.mostCommonRelationshipType) {
-          content.push(
-            `- Most common: ${relationshipStats.mostCommonRelationshipType}`,
-          );
-        }
+        content.push(`- Total references: ${totalReferences}`);
+        content.push(`- References to this symbol: ${referencesTo.length}`);
+        content.push(`- References from this symbol: ${referencesFrom.length}`);
       }
     } catch (error) {
       this.logger.debug(() => `Error getting relationship stats: ${error}`);
@@ -309,17 +306,26 @@ export class HoverProcessingService implements IHoverProcessor {
       this.logger.debug(() => `Error getting dependency analysis: ${error}`);
     }
 
-    // Add metrics information
+    // Add metrics information using available methods
     try {
-      const metrics = this.symbolManager.computeMetrics(symbol);
+      const referencesTo = this.symbolManager.findReferencesTo(symbol);
+      const referencesFrom = this.symbolManager.findReferencesFrom(symbol);
+      const dependencyAnalysis = this.symbolManager.analyzeDependencies(symbol);
+
       content.push('');
       content.push('**Metrics:**');
-      content.push(`- Reference count: ${metrics.referenceCount}`);
-      content.push(`- Dependency count: ${metrics.dependencyCount}`);
-      content.push(`- Cyclomatic complexity: ${metrics.cyclomaticComplexity}`);
-      content.push(`- Coupling score: ${metrics.couplingScore.toFixed(2)}`);
-      content.push(`- Impact score: ${metrics.impactScore.toFixed(2)}`);
-      content.push(`- Lifecycle: ${metrics.lifecycleStage}`);
+      content.push(
+        `- Reference count: ${referencesTo.length + referencesFrom.length}`,
+      );
+      content.push(
+        `- Dependency count: ${dependencyAnalysis.dependencies.length}`,
+      );
+      content.push(
+        `- Dependents count: ${dependencyAnalysis.dependents.length}`,
+      );
+      content.push(
+        `- Impact score: ${dependencyAnalysis.impactScore.toFixed(2)}`,
+      );
     } catch (error) {
       this.logger.debug(() => `Error getting metrics: ${error}`);
     }
