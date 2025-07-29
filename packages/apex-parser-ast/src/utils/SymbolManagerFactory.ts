@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ISymbolManager } from './ISymbolManager';
+import {
+  ISymbolManager,
+  SymbolResolutionContext,
+  SymbolResolutionResult,
+} from './ISymbolManager';
 import { ApexSymbolManager } from './ApexSymbolManager';
 import { ApexSymbol } from '../types/symbol';
 
@@ -101,6 +105,43 @@ class TestSymbolManager implements ISymbolManager {
       }
     }
     return Array.from(files);
+  }
+
+  resolveSymbol(
+    name: string,
+    context: SymbolResolutionContext,
+  ): SymbolResolutionResult {
+    const candidates = this.findSymbolByName(name);
+
+    if (candidates.length === 0) {
+      return {
+        symbol: null as any,
+        filePath: context.sourceFile,
+        confidence: 0,
+        isAmbiguous: false,
+        resolutionContext: 'No symbols found with this name',
+      };
+    }
+
+    if (candidates.length === 1) {
+      return {
+        symbol: candidates[0],
+        filePath: context.sourceFile,
+        confidence: 0.9,
+        isAmbiguous: false,
+        resolutionContext: 'Single symbol found',
+      };
+    }
+
+    // Multiple candidates - return the first one with ambiguity flag
+    return {
+      symbol: candidates[0],
+      filePath: context.sourceFile,
+      confidence: 0.5,
+      isAmbiguous: true,
+      candidates,
+      resolutionContext: 'Multiple symbols found',
+    };
   }
 
   findReferencesTo(symbol: ApexSymbol): any[] {

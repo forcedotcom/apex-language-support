@@ -20,7 +20,11 @@ import {
   ReferenceResult,
   DependencyAnalysis,
 } from '../references/ApexSymbolGraph';
-import { ISymbolManager } from './ISymbolManager';
+import {
+  ISymbolManager,
+  SymbolResolutionContext,
+  SymbolResolutionResult,
+} from './ISymbolManager';
 
 /**
  * File metadata for tracking symbol relationships
@@ -29,38 +33,6 @@ interface FileMetadata {
   filePath: string;
   symbolCount: number;
   lastUpdated: number;
-}
-
-/**
- * Symbol resolution context for disambiguation
- */
-export interface SymbolResolutionContext {
-  sourceFile: string;
-  sourceSymbol?: ApexSymbol;
-  importStatements: string[];
-  namespaceContext: string;
-  currentScope: string;
-  scopeChain: string[];
-  expectedType?: string;
-  parameterTypes: string[];
-  returnType?: string;
-  accessModifier: 'public' | 'private' | 'protected' | 'global';
-  isStatic: boolean;
-  relationshipType?: EnumValue<typeof ReferenceType>;
-  inheritanceChain: string[];
-  interfaceImplementations: string[];
-}
-
-/**
- * Result of symbol resolution
- */
-export interface SymbolResolutionResult {
-  symbol: ApexSymbol;
-  filePath: string;
-  confidence: number;
-  isAmbiguous: boolean;
-  candidates?: ApexSymbol[];
-  resolutionContext?: string;
 }
 
 /**

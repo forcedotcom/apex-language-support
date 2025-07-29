@@ -129,13 +129,26 @@ describe('CompletionProcessingService', () => {
       ];
 
       // Mock resolveSymbol to return symbols
-      mockSymbolManager.resolveSymbol.mockReturnValue({
-        symbol: mockSymbols[0],
-        confidence: 0.8,
-        resolutionContext: 'test context',
-        filePath: 'file:///test/TestClass.cls',
-        isAmbiguous: false,
-      } as any);
+      mockSymbolManager.resolveSymbol.mockImplementation(
+        (name: string, context: any) => {
+          if (name === '*' || name === 'test') {
+            return {
+              symbol: mockSymbols[0],
+              confidence: 0.8,
+              resolutionContext: 'test context',
+              filePath: 'file:///test/TestClass.cls',
+              isAmbiguous: false,
+            };
+          }
+          return {
+            symbol: null,
+            confidence: 0,
+            resolutionContext: 'no match',
+            filePath: '',
+            isAmbiguous: false,
+          };
+        },
+      );
 
       // Act
       const result = await service.processCompletion(params);
@@ -210,7 +223,26 @@ describe('CompletionProcessingService', () => {
         },
       ];
 
-      mockSymbolManager.findSymbolsInFile.mockReturnValue(mockSymbols);
+      mockSymbolManager.resolveSymbol.mockImplementation(
+        (name: string, context: any) => {
+          if (name === '*' || name === 'public' || name === 'private') {
+            return {
+              symbol: mockSymbols[0],
+              confidence: 0.8,
+              resolutionContext: 'test context',
+              filePath: 'file:///test/TestClass.cls',
+              isAmbiguous: false,
+            };
+          }
+          return {
+            symbol: null,
+            confidence: 0,
+            resolutionContext: 'no match',
+            filePath: '',
+            isAmbiguous: false,
+          };
+        },
+      );
 
       // Act
       const result = await service.processCompletion(params);
@@ -246,7 +278,26 @@ describe('CompletionProcessingService', () => {
         },
       ];
 
-      mockSymbolManager.findSymbolsInFile.mockReturnValue(mockSymbols);
+      mockSymbolManager.resolveSymbol.mockImplementation(
+        (name: string, context: any) => {
+          if (name === '*' || name === 'static' || name === 'instance') {
+            return {
+              symbol: mockSymbols[0],
+              confidence: 0.8,
+              resolutionContext: 'test context',
+              filePath: 'file:///test/TestClass.cls',
+              isAmbiguous: false,
+            };
+          }
+          return {
+            symbol: null,
+            confidence: 0,
+            resolutionContext: 'no match',
+            filePath: '',
+            isAmbiguous: false,
+          };
+        },
+      );
 
       // Act
       const result = await service.processCompletion(params);

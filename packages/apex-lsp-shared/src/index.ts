@@ -35,5 +35,25 @@ export {
 // Export logger functionality
 export * from './logger';
 
+// Explicitly export commonly used functions
+export {
+  defineEnum,
+  isValidEnumKey,
+  isValidEnumValue,
+  getEnumKeys,
+  getEnumValues,
+  getEnumEntries,
+} from './enumUtils';
+
+export {
+  setLogLevel,
+  getLogLevel,
+  shouldLog,
+  getLogger,
+  setLoggerFactory,
+  enableConsoleLogging,
+  disableLogging,
+} from './logger';
+
 // Export smaller numeric types for memory optimization
 export * from './smallNumericTypes';

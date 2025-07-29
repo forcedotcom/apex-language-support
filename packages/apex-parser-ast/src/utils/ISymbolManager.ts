@@ -15,6 +15,38 @@ import {
 import { type EnumValue } from '@salesforce/apex-lsp-shared';
 
 /**
+ * Context for symbol resolution
+ */
+export interface SymbolResolutionContext {
+  sourceFile: string;
+  sourceSymbol?: ApexSymbol;
+  importStatements: string[];
+  namespaceContext: string;
+  currentScope: string;
+  scopeChain: string[];
+  expectedType?: string;
+  parameterTypes: string[];
+  returnType?: string;
+  accessModifier: 'public' | 'private' | 'protected' | 'global';
+  isStatic: boolean;
+  relationshipType?: EnumValue<typeof ReferenceType>;
+  inheritanceChain: string[];
+  interfaceImplementations: string[];
+}
+
+/**
+ * Result of symbol resolution
+ */
+export interface SymbolResolutionResult {
+  symbol: ApexSymbol;
+  filePath: string;
+  confidence: number;
+  isAmbiguous: boolean;
+  candidates?: ApexSymbol[];
+  resolutionContext?: string;
+}
+
+/**
  * Interface defining the contract for symbol managers
  * This allows for both production and test implementations
  */
@@ -48,6 +80,14 @@ export interface ISymbolManager {
    * Find files containing a symbol with the given name
    */
   findFilesForSymbol(name: string): string[];
+
+  /**
+   * Resolve symbol with context
+   */
+  resolveSymbol(
+    name: string,
+    context: SymbolResolutionContext,
+  ): SymbolResolutionResult;
 
   /**
    * Find references to a symbol
