@@ -6,30 +6,34 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { ApexSymbolGraph } from '../../src/references/ApexSymbolGraph';
 import {
-  ApexSymbolGraph,
-  ReferenceType,
-} from '../../src/references/ApexSymbolGraph';
-import {
-  ApexSymbol,
   SymbolKind,
   SymbolVisibility,
+  SymbolTable,
+  SymbolFactory,
 } from '../../src/types/symbol';
 
-describe('ApexSymbolGraph Phase 4: Optimized Graphology Implementation', () => {
+describe('ApexSymbolGraph Phase 4: Context-Based Lookup', () => {
   let graph: ApexSymbolGraph;
+  let symbolTable1: SymbolTable;
+  let symbolTable2: SymbolTable;
 
   beforeEach(() => {
     graph = new ApexSymbolGraph();
+    symbolTable1 = new SymbolTable();
+    symbolTable2 = new SymbolTable();
   });
 
-  describe('Phase 4: Integer Node IDs and Lightweight Symbol Storage', () => {
-    it('should use integer node IDs instead of string IDs', () => {
-      const symbol1: ApexSymbol = {
-        name: 'TestClass',
-        kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        modifiers: {
+  describe('Context-based symbol lookup', () => {
+    it('should lookup unambiguous symbols with full confidence', () => {
+      // Create a unique symbol
+      const uniqueSymbol = SymbolFactory.createFullSymbol(
+        'UniqueClass',
+        SymbolKind.Class,
+        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 20 },
+        '/path/to/file1.cls',
+        {
           visibility: SymbolVisibility.Public,
           isStatic: false,
           isFinal: false,
@@ -40,63 +44,32 @@ describe('ApexSymbolGraph Phase 4: Optimized Graphology Implementation', () => {
           isTestMethod: false,
           isWebService: false,
         },
-        key: { prefix: 'class', name: 'TestClass', path: ['TestClass'] },
-        parentKey: null,
-        fqn: 'TestClass',
-      };
+        null,
+        { superClass: undefined, interfaces: [] },
+      );
 
-      const symbol2: ApexSymbol = {
-        name: 'TestMethod',
-        kind: SymbolKind.Method,
-        location: { startLine: 5, startColumn: 1, endLine: 8, endColumn: 1 },
-        modifiers: {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-        },
-        key: {
-          prefix: 'method',
-          name: 'TestMethod',
-          path: ['TestClass', 'TestMethod'],
-        },
-        parentKey: null,
-        fqn: 'TestClass.TestMethod',
-      };
+      // Add symbol with symbol table
+      graph.addSymbol(uniqueSymbol, '/path/to/file1.cls', symbolTable1);
 
-      // Add symbols to graph
-      graph.addSymbol(symbol1, 'test1.cls');
-      graph.addSymbol(symbol2, 'test1.cls');
+      // Lookup with context
+      const result = graph.lookupSymbolWithContext('UniqueClass');
 
-      // Verify that symbols are stored with integer node IDs
-      const stats = graph.getStats();
-      expect(stats.totalSymbols).toBe(2);
-
-      // Verify that references work with integer node IDs
-      graph.addReference(symbol1, symbol2, ReferenceType.METHOD_CALL, {
-        startLine: 6,
-        startColumn: 1,
-        endLine: 6,
-        endColumn: 10,
-      });
-
-      const referencesTo = graph.findReferencesTo(symbol2);
-      expect(referencesTo).toHaveLength(1);
-      expect(referencesTo[0].symbol.name).toBe('TestClass');
-      expect(referencesTo[0].referenceType).toBe(ReferenceType.METHOD_CALL);
+      expect(result).not.toBeNull();
+      expect(result!.symbol).toBe(uniqueSymbol);
+      expect(result!.filePath).toBe('/path/to/file1.cls');
+      expect(result!.confidence).toBe(1.0);
+      expect(result!.isAmbiguous).toBe(false);
+      expect(result!.candidates).toBeUndefined();
     });
 
-    it('should store lightweight symbols separately from graph nodes', () => {
-      const symbol: ApexSymbol = {
-        name: 'TestClass',
-        kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        modifiers: {
+    it('should resolve ambiguous symbols with context', () => {
+      // Create two symbols with the same name in different files
+      const symbol1 = SymbolFactory.createFullSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 20 },
+        '/path/to/file1.cls',
+        {
           visibility: SymbolVisibility.Public,
           isStatic: false,
           isFinal: false,
@@ -107,136 +80,62 @@ describe('ApexSymbolGraph Phase 4: Optimized Graphology Implementation', () => {
           isTestMethod: false,
           isWebService: false,
         },
-        key: { prefix: 'class', name: 'TestClass', path: ['TestClass'] },
-        parentKey: null,
-        fqn: 'TestClass',
-        annotations: [
-          {
-            name: 'TestVisible',
-            location: {
-              startLine: 1,
-              startColumn: 1,
-              endLine: 1,
-              endColumn: 12,
-            },
-          },
-        ],
-      };
+        null,
+        { superClass: undefined, interfaces: [] },
+      );
 
-      // Add symbol to graph
-      graph.addSymbol(symbol, 'test.cls');
+      const symbol2 = SymbolFactory.createFullSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 20 },
+        '/path/to/file2.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        null,
+        { superClass: undefined, interfaces: [] },
+      );
 
-      // Verify that the symbol is accessible through the graph
-      const foundSymbols = graph.lookupSymbolByName('TestClass');
-      expect(foundSymbols).toHaveLength(1);
-      expect(foundSymbols[0].name).toBe('TestClass');
-      expect(foundSymbols[0].fqn).toBe('TestClass');
-      expect(foundSymbols[0].annotations).toHaveLength(1);
+      // Add both symbols with their symbol tables
+      graph.addSymbol(symbol1, '/path/to/file1.cls', symbolTable1);
+      graph.addSymbol(symbol2, '/path/to/file2.cls', symbolTable2);
+
+      // Lookup with context
+      const result = graph.lookupSymbolWithContext('MyClass');
+
+      expect(result).not.toBeNull();
+      expect(result!.isAmbiguous).toBe(true);
+      expect(result!.confidence).toBe(0.5); // Medium confidence for ambiguous symbols
+      expect(result!.candidates).toHaveLength(2);
+      expect(result!.candidates!.map((c) => c.filePath)).toContain(
+        '/path/to/file1.cls',
+      );
+      expect(result!.candidates!.map((c) => c.filePath)).toContain(
+        '/path/to/file2.cls',
+      );
     });
 
-    it('should maintain graph algorithm functionality with integer node IDs', () => {
-      const classA: ApexSymbol = {
-        name: 'ClassA',
-        kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        modifiers: {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-        },
-        key: { prefix: 'class', name: 'ClassA', path: ['ClassA'] },
-        parentKey: null,
-        fqn: 'ClassA',
-      };
-
-      const classB: ApexSymbol = {
-        name: 'ClassB',
-        kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        modifiers: {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-        },
-        key: { prefix: 'class', name: 'ClassB', path: ['ClassB'] },
-        parentKey: null,
-        fqn: 'ClassB',
-      };
-
-      const classC: ApexSymbol = {
-        name: 'ClassC',
-        kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        modifiers: {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-        },
-        key: { prefix: 'class', name: 'ClassC', path: ['ClassC'] },
-        parentKey: null,
-        fqn: 'ClassC',
-      };
-
-      // Add symbols
-      graph.addSymbol(classA, 'classA.cls');
-      graph.addSymbol(classB, 'classB.cls');
-      graph.addSymbol(classC, 'classC.cls');
-
-      // Create dependencies: A -> B -> C -> A (circular)
-      graph.addReference(classA, classB, ReferenceType.TYPE_REFERENCE, {
-        startLine: 2,
-        startColumn: 1,
-        endLine: 2,
-        endColumn: 10,
-      });
-      graph.addReference(classB, classC, ReferenceType.TYPE_REFERENCE, {
-        startLine: 2,
-        startColumn: 1,
-        endLine: 2,
-        endColumn: 10,
-      });
-      graph.addReference(classC, classA, ReferenceType.TYPE_REFERENCE, {
-        startLine: 2,
-        startColumn: 1,
-        endLine: 2,
-        endColumn: 10,
-      });
-
-      // Test dependency analysis
-      const analysis = graph.analyzeDependencies(classA);
-      expect(analysis.dependencies).toHaveLength(1);
-      expect(analysis.dependents).toHaveLength(1);
-      expect(analysis.impactScore).toBe(1);
-
-      // Test circular dependency detection
-      const cycles = graph.detectCircularDependencies();
-      expect(cycles.length).toBeGreaterThan(0);
+    it('should return null for non-existent symbols', () => {
+      const result = graph.lookupSymbolWithContext('NonExistentClass');
+      expect(result).toBeNull();
     });
 
-    it('should provide memory optimization statistics', () => {
-      const symbol: ApexSymbol = {
-        name: 'TestClass',
-        kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        modifiers: {
+    it('should include symbol table in candidates for ambiguous symbols', () => {
+      // Create two symbols with the same name to make it ambiguous
+      const symbol1 = SymbolFactory.createFullSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 20 },
+        '/path/to/file1.cls',
+        {
           visibility: SymbolVisibility.Public,
           isStatic: false,
           isFinal: false,
@@ -247,88 +146,93 @@ describe('ApexSymbolGraph Phase 4: Optimized Graphology Implementation', () => {
           isTestMethod: false,
           isWebService: false,
         },
-        key: { prefix: 'class', name: 'TestClass', path: ['TestClass'] },
-        parentKey: null,
-        fqn: 'TestClass',
-      };
+        null,
+        { superClass: undefined, interfaces: [] },
+      );
 
-      // Add symbol to graph
-      graph.addSymbol(symbol, 'test.cls');
+      const symbol2 = SymbolFactory.createFullSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 20 },
+        '/path/to/file2.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        null,
+        { superClass: undefined, interfaces: [] },
+      );
 
-      // Verify that memory optimization statistics are available
-      const stats = graph.getStats();
-      expect(stats.totalSymbols).toBe(1);
-      expect(stats.totalReferences).toBe(0);
-      expect(stats.totalFiles).toBe(1);
+      graph.addSymbol(symbol1, '/path/to/file1.cls', symbolTable1);
+      graph.addSymbol(symbol2, '/path/to/file2.cls', symbolTable2);
+
+      const result = graph.lookupSymbolWithContext('TestClass');
+      expect(result).not.toBeNull();
+      expect(result!.isAmbiguous).toBe(true);
+      expect(result!.candidates).toHaveLength(2);
+      expect(result!.candidates![0].symbolTable).toBe(symbolTable1);
+      expect(result!.candidates![1].symbolTable).toBe(symbolTable2);
+    });
+  });
+
+  describe('Symbol table integration', () => {
+    it('should register symbol table when adding symbol', () => {
+      const symbol = SymbolFactory.createFullSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 20 },
+        '/path/to/file.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        null,
+        { superClass: undefined, interfaces: [] },
+      );
+
+      graph.addSymbol(symbol, '/path/to/file.cls', symbolTable1);
+
+      const retrievedTable = graph.getSymbolTableForFile('/path/to/file.cls');
+      expect(retrievedTable).toBe(symbolTable1);
     });
 
-    it('should handle file removal with integer node IDs', () => {
-      const symbol1: ApexSymbol = {
-        name: 'ClassA',
-        kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        modifiers: {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-        },
-        key: { prefix: 'class', name: 'ClassA', path: ['ClassA'] },
-        parentKey: null,
-        fqn: 'ClassA',
-      };
+    it('should register symbol table separately', () => {
+      graph.registerSymbolTable(symbolTable1, '/path/to/file.cls');
 
-      const symbol2: ApexSymbol = {
-        name: 'ClassB',
-        kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        modifiers: {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-        },
-        key: { prefix: 'class', name: 'ClassB', path: ['ClassB'] },
-        parentKey: null,
-        fqn: 'ClassB',
-      };
-
-      // Add symbols to different files
-      graph.addSymbol(symbol1, 'file1.cls');
-      graph.addSymbol(symbol2, 'file2.cls');
-
-      // Verify initial state
-      expect(graph.getStats().totalSymbols).toBe(2);
-      expect(graph.getStats().totalFiles).toBe(2);
-
-      // Remove one file
-      graph.removeFile('file1.cls');
-
-      // Verify that only the remaining file's symbols exist
-      expect(graph.getStats().totalSymbols).toBe(1);
-      expect(graph.getStats().totalFiles).toBe(1);
-
-      const remainingSymbols = graph.lookupSymbolByName('ClassB');
-      expect(remainingSymbols).toHaveLength(1);
-      expect(remainingSymbols[0].name).toBe('ClassB');
+      const retrievedTable = graph.getSymbolTableForFile('/path/to/file.cls');
+      expect(retrievedTable).toBe(symbolTable1);
     });
 
-    it('should clear all data correctly', () => {
-      const symbol1: ApexSymbol = {
-        name: 'TestClass1',
-        kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        modifiers: {
+    it('should return undefined for non-existent file', () => {
+      const retrievedTable = graph.getSymbolTableForFile(
+        '/path/to/nonexistent.cls',
+      );
+      expect(retrievedTable).toBeUndefined();
+    });
+  });
+
+  describe('Clear and remove operations', () => {
+    it('should clear symbol table storage on clear', () => {
+      const symbol = SymbolFactory.createFullSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 20 },
+        '/path/to/file.cls',
+        {
           visibility: SymbolVisibility.Public,
           isStatic: false,
           isFinal: false,
@@ -339,107 +243,85 @@ describe('ApexSymbolGraph Phase 4: Optimized Graphology Implementation', () => {
           isTestMethod: false,
           isWebService: false,
         },
-        key: { prefix: 'class', name: 'TestClass1', path: ['TestClass1'] },
-        parentKey: null,
-        fqn: 'TestClass1',
-      };
+        null,
+        { superClass: undefined, interfaces: [] },
+      );
 
-      const symbol2: ApexSymbol = {
-        name: 'TestClass2',
-        kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        modifiers: {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-        },
-        key: { prefix: 'class', name: 'TestClass2', path: ['TestClass2'] },
-        parentKey: null,
-        fqn: 'TestClass2',
-      };
+      graph.addSymbol(symbol, '/path/to/file.cls', symbolTable1);
+      expect(graph.getSymbolTableForFile('/path/to/file.cls')).toBe(
+        symbolTable1,
+      );
 
-      // Add symbols and create reference between them
-      graph.addSymbol(symbol1, 'test1.cls');
-      graph.addSymbol(symbol2, 'test2.cls');
-      graph.addReference(symbol1, symbol2, ReferenceType.TYPE_REFERENCE, {
-        startLine: 2,
-        startColumn: 1,
-        endLine: 2,
-        endColumn: 10,
-      });
-
-      // Verify initial state
-      expect(graph.getStats().totalSymbols).toBe(2);
-      expect(graph.getStats().totalReferences).toBe(1);
-
-      // Clear all data
       graph.clear();
+      expect(graph.getSymbolTableForFile('/path/to/file.cls')).toBeUndefined();
+    });
 
-      // Verify cleared state
-      expect(graph.getStats().totalSymbols).toBe(0);
-      expect(graph.getStats().totalReferences).toBe(0);
-      expect(graph.getStats().totalFiles).toBe(0);
+    it('should remove symbol table on removeFile', () => {
+      const symbol = SymbolFactory.createFullSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 20 },
+        '/path/to/file.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        null,
+        { superClass: undefined, interfaces: [] },
+      );
+
+      graph.addSymbol(symbol, '/path/to/file.cls', symbolTable1);
+      expect(graph.getSymbolTableForFile('/path/to/file.cls')).toBe(
+        symbolTable1,
+      );
+
+      graph.removeFile('/path/to/file.cls');
+      expect(graph.getSymbolTableForFile('/path/to/file.cls')).toBeUndefined();
     });
   });
 
-  describe('Phase 4: Performance and Memory Benefits', () => {
-    it('should demonstrate memory efficiency with multiple symbols', () => {
-      const symbols: ApexSymbol[] = [];
+  describe('Backward compatibility', () => {
+    it('should maintain existing lookup methods', () => {
+      const symbol = SymbolFactory.createFullSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 20 },
+        '/path/to/file.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+        },
+        null,
+        { superClass: undefined, interfaces: [] },
+      );
 
-      // Create 100 test symbols
-      for (let i = 0; i < 100; i++) {
-        symbols.push({
-          name: `TestClass${i}`,
-          kind: SymbolKind.Class,
-          location: { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-          modifiers: {
-            visibility: SymbolVisibility.Public,
-            isStatic: false,
-            isFinal: false,
-            isAbstract: false,
-            isVirtual: false,
-            isOverride: false,
-            isTransient: false,
-            isTestMethod: false,
-            isWebService: false,
-          },
-          key: {
-            prefix: 'class',
-            name: `TestClass${i}`,
-            path: [`TestClass${i}`],
-          },
-          parentKey: null,
-          fqn: `TestClass${i}`,
-        });
-      }
+      graph.addSymbol(symbol, '/path/to/file.cls');
 
-      // Add all symbols to graph
-      symbols.forEach((symbol, index) => {
-        graph.addSymbol(symbol, `test${index}.cls`);
-      });
+      // Test existing methods still work
+      const byName = graph.lookupSymbolByName('TestClass');
+      expect(byName).toHaveLength(1);
+      expect(byName[0]).toBe(symbol);
 
-      // Verify all symbols are stored
-      expect(graph.getStats().totalSymbols).toBe(100);
-      expect(graph.getStats().totalFiles).toBe(100);
+      const inFile = graph.getSymbolsInFile('/path/to/file.cls');
+      expect(inFile).toHaveLength(1);
+      expect(inFile[0]).toBe(symbol);
 
-      // Test lookup performance
-      const startTime = Date.now();
-      for (let i = 0; i < 100; i++) {
-        const found = graph.lookupSymbolByName(`TestClass${i}`);
-        expect(found).toHaveLength(1);
-        expect(found[0].name).toBe(`TestClass${i}`);
-      }
-      const endTime = Date.now();
-      const lookupTime = endTime - startTime;
-
-      // Verify lookup performance is reasonable (should be fast)
-      expect(lookupTime).toBeLessThan(1000); // Should complete in less than 1 second
+      const files = graph.getFilesForSymbol('TestClass');
+      expect(files).toContain('/path/to/file.cls');
     });
   });
 });

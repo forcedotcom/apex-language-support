@@ -21,6 +21,32 @@ import {
 import { ApexSymbol, SymbolTable } from '../types/symbol';
 
 /**
+ * Context for symbol resolution
+ */
+export interface ResolutionContext {
+  sourceFile?: string;
+  expectedNamespace?: string;
+  currentScope?: string;
+  isStatic?: boolean;
+}
+
+/**
+ * Result of a symbol lookup with confidence scoring
+ */
+export interface SymbolLookupResult {
+  symbol: ApexSymbol;
+  filePath: string;
+  confidence: number;
+  isAmbiguous: boolean;
+  candidates?: Array<{
+    symbol: ApexSymbol;
+    filePath: string;
+    symbolTable: SymbolTable;
+    lastUpdated: number;
+  }>;
+}
+
+/**
  * Types of references between Apex symbols
  * Using optimized numeric values for memory efficiency
  */
@@ -216,6 +242,10 @@ export class ApexSymbolGraph {
   private fileIndex: HashMap<string, string[]> = new HashMap();
   private fqnIndex: HashMap<string, string> = new HashMap();
 
+  // Symbol table storage for context-based resolution
+  private fileToSymbolTable: HashMap<string, SymbolTable> = new HashMap();
+  private symbolToFiles: HashMap<string, string[]> = new HashMap();
+
   // Deferred references for lazy loading
   private deferredReferences: HashMap<
     string,
@@ -255,7 +285,11 @@ export class ApexSymbolGraph {
   /**
    * PHASE 5: Add a symbol to the graph with optimized memory usage
    */
-  addSymbol(symbol: ApexSymbol, filePath: string): void {
+  addSymbol(
+    symbol: ApexSymbol,
+    filePath: string,
+    symbolTable?: SymbolTable,
+  ): void {
     const symbolId = this.getSymbolId(symbol, filePath);
 
     // Check if symbol already exists to prevent duplicates
@@ -324,6 +358,11 @@ export class ApexSymbolGraph {
 
     // Process any deferred references to this symbol
     this.processDeferredReferences(symbolId);
+
+    // Phase 4: Register symbol table if provided
+    if (symbolTable) {
+      this.registerSymbolTable(symbolTable, filePath);
+    }
   }
 
   /**
@@ -771,6 +810,127 @@ export class ApexSymbolGraph {
   }
 
   /**
+   * Phase 4: Context-based symbol lookup with ambiguity resolution
+   */
+  lookupSymbolWithContext(
+    symbolName: string,
+    context?: ResolutionContext,
+  ): SymbolLookupResult | null {
+    const symbolIds = this.nameIndex.get(symbolName) || [];
+
+    if (symbolIds.length === 0) {
+      return null;
+    }
+
+    // Get all symbols with this name
+    const candidates = symbolIds
+      .map((id) => {
+        const symbol = this.symbols.get(id);
+        const filePath = this.symbolFileMap.get(id);
+        const symbolTable = filePath
+          ? this.fileToSymbolTable.get(filePath)
+          : undefined;
+
+        if (!symbol || !filePath || !symbolTable) return null;
+
+        return {
+          symbol,
+          filePath,
+          symbolTable,
+          lastUpdated: Date.now(), // For now, use current time
+        };
+      })
+      .filter(
+        (candidate): candidate is NonNullable<typeof candidate> =>
+          candidate !== null,
+      );
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    if (candidates.length === 1) {
+      // Unambiguous symbol
+      const candidate = candidates[0];
+      return {
+        symbol: candidate.symbol,
+        filePath: candidate.filePath,
+        confidence: 1.0,
+        isAmbiguous: false,
+      };
+    }
+
+    // Ambiguous symbol - resolve using context
+    const resolved = this.resolveAmbiguousSymbol(
+      symbolName,
+      candidates,
+      context,
+    );
+    return {
+      symbol: resolved.symbol,
+      filePath: resolved.filePath,
+      confidence: resolved.confidence,
+      isAmbiguous: true,
+      candidates,
+    };
+  }
+
+  /**
+   * Phase 4: Get symbol table for a file
+   */
+  getSymbolTableForFile(filePath: string): SymbolTable | undefined {
+    return this.fileToSymbolTable.get(filePath);
+  }
+
+  /**
+   * Phase 4: Register symbol table for a file
+   */
+  registerSymbolTable(symbolTable: SymbolTable, filePath: string): void {
+    this.fileToSymbolTable.set(filePath, symbolTable);
+
+    // Update symbol to files mapping
+    const symbols = this.getSymbolsInFile(filePath);
+    for (const symbol of symbols) {
+      const symbolKey = this.getSymbolKey(symbol);
+      const existingFiles = this.symbolToFiles.get(symbolKey) || [];
+      if (!existingFiles.includes(filePath)) {
+        existingFiles.push(filePath);
+        this.symbolToFiles.set(symbolKey, existingFiles);
+      }
+    }
+  }
+
+  /**
+   * Phase 4: Resolve ambiguous symbol using context
+   */
+  private resolveAmbiguousSymbol(
+    symbolName: string,
+    candidates: Array<{
+      symbol: ApexSymbol;
+      filePath: string;
+      symbolTable: SymbolTable;
+      lastUpdated: number;
+    }>,
+    context?: ResolutionContext,
+  ): { symbol: ApexSymbol; filePath: string; confidence: number } {
+    // Simple resolution strategy - can be enhanced
+    // For now, return the first entry with medium confidence
+    const candidate = candidates[0];
+    return {
+      symbol: candidate.symbol,
+      filePath: candidate.filePath,
+      confidence: 0.5, // Medium confidence for ambiguous symbols
+    };
+  }
+
+  /**
+   * Phase 4: Generate a unique key for a symbol
+   */
+  private getSymbolKey(symbol: ApexSymbol): string {
+    return `${symbol.kind}:${symbol.name}`;
+  }
+
+  /**
    * Clear all data
    */
   clear(): void {
@@ -782,6 +942,10 @@ export class ApexSymbolGraph {
     this.fileIndex.clear();
     this.fqnIndex.clear();
     this.deferredReferences.clear();
+
+    // Phase 4: Clear symbol table storage
+    this.fileToSymbolTable.clear();
+    this.symbolToFiles.clear();
 
     this.memoryStats = {
       totalSymbols: 0,
@@ -827,6 +991,9 @@ export class ApexSymbolGraph {
 
     // Update file index
     this.fileIndex.delete(filePath);
+
+    // Phase 4: Remove symbol table data
+    this.fileToSymbolTable.delete(filePath);
 
     // Update memory statistics
     this.memoryStats.totalSymbols -= symbolIds.length;

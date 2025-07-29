@@ -47,8 +47,7 @@ export * from './utils/AnnotationUtils';
 export * from './utils/symbolNarrowing';
 
 // Export cross-file symbol management
-export * from './utils/GlobalSymbolRegistry';
-export * from './utils/CrossFileSymbolManager';
+
 export * from './utils/ApexSymbolManager';
 export * from './utils/ISymbolManager';
 export * from './utils/SymbolManagerFactory';
