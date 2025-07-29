@@ -11,7 +11,7 @@ import {
   ReferenceResult,
   DependencyAnalysis,
   ReferenceType,
-} from '../references/ApexSymbolGraph';
+} from '../symbols/ApexSymbolGraph';
 import { type EnumValue } from '@salesforce/apex-lsp-shared';
 
 /**

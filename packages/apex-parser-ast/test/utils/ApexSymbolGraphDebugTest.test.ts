@@ -10,7 +10,7 @@ import { TestLogger, createTestLogger } from './testLogger';
 import {
   ApexSymbolGraph,
   ReferenceType,
-} from '../../src/references/ApexSymbolGraph';
+} from '../../src/symbols/ApexSymbolGraph';
 import {
   ApexSymbol,
   SymbolKind,

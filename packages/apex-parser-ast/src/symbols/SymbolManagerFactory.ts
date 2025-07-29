@@ -10,7 +10,7 @@ import {
   ISymbolManager,
   SymbolResolutionContext,
   SymbolResolutionResult,
-} from './ISymbolManager';
+} from '../types/ISymbolManager';
 import { ApexSymbolManager } from './ApexSymbolManager';
 import { ApexSymbol } from '../types/symbol';
 

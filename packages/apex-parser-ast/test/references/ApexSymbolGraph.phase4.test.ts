@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbolGraph } from '../../src/references/ApexSymbolGraph';
+import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
 import {
   SymbolKind,
   SymbolVisibility,

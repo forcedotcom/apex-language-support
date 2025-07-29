@@ -13,19 +13,19 @@ import {
   SymbolKind,
   SymbolVisibility,
   SymbolFactory,
+  generateUnifiedId,
 } from '../types/symbol';
 import {
   ApexSymbolGraph,
   ReferenceType,
   ReferenceResult,
   DependencyAnalysis,
-} from '../references/ApexSymbolGraph';
+} from './ApexSymbolGraph';
 import {
   ISymbolManager,
   SymbolResolutionContext,
   SymbolResolutionResult,
-} from './ISymbolManager';
-import { generateUnifiedId } from '../types/symbol';
+} from '../types/ISymbolManager';
 
 /**
  * File metadata for tracking symbol relationships

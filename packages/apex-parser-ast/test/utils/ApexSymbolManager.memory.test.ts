@@ -6,14 +6,14 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbolManager } from '../../src/utils/ApexSymbolManager';
+import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import {
   ApexSymbol,
   SymbolKind,
   SymbolTable,
   SymbolFactory,
 } from '../../src/types/symbol';
-import { ReferenceType } from '../../src/references/ApexSymbolGraph';
+import { ReferenceType } from '../../src/symbols/ApexSymbolGraph';
 import { disableLogging } from '@salesforce/apex-lsp-shared';
 
 // Disable logging for performance tests

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { UnifiedCache } from '../../src/utils/ApexSymbolManager';
+import { UnifiedCache } from '../../src/symbols/ApexSymbolManager';
 
 // Mock the logger to avoid console output during tests
 jest.mock('@salesforce/apex-lsp-shared', () => ({

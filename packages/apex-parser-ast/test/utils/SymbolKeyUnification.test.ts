@@ -17,7 +17,7 @@ import {
   areEquivalent,
   getUnifiedId,
 } from '../../src/types/symbol';
-import { ApexSymbolManager } from '../../src/utils/ApexSymbolManager';
+import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 
 /**
  * Tests for Phase 6.5.2: Symbol Key System Unification

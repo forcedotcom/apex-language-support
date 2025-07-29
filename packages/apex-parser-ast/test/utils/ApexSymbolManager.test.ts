@@ -10,13 +10,13 @@ import {
   ApexSymbolManager,
   SymbolResolutionContext,
   RelationshipPattern,
-} from '../../src/utils/ApexSymbolManager';
+} from '../../src/symbols/ApexSymbolManager';
 import {
   ApexSymbol,
   SymbolKind,
   SymbolVisibility,
 } from '../../src/types/symbol';
-import { ReferenceType } from '../../src/references/ApexSymbolGraph';
+import { ReferenceType } from '../../src/symbols/ApexSymbolGraph';
 
 describe('ApexSymbolManager', () => {
   let manager: ApexSymbolManager;

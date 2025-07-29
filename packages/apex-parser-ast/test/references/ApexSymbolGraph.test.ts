@@ -11,7 +11,7 @@ import {
   ReferenceType,
   toReferenceEdge,
   fromReferenceEdge,
-} from '../../src/references/ApexSymbolGraph';
+} from '../../src/symbols/ApexSymbolGraph';
 import {
   ApexSymbol,
   SymbolKind,

@@ -31,6 +31,7 @@ export * from './types/qname';
 export * from './types/source';
 export * from './types/unitType';
 export * from './types/classInfo';
+export * from './types/ISymbolManager';
 
 // Export compiler service
 export * from './parser/compilerService';
@@ -48,12 +49,11 @@ export * from './utils/symbolNarrowing';
 
 // Export cross-file symbol management
 
-export * from './utils/ApexSymbolManager';
-export * from './utils/ISymbolManager';
-export * from './utils/SymbolManagerFactory';
+export * from './symbols/ApexSymbolManager';
+export * from './symbols/SymbolManagerFactory';
 
 // Export reference graph and types
-export * from './references/ApexSymbolGraph';
+export * from './symbols/ApexSymbolGraph';
 
 // Export semantic validators
 export * from './semantics/modifiers/index';
