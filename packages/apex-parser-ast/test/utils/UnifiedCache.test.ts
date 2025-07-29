@@ -179,14 +179,20 @@ describe('UnifiedCache - Phase 3 Cache Consolidation', () => {
       const memoryLimitedCache = new UnifiedCache(100, 100, 60000, false); // 100 bytes max
 
       // Add entries that exceed memory limit
-      cache.set(
+      memoryLimitedCache.set(
         'key1',
-        'very long string that exceeds memory limit',
+        'very long string that exceeds memory limit very long string that exceeds memory limit ' +
+          'very long string that exceeds memory limit',
         'symbol_lookup',
       );
-      cache.set('key2', 'another long string', 'fqn_lookup');
+      memoryLimitedCache.set(
+        'key2',
+        'another very long string that also exceeds the memory limit ' +
+          'another very long string that also exceeds the memory limit',
+        'fqn_lookup',
+      );
 
-      const stats = cache.getStats();
+      const stats = memoryLimitedCache.getStats();
       expect(stats.evictionCount).toBeGreaterThan(0);
     });
   });

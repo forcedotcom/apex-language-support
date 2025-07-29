@@ -652,17 +652,17 @@ export class SymbolTable {
    * Updated for Phase 6.5.2: Symbol Key System Unification
    */
   addSymbol(symbol: ApexSymbol): void {
-    // Set parent reference if parentKey exists
+    // Ensure symbol key has unified ID for graph operations
+    if (!symbol.key.unifiedId) {
+      symbol.key = createFromSymbol(symbol);
+    }
+
+    // Set parent reference if parentKey exists (before adding to symbol map)
     if (symbol.parentKey) {
       const parent = this.lookupByKey(symbol.parentKey);
       if (parent) {
         symbol.parent = parent;
       }
-    }
-
-    // Ensure symbol key has unified ID for graph operations
-    if (!symbol.key.unifiedId) {
-      symbol.key = createFromSymbol(symbol);
     }
 
     this.current.addSymbol(symbol);
@@ -764,6 +764,14 @@ export class SymbolTable {
    */
   lookupByKey(key: SymbolKey): ApexSymbol | undefined {
     return this.symbolMap.get(this.keyToString(key));
+  }
+
+  /**
+   * Get all symbols in the symbol table
+   * @returns Array of all symbols
+   */
+  getAllSymbols(): ApexSymbol[] {
+    return Array.from(this.symbolMap.values());
   }
 
   /**

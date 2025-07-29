@@ -286,13 +286,8 @@ export class ApexSymbolCollectorListener
           );
         }
 
-        // Check for nested inner class
-        if (
-          this.currentTypeSymbol &&
-          isClassSymbol(this.currentTypeSymbol) &&
-          this.currentTypeSymbol.parent &&
-          isClassSymbol(this.currentTypeSymbol.parent)
-        ) {
+        // Check for nested inner class by checking if currentTypeSymbol has a parent
+        if (this.currentTypeSymbol && this.currentTypeSymbol.parent) {
           this.addError(
             `Inner class '${name}' cannot be defined within another inner class. ` +
               'Apex does not support nested inner classes.',
@@ -320,11 +315,19 @@ export class ApexSymbolCollectorListener
         classSymbol.annotations = annotations;
       }
 
+      // Store the previous type symbol for parent relationship
+      const previousTypeSymbol = this.currentTypeSymbol;
+
       // Store the current class symbol
       this.currentTypeSymbol = classSymbol;
 
       // Add symbol to current scope
       this.symbolTable.addSymbol(classSymbol);
+
+      // Manually set parent relationship if this is an inner class
+      if (previousTypeSymbol) {
+        classSymbol.parent = previousTypeSymbol;
+      }
 
       // Enter class scope
       this.symbolTable.enterScope(name);
@@ -1332,6 +1335,11 @@ export class ApexSymbolCollectorListener
       identifierLocation,
     ) as TypeSymbol;
 
+    // Fix the parent key to use the correct kind
+    if (parent && typeSymbol.parentKey) {
+      typeSymbol.parentKey.kind = parent.kind;
+    }
+
     // For enums, we need to add the values array
     // TODO: change to a more generic approach
     if (isEnumSymbol(typeSymbol)) {
@@ -1405,6 +1413,9 @@ export class ApexSymbolCollectorListener
       undefined, // annotations
       identifierLocation,
     ) as VariableSymbol;
+
+    // Set the type property for VariableSymbol interface compatibility
+    variableSymbol.type = type;
 
     return variableSymbol;
   }

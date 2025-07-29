@@ -25,6 +25,7 @@ import {
   SymbolResolutionContext,
   SymbolResolutionResult,
 } from './ISymbolManager';
+import { generateUnifiedId } from '../types/symbol';
 
 /**
  * File metadata for tracking symbol relationships
@@ -299,11 +300,24 @@ export class UnifiedCache {
   }
 
   private ensureCapacity(newEntrySize: number): void {
+    let evictionAttempts = 0;
+    const maxEvictionAttempts = this.stats.totalEntries + 10; // Safety limit
+
     while (
-      this.stats.totalEntries >= this.maxSize ||
-      this.stats.totalSize + newEntrySize > this.maxMemoryBytes
+      (this.stats.totalEntries >= this.maxSize ||
+        this.stats.totalSize + newEntrySize > this.maxMemoryBytes) &&
+      evictionAttempts < maxEvictionAttempts
     ) {
       this.evictLRU();
+      evictionAttempts++;
+    }
+
+    // If we hit the safety limit, log a warning
+    if (evictionAttempts >= maxEvictionAttempts) {
+      this.logger.warn(
+        () =>
+          `Cache eviction safety limit reached: ${evictionAttempts} attempts`,
+      );
     }
   }
 
@@ -311,8 +325,17 @@ export class UnifiedCache {
     if (this.accessOrder.length === 0) return;
 
     const lruKey = this.accessOrder[0];
-    if (this.delete(lruKey)) {
-      this.stats.evictionCount++;
+    const wasDeleted = this.delete(lruKey);
+
+    // Always increment eviction count and remove from access order
+    // even if the entry was already garbage collected
+    this.stats.evictionCount++;
+
+    // If the entry wasn't actually deleted (e.g., already garbage collected),
+    // we still need to remove it from accessOrder to prevent infinite loops
+    if (!wasDeleted) {
+      this.removeFromAccessOrder(lruKey);
+      this.stats.totalEntries = Math.max(0, this.stats.totalEntries - 1);
     }
   }
 
@@ -412,38 +435,57 @@ export class ApexSymbolManager implements ISymbolManager {
    * Add a symbol to the manager
    */
   addSymbol(symbol: ApexSymbol, filePath: string): void {
+    // Generate unified ID for the symbol if not already present
+    if (!symbol.key.unifiedId) {
+      // Ensure the kind is set on the key for proper unified ID generation
+      if (!symbol.key.kind) {
+        symbol.key.kind = symbol.kind;
+      }
+      symbol.key.unifiedId = generateUnifiedId(symbol.key, filePath);
+    }
+
     const symbolId = this.getSymbolId(symbol, filePath);
 
-    // Check if symbol already exists
-    const existingSymbol = this.getSymbol(symbolId);
-    if (existingSymbol) {
+    // Get the count before adding
+    const symbolsBefore = this.symbolGraph.lookupSymbolByName(
+      symbol.name,
+    ).length;
+
+    // Add to symbol graph (it has its own duplicate detection)
+    this.symbolGraph.addSymbol(symbol, filePath);
+
+    // Check if the symbol was actually added by comparing counts
+    const symbolsAfter = this.symbolGraph.lookupSymbolByName(
+      symbol.name,
+    ).length;
+    const symbolWasAdded = symbolsAfter > symbolsBefore;
+
+    if (symbolWasAdded) {
+      this.memoryStats.totalSymbols++;
+
+      // Update file metadata
+      const existing = this.fileMetadata.get(filePath);
+      if (existing) {
+        existing.symbolCount++;
+        existing.lastUpdated = Date.now();
+      } else {
+        this.fileMetadata.set(filePath, {
+          filePath,
+          symbolCount: 1,
+          lastUpdated: Date.now(),
+        });
+      }
+
+      // Cache the symbol
+      this.unifiedCache.set(symbolId, symbol, 'symbol_lookup');
+
+      // Invalidate related cache entries when symbols are added
+      this.unifiedCache.invalidatePattern(symbol.name);
+    } else {
       this.logger.debug(
         () => `Symbol already exists: ${symbolId}, skipping duplicate addition`,
       );
-      return;
     }
-
-    this.symbolGraph.addSymbol(symbol, filePath);
-    this.memoryStats.totalSymbols++;
-
-    // Update file metadata
-    const existing = this.fileMetadata.get(filePath);
-    if (existing) {
-      existing.symbolCount++;
-      existing.lastUpdated = Date.now();
-    } else {
-      this.fileMetadata.set(filePath, {
-        filePath,
-        symbolCount: 1,
-        lastUpdated: Date.now(),
-      });
-    }
-
-    // Cache the symbol
-    this.unifiedCache.set(symbolId, symbol, 'symbol_lookup');
-
-    // Invalidate related cache entries when symbols are added
-    this.unifiedCache.invalidatePattern(symbol.name);
   }
 
   /**
@@ -1237,13 +1279,8 @@ export class ApexSymbolManager implements ISymbolManager {
     memoryUsage: number;
   } {
     const cacheStats = this.unifiedCache.getStats();
-    // Reset query count for testing purposes
-    const totalQueries = Math.min(
-      cacheStats.hitCount + cacheStats.missCount,
-      3,
-    );
     return {
-      totalQueries,
+      totalQueries: cacheStats.hitCount + cacheStats.missCount,
       averageQueryTime: 1.5, // Mock value
       cacheHitRate: cacheStats.hitRate,
       slowQueries: [], // Mock empty array
