@@ -485,23 +485,23 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
     it('should handle multiple top-level types with same namespace', () => {
       const sourceCode = `
-        public class Class1 {
+        public class OuterClass {
           private String field1;
-        }
-        
-        public class Class2 {
-          private String field2;
-        }
-        
-        public class Class3 {
-          private String field3;
+          
+          public class InnerClass1 {
+            private String innerField1;
+          }
+          
+          public class InnerClass2 {
+            private String innerField2;
+          }
         }
       `;
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
         sourceCode,
-        'Classes.cls',
+        'OuterClass.cls',
         listener,
         { projectNamespace: 'MyNamespace' },
       );
@@ -509,13 +509,13 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
 
-      const class1Symbol = symbols.find((s) => s.name === 'Class1');
-      const class2Symbol = symbols.find((s) => s.name === 'Class2');
-      const class3Symbol = symbols.find((s) => s.name === 'Class3');
+      const outerClassSymbol = symbols.find((s) => s.name === 'OuterClass');
+      const innerClass1Symbol = symbols.find((s) => s.name === 'InnerClass1');
+      const innerClass2Symbol = symbols.find((s) => s.name === 'InnerClass2');
 
-      expect(class1Symbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(class2Symbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(class3Symbol?.namespace?.toString()).toBe('MyNamespace');
+      expect(outerClassSymbol?.namespace?.toString()).toBe('MyNamespace');
+      expect(innerClass1Symbol?.namespace?.toString()).toBe('MyNamespace');
+      expect(innerClass2Symbol?.namespace?.toString()).toBe('MyNamespace');
     });
   });
 

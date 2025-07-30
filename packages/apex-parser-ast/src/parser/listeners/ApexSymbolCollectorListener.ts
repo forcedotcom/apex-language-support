@@ -1303,7 +1303,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       parent?.id || null,
       { interfaces: [] },
-      namespace || undefined, // Pass the determined namespace
+      namespace, // Pass the determined namespace (can be null)
       this.getCurrentAnnotations(),
       identifierLocation,
     ) as TypeSymbol;
@@ -1366,7 +1366,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       parent?.id || null,
       { returnType, parameters: [] },
-      namespace || undefined, // Inherit namespace from parent
+      namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
       identifierLocation ?? this.getIdentifierLocation(ctx),
     ) as MethodSymbol;
@@ -1410,7 +1410,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       parent?.id || null,
       { type },
-      namespace || undefined, // Inherit namespace from parent
+      namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
       identifierLocation,
     ) as VariableSymbol;

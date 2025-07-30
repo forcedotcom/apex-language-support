@@ -174,7 +174,7 @@ export class SymbolFactory {
           }
         : null,
       fqn,
-      namespace,
+      namespace: namespace || null, // Ensure null instead of undefined
       annotations,
       identifierLocation,
       _typeData: typeData,
@@ -196,7 +196,7 @@ export class SymbolFactory {
     modifiers: SymbolModifiers,
     parentId: string | null = null,
     typeData?: any,
-    namespace?: Namespace,
+    namespace?: Namespace | null,
     annotations?: Annotation[],
     identifierLocation?: SymbolLocation,
   ): ApexSymbol {

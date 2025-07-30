@@ -8,7 +8,7 @@ This document outlines the implementation plan for staged namespace resolution d
 
 ### Phase 2: Enhanced ApexSymbolCollectorListener (TDD) - PARTIALLY COMPLETE
 
-**Status**: ✅ **18/23 tests passing** - Core namespace inheritance working, TypeScript compilation fixed
+**Status**: ✅ **21/23 tests passing** - Core namespace inheritance working, edge cases fixed
 
 **Completed Features**:
 
@@ -20,23 +20,22 @@ This document outlines the implementation plan for staged namespace resolution d
 - ✅ Integration with CompilerService for real Apex code compilation
 - ✅ TypeScript compilation errors fixed
 - ✅ Type safety improvements with proper Namespace type checking
+- ✅ Edge case handling (null vs undefined namespace)
+- ✅ Multiple top-level types with valid Apex syntax (inner classes)
 
 **Remaining Issues**:
 
-- ❌ Method name extraction issue (5 failing tests)
+- ❌ Method name extraction issue (2 failing tests)
   - Methods are created with correct namespace but empty names (`name: ''`)
   - FQN generation affected: `mynamespace/` instead of `mynamespace/testmethod`
   - Root cause: `ctx.id()?.text` returning empty string in `enterMethodDeclaration` and `enterInterfaceMethodDeclaration`
   - This is an ANTLR parser integration issue, not namespace resolution logic
-- ❌ Edge case handling (2 failing tests)
-  - When no project namespace provided, symbols get `undefined` instead of `null`
-  - Multiple top-level types not getting namespace assigned correctly
 
 **Test Results**:
 
 ```
 Test Suites: 1 failed, 1 total
-Tests: 5 failed, 18 passed, 23 total
+Tests: 2 failed, 21 passed, 23 total
 ```
 
 **Key Achievements**:
@@ -46,15 +45,16 @@ Tests: 5 failed, 18 passed, 23 total
 - Confirmed CompilerService integration is functional
 - Fixed all TypeScript compilation errors
 - Improved type safety with proper Namespace type checking
+- Fixed edge case handling (null vs undefined namespace)
+- Fixed multiple top-level types test with valid Apex syntax
 - Demonstrated that namespace resolution logic is sound
 
 **Next Steps**:
 
 1. Investigate ANTLR parser method name extraction (`ctx.id()?.text` issue)
 2. Fix method name parsing in `enterMethodDeclaration` and `enterInterfaceMethodDeclaration`
-3. Fix edge case handling for null/undefined namespace scenarios
-4. Complete remaining 5 tests
-5. Proceed to Phase 3 (NamespaceResolutionService)
+3. Complete remaining 2 tests
+4. Proceed to Phase 3 (NamespaceResolutionService)
 
 ## Goals
 
