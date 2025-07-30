@@ -13,6 +13,7 @@ import {
   ReferenceType,
 } from '../symbols/ApexSymbolGraph';
 import { type EnumValue } from '@salesforce/apex-lsp-shared';
+import { FQNOptions } from '../utils/FQNUtils';
 
 /**
  * Context for symbol resolution
@@ -161,4 +162,26 @@ export interface ISymbolManager {
     position: any,
     sourceFile: string,
   ): SymbolResolutionContext;
+
+  /**
+   * Construct fully qualified name for a symbol using hierarchical relationships
+   * @param symbol The symbol to construct FQN for
+   * @param options Options for FQN generation
+   * @returns The fully qualified name
+   */
+  constructFQN(symbol: ApexSymbol, options?: FQNOptions): string;
+
+  /**
+   * Get the immediate containing type (class, interface, enum) for a symbol
+   * @param symbol The symbol to find the containing type for
+   * @returns The containing type symbol or null if not found
+   */
+  getContainingType(symbol: ApexSymbol): ApexSymbol | null;
+
+  /**
+   * Get the full chain of ancestor types for a symbol
+   * @param symbol The symbol to get ancestors for
+   * @returns Array of ancestor symbols from top-level to closest parent
+   */
+  getAncestorChain(symbol: ApexSymbol): ApexSymbol[];
 }

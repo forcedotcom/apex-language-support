@@ -28,6 +28,7 @@ import {
   SymbolResolutionContext,
   SymbolResolutionResult,
 } from '../types/ISymbolManager';
+import { FQNOptions, calculateFQN, getAncestorChain } from '../utils/FQNUtils';
 
 /**
  * File metadata for tracking symbol relationships
@@ -451,6 +452,14 @@ export class ApexSymbolManager implements ISymbolManager {
         symbol.key.kind = symbol.kind;
       }
       symbol.key.unifiedId = generateUnifiedId(symbol.key, normalizedPath);
+    }
+
+    // BUG FIX: Calculate and store FQN if not already present
+    if (!symbol.fqn) {
+      symbol.fqn = calculateFQN(symbol);
+      this.logger.debug(
+        () => `Calculated FQN for ${symbol.name}: ${symbol.fqn}`,
+      );
     }
 
     const symbolId = this.getSymbolId(symbol, normalizedPath);
@@ -2001,5 +2010,45 @@ export class ApexSymbolManager implements ISymbolManager {
     const paramSection = beforeCursor.substring(openParenIndex + 1);
     const commas = (paramSection.match(/,/g) || []).length;
     return commas;
+  }
+
+  /**
+   * Construct fully qualified name for a symbol using hierarchical relationships
+   * @param symbol The symbol to construct FQN for
+   * @param options Options for FQN generation
+   * @returns The fully qualified name
+   */
+  public constructFQN(symbol: ApexSymbol, options?: FQNOptions): string {
+    return calculateFQN(symbol, options);
+  }
+
+  /**
+   * Get the immediate containing type (class, interface, enum) for a symbol
+   * @param symbol The symbol to find the containing type for
+   * @returns The containing type symbol or null if not found
+   */
+  public getContainingType(symbol: ApexSymbol): ApexSymbol | null {
+    // Find the immediate parent that is a type (class, interface, enum)
+    let current = symbol.parent;
+    while (current) {
+      if (
+        current.kind === SymbolKind.Class ||
+        current.kind === SymbolKind.Interface ||
+        current.kind === SymbolKind.Enum
+      ) {
+        return current;
+      }
+      current = current.parent;
+    }
+    return null;
+  }
+
+  /**
+   * Get the full chain of ancestor types for a symbol
+   * @param symbol The symbol to get ancestors for
+   * @returns Array of ancestor symbols from top-level to closest parent
+   */
+  public getAncestorChain(symbol: ApexSymbol): ApexSymbol[] {
+    return getAncestorChain(symbol);
   }
 }

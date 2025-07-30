@@ -23,6 +23,7 @@ import {
   SymbolKind,
   SymbolVisibility,
 } from '../types/symbol';
+import { calculateFQN } from '../utils/FQNUtils';
 
 /**
  * Context for symbol resolution
@@ -318,6 +319,15 @@ export class ApexSymbolGraph {
 
     // Add to indexes for fast lookups
     this.symbolFileMap.set(symbolId, filePath);
+
+    // BUG FIX: Calculate and store FQN if not already present
+    if (!symbol.fqn) {
+      symbol.fqn = calculateFQN(symbol);
+      this.logger.debug(
+        () => `Calculated FQN for ${symbol.name}: ${symbol.fqn}`,
+      );
+    }
+
     if (symbol.fqn) {
       this.fqnIndex.set(symbol.fqn, symbolId);
     }

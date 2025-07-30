@@ -238,4 +238,19 @@ class TestSymbolManager implements ISymbolManager {
       importStatements: [],
     };
   }
+
+  constructFQN(symbol: ApexSymbol, options?: any): string {
+    // Mock implementation - return symbol name as FQN
+    return symbol.name;
+  }
+
+  getContainingType(symbol: ApexSymbol): ApexSymbol | null {
+    // Mock implementation - return null for now
+    return null;
+  }
+
+  getAncestorChain(symbol: ApexSymbol): ApexSymbol[] {
+    // Mock implementation - return empty array for now
+    return [];
+  }
 }
