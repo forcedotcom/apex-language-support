@@ -196,7 +196,7 @@ export class SymbolFactory {
     modifiers: SymbolModifiers,
     parentId: string | null = null,
     typeData?: any,
-    namespace?: Namespace | null,
+    namespace?: string | Namespace | null,
     annotations?: Annotation[],
     identifierLocation?: SymbolLocation,
   ): ApexSymbol {
@@ -204,8 +204,8 @@ export class SymbolFactory {
     const modifierFlags = this.modifiersToFlags(modifiers);
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
-    const fqn = namespace
-      ? createTypeWithNamespace(namespace, name, {
+    const fqn = namespace && typeof namespace === 'object' && 'toString' in namespace
+      ? createTypeWithNamespace(namespace as Namespace, name, {
           includeNamespace: true,
           normalizeCase: true,
           separator: '/',
@@ -378,7 +378,7 @@ export interface ApexSymbol {
 
   // Optional properties (lazy loaded)
   fqn?: string;
-  namespace?: string | Namespace;
+  namespace?: string | Namespace | null;
   annotations?: Annotation[];
   identifierLocation?: SymbolLocation;
 
