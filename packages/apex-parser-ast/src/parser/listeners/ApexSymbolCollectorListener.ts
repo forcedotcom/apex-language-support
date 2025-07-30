@@ -454,7 +454,26 @@ export class ApexSymbolCollectorListener
    */
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     try {
-      const name = ctx.id()?.text ?? 'unknownMethod';
+      // Enhanced debug logging for method name extraction
+      const idNode = ctx.id();
+      const name = idNode?.text ?? 'unknownMethod';
+
+      this.logger.debug(() => `=== Method Declaration Debug ===`);
+      this.logger.debug(() => `Context type: ${ctx.constructor.name}`);
+      this.logger.debug(() => `ID node: ${idNode ? 'present' : 'null'}`);
+      this.logger.debug(() => `ID node text: "${idNode?.text || 'undefined'}"`);
+      this.logger.debug(
+        () => `ID node type: ${idNode?.constructor.name || 'null'}`,
+      );
+      this.logger.debug(() => `Extracted name: "${name}"`);
+      this.logger.debug(
+        () => `Current type symbol: ${this.currentTypeSymbol?.name || 'null'}`,
+      );
+      this.logger.debug(
+        () =>
+          `Current namespace: ${this.currentNamespace?.toString() || 'null'}`,
+      );
+
       this.logger.debug(
         () =>
           `Entering method declaration: ${name} in class: ${this.currentTypeSymbol?.name}`,
@@ -659,8 +678,25 @@ export class ApexSymbolCollectorListener
     ctx: InterfaceMethodDeclarationContext,
   ): void {
     try {
-      // Get the method name
-      const name = ctx.id()?.text ?? 'unknownMethod';
+      // Enhanced debug logging for interface method name extraction
+      const idNode = ctx.id();
+      const name = idNode?.text ?? 'unknownMethod';
+
+      this.logger.debug(() => `=== Interface Method Declaration Debug ===`);
+      this.logger.debug(() => `Context type: ${ctx.constructor.name}`);
+      this.logger.debug(() => `ID node: ${idNode ? 'present' : 'null'}`);
+      this.logger.debug(() => `ID node text: "${idNode?.text || 'undefined'}"`);
+      this.logger.debug(
+        () => `ID node type: ${idNode?.constructor.name || 'null'}`,
+      );
+      this.logger.debug(() => `Extracted name: "${name}"`);
+      this.logger.debug(
+        () => `Current type symbol: ${this.currentTypeSymbol?.name || 'null'}`,
+      );
+      this.logger.debug(
+        () =>
+          `Current namespace: ${this.currentNamespace?.toString() || 'null'}`,
+      );
 
       // Get current annotations
       const annotations = this.getCurrentAnnotations();

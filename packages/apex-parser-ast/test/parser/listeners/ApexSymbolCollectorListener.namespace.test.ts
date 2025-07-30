@@ -230,7 +230,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     it('should inherit namespace for method in class', () => {
       const sourceCode = `
         public class TestClass {
-          public void testMethod() {
+          public void myMethod() {
             // method body
           }
         }
@@ -264,13 +264,13 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       console.log('Method symbol:', methodSymbol);
 
       expect(methodSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(methodSymbol?.fqn).toBe('mynamespace/testmethod');
+      expect(methodSymbol?.fqn).toBe('mynamespace/mymethod');
     });
 
     it('should inherit namespace for method in interface', () => {
       const sourceCode = `
         public interface TestInterface {
-          void testMethod();
+          void myMethod();
         }
       `;
 
@@ -284,10 +284,10 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-      const methodSymbol = symbols.find((s) => s.name === 'testMethod');
+      const methodSymbol = symbols.find((s) => s.name === 'myMethod');
 
       expect(methodSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(methodSymbol?.fqn).toBe('mynamespace/testmethod');
+      expect(methodSymbol?.fqn).toBe('mynamespace/mymethod');
     });
 
     it('should inherit namespace for constructor', () => {
