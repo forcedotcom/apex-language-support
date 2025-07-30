@@ -62,37 +62,16 @@ export class Namespace {
   }
 }
 
+/**
+ * Namespace utilities for creating and managing Apex namespaces.
+ *
+ * Note: We intentionally do not hardcode built-in namespace constants here
+ * because the StandardApexLibrary folder already contains all the actual
+ * namespace information. Instead, namespaces should be discovered dynamically
+ * from the StandardApexLibrary structure or created on-demand during compilation.
+ */
 export class Namespaces {
   public static readonly EMPTY: Namespace = Namespaces.create('', '');
-  public static readonly SYSTEM: Namespace = Namespaces.create('System', '');
-  public static readonly SCHEMA: Namespace = Namespaces.create('Schema', '');
-  public static readonly VF_COMPONENT: Namespace = Namespaces.create(
-    'Component',
-    '',
-  );
-  public static readonly VF: Namespace = Namespaces.create('c', '');
-  public static readonly APEX_PAGES: Namespace = Namespaces.create(
-    'ApexPages',
-    '',
-  );
-  public static readonly APEX: Namespace = Namespaces.create('Apex', '');
-  public static readonly DATABASE: Namespace = Namespaces.create(
-    'Database',
-    '',
-  );
-  public static readonly FLOW: Namespace = Namespaces.create('Flow', '');
-  public static readonly CONNECT_API: Namespace = Namespaces.create(
-    'ConnectApi',
-    '',
-  );
-  public static readonly CUSTOM_METADATA: Namespace = Namespaces.create(
-    'CustomMetadata',
-    '',
-  );
-  public static readonly MESSAGING: Namespace = Namespaces.create(
-    'Messaging',
-    '',
-  );
 
   private static readonly NAMESPACES: Set<Namespace> = new Set<Namespace>();
 
