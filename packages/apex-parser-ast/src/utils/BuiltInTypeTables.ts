@@ -21,6 +21,7 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
   // Type tables
   readonly wrapperTypes: Map<string, ApexSymbol>;
   readonly scalarTypes: Map<string, ApexSymbol>;
+  readonly collectionTypes: Map<string, ApexSymbol>;
   readonly systemTypes: Map<string, ApexSymbol>;
   readonly schemaTypes: Map<string, ApexSymbol>;
   readonly sObjectTypes: Map<string, ApexSymbol>;
@@ -28,6 +29,7 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
   private constructor() {
     this.wrapperTypes = this.createWrapperTypes();
     this.scalarTypes = this.createScalarTypes();
+    this.collectionTypes = this.createCollectionTypes();
     this.systemTypes = this.createSystemTypes();
     this.schemaTypes = this.createSchemaTypes();
     this.sObjectTypes = this.createSObjectTypes();
@@ -61,7 +63,7 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
       'DateTime',
       'Time',
       'Blob',
-      'Id',
+      'Id', // Consistent with Salesforce Apex documentation
       'Object',
     ];
 
@@ -87,6 +89,27 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
     const scalarTypeNames = ['void', 'null'];
 
     scalarTypeNames.forEach((name) => {
+      const symbol = this.createBuiltInSymbol(
+        name,
+        SymbolKind.Class,
+        'BUILT_IN',
+      );
+      types.set(name.toLowerCase(), symbol);
+    });
+
+    return types;
+  }
+
+  /**
+   * Create collection type symbols
+   * Maps to Java collection type handling
+   */
+  private createCollectionTypes(): Map<string, ApexSymbol> {
+    const types = new Map<string, ApexSymbol>();
+
+    const collectionTypeNames = ['List', 'Set', 'Map'];
+
+    collectionTypeNames.forEach((name) => {
       const symbol = this.createBuiltInSymbol(
         name,
         SymbolKind.Class,
@@ -149,6 +172,7 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
 
     // Common SObject types
     const sObjectTypeNames = [
+      // Standard Objects
       'Account',
       'Contact',
       'Lead',
@@ -159,7 +183,41 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
       'Role',
       'Group',
       'Queue',
-      'CustomObject__c',
+      'Task',
+      'Event',
+      'Note',
+      'Attachment',
+      'ContentDocument',
+      'ContentVersion',
+      'FeedItem',
+      'FeedComment',
+      'Campaign',
+      'CampaignMember',
+      'Asset',
+      'Contract',
+      'Order',
+      'OrderItem',
+      'Pricebook2',
+      'PricebookEntry',
+      'Product2',
+      'Quote',
+      'QuoteLineItem',
+      'Entitlement',
+      'ServiceContract',
+      'WorkOrder',
+      'WorkOrderLineItem',
+      'KnowledgeArticle',
+      'KnowledgeArticleVersion',
+      'Solution',
+      'Idea',
+      'Vote',
+      'Partner',
+      'PartnerRole',
+      'CollaborationGroup',
+      'CollaborationGroupMember',
+      'Topic',
+      'TopicAssignment',
+      'CustomObject__c', // Placeholder for custom objects
     ];
 
     sObjectTypeNames.forEach((name) => {
@@ -230,6 +288,10 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
     const scalarType = this.scalarTypes.get(lowerCaseName);
     if (scalarType) return scalarType;
 
+    // Check collection types
+    const collectionType = this.collectionTypes.get(lowerCaseName);
+    if (collectionType) return collectionType;
+
     // Check system types
     const systemType = this.systemTypes.get(lowerCaseName);
     if (systemType) return systemType;
@@ -253,6 +315,7 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
 
     this.wrapperTypes.forEach((type) => allTypes.push(type));
     this.scalarTypes.forEach((type) => allTypes.push(type));
+    this.collectionTypes.forEach((type) => allTypes.push(type));
     this.systemTypes.forEach((type) => allTypes.push(type));
     this.schemaTypes.forEach((type) => allTypes.push(type));
     this.sObjectTypes.forEach((type) => allTypes.push(type));
@@ -267,6 +330,7 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
     totalTypes: number;
     wrapperTypes: number;
     scalarTypes: number;
+    collectionTypes: number;
     systemTypes: number;
     schemaTypes: number;
     sObjectTypes: number;
@@ -275,6 +339,7 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
       totalTypes: this.getAllTypes().length,
       wrapperTypes: this.wrapperTypes.size,
       scalarTypes: this.scalarTypes.size,
+      collectionTypes: this.collectionTypes.size,
       systemTypes: this.systemTypes.size,
       schemaTypes: this.schemaTypes.size,
       sObjectTypes: this.sObjectTypes.size,
@@ -293,13 +358,21 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
    * Get built-in type by category
    */
   getTypesByCategory(
-    category: 'wrapper' | 'scalar' | 'system' | 'schema' | 'sobject',
+    category:
+      | 'wrapper'
+      | 'scalar'
+      | 'collection'
+      | 'system'
+      | 'schema'
+      | 'sobject',
   ): ApexSymbol[] {
     switch (category) {
       case 'wrapper':
         return Array.from(this.wrapperTypes.values());
       case 'scalar':
         return Array.from(this.scalarTypes.values());
+      case 'collection':
+        return Array.from(this.collectionTypes.values());
       case 'system':
         return Array.from(this.systemTypes.values());
       case 'schema':

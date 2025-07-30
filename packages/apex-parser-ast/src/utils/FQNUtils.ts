@@ -11,7 +11,7 @@
  */
 
 import { ApexSymbol, SymbolKind } from '../types/symbol';
-import { BUILT_IN_NAMESPACES } from '../generated/builtInNamespaces';
+import { STD_APEX_NAMESPACES } from '../generated/stdApexNamespaces';
 
 /**
  * Options for FQN generation
@@ -135,7 +135,7 @@ export function isBuiltInType(symbol: any): boolean {
     'Integer',
     'Long',
     'String',
-    'ID',
+    'Id', // Consistent with Salesforce Apex documentation
     'Date',
     'Datetime',
     'Time',
@@ -155,7 +155,7 @@ export function isBuiltInType(symbol: any): boolean {
 
   // Check if this is a type from a built-in namespace
   const namespace = symbol.namespace || extractNamespace(symbol.name);
-  return namespace ? BUILT_IN_NAMESPACES.includes(namespace) : false;
+  return namespace ? STD_APEX_NAMESPACES.includes(namespace) : false;
 }
 
 /**
@@ -198,7 +198,7 @@ export function extractNamespace(
   if (!name) return '';
 
   // If it's a built-in namespace, return the name itself
-  if (BUILT_IN_NAMESPACES.includes(name as any)) {
+  if (STD_APEX_NAMESPACES.includes(name as any)) {
     return name;
   }
 
@@ -206,7 +206,7 @@ export function extractNamespace(
   if (name.includes('.')) {
     const parts = name.split('.');
     // Check if the first part is a built-in namespace
-    if (BUILT_IN_NAMESPACES.includes(parts[0] as any)) {
+    if (STD_APEX_NAMESPACES.includes(parts[0] as any)) {
       return parts[0];
     }
   }
@@ -230,7 +230,7 @@ export function isBuiltInFQN(fqn: string): boolean {
   if (!fqn) return false;
 
   // Check if the FQN starts with a built-in namespace
-  for (const namespace of BUILT_IN_NAMESPACES) {
+  for (const namespace of STD_APEX_NAMESPACES) {
     if (fqn === namespace || fqn.startsWith(`${namespace}.`)) {
       return true;
     }

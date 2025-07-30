@@ -8,12 +8,9 @@
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ApexSymbol, SymbolTable } from '../types/symbol';
-import { TypeInfo } from '../types/typeInfo';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 import { getResolutionOrder } from './ResolutionRules';
 
-// Module-level constants
-const logger = getLogger();
 const builtInTables = BuiltInTypeTablesImpl.getInstance();
 const TRIGGER_NAMESPACE = 'trigger';
 const MAX_PARTS = 4;
@@ -30,7 +27,6 @@ export class Namespace {
   readonly module: string;
   private readonly name: string;
   private nameLowerCase: string | null = null;
-  private bytecodeNameLower: string | null = null;
 
   constructor(global: string, module: string) {
     this.global = global ?? '';
@@ -61,15 +57,6 @@ export class Namespace {
       this.nameLowerCase = this.name.toLowerCase();
     }
     return this.nameLowerCase;
-  }
-
-  getBytecodeNameLower(): string {
-    if (this.bytecodeNameLower === null) {
-      this.bytecodeNameLower = !this.module
-        ? this.global.toLowerCase()
-        : `${this.global}/${this.module}`.toLowerCase();
-    }
-    return this.bytecodeNameLower;
   }
 
   toString(): string {
@@ -316,7 +303,6 @@ export interface NamespaceParseResult {
  * Type name construction options
  */
 export interface TypeNameConstructionOptions {
-  readonly useBytecodeName: boolean;
   readonly includeNamespace: boolean;
   readonly normalizeCase: boolean;
   readonly separator: string;
@@ -330,7 +316,6 @@ export interface TypeNameConstructionOptions {
  * Get default type name construction options
  */
 const getDefaultOptions = (): TypeNameConstructionOptions => ({
-  useBytecodeName: true,
   includeNamespace: true,
   normalizeCase: true,
   separator: '/',
@@ -340,9 +325,8 @@ const getDefaultOptions = (): TypeNameConstructionOptions => ({
  * Create an empty/null namespace
  * Maps to Java Namespaces.empty()
  */
-const createEmptyNamespace = (): Namespace => {
-  return Namespaces.EMPTY;
-};
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const createEmptyNamespace = (): Namespace => Namespaces.EMPTY;
 
 /**
  * Check if namespace is null or empty
@@ -364,9 +348,7 @@ export const createTypeWithNamespace = (
     return options.normalizeCase ? typeName.toLowerCase() : typeName;
   }
 
-  const namespacePart = options.useBytecodeName
-    ? namespace.getBytecodeNameLower()
-    : namespace.toString();
+  const namespacePart = namespace.toString();
 
   const separator = options.separator || '/';
   const result = `${namespacePart}${separator}${typeName}`;
@@ -383,7 +365,9 @@ export const validateTriggerNamespace = (nameParts: string[]): boolean => {
 
   const firstPart = nameParts[0];
   if (firstPart && firstPart.toLowerCase() === TRIGGER_NAMESPACE) {
-    logger.warn(() => 'Trigger namespace cannot be used for type references');
+    getLogger().warn(
+      () => 'Trigger namespace cannot be used for type references',
+    );
     return false;
   }
 
@@ -596,7 +580,7 @@ export const resolveTypeName = (
 
     return resolutionResult;
   } catch (error) {
-    logger.error(
+    getLogger().error(
       () =>
         `Error in namespace resolution: ${error instanceof Error ? error.message : 'Unknown error'}`,
     );

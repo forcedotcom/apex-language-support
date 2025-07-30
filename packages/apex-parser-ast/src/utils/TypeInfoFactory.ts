@@ -9,7 +9,7 @@
 import { TypeInfo } from '../types/typeInfo';
 import { Namespace, Namespaces } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from './BuiltInTypeTables';
-import { BUILT_IN_NAMESPACES } from '../generated/builtInNamespaces';
+import { STD_APEX_NAMESPACES } from '../generated/stdApexNamespaces';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 const logger = getLogger();
@@ -110,8 +110,8 @@ const createSimpleTypeInfo = (typeName: string): TypeInfo => {
  * Get built-in namespace for known namespaces
  */
 const getBuiltInNamespace = (namespace: string): Namespace | null => {
-  // Check if it's a known built-in namespace
-  if (BUILT_IN_NAMESPACES.includes(namespace as any)) {
+  // Check if it's a known standard Apex namespace
+  if (STD_APEX_NAMESPACES.includes(namespace as any)) {
     // For namespaces that have predefined constants, use those
     switch (namespace) {
       case 'System':

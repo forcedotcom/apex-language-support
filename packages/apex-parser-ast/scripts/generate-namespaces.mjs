@@ -10,7 +10,7 @@ import { readdir, writeFile, mkdir } from 'node:fs/promises';
 import path, { join } from 'node:path';
 
 /**
- * Generate BUILT_IN_NAMESPACES constant from StandardApexLibrary directory structure
+ * Generate STD_APEX_NAMESPACES constant from StandardApexLibrary directory structure
  */
 async function generateNamespaces() {
   try {
@@ -44,23 +44,23 @@ async function generateNamespaces() {
 // @ts-nocheck
 
 /**
- * List of known Salesforce built-in namespaces
+ * List of known Salesforce standard Apex namespaces
  * Generated from StandardApexLibrary directory structure
  */
-export const BUILT_IN_NAMESPACES = [
+export const STD_APEX_NAMESPACES = [
 ${namespaceDirectories.map((namespace) => `  '${namespace}',`).join('\n')}
 ] as const;
 
 /**
- * Type for built-in namespace names
+ * Type for standard Apex namespace names
  */
-export type BuiltInNamespace = typeof BUILT_IN_NAMESPACES[number];
+export type StdApexNamespace = typeof STD_APEX_NAMESPACES[number];
 
 /**
- * Check if a string is a built-in namespace
+ * Check if a string is a standard Apex namespace
  */
-export const isBuiltInNamespace = (namespace: string): namespace is BuiltInNamespace => {
-  return BUILT_IN_NAMESPACES.includes(namespace as BuiltInNamespace);
+export const isStdApexNamespace = (namespace: string): namespace is StdApexNamespace => {
+  return STD_APEX_NAMESPACES.includes(namespace as StdApexNamespace);
 };
 `;
 
@@ -68,11 +68,11 @@ export const isBuiltInNamespace = (namespace: string): namespace is BuiltInNames
     await mkdir(path.join('src', 'generated'), { recursive: true });
 
     // Write the generated file
-    const outputPath = path.join('src', 'generated', 'builtInNamespaces.ts');
+    const outputPath = path.join('src', 'generated', 'stdApexNamespaces.ts');
     await writeFile(outputPath, generatedContent);
 
     console.log(
-      `✅ Generated BUILT_IN_NAMESPACES constant with ${namespaceDirectories.length} namespaces`,
+      `✅ Generated STD_APEX_NAMESPACES constant with ${namespaceDirectories.length} namespaces`,
     );
     console.log(`📁 Output file: ${outputPath}`);
 

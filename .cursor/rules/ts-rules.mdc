@@ -1,14 +1,17 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: true
 ---
+
 ---
+
 description: "Expert guidelines for TypeScript and Node.js development, including tech stack (Lodash, Zod), shortcuts for pair programming and prompt improvement, core principles, coding standards (naming, functions, types), code review checklist, documentation standards (Google Style Guide, TypeDoc), and Git commit rules."
 globs:
 alwaysApply: false
 author: adx
 tags: "typescript,nodejs,development-guidelines,shortcuts,best-practices,coding-standards,code-review,documentation,git"
+
 ---
 
 # Overview
@@ -28,6 +31,7 @@ The application we are working on uses the following tech stack:
 - turbo for managing package target dependencies
 
 ## NPM Targets
+
 - The target dependencies are package -> bundle -> compile -> precompile
 
 - package: runs package for the distrinution model for each package in the mono-repo
@@ -55,6 +59,7 @@ The application we are working on uses the following tech stack:
 - When adding calls to Logger, found here, when message is complex, such as string templates, JSON.stringify, etc. the provider form MUST BE USED of the log message to avoid unnecessary string construction unless needed
 
 ## Coding Standards
+
 - Avoid usage of enums in any Typescript files, either by removing existing instances or avoiding adding new instances. Use string unions instead of enums.
 - Use arrow functions instead of function declaration
 
@@ -100,7 +105,12 @@ The application we are working on uses the following tech stack:
 - Always write JSDocs for all code: classes, functions, methods, fields, types, interfaces.
 
 ## Git Commit Rules
+
 - Make the head / title of the commit message brief
 - Include elaborate details in the body of the commit message
 - Always follow the conventional commit message format
 - Add two newlines after the commit message title
+
+## When to create a class
+
+- Only when one needs state retained
