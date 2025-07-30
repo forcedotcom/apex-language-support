@@ -26,7 +26,7 @@ jest.mock('../../src/storage/ApexStorageManager', () => ({
   },
 }));
 
-describe('Hover Step 4: Symbol Resolution & Context Analysis Integration Tests', () => {
+describe('HoverProcessingService', () => {
   let hoverService: HoverProcessingService;
   let symbolManager: ApexSymbolManager;
   let mockStorage: any;
@@ -116,9 +116,13 @@ describe('Hover Step 4: Symbol Resolution & Context Analysis Integration Tests',
       },
       'TestClass.getStaticValue',
     ) as any;
-    
+
     // Set the returnType property like the real parser does
-    staticMethodSymbol.returnType = { name: 'String', isPrimitive: true, isArray: false };
+    staticMethodSymbol.returnType = {
+      name: 'String',
+      isPrimitive: true,
+      isArray: false,
+    };
     staticMethodSymbol.parameters = [];
 
     const instanceMethodSymbol = SymbolFactory.createFullSymbol(
@@ -149,9 +153,13 @@ describe('Hover Step 4: Symbol Resolution & Context Analysis Integration Tests',
       },
       'TestClass.getValue',
     ) as any;
-    
+
     // Set the returnType property like the real parser does
-    instanceMethodSymbol.returnType = { name: 'Integer', isPrimitive: true, isArray: false };
+    instanceMethodSymbol.returnType = {
+      name: 'Integer',
+      isPrimitive: true,
+      isArray: false,
+    };
     instanceMethodSymbol.parameters = [];
 
     // Create SymbolTable and add symbols to it
@@ -191,12 +199,24 @@ describe('Hover Step 4: Symbol Resolution & Context Analysis Integration Tests',
 
     // Debug: Verify symbols are added correctly
     const testSymbols = symbolManager.findSymbolsInFile('TestClass.cls');
-    console.log(`Debug: Found ${testSymbols.length} symbols in TestClass.cls`);
+    mockLogger.debug(
+      () => `Debug: Found ${testSymbols.length} symbols in TestClass.cls`,
+    );
     testSymbols.forEach((symbol: any) => {
-      console.log(`Debug: Symbol ${symbol.name} (${symbol.kind}) at ${symbol.location?.startLine}:${symbol.location?.startColumn}`);
+      mockLogger.debug(
+        () =>
+          // eslint-disable-next-line max-len
+          `Debug: Symbol ${symbol.name} (${symbol.kind}) at ${symbol.location?.startLine}:${symbol.location?.startColumn}`,
+      );
       if (symbol.kind === 'method') {
-        console.log(`Debug: Method ${symbol.name} returnType:`, symbol.returnType);
-        console.log(`Debug: Method ${symbol.name} type:`, symbol.type);
+        mockLogger.debug(
+          () =>
+            `Debug: Method ${symbol.name} returnType: ${JSON.stringify(symbol.returnType)}`,
+        );
+        mockLogger.debug(
+          () =>
+            `Debug: Method ${symbol.name} type: ${JSON.stringify(symbol.type)}`,
+        );
       }
     });
   });

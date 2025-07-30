@@ -53,7 +53,8 @@ export class HoverProcessingService implements IHoverProcessor {
    */
   public async processHover(params: HoverParams): Promise<Hover | null> {
     this.logger.debug(
-      () => `Processing hover request for: ${params.textDocument.uri}`,
+      () =>
+        `Processing hover for ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
     );
 
     try {
@@ -70,25 +71,48 @@ export class HoverProcessingService implements IHoverProcessor {
         return null;
       }
 
+      this.logger.debug(
+        () =>
+          `Document found: ${document.uri}, length: ${document.getText().length}`,
+      );
+
       // Use symbol manager to find symbols at the given position
       const symbolsAtPosition = this.findSymbolsAtPosition(
         document,
         params.position,
       );
       if (!symbolsAtPosition || symbolsAtPosition.length === 0) {
-        this.logger.debug(() => 'No symbols found at position');
+        this.logger.debug(
+          () =>
+            `No symbols found at position ${params.position.line}:${params.position.character}`,
+        );
         return null;
       }
 
+      this.logger.debug(
+        () =>
+          `Found ${symbolsAtPosition.length} symbols at position ${params.position.line}:${params.position.character}`,
+      );
+
       // Create resolution context for disambiguation
       const context = this.createResolutionContext(document, params);
+      this.logger.debug(
+        () => `Created resolution context: ${JSON.stringify(context, null, 2)}`,
+      );
 
       // Resolve the best symbol using context-aware resolution
       const resolvedSymbol = this.resolveBestSymbol(symbolsAtPosition, context);
       if (!resolvedSymbol) {
-        this.logger.debug(() => 'Could not resolve symbol at position');
+        this.logger.debug(
+          () => 'Could not resolve symbol at position - no best match found',
+        );
         return null;
       }
+
+      this.logger.debug(
+        () =>
+          `Resolved best symbol: ${resolvedSymbol.symbol.name} (confidence: ${resolvedSymbol.confidence})`,
+      );
 
       // Create hover information
       const hover = await this.createHoverInformation(
@@ -115,22 +139,88 @@ export class HoverProcessingService implements IHoverProcessor {
     position: any,
   ): any[] | null {
     try {
+      this.logger.debug(
+        () =>
+          `Looking for symbols in file: ${document.uri} at position ${position.line}:${position.character}`,
+      );
+
       // Get all symbols in the current file
       const fileSymbols = this.symbolManager.findSymbolsInFile(document.uri);
+      this.logger.debug(
+        () =>
+          `Found ${fileSymbols.length} total symbols in file ${document.uri}`,
+      );
+
+      // Log all symbols for debugging
+      fileSymbols.forEach((symbol: any) => {
+        if (symbol.location) {
+          this.logger.debug(
+            () =>
+              `File symbol: ${symbol.name} (${symbol.kind}) at ` +
+              `${symbol.location.startLine}:${symbol.location.startColumn}-${symbol.location.endLine}:${symbol.location.endColumn}`,
+          );
+        } else {
+          this.logger.debug(
+            () => `File symbol: ${symbol.name} (${symbol.kind}) - no location`,
+          );
+        }
+      });
 
       // Filter symbols that contain the position
       const symbolsAtPosition = fileSymbols.filter((symbol: any) => {
-        if (!symbol.location) return false;
+        if (!symbol.location) {
+          this.logger.debug(
+            () => `Skipping symbol ${symbol.name} - no location data`,
+          );
+          return false;
+        }
 
         const { startLine, startColumn, endLine, endColumn } = symbol.location;
 
-        // Check if position is within symbol bounds
-        if (position.line < startLine || position.line > endLine) return false;
-        if (position.line === startLine && position.character < startColumn)
-          return false;
-        if (position.line === endLine && position.character > endColumn)
-          return false;
+        this.logger.debug(
+          () =>
+            `Checking symbol ${symbol.name} at ${startLine}:${startColumn}-${endLine}:${endColumn} against position ${position.line}:${position.character}`,
+        );
 
+        // Convert 1-indexed symbol locations to 0-indexed for comparison with position
+        const symbolStartLine = startLine - 1;
+        const symbolEndLine = endLine - 1;
+
+        this.logger.debug(
+          () =>
+            `Comparing position ${position.line}:${position.character} with symbol ${symbol.name} at ${symbolStartLine}:${startColumn}-${symbolEndLine}:${endColumn}`,
+        );
+
+        // Check if position is within symbol bounds (0-indexed)
+        if (position.line < symbolStartLine || position.line > symbolEndLine) {
+          this.logger.debug(
+            () =>
+              `Position ${position.line} outside symbol line range ${symbolStartLine}-${symbolEndLine}`,
+          );
+          return false;
+        }
+        if (
+          position.line === symbolStartLine &&
+          position.character < startColumn
+        ) {
+          this.logger.debug(
+            () =>
+              `Position ${position.character} before symbol start column ${startColumn}`,
+          );
+          return false;
+        }
+        if (position.line === symbolEndLine && position.character > endColumn) {
+          this.logger.debug(
+            () =>
+              `Position ${position.character} after symbol end column ${endColumn}`,
+          );
+          return false;
+        }
+
+        this.logger.debug(
+          () =>
+            `Position ${position.line}:${position.character} matches symbol ${symbol.name}`,
+        );
         return true;
       });
 
@@ -142,7 +232,7 @@ export class HoverProcessingService implements IHoverProcessor {
       symbolsAtPosition.forEach((symbol: any) => {
         this.logger.debug(
           () =>
-            `Symbol: ${symbol.name} (${symbol.kind}) at ${symbol.location.startLine}:${symbol.location.startColumn}-${symbol.location.endLine}:${symbol.location.endColumn}`,
+            `Matching symbol: ${symbol.name} (${symbol.kind}) at ${symbol.location.startLine}:${symbol.location.startColumn}-${symbol.location.endLine}:${symbol.location.endColumn}`,
         );
       });
 
@@ -303,12 +393,12 @@ export class HoverProcessingService implements IHoverProcessor {
 
     // Calculate symbol span (how much of the file it covers)
     const symbolSpan = this.calculateSymbolSpan(symbol);
-    
+
     // Find the smallest span among all symbols at this position
     const minSpan = Math.min(
       ...allSymbols.map((s) => this.calculateSymbolSpan(s)),
     );
-    
+
     // If this symbol has the smallest span, it's more specific
     if (symbolSpan === minSpan) {
       confidence += 0.3; // High bonus for most specific symbol
@@ -342,13 +432,13 @@ export class HoverProcessingService implements IHoverProcessor {
    */
   private calculateSymbolSpan(symbol: any): number {
     if (!symbol.location) return 0;
-    
+
     const { startLine, endLine, startColumn, endColumn } = symbol.location;
-    
+
     // Calculate total characters spanned
     const lineSpan = endLine - startLine;
     const columnSpan = endColumn - startColumn;
-    
+
     return lineSpan * 1000 + columnSpan; // Weight lines more heavily than columns
   }
 
@@ -379,9 +469,17 @@ export class HoverProcessingService implements IHoverProcessor {
       : 'Symbol';
     content.push(`**${kindDisplay}** ${symbol.name}`);
 
-    // Add FQN if available
-    if (symbol.fqn) {
-      content.push(`**FQN:** ${symbol.fqn}`);
+    // Add FQN if available or construct it
+    let fqn = symbol.fqn;
+    if (!fqn && symbol.kind === 'method') {
+      // For methods, construct FQN from class name and method name
+      const className = this.getClassNameFromSymbol(symbol);
+      if (className) {
+        fqn = `${className}.${symbol.name}`;
+      }
+    }
+    if (fqn) {
+      content.push(`**FQN:** ${fqn}`);
     }
 
     // Add modifiers
@@ -522,6 +620,23 @@ export class HoverProcessingService implements IHoverProcessor {
     return {
       contents: markupContent,
     };
+  }
+
+  /**
+   * Get the class name from a symbol by looking up its parent class
+   */
+  private getClassNameFromSymbol(symbol: any): string | null {
+    try {
+      // Try to find the class that contains this symbol
+      const symbolsInFile = this.symbolManager.findSymbolsInFile(
+        symbol.filePath || '',
+      );
+      const classSymbol = symbolsInFile.find((s: any) => s.kind === 'class');
+      return classSymbol ? classSymbol.name : null;
+    } catch (error) {
+      this.logger.debug(() => `Error getting class name for symbol: ${error}`);
+      return null;
+    }
   }
 
   /**

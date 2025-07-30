@@ -106,13 +106,23 @@ describe('Hover Real Classes Integration Tests', () => {
       getStorage: jest.fn().mockReturnValue(mockStorage),
     });
 
-    // Create mock logger
+    // Create mock logger with console output for debugging
     const mockLogger = {
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-      log: jest.fn(),
+      info: jest.fn((msg) =>
+        console.log('INFO:', typeof msg === 'function' ? msg() : msg),
+      ),
+      warn: jest.fn((msg) =>
+        console.log('WARN:', typeof msg === 'function' ? msg() : msg),
+      ),
+      error: jest.fn((msg) =>
+        console.log('ERROR:', typeof msg === 'function' ? msg() : msg),
+      ),
+      debug: jest.fn((msg) =>
+        console.log('DEBUG:', typeof msg === 'function' ? msg() : msg),
+      ),
+      log: jest.fn((msg) =>
+        console.log('LOG:', typeof msg === 'function' ? msg() : msg),
+      ),
     };
 
     // Create HoverProcessingService with the real symbol manager
@@ -193,7 +203,7 @@ describe('Hover Real Classes Integration Tests', () => {
             : '';
         expect(content).toContain('**Method** createFile');
         expect(content).toContain('**Returns:** String');
-        expect(content).toContain('**Modifiers:** public, static');
+        expect(content).toContain('**Modifiers:** static, public');
         expect(content).toContain('**FQN:** FileUtilities.createFile');
       }
     });

@@ -8,7 +8,10 @@
 
 import { CompletionParams } from 'vscode-languageserver-protocol';
 
-import { CompletionProcessingService } from '../../src/services';
+import {
+  CompletionProcessingService,
+  HoverProcessingService,
+} from '../../src/services';
 
 import {
   ApexSymbolManager,
@@ -33,7 +36,7 @@ describe('ApexSymbolManager Integration Tests', () => {
   // TODO: Uncomment these when other services support dependency injection
   // let definitionService: DefinitionProcessingService;
   // let referencesService: ReferencesProcessingService;
-  // let hoverService: HoverProcessingService;
+  let hoverService: HoverProcessingService;
   // let signatureHelpService: SignatureHelpProcessingService;
   // let codeActionService: CodeActionProcessingService;
   // let workspaceSymbolService: WorkspaceSymbolProcessingService;
@@ -178,10 +181,10 @@ describe('ApexSymbolManager Integration Tests', () => {
       mockLogger,
       symbolManager,
     );
+    hoverService = new HoverProcessingService(mockLogger, symbolManager);
     // TODO: Update other services to support dependency injection
     // definitionService = new DefinitionProcessingService(mockLogger, symbolManager);
     // referencesService = new ReferencesProcessingService(mockLogger, symbolManager);
-    // hoverService = new HoverProcessingService(mockLogger, symbolManager);
     // signatureHelpService = new SignatureHelpProcessingService(mockLogger, symbolManager);
     // codeActionService = new CodeActionProcessingService(mockLogger, symbolManager);
     // workspaceSymbolService = new WorkspaceSymbolProcessingService(mockLogger, symbolManager);
@@ -244,6 +247,117 @@ describe('ApexSymbolManager Integration Tests', () => {
 
       expect(result).not.toBeNull();
       expect(result!.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Hover Service Integration', () => {
+    it('should provide hover information using symbol manager', async () => {
+      const params = {
+        textDocument: { uri: 'file://test.cls' },
+        position: { line: 15, character: 10 },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(
+          typeof result.contents === 'object' && 'value' in result.contents,
+        ).toBe(true);
+      }
+    });
+  });
+
+  describe('Service API Integration', () => {
+    it('should provide context-aware symbol resolution via createResolutionContext', async () => {
+      // Test the shared context analysis API that services use
+      const documentText = `public class TestClass {
+  public static String getStaticValue() {
+    return 'test';
+  }
+  
+  public Integer getValue() {
+    return 42;
+  }
+}`;
+
+      const position = { line: 1, character: 15 }; // Position on 'getStaticValue'
+      const sourceFile = 'file://TestClass.cls';
+
+      // Test the shared context analysis API
+      const context = (symbolManager as any).createResolutionContext(
+        documentText,
+        position,
+        sourceFile,
+      );
+
+      expect(context).toBeDefined();
+      expect(context.sourceFile).toBe(sourceFile);
+      expect(context.namespaceContext).toBeDefined();
+      expect(context.currentScope).toBeDefined();
+      expect(context.scopeChain).toBeDefined();
+      expect(context.parameterTypes).toBeDefined();
+      expect(context.accessModifier).toBeDefined();
+      expect(context.isStatic).toBeDefined();
+      expect(context.inheritanceChain).toBeDefined();
+      expect(context.interfaceImplementations).toBeDefined();
+      expect(context.importStatements).toBeDefined();
+      // expectedType can be undefined in some contexts, so don't require it
+    });
+
+    it('should provide symbol resolution with context via resolveSymbol', async () => {
+      // Test symbol resolution with context - use a symbol that actually exists
+      const context = (symbolManager as any).createResolutionContext(
+        'public class TestClass { }',
+        { line: 0, character: 7 },
+        'file://test.cls',
+      );
+
+      // Test that services can resolve symbols with context
+      const result = symbolManager.resolveSymbol('TestClass', context);
+
+      expect(result).toBeDefined();
+      expect(result.symbol).toBeDefined();
+      // Confidence can be 0 if symbol not found, so just check it's a number
+      expect(typeof result.confidence).toBe('number');
+    });
+
+    it('should provide file-based symbol lookup via findSymbolsInFile', async () => {
+      // Test that services can get all symbols in a file
+      const fileSymbols = symbolManager.findSymbolsInFile('test.cls');
+      expect(fileSymbols).toBeDefined();
+      expect(Array.isArray(fileSymbols)).toBe(true);
+      expect(fileSymbols.length).toBeGreaterThan(0);
+    });
+
+    it('should provide name-based symbol lookup via findSymbolByName', async () => {
+      // Test that services can find symbols by name
+      const testClassSymbols = symbolManager.findSymbolByName('TestClass');
+      expect(testClassSymbols).toBeDefined();
+      expect(Array.isArray(testClassSymbols)).toBe(true);
+      expect(testClassSymbols.length).toBeGreaterThan(0);
+    });
+
+    it('should provide symbol manager statistics via getStats', async () => {
+      // Test that services can get symbol manager statistics
+      const stats = symbolManager.getStats();
+      expect(stats).toBeDefined();
+      expect(stats.totalSymbols).toBeGreaterThan(0);
+      expect(stats.totalFiles).toBeGreaterThan(0);
+    });
+
+    it('should support URI normalization for cross-service compatibility', async () => {
+      // Test that the symbol manager handles URIs consistently across services
+      const uriWithProtocol = 'file://TestClass.cls';
+      const uriWithoutProtocol = 'TestClass.cls';
+
+      // Both should resolve to the same symbols
+      const symbolsWithProtocol =
+        symbolManager.findSymbolsInFile(uriWithProtocol);
+      const symbolsWithoutProtocol =
+        symbolManager.findSymbolsInFile(uriWithoutProtocol);
+
+      expect(symbolsWithProtocol).toEqual(symbolsWithoutProtocol);
     });
   });
 
