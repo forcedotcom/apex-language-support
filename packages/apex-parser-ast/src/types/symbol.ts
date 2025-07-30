@@ -8,6 +8,7 @@
 
 import { HashMap } from 'data-structure-typed';
 import { TypeInfo } from './typeInfo';
+import { Namespace, createTypeWithNamespace } from '../namespace/NamespaceUtils';
 
 /**
  * Types of symbols that can be defined in Apex code
@@ -182,6 +183,67 @@ export class SymbolFactory {
   }
 
   /**
+   * Create a full symbol with explicit namespace support
+   */
+  static createFullSymbolWithNamespace(
+    name: string,
+    kind: SymbolKind,
+    location: SymbolLocation,
+    filePath: string,
+    modifiers: SymbolModifiers,
+    parentId: string | null = null,
+    typeData?: any,
+    namespace?: Namespace,
+    annotations?: Annotation[],
+    identifierLocation?: SymbolLocation,
+  ): ApexSymbol {
+    const id = this.generateId(name, filePath);
+    const modifierFlags = this.modifiersToFlags(modifiers);
+    
+    // Calculate FQN if namespace is provided (case-sensitive)
+    const fqn = namespace ? createTypeWithNamespace(namespace, name, { normalizeCase: false }) : undefined;
+    
+    const key: SymbolKey = {
+      prefix: kind,
+      name,
+      path: [filePath, name],
+      unifiedId: id,
+      filePath,
+      fqn,
+      kind,
+    };
+
+    return {
+      id,
+      name,
+      kind,
+      location,
+      filePath,
+      parentId,
+      key,
+      parentKey: parentId
+        ? {
+            prefix: kind,
+            name: parentId,
+            path: [filePath, parentId],
+            unifiedId: parentId,
+            filePath,
+            kind,
+          }
+        : null,
+      fqn,
+      namespace, // Store the Namespace object directly
+      annotations,
+      identifierLocation,
+      _typeData: typeData,
+      _modifierFlags: modifierFlags,
+      _isLoaded: true,
+      modifiers,
+      parent: null,
+    };
+  }
+
+  /**
    * Convert modifiers object to bit flags
    */
   private static modifiersToFlags(modifiers: SymbolModifiers): number {
@@ -307,7 +369,7 @@ export interface ApexSymbol {
 
   // Optional properties (lazy loaded)
   fqn?: string;
-  namespace?: string;
+  namespace?: string | Namespace;
   annotations?: Annotation[];
   identifierLocation?: SymbolLocation;
 

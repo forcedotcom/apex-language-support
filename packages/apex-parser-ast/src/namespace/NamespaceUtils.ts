@@ -8,10 +8,8 @@
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ApexSymbol, SymbolTable } from '../types/symbol';
-import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 import { getResolutionOrder } from './ResolutionRules';
 
-const builtInTables = BuiltInTypeTablesImpl.getInstance();
 const TRIGGER_NAMESPACE = 'trigger';
 const MAX_PARTS = 4;
 

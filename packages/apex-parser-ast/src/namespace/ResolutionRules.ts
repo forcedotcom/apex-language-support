@@ -15,10 +15,6 @@ import {
   createTypeWithNamespace,
   Namespaces,
 } from './NamespaceUtils';
-import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
-
-// Module-level constants
-const builtInTables = BuiltInTypeTablesImpl.getInstance();
 
 /**
  * NamedScalarOrVoid rule
@@ -34,6 +30,8 @@ export const NamedScalarOrVoid: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
+    const { BuiltInTypeTablesImpl } = require('../utils/BuiltInTypeTables');
+    const builtInTables = BuiltInTypeTablesImpl.getInstance();
     return builtInTables.findType(name) || null;
   },
 };
@@ -79,6 +77,8 @@ export const BuiltInSystemSchema: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
+    const { BuiltInTypeTablesImpl } = require('../utils/BuiltInTypeTables');
+    const builtInTables = BuiltInTypeTablesImpl.getInstance();
 
     // Check System types
     const systemType = builtInTables.systemTypes.get(name);
