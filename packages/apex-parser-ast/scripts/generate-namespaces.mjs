@@ -30,9 +30,6 @@ async function generateNamespaces() {
       .sort(); // Sort alphabetically for consistent output
 
     console.log(`Found ${namespaceDirectories.length} namespace directories:`);
-    namespaceDirectories.forEach((namespace) =>
-      console.log(`  - ${namespace}`),
-    );
 
     // Create the generated content
     const generatedContent = `/*

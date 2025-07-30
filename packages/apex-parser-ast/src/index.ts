@@ -34,11 +34,11 @@ export * from './types/classInfo';
 export * from './types/ISymbolManager';
 
 // Export namespace resolution types and components
-export * from './types/namespaceResolution';
-export * from './utils/NamespaceUtils';
+export * from './namespace/namespaceResolution';
+export * from './namespace/NamespaceUtils';
 export * from './utils/BuiltInTypeTables';
-export * from './utils/ResolutionRules';
-export * from './utils/NamespaceResolver';
+export * from './namespace/ResolutionRules';
+export * from './namespace/NamespaceResolver';
 
 // Export compiler service
 export * from './parser/compilerService';

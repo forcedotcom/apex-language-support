@@ -30,25 +30,6 @@ export class Namespace {
     );
   }
 
-  static equals(left: TypeInfo, right: TypeInfo): boolean {
-    if (
-      left == null ||
-      right == null ||
-      left.getNamespace() == null ||
-      right.getNamespace() == null
-    ) {
-      throw new Error('TypeInfo and its namespace must not be null');
-    }
-    return Object.is(left.getNamespace(), right.getNamespace());
-  }
-
-  static equalsNamespaces(
-    left: Namespace | null,
-    right: Namespace | null,
-  ): boolean {
-    return Object.is(left ?? Namespaces.EMPTY, right ?? Namespaces.EMPTY);
-  }
-
   getGlobal(): string {
     return this.global;
   }
@@ -77,27 +58,8 @@ export class Namespace {
     return this.bytecodeNameLower;
   }
 
-  hashCode(): number {
-    return this.getNameLower().length;
-  }
-
-  equals(o: unknown): boolean {
-    if (this === o) {
-      return true;
-    }
-    if (!(o instanceof Namespace)) {
-      return false;
-    }
-    const namespace = o as Namespace;
-    return this.getNameLower() === namespace.getNameLower();
-  }
-
   toString(): string {
     return this.name;
-  }
-
-  equalsGlobal(other: Namespace): boolean {
-    return this.global.toLowerCase() === other.global.toLowerCase();
   }
 }
 

@@ -7,7 +7,7 @@
  */
 
 import { ApexSymbol, SymbolKind, SymbolVisibility } from '../types/symbol';
-import { BuiltInTypeTables } from '../types/namespaceResolution';
+import { BuiltInTypeTables } from '../namespace/namespaceResolution';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 /**

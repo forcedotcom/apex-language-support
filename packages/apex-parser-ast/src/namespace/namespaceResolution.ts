@@ -6,7 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbol, SymbolTable } from './symbol';
+import { ApexSymbol, SymbolTable } from '../types/symbol';
+import { Namespace } from './namespaces';
 
 /**
  * Reference types that determine resolution order
@@ -49,19 +50,6 @@ export const ResolutionOrder = {
 
 export type ResolutionOrderValue =
   (typeof ResolutionOrder)[keyof typeof ResolutionOrder];
-
-/**
- * Namespace representation
- * Maps to Java Namespace class
- */
-export interface Namespace {
-  readonly name: string;
-  readonly subNamespace?: string;
-  readonly bytecodeName: string;
-  readonly bytecodeNameLower: string;
-  readonly isNull: boolean;
-  readonly isEmpty: boolean;
-}
 
 /**
  * Compilation context information
