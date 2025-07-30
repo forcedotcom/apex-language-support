@@ -8,7 +8,10 @@
 
 import { HashMap } from 'data-structure-typed';
 import { TypeInfo } from './typeInfo';
-import { Namespace, createTypeWithNamespace } from '../namespace/NamespaceUtils';
+import {
+  Namespace,
+  createTypeWithNamespace,
+} from '../namespace/NamespaceUtils';
 
 /**
  * Types of symbols that can be defined in Apex code
@@ -199,10 +202,12 @@ export class SymbolFactory {
   ): ApexSymbol {
     const id = this.generateId(name, filePath);
     const modifierFlags = this.modifiersToFlags(modifiers);
-    
-    // Calculate FQN if namespace is provided (case-sensitive)
-    const fqn = namespace ? createTypeWithNamespace(namespace, name, { normalizeCase: false }) : undefined;
-    
+
+    // Calculate FQN if namespace is provided (case-insensitive for Apex)
+    const fqn = namespace
+      ? createTypeWithNamespace(namespace, name, { normalizeCase: true })
+      : undefined;
+
     const key: SymbolKey = {
       prefix: kind,
       name,

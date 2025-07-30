@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { SymbolFactory, SymbolKind, SymbolModifiers } from '../../src/types/symbol';
+import {
+  SymbolFactory,
+  SymbolKind,
+  SymbolModifiers,
+} from '../../src/types/symbol';
 import { Namespaces } from '../../src/namespace/NamespaceUtils';
 
 // Mock data for testing
@@ -41,11 +45,11 @@ describe('SymbolFactory with Namespace Support', () => {
         mockModifiers,
         null,
         undefined,
-        namespace
+        namespace,
       );
 
       expect(symbol.namespace).toBe(namespace);
-      expect(symbol.fqn).toBe('MyNamespace/TestClass');
+      expect(symbol.fqn).toBe('mynamespace/testclass');
     });
 
     it('should handle null namespace gracefully', () => {
@@ -57,7 +61,7 @@ describe('SymbolFactory with Namespace Support', () => {
         mockModifiers,
         null,
         undefined,
-        null
+        null,
       );
 
       expect(symbol.namespace).toBeNull();
@@ -70,7 +74,7 @@ describe('SymbolFactory with Namespace Support', () => {
         SymbolKind.Class,
         mockLocation,
         'test.cls',
-        mockModifiers
+        mockModifiers,
       );
 
       expect(oldSymbol.namespace).toBeUndefined();
@@ -87,11 +91,11 @@ describe('SymbolFactory with Namespace Support', () => {
         mockModifiers,
         null,
         undefined,
-        namespace
+        namespace,
       );
 
       expect(symbol.namespace?.toString()).toBe('Global__Module');
-      expect(symbol.fqn).toBe('Global__Module/TestClass');
+      expect(symbol.fqn).toBe('global__module/testclass');
     });
 
     it('should generate correct symbol key with namespace', () => {
@@ -104,17 +108,17 @@ describe('SymbolFactory with Namespace Support', () => {
         mockModifiers,
         null,
         undefined,
-        namespace
+        namespace,
       );
 
-      expect(symbol.key.fqn).toBe('MyNamespace/TestClass');
+      expect(symbol.key.fqn).toBe('mynamespace/testclass');
       expect(symbol.key.prefix).toBe(SymbolKind.Class);
       expect(symbol.key.name).toBe('TestClass');
     });
 
     it('should handle different symbol kinds with namespace', () => {
       const namespace = Namespaces.create('MyNamespace');
-      
+
       const classSymbol = SymbolFactory.createFullSymbolWithNamespace(
         'TestClass',
         SymbolKind.Class,
@@ -123,7 +127,7 @@ describe('SymbolFactory with Namespace Support', () => {
         mockModifiers,
         null,
         undefined,
-        namespace
+        namespace,
       );
 
       const interfaceSymbol = SymbolFactory.createFullSymbolWithNamespace(
@@ -134,7 +138,7 @@ describe('SymbolFactory with Namespace Support', () => {
         mockModifiers,
         null,
         undefined,
-        namespace
+        namespace,
       );
 
       expect(classSymbol.kind).toBe(SymbolKind.Class);
@@ -146,7 +150,7 @@ describe('SymbolFactory with Namespace Support', () => {
     it('should handle parent relationships with namespace', () => {
       const namespace = Namespaces.create('MyNamespace');
       const parentId = 'parent-123';
-      
+
       const symbol = SymbolFactory.createFullSymbolWithNamespace(
         'ChildClass',
         SymbolKind.Class,
@@ -155,7 +159,7 @@ describe('SymbolFactory with Namespace Support', () => {
         mockModifiers,
         parentId,
         undefined,
-        namespace
+        namespace,
       );
 
       expect(symbol.parentId).toBe(parentId);
@@ -167,7 +171,7 @@ describe('SymbolFactory with Namespace Support', () => {
     it('should handle type data with namespace', () => {
       const namespace = Namespaces.create('MyNamespace');
       const typeData = { interfaces: ['Interface1', 'Interface2'] };
-      
+
       const symbol = SymbolFactory.createFullSymbolWithNamespace(
         'TestClass',
         SymbolKind.Class,
@@ -176,7 +180,7 @@ describe('SymbolFactory with Namespace Support', () => {
         mockModifiers,
         null,
         typeData,
-        namespace
+        namespace,
       );
 
       expect(symbol._typeData).toEqual(typeData);
@@ -186,10 +190,8 @@ describe('SymbolFactory with Namespace Support', () => {
 
     it('should handle annotations with namespace', () => {
       const namespace = Namespaces.create('MyNamespace');
-      const annotations = [
-        { name: 'TestAnnotation', parameters: [] }
-      ];
-      
+      const annotations = [{ name: 'TestAnnotation', parameters: [] }];
+
       const symbol = SymbolFactory.createFullSymbolWithNamespace(
         'TestClass',
         SymbolKind.Class,
@@ -199,7 +201,7 @@ describe('SymbolFactory with Namespace Support', () => {
         null,
         undefined,
         namespace,
-        annotations
+        annotations,
       );
 
       expect(symbol.annotations).toEqual(annotations);
@@ -214,7 +216,7 @@ describe('SymbolFactory with Namespace Support', () => {
         endLine: 2,
         endColumn: 15,
       };
-      
+
       const symbol = SymbolFactory.createFullSymbolWithNamespace(
         'TestClass',
         SymbolKind.Class,
@@ -225,11 +227,11 @@ describe('SymbolFactory with Namespace Support', () => {
         undefined,
         namespace,
         undefined,
-        identifierLocation
+        identifierLocation,
       );
 
       expect(symbol.identifierLocation).toEqual(identifierLocation);
       expect(symbol.namespace).toBe(namespace);
     });
   });
-}); 
+});

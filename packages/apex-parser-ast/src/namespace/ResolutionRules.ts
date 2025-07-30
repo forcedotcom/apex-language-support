@@ -30,9 +30,7 @@ export const NamedScalarOrVoid: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
-    const { BuiltInTypeTablesImpl } = require('../utils/BuiltInTypeTables');
-    const builtInTables = BuiltInTypeTablesImpl.getInstance();
-    return builtInTables.findType(name) || null;
+    return symbols.findBuiltInType(name);
   },
 };
 
@@ -77,15 +75,13 @@ export const BuiltInSystemSchema: ResolutionRule = {
     symbols: SymbolProvider,
   ): ApexSymbol | null => {
     const name = context.adjustedNameParts[0];
-    const { BuiltInTypeTablesImpl } = require('../utils/BuiltInTypeTables');
-    const builtInTables = BuiltInTypeTablesImpl.getInstance();
 
     // Check System types
-    const systemType = builtInTables.systemTypes.get(name);
+    const systemType = symbols.findBuiltInType(`System.${name}`);
     if (systemType) return systemType;
 
     // Check Schema types
-    const schemaType = builtInTables.schemaTypes.get(name);
+    const schemaType = symbols.findBuiltInType(`Schema.${name}`);
     if (schemaType) return schemaType;
 
     return null;
