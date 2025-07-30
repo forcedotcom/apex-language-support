@@ -6,20 +6,18 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ApexSymbol } from '../types/symbol';
 import {
   ResolutionRule,
   NamespaceResolutionContext,
   SymbolProvider,
   ReferenceTypeValue,
-} from './namespaceResolution';
-import { createTypeWithNamespace } from './NamespaceUtils';
-import { Namespaces } from './namespaces';
+  createTypeWithNamespace,
+  Namespaces,
+} from './NamespaceUtils';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 
 // Module-level constants
-const logger = getLogger();
 const builtInTables = BuiltInTypeTablesImpl.getInstance();
 
 /**

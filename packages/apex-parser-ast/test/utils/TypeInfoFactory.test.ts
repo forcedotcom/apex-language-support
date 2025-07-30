@@ -15,7 +15,7 @@ import {
   markForResolution,
 } from '../../src/utils/TypeInfoFactory';
 import { TypeInfo } from '../../src/types/typeInfo';
-import { Namespaces } from '../../src/namespace/namespaces';
+import { Namespaces } from '../../src/namespace/NamespaceUtils';
 
 describe('TypeInfoFactory', () => {
   describe('createTypeInfo', () => {

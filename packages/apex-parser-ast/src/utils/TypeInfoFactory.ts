@@ -7,7 +7,7 @@
  */
 
 import { TypeInfo } from '../types/typeInfo';
-import { Namespace, Namespaces } from '../namespace/namespaces';
+import { Namespace, Namespaces } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from './BuiltInTypeTables';
 import { BUILT_IN_NAMESPACES } from '../generated/builtInNamespaces';
 import { getLogger } from '@salesforce/apex-lsp-shared';

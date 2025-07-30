@@ -34,11 +34,9 @@ export * from './types/classInfo';
 export * from './types/ISymbolManager';
 
 // Export namespace resolution types and components
-export * from './namespace/namespaceResolution';
 export * from './namespace/NamespaceUtils';
 export * from './utils/BuiltInTypeTables';
 export * from './namespace/ResolutionRules';
-export * from './namespace/NamespaceResolver';
 
 // Export compiler service
 export * from './parser/compilerService';

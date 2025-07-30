@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Namespace } from '../namespace/namespaces';
+import { Namespace } from '../namespace/NamespaceUtils';
 
 /**
  * Interface representing information about an Apex type

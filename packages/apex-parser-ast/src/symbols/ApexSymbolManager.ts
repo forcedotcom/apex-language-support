@@ -29,7 +29,7 @@ import {
   SymbolResolutionResult,
 } from '../types/ISymbolManager';
 import { FQNOptions, calculateFQN, getAncestorChain } from '../utils/FQNUtils';
-import type { SymbolProvider } from '../namespace/namespaceResolution';
+import type { SymbolProvider } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 
 /**
