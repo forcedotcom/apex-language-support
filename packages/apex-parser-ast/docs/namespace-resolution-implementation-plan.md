@@ -4,6 +4,45 @@
 
 This document outlines the implementation plan for staged namespace resolution during the Apex Language Server's compile/listener pass. The plan addresses when and how to resolve namespaces for different symbol types, balancing performance with accuracy.
 
+## Implementation Progress
+
+### Phase 2: Enhanced ApexSymbolCollectorListener (TDD) - PARTIALLY COMPLETE
+
+**Status**: ✅ **20/23 tests passing** - Core namespace inheritance working
+
+**Completed Features**:
+- ✅ `setProjectNamespace()` method implementation
+- ✅ Namespace inheritance for top-level types (classes, interfaces, enums, triggers)
+- ✅ Namespace inheritance for inner types (inner classes, interfaces, enums)
+- ✅ Namespace inheritance for fields, properties, variables, parameters, enum values
+- ✅ Namespace inheritance for constructors
+- ✅ Integration with CompilerService for real Apex code compilation
+- ✅ Edge cases and backward compatibility
+
+**Remaining Issues**:
+- ❌ Method name extraction issue (3 failing tests)
+  - Methods are created with correct namespace but empty names
+  - FQN generation affected: `mynamespace/` instead of `mynamespace/testmethod`
+  - Appears to be Apex parser integration issue, not namespace resolution logic
+
+**Test Results**:
+```
+Test Suites: 1 failed, 1 total
+Tests: 3 failed, 20 passed, 23 total
+```
+
+**Key Achievements**:
+- Successfully implemented integration testing approach using real Apex source code
+- Verified namespace inheritance works correctly for most symbol types
+- Confirmed CompilerService integration is functional
+- Demonstrated that namespace resolution logic is sound
+
+**Next Steps**:
+1. Investigate Apex parser method name extraction
+2. Fix method name parsing issue
+3. Complete remaining 3 tests
+4. Proceed to Phase 3 (NamespaceResolutionService)
+
 ## Goals
 
 1. **Immediate Context**: Provide namespace context for top-level symbols during creation

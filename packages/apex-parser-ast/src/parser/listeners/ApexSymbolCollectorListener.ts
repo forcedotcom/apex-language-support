@@ -29,6 +29,7 @@ import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
+import { Namespaces } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
 import {
@@ -81,6 +82,8 @@ export class ApexSymbolCollectorListener
   private symbolTable: SymbolTable;
   private currentTypeSymbol: TypeSymbol | null = null;
   private currentMethodSymbol: MethodSymbol | null = null;
+  private currentNamespace: Namespace | null = null; // NEW: Track current namespace
+  private projectNamespace: string | null = null; // NEW: Store project namespace
   private blockDepth: number = 0;
   private blockCounter: number = 0; // Separate counter for unique block names
   private currentModifiers: SymbolModifiers = this.createDefaultModifiers();
@@ -99,6 +102,15 @@ export class ApexSymbolCollectorListener
     this.symbolTable = symbolTable || new SymbolTable();
     // Initialize the file scope
     this.symbolTable.enterScope('file');
+  }
+
+  /**
+   * Set the project namespace for this compilation
+   */
+  setProjectNamespace(namespace: string): void {
+    this.projectNamespace = namespace;
+    this.currentNamespace = namespace ? Namespaces.create(namespace) : null;
+    this.logger.debug(() => `Set project namespace to: ${namespace}`);
   }
 
   /**
@@ -1280,7 +1292,10 @@ export class ApexSymbolCollectorListener
     // Get the identifier location for the type symbol
     const identifierLocation = this.getIdentifierLocation(ctx);
 
-    const typeSymbol = SymbolFactory.createFullSymbol(
+    // Determine namespace based on context
+    const namespace = this.determineNamespaceForType(name, kind);
+
+    const typeSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       kind,
       location,
@@ -1288,8 +1303,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       parent?.id || null,
       { interfaces: [] },
-      undefined, // fqn
-      undefined, // namespace
+      namespace, // Pass the determined namespace
       this.getCurrentAnnotations(),
       identifierLocation,
     ) as TypeSymbol;
@@ -1309,6 +1323,22 @@ export class ApexSymbolCollectorListener
     return typeSymbol;
   }
 
+  /**
+   * Determine namespace for a type based on context
+   */
+  private determineNamespaceForType(
+    name: string,
+    kind: SymbolKind,
+  ): Namespace | null {
+    // Top-level types get project namespace
+    if (!this.currentTypeSymbol) {
+      return this.currentNamespace;
+    }
+
+    // Inner types inherit from outer type
+    return this.currentTypeSymbol.namespace || null;
+  }
+
   private createMethodSymbol(
     ctx: ParserRuleContext,
     name: string,
@@ -1319,7 +1349,10 @@ export class ApexSymbolCollectorListener
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol;
 
-    const methodSymbol = SymbolFactory.createFullSymbol(
+    // Inherit namespace from containing type
+    const namespace = parent?.namespace || null;
+
+    const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       SymbolKind.Method,
       location,
@@ -1327,8 +1360,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       parent?.id || null,
       { returnType, parameters: [] },
-      undefined, // fqn
-      undefined, // namespace
+      namespace, // Inherit namespace from parent
       this.getCurrentAnnotations(),
       identifierLocation ?? this.getIdentifierLocation(ctx),
     ) as MethodSymbol;
@@ -1359,7 +1391,10 @@ export class ApexSymbolCollectorListener
     // Get the identifier location for the variable symbol
     const identifierLocation = this.getIdentifierLocation(ctx);
 
-    const variableSymbol = SymbolFactory.createFullSymbol(
+    // Inherit namespace from containing type or method
+    const namespace = parent?.namespace || null;
+
+    const variableSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       kind,
       location,
@@ -1367,9 +1402,8 @@ export class ApexSymbolCollectorListener
       modifiers,
       parent?.id || null,
       { type },
-      undefined, // fqn
-      undefined, // namespace
-      undefined, // annotations
+      namespace, // Inherit namespace from parent
+      this.getCurrentAnnotations(),
       identifierLocation,
     ) as VariableSymbol;
 
