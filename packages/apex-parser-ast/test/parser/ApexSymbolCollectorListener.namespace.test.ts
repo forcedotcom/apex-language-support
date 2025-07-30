@@ -6,9 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbolCollectorListener } from '../../../src/parser/listeners/ApexSymbolCollectorListener';
-import { CompilerService } from '../../../src/parser/compilerService';
-import { SymbolKind } from '../../../src/types/symbol';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { CompilerService } from '../../src/parser/compilerService';
+import { SymbolKind } from '../../src/types/symbol';
 
 describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests', () => {
   let compilerService: CompilerService;
