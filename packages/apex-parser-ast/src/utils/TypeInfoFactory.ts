@@ -112,34 +112,9 @@ const createSimpleTypeInfo = (typeName: string): TypeInfo => {
 const getBuiltInNamespace = (namespace: string): Namespace | null => {
   // Check if it's a known standard Apex namespace
   if (STD_APEX_NAMESPACES.includes(namespace as any)) {
-    // For namespaces that have predefined constants, use those
-    switch (namespace) {
-      case 'System':
-        return Namespaces.SYSTEM;
-      case 'Schema':
-        return Namespaces.SCHEMA;
-      case 'Apex':
-        return Namespaces.APEX;
-      case 'ApexPages':
-        return Namespaces.APEX_PAGES;
-      case 'Database':
-        return Namespaces.DATABASE;
-      case 'Flow':
-        return Namespaces.FLOW;
-      case 'ConnectApi':
-        return Namespaces.CONNECT_API;
-      case 'CustomMetadata':
-        return Namespaces.CUSTOM_METADATA;
-      case 'Messaging':
-        return Namespaces.MESSAGING;
-      case 'Component':
-        return Namespaces.VF_COMPONENT;
-      case 'c':
-        return Namespaces.VF;
-      default:
-        // For other built-in namespaces, create a new namespace instance
-        return new Namespace(namespace, '');
-    }
+    // For all built-in namespaces, create a new namespace instance
+    // The Namespaces class doesn't have predefined constants for these
+    return Namespaces.create(namespace);
   }
   return null;
 };

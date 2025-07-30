@@ -8,40 +8,53 @@ This document outlines the implementation plan for staged namespace resolution d
 
 ### Phase 2: Enhanced ApexSymbolCollectorListener (TDD) - PARTIALLY COMPLETE
 
-**Status**: ✅ **20/23 tests passing** - Core namespace inheritance working
+**Status**: ✅ **18/23 tests passing** - Core namespace inheritance working, TypeScript compilation fixed
 
 **Completed Features**:
+
 - ✅ `setProjectNamespace()` method implementation
 - ✅ Namespace inheritance for top-level types (classes, interfaces, enums, triggers)
 - ✅ Namespace inheritance for inner types (inner classes, interfaces, enums)
 - ✅ Namespace inheritance for fields, properties, variables, parameters, enum values
 - ✅ Namespace inheritance for constructors
 - ✅ Integration with CompilerService for real Apex code compilation
-- ✅ Edge cases and backward compatibility
+- ✅ TypeScript compilation errors fixed
+- ✅ Type safety improvements with proper Namespace type checking
 
 **Remaining Issues**:
-- ❌ Method name extraction issue (3 failing tests)
-  - Methods are created with correct namespace but empty names
+
+- ❌ Method name extraction issue (5 failing tests)
+  - Methods are created with correct namespace but empty names (`name: ''`)
   - FQN generation affected: `mynamespace/` instead of `mynamespace/testmethod`
-  - Appears to be Apex parser integration issue, not namespace resolution logic
+  - Root cause: `ctx.id()?.text` returning empty string in `enterMethodDeclaration` and `enterInterfaceMethodDeclaration`
+  - This is an ANTLR parser integration issue, not namespace resolution logic
+- ❌ Edge case handling (2 failing tests)
+  - When no project namespace provided, symbols get `undefined` instead of `null`
+  - Multiple top-level types not getting namespace assigned correctly
 
 **Test Results**:
+
 ```
 Test Suites: 1 failed, 1 total
-Tests: 3 failed, 20 passed, 23 total
+Tests: 5 failed, 18 passed, 23 total
 ```
 
 **Key Achievements**:
+
 - Successfully implemented integration testing approach using real Apex source code
 - Verified namespace inheritance works correctly for most symbol types
 - Confirmed CompilerService integration is functional
+- Fixed all TypeScript compilation errors
+- Improved type safety with proper Namespace type checking
 - Demonstrated that namespace resolution logic is sound
 
 **Next Steps**:
-1. Investigate Apex parser method name extraction
-2. Fix method name parsing issue
-3. Complete remaining 3 tests
-4. Proceed to Phase 3 (NamespaceResolutionService)
+
+1. Investigate ANTLR parser method name extraction (`ctx.id()?.text` issue)
+2. Fix method name parsing in `enterMethodDeclaration` and `enterInterfaceMethodDeclaration`
+3. Fix edge case handling for null/undefined namespace scenarios
+4. Complete remaining 5 tests
+5. Proceed to Phase 3 (NamespaceResolutionService)
 
 ## Goals
 

@@ -205,7 +205,11 @@ export class SymbolFactory {
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
     const fqn = namespace
-      ? createTypeWithNamespace(namespace, name, { normalizeCase: true })
+      ? createTypeWithNamespace(namespace, name, {
+          includeNamespace: true,
+          normalizeCase: true,
+          separator: '/',
+        })
       : undefined;
 
     const key: SymbolKey = {

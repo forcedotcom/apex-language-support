@@ -29,7 +29,7 @@ import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
-import { Namespaces } from '../../namespace/NamespaceUtils';
+import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
 import {
@@ -83,7 +83,7 @@ export class ApexSymbolCollectorListener
   private currentTypeSymbol: TypeSymbol | null = null;
   private currentMethodSymbol: MethodSymbol | null = null;
   private currentNamespace: Namespace | null = null; // NEW: Track current namespace
-  private projectNamespace: string | null = null; // NEW: Store project namespace
+  protected projectNamespace: string | undefined = undefined; // NEW: Store project namespace
   private blockDepth: number = 0;
   private blockCounter: number = 0; // Separate counter for unique block names
   private currentModifiers: SymbolModifiers = this.createDefaultModifiers();
@@ -1303,7 +1303,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       parent?.id || null,
       { interfaces: [] },
-      namespace, // Pass the determined namespace
+      namespace || undefined, // Pass the determined namespace
       this.getCurrentAnnotations(),
       identifierLocation,
     ) as TypeSymbol;
@@ -1336,7 +1336,11 @@ export class ApexSymbolCollectorListener
     }
 
     // Inner types inherit from outer type
-    return this.currentTypeSymbol.namespace || null;
+    const parentNamespace = this.currentTypeSymbol.namespace;
+    if (parentNamespace instanceof Namespace) {
+      return parentNamespace;
+    }
+    return null;
   }
 
   private createMethodSymbol(
@@ -1350,7 +1354,9 @@ export class ApexSymbolCollectorListener
     const parent = this.currentTypeSymbol;
 
     // Inherit namespace from containing type
-    const namespace = parent?.namespace || null;
+    const parentNamespace = parent?.namespace;
+    const namespace =
+      parentNamespace instanceof Namespace ? parentNamespace : null;
 
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
@@ -1360,7 +1366,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       parent?.id || null,
       { returnType, parameters: [] },
-      namespace, // Inherit namespace from parent
+      namespace || undefined, // Inherit namespace from parent
       this.getCurrentAnnotations(),
       identifierLocation ?? this.getIdentifierLocation(ctx),
     ) as MethodSymbol;
@@ -1392,7 +1398,9 @@ export class ApexSymbolCollectorListener
     const identifierLocation = this.getIdentifierLocation(ctx);
 
     // Inherit namespace from containing type or method
-    const namespace = parent?.namespace || null;
+    const parentNamespace = parent?.namespace;
+    const namespace =
+      parentNamespace instanceof Namespace ? parentNamespace : null;
 
     const variableSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
@@ -1402,7 +1410,7 @@ export class ApexSymbolCollectorListener
       modifiers,
       parent?.id || null,
       { type },
-      namespace, // Inherit namespace from parent
+      namespace || undefined, // Inherit namespace from parent
       this.getCurrentAnnotations(),
       identifierLocation,
     ) as VariableSymbol;
