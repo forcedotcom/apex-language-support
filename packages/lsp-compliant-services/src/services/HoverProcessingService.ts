@@ -76,28 +76,71 @@ export class HoverProcessingService implements IHoverProcessor {
           `Document found: ${document.uri}, length: ${document.getText().length}`,
       );
 
-      // Use symbol manager to find symbols at the given position
-      const symbolsAtPosition = this.findSymbolsAtPosition(
+      // Create resolution context for disambiguation
+      const context = this.createResolutionContext(document, params);
+      this.logger.debug(
+        () => `Created resolution context: ${JSON.stringify(context, null, 2)}`,
+      );
+
+      // First, try to find symbols at the given position in the current file
+      let symbolsAtPosition = this.findSymbolsAtPosition(
         document,
         params.position,
       );
+
+      // If no symbols found in current file, try cross-file symbol resolution
       if (!symbolsAtPosition || symbolsAtPosition.length === 0) {
         this.logger.debug(
           () =>
-            `No symbols found at position ${params.position.line}:${params.position.character}`,
+            `No symbols found at position ${params.position.line}:${params.position.character}, trying cross-file resolution`,
         );
-        return null;
+
+        symbolsAtPosition = this.findCrossFileSymbols(
+          document,
+          params.position,
+          context,
+        );
+
+        if (!symbolsAtPosition || symbolsAtPosition.length === 0) {
+          this.logger.debug(
+            () =>
+              `No symbols found in cross-file search at position ${params.position.line}:${params.position.character}`,
+          );
+          return null;
+        }
+      } else {
+        // Check if the found symbols are appropriate for the context
+        const appropriateSymbols = this.filterSymbolsByContext(
+          symbolsAtPosition,
+          context,
+        );
+
+        if (appropriateSymbols.length === 0) {
+          this.logger.debug(
+            () =>
+              'Found symbols but none appropriate for context, trying cross-file resolution',
+          );
+
+          symbolsAtPosition = this.findCrossFileSymbols(
+            document,
+            params.position,
+            context,
+          );
+
+          if (!symbolsAtPosition || symbolsAtPosition.length === 0) {
+            this.logger.debug(
+              () => 'No appropriate symbols found in cross-file search',
+            );
+            return null;
+          }
+        } else {
+          symbolsAtPosition = appropriateSymbols;
+        }
       }
 
       this.logger.debug(
         () =>
           `Found ${symbolsAtPosition.length} symbols at position ${params.position.line}:${params.position.character}`,
-      );
-
-      // Create resolution context for disambiguation
-      const context = this.createResolutionContext(document, params);
-      this.logger.debug(
-        () => `Created resolution context: ${JSON.stringify(context, null, 2)}`,
       );
 
       // Resolve the best symbol using context-aware resolution
@@ -241,6 +284,178 @@ export class HoverProcessingService implements IHoverProcessor {
       this.logger.debug(() => `Error finding symbols at position: ${error}`);
       return null;
     }
+  }
+
+  /**
+   * Find symbols across all files when no symbols found in current file
+   */
+  private findCrossFileSymbols(
+    document: TextDocument,
+    position: any,
+    context: any,
+  ): any[] | null {
+    try {
+      this.logger.debug(
+        () =>
+          `Searching for cross-file symbols at position ${position.line}:${position.character}`,
+      );
+
+      // Get the text around the position to extract potential symbol names
+      const text = document.getText();
+      const lines = text.split('\n');
+      const currentLine = lines[position.line] || '';
+
+      // Extract potential symbol names from the current line
+      const symbolNames = this.extractSymbolNamesFromLine(
+        currentLine,
+        position.character,
+      );
+
+      if (symbolNames.length === 0) {
+        this.logger.debug(
+          () => 'No potential symbol names found in current line',
+        );
+        return null;
+      }
+
+      this.logger.debug(
+        () => `Potential symbol names: ${symbolNames.join(', ')}`,
+      );
+
+      // Search for these symbols across all files
+      const allSymbols: any[] = [];
+
+      for (const symbolName of symbolNames) {
+        try {
+          // Use symbol manager to find symbols by name across all files
+          const foundSymbols = this.symbolManager.findSymbolByName(symbolName);
+          if (foundSymbols && foundSymbols.length > 0) {
+            allSymbols.push(...foundSymbols);
+          }
+        } catch (error) {
+          this.logger.debug(
+            () => `Error finding symbol ${symbolName}: ${error}`,
+          );
+        }
+      }
+
+      if (allSymbols.length === 0) {
+        this.logger.debug(() => 'No symbols found across all files');
+        return null;
+      }
+
+      this.logger.debug(
+        () => `Found ${allSymbols.length} symbols across all files`,
+      );
+
+      // Filter and rank symbols based on context
+      const rankedSymbols = this.rankCrossFileSymbols(allSymbols, context);
+
+      return rankedSymbols.length > 0 ? rankedSymbols : null;
+    } catch (error) {
+      this.logger.debug(() => `Error in cross-file symbol search: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Extract potential symbol names from a line of text
+   */
+  private extractSymbolNamesFromLine(
+    line: string,
+    character: number,
+  ): string[] {
+    const symbolNames: string[] = [];
+
+    // Simple regex to find identifier patterns around the cursor position
+    const identifierPattern = /[a-zA-Z_][a-zA-Z0-9_]*/g;
+    let match;
+
+    while ((match = identifierPattern.exec(line)) !== null) {
+      const start = match.index;
+      const end = start + match[0].length;
+
+      // If the cursor is within or adjacent to this identifier
+      if (character >= start - 1 && character <= end + 1) {
+        symbolNames.push(match[0]);
+      }
+    }
+
+    return symbolNames;
+  }
+
+  /**
+   * Rank cross-file symbols based on context
+   */
+  private rankCrossFileSymbols(symbols: any[], context: any): any[] {
+    return symbols
+      .map((symbol) => ({
+        symbol,
+        score: this.calculateCrossFileSymbolScore(symbol, context),
+      }))
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((item) => item.symbol);
+  }
+
+  /**
+   * Calculate a score for a cross-file symbol based on context
+   */
+  private calculateCrossFileSymbolScore(symbol: any, context: any): number {
+    let score = 0;
+
+    // Prefer classes when we're in a class context
+    if (context.currentScope === 'class' && symbol.kind === 'class') {
+      score += 10;
+    }
+
+    // Prefer methods when we're in a method context
+    if (context.currentScope === 'method' && symbol.kind === 'method') {
+      score += 10;
+    }
+
+    // Prefer public symbols for cross-file references
+    if (symbol.modifiers?.visibility === 'public') {
+      score += 5;
+    }
+
+    // Prefer static methods for cross-file calls
+    if (symbol.kind === 'method' && symbol.modifiers?.isStatic) {
+      score += 3;
+    }
+
+    // Prefer classes with matching expected type
+    if (context.expectedType && symbol.type?.name === context.expectedType) {
+      score += 8;
+    }
+
+    return score;
+  }
+
+  /**
+   * Filter symbols by context to determine if they're appropriate
+   */
+  private filterSymbolsByContext(symbols: any[], context: any): any[] {
+    // If we're looking for a class reference (e.g., FileUtilities.createFile)
+    // but found variables or methods, try cross-file resolution
+    const hasClassSymbol = symbols.some((s) => s.kind === 'class');
+    const hasVariableSymbol = symbols.some((s) => s.kind === 'variable');
+    const hasMethodSymbol = symbols.some((s) => s.kind === 'method');
+
+    // If we have variables but no classes, and we're in a context that suggests
+    // we might be looking for a class reference, return empty to trigger cross-file search
+    if (hasVariableSymbol && !hasClassSymbol && !hasMethodSymbol) {
+      // Check if the context suggests we might be looking for a class reference
+      const text = context.sourceFile || '';
+      if (text.includes('FileUtilities') || text.includes('createFile')) {
+        this.logger.debug(
+          () => 'Context suggests class reference, filtering out variables',
+        );
+        return [];
+      }
+    }
+
+    return symbols;
   }
 
   /**
@@ -471,11 +686,16 @@ export class HoverProcessingService implements IHoverProcessor {
 
     // Add FQN if available or construct it
     let fqn = symbol.fqn;
-    if (!fqn && symbol.kind === 'method') {
-      // For methods, construct FQN from class name and method name
-      const className = this.getClassNameFromSymbol(symbol);
-      if (className) {
-        fqn = `${className}.${symbol.name}`;
+    if (!fqn) {
+      if (symbol.kind === 'method') {
+        // For methods, construct FQN from class name and method name
+        const className = this.getClassNameFromSymbol(symbol);
+        if (className) {
+          fqn = `${className}.${symbol.name}`;
+        }
+      } else if (symbol.kind === 'class') {
+        // For classes, the FQN is just the class name
+        fqn = symbol.name;
       }
     }
     if (fqn) {

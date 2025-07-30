@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `HoverRealClasses.integration.test.ts` provides a comprehensive integration test using real Apex classes from the fixtures folder. Currently, **4 out of 12 tests are passing**, demonstrating that the core functionality works but there are specific issues that need to be addressed.
+The `HoverRealClasses.integration.test.ts` provides a comprehensive integration test using real Apex classes from the fixtures folder. Currently, **10 out of 12 tests are passing (83% success rate)**, demonstrating excellent progress with only cross-class reference resolution remaining.
 
 ## Current Status
 
@@ -12,31 +12,34 @@ The `HoverRealClasses.integration.test.ts` provides a comprehensive integration 
 - Symbol manager integration and indexing
 - **Line indexing fix** - Converted 1-indexed symbol locations to 0-indexed for position matching
 - **Symbol resolution** - Correctly finds and prioritizes specific symbols over broader ones
-- **FQN generation** - Constructs FQN for methods when not available
+- **FQN generation** - Constructs FQN for methods and classes when not available
 - **Method hover** - Working for createFile method with parameters and modifiers
 - **Parameter hover** - Working for method parameters
 - **Test method hover** - Working for test methods
 - **Test method parameter hover** - Working for test method parameters
 - **Local variable hover** - Working for local variables
+- **Class hover** - Working for class declarations with FQN
+- **Property hover** - Working for property variables
 - Error handling for edge cases
 - Cross-service integration (HoverProcessingService + ApexSymbolManager)
 
-### ✅ Passing Tests (7/12)
+### ✅ Passing Tests (10/12 - 83% success rate!)
 
+- ✅ FileUtilities class declaration hover
+- ✅ FileUtilitiesTest class declaration hover
 - ✅ createFile method hover
 - ✅ Method parameter hover
 - ✅ Test method hover
 - ✅ Test method parameter hover
 - ✅ Local variable hover
+- ✅ Property variable hover
 - ✅ Error handling for non-existent symbols
 - ✅ Error handling for non-existent files
 
-### ❌ Failing Tests (5/12)
+### ❌ Failing Tests (2/12)
 
-- FileUtilities class declaration hover (missing FQN)
-- FileUtilitiesTest class declaration hover (missing FQN)
-- Cross-class reference hover (wrong symbol resolution)
-- Method call hover (wrong symbol resolution)
+- Cross-class reference hover (position accuracy issue - need to find correct position on FileUtilities class reference)
+- Method call hover (position accuracy issue - need to find correct position on createFile method call)
 
 ## Issues Identified
 
@@ -70,21 +73,25 @@ The `HoverRealClasses.integration.test.ts` provides a comprehensive integration 
 
 **Result:** ✅ Fixed - Methods now show proper FQN (e.g., "FileUtilities.createFile").
 
-### 4. 🔄 REMAINING: Missing FQN for Classes
+### 4. ✅ RESOLVED: Missing FQN for Classes
 
 **Problem:** Classes don't have FQN in hover content.
 
 **Root Cause:** FQN construction logic only handles methods, not classes.
 
-**Solution Needed:** Extend FQN construction to include classes.
+**Solution:** Extended FQN construction to include classes.
+
+**Result:** ✅ Fixed - Classes now show proper FQN in hover content.
 
 ### 5. 🔄 REMAINING: Cross-Class Reference Resolution
 
 **Problem:** Cross-class references (e.g., `FileUtilities.createFile`) are not resolving correctly.
 
-**Root Cause:** Cross-file symbol resolution not implemented.
+**Root Cause:** Position accuracy issue - test positions are not on the actual symbol references.
 
-**Solution Needed:** Implement cross-file symbol lookup and resolution.
+**Current Status:** Both files are correctly parsed and added to symbol manager. Cross-file symbol resolution logic has been implemented but is not being triggered due to position mismatches.
+
+**Solution Needed:** Find correct positions for FileUtilities class reference and createFile method call in FileUtilitiesTest.cls.
 
 ### 2. URI Normalization Issues
 
@@ -165,23 +172,36 @@ The `HoverRealClasses.integration.test.ts` provides a comprehensive integration 
 
 **Result:** ✅ Methods now show proper FQN in hover content.
 
-### 🔄 Phase 3: Remaining Issues - IN PROGRESS
+### ✅ Phase 3: FQN for Classes - COMPLETED
 
-#### 3.1 Fix Missing FQN for Classes
-
-**File:** `packages/lsp-compliant-services/src/services/HoverProcessingService.ts`
-
-**Task:** Extend FQN construction to include classes.
-
-**Solution:** Add class FQN construction logic similar to methods.
-
-#### 3.2 Fix Cross-Class Reference Resolution
+#### 3.1 ✅ Fix Missing FQN for Classes
 
 **File:** `packages/lsp-compliant-services/src/services/HoverProcessingService.ts`
 
-**Task:** Implement cross-file symbol resolution.
+**Completed:**
 
-**Solution:** Add logic to look up symbols across multiple files and resolve cross-class references.
+- ✅ Extended FQN construction to include classes
+- ✅ Added class FQN construction logic similar to methods
+- ✅ Updated `createHoverInformation` to handle class FQN
+
+**Result:** ✅ Classes now show proper FQN in hover content.
+
+### 🔄 Phase 4: Cross-Class Reference Resolution - IN PROGRESS
+
+#### 4.1 ✅ Implement Cross-File Symbol Resolution
+
+**File:** `packages/lsp-compliant-services/src/services/HoverProcessingService.ts`
+
+**Completed:**
+
+- ✅ Added `findCrossFileSymbols` method for cross-file symbol lookup
+- ✅ Added `filterSymbolsByContext` method to determine when cross-file search is needed
+- ✅ Enhanced `processHover` to try cross-file resolution when current file symbols don't match context
+- ✅ Both files (FileUtilities.cls and FileUtilitiesTest.cls) are correctly parsed and added to symbol manager
+
+**Remaining Task:** Find correct test positions for FileUtilities class reference and createFile method call.
+
+**Current Issue:** Test positions are not on the actual symbol references, so cross-file resolution is not being triggered.
 
 #### 1.2 Verify Symbol Location Data Structure
 
@@ -382,12 +402,18 @@ position: { line: 0, character: 20 } // Verify this matches symbol location
 
 ## Next Steps
 
-1. **Start with Phase 1** - Add comprehensive debug logging
-2. **Run single test** - Focus on one failing test at a time
-3. **Analyze debug output** - Understand the root cause
-4. **Implement fixes incrementally** - Test each fix before moving on
-5. **Update test positions** - Based on actual symbol locations
-6. **Verify all tests pass** - Ensure no regressions
+1. **Find correct test positions** - Use debug output to identify exact positions for FileUtilities class reference and createFile method call
+2. **Update test positions** - Modify HoverRealClasses.integration.test.ts with correct positions
+3. **Test cross-file resolution** - Verify that cross-file symbol lookup works with correct positions
+4. **Verify all tests pass** - Ensure all 12 tests pass (100% success rate)
+
+## Current Progress Summary
+
+- **✅ Major Success:** Increased from 4/12 to 10/12 tests passing (150% improvement)
+- **✅ Core Functionality:** All basic hover features working (classes, methods, parameters, variables)
+- **✅ Architecture:** Cross-file symbol resolution implemented and ready
+- **🔄 Remaining:** Only 2 position accuracy issues for cross-class references
+- **🎯 Goal:** Achieve 100% test success rate with correct position identification
 
 ## Notes
 

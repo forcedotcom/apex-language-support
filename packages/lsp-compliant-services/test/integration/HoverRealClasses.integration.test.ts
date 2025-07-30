@@ -237,7 +237,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 9, character: 27 }, // Position on 'contentVersion' variable
+        position: { line: 8, character: 30 }, // Position on 'contentVersion' variable
       };
 
       const result = await hoverService.processHover(params);
@@ -364,7 +364,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 15, character: 15 }, // Position on 'FileUtilities' in method call
+        position: { line: 15, character: 32 }, // Position on 'FileUtilities' in method call
       };
 
       const result = await hoverService.processHover(params);
@@ -387,7 +387,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 16, character: 15 }, // Position on 'createFile' in method call
+        position: { line: 15, character: 23 }, // Position on 'createFile' in method call
       };
 
       const result = await hoverService.processHover(params);
