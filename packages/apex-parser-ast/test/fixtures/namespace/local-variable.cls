@@ -1,5 +1,5 @@
 public class TestClass {
-  public void testMethod() {
+  public void myMethod() {
     String localVar = 'test';
   }
 } 

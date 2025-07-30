@@ -1,3 +1,3 @@
 public interface TestInterface {
-  void testMethod();
+  void myMethod();
 } 

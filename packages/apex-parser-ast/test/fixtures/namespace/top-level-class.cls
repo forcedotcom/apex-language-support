@@ -1,7 +1,7 @@
 public class TestClass {
   private String testField;
   
-  public void testMethod() {
+  public void myMethod() {
     // method body
   }
 } 

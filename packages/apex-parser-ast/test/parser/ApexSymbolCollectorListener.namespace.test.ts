@@ -6,9 +6,21 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
 import { SymbolKind } from '../../src/types/symbol';
+
+/**
+ * Read a fixture file from the namespace fixtures directory
+ * @param filename The name of the fixture file
+ * @returns The contents of the fixture file
+ */
+const readFixture = (filename: string): string => {
+  const fixturePath = path.join(__dirname, '../fixtures/namespace', filename);
+  return fs.readFileSync(fixturePath, 'utf8');
+};
 
 describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests', () => {
   let compilerService: CompilerService;
@@ -46,15 +58,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
   describe('namespace inheritance for top-level types', () => {
     it('should assign project namespace to top-level class', () => {
-      const sourceCode = `
-        public class TestClass {
-          private String testField;
-          
-          public void testMethod() {
-            // method body
-          }
-        }
-      `;
+      const sourceCode = readFixture('top-level-class.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -73,11 +77,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should assign project namespace to top-level interface', () => {
-      const sourceCode = `
-        public interface TestInterface {
-          void testMethod();
-        }
-      `;
+      const sourceCode = readFixture('top-level-interface.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -96,13 +96,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should assign project namespace to top-level enum', () => {
-      const sourceCode = `
-        public enum TestEnum {
-          VALUE1,
-          VALUE2,
-          VALUE3
-        }
-      `;
+      const sourceCode = readFixture('top-level-enum.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -121,11 +115,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should assign project namespace to top-level trigger', () => {
-      const sourceCode = `
-        trigger TestTrigger on Account (before insert, after insert) {
-          // trigger body
-        }
-      `;
+      const sourceCode = readFixture('top-level-trigger.trigger');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -146,17 +136,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
   describe('namespace inheritance for inner types', () => {
     it('should inherit namespace for inner class', () => {
-      const sourceCode = `
-        public class OuterClass {
-          public class InnerClass {
-            private String innerField;
-            
-            public void innerMethod() {
-              // method body
-            }
-          }
-        }
-      `;
+      const sourceCode = readFixture('inner-class.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -175,13 +155,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should inherit namespace for inner interface', () => {
-      const sourceCode = `
-        public class OuterClass {
-          public interface InnerInterface {
-            void innerMethod();
-          }
-        }
-      `;
+      const sourceCode = readFixture('inner-interface.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -200,14 +174,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should inherit namespace for inner enum', () => {
-      const sourceCode = `
-        public class OuterClass {
-          public enum InnerEnum {
-            VALUE1,
-            VALUE2
-          }
-        }
-      `;
+      const sourceCode = readFixture('inner-enum.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -228,13 +195,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
   describe('namespace inheritance for methods', () => {
     it('should inherit namespace for method in class', () => {
-      const sourceCode = `
-        public class TestClass {
-          public void myMethod() {
-            // method body
-          }
-        }
-      `;
+      const sourceCode = readFixture('method-in-class.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -268,11 +229,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should inherit namespace for method in interface', () => {
-      const sourceCode = `
-        public interface TestInterface {
-          void myMethod();
-        }
-      `;
+      const sourceCode = readFixture('method-in-interface.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -291,13 +248,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should inherit namespace for constructor', () => {
-      const sourceCode = `
-        public class TestClass {
-          public TestClass() {
-            // constructor body
-          }
-        }
-      `;
+      const sourceCode = readFixture('constructor.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -320,11 +271,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
   describe('namespace inheritance for fields and properties', () => {
     it('should inherit namespace for field in class', () => {
-      const sourceCode = `
-        public class TestClass {
-          private String testField;
-        }
-      `;
+      const sourceCode = readFixture('field-in-class.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -343,11 +290,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should inherit namespace for property in class', () => {
-      const sourceCode = `
-        public class TestClass {
-          public String testProperty { get; set; }
-        }
-      `;
+      const sourceCode = readFixture('property-in-class.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -368,13 +311,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
   describe('namespace inheritance for local variables and parameters', () => {
     it('should inherit namespace for local variable in method', () => {
-      const sourceCode = `
-        public class TestClass {
-          public void testMethod() {
-            String localVar = 'test';
-          }
-        }
-      `;
+      const sourceCode = readFixture('local-variable.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -393,13 +330,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should inherit namespace for parameter in method', () => {
-      const sourceCode = `
-        public class TestClass {
-          public void testMethod(String param) {
-            // method body
-          }
-        }
-      `;
+      const sourceCode = readFixture('method-parameter.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -420,13 +351,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
   describe('namespace inheritance for enum values', () => {
     it('should inherit namespace for enum values', () => {
-      const sourceCode = `
-        public enum TestEnum {
-          VALUE1,
-          VALUE2,
-          VALUE3
-        }
-      `;
+      const sourceCode = readFixture('enum-with-values.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -447,17 +372,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
   describe('complex namespace scenarios', () => {
     it('should handle nested inner classes with namespace inheritance', () => {
-      const sourceCode = `
-        public class OuterClass {
-          public class InnerClass {
-            private String innerField;
-            
-            public void innerMethod() {
-              String localVar = 'test';
-            }
-          }
-        }
-      `;
+      const sourceCode = readFixture('nested-inner-classes.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -484,19 +399,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should handle multiple top-level types with same namespace', () => {
-      const sourceCode = `
-        public class OuterClass {
-          private String field1;
-          
-          public class InnerClass1 {
-            private String innerField1;
-          }
-          
-          public class InnerClass2 {
-            private String innerField2;
-          }
-        }
-      `;
+      const sourceCode = readFixture('multiple-inner-classes.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -521,11 +424,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
   describe('edge cases', () => {
     it('should handle compilation without project namespace', () => {
-      const sourceCode = `
-        public class TestClass {
-          private String testField;
-        }
-      `;
+      const sourceCode = readFixture('no-namespace.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -544,11 +443,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should handle empty project namespace', () => {
-      const sourceCode = `
-        public class TestClass {
-          private String testField;
-        }
-      `;
+      const sourceCode = readFixture('no-namespace.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(
@@ -567,15 +462,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
     });
 
     it('should maintain backward compatibility with existing functionality', () => {
-      const sourceCode = `
-        public class TestClass {
-          private String testField;
-          
-          public void testMethod() {
-            // method body
-          }
-        }
-      `;
+      const sourceCode = readFixture('backward-compatibility.cls');
 
       const listener = new ApexSymbolCollectorListener();
       const result = compilerService.compile(

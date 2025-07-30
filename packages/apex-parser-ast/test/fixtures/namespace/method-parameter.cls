@@ -1,5 +1,5 @@
 public class TestClass {
-  public void testMethod(String param) {
+  public void myMethod(String param) {
     // method body
   }
 } 
