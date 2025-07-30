@@ -24,17 +24,22 @@ describe('TypeInfoFactory', () => {
         const typeInfo = createTypeInfo('System.String');
 
         expect(typeInfo.name).toBe('String');
-        expect(typeInfo.namespace).toBe(Namespaces.SYSTEM);
+        expect(typeInfo.namespace).toBeDefined();
+        expect(typeInfo.namespace?.global).toBe('System');
+        expect(typeInfo.namespace?.module).toBe('');
         expect(typeInfo.originalTypeString).toBe('System.String');
         expect(typeInfo.needsNamespaceResolution).toBeUndefined();
-        expect(typeInfo.getNamespace()).toBe(Namespaces.SYSTEM);
+        expect(typeInfo.getNamespace()).toBeDefined();
+        expect(typeInfo.getNamespace()?.global).toBe('System');
       });
 
       it('should handle Schema namespace types', () => {
         const typeInfo = createTypeInfo('Schema.Account');
 
         expect(typeInfo.name).toBe('Account');
-        expect(typeInfo.namespace).toBe(Namespaces.SCHEMA);
+        expect(typeInfo.namespace).toBeDefined();
+        expect(typeInfo.namespace?.global).toBe('Schema');
+        expect(typeInfo.namespace?.module).toBe('');
         expect(typeInfo.originalTypeString).toBe('Schema.Account');
         expect(typeInfo.needsNamespaceResolution).toBeUndefined();
       });
@@ -151,7 +156,8 @@ describe('TypeInfoFactory', () => {
 
       expect(arrayType.name).toBe('String[]');
       expect(arrayType.isArray).toBe(true);
-      expect(arrayType.namespace).toBe(Namespaces.SYSTEM);
+      expect(arrayType.namespace).toBeDefined();
+      expect(arrayType.namespace?.global).toBe('System');
       expect(arrayType.originalTypeString).toBe('System.String[]');
     });
 

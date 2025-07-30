@@ -77,7 +77,7 @@ describe('SymbolFactory with Namespace Support', () => {
         mockModifiers,
       );
 
-      expect(oldSymbol.namespace).toBeUndefined();
+      expect(oldSymbol.namespace).toBeNull();
       expect(oldSymbol.fqn).toBeUndefined();
     });
 

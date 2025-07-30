@@ -204,13 +204,14 @@ export class SymbolFactory {
     const modifierFlags = this.modifiersToFlags(modifiers);
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
-    const fqn = namespace && typeof namespace === 'object' && 'toString' in namespace
-      ? createTypeWithNamespace(namespace as Namespace, name, {
-          includeNamespace: true,
-          normalizeCase: true,
-          separator: '/',
-        })
-      : undefined;
+    const fqn =
+      namespace && typeof namespace === 'object' && 'toString' in namespace
+        ? createTypeWithNamespace(namespace as Namespace, name, {
+            includeNamespace: true,
+            normalizeCase: true,
+            separator: '/',
+          })
+        : undefined;
 
     const key: SymbolKey = {
       prefix: kind,
