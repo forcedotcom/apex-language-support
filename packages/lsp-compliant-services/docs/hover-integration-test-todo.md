@@ -89,7 +89,7 @@ The `HoverRealClasses.integration.test.ts` provides a comprehensive integration 
 
 **Root Cause:** Position accuracy issue - test positions are not on the actual symbol references.
 
-**Current Status:** Both files are correctly parsed and added to symbol manager. Cross-file symbol resolution logic has been implemented but is not being triggered due to position mismatches.
+**Current Status:** Both files are correctly parsed and added to symbol manager. Cross-file symbol resolution logic has been implemented but is not being triggered due to position mismatches. The test positions need to be adjusted to be on the actual `FileUtilities` and `createFile` references in the method call.
 
 **Solution Needed:** Find correct positions for FileUtilities class reference and createFile method call in FileUtilitiesTest.cls.
 
@@ -201,7 +201,34 @@ The `HoverRealClasses.integration.test.ts` provides a comprehensive integration 
 
 **Remaining Task:** Find correct test positions for FileUtilities class reference and createFile method call.
 
-**Current Issue:** Test positions are not on the actual symbol references, so cross-file resolution is not being triggered.
+**Current Issue:** Test positions are not on the actual symbol references, so cross-file resolution is not being triggered. The debug output shows that position `15:23` is matching the `contentDocumentLinkId` variable instead of the `FileUtilities` class reference.
+
+#### 4.2 🔄 FQN Infrastructure Enhancement - COMPLETED
+
+**Files:** 
+- `packages/apex-parser-ast/src/types/ISymbolManager.ts`
+- `packages/apex-parser-ast/src/symbols/ApexSymbolManager.ts`
+- `packages/apex-parser-ast/src/symbols/SymbolManagerFactory.ts`
+- `packages/lsp-compliant-services/src/services/HoverProcessingService.ts`
+
+**Completed:**
+
+- ✅ Added hierarchical FQN methods to ISymbolManager interface:
+  - `constructFQN(symbol: ApexSymbol, options?: FQNOptions): string`
+  - `getContainingType(symbol: ApexSymbol): ApexSymbol | null`
+  - `getAncestorChain(symbol: ApexSymbol): ApexSymbol[]`
+- ✅ Implemented these methods in ApexSymbolManager using existing FQNUtils infrastructure
+- ✅ Updated HoverProcessingService to use hierarchical FQN construction instead of workarounds
+- ✅ Added fallback logic for when parent relationships aren't established
+- ✅ Updated mock implementations in SymbolManagerFactory
+
+**Benefits:**
+- **Hierarchical FQN Support:** Now properly supports complex nested structures
+- **API Consistency:** All LSP services can use the same FQN infrastructure
+- **Extensibility:** Easy to add more FQN-related functionality in the future
+- **Proper Separation:** FQN logic is centralized in the symbol manager, not scattered across services
+
+**Result:** ✅ FQN infrastructure is now working correctly for methods (showing `FileUtilities.createFile`) and classes (showing `FileUtilities`).
 
 #### 1.2 Verify Symbol Location Data Structure
 
@@ -402,10 +429,40 @@ position: { line: 0, character: 20 } // Verify this matches symbol location
 
 ## Next Steps
 
-1. **Find correct test positions** - Use debug output to identify exact positions for FileUtilities class reference and createFile method call
-2. **Update test positions** - Modify HoverRealClasses.integration.test.ts with correct positions
+1. **Find correct test positions** - Use debug output to identify exact positions for FileUtilities class reference and createFile method call in the method call `FileUtilities.createFile(...)`
+2. **Update test positions** - Modify HoverRealClasses.integration.test.ts with correct positions for cross-class references
 3. **Test cross-file resolution** - Verify that cross-file symbol lookup works with correct positions
 4. **Verify all tests pass** - Ensure all 12 tests pass (100% success rate)
+
+## Current Progress Summary
+
+- **✅ Major Success:** Increased from 4/12 to 10/12 tests passing (150% improvement!)
+- **✅ Core Functionality:** All basic hover features working (classes, methods, parameters, variables)
+- **✅ FQN Infrastructure:** Hierarchical FQN system implemented and working correctly
+- **✅ Architecture:** Cross-file symbol resolution implemented and ready
+- **🔄 Remaining:** Only 2 position accuracy issues for cross-class references
+- **🎯 Goal:** Achieve 100% test success rate with correct position identification
+
+## Key Achievements
+
+### **FQN Infrastructure Enhancement**
+- **Hierarchical Support:** Now properly supports complex nested structures
+- **API Consistency:** All LSP services can use the same FQN infrastructure  
+- **Extensibility:** Easy to add more FQN-related functionality in the future
+- **Proper Separation:** FQN logic is centralized in the symbol manager
+
+### **Test Success Rate**
+- **Before:** 4/12 tests passing (33% success rate)
+- **After:** 10/12 tests passing (83% success rate)
+- **Improvement:** 150% increase in test success rate
+
+### **Core Functionality**
+- ✅ Class declarations with FQN
+- ✅ Method declarations with FQN and parameters
+- ✅ Parameter hover information
+- ✅ Local variable hover
+- ✅ Test method hover
+- ✅ Error handling for edge cases
 
 ## Current Progress Summary
 

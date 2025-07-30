@@ -684,18 +684,29 @@ export class HoverProcessingService implements IHoverProcessor {
       : 'Symbol';
     content.push(`**${kindDisplay}** ${symbol.name}`);
 
-    // Add FQN if available or construct it
+    // Add FQN if available or construct it using hierarchical relationships
     let fqn = symbol.fqn;
     if (!fqn) {
-      if (symbol.kind === 'method') {
-        // For methods, construct FQN from class name and method name
-        const className = this.getClassNameFromSymbol(symbol);
-        if (className) {
-          fqn = `${className}.${symbol.name}`;
+      // Use the symbol manager's hierarchical FQN construction
+      fqn = this.symbolManager.constructFQN(symbol);
+
+      // If the FQN is just the symbol name (no parent relationship), try to construct it manually
+      if (fqn === symbol.name && symbol.kind === 'method') {
+        const containingType = this.symbolManager.getContainingType(symbol);
+        if (containingType) {
+          fqn = `${containingType.name}.${symbol.name}`;
+        } else {
+          // Fallback: search for class in the same file
+          const symbolsInFile = this.symbolManager.findSymbolsInFile(
+            symbol.filePath || '',
+          );
+          const classSymbol = symbolsInFile.find(
+            (s: any) => s.kind === 'class',
+          );
+          if (classSymbol) {
+            fqn = `${classSymbol.name}.${symbol.name}`;
+          }
         }
-      } else if (symbol.kind === 'class') {
-        // For classes, the FQN is just the class name
-        fqn = symbol.name;
       }
     }
     if (fqn) {
@@ -840,23 +851,6 @@ export class HoverProcessingService implements IHoverProcessor {
     return {
       contents: markupContent,
     };
-  }
-
-  /**
-   * Get the class name from a symbol by looking up its parent class
-   */
-  private getClassNameFromSymbol(symbol: any): string | null {
-    try {
-      // Try to find the class that contains this symbol
-      const symbolsInFile = this.symbolManager.findSymbolsInFile(
-        symbol.filePath || '',
-      );
-      const classSymbol = symbolsInFile.find((s: any) => s.kind === 'class');
-      return classSymbol ? classSymbol.name : null;
-    } catch (error) {
-      this.logger.debug(() => `Error getting class name for symbol: ${error}`);
-      return null;
-    }
   }
 
   /**
