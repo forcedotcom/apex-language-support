@@ -461,6 +461,7 @@ export class ApexSymbolGraph {
         isTransient: false,
         isTestMethod: false,
         isWebService: false,
+        isBuiltIn: false,
       },
       parent: null,
     };

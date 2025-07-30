@@ -53,6 +53,7 @@ export const ModifierFlags = {
   TRANSIENT: 1 << 9,
   TEST_METHOD: 1 << 10,
   WEB_SERVICE: 1 << 11,
+  BUILT_IN: 1 << 12,
 } as const;
 
 /**
@@ -227,6 +228,7 @@ export class SymbolFactory {
       isTransient: !!(flags & ModifierFlags.TRANSIENT),
       isTestMethod: !!(flags & ModifierFlags.TEST_METHOD),
       isWebService: !!(flags & ModifierFlags.WEB_SERVICE),
+      isBuiltIn: !!(flags & ModifierFlags.BUILT_IN),
     };
   }
 
@@ -273,6 +275,7 @@ export interface SymbolModifiers {
   isTransient: boolean;
   isTestMethod: boolean;
   isWebService: boolean;
+  isBuiltIn: boolean;
 }
 
 /**

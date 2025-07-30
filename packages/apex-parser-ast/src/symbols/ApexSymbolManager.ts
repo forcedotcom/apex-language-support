@@ -29,6 +29,8 @@ import {
   SymbolResolutionResult,
 } from '../types/ISymbolManager';
 import { FQNOptions, calculateFQN, getAncestorChain } from '../utils/FQNUtils';
+import type { SymbolProvider } from '../types/namespaceResolution';
+import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 
 /**
  * File metadata for tracking symbol relationships
@@ -408,13 +410,14 @@ export class UnifiedCache {
 /**
  * Main Apex Symbol Manager with DST integration
  */
-export class ApexSymbolManager implements ISymbolManager {
+export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private readonly logger = getLogger();
   private symbolGraph: ApexSymbolGraph;
   private fileMetadata: HashMap<string, FileMetadata>;
   private unifiedCache: UnifiedCache;
   private readonly MAX_CACHE_SIZE = 5000;
   private readonly CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+  private readonly builtInTypeTables: BuiltInTypeTablesImpl;
 
   private memoryStats = {
     totalSymbols: 0,
@@ -432,6 +435,7 @@ export class ApexSymbolManager implements ISymbolManager {
       this.CACHE_TTL,
       true,
     );
+    this.builtInTypeTables = BuiltInTypeTablesImpl.getInstance();
   }
 
   /**
@@ -1436,6 +1440,7 @@ export class ApexSymbolManager implements ISymbolManager {
         isTransient: false,
         isTestMethod: false,
         isWebService: false,
+        isBuiltIn: false,
       },
       null, // parentId
       undefined, // typeData
@@ -2050,5 +2055,42 @@ export class ApexSymbolManager implements ISymbolManager {
    */
   public getAncestorChain(symbol: ApexSymbol): ApexSymbol[] {
     return getAncestorChain(symbol);
+  }
+
+  // SymbolProvider implementation methods
+  find(referencingType: ApexSymbol, fullName: string): ApexSymbol | null {
+    // Try to find by FQN first
+    const symbol = this.findSymbolByFQN(fullName);
+    if (symbol) return symbol;
+
+    // Try to find by name
+    const symbols = this.findSymbolByName(fullName);
+    return symbols.length > 0 ? symbols[0] : null;
+  }
+
+  findBuiltInType(name: string): ApexSymbol | null {
+    // Use cached built-in type tables instance
+    return this.builtInTypeTables.findType(name.toLowerCase());
+  }
+
+  findSObjectType(name: string): ApexSymbol | null {
+    const symbols = this.findSymbolByName(name);
+    return (
+      symbols.find((s) => s.kind === 'class' && s.namespace === 'SObject') ||
+      null
+    );
+  }
+
+  findUserType(name: string, namespace?: string): ApexSymbol | null {
+    const symbols = this.findSymbolByName(name);
+    if (namespace) {
+      return symbols.find((s) => s.namespace === namespace) || null;
+    }
+    return symbols.length > 0 ? symbols[0] : null;
+  }
+
+  findExternalType(name: string, packageName: string): ApexSymbol | null {
+    const symbols = this.findSymbolByName(name);
+    return symbols.find((s) => s.namespace === packageName) || null;
   }
 }

@@ -132,6 +132,7 @@ export class ApexSymbolCollectorListener
       isTransient: false,
       isTestMethod: false,
       isWebService: false,
+      isBuiltIn: false,
     };
   }
 
@@ -677,6 +678,7 @@ export class ApexSymbolCollectorListener
         isTransient: false,
         isTestMethod: false,
         isWebService: false,
+        isBuiltIn: false,
       };
 
       // Get the return type
