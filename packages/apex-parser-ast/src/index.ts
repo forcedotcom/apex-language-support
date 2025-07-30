@@ -39,7 +39,6 @@ export * from './utils/NamespaceUtils';
 export * from './utils/BuiltInTypeTables';
 export * from './utils/ResolutionRules';
 export * from './utils/NamespaceResolver';
-export * from './utils/ResourceLoaderIntegration';
 
 // Export compiler service
 export * from './parser/compilerService';

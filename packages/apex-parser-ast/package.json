@@ -22,7 +22,7 @@
   ],
   "scripts": {
     "bundle": "tsup",
-    "precompile": "node scripts/generate-zip.mjs",
+    "precompile": "node scripts/generate-zip.mjs && node scripts/generate-namespaces.mjs",
     "compile": "tsc --build",
     "test": "jest",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",

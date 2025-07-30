@@ -6,8 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbol } from './symbol';
-import { ReferenceType } from '../symbols/ApexSymbolGraph';
+import { ApexSymbol, SymbolTable } from './symbol';
 
 /**
  * Reference types that determine resolution order
@@ -77,6 +76,8 @@ export interface CompilationContext {
   readonly enclosingTypes: ApexSymbol[];
   readonly parentTypes: ApexSymbol[];
   readonly isStaticContext: boolean;
+  /** Current compilation unit's symbol table for constrained resolution during compilation */
+  readonly currentSymbolTable?: SymbolTable;
 }
 
 /**

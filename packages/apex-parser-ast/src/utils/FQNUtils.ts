@@ -11,73 +11,7 @@
  */
 
 import { ApexSymbol, SymbolKind } from '../types/symbol';
-
-// TODO: The list of built in namespaces should be generated from standard Apex classes.
-// List of known Salesforce built-in namespaces
-export const BUILT_IN_NAMESPACES = [
-  'AppLauncher',
-  'Approval',
-  'Apex',
-  'ApexPages',
-  'Auth',
-  'Cache',
-  'Canvas',
-  'ChatterAnswers',
-  'CommerceBuyGrp',
-  'CommerceExtension',
-  'CommerceOrders',
-  'CommercePayments',
-  'CommerceTax',
-  'Compression',
-  'ConnectApi',
-  'Context',
-  'Database',
-  'DataRetrieval',
-  'DataSource',
-  'DataWeave',
-  'Datacloud',
-  'Dom',
-  'embeddedai',
-  'EventBus',
-  'Flow',
-  'FormulaEval',
-  'Functions',
-  'industriesNlpSvc',
-  'Invocable',
-  'InvoiceWriteOff',
-  'IsvPartners',
-  'KbManagement',
-  'Label',
-  'LxScheduler',
-  'Messaging',
-  'Metadata',
-  'PlaceQuote',
-  'Pref_center',
-  'Process',
-  'QuickAction',
-  'Reports',
-  'RevSalesTrxn',
-  'RevSignaling',
-  'RichMessaging',
-  'Salesforce_Backup',
-  'Schema',
-  'Search',
-  'sfdc_surveys',
-  'Sfc',
-  'Sfdc_Enablement',
-  'Site',
-  'Slack',
-  'Support',
-  'System',
-  'TerritoryMgmt',
-  'Test',
-  'Trigger',
-  'TxnSecurity',
-  'UserProvisioning',
-  'VisualEditor',
-  'Visualforce',
-  'Wave',
-];
+import { BUILT_IN_NAMESPACES } from '../generated/builtInNamespaces';
 
 /**
  * Options for FQN generation
@@ -264,7 +198,7 @@ export function extractNamespace(
   if (!name) return '';
 
   // If it's a built-in namespace, return the name itself
-  if (BUILT_IN_NAMESPACES.includes(name)) {
+  if (BUILT_IN_NAMESPACES.includes(name as any)) {
     return name;
   }
 
@@ -272,7 +206,7 @@ export function extractNamespace(
   if (name.includes('.')) {
     const parts = name.split('.');
     // Check if the first part is a built-in namespace
-    if (BUILT_IN_NAMESPACES.includes(parts[0])) {
+    if (BUILT_IN_NAMESPACES.includes(parts[0] as any)) {
       return parts[0];
     }
   }

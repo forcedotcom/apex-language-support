@@ -16,13 +16,9 @@ import { CompilerService, CompilationOptions } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import type { SymbolTable } from '../types/symbol';
-import { ApexSymbolManager } from '../symbols/ApexSymbolManager';
-import { SymbolManagerFactory } from '../symbols/SymbolManagerFactory';
-import { BuiltInTypeTablesImpl } from './BuiltInTypeTables';
 
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
-  symbolManager?: ApexSymbolManager;
 }
 
 interface FileContent {
@@ -47,14 +43,12 @@ function isDecodedContent(contents: string | Uint8Array): contents is string {
  * - Unzip archive of standard Apex classes
  * - Track file references with associated source
  * - Compile source code
- * - Add compiled symbols to symbol manager/graph
  * - Provide access to source for goto definition
  *
  * @example
  * ```typescript
  * const loader = ResourceLoader.getInstance({
- *   loadMode: 'full',
- *   symbolManager: existingSymbolManager
+ *   loadMode: 'full'
  * });
  *
  * await loader.initialize();
@@ -73,21 +67,15 @@ export class ResourceLoader {
   private initialized = false;
   private compilationPromise: Promise<void> | null = null;
   private loadMode: 'lazy' | 'full' = 'full';
-  private symbolManager: ApexSymbolManager | null = null;
   private readonly logger = getLogger();
   private compilerService: CompilerService;
-  private builtInTypeTables: BuiltInTypeTablesImpl;
 
   private constructor(options?: ResourceLoaderOptions) {
     if (options?.loadMode) {
       this.loadMode = options.loadMode;
     }
-    if (options?.symbolManager) {
-      this.symbolManager = options.symbolManager;
-    }
 
     this.compilerService = new CompilerService();
-    this.builtInTypeTables = BuiltInTypeTablesImpl.getInstance();
 
     // Always create compiledArtifacts map for backward compatibility
     this.compiledArtifacts = new CaseInsensitivePathMap();
@@ -99,12 +87,6 @@ export class ResourceLoader {
     }
 
     try {
-      // Get or create symbol manager
-      if (!this.symbolManager) {
-        this.symbolManager =
-          SymbolManagerFactory.createSymbolManager() as ApexSymbolManager;
-      }
-
       // Unzip the contents
       const files = unzipSync(zipData);
 
@@ -154,7 +136,6 @@ export class ResourceLoader {
       );
       this.logger.debug(() => `Total files loaded: ${totalFiles}`);
       this.logger.debug(() => `Loading mode: ${this.loadMode}`);
-      this.logger.debug(() => 'Symbol manager integration: enabled');
       this.logger.debug(() => '\nFiles per directory:');
       for (const [dir, count] of dirStats.entries()) {
         this.logger.debug(() => `  ${dir}: ${count} files`);
@@ -252,7 +233,7 @@ export class ResourceLoader {
   }
 
   /**
-   * Enhanced compilation that integrates with ApexSymbolManager
+   * Compile all artifacts and store results
    * @private
    */
   private async compileAllArtifacts(): Promise<void> {
@@ -313,7 +294,6 @@ export class ResourceLoader {
       // Process and store results
       let compiledCount = 0;
       let errorCount = 0;
-      let symbolsAdded = 0;
 
       results.forEach((result) => {
         if (result.result) {
@@ -326,35 +306,6 @@ export class ResourceLoader {
             compilationResult,
           });
           compiledCount++;
-
-          // Temporarily disable symbol manager integration to debug compilation issues
-          // if (this.symbolManager) {
-          //   const symbolTable = compilationResult.result;
-          //   const symbols = symbolTable?.getAllSymbols
-          //     ? symbolTable.getAllSymbols()
-          //     : [];
-
-          //   // Add all symbols to the symbol manager
-          //   symbols.forEach((symbol) => {
-          //     try {
-          //       this.symbolManager!.addSymbol(
-          //         symbol,
-          //         result.fileName,
-          //         symbolTable || undefined,
-          //       );
-          //       symbolsAdded++;
-          //     } catch (error) {
-          //       this.logger.debug(
-          //         () => `Failed to add symbol ${symbol.name}: ${error}`,
-          //       );
-          //     }
-          //   });
-
-          //   this.logger.debug(
-          //     () =>
-          //       `Added ${symbols.length} symbols from ${result.fileName} to symbol manager`,
-          //   );
-          // }
 
           if (result.errors.length > 0) {
             errorCount++;
@@ -371,7 +322,7 @@ export class ResourceLoader {
       this.logger.debug(
         () =>
           `Parallel compilation completed in ${duration.toFixed(2)}s: ` +
-          `${compiledCount} files compiled, ${errorCount} files with errors, ${symbolsAdded} symbols added to manager`,
+          `${compiledCount} files compiled, ${errorCount} files with errors`,
       );
     } catch (error) {
       this.logger.error(() => 'Failed to compile artifacts:');
@@ -427,35 +378,16 @@ export class ResourceLoader {
   }
 
   /**
-   * Get the symbol manager instance used by this resource loader
-   * @returns The ApexSymbolManager instance or null if not integrated
-   */
-  public getSymbolManager(): ApexSymbolManager | null {
-    return this.symbolManager;
-  }
-
-  /**
-   * Check if symbol manager integration is enabled
-   * @returns true if symbols are being added to the symbol manager
-   */
-  public isSymbolManagerIntegrationEnabled(): boolean {
-    return true;
-  }
-
-  /**
    * Get statistics about loaded and compiled resources
    * @returns Statistics object
    */
   public getStatistics(): {
     totalFiles: number;
     compiledFiles: number;
-    symbolsAdded: number;
-    symbolManagerIntegration: boolean;
     loadMode: string;
   } {
     let totalFiles = 0;
     let compiledFiles = 0;
-    let symbolsAdded = 0;
 
     // Count total files
     for (const [_normalizedPath, content] of this.fileMap.entries()) {
@@ -470,17 +402,9 @@ export class ResourceLoader {
       if (artifact) compiledFiles++;
     }
 
-    // Count symbols if symbol manager is available
-    if (this.symbolManager) {
-      const stats = this.symbolManager.getStats();
-      symbolsAdded = stats.totalSymbols;
-    }
-
     return {
       totalFiles,
       compiledFiles,
-      symbolsAdded,
-      symbolManagerIntegration: true,
       loadMode: this.loadMode,
     };
   }

@@ -51,6 +51,13 @@ export interface TypeInfo {
   };
 
   /**
+   * Indicates if namespace resolution is needed for this type
+   * This is true when the type name is ambiguous or requires
+   * runtime resolution based on context
+   */
+  needsNamespaceResolution?: boolean;
+
+  /**
    * Get the namespace of this type
    */
   getNamespace(): Namespace | null;

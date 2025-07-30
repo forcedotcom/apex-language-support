@@ -30,7 +30,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
-import { Namespace, Namespaces } from '../../semantics/namespaces';
+import { createTypeInfo } from '../../utils/TypeInfoFactory';
 import {
   EnumSymbol,
   MethodSymbol,
@@ -1158,53 +1158,10 @@ export class ApexSymbolCollectorListener
 
   /**
    * Create a TypeInfo object from a type string
+   * Uses createTypeInfo for comprehensive namespace resolution
    */
   private createTypeInfo(typeString: string): TypeInfo {
-    this.logger.debug(
-      () => `createTypeInfo called with typeString: ${typeString}`,
-    );
-
-    // Handle qualified type names (e.g., System.PageReference)
-    if (typeString.includes('.')) {
-      const [namespace, typeName] = typeString.split('.');
-      this.logger.debug(
-        () =>
-          `Processing qualified type - namespace: ${namespace}, typeName: ${typeName}`,
-      );
-
-      // Use predefined namespaces for built-in types
-      if (namespace === 'System') {
-        this.logger.debug(
-          () => 'Using Namespaces.SYSTEM for System namespace type',
-        );
-        return {
-          name: typeName,
-          isArray: false,
-          isCollection: false,
-          isPrimitive: false,
-          namespace: Namespaces.SYSTEM,
-          originalTypeString: typeString,
-          getNamespace: () => Namespaces.SYSTEM,
-        };
-      }
-      // For other namespaces, create a new namespace instance
-      this.logger.debug(
-        () => 'Creating new namespace instance for non-System namespace',
-      );
-      return {
-        name: typeName,
-        isArray: false,
-        isCollection: false,
-        isPrimitive: false,
-        namespace: new Namespace(namespace, ''),
-        originalTypeString: typeString,
-        getNamespace: () => new Namespace(namespace, ''),
-      };
-    }
-
-    // For simple types, use createPrimitiveType
-    this.logger.debug(() => 'Using createPrimitiveType for simple type');
-    return createPrimitiveType(typeString);
+    return createTypeInfo(typeString);
   }
 
   /**
