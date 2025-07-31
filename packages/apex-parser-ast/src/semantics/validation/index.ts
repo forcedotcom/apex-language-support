@@ -17,6 +17,8 @@ export { SObjectTypeValidator } from './SObjectTypeValidator';
 export { AddErrorMethodValidator } from './AddErrorMethodValidator';
 export { DecimalToDoubleValidator } from './DecimalToDoubleValidator';
 export { MapPutAllValidator } from './MapPutAllValidator';
+export { SObjectCollectionValidator } from './SObjectCollectionValidator';
+export { SystemComparatorValidator } from './SystemComparatorValidator';
 
 // Expression validation exports
 export { TypePromotionSystem } from './TypePromotionSystem';

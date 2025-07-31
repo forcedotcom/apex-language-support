@@ -36,11 +36,11 @@ This document tracks the progress of implementing semantic validation rules in t
 - **AddError Method Validation**: 21 tests ✅
 - **Decimal to Double Conversion Validation**: 19 tests ✅
 - **Map PutAll Validation**: 25 tests ✅
+- **SObject Collection Validation**: 36 tests ✅
+- **System Comparator Validation**: 27 tests ✅
 
 ### ⏳ **Pending**
 
-- SObject Collection Validation (Phase 4, Step 4)
-- System Comparator Validation (Phase 4, Step 5)
 - Custom Entity Validation (Phase 4, Step 6)
 - SObject Recalculate Formulas Validation (Phase 4, Step 7)
 - Main Method Validator Integration (Phase 4, Step 8)
@@ -50,10 +50,10 @@ This document tracks the progress of implementing semantic validation rules in t
 
 ### Overall Progress Summary
 
-**Total Validation Tests**: 386 tests ✅  
-**All validation tests passing**: 386/386 ✅  
+**Total Validation Tests**: 449 tests ✅  
+**All validation tests passing**: 449/449 ✅  
 **Phases Completed**: 3/5 (60%)  
-**Phase 4 Progress**: 3/8 steps completed (37.5%)  
+**Phase 4 Progress**: 5/8 steps completed (62.5%)  
 **Implementation Approach**: Test-Driven Development (TDD) ✅
 
 ### 1. Identifier Validation ✅ COMPLETED
@@ -166,11 +166,11 @@ This document tracks the progress of implementing semantic validation rules in t
 - ✅ AddError method validation (21 tests)
 - ✅ Decimal to Double conversion validation (19 tests)
 - ✅ Map PutAll validation (25 tests)
+- ✅ SObject collection validation (36 tests)
+- ✅ System comparator validation (27 tests)
 
 #### Planned Components:
 
-- ⏳ SObject collection validation
-- ⏳ System comparator validation
 - ⏳ Custom entity validation
 - ⏳ SObject formula recalculation validation
 
