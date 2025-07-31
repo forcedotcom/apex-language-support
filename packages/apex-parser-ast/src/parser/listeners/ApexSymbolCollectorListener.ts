@@ -32,6 +32,7 @@ import { BaseApexParserListener } from './BaseApexParserListener';
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
+import { TypeReferenceFactory } from '../../types/typeReference';
 import {
   EnumSymbol,
   MethodSymbol,
@@ -489,7 +490,7 @@ export class ApexSymbolCollectorListener
       const idNode = ctx.id();
       const name = idNode?.text ?? 'unknownMethod';
 
-      this.logger.debug(() => `=== Method Declaration Debug ===`);
+      this.logger.debug(() => '=== Method Declaration Debug ===');
       this.logger.debug(() => `Context type: ${ctx.constructor.name}`);
       this.logger.debug(() => `ID node: ${idNode ? 'present' : 'null'}`);
       this.logger.debug(() => `ID node text: "${idNode?.text || 'undefined'}"`);
@@ -728,7 +729,7 @@ export class ApexSymbolCollectorListener
       const idNode = ctx.id();
       const name = idNode?.text ?? 'unknownMethod';
 
-      this.logger.debug(() => `=== Interface Method Declaration Debug ===`);
+      this.logger.debug(() => '=== Interface Method Declaration Debug ===');
       this.logger.debug(() => `Context type: ${ctx.constructor.name}`);
       this.logger.debug(() => `ID node: ${idNode ? 'present' : 'null'}`);
       this.logger.debug(() => `ID node text: "${idNode?.text || 'undefined'}"`);
@@ -1534,7 +1535,8 @@ export class ApexSymbolCollectorListener
    */
   private createValidationScope() {
     return {
-      supportsLongIdentifiers: this.projectNamespace !== undefined, // Assume long identifiers supported if namespace is set
+      // Assume long identifiers supported if namespace is set
+      supportsLongIdentifiers: this.projectNamespace !== undefined,
       version: 58, // Default to latest Apex API version
       isFileBased: true,
     };
@@ -1627,5 +1629,191 @@ export class ApexSymbolCollectorListener
     // Exit trigger scope
     this.symbolTable.exitScope();
     this.currentTypeSymbol = null;
+  }
+
+  // NEW: Type Reference Capture Methods
+
+  /**
+   * Override enterEveryRule to capture type references from all rules
+   */
+  enterEveryRule(ctx: ParserRuleContext): void {
+    try {
+      this.captureTypeReferences(ctx);
+    } catch (error) {
+      this.logger.warn(() => `Error capturing type references: ${error}`);
+    }
+  }
+
+  /**
+   * Capture type references from parser rules
+   */
+  private captureTypeReferences(ctx: ParserRuleContext): void {
+    const text = ctx.text || '';
+
+    // Capture method calls (e.g., "FileUtilities.createFile(...)")
+    if (this.isMethodCall(text)) {
+      this.captureMethodCall(ctx, text);
+    }
+
+    // Capture field access (e.g., "property.Id")
+    if (this.isFieldAccess(text)) {
+      this.captureFieldAccess(ctx, text);
+    }
+
+    // Capture constructor calls (e.g., "new Property__c()")
+    if (this.isConstructorCall(text)) {
+      this.captureConstructorCall(ctx, text);
+    }
+
+    // Capture type declarations (e.g., "Property__c property")
+    if (this.isTypeDeclaration(text)) {
+      this.captureTypeDeclaration(ctx, text);
+    }
+  }
+
+  /**
+   * Check if text represents a method call
+   */
+  private isMethodCall(text: string): boolean {
+    // Pattern: identifier.identifier(...)
+    return /^\w+\.\w+\(/.test(text) || /^\w+\(/.test(text);
+  }
+
+  /**
+   * Check if text represents field access
+   */
+  private isFieldAccess(text: string): boolean {
+    // Pattern: identifier.identifier (but not method call)
+    return /^\w+\.\w+$/.test(text) && !text.includes('(');
+  }
+
+  /**
+   * Check if text represents a constructor call
+   */
+  private isConstructorCall(text: string): boolean {
+    // Pattern: new TypeName(...)
+    return /^new\s+\w+\(/.test(text);
+  }
+
+  /**
+   * Check if text represents a type declaration
+   */
+  private isTypeDeclaration(text: string): boolean {
+    // Pattern: TypeName identifier
+    return /^(\w+(?:__c)?)\s+\w+/.test(text);
+  }
+
+  /**
+   * Capture method call reference
+   */
+  private captureMethodCall(ctx: ParserRuleContext, text: string): void {
+    const methodMatch = text.match(/^(\w+\.)?(\w+)\(/);
+    if (methodMatch) {
+      const qualifier = methodMatch[1]
+        ? methodMatch[1].slice(0, -1)
+        : undefined;
+      const methodName = methodMatch[2];
+      const location = this.getLocationForReference(ctx);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createMethodCallReference(
+        methodName,
+        location,
+        qualifier,
+        parentContext,
+      );
+
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        () =>
+          `Captured method call reference: ${methodName} (qualifier: ${qualifier})`,
+      );
+    }
+  }
+
+  /**
+   * Capture field access reference
+   */
+  private captureFieldAccess(ctx: ParserRuleContext, text: string): void {
+    const fieldMatch = text.match(/^(\w+)\.(\w+)$/);
+    if (fieldMatch) {
+      const objectName = fieldMatch[1];
+      const fieldName = fieldMatch[2];
+      const location = this.getLocationForReference(ctx);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createFieldAccessReference(
+        fieldName,
+        location,
+        objectName,
+        parentContext,
+      );
+
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        () =>
+          `Captured field access reference: ${fieldName} (object: ${objectName})`,
+      );
+    }
+  }
+
+  /**
+   * Capture constructor call reference
+   */
+  private captureConstructorCall(ctx: ParserRuleContext, text: string): void {
+    const constructorMatch = text.match(/^new\s+(\w+)/);
+    if (constructorMatch) {
+      const typeName = constructorMatch[1];
+      const location = this.getLocationForReference(ctx);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createConstructorCallReference(
+        typeName,
+        location,
+        parentContext,
+      );
+
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        () => `Captured constructor call reference: ${typeName}`,
+      );
+    }
+  }
+
+  /**
+   * Capture type declaration reference
+   */
+  private captureTypeDeclaration(ctx: ParserRuleContext, text: string): void {
+    const typeMatch = text.match(/^(\w+(?:__c)?)\s+\w+/);
+    if (typeMatch) {
+      const typeName = typeMatch[1];
+      const location = this.getLocationForReference(ctx);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createTypeDeclarationReference(
+        typeName,
+        location,
+        parentContext,
+      );
+
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        () => `Captured type declaration reference: ${typeName}`,
+      );
+    }
+  }
+
+  /**
+   * Get the current method name for context
+   */
+  private getCurrentMethodName(): string | undefined {
+    return this.currentMethodSymbol?.name || 'global';
+  }
+
+  /**
+   * Get SymbolLocation for type references
+   */
+  private getLocationForReference(ctx: ParserRuleContext): SymbolLocation {
+    return this.getLocation(ctx);
   }
 }

@@ -12,6 +12,7 @@ import {
   Namespace,
   createTypeWithNamespace,
 } from '../namespace/NamespaceUtils';
+import { TypeReference, ReferenceContext } from './typeReference';
 
 /**
  * Types of symbols that can be defined in Apex code
@@ -701,6 +702,7 @@ export class SymbolTable {
   private current: SymbolScope;
   private symbolMap: HashMap<string, ApexSymbol> = new HashMap();
   private scopeMap: HashMap<string, SymbolScope> = new HashMap();
+  private references: TypeReference[] = []; // NEW: Store type references
 
   /**
    * Creates a new symbol table.
@@ -865,6 +867,63 @@ export class SymbolTable {
    */
   getAllSymbols(): ApexSymbol[] {
     return Array.from(this.symbolMap.values());
+  }
+
+  /**
+   * Add a type reference to the symbol table
+   * @param ref The type reference to add
+   */
+  addTypeReference(ref: TypeReference): void {
+    this.references.push(ref);
+  }
+
+  /**
+   * Get all type references in the symbol table
+   * @returns Array of all type references
+   */
+  getAllReferences(): TypeReference[] {
+    return [...this.references]; // Return a copy to prevent external modification
+  }
+
+  /**
+   * Get type references at a specific position
+   * @param position The position to search for references (0-based)
+   * @returns Array of type references at the position
+   */
+  getReferencesAtPosition(position: {
+    line: number;
+    character: number;
+  }): TypeReference[] {
+    return this.references.filter((ref) =>
+      this.positionInRange(position, ref.location),
+    );
+  }
+
+  /**
+   * Get type references by context
+   * @param context The reference context to filter by
+   * @returns Array of type references with the specified context
+   */
+  getReferencesByContext(context: ReferenceContext): TypeReference[] {
+    return this.references.filter((ref) => ref.context === context);
+  }
+
+  /**
+   * Check if a position is within a location range
+   * @param position The position to check (0-based)
+   * @param location The location range (0-based)
+   * @returns True if position is within the location range
+   */
+  private positionInRange(
+    position: { line: number; character: number },
+    location: SymbolLocation,
+  ): boolean {
+    return (
+      position.line >= location.startLine &&
+      position.line <= location.endLine &&
+      position.character >= location.startColumn &&
+      position.character < location.endColumn
+    );
   }
 
   /**
