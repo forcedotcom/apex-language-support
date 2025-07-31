@@ -7,4 +7,13 @@
  */
 
 export { IdentifierValidator } from './IdentifierValidator';
+export { TypeValidator, TypeVisibilityValidator } from './TypeValidator';
+export { TypeVisibilityValidator as TypeVisibilityValidatorClass } from './TypeVisibilityValidator';
+export { TypeCastingValidator } from './TypeCastingValidator';
 export type { ValidationResult, ValidationScope } from './ValidationResult';
+export type {
+  TypeInfo,
+  TypeValidationResult,
+  TypeValidationContext,
+  CompilationContext,
+} from './TypeValidator';
