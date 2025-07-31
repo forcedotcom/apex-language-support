@@ -39,10 +39,10 @@ This document tracks the progress of implementing semantic validation rules in t
 - **SObject Collection Validation**: 36 tests ✅
 - **System Comparator Validation**: 27 tests ✅
 - **Custom Entity Validation**: 29 tests ✅
+- **SObject Recalculate Formulas Validation**: 29 tests ✅
 
 ### ⏳ **Pending**
 
-- SObject Recalculate Formulas Validation (Phase 4, Step 7)
 - Main Method Validator Integration (Phase 4, Step 8)
 - Advanced Validation (Phase 5)
 
@@ -50,10 +50,10 @@ This document tracks the progress of implementing semantic validation rules in t
 
 ### Overall Progress Summary
 
-**Total Validation Tests**: 478 tests ✅  
-**All validation tests passing**: 478/478 ✅  
+**Total Validation Tests**: 507 tests ✅  
+**All validation tests passing**: 507/507 ✅  
 **Phases Completed**: 3/5 (60%)  
-**Phase 4 Progress**: 6/8 steps completed (75%)  
+**Phase 4 Progress**: 7/8 steps completed (87.5%)  
 **Implementation Approach**: Test-Driven Development (TDD) ✅
 
 ### 1. Identifier Validation ✅ COMPLETED
@@ -169,10 +169,11 @@ This document tracks the progress of implementing semantic validation rules in t
 - ✅ SObject collection validation (36 tests)
 - ✅ System comparator validation (27 tests)
 - ✅ Custom entity validation (29 tests)
+- ✅ SObject formula recalculation validation (29 tests)
 
 #### Planned Components:
 
-- ⏳ SObject formula recalculation validation
+- ⏳ Main method validator integration
 
 ### 5. Advanced Validation ⏳ PENDING
 
