@@ -13,6 +13,11 @@ export { TypeCastingValidator } from './TypeCastingValidator';
 export { CollectionTypeValidator } from './CollectionTypeValidator';
 export { SObjectTypeValidator } from './SObjectTypeValidator';
 
+// Method validation exports
+export { AddErrorMethodValidator } from './AddErrorMethodValidator';
+export { DecimalToDoubleValidator } from './DecimalToDoubleValidator';
+export { MapPutAllValidator } from './MapPutAllValidator';
+
 // Expression validation exports
 export { TypePromotionSystem } from './TypePromotionSystem';
 export { BinaryExpressionValidator } from './BinaryExpressionValidator';

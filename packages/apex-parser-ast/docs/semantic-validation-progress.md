@@ -30,18 +30,30 @@ This document tracks the progress of implementing semantic validation rules in t
 - **Main Expression Validator**: 29 tests ✅
 - **Total Expression Tests**: 144 tests ✅
 
+### 🔄 **In Progress (Phase 4)**
+
+- **Built-in Method Validation**: Partially implemented with comprehensive test suite
+- **AddError Method Validation**: 21 tests ✅
+- **Decimal to Double Conversion Validation**: 19 tests ✅
+- **Map PutAll Validation**: 25 tests ✅
+
 ### ⏳ **Pending**
 
-- Built-in Method Validation (Phase 4)
+- SObject Collection Validation (Phase 4, Step 4)
+- System Comparator Validation (Phase 4, Step 5)
+- Custom Entity Validation (Phase 4, Step 6)
+- SObject Recalculate Formulas Validation (Phase 4, Step 7)
+- Main Method Validator Integration (Phase 4, Step 8)
 - Advanced Validation (Phase 5)
 
 ## Detailed Progress by Category
 
 ### Overall Progress Summary
 
-**Total Validation Tests**: 321 tests ✅  
-**All validation tests passing**: 321/321 ✅  
+**Total Validation Tests**: 386 tests ✅  
+**All validation tests passing**: 386/386 ✅  
 **Phases Completed**: 3/5 (60%)  
+**Phase 4 Progress**: 3/8 steps completed (37.5%)  
 **Implementation Approach**: Test-Driven Development (TDD) ✅
 
 ### 1. Identifier Validation ✅ COMPLETED
@@ -144,16 +156,19 @@ This document tracks the progress of implementing semantic validation rules in t
 - **Architecture**: Modular design with unified interface
 - **Integration**: Ready for parser and LSP integration
 
-### 4. Built-in Method Validation ⏳ PENDING
+### 4. Built-in Method Validation 🔄 IN PROGRESS
 
-**Status**: ⏳ Not Started  
-**Priority**: Medium (Phase 4)
+**Status**: 🔄 Partially Implemented  
+**Priority**: Medium (Phase 4) - **IN PROGRESS**
+
+#### Completed Components:
+
+- ✅ AddError method validation (21 tests)
+- ✅ Decimal to Double conversion validation (19 tests)
+- ✅ Map PutAll validation (25 tests)
 
 #### Planned Components:
 
-- ⏳ AddError method validation
-- ⏳ Decimal to Double conversion validation
-- ⏳ Map PutAll validation
 - ⏳ SObject collection validation
 - ⏳ System comparator validation
 - ⏳ Custom entity validation
