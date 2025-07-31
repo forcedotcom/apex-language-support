@@ -22,6 +22,7 @@ import {
   updateApexServerStatusError,
 } from './status-bar';
 import { baselineCollector } from './baseline-measurement';
+import { runEffectRestartLanguageServer } from './observability/instrumented-restart';
 
 /**
  * Global language client instance
@@ -155,13 +156,27 @@ export const restartLanguageServer = async (
     'info',
   );
 
-  // Measure restart performance with baseline collector
-  await baselineCollector.measureOperation(
-    'restart-language-server',
-    async () => {
-      await startLanguageServer(context, restartHandler);
-    },
+  // Check if Effect.ts observability is enabled
+  const config = vscode.workspace.getConfiguration('apex-ls-ts');
+  const useEffectObservability = config.get<boolean>(
+    'observability.useEffect',
+    false,
   );
+
+  if (useEffectObservability) {
+    // Use Effect.ts instrumented restart
+    console.log('[EFFECT] Using Effect.ts observability for restart');
+    await runEffectRestartLanguageServer(context, restartHandler);
+  } else {
+    // Use baseline measurement
+    console.log('[BASELINE] Using baseline measurement for restart');
+    await baselineCollector.measureOperation(
+      'restart-language-server',
+      async () => {
+        await startLanguageServer(context, restartHandler);
+      },
+    );
+  }
 };
 
 /**

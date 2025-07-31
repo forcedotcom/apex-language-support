@@ -162,6 +162,11 @@
           ],
           "default": "info",
           "description": "%configuration.apex-ls-ts.logLevel.description%"
+        },
+        "apex-ls-ts.observability.useEffect": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Effect.ts observability for comprehensive tracing, metrics, and logging"
         }
       }
     },
@@ -201,6 +206,22 @@
       {
         "command": "apex.baseline.clearStats",
         "title": "Apex: Clear Baseline Stats"
+      },
+      {
+        "command": "apex.observability.enableEffect",
+        "title": "Apex: Enable Effect.ts Observability"
+      },
+      {
+        "command": "apex.observability.disableEffect",
+        "title": "Apex: Disable Effect.ts Observability (Use Baseline)"
+      },
+      {
+        "command": "apex.observability.simulateError",
+        "title": "Apex: Simulate Error Scenario (Demo Error Handling)"
+      },
+      {
+        "command": "apex.observability.checkAlerts",
+        "title": "Apex: Check Monitoring Alerts (Analyze Telemetry)"
       }
     ],
     "viewsContainers": {
@@ -228,8 +249,10 @@
   },
   "dependencies": {
     "@effect/platform": "^0.90.0",
+    "@effect/platform-node": "^0.94.0",
     "@effect/schema": "^0.75.5",
     "@salesforce/apex-ls-node": "1.0.0",
+    "effect": "^3.17.4",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.0.8"

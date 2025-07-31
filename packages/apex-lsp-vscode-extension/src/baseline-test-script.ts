@@ -10,6 +10,8 @@ import * as vscode from 'vscode';
 import { baselineCollector } from './baseline-measurement';
 import { saveBaselineStats } from './language-server';
 import { enableBaselineTesting, disableBaselineTesting } from './commands';
+import { runSimulatedErrorRestart } from './observability/instrumented-restart';
+import { monitoringAlerts } from './observability/monitoring-alerts';
 
 export interface BaselineTestConfig {
   numberOfTests: number;
@@ -197,10 +199,154 @@ export const registerBaselineTestCommands = (
     },
   );
 
+  // Effect.ts observability toggle commands
+  const enableEffectCommand = vscode.commands.registerCommand(
+    'apex.observability.enableEffect',
+    async () => {
+      const config = vscode.workspace.getConfiguration('apex-ls-ts');
+      await config.update(
+        'observability.useEffect',
+        true,
+        vscode.ConfigurationTarget.Workspace,
+      );
+      vscode.window.showInformationMessage(
+        'Effect.ts observability enabled! Restart commands will now use Effect.ts instrumentation.',
+      );
+    },
+  );
+
+  const disableEffectCommand = vscode.commands.registerCommand(
+    'apex.observability.disableEffect',
+    async () => {
+      const config = vscode.workspace.getConfiguration('apex-ls-ts');
+      await config.update(
+        'observability.useEffect',
+        false,
+        vscode.ConfigurationTarget.Workspace,
+      );
+      vscode.window.showInformationMessage(
+        'Effect.ts observability disabled! Restart commands will use baseline measurement.',
+      );
+    },
+  );
+
+  // Error simulation command
+  const simulateErrorCommand = vscode.commands.registerCommand(
+    'apex.observability.simulateError',
+    async () => {
+      // Ensure Effect.ts observability is enabled
+      const config = vscode.workspace.getConfiguration('apex-ls-ts');
+      const isEffectEnabled = config.get<boolean>(
+        'observability.useEffect',
+        false,
+      );
+
+      if (!isEffectEnabled) {
+        const enableResult = await vscode.window.showWarningMessage(
+          'Effect.ts observability must be enabled to demonstrate error handling. Enable it now?',
+          'Enable & Run',
+          'Cancel',
+        );
+
+        if (enableResult === 'Enable & Run') {
+          await config.update(
+            'observability.useEffect',
+            true,
+            vscode.ConfigurationTarget.Workspace,
+          );
+        } else {
+          return;
+        }
+      }
+
+      try {
+        vscode.window.showInformationMessage(
+          'Running error simulation to demonstrate Effect.ts error handling...',
+        );
+
+        // Run the simulated error restart
+        await runSimulatedErrorRestart(context, async () => {
+          // Dummy restart handler for simulation
+          console.log('[ERROR SIMULATION] Simulated restart handler called');
+        });
+
+        // This shouldn't execute due to the error
+        vscode.window.showInformationMessage(
+          'Unexpected: Error simulation completed successfully',
+        );
+      } catch (error) {
+        // This is expected - show the error handling worked
+        vscode.window.showErrorMessage(
+          `Error handling demonstration complete! Check telemetry files for error traces. Error: ${error instanceof Error ? error.message : String(error)}`,
+        );
+
+        console.log('[ERROR SIMULATION] Demonstrated error handling:', error);
+      }
+    },
+  );
+
+  // Monitoring alerts command
+  const checkAlertsCommand = vscode.commands.registerCommand(
+    'apex.observability.checkAlerts',
+    async () => {
+      try {
+        vscode.window.showInformationMessage(
+          'Running monitoring alert checks...',
+        );
+
+        const alerts = await monitoringAlerts.checkAlerts();
+        const formattedAlerts = monitoringAlerts.formatAlerts(alerts);
+
+        if (alerts.length === 0) {
+          vscode.window.showInformationMessage(
+            '✅ No alerts triggered - all systems normal',
+          );
+        } else {
+          // Save alerts to file
+          await monitoringAlerts.saveAlerts(alerts);
+
+          // Show alert summary
+          const criticalCount = alerts.filter(
+            (a) => a.severity === 'critical',
+          ).length;
+          const warningCount = alerts.filter(
+            (a) => a.severity === 'warning',
+          ).length;
+          const infoCount = alerts.filter((a) => a.severity === 'info').length;
+
+          let alertSummary = `🚨 ${alerts.length} alerts triggered: `;
+          if (criticalCount > 0) alertSummary += `${criticalCount} critical `;
+          if (warningCount > 0) alertSummary += `${warningCount} warning `;
+          if (infoCount > 0) alertSummary += `${infoCount} info`;
+
+          if (criticalCount > 0) {
+            vscode.window.showErrorMessage(alertSummary);
+          } else if (warningCount > 0) {
+            vscode.window.showWarningMessage(alertSummary);
+          } else {
+            vscode.window.showInformationMessage(alertSummary);
+          }
+
+          // Show detailed alerts in output channel
+          console.log('[MONITORING ALERTS]');
+          console.log('==================');
+          console.log(formattedAlerts);
+        }
+      } catch (error) {
+        vscode.window.showErrorMessage(`Failed to check alerts: ${error}`);
+        console.error('[MONITORING] Alert check failed:', error);
+      }
+    },
+  );
+
   context.subscriptions.push(
     quickTestCommand,
     fullTestCommand,
     saveStatsCommand,
     clearStatsCommand,
+    enableEffectCommand,
+    disableEffectCommand,
+    simulateErrorCommand,
+    checkAlertsCommand,
   );
 };
