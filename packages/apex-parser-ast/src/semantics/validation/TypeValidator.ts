@@ -1,5 +1,5 @@
-import type { ValidationResult } from './ValidationResult';
-import type { SymbolVisibility } from '../../types/symbol';
+import type { ValidationResult, ValidationScope } from './ValidationResult';
+import { SymbolVisibility } from '../../types/symbol';
 
 /**
  * Type information for validation

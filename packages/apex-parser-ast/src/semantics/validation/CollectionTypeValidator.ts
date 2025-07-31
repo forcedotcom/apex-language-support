@@ -8,6 +8,7 @@
 
 import type { ValidationResult } from './ValidationResult';
 import type { TypeInfo } from './TypeValidator';
+import { SymbolVisibility } from '../../types/symbol';
 
 /**
  * Context for collection type validation
@@ -317,8 +318,8 @@ export class CollectionTypeValidator {
       if (typeInfo.namespace.name !== scope.currentContext.currentNamespace) {
         // Check if type is public/global
         if (
-          typeInfo.visibility !== 'Public' &&
-          typeInfo.visibility !== 'Global'
+          typeInfo.visibility !== SymbolVisibility.Public &&
+          typeInfo.visibility !== SymbolVisibility.Global
         ) {
           return false;
         }

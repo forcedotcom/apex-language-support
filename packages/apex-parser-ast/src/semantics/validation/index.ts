@@ -12,6 +12,14 @@ export { TypeVisibilityValidator as TypeVisibilityValidatorClass } from './TypeV
 export { TypeCastingValidator } from './TypeCastingValidator';
 export { CollectionTypeValidator } from './CollectionTypeValidator';
 export { SObjectTypeValidator } from './SObjectTypeValidator';
+
+// Expression validation exports
+export { TypePromotionSystem } from './TypePromotionSystem';
+export { BinaryExpressionValidator } from './BinaryExpressionValidator';
+export { BooleanExpressionValidator } from './BooleanExpressionValidator';
+export { VariableExpressionValidator } from './VariableExpressionValidator';
+export { ExpressionValidator } from './ExpressionValidator';
+
 export type { ValidationResult, ValidationScope } from './ValidationResult';
 export type {
   TypeInfo,
@@ -25,7 +33,16 @@ export type {
 } from './CollectionTypeValidator';
 export type {
   ValidationScope as SObjectValidationScope,
-  TypeInfo as SObjectTypeInfo,
   SObjectFieldInfo,
   SObjectValidationContext,
 } from './SObjectTypeValidator';
+
+// Expression validation types
+export type {
+  BinaryExpression,
+  ComparisonExpression,
+  VariableExpression,
+  NotExpression,
+  Expression,
+} from './ExpressionValidator';
+export type { ExpressionType } from './TypePromotionSystem';

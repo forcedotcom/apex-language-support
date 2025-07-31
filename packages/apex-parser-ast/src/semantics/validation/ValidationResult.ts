@@ -16,6 +16,8 @@ export interface ValidationResult {
   errors: string[];
   /** List of warning messages */
   warnings: string[];
+  /** Type information (for expression validation) */
+  type?: any;
 }
 
 /**
