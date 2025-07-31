@@ -126,6 +126,13 @@ export class IdentifierValidator {
       return { isValid: false, errors, warnings };
     }
 
+    // Check 5: Length validation
+    const maxLength = this.getMaxLength(type, isTopLevel, scope);
+    if (name.length > maxLength) {
+      errors.push(`Identifier name is too long: ${name} (max: ${maxLength})`);
+      return { isValid: false, errors, warnings };
+    }
+
     return { isValid: true, errors, warnings };
   }
 
@@ -174,5 +181,39 @@ export class IdentifierValidator {
    */
   private static isDigit(char: string): boolean {
     return /[0-9]/.test(char);
+  }
+
+  /**
+   * Get maximum length for identifier type
+   */
+  private static getMaxLength(
+    type: SymbolKind,
+    isTopLevel: boolean,
+    scope: ValidationScope,
+  ): number {
+    const MAX_LENGTH = 255;
+    const MAX_CLASS_LENGTH = 40;
+
+    switch (type) {
+      case SymbolKind.Enum:
+      case SymbolKind.Class:
+      case SymbolKind.Interface:
+        // Check if long identifiers are supported
+        if (!isTopLevel || scope.supportsLongIdentifiers) {
+          return MAX_LENGTH;
+        }
+        return MAX_CLASS_LENGTH;
+      case SymbolKind.Method:
+      case SymbolKind.Variable:
+      case SymbolKind.Constructor:
+      case SymbolKind.Trigger:
+      case SymbolKind.Property:
+      case SymbolKind.Field:
+      case SymbolKind.Parameter:
+      case SymbolKind.EnumValue:
+        return MAX_LENGTH;
+      default:
+        return MAX_LENGTH;
+    }
   }
 }

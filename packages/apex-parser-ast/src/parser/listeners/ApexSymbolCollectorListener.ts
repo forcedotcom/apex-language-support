@@ -53,6 +53,7 @@ import {
   InterfaceBodyValidator,
   ErrorReporter,
 } from '../../semantics/modifiers/index';
+import { IdentifierValidator } from '../../semantics/validation/IdentifierValidator';
 import {
   hasIdMethod,
   isEnumSymbol,
@@ -258,6 +259,21 @@ export class ApexSymbolCollectorListener
       const name = ctx.id()?.text ?? 'unknownClass';
       this.logger.debug(() => `Entering class declaration: ${name}`);
 
+      // Validate identifier
+      const validationResult = IdentifierValidator.validateIdentifier(
+        name,
+        SymbolKind.Class,
+        !this.currentTypeSymbol, // isTopLevel
+        this.createValidationScope(),
+      );
+
+      if (!validationResult.isValid) {
+        validationResult.errors.forEach((error) => {
+          this.addError(error, ctx);
+        });
+        return; // Skip symbol creation if validation fails
+      }
+
       // Validate class in interface
       InterfaceBodyValidator.validateClassInInterface(
         name,
@@ -375,6 +391,21 @@ export class ApexSymbolCollectorListener
       const name = ctx.id()?.text ?? 'unknownInterface';
       this.logger.debug(() => `Entering interface declaration: ${name}`);
 
+      // Validate identifier
+      const validationResult = IdentifierValidator.validateIdentifier(
+        name,
+        SymbolKind.Interface,
+        !this.currentTypeSymbol, // isTopLevel
+        this.createValidationScope(),
+      );
+
+      if (!validationResult.isValid) {
+        validationResult.errors.forEach((error) => {
+          this.addError(error, ctx);
+        });
+        return; // Skip symbol creation if validation fails
+      }
+
       // Validate interface in interface
       InterfaceBodyValidator.validateInterfaceInInterface(
         name,
@@ -478,6 +509,21 @@ export class ApexSymbolCollectorListener
         () =>
           `Entering method declaration: ${name} in class: ${this.currentTypeSymbol?.name}`,
       );
+
+      // Validate identifier
+      const validationResult = IdentifierValidator.validateIdentifier(
+        name,
+        SymbolKind.Method,
+        false, // Methods are never top-level
+        this.createValidationScope(),
+      );
+
+      if (!validationResult.isValid) {
+        validationResult.errors.forEach((error) => {
+          this.addError(error, ctx);
+        });
+        return; // Skip symbol creation if validation fails
+      }
 
       // Get current modifiers and annotations
       const modifiers = this.getCurrentModifiers();
@@ -1076,6 +1122,22 @@ export class ApexSymbolCollectorListener
   ): void {
     try {
       const name = ctx.id()?.text ?? 'unknownVariable';
+
+      // Validate identifier
+      const validationResult = IdentifierValidator.validateIdentifier(
+        name,
+        kind,
+        false, // Variables are never top-level
+        this.createValidationScope(),
+      );
+
+      if (!validationResult.isValid) {
+        validationResult.errors.forEach((error) => {
+          this.addError(error, ctx);
+        });
+        return; // Skip symbol creation if validation fails
+      }
+
       const variableSymbol = this.createVariableSymbol(
         ctx,
         modifiers,
@@ -1465,6 +1527,17 @@ export class ApexSymbolCollectorListener
       current = current.parent as TypeSymbol | null;
     }
     return path;
+  }
+
+  /**
+   * Create a validation scope for identifier validation
+   */
+  private createValidationScope() {
+    return {
+      supportsLongIdentifiers: this.projectNamespace !== undefined, // Assume long identifiers supported if namespace is set
+      version: 58, // Default to latest Apex API version
+      isFileBased: true,
+    };
   }
 
   /**

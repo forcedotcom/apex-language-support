@@ -288,4 +288,126 @@ describe('IdentifierValidator', () => {
       });
     });
   });
+
+  describe('Length Validation', () => {
+    it('should reject identifiers longer than 255 characters', () => {
+      const longName = 'a'.repeat(256);
+      const result = IdentifierValidator.validateIdentifier(
+        longName,
+        SymbolKind.Variable,
+        false,
+        createMockScope(),
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain(
+        `Identifier name is too long: ${longName} (max: 255)`,
+      );
+    });
+
+    it('should allow identifiers exactly 255 characters', () => {
+      const maxLengthName = 'a'.repeat(255);
+      const result = IdentifierValidator.validateIdentifier(
+        maxLengthName,
+        SymbolKind.Variable,
+        false,
+        createMockScope(),
+      );
+
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should reject top-level classes longer than 40 characters when long identifiers not supported', () => {
+      const longClassName = 'a'.repeat(41);
+      const result = IdentifierValidator.validateIdentifier(
+        longClassName,
+        SymbolKind.Class,
+        true,
+        createMockScope({ supportsLongIdentifiers: false }),
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain(
+        `Identifier name is too long: ${longClassName} (max: 40)`,
+      );
+    });
+
+    it('should allow top-level classes longer than 40 characters when long identifiers supported', () => {
+      const longClassName = 'a'.repeat(41);
+      const result = IdentifierValidator.validateIdentifier(
+        longClassName,
+        SymbolKind.Class,
+        true,
+        createMockScope({ supportsLongIdentifiers: true }),
+      );
+
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should allow non-top-level classes longer than 40 characters', () => {
+      const longClassName = 'a'.repeat(41);
+      const result = IdentifierValidator.validateIdentifier(
+        longClassName,
+        SymbolKind.Class,
+        false,
+        createMockScope({ supportsLongIdentifiers: false }),
+      );
+
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should reject top-level interfaces longer than 40 characters when long identifiers not supported', () => {
+      const longInterfaceName = 'a'.repeat(41);
+      const result = IdentifierValidator.validateIdentifier(
+        longInterfaceName,
+        SymbolKind.Interface,
+        true,
+        createMockScope({ supportsLongIdentifiers: false }),
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain(
+        `Identifier name is too long: ${longInterfaceName} (max: 40)`,
+      );
+    });
+
+    it('should reject top-level enums longer than 40 characters when long identifiers not supported', () => {
+      const longEnumName = 'a'.repeat(41);
+      const result = IdentifierValidator.validateIdentifier(
+        longEnumName,
+        SymbolKind.Enum,
+        true,
+        createMockScope({ supportsLongIdentifiers: false }),
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain(
+        `Identifier name is too long: ${longEnumName} (max: 40)`,
+      );
+    });
+
+    it('should allow methods longer than 40 characters', () => {
+      const longMethodName = 'a'.repeat(41);
+      const result = IdentifierValidator.validateIdentifier(
+        longMethodName,
+        SymbolKind.Method,
+        false,
+        createMockScope({ supportsLongIdentifiers: false }),
+      );
+
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should allow variables longer than 40 characters', () => {
+      const longVariableName = 'a'.repeat(41);
+      const result = IdentifierValidator.validateIdentifier(
+        longVariableName,
+        SymbolKind.Variable,
+        false,
+        createMockScope({ supportsLongIdentifiers: false }),
+      );
+
+      expect(result.isValid).toBe(true);
+    });
+  });
 });
