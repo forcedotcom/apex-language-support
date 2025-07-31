@@ -9,6 +9,7 @@
 import { BinaryExpressionValidator } from './BinaryExpressionValidator';
 import { BooleanExpressionValidator } from './BooleanExpressionValidator';
 import { VariableExpressionValidator } from './VariableExpressionValidator';
+import { ConstructorExpressionValidator } from './ConstructorExpressionValidator';
 import { TypePromotionSystem } from './TypePromotionSystem';
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { ExpressionType } from './TypePromotionSystem';
@@ -41,11 +42,18 @@ export interface NotExpression {
   operand: ExpressionType;
 }
 
+export interface ConstructorExpression {
+  kind: 'constructor';
+  targetType: ExpressionType;
+  fieldInitializers: Map<string, ExpressionType>;
+}
+
 export type Expression =
   | BinaryExpression
   | ComparisonExpression
   | VariableExpression
-  | NotExpression;
+  | NotExpression
+  | ConstructorExpression;
 
 /**
  * Main expression validator that integrates all individual validators
@@ -144,6 +152,20 @@ export class ExpressionValidator {
   }
 
   /**
+   * Validate constructor expressions
+   */
+  validateConstructorExpression(
+    targetType: ExpressionType,
+    fieldInitializers: Map<string, ExpressionType>,
+  ): ValidationResult {
+    return ConstructorExpressionValidator.validateConstructorExpression(
+      targetType,
+      fieldInitializers,
+      this.scope,
+    );
+  }
+
+  /**
    * Main validation method that handles all expression types
    */
   validateExpression(expression: Expression): ValidationResult {
@@ -164,6 +186,11 @@ export class ExpressionValidator {
         return this.validateVariableExpression(expression.name);
       case 'not':
         return this.validateNotExpression(expression.operand);
+      case 'constructor':
+        return this.validateConstructorExpression(
+          expression.targetType,
+          expression.fieldInitializers,
+        );
       default:
         return {
           isValid: false,

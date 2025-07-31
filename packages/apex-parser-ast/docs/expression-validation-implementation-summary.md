@@ -371,3 +371,17 @@ Phase 3: Expression System Implementation has been successfully completed with c
 - ✅ Performance-optimized design
 
 The expression validation system is now ready for production use and provides the foundation for advanced Apex language intelligence features.
+
+## Phase 3 Update: Constructor Expression Validation (semantic-11)
+
+Constructor expression validation is now fully implemented and tested. The validator supports all Apex rules for constructor expressions, including:
+
+- Field existence and type compatibility
+- No duplicate field initialization
+- Name-value pair constructor support
+- Case-insensitive primitive type handling for Apex compliance
+- Early return and correct error for unsupported name-value pair constructors
+
+All unit and integration tests for constructor expressions are passing. This completes the expression validation system for Phase 3.
+
+**Tag:** semantic-11

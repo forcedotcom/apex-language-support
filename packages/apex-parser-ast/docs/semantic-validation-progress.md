@@ -117,7 +117,8 @@ This document tracks the progress of implementing semantic validation rules in t
 - ✅ Boolean expression validation (30 tests)
 - ✅ Variable expression validation (20 tests)
 - ✅ Main expression validator (29 tests)
-- ✅ **Total**: 144 tests across 5 test suites
+- ✅ Constructor expression validation (case-insensitive, Apex-compliant)
+- ✅ **Total**: 166 tests across 6 test suites
 
 #### Files Created:
 
@@ -126,11 +127,13 @@ This document tracks the progress of implementing semantic validation rules in t
 - `src/semantics/validation/BooleanExpressionValidator.ts`
 - `src/semantics/validation/VariableExpressionValidator.ts`
 - `src/semantics/validation/ExpressionValidator.ts`
+- `src/semantics/validation/ConstructorExpressionValidator.ts`
 - `test/semantics/validation/TypePromotionSystem.test.ts`
 - `test/semantics/validation/BinaryExpressionValidator.test.ts`
 - `test/semantics/validation/BooleanExpressionValidator.test.ts`
 - `test/semantics/validation/VariableExpressionValidator.test.ts`
 - `test/semantics/validation/ExpressionValidator.test.ts`
+- `test/semantics/validation/ConstructorExpressionValidator.test.ts`
 - `docs/expression-validation-implementation-summary.md`
 
 #### Implementation Summary:
@@ -140,7 +143,6 @@ This document tracks the progress of implementing semantic validation rules in t
 - **Type System**: Complete type promotion and compatibility system
 - **Architecture**: Modular design with unified interface
 - **Integration**: Ready for parser and LSP integration
-- ⏳ Constructor expression validation
 
 ### 4. Built-in Method Validation ⏳ PENDING
 

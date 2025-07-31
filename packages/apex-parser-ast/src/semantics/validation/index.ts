@@ -18,6 +18,7 @@ export { TypePromotionSystem } from './TypePromotionSystem';
 export { BinaryExpressionValidator } from './BinaryExpressionValidator';
 export { BooleanExpressionValidator } from './BooleanExpressionValidator';
 export { VariableExpressionValidator } from './VariableExpressionValidator';
+export { ConstructorExpressionValidator } from './ConstructorExpressionValidator';
 export { ExpressionValidator } from './ExpressionValidator';
 
 export type { ValidationResult, ValidationScope } from './ValidationResult';
@@ -43,6 +44,7 @@ export type {
   ComparisonExpression,
   VariableExpression,
   NotExpression,
+  ConstructorExpression,
   Expression,
 } from './ExpressionValidator';
 export type { ExpressionType } from './TypePromotionSystem';
