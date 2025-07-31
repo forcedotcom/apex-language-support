@@ -137,7 +137,7 @@ This document outlines the Test-Driven Development (TDD) plan for implementing b
 - `src/semantics/validation/SystemComparatorValidator.ts`
 - `test/semantics/validation/SystemComparatorValidator.test.ts`
 
-### Step 6: Custom Entity Validation ✅
+### Step 6: Custom Entity Validation ✅ COMPLETED
 
 **Objective**: Implement validation for custom entity operations
 
@@ -152,10 +152,19 @@ This document outlines the Test-Driven Development (TDD) plan for implementing b
 2. Invalid custom entity usage
 3. Visibility validation for custom entities
 
-**Files to Create**:
+**Files Created**:
 
-- `src/semantics/validation/CustomEntityValidator.ts`
-- `test/semantics/validation/CustomEntityValidator.test.ts`
+- ✅ `src/semantics/validation/CustomEntityValidator.ts`
+- ✅ `test/semantics/validation/CustomEntityValidator.test.ts`
+
+**Implementation Summary**:
+
+- ✅ Custom entity type validation (naming conventions, visibility, custom type checking)
+- ✅ Custom entity field validation (naming conventions, visibility, custom field checking)
+- ✅ Custom entity operation validation (DML and SOQL operations)
+- ✅ Custom entity visibility validation (namespace access, visibility requirements)
+- ✅ 29 comprehensive test cases covering all validation scenarios
+- ✅ Integration with existing validation infrastructure
 
 ### Step 7: SObject Recalculate Formulas Validation ✅
 

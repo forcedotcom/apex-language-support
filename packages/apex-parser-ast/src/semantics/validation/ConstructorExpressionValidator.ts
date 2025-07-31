@@ -88,10 +88,11 @@ export class ConstructorExpressionValidator {
           }
         } else {
           // If field type is not found, assume it's a String field for test purposes
-          const assumedFieldType = {
+          const assumedFieldType: ExpressionType = {
+            kind: 'primitive',
             name: 'String',
-            isPrimitive: true,
-            isVoid: false,
+            isNullable: false,
+            isArray: false,
           };
           const typeCompatibilityResult = this.validateFieldTypeCompatibility(
             fieldName,
@@ -316,28 +317,118 @@ export class ConstructorExpressionValidator {
   ): Map<string, ExpressionType> {
     const typeMaps: Record<string, Record<string, ExpressionType>> = {
       Account: {
-        Name: { name: 'String', isPrimitive: true, isVoid: false },
-        Phone: { name: 'String', isPrimitive: true, isVoid: false },
-        BillingStreet: { name: 'String', isPrimitive: true, isVoid: false },
-        BillingCity: { name: 'String', isPrimitive: true, isVoid: false },
-        BillingState: { name: 'String', isPrimitive: true, isVoid: false },
-        BillingPostalCode: { name: 'String', isPrimitive: true, isVoid: false },
-        BillingCountry: { name: 'String', isPrimitive: true, isVoid: false },
+        Name: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        Phone: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        BillingStreet: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        BillingCity: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        BillingState: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        BillingPostalCode: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        BillingCountry: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
       },
       Contact: {
-        FirstName: { name: 'String', isPrimitive: true, isVoid: false },
-        LastName: { name: 'String', isPrimitive: true, isVoid: false },
-        Email: { name: 'String', isPrimitive: true, isVoid: false },
-        Phone: { name: 'String', isPrimitive: true, isVoid: false },
-        MailingStreet: { name: 'String', isPrimitive: true, isVoid: false },
-        MailingCity: { name: 'String', isPrimitive: true, isVoid: false },
-        MailingState: { name: 'String', isPrimitive: true, isVoid: false },
-        MailingPostalCode: { name: 'String', isPrimitive: true, isVoid: false },
-        MailingCountry: { name: 'String', isPrimitive: true, isVoid: false },
+        FirstName: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        LastName: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        Email: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        Phone: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        MailingStreet: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        MailingCity: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        MailingState: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        MailingPostalCode: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        MailingCountry: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
       },
       CustomObject__c: {
-        CustomField__c: { name: 'String', isPrimitive: true, isVoid: false },
-        Name: { name: 'String', isPrimitive: true, isVoid: false },
+        CustomField__c: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
+        Name: {
+          kind: 'primitive',
+          name: 'String',
+          isNullable: false,
+          isArray: false,
+        },
       },
     };
 
@@ -345,8 +436,18 @@ export class ConstructorExpressionValidator {
     if (typeName.endsWith('__c')) {
       return new Map(
         Object.entries({
-          CustomField__c: { name: 'String', isPrimitive: true, isVoid: false },
-          Name: { name: 'String', isPrimitive: true, isVoid: false },
+          CustomField__c: {
+            kind: 'primitive',
+            name: 'String',
+            isNullable: false,
+            isArray: false,
+          },
+          Name: {
+            kind: 'primitive',
+            name: 'String',
+            isNullable: false,
+            isArray: false,
+          },
         }),
       );
     }

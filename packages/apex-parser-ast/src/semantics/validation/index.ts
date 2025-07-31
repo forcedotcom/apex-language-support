@@ -19,6 +19,7 @@ export { DecimalToDoubleValidator } from './DecimalToDoubleValidator';
 export { MapPutAllValidator } from './MapPutAllValidator';
 export { SObjectCollectionValidator } from './SObjectCollectionValidator';
 export { SystemComparatorValidator } from './SystemComparatorValidator';
+export { CustomEntityValidator } from './CustomEntityValidator';
 
 // Expression validation exports
 export { TypePromotionSystem } from './TypePromotionSystem';
@@ -44,6 +45,14 @@ export type {
   SObjectFieldInfo,
   SObjectValidationContext,
 } from './SObjectTypeValidator';
+
+// Custom entity validation types
+export type {
+  CustomEntityTypeInfo,
+  CustomEntityFieldInfo,
+  CustomEntityOperationInfo,
+  CustomEntityVisibilityInfo,
+} from './CustomEntityValidator';
 
 // Expression validation types
 export type {
