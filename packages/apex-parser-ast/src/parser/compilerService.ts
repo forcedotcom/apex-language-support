@@ -202,13 +202,6 @@ export class CompilerService {
       const walker = new ParseTreeWalker();
       walker.walk(listener, parseTree);
 
-      // Walk the tree with comment collector if requested
-      let comments: ApexComment[] = [];
-      if (commentCollector) {
-        walker.walk(commentCollector, parseTree);
-        comments = commentCollector.getResult();
-      }
-
       // Phase 4: Deferred namespace resolution
       if (listener instanceof ApexSymbolCollectorListener) {
         this.logger.debug(
@@ -244,6 +237,13 @@ export class CompilerService {
         errors: errorListener.getErrors(),
         warnings: listener.getWarnings(),
       };
+
+      // Walk the tree with comment collector if requested
+      let comments: ApexComment[] = [];
+      if (commentCollector) {
+        walker.walk(commentCollector, parseTree);
+        comments = commentCollector.getResult();
+      }
 
       if (options.includeComments !== false) {
         // Handle comment association if requested

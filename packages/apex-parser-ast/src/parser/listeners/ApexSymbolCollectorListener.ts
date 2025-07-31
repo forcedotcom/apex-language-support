@@ -51,6 +51,8 @@ import {
   Annotation,
   AnnotationParameter,
   SymbolFactory,
+  ApexSymbol,
+  SymbolScope,
 } from '../../types/symbol';
 import {
   ClassModifierValidator,
@@ -493,7 +495,32 @@ export class ApexSymbolCollectorListener
     try {
       // Enhanced debug logging for method name extraction
       const idNode = ctx.id();
-      const name = idNode?.text ?? 'unknownMethod';
+      let name = idNode?.text ?? 'unknownMethod';
+
+      // If the ID node is empty, try to extract from formal parameters
+      if (!name || name.trim() === '') {
+        const formalParams = ctx.formalParameters();
+        if (formalParams) {
+          // The method name is typically the first part before the parentheses
+          const paramsText = formalParams.text;
+          const match = paramsText.match(/^([^(]+)\(/);
+          if (match) {
+            name = match[1].trim();
+          }
+        }
+      }
+
+      console.log(`DEBUG: enterMethodDeclaration called for method: ${name}`);
+      console.log(`DEBUG: ctx.id() result: ${idNode ? 'present' : 'null'}`);
+      console.log(`DEBUG: ctx.text: "${ctx.text}"`);
+      console.log(`DEBUG: ctx.children count: ${ctx.children?.length || 0}`);
+      if (ctx.children) {
+        ctx.children.forEach((child, index) => {
+          console.log(
+            `DEBUG: Child ${index}: ${child.text} (${child.constructor.name})`,
+          );
+        });
+      }
 
       this.logger.debug(() => '=== Method Declaration Debug ===');
       this.logger.debug(() => `Context type: ${ctx.constructor.name}`);
@@ -604,12 +631,17 @@ export class ApexSymbolCollectorListener
 
       // Store the current method symbol
       this.currentMethodSymbol = methodSymbol;
+      console.log(`DEBUG: Created method symbol: ${methodSymbol.name}`);
 
       // Add method symbol to current scope
       this.symbolTable.addSymbol(methodSymbol);
+      console.log(
+        `DEBUG: Added method symbol to symbol table: ${methodSymbol.name}`,
+      );
 
       // Enter method scope
       this.symbolTable.enterScope(name);
+      console.log(`DEBUG: Entered method scope: ${name}`);
       this.logger.debug(() => `Entered method scope: ${name}`);
 
       // Reset annotations for the next symbol
@@ -850,6 +882,9 @@ export class ApexSymbolCollectorListener
         this.currentMethodSymbol.parameters.push(paramSymbol);
       }
       this.symbolTable.addSymbol(paramSymbol);
+
+      // Capture parameter type references
+      this.captureParameterTypeReferences(ctx);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in parameter: ${errorMessage}`, ctx);
@@ -1659,6 +1694,7 @@ export class ApexSymbolCollectorListener
    * Capture constructor call references (e.g., "new Property__c()")
    */
   enterNewExpression(ctx: NewExpressionContext): void {
+    console.log(`DEBUG: enterNewExpression called with text: "${ctx.text}"`);
     try {
       this.captureConstructorCallReference(ctx);
     } catch (error) {
@@ -1674,11 +1710,136 @@ export class ApexSymbolCollectorListener
   enterDotExpression(ctx: DotExpressionContext): void {
     console.log(`DEBUG: enterDotExpression called with text: "${ctx.text}"`);
     try {
-      this.captureFieldAccessReference(ctx);
+      this.captureDottedReferences(ctx);
     } catch (error) {
-      this.logger.warn(
-        () => `Error capturing field access reference: ${error}`,
+      this.logger.warn(() => `Error capturing dotted references: ${error}`);
+    }
+  }
+
+  /**
+   * Capture references for dotted expressions (e.g., FileUtilities.createFile or property.Id)
+   * Emits both CLASS_REFERENCE/VARIABLE_USAGE and METHOD_CALL for method calls,
+   * VARIABLE_USAGE and FIELD_ACCESS for field access.
+   */
+  private captureDottedReferences(ctx: DotExpressionContext): void {
+    const text = ctx.text || '';
+    console.log(`DEBUG: captureDottedReferences called with text: "${text}"`);
+
+    // Check if this is a method call (contains parentheses)
+    if (text.includes('(')) {
+      console.log('DEBUG: Text contains parentheses, checking for method call');
+      // This is a method call like "FileUtilities.createFile(...)" or "property.setName(...)"
+      const methodMatch = text.match(/^(\w+)\.(\w+)\(/);
+      console.log('DEBUG: Method match result:', methodMatch);
+      if (methodMatch) {
+        const qualifier = methodMatch[1];
+        const methodName = methodMatch[2];
+        console.log(
+          `DEBUG: Extracted qualifier: "${qualifier}", methodName: "${methodName}"`,
+        );
+
+        const location = this.getLocationForReference(ctx);
+        const parentContext = this.getCurrentMethodName();
+
+        // Determine if qualifier is a class name or instance variable
+        const isClassReference = !this.isVariableInScope(qualifier);
+        console.log(
+          `DEBUG: isClassReference for "${qualifier}": ${isClassReference}`,
+        );
+
+        // Emit appropriate reference for the qualifier
+        const qualifierLocation: SymbolLocation = {
+          startLine: location.startLine,
+          startColumn: location.startColumn,
+          endLine: location.startLine,
+          endColumn: location.startColumn + qualifier.length,
+        };
+
+        if (isClassReference) {
+          // Qualifier is a class name (e.g., FileUtilities)
+          console.log(`DEBUG: Creating CLASS_REFERENCE for "${qualifier}"`);
+          const classRef = TypeReferenceFactory.createClassReference(
+            qualifier,
+            qualifierLocation,
+            parentContext,
+          );
+          this.symbolTable.addTypeReference(classRef);
+          this.logger.debug(() => `Captured CLASS_REFERENCE: ${qualifier}`);
+        } else {
+          // Qualifier is an instance variable (e.g., property)
+          console.log(`DEBUG: Creating VARIABLE_USAGE for "${qualifier}"`);
+          const variableRef = TypeReferenceFactory.createVariableUsageReference(
+            qualifier,
+            qualifierLocation,
+            parentContext,
+          );
+          this.symbolTable.addTypeReference(variableRef);
+          this.logger.debug(() => `Captured VARIABLE_USAGE: ${qualifier}`);
+        }
+
+        // Emit METHOD_CALL for the method
+        console.log(`DEBUG: Creating METHOD_CALL for "${methodName}"`);
+        const methodRef = TypeReferenceFactory.createMethodCallReference(
+          methodName,
+          location,
+          qualifier,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(methodRef);
+        this.logger.debug(
+          () => `Captured METHOD_CALL: ${methodName} (qualifier: ${qualifier})`,
+        );
+      } else {
+        console.log('DEBUG: Method regex did not match');
+      }
+    } else {
+      console.log(
+        'DEBUG: Text does not contain parentheses, checking for field access',
       );
+      // This is field access like "property.Id"
+      const fieldMatch = text.match(/^(\w+)\.(\w+)$/);
+      console.log('DEBUG: Field match result:', fieldMatch);
+      if (fieldMatch) {
+        const objectName = fieldMatch[1];
+        const fieldName = fieldMatch[2];
+        console.log(
+          `DEBUG: Extracted objectName: "${objectName}", fieldName: "${fieldName}"`,
+        );
+
+        const location = this.getLocationForReference(ctx);
+        const parentContext = this.getCurrentMethodName();
+
+        // Emit VARIABLE_USAGE for the object (always an instance variable)
+        const objectLocation: SymbolLocation = {
+          startLine: location.startLine,
+          startColumn: location.startColumn,
+          endLine: location.startLine,
+          endColumn: location.startColumn + objectName.length,
+        };
+        console.log(`DEBUG: Creating VARIABLE_USAGE for "${objectName}"`);
+        const variableRef = TypeReferenceFactory.createVariableUsageReference(
+          objectName,
+          objectLocation,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(variableRef);
+
+        // Emit FIELD_ACCESS for the field
+        console.log(`DEBUG: Creating FIELD_ACCESS for "${fieldName}"`);
+        const fieldRef = TypeReferenceFactory.createFieldAccessReference(
+          fieldName,
+          location,
+          objectName,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(fieldRef);
+        this.logger.debug(
+          () =>
+            `Captured VARIABLE_USAGE: ${objectName} and FIELD_ACCESS: ${fieldName}`,
+        );
+      } else {
+        console.log('DEBUG: Field regex did not match');
+      }
     }
   }
 
@@ -1729,14 +1890,20 @@ export class ApexSymbolCollectorListener
    */
   private captureConstructorCallReference(ctx: NewExpressionContext): void {
     const text = ctx.text || '';
+    console.log(
+      `DEBUG: captureConstructorCallReference called with text: "${text}"`,
+    );
 
     // Extract type name from constructor call
-    // Format: "new TypeName(...)"
-    const constructorMatch = text.match(/^new\s+(\w+(?:__c)?)\(/);
+    // Format: "new TypeName(...)" or "newTypeName(...)" (no spaces)
+    const constructorMatch = text.match(/^new\s*(\w+(?:__c)?)\(/);
+    console.log('DEBUG: Constructor match result:', constructorMatch);
     if (constructorMatch) {
       const typeName = constructorMatch[1];
       const location = this.getLocationForReference(ctx);
       const parentContext = this.getCurrentMethodName();
+
+      console.log(`DEBUG: Creating CONSTRUCTOR_CALL for "${typeName}"`);
 
       const reference = TypeReferenceFactory.createConstructorCallReference(
         typeName,
@@ -1748,6 +1915,8 @@ export class ApexSymbolCollectorListener
       this.logger.debug(
         () => `Captured constructor call reference: ${typeName}`,
       );
+    } else {
+      console.log(`DEBUG: No constructor match found for text: "${text}"`);
     }
   }
 
@@ -1836,14 +2005,105 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Get the current method name for context
+   * Capture parameter type references from FormalParameterContext
+   * Handles both simple types and complex types with dots (e.g., List<String>, Map<String, Property__c>)
+   */
+  private captureParameterTypeReferences(ctx: FormalParameterContext): void {
+    const typeRef = ctx.typeRef();
+    if (!typeRef) return;
+
+    const text = typeRef.text || '';
+    console.log(
+      `DEBUG: captureParameterTypeReferences called with text: "${text}"`,
+    );
+
+    // Handle complex types with dots (e.g., List<String>, Map<String, Property__c>)
+    if (text.includes('<') && text.includes('>')) {
+      // Extract the base type (e.g., "List" from "List<String>")
+      const baseTypeMatch = text.match(/^(\w+(?:__c)?)</);
+      if (baseTypeMatch) {
+        const baseTypeName = baseTypeMatch[1];
+        const location = this.getLocationForReference(typeRef);
+        const parentContext = this.getCurrentMethodName();
+
+        const baseReference = TypeReferenceFactory.createParameterTypeReference(
+          baseTypeName,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(baseReference);
+        console.log(
+          `DEBUG: Created PARAMETER_TYPE for base type: "${baseTypeName}"`,
+        );
+      }
+
+      // Extract generic type parameters (e.g., "String" from "List<String>")
+      const genericMatches = text.match(/<([^>]+)>/g);
+      if (genericMatches) {
+        for (const genericMatch of genericMatches) {
+          // Remove < and > and split by comma
+          const genericTypes = genericMatch
+            .slice(1, -1)
+            .split(',')
+            .map((t) => t.trim());
+          for (const genericType of genericTypes) {
+            const location = this.getLocationForReference(typeRef);
+            const parentContext = this.getCurrentMethodName();
+
+            const genericReference =
+              TypeReferenceFactory.createParameterTypeReference(
+                genericType,
+                location,
+                parentContext,
+              );
+            this.symbolTable.addTypeReference(genericReference);
+            console.log(
+              `DEBUG: Created PARAMETER_TYPE for generic type: "${genericType}"`,
+            );
+          }
+        }
+      }
+    } else {
+      // Handle simple types (e.g., "String", "Property__c")
+      const typeName = text.trim();
+      const location = this.getLocationForReference(typeRef);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createParameterTypeReference(
+        typeName,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      console.log(
+        `DEBUG: Created PARAMETER_TYPE for simple type: "${typeName}"`,
+      );
+    }
+  }
+
+  /**
+   * Get the name of the current method being processed
+   * Traverses the scope stack to find the parent method scope
    */
   private getCurrentMethodName(): string | undefined {
-    const methodName = this.currentMethodSymbol?.name || 'global';
-    console.log(
-      `DEBUG: getCurrentMethodName() called, currentMethodSymbol: ${this.currentMethodSymbol?.name || 'null'}, returning: ${methodName}`,
-    );
-    return methodName;
+    // Traverse the scope hierarchy to find the parent method
+    let currentScope: SymbolScope | null = this.symbolTable.getCurrentScope();
+
+    while (currentScope) {
+      // Skip file, global, and block scopes
+      if (
+        currentScope.name !== 'file' &&
+        currentScope.name !== 'global' &&
+        !currentScope.name.startsWith('block')
+      ) {
+        // This is likely a method scope
+        return currentScope.name;
+      }
+      // Move up to parent scope
+      currentScope = currentScope.parent || null;
+    }
+
+    return undefined;
   }
 
   /**
@@ -1851,5 +2111,18 @@ export class ApexSymbolCollectorListener
    */
   private getLocationForReference(ctx: ParserRuleContext): SymbolLocation {
     return this.getLocation(ctx);
+  }
+
+  /**
+   * Check if a variable name exists in the current scope
+   */
+  private isVariableInScope(variableName: string): boolean {
+    // Check if the variable exists in the current symbol table scope
+    const currentScope = this.symbolTable.getCurrentScope();
+    if (!currentScope) return false;
+
+    // Look for the variable in the current scope
+    const symbols = currentScope.getAllSymbols();
+    return symbols.some((symbol: ApexSymbol) => symbol.name === variableName);
   }
 }

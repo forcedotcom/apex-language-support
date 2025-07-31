@@ -13,11 +13,12 @@ import { SymbolLocation } from './symbol';
  */
 export enum ReferenceContext {
   METHOD_CALL = 0,
-  TYPE_DECLARATION = 1,
-  FIELD_ACCESS = 2,
-  CONSTRUCTOR_CALL = 3,
-  VARIABLE_USAGE = 4,
-  PARAMETER_TYPE = 5,
+  CLASS_REFERENCE = 1, // For class names in dotted expressions
+  TYPE_DECLARATION = 2,
+  FIELD_ACCESS = 3,
+  CONSTRUCTOR_CALL = 4,
+  VARIABLE_USAGE = 5,
+  PARAMETER_TYPE = 6,
 }
 
 /**
@@ -143,6 +144,23 @@ export class TypeReferenceFactory {
       name: typeName,
       location,
       context: ReferenceContext.PARAMETER_TYPE,
+      parentContext,
+      isResolved: false,
+    };
+  }
+
+  /**
+   * Create a class reference (for dotted expressions like FileUtilities.createFile)
+   */
+  static createClassReference(
+    className: string,
+    location: SymbolLocation,
+    parentContext?: string,
+  ): TypeReference {
+    return {
+      name: className,
+      location,
+      context: ReferenceContext.CLASS_REFERENCE,
       parentContext,
       isResolved: false,
     };
