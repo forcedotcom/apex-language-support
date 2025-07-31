@@ -17,7 +17,7 @@ interface StatementExpressionType extends ExpressionType {
   isPrimitive?: boolean;
   isEnum?: boolean;
   isCollection?: boolean;
-  elementType?: ExpressionType | null;
+  elementType?: ExpressionType;
 }
 
 /**

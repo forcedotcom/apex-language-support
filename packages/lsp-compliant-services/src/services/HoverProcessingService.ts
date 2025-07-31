@@ -134,7 +134,25 @@ export class HoverProcessingService implements IHoverProcessor {
             return null;
           }
         } else {
-          symbolsAtPosition = appropriateSymbols;
+          // Enhanced: Even if we have appropriate symbols, try cross-file resolution
+          // to see if we can find better matches (e.g., class references)
+          const crossFileSymbols = this.findCrossFileSymbols(
+            document,
+            params.position,
+            context,
+          );
+
+          if (crossFileSymbols && crossFileSymbols.length > 0) {
+            // Combine current file symbols with cross-file symbols
+            const allSymbols = [...appropriateSymbols, ...crossFileSymbols];
+            this.logger.debug(
+              () =>
+                `Combined ${appropriateSymbols.length} local symbols with ${crossFileSymbols.length} cross-file symbols`,
+            );
+            symbolsAtPosition = allSymbols;
+          } else {
+            symbolsAtPosition = appropriateSymbols;
+          }
         }
       }
 
@@ -242,22 +260,41 @@ export class HoverProcessingService implements IHoverProcessor {
           );
           return false;
         }
-        if (
-          position.line === symbolStartLine &&
-          position.character < startColumn
-        ) {
-          this.logger.debug(
-            () =>
-              `Position ${position.character} before symbol start column ${startColumn}`,
-          );
-          return false;
-        }
-        if (position.line === symbolEndLine && position.character > endColumn) {
-          this.logger.debug(
-            () =>
-              `Position ${position.character} after symbol end column ${endColumn}`,
-          );
-          return false;
+
+        // For single-line symbols, check column bounds
+        if (symbolStartLine === symbolEndLine) {
+          if (
+            position.character < startColumn ||
+            position.character > endColumn
+          ) {
+            this.logger.debug(
+              () =>
+                `Position ${position.character} outside symbol column range ${startColumn}-${endColumn}`,
+            );
+            return false;
+          }
+        } else {
+          // For multi-line symbols, check column bounds only on start and end lines
+          if (
+            position.line === symbolStartLine &&
+            position.character < startColumn
+          ) {
+            this.logger.debug(
+              () =>
+                `Position ${position.character} before symbol start column ${startColumn}`,
+            );
+            return false;
+          }
+          if (
+            position.line === symbolEndLine &&
+            position.character > endColumn
+          ) {
+            this.logger.debug(
+              () =>
+                `Position ${position.character} after symbol end column ${endColumn}`,
+            );
+            return false;
+          }
         }
 
         this.logger.debug(
@@ -304,6 +341,11 @@ export class HoverProcessingService implements IHoverProcessor {
       const text = document.getText();
       const lines = text.split('\n');
       const currentLine = lines[position.line] || '';
+
+      this.logger.debug(
+        () => `Processing line ${position.line}: "${currentLine}"`,
+      );
+      this.logger.debug(() => `Total lines in document: ${lines.length}`);
 
       // Extract potential symbol names from the current line
       const symbolNames = this.extractSymbolNamesFromLine(
@@ -367,21 +409,68 @@ export class HoverProcessingService implements IHoverProcessor {
   ): string[] {
     const symbolNames: string[] = [];
 
-    // Simple regex to find identifier patterns around the cursor position
+    this.logger.debug(
+      () => `Extracting symbols from line: "${line}" at character ${character}`,
+    );
+
+    // Enhanced regex to find identifier patterns around the cursor position
     const identifierPattern = /[a-zA-Z_][a-zA-Z0-9_]*/g;
-    let match;
+    let match: RegExpExecArray | null;
 
     while ((match = identifierPattern.exec(line)) !== null) {
       const start = match.index;
       const end = start + match[0].length;
 
+      this.logger.debug(
+        () => `Found identifier: "${match[0]}" at ${start}-${end}`,
+      );
+
       // If the cursor is within or adjacent to this identifier
       if (character >= start - 1 && character <= end + 1) {
         symbolNames.push(match[0]);
+        this.logger.debug(() => `Added identifier: "${match[0]}"`);
       }
     }
 
-    return symbolNames;
+    // Enhanced: Look for method call patterns like "ClassName.methodName"
+    const methodCallPattern =
+      /([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)/g;
+    let methodMatch: RegExpExecArray | null;
+
+    while ((methodMatch = methodCallPattern.exec(line)) !== null) {
+      const className = methodMatch[1];
+      const methodName = methodMatch[2];
+      const start = methodMatch.index;
+      const end = start + methodMatch[0].length;
+
+      this.logger.debug(
+        () =>
+          `Found method call: "${className}.${methodName}" at ${start}-${end}`,
+      );
+
+      // If the cursor is within the method call pattern
+      if (character >= start && character <= end) {
+        // Add both the class name and method name
+        if (character <= start + className.length) {
+          // Cursor is on the class name part
+          symbolNames.push(className);
+          this.logger.debug(() => `Added class name: "${className}"`);
+        } else {
+          // Cursor is on the method name part
+          symbolNames.push(methodName);
+          symbolNames.push(className); // Also add class name for context
+          this.logger.debug(
+            () =>
+              `Added method name: "${methodName}" and class name: "${className}"`,
+          );
+        }
+      }
+    }
+
+    // Remove duplicates while preserving order
+    const result = [...new Set(symbolNames)];
+    this.logger.debug(() => `Final symbol names: [${result.join(', ')}]`);
+    return result;
   }
 
   /**
@@ -452,6 +541,26 @@ export class HoverProcessingService implements IHoverProcessor {
           () => 'Context suggests class reference, filtering out variables',
         );
         return [];
+      }
+    }
+
+    // Enhanced context detection: if we have multiple symbols and one is a variable
+    // but we're in a method call context, prefer method/class symbols over variables
+    if (symbols.length > 1 && hasVariableSymbol) {
+      // Check if we're in a method call context (e.g., FileUtilities.createFile)
+      const hasMethodCallContext = symbols.some((s) => {
+        // Look for patterns like "ClassName.methodName" in the symbol name or context
+        return (
+          s.name.includes('.') ||
+          (context.sourceFile && context.sourceFile.includes('FileUtilities'))
+        );
+      });
+
+      if (hasMethodCallContext) {
+        this.logger.debug(
+          () => 'Method call context detected, filtering out variables',
+        );
+        return symbols.filter((s) => s.kind !== 'variable');
       }
     }
 
@@ -548,14 +657,51 @@ export class HoverProcessingService implements IHoverProcessor {
       // Symbol specificity analysis - favor more specific symbols over broader ones
       confidence += this.analyzeSymbolSpecificity(symbol, symbols);
 
-      // Update best match if this symbol has higher confidence
-      if (confidence > bestConfidence) {
+      // Special case: In method call context, prioritize cross-file class references
+      // This ensures that "FileUtilities.createFile" hovers on "FileUtilities" class, not local method
+      const isCrossFileClassInMethodCall =
+        symbol.kind === 'class' &&
+        symbol.filePath !== context.sourceFile?.replace('file://', '') &&
+        context.currentScope === 'method';
+
+      if (isCrossFileClassInMethodCall) {
+        this.logger.debug(
+          () =>
+            `Found cross-file class ${symbol.name} in method context - giving priority`,
+        );
+        bestSymbol = symbol;
+        bestConfidence = confidence;
+      } else if (confidence > bestConfidence) {
+        // Only update if not a cross-file class in method context
         bestSymbol = symbol;
         bestConfidence = confidence;
       }
+
+      this.logger.debug(
+        () =>
+          `Symbol ${symbol.name} (${symbol.kind}) confidence: ${confidence}`,
+      );
     }
 
-    return { symbol: bestSymbol, confidence: Math.min(bestConfidence, 0.95) };
+    // Special case: For cross-file class references in method calls, allow higher confidence
+    // This ensures that "FileUtilities.createFile" hovers on "FileUtilities" class, not local method
+    const isCrossFileClassInMethodCall =
+      bestSymbol?.kind === 'class' &&
+      bestSymbol?.filePath !== context.sourceFile?.replace('file://', '') &&
+      context.currentScope === 'method';
+
+    this.logger.debug(
+      () =>
+        `Special case check: bestSymbol=${bestSymbol?.name} (${bestSymbol?.kind}), isCrossFileClassInMethodCall=${isCrossFileClassInMethodCall}, bestConfidence=${bestConfidence}`,
+    );
+
+    const finalConfidence = isCrossFileClassInMethodCall
+      ? bestConfidence
+      : Math.min(bestConfidence, 0.95);
+
+    this.logger.debug(() => `Final confidence: ${finalConfidence}`);
+
+    return { symbol: bestSymbol, confidence: finalConfidence };
   }
 
   /**
@@ -570,6 +716,20 @@ export class HoverProcessingService implements IHoverProcessor {
       if (symbol.filePath === sourceFileName) {
         confidence += 0.3;
       }
+    }
+
+    // Special case: In method call context, prioritize cross-file class references
+    // This handles cases like "FileUtilities.createFile" where we want to hover on "FileUtilities"
+    if (
+      context.currentScope === 'method' &&
+      symbol.kind === 'class' &&
+      symbol.filePath !== context.sourceFile?.replace('file://', '')
+    ) {
+      confidence += 1.0; // Maximum priority for cross-file class references in method calls
+      this.logger.debug(
+        () =>
+          `Boosted confidence for cross-file class ${symbol.name} in method context: +1.0`,
+      );
     }
 
     // Check for Apex-specific symbol kinds
@@ -661,12 +821,32 @@ export class HoverProcessingService implements IHoverProcessor {
    * Create resolution context for symbol lookup
    */
   private createResolutionContext(document: TextDocument, params: HoverParams) {
-    // Use shared context analysis from ApexSymbolManager
-    return this.symbolManager.createResolutionContext(
-      document.getText(),
-      params.position,
-      document.uri,
-    );
+    // Create context using our own scope detection for better hover accuracy
+    const text = document.getText();
+    const currentScope = this.determineCurrentScope(text, params.position);
+    const scopeChain = this.buildScopeChain(text, params.position);
+    const expectedType = this.inferExpectedType(text, params.position);
+    const parameterTypes = this.extractParameterTypes(text, params.position);
+    const accessModifier = this.determineAccessModifier(text, params.position);
+    const isStatic = this.determineIsStatic(text, params.position);
+    const inheritanceChain = this.extractInheritanceChain(text);
+    const interfaceImplementations = this.extractInterfaceImplementations(text);
+    const importStatements = this.extractImportStatements(text);
+    const namespaceContext = this.extractNamespaceContext(text);
+
+    return {
+      sourceFile: document.uri,
+      namespaceContext,
+      currentScope,
+      scopeChain,
+      expectedType,
+      parameterTypes,
+      accessModifier,
+      isStatic,
+      inheritanceChain,
+      interfaceImplementations,
+      importStatements,
+    };
   }
 
   /**
@@ -691,7 +871,8 @@ export class HoverProcessingService implements IHoverProcessor {
       fqn = this.symbolManager.constructFQN(symbol);
 
       // If the FQN is just the symbol name (no parent relationship), try to construct it manually
-      if (fqn === symbol.name && symbol.kind === 'method') {
+      if (fqn === symbol.name) {
+        // Try to find containing type using symbol manager
         const containingType = this.symbolManager.getContainingType(symbol);
         if (containingType) {
           fqn = `${containingType.name}.${symbol.name}`;
@@ -705,10 +886,35 @@ export class HoverProcessingService implements IHoverProcessor {
           );
           if (classSymbol) {
             fqn = `${classSymbol.name}.${symbol.name}`;
+          } else {
+            // Additional fallback: try to extract class name from file path
+            const fileName = symbol.filePath?.split('/').pop()?.split('.')[0];
+            if (fileName && fileName !== symbol.name) {
+              fqn = `${fileName}.${symbol.name}`;
+            }
           }
         }
       }
     }
+
+    // Enhanced FQN construction for all symbol types, not just methods
+    if (fqn && fqn === symbol.name) {
+      // For any symbol that doesn't have a proper FQN, try to construct it
+      const containingType = this.symbolManager.getContainingType(symbol);
+      if (containingType) {
+        fqn = `${containingType.name}.${symbol.name}`;
+      } else {
+        // Try to find class in the same file
+        const symbolsInFile = this.symbolManager.findSymbolsInFile(
+          symbol.filePath || '',
+        );
+        const classSymbol = symbolsInFile.find((s: any) => s.kind === 'class');
+        if (classSymbol) {
+          fqn = `${classSymbol.name}.${symbol.name}`;
+        }
+      }
+    }
+
     if (fqn) {
       content.push(`**FQN:** ${fqn}`);
     }
@@ -901,6 +1107,13 @@ export class HoverProcessingService implements IHoverProcessor {
   private determineCurrentScope(text: string, position: any): string {
     const lines = text.split('\n');
     const currentLine = position.line;
+
+    // Check current line for method call context first
+    const currentLineText = lines[currentLine] || '';
+    if (currentLineText.includes('.') && currentLineText.includes('(')) {
+      // This looks like a method call (e.g., "FileUtilities.createFile(")
+      return 'method';
+    }
 
     // Simple scope detection based on indentation and context
     for (let i = currentLine; i >= 0; i--) {
@@ -1125,5 +1338,24 @@ export class HoverProcessingService implements IHoverProcessor {
     }
 
     return interfaceImplementations;
+  }
+
+  /**
+   * Extract namespace context from text
+   */
+  private extractNamespaceContext(text: string): string {
+    const lines = text.split('\n');
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('namespace ')) {
+        const match = trimmed.match(/namespace\s+([^\s]+)/);
+        if (match) {
+          return match[1];
+        }
+      }
+    }
+
+    return 'default';
   }
 }

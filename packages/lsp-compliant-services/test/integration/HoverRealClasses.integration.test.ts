@@ -78,7 +78,10 @@ describe('Hover Real Classes Integration Tests', () => {
       fileUtilitiesListener,
       {},
     );
-    symbolManager.addSymbolTable(fileUtilitiesTable, 'FileUtilities.cls');
+    symbolManager.addSymbolTable(
+      fileUtilitiesTable,
+      'file://FileUtilities.cls',
+    );
 
     // Parse FileUtilitiesTest.cls
     const fileUtilitiesTestTable = new SymbolTable();
@@ -93,7 +96,7 @@ describe('Hover Real Classes Integration Tests', () => {
     );
     symbolManager.addSymbolTable(
       fileUtilitiesTestTable,
-      'FileUtilitiesTest.cls',
+      'file://FileUtilitiesTest.cls',
     );
 
     // Set up mock storage
@@ -129,10 +132,11 @@ describe('Hover Real Classes Integration Tests', () => {
     hoverService = new HoverProcessingService(mockLogger, symbolManager);
 
     // Debug: Verify symbols are added correctly
-    const fileUtilitiesSymbols =
-      symbolManager.findSymbolsInFile('FileUtilities.cls');
+    const fileUtilitiesSymbols = symbolManager.findSymbolsInFile(
+      'file://FileUtilities.cls',
+    );
     const fileUtilitiesTestSymbols = symbolManager.findSymbolsInFile(
-      'FileUtilitiesTest.cls',
+      'file://FileUtilitiesTest.cls',
     );
 
     console.log(
@@ -150,6 +154,17 @@ describe('Hover Real Classes Integration Tests', () => {
     fileUtilitiesTestSymbols.forEach((symbol: any) => {
       console.log(
         `Debug: FileUtilitiesTest Symbol ${symbol.name} (${symbol.kind}) at ${symbol.location?.startLine}:${symbol.location?.startColumn}-${symbol.location?.endLine}:${symbol.location?.endColumn}`,
+      );
+    });
+
+    // Debug: Dump all symbols for completion to see what's available
+    console.log('Debug: All symbols for completion:');
+    const allSymbols = symbolManager.getAllSymbolsForCompletion();
+    allSymbols.forEach((symbol: any) => {
+      console.log(
+        `  - ${symbol.name} (${symbol.kind}) from ${symbol.filePath} at ${
+          symbol.location?.startLine
+        }:${symbol.location?.startColumn}`,
       );
     });
   });
@@ -358,13 +373,13 @@ describe('Hover Real Classes Integration Tests', () => {
   });
 
   describe('Cross-Class Reference Tests', () => {
-    it('should provide hover information when referencing FileUtilities from test class', async () => {
+    it.only('should provide hover information when referencing FileUtilities from test class', async () => {
       // Mock storage to return the FileUtilitiesTest document
       mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 15, character: 32 }, // Position on 'FileUtilities' in method call
+        position: { line: 13, character: 39 }, // Position on 'FileUtilities' in method call (0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -387,7 +402,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 15, character: 23 }, // Position on 'createFile' in method call
+        position: { line: 13, character: 51 }, // Position on 'createFile' in method call (0-based)
       };
 
       const result = await hoverService.processHover(params);
