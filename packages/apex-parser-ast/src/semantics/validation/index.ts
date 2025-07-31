@@ -11,6 +11,7 @@ export { TypeValidator, TypeVisibilityValidator } from './TypeValidator';
 export { TypeVisibilityValidator as TypeVisibilityValidatorClass } from './TypeVisibilityValidator';
 export { TypeCastingValidator } from './TypeCastingValidator';
 export { CollectionTypeValidator } from './CollectionTypeValidator';
+export { SObjectTypeValidator } from './SObjectTypeValidator';
 export type { ValidationResult, ValidationScope } from './ValidationResult';
 export type {
   TypeInfo,
@@ -22,3 +23,9 @@ export type {
   CollectionValidationContext,
   CompilationContext as CollectionCompilationContext,
 } from './CollectionTypeValidator';
+export type {
+  ValidationScope as SObjectValidationScope,
+  TypeInfo as SObjectTypeInfo,
+  SObjectFieldInfo,
+  SObjectValidationContext,
+} from './SObjectTypeValidator';
