@@ -24,6 +24,11 @@ import {
   TriggerMemberDeclarationContext,
   TriggerUnitContext,
   PropertyDeclarationContext,
+  // Add specific contexts for type reference capture
+  MethodCallExpressionContext,
+  NewExpressionContext,
+  DotExpressionContext,
+  TypeRefContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -1631,137 +1636,103 @@ export class ApexSymbolCollectorListener
     this.currentTypeSymbol = null;
   }
 
-  // NEW: Type Reference Capture Methods
+  // NEW: Type Reference Capture Methods - Using Specific ANTLR Contexts
 
   /**
-   * Override enterEveryRule to capture type references from all rules
+   * Capture method call references (e.g., "FileUtilities.createFile(...)")
    */
-  enterEveryRule(ctx: ParserRuleContext): void {
+  enterMethodCallExpression(ctx: MethodCallExpressionContext): void {
+    console.log(
+      `DEBUG: enterMethodCallExpression called with text: "${ctx.text}"`,
+    );
+    this.logger.debug(
+      () => `DEBUG: enterMethodCallExpression called with text: "${ctx.text}"`,
+    );
     try {
-      this.captureTypeReferences(ctx);
+      this.captureMethodCallReference(ctx);
     } catch (error) {
-      this.logger.warn(() => `Error capturing type references: ${error}`);
+      this.logger.warn(() => `Error capturing method call reference: ${error}`);
     }
   }
 
   /**
-   * Capture type references from parser rules
+   * Capture constructor call references (e.g., "new Property__c()")
    */
-  private captureTypeReferences(ctx: ParserRuleContext): void {
+  enterNewExpression(ctx: NewExpressionContext): void {
+    try {
+      this.captureConstructorCallReference(ctx);
+    } catch (error) {
+      this.logger.warn(
+        () => `Error capturing constructor call reference: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * Capture field access references (e.g., "property.Id")
+   */
+  enterDotExpression(ctx: DotExpressionContext): void {
+    console.log(`DEBUG: enterDotExpression called with text: "${ctx.text}"`);
+    try {
+      this.captureFieldAccessReference(ctx);
+    } catch (error) {
+      this.logger.warn(
+        () => `Error capturing field access reference: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * Capture type references in variable declarations
+   */
+  enterTypeRef(ctx: TypeRefContext): void {
+    try {
+      this.captureTypeDeclarationReference(ctx);
+    } catch (error) {
+      this.logger.warn(
+        () => `Error capturing type declaration reference: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * Capture method call reference from MethodCallExpressionContext
+   * This handles method calls without qualifiers (e.g., "createFile(...)")
+   */
+  private captureMethodCallReference(ctx: MethodCallExpressionContext): void {
     const text = ctx.text || '';
 
-    // Capture method calls (e.g., "FileUtilities.createFile(...)")
-    if (this.isMethodCall(text)) {
-      this.captureMethodCall(ctx, text);
-    }
-
-    // Capture field access (e.g., "property.Id")
-    if (this.isFieldAccess(text)) {
-      this.captureFieldAccess(ctx, text);
-    }
-
-    // Capture constructor calls (e.g., "new Property__c()")
-    if (this.isConstructorCall(text)) {
-      this.captureConstructorCall(ctx, text);
-    }
-
-    // Capture type declarations (e.g., "Property__c property")
-    if (this.isTypeDeclaration(text)) {
-      this.captureTypeDeclaration(ctx, text);
-    }
-  }
-
-  /**
-   * Check if text represents a method call
-   */
-  private isMethodCall(text: string): boolean {
-    // Pattern: identifier.identifier(...)
-    return /^\w+\.\w+\(/.test(text) || /^\w+\(/.test(text);
-  }
-
-  /**
-   * Check if text represents field access
-   */
-  private isFieldAccess(text: string): boolean {
-    // Pattern: identifier.identifier (but not method call)
-    return /^\w+\.\w+$/.test(text) && !text.includes('(');
-  }
-
-  /**
-   * Check if text represents a constructor call
-   */
-  private isConstructorCall(text: string): boolean {
-    // Pattern: new TypeName(...)
-    return /^new\s+\w+\(/.test(text);
-  }
-
-  /**
-   * Check if text represents a type declaration
-   */
-  private isTypeDeclaration(text: string): boolean {
-    // Pattern: TypeName identifier
-    return /^(\w+(?:__c)?)\s+\w+/.test(text);
-  }
-
-  /**
-   * Capture method call reference
-   */
-  private captureMethodCall(ctx: ParserRuleContext, text: string): void {
-    const methodMatch = text.match(/^(\w+\.)?(\w+)\(/);
+    // Extract method name from method call without qualifier
+    // Format: "methodName(...)" (no qualifier)
+    const methodMatch = text.match(/^(\w+)\(/);
     if (methodMatch) {
-      const qualifier = methodMatch[1]
-        ? methodMatch[1].slice(0, -1)
-        : undefined;
-      const methodName = methodMatch[2];
+      const methodName = methodMatch[1];
       const location = this.getLocationForReference(ctx);
       const parentContext = this.getCurrentMethodName();
 
       const reference = TypeReferenceFactory.createMethodCallReference(
         methodName,
         location,
-        qualifier,
+        undefined, // No qualifier for this context
         parentContext,
       );
 
       this.symbolTable.addTypeReference(reference);
       this.logger.debug(
-        () =>
-          `Captured method call reference: ${methodName} (qualifier: ${qualifier})`,
+        () => `Captured method call reference without qualifier: ${methodName}`,
       );
     }
   }
 
   /**
-   * Capture field access reference
+   * Capture constructor call reference from NewExpressionContext
    */
-  private captureFieldAccess(ctx: ParserRuleContext, text: string): void {
-    const fieldMatch = text.match(/^(\w+)\.(\w+)$/);
-    if (fieldMatch) {
-      const objectName = fieldMatch[1];
-      const fieldName = fieldMatch[2];
-      const location = this.getLocationForReference(ctx);
-      const parentContext = this.getCurrentMethodName();
+  private captureConstructorCallReference(ctx: NewExpressionContext): void {
+    const text = ctx.text || '';
 
-      const reference = TypeReferenceFactory.createFieldAccessReference(
-        fieldName,
-        location,
-        objectName,
-        parentContext,
-      );
-
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        () =>
-          `Captured field access reference: ${fieldName} (object: ${objectName})`,
-      );
-    }
-  }
-
-  /**
-   * Capture constructor call reference
-   */
-  private captureConstructorCall(ctx: ParserRuleContext, text: string): void {
-    const constructorMatch = text.match(/^new\s+(\w+)/);
+    // Extract type name from constructor call
+    // Format: "new TypeName(...)"
+    const constructorMatch = text.match(/^new\s+(\w+(?:__c)?)\(/);
     if (constructorMatch) {
       const typeName = constructorMatch[1];
       const location = this.getLocationForReference(ctx);
@@ -1781,10 +1752,71 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Capture type declaration reference
+   * Capture field access reference from DotExpressionContext
    */
-  private captureTypeDeclaration(ctx: ParserRuleContext, text: string): void {
-    const typeMatch = text.match(/^(\w+(?:__c)?)\s+\w+/);
+  private captureFieldAccessReference(ctx: DotExpressionContext): void {
+    const text = ctx.text || '';
+
+    // Check if this is a method call (contains parentheses)
+    if (text.includes('(')) {
+      // This is a method call like "FileUtilities.createFile(...)"
+      const methodMatch = text.match(/^(\w+)\.(\w+)\(/);
+      if (methodMatch) {
+        const qualifier = methodMatch[1];
+        const methodName = methodMatch[2];
+        const location = this.getLocationForReference(ctx);
+        const parentContext = this.getCurrentMethodName();
+
+        const reference = TypeReferenceFactory.createMethodCallReference(
+          methodName,
+          location,
+          qualifier,
+          parentContext,
+        );
+
+        this.symbolTable.addTypeReference(reference);
+        console.log(
+          `DEBUG: Captured method call reference from dot expression: ${methodName} (qualifier: ${qualifier})`,
+        );
+        this.logger.debug(
+          () =>
+            `Captured method call reference from dot expression: ${methodName} (qualifier: ${qualifier})`,
+        );
+      }
+    } else {
+      // This is field access like "property.Id"
+      const fieldMatch = text.match(/^(\w+)\.(\w+)$/);
+      if (fieldMatch) {
+        const objectName = fieldMatch[1];
+        const fieldName = fieldMatch[2];
+        const location = this.getLocationForReference(ctx);
+        const parentContext = this.getCurrentMethodName();
+
+        const reference = TypeReferenceFactory.createFieldAccessReference(
+          fieldName,
+          location,
+          objectName,
+          parentContext,
+        );
+
+        this.symbolTable.addTypeReference(reference);
+        this.logger.debug(
+          () =>
+            `Captured field access reference: ${fieldName} (object: ${objectName})`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Capture type declaration reference from TypeRefContext
+   */
+  private captureTypeDeclarationReference(ctx: TypeRefContext): void {
+    const text = ctx.text || '';
+
+    // Extract type name from type reference
+    // Format: "TypeName" or "TypeName__c"
+    const typeMatch = text.match(/^(\w+(?:__c)?)$/);
     if (typeMatch) {
       const typeName = typeMatch[1];
       const location = this.getLocationForReference(ctx);
@@ -1807,7 +1839,11 @@ export class ApexSymbolCollectorListener
    * Get the current method name for context
    */
   private getCurrentMethodName(): string | undefined {
-    return this.currentMethodSymbol?.name || 'global';
+    const methodName = this.currentMethodSymbol?.name || 'global';
+    console.log(
+      `DEBUG: getCurrentMethodName() called, currentMethodSymbol: ${this.currentMethodSymbol?.name || 'null'}, returning: ${methodName}`,
+    );
+    return methodName;
   }
 
   /**
