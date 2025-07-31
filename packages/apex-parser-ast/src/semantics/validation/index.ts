@@ -10,6 +10,7 @@ export { IdentifierValidator } from './IdentifierValidator';
 export { TypeValidator, TypeVisibilityValidator } from './TypeValidator';
 export { TypeVisibilityValidator as TypeVisibilityValidatorClass } from './TypeVisibilityValidator';
 export { TypeCastingValidator } from './TypeCastingValidator';
+export { CollectionTypeValidator } from './CollectionTypeValidator';
 export type { ValidationResult, ValidationScope } from './ValidationResult';
 export type {
   TypeInfo,
@@ -17,3 +18,7 @@ export type {
   TypeValidationContext,
   CompilationContext,
 } from './TypeValidator';
+export type {
+  CollectionValidationContext,
+  CompilationContext as CollectionCompilationContext,
+} from './CollectionTypeValidator';

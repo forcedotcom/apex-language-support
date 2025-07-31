@@ -63,10 +63,10 @@ This document tracks the progress of implementing semantic validation rules in t
 
 - ✅ Type visibility validation (7 tests)
 - ✅ Type casting validation (19 tests)
+- ✅ Collection type validation (43 tests)
 
 #### Planned Components:
 
-- ⏳ Collection type validation
 - ⏳ SObject type validation
 
 #### Files Created:
@@ -79,9 +79,9 @@ This document tracks the progress of implementing semantic validation rules in t
 
 #### Files to Create:
 
-- `src/semantics/validation/CollectionTypeValidator.ts`
+- ✅ `src/semantics/validation/CollectionTypeValidator.ts`
 - `src/semantics/validation/SObjectTypeValidator.ts`
-- `test/semantics/validation/CollectionTypeValidator.test.ts`
+- ✅ `test/semantics/validation/CollectionTypeValidator.test.ts`
 - `test/semantics/validation/SObjectTypeValidator.test.ts`
 
 ### 3. Expression Validation ⏳ PENDING
@@ -140,11 +140,11 @@ This document tracks the progress of implementing semantic validation rules in t
 
 - ✅ Implement type visibility validation
 - ✅ Implement type casting validation
-- ⏳ Implement collection type validation
+- ✅ Implement collection type validation
 - ⏳ Implement SObject type validation
 - ⏳ Integrate with symbol collection
 
-**Effort**: 3 weeks (2 weeks completed, 1 week remaining)
+**Effort**: 3 weeks (2.5 weeks completed, 0.5 week remaining)
 
 ### Phase 3: Expression System ⏳ PENDING (Weeks 6-9)
 
@@ -251,6 +251,24 @@ This document tracks the progress of implementing semantic validation rules in t
 - ⏳ Integration complexity (multiple systems)
 - ⏳ Compatibility with existing code
 
+## Test Coverage Summary
+
+### Current Test Counts
+
+- **Identifier Validation**: 73 tests ✅
+- **Type Visibility Validation**: 7 tests ✅
+- **Type Casting Validation**: 19 tests ✅
+- **Collection Type Validation**: 43 tests ✅
+- **Total Validation Tests**: 142 tests ✅
+
+### Target Test Counts
+
+- **SObject Type Validation**: ~15-20 tests (pending)
+- **Expression Validation**: ~50-60 tests (pending)
+- **Built-in Method Validation**: ~30-40 tests (pending)
+- **Statement Validation**: ~20-30 tests (pending)
+- **Total Target**: ~250-300 tests
+
 ## Success Criteria Progress
 
 ### Functional Requirements
@@ -276,15 +294,15 @@ This document tracks the progress of implementing semantic validation rules in t
 
 ### Immediate (This Week)
 
-1. **Begin Type Validation Implementation**
-   - Create failing tests for type visibility
-   - Implement TypeVisibilityValidator
-   - Add basic type validation framework
+1. **Complete Type Validation Implementation**
+   - Implement SObject type validation
+   - Integrate collection type validation with symbol collection
+   - Complete type validation integration
 
-2. **Complete Identifier Integration**
-   - Integrate identifier validation with ApexSymbolCollectorListener
-   - Add length validation to IdentifierValidator
-   - Test integration end-to-end
+2. **Begin Expression Validation Planning**
+   - Create TDD plan for expression validation
+   - Set up expression validation infrastructure
+   - Begin with binary expression validation
 
 ### Short Term (Next 2 Weeks)
 
