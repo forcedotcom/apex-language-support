@@ -112,9 +112,9 @@ describe('MultiVolumeFileSystem', () => {
 
       fs.writeFile('custom://file.txt', 'content');
 
-      // The file should be stored at file.txt internally
+      // The file should be stored at /file.txt internally (with leading slash)
       const volume = fs.getVolume('custom');
-      expect(volume.existsSync('file.txt')).toBe(true);
+      expect(volume.existsSync('/file.txt')).toBe(true);
     });
   });
 
@@ -225,9 +225,12 @@ describe('MultiVolumeFileSystem', () => {
       fs.registerVolume('test', { protocol: 'test' });
       fs.writeFile('test://file.txt', 'content');
 
-      // Now make it read-only
-      fs.unregisterVolume('test');
-      fs.registerVolume('test', { protocol: 'test', readOnly: true });
+      // Now make it read-only by updating the config
+      const volume = fs.getVolume('test');
+      const config = fs.getVolumeConfig('test');
+      if (config) {
+        config.readOnly = true;
+      }
 
       expect(fs.exists('test://file.txt')).toBe(true);
       expect(fs.readFile('test://file.txt')).toBe('content');
@@ -264,7 +267,7 @@ describe('MultiVolumeFileSystem', () => {
 
       const exported = fs.exportToJSON('apex');
       expect(exported.apex).toBeDefined();
-      expect(exported.apex['System.cls']).toBe('public class System {}');
+      expect(exported.apex['/System.cls']).toBe('public class System {}');
 
       // Reset and import
       fs.reset('apex');

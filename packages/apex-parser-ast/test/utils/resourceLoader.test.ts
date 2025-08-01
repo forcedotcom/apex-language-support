@@ -99,7 +99,7 @@ describe('ResourceLoader', () => {
   describe('file access', () => {
     beforeEach(async () => {
       loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
-      // No need to call initialize() - structure is available immediately
+      await loader.initialize();
     });
 
     it('should handle different path formats consistently', async () => {
@@ -175,6 +175,7 @@ describe('ResourceLoader', () => {
   describe('loading modes', () => {
     it('should load files lazily in lazy mode', async () => {
       loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+      await loader.initialize();
 
       // First access should load content
       const content1 = await loader.getFile(TEST_FILE);
@@ -212,6 +213,7 @@ describe('ResourceLoader', () => {
   describe('enhanced statistics', () => {
     it('should provide comprehensive statistics', async () => {
       loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+      await loader.initialize();
 
       const stats = loader.getStatistics();
       expect(stats).toBeDefined();

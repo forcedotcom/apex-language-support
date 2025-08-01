@@ -148,7 +148,9 @@ export class MultiVolumeFileSystem implements FileSystemOperations {
       const cleanPath = path.startsWith('/') ? path.slice(1) : path;
       return `${config.rootPath}/${cleanPath}`;
     }
-    return path;
+    // For volumes without rootPath, ensure we have a proper path structure
+    // If the path doesn't start with '/', treat it as a relative path from root
+    return path.startsWith('/') ? path : `/${path}`;
   }
 
   /**
@@ -204,12 +206,12 @@ export class MultiVolumeFileSystem implements FileSystemOperations {
 
     try {
       // Ensure directory exists
-      const dirPath = normalizedPath.substring(
-        0,
-        normalizedPath.lastIndexOf('/'),
-      );
-      if (dirPath && !volume.existsSync(dirPath)) {
-        volume.mkdirSync(dirPath, { recursive: true });
+      const lastSlashIndex = normalizedPath.lastIndexOf('/');
+      if (lastSlashIndex > 0) {
+        const dirPath = normalizedPath.substring(0, lastSlashIndex);
+        if (!volume.existsSync(dirPath)) {
+          volume.mkdirSync(dirPath, { recursive: true });
+        }
       }
 
       volume.writeFileSync(normalizedPath, data);
@@ -253,7 +255,20 @@ export class MultiVolumeFileSystem implements FileSystemOperations {
     const normalizedPath = this.normalizePath(protocol, dirPath);
 
     try {
-      return volume.readdirSync(normalizedPath);
+      const result = volume.readdirSync(normalizedPath);
+      // Handle different return types from memfs
+      if (Array.isArray(result)) {
+        return result.map((item) => {
+          if (typeof item === 'string') {
+            return item;
+          }
+          if (typeof item === 'object' && item !== null && 'name' in item) {
+            return (item as any).name;
+          }
+          return String(item);
+        });
+      }
+      return [];
     } catch (error) {
       this.logger.error(() => `Failed to read directory '${path}': ${error}`);
       throw error;

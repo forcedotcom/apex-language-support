@@ -16,6 +16,8 @@ import { CompilerService, CompilationOptions } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import type { SymbolTable } from '../types/symbol';
+import { MultiVolumeFileSystem } from './MultiVolumeFileSystem';
+import { RESOURCE_URIS } from './ResourceUtils';
 
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
@@ -62,7 +64,7 @@ export class ResourceLoader {
   private preloadStdClasses: boolean = false;
   private readonly logger = getLogger();
   private compilerService: CompilerService;
-  private memfsVolume: Volume;
+  private multiVolumeFS: MultiVolumeFileSystem;
   private filePaths: string[] = []; // Cache of available file paths
   private namespaces: Map<string, string[]> = new Map();
   private totalSize: number = 0; // Total size of all files
@@ -77,18 +79,20 @@ export class ResourceLoader {
     }
 
     this.compilerService = new CompilerService();
-    this.memfsVolume = new Volume();
+    this.multiVolumeFS = new MultiVolumeFileSystem();
+
+    // Register the apex-resources volume
+    this.multiVolumeFS.registerVolume('apex-resources', {
+      protocol: 'apex-resources',
+      rootPath: '/apex-resources',
+      readOnly: false,
+    });
 
     // Build memfs structure immediately
     this.buildMemfsStructure();
 
-    // Set initialized to true before starting compilation
-    this.initialized = true;
-
-    // Start compilation if in full mode
-    if (this.loadMode === 'full') {
-      this.compilationPromise = this.compileAllArtifacts();
-    }
+    // Note: initialization and preloading will be handled by initialize() method
+    // This ensures the constructor only handles basic structure setup
   }
 
   /**
@@ -122,36 +126,32 @@ export class ResourceLoader {
       this.filePaths.push(relativePath);
       totalSize += data.length;
 
-      // Create directory structure if needed
-      const dirPath = relativePath.substring(0, relativePath.lastIndexOf('/'));
-      if (dirPath && !this.memfsVolume.existsSync(dirPath)) {
-        this.memfsVolume.mkdirSync(dirPath, { recursive: true });
-      }
-
-      // Store file data in memfs for lazy loading using the relative path
-      this.memfsVolume.writeFileSync(relativePath, data);
+      // Store file data in MultiVolumeFileSystem using apex-resources URI
+      const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${relativePath}`;
+      this.multiVolumeFS.writeFile(uriPath, Buffer.from(data));
     }
 
     this.totalSize = totalSize;
 
     this.logger.debug(
       () =>
-        `Memfs structure built: ${this.filePaths.length} files, ${this.namespaces.size} namespaces`,
+        `MultiVolumeFileSystem structure built: ${this.filePaths.length} files, ${this.namespaces.size} namespaces`,
     );
   }
 
   /**
-   * Check if file exists using memfs
+   * Check if file exists using MultiVolumeFileSystem
    * @private
    */
   private memfsExists(path: string): boolean {
     const normalizedPath = this.normalizePath(path);
 
     try {
-      // Use memfs existsSync for efficient file existence check
-      return this.memfsVolume.existsSync(normalizedPath);
+      // Use MultiVolumeFileSystem for efficient file existence check
+      const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${normalizedPath}`;
+      return this.multiVolumeFS.exists(uriPath);
     } catch {
-      // If memfs throws an error, fall back to case-insensitive lookup
+      // If MultiVolumeFileSystem throws an error, fall back to case-insensitive lookup
       for (const filePath of this.filePaths) {
         if (
           this.normalizePath(filePath).toLowerCase() ===
@@ -165,40 +165,37 @@ export class ResourceLoader {
   }
 
   /**
-   * Get file content using memfs
+   * Get file content using MultiVolumeFileSystem
    * @private
    */
   private async memfsReadFile(path: string): Promise<string | undefined> {
     const normalizedPath = this.normalizePath(path);
 
     try {
-      // Try to read directly from memfs first
-      const content = this.memfsVolume.readFileSync(
-        normalizedPath,
-        'utf8',
-      ) as string;
+      // Try to read directly from MultiVolumeFileSystem first
+      const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${normalizedPath}`;
+      const content = this.multiVolumeFS.readFile(uriPath, 'utf8') as string;
 
       // Update access statistics
-      // This part is removed as per the new_code, as the lazyFileMap is removed.
-      // The memfsVolume is now directly used for file existence and content.
+      this.accessCount++;
 
       return content;
     } catch (_error) {
-      // If direct read fails, try case-insensitive lookup
-      for (const [entryPath] of this.namespaces.entries()) {
+      // If direct read fails, try case-insensitive lookup using filePaths
+      for (const filePath of this.filePaths) {
         if (
-          this.normalizePath(entryPath).toLowerCase() ===
+          this.normalizePath(filePath).toLowerCase() ===
           normalizedPath.toLowerCase()
         ) {
           try {
-            const content = this.memfsVolume.readFileSync(
-              entryPath,
+            const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${filePath}`;
+            const content = this.multiVolumeFS.readFile(
+              uriPath,
               'utf8',
             ) as string;
 
             // Update access statistics
-            // This part is removed as per the new_code, as the lazyFileMap is removed.
-            // The memfsVolume is now directly used for file existence and content.
+            this.accessCount++;
 
             return content;
           } catch (_innerError) {
@@ -234,7 +231,7 @@ export class ResourceLoader {
   }
 
   /**
-   * Get file content synchronously using memfs
+   * Get file content synchronously using MultiVolumeFileSystem
    * @param path The file path
    * @returns The file content or undefined if not found
    */
@@ -248,33 +245,30 @@ export class ResourceLoader {
     const normalizedPath = this.normalizePath(path);
 
     try {
-      // Try to read directly from memfs first
-      const content = this.memfsVolume.readFileSync(
-        normalizedPath,
-        'utf8',
-      ) as string;
+      // Try to read directly from MultiVolumeFileSystem first
+      const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${normalizedPath}`;
+      const content = this.multiVolumeFS.readFile(uriPath, 'utf8') as string;
 
       // Update access statistics
-      // This part is removed as per the new_code, as the lazyFileMap is removed.
-      // The memfsVolume is now directly used for file existence and content.
+      this.accessCount++;
 
       return content;
     } catch (_error) {
-      // If direct read fails, try case-insensitive lookup
-      for (const [entryPath] of this.namespaces.entries()) {
+      // If direct read fails, try case-insensitive lookup using filePaths
+      for (const filePath of this.filePaths) {
         if (
-          this.normalizePath(entryPath).toLowerCase() ===
+          this.normalizePath(filePath).toLowerCase() ===
           normalizedPath.toLowerCase()
         ) {
           try {
-            const content = this.memfsVolume.readFileSync(
-              entryPath,
+            const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${filePath}`;
+            const content = this.multiVolumeFS.readFile(
+              uriPath,
               'utf8',
             ) as string;
 
             // Update access statistics
-            // This part is removed as per the new_code, as the lazyFileMap is removed.
-            // The memfsVolume is now directly used for file existence and content.
+            this.accessCount++;
 
             return content;
           } catch (_innerError) {
@@ -293,10 +287,11 @@ export class ResourceLoader {
   private async preloadCommonClasses(): Promise<void> {
     const commonClasses = [
       'System/System.cls',
-      'Database/Database.cls',
-      'String/String.cls',
-      'Integer/Integer.cls',
-      'Boolean/Boolean.cls',
+      'System/ApexPages.cls',
+      'System/Assert.cls',
+      'System/Callable.cls',
+      'Database/Batchable.cls',
+      'Database/Error.cls',
     ];
 
     this.logger.debug(() => 'Preloading common classes...');
@@ -349,6 +344,7 @@ export class ResourceLoader {
    * @returns true if the class exists
    */
   public hasClass(className: string): boolean {
+    // This method works without initialization since it only checks existence
     return this.memfsExists(className);
   }
 
@@ -357,6 +353,7 @@ export class ResourceLoader {
    * @returns Array of available class names
    */
   public getAvailableClasses(): string[] {
+    // This method works without initialization since it only returns the file list
     return this.filePaths;
   }
 
@@ -365,6 +362,7 @@ export class ResourceLoader {
    * @returns Map of namespaces to their class files
    */
   public getNamespaceStructure(): Map<string, string[]> {
+    // This method works without initialization since it only returns the namespace structure
     return this.namespaces;
   }
 
@@ -418,15 +416,14 @@ export class ResourceLoader {
   }
 
   /**
-   * Initialize with optional preloading
-   * @deprecated Use constructor instead - structure is now available immediately
+   * Initialize with optional preloading and compilation
    */
   public async initialize(): Promise<void> {
     if (this.initialized) {
       return;
     }
 
-    // Structure is already built in constructor
+    // Mark as initialized
     this.initialized = true;
 
     // Preload common classes if requested
@@ -434,7 +431,10 @@ export class ResourceLoader {
       await this.preloadCommonClasses();
     }
 
-    // Note: Compilation is now started in constructor for 'full' mode
+    // Start compilation if in full mode
+    if (this.loadMode === 'full') {
+      this.compilationPromise = this.compileAllArtifacts();
+    }
   }
 
   /**
@@ -660,6 +660,7 @@ export class ResourceLoader {
     totalSize: number;
     namespaces: string[];
   } {
+    // This method works without initialization since it only returns directory stats
     return {
       totalFiles: this.filePaths.length,
       totalSize: this.totalSize,
@@ -668,11 +669,20 @@ export class ResourceLoader {
   }
 
   /**
-   * Get the memfs volume for advanced operations
-   * @returns The memfs Volume instance
+   * Get the MultiVolumeFileSystem for advanced operations
+   * @returns The MultiVolumeFileSystem instance
+   */
+  public getMultiVolumeFileSystem(): MultiVolumeFileSystem {
+    return this.multiVolumeFS;
+  }
+
+  /**
+   * Get the memfs volume for advanced operations (backward compatibility)
+   * @returns The memfs Volume instance from the apex-resources volume
+   * @deprecated Use getMultiVolumeFileSystem() instead
    */
   public getMemfsVolume(): Volume {
-    return this.memfsVolume;
+    return this.multiVolumeFS.getVolume('apex-resources');
   }
 
   /**
@@ -680,14 +690,14 @@ export class ResourceLoader {
    * @returns JSON representation of the file system
    */
   public exportToJSON(): Record<string, string | null> {
-    return this.memfsVolume.toJSON();
+    return this.multiVolumeFS.exportToJSON('apex-resources')['apex-resources'];
   }
 
   /**
-   * Reset the memfs volume and clear all data
+   * Reset the MultiVolumeFileSystem and clear all data
    */
   public reset(): void {
-    this.memfsVolume.reset();
+    this.multiVolumeFS.reset('apex-resources');
     this.compiledArtifacts.clear();
     this.initialized = false;
     this.compilationPromise = null;
