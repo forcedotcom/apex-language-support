@@ -27,17 +27,64 @@ describe('ResourceLoader', () => {
       const instance = ResourceLoader.getInstance({ loadMode: 'lazy' });
       expect(instance).toBeDefined();
     });
+
+    it('should accept preloadCommonClasses option', () => {
+      const instance = ResourceLoader.getInstance({
+        loadMode: 'lazy',
+        preloadCommonClasses: true,
+      });
+      expect(instance).toBeDefined();
+    });
+  });
+
+  describe('immediate structure availability', () => {
+    it('should provide directory structure immediately after construction', () => {
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+
+      // Structure should be available immediately
+      const availableClasses = loader.getAvailableClasses();
+      expect(availableClasses).toBeDefined();
+      expect(availableClasses.length).toBeGreaterThan(0);
+      expect(availableClasses).toContain(TEST_FILE);
+    });
+
+    it('should provide namespace structure immediately', () => {
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+
+      const namespaceStructure = loader.getNamespaceStructure();
+      expect(namespaceStructure).toBeDefined();
+      expect(namespaceStructure.size).toBeGreaterThan(0);
+
+      // Check for common namespaces
+      expect(namespaceStructure.has('System')).toBe(true);
+    });
+
+    it('should check class existence without loading content', () => {
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+
+      expect(loader.hasClass(TEST_FILE)).toBe(true);
+      expect(loader.hasClass('nonexistent.cls')).toBe(false);
+    });
+
+    it('should provide directory statistics immediately', () => {
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+
+      const stats = loader.getDirectoryStatistics();
+      expect(stats).toBeDefined();
+      expect(stats.totalFiles).toBeGreaterThan(0);
+      expect(stats.totalSize).toBeGreaterThan(0);
+      expect(stats.namespaces.length).toBeGreaterThan(0);
+    });
   });
 
   describe('initialization', () => {
-    it('should throw error when accessing files before initialization', async () => {
+    it('should be initialized immediately after construction', () => {
       loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
-      const errorMessage = 'ResourceLoader not initialized';
-      expect(() => loader.getFile(TEST_FILE)).toThrow(errorMessage);
-      expect(() => loader.getAllFiles()).toThrow(errorMessage);
+      // Structure is available immediately, no need to call initialize()
+      expect(loader.getAvailableClasses().length).toBeGreaterThan(0);
     });
 
-    it('should initialize successfully', async () => {
+    it('should handle initialize() for backward compatibility', async () => {
       loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
       await expect(loader.initialize()).resolves.not.toThrow();
     });
@@ -52,10 +99,10 @@ describe('ResourceLoader', () => {
   describe('file access', () => {
     beforeEach(async () => {
       loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
-      await loader.initialize();
+      // No need to call initialize() - structure is available immediately
     });
 
-    it('should handle different path formats consistently', () => {
+    it('should handle different path formats consistently', async () => {
       const pathFormats = [
         'System/System.cls',
         'System\\System.cls',
@@ -65,23 +112,23 @@ describe('ResourceLoader', () => {
         'System.System',
       ];
 
-      const firstContent = loader.getFile(pathFormats[0]);
+      const firstContent = await loader.getFile(pathFormats[0]);
       expect(firstContent).toBeDefined();
 
       // All other formats should return the same content
       for (let i = 1; i < pathFormats.length; i++) {
-        const content = loader.getFile(pathFormats[i]);
+        const content = await loader.getFile(pathFormats[i]);
         expect(content).toBe(firstContent);
       }
     });
 
-    it('should return undefined for non-existent files', () => {
-      const result = loader.getFile('nonexistent.cls');
+    it('should return undefined for non-existent files', async () => {
+      const result = await loader.getFile('nonexistent.cls');
       expect(result).toBeUndefined();
     });
 
-    it('should return file content for existing files', () => {
-      const content = loader.getFile(TEST_FILE);
+    it('should return file content for existing files', async () => {
+      const content = await loader.getFile(TEST_FILE);
       if (!content) {
         throw new Error(`Expected to find file ${TEST_FILE} but got undefined`);
       }
@@ -90,9 +137,9 @@ describe('ResourceLoader', () => {
       expect(content).toContain('global static void debug(Object o)');
     });
 
-    it('should handle case-insensitive file paths', () => {
-      const content1 = loader.getFile(TEST_FILE);
-      const content2 = loader.getFile(TEST_FILE.toUpperCase());
+    it('should handle case-insensitive file paths', async () => {
+      const content1 = await loader.getFile(TEST_FILE);
+      const content2 = await loader.getFile(TEST_FILE.toUpperCase());
       if (!content1 || !content2) {
         throw new Error(
           `Expected to find files ${TEST_FILE} and ${TEST_FILE.toUpperCase()} but got undefined`,
@@ -101,8 +148,8 @@ describe('ResourceLoader', () => {
       expect(content1).toBe(content2);
     });
 
-    it('should return all files', () => {
-      const files = loader.getAllFiles();
+    it('should return all files', async () => {
+      const files = await loader.getAllFiles();
       if (!files.has(TEST_FILE)) {
         throw new Error(
           `Expected to find ${TEST_FILE} in all files but it was missing.\n` +
@@ -112,20 +159,30 @@ describe('ResourceLoader', () => {
       expect(files).toBeInstanceOf(CaseInsensitivePathMap);
       expect(files.size).toBeGreaterThan(0);
     });
+
+    it('should track access statistics', async () => {
+      const stats1 = loader.getStatistics();
+      expect(stats1.lazyFileStats.loadedEntries).toBe(0);
+
+      await loader.getFile(TEST_FILE);
+
+      const stats2 = loader.getStatistics();
+      expect(stats2.lazyFileStats.loadedEntries).toBeGreaterThan(0);
+      expect(stats2.lazyFileStats.averageAccessCount).toBeGreaterThan(0);
+    });
   });
 
   describe('loading modes', () => {
     it('should load files lazily in lazy mode', async () => {
       loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
-      await loader.initialize();
 
-      // First access should decode
-      const content1 = loader.getFile(TEST_FILE);
+      // First access should load content
+      const content1 = await loader.getFile(TEST_FILE);
       expect(content1).toBeDefined();
       expect(content1).toContain('global class System');
 
-      // Second access should use cached decoded content
-      const content2 = loader.getFile(TEST_FILE);
+      // Second access should use cached content
+      const content2 = await loader.getFile(TEST_FILE);
       expect(content2).toBe(content1);
     });
 
@@ -134,9 +191,42 @@ describe('ResourceLoader', () => {
       await loader.initialize();
 
       // Content should be immediately available
-      const content = loader.getFile(TEST_FILE);
+      const content = await loader.getFile(TEST_FILE);
       expect(content).toBeDefined();
       expect(content).toContain('global class System');
+    });
+
+    it('should preload common classes when requested', async () => {
+      loader = ResourceLoader.getInstance({
+        loadMode: 'lazy',
+        preloadCommonClasses: true,
+      });
+      await loader.initialize();
+
+      // Common classes should be preloaded
+      const stats = loader.getStatistics();
+      expect(stats.lazyFileStats.loadedEntries).toBeGreaterThan(0);
+    });
+  });
+
+  describe('enhanced statistics', () => {
+    it('should provide comprehensive statistics', async () => {
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+
+      const stats = loader.getStatistics();
+      expect(stats).toBeDefined();
+      expect(stats.totalFiles).toBeGreaterThan(0);
+      expect(stats.loadedFiles).toBe(0); // Initially no files loaded
+      expect(stats.compiledFiles).toBe(0); // Initially no files compiled
+      expect(stats.loadMode).toBe('lazy');
+      expect(stats.directoryStructure).toBeDefined();
+      expect(stats.lazyFileStats).toBeDefined();
+
+      // Load a file and check updated stats
+      await loader.getFile(TEST_FILE);
+      const updatedStats = loader.getStatistics();
+      expect(updatedStats.loadedFiles).toBeGreaterThan(0);
+      expect(updatedStats.lazyFileStats.loadedEntries).toBeGreaterThan(0);
     });
   });
 });
@@ -167,6 +257,7 @@ describe('ResourceLoader Compilation', () => {
   const setupCompiledLoader = async () =>
     // Return the shared loader instead of creating a new one
     sharedCompiledLoader!;
+
   it('should not compile artifacts when loadMode is lazy', async () => {
     // Create a separate lazy loader instance for this test
     // We need to temporarily reset the singleton to test lazy mode properly

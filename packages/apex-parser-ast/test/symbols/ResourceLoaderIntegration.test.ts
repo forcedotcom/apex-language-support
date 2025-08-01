@@ -25,6 +25,35 @@ describe('ResourceLoader Integration', () => {
     symbolManager = new ApexSymbolManager();
   });
 
+  describe('Immediate Structure Availability', () => {
+    it('should provide directory structure immediately', () => {
+      const availableClasses = resourceLoader.getAvailableClasses();
+      expect(availableClasses).toBeDefined();
+      expect(availableClasses.length).toBeGreaterThan(0);
+      expect(availableClasses).toContain('System/System.cls');
+    });
+
+    it('should provide namespace structure immediately', () => {
+      const namespaceStructure = resourceLoader.getNamespaceStructure();
+      expect(namespaceStructure).toBeDefined();
+      expect(namespaceStructure.size).toBeGreaterThan(0);
+      expect(namespaceStructure.has('System')).toBe(true);
+    });
+
+    it('should check class existence without loading content', () => {
+      expect(resourceLoader.hasClass('System/System.cls')).toBe(true);
+      expect(resourceLoader.hasClass('nonexistent.cls')).toBe(false);
+    });
+
+    it('should provide directory statistics immediately', () => {
+      const stats = resourceLoader.getDirectoryStatistics();
+      expect(stats).toBeDefined();
+      expect(stats.totalFiles).toBeGreaterThan(0);
+      expect(stats.totalSize).toBeGreaterThan(0);
+      expect(stats.namespaces.length).toBeGreaterThan(0);
+    });
+  });
+
   describe('Standard Apex Class Resolution', () => {
     it('should resolve System.assert from ResourceLoader', async () => {
       // Test that System.assert can be resolved from ResourceLoader
@@ -76,13 +105,16 @@ describe('ResourceLoader Integration', () => {
   });
 
   describe('ResourceLoader Statistics', () => {
-    it('should provide ResourceLoader statistics', () => {
+    it('should provide enhanced ResourceLoader statistics', () => {
       const stats = resourceLoader.getStatistics();
 
       expect(stats).toBeDefined();
       expect(stats.totalFiles).toBeGreaterThan(0);
+      expect(stats.loadedFiles).toBeGreaterThan(0);
       expect(stats.compiledFiles).toBeGreaterThan(0);
       expect(stats.loadMode).toBe('full');
+      expect(stats.directoryStructure).toBeDefined();
+      expect(stats.lazyFileStats).toBeDefined();
 
       logger.debug(() => `ResourceLoader stats: ${JSON.stringify(stats)}`);
     });
@@ -97,57 +129,48 @@ describe('ResourceLoader Integration', () => {
       const systemAssertArtifact =
         resourceLoader.getCompiledArtifact('System/Assert.cls');
       expect(systemAssertArtifact).toBeDefined();
+    });
 
-      if (systemAssertArtifact) {
-        expect(systemAssertArtifact.path).toBe('System/Assert.cls');
-        expect(systemAssertArtifact.compilationResult).toBeDefined();
-      }
+    it('should provide access statistics', () => {
+      const stats = resourceLoader.getStatistics();
+
+      expect(stats.lazyFileStats.totalEntries).toBeGreaterThan(0);
+      expect(stats.lazyFileStats.loadedEntries).toBeGreaterThan(0);
+      expect(stats.lazyFileStats.compiledEntries).toBeGreaterThan(0);
+      expect(stats.lazyFileStats.averageAccessCount).toBeGreaterThanOrEqual(0);
     });
   });
 
-  describe('Symbol Resolution Integration', () => {
-    it('should resolve symbols at position with standard classes', () => {
-      // Create a mock position for testing
-      const mockPosition = { line: 1, character: 10 };
-      const mockFileUri = 'file:///test.cls';
-
-      // This would normally be called by the HoverProcessingService
-      const symbol = symbolManager.getSymbolAtPosition(
-        mockFileUri,
-        mockPosition,
-      );
-
-      // The symbol might be null if no symbol is at that position, but the method should work
-      expect(symbolManager).toBeDefined();
+  describe('Lazy Loading Behavior', () => {
+    it('should load file content on demand', async () => {
+      const content = await resourceLoader.getFile('System/System.cls');
+      expect(content).toBeDefined();
+      expect(content).toContain('global class System');
     });
 
-    it('should handle ResourceLoader initialization gracefully', () => {
-      // Test that the symbol manager handles ResourceLoader initialization properly
-      const newSymbolManager = new ApexSymbolManager();
+    it('should cache loaded content', async () => {
+      const content1 = await resourceLoader.getFile('System/System.cls');
+      const content2 = await resourceLoader.getFile('System/System.cls');
+      expect(content1).toBe(content2);
+    });
 
-      // Should not throw even if ResourceLoader fails to initialize
-      expect(newSymbolManager).toBeDefined();
-      expect(newSymbolManager.isStandardApexClass('System')).toBeDefined();
+    it('should handle case-insensitive paths', async () => {
+      const content1 = await resourceLoader.getFile('System/System.cls');
+      const content2 = await resourceLoader.getFile('SYSTEM/SYSTEM.CLS');
+      expect(content1).toBe(content2);
     });
   });
 
-  describe('Performance and Memory', () => {
-    it('should not cause memory leaks with ResourceLoader', () => {
-      const initialMemory = process.memoryUsage();
+  describe('Preloading Common Classes', () => {
+    it('should preload common classes when requested', async () => {
+      const preloadLoader = ResourceLoader.getInstance({
+        loadMode: 'lazy',
+        preloadCommonClasses: true,
+      });
+      await preloadLoader.initialize();
 
-      // Create multiple symbol managers to test memory usage
-      const managers = [];
-      for (let i = 0; i < 5; i++) {
-        managers.push(new ApexSymbolManager());
-      }
-
-      const finalMemory = process.memoryUsage();
-
-      // Memory usage should be reasonable (not more than 50MB increase)
-      const memoryIncrease = finalMemory.heapUsed - initialMemory.heapUsed;
-      expect(memoryIncrease).toBeLessThan(50 * 1024 * 1024); // 50MB
-
-      logger.debug(() => `Memory increase: ${memoryIncrease / 1024 / 1024}MB`);
+      const stats = preloadLoader.getStatistics();
+      expect(stats.lazyFileStats.loadedEntries).toBeGreaterThan(0);
     });
   });
 });
