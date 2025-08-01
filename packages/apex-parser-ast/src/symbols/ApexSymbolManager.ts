@@ -32,6 +32,7 @@ import {
 import { FQNOptions, calculateFQN, getAncestorChain } from '../utils/FQNUtils';
 import type { SymbolProvider } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
+import { LazyReferenceResolver } from './LazyReferenceResolver';
 
 /**
  * File metadata for tracking symbol relationships
@@ -419,6 +420,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private readonly MAX_CACHE_SIZE = 5000;
   private readonly CACHE_TTL = 3 * 60 * 1000; // 3 minutes
   private readonly builtInTypeTables: BuiltInTypeTablesImpl;
+  private readonly lazyReferenceResolver: LazyReferenceResolver;
 
   private memoryStats = {
     totalSymbols: 0,
@@ -437,6 +439,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       true,
     );
     this.builtInTypeTables = BuiltInTypeTablesImpl.getInstance();
+    this.lazyReferenceResolver = new LazyReferenceResolver(
+      this.builtInTypeTables,
+    );
   }
 
   /**
@@ -1764,7 +1769,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           `Resolving TypeReference: ${typeReference.name} (context: ${typeReference.context})`,
       );
 
-      // Step 1: Try to find symbols by name
+      // Step 1: Try built-in type resolution first (Phase 2 enhancement)
+      const builtInSymbol = this.resolveBuiltInType(typeReference.name);
+      if (builtInSymbol) {
+        this.logger.debug(
+          () => `Resolved built-in type: ${typeReference.name}`,
+        );
+        return builtInSymbol;
+      }
+
+      // Step 2: Try to find symbols by name
       const candidates = this.findSymbolByName(typeReference.name);
 
       this.logger.debug(
@@ -1778,25 +1792,28 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return null;
       }
 
-      // Step 2: If we have a qualifier, try to find the qualified reference
+      // Step 3: If we have a qualifier, try to find the qualified reference (Phase 2 enhancement)
       if (typeReference.qualifier) {
         this.logger.debug(
           () =>
             `Looking for qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
         );
 
-        const qualifiedCandidates = candidates.filter((symbol) =>
-          // Check if this symbol is accessible from the source file
-          this.isSymbolAccessibleFromFile(symbol, sourceFile),
+        const qualifiedSymbol = this.resolveQualifiedReference(
+          typeReference,
+          sourceFile,
+          candidates,
         );
-
-        if (qualifiedCandidates.length > 0) {
-          // Return the most specific match (prefer same file, then public, then global)
-          return this.selectMostSpecificSymbol(qualifiedCandidates, sourceFile);
+        if (qualifiedSymbol) {
+          this.logger.debug(
+            () =>
+              `Resolved qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
+          );
+          return qualifiedSymbol;
         }
       }
 
-      // Step 3: For unqualified references, try same-file resolution first
+      // Step 4: For unqualified references, try same-file resolution first
       const sameFileCandidates = candidates.filter(
         (symbol) => symbol.key.path[0] === sourceFile,
       );
@@ -1809,7 +1826,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return this.selectMostSpecificSymbol(sameFileCandidates, sourceFile);
       }
 
-      // Step 4: Fallback to any accessible symbol
+      // Step 5: Fallback to any accessible symbol
       const accessibleCandidates = candidates.filter((symbol) =>
         this.isSymbolAccessibleFromFile(symbol, sourceFile),
       );
@@ -1822,7 +1839,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return this.selectMostSpecificSymbol(accessibleCandidates, sourceFile);
       }
 
-      // Step 5: Last resort - return the first candidate
+      // Step 6: Last resort - return the first candidate
       this.logger.debug(
         () => `Using fallback symbol for TypeReference: ${typeReference.name}`,
       );
@@ -1940,6 +1957,119 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @param sourceFile The source file for context
    * @returns The most specific symbol
    */
+  /**
+   * Resolve a built-in type (System, String, Integer, etc.)
+   * @param name The name of the built-in type
+   * @returns The built-in symbol or null if not found
+   */
+  private resolveBuiltInType(name: string): ApexSymbol | null {
+    try {
+      const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
+      if (builtInType) {
+        // Ensure the returned symbol has the isBuiltIn flag set in modifiers
+        return {
+          ...builtInType,
+          modifiers: {
+            ...builtInType.modifiers,
+            isBuiltIn: true,
+          },
+        };
+      }
+      return null;
+    } catch (error) {
+      this.logger.debug(
+        () => `Error resolving built-in type ${name}: ${error}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Resolve a qualified reference (e.g., "FileUtilities.createFile")
+   * @param typeReference The type reference with qualifier
+   * @param sourceFile The source file making the reference
+   * @param candidates All candidate symbols for the reference name
+   * @returns The resolved symbol or null if not found
+   */
+  private resolveQualifiedReference(
+    typeReference: TypeReference,
+    sourceFile: string,
+    candidates: ApexSymbol[],
+  ): ApexSymbol | null {
+    try {
+      // First, find the qualifier symbol
+      const qualifierCandidates = this.findSymbolByName(
+        typeReference.qualifier!,
+      );
+      if (qualifierCandidates.length === 0) {
+        return null;
+      }
+
+      // Find the most appropriate qualifier (prefer same file, then accessible)
+      const qualifier = this.selectBestQualifier(
+        qualifierCandidates,
+        sourceFile,
+      );
+      if (!qualifier) {
+        return null;
+      }
+
+      // Now look for the member within the qualifier's file
+      const memberCandidates = this.findSymbolsInFile(
+        qualifier.filePath,
+      ).filter(
+        (symbol) =>
+          symbol.name === typeReference.name &&
+          symbol.parentId === qualifier.id,
+      );
+
+      if (memberCandidates.length === 1) {
+        return memberCandidates[0];
+      }
+
+      // If not found in the same file, try global search
+      const globalCandidates = candidates.filter(
+        (symbol) => symbol.parentId === qualifier.id,
+      );
+
+      if (globalCandidates.length === 1) {
+        return globalCandidates[0];
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.debug(() => `Error resolving qualified reference: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Select the best qualifier from candidates
+   * @param candidates The candidate qualifier symbols
+   * @param sourceFile The source file making the reference
+   * @returns The best qualifier or null if none found
+   */
+  private selectBestQualifier(
+    candidates: ApexSymbol[],
+    sourceFile: string,
+  ): ApexSymbol | null {
+    // Prefer same file
+    const sameFile = candidates.find(
+      (symbol) => symbol.filePath === sourceFile,
+    );
+    if (sameFile) return sameFile;
+
+    // Prefer accessible symbols
+    const accessible = candidates.filter((symbol) =>
+      this.isSymbolAccessibleFromFile(symbol, sourceFile),
+    );
+    if (accessible.length === 1) return accessible[0];
+    if (accessible.length > 1) return accessible[0]; // Return first accessible
+
+    // Fallback to first candidate
+    return candidates[0] || null;
+  }
+
   private selectMostSpecificSymbol(
     candidates: ApexSymbol[],
     sourceFile: string,
