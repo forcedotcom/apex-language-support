@@ -19,6 +19,11 @@ import {
   ApexSymbolCollectorListener,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
+import {
+  setLoggerFactory,
+  LoggerFactory,
+  LoggerInterface,
+} from '@salesforce/apex-lsp-shared';
 
 // Mock the storage manager
 jest.mock('../../src/storage/ApexStorageManager', () => ({
@@ -35,6 +40,31 @@ describe('Hover Real Classes Integration Tests', () => {
   let fileUtilitiesTestDocument: TextDocument;
 
   beforeEach(async () => {
+    // Create mock logger with console output for debugging
+    const mockLogger: LoggerInterface = {
+      info: jest.fn((msg) =>
+        console.log('INFO:', typeof msg === 'function' ? msg() : msg),
+      ),
+      warn: jest.fn((msg) =>
+        console.log('WARN:', typeof msg === 'function' ? msg() : msg),
+      ),
+      error: jest.fn((msg) =>
+        console.log('ERROR:', typeof msg === 'function' ? msg() : msg),
+      ),
+      debug: jest.fn((msg) =>
+        console.log('DEBUG:', typeof msg === 'function' ? msg() : msg),
+      ),
+      log: jest.fn((msg) =>
+        console.log('LOG:', typeof msg === 'function' ? msg() : msg),
+      ),
+    };
+
+    // Configure global logger factory to use our mock logger
+    const mockLoggerFactory: LoggerFactory = {
+      getLogger: () => mockLogger,
+    };
+    setLoggerFactory(mockLoggerFactory);
+
     // Create a real symbol manager for integration testing
     symbolManager = new ApexSymbolManager();
 
@@ -72,7 +102,7 @@ describe('Hover Real Classes Integration Tests', () => {
     const fileUtilitiesListener = new ApexSymbolCollectorListener(
       fileUtilitiesTable,
     );
-    const fileUtilitiesResult = compilerService.compile(
+    const _fileUtilitiesResult = compilerService.compile(
       fileUtilitiesContent,
       'file://FileUtilities.cls',
       fileUtilitiesListener,
@@ -88,7 +118,7 @@ describe('Hover Real Classes Integration Tests', () => {
     const fileUtilitiesTestListener = new ApexSymbolCollectorListener(
       fileUtilitiesTestTable,
     );
-    const fileUtilitiesTestResult = compilerService.compile(
+    const _fileUtilitiesTestResult = compilerService.compile(
       fileUtilitiesTestContent,
       'file://FileUtilitiesTest.cls',
       fileUtilitiesTestListener,
@@ -109,25 +139,6 @@ describe('Hover Real Classes Integration Tests', () => {
       getStorage: jest.fn().mockReturnValue(mockStorage),
     });
 
-    // Create mock logger with console output for debugging
-    const mockLogger = {
-      info: jest.fn((msg) =>
-        console.log('INFO:', typeof msg === 'function' ? msg() : msg),
-      ),
-      warn: jest.fn((msg) =>
-        console.log('WARN:', typeof msg === 'function' ? msg() : msg),
-      ),
-      error: jest.fn((msg) =>
-        console.log('ERROR:', typeof msg === 'function' ? msg() : msg),
-      ),
-      debug: jest.fn((msg) =>
-        console.log('DEBUG:', typeof msg === 'function' ? msg() : msg),
-      ),
-      log: jest.fn((msg) =>
-        console.log('LOG:', typeof msg === 'function' ? msg() : msg),
-      ),
-    };
-
     // Create HoverProcessingService with the real symbol manager
     hoverService = new HoverProcessingService(mockLogger, symbolManager);
 
@@ -144,7 +155,8 @@ describe('Hover Real Classes Integration Tests', () => {
     );
     fileUtilitiesSymbols.forEach((symbol: any) => {
       console.log(
-        `Debug: FileUtilities Symbol ${symbol.name} (${symbol.kind}) at ${symbol.location?.startLine}:${symbol.location?.startColumn}-${symbol.location?.endLine}:${symbol.location?.endColumn}`,
+        `Debug: FileUtilities Symbol ${symbol.name} (${symbol.kind}) at ` +
+          `${symbol.location?.startLine}:${symbol.location?.startColumn}-${symbol.location?.endLine}:${symbol.location?.endColumn}`,
       );
     });
 
@@ -153,7 +165,8 @@ describe('Hover Real Classes Integration Tests', () => {
     );
     fileUtilitiesTestSymbols.forEach((symbol: any) => {
       console.log(
-        `Debug: FileUtilitiesTest Symbol ${symbol.name} (${symbol.kind}) at ${symbol.location?.startLine}:${symbol.location?.startColumn}-${symbol.location?.endLine}:${symbol.location?.endColumn}`,
+        `Debug: FileUtilitiesTest Symbol ${symbol.name} (${symbol.kind}) at ` +
+          `${symbol.location?.startLine}:${symbol.location?.startColumn}-${symbol.location?.endLine}:${symbol.location?.endColumn}`,
       );
     });
 
@@ -180,7 +193,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 0, character: 20 }, // Position on 'FileUtilities' (matches symbol location 1:20)
+        position: { line: 1, character: 21 }, // Position on 'FileUtilities' (LSP 1-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -204,7 +217,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 2, character: 18 }, // Position on 'createFile' (matches symbol location 3:18)
+        position: { line: 3, character: 22 }, // Position on 'createFile' (LSP 1-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -229,7 +242,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 3, character: 8 }, // Position on 'base64data' parameter (matches symbol location 4:8)
+        position: { line: 4, character: 9 }, // Position on 'base64data' parameter (LSP 1-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -252,7 +265,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 8, character: 30 }, // Position on 'contentVersion' variable
+        position: { line: 9, character: 30 }, // Position on 'contentVersion' variable (LSP 1-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -275,7 +288,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 37, character: 11 }, // Position on 'foo' method
+        position: { line: 37, character: 11 }, // Position on 'foo' method (LSP 1-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -301,7 +314,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 1, character: 21 }, // Position on 'FileUtilitiesTest' (matches symbol location 2:21)
+        position: { line: 2, character: 21 }, // Position on 'FileUtilitiesTest' (LSP 1-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -325,7 +338,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 3, character: 11 }, // Position on 'createFileSucceedsWhenCorrectInput' (matches symbol location 4:11)
+        position: { line: 4, character: 11 }, // Position on 'createFileSucceedsWhenCorrectInput' (LSP 1-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -354,7 +367,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 5, character: 20 }, // Position on 'property' variable (matches symbol location 6:20)
+        position: { line: 6, character: 20 }, // Position on 'property' variable (LSP 1-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -373,13 +386,13 @@ describe('Hover Real Classes Integration Tests', () => {
   });
 
   describe('Cross-Class Reference Tests', () => {
-    it.only('should provide hover information when referencing FileUtilities from test class', async () => {
+    it('should provide hover information when referencing FileUtilities from test class', async () => {
       // Mock storage to return the FileUtilitiesTest document
       mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 13, character: 39 }, // Position on 'FileUtilities' in method call (0-based)
+        position: { line: 14, character: 39 }, // Position on 'FileUtilities' in method call (LSP 1-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -402,7 +415,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 13, character: 51 }, // Position on 'createFile' in method call (0-based)
+        position: { line: 14, character: 51 }, // Position on 'createFile' in method call (LSP 1-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -428,7 +441,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 0, character: 0 }, // Position in whitespace
+        position: { line: 1, character: 0 }, // Position in whitespace (LSP 1-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -443,7 +456,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://NonExistentClass.cls' },
-        position: { line: 0, character: 0 },
+        position: { line: 1, character: 0 }, // LSP 1-based
       };
 
       const result = await hoverService.processHover(params);

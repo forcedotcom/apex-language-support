@@ -1689,19 +1689,28 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): ApexSymbol | null {
     try {
       const normalizedPath = this.normalizeFilePath(fileUri);
+
+      // LSP uses 1-based line/column, parser uses 1-based line/0-based column
+      const adjustedPosition = {
+        line: position.line,
+        character: position.character - 1,
+      };
+
       this.logger.debug(
         () =>
-          `Looking for symbol at position ${position.line}:${position.character} in ${normalizedPath}`,
+          `Looking for symbol at LSP position ${position.line}:${position.character} ` +
+          `(adjusted to ${adjustedPosition.line}:${adjustedPosition.character}) in ${normalizedPath}`,
       );
 
       // Step 1: Try to find TypeReferences at the position
       const typeReferences = this.getReferencesAtPosition(
         normalizedPath,
-        position,
+        adjustedPosition,
       );
       this.logger.debug(
         () =>
-          `Found ${typeReferences.length} TypeReferences at position ${position.line}:${position.character}`,
+          `Found ${typeReferences.length} TypeReferences at position ` +
+          `${adjustedPosition.line}:${adjustedPosition.character}`,
       );
 
       if (typeReferences.length > 0) {
@@ -1726,7 +1735,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       const directSymbol = this.findDirectSymbolAtPosition(
         normalizedPath,
-        position,
+        adjustedPosition,
       );
       if (directSymbol) {
         this.logger.debug(
@@ -1740,7 +1749,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       this.logger.debug(
         () =>
-          `No symbol found at position ${position.line}:${position.character}`,
+          `No symbol found at position ${adjustedPosition.line}:${adjustedPosition.character}`,
       );
       return null;
     } catch (error) {
@@ -2333,16 +2342,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return candidates[0];
     }
 
-    // Priority order: same file > method > field > class > interface
-    const priorityOrder = [
-      'method',
-      'field',
-      'variable',
-      'class',
-      'interface',
-      'enum',
-    ];
-
     // First, try to find symbols in the same file
     const sameFileCandidates = candidates.filter(
       (s) => s.key.path[0] === sourceFile,
@@ -2351,14 +2350,62 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       candidates = sameFileCandidates;
     }
 
-    // Sort by priority
+    // Calculate symbol size and sort by smallest first (most specific)
     candidates.sort((a, b) => {
+      const aSize = this.calculateSymbolSize(a);
+      const bSize = this.calculateSymbolSize(b);
+
+      this.logger.debug(
+        () =>
+          `Comparing symbols: ${a.name} (${a.kind}) size=${aSize} vs ${b.name} (${b.kind}) size=${bSize}`,
+      );
+
+      // If sizes are significantly different, prefer smaller
+      if (Math.abs(aSize - bSize) > 10) {
+        const result = aSize - bSize;
+        this.logger.debug(
+          () =>
+            `Size difference significant, choosing ${result < 0 ? a.name : b.name}`,
+        );
+        return result;
+      }
+
+      // If sizes are similar, use kind priority as tiebreaker
+      const priorityOrder = [
+        'parameter',
+        'variable',
+        'field',
+        'method',
+        'class',
+        'interface',
+        'enum',
+      ];
       const aPriority = priorityOrder.indexOf(a.kind) ?? 999;
       const bPriority = priorityOrder.indexOf(b.kind) ?? 999;
-      return aPriority - bPriority;
+      const result = aPriority - bPriority;
+      this.logger.debug(
+        () =>
+          `Size similar, using priority: ${a.name} priority=${aPriority} vs ${b.name} priority=${bPriority}, choosing ${result < 0 ? a.name : b.name}`,
+      );
+      return result;
     });
 
     return candidates[0];
+  }
+
+  private calculateSymbolSize(symbol: ApexSymbol): number {
+    if (!symbol.location) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
+    const { startLine, startColumn, endLine, endColumn } = symbol.location;
+
+    // Calculate approximate character count
+    const lineCount = endLine - startLine + 1;
+    const columnCount = endColumn - startColumn + 1;
+
+    // Weight line count more heavily than column count
+    return lineCount * 100 + columnCount;
   }
 
   getScopesInFile(filePath: string): string[] {
