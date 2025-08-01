@@ -1744,7 +1744,9 @@ export class ApexSymbolCollectorListener
       );
       // This is a method call like "FileUtilities.createFile(...)" or "property.setName(...)"
       const methodMatch = text.match(/^(\w+)\.(\w+)\(/);
-      this.logger.debug('DEBUG: Method match result:', methodMatch);
+      this.logger.debug(
+        () => `DEBUG: Method match result: ${JSON.stringify(methodMatch)}`,
+      );
       if (methodMatch) {
         const qualifier = methodMatch[1];
         const methodName = methodMatch[2];
@@ -1816,7 +1818,9 @@ export class ApexSymbolCollectorListener
       );
       // This is field access like "property.Id"
       const fieldMatch = text.match(/^(\w+)\.(\w+)$/);
-      this.logger.debug('DEBUG: Field match result:', fieldMatch);
+      this.logger.debug(
+        () => `DEBUG: Field match result: ${JSON.stringify(fieldMatch)}`,
+      );
       if (fieldMatch) {
         const objectName = fieldMatch[1];
         const fieldName = fieldMatch[2];
@@ -1915,7 +1919,10 @@ export class ApexSymbolCollectorListener
     // Extract type name from constructor call
     // Format: "new TypeName(...)" or "newTypeName(...)" (no spaces)
     const constructorMatch = text.match(/^new\s*(\w+(?:__c)?)\(/);
-    this.logger.debug('DEBUG: Constructor match result:', constructorMatch);
+    this.logger.debug(
+      () =>
+        `DEBUG: Constructor match result: ${JSON.stringify(constructorMatch)}`,
+    );
     if (constructorMatch) {
       const typeName = constructorMatch[1];
       const location = this.getLocationForReference(ctx);

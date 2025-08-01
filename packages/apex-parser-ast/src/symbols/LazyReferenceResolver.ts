@@ -7,8 +7,13 @@
  */
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ApexSymbol } from '../types/symbol';
-import { TypeReference, ReferenceContext } from '../types/typeReference';
+import {
+  ApexSymbol,
+  SymbolKind,
+  SymbolVisibility,
+  SymbolFactory,
+} from '../types/symbol';
+import { ReferenceContext } from '../types/typeReference';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 
 /**
@@ -168,11 +173,12 @@ export class LazyReferenceResolver {
     failedReferences: string[];
   } {
     const totalProcessed = this.processedReferences.size;
-    const successful = Array.from(this.processedReferences).filter((id) => {
-      // This is a simplified success check - in a real implementation,
-      // we'd track success/failure more precisely
-      return true;
-    }).length;
+    const successful = Array.from(this.processedReferences).filter(
+      (id) =>
+        // This is a simplified success check - in a real implementation,
+        // we'd track success/failure more precisely
+        true,
+    ).length;
 
     return {
       queueSize: this.lazyResolutionQueue.length,
@@ -266,26 +272,35 @@ export class LazyReferenceResolver {
    */
   private resolveBuiltInType(name: string): ApexSymbol | null {
     try {
-      const builtInType = this.builtInTypeTables.getBuiltInType(name);
-      if (builtInType) {
-        return {
-          id: `builtin:${name}`,
-          name: name,
-          kind: 1, // Class
-          location: {
+      const isBuiltIn = this.builtInTypeTables.isBuiltInType(name);
+      if (isBuiltIn) {
+        return SymbolFactory.createFullSymbol(
+          name,
+          SymbolKind.Class,
+          {
             startLine: 0,
             startColumn: 0,
             endLine: 0,
             endColumn: 0,
           },
-          modifiers: 0x0101, // Public + Static
-          parentId: undefined,
-          filePath: 'builtin',
-          fqn: name,
-          namespace: 'system',
-          isBuiltIn: true,
-          _lazy: {},
-        };
+          'builtin',
+          {
+            visibility: SymbolVisibility.Public,
+            isStatic: true,
+            isFinal: false,
+            isAbstract: false,
+            isVirtual: false,
+            isOverride: false,
+            isTransient: false,
+            isTestMethod: false,
+            isWebService: false,
+            isBuiltIn: true,
+          },
+          null,
+          undefined,
+          name,
+          'system',
+        );
       }
       return null;
     } catch (error) {
@@ -356,7 +371,7 @@ export class LazyReferenceResolver {
   ): ApexSymbol[] {
     return candidates.filter((symbol) => {
       // Built-in types are always accessible
-      if (symbol.isBuiltIn) return true;
+      if (symbol.modifiers?.isBuiltIn) return true;
 
       // Check if symbol is accessible from source file
       return this.validateCrossFileAccess(
@@ -377,19 +392,22 @@ export class LazyReferenceResolver {
   ): boolean {
     try {
       // Built-in types are always accessible
-      if (targetSymbol.isBuiltIn) return true;
+      if (targetSymbol.modifiers?.isBuiltIn) return true;
 
       // Same file access
       if (targetSymbol.filePath === sourceFile) return true;
 
       // Global access
-      if (targetSymbol.modifiers && targetSymbol.modifiers & 0x0008) {
+      if (targetSymbol.modifiers && targetSymbol.modifiers.isStatic) {
         // Global flag
         return true;
       }
 
       // Public access within same package/namespace
-      if (targetSymbol.modifiers && targetSymbol.modifiers & 0x0001) {
+      if (
+        targetSymbol.modifiers &&
+        targetSymbol.modifiers.visibility === 'public'
+      ) {
         // Public flag
         // Check if same namespace
         const sourceNamespace = this.extractNamespaceFromPath(sourceFile);

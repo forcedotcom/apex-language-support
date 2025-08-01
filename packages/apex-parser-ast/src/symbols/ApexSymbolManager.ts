@@ -33,6 +33,7 @@ import { FQNOptions, calculateFQN, getAncestorChain } from '../utils/FQNUtils';
 import type { SymbolProvider } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 import { LazyReferenceResolver } from './LazyReferenceResolver';
+import { ResourceLoader } from '../utils/resourceLoader';
 
 /**
  * File metadata for tracking symbol relationships
@@ -421,9 +422,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private readonly CACHE_TTL = 3 * 60 * 1000; // 3 minutes
   private readonly builtInTypeTables: BuiltInTypeTablesImpl;
   private readonly lazyReferenceResolver: LazyReferenceResolver;
+  private readonly resourceLoader: ResourceLoader | null = null;
 
   private memoryStats = {
     totalSymbols: 0,
+    totalFiles: 0,
+    totalReferences: 0,
+    circularDependencies: 0,
+    cacheHitRate: 0,
     totalCacheEntries: 0,
     lastCleanup: Date.now(),
     memoryOptimizationLevel: 'OPTIMAL' as string,
@@ -442,6 +448,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.lazyReferenceResolver = new LazyReferenceResolver(
       this.builtInTypeTables,
     );
+
+    // Initialize ResourceLoader for standard Apex classes
+    try {
+      this.resourceLoader = ResourceLoader.getInstance({ loadMode: 'full' });
+      this.logger.debug(
+        () => 'ResourceLoader initialized for standard Apex classes',
+      );
+    } catch (error) {
+      this.logger.warn(() => `Failed to initialize ResourceLoader: ${error}`);
+      this.resourceLoader = null;
+    }
   }
 
   /**
@@ -875,6 +892,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     totalReferences: number;
     circularDependencies: number;
     cacheHitRate: number;
+    totalCacheEntries: number;
+    lastCleanup: number;
+    memoryOptimizationLevel: string;
   } {
     const graphStats = this.symbolGraph.getStats();
     const cacheStats = this.unifiedCache.getStats();
@@ -885,6 +905,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       totalReferences: graphStats.totalReferences,
       circularDependencies: graphStats.circularDependencies,
       cacheHitRate: cacheStats.hitRate,
+      totalCacheEntries: this.memoryStats.totalCacheEntries,
+      lastCleanup: this.memoryStats.lastCleanup,
+      memoryOptimizationLevel: this.memoryStats.memoryOptimizationLevel,
     };
   }
 
@@ -897,9 +920,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.unifiedCache.clear();
     this.memoryStats = {
       totalSymbols: 0,
+      totalFiles: 0,
+      totalReferences: 0,
+      circularDependencies: 0,
+      cacheHitRate: 0,
       totalCacheEntries: 0,
       lastCleanup: Date.now(),
-      memoryOptimizationLevel: 'OPTIMAL',
+      memoryOptimizationLevel: 'OPTIMAL' as string,
     };
   }
 
@@ -1769,7 +1796,26 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           `Resolving TypeReference: ${typeReference.name} (context: ${typeReference.context})`,
       );
 
-      // Step 1: Try built-in type resolution first (Phase 2 enhancement)
+      // Step 1: For qualified references, try to resolve the qualifier first
+      if (typeReference.qualifier) {
+        this.logger.debug(
+          () =>
+            `Looking for qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
+        );
+
+        const qualifierSymbol = this.resolveBuiltInType(
+          typeReference.qualifier,
+        );
+        if (qualifierSymbol) {
+          this.logger.debug(
+            () =>
+              `Resolved qualifier: ${typeReference.qualifier} for ${typeReference.qualifier}.${typeReference.name}`,
+          );
+          return qualifierSymbol;
+        }
+      }
+
+      // Step 2: Try built-in type resolution for the name itself
       const builtInSymbol = this.resolveBuiltInType(typeReference.name);
       if (builtInSymbol) {
         this.logger.debug(
@@ -1958,29 +2004,237 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @returns The most specific symbol
    */
   /**
-   * Resolve a built-in type (System, String, Integer, etc.)
-   * @param name The name of the built-in type
-   * @returns The built-in symbol or null if not found
+   * Resolve a built-in type (String, Integer, etc.) or standard Apex class (System, Database, etc.)
+   * @param name The name of the type to resolve
+   * @returns The resolved symbol or null if not found
    */
   private resolveBuiltInType(name: string): ApexSymbol | null {
     try {
+      // Step 1: Check if this is a standard Apex class first (System, Database, Schema, etc.)
+      if (this.resourceLoader && this.isStandardApexClass(name)) {
+        const standardClass = this.resolveStandardApexClass(name);
+        if (standardClass) {
+          this.logger.debug(() => `Resolved standard Apex class: ${name}`);
+          return standardClass;
+        }
+      }
+
+      // Step 2: Check built-in type tables for primitive types (String, Integer, etc.)
       const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
       if (builtInType) {
-        // Ensure the returned symbol has the isBuiltIn flag set in modifiers
-        return {
-          ...builtInType,
-          modifiers: {
-            ...builtInType.modifiers,
-            isBuiltIn: true,
-          },
-        };
+        // Only return built-in types for primitive types, not for standard Apex classes
+        const isStandardApexClass = [
+          'system',
+          'database',
+          'schema',
+          'messaging',
+          'connectapi',
+        ].includes(name.toLowerCase());
+        if (!isStandardApexClass) {
+          this.logger.debug(() => `Resolved built-in type: ${name}`);
+          return {
+            ...builtInType,
+            modifiers: {
+              ...builtInType.modifiers,
+              isBuiltIn: true,
+            },
+          };
+        }
       }
+
       return null;
     } catch (error) {
       this.logger.debug(
         () => `Error resolving built-in type ${name}: ${error}`,
       );
       return null;
+    }
+  }
+
+  /**
+   * Resolve standard Apex classes using ResourceLoader
+   * @param name The class name to resolve
+   * @returns The resolved symbol or null if not found
+   */
+  private resolveStandardApexClass(name: string): ApexSymbol | null {
+    try {
+      if (!this.resourceLoader) {
+        return null;
+      }
+
+      // Check if the ResourceLoader is initialized
+      if (
+        !this.resourceLoader.isCompiling() &&
+        !this.resourceLoader.getStatistics().compiledFiles
+      ) {
+        this.logger.debug(
+          () => 'ResourceLoader not yet compiled, attempting to initialize',
+        );
+        // Try to initialize if not already done
+        this.resourceLoader.initialize().catch((error) => {
+          this.logger.debug(
+            () => `Failed to initialize ResourceLoader: ${error}`,
+          );
+        });
+        return null;
+      }
+
+      // Look for the class in the standard library
+      const classPath = this.findStandardClassPath(name);
+      if (!classPath) {
+        return null;
+      }
+
+      // Get the compiled artifact
+      const artifact = this.resourceLoader.getCompiledArtifact(classPath);
+      if (!artifact) {
+        this.logger.debug(() => `No compiled artifact found for ${classPath}`);
+        return null;
+      }
+
+      // Extract symbols from the compiled artifact
+      const symbolTable = artifact.compilationResult.result;
+      if (!symbolTable) {
+        this.logger.debug(() => `No symbol table found for ${classPath}`);
+        return null;
+      }
+
+      // Find the main class symbol
+      const classSymbols = symbolTable
+        .getAllSymbols()
+        .filter(
+          (symbol: ApexSymbol) =>
+            symbol.name === name && symbol.kind === SymbolKind.Class,
+        );
+
+      if (classSymbols.length === 0) {
+        this.logger.debug(
+          () => `No class symbol found for ${name} in ${classPath}`,
+        );
+        return null;
+      }
+
+      const classSymbol = classSymbols[0];
+
+      // Create a proper ApexSymbol with standard class metadata
+      return {
+        ...classSymbol,
+        modifiers: {
+          ...classSymbol.modifiers,
+          isBuiltIn: false,
+        },
+        filePath: classPath,
+      };
+    } catch (error) {
+      this.logger.debug(
+        () => `Error resolving standard Apex class ${name}: ${error}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Find the path to a standard Apex class in the ResourceLoader
+   * @param name The class name to find
+   * @returns The class path or null if not found
+   */
+  private findStandardClassPath(name: string): string | null {
+    try {
+      if (!this.resourceLoader) {
+        return null;
+      }
+
+      // Handle qualified names like "System.assert"
+      if (name.includes('.')) {
+        const parts = name.split('.');
+        const namespace = parts[0].toLowerCase();
+        const className = parts[1];
+        const path = `${namespace}.${className}.cls`;
+
+        const file = this.resourceLoader.getFile(path);
+        if (file) {
+          this.logger.debug(
+            () => `Found qualified standard class ${name} at path: ${path}`,
+          );
+          return path;
+        }
+      }
+
+      // Handle simple names by searching for them in the ResourceLoader
+      const allFiles = this.resourceLoader.getAllFiles();
+      for (const [filePath] of allFiles.entries()) {
+        if (filePath.endsWith('.cls')) {
+          const fileName = filePath.split('/').pop()?.replace('.cls', '');
+          if (fileName && fileName.toLowerCase() === name.toLowerCase()) {
+            this.logger.debug(
+              () => `Found standard class ${name} at path: ${filePath}`,
+            );
+            return filePath;
+          }
+        }
+      }
+
+      this.logger.debug(
+        () => `Standard class ${name} not found in ResourceLoader`,
+      );
+      return null;
+    } catch (error) {
+      this.logger.debug(
+        () => `Error finding standard class path for ${name}: ${error}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Get all available standard Apex classes from ResourceLoader
+   * @returns Array of standard class names
+   */
+  public getAvailableStandardClasses(): string[] {
+    try {
+      if (!this.resourceLoader) {
+        return [];
+      }
+
+      const allFiles = this.resourceLoader.getAllFiles();
+      const standardClasses: string[] = [];
+
+      for (const [filePath] of allFiles.entries()) {
+        if (filePath.endsWith('.cls')) {
+          const className = filePath.split('/').pop()?.replace('.cls', '');
+          if (className) {
+            standardClasses.push(className);
+          }
+        }
+      }
+
+      return standardClasses;
+    } catch (error) {
+      this.logger.debug(
+        () => `Error getting available standard classes: ${error}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Check if a class name is a standard Apex class
+   * @param name The class name to check
+   * @returns True if it's a standard Apex class
+   */
+  public isStandardApexClass(name: string): boolean {
+    try {
+      if (!this.resourceLoader) {
+        return false;
+      }
+
+      const classPath = this.findStandardClassPath(name);
+      return classPath !== null;
+    } catch (error) {
+      this.logger.debug(
+        () => `Error checking if ${name} is standard Apex class: ${error}`,
+      );
+      return false;
     }
   }
 

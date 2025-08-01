@@ -45,7 +45,7 @@ export class SymbolManagerFactory {
       this.instance = new ApexSymbolManager();
     }
 
-    return this.instance;
+    return this.instance!;
   }
 
   /**
@@ -156,6 +156,14 @@ class TestSymbolManager implements ISymbolManager {
   findReferencesTo(symbol: ApexSymbol): any[] {
     // Mock implementation - return empty array for now
     return [];
+  }
+
+  getSymbolAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): ApexSymbol | null {
+    // Mock implementation - return null for now
+    return null;
   }
 
   getReferencesAtPosition(
