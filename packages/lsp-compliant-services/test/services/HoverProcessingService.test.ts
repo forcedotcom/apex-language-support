@@ -89,13 +89,13 @@ describe('HoverProcessingService', () => {
     );
 
     const staticMethodSymbol = SymbolFactory.createFullSymbol(
-      'getValue',
+      'getStaticValue',
       SymbolKind.Method,
       {
-        startLine: 1,
-        startColumn: 15,
-        endLine: 1,
-        endColumn: 22,
+        startLine: 2,
+        startColumn: 23,
+        endLine: 2,
+        endColumn: 30,
       },
       'TestClass.cls',
       {
@@ -124,15 +124,17 @@ describe('HoverProcessingService', () => {
       isArray: false,
     };
     staticMethodSymbol.parameters = [];
+    
+
 
     const instanceMethodSymbol = SymbolFactory.createFullSymbol(
       'getValue',
       SymbolKind.Method,
       {
-        startLine: 5,
-        startColumn: 15,
-        endLine: 5,
-        endColumn: 22,
+        startLine: 6,
+        startColumn: 23,
+        endLine: 6,
+        endColumn: 30,
       },
       'TestClass.cls',
       {
@@ -161,6 +163,8 @@ describe('HoverProcessingService', () => {
       isArray: false,
     };
     instanceMethodSymbol.parameters = [];
+    
+
 
     // Create SymbolTable and add symbols to it
     const symbolTable = new SymbolTable();
@@ -197,28 +201,7 @@ describe('HoverProcessingService', () => {
     // Create HoverProcessingService with the real symbol manager
     hoverService = new HoverProcessingService(mockLogger, symbolManager);
 
-    // Debug: Verify symbols are added correctly
-    const testSymbols = symbolManager.findSymbolsInFile('TestClass.cls');
-    mockLogger.debug(
-      () => `Debug: Found ${testSymbols.length} symbols in TestClass.cls`,
-    );
-    testSymbols.forEach((symbol: any) => {
-      mockLogger.debug(
-        () =>
-          // eslint-disable-next-line max-len
-          `Debug: Symbol ${symbol.name} (${symbol.kind}) at ${symbol.location?.startLine}:${symbol.location?.startColumn}`,
-      );
-      if (symbol.kind === 'method') {
-        mockLogger.debug(
-          () =>
-            `Debug: Method ${symbol.name} returnType: ${JSON.stringify(symbol.returnType)}`,
-        );
-        mockLogger.debug(
-          () =>
-            `Debug: Method ${symbol.name} type: ${JSON.stringify(symbol.type)}`,
-        );
-      }
-    });
+
   });
 
   afterEach(() => {
@@ -322,7 +305,7 @@ describe('HoverProcessingService', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://TestClass.cls' },
-        position: { line: 1, character: 20 }, // Position on 'getValue' method declaration (0-indexed)
+        position: { line: 1, character: 23 }, // Position on 'getValue' method name (0-indexed)
       };
 
       const result = await hoverService.processHover(params);
@@ -334,7 +317,7 @@ describe('HoverProcessingService', () => {
           typeof result.contents === 'object' && 'value' in result.contents
             ? result.contents.value
             : '';
-        expect(content).toContain('**Method** getValue');
+        expect(content).toContain('**Method** getStaticValue');
         expect(content).toContain('**Returns:** String');
         expect(content).toContain('**Modifiers:** static, public');
       }
@@ -408,7 +391,7 @@ describe('HoverProcessingService', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://TestClass.cls' },
-        position: { line: 1, character: 20 }, // Position on 'getValue' method declaration (0-indexed)
+        position: { line: 2, character: 23 }, // Position on 'getStaticValue' method (0-indexed)
       };
 
       const result = await hoverService.processHover(params);
@@ -420,7 +403,7 @@ describe('HoverProcessingService', () => {
           typeof result.contents === 'object' && 'value' in result.contents
             ? result.contents.value
             : '';
-        expect(content).toContain('**Method** getValue');
+        expect(content).toContain('**Method** getStaticValue');
         expect(content).toContain('**Returns:** String');
       }
     });
@@ -447,7 +430,7 @@ describe('HoverProcessingService', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://TestClass.cls' },
-        position: { line: 0, character: 7 }, // Position on 'TestClass' (0-indexed)
+        position: { line: 0, character: 1 }, // Position on 'TestClass' (0-indexed)
       };
 
       const result = await hoverService.processHover(params);
@@ -490,7 +473,7 @@ describe('HoverProcessingService', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://TestClass.cls' },
-        position: { line: 1, character: 15 }, // Position on 'getValue' method declaration (0-indexed)
+        position: { line: 2, character: 23 }, // Position on 'getStaticValue' method (0-indexed)
       };
 
       const result = await hoverService.processHover(params);
@@ -502,7 +485,7 @@ describe('HoverProcessingService', () => {
           typeof result.contents === 'object' && 'value' in result.contents
             ? result.contents.value
             : '';
-        expect(content).toContain('**Method** getValue');
+        expect(content).toContain('**Method** getStaticValue');
         expect(content).toContain('**Returns:** String');
         expect(content).toContain('**Modifiers:** public, static');
       }
