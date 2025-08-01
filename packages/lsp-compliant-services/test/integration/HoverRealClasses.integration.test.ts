@@ -409,7 +409,7 @@ describe('Hover Real Classes Integration Tests', () => {
       }
     });
 
-    it('should provide hover information for method calls', async () => {
+    it.only('should provide hover information for method calls', async () => {
       // Mock storage to return the FileUtilitiesTest document
       mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
 

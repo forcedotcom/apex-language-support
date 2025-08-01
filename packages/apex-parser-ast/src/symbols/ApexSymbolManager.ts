@@ -1669,6 +1669,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           `${position.line}:${position.character} in ${normalizedPath}`,
       );
 
+      // Debug: Log all references in the symbol table to see what's available
+      const allReferences = symbolTable.getAllReferences();
+      this.logger.debug(
+        () => `Total references in symbol table: ${allReferences.length}`,
+      );
+
+      // Debug: Log references that might be close to our position
+      allReferences.forEach((ref, index) => {
+        this.logger.debug(
+          () =>
+            `Reference[${index}]: name="${ref.name}", qualifier="${ref.qualifier}", ` +
+            `location=${ref.location.startLine}:${ref.location.startColumn}-` +
+            `${ref.location.endLine}:${ref.location.endColumn}`,
+        );
+      });
+
       return references;
     } catch (error) {
       this.logger.debug(() => `Error getting references at position: ${error}`);
@@ -1702,6 +1718,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           `(adjusted to ${adjustedPosition.line}:${adjustedPosition.character}) in ${normalizedPath}`,
       );
 
+      // Add more visible debug output
+      console.log(
+        `DEBUG: getSymbolAtPosition called for ${normalizedPath} at ${position.line}:${position.character}`,
+      );
+
       // Step 1: Try to find TypeReferences at the position
       const typeReferences = this.getReferencesAtPosition(
         normalizedPath,
@@ -1712,6 +1733,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           `Found ${typeReferences.length} TypeReferences at position ` +
           `${adjustedPosition.line}:${adjustedPosition.character}`,
       );
+
+      // Debug: Log details of each TypeReference found
+      typeReferences.forEach((ref, index) => {
+        this.logger.debug(
+          () =>
+            `TypeReference[${index}]: name="${ref.name}", qualifier="${ref.qualifier}", context="${ref.context}"`,
+        );
+      });
 
       if (typeReferences.length > 0) {
         // Step 2: Try to resolve the most specific reference
@@ -1805,22 +1834,54 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           `Resolving TypeReference: ${typeReference.name} (context: ${typeReference.context})`,
       );
 
-      // Step 1: For qualified references, try to resolve the qualifier first
+      // Step 1: For qualified references, try to resolve the qualified reference first
       if (typeReference.qualifier) {
         this.logger.debug(
           () =>
             `Looking for qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
         );
 
-        const qualifierSymbol = this.resolveBuiltInType(
+        // Try to find symbols by name first
+        const candidates = this.findSymbolByName(typeReference.name);
+
+        if (candidates.length > 0) {
+          const qualifiedSymbol = this.resolveQualifiedReference(
+            typeReference,
+            sourceFile,
+            candidates,
+          );
+          if (qualifiedSymbol) {
+            this.logger.debug(
+              () =>
+                `Resolved qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
+            );
+            return qualifiedSymbol;
+          }
+        }
+
+        // If qualified reference resolution fails, try to resolve the qualifier as a fallback
+        // But only if it's not a user-defined class that we already have in our symbol manager
+        const qualifierCandidates = this.findSymbolByName(
           typeReference.qualifier,
         );
-        if (qualifierSymbol) {
+        if (qualifierCandidates.length === 0) {
+          // Only try built-in type resolution if we don't have a user-defined symbol with this name
+          const qualifierSymbol = this.resolveBuiltInType(
+            typeReference.qualifier,
+          );
+          if (qualifierSymbol) {
+            this.logger.debug(
+              () =>
+                `Resolved qualifier as fallback: ${typeReference.qualifier} for ` +
+                `${typeReference.qualifier}.${typeReference.name}`,
+            );
+            return qualifierSymbol;
+          }
+        } else {
           this.logger.debug(
             () =>
-              `Resolved qualifier: ${typeReference.qualifier} for ${typeReference.qualifier}.${typeReference.name}`,
+              `Found user-defined qualifier ${typeReference.qualifier}, not treating as built-in type`,
           );
-          return qualifierSymbol;
         }
       }
 
@@ -1833,7 +1894,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return builtInSymbol;
       }
 
-      // Step 2: Try to find symbols by name
+      // Step 3: Try to find symbols by name
       const candidates = this.findSymbolByName(typeReference.name);
 
       this.logger.debug(
@@ -1845,27 +1906,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           () => `No symbols found for TypeReference: ${typeReference.name}`,
         );
         return null;
-      }
-
-      // Step 3: If we have a qualifier, try to find the qualified reference (Phase 2 enhancement)
-      if (typeReference.qualifier) {
-        this.logger.debug(
-          () =>
-            `Looking for qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
-        );
-
-        const qualifiedSymbol = this.resolveQualifiedReference(
-          typeReference,
-          sourceFile,
-          candidates,
-        );
-        if (qualifiedSymbol) {
-          this.logger.debug(
-            () =>
-              `Resolved qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
-          );
-          return qualifiedSymbol;
-        }
       }
 
       // Step 4: For unqualified references, try same-file resolution first
@@ -2019,8 +2059,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   private resolveBuiltInType(name: string): ApexSymbol | null {
     try {
+      this.logger.debug(() => `Attempting to resolve built-in type: ${name}`);
+
       // Step 1: Check if this is a standard Apex class first (System, Database, Schema, etc.)
       if (this.resourceLoader && this.isStandardApexClass(name)) {
+        this.logger.debug(() => `Checking if ${name} is a standard Apex class`);
         const standardClass = this.resolveStandardApexClass(name);
         if (standardClass) {
           this.logger.debug(() => `Resolved standard Apex class: ${name}`);
@@ -2029,8 +2072,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Step 2: Check built-in type tables for primitive types (String, Integer, etc.)
+      this.logger.debug(() => `Checking built-in type tables for: ${name}`);
       const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
       if (builtInType) {
+        this.logger.debug(() => `Found built-in type: ${name} in tables`);
         // Only return built-in types for primitive types, not for standard Apex classes
         const isStandardApexClass = [
           'system',
@@ -2048,7 +2093,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               isBuiltIn: true,
             },
           };
+        } else {
+          this.logger.debug(
+            () => `Skipping ${name} as it's a standard Apex class`,
+          );
         }
+      } else {
+        this.logger.debug(() => `No built-in type found for: ${name}`);
       }
 
       return null;
@@ -2170,17 +2221,31 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Handle simple names by searching for them in the ResourceLoader
-      const allFiles = this.resourceLoader.getAllFilesSync();
-      for (const [filePath] of allFiles.entries()) {
-        if (filePath.endsWith('.cls')) {
-          const fileName = filePath.split('/').pop()?.replace('.cls', '');
-          if (fileName && fileName.toLowerCase() === name.toLowerCase()) {
-            this.logger.debug(
-              () => `Found standard class ${name} at path: ${filePath}`,
-            );
-            return filePath;
+      // Check if ResourceLoader is initialized before calling getAllFilesSync
+      if (!this.resourceLoader || !this.resourceLoader.isCompiling()) {
+        this.logger.debug(
+          () =>
+            `ResourceLoader not initialized, skipping standard class search for ${name}`,
+        );
+        return null;
+      }
+
+      try {
+        const allFiles = this.resourceLoader.getAllFilesSync();
+        for (const [filePath] of allFiles.entries()) {
+          if (filePath.endsWith('.cls')) {
+            const fileName = filePath.split('/').pop()?.replace('.cls', '');
+            if (fileName && fileName.toLowerCase() === name.toLowerCase()) {
+              this.logger.debug(
+                () => `Found standard class ${name} at path: ${filePath}`,
+              );
+              return filePath;
+            }
           }
         }
+      } catch (error) {
+        this.logger.debug(() => `Error calling getAllFilesSync: ${error}`);
+        return null;
       }
 
       this.logger.debug(
@@ -2261,11 +2326,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     candidates: ApexSymbol[],
   ): ApexSymbol | null {
     try {
+      this.logger.debug(
+        () =>
+          `Resolving qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
+      );
+
       // First, find the qualifier symbol
       const qualifierCandidates = this.findSymbolByName(
         typeReference.qualifier!,
       );
+      this.logger.debug(
+        () => `Found ${qualifierCandidates.length} qualifier candidates`,
+      );
+
       if (qualifierCandidates.length === 0) {
+        this.logger.debug(() => 'No qualifier candidates found');
         return null;
       }
 
@@ -2275,19 +2350,48 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         sourceFile,
       );
       if (!qualifier) {
+        this.logger.debug(() => 'No suitable qualifier found');
         return null;
       }
 
+      this.logger.debug(
+        () =>
+          `Selected qualifier: ${qualifier.name} (${qualifier.id}) from ${qualifier.filePath}`,
+      );
+
       // Now look for the member within the qualifier's file
-      const memberCandidates = this.findSymbolsInFile(
-        qualifier.filePath,
-      ).filter(
+      const fileSymbols = this.findSymbolsInFile(qualifier.filePath);
+      this.logger.debug(
+        () => `Found ${fileSymbols.length} symbols in qualifier file`,
+      );
+
+      let memberCandidates = fileSymbols.filter(
         (symbol) =>
           symbol.name === typeReference.name &&
           symbol.parentId === qualifier.id,
       );
 
+      this.logger.debug(
+        () =>
+          `Found ${memberCandidates.length} member candidates in file with parentId match`,
+      );
+
+      // Fallback: If no parentId match, try matching by name and kind within the same file
+      if (memberCandidates.length === 0) {
+        memberCandidates = fileSymbols.filter(
+          (symbol) =>
+            symbol.name === typeReference.name && symbol.kind === 'method',
+        );
+        this.logger.debug(
+          () =>
+            `Fallback: Found ${memberCandidates.length} method(s) in file with matching name`,
+        );
+      }
+
       if (memberCandidates.length === 1) {
+        this.logger.debug(
+          () => `Found member in file: ${memberCandidates[0].name}`,
+        );
         return memberCandidates[0];
       }
 
@@ -2296,10 +2400,34 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         (symbol) => symbol.parentId === qualifier.id,
       );
 
+      this.logger.debug(
+        () =>
+          `Found ${globalCandidates.length} global candidates with parentId match`,
+      );
+
       if (globalCandidates.length === 1) {
+        this.logger.debug(
+          () => `Found member globally: ${globalCandidates[0].name}`,
+        );
         return globalCandidates[0];
       }
 
+      // Debug: Let's see what symbols we have with the right name
+      const nameMatches = candidates.filter(
+        (symbol) => symbol.name === typeReference.name,
+      );
+      this.logger.debug(
+        () =>
+          `Found ${nameMatches.length} symbols with name ${typeReference.name}`,
+      );
+      nameMatches.forEach((symbol) => {
+        this.logger.debug(
+          () =>
+            `  - ${symbol.name} (${symbol.kind}) from ${symbol.filePath} with parentId: ${symbol.parentId}`,
+        );
+      });
+
+      this.logger.debug(() => 'No qualified reference found');
       return null;
     } catch (error) {
       this.logger.debug(() => `Error resolving qualified reference: ${error}`);
@@ -2385,6 +2513,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const result = aPriority - bPriority;
       this.logger.debug(
         () =>
+          // eslint-disable-next-line max-len
           `Size similar, using priority: ${a.name} priority=${aPriority} vs ${b.name} priority=${bPriority}, choosing ${result < 0 ? a.name : b.name}`,
       );
       return result;

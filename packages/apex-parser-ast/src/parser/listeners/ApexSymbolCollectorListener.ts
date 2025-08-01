@@ -1719,6 +1719,8 @@ export class ApexSymbolCollectorListener
     this.logger.debug(
       `DEBUG: enterDotExpression called with text: "${ctx.text}"`,
     );
+    // Add more visible debug output
+    console.log(`DEBUG: enterDotExpression called with text: "${ctx.text}"`);
     try {
       this.captureDottedReferences(ctx);
     } catch (error) {
@@ -1736,21 +1738,28 @@ export class ApexSymbolCollectorListener
     this.logger.debug(
       `DEBUG: captureDottedReferences called with text: "${text}"`,
     );
+    // Add more visible debug output
+    console.log(`DEBUG: captureDottedReferences called with text: "${text}"`);
 
     // Check if this is a method call (contains parentheses)
     if (text.includes('(')) {
       this.logger.debug(
         'DEBUG: Text contains parentheses, checking for method call',
       );
+      console.log('DEBUG: Text contains parentheses, checking for method call');
       // This is a method call like "FileUtilities.createFile(...)" or "property.setName(...)"
       const methodMatch = text.match(/^(\w+)\.(\w+)\(/);
       this.logger.debug(
         () => `DEBUG: Method match result: ${JSON.stringify(methodMatch)}`,
       );
+      console.log(`DEBUG: Method match result: ${JSON.stringify(methodMatch)}`);
       if (methodMatch) {
         const qualifier = methodMatch[1];
         const methodName = methodMatch[2];
         this.logger.debug(
+          `DEBUG: Extracted qualifier: "${qualifier}", methodName: "${methodName}"`,
+        );
+        console.log(
           `DEBUG: Extracted qualifier: "${qualifier}", methodName: "${methodName}"`,
         );
 
@@ -1783,6 +1792,11 @@ export class ApexSymbolCollectorListener
           );
           this.symbolTable.addTypeReference(classRef);
           this.logger.debug(() => `Captured CLASS_REFERENCE: ${qualifier}`);
+          console.log(
+            `DEBUG: Captured CLASS_REFERENCE: ${qualifier} at ` +
+              `${qualifierLocation.startLine}:${qualifierLocation.startColumn}-` +
+              `${qualifierLocation.endLine}:${qualifierLocation.endColumn}`,
+          );
         } else {
           // Qualifier is an instance variable (e.g., property)
           this.logger.debug(
@@ -1799,15 +1813,30 @@ export class ApexSymbolCollectorListener
 
         // Emit METHOD_CALL for the method
         this.logger.debug(`DEBUG: Creating METHOD_CALL for "${methodName}"`);
+
+        // Create a specific location for the method name part
+        const methodLocation: SymbolLocation = {
+          startLine: location.startLine,
+          startColumn: location.startColumn + qualifier.length + 1, // +1 for the dot
+          endLine: location.startLine,
+          endColumn:
+            location.startColumn + qualifier.length + 1 + methodName.length,
+        };
+
         const methodRef = TypeReferenceFactory.createMethodCallReference(
           methodName,
-          location,
+          methodLocation,
           qualifier,
           parentContext,
         );
         this.symbolTable.addTypeReference(methodRef);
         this.logger.debug(
           () => `Captured METHOD_CALL: ${methodName} (qualifier: ${qualifier})`,
+        );
+        console.log(
+          `DEBUG: Captured METHOD_CALL: ${methodName} (qualifier: ${qualifier}) at ` +
+            `${methodLocation.startLine}:${methodLocation.startColumn}-` +
+            `${methodLocation.endLine}:${methodLocation.endColumn}`,
         );
       } else {
         this.logger.debug('DEBUG: Method regex did not match');
