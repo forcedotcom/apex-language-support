@@ -197,4 +197,16 @@ export interface ISymbolManager {
     filePath: string,
     position: { line: number; character: number },
   ): TypeReference[];
+
+  /**
+   * Get the most specific symbol at a given position in a file
+   * This provides reliable position-based symbol lookup for LSP services
+   * @param fileUri The file URI to search in
+   * @param position The position to search for symbols (0-based)
+   * @returns The most specific symbol at the position, or null if not found
+   */
+  getSymbolAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): ApexSymbol | null;
 }

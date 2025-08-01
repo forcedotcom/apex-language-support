@@ -482,8 +482,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // Register the SymbolTable with the graph immediately
         this.symbolGraph.registerSymbolTable(tempSymbolTable, normalizedPath);
       }
-      tempSymbolTable.addSymbol(symbol);
     }
+
+    // Always add symbol to the SymbolTable
+    tempSymbolTable!.addSymbol(symbol);
 
     // Add to symbol graph (it has its own duplicate detection)
     this.symbolGraph.addSymbol(symbol, normalizedPath, tempSymbolTable);
@@ -1643,6 +1645,79 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
+   * Get the most specific symbol at a given position in a file
+   * This provides reliable position-based symbol lookup for LSP services
+   * @param fileUri The file URI to search in
+   * @param position The position to search for symbols (0-based)
+   * @returns The most specific symbol at the position, or null if not found
+   */
+  getSymbolAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): ApexSymbol | null {
+    try {
+      const normalizedPath = this.normalizeFilePath(fileUri);
+      this.logger.debug(
+        () =>
+          `Looking for symbol at position ${position.line}:${position.character} in ${normalizedPath}`,
+      );
+
+      // Step 1: Try to find TypeReferences at the position
+      const typeReferences = this.getReferencesAtPosition(
+        normalizedPath,
+        position,
+      );
+      this.logger.debug(
+        () =>
+          `Found ${typeReferences.length} TypeReferences at position ${position.line}:${position.character}`,
+      );
+
+      if (typeReferences.length > 0) {
+        // Step 2: Try to resolve the most specific reference
+        const resolvedSymbol = this.resolveTypeReferenceToSymbol(
+          typeReferences[0],
+          normalizedPath,
+        );
+        if (resolvedSymbol) {
+          this.logger.debug(
+            () =>
+              `Found symbol via TypeReference: ${resolvedSymbol.name} (${resolvedSymbol.kind})`,
+          );
+          return resolvedSymbol;
+        }
+      }
+
+      // Step 3: Fallback to direct symbol lookup by position
+      this.logger.debug(
+        () => 'No TypeReferences found, trying direct symbol lookup',
+      );
+
+      const directSymbol = this.findDirectSymbolAtPosition(
+        normalizedPath,
+        position,
+      );
+      if (directSymbol) {
+        this.logger.debug(
+          () =>
+            `Found symbol via direct lookup: ${directSymbol.name} (${directSymbol.kind})`,
+        );
+        return directSymbol;
+      }
+
+      this.logger.debug(() => 'No symbol found via direct lookup either');
+
+      this.logger.debug(
+        () =>
+          `No symbol found at position ${position.line}:${position.character}`,
+      );
+      return null;
+    } catch (error) {
+      this.logger.debug(() => `Error in getSymbolAtPosition: ${error}`);
+      return null;
+    }
+  }
+
+  /**
    * Get all TypeReference data for a file
    * @param filePath The file path to get references for
    * @returns Array of all TypeReference objects in the file
@@ -1671,6 +1746,234 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       this.logger.debug(() => `Error getting all references: ${error}`);
       return [];
     }
+  }
+
+  /**
+   * Resolve a TypeReference to its target symbol
+   * @param typeReference The TypeReference to resolve
+   * @param sourceFile The file containing the reference
+   * @returns The resolved symbol or null if not found
+   */
+  private resolveTypeReferenceToSymbol(
+    typeReference: TypeReference,
+    sourceFile: string,
+  ): ApexSymbol | null {
+    try {
+      this.logger.debug(
+        () =>
+          `Resolving TypeReference: ${typeReference.name} (context: ${typeReference.context})`,
+      );
+
+      // Step 1: Try to find symbols by name
+      const candidates = this.findSymbolByName(typeReference.name);
+
+      this.logger.debug(
+        () => `Found ${candidates.length} candidates for ${typeReference.name}`,
+      );
+
+      if (candidates.length === 0) {
+        this.logger.debug(
+          () => `No symbols found for TypeReference: ${typeReference.name}`,
+        );
+        return null;
+      }
+
+      // Step 2: If we have a qualifier, try to find the qualified reference
+      if (typeReference.qualifier) {
+        this.logger.debug(
+          () =>
+            `Looking for qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
+        );
+
+        const qualifiedCandidates = candidates.filter((symbol) =>
+          // Check if this symbol is accessible from the source file
+          this.isSymbolAccessibleFromFile(symbol, sourceFile),
+        );
+
+        if (qualifiedCandidates.length > 0) {
+          // Return the most specific match (prefer same file, then public, then global)
+          return this.selectMostSpecificSymbol(qualifiedCandidates, sourceFile);
+        }
+      }
+
+      // Step 3: For unqualified references, try same-file resolution first
+      const sameFileCandidates = candidates.filter(
+        (symbol) => symbol.key.path[0] === sourceFile,
+      );
+
+      this.logger.debug(
+        () => `Found ${sameFileCandidates.length} same-file candidates`,
+      );
+
+      if (sameFileCandidates.length > 0) {
+        return this.selectMostSpecificSymbol(sameFileCandidates, sourceFile);
+      }
+
+      // Step 4: Fallback to any accessible symbol
+      const accessibleCandidates = candidates.filter((symbol) =>
+        this.isSymbolAccessibleFromFile(symbol, sourceFile),
+      );
+
+      this.logger.debug(
+        () => `Found ${accessibleCandidates.length} accessible candidates`,
+      );
+
+      if (accessibleCandidates.length > 0) {
+        return this.selectMostSpecificSymbol(accessibleCandidates, sourceFile);
+      }
+
+      // Step 5: Last resort - return the first candidate
+      this.logger.debug(
+        () => `Using fallback symbol for TypeReference: ${typeReference.name}`,
+      );
+      return candidates[0];
+    } catch (error) {
+      this.logger.debug(() => `Error resolving TypeReference: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Find a symbol directly at a position by checking symbol locations
+   * @param filePath The file path to search in
+   * @param position The position to search for
+   * @returns The most specific symbol at the position or null
+   */
+  private findDirectSymbolAtPosition(
+    filePath: string,
+    position: { line: number; character: number },
+  ): ApexSymbol | null {
+    try {
+      const symbols = this.findSymbolsInFile(filePath);
+
+      this.logger.debug(
+        () => `Found ${symbols.length} symbols in file ${filePath}`,
+      );
+
+      // Find symbols that contain the position
+      const containingSymbols = symbols.filter((symbol) => {
+        if (!symbol.location) {
+          this.logger.debug(() => `Symbol ${symbol.name} has no location`);
+          return false;
+        }
+
+        const { startLine, startColumn, endLine, endColumn } = symbol.location;
+
+        // Check if position is within symbol bounds
+        if (position.line < startLine || position.line > endLine) {
+          this.logger.debug(
+            () =>
+              `Position ${position.line}:${position.character} outside line bounds ` +
+              `${startLine}-${endLine} for ${symbol.name}`,
+          );
+          return false;
+        }
+        if (position.line === startLine && position.character < startColumn) {
+          this.logger.debug(
+            () =>
+              `Position ${position.line}:${position.character} before start column ` +
+              `${startColumn} for ${symbol.name}`,
+          );
+          return false;
+        }
+        if (position.line === endLine && position.character > endColumn) {
+          this.logger.debug(
+            () =>
+              `Position ${position.line}:${position.character} after end column ${endColumn} for ${symbol.name}`,
+          );
+
+          return false;
+        }
+
+        this.logger.debug(
+          () =>
+            `Symbol ${symbol.name} (${symbol.kind}) contains position ${position.line}:${position.character}`,
+        );
+
+        return true;
+      });
+
+      this.logger.debug(
+        () => `Found ${containingSymbols.length} symbols containing position`,
+      );
+
+      if (containingSymbols.length === 0) {
+        return null;
+      }
+
+      // Return the most specific symbol (smallest range)
+      return this.selectMostSpecificSymbol(containingSymbols, filePath);
+    } catch (error) {
+      this.logger.debug(() => `Error in findDirectSymbolAtPosition: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Check if a symbol is accessible from a given file
+   * @param symbol The symbol to check
+   * @param sourceFile The file trying to access the symbol
+   * @returns True if the symbol is accessible
+   */
+  private isSymbolAccessibleFromFile(
+    symbol: ApexSymbol,
+    sourceFile: string,
+  ): boolean {
+    // Built-in types are always accessible
+    if (symbol.modifiers?.isBuiltIn) return true;
+
+    // Same file access
+    if (symbol.key.path[0] === sourceFile) return true;
+
+    // Global access
+    if (symbol.modifiers?.visibility === 'global') return true;
+
+    // Public access (simplified - in real implementation would check package/namespace)
+    if (symbol.modifiers?.visibility === 'public') return true;
+
+    return false;
+  }
+
+  /**
+   * Select the most specific symbol from a list of candidates
+   * @param candidates List of candidate symbols
+   * @param sourceFile The source file for context
+   * @returns The most specific symbol
+   */
+  private selectMostSpecificSymbol(
+    candidates: ApexSymbol[],
+    sourceFile: string,
+  ): ApexSymbol {
+    if (candidates.length === 1) {
+      return candidates[0];
+    }
+
+    // Priority order: same file > method > field > class > interface
+    const priorityOrder = [
+      'method',
+      'field',
+      'variable',
+      'class',
+      'interface',
+      'enum',
+    ];
+
+    // First, try to find symbols in the same file
+    const sameFileCandidates = candidates.filter(
+      (s) => s.key.path[0] === sourceFile,
+    );
+    if (sameFileCandidates.length > 0) {
+      candidates = sameFileCandidates;
+    }
+
+    // Sort by priority
+    candidates.sort((a, b) => {
+      const aPriority = priorityOrder.indexOf(a.kind) ?? 999;
+      const bPriority = priorityOrder.indexOf(b.kind) ?? 999;
+      return aPriority - bPriority;
+    });
+
+    return candidates[0];
   }
 
   getScopesInFile(filePath: string): string[] {

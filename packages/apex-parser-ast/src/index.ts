@@ -28,6 +28,7 @@ export * from './utils/CommentAssociator';
 export * from './types/typeInfo';
 export * from './types/symbol';
 export * from './types/typeReference';
+export * from './types/referenceVertex';
 export * from './types/qname';
 export * from './types/source';
 export * from './types/unitType';

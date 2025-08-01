@@ -173,7 +173,7 @@ export function joinUri(baseUri: string, relativePath: string): string {
  *     // Read the file using your preferred method
  *     const versionData = await fs.readFile(versionPath, 'utf8');
  *     const versionJson = JSON.parse(versionData);
- *     console.log(`Salesforce version: ${versionJson.version}`);
+ *     this.logger.debug(`Salesforce version: ${versionJson.version}`);
  *   } catch (error) {
  *     console.error('Failed to read version:', error);
  *   }
@@ -190,7 +190,7 @@ export function joinUri(baseUri: string, relativePath: string): string {
  *     // Fetch the file using your preferred method
  *     const response = await fetch(versionPath);
  *     const versionJson = await response.json();
- *     console.log(`Salesforce version: ${versionJson.version}`);
+ *     this.logger.debug(`Salesforce version: ${versionJson.version}`);
  *   } catch (error) {
  *     console.error('Failed to read version:', error);
  *   }

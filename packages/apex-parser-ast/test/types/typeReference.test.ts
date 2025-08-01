@@ -24,11 +24,12 @@ describe('TypeReference Data Structures', () => {
   describe('ReferenceContext enum', () => {
     it('should have all expected context types', () => {
       expect(ReferenceContext.METHOD_CALL).toBe(0);
-      expect(ReferenceContext.TYPE_DECLARATION).toBe(1);
-      expect(ReferenceContext.FIELD_ACCESS).toBe(2);
-      expect(ReferenceContext.CONSTRUCTOR_CALL).toBe(3);
-      expect(ReferenceContext.VARIABLE_USAGE).toBe(4);
-      expect(ReferenceContext.PARAMETER_TYPE).toBe(5);
+      expect(ReferenceContext.CLASS_REFERENCE).toBe(1);
+      expect(ReferenceContext.TYPE_DECLARATION).toBe(2);
+      expect(ReferenceContext.FIELD_ACCESS).toBe(3);
+      expect(ReferenceContext.CONSTRUCTOR_CALL).toBe(4);
+      expect(ReferenceContext.VARIABLE_USAGE).toBe(5);
+      expect(ReferenceContext.PARAMETER_TYPE).toBe(6);
     });
   });
 

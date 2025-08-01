@@ -510,13 +510,19 @@ export class ApexSymbolCollectorListener
         }
       }
 
-      console.log(`DEBUG: enterMethodDeclaration called for method: ${name}`);
-      console.log(`DEBUG: ctx.id() result: ${idNode ? 'present' : 'null'}`);
-      console.log(`DEBUG: ctx.text: "${ctx.text}"`);
-      console.log(`DEBUG: ctx.children count: ${ctx.children?.length || 0}`);
+      this.logger.debug(
+        `DEBUG: enterMethodDeclaration called for method: ${name}`,
+      );
+      this.logger.debug(
+        `DEBUG: ctx.id() result: ${idNode ? 'present' : 'null'}`,
+      );
+      this.logger.debug(`DEBUG: ctx.text: "${ctx.text}"`);
+      this.logger.debug(
+        `DEBUG: ctx.children count: ${ctx.children?.length || 0}`,
+      );
       if (ctx.children) {
         ctx.children.forEach((child, index) => {
-          console.log(
+          this.logger.debug(
             `DEBUG: Child ${index}: ${child.text} (${child.constructor.name})`,
           );
         });
@@ -631,17 +637,17 @@ export class ApexSymbolCollectorListener
 
       // Store the current method symbol
       this.currentMethodSymbol = methodSymbol;
-      console.log(`DEBUG: Created method symbol: ${methodSymbol.name}`);
+      this.logger.debug(`DEBUG: Created method symbol: ${methodSymbol.name}`);
 
       // Add method symbol to current scope
       this.symbolTable.addSymbol(methodSymbol);
-      console.log(
+      this.logger.debug(
         `DEBUG: Added method symbol to symbol table: ${methodSymbol.name}`,
       );
 
       // Enter method scope
       this.symbolTable.enterScope(name);
-      console.log(`DEBUG: Entered method scope: ${name}`);
+      this.logger.debug(`DEBUG: Entered method scope: ${name}`);
       this.logger.debug(() => `Entered method scope: ${name}`);
 
       // Reset annotations for the next symbol
@@ -1677,7 +1683,7 @@ export class ApexSymbolCollectorListener
    * Capture method call references (e.g., "FileUtilities.createFile(...)")
    */
   enterMethodCallExpression(ctx: MethodCallExpressionContext): void {
-    console.log(
+    this.logger.debug(
       `DEBUG: enterMethodCallExpression called with text: "${ctx.text}"`,
     );
     this.logger.debug(
@@ -1694,7 +1700,9 @@ export class ApexSymbolCollectorListener
    * Capture constructor call references (e.g., "new Property__c()")
    */
   enterNewExpression(ctx: NewExpressionContext): void {
-    console.log(`DEBUG: enterNewExpression called with text: "${ctx.text}"`);
+    this.logger.debug(
+      `DEBUG: enterNewExpression called with text: "${ctx.text}"`,
+    );
     try {
       this.captureConstructorCallReference(ctx);
     } catch (error) {
@@ -1708,7 +1716,9 @@ export class ApexSymbolCollectorListener
    * Capture field access references (e.g., "property.Id")
    */
   enterDotExpression(ctx: DotExpressionContext): void {
-    console.log(`DEBUG: enterDotExpression called with text: "${ctx.text}"`);
+    this.logger.debug(
+      `DEBUG: enterDotExpression called with text: "${ctx.text}"`,
+    );
     try {
       this.captureDottedReferences(ctx);
     } catch (error) {
@@ -1723,18 +1733,22 @@ export class ApexSymbolCollectorListener
    */
   private captureDottedReferences(ctx: DotExpressionContext): void {
     const text = ctx.text || '';
-    console.log(`DEBUG: captureDottedReferences called with text: "${text}"`);
+    this.logger.debug(
+      `DEBUG: captureDottedReferences called with text: "${text}"`,
+    );
 
     // Check if this is a method call (contains parentheses)
     if (text.includes('(')) {
-      console.log('DEBUG: Text contains parentheses, checking for method call');
+      this.logger.debug(
+        'DEBUG: Text contains parentheses, checking for method call',
+      );
       // This is a method call like "FileUtilities.createFile(...)" or "property.setName(...)"
       const methodMatch = text.match(/^(\w+)\.(\w+)\(/);
-      console.log('DEBUG: Method match result:', methodMatch);
+      this.logger.debug('DEBUG: Method match result:', methodMatch);
       if (methodMatch) {
         const qualifier = methodMatch[1];
         const methodName = methodMatch[2];
-        console.log(
+        this.logger.debug(
           `DEBUG: Extracted qualifier: "${qualifier}", methodName: "${methodName}"`,
         );
 
@@ -1743,7 +1757,7 @@ export class ApexSymbolCollectorListener
 
         // Determine if qualifier is a class name or instance variable
         const isClassReference = !this.isVariableInScope(qualifier);
-        console.log(
+        this.logger.debug(
           `DEBUG: isClassReference for "${qualifier}": ${isClassReference}`,
         );
 
@@ -1757,7 +1771,9 @@ export class ApexSymbolCollectorListener
 
         if (isClassReference) {
           // Qualifier is a class name (e.g., FileUtilities)
-          console.log(`DEBUG: Creating CLASS_REFERENCE for "${qualifier}"`);
+          this.logger.debug(
+            `DEBUG: Creating CLASS_REFERENCE for "${qualifier}"`,
+          );
           const classRef = TypeReferenceFactory.createClassReference(
             qualifier,
             qualifierLocation,
@@ -1767,7 +1783,9 @@ export class ApexSymbolCollectorListener
           this.logger.debug(() => `Captured CLASS_REFERENCE: ${qualifier}`);
         } else {
           // Qualifier is an instance variable (e.g., property)
-          console.log(`DEBUG: Creating VARIABLE_USAGE for "${qualifier}"`);
+          this.logger.debug(
+            `DEBUG: Creating VARIABLE_USAGE for "${qualifier}"`,
+          );
           const variableRef = TypeReferenceFactory.createVariableUsageReference(
             qualifier,
             qualifierLocation,
@@ -1778,7 +1796,7 @@ export class ApexSymbolCollectorListener
         }
 
         // Emit METHOD_CALL for the method
-        console.log(`DEBUG: Creating METHOD_CALL for "${methodName}"`);
+        this.logger.debug(`DEBUG: Creating METHOD_CALL for "${methodName}"`);
         const methodRef = TypeReferenceFactory.createMethodCallReference(
           methodName,
           location,
@@ -1790,19 +1808,19 @@ export class ApexSymbolCollectorListener
           () => `Captured METHOD_CALL: ${methodName} (qualifier: ${qualifier})`,
         );
       } else {
-        console.log('DEBUG: Method regex did not match');
+        this.logger.debug('DEBUG: Method regex did not match');
       }
     } else {
-      console.log(
+      this.logger.debug(
         'DEBUG: Text does not contain parentheses, checking for field access',
       );
       // This is field access like "property.Id"
       const fieldMatch = text.match(/^(\w+)\.(\w+)$/);
-      console.log('DEBUG: Field match result:', fieldMatch);
+      this.logger.debug('DEBUG: Field match result:', fieldMatch);
       if (fieldMatch) {
         const objectName = fieldMatch[1];
         const fieldName = fieldMatch[2];
-        console.log(
+        this.logger.debug(
           `DEBUG: Extracted objectName: "${objectName}", fieldName: "${fieldName}"`,
         );
 
@@ -1816,7 +1834,7 @@ export class ApexSymbolCollectorListener
           endLine: location.startLine,
           endColumn: location.startColumn + objectName.length,
         };
-        console.log(`DEBUG: Creating VARIABLE_USAGE for "${objectName}"`);
+        this.logger.debug(`DEBUG: Creating VARIABLE_USAGE for "${objectName}"`);
         const variableRef = TypeReferenceFactory.createVariableUsageReference(
           objectName,
           objectLocation,
@@ -1825,7 +1843,7 @@ export class ApexSymbolCollectorListener
         this.symbolTable.addTypeReference(variableRef);
 
         // Emit FIELD_ACCESS for the field
-        console.log(`DEBUG: Creating FIELD_ACCESS for "${fieldName}"`);
+        this.logger.debug(`DEBUG: Creating FIELD_ACCESS for "${fieldName}"`);
         const fieldRef = TypeReferenceFactory.createFieldAccessReference(
           fieldName,
           location,
@@ -1838,7 +1856,7 @@ export class ApexSymbolCollectorListener
             `Captured VARIABLE_USAGE: ${objectName} and FIELD_ACCESS: ${fieldName}`,
         );
       } else {
-        console.log('DEBUG: Field regex did not match');
+        this.logger.debug('DEBUG: Field regex did not match');
       }
     }
   }
@@ -1890,20 +1908,20 @@ export class ApexSymbolCollectorListener
    */
   private captureConstructorCallReference(ctx: NewExpressionContext): void {
     const text = ctx.text || '';
-    console.log(
+    this.logger.debug(
       `DEBUG: captureConstructorCallReference called with text: "${text}"`,
     );
 
     // Extract type name from constructor call
     // Format: "new TypeName(...)" or "newTypeName(...)" (no spaces)
     const constructorMatch = text.match(/^new\s*(\w+(?:__c)?)\(/);
-    console.log('DEBUG: Constructor match result:', constructorMatch);
+    this.logger.debug('DEBUG: Constructor match result:', constructorMatch);
     if (constructorMatch) {
       const typeName = constructorMatch[1];
       const location = this.getLocationForReference(ctx);
       const parentContext = this.getCurrentMethodName();
 
-      console.log(`DEBUG: Creating CONSTRUCTOR_CALL for "${typeName}"`);
+      this.logger.debug(`DEBUG: Creating CONSTRUCTOR_CALL for "${typeName}"`);
 
       const reference = TypeReferenceFactory.createConstructorCallReference(
         typeName,
@@ -1916,7 +1934,9 @@ export class ApexSymbolCollectorListener
         () => `Captured constructor call reference: ${typeName}`,
       );
     } else {
-      console.log(`DEBUG: No constructor match found for text: "${text}"`);
+      this.logger.debug(
+        `DEBUG: No constructor match found for text: "${text}"`,
+      );
     }
   }
 
@@ -1944,7 +1964,7 @@ export class ApexSymbolCollectorListener
         );
 
         this.symbolTable.addTypeReference(reference);
-        console.log(
+        this.logger.debug(
           `DEBUG: Captured method call reference from dot expression: ${methodName} (qualifier: ${qualifier})`,
         );
         this.logger.debug(
@@ -2013,7 +2033,7 @@ export class ApexSymbolCollectorListener
     if (!typeRef) return;
 
     const text = typeRef.text || '';
-    console.log(
+    this.logger.debug(
       `DEBUG: captureParameterTypeReferences called with text: "${text}"`,
     );
 
@@ -2032,7 +2052,7 @@ export class ApexSymbolCollectorListener
           parentContext,
         );
         this.symbolTable.addTypeReference(baseReference);
-        console.log(
+        this.logger.debug(
           `DEBUG: Created PARAMETER_TYPE for base type: "${baseTypeName}"`,
         );
       }
@@ -2057,7 +2077,7 @@ export class ApexSymbolCollectorListener
                 parentContext,
               );
             this.symbolTable.addTypeReference(genericReference);
-            console.log(
+            this.logger.debug(
               `DEBUG: Created PARAMETER_TYPE for generic type: "${genericType}"`,
             );
           }
@@ -2075,7 +2095,7 @@ export class ApexSymbolCollectorListener
         parentContext,
       );
       this.symbolTable.addTypeReference(reference);
-      console.log(
+      this.logger.debug(
         `DEBUG: Created PARAMETER_TYPE for simple type: "${typeName}"`,
       );
     }
