@@ -19,6 +19,8 @@ import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   SymbolManagerFactory,
   ISymbolManager,
+  TypeReference,
+  ReferenceContext,
 } from '@salesforce/apex-lsp-parser-ast';
 
 /**
@@ -194,6 +196,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
   /**
    * Find symbols at the given position using symbol manager
+   * Enhanced to use TypeReference data for more accurate resolution
    */
   private findSymbolsAtPosition(
     document: TextDocument,
@@ -202,7 +205,41 @@ export class HoverProcessingService implements IHoverProcessor {
     try {
       this.logger.debug(
         () =>
-          `Looking for symbols in file: ${document.uri} at position ${position.line}:${position.character}`,
+          `Looking for symbols in file: ${document.uri} at position ` +
+          `${position.line}:${position.character}`,
+      );
+
+      // ENHANCED: Try to use TypeReference data first for precise position detection
+      const typeReferences = this.symbolManager.getReferencesAtPosition(
+        document.uri,
+        position,
+      );
+
+      if (typeReferences && typeReferences.length > 0) {
+        this.logger.debug(
+          () =>
+            `Found ${typeReferences.length} TypeReference objects at position ${position.line}:${position.character}`,
+        );
+
+        // Convert TypeReference objects to symbols using the symbol manager
+        const symbolsFromReferences = this.convertTypeReferencesToSymbols(
+          typeReferences,
+          document.uri,
+        );
+
+        if (symbolsFromReferences.length > 0) {
+          this.logger.debug(
+            () =>
+              `Converted ${symbolsFromReferences.length} TypeReference objects to symbols`,
+          );
+          return symbolsFromReferences;
+        }
+      }
+
+      // FALLBACK: Use traditional symbol lookup if no TypeReference data available
+      this.logger.debug(
+        () =>
+          'No TypeReference data found, falling back to traditional symbol lookup',
       );
 
       // Get all symbols in the current file
@@ -321,6 +358,57 @@ export class HoverProcessingService implements IHoverProcessor {
       this.logger.debug(() => `Error finding symbols at position: ${error}`);
       return null;
     }
+  }
+
+  /**
+   * Convert TypeReference objects to symbols using the symbol manager
+   * This provides enhanced context information for better symbol resolution
+   */
+  private convertTypeReferencesToSymbols(
+    typeReferences: TypeReference[],
+    filePath: string,
+  ): any[] {
+    const symbols: any[] = [];
+
+    for (const ref of typeReferences) {
+      try {
+        // Find symbols by name that match the TypeReference
+        const foundSymbols = this.symbolManager.findSymbolByName(ref.name);
+
+        if (foundSymbols && foundSymbols.length > 0) {
+          // Filter symbols to prefer those in the current file
+          const localSymbols = foundSymbols.filter(
+            (symbol: any) => symbol.filePath === filePath,
+          );
+
+          // If we have local symbols, use them; otherwise use all found symbols
+          const symbolsToAdd =
+            localSymbols.length > 0 ? localSymbols : foundSymbols;
+
+          // Add context information from TypeReference
+          const enhancedSymbols = symbolsToAdd.map((symbol: any) => ({
+            ...symbol,
+            _typeReference: ref, // Store the TypeReference for context
+            _context: ref.context, // Store the reference context
+            _qualifier: ref.qualifier, // Store the qualifier (e.g., "FileUtilities" in "FileUtilities.createFile")
+          }));
+
+          symbols.push(...enhancedSymbols);
+
+          this.logger.debug(
+            () =>
+              `Enhanced symbol ${ref.name} with TypeReference context: ${ReferenceContext[ref.context]}`,
+          );
+        }
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error converting TypeReference ${ref.name} to symbol: ${error}`,
+        );
+      }
+    }
+
+    return symbols;
   }
 
   /**
@@ -548,13 +636,12 @@ export class HoverProcessingService implements IHoverProcessor {
     // but we're in a method call context, prefer method/class symbols over variables
     if (symbols.length > 1 && hasVariableSymbol) {
       // Check if we're in a method call context (e.g., FileUtilities.createFile)
-      const hasMethodCallContext = symbols.some((s) => {
-        // Look for patterns like "ClassName.methodName" in the symbol name or context
-        return (
+      const hasMethodCallContext = symbols.some(
+        (s) =>
+          // Look for patterns like "ClassName.methodName" in the symbol name or context
           s.name.includes('.') ||
-          (context.sourceFile && context.sourceFile.includes('FileUtilities'))
-        );
-      });
+          (context.sourceFile && context.sourceFile.includes('FileUtilities')),
+      );
 
       if (hasMethodCallContext) {
         this.logger.debug(

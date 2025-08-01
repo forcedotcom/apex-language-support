@@ -14,6 +14,7 @@ import {
 } from '../symbols/ApexSymbolGraph';
 import { type EnumValue } from '@salesforce/apex-lsp-shared';
 import { FQNOptions } from '../utils/FQNUtils';
+import { TypeReference } from '../types/typeReference';
 
 /**
  * Context for symbol resolution
@@ -184,4 +185,16 @@ export interface ISymbolManager {
    * @returns Array of ancestor symbols from top-level to closest parent
    */
   getAncestorChain(symbol: ApexSymbol): ApexSymbol[];
+
+  /**
+   * Get TypeReference data at a specific position in a file
+   * This provides precise AST-based position data for enhanced symbol resolution
+   * @param filePath The file path to search in
+   * @param position The position to search for references (0-based)
+   * @returns Array of TypeReference objects at the position
+   */
+  getReferencesAtPosition(
+    filePath: string,
+    position: { line: number; character: number },
+  ): TypeReference[];
 }

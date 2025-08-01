@@ -17,6 +17,7 @@ import {
   SymbolTable,
   generateUnifiedId,
 } from '../types/symbol';
+import { TypeReference } from '../types/typeReference';
 import {
   ApexSymbolGraph,
   ReferenceType,
@@ -1602,6 +1603,74 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbols.forEach((symbol: ApexSymbol) => {
       this.addSymbol(symbol, filePath, symbolTable);
     });
+  }
+
+  /**
+   * Get TypeReference data at a specific position in a file
+   * This provides precise AST-based position data for enhanced symbol resolution
+   * @param filePath The file path to search in
+   * @param position The position to search for references (0-based)
+   * @returns Array of TypeReference objects at the position
+   */
+  getReferencesAtPosition(
+    filePath: string,
+    position: { line: number; character: number },
+  ): TypeReference[] {
+    try {
+      const normalizedPath = this.normalizeFilePath(filePath);
+      const symbolTable =
+        this.symbolGraph.getSymbolTableForFile(normalizedPath);
+
+      if (!symbolTable) {
+        this.logger.debug(
+          () => `No symbol table found for file: ${normalizedPath}`,
+        );
+        return [];
+      }
+
+      const references = symbolTable.getReferencesAtPosition(position);
+      this.logger.debug(
+        () =>
+          `Found ${references.length} TypeReference objects at position ` +
+          `${position.line}:${position.character} in ${normalizedPath}`,
+      );
+
+      return references;
+    } catch (error) {
+      this.logger.debug(() => `Error getting references at position: ${error}`);
+      return [];
+    }
+  }
+
+  /**
+   * Get all TypeReference data for a file
+   * @param filePath The file path to get references for
+   * @returns Array of all TypeReference objects in the file
+   */
+  getAllReferencesInFile(filePath: string): TypeReference[] {
+    try {
+      const normalizedPath = this.normalizeFilePath(filePath);
+      const symbolTable =
+        this.symbolGraph.getSymbolTableForFile(normalizedPath);
+
+      if (!symbolTable) {
+        this.logger.debug(
+          () => `No symbol table found for file: ${normalizedPath}`,
+        );
+        return [];
+      }
+
+      const references = symbolTable.getAllReferences();
+      this.logger.debug(
+        () =>
+          `Found ${references.length} total TypeReference objects in ${normalizedPath}`,
+      );
+
+      return references;
+    } catch (error) {
+      this.logger.debug(() => `Error getting all references: ${error}`);
+      return [];
+    }
   }
 
   getScopesInFile(filePath: string): string[] {
