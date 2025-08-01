@@ -1138,6 +1138,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
   /**
    * Analyze Apex-specific context for symbol resolution
+   * Enhanced to handle static vs instance, type context, and inheritance context
    */
   private analyzeApexContext(symbol: any, context: any): number {
     let confidence = 0;
@@ -1149,6 +1150,18 @@ export class HoverProcessingService implements IHoverProcessor {
         confidence += 0.3;
       }
     }
+
+    // ENHANCED: Static vs Instance Context Analysis
+    confidence += this.analyzeStaticInstanceContext(symbol, context);
+
+    // ENHANCED: Type Context Analysis
+    confidence += this.analyzeTypeContext(symbol, context);
+
+    // ENHANCED: Inheritance Context Analysis
+    confidence += this.analyzeInheritanceContext(symbol, context);
+
+    // ENHANCED: Access Modifier Context Analysis
+    confidence += this.analyzeAccessModifierContext(symbol, context);
 
     // Special case: In method call context, prioritize cross-file class references
     // This handles cases like "FileUtilities.createFile" where we want to hover on "FileUtilities"
@@ -1190,6 +1203,223 @@ export class HoverProcessingService implements IHoverProcessor {
     }
 
     return confidence;
+  }
+
+  /**
+   * Analyze static vs instance context for method resolution
+   */
+  private analyzeStaticInstanceContext(symbol: any, context: any): number {
+    let confidence = 0;
+
+    // Check if we're in a static context
+    if (context.isStatic) {
+      // Prefer static methods in static context
+      if (symbol.kind === 'method' && symbol.modifiers?.isStatic) {
+        confidence += 0.8; // High priority for static methods in static context
+        this.logger.debug(
+          () =>
+            `Static context detected - boosted confidence for static method ${symbol.name}: +0.8`,
+        );
+      } else if (symbol.kind === 'method' && !symbol.modifiers?.isStatic) {
+        confidence -= 0.5; // Penalize instance methods in static context
+        this.logger.debug(
+          () =>
+            `Static context detected - penalized instance method ${symbol.name}: -0.5`,
+        );
+      }
+    } else {
+      // We're in an instance context
+      if (symbol.kind === 'method' && !symbol.modifiers?.isStatic) {
+        confidence += 0.6; // Prefer instance methods in instance context
+        this.logger.debug(
+          () =>
+            `Instance context detected - boosted confidence for instance method ${symbol.name}: +0.6`,
+        );
+      } else if (symbol.kind === 'method' && symbol.modifiers?.isStatic) {
+        confidence += 0.3; // Static methods are still accessible in instance context, but with lower priority
+        this.logger.debug(
+          () =>
+            `Instance context detected - static method ${symbol.name} accessible: +0.3`,
+        );
+      }
+    }
+
+    return confidence;
+  }
+
+  /**
+   * Analyze type context for method resolution
+   */
+  private analyzeTypeContext(symbol: any, context: any): number {
+    let confidence = 0;
+
+    // Check if we have expected type information
+    if (context.expectedType && symbol.kind === 'method') {
+      // Check if the method's return type matches the expected type
+      if (symbol.type?.name === context.expectedType) {
+        confidence += 0.7; // High priority for type-matching methods
+        this.logger.debug(
+          () =>
+            `Type context match - method ${symbol.name} returns ${symbol.type?.name}, expected ${context.expectedType}: +0.7`,
+        );
+      } else {
+        // Check if the method's return type is compatible (e.g., inheritance)
+        if (this.isTypeCompatible(symbol.type?.name, context.expectedType)) {
+          confidence += 0.4; // Medium priority for compatible types
+          this.logger.debug(
+            () =>
+              `Type context compatible - method ${symbol.name} returns ${symbol.type?.name}, compatible with ${context.expectedType}: +0.4`,
+          );
+        }
+      }
+    }
+
+    // Check parameter types if available
+    if (context.parameterTypes && context.parameterTypes.length > 0) {
+      if (symbol.parameters && symbol.parameters.length > 0) {
+        const parameterMatch = this.analyzeParameterTypeMatch(
+          symbol.parameters,
+          context.parameterTypes,
+        );
+        confidence += parameterMatch * 0.3; // Parameter matching bonus
+      }
+    }
+
+    return confidence;
+  }
+
+  /**
+   * Analyze inheritance context for symbol resolution
+   */
+  private analyzeInheritanceContext(symbol: any, context: any): number {
+    let confidence = 0;
+
+    // Check if we're looking for a class and have inheritance information
+    if (symbol.kind === 'class' && context.inheritanceChain) {
+      // Check if this class is in the inheritance chain
+      if (context.inheritanceChain.includes(symbol.name)) {
+        confidence += 0.5; // Boost for classes in inheritance chain
+        this.logger.debug(
+          () =>
+            `Inheritance context - class ${symbol.name} found in inheritance chain: +0.5`,
+        );
+      }
+
+      // Check if this class extends the expected base class
+      if (symbol.extends && context.inheritanceChain.includes(symbol.extends)) {
+        confidence += 0.3; // Boost for classes that extend expected base class
+        this.logger.debug(
+          () =>
+            `Inheritance context - class ${symbol.name} extends ${symbol.extends}: +0.3`,
+        );
+      }
+    }
+
+    // Check interface implementations
+    if (symbol.kind === 'class' && context.interfaceImplementations) {
+      if (symbol.implements && symbol.implements.length > 0) {
+        for (const implementedInterface of symbol.implements) {
+          if (context.interfaceImplementations.includes(implementedInterface)) {
+            confidence += 0.2; // Boost for classes implementing expected interfaces
+            this.logger.debug(
+              () =>
+                `Interface context - class ${symbol.name} implements ${implementedInterface}: +0.2`,
+            );
+          }
+        }
+      }
+    }
+
+    return confidence;
+  }
+
+  /**
+   * Analyze access modifier context for symbol resolution
+   */
+  private analyzeAccessModifierContext(symbol: any, context: any): number {
+    let confidence = 0;
+
+    // Check if the symbol's access modifier matches the context
+    if (context.accessModifier && symbol.modifiers?.visibility) {
+      if (symbol.modifiers.visibility === context.accessModifier) {
+        confidence += 0.2; // Boost for matching access modifiers
+        this.logger.debug(
+          () =>
+            `Access modifier match - symbol ${symbol.name} has ${symbol.modifiers.visibility}, context expects ${context.accessModifier}: +0.2`,
+        );
+      }
+    }
+
+    // Check namespace context
+    if (context.namespaceContext && symbol.modifiers?.visibility) {
+      if (context.namespaceContext === symbol.modifiers.visibility) {
+        confidence += 0.15; // Boost for namespace context match
+        this.logger.debug(
+          () =>
+            `Namespace context match - symbol ${symbol.name} in ${context.namespaceContext} namespace: +0.15`,
+        );
+      }
+    }
+
+    return confidence;
+  }
+
+  /**
+   * Check if two types are compatible (e.g., inheritance relationship)
+   */
+  private isTypeCompatible(actualType: string, expectedType: string): boolean {
+    if (!actualType || !expectedType) return false;
+
+    // Direct match
+    if (actualType === expectedType) return true;
+
+    // Check for inheritance relationships using symbol manager
+    try {
+      // Find the actual type symbol
+      const actualTypeSymbols = this.symbolManager.findSymbolByName(actualType);
+      if (actualTypeSymbols.length > 0) {
+        const actualTypeSymbol = actualTypeSymbols[0];
+        
+        // Check if it extends the expected type
+        if (actualTypeSymbol.extends === expectedType) return true;
+        
+        // Check inheritance chain
+        const ancestorChain = this.symbolManager.getAncestorChain?.(actualTypeSymbol);
+        if (ancestorChain && ancestorChain.some((ancestor: any) => ancestor.name === expectedType)) {
+          return true;
+        }
+      }
+    } catch (error) {
+      this.logger.debug(() => `Error checking type compatibility: ${error}`);
+    }
+
+    return false;
+  }
+
+  /**
+   * Analyze parameter type matching between method parameters and expected types
+   */
+  private analyzeParameterTypeMatch(
+    methodParameters: any[],
+    expectedTypes: string[],
+  ): number {
+    let matchScore = 0;
+    const maxParameters = Math.max(methodParameters.length, expectedTypes.length);
+
+    for (let i = 0; i < maxParameters; i++) {
+      const methodParam = methodParameters[i];
+      const expectedType = expectedTypes[i];
+
+      if (methodParam && expectedType) {
+        if (methodParam.type?.name === expectedType) {
+          matchScore += 1.0; // Exact match
+        } else if (this.isTypeCompatible(methodParam.type?.name, expectedType)) {
+          matchScore += 0.7; // Compatible match
+        }
+      }
+    }
+
+    return matchScore / maxParameters; // Normalize to 0-1 range
   }
 
   /**

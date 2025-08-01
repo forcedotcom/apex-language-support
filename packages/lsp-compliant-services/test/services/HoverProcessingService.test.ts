@@ -322,7 +322,7 @@ describe('HoverProcessingService', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://TestClass.cls' },
-        position: { line: 1, character: 15 }, // Position on 'getValue' method declaration (0-indexed)
+        position: { line: 8, character: 5 }, // Position on 'getValue()' call inside static context
       };
 
       const result = await hoverService.processHover(params);
@@ -334,7 +334,7 @@ describe('HoverProcessingService', () => {
           typeof result.contents === 'object' && 'value' in result.contents
             ? result.contents.value
             : '';
-        expect(content).toContain('**Method** getStaticValue');
+        expect(content).toContain('**Method** getValue');
         expect(content).toContain('**Returns:** String');
         expect(content).toContain('**Modifiers:** static, public');
       }
