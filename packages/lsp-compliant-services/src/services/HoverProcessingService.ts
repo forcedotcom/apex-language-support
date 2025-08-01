@@ -23,6 +23,7 @@ import {
   ReferenceContext,
   SymbolKind,
   TypeSymbol,
+  ApexSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 
 /**
@@ -1377,6 +1378,15 @@ export class HoverProcessingService implements IHoverProcessor {
   }
 
   /**
+   * Type predicate to check if a symbol is a type symbol (class or interface)
+   */
+  private isTypeSymbol(symbol: ApexSymbol): symbol is TypeSymbol {
+    return (
+      symbol.kind === SymbolKind.Class || symbol.kind === SymbolKind.Interface
+    );
+  }
+
+  /**
    * Check if two types are compatible (e.g., inheritance relationship)
    */
   private isTypeCompatible(actualType: string, expectedType: string): boolean {
@@ -1392,14 +1402,9 @@ export class HoverProcessingService implements IHoverProcessor {
       if (actualTypeSymbols.length > 0) {
         const actualTypeSymbol = actualTypeSymbols[0];
 
-        // Check if it extends the expected type (only for type symbols)
-        if (
-          actualTypeSymbol.kind === SymbolKind.Class ||
-          actualTypeSymbol.kind === SymbolKind.Interface
-        ) {
-          // Type narrowing: now TypeScript knows this is a TypeSymbol
-          const typeSymbol = actualTypeSymbol as TypeSymbol;
-          if (typeSymbol.superClass === expectedType) {
+        // Use type predicate for safe type narrowing
+        if (this.isTypeSymbol(actualTypeSymbol)) {
+          if (actualTypeSymbol.superClass === expectedType) {
             return true;
           }
         }
