@@ -2151,7 +2151,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const className = parts[1];
         const path = `${namespace}.${className}.cls`;
 
-        const file = this.resourceLoader.getFile(path);
+        const file = this.resourceLoader.getFileSync(path);
         if (file) {
           this.logger.debug(
             () => `Found qualified standard class ${name} at path: ${path}`,
@@ -2161,7 +2161,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       // Handle simple names by searching for them in the ResourceLoader
-      const allFiles = this.resourceLoader.getAllFiles();
+      const allFiles = this.resourceLoader.getAllFilesSync();
       for (const [filePath] of allFiles.entries()) {
         if (filePath.endsWith('.cls')) {
           const fileName = filePath.split('/').pop()?.replace('.cls', '');
@@ -2196,10 +2196,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return [];
       }
 
-      const allFiles = this.resourceLoader.getAllFiles();
+      // Use getAvailableClasses() which is synchronous and returns the file paths
+      const availableClasses = this.resourceLoader.getAvailableClasses();
       const standardClasses: string[] = [];
 
-      for (const [filePath] of allFiles.entries()) {
+      for (const filePath of availableClasses) {
         if (filePath.endsWith('.cls')) {
           const className = filePath.split('/').pop()?.replace('.cls', '');
           if (className) {

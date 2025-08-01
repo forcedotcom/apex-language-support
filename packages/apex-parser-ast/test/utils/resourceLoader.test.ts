@@ -31,7 +31,7 @@ describe('ResourceLoader', () => {
     it('should accept preloadCommonClasses option', () => {
       const instance = ResourceLoader.getInstance({
         loadMode: 'lazy',
-        preloadCommonClasses: true,
+        preloadStdClasses: true,
       });
       expect(instance).toBeDefined();
     });
@@ -199,7 +199,7 @@ describe('ResourceLoader', () => {
     it('should preload common classes when requested', async () => {
       loader = ResourceLoader.getInstance({
         loadMode: 'lazy',
-        preloadCommonClasses: true,
+        preloadStdClasses: true,
       });
       await loader.initialize();
 
@@ -237,7 +237,12 @@ describe('ResourceLoader Compilation', () => {
 
   beforeAll(async () => {
     // Set up a shared compiled loader once for all tests in this describe block
+
+    // Reset the singleton to ensure we get a fresh instance
+    (ResourceLoader as any).instance = null;
+
     sharedCompiledLoader = ResourceLoader.getInstance({ loadMode: 'full' });
+
     await sharedCompiledLoader.initialize();
     await sharedCompiledLoader.waitForCompilation();
   });
@@ -297,20 +302,21 @@ describe('ResourceLoader Compilation', () => {
 
   it('should compile files with correct namespace from parent folder', async () => {
     resourceLoader = await setupCompiledLoader();
+
     const compiledArtifacts = resourceLoader.getAllCompiledArtifacts();
 
-    // Test System namespace
+    // Test System namespace (which actually exists)
     const systemArtifact =
       resourceLoader.getCompiledArtifact('System/System.cls');
     expect(systemArtifact).toBeDefined();
     expect(systemArtifact!.compilationResult.result).toBeDefined();
 
-    // Test Apex namespace
-    const apexArtifact = resourceLoader.getCompiledArtifact(
-      'apexpages.action.cls',
+    // Test ApexPages namespace (which actually exists)
+    const actionArtifact = resourceLoader.getCompiledArtifact(
+      'ApexPages/Action.cls',
     );
-    expect(apexArtifact).toBeDefined();
-    expect(apexArtifact!.compilationResult.result).toBeDefined();
+    expect(actionArtifact).toBeDefined();
+    expect(actionArtifact!.compilationResult.result).toBeDefined();
 
     // Verify namespace distribution
     const artifacts = Array.from(compiledArtifacts.values());
@@ -323,8 +329,8 @@ describe('ResourceLoader Compilation', () => {
     });
 
     expect(namespaceMap.size).toBeGreaterThan(1);
-    expect(namespaceMap.has('System')).toBe(true);
-    expect(namespaceMap.get('System')).toBeGreaterThan(0);
+    expect(namespaceMap.has('system')).toBe(true);
+    expect(namespaceMap.get('system')).toBeGreaterThan(0);
   }, 30000);
 
   it('should handle root-level files without namespace', async () => {

@@ -30,7 +30,7 @@ async function demonstrateEnhancedResourceLoader() {
 
     const resourceLoader = ResourceLoader.getInstance({
       loadMode: 'lazy',
-      preloadCommonClasses: true,
+      preloadStdClasses: true,
     });
 
     // Structure is available immediately - no initialization needed!
@@ -137,7 +137,7 @@ async function demonstrateEnhancedResourceLoader() {
 
     const preloadLoader = ResourceLoader.getInstance({
       loadMode: 'lazy',
-      preloadCommonClasses: true,
+      preloadStdClasses: true,
     });
     await preloadLoader.initialize();
 

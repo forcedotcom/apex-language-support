@@ -8,6 +8,7 @@
 
 import { unzipSync } from 'fflate';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { Volume } from 'memfs';
 
 import { zipData } from '../generated/apexSrcLoader';
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
@@ -18,7 +19,7 @@ import type { SymbolTable } from '../types/symbol';
 
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
-  preloadCommonClasses?: boolean;
+  preloadStdClasses?: boolean;
 }
 
 interface DirectoryEntry {
@@ -49,27 +50,18 @@ interface LazyFileContent {
   isCompiled: boolean;
 }
 
-interface FileContent {
-  decoded: boolean;
-  contents: string | Uint8Array;
-  originalPath: string;
-}
-
 interface CompiledArtifact {
   path: string;
   compilationResult: CompilationResultWithAssociations<SymbolTable>;
 }
 
-function isDecodedContent(contents: string | Uint8Array): contents is string {
-  return typeof contents === 'string';
-}
-
 /**
  * Enhanced ResourceLoader class for loading and compiling standard Apex classes from embedded zip data.
+ * Uses memfs for efficient in-memory file storage and management.
  *
  * Core Responsibilities:
  * - Immediately discover directory structure without loading content
- * - Provide true lazy loading of file contents
+ * - Provide true lazy loading of file contents using memfs
  * - Track file references with associated source
  * - Compile source code on-demand
  * - Provide access to source for goto definition
@@ -84,7 +76,7 @@ function isDecodedContent(contents: string | Uint8Array): contents is string {
  * // Structure is immediately available
  * const availableClasses = loader.getAvailableClasses();
  *
- * // Content loaded on-demand
+ * // Content loaded on-demand via memfs
  * const source = await loader.getFile('System/System.cls');
  * ```
  */
@@ -93,33 +85,39 @@ export class ResourceLoader {
   private directoryStructure: DirectoryStructure;
   private lazyFileMap: CaseInsensitivePathMap<LazyFileContent> =
     new CaseInsensitivePathMap();
-  private contentLoaded: CaseInsensitivePathMap<FileContent> =
-    new CaseInsensitivePathMap();
   // Store compiled artifacts for backward compatibility
   private compiledArtifacts: CaseInsensitivePathMap<CompiledArtifact> =
     new CaseInsensitivePathMap();
   private initialized = false;
   private compilationPromise: Promise<void> | null = null;
   private loadMode: 'lazy' | 'full' = 'full';
-  private preloadCommonClasses: boolean = false;
+  private preloadStdClasses: boolean = false;
   private readonly logger = getLogger();
   private compilerService: CompilerService;
-  private rawZipData: Record<string, Uint8Array> | null = null;
+  private memfsVolume: Volume;
 
   private constructor(options?: ResourceLoaderOptions) {
     if (options?.loadMode) {
       this.loadMode = options.loadMode;
     }
-    if (options?.preloadCommonClasses) {
-      this.preloadCommonClasses = options.preloadCommonClasses;
+    if (options?.preloadStdClasses) {
+      this.preloadStdClasses = options.preloadStdClasses;
     }
 
     this.compilerService = new CompilerService();
     this.compiledArtifacts = new CaseInsensitivePathMap();
+    this.memfsVolume = new Volume();
 
     // Immediately build directory structure
     this.directoryStructure = this.buildDirectoryStructure();
+
+    // Set initialized to true before starting compilation
     this.initialized = true;
+
+    // Start compilation immediately if loadMode is 'full'
+    if (this.loadMode === 'full') {
+      this.compilationPromise = this.compileAllArtifacts();
+    }
   }
 
   /**
@@ -131,7 +129,6 @@ export class ResourceLoader {
 
     // Extract zip data to get file paths and metadata
     const files = unzipSync(zipData);
-    this.rawZipData = files;
 
     const entries = new Map<string, DirectoryEntry>();
     const namespaces = new Map<string, string[]>();
@@ -143,7 +140,12 @@ export class ResourceLoader {
     Object.entries(files)
       .filter(([path]) => path.endsWith('.cls'))
       .forEach(([path, data]) => {
-        const pathParts = path.split(/[\/\\]/);
+        // Strip the src/resources/StandardApexLibrary/ prefix to get the relative path
+        const relativePath = path.replace(
+          /^src\/resources\/StandardApexLibrary\//,
+          '',
+        );
+        const pathParts = relativePath.split(/[\/\\]/);
         const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
         const fileName = pathParts[pathParts.length - 1];
 
@@ -156,25 +158,37 @@ export class ResourceLoader {
         }
 
         const entry: DirectoryEntry = {
-          path,
+          path: relativePath,
           size: data.length,
           isDirectory: false,
           namespace,
           originalPath: path,
         };
 
-        entries.set(path, entry);
+        entries.set(relativePath, entry);
         totalFiles++;
         totalSize += data.length;
 
         // Initialize lazy file content
-        this.lazyFileMap.set(path, {
-          path,
+        this.lazyFileMap.set(relativePath, {
+          path: relativePath,
           lastAccessed: 0,
           accessCount: 0,
           isLoaded: false,
           isCompiled: false,
         });
+
+        // Create directory structure if needed
+        const dirPath = relativePath.substring(
+          0,
+          relativePath.lastIndexOf('/'),
+        );
+        if (dirPath && !this.memfsVolume.existsSync(dirPath)) {
+          this.memfsVolume.mkdirSync(dirPath, { recursive: true });
+        }
+
+        // Store file data in memfs for lazy loading using the relative path
+        this.memfsVolume.writeFileSync(relativePath, data);
       });
 
     this.logger.debug(
@@ -193,6 +207,86 @@ export class ResourceLoader {
     };
   }
 
+  /**
+   * Check if file exists using memfs
+   * @private
+   */
+  private memfsExists(path: string): boolean {
+    const normalizedPath = this.normalizePath(path);
+
+    try {
+      // Use memfs existsSync for efficient file existence check
+      return this.memfsVolume.existsSync(normalizedPath);
+    } catch {
+      // If memfs throws an error, fall back to case-insensitive lookup
+      for (const [entryPath] of this.directoryStructure.entries) {
+        if (
+          this.normalizePath(entryPath).toLowerCase() ===
+          normalizedPath.toLowerCase()
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Get file content using memfs
+   * @private
+   */
+  private async memfsReadFile(path: string): Promise<string | undefined> {
+    const normalizedPath = this.normalizePath(path);
+
+    try {
+      // Try to read directly from memfs first
+      const content = this.memfsVolume.readFileSync(
+        normalizedPath,
+        'utf8',
+      ) as string;
+
+      // Update access statistics
+      const lazyContent = this.lazyFileMap.get(normalizedPath);
+      if (lazyContent) {
+        lazyContent.lastAccessed = Date.now();
+        lazyContent.accessCount++;
+        lazyContent.isLoaded = true;
+        lazyContent.content = content;
+      }
+
+      return content;
+    } catch (_error) {
+      // If direct read fails, try case-insensitive lookup
+      for (const [entryPath] of this.directoryStructure.entries) {
+        if (
+          this.normalizePath(entryPath).toLowerCase() ===
+          normalizedPath.toLowerCase()
+        ) {
+          try {
+            const content = this.memfsVolume.readFileSync(
+              entryPath,
+              'utf8',
+            ) as string;
+
+            // Update access statistics
+            const lazyContent = this.lazyFileMap.get(entryPath);
+            if (lazyContent) {
+              lazyContent.lastAccessed = Date.now();
+              lazyContent.accessCount++;
+              lazyContent.isLoaded = true;
+              lazyContent.content = content;
+            }
+
+            return content;
+          } catch (_innerError) {
+            // Continue to next entry
+          }
+        }
+      }
+      return undefined;
+    }
+  }
+
   public static getInstance(options?: ResourceLoaderOptions): ResourceLoader {
     if (!ResourceLoader.instance) {
       ResourceLoader.instance = new ResourceLoader(options);
@@ -201,7 +295,7 @@ export class ResourceLoader {
   }
 
   /**
-   * Get file content with true lazy loading
+   * Get file content with true lazy loading using memfs
    * @param path The file path
    * @returns Promise that resolves to the file content
    */
@@ -212,85 +306,95 @@ export class ResourceLoader {
       );
     }
 
-    // Normalize path for lookup
+    // Use memfs for simple file access
+    return this.memfsReadFile(path);
+  }
+
+  /**
+   * Get file content synchronously using memfs
+   * @param path The file path
+   * @returns The file content or undefined if not found
+   */
+  public getFileSync(path: string): string | undefined {
+    if (!this.initialized) {
+      throw new Error(
+        'ResourceLoader not initialized. Call initialize() first.',
+      );
+    }
+
     const normalizedPath = this.normalizePath(path);
 
-    // Find the actual entry using case-insensitive lookup
-    let actualPath = normalizedPath;
-    for (const [entryPath] of this.directoryStructure.entries) {
-      if (entryPath.toLowerCase() === normalizedPath.toLowerCase()) {
-        actualPath = entryPath;
-        break;
+    try {
+      // Try to read directly from memfs first
+      const content = this.memfsVolume.readFileSync(
+        normalizedPath,
+        'utf8',
+      ) as string;
+
+      // Update access statistics
+      const lazyContent = this.lazyFileMap.get(normalizedPath);
+      if (lazyContent) {
+        lazyContent.lastAccessed = Date.now();
+        lazyContent.accessCount++;
+        lazyContent.isLoaded = true;
+        lazyContent.content = content;
       }
-    }
 
-    const entry = this.directoryStructure.entries.get(actualPath);
-    if (!entry) {
+      return content;
+    } catch (_error) {
+      // If direct read fails, try case-insensitive lookup
+      for (const [entryPath] of this.directoryStructure.entries) {
+        if (
+          this.normalizePath(entryPath).toLowerCase() ===
+          normalizedPath.toLowerCase()
+        ) {
+          try {
+            const content = this.memfsVolume.readFileSync(
+              entryPath,
+              'utf8',
+            ) as string;
+
+            // Update access statistics
+            const lazyContent = this.lazyFileMap.get(entryPath);
+            if (lazyContent) {
+              lazyContent.lastAccessed = Date.now();
+              lazyContent.accessCount++;
+              lazyContent.isLoaded = true;
+              lazyContent.content = content;
+            }
+
+            return content;
+          } catch (_innerError) {
+            // Continue to next entry
+          }
+        }
+      }
       return undefined;
-    }
-
-    // Check if already loaded
-    let fileContent = this.contentLoaded.get(actualPath);
-    if (!fileContent) {
-      // Load content on-demand
-      await this.loadFileContent(actualPath);
-      fileContent = this.contentLoaded.get(actualPath);
-    }
-
-    if (!fileContent) {
-      return undefined;
-    }
-
-    // Update access statistics
-    const lazyContent = this.lazyFileMap.get(actualPath);
-    if (lazyContent) {
-      lazyContent.lastAccessed = Date.now();
-      lazyContent.accessCount++;
-    }
-
-    if (isDecodedContent(fileContent.contents)) {
-      return fileContent.contents;
-    } else {
-      // Decode on demand
-      const decoded = new TextDecoder().decode(fileContent.contents);
-      this.contentLoaded.set(actualPath, {
-        ...fileContent,
-        decoded: true,
-        contents: decoded,
-      });
-      return decoded;
     }
   }
 
   /**
-   * Load file content from zip data
+   * Preload common classes for better performance
    * @private
    */
-  private async loadFileContent(path: string): Promise<void> {
-    if (!this.rawZipData) {
-      throw new Error('Raw zip data not available');
+  private async preloadCommonClasses(): Promise<void> {
+    const commonClasses = [
+      'System/System.cls',
+      'Database/Database.cls',
+      'String/String.cls',
+      'Integer/Integer.cls',
+      'Boolean/Boolean.cls',
+    ];
+
+    this.logger.debug(() => 'Preloading common classes...');
+
+    for (const className of commonClasses) {
+      if (this.hasClass(className)) {
+        await this.getFile(className);
+      }
     }
 
-    const data = this.rawZipData[path];
-    if (!data) {
-      return;
-    }
-
-    const fileContent: FileContent = {
-      decoded: false,
-      contents: data,
-      originalPath: path,
-    };
-
-    this.contentLoaded.set(path, fileContent);
-
-    // Update lazy file map
-    const lazyContent = this.lazyFileMap.get(path);
-    if (lazyContent) {
-      lazyContent.isLoaded = true;
-    }
-
-    this.logger.debug(() => `Loaded file content: ${path}`);
+    this.logger.debug(() => 'Common classes preloaded');
   }
 
   /**
@@ -303,22 +407,23 @@ export class ResourceLoader {
 
     // Handle dot notation (System.System.cls -> System/System.cls)
     if (normalized.includes('.') && !normalized.includes('/')) {
-      const parts = normalized.split('.');
-      if (parts.length >= 2) {
-        // Remove .cls extension if present
-        const lastPart = parts[parts.length - 1].replace(/\.cls$/i, '');
-        parts[parts.length - 1] = lastPart;
-
-        // Reconstruct as path
-        normalized = parts.join('/');
+      // Check if the entire string ends with .cls
+      if (normalized.endsWith('.cls')) {
+        // Remove .cls from the end
+        normalized = normalized.replace(/\.cls$/i, '');
+        // Split by dots and join with /
+        const parts = normalized.split('.');
+        normalized = parts.join('/') + '.cls';
+      } else {
+        // No .cls extension, just split by dots and join with /
+        const parts = normalized.split('.');
+        normalized = parts.join('/') + '.cls';
       }
-    }
-
-    // Remove .cls extension if present
-    normalized = normalized.replace(/\.cls$/i, '');
-
-    // Add .cls extension back
-    if (!normalized.endsWith('.cls')) {
+    } else {
+      // Handle regular paths
+      // Remove .cls extension if present
+      normalized = normalized.replace(/\.cls$/i, '');
+      // Add .cls extension back
       normalized += '.cls';
     }
 
@@ -331,16 +436,7 @@ export class ResourceLoader {
    * @returns true if the class exists
    */
   public hasClass(className: string): boolean {
-    const normalizedPath = this.normalizePath(className);
-
-    // Check using case-insensitive lookup
-    for (const [entryPath] of this.directoryStructure.entries) {
-      if (entryPath.toLowerCase() === normalizedPath.toLowerCase()) {
-        return true;
-      }
-    }
-
-    return false;
+    return this.memfsExists(className);
   }
 
   /**
@@ -360,7 +456,7 @@ export class ResourceLoader {
   }
 
   /**
-   * Get all files with lazy loading
+   * Get all files with lazy loading using memfs
    * @returns Promise that resolves to all file contents
    */
   public async getAllFiles(): Promise<CaseInsensitivePathMap<string>> {
@@ -372,7 +468,7 @@ export class ResourceLoader {
 
     const result = new CaseInsensitivePathMap<string>();
 
-    // Load all files in parallel
+    // Load all files in parallel using memfs
     const loadPromises = Array.from(this.directoryStructure.entries.keys()).map(
       async (path) => {
         const content = await this.getFile(path);
@@ -383,6 +479,30 @@ export class ResourceLoader {
     );
 
     await Promise.all(loadPromises);
+    return result;
+  }
+
+  /**
+   * Get all files synchronously using memfs
+   * @returns Map of all file contents
+   */
+  public getAllFilesSync(): CaseInsensitivePathMap<string> {
+    if (!this.initialized) {
+      throw new Error(
+        'ResourceLoader not initialized. Call initialize() first.',
+      );
+    }
+
+    const result = new CaseInsensitivePathMap<string>();
+
+    // Load all files synchronously using memfs
+    for (const path of this.directoryStructure.entries.keys()) {
+      const content = this.getFileSync(path);
+      if (content) {
+        result.set(path, content);
+      }
+    }
+
     return result;
   }
 
@@ -399,14 +519,11 @@ export class ResourceLoader {
     this.initialized = true;
 
     // Preload common classes if requested
-    if (this.preloadCommonClasses) {
+    if (this.preloadStdClasses) {
       await this.preloadCommonClasses();
     }
 
-    // Start compilation when loadMode is 'full'
-    if (this.loadMode === 'full') {
-      this.compilationPromise = this.compileAllArtifacts();
-    }
+    // Note: Compilation is now started in constructor for 'full' mode
   }
 
   /**
@@ -480,9 +597,12 @@ export class ResourceLoader {
           const compilationResult =
             result as CompilationResultWithAssociations<SymbolTable>;
 
+          // Convert dot notation back to path notation for consistency
+          const originalPath = this.normalizePath(result.fileName);
+
           // Store in compiledArtifacts for backward compatibility
-          this.compiledArtifacts.set(result.fileName, {
-            path: result.fileName,
+          this.compiledArtifacts.set(originalPath, {
+            path: originalPath,
             compilationResult,
           });
           compiledCount++;
@@ -584,6 +704,10 @@ export class ResourceLoader {
       compiledEntries: number;
       averageAccessCount: number;
     };
+    memfsStats: {
+      totalFiles: number;
+      totalSize: number;
+    };
   } {
     let loadedFiles = 0;
     let compiledFiles = 0;
@@ -599,6 +723,12 @@ export class ResourceLoader {
     const averageAccessCount =
       this.lazyFileMap.size > 0 ? totalAccessCount / this.lazyFileMap.size : 0;
 
+    // Get memfs statistics
+    const memfsStats = {
+      totalFiles: this.directoryStructure.statistics.totalFiles,
+      totalSize: this.directoryStructure.statistics.totalSize,
+    };
+
     return {
       totalFiles: this.directoryStructure.statistics.totalFiles,
       loadedFiles,
@@ -611,6 +741,7 @@ export class ResourceLoader {
         compiledEntries: compiledFiles,
         averageAccessCount,
       },
+      memfsStats,
     };
   }
 
@@ -620,5 +751,36 @@ export class ResourceLoader {
    */
   public getDirectoryStatistics(): DirectoryStructure['statistics'] {
     return this.directoryStructure.statistics;
+  }
+
+  /**
+   * Get the memfs volume for advanced operations
+   * @returns The memfs Volume instance
+   */
+  public getMemfsVolume(): Volume {
+    return this.memfsVolume;
+  }
+
+  /**
+   * Export the current file system state as JSON
+   * @returns JSON representation of the file system
+   */
+  public exportToJSON(): Record<string, string | null> {
+    return this.memfsVolume.toJSON();
+  }
+
+  /**
+   * Reset the memfs volume and clear all data
+   */
+  public reset(): void {
+    this.memfsVolume.reset();
+    this.lazyFileMap.clear();
+    this.compiledArtifacts.clear();
+    this.initialized = false;
+    this.compilationPromise = null;
+
+    // Rebuild directory structure
+    this.directoryStructure = this.buildDirectoryStructure();
+    this.initialized = true;
   }
 }

@@ -98,9 +98,9 @@ describe('ResourceLoader Integration', () => {
       expect(availableClasses.length).toBeGreaterThan(0);
 
       // Check for some common standard classes that actually exist in ResourceLoader
-      expect(availableClasses).toContain('system.assert');
-      expect(availableClasses).toContain('database.batchable');
-      expect(availableClasses).toContain('system.address');
+      expect(availableClasses).toContain('System');
+      expect(availableClasses).toContain('Database');
+      expect(availableClasses).toContain('Action');
     });
   });
 
@@ -165,7 +165,7 @@ describe('ResourceLoader Integration', () => {
     it('should preload common classes when requested', async () => {
       const preloadLoader = ResourceLoader.getInstance({
         loadMode: 'lazy',
-        preloadCommonClasses: true,
+        preloadStdClasses: true,
       });
       await preloadLoader.initialize();
 
