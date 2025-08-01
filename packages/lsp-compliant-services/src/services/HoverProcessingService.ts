@@ -1379,13 +1379,17 @@ export class HoverProcessingService implements IHoverProcessor {
       const actualTypeSymbols = this.symbolManager.findSymbolByName(actualType);
       if (actualTypeSymbols.length > 0) {
         const actualTypeSymbol = actualTypeSymbols[0];
-        
+
         // Check if it extends the expected type
         if (actualTypeSymbol.extends === expectedType) return true;
-        
+
         // Check inheritance chain
-        const ancestorChain = this.symbolManager.getAncestorChain?.(actualTypeSymbol);
-        if (ancestorChain && ancestorChain.some((ancestor: any) => ancestor.name === expectedType)) {
+        const ancestorChain =
+          this.symbolManager.getAncestorChain?.(actualTypeSymbol);
+        if (
+          ancestorChain &&
+          ancestorChain.some((ancestor: any) => ancestor.name === expectedType)
+        ) {
           return true;
         }
       }
@@ -1404,7 +1408,10 @@ export class HoverProcessingService implements IHoverProcessor {
     expectedTypes: string[],
   ): number {
     let matchScore = 0;
-    const maxParameters = Math.max(methodParameters.length, expectedTypes.length);
+    const maxParameters = Math.max(
+      methodParameters.length,
+      expectedTypes.length,
+    );
 
     for (let i = 0; i < maxParameters; i++) {
       const methodParam = methodParameters[i];
@@ -1413,7 +1420,9 @@ export class HoverProcessingService implements IHoverProcessor {
       if (methodParam && expectedType) {
         if (methodParam.type?.name === expectedType) {
           matchScore += 1.0; // Exact match
-        } else if (this.isTypeCompatible(methodParam.type?.name, expectedType)) {
+        } else if (
+          this.isTypeCompatible(methodParam.type?.name, expectedType)
+        ) {
           matchScore += 0.7; // Compatible match
         }
       }
