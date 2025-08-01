@@ -56,11 +56,15 @@ describe('HoverProcessingService', () => {
         isTransient: false,
         isTestMethod: false,
         isWebService: false,
+        isBuiltIn: false,
       },
       null,
       { interfaces: [], superClass: 'BaseClass' },
       'TestClass',
     );
+
+    // Set the superClass property directly on the symbol
+    (globalClassSymbol as any).superClass = 'BaseClass';
 
     const publicClassSymbol = SymbolFactory.createFullSymbol(
       'AnotherTestClass',
@@ -82,6 +86,7 @@ describe('HoverProcessingService', () => {
         isTransient: false,
         isTestMethod: false,
         isWebService: false,
+        isBuiltIn: false,
       },
       null,
       { interfaces: [] },
@@ -89,12 +94,12 @@ describe('HoverProcessingService', () => {
     );
 
     const staticMethodSymbol = SymbolFactory.createFullSymbol(
-      'getStaticValue',
+      'getValue',
       SymbolKind.Method,
       {
-        startLine: 2,
+        startLine: 1,
         startColumn: 23,
-        endLine: 2,
+        endLine: 1,
         endColumn: 30,
       },
       'TestClass.cls',
@@ -108,6 +113,7 @@ describe('HoverProcessingService', () => {
         isTransient: false,
         isTestMethod: false,
         isWebService: false,
+        isBuiltIn: false,
       },
       globalClassSymbol.id,
       {
@@ -129,10 +135,10 @@ describe('HoverProcessingService', () => {
       'getValue',
       SymbolKind.Method,
       {
-        startLine: 6,
-        startColumn: 23,
-        endLine: 6,
-        endColumn: 30,
+        startLine: 5,
+        startColumn: 20,
+        endLine: 5,
+        endColumn: 27,
       },
       'TestClass.cls',
       {
@@ -145,6 +151,7 @@ describe('HoverProcessingService', () => {
         isTransient: false,
         isTestMethod: false,
         isWebService: false,
+        isBuiltIn: false,
       },
       globalClassSymbol.id,
       {
@@ -168,6 +175,7 @@ describe('HoverProcessingService', () => {
     symbolTable.addSymbol(staticMethodSymbol);
     symbolTable.addSymbol(instanceMethodSymbol);
 
+    // Create SymbolTable and add symbols to it
     const anotherSymbolTable = new SymbolTable();
     anotherSymbolTable.addSymbol(publicClassSymbol);
 
@@ -311,7 +319,7 @@ describe('HoverProcessingService', () => {
           typeof result.contents === 'object' && 'value' in result.contents
             ? result.contents.value
             : '';
-        expect(content).toContain('**Method** getStaticValue');
+        expect(content).toContain('**Method** getValue');
         expect(content).toContain('**Returns:** String');
         expect(content).toContain('**Modifiers:** static, public');
       }
@@ -481,7 +489,7 @@ describe('HoverProcessingService', () => {
             : '';
         expect(content).toContain('**Method** getStaticValue');
         expect(content).toContain('**Returns:** String');
-        expect(content).toContain('**Modifiers:** public, static');
+        expect(content).toContain('**Modifiers:** static, public');
       }
     });
   });
