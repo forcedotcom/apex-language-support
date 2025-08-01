@@ -110,6 +110,7 @@ The ResourceLoader now uses the `memfs` npm module for in-memory file storage, p
 - **Automatic Directory Management**: Creates directory structure automatically before file writes
 - **Namespace Organization**: Properly organizes files by namespace (System, Database, Schema, etc.)
 - **Compilation Pipeline**: Pre-compiles all standard classes for fast symbol resolution
+- **Dual API Support**: Provides both synchronous and asynchronous methods for maximum flexibility
 
 #### Implementation Details
 
@@ -152,6 +153,18 @@ class ResourceLoader {
   }
 
   public async getFile(path: string): Promise<string | undefined> {
+    try {
+      return this.memfsVolume.readFileSync(
+        this.normalizePath(path),
+        'utf8',
+      ) as string;
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  // Sync version for better performance in synchronous contexts
+  public getFileSync(path: string): string | undefined {
     try {
       return this.memfsVolume.readFileSync(
         this.normalizePath(path),

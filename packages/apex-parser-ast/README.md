@@ -286,12 +286,21 @@ const databaseClass = resourceLoader.getCompiledArtifact(
   'Database/Database.cls',
 );
 
-// Get source code
+// Get source code (async)
 const sourceCode = await resourceLoader.getFile('System/System.cls');
+
+// Get source code (sync)
+const sourceCodeSync = resourceLoader.getFileSync('System/System.cls');
 
 // Check available classes
 const availableClasses = resourceLoader.getAvailableClasses();
 const hasSystemClass = resourceLoader.hasClass('System/System.cls');
+
+// Get all files (async)
+const allFiles = await resourceLoader.getAllFiles();
+
+// Get all files (sync)
+const allFilesSync = resourceLoader.getAllFilesSync();
 
 // Get statistics
 const stats = resourceLoader.getStatistics();
