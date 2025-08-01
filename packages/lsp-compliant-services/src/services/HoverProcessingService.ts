@@ -78,52 +78,11 @@ export class HoverProcessingService implements IHoverProcessor {
           `Document found: ${document.uri}, length: ${document.getText().length}`,
       );
 
-      // Get the symbol at the position using the symbol manager
-      const typeReferences = this.symbolManager.getReferencesAtPosition(
+      // Get the symbol at the position using the new getSymbolAtPosition method
+      const symbol = this.symbolManager.getSymbolAtPosition(
         document.uri,
         params.position,
       );
-
-      let symbol: any = null;
-
-      if (typeReferences && typeReferences.length > 0) {
-        // Get the first symbol from the first TypeReference
-        const firstReference = typeReferences[0];
-        const symbols = this.symbolManager.findSymbolByName(
-          firstReference.name,
-        );
-
-        if (symbols && symbols.length > 0) {
-          symbol = symbols[0]; // Take the first matching symbol
-          this.logger.debug(
-            () =>
-              `Found symbol via TypeReference: ${symbol.name} (${symbol.kind})`,
-          );
-        }
-      }
-
-      // Fallback: Try to find symbols in the file and match by position
-      if (!symbol) {
-        const fileSymbols = this.symbolManager.findSymbolsInFile(document.uri);
-
-        // Find the symbol that contains the position
-        for (const fileSymbol of fileSymbols) {
-          if (
-            fileSymbol.location &&
-            params.position.line >= fileSymbol.location.startLine &&
-            params.position.line <= fileSymbol.location.endLine &&
-            params.position.character >= fileSymbol.location.startColumn &&
-            params.position.character <= fileSymbol.location.endColumn
-          ) {
-            symbol = fileSymbol;
-            this.logger.debug(
-              () =>
-                `Found symbol via location match: ${symbol.name} (${symbol.kind})`,
-            );
-            break;
-          }
-        }
-      }
 
       if (!symbol) {
         this.logger.debug(
