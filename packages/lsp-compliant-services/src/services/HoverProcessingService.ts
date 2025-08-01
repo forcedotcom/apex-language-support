@@ -21,6 +21,8 @@ import {
   ISymbolManager,
   TypeReference,
   ReferenceContext,
+  SymbolKind,
+  TypeSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 
 /**
@@ -1392,10 +1394,14 @@ export class HoverProcessingService implements IHoverProcessor {
 
         // Check if it extends the expected type (only for type symbols)
         if (
-          (actualTypeSymbol as any).superClass === expectedType ||
-          (actualTypeSymbol as any).extends === expectedType
+          actualTypeSymbol.kind === SymbolKind.Class ||
+          actualTypeSymbol.kind === SymbolKind.Interface
         ) {
-          return true;
+          // Type narrowing: now TypeScript knows this is a TypeSymbol
+          const typeSymbol = actualTypeSymbol as TypeSymbol;
+          if (typeSymbol.superClass === expectedType) {
+            return true;
+          }
         }
 
         // Check inheritance chain
