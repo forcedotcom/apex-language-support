@@ -413,6 +413,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
   /**
    * Find symbols across all files when no symbols found in current file
+   * Enhanced to use relationship data for more accurate cross-file resolution
    */
   private findCrossFileSymbols(
     document: TextDocument,
@@ -423,6 +424,41 @@ export class HoverProcessingService implements IHoverProcessor {
       this.logger.debug(
         () =>
           `Searching for cross-file symbols at position ${position.line}:${position.character}`,
+      );
+
+      // ENHANCED: Try to use TypeReference data first for precise cross-file resolution
+      const typeReferences = this.symbolManager.getReferencesAtPosition(
+        document.uri,
+        position,
+      );
+
+      if (typeReferences && typeReferences.length > 0) {
+        this.logger.debug(
+          () =>
+            `Found ${typeReferences.length} TypeReference objects for cross-file resolution`,
+        );
+
+        // Use TypeReference data for enhanced cross-file resolution
+        const symbolsFromReferences =
+          this.resolveCrossFileSymbolsFromReferences(
+            typeReferences,
+            document.uri,
+            context,
+          );
+
+        if (symbolsFromReferences.length > 0) {
+          this.logger.debug(
+            () =>
+              `Resolved ${symbolsFromReferences.length} cross-file symbols using TypeReference data`,
+          );
+          return symbolsFromReferences;
+        }
+      }
+
+      // FALLBACK: Use traditional text-based symbol extraction
+      this.logger.debug(
+        () =>
+          'No TypeReference data found, using traditional cross-file resolution',
       );
 
       // Get the text around the position to extract potential symbol names
@@ -452,22 +488,12 @@ export class HoverProcessingService implements IHoverProcessor {
         () => `Potential symbol names: ${symbolNames.join(', ')}`,
       );
 
-      // Search for these symbols across all files
-      const allSymbols: any[] = [];
-
-      for (const symbolName of symbolNames) {
-        try {
-          // Use symbol manager to find symbols by name across all files
-          const foundSymbols = this.symbolManager.findSymbolByName(symbolName);
-          if (foundSymbols && foundSymbols.length > 0) {
-            allSymbols.push(...foundSymbols);
-          }
-        } catch (error) {
-          this.logger.debug(
-            () => `Error finding symbol ${symbolName}: ${error}`,
-          );
-        }
-      }
+      // ENHANCED: Use relationship-based symbol resolution
+      const allSymbols = this.resolveSymbolsUsingRelationships(
+        symbolNames,
+        document.uri,
+        context,
+      );
 
       if (allSymbols.length === 0) {
         this.logger.debug(() => 'No symbols found across all files');
@@ -489,6 +515,325 @@ export class HoverProcessingService implements IHoverProcessor {
   }
 
   /**
+   * Resolve cross-file symbols using TypeReference data
+   * This provides more accurate resolution using AST-based relationship information
+   */
+  private resolveCrossFileSymbolsFromReferences(
+    typeReferences: TypeReference[],
+    sourceFile: string,
+    context: any,
+  ): any[] {
+    const resolvedSymbols: any[] = [];
+
+    for (const ref of typeReferences) {
+      try {
+        // Find symbols by name that match the TypeReference
+        const foundSymbols = this.symbolManager.findSymbolByName(ref.name);
+
+        if (foundSymbols && foundSymbols.length > 0) {
+          // Filter out symbols from the current file (we want cross-file only)
+          const crossFileSymbols = foundSymbols.filter(
+            (symbol: any) => symbol.filePath !== sourceFile,
+          );
+
+          if (crossFileSymbols.length > 0) {
+            // Use relationship data to find related symbols
+            const relatedSymbols = this.findRelatedSymbolsUsingContext(
+              crossFileSymbols,
+              ref,
+              context,
+            );
+
+            // Add context information from TypeReference
+            const enhancedSymbols = relatedSymbols.map((symbol: any) => ({
+              ...symbol,
+              _typeReference: ref,
+              _context: ref.context,
+              _qualifier: ref.qualifier,
+              _isCrossFile: true,
+            }));
+
+            resolvedSymbols.push(...enhancedSymbols);
+
+            this.logger.debug(
+              () =>
+                `Enhanced cross-file symbol ${ref.name} with TypeReference context: ${ReferenceContext[ref.context]}`,
+            );
+          }
+        }
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error resolving cross-file symbol from TypeReference ${ref.name}: ${error}`,
+        );
+      }
+    }
+
+    return resolvedSymbols;
+  }
+
+  /**
+   * Resolve symbols using relationship data from the symbol manager
+   * This leverages the rich relationship information for better cross-file resolution
+   */
+  private resolveSymbolsUsingRelationships(
+    symbolNames: string[],
+    sourceFile: string,
+    context: any,
+  ): any[] {
+    const allSymbols: any[] = [];
+
+    for (const symbolName of symbolNames) {
+      try {
+        // Use symbol manager to find symbols by name across all files
+        const foundSymbols = this.symbolManager.findSymbolByName(symbolName);
+        if (foundSymbols && foundSymbols.length > 0) {
+          // Filter out symbols from the current file (we want cross-file only)
+          const crossFileSymbols = foundSymbols.filter(
+            (symbol: any) => symbol.filePath !== sourceFile,
+          );
+
+          if (crossFileSymbols.length > 0) {
+            // ENHANCED: Use relationship-based filtering
+            const relationshipFilteredSymbols =
+              this.filterSymbolsByRelationships(
+                crossFileSymbols,
+                symbolName,
+                context,
+              );
+
+            allSymbols.push(...relationshipFilteredSymbols);
+          }
+        }
+      } catch (error) {
+        this.logger.debug(() => `Error finding symbol ${symbolName}: ${error}`);
+      }
+    }
+
+    return allSymbols;
+  }
+
+  /**
+   * Find related symbols using context and relationship data
+   * This provides more accurate symbol resolution based on usage context
+   */
+  private findRelatedSymbolsUsingContext(
+    symbols: any[],
+    typeReference: TypeReference,
+    context: any,
+  ): any[] {
+    const relatedSymbols: any[] = [];
+
+    for (const symbol of symbols) {
+      try {
+        // Use relationship data to find related symbols
+        const relatedByType = this.findRelatedSymbolsByType(
+          symbol,
+          typeReference,
+        );
+        const relatedByContext = this.findRelatedSymbolsByContext(
+          symbol,
+          context,
+        );
+
+        // Combine and deduplicate related symbols
+        const allRelated = [...relatedByType, ...relatedByContext];
+        const uniqueRelated = allRelated.filter(
+          (related, index, self) =>
+            index === self.findIndex((s) => s.id === related.id),
+        );
+
+        if (uniqueRelated.length > 0) {
+          relatedSymbols.push(...uniqueRelated);
+        } else {
+          // If no related symbols found, include the original symbol
+          relatedSymbols.push(symbol);
+        }
+      } catch (error) {
+        this.logger.debug(
+          () => `Error finding related symbols for ${symbol.name}: ${error}`,
+        );
+        // Include the original symbol as fallback
+        relatedSymbols.push(symbol);
+      }
+    }
+
+    return relatedSymbols;
+  }
+
+  /**
+   * Find related symbols based on TypeReference context
+   */
+  private findRelatedSymbolsByType(
+    symbol: any,
+    typeReference: TypeReference,
+  ): any[] {
+    const relatedSymbols: any[] = [];
+
+    try {
+      // Map TypeReference context to relationship types
+      const relationshipTypes = this.mapReferenceContextToRelationshipTypes(
+        typeReference.context,
+      );
+
+      for (const relationshipType of relationshipTypes) {
+        const related = this.symbolManager.findRelatedSymbols(
+          symbol,
+          relationshipType,
+        );
+        if (related && related.length > 0) {
+          relatedSymbols.push(...related);
+        }
+      }
+    } catch (error) {
+      this.logger.debug(
+        () =>
+          `Error finding related symbols by type for ${symbol.name}: ${error}`,
+      );
+    }
+
+    return relatedSymbols;
+  }
+
+  /**
+   * Find related symbols based on usage context
+   */
+  private findRelatedSymbolsByContext(symbol: any, context: any): any[] {
+    const relatedSymbols: any[] = [];
+
+    try {
+      // Find references to this symbol
+      const referencesTo = this.symbolManager.findReferencesTo(symbol);
+      const referencesFrom = this.symbolManager.findReferencesFrom(symbol);
+
+      // Add symbols that reference this symbol (for bidirectional analysis)
+      for (const ref of referencesTo) {
+        if (ref.symbol && ref.symbol.id !== symbol.id) {
+          relatedSymbols.push(ref.symbol);
+        }
+      }
+
+      // Add symbols that this symbol references
+      for (const ref of referencesFrom) {
+        if (ref.symbol && ref.symbol.id !== symbol.id) {
+          relatedSymbols.push(ref.symbol);
+        }
+      }
+    } catch (error) {
+      this.logger.debug(
+        () =>
+          `Error finding related symbols by context for ${symbol.name}: ${error}`,
+      );
+    }
+
+    return relatedSymbols;
+  }
+
+  /**
+   * Filter symbols using relationship data for better cross-file resolution
+   */
+  private filterSymbolsByRelationships(
+    symbols: any[],
+    symbolName: string,
+    context: any,
+  ): any[] {
+    const filteredSymbols: any[] = [];
+
+    for (const symbol of symbols) {
+      try {
+        // Check if this symbol has relationships that match the context
+        const hasRelevantRelationships = this.hasRelevantRelationships(
+          symbol,
+          context,
+        );
+
+        if (hasRelevantRelationships) {
+          filteredSymbols.push(symbol);
+        } else {
+          // Include symbol anyway but with lower priority
+          symbol._relationshipPriority = 'low';
+          filteredSymbols.push(symbol);
+        }
+      } catch (error) {
+        this.logger.debug(
+          () =>
+            `Error filtering symbol ${symbol.name} by relationships: ${error}`,
+        );
+        // Include symbol as fallback
+        filteredSymbols.push(symbol);
+      }
+    }
+
+    return filteredSymbols;
+  }
+
+  /**
+   * Check if a symbol has relationships relevant to the current context
+   */
+  private hasRelevantRelationships(symbol: any, context: any): boolean {
+    try {
+      // Check for method call relationships if we're in a method context
+      if (context.currentScope === 'method') {
+        // Use existing findReferencesTo method to check for relationships
+        const references = this.symbolManager.findReferencesTo(symbol);
+        if (references && references.length > 0) {
+          return true;
+        }
+      }
+
+      // Check for references to this symbol (could indicate static access or imports)
+      const references = this.symbolManager.findReferencesTo(symbol);
+      if (references && references.length > 0) {
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      this.logger.debug(
+        () => `Error checking relationships for ${symbol.name}: ${error}`,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Map TypeReference context to relationship types for enhanced resolution
+   */
+  private mapReferenceContextToRelationshipTypes(
+    context: ReferenceContext,
+  ): string[] {
+    const relationshipTypes: string[] = [];
+
+    switch (context) {
+      case ReferenceContext.METHOD_CALL:
+        relationshipTypes.push('method-call', 'static-access');
+        break;
+      case ReferenceContext.CLASS_REFERENCE:
+        relationshipTypes.push('type-reference', 'inheritance');
+        break;
+      case ReferenceContext.FIELD_ACCESS:
+        relationshipTypes.push('field-access', 'property-access');
+        break;
+      case ReferenceContext.CONSTRUCTOR_CALL:
+        relationshipTypes.push('constructor-call');
+        break;
+      case ReferenceContext.TYPE_DECLARATION:
+        relationshipTypes.push('type-reference');
+        break;
+      case ReferenceContext.VARIABLE_USAGE:
+        relationshipTypes.push('field-access', 'variable-usage');
+        break;
+      case ReferenceContext.PARAMETER_TYPE:
+        relationshipTypes.push('type-reference', 'parameter-type');
+        break;
+      default:
+        relationshipTypes.push('type-reference');
+    }
+
+    return relationshipTypes;
+  }
+
+  /**
    * Extract potential symbol names from a line of text
    */
   private extractSymbolNamesFromLine(
@@ -506,17 +851,17 @@ export class HoverProcessingService implements IHoverProcessor {
     let match: RegExpExecArray | null;
 
     while ((match = identifierPattern.exec(line)) !== null) {
-      const start = match.index;
-      const end = start + match[0].length;
+      const start = match!.index;
+      const end = start + match![0].length;
 
       this.logger.debug(
-        () => `Found identifier: "${match[0]}" at ${start}-${end}`,
+        () => `Found identifier: "${match![0]}" at ${start}-${end}`,
       );
 
       // If the cursor is within or adjacent to this identifier
       if (character >= start - 1 && character <= end + 1) {
-        symbolNames.push(match[0]);
-        this.logger.debug(() => `Added identifier: "${match[0]}"`);
+        symbolNames.push(match![0]);
+        this.logger.debug(() => `Added identifier: "${match![0]}"`);
       }
     }
 
