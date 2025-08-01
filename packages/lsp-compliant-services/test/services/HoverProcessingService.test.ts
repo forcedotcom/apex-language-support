@@ -124,8 +124,6 @@ describe('HoverProcessingService', () => {
       isArray: false,
     };
     staticMethodSymbol.parameters = [];
-    
-
 
     const instanceMethodSymbol = SymbolFactory.createFullSymbol(
       'getValue',
@@ -163,8 +161,6 @@ describe('HoverProcessingService', () => {
       isArray: false,
     };
     instanceMethodSymbol.parameters = [];
-    
-
 
     // Create SymbolTable and add symbols to it
     const symbolTable = new SymbolTable();
@@ -200,8 +196,6 @@ describe('HoverProcessingService', () => {
 
     // Create HoverProcessingService with the real symbol manager
     hoverService = new HoverProcessingService(mockLogger, symbolManager);
-
-
   });
 
   afterEach(() => {
