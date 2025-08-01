@@ -641,7 +641,8 @@ export class ResourceLoader {
         totalEntries: this.filePaths.length,
         loadedEntries: this.accessCount, // Use access count
         compiledEntries: compiledFiles,
-        averageAccessCount: this.accessCount > 0 ? this.accessCount / this.filePaths.length : 0,
+        averageAccessCount:
+          this.accessCount > 0 ? this.accessCount / this.filePaths.length : 0,
       },
       memfsStats: {
         totalFiles: this.filePaths.length,
