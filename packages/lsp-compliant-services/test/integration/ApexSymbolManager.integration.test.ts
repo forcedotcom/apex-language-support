@@ -254,7 +254,7 @@ describe('ApexSymbolManager Integration Tests', () => {
     it('should provide hover information using symbol manager', async () => {
       const params = {
         textDocument: { uri: 'file://test.cls' },
-        position: { line: 15, character: 10 },
+        position: { line: 2, character: 10 }, // Position on 'getName' method
       };
 
       const result = await hoverService.processHover(params);

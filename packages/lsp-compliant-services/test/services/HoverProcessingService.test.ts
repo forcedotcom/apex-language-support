@@ -42,8 +42,8 @@ describe('HoverProcessingService', () => {
       {
         startLine: 0,
         startColumn: 1,
-        endLine: 9,
-        endColumn: 1,
+        endLine: 0,
+        endColumn: 20,
       },
       'TestClass.cls',
       {
@@ -89,7 +89,7 @@ describe('HoverProcessingService', () => {
     );
 
     const staticMethodSymbol = SymbolFactory.createFullSymbol(
-      'getStaticValue',
+      'getValue',
       SymbolKind.Method,
       {
         startLine: 1,
@@ -114,7 +114,7 @@ describe('HoverProcessingService', () => {
         returnType: { name: 'String', isPrimitive: true, isArray: false },
         parameters: [],
       },
-      'TestClass.getStaticValue',
+      'TestClass.getValue',
     ) as any;
 
     // Set the returnType property like the real parser does
@@ -322,7 +322,7 @@ describe('HoverProcessingService', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://TestClass.cls' },
-        position: { line: 8, character: 5 }, // Position on 'getValue()' call inside static context
+        position: { line: 1, character: 20 }, // Position on 'getValue' method declaration (0-indexed)
       };
 
       const result = await hoverService.processHover(params);
@@ -364,7 +364,7 @@ describe('HoverProcessingService', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://TestClass.cls' },
-        position: { line: 5, character: 15 }, // Position on 'getValue' method declaration (0-indexed)
+        position: { line: 5, character: 20 }, // Position on 'getValue' method name (0-indexed)
       };
 
       const result = await hoverService.processHover(params);
@@ -408,7 +408,7 @@ describe('HoverProcessingService', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://TestClass.cls' },
-        position: { line: 1, character: 15 }, // Position on 'getValue' method declaration (0-indexed)
+        position: { line: 1, character: 20 }, // Position on 'getValue' method declaration (0-indexed)
       };
 
       const result = await hoverService.processHover(params);

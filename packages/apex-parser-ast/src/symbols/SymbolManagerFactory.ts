@@ -13,6 +13,7 @@ import {
 } from '../types/ISymbolManager';
 import { ApexSymbolManager } from './ApexSymbolManager';
 import { ApexSymbol } from '../types/symbol';
+import { TypeReference } from '../types/typeReference';
 
 /**
  * Factory for creating symbol manager instances
@@ -153,6 +154,14 @@ class TestSymbolManager implements ISymbolManager {
   }
 
   findReferencesTo(symbol: ApexSymbol): any[] {
+    // Mock implementation - return empty array for now
+    return [];
+  }
+
+  getReferencesAtPosition(
+    filePath: string,
+    position: { line: number; character: number },
+  ): TypeReference[] {
     // Mock implementation - return empty array for now
     return [];
   }
