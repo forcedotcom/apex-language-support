@@ -22,34 +22,6 @@ export interface ResourceLoaderOptions {
   preloadStdClasses?: boolean;
 }
 
-interface DirectoryEntry {
-  path: string;
-  size: number;
-  isDirectory: boolean;
-  namespace?: string;
-  originalPath: string;
-}
-
-interface DirectoryStructure {
-  entries: Map<string, DirectoryEntry>;
-  namespaces: Map<string, string[]>;
-  statistics: {
-    totalFiles: number;
-    totalSize: number;
-    namespaces: string[];
-  };
-}
-
-interface LazyFileContent {
-  path: string;
-  content?: string;
-  compiled?: CompiledArtifact;
-  lastAccessed: number;
-  accessCount: number;
-  isLoaded: boolean;
-  isCompiled: boolean;
-}
-
 interface CompiledArtifact {
   path: string;
   compilationResult: CompilationResultWithAssociations<SymbolTable>;
@@ -60,9 +32,8 @@ interface CompiledArtifact {
  * Uses memfs for efficient in-memory file storage and management.
  *
  * Core Responsibilities:
- * - Immediately discover directory structure without loading content
- * - Provide true lazy loading of file contents using memfs
- * - Track file references with associated source
+ * - Store all files in memfs during initialization
+ * - Provide access to file contents via memfs
  * - Compile source code on-demand
  * - Provide access to source for goto definition
  *
@@ -73,7 +44,7 @@ interface CompiledArtifact {
  *   preloadCommonClasses: true
  * });
  *
- * // Structure is immediately available
+ * // Files are immediately available via memfs
  * const availableClasses = loader.getAvailableClasses();
  *
  * // Content loaded on-demand via memfs
@@ -82,9 +53,6 @@ interface CompiledArtifact {
  */
 export class ResourceLoader {
   private static instance: ResourceLoader;
-  private directoryStructure: DirectoryStructure;
-  private lazyFileMap: CaseInsensitivePathMap<LazyFileContent> =
-    new CaseInsensitivePathMap();
   // Store compiled artifacts for backward compatibility
   private compiledArtifacts: CaseInsensitivePathMap<CompiledArtifact> =
     new CaseInsensitivePathMap();
@@ -95,6 +63,10 @@ export class ResourceLoader {
   private readonly logger = getLogger();
   private compilerService: CompilerService;
   private memfsVolume: Volume;
+  private filePaths: string[] = []; // Cache of available file paths
+  private namespaces: Map<string, string[]> = new Map();
+  private totalSize: number = 0; // Total size of all files
+  private accessCount: number = 0; // Simple access counter for statistics
 
   private constructor(options?: ResourceLoaderOptions) {
     if (options?.loadMode) {
@@ -105,106 +77,67 @@ export class ResourceLoader {
     }
 
     this.compilerService = new CompilerService();
-    this.compiledArtifacts = new CaseInsensitivePathMap();
     this.memfsVolume = new Volume();
 
-    // Immediately build directory structure
-    this.directoryStructure = this.buildDirectoryStructure();
+    // Build memfs structure immediately
+    this.buildMemfsStructure();
 
     // Set initialized to true before starting compilation
     this.initialized = true;
 
-    // Start compilation immediately if loadMode is 'full'
+    // Start compilation if in full mode
     if (this.loadMode === 'full') {
       this.compilationPromise = this.compileAllArtifacts();
     }
   }
 
   /**
-   * Build directory structure immediately without loading file contents
+   * Build memfs structure immediately
    * @private
    */
-  private buildDirectoryStructure(): DirectoryStructure {
-    this.logger.debug(() => 'Building directory structure...');
+  private buildMemfsStructure(): void {
+    this.logger.debug(() => 'Building memfs structure...');
 
     // Extract zip data to get file paths and metadata
     const files = unzipSync(zipData);
 
-    const entries = new Map<string, DirectoryEntry>();
-    const namespaces = new Map<string, string[]>();
-    let totalFiles = 0;
     let totalSize = 0;
-    const namespaceSet = new Set<string>();
+    for (const [path, data] of Object.entries(files)) {
+      // Strip the src/resources/StandardApexLibrary/ prefix to get the relative path
+      const relativePath = path.replace(
+        /^src\/resources\/StandardApexLibrary\//,
+        '',
+      );
+      const pathParts = relativePath.split(/[\/\\]/);
+      const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
+      const fileName = pathParts[pathParts.length - 1];
 
-    // Process only .cls files for structure
-    Object.entries(files)
-      .filter(([path]) => path.endsWith('.cls'))
-      .forEach(([path, data]) => {
-        // Strip the src/resources/StandardApexLibrary/ prefix to get the relative path
-        const relativePath = path.replace(
-          /^src\/resources\/StandardApexLibrary\//,
-          '',
-        );
-        const pathParts = relativePath.split(/[\/\\]/);
-        const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
-        const fileName = pathParts[pathParts.length - 1];
-
-        if (namespace) {
-          namespaceSet.add(namespace);
-          if (!namespaces.has(namespace)) {
-            namespaces.set(namespace, []);
-          }
-          namespaces.get(namespace)!.push(fileName);
+      if (namespace) {
+        if (!this.namespaces.has(namespace)) {
+          this.namespaces.set(namespace, []);
         }
+        this.namespaces.get(namespace)!.push(fileName);
+      }
 
-        const entry: DirectoryEntry = {
-          path: relativePath,
-          size: data.length,
-          isDirectory: false,
-          namespace,
-          originalPath: path,
-        };
+      this.filePaths.push(relativePath);
+      totalSize += data.length;
 
-        entries.set(relativePath, entry);
-        totalFiles++;
-        totalSize += data.length;
+      // Create directory structure if needed
+      const dirPath = relativePath.substring(0, relativePath.lastIndexOf('/'));
+      if (dirPath && !this.memfsVolume.existsSync(dirPath)) {
+        this.memfsVolume.mkdirSync(dirPath, { recursive: true });
+      }
 
-        // Initialize lazy file content
-        this.lazyFileMap.set(relativePath, {
-          path: relativePath,
-          lastAccessed: 0,
-          accessCount: 0,
-          isLoaded: false,
-          isCompiled: false,
-        });
+      // Store file data in memfs for lazy loading using the relative path
+      this.memfsVolume.writeFileSync(relativePath, data);
+    }
 
-        // Create directory structure if needed
-        const dirPath = relativePath.substring(
-          0,
-          relativePath.lastIndexOf('/'),
-        );
-        if (dirPath && !this.memfsVolume.existsSync(dirPath)) {
-          this.memfsVolume.mkdirSync(dirPath, { recursive: true });
-        }
-
-        // Store file data in memfs for lazy loading using the relative path
-        this.memfsVolume.writeFileSync(relativePath, data);
-      });
+    this.totalSize = totalSize;
 
     this.logger.debug(
       () =>
-        `Directory structure built: ${totalFiles} files, ${namespaceSet.size} namespaces`,
+        `Memfs structure built: ${this.filePaths.length} files, ${this.namespaces.size} namespaces`,
     );
-
-    return {
-      entries,
-      namespaces,
-      statistics: {
-        totalFiles,
-        totalSize,
-        namespaces: Array.from(namespaceSet),
-      },
-    };
   }
 
   /**
@@ -219,9 +152,9 @@ export class ResourceLoader {
       return this.memfsVolume.existsSync(normalizedPath);
     } catch {
       // If memfs throws an error, fall back to case-insensitive lookup
-      for (const [entryPath] of this.directoryStructure.entries) {
+      for (const filePath of this.filePaths) {
         if (
-          this.normalizePath(entryPath).toLowerCase() ===
+          this.normalizePath(filePath).toLowerCase() ===
           normalizedPath.toLowerCase()
         ) {
           return true;
@@ -246,18 +179,13 @@ export class ResourceLoader {
       ) as string;
 
       // Update access statistics
-      const lazyContent = this.lazyFileMap.get(normalizedPath);
-      if (lazyContent) {
-        lazyContent.lastAccessed = Date.now();
-        lazyContent.accessCount++;
-        lazyContent.isLoaded = true;
-        lazyContent.content = content;
-      }
+      // This part is removed as per the new_code, as the lazyFileMap is removed.
+      // The memfsVolume is now directly used for file existence and content.
 
       return content;
     } catch (_error) {
       // If direct read fails, try case-insensitive lookup
-      for (const [entryPath] of this.directoryStructure.entries) {
+      for (const [entryPath] of this.namespaces.entries()) {
         if (
           this.normalizePath(entryPath).toLowerCase() ===
           normalizedPath.toLowerCase()
@@ -269,13 +197,8 @@ export class ResourceLoader {
             ) as string;
 
             // Update access statistics
-            const lazyContent = this.lazyFileMap.get(entryPath);
-            if (lazyContent) {
-              lazyContent.lastAccessed = Date.now();
-              lazyContent.accessCount++;
-              lazyContent.isLoaded = true;
-              lazyContent.content = content;
-            }
+            // This part is removed as per the new_code, as the lazyFileMap is removed.
+            // The memfsVolume is now directly used for file existence and content.
 
             return content;
           } catch (_innerError) {
@@ -332,18 +255,13 @@ export class ResourceLoader {
       ) as string;
 
       // Update access statistics
-      const lazyContent = this.lazyFileMap.get(normalizedPath);
-      if (lazyContent) {
-        lazyContent.lastAccessed = Date.now();
-        lazyContent.accessCount++;
-        lazyContent.isLoaded = true;
-        lazyContent.content = content;
-      }
+      // This part is removed as per the new_code, as the lazyFileMap is removed.
+      // The memfsVolume is now directly used for file existence and content.
 
       return content;
     } catch (_error) {
       // If direct read fails, try case-insensitive lookup
-      for (const [entryPath] of this.directoryStructure.entries) {
+      for (const [entryPath] of this.namespaces.entries()) {
         if (
           this.normalizePath(entryPath).toLowerCase() ===
           normalizedPath.toLowerCase()
@@ -355,13 +273,8 @@ export class ResourceLoader {
             ) as string;
 
             // Update access statistics
-            const lazyContent = this.lazyFileMap.get(entryPath);
-            if (lazyContent) {
-              lazyContent.lastAccessed = Date.now();
-              lazyContent.accessCount++;
-              lazyContent.isLoaded = true;
-              lazyContent.content = content;
-            }
+            // This part is removed as per the new_code, as the lazyFileMap is removed.
+            // The memfsVolume is now directly used for file existence and content.
 
             return content;
           } catch (_innerError) {
@@ -444,7 +357,7 @@ export class ResourceLoader {
    * @returns Array of available class names
    */
   public getAvailableClasses(): string[] {
-    return Array.from(this.directoryStructure.entries.keys());
+    return this.filePaths;
   }
 
   /**
@@ -452,7 +365,7 @@ export class ResourceLoader {
    * @returns Map of namespaces to their class files
    */
   public getNamespaceStructure(): Map<string, string[]> {
-    return this.directoryStructure.namespaces;
+    return this.namespaces;
   }
 
   /**
@@ -469,14 +382,12 @@ export class ResourceLoader {
     const result = new CaseInsensitivePathMap<string>();
 
     // Load all files in parallel using memfs
-    const loadPromises = Array.from(this.directoryStructure.entries.keys()).map(
-      async (path) => {
-        const content = await this.getFile(path);
-        if (content) {
-          result.set(path, content);
-        }
-      },
-    );
+    const loadPromises = this.filePaths.map(async (path) => {
+      const content = await this.getFile(path);
+      if (content) {
+        result.set(path, content);
+      }
+    });
 
     await Promise.all(loadPromises);
     return result;
@@ -496,7 +407,7 @@ export class ResourceLoader {
     const result = new CaseInsensitivePathMap<string>();
 
     // Load all files synchronously using memfs
-    for (const path of this.directoryStructure.entries.keys()) {
+    for (const path of this.filePaths) {
       const content = this.getFileSync(path);
       if (content) {
         result.set(path, content);
@@ -608,14 +519,8 @@ export class ResourceLoader {
           compiledCount++;
 
           // Update lazy file map
-          const lazyContent = this.lazyFileMap.get(result.fileName);
-          if (lazyContent) {
-            lazyContent.isCompiled = true;
-            lazyContent.compiled = {
-              path: result.fileName,
-              compilationResult,
-            };
-          }
+          // This part is removed as per the new_code, as the lazyFileMap is removed.
+          // The memfsVolume is now directly used for file existence and content.
 
           if (result.errors.length > 0) {
             errorCount++;
@@ -697,7 +602,11 @@ export class ResourceLoader {
     loadedFiles: number;
     compiledFiles: number;
     loadMode: string;
-    directoryStructure: DirectoryStructure['statistics'];
+    directoryStructure: {
+      totalFiles: number;
+      totalSize: number;
+      namespaces: string[];
+    };
     lazyFileStats: {
       totalEntries: number;
       loadedEntries: number;
@@ -709,39 +618,35 @@ export class ResourceLoader {
       totalSize: number;
     };
   } {
-    let loadedFiles = 0;
     let compiledFiles = 0;
-    let totalAccessCount = 0;
 
-    // Count loaded and compiled files
-    for (const [_normalizedPath, lazyContent] of this.lazyFileMap.entries()) {
-      if (lazyContent?.isLoaded) loadedFiles++;
-      if (lazyContent?.isCompiled) compiledFiles++;
-      if (lazyContent?.accessCount) totalAccessCount += lazyContent.accessCount;
+    // Count compiled files
+    for (const [_path, artifact] of this.compiledArtifacts.entries()) {
+      if (artifact) {
+        compiledFiles++;
+      }
     }
 
-    const averageAccessCount =
-      this.lazyFileMap.size > 0 ? totalAccessCount / this.lazyFileMap.size : 0;
-
-    // Get memfs statistics
-    const memfsStats = {
-      totalFiles: this.directoryStructure.statistics.totalFiles,
-      totalSize: this.directoryStructure.statistics.totalSize,
-    };
-
     return {
-      totalFiles: this.directoryStructure.statistics.totalFiles,
-      loadedFiles,
+      totalFiles: this.filePaths.length,
+      loadedFiles: this.accessCount, // Use access count as loaded files
       compiledFiles,
       loadMode: this.loadMode,
-      directoryStructure: this.directoryStructure.statistics,
-      lazyFileStats: {
-        totalEntries: this.lazyFileMap.size,
-        loadedEntries: loadedFiles,
-        compiledEntries: compiledFiles,
-        averageAccessCount,
+      directoryStructure: {
+        totalFiles: this.filePaths.length,
+        totalSize: this.totalSize,
+        namespaces: Array.from(this.namespaces.keys()),
       },
-      memfsStats,
+      lazyFileStats: {
+        totalEntries: this.filePaths.length,
+        loadedEntries: this.accessCount, // Use access count
+        compiledEntries: compiledFiles,
+        averageAccessCount: this.accessCount > 0 ? this.accessCount / this.filePaths.length : 0,
+      },
+      memfsStats: {
+        totalFiles: this.filePaths.length,
+        totalSize: this.totalSize,
+      },
     };
   }
 
@@ -749,8 +654,16 @@ export class ResourceLoader {
    * Get directory structure statistics
    * @returns Directory structure statistics
    */
-  public getDirectoryStatistics(): DirectoryStructure['statistics'] {
-    return this.directoryStructure.statistics;
+  public getDirectoryStatistics(): {
+    totalFiles: number;
+    totalSize: number;
+    namespaces: string[];
+  } {
+    return {
+      totalFiles: this.filePaths.length,
+      totalSize: this.totalSize,
+      namespaces: Array.from(this.namespaces.keys()),
+    };
   }
 
   /**
@@ -774,13 +687,12 @@ export class ResourceLoader {
    */
   public reset(): void {
     this.memfsVolume.reset();
-    this.lazyFileMap.clear();
     this.compiledArtifacts.clear();
     this.initialized = false;
     this.compilationPromise = null;
 
     // Rebuild directory structure
-    this.directoryStructure = this.buildDirectoryStructure();
+    this.buildMemfsStructure();
     this.initialized = true;
   }
 }
