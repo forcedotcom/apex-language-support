@@ -201,7 +201,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
   /**
    * Find symbols at the given position using symbol manager
-   * Enhanced to use TypeReference data for more accurate resolution
+   * Uses parser package's TypeReference data for precise position detection
    */
   private findSymbolsAtPosition(
     document: TextDocument,
@@ -214,7 +214,7 @@ export class HoverProcessingService implements IHoverProcessor {
           `${position.line}:${position.character}`,
       );
 
-      // ENHANCED: Try to use TypeReference data first for precise position detection
+      // Use parser package's TypeReference data for precise position detection
       const typeReferences = this.symbolManager.getReferencesAtPosition(
         document.uri,
         position,
@@ -241,128 +241,20 @@ export class HoverProcessingService implements IHoverProcessor {
         }
       }
 
-      // FALLBACK: Use traditional symbol lookup if no TypeReference data available
+      // Fallback: Use symbol manager's file-based lookup
       this.logger.debug(
-        () =>
-          'No TypeReference data found, falling back to traditional symbol lookup',
+        () => 'No TypeReference data found, using symbol manager file lookup',
       );
 
-      // Get all symbols in the current file
       const fileSymbols = this.symbolManager.findSymbolsInFile(document.uri);
       this.logger.debug(
         () =>
           `Found ${fileSymbols.length} total symbols in file ${document.uri}`,
       );
 
-      // Log all symbols for debugging
-      fileSymbols.forEach((symbol: any) => {
-        if (symbol.location) {
-          this.logger.debug(
-            () =>
-              `File symbol: ${symbol.name} (${symbol.kind}) at ` +
-              // eslint-disable-next-line max-len
-              `${symbol.location.startLine}:${symbol.location.startColumn}-${symbol.location.endLine}:${symbol.location.endColumn}`,
-          );
-        } else {
-          this.logger.debug(
-            () => `File symbol: ${symbol.name} (${symbol.kind}) - no location`,
-          );
-        }
-      });
-
-      // Filter symbols that contain the position
-      const symbolsAtPosition = fileSymbols.filter((symbol: any) => {
-        if (!symbol.location) {
-          this.logger.debug(
-            () => `Skipping symbol ${symbol.name} - no location data`,
-          );
-          return false;
-        }
-
-        const { startLine, startColumn, endLine, endColumn } = symbol.location;
-
-        this.logger.debug(
-          () =>
-            // eslint-disable-next-line max-len
-            `Checking symbol ${symbol.name} at ${startLine}:${startColumn}-${endLine}:${endColumn} against position ${position.line}:${position.character}`,
-        );
-
-        // Convert 1-indexed symbol locations to 0-indexed for comparison with position
-        const symbolStartLine = startLine - 1;
-        const symbolEndLine = endLine - 1;
-
-        this.logger.debug(
-          () =>
-            // eslint-disable-next-line max-len
-            `Comparing position ${position.line}:${position.character} with symbol ${symbol.name} at ${symbolStartLine}:${startColumn}-${symbolEndLine}:${endColumn}`,
-        );
-
-        // Check if position is within symbol bounds (0-indexed)
-        if (position.line < symbolStartLine || position.line > symbolEndLine) {
-          this.logger.debug(
-            () =>
-              `Position ${position.line} outside symbol line range ${symbolStartLine}-${symbolEndLine}`,
-          );
-          return false;
-        }
-
-        // For single-line symbols, check column bounds
-        if (symbolStartLine === symbolEndLine) {
-          if (
-            position.character < startColumn ||
-            position.character > endColumn
-          ) {
-            this.logger.debug(
-              () =>
-                `Position ${position.character} outside symbol column range ${startColumn}-${endColumn}`,
-            );
-            return false;
-          }
-        } else {
-          // For multi-line symbols, check column bounds only on start and end lines
-          if (
-            position.line === symbolStartLine &&
-            position.character < startColumn
-          ) {
-            this.logger.debug(
-              () =>
-                `Position ${position.character} before symbol start column ${startColumn}`,
-            );
-            return false;
-          }
-          if (
-            position.line === symbolEndLine &&
-            position.character > endColumn
-          ) {
-            this.logger.debug(
-              () =>
-                `Position ${position.character} after symbol end column ${endColumn}`,
-            );
-            return false;
-          }
-        }
-
-        this.logger.debug(
-          () =>
-            `Position ${position.line}:${position.character} matches symbol ${symbol.name}`,
-        );
-        return true;
-      });
-
-      // Debug logging
-      this.logger.debug(
-        () =>
-          `Found ${symbolsAtPosition.length} symbols at position ${position.line}:${position.character}`,
-      );
-      symbolsAtPosition.forEach((symbol: any) => {
-        this.logger.debug(
-          () =>
-            // eslint-disable-next-line max-len
-            `Matching symbol: ${symbol.name} (${symbol.kind}) at ${symbol.location.startLine}:${symbol.location.startColumn}-${symbol.location.endLine}:${symbol.location.endColumn}`,
-        );
-      });
-
-      return symbolsAtPosition.length > 0 ? symbolsAtPosition : null;
+      // For fallback, return all symbols and let the calling code filter
+      // This maintains backward compatibility while leveraging parser package
+      return fileSymbols.length > 0 ? fileSymbols : null;
     } catch (error) {
       this.logger.debug(() => `Error finding symbols at position: ${error}`);
       return null;
@@ -1516,34 +1408,14 @@ export class HoverProcessingService implements IHoverProcessor {
 
   /**
    * Create resolution context for symbol lookup
+   * Uses the parser package's context analysis for consistency and accuracy
    */
   private createResolutionContext(document: TextDocument, params: HoverParams) {
-    // Create context using our own scope detection for better hover accuracy
-    const text = document.getText();
-    const currentScope = this.determineCurrentScope(text, params.position);
-    const scopeChain = this.buildScopeChain(text, params.position);
-    const expectedType = this.inferExpectedType(text, params.position);
-    const parameterTypes = this.extractParameterTypes(text, params.position);
-    const accessModifier = this.determineAccessModifier(text, params.position);
-    const isStatic = this.determineIsStatic(text, params.position);
-    const inheritanceChain = this.extractInheritanceChain(text);
-    const interfaceImplementations = this.extractInterfaceImplementations(text);
-    const importStatements = this.extractImportStatements(text);
-    const namespaceContext = this.extractNamespaceContext(text);
-
-    return {
-      sourceFile: document.uri,
-      namespaceContext,
-      currentScope,
-      scopeChain,
-      expectedType,
-      parameterTypes,
-      accessModifier,
-      isStatic,
-      inheritanceChain,
-      interfaceImplementations,
-      importStatements,
-    };
+    return this.symbolManager.createResolutionContext(
+      document.getText(),
+      params.position,
+      document.uri,
+    );
   }
 
   /**
@@ -1561,54 +1433,18 @@ export class HoverProcessingService implements IHoverProcessor {
       : 'Symbol';
     content.push(`**${kindDisplay}** ${symbol.name}`);
 
-    // Add FQN if available or construct it using hierarchical relationships
+    // Add FQN using parser package's hierarchical FQN construction
     let fqn = symbol.fqn;
     if (!fqn) {
       // Use the symbol manager's hierarchical FQN construction
       fqn = this.symbolManager.constructFQN(symbol);
-
-      // If the FQN is just the symbol name (no parent relationship), try to construct it manually
-      if (fqn === symbol.name) {
-        // Try to find containing type using symbol manager
-        const containingType = this.symbolManager.getContainingType(symbol);
-        if (containingType) {
-          fqn = `${containingType.name}.${symbol.name}`;
-        } else {
-          // Fallback: search for class in the same file
-          const symbolsInFile = this.symbolManager.findSymbolsInFile(
-            symbol.filePath || '',
-          );
-          const classSymbol = symbolsInFile.find(
-            (s: any) => s.kind === 'class',
-          );
-          if (classSymbol) {
-            fqn = `${classSymbol.name}.${symbol.name}`;
-          } else {
-            // Additional fallback: try to extract class name from file path
-            const fileName = symbol.filePath?.split('/').pop()?.split('.')[0];
-            if (fileName && fileName !== symbol.name) {
-              fqn = `${fileName}.${symbol.name}`;
-            }
-          }
-        }
-      }
     }
 
-    // Enhanced FQN construction for all symbol types, not just methods
-    if (fqn && fqn === symbol.name) {
-      // For any symbol that doesn't have a proper FQN, try to construct it
+    // If FQN is still just the symbol name, try to find containing type
+    if (fqn === symbol.name) {
       const containingType = this.symbolManager.getContainingType(symbol);
       if (containingType) {
         fqn = `${containingType.name}.${symbol.name}`;
-      } else {
-        // Try to find class in the same file
-        const symbolsInFile = this.symbolManager.findSymbolsInFile(
-          symbol.filePath || '',
-        );
-        const classSymbol = symbolsInFile.find((s: any) => s.kind === 'class');
-        if (classSymbol) {
-          fqn = `${classSymbol.name}.${symbol.name}`;
-        }
       }
     }
 
@@ -1754,305 +1590,5 @@ export class HoverProcessingService implements IHoverProcessor {
     return {
       contents: markupContent,
     };
-  }
-
-  /**
-   * Extract import statements from document text
-   */
-  private extractImportStatements(text: string): string[] {
-    const imports: string[] = [];
-    const lines = text.split('\n');
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('import ')) {
-        imports.push(trimmed);
-      }
-    }
-
-    return imports;
-  }
-
-  /**
-   * Extract Apex access modifier context from document text
-   */
-  private extractAccessModifierContext(text: string): string {
-    const lines = text.split('\n');
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      // Look for global class declarations (Apex namespace)
-      if (trimmed.startsWith('global class ')) {
-        return 'global';
-      }
-      // Look for public class declarations (default namespace)
-      if (trimmed.startsWith('public class ')) {
-        return 'public';
-      }
-      // Look for private class declarations
-      if (trimmed.startsWith('private class ')) {
-        return 'private';
-      }
-    }
-
-    return 'default';
-  }
-
-  /**
-   * Determine the current scope at the given position
-   */
-  private determineCurrentScope(text: string, position: any): string {
-    const lines = text.split('\n');
-    const currentLine = position.line;
-
-    // Check current line for method call context first
-    const currentLineText = lines[currentLine] || '';
-    if (currentLineText.includes('.') && currentLineText.includes('(')) {
-      // This looks like a method call (e.g., "FileUtilities.createFile(")
-      return 'method';
-    }
-
-    // Simple scope detection based on indentation and context
-    for (let i = currentLine; i >= 0; i--) {
-      const line = lines[i] || '';
-      const trimmed = line.trim();
-
-      // Check for method declaration
-      if (
-        trimmed.includes('(') &&
-        trimmed.includes(')') &&
-        (trimmed.includes('public') ||
-          trimmed.includes('private') ||
-          trimmed.includes('global'))
-      ) {
-        return 'method';
-      }
-
-      // Check for class declaration
-      if (
-        trimmed.includes('class ') &&
-        (trimmed.includes('public') ||
-          trimmed.includes('private') ||
-          trimmed.includes('global'))
-      ) {
-        return 'class';
-      }
-
-      // Check for trigger context
-      if (trimmed.includes('trigger ')) {
-        return 'trigger';
-      }
-    }
-
-    return 'global';
-  }
-
-  /**
-   * Build scope chain from current position
-   */
-  private buildScopeChain(text: string, position: any): string[] {
-    const lines = text.split('\n');
-    const currentLine = position.line;
-    const scopeChain: string[] = [];
-
-    // Build scope chain by walking up from current position
-    for (let i = currentLine; i >= 0; i--) {
-      const line = lines[i] || '';
-      const trimmed = line.trim();
-
-      if (trimmed.includes('class ')) {
-        scopeChain.push('class');
-        break;
-      }
-
-      if (
-        trimmed.includes('(') &&
-        trimmed.includes(')') &&
-        (trimmed.includes('public') ||
-          trimmed.includes('private') ||
-          trimmed.includes('global'))
-      ) {
-        scopeChain.push('method');
-      }
-    }
-
-    return scopeChain.length > 0 ? scopeChain : ['global'];
-  }
-
-  /**
-   * Infer expected type at the given position
-   */
-  private inferExpectedType(text: string, position: any): string | undefined {
-    const lines = text.split('\n');
-    const currentLine = position.line;
-    const currentChar = position.character;
-    const line = lines[currentLine] || '';
-
-    // Look for assignment context
-    const beforeCursor = line.substring(0, currentChar);
-    const assignmentMatch = beforeCursor.match(/(\w+)\s*=\s*$/);
-    if (assignmentMatch) {
-      // Look for variable declaration above
-      for (let i = currentLine - 1; i >= 0; i--) {
-        const prevLine = lines[i] || '';
-        const varMatch = prevLine.match(
-          new RegExp(`\\b${assignmentMatch[1]}\\s+(\\w+)`),
-        );
-        if (varMatch) {
-          return varMatch[1];
-        }
-      }
-    }
-
-    // Look for method parameter context
-    const methodMatch = beforeCursor.match(/\(([^)]*)$/);
-    if (methodMatch) {
-      // Try to find method declaration
-      for (let i = currentLine - 1; i >= 0; i--) {
-        const prevLine = lines[i] || '';
-        if (prevLine.includes('(') && prevLine.includes(')')) {
-          // Extract parameter types from method signature
-          const paramMatch = prevLine.match(/\(([^)]+)\)/);
-          if (paramMatch) {
-            const params = paramMatch[1].split(',').map((p) => p.trim());
-            const paramIndex = methodMatch[1].split(',').length;
-            if (params[paramIndex]) {
-              const typeMatch = params[paramIndex].match(/^(\w+)/);
-              if (typeMatch) {
-                return typeMatch[1];
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return undefined;
-  }
-
-  /**
-   * Extract parameter types at the given position
-   */
-  private extractParameterTypes(text: string, position: any): string[] {
-    const lines = text.split('\n');
-    const currentLine = position.line;
-    const parameterTypes: string[] = [];
-
-    // Look for method declaration
-    for (let i = currentLine; i >= 0; i--) {
-      const line = lines[i] || '';
-      const methodMatch = line.match(/\(([^)]+)\)/);
-      if (methodMatch) {
-        const params = methodMatch[1].split(',').map((p) => p.trim());
-        for (const param of params) {
-          const typeMatch = param.match(/^(\w+)/);
-          if (typeMatch) {
-            parameterTypes.push(typeMatch[1]);
-          }
-        }
-        break;
-      }
-    }
-
-    return parameterTypes;
-  }
-
-  /**
-   * Determine access modifier at the given position
-   */
-  private determineAccessModifier(
-    text: string,
-    position: any,
-  ): 'public' | 'private' | 'protected' | 'global' {
-    const lines = text.split('\n');
-    const currentLine = position.line;
-
-    // Look for access modifier in current or previous lines
-    for (let i = currentLine; i >= Math.max(0, currentLine - 5); i--) {
-      const line = lines[i] || '';
-      const trimmed = line.trim();
-
-      if (trimmed.includes('global ')) return 'global';
-      if (trimmed.includes('public ')) return 'public';
-      if (trimmed.includes('private ')) return 'private';
-      if (trimmed.includes('protected ')) return 'protected';
-    }
-
-    return 'public';
-  }
-
-  /**
-   * Determine if current context is static
-   */
-  private determineIsStatic(text: string, position: any): boolean {
-    const lines = text.split('\n');
-    const currentLine = position.line;
-
-    // Look for static keyword in current or previous lines
-    for (let i = currentLine; i >= Math.max(0, currentLine - 5); i--) {
-      const line = lines[i] || '';
-      const trimmed = line.trim();
-
-      if (trimmed.includes('static ')) return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * Extract inheritance chain from document text
-   */
-  private extractInheritanceChain(text: string): string[] {
-    const lines = text.split('\n');
-    const inheritanceChain: string[] = [];
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      // Look for extends clause
-      const extendsMatch = trimmed.match(/extends\s+(\w+)/);
-      if (extendsMatch) {
-        inheritanceChain.push(extendsMatch[1]);
-      }
-    }
-
-    return inheritanceChain;
-  }
-
-  /**
-   * Extract interface implementations from document text
-   */
-  private extractInterfaceImplementations(text: string): string[] {
-    const lines = text.split('\n');
-    const interfaceImplementations: string[] = [];
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      // Look for implements clause
-      const implementsMatch = trimmed.match(/implements\s+([^,\s]+)/);
-      if (implementsMatch) {
-        interfaceImplementations.push(implementsMatch[1]);
-      }
-    }
-
-    return interfaceImplementations;
-  }
-
-  /**
-   * Extract namespace context from text
-   */
-  private extractNamespaceContext(text: string): string {
-    const lines = text.split('\n');
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('namespace ')) {
-        const match = trimmed.match(/namespace\s+([^\s]+)/);
-        if (match) {
-          return match[1];
-        }
-      }
-    }
-
-    return 'default';
   }
 }
