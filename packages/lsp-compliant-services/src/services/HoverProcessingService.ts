@@ -94,6 +94,7 @@ export class HoverProcessingService implements IHoverProcessor {
       if (!symbolsAtPosition || symbolsAtPosition.length === 0) {
         this.logger.debug(
           () =>
+            // eslint-disable-next-line max-len
             `No symbols found at position ${params.position.line}:${params.position.character}, trying cross-file resolution`,
         );
 
@@ -149,6 +150,7 @@ export class HoverProcessingService implements IHoverProcessor {
             const allSymbols = [...appropriateSymbols, ...crossFileSymbols];
             this.logger.debug(
               () =>
+                // eslint-disable-next-line max-len
                 `Combined ${appropriateSymbols.length} local symbols with ${crossFileSymbols.length} cross-file symbols`,
             );
             symbolsAtPosition = allSymbols;
@@ -255,6 +257,7 @@ export class HoverProcessingService implements IHoverProcessor {
           this.logger.debug(
             () =>
               `File symbol: ${symbol.name} (${symbol.kind}) at ` +
+              // eslint-disable-next-line max-len
               `${symbol.location.startLine}:${symbol.location.startColumn}-${symbol.location.endLine}:${symbol.location.endColumn}`,
           );
         } else {
@@ -277,6 +280,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
         this.logger.debug(
           () =>
+            // eslint-disable-next-line max-len
             `Checking symbol ${symbol.name} at ${startLine}:${startColumn}-${endLine}:${endColumn} against position ${position.line}:${position.character}`,
         );
 
@@ -286,6 +290,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
         this.logger.debug(
           () =>
+            // eslint-disable-next-line max-len
             `Comparing position ${position.line}:${position.character} with symbol ${symbol.name} at ${symbolStartLine}:${startColumn}-${symbolEndLine}:${endColumn}`,
         );
 
@@ -349,6 +354,7 @@ export class HoverProcessingService implements IHoverProcessor {
       symbolsAtPosition.forEach((symbol: any) => {
         this.logger.debug(
           () =>
+            // eslint-disable-next-line max-len
             `Matching symbol: ${symbol.name} (${symbol.kind}) at ${symbol.location.startLine}:${symbol.location.startColumn}-${symbol.location.endLine}:${symbol.location.endColumn}`,
         );
       });
@@ -1124,6 +1130,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
     this.logger.debug(
       () =>
+        // eslint-disable-next-line max-len
         `Special case check: bestSymbol=${bestSymbol?.name} (${bestSymbol?.kind}), isCrossFileClassInMethodCall=${isCrossFileClassInMethodCall}, bestConfidence=${bestConfidence}`,
     );
 
@@ -1260,6 +1267,7 @@ export class HoverProcessingService implements IHoverProcessor {
         confidence += 0.7; // High priority for type-matching methods
         this.logger.debug(
           () =>
+            // eslint-disable-next-line max-len
             `Type context match - method ${symbol.name} returns ${symbol.type?.name}, expected ${context.expectedType}: +0.7`,
         );
       } else {
@@ -1268,6 +1276,7 @@ export class HoverProcessingService implements IHoverProcessor {
           confidence += 0.4; // Medium priority for compatible types
           this.logger.debug(
             () =>
+              // eslint-disable-next-line max-len
               `Type context compatible - method ${symbol.name} returns ${symbol.type?.name}, compatible with ${context.expectedType}: +0.4`,
           );
         }
@@ -1345,6 +1354,7 @@ export class HoverProcessingService implements IHoverProcessor {
         confidence += 0.2; // Boost for matching access modifiers
         this.logger.debug(
           () =>
+            // eslint-disable-next-line max-len
             `Access modifier match - symbol ${symbol.name} has ${symbol.modifiers.visibility}, context expects ${context.accessModifier}: +0.2`,
         );
       }
@@ -1380,8 +1390,13 @@ export class HoverProcessingService implements IHoverProcessor {
       if (actualTypeSymbols.length > 0) {
         const actualTypeSymbol = actualTypeSymbols[0];
 
-        // Check if it extends the expected type
-        if (actualTypeSymbol.extends === expectedType) return true;
+        // Check if it extends the expected type (only for type symbols)
+        if (
+          (actualTypeSymbol as any).superClass === expectedType ||
+          (actualTypeSymbol as any).extends === expectedType
+        ) {
+          return true;
+        }
 
         // Check inheritance chain
         const ancestorChain =
