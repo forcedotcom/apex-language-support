@@ -951,6 +951,7 @@ export class ApexSymbolCollectorListener
    * Called when entering a field declaration
    */
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
+    this.logger.debug(() => 'enterFieldDeclaration called');
     try {
       const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
       this.logger.debug(
@@ -983,6 +984,11 @@ export class ApexSymbolCollectorListener
       for (const declarator of ctx
         .variableDeclarators()
         ?.variableDeclarator() || []) {
+        const name = declarator.id()?.text ?? 'unknownVariable';
+        this.logger.debug(
+          () =>
+            `Processing field variable: ${name} in class: ${this.currentTypeSymbol?.name}`,
+        );
         this.processVariableDeclarator(
           declarator,
           type,
@@ -1001,10 +1007,46 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Called when entering a local variable declaration statement
+   */
+  enterLocalVariableDeclarationStatement(ctx: ParserRuleContext): void {
+    try {
+      this.logger.debug(() => 'enterLocalVariableDeclarationStatement called');
+
+      // Extract the local variable declaration from the statement
+      // The statement has the structure: localVariableDeclaration SEMI
+      // So the first child should be the localVariableDeclaration
+      const localVarDecl = ctx.children?.[0];
+      if (localVarDecl) {
+        this.logger.debug(
+          () =>
+            `Found local variable declaration child: ${localVarDecl.constructor.name}`,
+        );
+
+        // Process the local variable declaration directly here
+        // since the parser doesn't call enterLocalVariableDeclaration
+        this.processLocalVariableDeclaration(localVarDecl as any);
+      } else {
+        this.logger.debug(() => 'No local variable declaration child found');
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(
+        `Error in local variable declaration statement: ${errorMessage}`,
+        ctx,
+      );
+    }
+  }
+
+  /**
    * Called when entering a local variable declaration
    */
   enterLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): void {
     try {
+      this.logger.debug(
+        () =>
+          `enterLocalVariableDeclaration: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
+      );
       // Get current modifiers and reset for next declaration
       const modifiers = this.getCurrentModifiers();
       this.resetModifiers();
@@ -1022,13 +1064,14 @@ export class ApexSymbolCollectorListener
       for (const declarator of variableDeclarators) {
         const name = declarator.id()?.text ?? 'unknownVariable';
 
-        // Check for duplicate variable in current scope
-        const currentScope = this.symbolTable.getCurrentScope();
-        const existingSymbol = currentScope.getSymbol(name);
-        if (existingSymbol) {
-          this.addError(`Duplicate variable declaration: ${name}`, declarator);
-          continue;
-        }
+        // For local variables, we allow multiple variables with the same name in different scopes
+        // The symbol table will handle uniqueness through the unified ID system
+        // No duplicate check needed here
+
+        this.logger.debug(
+          () =>
+            `Processing local variable: ${name} in method: ${this.currentMethodSymbol?.name}`,
+        );
 
         // Always process the variable in the current scope
         this.processVariableDeclarator(
@@ -1037,6 +1080,73 @@ export class ApexSymbolCollectorListener
           modifiers,
           SymbolKind.Variable,
         );
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(
+        `Error in local variable declaration: ${errorMessage}`,
+        ctx,
+      );
+    }
+  }
+
+  /**
+   * Process a local variable declaration (extracted from statement)
+   */
+  private processLocalVariableDeclaration(ctx: any): void {
+    try {
+      this.logger.debug(
+        () =>
+          `processLocalVariableDeclaration: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
+      );
+      // Get current modifiers and reset for next declaration
+      const modifiers = this.getCurrentModifiers();
+      this.resetModifiers();
+
+      // Extract type reference and variable declarators from children
+      // The structure is: modifier* typeRef variableDeclarators
+      let typeRefChild: any = null;
+      let variableDeclaratorsChild: any = null;
+
+      // Find the typeRef and variableDeclarators children
+      for (const child of ctx.children || []) {
+        if (child.constructor.name === 'TypeRefContext') {
+          typeRefChild = child;
+        } else if (child.constructor.name === 'VariableDeclaratorsContext') {
+          variableDeclaratorsChild = child;
+        }
+      }
+
+      // Get the type
+      const varTypeText = typeRefChild
+        ? this.getTextFromContext(typeRefChild)
+        : 'Object';
+      const varType = this.createTypeInfo(varTypeText);
+
+      // Process each variable declared
+      if (variableDeclaratorsChild) {
+        const variableDeclarators =
+          variableDeclaratorsChild.variableDeclarator();
+        for (const declarator of variableDeclarators) {
+          const name = declarator.id()?.text ?? 'unknownVariable';
+
+          // For local variables, we allow multiple variables with the same name in different scopes
+          // The symbol table will handle uniqueness through the unified ID system
+          // No duplicate check needed here
+
+          this.logger.debug(
+            () =>
+              `Processing local variable: ${name} in method: ${this.currentMethodSymbol?.name}`,
+          );
+
+          // Always process the variable in the current scope
+          this.processVariableDeclarator(
+            declarator,
+            varType,
+            modifiers,
+            SymbolKind.Variable,
+          );
+        }
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -1168,6 +1278,12 @@ export class ApexSymbolCollectorListener
     kind: SymbolKind.Field | SymbolKind.Variable | SymbolKind.EnumValue,
   ): void {
     try {
+      this.logger.debug(
+        () =>
+          // eslint-disable-next-line max-len
+          `processVariableDeclarator: ${ctx.text} in method: ${this.currentMethodSymbol?.name} type: ${type.name} kind: ${kind}`,
+      );
+
       const name = ctx.id()?.text ?? 'unknownVariable';
 
       // Validate identifier
@@ -1205,9 +1321,9 @@ export class ApexSymbolCollectorListener
    */
   private getLocation(ctx: ParserRuleContext): SymbolLocation {
     return {
-      startLine: ctx.start.line,
-      startColumn: ctx.start.charPositionInLine,
-      endLine: ctx.stop?.line ?? ctx.start.line,
+      startLine: ctx.start.line, // Use native ANTLR 1-based line numbers
+      startColumn: ctx.start.charPositionInLine, // Both use 0-based columns
+      endLine: ctx.stop?.line ?? ctx.start.line, // Use native ANTLR 1-based line numbers
       endColumn:
         (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
         (ctx.stop?.text?.length ?? 0),
@@ -1235,9 +1351,9 @@ export class ApexSymbolCollectorListener
     // If we found the identifier node, use its position
     if (identifierNode && identifierNode.start && identifierNode.stop) {
       return {
-        startLine: identifierNode.start.line,
-        startColumn: identifierNode.start.charPositionInLine,
-        endLine: identifierNode.stop.line,
+        startLine: identifierNode.start.line, // Use native ANTLR 1-based line numbers
+        startColumn: identifierNode.start.charPositionInLine, // Both use 0-based columns
+        endLine: identifierNode.stop.line, // Use native ANTLR 1-based line numbers
         endColumn:
           identifierNode.stop.charPositionInLine +
           identifierNode.stop.text.length,

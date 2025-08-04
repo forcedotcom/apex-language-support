@@ -1706,10 +1706,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       const normalizedPath = this.normalizeFilePath(fileUri);
 
-      // LSP uses 1-based line/column, parser uses 1-based line/0-based column
+      // LSP uses 0-based line/column, parser now provides LSP coordinates (0-based)
       const adjustedPosition = {
-        line: position.line,
-        character: position.character - 1,
+        line: position.line, // Both use 0-based lines
+        character: position.character, // Both use 0-based columns
       };
 
       this.logger.debug(

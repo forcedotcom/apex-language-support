@@ -368,12 +368,12 @@ export class WorkspaceSymbolProcessingService
 
     const range: Range = {
       start: {
-        line: symbol.location.startLine - 1, // LSP uses 0-based lines
-        character: symbol.location.startColumn - 1, // LSP uses 0-based characters
+        line: symbol.location.startLine, // Parser now provides LSP coordinates (0-based)
+        character: symbol.location.startColumn, // Parser now provides LSP coordinates (0-based)
       },
       end: {
-        line: symbol.location.endLine - 1,
-        character: symbol.location.endColumn - 1,
+        line: symbol.location.endLine,
+        character: symbol.location.endColumn,
       },
     };
 

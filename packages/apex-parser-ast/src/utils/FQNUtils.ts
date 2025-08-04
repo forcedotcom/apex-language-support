@@ -46,13 +46,20 @@ export function calculateFQN(symbol: ApexSymbol, options?: FQNOptions): string {
   let fqn = symbol.name;
 
   // If the symbol has a parent, prepend the parent's FQN
+  // Skip block scopes in FQN construction - only include meaningful scopes
   if (symbol.parent) {
-    fqn = `${symbol.parent.name}.${fqn}`;
+    // Only include parent if it's not a block scope
+    if (!isBlockScope(symbol.parent)) {
+      fqn = `${symbol.parent.name}.${fqn}`;
+    }
 
-    // Continue up the hierarchy
+    // Continue up the hierarchy, skipping block scopes
     let currentParent = symbol.parent.parent;
     while (currentParent) {
-      fqn = `${currentParent.name}.${fqn}`;
+      // Skip block scopes in FQN construction
+      if (!isBlockScope(currentParent)) {
+        fqn = `${currentParent.name}.${fqn}`;
+      }
       currentParent = currentParent.parent;
     }
   }
@@ -213,6 +220,18 @@ export function extractNamespace(
 
   // Return default namespace if provided
   return defaultNamespace || '';
+}
+
+/**
+ * Check if a symbol represents a block scope (should be skipped in FQN)
+ * @param symbol The symbol to check
+ * @returns True if the symbol is a block scope, false otherwise
+ */
+export function isBlockScope(symbol: any): boolean {
+  if (!symbol || !symbol.name) return false;
+
+  // Block scopes are named with the pattern "block{number}"
+  return symbol.name.startsWith('block') && /^block\d+$/.test(symbol.name);
 }
 
 /**

@@ -593,6 +593,7 @@ export const getUnifiedId = (key: SymbolKey, filePath?: string): string => {
  */
 export class SymbolScope {
   private symbols: HashMap<string, ApexSymbol> = new HashMap();
+  private nameToSymbol: HashMap<string, ApexSymbol[]> = new HashMap(); // For name-based lookups
   private children: SymbolScope[] = [];
   private readonly key: SymbolKey;
 
@@ -650,7 +651,14 @@ export class SymbolScope {
    * @param symbol The symbol to add
    */
   addSymbol(symbol: ApexSymbol): void {
-    this.symbols.set(symbol.name, symbol);
+    // Use the symbol's unique key to prevent overwriting symbols with the same name
+    const key = symbol.key.unifiedId || keyToString(symbol.key);
+    this.symbols.set(key, symbol);
+
+    // Also maintain name-based mapping for backward compatibility
+    const existingSymbols = this.nameToSymbol.get(symbol.name) || [];
+    existingSymbols.push(symbol);
+    this.nameToSymbol.set(symbol.name, existingSymbols);
   }
 
   /**
@@ -659,7 +667,17 @@ export class SymbolScope {
    * @returns The symbol if found, undefined otherwise
    */
   getSymbol(name: string): ApexSymbol | undefined {
-    return this.symbols.get(name);
+    const symbols = this.nameToSymbol.get(name);
+    return symbols && symbols.length > 0 ? symbols[0] : undefined;
+  }
+
+  /**
+   * Get all symbols with a given name from this scope.
+   * @param name The name of the symbols to find
+   * @returns Array of symbols with the given name, empty array if none found
+   */
+  getSymbolsByName(name: string): ApexSymbol[] {
+    return this.nameToSymbol.get(name) || [];
   }
 
   /**

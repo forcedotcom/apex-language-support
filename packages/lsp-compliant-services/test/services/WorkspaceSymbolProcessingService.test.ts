@@ -11,7 +11,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { WorkspaceSymbolProcessingService } from '../../src/services/WorkspaceSymbolProcessingService';
 
-// Mock is now handled globally in test/setup.ts
+// Logger is handled by the shared library's global logging system
 
 describe('WorkspaceSymbolProcessingService', () => {
   let service: WorkspaceSymbolProcessingService;

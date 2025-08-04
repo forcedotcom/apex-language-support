@@ -337,6 +337,24 @@ export class HoverProcessingService implements IHoverProcessor {
       }
     }
 
+    // Special handling for cross-class method references
+    // If this is a method and the FQN doesn't include the class name,
+    // and the symbol is from a different file than the current context,
+    // we need to construct the FQN manually
+    if (symbol.kind === 'method' && fqn === symbol.name) {
+      // Try to find the class that contains this method
+      const methodFile = symbol.filePath;
+      if (methodFile) {
+        const fileSymbols = this.symbolManager.findSymbolsInFile(methodFile);
+        const containingClass = fileSymbols.find(
+          (s) => s.kind === 'class' && s.id === symbol.parentId,
+        );
+        if (containingClass) {
+          fqn = `${containingClass.name}.${symbol.name}`;
+        }
+      }
+    }
+
     if (fqn) {
       content.push(`**FQN:** ${fqn}`);
     }

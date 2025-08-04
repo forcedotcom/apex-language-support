@@ -17,7 +17,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import { CodeActionProcessingService } from '../../src/services/CodeActionProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 
-// Mock is now handled globally in test/setup.ts
+// Logger is handled by the shared library's global logging system
 
 // Mock ApexStorageManager
 jest.mock('../../src/storage/ApexStorageManager', () => ({

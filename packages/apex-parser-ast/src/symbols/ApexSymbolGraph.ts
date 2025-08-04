@@ -401,7 +401,9 @@ export class ApexSymbolGraph {
     const symbolTable = this.fileToSymbolTable.get(filePath);
     if (symbolTable) {
       // OPTIMIZED: Delegate to SymbolTable for actual symbol data
-      const symbolName = symbolId.split(':').pop() || '';
+      // Symbol ID format: filePath:name:line, so we need to extract the name part
+      const parts = symbolId.split(':');
+      const symbolName = parts.length >= 2 ? parts[1] : '';
       const symbol = symbolTable.lookup(symbolName);
 
       if (symbol) {
@@ -415,7 +417,9 @@ export class ApexSymbolGraph {
 
     // Fallback: Try to reconstruct symbol from stored data
     // This is for backward compatibility when SymbolTables aren't available
-    const symbolName = symbolId.split(':').pop() || '';
+    // Symbol ID format: filePath:name:line, so we need to extract the name part
+    const parts = symbolId.split(':');
+    const symbolName = parts.length >= 2 ? parts[1] : '';
 
     // Find the FQN by looking up the symbolId in the fqnIndex values
     let fqn = symbolName; // Default to symbol name
@@ -1174,7 +1178,9 @@ export class ApexSymbolGraph {
   private getSymbolId(symbol: ApexSymbol, filePath: string): string {
     // Ensure we have a valid filePath
     const validFilePath = filePath || symbol.filePath || 'unknown';
-    return `${validFilePath}:${symbol.name}`;
+    // Include line number to make IDs unique for symbols with the same name
+    const lineInfo = symbol.location ? `:${symbol.location.startLine}` : '';
+    return `${validFilePath}:${symbol.name}${lineInfo}`;
   }
 
   /**
