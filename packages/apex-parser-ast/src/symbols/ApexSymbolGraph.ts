@@ -389,13 +389,15 @@ export class ApexSymbolGraph {
 
     // Update filePath for any symbols in deferred references that match this symbol
     // This ensures that when deferred references are processed, they can find the source symbols
-    for (const [targetName, refs] of this.deferredReferences.entries()) {
-      for (const ref of refs) {
-        if (
-          ref.sourceSymbol.name === symbol.name &&
-          ref.sourceSymbol.filePath !== filePath
-        ) {
-          ref.sourceSymbol.filePath = filePath;
+    for (const [_targetName, refs] of this.deferredReferences.entries()) {
+      if (refs) {
+        for (const ref of refs) {
+          if (
+            ref.sourceSymbol.name === symbol.name &&
+            ref.sourceSymbol.filePath !== filePath
+          ) {
+            ref.sourceSymbol.filePath = filePath;
+          }
         }
       }
     }
@@ -414,9 +416,10 @@ export class ApexSymbolGraph {
     const symbolTable = this.fileToSymbolTable.get(filePath);
     if (symbolTable) {
       // OPTIMIZED: Delegate to SymbolTable for actual symbol data
-      // Symbol ID format: filePath:name:line, so we need to extract the name part
+      // Symbol ID format: filePath:name:kind, so we need to extract the name part
       const parts = symbolId.split(':');
       const symbolName = parts.length >= 2 ? parts[1] : '';
+      const _symbolKind = parts.length >= 3 ? parts[2] : '';
 
       // Try to find the symbol by name in the SymbolTable
       const symbol = symbolTable.lookup(symbolName);

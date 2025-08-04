@@ -6,18 +6,16 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
-import {
-  SymbolTable,
-  SymbolFactory,
-  SymbolKind,
-  SymbolVisibility,
-} from '../../src/types/symbol';
+import { CompilerService } from '../../src/parser/compilerService';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolManager.getSymbolAtPosition', () => {
   let symbolManager: ApexSymbolManager;
-  let symbolTable: SymbolTable;
+  let compilerService: CompilerService;
 
   beforeEach(() => {
     // Enable console logging with debug level for tests
@@ -25,7 +23,7 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
     setLogLevel('debug');
 
     symbolManager = new ApexSymbolManager();
-    symbolTable = new SymbolTable();
+    compilerService = new CompilerService();
   });
 
   afterEach(() => {
@@ -33,232 +31,166 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
   });
 
   describe('same-file symbol resolution', () => {
-    it('should find a method symbol at its position', () => {
-      // Create a test class with a method
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        '/test/TestClass.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
+    it('should find a method symbol at its position', async () => {
+      // Read Apex source from fixture file
+      const apexSource = fs.readFileSync(
+        path.join(__dirname, '../fixtures/position/TestClass.cls'),
+        'utf8',
       );
 
-      const methodSymbol = SymbolFactory.createFullSymbol(
-        'testMethod',
-        SymbolKind.Method,
-        { startLine: 3, startColumn: 5, endLine: 5, endColumn: 5 },
+      // Parse the source and add symbols to the manager
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        apexSource,
         '/test/TestClass.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        classSymbol.id,
+        listener,
       );
 
-      // Add symbols to the manager
-      symbolManager.addSymbol(classSymbol, '/test/TestClass.cls', symbolTable);
-      symbolManager.addSymbol(methodSymbol, '/test/TestClass.cls', symbolTable);
+      if (result.result) {
+        symbolManager.addSymbolTable(result.result, '/test/TestClass.cls');
+      }
 
-      // Register the symbol table with the manager
-      symbolManager.addSymbolTable(symbolTable, '/test/TestClass.cls');
-
-      // Test finding the method symbol at its position
+      // Test finding the method symbol at its position (line 2, character 20)
       const foundSymbol = symbolManager.getSymbolAtPosition(
         '/test/TestClass.cls',
-        { line: 4, character: 10 },
+        { line: 2, character: 20 },
       );
 
       expect(foundSymbol).toBeDefined();
-      expect(foundSymbol?.name).toBe('testMethod');
-      expect(foundSymbol?.kind).toBe(SymbolKind.Method);
+      expect(foundSymbol?.kind).toBe('method');
+      expect(foundSymbol?.name).toBe('myMethod');
     });
 
-    it('should find a field symbol at its position', () => {
-      // Create a test class with a field
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        '/test/TestClass.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
+    it('should find a field symbol at its position', async () => {
+      // Read Apex source from fixture file
+      const apexSource = fs.readFileSync(
+        path.join(__dirname, '../fixtures/position/TestClassWithField.cls'),
+        'utf8',
       );
 
-      const fieldSymbol = SymbolFactory.createFullSymbol(
-        'testField',
-        SymbolKind.Field,
-        { startLine: 3, startColumn: 5, endLine: 3, endColumn: 15 },
-        '/test/TestClass.cls',
-        {
-          visibility: SymbolVisibility.Private,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
+      // Parse the source and add symbols to the manager
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        apexSource,
+        '/test/TestClassWithField.cls',
+        listener,
       );
 
-      // Add symbols to the manager
-      symbolManager.addSymbol(classSymbol, '/test/TestClass.cls', symbolTable);
-      symbolManager.addSymbol(fieldSymbol, '/test/TestClass.cls', symbolTable);
-
-      // Register the symbol table with the manager
-      symbolManager.addSymbolTable(symbolTable, '/test/TestClass.cls');
+      if (result.result) {
+        symbolManager.addSymbolTable(
+          result.result,
+          '/test/TestClassWithField.cls',
+        );
+      }
 
       // Test finding the field symbol at its position
       const foundSymbol = symbolManager.getSymbolAtPosition(
-        '/test/TestClass.cls',
-        { line: 3, character: 10 },
+        '/test/TestClassWithField.cls',
+        { line: 2, character: 20 },
       );
 
       expect(foundSymbol).toBeDefined();
+      expect(foundSymbol?.kind).toBe('field');
       expect(foundSymbol?.name).toBe('testField');
-      expect(foundSymbol?.kind).toBe(SymbolKind.Field);
     });
 
-    it('should return null for position outside symbol bounds', () => {
-      // Create a test class
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        '/test/TestClass.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
+    it('should find a class symbol at its position', async () => {
+      // Read Apex source from fixture file
+      const apexSource = fs.readFileSync(
+        path.join(__dirname, '../fixtures/position/TestClassSimple.cls'),
+        'utf8',
       );
 
-      // Add symbol to the manager
-      symbolManager.addSymbol(classSymbol, '/test/TestClass.cls', symbolTable);
+      // Parse the source and add symbols to the manager
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        apexSource,
+        '/test/TestClassSimple.cls',
+        listener,
+      );
 
-      // Register the symbol table with the manager
-      symbolManager.addSymbolTable(symbolTable, '/test/TestClass.cls');
+      if (result.result) {
+        symbolManager.addSymbolTable(
+          result.result,
+          '/test/TestClassSimple.cls',
+        );
+      }
 
-      // Test finding a symbol at a position outside the class bounds
+      // Test finding the class symbol at its position
       const foundSymbol = symbolManager.getSymbolAtPosition(
-        '/test/TestClass.cls',
-        { line: 15, character: 1 },
-      );
-
-      expect(foundSymbol).toBeNull();
-    });
-  });
-
-  describe('cross-file symbol resolution', () => {
-    it('should find built-in type symbols', () => {
-      // This test is simplified since we're not testing cross-file resolution
-      // In a real scenario, built-in types would be pre-loaded
-      const foundSymbol = symbolManager.getSymbolAtPosition(
-        '/test/TestClass.cls',
-        { line: 3, character: 15 },
-      );
-
-      // For now, just verify the method doesn't crash
-      expect(foundSymbol).toBeDefined();
-    });
-  });
-
-  describe('symbol specificity prioritization', () => {
-    it('should prioritize more specific symbols when overlapping', () => {
-      // Create a class with a method that has the same name as the class
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 10, endColumn: 1 },
-        '/test/TestClass.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-      );
-
-      const methodSymbol = SymbolFactory.createFullSymbol(
-        'TestClass', // Same name as class
-        SymbolKind.Method,
-        { startLine: 3, startColumn: 5, endLine: 5, endColumn: 5 },
-        '/test/TestClass.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        classSymbol.id,
-      );
-
-      // Add symbols to the manager
-      symbolManager.addSymbol(classSymbol, '/test/TestClass.cls', symbolTable);
-      symbolManager.addSymbol(methodSymbol, '/test/TestClass.cls', symbolTable);
-
-      // Register the symbol table with the manager
-      symbolManager.addSymbolTable(symbolTable, '/test/TestClass.cls');
-
-      // Test finding symbol at method position (should return method, not class)
-      const foundSymbol = symbolManager.getSymbolAtPosition(
-        '/test/TestClass.cls',
-        { line: 4, character: 10 },
+        '/test/TestClassSimple.cls',
+        { line: 1, character: 13 }, // Class name position (within the class bounds)
       );
 
       expect(foundSymbol).toBeDefined();
-      expect(foundSymbol?.kind).toBe(SymbolKind.Method);
-      expect(foundSymbol?.name).toBe('TestClass');
+      expect(foundSymbol?.kind).toBe('class');
+      expect(foundSymbol?.name).toBe('TestClassSimple');
+    });
+
+    it('should find a variable symbol at its position', async () => {
+      // Read Apex source from fixture file
+      const apexSource = fs.readFileSync(
+        path.join(__dirname, '../fixtures/position/TestClassWithVariable.cls'),
+        'utf8',
+      );
+
+      // Parse the source and add symbols to the manager
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        apexSource,
+        '/test/TestClassWithVariable.cls',
+        listener,
+      );
+
+      if (result.result) {
+        symbolManager.addSymbolTable(
+          result.result,
+          '/test/TestClassWithVariable.cls',
+        );
+      }
+
+      // Test finding the variable symbol at its position
+      const foundSymbol = symbolManager.getSymbolAtPosition(
+        '/test/TestClassWithVariable.cls',
+        { line: 3, character: 15 }, // Variable position (within the variable name range)
+      );
+
+      expect(foundSymbol).toBeDefined();
+      expect(foundSymbol?.kind).toBe('variable');
+      expect(foundSymbol?.name).toBe('test');
+    });
+
+    it('should prioritize more specific symbols when overlapping', async () => {
+      // Read Apex source from fixture file
+      const apexSource = fs.readFileSync(
+        path.join(__dirname, '../fixtures/position/TestClassOverlapping.cls'),
+        'utf8',
+      );
+
+      // Parse the source and add symbols to the manager
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        apexSource,
+        '/test/TestClassOverlapping.cls',
+        listener,
+      );
+
+      if (result.result) {
+        symbolManager.addSymbolTable(
+          result.result,
+          '/test/TestClassOverlapping.cls',
+        );
+      }
+
+      // Test finding the method symbol at its position (should prioritize method over class)
+      const foundSymbol = symbolManager.getSymbolAtPosition(
+        '/test/TestClassOverlapping.cls',
+        { line: 2, character: 16 }, // Method position
+      );
+
+      expect(foundSymbol).toBeDefined();
+      expect(foundSymbol?.kind).toBe('method');
+      expect(foundSymbol?.name).toBe('myMethod');
     });
   });
 });

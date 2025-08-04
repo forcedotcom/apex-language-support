@@ -143,6 +143,7 @@ export class SymbolFactory {
     namespace?: string,
     annotations?: Annotation[],
     identifierLocation?: SymbolLocation,
+    parentSymbol?: ApexSymbol, // NEW: Optional parent symbol for proper parentKey construction
   ): ApexSymbol {
     const id = this.generateId(name, filePath);
     const modifierFlags = this.modifiersToFlags(modifiers);
@@ -156,6 +157,29 @@ export class SymbolFactory {
       kind,
     };
 
+    // Construct parentKey properly if parent symbol is provided
+    let parentKey: SymbolKey | null = null;
+    if (parentSymbol) {
+      parentKey = {
+        prefix: parentSymbol.kind,
+        name: parentSymbol.name,
+        path: [filePath, parentSymbol.name],
+        unifiedId: parentSymbol.id,
+        filePath: parentSymbol.filePath,
+        kind: parentSymbol.kind,
+      };
+    } else if (parentId) {
+      // Fallback to the old behavior for backward compatibility
+      parentKey = {
+        prefix: kind,
+        name: parentId,
+        path: [filePath, parentId],
+        unifiedId: parentId,
+        filePath,
+        kind,
+      };
+    }
+
     return {
       id,
       name,
@@ -164,16 +188,7 @@ export class SymbolFactory {
       filePath,
       parentId,
       key,
-      parentKey: parentId
-        ? {
-            prefix: kind,
-            name: parentId,
-            path: [filePath, parentId],
-            unifiedId: parentId,
-            filePath,
-            kind,
-          }
-        : null,
+      parentKey,
       fqn,
       namespace: namespace || null, // Ensure null instead of undefined
       annotations,

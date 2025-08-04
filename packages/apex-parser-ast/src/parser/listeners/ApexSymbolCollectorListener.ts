@@ -1130,9 +1130,16 @@ export class ApexSymbolCollectorListener
         for (const declarator of variableDeclarators) {
           const name = declarator.id()?.text ?? 'unknownVariable';
 
-          // For local variables, we allow multiple variables with the same name in different scopes
-          // The symbol table will handle uniqueness through the unified ID system
-          // No duplicate check needed here
+          // Check for duplicate variable declaration in the current scope
+          const existingSymbol =
+            this.symbolTable.findSymbolInCurrentScope(name);
+          if (existingSymbol) {
+            this.addError(
+              `Duplicate variable declaration: '${name}' is already declared in this scope`,
+              declarator,
+            );
+            return; // Skip processing this duplicate variable
+          }
 
           this.logger.debug(
             () =>

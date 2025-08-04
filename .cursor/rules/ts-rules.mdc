@@ -114,3 +114,19 @@ The application we are working on uses the following tech stack:
 ## When to create a class
 
 - Only when one needs state retained
+
+## language server protocol (LSP)
+
+- Positions (line:column) from the client side are both 0-based indexes
+- This includes ranges, which is start-position and end-position
+- The package lsp-compliant-services layer is resonsible for transform of position data to parser-ast values and back again
+
+## Apex parser/ast
+
+- Positions in package apex-parser-ast take the form defined by antlr4 base parser
+- Positions in parser-ast will use a 1-based index for line numbers and 0-based index for column numbers
+- code in package apex-parser-ast should never use a different indexing scheme
+
+## Apex class semantics
+
+- For a positive that defines Apex source, never use method "testMethod", as it is a reserved word

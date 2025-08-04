@@ -17,7 +17,7 @@ import {
   SymbolTable,
   generateUnifiedId,
 } from '../types/symbol';
-import { TypeReference } from '../types/typeReference';
+import { TypeReference, ReferenceContext } from '../types/typeReference';
 import {
   ApexSymbolGraph,
   ReferenceType,
@@ -1864,28 +1864,41 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         // If qualified reference resolution fails, try to resolve the qualifier as a fallback
-        // But only if it's not a user-defined class that we already have in our symbol manager
-        const qualifierCandidates = this.findSymbolByName(
-          typeReference.qualifier,
-        );
-        if (qualifierCandidates.length === 0) {
-          // Only try built-in type resolution if we don't have a user-defined symbol with this name
-          const qualifierSymbol = this.resolveBuiltInType(
+        // For field access references, always try to resolve the qualifier since qualified reference resolution is not fully implemented
+        if (typeReference.context === ReferenceContext.FIELD_ACCESS) {
+          const qualifierCandidates = this.findSymbolByName(
             typeReference.qualifier,
           );
-          if (qualifierSymbol) {
+          if (qualifierCandidates.length > 0) {
             this.logger.debug(
               () =>
-                `Resolved qualifier as fallback: ${typeReference.qualifier} for ` +
-                `${typeReference.qualifier}.${typeReference.name}`,
+                `Found qualifier ${typeReference.qualifier} as fallback for field access reference`,
             );
-            return qualifierSymbol;
+            return qualifierCandidates[0];
           }
         } else {
-          this.logger.debug(
-            () =>
-              `Found user-defined qualifier ${typeReference.qualifier}, not treating as built-in type`,
+          // For other contexts, only try built-in type resolution if we don't have a user-defined symbol with this name
+          const qualifierCandidates = this.findSymbolByName(
+            typeReference.qualifier,
           );
+          if (qualifierCandidates.length === 0) {
+            const qualifierSymbol = this.resolveBuiltInType(
+              typeReference.qualifier,
+            );
+            if (qualifierSymbol) {
+              this.logger.debug(
+                () =>
+                  `Resolved qualifier as built-in type fallback: ${typeReference.qualifier} for ` +
+                  `${typeReference.qualifier}.${typeReference.name}`,
+              );
+              return qualifierSymbol;
+            }
+          } else {
+            this.logger.debug(
+              () =>
+                `Found user-defined qualifier ${typeReference.qualifier}, not treating as built-in type`,
+            );
+          }
         }
       }
 
@@ -2160,18 +2173,37 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       this.logger.debug(() => `Attempting to resolve built-in type: ${name}`);
 
-      // Check built-in type tables for primitive types (String, Integer, etc.)
+      // Step 1: Check if this is a standard Apex class first (System, Database, Schema, etc.)
+      if (this.resourceLoader && this.isStandardApexClass(name)) {
+        const standardClass = this.resolveStandardApexClass(name);
+        if (standardClass) {
+          this.logger.debug(() => `Resolved standard Apex class: ${name}`);
+          return standardClass;
+        }
+      }
+
+      // Step 2: Check built-in type tables for primitive types (String, Integer, etc.)
       this.logger.debug(() => `Checking built-in type tables for: ${name}`);
       const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
       if (builtInType) {
-        this.logger.debug(() => `Found built-in type: ${name} in tables`);
-        return {
-          ...builtInType,
-          modifiers: {
-            ...builtInType.modifiers,
-            isBuiltIn: true,
-          },
-        };
+        // Only return built-in types for primitive types, not for standard Apex classes
+        const isStandardApexClass = [
+          'system',
+          'database',
+          'schema',
+          'messaging',
+          'connectapi',
+        ].includes(name.toLowerCase());
+        if (!isStandardApexClass) {
+          this.logger.debug(() => `Resolved built-in type: ${name}`);
+          return {
+            ...builtInType,
+            modifiers: {
+              ...builtInType.modifiers,
+              isBuiltIn: true,
+            },
+          };
+        }
       }
 
       this.logger.debug(() => `No built-in type found for: ${name}`);
@@ -2257,6 +2289,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           () =>
             `Fallback: Found ${memberCandidates.length} method(s) in file with matching name`,
         );
+      }
+
+      // For field access references, return null to force fallback to qualifier
+      // This is because qualified reference resolution is not fully implemented
+      if (typeReference.context === ReferenceContext.FIELD_ACCESS) {
+        this.logger.debug(
+          () =>
+            'Qualified reference resolution not fully implemented for field access, returning null',
+        );
+        return null;
       }
 
       if (memberCandidates.length === 1) {
@@ -2396,7 +2438,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   private getSymbolId(symbol: ApexSymbol, filePath?: string): string {
     const path = filePath || symbol.key.path[0] || 'unknown';
-    return `${symbol.name}:${path}`;
+    // Include the symbol kind to distinguish between different types of symbols with the same name
+    return `${symbol.name}:${symbol.kind}:${path}`;
   }
 
   // Fix lifecycle stage determination
@@ -2806,5 +2849,147 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   findExternalType(name: string, packageName: string): ApexSymbol | null {
     const symbols = this.findSymbolByName(name);
     return symbols.find((s) => s.namespace === packageName) || null;
+  }
+
+  /**
+   * Check if a class name represents a standard Apex class
+   * @param name The class name to check (e.g., 'System.assert', 'Database.Batchable')
+   * @returns true if it's a standard Apex class, false otherwise
+   */
+  public isStandardApexClass(name: string): boolean {
+    if (!this.resourceLoader) {
+      return false;
+    }
+
+    // Extract the namespace/class part (before the dot)
+    const parts = name.split('.');
+    if (parts.length === 0) {
+      return false;
+    }
+
+    const namespace = parts[0].toLowerCase();
+    const standardNamespaces = [
+      'system',
+      'database',
+      'schema',
+      'messaging',
+      'connectapi',
+      'action',
+      'approval',
+      'auth',
+      'blob',
+      'crypto',
+      'encodingutil',
+      'eventbus',
+      'flow',
+      'http',
+      'json',
+      'limits',
+      'listviewutil',
+      'math',
+      'pattern',
+      'queueable',
+      'rest',
+      'search',
+      'sobject',
+      'soql',
+      'sosl',
+      'string',
+      'test',
+      'trigger',
+      'type',
+      'userinfo',
+      'visualforce',
+    ];
+
+    return standardNamespaces.includes(namespace);
+  }
+
+  /**
+   * Get all available standard Apex class namespaces
+   * @returns Array of standard Apex class namespaces
+   */
+  public getAvailableStandardClasses(): string[] {
+    if (!this.resourceLoader) {
+      return [];
+    }
+
+    const namespaceStructure = this.resourceLoader.getNamespaceStructure();
+    return Array.from(namespaceStructure.keys());
+  }
+
+  /**
+   * Resolve a standard Apex class from the ResourceLoader
+   * @param name The fully qualified name of the standard class (e.g., 'System.assert')
+   * @returns The resolved ApexSymbol or null if not found
+   */
+  public resolveStandardApexClass(name: string): ApexSymbol | null {
+    if (!this.resourceLoader) {
+      return null;
+    }
+
+    try {
+      // Extract namespace and class name
+      const parts = name.split('.');
+      if (parts.length < 2) {
+        // Only handle fully qualified names like "System.assert"
+        // Namespace-only names like "System" should not be resolved
+        return null;
+      }
+
+      const namespace = parts[0];
+      const className = parts[1];
+
+      // Check if the class exists in ResourceLoader
+      const classPath = `${namespace}/${className}.cls`;
+      if (!this.resourceLoader.hasClass(classPath)) {
+        return null;
+      }
+
+      // Create a placeholder symbol for the standard class
+      const symbol: ApexSymbol = {
+        id: `:${name}`,
+        name: className,
+        kind: SymbolKind.Class,
+        fqn: name,
+        filePath: classPath,
+        parentId: null,
+        location: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 1,
+        },
+        modifiers: {
+          visibility: SymbolVisibility.Global,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        _modifierFlags: 0,
+        _isLoaded: true,
+        key: {
+          prefix: 'class',
+          name: className,
+          path: [classPath, className],
+        },
+        parentKey: null,
+        namespace: namespace,
+      };
+
+      this.logger.debug(() => `Resolved standard Apex class: ${name}`);
+      return symbol;
+    } catch (error) {
+      this.logger.warn(
+        () => `Failed to resolve standard Apex class ${name}: ${error}`,
+      );
+      return null;
+    }
   }
 }
