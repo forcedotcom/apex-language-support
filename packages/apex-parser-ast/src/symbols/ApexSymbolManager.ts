@@ -1744,6 +1744,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       if (typeReferences.length > 0) {
         // Step 2: Try to resolve the most specific reference
+        this.logger.debug(() => 'TypeReferences found, attempting to resolve');
         const resolvedSymbol = this.resolveTypeReferenceToSymbol(
           typeReferences[0],
           normalizedPath,
@@ -1754,12 +1755,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               `Found symbol via TypeReference: ${resolvedSymbol.name} (${resolvedSymbol.kind})`,
           );
           return resolvedSymbol;
+        } else {
+          this.logger.debug(() => 'Failed to resolve TypeReference to symbol');
         }
       }
 
       // Step 3: Fallback to direct symbol lookup by position
       this.logger.debug(
-        () => 'No TypeReferences found, trying direct symbol lookup',
+        () =>
+          'No TypeReferences found or resolved, trying direct symbol lookup',
       );
 
       const directSymbol = this.findDirectSymbolAtPosition(
@@ -1962,47 +1966,35 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         () => `Found ${symbols.length} symbols in file ${filePath}`,
       );
 
-      // Find symbols that contain the position
-      const containingSymbols = symbols.filter((symbol) => {
-        if (!symbol.location) {
-          this.logger.debug(() => `Symbol ${symbol.name} has no location`);
-          return false;
-        }
-
-        const { startLine, startColumn, endLine, endColumn } = symbol.location;
-
-        // Check if position is within symbol bounds
-        if (position.line < startLine || position.line > endLine) {
-          this.logger.debug(
-            () =>
-              `Position ${position.line}:${position.character} outside line bounds ` +
-              `${startLine}-${endLine} for ${symbol.name}`,
-          );
-          return false;
-        }
-        if (position.line === startLine && position.character < startColumn) {
-          this.logger.debug(
-            () =>
-              `Position ${position.line}:${position.character} before start column ` +
-              `${startColumn} for ${symbol.name}`,
-          );
-          return false;
-        }
-        if (position.line === endLine && position.character > endColumn) {
-          this.logger.debug(
-            () =>
-              `Position ${position.line}:${position.character} after end column ${endColumn} for ${symbol.name}`,
-          );
-
-          return false;
-        }
-
+      // Debug: Log all symbols and their locations
+      symbols.forEach((symbol, index) => {
+        const start = `${symbol.location.startLine}:${symbol.location.startColumn}`;
+        const end = `${symbol.location.endLine}:${symbol.location.endColumn}`;
+        const location = `${start}-${end}`;
         this.logger.debug(
           () =>
-            `Symbol ${symbol.name} (${symbol.kind}) contains position ${position.line}:${position.character}`,
+            `Symbol[${index}]: ${symbol.name} (${symbol.kind}) at ${location}`,
+        );
+      });
+
+      // Find symbols that contain the position
+      const containingSymbols = symbols.filter((symbol) => {
+        const { startLine, startColumn, endLine, endColumn } = symbol.location;
+        const isContained =
+          (position.line > startLine ||
+            (position.line === startLine &&
+              position.character >= startColumn)) &&
+          (position.line < endLine ||
+            (position.line === endLine && position.character <= endColumn));
+
+        const positionStr = `${position.line}:${position.character}`;
+        const boundsStr = `${startLine}:${startColumn}-${endLine}:${endColumn}`;
+        this.logger.debug(
+          () =>
+            `Checking if position ${positionStr} is in ${symbol.name} (${boundsStr}): ${isContained}`,
         );
 
-        return true;
+        return isContained;
       });
 
       this.logger.debug(
@@ -2010,13 +2002,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
 
       if (containingSymbols.length === 0) {
+        this.logger.debug(() => 'No symbols found at position');
         return null;
       }
 
-      // Return the most specific symbol (smallest range)
+      if (containingSymbols.length === 1) {
+        this.logger.debug(
+          () => `Single symbol found: ${containingSymbols[0].name}`,
+        );
+        return containingSymbols[0];
+      }
+
+      this.logger.debug(
+        () => 'Multiple symbols found, selecting most specific',
+      );
       return this.selectMostSpecificSymbol(containingSymbols, filePath);
     } catch (error) {
-      this.logger.debug(() => `Error in findDirectSymbolAtPosition: ${error}`);
+      this.logger.error(() => `Error finding symbol at position: ${error}`);
       return null;
     }
   }
@@ -2052,6 +2054,103 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @param sourceFile The source file for context
    * @returns The most specific symbol
    */
+  private selectMostSpecificSymbol(
+    candidates: ApexSymbol[],
+    sourceFile: string,
+  ): ApexSymbol {
+    this.logger.debug(
+      () =>
+        `selectMostSpecificSymbol called with ${candidates.length} candidates`,
+    );
+    candidates.forEach((candidate, index) => {
+      const start = `${candidate.location.startLine}:${candidate.location.startColumn}`;
+      const end = `${candidate.location.endLine}:${candidate.location.endColumn}`;
+      const location = `${start}-${end}`;
+      this.logger.debug(
+        () =>
+          `Candidate[${index}]: ${candidate.name} (${candidate.kind}) at ${location}`,
+      );
+    });
+
+    if (candidates.length === 1) {
+      this.logger.debug(
+        () => `Only one candidate, returning: ${candidates[0].name}`,
+      );
+      return candidates[0];
+    }
+
+    // First, try to find symbols in the same file
+    const sameFileCandidates = candidates.filter(
+      (s) => s.key.path[0] === sourceFile,
+    );
+    if (sameFileCandidates.length > 0) {
+      this.logger.debug(
+        () => `Filtered to ${sameFileCandidates.length} same-file candidates`,
+      );
+      candidates = sameFileCandidates;
+    }
+
+    // Calculate symbol size and sort by smallest first (most specific)
+    candidates.sort((a, b) => {
+      const aSize = this.calculateSymbolSize(a);
+      const bSize = this.calculateSymbolSize(b);
+
+      this.logger.debug(
+        () =>
+          `Comparing symbols: ${a.name} (${a.kind}) size=${aSize} vs ${b.name} (${b.kind}) size=${bSize}`,
+      );
+
+      // If sizes are significantly different, prefer smaller
+      if (Math.abs(aSize - bSize) > 10) {
+        const result = aSize - bSize;
+        this.logger.debug(
+          () =>
+            `Size difference significant, choosing ${result < 0 ? a.name : b.name}`,
+        );
+        return result;
+      }
+
+      // If sizes are similar, use kind priority as tiebreaker
+      // Updated priority order to prioritize methods over classes when they have the same name
+      const priorityOrder = [
+        'parameter',
+        'variable',
+        'field',
+        'method', // Methods should be prioritized over classes
+        'constructor', // Constructors should also be prioritized over classes
+        'class',
+        'interface',
+        'enum',
+      ];
+      const aPriority = priorityOrder.indexOf(a.kind) ?? 999;
+      const bPriority = priorityOrder.indexOf(b.kind) ?? 999;
+      const result = aPriority - bPriority;
+      this.logger.debug(
+        () =>
+          // eslint-disable-next-line max-len
+          `Size similar, using priority: ${a.name} priority=${aPriority} vs ${b.name} priority=${bPriority}, choosing ${result < 0 ? a.name : b.name}`,
+      );
+      return result;
+    });
+
+    return candidates[0];
+  }
+
+  private calculateSymbolSize(symbol: ApexSymbol): number {
+    if (!symbol.location) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
+    const { startLine, startColumn, endLine, endColumn } = symbol.location;
+
+    // Calculate approximate character count
+    const lineCount = endLine - startLine + 1;
+    const columnCount = endColumn - startColumn + 1;
+
+    // Weight line count more heavily than column count
+    return lineCount * 100 + columnCount;
+  }
+
   /**
    * Resolve a built-in type (String, Integer, etc.) or standard Apex class (System, Database, etc.)
    * @param name The name of the type to resolve
@@ -2061,255 +2160,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       this.logger.debug(() => `Attempting to resolve built-in type: ${name}`);
 
-      // Step 1: Check if this is a standard Apex class first (System, Database, Schema, etc.)
-      if (this.resourceLoader && this.isStandardApexClass(name)) {
-        this.logger.debug(() => `Checking if ${name} is a standard Apex class`);
-        const standardClass = this.resolveStandardApexClass(name);
-        if (standardClass) {
-          this.logger.debug(() => `Resolved standard Apex class: ${name}`);
-          return standardClass;
-        }
-      }
-
-      // Step 2: Check built-in type tables for primitive types (String, Integer, etc.)
+      // Check built-in type tables for primitive types (String, Integer, etc.)
       this.logger.debug(() => `Checking built-in type tables for: ${name}`);
       const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
       if (builtInType) {
         this.logger.debug(() => `Found built-in type: ${name} in tables`);
-        // Only return built-in types for primitive types, not for standard Apex classes
-        const isStandardApexClass = [
-          'system',
-          'database',
-          'schema',
-          'messaging',
-          'connectapi',
-        ].includes(name.toLowerCase());
-        if (!isStandardApexClass) {
-          this.logger.debug(() => `Resolved built-in type: ${name}`);
-          return {
-            ...builtInType,
-            modifiers: {
-              ...builtInType.modifiers,
-              isBuiltIn: true,
-            },
-          };
-        } else {
-          this.logger.debug(
-            () => `Skipping ${name} as it's a standard Apex class`,
-          );
-        }
-      } else {
-        this.logger.debug(() => `No built-in type found for: ${name}`);
+        return {
+          ...builtInType,
+          modifiers: {
+            ...builtInType.modifiers,
+            isBuiltIn: true,
+          },
+        };
       }
 
+      this.logger.debug(() => `No built-in type found for: ${name}`);
       return null;
     } catch (error) {
       this.logger.debug(
         () => `Error resolving built-in type ${name}: ${error}`,
       );
       return null;
-    }
-  }
-
-  /**
-   * Resolve standard Apex classes using ResourceLoader
-   * @param name The class name to resolve
-   * @returns The resolved symbol or null if not found
-   */
-  private resolveStandardApexClass(name: string): ApexSymbol | null {
-    try {
-      if (!this.resourceLoader) {
-        return null;
-      }
-
-      // Check if the ResourceLoader is initialized
-      if (
-        !this.resourceLoader.isCompiling() &&
-        !this.resourceLoader.getStatistics().compiledFiles
-      ) {
-        this.logger.debug(
-          () => 'ResourceLoader not yet compiled, attempting to initialize',
-        );
-        // Try to initialize if not already done
-        this.resourceLoader.initialize().catch((error) => {
-          this.logger.debug(
-            () => `Failed to initialize ResourceLoader: ${error}`,
-          );
-        });
-        return null;
-      }
-
-      // Look for the class in the standard library
-      const classPath = this.findStandardClassPath(name);
-      if (!classPath) {
-        return null;
-      }
-
-      // Get the compiled artifact
-      const artifact = this.resourceLoader.getCompiledArtifact(classPath);
-      if (!artifact) {
-        this.logger.debug(() => `No compiled artifact found for ${classPath}`);
-        return null;
-      }
-
-      // Extract symbols from the compiled artifact
-      const symbolTable = artifact.compilationResult.result;
-      if (!symbolTable) {
-        this.logger.debug(() => `No symbol table found for ${classPath}`);
-        return null;
-      }
-
-      // Find the main class symbol
-      const classSymbols = symbolTable
-        .getAllSymbols()
-        .filter(
-          (symbol: ApexSymbol) =>
-            symbol.name === name && symbol.kind === SymbolKind.Class,
-        );
-
-      if (classSymbols.length === 0) {
-        this.logger.debug(
-          () => `No class symbol found for ${name} in ${classPath}`,
-        );
-        return null;
-      }
-
-      const classSymbol = classSymbols[0];
-
-      // Create a proper ApexSymbol with standard class metadata
-      return {
-        ...classSymbol,
-        modifiers: {
-          ...classSymbol.modifiers,
-          isBuiltIn: false,
-        },
-        filePath: classPath,
-      };
-    } catch (error) {
-      this.logger.debug(
-        () => `Error resolving standard Apex class ${name}: ${error}`,
-      );
-      return null;
-    }
-  }
-
-  /**
-   * Find the path to a standard Apex class in the ResourceLoader
-   * @param name The class name to find
-   * @returns The class path or null if not found
-   */
-  private findStandardClassPath(name: string): string | null {
-    try {
-      if (!this.resourceLoader) {
-        return null;
-      }
-
-      // Handle qualified names like "System.assert"
-      if (name.includes('.')) {
-        const parts = name.split('.');
-        const namespace = parts[0].toLowerCase();
-        const className = parts[1];
-        const path = `${namespace}.${className}.cls`;
-
-        const file = this.resourceLoader.getFileSync(path);
-        if (file) {
-          this.logger.debug(
-            () => `Found qualified standard class ${name} at path: ${path}`,
-          );
-          return path;
-        }
-      }
-
-      // Handle simple names by searching for them in the ResourceLoader
-      // Check if ResourceLoader is initialized before calling getAllFilesSync
-      if (!this.resourceLoader || !this.resourceLoader.isCompiling()) {
-        this.logger.debug(
-          () =>
-            `ResourceLoader not initialized, skipping standard class search for ${name}`,
-        );
-        return null;
-      }
-
-      try {
-        const allFiles = this.resourceLoader.getAllFilesSync();
-        for (const [filePath] of allFiles.entries()) {
-          if (filePath.endsWith('.cls')) {
-            const fileName = filePath.split('/').pop()?.replace('.cls', '');
-            if (fileName && fileName.toLowerCase() === name.toLowerCase()) {
-              this.logger.debug(
-                () => `Found standard class ${name} at path: ${filePath}`,
-              );
-              return filePath;
-            }
-          }
-        }
-      } catch (error) {
-        this.logger.debug(() => `Error calling getAllFilesSync: ${error}`);
-        return null;
-      }
-
-      this.logger.debug(
-        () => `Standard class ${name} not found in ResourceLoader`,
-      );
-      return null;
-    } catch (error) {
-      this.logger.debug(
-        () => `Error finding standard class path for ${name}: ${error}`,
-      );
-      return null;
-    }
-  }
-
-  /**
-   * Get all available standard Apex classes from ResourceLoader
-   * @returns Array of standard class names
-   */
-  public getAvailableStandardClasses(): string[] {
-    try {
-      if (!this.resourceLoader) {
-        return [];
-      }
-
-      // Use getAvailableClasses() which is synchronous and returns the file paths
-      const availableClasses = this.resourceLoader.getAvailableClasses();
-      const standardClasses: string[] = [];
-
-      for (const filePath of availableClasses) {
-        if (filePath.endsWith('.cls')) {
-          const className = filePath.split('/').pop()?.replace('.cls', '');
-          if (className) {
-            standardClasses.push(className);
-          }
-        }
-      }
-
-      return standardClasses;
-    } catch (error) {
-      this.logger.debug(
-        () => `Error getting available standard classes: ${error}`,
-      );
-      return [];
-    }
-  }
-
-  /**
-   * Check if a class name is a standard Apex class
-   * @param name The class name to check
-   * @returns True if it's a standard Apex class
-   */
-  public isStandardApexClass(name: string): boolean {
-    try {
-      if (!this.resourceLoader) {
-        return false;
-      }
-
-      const classPath = this.findStandardClassPath(name);
-      return classPath !== null;
-    } catch (error) {
-      this.logger.debug(
-        () => `Error checking if ${name} is standard Apex class: ${error}`,
-      );
-      return false;
     }
   }
 
@@ -2412,21 +2283,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return globalCandidates[0];
       }
 
-      // Debug: Let's see what symbols we have with the right name
-      const nameMatches = candidates.filter(
-        (symbol) => symbol.name === typeReference.name,
-      );
-      this.logger.debug(
-        () =>
-          `Found ${nameMatches.length} symbols with name ${typeReference.name}`,
-      );
-      nameMatches.forEach((symbol) => {
-        this.logger.debug(
-          () =>
-            `  - ${symbol.name} (${symbol.kind}) from ${symbol.filePath} with parentId: ${symbol.parentId}`,
-        );
-      });
-
       this.logger.debug(() => 'No qualified reference found');
       return null;
     } catch (error) {
@@ -2460,81 +2316,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Fallback to first candidate
     return candidates[0] || null;
-  }
-
-  private selectMostSpecificSymbol(
-    candidates: ApexSymbol[],
-    sourceFile: string,
-  ): ApexSymbol {
-    if (candidates.length === 1) {
-      return candidates[0];
-    }
-
-    // First, try to find symbols in the same file
-    const sameFileCandidates = candidates.filter(
-      (s) => s.key.path[0] === sourceFile,
-    );
-    if (sameFileCandidates.length > 0) {
-      candidates = sameFileCandidates;
-    }
-
-    // Calculate symbol size and sort by smallest first (most specific)
-    candidates.sort((a, b) => {
-      const aSize = this.calculateSymbolSize(a);
-      const bSize = this.calculateSymbolSize(b);
-
-      this.logger.debug(
-        () =>
-          `Comparing symbols: ${a.name} (${a.kind}) size=${aSize} vs ${b.name} (${b.kind}) size=${bSize}`,
-      );
-
-      // If sizes are significantly different, prefer smaller
-      if (Math.abs(aSize - bSize) > 10) {
-        const result = aSize - bSize;
-        this.logger.debug(
-          () =>
-            `Size difference significant, choosing ${result < 0 ? a.name : b.name}`,
-        );
-        return result;
-      }
-
-      // If sizes are similar, use kind priority as tiebreaker
-      const priorityOrder = [
-        'parameter',
-        'variable',
-        'field',
-        'method',
-        'class',
-        'interface',
-        'enum',
-      ];
-      const aPriority = priorityOrder.indexOf(a.kind) ?? 999;
-      const bPriority = priorityOrder.indexOf(b.kind) ?? 999;
-      const result = aPriority - bPriority;
-      this.logger.debug(
-        () =>
-          // eslint-disable-next-line max-len
-          `Size similar, using priority: ${a.name} priority=${aPriority} vs ${b.name} priority=${bPriority}, choosing ${result < 0 ? a.name : b.name}`,
-      );
-      return result;
-    });
-
-    return candidates[0];
-  }
-
-  private calculateSymbolSize(symbol: ApexSymbol): number {
-    if (!symbol.location) {
-      return Number.MAX_SAFE_INTEGER;
-    }
-
-    const { startLine, startColumn, endLine, endColumn } = symbol.location;
-
-    // Calculate approximate character count
-    const lineCount = endLine - startLine + 1;
-    const columnCount = endColumn - startColumn + 1;
-
-    // Weight line count more heavily than column count
-    return lineCount * 100 + columnCount;
   }
 
   getScopesInFile(filePath: string): string[] {

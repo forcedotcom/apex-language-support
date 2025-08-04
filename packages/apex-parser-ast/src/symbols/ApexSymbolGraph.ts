@@ -417,6 +417,8 @@ export class ApexSymbolGraph {
       // Symbol ID format: filePath:name:line, so we need to extract the name part
       const parts = symbolId.split(':');
       const symbolName = parts.length >= 2 ? parts[1] : '';
+
+      // Try to find the symbol by name in the SymbolTable
       const symbol = symbolTable.lookup(symbolName);
 
       if (symbol) {
@@ -425,6 +427,17 @@ export class ApexSymbolGraph {
           symbol.filePath = filePath;
         }
         return symbol;
+      }
+
+      // If not found by name, try to find by key
+      // The symbol might be stored with a different key format
+      const allSymbols = symbolTable.getAllSymbols();
+      const matchingSymbol = allSymbols.find((s) => s.name === symbolName);
+      if (matchingSymbol) {
+        if (!matchingSymbol.filePath || matchingSymbol.filePath !== filePath) {
+          matchingSymbol.filePath = filePath;
+        }
+        return matchingSymbol;
       }
     }
 
@@ -567,15 +580,28 @@ export class ApexSymbolGraph {
    */
   getSymbolsInFile(filePath: string): ApexSymbol[] {
     const symbolIds = this.fileIndex.get(filePath) || [];
+    this.logger.debug(
+      () => `Found ${symbolIds.length} symbol IDs for file: ${filePath}`,
+    );
+    this.logger.debug(() => `Symbol IDs: ${symbolIds.join(', ')}`);
+
     const symbols: ApexSymbol[] = [];
 
     for (const symbolId of symbolIds) {
       const symbol = this.getSymbol(symbolId);
       if (symbol) {
         symbols.push(symbol);
+        this.logger.debug(
+          () => `Found symbol: ${symbol.name} (${symbol.kind})`,
+        );
+      } else {
+        this.logger.debug(() => `Failed to get symbol for ID: ${symbolId}`);
       }
     }
 
+    this.logger.debug(
+      () => `Returning ${symbols.length} symbols for file: ${filePath}`,
+    );
     return symbols;
   }
 

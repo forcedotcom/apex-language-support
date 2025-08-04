@@ -39,7 +39,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
 
       // Verify symbol exists in graph
       const foundSymbol = symbolGraph.getSymbol(
-        `${symbol.filePath}:${symbol.name}`,
+        `${symbol.filePath}:${symbol.name}:${symbol.location.startLine}`,
       );
       expect(foundSymbol).toBeDefined();
       expect(foundSymbol?.name).toBe('TestClass');

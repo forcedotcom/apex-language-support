@@ -30,11 +30,7 @@ module.exports = {
     '^@salesforce/apex-lsp-testbed$':
       '<rootDir>/../apex-lsp-testbed/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
-    // Mock apex-lsp-shared
-    '^@salesforce/apex-lsp-shared$':
-      '<rootDir>/test/__mocks__/@salesforce/apex-lsp-shared.ts',
   },
-  setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
   collectCoverageFrom: ['src/**/*.ts', '!src/generated/**', '!**/*.d.ts'],
   automock: false,
   resetMocks: false,
