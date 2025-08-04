@@ -61,6 +61,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
       isTransient: false,
       isTestMethod: false,
       isWebService: false,
+      isBuiltIn: false,
     },
     annotations: [],
     location: {

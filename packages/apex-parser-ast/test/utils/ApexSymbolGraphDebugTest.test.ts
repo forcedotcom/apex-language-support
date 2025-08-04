@@ -43,9 +43,12 @@ describe('ApexSymbolGraph Debug Test', () => {
     fqn?: string,
     filePath: string = 'TestFile.cls',
   ): ApexSymbol => ({
+    id: `:${name}`,
     name,
     kind,
     fqn: fqn || `TestNamespace.${name}`,
+    filePath,
+    parentId: null,
     location: {
       startLine: 1,
       startColumn: 1,
@@ -62,7 +65,10 @@ describe('ApexSymbolGraph Debug Test', () => {
       isTransient: false,
       isTestMethod: false,
       isWebService: false,
+      isBuiltIn: false,
     },
+    _modifierFlags: 0,
+    _isLoaded: true,
     key: {
       prefix: 'class',
       name,
@@ -75,8 +81,18 @@ describe('ApexSymbolGraph Debug Test', () => {
     testLogger.info('=== Starting ApexSymbolGraph Debug Test ===');
 
     // Create test symbols
-    const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
-    const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
+    const classSymbol = createTestSymbol(
+      'MyClass',
+      SymbolKind.Class,
+      undefined,
+      'MyClass.cls',
+    );
+    const methodSymbol = createTestSymbol(
+      'myMethod',
+      SymbolKind.Method,
+      undefined,
+      'MyClass.cls',
+    );
 
     testLogger.debug('Created test symbols');
     testLogger.debug(`Class symbol: ${classSymbol.name} (${classSymbol.fqn})`);
@@ -134,7 +150,7 @@ describe('ApexSymbolGraph Debug Test', () => {
       testLogger.info('References TO class found:');
       referencesTo.forEach((ref, index) => {
         testLogger.info(
-          `  ${index + 1}. ${ref.symbol.name} -> ${classSymbol.name} (${ref.referenceType})`,
+          `  ${index + 1}. ${ref.symbol.name} -> ${classSymbol.name} (${String(ref.referenceType)})`,
         );
       });
     } else {
@@ -147,7 +163,7 @@ describe('ApexSymbolGraph Debug Test', () => {
       testLogger.info('References FROM method found:');
       referencesFrom.forEach((ref, index) => {
         testLogger.info(
-          `  ${index + 1}. ${methodSymbol.name} -> ${ref.symbol.name} (${ref.referenceType})`,
+          `  ${index + 1}. ${methodSymbol.name} -> ${ref.symbol.name} (${String(ref.referenceType)})`,
         );
       });
     } else {

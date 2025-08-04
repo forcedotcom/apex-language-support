@@ -386,6 +386,19 @@ export class ApexSymbolGraph {
     if (this.deferredReferences.has(symbol.name)) {
       this.processDeferredReferences(symbol.name);
     }
+
+    // Update filePath for any symbols in deferred references that match this symbol
+    // This ensures that when deferred references are processed, they can find the source symbols
+    for (const [targetName, refs] of this.deferredReferences.entries()) {
+      for (const ref of refs) {
+        if (
+          ref.sourceSymbol.name === symbol.name &&
+          ref.sourceSymbol.filePath !== filePath
+        ) {
+          ref.sourceSymbol.filePath = filePath;
+        }
+      }
+    }
   }
 
   /**
@@ -431,14 +444,17 @@ export class ApexSymbolGraph {
     }
 
     // Create a minimal symbol representation using SymbolFactory
+    // Extract line number from symbol ID (format: filePath:name:line)
+    const lineNumber = parts.length >= 3 ? parseInt(parts[2], 10) || 0 : 0;
+
     const fallbackSymbol: ApexSymbol = {
       id: symbolId,
       name: symbolName,
       kind: SymbolKind.Class, // Default to class as fallback
       location: {
-        startLine: 0,
+        startLine: lineNumber,
         startColumn: 0,
-        endLine: 0,
+        endLine: lineNumber,
         endColumn: 0,
       },
       filePath: filePath,
@@ -583,9 +599,22 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
+    this.logger.debug(
+      () => `addReference called: ${sourceSymbol.name} -> ${targetSymbol.name}`,
+    );
+    this.logger.debug(
+      () =>
+        `Source symbol filePath: ${sourceSymbol.filePath}, Target symbol filePath: ${targetSymbol.filePath}`,
+    );
+
     // Find the actual symbols in the graph by name and file path
     const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
     const targetSymbols = this.findSymbolByName(targetSymbol.name);
+
+    this.logger.debug(
+      () =>
+        `Found ${sourceSymbols.length} source symbols and ${targetSymbols.length} target symbols`,
+    );
 
     // If filePath is undefined, match any symbol with the same name
     // Otherwise, require exact filePath match
@@ -596,6 +625,12 @@ export class ApexSymbolGraph {
     const targetSymbolInGraph = targetSymbol.filePath
       ? targetSymbols.find((s) => s.filePath === targetSymbol.filePath)
       : targetSymbols[0]; // Take the first symbol with matching name
+
+    this.logger.debug(
+      () =>
+        `Source symbol in graph: ${sourceSymbolInGraph ? 'found' : 'not found'}, ` +
+        `Target symbol in graph: ${targetSymbolInGraph ? 'found' : 'not found'}`,
+    );
 
     if (!sourceSymbolInGraph || !targetSymbolInGraph) {
       // If symbols don't exist yet, add deferred reference

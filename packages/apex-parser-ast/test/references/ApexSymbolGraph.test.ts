@@ -77,9 +77,12 @@ describe('ApexSymbolGraph', () => {
     fqn?: string,
     filePath: string = 'TestFile.cls',
   ): ApexSymbol => ({
+    id: `:${name}`,
     name,
     kind,
     fqn: fqn || `TestNamespace.${name}`,
+    filePath,
+    parentId: null,
     location: {
       startLine: 1,
       startColumn: 1,
@@ -96,7 +99,10 @@ describe('ApexSymbolGraph', () => {
       isTransient: false,
       isTestMethod: false,
       isWebService: false,
+      isBuiltIn: false,
     },
+    _modifierFlags: 0,
+    _isLoaded: true,
     key: {
       prefix: 'class',
       name,
@@ -192,8 +198,18 @@ describe('ApexSymbolGraph', () => {
 
   describe('Reference Tracking', () => {
     it('should add references between symbols', () => {
-      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
-      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
+      const classSymbol = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        undefined,
+        'MyClass.cls',
+      );
+      const methodSymbol = createTestSymbol(
+        'myMethod',
+        SymbolKind.Method,
+        undefined,
+        'MyClass.cls',
+      );
 
       graph.addSymbol(classSymbol, 'MyClass.cls');
       graph.addSymbol(methodSymbol, 'MyClass.cls');
@@ -212,9 +228,24 @@ describe('ApexSymbolGraph', () => {
     });
 
     it('should find references from a symbol', () => {
-      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
-      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
-      const fieldSymbol = createTestSymbol('myField', SymbolKind.Field);
+      const classSymbol = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        undefined,
+        'MyClass.cls',
+      );
+      const methodSymbol = createTestSymbol(
+        'myMethod',
+        SymbolKind.Method,
+        undefined,
+        'MyClass.cls',
+      );
+      const fieldSymbol = createTestSymbol(
+        'myField',
+        SymbolKind.Field,
+        undefined,
+        'MyClass.cls',
+      );
 
       graph.addSymbol(classSymbol, 'MyClass.cls');
       graph.addSymbol(methodSymbol, 'MyClass.cls');
@@ -241,7 +272,12 @@ describe('ApexSymbolGraph', () => {
     });
 
     it('should handle deferred references for lazy loading', () => {
-      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
+      const methodSymbol = createTestSymbol(
+        'myMethod',
+        SymbolKind.Method,
+        undefined,
+        'MyClass.cls',
+      );
 
       // Add method symbol first
       graph.addSymbol(methodSymbol, 'MyClass.cls');
@@ -250,6 +286,8 @@ describe('ApexSymbolGraph', () => {
       const nonExistentSymbol = createTestSymbol(
         'NonExistent',
         SymbolKind.Class,
+        undefined,
+        'NonExistent.cls',
       );
       graph.addReference(
         methodSymbol,
@@ -276,8 +314,18 @@ describe('ApexSymbolGraph', () => {
     });
 
     it('should not create duplicate references', () => {
-      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
-      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
+      const classSymbol = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        undefined,
+        'MyClass.cls',
+      );
+      const methodSymbol = createTestSymbol(
+        'myMethod',
+        SymbolKind.Method,
+        undefined,
+        'MyClass.cls',
+      );
 
       graph.addSymbol(classSymbol, 'MyClass.cls');
       graph.addSymbol(methodSymbol, 'MyClass.cls');
@@ -548,8 +596,18 @@ describe('ApexSymbolGraph', () => {
 
   describe('Statistics', () => {
     it('should provide accurate statistics', () => {
-      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
-      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
+      const classSymbol = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        undefined,
+        'MyClass.cls',
+      );
+      const methodSymbol = createTestSymbol(
+        'myMethod',
+        SymbolKind.Method,
+        undefined,
+        'MyClass.cls',
+      );
 
       graph.addSymbol(classSymbol, 'MyClass.cls');
       graph.addSymbol(methodSymbol, 'MyClass.cls');
@@ -571,13 +629,20 @@ describe('ApexSymbolGraph', () => {
     });
 
     it('should count deferred references correctly', () => {
-      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
+      const methodSymbol = createTestSymbol(
+        'myMethod',
+        SymbolKind.Method,
+        undefined,
+        'MyClass.cls',
+      );
       graph.addSymbol(methodSymbol, 'MyClass.cls');
 
       // Add reference to non-existent symbol
       const nonExistentSymbol = createTestSymbol(
         'NonExistent',
         SymbolKind.Class,
+        undefined,
+        'NonExistent.cls',
       );
       graph.addReference(
         methodSymbol,
@@ -643,9 +708,24 @@ describe('ApexSymbolGraph', () => {
 
   describe('Reference Types', () => {
     it('should handle different reference types', () => {
-      const classSymbol = createTestSymbol('MyClass', SymbolKind.Class);
-      const methodSymbol = createTestSymbol('myMethod', SymbolKind.Method);
-      const fieldSymbol = createTestSymbol('myField', SymbolKind.Field);
+      const classSymbol = createTestSymbol(
+        'MyClass',
+        SymbolKind.Class,
+        undefined,
+        'MyClass.cls',
+      );
+      const methodSymbol = createTestSymbol(
+        'myMethod',
+        SymbolKind.Method,
+        undefined,
+        'MyClass.cls',
+      );
+      const fieldSymbol = createTestSymbol(
+        'myField',
+        SymbolKind.Field,
+        undefined,
+        'MyClass.cls',
+      );
 
       graph.addSymbol(classSymbol, 'MyClass.cls');
       graph.addSymbol(methodSymbol, 'MyClass.cls');
