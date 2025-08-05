@@ -92,8 +92,9 @@ export class SymbolFactory {
     filePath: string,
     parentId: string | null = null,
     modifierFlags: number = 0,
+    scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, filePath);
+    const id = this.generateId(name, filePath, scopePath);
     const key: SymbolKey = {
       prefix: kind,
       name,
@@ -144,8 +145,9 @@ export class SymbolFactory {
     annotations?: Annotation[],
     identifierLocation?: SymbolLocation,
     parentSymbol?: ApexSymbol, // NEW: Optional parent symbol for proper parentKey construction
+    scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, filePath);
+    const id = this.generateId(name, filePath, scopePath);
     const modifierFlags = this.modifiersToFlags(modifiers);
     const key: SymbolKey = {
       prefix: kind,
@@ -215,8 +217,9 @@ export class SymbolFactory {
     namespace?: string | Namespace | null,
     annotations?: Annotation[],
     identifierLocation?: SymbolLocation,
+    scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, filePath);
+    const id = this.generateId(name, filePath, scopePath);
     const modifierFlags = this.modifiersToFlags(modifiers);
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
@@ -322,8 +325,21 @@ export class SymbolFactory {
 
   /**
    * Generate a unique ID for a symbol
+   * @param name The symbol name
+   * @param filePath The file path
+   * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1", "block1"])
    */
-  private static generateId(name: string, filePath: string): string {
+  private static generateId(
+    name: string,
+    filePath: string,
+    scopePath?: string[],
+  ): string {
+    if (scopePath && scopePath.length > 0) {
+      // Include scope path in ID to prevent overwrites: "file.cls:Class.method.block:symbolName"
+      const scopeStr = scopePath.join('.');
+      return `${filePath}:${scopeStr}:${name}`;
+    }
+    // Fallback to original format for backward compatibility
     return `${filePath}:${name}`;
   }
 }
@@ -651,7 +667,7 @@ export class SymbolScope {
   /**
    * Get the hierarchical path to this scope
    */
-  private getPath(): string[] {
+  getPath(): string[] {
     const path: string[] = [];
     let current: SymbolScope | null = this;
     while (current) {
@@ -807,6 +823,14 @@ export class SymbolTable {
    */
   getCurrentScope(): SymbolScope {
     return this.current;
+  }
+
+  /**
+   * Get the hierarchical path to the current scope.
+   * @returns Array of scope names from root to current scope
+   */
+  getCurrentScopePath(): string[] {
+    return this.current.getPath();
   }
 
   /**

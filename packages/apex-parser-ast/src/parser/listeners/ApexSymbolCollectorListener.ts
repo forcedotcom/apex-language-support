@@ -1563,6 +1563,9 @@ export class ApexSymbolCollectorListener
     // Determine namespace based on context
     const namespace = this.determineNamespaceForType(name, kind);
 
+    // Get current scope path for unique symbol ID
+    const scopePath = this.symbolTable.getCurrentScopePath();
+
     const typeSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       kind,
@@ -1574,6 +1577,7 @@ export class ApexSymbolCollectorListener
       namespace, // Pass the determined namespace (can be null)
       this.getCurrentAnnotations(),
       identifierLocation,
+      scopePath, // Pass scope path for unique ID generation
     ) as TypeSymbol;
 
     // Fix the parent key to use the correct kind
@@ -1626,6 +1630,9 @@ export class ApexSymbolCollectorListener
     const namespace =
       parentNamespace instanceof Namespace ? parentNamespace : null;
 
+    // Get current scope path for unique symbol ID
+    const scopePath = this.symbolTable.getCurrentScopePath();
+
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       SymbolKind.Method,
@@ -1637,6 +1644,7 @@ export class ApexSymbolCollectorListener
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
       identifierLocation ?? this.getIdentifierLocation(ctx),
+      scopePath, // Pass scope path for unique ID generation
     ) as MethodSymbol;
 
     // Initialize the parameters array for MethodSymbol interface
@@ -1670,6 +1678,9 @@ export class ApexSymbolCollectorListener
     const namespace =
       parentNamespace instanceof Namespace ? parentNamespace : null;
 
+    // Get current scope path for unique symbol ID
+    const scopePath = this.symbolTable.getCurrentScopePath();
+
     const variableSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       kind,
@@ -1681,6 +1692,7 @@ export class ApexSymbolCollectorListener
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
       identifierLocation,
+      scopePath, // Pass scope path for unique ID generation
     ) as VariableSymbol;
 
     // Set the type property for VariableSymbol interface compatibility
