@@ -29,6 +29,29 @@ import {
   NewExpressionContext,
   DotExpressionContext,
   TypeRefContext,
+  // Add missing contexts for complete reference capture
+  IdPrimaryContext,
+  PrimaryExpressionContext,
+  AssignExpressionContext,
+  ArrayExpressionContext,
+  CastExpressionContext,
+  SubExpressionContext,
+  PostOpExpressionContext,
+  PreOpExpressionContext,
+  NegExpressionContext,
+  Arth1ExpressionContext,
+  Arth2ExpressionContext,
+  BitExpressionContext,
+  CmpExpressionContext,
+  InstanceOfExpressionContext,
+  EqualityExpressionContext,
+  BitAndExpressionContext,
+  BitNotExpressionContext,
+  BitOrExpressionContext,
+  LogAndExpressionContext,
+  LogOrExpressionContext,
+  CoalExpressionContext,
+  CondExpressionContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -1012,6 +1035,13 @@ export class ApexSymbolCollectorListener
   enterLocalVariableDeclarationStatement(ctx: ParserRuleContext): void {
     try {
       this.logger.debug(() => 'enterLocalVariableDeclarationStatement called');
+      this.logger.debug(() => `Context text: ${ctx.text}`);
+      this.logger.debug(
+        () => `Current method: ${this.currentMethodSymbol?.name}`,
+      );
+      this.logger.debug(
+        () => `Current scope: ${this.symbolTable.getCurrentScope().name}`,
+      );
 
       // Extract the local variable declaration from the statement
       // The statement has the structure: localVariableDeclaration SEMI
@@ -1042,6 +1072,12 @@ export class ApexSymbolCollectorListener
    * Called when entering a local variable declaration
    */
   enterLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): void {
+    // DISABLED: This method is disabled to prevent double processing
+    // Local variable declarations are processed in enterLocalVariableDeclarationStatement
+    // which provides the proper statement context
+    return;
+
+    /*
     try {
       this.logger.debug(
         () =>
@@ -1061,12 +1097,32 @@ export class ApexSymbolCollectorListener
       const variableDeclarators = ctx
         .variableDeclarators()
         .variableDeclarator();
+      
+      // Collect all variable names in this statement for duplicate checking within the statement
+      const statementVariableNames = new Set<string>();
+      
       for (const declarator of variableDeclarators) {
         const name = declarator.id()?.text ?? 'unknownVariable';
 
-        // For local variables, we allow multiple variables with the same name in different scopes
-        // The symbol table will handle uniqueness through the unified ID system
-        // No duplicate check needed here
+        // Check for duplicate variable names within the same statement
+        if (statementVariableNames.has(name)) {
+          this.addError(
+            `Duplicate variable declaration: '${name}' is already declared in this statement`,
+            declarator,
+          );
+          continue; // Skip processing this duplicate variable
+        }
+        statementVariableNames.add(name);
+
+        // Check for duplicate variable declaration in the current scope (from previous statements)
+        const existingSymbol = this.symbolTable.findSymbolInCurrentScope(name);
+        if (existingSymbol) {
+          this.addError(
+            `Duplicate variable declaration: '${name}' is already declared in this scope`,
+            declarator,
+          );
+          continue; // Skip processing this duplicate variable
+        }
 
         this.logger.debug(
           () =>
@@ -1088,6 +1144,7 @@ export class ApexSymbolCollectorListener
         ctx,
       );
     }
+    */
   }
 
   /**
@@ -1127,10 +1184,24 @@ export class ApexSymbolCollectorListener
       if (variableDeclaratorsChild) {
         const variableDeclarators =
           variableDeclaratorsChild.variableDeclarator();
+
+        // Collect all variable names in this statement for duplicate checking within the statement
+        const statementVariableNames = new Set<string>();
+
         for (const declarator of variableDeclarators) {
           const name = declarator.id()?.text ?? 'unknownVariable';
 
-          // Check for duplicate variable declaration in the current scope
+          // Check for duplicate variable names within the same statement
+          if (statementVariableNames.has(name)) {
+            this.addError(
+              `Duplicate variable declaration: '${name}' is already declared in this statement`,
+              declarator,
+            );
+            continue; // Skip processing this duplicate variable
+          }
+          statementVariableNames.add(name);
+
+          // Check for duplicate variable declaration in the current scope (from previous statements)
           const existingSymbol =
             this.symbolTable.findSymbolInCurrentScope(name);
           if (existingSymbol) {
@@ -1138,7 +1209,7 @@ export class ApexSymbolCollectorListener
               `Duplicate variable declaration: '${name}' is already declared in this scope`,
               declarator,
             );
-            return; // Skip processing this duplicate variable
+            continue; // Skip processing this duplicate variable
           }
 
           this.logger.debug(
@@ -2315,5 +2386,809 @@ export class ApexSymbolCollectorListener
     // Look for the variable in the current scope
     const symbols = currentScope.getAllSymbols();
     return symbols.some((symbol: ApexSymbol) => symbol.name === variableName);
+  }
+
+  // ============================================================================
+  // PHASE 2: COMPLETE REFERENCE CAPTURE - Additional Listener Methods
+  // ============================================================================
+
+  /**
+   * Capture identifier usage in primary expressions (e.g., variable names)
+   * This captures simple variable references like "myVariable"
+   */
+  enterIdPrimary(ctx: IdPrimaryContext): void {
+    const variableName = this.getTextFromContext(ctx);
+    const location = this.getLocation(ctx);
+    const parentContext = this.getCurrentMethodName();
+
+    const reference = TypeReferenceFactory.createVariableUsageReference(
+      variableName,
+      location,
+      parentContext,
+    );
+    this.symbolTable.addTypeReference(reference);
+    this.logger.debug(
+      `DEBUG: Created VARIABLE_USAGE for primary identifier: "${variableName}"`,
+    );
+  }
+
+  /**
+   * Capture primary expression references
+   * This handles the overall primary expression context
+   */
+  enterPrimaryExpression(ctx: PrimaryExpressionContext): void {
+    // The specific primary types are handled by their individual listeners
+    // This method can be used for general primary expression processing if needed
+    this.logger.debug('DEBUG: Entering primary expression context');
+  }
+
+  /**
+   * Capture assignment expression references
+   * This captures both left-hand and right-hand side of assignments
+   */
+  enterAssignExpression(ctx: AssignExpressionContext): void {
+    // Capture the left-hand side of the assignment (the variable being assigned to)
+    const leftExpression = ctx.expression(0);
+    if (leftExpression) {
+      const leftText = this.getTextFromContext(leftExpression);
+      const location = this.getLocation(leftExpression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for assignment LHS: "${leftText}"`,
+      );
+    }
+
+    // Capture the right-hand side of the assignment
+    const rightExpression = ctx.expression(1);
+    if (rightExpression) {
+      const rightText = this.getTextFromContext(rightExpression);
+      const location = this.getLocation(rightExpression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for assignment RHS: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture array expression references
+   * This captures array access like "myArray[index]"
+   */
+  enterArrayExpression(ctx: ArrayExpressionContext): void {
+    // Capture the array variable name
+    const arrayExpression = ctx.expression(0);
+    if (arrayExpression) {
+      const arrayName = this.getTextFromContext(arrayExpression);
+      const location = this.getLocation(arrayExpression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        arrayName,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for array access: "${arrayName}"`,
+      );
+    }
+
+    // Capture the index expression
+    const indexExpression = ctx.expression(1);
+    if (indexExpression) {
+      const indexText = this.getTextFromContext(indexExpression);
+      const location = this.getLocation(indexExpression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        indexText,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for array index: "${indexText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture cast expression references
+   * This captures type casting like "(String) myVariable"
+   */
+  enterCastExpression(ctx: CastExpressionContext): void {
+    // Capture the type being cast to
+    const typeRef = ctx.typeRef();
+    if (typeRef) {
+      const typeName = this.getTextFromContext(typeRef);
+      const location = this.getLocation(typeRef);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createClassReference(
+        typeName,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created CLASS_REFERENCE for cast type: "${typeName}"`,
+      );
+    }
+
+    // Capture the expression being cast
+    const expression = ctx.expression();
+    if (expression) {
+      const exprText = this.getTextFromContext(expression);
+      const location = this.getLocation(expression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        exprText,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for cast expression: "${exprText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture sub-expression references
+   * This captures parenthesized expressions like "(myVariable)"
+   */
+  enterSubExpression(ctx: SubExpressionContext): void {
+    const expression = ctx.expression();
+    if (expression) {
+      const exprText = this.getTextFromContext(expression);
+      const location = this.getLocation(expression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        exprText,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for sub-expression: "${exprText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture post-operation expression references
+   * This captures post-increment/decrement like "myVariable++"
+   */
+  enterPostOpExpression(ctx: PostOpExpressionContext): void {
+    const expression = ctx.expression();
+    if (expression) {
+      const exprText = this.getTextFromContext(expression);
+      const location = this.getLocation(expression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        exprText,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for post-op expression: "${exprText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture pre-operation expression references
+   * This captures pre-increment/decrement like "++myVariable"
+   */
+  enterPreOpExpression(ctx: PreOpExpressionContext): void {
+    const expression = ctx.expression();
+    if (expression) {
+      const exprText = this.getTextFromContext(expression);
+      const location = this.getLocation(expression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        exprText,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for pre-op expression: "${exprText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture negation expression references
+   * This captures unary negation like "!myVariable" or "~myVariable"
+   */
+  enterNegExpression(ctx: NegExpressionContext): void {
+    const expression = ctx.expression();
+    if (expression) {
+      const exprText = this.getTextFromContext(expression);
+      const location = this.getLocation(expression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        exprText,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for negation expression: "${exprText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture arithmetic expression references (multiplication/division)
+   * This captures expressions like "a * b" or "a / b"
+   */
+  enterArth1Expression(ctx: Arth1ExpressionContext): void {
+    // Capture both operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 2) {
+      // Left operand
+      const leftText = this.getTextFromContext(expressions[0]);
+      const leftLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const leftReference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        leftLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(leftReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for arth1 left operand: "${leftText}"`,
+      );
+
+      // Right operand
+      const rightText = this.getTextFromContext(expressions[1]);
+      const rightLocation = this.getLocation(expressions[1]);
+      const rightReference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        rightLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(rightReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for arth1 right operand: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture arithmetic expression references (addition/subtraction)
+   * This captures expressions like "a + b" or "a - b"
+   */
+  enterArth2Expression(ctx: Arth2ExpressionContext): void {
+    // Capture both operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 2) {
+      // Left operand
+      const leftText = this.getTextFromContext(expressions[0]);
+      const leftLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const leftReference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        leftLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(leftReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for arth2 left operand: "${leftText}"`,
+      );
+
+      // Right operand
+      const rightText = this.getTextFromContext(expressions[1]);
+      const rightLocation = this.getLocation(expressions[1]);
+      const rightReference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        rightLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(rightReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for arth2 right operand: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture bitwise expression references
+   * This captures bitwise operations like "a << b" or "a >> b"
+   */
+  enterBitExpression(ctx: BitExpressionContext): void {
+    // Capture both operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 2) {
+      // Left operand
+      const leftText = this.getTextFromContext(expressions[0]);
+      const leftLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const leftReference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        leftLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(leftReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for bit left operand: "${leftText}"`,
+      );
+
+      // Right operand
+      const rightText = this.getTextFromContext(expressions[1]);
+      const rightLocation = this.getLocation(expressions[1]);
+      const rightReference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        rightLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(rightReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for bit right operand: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture comparison expression references
+   * This captures comparisons like "a > b" or "a < b"
+   */
+  enterCmpExpression(ctx: CmpExpressionContext): void {
+    // Capture both operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 2) {
+      // Left operand
+      const leftText = this.getTextFromContext(expressions[0]);
+      const leftLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const leftReference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        leftLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(leftReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for cmp left operand: "${leftText}"`,
+      );
+
+      // Right operand
+      const rightText = this.getTextFromContext(expressions[1]);
+      const rightLocation = this.getLocation(expressions[1]);
+      const rightReference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        rightLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(rightReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for cmp right operand: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture instanceof expression references
+   * This captures type checking like "myVariable instanceof String"
+   */
+  enterInstanceOfExpression(ctx: InstanceOfExpressionContext): void {
+    // Capture the expression being checked
+    const expression = ctx.expression();
+    if (expression) {
+      const exprText = this.getTextFromContext(expression);
+      const location = this.getLocation(expression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        exprText,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for instanceof expression: "${exprText}"`,
+      );
+    }
+
+    // Capture the type being checked against
+    const typeRef = ctx.typeRef();
+    if (typeRef) {
+      const typeName = this.getTextFromContext(typeRef);
+      const location = this.getLocation(typeRef);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createClassReference(
+        typeName,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created CLASS_REFERENCE for instanceof type: "${typeName}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture equality expression references
+   * This captures equality checks like "a == b" or "a != b"
+   */
+  enterEqualityExpression(ctx: EqualityExpressionContext): void {
+    // Capture both operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 2) {
+      // Left operand
+      const leftText = this.getTextFromContext(expressions[0]);
+      const leftLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const leftReference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        leftLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(leftReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for equality left operand: "${leftText}"`,
+      );
+
+      // Right operand
+      const rightText = this.getTextFromContext(expressions[1]);
+      const rightLocation = this.getLocation(expressions[1]);
+      const rightReference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        rightLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(rightReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for equality right operand: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture bitwise AND expression references
+   * This captures bitwise AND like "a & b"
+   */
+  enterBitAndExpression(ctx: BitAndExpressionContext): void {
+    // Capture both operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 2) {
+      // Left operand
+      const leftText = this.getTextFromContext(expressions[0]);
+      const leftLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const leftReference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        leftLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(leftReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for bitAnd left operand: "${leftText}"`,
+      );
+
+      // Right operand
+      const rightText = this.getTextFromContext(expressions[1]);
+      const rightLocation = this.getLocation(expressions[1]);
+      const rightReference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        rightLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(rightReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for bitAnd right operand: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture bitwise XOR expression references
+   * This captures bitwise XOR like "a ^ b"
+   */
+  enterBitNotExpression(ctx: BitNotExpressionContext): void {
+    // Capture both operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 2) {
+      // Left operand
+      const leftText = this.getTextFromContext(expressions[0]);
+      const leftLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const leftReference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        leftLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(leftReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for bitXor left operand: "${leftText}"`,
+      );
+
+      // Right operand
+      const rightText = this.getTextFromContext(expressions[1]);
+      const rightLocation = this.getLocation(expressions[1]);
+      const rightReference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        rightLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(rightReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for bitXor right operand: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture bitwise OR expression references
+   * This captures bitwise OR like "a | b"
+   */
+  enterBitOrExpression(ctx: BitOrExpressionContext): void {
+    // Capture both operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 2) {
+      // Left operand
+      const leftText = this.getTextFromContext(expressions[0]);
+      const leftLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const leftReference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        leftLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(leftReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for bitOr left operand: "${leftText}"`,
+      );
+
+      // Right operand
+      const rightText = this.getTextFromContext(expressions[1]);
+      const rightLocation = this.getLocation(expressions[1]);
+      const rightReference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        rightLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(rightReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for bitOr right operand: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture logical AND expression references
+   * This captures logical AND like "a && b"
+   */
+  enterLogAndExpression(ctx: LogAndExpressionContext): void {
+    // Capture both operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 2) {
+      // Left operand
+      const leftText = this.getTextFromContext(expressions[0]);
+      const leftLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const leftReference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        leftLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(leftReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for logAnd left operand: "${leftText}"`,
+      );
+
+      // Right operand
+      const rightText = this.getTextFromContext(expressions[1]);
+      const rightLocation = this.getLocation(expressions[1]);
+      const rightReference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        rightLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(rightReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for logAnd right operand: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture logical OR expression references
+   * This captures logical OR like "a || b"
+   */
+  enterLogOrExpression(ctx: LogOrExpressionContext): void {
+    // Capture both operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 2) {
+      // Left operand
+      const leftText = this.getTextFromContext(expressions[0]);
+      const leftLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const leftReference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        leftLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(leftReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for logOr left operand: "${leftText}"`,
+      );
+
+      // Right operand
+      const rightText = this.getTextFromContext(expressions[1]);
+      const rightLocation = this.getLocation(expressions[1]);
+      const rightReference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        rightLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(rightReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for logOr right operand: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture coalescing expression references
+   * This captures null coalescing like "a ?? b"
+   */
+  enterCoalExpression(ctx: CoalExpressionContext): void {
+    // Capture both operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 2) {
+      // Left operand
+      const leftText = this.getTextFromContext(expressions[0]);
+      const leftLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const leftReference = TypeReferenceFactory.createVariableUsageReference(
+        leftText,
+        leftLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(leftReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for coalesce left operand: "${leftText}"`,
+      );
+
+      // Right operand
+      const rightText = this.getTextFromContext(expressions[1]);
+      const rightLocation = this.getLocation(expressions[1]);
+      const rightReference = TypeReferenceFactory.createVariableUsageReference(
+        rightText,
+        rightLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(rightReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for coalesce right operand: "${rightText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture conditional expression references
+   * This captures ternary operators like "a ? b : c"
+   */
+  enterCondExpression(ctx: CondExpressionContext): void {
+    // Capture all three operands
+    const expressions = ctx.expression();
+    if (expressions && expressions.length >= 3) {
+      // Condition operand
+      const conditionText = this.getTextFromContext(expressions[0]);
+      const conditionLocation = this.getLocation(expressions[0]);
+      const parentContext = this.getCurrentMethodName();
+
+      const conditionReference =
+        TypeReferenceFactory.createVariableUsageReference(
+          conditionText,
+          conditionLocation,
+          parentContext,
+        );
+      this.symbolTable.addTypeReference(conditionReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for condition: "${conditionText}"`,
+      );
+
+      // True operand
+      const trueText = this.getTextFromContext(expressions[1]);
+      const trueLocation = this.getLocation(expressions[1]);
+      const trueReference = TypeReferenceFactory.createVariableUsageReference(
+        trueText,
+        trueLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(trueReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for true branch: "${trueText}"`,
+      );
+
+      // False operand
+      const falseText = this.getTextFromContext(expressions[2]);
+      const falseLocation = this.getLocation(expressions[2]);
+      const falseReference = TypeReferenceFactory.createVariableUsageReference(
+        falseText,
+        falseLocation,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(falseReference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for false branch: "${falseText}"`,
+      );
+    }
+  }
+
+  /**
+   * Called when entering a for loop initialization
+   */
+  enterForInit(ctx: any): void {
+    try {
+      this.logger.debug(
+        () =>
+          `enterForInit: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
+      );
+
+      // Check if this is a local variable declaration (e.g., "Integer i = 0")
+      const localVarDecl = ctx.localVariableDeclaration();
+      if (localVarDecl) {
+        // Process the local variable declaration within the for loop
+        this.processLocalVariableDeclaration(localVarDecl);
+      }
+
+      // Note: If it's an expressionList (e.g., "i = 0"), we don't need to process it
+      // as a variable declaration since it's just an assignment to an existing variable
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in for loop initialization: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when entering a for statement
+   */
+  enterForStatement(ctx: any): void {
+    try {
+      this.logger.debug(
+        () =>
+          `enterForStatement: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
+      );
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in for statement: ${errorMessage}`, ctx);
+    }
   }
 }
