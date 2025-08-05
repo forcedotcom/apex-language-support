@@ -187,10 +187,10 @@ private with sharing class FileUtilitiesTest {
         .sort();
       console.log(`Property variable lines: ${propertyLines.join(', ')}`);
 
-      // The property variables should be at lines 6, 48, and 72 (LSP 0-based coordinates)
-      expect(propertyLines).toContain(6);
-      expect(propertyLines).toContain(48);
-      expect(propertyLines).toContain(72);
+      // The property variables should be at lines 7, 49, and 73 (1-based parser coordinates)
+      expect(propertyLines).toContain(7);
+      expect(propertyLines).toContain(49);
+      expect(propertyLines).toContain(73);
 
       // Verify each property variable has the correct type
       propertyVariables.forEach((prop) => {
@@ -322,7 +322,7 @@ public class NestedScopeTest {
   });
 
   describe('Variable declaration line number accuracy', () => {
-    it.only('should capture exact line numbers for variable declarations', () => {
+    it('should capture exact line numbers for variable declarations', () => {
       const fileContent = `
   public class LineNumberTest {
     public void testMethod() {
