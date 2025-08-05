@@ -1,6 +1,10 @@
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CharStreams, CommonTokenStream } from 'antlr4ts';
-import { ApexLexer, ApexParser, ParseTreeWalker } from '@apexdevtools/apex-parser';
+import {
+  ApexLexer,
+  ApexParser,
+  ParseTreeWalker,
+} from '@apexdevtools/apex-parser';
 import { SymbolKind } from '../../src/types/symbol';
 
 describe('Scope-Qualified Symbol IDs', () => {
@@ -41,7 +45,8 @@ describe('Scope-Qualified Symbol IDs', () => {
 
     // Find the two 'result' variables
     const resultVariables = allSymbols.filter(
-      (symbol) => symbol.name === 'result' && symbol.kind === SymbolKind.Variable,
+      (symbol) =>
+        symbol.name === 'result' && symbol.kind === SymbolKind.Variable,
     );
 
     // Should have exactly 2 result variables
@@ -169,4 +174,4 @@ describe('Scope-Qualified Symbol IDs', () => {
     expect(outerField?.id).toContain('OuterClass');
     expect(innerField?.id).toContain('InnerClass');
   });
-}); 
+});
