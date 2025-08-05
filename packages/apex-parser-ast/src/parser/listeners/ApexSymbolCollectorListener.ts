@@ -553,7 +553,34 @@ export class ApexSymbolCollectorListener
    */
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     try {
-      const name = this.currentTypeSymbol?.name ?? 'unknownConstructor';
+      // Extract constructor name from the qualified name in the context
+      const qualifiedName = ctx.qualifiedName();
+      const ids = qualifiedName?.id();
+      const lastId = ids && ids.length > 0 ? ids[ids.length - 1] : undefined;
+      const name =
+        lastId?.text ?? this.currentTypeSymbol?.name ?? 'unknownConstructor';
+
+      // Validate that constructor name is not a dotted name (semantic error)
+      if (ids && ids.length > 1) {
+        const qualifiedNameError =
+          'Invalid constructor declaration: Constructor names cannot use qualified names. Found: ' +
+          this.getTextFromContext(qualifiedName);
+        this.addError(qualifiedNameError, ctx);
+        return;
+      }
+
+      // Validate that constructor name matches the enclosing class name
+      if (this.currentTypeSymbol && name !== this.currentTypeSymbol.name) {
+        const errorMessage =
+          "Invalid constructor declaration: Constructor name '" +
+          name +
+          "' must match the enclosing class name '" +
+          this.currentTypeSymbol.name +
+          "'";
+        this.addError(errorMessage, ctx);
+        return;
+      }
+
       // Validate constructor in interface
       InterfaceBodyValidator.validateConstructorInInterface(
         name,
@@ -596,8 +623,6 @@ export class ApexSymbolCollectorListener
       const modifiers = this.getCurrentModifiers();
 
       // Get the qualified name id location which is the last id in the qualified name
-      const ids = ctx.qualifiedName()?.id();
-      const lastId = ids && ids.length > 0 ? ids[ids.length - 1] : undefined;
       const qualifiedNameIdLocation = lastId
         ? this.getIdentifierLocation(lastId)
         : undefined;
