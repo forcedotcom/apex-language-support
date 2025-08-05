@@ -37,7 +37,10 @@ export class BinaryExpressionValidator {
     }
 
     // For V174+, void expressions are allowed but we need to handle them specially
-    if (left === TypePromotionSystem.VOID || right === TypePromotionSystem.VOID) {
+    if (
+      left === TypePromotionSystem.VOID ||
+      right === TypePromotionSystem.VOID
+    ) {
       // In V174+, void expressions are allowed but we need to determine the result type
       // For now, return the non-void type or void if both are void
       const resultType = left === TypePromotionSystem.VOID ? right : left;
@@ -185,4 +188,4 @@ export class BinaryExpressionValidator {
       type: TypePromotionSystem.INTEGER,
     };
   }
-} 
+}

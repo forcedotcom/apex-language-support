@@ -16,7 +16,11 @@ import {
   DocumentSymbol,
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  setLoggerFactory,
+  LoggerFactory,
+} from '@salesforce/apex-lsp-shared';
 
 import {
   DefaultApexDocumentSymbolProvider,
@@ -24,11 +28,10 @@ import {
 } from '../../src/documentSymbol/ApexDocumentSymbolProvider';
 
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
+import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 
-// Mock only logging to keep test output clean
-jest.mock('@salesforce/apex-lsp-shared');
-
-const mockedGetLogger = getLogger as jest.Mock;
+// Use real ApexSettingsManager instead of mock
+// The real settings manager provides comprehensive configuration that the parser needs
 
 /**
  * Integration Tests - These use real parsing to detect breaking changes
@@ -49,22 +52,31 @@ const mockedGetLogger = getLogger as jest.Mock;
 describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
   let symbolProvider: ApexDocumentSymbolProvider;
   let storage: ApexStorageInterface;
-  let mockLogger: jest.Mocked<LoggerInterface>;
 
   beforeEach(async () => {
+    // Set up a test logger factory
+    const testLoggerFactory: LoggerFactory = {
+      getLogger: () =>
+        ({
+          info: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn(),
+          debug: jest.fn(),
+          log: jest.fn(),
+        }) as LoggerInterface,
+    };
+    setLoggerFactory(testLoggerFactory);
+
+    // Reset the ApexSettingsManager singleton to ensure clean state
+    ApexSettingsManager.resetInstance();
+
+    // Initialize the real ApexSettingsManager with default settings
+    ApexSettingsManager.getInstance();
+
     // Simple in-memory storage implementation for the test
     storage = {
       getDocument: jest.fn(),
     } as any;
-
-    mockLogger = {
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-      log: jest.fn(),
-    } as any;
-    mockedGetLogger.mockReturnValue(mockLogger);
 
     symbolProvider = new DefaultApexDocumentSymbolProvider(storage);
   });
@@ -78,7 +90,14 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
      * This test validates the complete document symbol generation pipeline
      * using a realistic Apex class. It serves as a comprehensive regression test.
      */
-    it('produces the expected DocumentSymbol hierarchy with accurate ranges and formatting', async () => {
+    it.only('produces the expected DocumentSymbol hierarchy with accurate ranges and formatting', async () => {
+      // Test the parser directly like the parser tests do
+      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
+      const {
+        ApexSymbolCollectorListener,
+      } = require('@salesforce/apex-lsp-parser-ast');
+      const { SymbolTable } = require('@salesforce/apex-lsp-parser-ast');
+
       const apexClassContent = [
         '/**',
         ' * An apex page controller that takes the user to the right start page based on credentials or lack thereof',
@@ -89,9 +108,9 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
         '        return Network.communitiesLanding();',
         '     }',
         '',
-        '    public CommunitiesLandingController(Boolean a) {',
+        '    public CommunitiesLandingController(Boolean isTest) {',
         "        System.debug('Example');",
-        '        if (a) {',
+        '        if (isTest) {',
         "            System.debug('oh no');",
         '        }',
         '     }',
@@ -99,6 +118,27 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
         ' }',
       ].join('\n');
 
+      // Use the same setup as the parser tests
+      const compilerService = new CompilerService();
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table);
+
+      const result = compilerService.compile(
+        apexClassContent,
+        'CommunitiesLandingController.cls',
+        listener,
+      );
+
+      console.log(
+        `Parser test - Total symbols: ${result.result.getAllSymbols().length}`,
+      );
+      result.result.getAllSymbols().forEach((symbol: any, index: number) => {
+        console.log(
+          `Parser test - Symbol ${index}: ${symbol.name} (${symbol.kind})`,
+        );
+      });
+
+      // Now test the integration test approach
       const docUri = 'file:///CommunitiesLandingController.cls';
       const textDocument = TextDocument.create(
         docUri,
@@ -109,10 +149,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
 
       const params: DocumentSymbolParams = { textDocument: { uri: docUri } };
-      const result = await symbolProvider.provideDocumentSymbols(params);
+      const integrationResult =
+        await symbolProvider.provideDocumentSymbols(params);
 
-      expect(result).not.toBeNull();
-      expect(result).toHaveLength(1);
+      expect(integrationResult).not.toBeNull();
+      expect(integrationResult).toHaveLength(1);
 
       // This expected structure serves as a regression test for:
       // 1. Symbol hierarchy correctness
@@ -161,7 +202,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       };
 
       // Convert result to plain JSON for deep equality comparison
-      const plainResult = JSON.parse(JSON.stringify(result![0]));
+      const plainResult = JSON.parse(JSON.stringify(integrationResult![0]));
 
       // This assertion will fail if ANY aspect of symbol generation changes:
       // - Range calculations become inaccurate

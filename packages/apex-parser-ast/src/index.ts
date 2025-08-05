@@ -63,6 +63,9 @@ export * from './symbols/SymbolManagerFactory';
 // Export reference graph and types
 export * from './symbols/ApexSymbolGraph';
 
+// Export background processing components
+export * from './symbols/EffectBackgroundProcessingService';
+
 // Export semantic validators
 export * from './semantics/modifiers/index';
 export * from './semantics/annotations/index';

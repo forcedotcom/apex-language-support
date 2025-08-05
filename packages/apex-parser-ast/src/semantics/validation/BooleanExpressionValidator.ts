@@ -41,7 +41,12 @@ export class BooleanExpressionValidator {
       }
     }
 
-    return { isValid: true, errors, warnings, type: TypePromotionSystem.BOOLEAN };
+    return {
+      isValid: true,
+      errors,
+      warnings,
+      type: TypePromotionSystem.BOOLEAN,
+    };
   }
 
   /**
@@ -57,12 +62,20 @@ export class BooleanExpressionValidator {
     const warnings: string[] = [];
 
     // Both operands must be boolean
-    if (left !== TypePromotionSystem.BOOLEAN || right !== TypePromotionSystem.BOOLEAN) {
+    if (
+      left !== TypePromotionSystem.BOOLEAN ||
+      right !== TypePromotionSystem.BOOLEAN
+    ) {
       errors.push('invalid.logical.type');
       return { isValid: false, errors, warnings };
     }
 
-    return { isValid: true, errors, warnings, type: TypePromotionSystem.BOOLEAN };
+    return {
+      isValid: true,
+      errors,
+      warnings,
+      type: TypePromotionSystem.BOOLEAN,
+    };
   }
 
   /**
@@ -81,35 +94,55 @@ export class BooleanExpressionValidator {
       return { isValid: false, errors, warnings };
     }
 
-    return { isValid: true, errors, warnings, type: TypePromotionSystem.BOOLEAN };
+    return {
+      isValid: true,
+      errors,
+      warnings,
+      type: TypePromotionSystem.BOOLEAN,
+    };
   }
 
   /**
    * Check if types are compatible for comparison
    */
-  private static isCompatibleForComparison(left: ExpressionType, right: ExpressionType): boolean {
+  private static isCompatibleForComparison(
+    left: ExpressionType,
+    right: ExpressionType,
+  ): boolean {
     // Same type is always compatible
     if (left === right) {
       return true;
     }
 
     // Numeric types are compatible with each other
-    if (TypePromotionSystem.isNumeric(left) && TypePromotionSystem.isNumeric(right)) {
+    if (
+      TypePromotionSystem.isNumeric(left) &&
+      TypePromotionSystem.isNumeric(right)
+    ) {
       return true;
     }
 
     // Boolean types are compatible with each other
-    if (left === TypePromotionSystem.BOOLEAN && right === TypePromotionSystem.BOOLEAN) {
+    if (
+      left === TypePromotionSystem.BOOLEAN &&
+      right === TypePromotionSystem.BOOLEAN
+    ) {
       return true;
     }
 
     // String types are compatible with each other
-    if (left === TypePromotionSystem.STRING && right === TypePromotionSystem.STRING) {
+    if (
+      left === TypePromotionSystem.STRING &&
+      right === TypePromotionSystem.STRING
+    ) {
       return true;
     }
 
     // Date/Time types are compatible with each other
-    if (TypePromotionSystem.isDateTime(left) && TypePromotionSystem.isDateTime(right)) {
+    if (
+      TypePromotionSystem.isDateTime(left) &&
+      TypePromotionSystem.isDateTime(right)
+    ) {
       return true;
     }
 
@@ -120,4 +153,4 @@ export class BooleanExpressionValidator {
 
     return false;
   }
-} 
+}

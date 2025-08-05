@@ -102,6 +102,11 @@ export class ApexStorage extends ApexStorageBase {
     return true;
   }
 
+  async deleteDocument(uri: string): Promise<boolean> {
+    this.documents.delete(uri);
+    return true;
+  }
+
   // Hover getters and setters
   public async getHover(symbolName: string): Promise<string | undefined> {
     return this.hoverMap.get(symbolName);

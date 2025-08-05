@@ -5,6 +5,7 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
@@ -24,6 +25,7 @@ export class DidCloseDocumentHandler {
   /**
    * Handle document close event
    * @param event The document close event
+   * @returns Promise resolving to void
    */
   public async handleDocumentClose(
     event: TextDocumentChangeEvent<TextDocument>,
@@ -31,7 +33,7 @@ export class DidCloseDocumentHandler {
     this.logger.debug(() => `Processing document close: ${event.document.uri}`);
 
     try {
-      await dispatch(
+      return await dispatch(
         this.documentCloseProcessor.processDocumentClose(event),
         'Error processing document close',
       );

@@ -8,7 +8,6 @@
 
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { ExpressionType } from './TypePromotionSystem';
-import { TypePromotionSystem } from './TypePromotionSystem';
 
 /**
  * Extended ExpressionType interface for statement validation

@@ -215,6 +215,13 @@ export interface ApexStorageInterface {
   setDocument(uri: string, document: TextDocument): Promise<boolean>;
 
   /**
+   * Delete a document for a given URI
+   * @param uri The URI of the document to delete
+   * @returns Promise resolving to success boolean
+   */
+  deleteDocument(uri: string): Promise<boolean>;
+
+  /**
    * Set a definition for a given symbol
    * @param symbolName The name of the symbol to set the definition for
    * @param definition The ApexReference to store as the definition

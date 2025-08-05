@@ -11,18 +11,23 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { dispatch } from '../utils/handlerUtil';
 import { IHoverProcessor } from '../services/HoverProcessingService';
+import { LSPQueueManager } from '../queue/LSPQueueManager';
 
 /**
- * Handler for hover requests
+ * Handler for hover requests using the LSP queue system
  */
 export class HoverHandler {
+  private readonly queueManager: LSPQueueManager;
+
   constructor(
     private readonly logger: LoggerInterface,
     private readonly hoverProcessor: IHoverProcessor,
-  ) {}
+  ) {
+    this.queueManager = LSPQueueManager.getInstance();
+  }
 
   /**
-   * Handle hover request
+   * Handle hover request using the LSP queue system
    * @param params The hover parameters
    * @returns Hover information for the requested position
    */
@@ -32,16 +37,27 @@ export class HoverHandler {
     );
 
     try {
-      return await dispatch(
-        this.hoverProcessor.processHover(params),
-        'Error processing hover request',
-      );
+      // Use the LSP queue system for immediate processing
+      return await this.queueManager.submitHoverRequest(params);
     } catch (error) {
       this.logger.error(
         () =>
           `Error processing hover request for ${params.textDocument.uri}: ${error}`,
       );
-      throw error;
+
+      // Fallback to direct processing if queue fails
+      this.logger.debug(() => 'Falling back to direct hover processing');
+      return await dispatch(
+        this.hoverProcessor.processHover(params),
+        'Error processing hover request',
+      );
     }
+  }
+
+  /**
+   * Get queue statistics for monitoring
+   */
+  public getQueueStats() {
+    return this.queueManager.getStats();
   }
 }

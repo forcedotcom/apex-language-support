@@ -6,9 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TypePromotionSystem } from './TypePromotionSystem';
 import type { ValidationResult, ValidationScope } from './ValidationResult';
-import type { ExpressionType } from './TypePromotionSystem';
 import type { VariableSymbol } from '../../types/symbol';
 
 /**

@@ -21,12 +21,12 @@ import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
 import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
 import { ApexSettingsManager } from '../settings/ApexSettingsManager';
-import { IDocumentProcessor } from '../handlers/DidChangeDocumentHandler';
+import { IDocumentChangeProcessor } from './DocumentChangeProcessingService';
 
 /**
  * Service for processing document changes
  */
-export class DocumentProcessingService implements IDocumentProcessor {
+export class DocumentProcessingService implements IDocumentChangeProcessor {
   constructor(private readonly logger: LoggerInterface) {}
 
   /**

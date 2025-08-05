@@ -123,7 +123,10 @@ export class TypePromotionSystem {
   /**
    * Promote types for arithmetic operations
    */
-  static promoteTypes(left: ExpressionType, right: ExpressionType): ExpressionType {
+  static promoteTypes(
+    left: ExpressionType,
+    right: ExpressionType,
+  ): ExpressionType {
     // String concatenation
     if (left === this.STRING || right === this.STRING) {
       return this.STRING;
@@ -147,4 +150,4 @@ export class TypePromotionSystem {
 
     return this.INTEGER;
   }
-} 
+}

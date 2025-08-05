@@ -26,11 +26,11 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
   },
-  "devDependencies": {},
   "dependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@salesforce/apex-lsp-shared": "1.0.0",
     "data-structure-typed": "^2.0.4",
+    "effect": "^3.17.6",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-protocol": "^3.17.5",
     "vscode-languageserver-textdocument": "^1.0.12"

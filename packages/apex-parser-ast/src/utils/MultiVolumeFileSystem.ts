@@ -485,7 +485,7 @@ export class MultiVolumeFileSystem implements FileSystemOperations {
         this.logger.debug(() => `Reset volume for protocol '${protocol}'`);
       }
     } else {
-      for (const [protocol, volume] of this.volumes.entries()) {
+      for (const [_protocol, volume] of this.volumes.entries()) {
         volume.reset();
       }
       this.logger.debug(() => 'Reset all volumes');
@@ -502,9 +502,11 @@ export class MultiVolumeFileSystem implements FileSystemOperations {
     for (const [protocol, volume] of this.volumes.entries()) {
       const json = volume.toJSON();
       const files = Object.keys(json).length;
-      const size = Object.values(json).reduce((total: number, content: any) => {
-        return total + (typeof content === 'string' ? content.length : 0);
-      }, 0);
+      const size = Object.values(json).reduce(
+        (total: number, content: any) =>
+          total + (typeof content === 'string' ? content.length : 0),
+        0,
+      );
 
       stats[protocol] = { files, size };
     }

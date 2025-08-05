@@ -10,7 +10,6 @@ import { BinaryExpressionValidator } from './BinaryExpressionValidator';
 import { BooleanExpressionValidator } from './BooleanExpressionValidator';
 import { VariableExpressionValidator } from './VariableExpressionValidator';
 import { ConstructorExpressionValidator } from './ConstructorExpressionValidator';
-import { TypePromotionSystem } from './TypePromotionSystem';
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { ExpressionType } from './TypePromotionSystem';
 import type { VariableSymbol } from '../../types/symbol';

@@ -313,6 +313,34 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
       },
     }),
   })),
+  LSPQueueManager: {
+    getInstance: jest.fn().mockReturnValue({
+      submitDocumentOpenRequest: jest.fn().mockResolvedValue([]),
+      submitDocumentCloseRequest: jest.fn().mockResolvedValue(undefined),
+      submitDocumentSaveRequest: jest.fn().mockResolvedValue(undefined),
+      submitDocumentChangeRequest: jest.fn().mockResolvedValue([]),
+      submitHoverRequest: jest.fn().mockResolvedValue(null),
+      submitCompletionRequest: jest.fn().mockResolvedValue([]),
+      submitDefinitionRequest: jest.fn().mockResolvedValue(null),
+      submitReferencesRequest: jest.fn().mockResolvedValue([]),
+      submitDocumentSymbolRequest: jest.fn().mockResolvedValue([]),
+      submitWorkspaceSymbolRequest: jest.fn().mockResolvedValue([]),
+      submitDiagnosticsRequest: jest.fn().mockResolvedValue([]),
+      submitCodeActionRequest: jest.fn().mockResolvedValue([]),
+      submitSignatureHelpRequest: jest.fn().mockResolvedValue(null),
+      submitRenameRequest: jest.fn().mockResolvedValue(null),
+      getStats: jest.fn().mockReturnValue({
+        totalRequests: 0,
+        pendingRequests: 0,
+        completedRequests: 0,
+        failedRequests: 0,
+        averageProcessingTime: 0,
+      }),
+      getSymbolManager: jest.fn().mockReturnValue({}),
+      shutdown: jest.fn(),
+      isShutdownState: jest.fn().mockReturnValue(false),
+    }),
+  },
   createApexLibManager: jest.fn().mockReturnValue({
     initialize: jest.fn(),
     dispose: jest.fn(),
@@ -588,6 +616,7 @@ describe('Apex Language Server', () => {
       message: 'pong',
       timestamp: expect.any(String),
       server: 'apex-ls-node',
+      queueStats: expect.any(Object),
     });
     expect(mockLogger.debug).toHaveBeenCalledWith(
       '[SERVER] Received $/ping request',
@@ -603,7 +632,12 @@ describe('Apex Language Server', () => {
       expect(mockDocuments.onDidOpen).toHaveBeenCalled();
 
       const handler = mockDocuments.onDidOpen.mock.calls[0][0];
-      const doc = { document: { uri: 'file:///test.cls' } };
+      const doc = {
+        document: {
+          uri: 'file:///test.cls',
+          getText: jest.fn().mockReturnValue('public class TestClass {}'),
+        },
+      };
       handler(doc);
       expect(mockDispatchProcessOnOpenDocument).toHaveBeenCalledWith(doc);
     });
@@ -613,7 +647,12 @@ describe('Apex Language Server', () => {
       expect(mockDocuments.onDidChangeContent).toHaveBeenCalled();
 
       const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
-      const doc = { document: { uri: 'file:///test.cls' } };
+      const doc = {
+        document: {
+          uri: 'file:///test.cls',
+          getText: jest.fn().mockReturnValue('public class TestClass {}'),
+        },
+      };
       handler(doc);
       expect(mockDispatchProcessOnChangeDocument).toHaveBeenCalledWith(doc);
     });
@@ -623,9 +662,16 @@ describe('Apex Language Server', () => {
       expect(mockDocuments.onDidClose).toHaveBeenCalled();
 
       const handler = mockDocuments.onDidClose.mock.calls[0][0];
-      const doc = { document: { uri: 'file:///test.cls' } };
+      const doc = {
+        document: {
+          uri: 'file:///test.cls',
+          getText: jest.fn().mockReturnValue('public class TestClass {}'),
+        },
+      };
       handler(doc);
-      expect(mockDispatchProcessOnCloseDocument).toHaveBeenCalledWith(doc);
+      // The implementation uses queue-based processing, so we expect the queue manager to be called
+      // The dispatch function is only called as a fallback if the queue fails
+      expect(mockDispatchProcessOnCloseDocument).not.toHaveBeenCalled();
     });
 
     it('should handle onDidSave', () => {
@@ -633,9 +679,16 @@ describe('Apex Language Server', () => {
       expect(mockDocuments.onDidSave).toHaveBeenCalled();
 
       const handler = mockDocuments.onDidSave.mock.calls[0][0];
-      const doc = { document: { uri: 'file:///test.cls' } };
+      const doc = {
+        document: {
+          uri: 'file:///test.cls',
+          getText: jest.fn().mockReturnValue('public class TestClass {}'),
+        },
+      };
       handler(doc);
-      expect(mockDispatchProcessOnSaveDocument).toHaveBeenCalledWith(doc);
+      // The implementation uses queue-based processing, so we expect the queue manager to be called
+      // The dispatch function is only called as a fallback if the queue fails
+      expect(mockDispatchProcessOnSaveDocument).not.toHaveBeenCalled();
     });
   });
 
@@ -662,7 +715,12 @@ describe('Apex Language Server', () => {
       mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(mockDiagnostics);
 
       const handler = mockDocuments.onDidOpen.mock.calls[0][0];
-      const doc = { document: { uri: 'file:///test.cls' } };
+      const doc = {
+        document: {
+          uri: 'file:///test.cls',
+          getText: jest.fn().mockReturnValue('public class TestClass {}'),
+        },
+      };
 
       await handler(doc);
 
@@ -682,7 +740,12 @@ describe('Apex Language Server', () => {
       mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(undefined);
 
       const handler = mockDocuments.onDidOpen.mock.calls[0][0];
-      const doc = { document: { uri: 'file:///test.cls' } };
+      const doc = {
+        document: {
+          uri: 'file:///test.cls',
+          getText: jest.fn().mockReturnValue('public class TestClass {}'),
+        },
+      };
 
       await handler(doc);
 
@@ -702,7 +765,12 @@ describe('Apex Language Server', () => {
       mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(null);
 
       const handler = mockDocuments.onDidOpen.mock.calls[0][0];
-      const doc = { document: { uri: 'file:///test.cls' } };
+      const doc = {
+        document: {
+          uri: 'file:///test.cls',
+          getText: jest.fn().mockReturnValue('public class TestClass {}'),
+        },
+      };
 
       await handler(doc);
 
@@ -734,7 +802,12 @@ describe('Apex Language Server', () => {
       );
 
       const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
-      const doc = { document: { uri: 'file:///test.cls' } };
+      const doc = {
+        document: {
+          uri: 'file:///test.cls',
+          getText: jest.fn().mockReturnValue('public class TestClass {}'),
+        },
+      };
 
       await handler(doc);
 
@@ -754,7 +827,12 @@ describe('Apex Language Server', () => {
       mockDispatchProcessOnChangeDocument.mockResolvedValueOnce([]);
 
       const handler = mockDocuments.onDidChangeContent.mock.calls[0][0];
-      const doc = { document: { uri: 'file:///test.cls' } };
+      const doc = {
+        document: {
+          uri: 'file:///test.cls',
+          getText: jest.fn().mockReturnValue('public class TestClass {}'),
+        },
+      };
 
       await handler(doc);
 
@@ -772,7 +850,12 @@ describe('Apex Language Server', () => {
       expect(mockDocuments.onDidClose).toHaveBeenCalled();
 
       const handler = mockDocuments.onDidClose.mock.calls[0][0];
-      const doc = { document: { uri: 'file:///test.cls' } };
+      const doc = {
+        document: {
+          uri: 'file:///test.cls',
+          getText: jest.fn().mockReturnValue('public class TestClass {}'),
+        },
+      };
 
       await handler(doc);
 

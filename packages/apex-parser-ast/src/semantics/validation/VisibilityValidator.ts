@@ -96,9 +96,11 @@ export class VisibilityValidator {
 
     // Protected types are visible to subclasses
     if (typeInfo.visibility === 'protected') {
-      if (!scope.currentType || 
-          (scope.currentType.name !== typeInfo.name && 
-           scope.currentType.parentType !== typeInfo.name)) {
+      if (
+        !scope.currentType ||
+        (scope.currentType.name !== typeInfo.name &&
+          scope.currentType.parentType !== typeInfo.name)
+      ) {
         errors.push('type.not.visible');
         return { isValid: false, errors, warnings };
       }
@@ -132,8 +134,11 @@ export class VisibilityValidator {
 
     // Private methods are only visible within the same class
     if (methodInfo.visibility === 'private') {
-      if (!scope.currentType || 
-          (methodInfo.declaringType && scope.currentType.name !== methodInfo.declaringType)) {
+      if (
+        !scope.currentType ||
+        (methodInfo.declaringType &&
+          scope.currentType.name !== methodInfo.declaringType)
+      ) {
         errors.push('method.not.visible');
         return { isValid: false, errors, warnings };
       }
@@ -145,9 +150,11 @@ export class VisibilityValidator {
         errors.push('method.not.visible');
         return { isValid: false, errors, warnings };
       }
-      if (methodInfo.declaringType && 
-          scope.currentType.name !== methodInfo.declaringType && 
-          scope.currentType.parentType !== methodInfo.declaringType) {
+      if (
+        methodInfo.declaringType &&
+        scope.currentType.name !== methodInfo.declaringType &&
+        scope.currentType.parentType !== methodInfo.declaringType
+      ) {
         errors.push('method.not.visible');
         return { isValid: false, errors, warnings };
       }
@@ -187,8 +194,11 @@ export class VisibilityValidator {
 
     // Private variables are only visible within the same class
     if (variableInfo.visibility === 'private') {
-      if (!scope.currentType || 
-          (variableInfo.declaringType && scope.currentType.name !== variableInfo.declaringType)) {
+      if (
+        !scope.currentType ||
+        (variableInfo.declaringType &&
+          scope.currentType.name !== variableInfo.declaringType)
+      ) {
         errors.push('variable.not.visible');
         return { isValid: false, errors, warnings };
       }
@@ -200,9 +210,11 @@ export class VisibilityValidator {
         errors.push('variable.not.visible');
         return { isValid: false, errors, warnings };
       }
-      if (variableInfo.declaringType && 
-          scope.currentType.name !== variableInfo.declaringType && 
-          scope.currentType.parentType !== variableInfo.declaringType) {
+      if (
+        variableInfo.declaringType &&
+        scope.currentType.name !== variableInfo.declaringType &&
+        scope.currentType.parentType !== variableInfo.declaringType
+      ) {
         errors.push('variable.not.visible');
         return { isValid: false, errors, warnings };
       }
@@ -233,7 +245,7 @@ export class VisibilityValidator {
     // Validate class type visibility
     const typeResult = this.validateTypeVisibility(
       { name: classInfo.name, visibility: classInfo.visibility },
-      scope
+      scope,
     );
     if (!typeResult.isValid) {
       errors.push(...typeResult.errors);
@@ -290,8 +302,10 @@ export class VisibilityValidator {
 
     // Protected types are accessible to subclasses
     if (visibility === 'protected') {
-      return scope.currentType?.name === typeName || 
-             scope.currentType?.parentType === typeName;
+      return (
+        scope.currentType?.name === typeName ||
+        scope.currentType?.parentType === typeName
+      );
     }
 
     return false;
@@ -321,10 +335,12 @@ export class VisibilityValidator {
 
     // Protected members are accessible to subclasses
     if (visibility === 'protected') {
-      return scope.currentType?.name === memberName.split('.')[0] || 
-             scope.currentType?.parentType === memberName.split('.')[0];
+      return (
+        scope.currentType?.name === memberName.split('.')[0] ||
+        scope.currentType?.parentType === memberName.split('.')[0]
+      );
     }
 
     return false;
   }
-} 
+}

@@ -106,21 +106,6 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         TextDocument.create('test.apex', 'apex', 1, invalidApex),
       );
 
-      mockCompilerService.compile.mockReturnValue({
-        errors: [
-          {
-            message: "Syntax error: missing ';'",
-            type: ErrorType.Syntax,
-            severity: ErrorSeverity.Error,
-            line: 5,
-            column: 37,
-          },
-        ],
-        fileName: 'test.apex',
-        result: {} as any,
-        warnings: [],
-      });
-
       const fieldSymbol = {
         name: 'myField',
         kind: 'field',
@@ -154,8 +139,34 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           ],
           getChildren: () => [classScope],
         }),
+        getAllSymbols: () => [
+          {
+            name: 'MyClass',
+            kind: 'class',
+            location: {
+              startLine: 2,
+              startColumn: 9,
+              endLine: 8,
+              endColumn: 9,
+            },
+          },
+        ],
       };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      mockCompilerService.compile.mockReturnValue({
+        errors: [
+          {
+            message: "Syntax error: missing ';'",
+            type: ErrorType.Syntax,
+            severity: ErrorSeverity.Error,
+            line: 5,
+            column: 37,
+          },
+        ],
+        fileName: 'test.apex',
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const params: DocumentSymbolParams = {
         textDocument: { uri: 'test.apex' },
@@ -189,13 +200,6 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         TextDocument.create('test.apex', 'apex', 1, validApex),
       );
 
-      mockCompilerService.compile.mockReturnValue({
-        errors: [],
-        fileName: 'test.apex',
-        result: {} as any,
-        warnings: [],
-      });
-
       const mockSymbolTable = {
         getCurrentScope: () => ({
           getAllSymbols: () => [
@@ -212,8 +216,26 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           ],
           getChildren: () => [],
         }),
+        getAllSymbols: () => [
+          {
+            name: 'TestClass',
+            kind: 'class',
+            location: {
+              startLine: 2,
+              startColumn: 17,
+              endLine: 6,
+              endColumn: 17,
+            },
+          },
+        ],
       };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: 'test.apex',
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const params: DocumentSymbolParams = {
         textDocument: { uri: 'test.apex' },
@@ -232,13 +254,6 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
       mockStorage.getDocument.mockResolvedValue(textDocument);
 
-      mockCompilerService.compile.mockReturnValue({
-        errors: [],
-        fileName: docUri,
-        result: {} as any,
-        warnings: [],
-      });
-
       const mockSymbolTable = {
         getCurrentScope: () => ({
           getAllSymbols: () => [
@@ -255,8 +270,26 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           ],
           getChildren: () => [],
         }),
+        getAllSymbols: () => [
+          {
+            name: 'SimpleClass',
+            kind: 'class',
+            location: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 27,
+            },
+          },
+        ],
       };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const result = await symbolProvider.provideDocumentSymbols({
         textDocument: { uri: docUri },
@@ -278,13 +311,6 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       `;
       const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
       mockStorage.getDocument.mockResolvedValue(textDocument);
-      mockCompilerService.compile.mockReturnValue({
-        errors: [],
-        fileName: docUri,
-        result: {} as any,
-        warnings: [],
-      });
-
       const methodSymbol = {
         name: 'myMethod',
         kind: 'method',
@@ -300,7 +326,22 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         getAllSymbols: () => [fieldSymbol, methodSymbol],
         getChildren: () => [],
       };
-      const globalScope = {
+      const mockSymbolTable = {
+        getCurrentScope: () => ({
+          getAllSymbols: () => [
+            {
+              name: 'ComplexClass',
+              kind: 'class',
+              location: {
+                startLine: 2,
+                startColumn: 7,
+                endLine: 5,
+                endColumn: 7,
+              },
+            },
+          ],
+          getChildren: () => [classScope],
+        }),
         getAllSymbols: () => [
           {
             name: 'ComplexClass',
@@ -313,12 +354,14 @@ describe('DefaultApexDocumentSymbolProvider', () => {
             },
           },
         ],
-        getChildren: () => [classScope],
       };
-      const mockSymbolTable = {
-        getCurrentScope: () => globalScope,
-      };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const result = await symbolProvider.provideDocumentSymbols({
         textDocument: { uri: docUri },
@@ -419,13 +462,6 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       `;
       const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
       mockStorage.getDocument.mockResolvedValue(textDocument);
-      mockCompilerService.compile.mockReturnValue({
-        errors: [],
-        fileName: docUri,
-        result: {} as any,
-        warnings: [],
-      });
-
       const methodSymbol = {
         name: 'getValue',
         kind: 'method',
@@ -447,7 +483,22 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         getAllSymbols: () => [methodSymbol],
         getChildren: () => [],
       };
-      const globalScope = {
+      const mockSymbolTable = {
+        getCurrentScope: () => ({
+          getAllSymbols: () => [
+            {
+              name: 'MethodClass',
+              kind: 'class',
+              location: {
+                startLine: 2,
+                startColumn: 7,
+                endLine: 6,
+                endColumn: 7,
+              },
+            },
+          ],
+          getChildren: () => [classScope],
+        }),
         getAllSymbols: () => [
           {
             name: 'MethodClass',
@@ -460,12 +511,14 @@ describe('DefaultApexDocumentSymbolProvider', () => {
             },
           },
         ],
-        getChildren: () => [classScope],
       };
-      const mockSymbolTable = {
-        getCurrentScope: () => globalScope,
-      };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const result = await symbolProvider.provideDocumentSymbols({
         textDocument: { uri: docUri },
@@ -484,13 +537,6 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       const docContent = 'public class PreciseClass {}';
       const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
       mockStorage.getDocument.mockResolvedValue(textDocument);
-      mockCompilerService.compile.mockReturnValue({
-        errors: [],
-        fileName: docUri,
-        result: {} as any,
-        warnings: [],
-      });
-
       const mockSymbolTable = {
         getCurrentScope: () => ({
           getAllSymbols: () => [
@@ -513,8 +559,32 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           ],
           getChildren: () => [],
         }),
+        getAllSymbols: () => [
+          {
+            name: 'PreciseClass',
+            kind: 'class',
+            location: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 27,
+            },
+            identifierLocation: {
+              startLine: 1,
+              startColumn: 14, // Start of class name
+              endLine: 1,
+              endColumn: 25, // End of class name
+            },
+          },
+        ],
       };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const result = await symbolProvider.provideDocumentSymbols({
         textDocument: { uri: docUri },
@@ -541,13 +611,6 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       `;
       const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
       mockStorage.getDocument.mockResolvedValue(textDocument);
-      mockCompilerService.compile.mockReturnValue({
-        errors: [],
-        fileName: docUri,
-        result: {} as any,
-        warnings: [],
-      });
-
       const innerMethodSymbol = {
         name: 'innerMethod',
         kind: 'method',
@@ -568,7 +631,22 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         getAllSymbols: () => [innerClassSymbol],
         getChildren: () => [innerClassScope],
       };
-      const globalScope = {
+      const mockSymbolTable = {
+        getCurrentScope: () => ({
+          getAllSymbols: () => [
+            {
+              name: 'OuterClass',
+              kind: 'class',
+              location: {
+                startLine: 2,
+                startColumn: 7,
+                endLine: 6,
+                endColumn: 7,
+              },
+            },
+          ],
+          getChildren: () => [outerClassScope],
+        }),
         getAllSymbols: () => [
           {
             name: 'OuterClass',
@@ -581,12 +659,14 @@ describe('DefaultApexDocumentSymbolProvider', () => {
             },
           },
         ],
-        getChildren: () => [outerClassScope],
       };
-      const mockSymbolTable = {
-        getCurrentScope: () => globalScope,
-      };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const result = await symbolProvider.provideDocumentSymbols({
         textDocument: { uri: docUri },
@@ -612,13 +692,6 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       `;
       const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
       mockStorage.getDocument.mockResolvedValue(textDocument);
-      mockCompilerService.compile.mockReturnValue({
-        errors: [],
-        fileName: docUri,
-        result: {} as any,
-        warnings: [],
-      });
-
       const method1Symbol = {
         name: 'method1',
         kind: 'method',
@@ -640,7 +713,22 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         getAllSymbols: () => [method1Symbol, method2Symbol, variableSymbol],
         getChildren: () => [],
       };
-      const globalScope = {
+      const mockSymbolTable = {
+        getCurrentScope: () => ({
+          getAllSymbols: () => [
+            {
+              name: 'TestInterface',
+              kind: 'interface',
+              location: {
+                startLine: 2,
+                startColumn: 7,
+                endLine: 6,
+                endColumn: 7,
+              },
+            },
+          ],
+          getChildren: () => [interfaceScope],
+        }),
         getAllSymbols: () => [
           {
             name: 'TestInterface',
@@ -653,12 +741,14 @@ describe('DefaultApexDocumentSymbolProvider', () => {
             },
           },
         ],
-        getChildren: () => [interfaceScope],
       };
-      const mockSymbolTable = {
-        getCurrentScope: () => globalScope,
-      };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const result = await symbolProvider.provideDocumentSymbols({
         textDocument: { uri: docUri },
@@ -682,13 +772,6 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       `;
       const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
       mockStorage.getDocument.mockResolvedValue(textDocument);
-      mockCompilerService.compile.mockReturnValue({
-        errors: [],
-        fileName: docUri,
-        result: {} as any,
-        warnings: [],
-      });
-
       const value1Symbol = {
         name: 'VALUE1',
         kind: 'enumvalue',
@@ -704,7 +787,22 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         getAllSymbols: () => [value1Symbol, value2Symbol],
         getChildren: () => [],
       };
-      const globalScope = {
+      const mockSymbolTable = {
+        getCurrentScope: () => ({
+          getAllSymbols: () => [
+            {
+              name: 'TestEnum',
+              kind: 'enum',
+              location: {
+                startLine: 2,
+                startColumn: 7,
+                endLine: 5,
+                endColumn: 7,
+              },
+            },
+          ],
+          getChildren: () => [enumScope],
+        }),
         getAllSymbols: () => [
           {
             name: 'TestEnum',
@@ -717,12 +815,14 @@ describe('DefaultApexDocumentSymbolProvider', () => {
             },
           },
         ],
-        getChildren: () => [enumScope],
       };
-      const mockSymbolTable = {
-        getCurrentScope: () => globalScope,
-      };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const result = await symbolProvider.provideDocumentSymbols({
         textDocument: { uri: docUri },
@@ -747,13 +847,6 @@ describe('DefaultApexDocumentSymbolProvider', () => {
       `;
       const textDocument = TextDocument.create(docUri, 'apex', 1, docContent);
       mockStorage.getDocument.mockResolvedValue(textDocument);
-      mockCompilerService.compile.mockReturnValue({
-        errors: [],
-        fileName: docUri,
-        result: {} as any,
-        warnings: [],
-      });
-
       const mockSymbolTable = {
         getCurrentScope: () => ({
           getAllSymbols: () => [
@@ -770,8 +863,25 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           ],
           getChildren: () => [],
         }),
+        getAllSymbols: () => [
+          {
+            name: 'TestTrigger',
+            kind: 'trigger',
+            location: {
+              startLine: 2,
+              startColumn: 9,
+              endLine: 4,
+              endColumn: 9,
+            },
+          },
+        ],
       };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: docUri,
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const result = await symbolProvider.provideDocumentSymbols({
         textDocument: { uri: docUri },
@@ -845,48 +955,39 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         TextDocument.create('test.apex', 'apex', 1, validApex),
       );
 
-      mockCompilerService.compile.mockReturnValue({
-        errors: [],
-        fileName: 'test.apex',
-        result: {} as any,
-        warnings: [],
-      });
-
-      const innerMethodSymbol = {
-        name: 'innerMethod',
-        kind: 'method',
-        location: { startLine: 6, startColumn: 25, endLine: 6, endColumn: 41 },
-      };
-      const innerClassScope = {
-        name: 'InnerClass',
-        getAllSymbols: () => [innerMethodSymbol],
-        getChildren: () => [],
-      };
-      const fieldSymbol = {
-        name: 'field1',
-        kind: 'variable',
-        location: { startLine: 3, startColumn: 21, endLine: 3, endColumn: 36 },
-      };
-      const methodSymbol = {
-        name: 'method1',
-        kind: 'method',
-        location: { startLine: 4, startColumn: 21, endLine: 4, endColumn: 32 },
-      };
-      const innerClassSymbol = {
-        name: 'InnerClass',
-        kind: 'class',
-        location: { startLine: 5, startColumn: 21, endLine: 7, endColumn: 21 },
-      };
       const classScope = {
-        name: 'TestClass',
-        getAllSymbols: () => [fieldSymbol, methodSymbol, innerClassSymbol],
-        getChildren: () => [innerClassScope],
+        name: 'MyClass',
+        getAllSymbols: () => [
+          {
+            name: 'field1',
+            kind: 'field',
+            location: {
+              startLine: 3,
+              startColumn: 11,
+              endLine: 3,
+              endColumn: 19,
+            },
+          },
+          {
+            name: 'method1',
+            kind: 'method',
+            location: {
+              startLine: 4,
+              startColumn: 11,
+              endLine: 6,
+              endColumn: 11,
+            },
+            parameters: [],
+            returnType: { name: 'void' },
+          },
+        ],
+        getChildren: () => [],
       };
       const mockSymbolTable = {
         getCurrentScope: () => ({
           getAllSymbols: () => [
             {
-              name: 'TestClass',
+              name: 'MyClass',
               kind: 'class',
               location: {
                 startLine: 2,
@@ -898,8 +999,25 @@ describe('DefaultApexDocumentSymbolProvider', () => {
           ],
           getChildren: () => [classScope],
         }),
+        getAllSymbols: () => [
+          {
+            name: 'MyClass',
+            kind: 'class',
+            location: {
+              startLine: 2,
+              startColumn: 17,
+              endLine: 8,
+              endColumn: 17,
+            },
+          },
+        ],
       };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: 'test.apex',
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const params: DocumentSymbolParams = {
         textDocument: { uri: 'test.apex' },
@@ -925,13 +1043,46 @@ describe('DefaultApexDocumentSymbolProvider', () => {
         TextDocument.create('test.apex', 'apex', 1, validApex),
       );
 
-      mockCompilerService.compile.mockReturnValue({
-        errors: [],
-        fileName: 'test.apex',
-        result: {} as any,
-        warnings: [],
-      });
-
+      const interfaceScope = {
+        name: 'TestInterface',
+        getAllSymbols: () => [
+          {
+            name: 'method1',
+            kind: 'method',
+            location: {
+              startLine: 3,
+              startColumn: 11,
+              endLine: 3,
+              endColumn: 20,
+            },
+            parameters: [],
+            returnType: { name: 'void' },
+          },
+          {
+            name: 'method2',
+            kind: 'method',
+            location: {
+              startLine: 4,
+              startColumn: 11,
+              endLine: 4,
+              endColumn: 22,
+            },
+            parameters: [],
+            returnType: { name: 'String' },
+          },
+          {
+            name: 'field1',
+            kind: 'field',
+            location: {
+              startLine: 5,
+              startColumn: 11,
+              endLine: 5,
+              endColumn: 19,
+            },
+          },
+        ],
+        getChildren: () => [],
+      };
       const mockSymbolTable = {
         getCurrentScope: () => ({
           getAllSymbols: () => [
@@ -946,10 +1097,27 @@ describe('DefaultApexDocumentSymbolProvider', () => {
               },
             },
           ],
-          getChildren: () => [],
+          getChildren: () => [interfaceScope],
         }),
+        getAllSymbols: () => [
+          {
+            name: 'TestInterface',
+            kind: 'interface',
+            location: {
+              startLine: 2,
+              startColumn: 17,
+              endLine: 5,
+              endColumn: 17,
+            },
+          },
+        ],
       };
-      (mockListener.getResult as jest.Mock).mockReturnValue(mockSymbolTable);
+      mockCompilerService.compile.mockReturnValue({
+        errors: [],
+        fileName: 'test.apex',
+        result: mockSymbolTable,
+        warnings: [],
+      });
 
       const params: DocumentSymbolParams = {
         textDocument: { uri: 'test.apex' },

@@ -19,3 +19,7 @@ export * from './CodeActionProcessingService';
 export * from './DocumentSaveProcessingService';
 export * from './DocumentCloseProcessingService';
 export * from './DocumentProcessingService';
+export * from './DocumentChangeProcessingService';
+
+// Export LSP queue system
+export * from '../queue';

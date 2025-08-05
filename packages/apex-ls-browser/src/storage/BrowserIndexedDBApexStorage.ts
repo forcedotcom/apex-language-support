@@ -197,6 +197,10 @@ export class BrowserIndexedDBApexStorage extends ApexStorageBase {
     throw new Error('Method not implemented.');
   }
 
+  async deleteDocument(uri: string): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
   protected async _getDocumentSymbolsImpl(documentUri: string): Promise<any[]> {
     throw new Error('Method not implemented.');
   }

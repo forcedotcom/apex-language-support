@@ -34,6 +34,7 @@ import {
   ApexStorageManager,
   LSPConfigurationManager,
   dispatchProcessOnResolve,
+  LSPQueueManager,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -195,10 +196,22 @@ export function startServer() {
     connection.onRequest('$/ping', async () => {
       logger.debug('[SERVER] Received $/ping request');
       try {
+        const queueStats = queueManager.getStats();
         const response = {
           message: 'pong',
           timestamp: new Date().toISOString(),
           server: 'apex-ls-node',
+          queueStats: {
+            activeWorkers: queueStats.activeWorkers,
+            totalProcessed: queueStats.totalProcessed,
+            averageProcessingTime: queueStats.averageProcessingTime,
+            queueSizes: {
+              immediate: queueStats.immediateQueueSize,
+              high: queueStats.highPriorityQueueSize,
+              normal: queueStats.normalPriorityQueueSize,
+              low: queueStats.lowPriorityQueueSize,
+            },
+          },
         };
         logger.debug(
           `[SERVER] Responding to $/ping with: ${JSON.stringify(response)}`,
@@ -333,6 +346,14 @@ export function startServer() {
       logger.error(`Error shutting down storage manager: ${error}`);
     }
 
+    // Shutdown LSP queue manager
+    try {
+      queueManager.shutdown();
+      logger.info('LSP queue manager shutdown complete');
+    } catch (error) {
+      logger.error(`Error shutting down LSP queue manager: ${error}`);
+    }
+
     // Perform cleanup tasks, for now we'll just set a flag
     isShutdown = true;
     logger.info('Apex Language Server shutdown complete');
@@ -374,17 +395,51 @@ export function startServer() {
     });
   };
 
+  // Initialize LSP queue manager
+  const queueManager = LSPQueueManager.getInstance();
+
   // Notifications
   documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
     // Client opened a document
     // Server will parse the document and populate the corresponding local maps
     logger.debug(
-      `Extension Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
+      () =>
+        `Extension Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
     );
 
-    dispatchProcessOnOpenDocument(event).then((diagnostics) =>
-      handleDiagnostics(event.document.uri, diagnostics),
-    );
+    // Use queue-based processing for document open
+    const fileSize = event.document.getText().length;
+    const isLargeFile = fileSize > 10000; // 10KB threshold
+
+    if (isLargeFile) {
+      // Queue large files for background processing
+      logger.debug(
+        () =>
+          `Queuing large document open: ${event.document.uri} (${fileSize} chars)`,
+      );
+
+      queueManager
+        .submitDocumentOpenRequest(event)
+        .then((diagnostics) =>
+          handleDiagnostics(event.document.uri, diagnostics),
+        )
+        .catch((error) => {
+          logger.error(() => `Queued document open failed: ${error}`);
+          // Fallback to immediate processing
+          dispatchProcessOnOpenDocument(event).then((diagnostics) =>
+            handleDiagnostics(event.document.uri, diagnostics),
+          );
+        });
+    } else {
+      // Process small files immediately
+      logger.debug(
+        () => `Processing small document immediately: ${event.document.uri}`,
+      );
+
+      dispatchProcessOnOpenDocument(event).then((diagnostics) =>
+        handleDiagnostics(event.document.uri, diagnostics),
+      );
+    }
   });
 
   documents.onDidChangeContent(
@@ -405,10 +460,16 @@ export function startServer() {
     // Client closed a open document
     // Server will update the corresponding local maps
     logger.debug(
-      `Extension Apex Language Server closed document: ${JSON.stringify(event)}`,
+      () =>
+        `Extension Apex Language Server closed document: ${JSON.stringify(event)}`,
     );
 
-    dispatchProcessOnCloseDocument(event);
+    // Use queue-based processing for document close
+    queueManager.submitDocumentCloseRequest(event).catch((error) => {
+      logger.error(() => `Queued document close failed: ${error}`);
+      // Fallback to immediate processing
+      dispatchProcessOnCloseDocument(event);
+    });
 
     // Clear diagnostics for the closed document
     handleDiagnostics(event.document.uri, []);
@@ -418,10 +479,16 @@ export function startServer() {
     // Client saved a document
     // Server will parse the document and update storage as needed
     logger.debug(
-      `Extension Apex Language Server saved document: ${JSON.stringify(event)}`,
+      () =>
+        `Extension Apex Language Server saved document: ${JSON.stringify(event)}`,
     );
 
-    dispatchProcessOnSaveDocument(event);
+    // Use queue-based processing for document save
+    queueManager.submitDocumentSaveRequest(event).catch((error) => {
+      logger.error(() => `Queued document save failed: ${error}`);
+      // Fallback to immediate processing
+      dispatchProcessOnSaveDocument(event);
+    });
   });
 
   // Make the text document manager listen on the connection

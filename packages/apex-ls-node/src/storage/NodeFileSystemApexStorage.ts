@@ -287,6 +287,16 @@ export class NodeFileSystemApexStorage extends ApexStorageBase {
     return true;
   }
 
+  async deleteDocument(uri: string): Promise<boolean> {
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    // Remove the document from memory cache
+    this.documents.delete(uri);
+    return true;
+  }
+
   // Override protected implementation methods for parser data access
   protected async _getDocumentSymbolsImpl(
     documentUri: string,

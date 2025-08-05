@@ -32,7 +32,7 @@ import {
 import { FQNOptions, calculateFQN, getAncestorChain } from '../utils/FQNUtils';
 import type { SymbolProvider } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
-import { LazyReferenceResolver } from './LazyReferenceResolver';
+
 import { ResourceLoader } from '../utils/resourceLoader';
 
 /**
@@ -421,7 +421,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private readonly MAX_CACHE_SIZE = 5000;
   private readonly CACHE_TTL = 3 * 60 * 1000; // 3 minutes
   private readonly builtInTypeTables: BuiltInTypeTablesImpl;
-  private readonly lazyReferenceResolver: LazyReferenceResolver;
+
   private readonly resourceLoader: ResourceLoader | null = null;
 
   private memoryStats = {
@@ -445,9 +445,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       true,
     );
     this.builtInTypeTables = BuiltInTypeTablesImpl.getInstance();
-    this.lazyReferenceResolver = new LazyReferenceResolver(
-      this.builtInTypeTables,
-    );
 
     // Initialize ResourceLoader for standard Apex classes
     try {
