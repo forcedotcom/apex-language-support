@@ -22,6 +22,10 @@ import {
   TypeReference,
   ReferenceContext,
 } from '@salesforce/apex-lsp-parser-ast';
+import {
+  transformLspToParserPosition,
+  formatPosition,
+} from '../utils/positionUtils';
 
 /**
  * Interface for hover processing functionality
@@ -78,16 +82,27 @@ export class HoverProcessingService implements IHoverProcessor {
           `Document found: ${document.uri}, length: ${document.getText().length}`,
       );
 
+      // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
+      const parserPosition = transformLspToParserPosition(params.position);
+
+      this.logger.debug(
+        () =>
+          `Transformed position from LSP ${formatPosition(
+            params.position,
+            'lsp',
+          )} to parser ${formatPosition(parserPosition, 'parser')}`,
+      );
+
       // Get the symbol at the position using the new getSymbolAtPosition method
       const symbol = this.symbolManager.getSymbolAtPosition(
         document.uri,
-        params.position,
+        parserPosition,
       );
 
       if (!symbol) {
         this.logger.debug(
           () =>
-            `No symbol found at position ${params.position.line}:${params.position.character}`,
+            `No symbol found at parser position ${formatPosition(parserPosition, 'parser')}`,
         );
         return null;
       }
@@ -116,15 +131,21 @@ export class HoverProcessingService implements IHoverProcessor {
     context: any,
   ): any[] | null {
     try {
+      // Transform LSP position to parser position
+      const parserPosition = transformLspToParserPosition(position);
+
       this.logger.debug(
         () =>
-          `Searching for cross-file symbols at position ${position.line}:${position.character}`,
+          `Searching for cross-file symbols at parser position ${formatPosition(
+            parserPosition,
+            'parser',
+          )}`,
       );
 
       // Use parser package's TypeReference data for precise cross-file resolution
       const typeReferences = this.symbolManager.getReferencesAtPosition(
         document.uri,
-        position,
+        parserPosition,
       );
 
       if (typeReferences && typeReferences.length > 0) {

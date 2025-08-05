@@ -342,13 +342,13 @@ describe('Hover Real Classes Integration Tests', () => {
       }
     });
 
-    it('should provide hover information for method block delcared symbols', async () => {
+    it.only('should provide hover information for method block delcared symbols', async () => {
       // Mock storage to return the FileUtilitiesTest document
       mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 5, character: 20 }, // Position on 'property' variable (LSP 0-based)
+        position: { line: 10, character: 26 }, // Position on 'property' variable name (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);

@@ -1864,7 +1864,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
 
         // If qualified reference resolution fails, try to resolve the qualifier as a fallback
-        // For field access references, always try to resolve the qualifier since qualified reference resolution is not fully implemented
+        // For field access references, always try to resolve the qualifier since qualified
+        // reference resolution is not fully implemented
         if (typeReference.context === ReferenceContext.FIELD_ACCESS) {
           const qualifierCandidates = this.findSymbolByName(
             typeReference.qualifier,
