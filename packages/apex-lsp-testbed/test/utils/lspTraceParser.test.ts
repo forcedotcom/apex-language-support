@@ -670,4 +670,131 @@ Params: {
       'file:///Users/peter.hale/git/dreamhouse-lwc/force-app/main/default/classes/TestPropertyController.cls',
     );
   });
+
+  it('should correctly associate JSON results with correct requests', () => {
+    const logContent = `
+[Trace - 10:24:39 AM] Sending request 'textDocument/hover - (40)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/apex-language-support/packages/apex-lsp-testbed/test/SomeManager.cls"
+    },
+    "position": {
+        "line": 29,
+        "character": 18
+    }
+}
+
+[Trace - 10:24:39 AM] Received response 'textDocument/hover - (40)' in 5ms.
+Result: {
+    "contents": {
+        "kind": "markdown",
+        "value": "String ContentDocumentLink.ShareType"
+    }
+}
+
+[Trace - 6:28:36 AM] Sending request 'textDocument/documentSymbol - (2)'.
+Params: {
+    "textDocument": {
+        "uri": "file:///Users/peter.hale/git/apex-language-support/packages/apex-lsp-testbed/test/SomeManager.cls"
+    }
+}
+
+[Trace - 6:28:37 AM] Received response 'textDocument/documentSymbol - (2)' in 165ms.
+Result: [
+    {
+        "name": "SomeManager",
+        "kind": 5,
+        "range": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 63,
+                "character": 3
+            }
+        },
+        "selectionRange": {
+            "start": {
+                "line": 0,
+                "character": 26
+            },
+            "end": {
+                "line": 0,
+                "character": 37
+            }
+        },
+        "children": [
+            {
+                "name": "SomeFactory",
+                "kind": 5,
+                "range": {
+                    "start": {
+                        "line": 28,
+                        "character": 18
+                    },
+                    "end": {
+                        "line": 42,
+                        "character": 5
+                    }
+                },
+                "selectionRange": {
+                    "start": {
+                        "line": 28,
+                        "character": 18
+                    },
+                    "end": {
+                        "line": 28,
+                        "character": 29
+                    }
+                }
+            }
+        ]
+    }
+]`;
+
+    const result = [...parser.parse(logContent).values()];
+
+    // Should have 2 messages: hover (id=1) and documentSymbol (id=2)
+    expect(result).toHaveLength(2);
+
+    // Check hover request/response (id=1)
+    const hoverMsg = result[0];
+    expect(hoverMsg.type).toBe('request');
+    expect(hoverMsg.method).toBe('textDocument/hover');
+    expect(hoverMsg.id).toBe(1);
+    expect(hoverMsg.params).toBeDefined();
+    expect(hoverMsg.params.textDocument.uri).toContain('SomeManager.cls');
+    expect(hoverMsg.params.position).toEqual({ line: 29, character: 18 });
+    expect(hoverMsg.result).toBeDefined();
+    expect(hoverMsg.result.contents.kind).toBe('markdown');
+    expect(hoverMsg.result.contents.value).toContain(
+      'ContentDocumentLink.ShareType',
+    );
+    expect(hoverMsg.performance).toBeDefined();
+    expect(hoverMsg.performance!.duration).toBe(5);
+
+    // Check documentSymbol request/response (id=2)
+    const docSymbolMsg = result[1];
+    expect(docSymbolMsg.type).toBe('request');
+    expect(docSymbolMsg.method).toBe('textDocument/documentSymbol');
+    expect(docSymbolMsg.id).toBe(2);
+    expect(docSymbolMsg.params).toBeDefined();
+    expect(docSymbolMsg.params.textDocument.uri).toContain('SomeManager.cls');
+    expect(docSymbolMsg.result).toBeDefined();
+    expect(Array.isArray(docSymbolMsg.result)).toBe(true);
+    expect(docSymbolMsg.result[0].name).toBe('SomeManager');
+    expect(docSymbolMsg.result[0].kind).toBe(5);
+    expect(docSymbolMsg.result[0].children).toHaveLength(1);
+    expect(docSymbolMsg.result[0].children[0].name).toBe('SomeFactory');
+    expect(docSymbolMsg.performance).toBeDefined();
+    expect(docSymbolMsg.performance!.duration).toBe(165);
+
+    // Critical test: ensure hover result is NOT the documentSymbol result
+    expect(hoverMsg.result).not.toEqual(docSymbolMsg.result);
+    expect(hoverMsg.result.contents.value).toContain(
+      'ContentDocumentLink.ShareType',
+    );
+    expect(docSymbolMsg.result[0].name).toBe('SomeManager');
+  });
 });
