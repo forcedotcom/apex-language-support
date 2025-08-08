@@ -20,6 +20,8 @@ import {
 import {
   initializeCommandState,
   registerRestartCommand,
+  registerDemoRestartCommand,
+  registerDemoErrorRestartCommand,
   setRestartHandler,
 } from './commands';
 import {
@@ -66,6 +68,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Register restart command
   registerRestartCommand(context);
+
+  // Register DEMO commands
+  registerDemoRestartCommand(context);
+  registerDemoErrorRestartCommand(context);
 
   // Register log level commands for each log level
   const logLevels = ['error', 'warning', 'info', 'debug'];

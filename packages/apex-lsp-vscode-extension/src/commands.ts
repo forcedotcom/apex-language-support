@@ -9,6 +9,10 @@
 import * as vscode from 'vscode';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel, updateLogLevel } from './logging';
+import {
+  runEffectRestartLanguageServer,
+  runSimulatedErrorRestart,
+} from './observability';
 
 /**
  * Global state for restart management
@@ -81,6 +85,106 @@ export const registerRestartCommand = (
   );
 
   context.subscriptions.push(restartCommand);
+};
+
+/**
+ * Registers the DEMO command to restart the Apex Language Server using Effect.ts instrumentation
+ * @param context The extension context
+ */
+export const registerDemoRestartCommand = (
+  context: vscode.ExtensionContext,
+): void => {
+  const demoRestartCommand = vscode.commands.registerCommand(
+    EXTENSION_CONSTANTS.DEMO_RESTART_COMMAND_ID,
+    async () => {
+      // Only allow manual restart if we're not already starting and we're outside cooldown period
+      const now = Date.now();
+      if (
+        !isStarting &&
+        now - lastRestartTime > EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS
+      ) {
+        lastRestartTime = now;
+        serverStartRetries = 0; // Reset retry counter on manual restart
+
+        if (restartHandler) {
+          logToOutputChannel(
+            'DEMO: Starting Effect.ts instrumented restart...',
+            'info',
+          );
+          await runEffectRestartLanguageServer(context, restartHandler);
+        } else {
+          logToOutputChannel('DEMO: Restart handler not set', 'error');
+        }
+      } else {
+        logToOutputChannel(
+          'DEMO: Restart blocked: Server is already starting or in cooldown period',
+          'info',
+        );
+        vscode.window.showInformationMessage(
+          'DEMO: Server restart was requested too soon after previous attempt. Please wait a moment before trying again.',
+        );
+      }
+    },
+  );
+
+  context.subscriptions.push(demoRestartCommand);
+};
+
+/**
+ * Registers the DEMO command to simulate an error restart using Effect.ts instrumentation
+ * @param context The extension context
+ */
+export const registerDemoErrorRestartCommand = (
+  context: vscode.ExtensionContext,
+): void => {
+  const demoErrorRestartCommand = vscode.commands.registerCommand(
+    EXTENSION_CONSTANTS.DEMO_ERROR_RESTART_COMMAND_ID,
+    async () => {
+      // Only allow manual restart if we're not already starting and we're outside cooldown period
+      const now = Date.now();
+      if (
+        !isStarting &&
+        now - lastRestartTime > EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS
+      ) {
+        lastRestartTime = now;
+        serverStartRetries = 0; // Reset retry counter on manual restart
+
+        if (restartHandler) {
+          logToOutputChannel(
+            'DEMO: Starting simulated error restart...',
+            'warning',
+          );
+
+          try {
+            await runSimulatedErrorRestart(context, restartHandler);
+            vscode.window.showInformationMessage(
+              'DEMO: Unexpected - Error simulation completed without error',
+            );
+          } catch (error) {
+            logToOutputChannel(
+              `DEMO: Expected error from simulation: ${error}`,
+              'info',
+            );
+            vscode.window.showWarningMessage(
+              `DEMO: Simulated error restart completed as expected. Error: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        } else {
+          logToOutputChannel('DEMO: Restart handler not set', 'error');
+        }
+      } else {
+        logToOutputChannel(
+          'DEMO: Error restart blocked: Server is already starting or in cooldown period',
+          'info',
+        );
+        vscode.window.showInformationMessage(
+          'DEMO: Error restart was requested too soon after previous attempt. Please wait a moment before trying again.',
+        );
+      }
+    },
+  );
+
+  context.subscriptions.push(demoErrorRestartCommand);
 };
 
 /**
