@@ -79,9 +79,10 @@ class DualSpanExporter implements SpanExporter {
         links: span.links,
       };
 
-      // Write as JSON Lines format
-      const jsonEntry = JSON.stringify(spanData) + '\n';
-      fs.appendFileSync(logFile, jsonEntry);
+      // Write as pretty-printed JSON with separators for readability
+      const prettyJsonEntry =
+        JSON.stringify(spanData, null, 2) + '\n' + '---\n';
+      fs.appendFileSync(logFile, prettyJsonEntry);
     });
   }
 
@@ -150,9 +151,7 @@ export const withOpenTelemetrySpan = (
   name: string,
   attributes?: Record<string, string | number | boolean>,
 ) => {
-  return <R extends never, E, A>(
-    effect: Effect.Effect<A, E, R>,
-  ): Effect.Effect<A, E, R> => {
+  return <R, E, A>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
     return Effect.gen(function* (_) {
       const tracer = trace.getTracer('apex-language-server-extension');
       const span = tracer.startSpan(name, { attributes });
@@ -164,17 +163,19 @@ export const withOpenTelemetrySpan = (
       // Execute the effect with the span context
       const result = yield* _(
         Effect.sync(() => {
-          return context.with(spanContext, () => {
-            return Effect.runPromise(effect);
-          });
+          // Set the OpenTelemetry context but return the original effect
+          // The span context will be available to any OpenTelemetry calls within
+          return context.with(spanContext, () => effect);
         }),
       );
+
+      // Execute the effect that now has the span context set
+      const finalResult = yield* _(result);
 
       // End the span
       span.end();
 
-      // Convert Promise back to Effect
-      return yield* _(Effect.promise(() => result));
+      return finalResult;
     });
   };
 };

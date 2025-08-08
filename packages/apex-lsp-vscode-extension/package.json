@@ -171,6 +171,14 @@
         "title": "%commands.apex-ls-ts.restart.server.title%"
       },
       {
+        "command": "apex-ls-ts.demo.restart.server",
+        "title": "%commands.apex-ls-ts.demo.restart.server.title%"
+      },
+      {
+        "command": "apex-ls-ts.demo.restart.server.error",
+        "title": "%commands.apex-ls-ts.demo.restart.server.error.title%"
+      },
+      {
         "command": "apex-ls-ts.setLogLevel.error",
         "title": "%commands.apex-ls-ts.setLogLevel.error.title%"
       },

@@ -186,9 +186,9 @@ export const simulatedErrorRestart = (
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Effect.Effect<void, RestartServerError, TelemetryService> => {
   const mainSimulation = Effect.gen(function* (_) {
-    // Log start of restart operation
+    // Log start of restart operation with OpenTelemetry context
     yield* _(
-      logWithTracing(
+      logWithOpenTelemetryContext(
         'Starting Apex Language Server restart (ERROR SIMULATION)',
         'info',
         {
@@ -216,7 +216,7 @@ export const simulatedErrorRestart = (
     // Sub-operation: Stop existing client (simulate this succeeds)
     const stopClientOperation = Effect.gen(function* (_) {
       yield* _(
-        logWithTracing(
+        logWithOpenTelemetryContext(
           'Stopping existing language server client (simulated)',
           'info',
           { operation: 'stop-client' },
@@ -228,18 +228,16 @@ export const simulatedErrorRestart = (
     });
 
     yield* _(
-      Effect.withSpan('stop-client-simulation', {
-        attributes: {
-          operation: 'stop-client',
-          simulation: true,
-        },
+      withOpenTelemetrySpan('stop-client-simulation', {
+        operation: 'stop-client',
+        simulation: true,
       })(stopClientOperation),
     );
 
     // Sub-operation: Start client (simulate this fails)
     const startClientOperation = Effect.gen(function* (_) {
       yield* _(
-        logWithTracing(
+        logWithOpenTelemetryContext(
           'Attempting to start language server client (will fail)',
           'warn',
           { operation: 'start-client' },
@@ -251,7 +249,7 @@ export const simulatedErrorRestart = (
 
       // Log that we're about to fail
       yield* _(
-        logWithTracing('Simulating error failure now', 'error', {
+        logWithOpenTelemetryContext('Simulating error failure now', 'error', {
           operation: 'start-client',
           simulationStep: 'about-to-fail',
           errorType: 'StartClientFailed',
@@ -274,23 +272,19 @@ export const simulatedErrorRestart = (
     });
 
     yield* _(
-      Effect.withSpan('start-client-simulation', {
-        attributes: {
-          operation: 'start-client',
-          simulation: true,
-        },
+      withOpenTelemetrySpan('start-client-simulation', {
+        operation: 'start-client',
+        simulation: true,
       })(startClientOperation),
     );
   });
 
-  const tracedSimulation = Effect.withSpan(
+  const tracedSimulation = withOpenTelemetrySpan(
     'restart-language-server-simulation',
     {
-      attributes: {
-        operation: 'restart-language-server',
-        component: 'language-server',
-        simulatedError: true,
-      },
+      operation: 'restart-language-server',
+      component: 'language-server',
+      simulatedError: true,
     },
   )(mainSimulation);
 
@@ -334,9 +328,9 @@ export const runSimulatedErrorRestart = async (
   console.log('[ERROR SIMULATION] Starting Effect.ts error simulation...');
 
   const mainProgram = Effect.gen(function* (_) {
-    // Log the start of error simulation
+    // Log the start of error simulation with OpenTelemetry context
     yield* _(
-      logWithTracing('Starting error simulation', 'info', {
+      logWithOpenTelemetryContext('Starting error simulation', 'info', {
         'simulation.type': 'error-demo',
         'operation.type': 'restart-language-server',
         'operation.mode': 'error-simulation',
