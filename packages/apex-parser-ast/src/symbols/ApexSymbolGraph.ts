@@ -736,6 +736,9 @@ export class ApexSymbolGraph {
     }
 
     this.memoryStats.totalEdges++;
+    console.log(
+      `[DEBUG] ApexSymbolGraph: Updated totalEdges to ${this.memoryStats.totalEdges}`,
+    );
     this.logger.debug(() => `Added reference: ${sourceId} -> ${targetId}`);
   }
 

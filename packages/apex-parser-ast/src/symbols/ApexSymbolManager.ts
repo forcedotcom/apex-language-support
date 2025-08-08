@@ -1795,9 +1795,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): void {
     try {
       const typeReferences = symbolTable.getAllReferences();
-      this.logger.debug(
-        () =>
-          `Processing ${typeReferences.length} type references from ${filePath}`,
+      console.log(
+        `[DEBUG] Processing ${typeReferences.length} type references from ${filePath}`,
       );
 
       for (const typeRef of typeReferences) {
@@ -1824,24 +1823,35 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     filePath: string,
   ): void {
     try {
+      console.log(
+        `[DEBUG] Processing type reference: ${typeRef.name} (qualifier: ${typeRef.qualifier || 'none'})`,
+      );
+
       // Find the source symbol (the symbol that contains this reference)
       const sourceSymbol = this.findSourceSymbolForReference(typeRef, filePath);
       if (!sourceSymbol) {
-        this.logger.debug(
-          () =>
-            `No source symbol found for reference ${typeRef.name} in ${filePath}`,
+        console.log(
+          `[DEBUG] No source symbol found for reference ${typeRef.name} in ${filePath}`,
         );
         return;
       }
 
+      console.log(
+        `[DEBUG] Found source symbol: ${sourceSymbol.name} (${sourceSymbol.kind})`,
+      );
+
       // Find the target symbol (the symbol being referenced)
       const targetSymbol = this.findTargetSymbolForReference(typeRef);
       if (!targetSymbol) {
-        this.logger.debug(
-          () => `No target symbol found for reference ${typeRef.name}`,
+        console.log(
+          `[DEBUG] No target symbol found for reference ${typeRef.name}`,
         );
         return;
       }
+
+      console.log(
+        `[DEBUG] Found target symbol: ${targetSymbol.name} (${targetSymbol.kind})`,
+      );
 
       // Map ReferenceContext to ReferenceType
       const referenceType = this.mapReferenceContextToType(typeRef.context);
@@ -1856,6 +1866,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           methodName: typeRef.parentContext,
           isStatic: this.isStaticReference(typeRef),
         },
+      );
+
+      console.log(
+        `[DEBUG] Successfully added reference: ${sourceSymbol.name} -> ${targetSymbol.name}`,
       );
 
       this.logger.debug(
@@ -1920,6 +1934,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // we would use context to disambiguate
         return qualifiedSymbols[0];
       }
+
+      // Try to resolve as built-in type
+      const builtInQualifier = this.resolveBuiltInType(typeRef.qualifier);
+      if (builtInQualifier) {
+        return builtInQualifier;
+      }
     }
 
     // Try to find the symbol by name
@@ -1928,6 +1948,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // For now, take the first match. In a more sophisticated implementation,
       // we would use context to disambiguate
       return symbols[0];
+    }
+
+    // Try to resolve as built-in type
+    const builtInSymbol = this.resolveBuiltInType(typeRef.name);
+    if (builtInSymbol) {
+      return builtInSymbol;
     }
 
     return null;
@@ -2362,11 +2388,62 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       this.logger.debug(() => `Attempting to resolve built-in type: ${name}`);
 
       // Step 1: Check if this is a standard Apex class first (System, Database, Schema, etc.)
-      if (this.resourceLoader && this.isStandardApexClass(name)) {
-        const standardClass = this.resolveStandardApexClass(name);
-        if (standardClass) {
-          this.logger.debug(() => `Resolved standard Apex class: ${name}`);
-          return standardClass;
+      const isStandard = this.isStandardApexClass(name);
+
+      if (isStandard) {
+        if (this.resourceLoader) {
+          const standardClass = this.resolveStandardApexClass(name);
+          if (standardClass) {
+            this.logger.debug(() => `Resolved standard Apex class: ${name}`);
+            return standardClass;
+          }
+        } else {
+          // Create a placeholder symbol for standard Apex classes when ResourceLoader is not available
+          const placeholderSymbol: ApexSymbol = {
+            id: `:${name}`,
+            name: name,
+            kind: SymbolKind.Class,
+            fqn: name,
+            filePath: `:${name}`,
+            parentId: null,
+            location: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: name.length,
+            },
+            key: {
+              prefix: 'class',
+              name: name,
+              path: [name],
+              unifiedId: `:${name}`,
+              filePath: `:${name}`,
+              kind: SymbolKind.Class,
+            },
+            parentKey: null,
+            _modifierFlags: 0,
+            _isLoaded: true,
+            modifiers: {
+              visibility: SymbolVisibility.Public,
+              isStatic: false,
+              isFinal: false,
+              isAbstract: false,
+              isVirtual: false,
+              isOverride: false,
+              isTransient: false,
+              isTestMethod: false,
+              isWebService: false,
+              isBuiltIn: true,
+            },
+          };
+
+          // Add the placeholder symbol to the graph
+          this.symbolGraph.addSymbol(placeholderSymbol, `:${name}`);
+
+          this.logger.debug(
+            () => `Created placeholder for standard Apex class: ${name}`,
+          );
+          return placeholderSymbol;
         }
       }
 
@@ -3045,10 +3122,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @returns true if it's a standard Apex class, false otherwise
    */
   public isStandardApexClass(name: string): boolean {
-    if (!this.resourceLoader) {
-      return false;
-    }
-
     // Extract the namespace/class part (before the dot)
     const parts = name.split('.');
     if (parts.length === 0) {

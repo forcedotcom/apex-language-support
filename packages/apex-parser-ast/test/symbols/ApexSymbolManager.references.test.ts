@@ -104,9 +104,94 @@ describe('ApexSymbolManager Reference Processing', () => {
         parent: null,
       };
 
+      // Add target symbols that the references will point to
+      const someMethodSymbol = {
+        id: 'some-method',
+        name: 'someMethod',
+        kind: 'method' as any,
+        location: { startLine: 5, startColumn: 1, endLine: 5, endColumn: 20 },
+        filePath: 'TestClass.cls',
+        parentId: 'test-class',
+        key: {
+          prefix: 'method',
+          name: 'someMethod',
+          path: ['TestClass.cls', 'TestClass', 'someMethod'],
+          unifiedId: 'some-method',
+          filePath: 'TestClass.cls',
+          kind: 'method' as any,
+        },
+        parentKey: {
+          prefix: 'class',
+          name: 'TestClass',
+          path: ['TestClass.cls', 'TestClass'],
+          unifiedId: 'test-class',
+          filePath: 'TestClass.cls',
+          kind: 'class' as any,
+        },
+        fqn: 'TestClass.someMethod',
+        _modifierFlags: 0,
+        _isLoaded: true,
+        modifiers: {
+          visibility: 'public' as any,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        parent: null,
+      };
+
+      const someFieldSymbol = {
+        id: 'some-field',
+        name: 'someField',
+        kind: 'field' as any,
+        location: { startLine: 6, startColumn: 1, endLine: 6, endColumn: 15 },
+        filePath: 'TestClass.cls',
+        parentId: 'test-class',
+        key: {
+          prefix: 'field',
+          name: 'someField',
+          path: ['TestClass.cls', 'TestClass', 'someField'],
+          unifiedId: 'some-field',
+          filePath: 'TestClass.cls',
+          kind: 'field' as any,
+        },
+        parentKey: {
+          prefix: 'class',
+          name: 'TestClass',
+          path: ['TestClass.cls', 'TestClass'],
+          unifiedId: 'test-class',
+          filePath: 'TestClass.cls',
+          kind: 'class' as any,
+        },
+        fqn: 'TestClass.someField',
+        _modifierFlags: 0,
+        _isLoaded: true,
+        modifiers: {
+          visibility: 'public' as any,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        parent: null,
+      };
+
       // Add symbols to the symbol table
       symbolTable.addSymbol(classSymbol);
       symbolTable.addSymbol(methodSymbol);
+      symbolTable.addSymbol(someMethodSymbol);
+      symbolTable.addSymbol(someFieldSymbol);
 
       // Add a type reference (method call)
       const methodCallRef = TypeReferenceFactory.createMethodCallReference(
@@ -142,7 +227,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       const sourceCode = `
         public class TestClass {
           public void testMethod() {
-            FileUtilities.createFile(base64Data, fileName, recordId);
+            System.debug('Hello World');
           }
         }
       `;
