@@ -28,7 +28,6 @@ import {
   stopLanguageServer,
 } from './language-server';
 import { getWorkspaceSettings } from './configuration';
-import { registerBaselineTestCommands } from './baseline-test-script';
 
 /**
  * Wrapper function for restart that matches the expected signature
@@ -103,9 +102,6 @@ export function activate(context: vscode.ExtensionContext): void {
       await handleRestart(context);
     },
   );
-
-  // Register baseline testing commands
-  registerBaselineTestCommands(context);
 
   // Log activation
   logToOutputChannel('Apex Language Server extension is now active!', 'info');

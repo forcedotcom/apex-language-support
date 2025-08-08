@@ -17,7 +17,6 @@ let globalContext: vscode.ExtensionContext;
 let serverStartRetries = 0;
 let lastRestartTime = 0;
 let isStarting = false;
-let isBaselineTesting = false; // Flag to bypass cooldown during baseline testing
 let restartHandler:
   | ((context: vscode.ExtensionContext) => Promise<void>)
   | undefined;
@@ -56,12 +55,11 @@ export const registerRestartCommand = (
     EXTENSION_CONSTANTS.RESTART_COMMAND_ID,
     async () => {
       // Only allow manual restart if we're not already starting and we're outside cooldown period
-      // Skip cooldown check during baseline testing
       const now = Date.now();
-      const cooldownCheck =
-        isBaselineTesting ||
-        now - lastRestartTime > EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS;
-      if (!isStarting && cooldownCheck) {
+      if (
+        !isStarting &&
+        now - lastRestartTime > EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS
+      ) {
         lastRestartTime = now;
         serverStartRetries = 0; // Reset retry counter on manual restart
 
@@ -203,25 +201,3 @@ export const setLastRestartTime = (time: number): void => {
  * @returns The extension context
  */
 export const getGlobalContext = (): vscode.ExtensionContext => globalContext;
-
-/**
- * Enables baseline testing mode (disables restart cooldown)
- */
-export const enableBaselineTesting = (): void => {
-  isBaselineTesting = true;
-  logToOutputChannel(
-    'Baseline testing mode enabled - cooldown disabled',
-    'info',
-  );
-};
-
-/**
- * Disables baseline testing mode (re-enables restart cooldown)
- */
-export const disableBaselineTesting = (): void => {
-  isBaselineTesting = false;
-  logToOutputChannel(
-    'Baseline testing mode disabled - cooldown re-enabled',
-    'info',
-  );
-};

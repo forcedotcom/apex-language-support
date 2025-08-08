@@ -21,7 +21,6 @@ import {
   updateApexServerStatusReady,
   updateApexServerStatusError,
 } from './status-bar';
-import { baselineCollector } from './baseline-measurement';
 import { runEffectRestartLanguageServer } from './observability/instrumented-restart';
 
 /**
@@ -156,27 +155,8 @@ export const restartLanguageServer = async (
     'info',
   );
 
-  // Check if Effect.ts observability is enabled
-  const config = vscode.workspace.getConfiguration('apex-ls-ts');
-  const useEffectObservability = config.get<boolean>(
-    'observability.useEffect',
-    false,
-  );
-
-  if (useEffectObservability) {
-    // Use Effect.ts instrumented restart
-    console.log('[EFFECT] Using Effect.ts observability for restart');
-    await runEffectRestartLanguageServer(context, restartHandler);
-  } else {
-    // Use baseline measurement
-    console.log('[BASELINE] Using baseline measurement for restart');
-    await baselineCollector.measureOperation(
-      'restart-language-server',
-      async () => {
-        await startLanguageServer(context, restartHandler);
-      },
-    );
-  }
+  // Always use Effect.ts instrumented restart
+  await runEffectRestartLanguageServer(context, restartHandler);
 };
 
 /**
@@ -204,9 +184,4 @@ export const getLanguageClient = (): LanguageClient | undefined => client;
  * Saves current baseline statistics to file
  * @param context The extension context
  */
-export const saveBaselineStats = async (
-  context: vscode.ExtensionContext,
-): Promise<void> => {
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  await baselineCollector.saveStats(workspaceRoot);
-};
+// Baseline stats are no longer supported

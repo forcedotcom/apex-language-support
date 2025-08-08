@@ -162,11 +162,6 @@
           ],
           "default": "info",
           "description": "%configuration.apex-ls-ts.logLevel.description%"
-        },
-        "apex-ls-ts.observability.useEffect": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable Effect.ts observability for comprehensive tracing, metrics, and logging"
         }
       }
     },
@@ -190,38 +185,6 @@
       {
         "command": "apex-ls-ts.setLogLevel.debug",
         "title": "%commands.apex-ls-ts.setLogLevel.debug.title%"
-      },
-      {
-        "command": "apex.baseline.quickTest",
-        "title": "Apex: Run Quick Baseline Test (5 restarts)"
-      },
-      {
-        "command": "apex.baseline.fullTest",
-        "title": "Apex: Run Full Baseline Test (15 restarts)"
-      },
-      {
-        "command": "apex.baseline.saveStats",
-        "title": "Apex: Save Baseline Stats to File"
-      },
-      {
-        "command": "apex.baseline.clearStats",
-        "title": "Apex: Clear Baseline Stats"
-      },
-      {
-        "command": "apex.observability.enableEffect",
-        "title": "Apex: Enable Effect.ts Observability"
-      },
-      {
-        "command": "apex.observability.disableEffect",
-        "title": "Apex: Disable Effect.ts Observability (Use Baseline)"
-      },
-      {
-        "command": "apex.observability.simulateError",
-        "title": "Apex: Simulate Error Scenario (Demo Error Handling)"
-      },
-      {
-        "command": "apex.observability.checkAlerts",
-        "title": "Apex: Check Monitoring Alerts (Analyze Telemetry)"
       }
     ],
     "viewsContainers": {
