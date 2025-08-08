@@ -6,129 +6,131 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { Schema, Data } from 'effect';
+
 /**
- * Effect.ts telemetry types with simplified implementation for compatibility
+ * Simplified telemetry schemas using Effect's built-in Schema system
  *
- * Note: This maintains the Effect.ts patterns while ensuring compatibility
- * with the current codebase during transition.
+ * This module leverages Effect's built-in schemas for type-safe validation
+ * while keeping telemetry data structures simple and aligned with Effect patterns.
  */
 
 /**
- * Telemetry data types (compatible with Effect.ts schemas)
+ * Log Level Schema
  */
-export interface TelemetryEvent {
-  timestamp: string;
-  name: string;
-  attributes?: Record<string, unknown>;
-}
-
-export interface TelemetryTrace {
-  traceId: string;
-  spanId: string;
-  parentSpanId?: string;
-  name: string;
-  startTime: string; // ISO timestamp
-  endTime: string; // ISO timestamp
-  duration: number;
-  status: 'OK' | 'ERROR';
-  attributes: Record<string, unknown>;
-  events?: TelemetryEvent[];
-}
+export const LogLevelSchema = Schema.Literal('debug', 'info', 'warn', 'error');
+export type LogLevel = Schema.Schema.Type<typeof LogLevelSchema>;
 
 /**
- * Telemetry Metric Interface
+ * Metric Type Schema
  */
-export interface TelemetryMetric {
-  name: string;
-  type: 'counter' | 'histogram' | 'gauge';
-  value: number;
-  timestamp: string; // ISO timestamp
-  attributes?: Record<string, string>;
-  unit?: string;
-}
+export const MetricTypeSchema = Schema.Literal('counter', 'histogram', 'gauge');
+export type MetricType = Schema.Schema.Type<typeof MetricTypeSchema>;
 
 /**
- * Error information interface
+ * Restart Server Error Reason Schema
  */
-export interface ErrorInfo {
-  name: string;
-  message: string;
-  stack?: string;
-}
+export const RestartServerErrorReasonSchema = Schema.Literal(
+  'StopClientFailed',
+  'StartClientFailed',
+  'ConfigurationError',
+  'TimeoutError',
+);
+export type RestartServerErrorReason = Schema.Schema.Type<
+  typeof RestartServerErrorReasonSchema
+>;
 
 /**
- * Telemetry Log Interface
+ * Basic Telemetry Event Schema
  */
-export interface TelemetryLog {
-  timestamp: string; // ISO timestamp
-  level: 'debug' | 'info' | 'warn' | 'error';
-  message: string;
-  traceId?: string;
-  spanId?: string;
-  attributes?: Record<string, unknown>;
-  error?: ErrorInfo;
-}
+export const TelemetryEventSchema = Schema.Struct({
+  timestamp: Schema.String,
+  name: Schema.String,
+  attributes: Schema.optional(
+    Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  ),
+});
+export type TelemetryEvent = Schema.Schema.Type<typeof TelemetryEventSchema>;
 
 /**
- * Effect.ts Typed Error Interface
+ * Telemetry Metric Schema
  */
-export interface RestartServerError {
-  _tag: 'RestartServerError';
-  reason:
-    | 'StopClientFailed'
-    | 'StartClientFailed'
-    | 'ConfigurationError'
-    | 'TimeoutError';
-  message: string;
-  underlyingError?: unknown;
-  timestamp: string;
-  context?: Record<string, unknown>;
-}
+export const TelemetryMetricSchema = Schema.Struct({
+  name: Schema.String,
+  type: MetricTypeSchema,
+  value: Schema.Number,
+  timestamp: Schema.String,
+  attributes: Schema.optional(
+    Schema.Record({ key: Schema.String, value: Schema.String }),
+  ),
+  unit: Schema.optional(Schema.String),
+});
+export type TelemetryMetric = Schema.Schema.Type<typeof TelemetryMetricSchema>;
 
 /**
- * Type-safe constructor functions (Effect.ts pattern)
+ * Telemetry Log Schema
  */
-export const createTelemetryTrace = (data: TelemetryTrace): TelemetryTrace => {
-  // Validate required fields
-  if (!data.traceId || !data.spanId || !data.name) {
-    throw new Error('Invalid TelemetryTrace: missing required fields');
-  }
-  return data;
-};
+export const TelemetryLogSchema = Schema.Struct({
+  timestamp: Schema.String,
+  level: LogLevelSchema,
+  message: Schema.String,
+  attributes: Schema.optional(
+    Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  ),
+});
+export type TelemetryLog = Schema.Schema.Type<typeof TelemetryLogSchema>;
 
-export const createTelemetryMetric = (
-  data: TelemetryMetric,
-): TelemetryMetric => {
-  // Validate required fields
-  if (!data.name || typeof data.value !== 'number') {
-    throw new Error('Invalid TelemetryMetric: missing required fields');
-  }
-  return data;
-};
+/**
+ * Restart Server Error using Effect's Data.TaggedError
+ */
+export class RestartServerError extends Data.TaggedError('RestartServerError')<{
+  readonly reason: RestartServerErrorReason;
+  readonly message: string;
+  readonly underlyingError?: unknown;
+  readonly timestamp: string;
+  readonly context?: Record<string, unknown>;
+}> {}
 
-export const createTelemetryLog = (data: TelemetryLog): TelemetryLog => {
-  // Validate required fields
-  if (!data.timestamp || !data.level || !data.message) {
-    throw new Error('Invalid TelemetryLog: missing required fields');
-  }
-  return data;
-};
+/**
+ * Type-safe constructors using Effect Schema validation
+ */
+export const createTelemetryEvent =
+  Schema.decodeUnknownSync(TelemetryEventSchema);
+export const createTelemetryMetric = Schema.decodeUnknownSync(
+  TelemetryMetricSchema,
+);
+export const createTelemetryLog = Schema.decodeUnknownSync(TelemetryLogSchema);
 
 /**
  * Create a typed restart server error
  */
 export const createRestartServerError = (
-  reason: RestartServerError['reason'],
+  reason: RestartServerErrorReason,
   message: string,
   underlyingError?: unknown,
   context?: Record<string, unknown>,
 ): RestartServerError => {
-  return {
-    _tag: 'RestartServerError',
+  return new RestartServerError({
     reason,
     message: `Restart server failed: ${reason} - ${message}`,
     underlyingError,
     timestamp: new Date().toISOString(),
     context,
-  };
+  });
 };
+
+/**
+ * Validation functions that return Effect operations
+ */
+export const validateTelemetryEvent =
+  Schema.decodeUnknown(TelemetryEventSchema);
+export const validateTelemetryMetric = Schema.decodeUnknown(
+  TelemetryMetricSchema,
+);
+export const validateTelemetryLog = Schema.decodeUnknown(TelemetryLogSchema);
+
+/**
+ * Convenience type exports for backward compatibility
+ */
+export type TelemetryTrace = TelemetryEvent; // Simplified - use Effect's built-in tracing instead
+export const createTelemetryTrace = createTelemetryEvent; // Backward compatibility

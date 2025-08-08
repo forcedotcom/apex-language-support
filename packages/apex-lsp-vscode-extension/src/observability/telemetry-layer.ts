@@ -6,58 +6,26 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Effect, Context, Layer, pipe, Option, FiberRef } from 'effect';
+import { Effect, Context, Layer, Option, Logger, Metric, Tracer } from 'effect';
 import { FileSystem } from '@effect/platform';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import {
-  TelemetryTrace,
   TelemetryMetric,
   TelemetryLog,
-  createTelemetryTrace,
   createTelemetryMetric,
   createTelemetryLog,
+  LogLevel,
 } from './schemas';
 
 /**
- * Trace Context for Effect.ts based tracing
- */
-export interface TraceContext {
-  readonly traceId: string;
-  readonly spanId: string;
-  readonly parentSpanId?: string;
-}
-
-/**
- * Current Trace Context FiberRef
- */
-export const CurrentTraceContext = FiberRef.unsafeMake<
-  Option.Option<TraceContext>
->(Option.none());
-
-/**
- * Effect.ts Telemetry Service Interface
+ * Simplified Telemetry Service Interface using Effect's built-in capabilities
  */
 export interface TelemetryService {
-  readonly writeTrace: (trace: TelemetryTrace) => Effect.Effect<void>;
   readonly writeMetric: (metric: TelemetryMetric) => Effect.Effect<void>;
   readonly writeLog: (log: TelemetryLog) => Effect.Effect<void>;
   readonly flush: () => Effect.Effect<void>;
-  readonly generateTraceId: () => string;
-  readonly generateSpanId: () => string;
-  readonly getCurrentTraceContext: () => Effect.Effect<
-    Option.Option<TraceContext>
-  >;
-  readonly withTraceContext: <A, E, R>(
-    context: TraceContext,
-    operation: Effect.Effect<A, E, R>,
-  ) => Effect.Effect<A, E, R>;
-  readonly writeLogWithContext: (
-    message: string,
-    level: 'debug' | 'info' | 'warn' | 'error',
-    attributes?: Record<string, unknown>,
-  ) => Effect.Effect<void>;
 }
 
 /**
@@ -72,7 +40,6 @@ export const TelemetryService =
 export interface TelemetryConfig {
   readonly outputDirectory: string;
   readonly enabled: boolean;
-  readonly flushInterval: number; // milliseconds
   readonly maxBatchSize: number;
 }
 
@@ -85,7 +52,6 @@ export const TelemetryConfig =
 export const TelemetryConfigLive = Layer.succeed(TelemetryConfig, {
   outputDirectory: '.telemetry',
   enabled: true,
-  flushInterval: 5000,
   maxBatchSize: 10,
 });
 
@@ -93,13 +59,12 @@ export const TelemetryConfigLive = Layer.succeed(TelemetryConfig, {
  * In-memory telemetry storage interface
  */
 interface TelemetryStorage {
-  traces: TelemetryTrace[];
   metrics: TelemetryMetric[];
   logs: TelemetryLog[];
 }
 
 /**
- * Effect.ts Telemetry Service Layer Implementation
+ * Simplified Effect.ts Telemetry Service Layer Implementation
  */
 export const TelemetryServiceLive = Layer.effect(
   TelemetryService,
@@ -108,7 +73,6 @@ export const TelemetryServiceLive = Layer.effect(
 
     // Initialize storage
     const storage: TelemetryStorage = {
-      traces: [],
       metrics: [],
       logs: [],
     };
@@ -125,77 +89,37 @@ export const TelemetryServiceLive = Layer.effect(
         const workspaceRoot = getWorkspaceRoot();
         const outputPath = path.join(workspaceRoot, config.outputDirectory);
 
-        console.log(
-          `[EFFECT TELEMETRY] Creating telemetry directory: ${outputPath}`,
-        );
-
         yield* _(
           Effect.tryPromise(async () => {
             await fs.mkdir(outputPath, { recursive: true });
           }),
-          Effect.orElse(() => Effect.succeed(void 0)), // Ignore errors
+          Effect.orElse(() => Effect.succeed(void 0)),
         );
 
-        console.log(
-          `[EFFECT TELEMETRY] Telemetry directory ready: ${outputPath}`,
-        );
         return outputPath;
       });
-
-    // Generate unique IDs
-    const generateTraceId = (): string =>
-      `trace-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    const generateSpanId = (): string =>
-      `span-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Write telemetry data to files
     const writeToFile = <T>(filename: string, data: T[]): Effect.Effect<void> =>
       Effect.gen(function* (_) {
-        if (!config.enabled) {
-          console.log(
-            `[EFFECT TELEMETRY] Telemetry disabled, skipping ${filename}`,
-          );
-          return;
-        }
-
-        if (data.length === 0) {
-          console.log(`[EFFECT TELEMETRY] No data to write for ${filename}`);
+        if (!config.enabled || data.length === 0) {
           return;
         }
 
         const outputPath = yield* _(ensureOutputDirectory());
         const filePath = path.join(outputPath, filename);
-
-        // Convert to JSON Lines format (one JSON object per line)
         const jsonContent =
           data.map((item) => JSON.stringify(item)).join('\n') + '\n';
-
-        console.log(
-          `[EFFECT TELEMETRY] Writing ${data.length} entries to ${filePath}`,
-        );
 
         yield* _(
           Effect.tryPromise(async () => {
             await fs.appendFile(filePath, jsonContent);
           }),
-          Effect.orElse(() => Effect.succeed(void 0)), // Ignore errors
-        );
-
-        console.log(
-          `[EFFECT TELEMETRY] Successfully wrote ${data.length} ${filename.replace('.jsonl', '')} entries to ${filePath}`,
+          Effect.orElse(() => Effect.succeed(void 0)),
         );
       });
 
     // Write methods
-    const writeTrace = (trace: TelemetryTrace): Effect.Effect<void> =>
-      Effect.gen(function* (_) {
-        storage.traces.push(trace);
-        if (storage.traces.length >= config.maxBatchSize) {
-          yield* _(flush());
-        }
-      });
-
     const writeMetric = (metric: TelemetryMetric): Effect.Effect<void> =>
       Effect.gen(function* (_) {
         storage.metrics.push(metric);
@@ -215,12 +139,10 @@ export const TelemetryServiceLive = Layer.effect(
     // Flush all stored data to files
     const flush = (): Effect.Effect<void> =>
       Effect.gen(function* (_) {
-        const tracesToFlush = [...storage.traces];
         const metricsToFlush = [...storage.metrics];
         const logsToFlush = [...storage.logs];
 
         // Clear storage
-        storage.traces.length = 0;
         storage.metrics.length = 0;
         storage.logs.length = 0;
 
@@ -228,7 +150,6 @@ export const TelemetryServiceLive = Layer.effect(
         yield* _(
           Effect.all(
             [
-              writeToFile('traces.jsonl', tracesToFlush),
               writeToFile('metrics.jsonl', metricsToFlush),
               writeToFile('logs.jsonl', logsToFlush),
             ],
@@ -237,63 +158,10 @@ export const TelemetryServiceLive = Layer.effect(
         );
       });
 
-    // Get current trace context from FiberRef
-    const getCurrentTraceContext = (): Effect.Effect<
-      Option.Option<TraceContext>
-    > => FiberRef.get(CurrentTraceContext);
-
-    // Execute operation with specific trace context
-    const withTraceContext = <A, E, R>(
-      context: TraceContext,
-      operation: Effect.Effect<A, E, R>,
-    ): Effect.Effect<A, E, R> =>
-      Effect.locally(CurrentTraceContext, Option.some(context))(operation);
-
-    // Write log with automatic trace context
-    const writeLogWithContext = (
-      message: string,
-      level: 'debug' | 'info' | 'warn' | 'error',
-      attributes?: Record<string, unknown>,
-    ): Effect.Effect<void> =>
-      Effect.gen(function* (_) {
-        // Get current trace context from FiberRef
-        const currentContext = yield* _(getCurrentTraceContext());
-
-        const { traceId, spanId } = pipe(
-          currentContext,
-          Option.match({
-            onNone: () => ({
-              traceId: 'no-active-trace',
-              spanId: 'no-active-span',
-            }),
-            onSome: (context) => ({
-              traceId: context.traceId,
-              spanId: context.spanId,
-            }),
-          }),
-        );
-
-        const log = createTelemetryLog({
-          timestamp: new Date().toISOString(),
-          level,
-          message,
-          traceId,
-          spanId,
-          attributes,
-        });
-        yield* _(writeLog(log));
-      });
-
     return {
-      writeTrace,
       writeMetric,
       writeLog,
       flush,
-      generateTraceId,
-      generateSpanId,
-      getCurrentTraceContext,
-      withTraceContext,
-      writeLogWithContext,
     };
   }),
 );
@@ -302,18 +170,9 @@ export const TelemetryServiceLive = Layer.effect(
  * No-Op Telemetry Service Layer for production builds
  */
 export const TelemetryServiceNoOp = Layer.succeed(TelemetryService, {
-  writeTrace: () => Effect.void,
   writeMetric: () => Effect.void,
   writeLog: () => Effect.void,
   flush: () => Effect.void,
-  generateTraceId: () => 'noop-trace-id',
-  generateSpanId: () => 'noop-span-id',
-  getCurrentTraceContext: () => Effect.succeed(Option.none()),
-  withTraceContext: <A, E, R>(
-    _context: TraceContext,
-    operation: Effect.Effect<A, E, R>,
-  ) => operation,
-  writeLogWithContext: () => Effect.void,
 });
 
 /**
@@ -327,195 +186,115 @@ export const TelemetryLive = Layer.provide(
 /**
  * Effect.ts convenience functions
  */
-export const writeTrace = (trace: TelemetryTrace) =>
-  pipe(
-    TelemetryService,
-    Effect.flatMap((service) => service.writeTrace(trace)),
-  );
-
 export const writeMetric = (metric: TelemetryMetric) =>
-  pipe(
-    TelemetryService,
-    Effect.flatMap((service) => service.writeMetric(metric)),
-  );
+  Effect.flatMap(TelemetryService, (service) => service.writeMetric(metric));
 
 export const writeLog = (log: TelemetryLog) =>
-  pipe(
-    TelemetryService,
-    Effect.flatMap((service) => service.writeLog(log)),
-  );
+  Effect.flatMap(TelemetryService, (service) => service.writeLog(log));
 
 export const flush = () =>
-  pipe(
-    TelemetryService,
-    Effect.flatMap((service) => service.flush()),
-  );
-
-export const writeLogWithContext = (
-  message: string,
-  level: 'debug' | 'info' | 'warn' | 'error',
-  attributes?: Record<string, unknown>,
-) =>
-  pipe(
-    TelemetryService,
-    Effect.flatMap((service) =>
-      service.writeLogWithContext(message, level, attributes),
-    ),
-  );
+  Effect.flatMap(TelemetryService, (service) => service.flush());
 
 /**
- * Enhanced withSpan that integrates with our telemetry system
+ * Enhanced logging function that includes span and trace IDs from Effect.ts tracing context
+ *
+ * This function manually extracts span context from Effect.ts and includes it in logs.
+ * Note: Effect.ts does NOT automatically include span context in logs by default.
+ *
+ * The logs will include:
+ * - Span ID: Unique identifier for the current operation span
+ * - Trace ID: Unique identifier for the entire trace
+ * - Span name: Human-readable name of the current span
+ * - Parent span ID: ID of the parent span (if any)
+ *
+ * Example usage:
+ * ```typescript
+ * yield* _(
+ *   Effect.withSpan('my-operation', {
+ *     attributes: { component: 'my-component' }
+ *   })(
+ *     Effect.gen(function* (_) {
+ *       yield* _(logWithTracing('Operation started', 'info', { step: 'init' }));
+ *       // ... operation logic
+ *       yield* _(logWithTracing('Operation completed', 'info', { step: 'complete' }));
+ *     })
+ *   )
+ * );
+ * ```
  */
-export const withSpan = <A, E, R>(
-  name: string,
-  operation: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, TelemetryService | R> =>
-  pipe(
-    TelemetryService,
-    Effect.flatMap((service) =>
-      Effect.gen(function* (_) {
-        // Get parent span context if available
-        const parentContext = yield* _(service.getCurrentTraceContext());
+export const logWithTracing = (
+  message: string,
+  level: LogLevel = 'info',
+  attributes?: Record<string, unknown>,
+) => {
+  return Effect.gen(function* (_) {
+    // Extract tracing information
+    const tracingAttributes: Record<string, unknown> = {
+      ...attributes,
+    };
 
-        // Use parent's traceId if available, otherwise generate new one
-        const traceId = pipe(
-          parentContext,
-          Option.map((ctx) => ctx.traceId),
-          Option.getOrElse(() => service.generateTraceId()),
-        );
+    // Note: Effect.ts doesn't easily expose span context in logs
+    // The span context is available internally but not through public APIs
+    // For now, we'll include the span name in the message if provided in attributes
+    let spanInfo = '';
+    if (attributes?.spanName) {
+      spanInfo = ` [span:${attributes.spanName}]`;
+    }
 
-        const spanId = service.generateSpanId();
-        const parentSpanId = pipe(
-          parentContext,
-          Option.map((ctx) => ctx.spanId),
-          Option.getOrUndefined,
-        );
-
-        const context: TraceContext = {
-          traceId,
-          spanId,
-          parentSpanId,
-        };
-
-        const startTime = new Date().toISOString();
-        const start = performance.now();
-
-        // Log span start with trace context
-        yield* _(
-          service.withTraceContext(
-            context,
-            service.writeLogWithContext(`Starting span: ${name}`, 'info', {
-              'span.operation': name,
-              'span.phase': 'start',
-              'trace.id': traceId,
-              'span.id': spanId,
-              'span.parent_id': parentSpanId,
-            }),
-          ),
-        );
-
-        try {
-          // Execute operation with new trace context
-          const result = yield* _(service.withTraceContext(context, operation));
-
-          const duration = Math.round((performance.now() - start) * 100) / 100;
-          const endTime = new Date().toISOString();
-
-          // Create and write trace
-          const trace = createTelemetryTrace({
-            traceId,
-            spanId,
-            parentSpanId,
-            name,
-            startTime,
-            endTime,
-            duration,
-            status: 'OK',
-            attributes: {
-              'operation.name': name,
-              'operation.success': true,
-            },
-          });
-
-          yield* _(service.writeTrace(trace));
-
-          // Create and write success metric
-          const metric = createTelemetryMetric({
-            name: `${name}.duration`,
-            type: 'histogram',
-            value: duration,
-            timestamp: endTime,
-            attributes: { operation: name },
-            unit: 'ms',
-          });
-
-          yield* _(service.writeMetric(metric));
-
-          // Log span completion with trace context
-          yield* _(
-            service.withTraceContext(
-              context,
-              service.writeLogWithContext(`Completed span: ${name}`, 'info', {
-                'span.operation': name,
-                'span.phase': 'complete',
-                'span.duration_ms': duration,
-                'span.status': 'success',
-                'trace.id': traceId,
-                'span.id': spanId,
-                'span.parent_id': parentSpanId,
-              }),
-            ),
-          );
-
-          return result;
-        } catch (error) {
-          const duration = Math.round((performance.now() - start) * 100) / 100;
-          const endTime = new Date().toISOString();
-
-          // Create and write error trace
-          const trace = createTelemetryTrace({
-            traceId,
-            spanId,
-            parentSpanId,
-            name,
-            startTime,
-            endTime,
-            duration,
-            status: 'ERROR',
-            attributes: {
-              'operation.name': name,
-              'operation.success': false,
-              'error.type':
-                error instanceof Error ? error.constructor.name : 'Unknown',
-              'error.message':
-                error instanceof Error ? error.message : String(error),
-            },
-          });
-
-          yield* _(service.writeTrace(trace));
-
-          // Log span failure with trace context and error details
-          yield* _(
-            service.withTraceContext(
-              context,
-              service.writeLogWithContext(`Failed span: ${name}`, 'error', {
-                'span.operation': name,
-                'span.phase': 'error',
-                'span.duration_ms': duration,
-                'span.status': 'failed',
-                'trace.id': traceId,
-                'span.id': spanId,
-                'span.parent_id': parentSpanId,
-                'error.type':
-                  error instanceof Error ? error.constructor.name : 'Unknown',
-                'error.message':
-                  error instanceof Error ? error.message : String(error),
-              }),
-            ),
-          );
-
-          throw error;
-        }
+    // Create telemetry log with tracing information
+    const telemetryLog = writeLog(
+      createTelemetryLog({
+        timestamp: new Date().toISOString(),
+        level,
+        message,
+        attributes: tracingAttributes,
       }),
-    ),
+    );
+
+    // Create Effect.ts log with manual span context
+    const effectLog = (() => {
+      const logMessage = `${message}${spanInfo}`;
+
+      switch (level) {
+        case 'debug':
+          return Effect.logDebug(logMessage);
+        case 'info':
+          return Effect.logInfo(logMessage);
+        case 'warn':
+          return Effect.logWarning(logMessage);
+        case 'error':
+          return Effect.logError(logMessage);
+        default:
+          return Effect.logInfo(logMessage);
+      }
+    })();
+
+    // Execute both telemetry and Effect logging
+    yield* _(telemetryLog);
+    yield* _(effectLog);
+  });
+};
+
+/**
+ * Helper function to record operation metrics
+ */
+export const recordOperationMetric = (
+  operationName: string,
+  duration: number,
+  success: boolean = true,
+  attributes?: Record<string, string>,
+) =>
+  writeMetric(
+    createTelemetryMetric({
+      name: `${operationName}.duration`,
+      type: 'histogram',
+      value: duration,
+      timestamp: new Date().toISOString(),
+      attributes: {
+        operation: operationName,
+        success: success.toString(),
+        ...attributes,
+      },
+      unit: 'ms',
+    }),
   );

@@ -19,37 +19,36 @@
 
 // Core schemas and types
 export type {
-  TelemetryTrace,
+  TelemetryEvent,
   TelemetryMetric,
   TelemetryLog,
   RestartServerError,
+  LogLevel,
+  MetricType,
+  RestartServerErrorReason,
 } from './schemas';
 
 export {
-  createTelemetryTrace,
+  createTelemetryEvent,
   createTelemetryMetric,
   createTelemetryLog,
   createRestartServerError,
+  // Backward compatibility
+  createTelemetryTrace,
 } from './schemas';
 
 // Effect.ts telemetry service and layer
-export type {
-  TelemetryService,
-  TelemetryConfig,
-  TraceContext,
-} from './telemetry-layer';
+export type { TelemetryService, TelemetryConfig } from './telemetry-layer';
 
 export {
   TelemetryService as TelemetryServiceTag,
   TelemetryLive,
   TelemetryServiceNoOp,
-  CurrentTraceContext,
-  writeTrace,
   writeMetric,
   writeLog,
-  withSpan,
   flush,
-  writeLogWithContext,
+  logWithTracing,
+  recordOperationMetric,
 } from './telemetry-layer';
 
 // Effect.ts instrumented operations
@@ -59,7 +58,3 @@ export {
   simulatedErrorRestart,
   runSimulatedErrorRestart,
 } from './instrumented-restart';
-
-// Monitoring and alerts
-export type { Alert, AlertRule, AlertSeverity } from './monitoring-alerts';
-export { MonitoringAlerts, monitoringAlerts } from './monitoring-alerts';
