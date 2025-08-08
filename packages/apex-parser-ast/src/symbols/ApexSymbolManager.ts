@@ -1634,6 +1634,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbols.forEach((symbol: ApexSymbol) => {
       this.addSymbol(symbol, filePath, symbolTable);
     });
+
+    // Process type references and add them to the symbol graph
+    this.processTypeReferencesToGraph(symbolTable, filePath);
   }
 
   /**
@@ -1693,7 +1696,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Get the most specific symbol at a given position in a file
    * This provides reliable position-based symbol lookup for LSP services
    * @param fileUri The file URI to search in
-   * @param position The position to search for symbols (0-based)
+   * @param position The position to search for symbols (parser-ast format: 1-based line, 0-based column)
    * @returns The most specific symbol at the position, or null if not found
    */
   getSymbolAtPosition(
@@ -1703,16 +1706,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       const normalizedPath = this.normalizeFilePath(fileUri);
 
-      // LSP uses 0-based line/column, parser now provides LSP coordinates (0-based)
-      const adjustedPosition = {
-        line: position.line, // Both use 0-based lines
-        character: position.character, // Both use 0-based columns
-      };
-
       this.logger.debug(
         () =>
-          `Looking for symbol at LSP position ${position.line}:${position.character} ` +
-          `(adjusted to ${adjustedPosition.line}:${adjustedPosition.character}) in ${normalizedPath}`,
+          `Looking for symbol at parser position ${position.line}:${position.character} in ${normalizedPath}`,
       );
 
       // Add more visible debug output
@@ -1723,12 +1719,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Step 1: Try to find TypeReferences at the position
       const typeReferences = this.getReferencesAtPosition(
         normalizedPath,
-        adjustedPosition,
+        position,
       );
       this.logger.debug(
         () =>
           `Found ${typeReferences.length} TypeReferences at position ` +
-          `${adjustedPosition.line}:${adjustedPosition.character}`,
+          `${position.line}:${position.character}`,
       );
 
       // Debug: Log details of each TypeReference found
@@ -1765,7 +1761,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       const directSymbol = this.findDirectSymbolAtPosition(
         normalizedPath,
-        adjustedPosition,
+        position,
       );
       if (directSymbol) {
         this.logger.debug(
@@ -1779,13 +1775,207 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       this.logger.debug(
         () =>
-          `No symbol found at position ${adjustedPosition.line}:${adjustedPosition.character}`,
+          `No symbol found at position ${position.line}:${position.character}`,
       );
       return null;
     } catch (error) {
       this.logger.debug(() => `Error in getSymbolAtPosition: ${error}`);
       return null;
     }
+  }
+
+  /**
+   * Process type references from a SymbolTable and add them to the symbol graph
+   * @param symbolTable The symbol table containing type references
+   * @param filePath The file path where the references were found
+   */
+  private processTypeReferencesToGraph(
+    symbolTable: SymbolTable,
+    filePath: string,
+  ): void {
+    try {
+      const typeReferences = symbolTable.getAllReferences();
+      this.logger.debug(
+        () =>
+          `Processing ${typeReferences.length} type references from ${filePath}`,
+      );
+
+      for (const typeRef of typeReferences) {
+        this.processTypeReferenceToGraph(typeRef, filePath);
+      }
+
+      this.logger.debug(
+        () => `Finished processing type references for ${filePath}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        () => `Error processing type references for ${filePath}: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * Process a single type reference and add it to the symbol graph
+   * @param typeRef The type reference to process
+   * @param filePath The file path where the reference was found
+   */
+  private processTypeReferenceToGraph(
+    typeRef: TypeReference,
+    filePath: string,
+  ): void {
+    try {
+      // Find the source symbol (the symbol that contains this reference)
+      const sourceSymbol = this.findSourceSymbolForReference(typeRef, filePath);
+      if (!sourceSymbol) {
+        this.logger.debug(
+          () =>
+            `No source symbol found for reference ${typeRef.name} in ${filePath}`,
+        );
+        return;
+      }
+
+      // Find the target symbol (the symbol being referenced)
+      const targetSymbol = this.findTargetSymbolForReference(typeRef);
+      if (!targetSymbol) {
+        this.logger.debug(
+          () => `No target symbol found for reference ${typeRef.name}`,
+        );
+        return;
+      }
+
+      // Map ReferenceContext to ReferenceType
+      const referenceType = this.mapReferenceContextToType(typeRef.context);
+
+      // Add the reference to the symbol graph
+      this.symbolGraph.addReference(
+        sourceSymbol,
+        targetSymbol,
+        referenceType,
+        typeRef.location,
+        {
+          methodName: typeRef.parentContext,
+          isStatic: this.isStaticReference(typeRef),
+        },
+      );
+
+      this.logger.debug(
+        () =>
+          `Added reference: ${sourceSymbol.name} -> ${targetSymbol.name} (${String(referenceType)})`,
+      );
+    } catch (error) {
+      this.logger.error(
+        () => `Error processing type reference ${typeRef.name}: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * Find the source symbol that contains the given reference
+   * @param typeRef The type reference
+   * @param filePath The file path
+   * @returns The source symbol or null if not found
+   */
+  private findSourceSymbolForReference(
+    typeRef: TypeReference,
+    filePath: string,
+  ): ApexSymbol | null {
+    // Try to find the symbol at the reference location
+    const symbolAtPosition = this.getSymbolAtPosition(filePath, {
+      line: typeRef.location.startLine,
+      character: typeRef.location.startColumn,
+    });
+
+    if (symbolAtPosition) {
+      return symbolAtPosition;
+    }
+
+    // Fallback: look for symbols in the same file that might contain this reference
+    const symbolsInFile = this.findSymbolsInFile(filePath);
+    for (const symbol of symbolsInFile) {
+      if (
+        symbol.location &&
+        symbol.location.startLine <= typeRef.location.startLine &&
+        symbol.location.endLine >= typeRef.location.endLine
+      ) {
+        return symbol;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Find the target symbol being referenced
+   * @param typeRef The type reference
+   * @returns The target symbol or null if not found
+   */
+  private findTargetSymbolForReference(
+    typeRef: TypeReference,
+  ): ApexSymbol | null {
+    // If there's a qualifier, try to find the qualified symbol
+    if (typeRef.qualifier) {
+      const qualifiedSymbols = this.findSymbolByName(typeRef.qualifier);
+      if (qualifiedSymbols.length > 0) {
+        // For now, take the first match. In a more sophisticated implementation,
+        // we would use context to disambiguate
+        return qualifiedSymbols[0];
+      }
+    }
+
+    // Try to find the symbol by name
+    const symbols = this.findSymbolByName(typeRef.name);
+    if (symbols.length > 0) {
+      // For now, take the first match. In a more sophisticated implementation,
+      // we would use context to disambiguate
+      return symbols[0];
+    }
+
+    return null;
+  }
+
+  /**
+   * Map ReferenceContext to ReferenceType
+   * @param context The reference context
+   * @returns The corresponding reference type
+   */
+  private mapReferenceContextToType(
+    context: ReferenceContext,
+  ): EnumValue<typeof ReferenceType> {
+    switch (context) {
+      case ReferenceContext.METHOD_CALL:
+        return ReferenceType.METHOD_CALL;
+      case ReferenceContext.FIELD_ACCESS:
+        return ReferenceType.FIELD_ACCESS;
+      case ReferenceContext.TYPE_DECLARATION:
+        return ReferenceType.TYPE_REFERENCE;
+      case ReferenceContext.CONSTRUCTOR_CALL:
+        return ReferenceType.CONSTRUCTOR_CALL;
+      case ReferenceContext.CLASS_REFERENCE:
+        return ReferenceType.TYPE_REFERENCE;
+      case ReferenceContext.VARIABLE_USAGE:
+        return ReferenceType.FIELD_ACCESS;
+      case ReferenceContext.PARAMETER_TYPE:
+        return ReferenceType.TYPE_REFERENCE;
+      default:
+        return ReferenceType.TYPE_REFERENCE;
+    }
+  }
+
+  /**
+   * Determine if a reference is static based on its context
+   * @param typeRef The type reference
+   * @returns True if the reference is static
+   */
+  private isStaticReference(typeRef: TypeReference): boolean {
+    // Check if the reference has a qualifier that looks like a class name
+    if (typeRef.qualifier) {
+      const qualifierSymbols = this.findSymbolByName(typeRef.qualifier);
+      if (qualifierSymbols.length > 0) {
+        const qualifierSymbol = qualifierSymbols[0];
+        return qualifierSymbol.kind === SymbolKind.Class;
+      }
+    }
+    return false;
   }
 
   /**

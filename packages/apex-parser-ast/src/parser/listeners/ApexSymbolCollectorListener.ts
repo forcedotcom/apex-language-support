@@ -2369,7 +2369,9 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Get SymbolLocation for type references
+   * Get location information for references
+   * @param ctx The parser context
+   * @returns ANTLR-compliant location with 1-based line numbers
    */
   private getLocationForReference(ctx: ParserRuleContext): SymbolLocation {
     return this.getLocation(ctx);
@@ -2602,7 +2604,7 @@ export class ApexSymbolCollectorListener
     const expression = ctx.expression();
     if (expression) {
       const exprText = this.getTextFromContext(expression);
-      const location = this.getLocation(expression);
+      const location = this.getLocationForReference(expression);
       const parentContext = this.getCurrentMethodName();
 
       const reference = TypeReferenceFactory.createVariableUsageReference(

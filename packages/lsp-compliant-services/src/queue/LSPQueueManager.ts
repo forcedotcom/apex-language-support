@@ -8,7 +8,7 @@
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
-  SymbolManagerFactory,
+  BackgroundProcessingManager,
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
@@ -34,7 +34,8 @@ export class LSPQueueManager {
 
   private constructor() {
     this.requestQueue = new LSPRequestQueue();
-    this.symbolManager = SymbolManagerFactory.createSymbolManager();
+    this.symbolManager =
+      BackgroundProcessingManager.getInstance().getSymbolManager();
 
     this.logger.debug(() => 'LSP Queue Manager initialized');
   }

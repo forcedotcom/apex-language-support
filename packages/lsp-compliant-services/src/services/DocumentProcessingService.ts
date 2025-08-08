@@ -12,7 +12,7 @@ import {
   SymbolTable,
   CompilerService,
   ApexSymbolCollectorListener,
-  SymbolManagerFactory,
+  BackgroundProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
@@ -87,11 +87,21 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     // Get all symbols from the global scope
     const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
 
-    // Add symbols to the ApexSymbolManager for hover and other features
-    const symbolManager = SymbolManagerFactory.createSymbolManager();
-    for (const symbol of globalSymbols) {
-      symbolManager.addSymbol(symbol, document.uri);
-    }
+    // Queue symbol processing in the background for better performance
+    const backgroundManager = BackgroundProcessingManager.getInstance();
+    const taskId = backgroundManager.processSymbolTable(
+      symbolTable,
+      document.uri,
+      {
+        priority: 'NORMAL', // Document changes are normal priority
+        enableCrossFileResolution: true,
+        enableReferenceProcessing: true,
+      },
+    );
+
+    this.logger.debug(
+      () => `Document change symbol processing queued: ${taskId}`,
+    );
 
     // Create the definition provider
     const definitionUpserter = new DefaultApexDefinitionUpserter(

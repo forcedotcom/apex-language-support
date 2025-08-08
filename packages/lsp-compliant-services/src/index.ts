@@ -52,6 +52,7 @@ export * from './services/DocumentCloseProcessingService';
 export * from './services/DocumentSymbolProcessingService';
 export * from './services/DiagnosticProcessingService';
 export * from './services/HoverProcessingService';
+export * from './services/BackgroundProcessingInitializationService';
 
 // Export factories
 export * from './factories/HandlerFactory';

@@ -12,7 +12,7 @@ import {
   CompilerService,
   SymbolTable,
   ApexSymbolCollectorListener,
-  SymbolManagerFactory,
+  BackgroundProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
@@ -94,20 +94,27 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
       // Get all symbols from the global scope
       const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
 
-      // Update symbols in the ApexSymbolManager
-      const symbolManager = SymbolManagerFactory.createSymbolManager();
+      // Queue symbol processing in the background for better performance
+      const backgroundManager = BackgroundProcessingManager.getInstance();
 
-      // Remove old symbols for this file first
+      // Remove old symbols for this file first (synchronous operation)
+      const symbolManager = backgroundManager.getSymbolManager();
       symbolManager.removeFile(document.uri);
 
-      // Add updated symbols
-      for (const symbol of globalSymbols) {
-        symbolManager.addSymbol(symbol, document.uri);
-      }
+      // Queue the updated symbol processing
+      const taskId = backgroundManager.processSymbolTable(
+        symbolTable,
+        document.uri,
+        {
+          priority: 'HIGH', // Document save is high priority
+          enableCrossFileResolution: true,
+          enableReferenceProcessing: true,
+        },
+      );
 
       this.logger.debug(
         () =>
-          `Updated ${globalSymbols.length} symbols for saved document: ${document.uri}`,
+          `Document save symbol processing queued: ${taskId} for ${document.uri}`,
       );
     } catch (error) {
       this.logger.error(

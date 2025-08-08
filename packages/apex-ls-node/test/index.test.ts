@@ -341,6 +341,25 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
       isShutdownState: jest.fn().mockReturnValue(false),
     }),
   },
+  BackgroundProcessingInitializationService: {
+    getInstance: jest.fn().mockReturnValue({
+      initialize: jest.fn(),
+      shutdown: jest.fn(),
+      getStatus: jest.fn().mockReturnValue({
+        initialized: true,
+        queueStats: {
+          queueSize: 0,
+          pendingTasks: 0,
+          runningTasks: 0,
+          completedTasks: 0,
+          failedTasks: 0,
+          averageProcessingTime: 0,
+          throughput: 0,
+        },
+      }),
+      reset: jest.fn(),
+    }),
+  },
   createApexLibManager: jest.fn().mockReturnValue({
     initialize: jest.fn(),
     dispose: jest.fn(),

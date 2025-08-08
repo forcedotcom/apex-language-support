@@ -35,6 +35,7 @@ import {
   LSPConfigurationManager,
   dispatchProcessOnResolve,
   LSPQueueManager,
+  BackgroundProcessingInitializationService,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -354,6 +355,14 @@ export function startServer() {
       logger.error(`Error shutting down LSP queue manager: ${error}`);
     }
 
+    // Shutdown background processing
+    try {
+      backgroundProcessingService.shutdown();
+      logger.info('Background processing shutdown complete');
+    } catch (error) {
+      logger.error(`Error shutting down background processing: ${error}`);
+    }
+
     // Perform cleanup tasks, for now we'll just set a flag
     isShutdown = true;
     logger.info('Apex Language Server shutdown complete');
@@ -365,6 +374,16 @@ export function startServer() {
     if (!isShutdown) {
       // If exit is called without prior shutdown, log a warning
       logger.warn('Apex Language Server exiting without proper shutdown');
+
+      // Still try to shutdown background processing even if shutdown wasn't called
+      try {
+        backgroundProcessingService.shutdown();
+        logger.info('Background processing shutdown complete (exit handler)');
+      } catch (error) {
+        logger.error(
+          `Error shutting down background processing in exit handler: ${error}`,
+        );
+      }
     }
     // In a Node.js environment, we could call process.exit() here,
     // but we'll let the connection handle the exit
@@ -397,6 +416,11 @@ export function startServer() {
 
   // Initialize LSP queue manager
   const queueManager = LSPQueueManager.getInstance();
+
+  // Initialize background processing
+  const backgroundProcessingService =
+    BackgroundProcessingInitializationService.getInstance();
+  backgroundProcessingService.initialize();
 
   // Notifications
   documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {

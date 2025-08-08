@@ -38,9 +38,13 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
       }),
     }),
   })),
-  SymbolManagerFactory: {
-    createSymbolManager: jest.fn().mockReturnValue({
-      addSymbol: jest.fn(),
+  BackgroundProcessingManager: {
+    getInstance: jest.fn().mockReturnValue({
+      processSymbolTable: jest.fn().mockReturnValue('mock-task-id'),
+      getSymbolManager: jest.fn().mockReturnValue({
+        addSymbol: jest.fn(),
+        removeFile: jest.fn(),
+      }),
     }),
   },
 }));

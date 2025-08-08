@@ -29,6 +29,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { ApexSettingsManager } from '../settings/ApexSettingsManager';
+import { transformParserToLspPosition } from '../utils/positionUtils';
 
 /**
  * Maps Apex symbol kinds to LSP symbol kinds
@@ -421,17 +422,17 @@ export class DefaultApexDocumentSymbolProvider
     const { location, identifierLocation } = symbol;
 
     // The end position is always the end of the full symbol location.
-    const endPosition = Position.create(
-      location.endLine - 1,
-      location.endColumn,
-    );
+    const endPosition = transformParserToLspPosition({
+      line: location.endLine,
+      character: location.endColumn,
+    });
 
     // Use the precise identifier location for the start of the range.
     // This provides a "tighter" range that excludes leading modifiers/keywords.
-    const startPosition = Position.create(
-      (identifierLocation?.startLine ?? location.startLine) - 1,
-      identifierLocation?.startColumn ?? location.startColumn,
-    );
+    const startPosition = transformParserToLspPosition({
+      line: identifierLocation?.startLine ?? location.startLine,
+      character: identifierLocation?.startColumn ?? location.startColumn,
+    });
     return Range.create(startPosition, endPosition);
   }
 
@@ -442,19 +443,21 @@ export class DefaultApexDocumentSymbolProvider
   private createSelectionRange(symbol: ApexSymbol): Range {
     const { identifierLocation, location, name } = symbol;
 
-    const startLine = (identifierLocation?.startLine ?? location.startLine) - 1;
-    const startColumn = identifierLocation?.startColumn ?? location.startColumn;
+    const startPosition = transformParserToLspPosition({
+      line: identifierLocation?.startLine ?? location.startLine,
+      character: identifierLocation?.startColumn ?? location.startColumn,
+    });
 
-    const endLine =
-      (identifierLocation?.endLine ??
+    const endPosition = transformParserToLspPosition({
+      line:
+        identifierLocation?.endLine ??
         identifierLocation?.startLine ??
-        location.startLine) - 1;
-    const endColumn =
-      identifierLocation?.endColumn ?? startColumn + name.length;
+        location.startLine,
+      character:
+        identifierLocation?.endColumn ??
+        (identifierLocation?.startColumn ?? location.startColumn) + name.length,
+    });
 
-    return Range.create(
-      Position.create(startLine, startColumn),
-      Position.create(endLine, endColumn),
-    );
+    return Range.create(startPosition, endPosition);
   }
 }

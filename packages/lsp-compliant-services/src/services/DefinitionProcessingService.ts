@@ -17,6 +17,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { SymbolManagerFactory } from '@salesforce/apex-lsp-parser-ast';
+import { transformParserToLspPosition } from '../utils/positionUtils';
 
 /**
  * Interface for definition processing functionality
@@ -251,14 +252,14 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     }
 
     const range: Range = {
-      start: {
-        line: symbol.location.startLine, // Parser now provides LSP coordinates (0-based)
-        character: symbol.location.startColumn, // Parser now provides LSP coordinates (0-based)
-      },
-      end: {
+      start: transformParserToLspPosition({
+        line: symbol.location.startLine,
+        character: symbol.location.startColumn,
+      }),
+      end: transformParserToLspPosition({
         line: symbol.location.endLine,
         character: symbol.location.endColumn,
-      },
+      }),
     };
 
     return { uri, range };

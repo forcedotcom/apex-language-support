@@ -17,6 +17,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { SymbolManagerFactory } from '@salesforce/apex-lsp-parser-ast';
+import { transformParserToLspPosition } from '../utils/positionUtils';
 
 /**
  * Interface for references processing functionality
@@ -197,14 +198,14 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     }
 
     const range: Range = {
-      start: {
-        line: symbol.location.startLine, // Parser now provides LSP coordinates (0-based)
-        character: symbol.location.startColumn, // Parser now provides LSP coordinates (0-based)
-      },
-      end: {
+      start: transformParserToLspPosition({
+        line: symbol.location.startLine,
+        character: symbol.location.startColumn,
+      }),
+      end: transformParserToLspPosition({
         line: symbol.location.endLine,
         character: symbol.location.endColumn,
-      },
+      }),
     };
 
     return { uri, range };
@@ -224,14 +225,14 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     }
 
     const range: Range = {
-      start: {
-        line: reference.location.startLine, // Parser now provides LSP coordinates (0-based)
-        character: reference.location.startColumn, // Parser now provides LSP coordinates (0-based)
-      },
-      end: {
+      start: transformParserToLspPosition({
+        line: reference.location.startLine,
+        character: reference.location.startColumn,
+      }),
+      end: transformParserToLspPosition({
         line: reference.location.endLine,
         character: reference.location.endColumn,
-      },
+      }),
     };
 
     return { uri, range };

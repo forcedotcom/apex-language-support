@@ -11,7 +11,7 @@ import {
   CompilerService,
   SymbolTable,
   ApexSymbolCollectorListener,
-  SymbolManagerFactory,
+  BackgroundProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
@@ -75,11 +75,19 @@ export const processOnOpenDocument = async (
   // Get all symbols from the global scope
   const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
 
-  // Add symbols to the ApexSymbolManager for hover and other features
-  const symbolManager = SymbolManagerFactory.createSymbolManager();
-  for (const symbol of globalSymbols) {
-    symbolManager.addSymbol(symbol, document.uri);
-  }
+  // Queue symbol processing in the background for better performance
+  const backgroundManager = BackgroundProcessingManager.getInstance();
+  const taskId = backgroundManager.processSymbolTable(
+    symbolTable,
+    document.uri,
+    {
+      priority: 'HIGH', // Document open is high priority
+      enableCrossFileResolution: true,
+      enableReferenceProcessing: true,
+    },
+  );
+
+  logger.debug(() => `Document open symbol processing queued: ${taskId}`);
 
   // Create the definition provider
   const definitionUpserter = new DefaultApexDefinitionUpserter(

@@ -17,7 +17,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
-  SymbolManagerFactory,
+  BackgroundProcessingManager,
   ISymbolManager,
   TypeReference,
   ReferenceContext,
@@ -49,7 +49,8 @@ export class HoverProcessingService implements IHoverProcessor {
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
-      symbolManager || SymbolManagerFactory.createSymbolManager();
+      symbolManager ||
+      BackgroundProcessingManager.getInstance().getSymbolManager();
   }
 
   /**
