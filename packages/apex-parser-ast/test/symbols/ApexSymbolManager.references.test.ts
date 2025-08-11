@@ -248,11 +248,7 @@ describe('ApexSymbolManager Reference Processing', () => {
 
       const listener = new ApexSymbolCollectorListener();
       const compilerService = new CompilerService();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestClass.cls',
-        listener,
-      );
+      compilerService.compile(sourceCode, 'TestClass.cls', listener);
 
       const symbolTable = listener.getResult();
 
