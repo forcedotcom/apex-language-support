@@ -45,7 +45,6 @@ Handle VS Code extension-specific operations (packages with `publisher` field in
 - `ext-version-bumper`: Bump versions for selected extensions
 - `ext-publish-matrix`: Determine publish matrix for extensions
 - `ext-github-releases`: Create GitHub releases for extensions
-- `ext-publish-vsix`: Publish VSIX file to VS Code Marketplace
 
 #### NPM Scripts (npm-\*)
 
@@ -108,10 +107,6 @@ npx tsx .github/scripts/index.ts ext-publish-matrix
 # ext-github-releases
 DRY_RUN=true PRE_RELEASE=false VERSION_BUMP=auto SELECTED_EXTENSIONS=apex-lsp-vscode-extension IS_NIGHTLY=false VSIX_ARTIFACTS_PATH=./vsix-artifacts \
 npx tsx .github/scripts/index.ts ext-github-releases
-
-# ext-publish-vsix
-PACKAGE_DIR=./packages/apex-lsp-vscode-extension VSCE_PERSONAL_ACCESS_TOKEN=token PRE_RELEASE=false DRY_RUN=true \
-npx tsx .github/scripts/index.ts ext-publish-vsix
 ```
 
 #### NPM Scripts
@@ -252,14 +247,14 @@ jobs:
 
 ### NPM-Specific Variables
 
-| Variable             | Description                      | Example                                      |
-| -------------------- | -------------------------------- | -------------------------------------------- |
+| Variable             | Description                      | Example                                     |
+| -------------------- | -------------------------------- | ------------------------------------------- |
 | `SELECTED_PACKAGE`   | NPM package selection mode       | `none`, `all`, `changed`, `apex-lsp-shared` |
 | `AVAILABLE_PACKAGES` | Available NPM packages           | `apex-lsp-shared,apex-parser-ast`           |
 | `CHANGED_PACKAGES`   | Changed NPM packages             | `apex-lsp-shared`                           |
 | `SELECTED_PACKAGES`  | JSON array of selected packages  | `["apex-lsp-shared"]`                       |
 | `MATRIX_PACKAGE`     | Current matrix package           | `apex-lsp-shared`                           |
-| `INPUT_BASE_BRANCH`  | Base branch for change detection | `main`                                       |
+| `INPUT_BASE_BRANCH`  | Base branch for change detection | `main`                                      |
 
 ### Utility Variables
 
@@ -272,7 +267,7 @@ jobs:
 | `WORKFLOW`          | Workflow name            | `release`                           |
 | `RUN_ID`            | Workflow run ID          | `123456789`                         |
 | `ACTOR`             | Actor performing action  | `github-actions`                    |
-| `DETAILS`           | JSON details             | `{"packages":"apex-lsp-shared"}`   |
+| `DETAILS`           | JSON details             | `{"packages":"apex-lsp-shared"}`    |
 | `ACTION`            | Action being performed   | `release`                           |
 | `LOG_FILE`          | Custom log file path     | `./custom-audit.log`                |
 
