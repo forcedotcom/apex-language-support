@@ -1293,6 +1293,36 @@ export class ApexSymbolGraph {
   }
 
   /**
+   * Public API to enqueue a deferred reference for later resolution
+   * Thin wrapper over the internal deferred reference mechanism
+   */
+  enqueueDeferredReference(
+    sourceSymbol: ApexSymbol,
+    targetSymbolName: string,
+    referenceType: EnumValue<typeof ReferenceType>,
+    location: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    },
+    context?: {
+      methodName?: string;
+      parameterIndex?: number;
+      isStatic?: boolean;
+      namespace?: string;
+    },
+  ): void {
+    this.addDeferredReference(
+      sourceSymbol,
+      targetSymbolName,
+      referenceType,
+      location,
+      context,
+    );
+  }
+
+  /**
    * Process deferred references for a symbol
    */
   private processDeferredReferences(symbolName: string): void {

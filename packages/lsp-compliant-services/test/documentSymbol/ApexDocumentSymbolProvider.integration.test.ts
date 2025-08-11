@@ -90,7 +90,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
      * This test validates the complete document symbol generation pipeline
      * using a realistic Apex class. It serves as a comprehensive regression test.
      */
-    it.only('produces the expected DocumentSymbol hierarchy with accurate ranges and formatting', async () => {
+    it('produces the expected DocumentSymbol hierarchy with accurate ranges and formatting', async () => {
       // Test the parser directly like the parser tests do
       const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
       const {

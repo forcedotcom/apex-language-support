@@ -174,7 +174,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 1, character: 21 }, // Position on 'FileUtilities' (LSP 1-based)
+        position: { line: 0, character: 21 }, // Position on 'FileUtilities' (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -198,7 +198,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 3, character: 22 }, // Position on 'createFile' (LSP 1-based)
+        position: { line: 3, character: 35 }, // Position on 'createFile' method name (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -223,7 +223,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 4, character: 9 }, // Position on 'base64data' parameter (LSP 1-based)
+        position: { line: 3, character: 15 }, // Position on 'base64data' parameter name (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -246,7 +246,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 9, character: 30 }, // Position on 'contentVersion' variable (LSP 1-based)
+        position: { line: 8, character: 40 }, // Position on 'contentVersion' variable (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -269,7 +269,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 37, character: 11 }, // Position on 'foo' method (LSP 1-based)
+        position: { line: 36, character: 11 }, // Position on 'foo' method (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -295,7 +295,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 2, character: 21 }, // Position on 'FileUtilitiesTest' (LSP 1-based)
+        position: { line: 1, character: 21 }, // Position on 'FileUtilitiesTest' (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -319,7 +319,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 4, character: 11 }, // Position on 'createFileSucceedsWhenCorrectInput' (LSP 1-based)
+        position: { line: 3, character: 11 }, // Position on 'createFileSucceedsWhenCorrectInput' (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -342,13 +342,13 @@ describe('Hover Real Classes Integration Tests', () => {
       }
     });
 
-    it.only('should provide hover information for method block delcared symbols', async () => {
+    it('should provide hover information for method block delcared symbols', async () => {
       // Mock storage to return the FileUtilitiesTest document
       mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 10, character: 26 }, // Position on 'property' variable name (LSP 0-based)
+        position: { line: 71, character: 20 }, // Position on 'property' variable name (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -373,7 +373,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 14, character: 40 }, // Position on 'FileUtilities' in method call (LSP 1-based)
+        position: { line: 13, character: 40 }, // Position on 'FileUtilities' in method call (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -396,7 +396,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: 14, character: 55 }, // Position on 'createFile' in method call (LSP 1-based)
+        position: { line: 13, character: 55 }, // Position on 'createFile' in method call (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -422,7 +422,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://FileUtilities.cls' },
-        position: { line: 1, character: 0 }, // Position in whitespace (LSP 1-based)
+        position: { line: 0, character: 0 }, // Position in whitespace (LSP 0-based)
       };
 
       const result = await hoverService.processHover(params);
@@ -437,7 +437,7 @@ describe('Hover Real Classes Integration Tests', () => {
 
       const params: HoverParams = {
         textDocument: { uri: 'file://NonExistentClass.cls' },
-        position: { line: 1, character: 0 }, // LSP 1-based
+        position: { line: 0, character: 0 }, // LSP 0-based
       };
 
       const result = await hoverService.processHover(params);

@@ -446,11 +446,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     );
     this.builtInTypeTables = BuiltInTypeTablesImpl.getInstance();
 
-    // Initialize ResourceLoader for standard Apex classes
+    // Initialize ResourceLoader for standard Apex classes (prefer lazy with preload)
     try {
-      this.resourceLoader = ResourceLoader.getInstance({ loadMode: 'full' });
+      this.resourceLoader = ResourceLoader.getInstance({
+        loadMode: 'lazy',
+        preloadStdClasses: true,
+      });
       this.logger.debug(
-        () => 'ResourceLoader initialized for standard Apex classes',
+        () =>
+          'ResourceLoader initialized (lazy mode with preload) for standard Apex classes',
       );
     } catch (error) {
       this.logger.warn(() => `Failed to initialize ResourceLoader: ${error}`);
@@ -1828,10 +1832,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
 
       // Find the source symbol (the symbol that contains this reference)
-      const sourceSymbol = this.findSourceSymbolForReference(typeRef, filePath);
+      const sourceSymbol = this.findContainingSymbolForReference(
+        typeRef,
+        filePath,
+      );
       if (!sourceSymbol) {
         console.log(
-          `[DEBUG] No source symbol found for reference ${typeRef.name} in ${filePath}`,
+          `[DEBUG] No containing symbol found for reference ${typeRef.name} in ${filePath}`,
         );
         return;
       }
@@ -1844,7 +1851,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const targetSymbol = this.findTargetSymbolForReference(typeRef);
       if (!targetSymbol) {
         console.log(
-          `[DEBUG] No target symbol found for reference ${typeRef.name}`,
+          `[DEBUG] Deferring reference ${typeRef.name} for later resolution`,
+        );
+
+        // Map ReferenceContext to ReferenceType
+        const referenceType = this.mapReferenceContextToType(typeRef.context);
+
+        // Add the reference to the deferred references queue
+        this.symbolGraph.enqueueDeferredReference(
+          sourceSymbol,
+          typeRef.name, // target symbol name
+          referenceType,
+          typeRef.location,
+          {
+            methodName: typeRef.parentContext,
+            isStatic: this.isStaticReference(typeRef),
+          },
         );
         return;
       }
@@ -1885,6 +1907,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Find the source symbol that contains the given reference
+   * Used for: Position-based lookups (LSP hover, go-to-definition)
    * @param typeRef The type reference
    * @param filePath The file path
    * @returns The source symbol or null if not found
@@ -3252,5 +3275,114 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
       return null;
     }
+  }
+
+  /**
+   * Find the symbol that contains the given reference (the scope)
+   * Used for: Reference relationship tracking, Find References From/To
+   * @param typeRef The type reference
+   * @param filePath The file path
+   * @returns The containing symbol or null if not found
+   */
+  private findContainingSymbolForReference(
+    typeRef: TypeReference,
+    filePath: string,
+  ): ApexSymbol | null {
+    // Find symbols in the file and determine which one contains this reference
+    const symbolsInFile = this.findSymbolsInFile(filePath);
+
+    // Look for the most specific (innermost) containing symbol
+    let bestMatch: ApexSymbol | null = null;
+
+    for (const symbol of symbolsInFile) {
+      if (this.isPositionContainedInSymbol(typeRef.location, symbol.location)) {
+        // If we don't have a match yet, use this one
+        if (!bestMatch) {
+          bestMatch = symbol;
+          continue;
+        }
+
+        // Check if this symbol is more specific (contained within the current best match)
+        if (this.isSymbolContainedWithin(symbol, bestMatch)) {
+          bestMatch = symbol;
+        }
+      }
+    }
+
+    return bestMatch;
+  }
+
+  /**
+   * Check if a position is contained within a symbol's location
+   * @param position The position to check
+   * @param symbolLocation The symbol's location
+   * @returns True if the position is contained within the symbol
+   */
+  private isPositionContainedInSymbol(
+    position: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    },
+    symbolLocation: {
+      startLine: number;
+      startColumn: number;
+      endLine: number;
+      endColumn: number;
+    },
+  ): boolean {
+    const { startLine, startColumn, endLine, endColumn } = symbolLocation;
+
+    // Check if the position is within the symbol's bounds
+    if (position.startLine < startLine || position.endLine > endLine) {
+      return false;
+    }
+
+    // For same start line, check column bounds
+    if (
+      position.startLine === startLine &&
+      position.startColumn < startColumn
+    ) {
+      return false;
+    }
+
+    // For same end line, check column bounds
+    if (position.endLine === endLine && position.endColumn > endColumn) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Check if one symbol is contained within another symbol
+   * @param innerSymbol The potentially inner symbol
+   * @param outerSymbol The potentially outer symbol
+   * @returns True if innerSymbol is contained within outerSymbol
+   */
+  private isSymbolContainedWithin(
+    innerSymbol: ApexSymbol,
+    outerSymbol: ApexSymbol,
+  ): boolean {
+    const inner = innerSymbol.location;
+    const outer = outerSymbol.location;
+
+    // Check if inner symbol starts after outer symbol starts
+    if (inner.startLine < outer.startLine) return false;
+    if (
+      inner.startLine === outer.startLine &&
+      inner.startColumn < outer.startColumn
+    ) {
+      return false;
+    }
+
+    // Check if inner symbol ends before outer symbol ends
+    if (inner.endLine > outer.endLine) return false;
+    if (inner.endLine === outer.endLine && inner.endColumn > outer.endColumn) {
+      return false;
+    }
+
+    return true;
   }
 }
