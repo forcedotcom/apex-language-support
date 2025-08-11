@@ -60,6 +60,9 @@ export * from './utils/symbolNarrowing';
 export * from './symbols/ApexSymbolManager';
 export * from './symbols/SymbolManagerFactory';
 
+// Export resolution framework types
+export * from './symbols/resolution/types';
+
 // Export reference graph and types
 export * from './symbols/ApexSymbolGraph';
 

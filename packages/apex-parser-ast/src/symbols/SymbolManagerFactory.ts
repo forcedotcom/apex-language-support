@@ -256,6 +256,49 @@ class TestSymbolManager implements ISymbolManager {
     };
   }
 
+  getSymbolAtPositionWithStrategy(
+    fileUri: string,
+    position: { line: number; character: number },
+    requestType?: string,
+  ): ApexSymbol | null {
+    // Mock implementation - delegate to existing method
+    return this.getSymbolAtPosition(fileUri, position);
+  }
+
+  async resolveSymbolWithStrategy(
+    request: any,
+    context: SymbolResolutionContext,
+  ): Promise<{ strategy: string; success: boolean }> {
+    // Mock implementation - use existing resolveSymbol method
+    const result = this.resolveSymbol(request.name || 'unknown', context);
+    return {
+      strategy: 'test',
+      success: result.symbol !== null,
+    };
+  }
+
+  createResolutionContextWithRequestType(
+    documentText: string,
+    position: { line: number; character: number },
+    sourceFile: string,
+    requestType?: string,
+  ): SymbolResolutionContext & {
+    requestType?: string;
+    position?: { line: number; character: number };
+  } {
+    // Mock implementation - extend existing context with request type info
+    const baseContext = this.createResolutionContext(
+      documentText,
+      position,
+      sourceFile,
+    );
+    return {
+      ...baseContext,
+      requestType,
+      position,
+    };
+  }
+
   constructFQN(symbol: ApexSymbol, options?: any): string {
     // Mock implementation - return symbol name as FQN
     return symbol.name;

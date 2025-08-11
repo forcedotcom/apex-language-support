@@ -94,10 +94,11 @@ export class HoverProcessingService implements IHoverProcessor {
           )} to parser ${formatPosition(parserPosition, 'parser')}`,
       );
 
-      // Get the symbol at the position using the new getSymbolAtPosition method
-      const symbol = this.symbolManager.getSymbolAtPosition(
+      // Get the symbol at the position using enhanced resolution with strategy
+      const symbol = this.symbolManager.getSymbolAtPositionWithStrategy(
         document.uri,
         parserPosition,
+        'hover',
       );
 
       if (!symbol) {
@@ -108,8 +109,30 @@ export class HoverProcessingService implements IHoverProcessor {
         return null;
       }
 
-      // Create hover information
-      const hover = await this.createHoverInformation(symbol, 1.0);
+      // Create enhanced resolution context for better accuracy
+      const context = this.symbolManager.createResolutionContextWithRequestType(
+        document.getText(),
+        parserPosition,
+        document.uri,
+        'hover',
+      );
+
+      // Use strategy-based resolution for confidence scoring
+      const resolutionResult =
+        await this.symbolManager.resolveSymbolWithStrategy(
+          {
+            type: 'hover',
+            position: {
+              line: parserPosition.line,
+              column: parserPosition.character,
+            },
+          },
+          context,
+        );
+
+      // Create hover information with confidence from resolution strategy
+      const confidence = resolutionResult.success ? 0.9 : 0.5;
+      const hover = await this.createHoverInformation(symbol, confidence);
 
       this.logger.debug(
         () => `Returning hover information for: ${symbol.name}`,

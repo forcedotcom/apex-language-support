@@ -209,4 +209,46 @@ export interface ISymbolManager {
     fileUri: string,
     position: { line: number; character: number },
   ): ApexSymbol | null;
+
+  /**
+   * Get the most specific symbol at a given position using strategy-based resolution
+   * @param fileUri The file URI to search in
+   * @param position The position to search for symbols (0-based)
+   * @param requestType The type of LSP request (hover, definition, references, etc.)
+   * @returns The most specific symbol at the position, or null if not found
+   */
+  getSymbolAtPositionWithStrategy(
+    fileUri: string,
+    position: { line: number; character: number },
+    requestType?: string,
+  ): ApexSymbol | null;
+
+  /**
+   * Resolve a symbol using the appropriate resolution strategy
+   * @param request The resolution request with type and position information
+   * @param context The resolution context for the request
+   * @returns Promise resolving to the resolution result
+   */
+  resolveSymbolWithStrategy(
+    request: any,
+    context: SymbolResolutionContext,
+  ): Promise<{ strategy: string; success: boolean }>;
+
+  /**
+   * Create enhanced resolution context with request type information
+   * @param documentText The document text for context analysis
+   * @param position The position in the document (0-based)
+   * @param sourceFile The source file path
+   * @param requestType The type of LSP request
+   * @returns Enhanced resolution context with request type information
+   */
+  createResolutionContextWithRequestType(
+    documentText: string,
+    position: { line: number; character: number },
+    sourceFile: string,
+    requestType?: string,
+  ): SymbolResolutionContext & {
+    requestType?: string;
+    position?: { line: number; character: number };
+  };
 }

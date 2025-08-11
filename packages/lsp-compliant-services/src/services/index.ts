@@ -6,20 +6,15 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Export all processing services
-export * from './CompletionProcessingService';
-export * from './DefinitionProcessingService';
-export * from './SignatureHelpProcessingService';
-export * from './WorkspaceSymbolProcessingService';
-export * from './DocumentSymbolProcessingService';
-export * from './HoverProcessingService';
-export * from './ReferencesProcessingService';
-export * from './DiagnosticProcessingService';
-export * from './CodeActionProcessingService';
+// Export services
+export * from './DocumentProcessingService';
 export * from './DocumentSaveProcessingService';
 export * from './DocumentCloseProcessingService';
-export * from './DocumentProcessingService';
-export * from './DocumentChangeProcessingService';
+export * from './DocumentSymbolProcessingService';
+export * from './DiagnosticProcessingService';
+export * from './HoverProcessingService';
+export * from './BackgroundProcessingInitializationService';
+export * from './CompletionProcessingService';
 
 // Export LSP queue system
 export * from '../queue';
