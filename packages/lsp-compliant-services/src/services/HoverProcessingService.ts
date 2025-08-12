@@ -132,7 +132,23 @@ export class HoverProcessingService implements IHoverProcessor {
 
       // Create hover information with confidence from resolution strategy
       const confidence = resolutionResult.success ? 0.9 : 0.5;
+
+      this.logger.debug(
+        () =>
+          `About to create hover information for symbol: ${symbol.name} with confidence: ${confidence}`,
+      );
+
       const hover = await this.createHoverInformation(symbol, confidence);
+
+      this.logger.debug(
+        () => `Hover creation result: ${hover ? 'success' : 'null'}`,
+      );
+
+      if (hover) {
+        this.logger.debug(
+          () => `Hover contents: ${JSON.stringify(hover.contents)}`,
+        );
+      }
 
       this.logger.debug(
         () => `Returning hover information for: ${symbol.name}`,

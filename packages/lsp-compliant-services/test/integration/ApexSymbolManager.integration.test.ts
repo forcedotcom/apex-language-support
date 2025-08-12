@@ -15,14 +15,16 @@ import {
 
 import {
   ApexSymbolManager,
-  SymbolFactory,
+  CompilerService,
+  ApexSymbolCollectorListener,
   SymbolTable,
-  SymbolKind,
-  SymbolVisibility,
 } from '@salesforce/apex-lsp-parser-ast';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 // Mock the storage manager
 jest.mock('../../src/storage/ApexStorageManager', () => ({
@@ -43,104 +45,100 @@ describe('ApexSymbolManager Integration Tests', () => {
   // let diagnosticService: DiagnosticProcessingService;
   let symbolManager: ApexSymbolManager;
   let mockStorage: any;
+  let testClassDocument: TextDocument;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Enable console logging for debugging
+    enableConsoleLogging();
+    setLogLevel('debug');
+
     // Create a real symbol manager for integration testing
     symbolManager = new ApexSymbolManager();
 
-    // Create test symbols using SymbolFactory
-    const classSymbol = SymbolFactory.createFullSymbol(
-      'TestClass',
-      SymbolKind.Class,
-      {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 10,
-        endColumn: 1,
-      },
-      'test.cls',
-      {
-        visibility: SymbolVisibility.Public,
-        isStatic: false,
-        isFinal: false,
-        isAbstract: false,
-        isVirtual: false,
-        isOverride: false,
-        isTransient: false,
-        isTestMethod: false,
-        isWebService: false,
-      },
-      null, // parentId
-      { interfaces: [] }, // typeData
-      'TestClass', // fqn
+    // Read the actual Apex class files from fixtures
+    const fixturesDir = join(__dirname, '../fixtures/classes');
+    const testClassPath = join(fixturesDir, 'TestClass.cls');
+    const anotherTestClassPath = join(fixturesDir, 'AnotherTestClass.cls');
+    const fileUtilitiesPath = join(fixturesDir, 'FileUtilities.cls');
+    const fileUtilitiesTestPath = join(fixturesDir, 'FileUtilitiesTest.cls');
+
+    const testClassContent = readFileSync(testClassPath, 'utf8');
+    const anotherTestClassContent = readFileSync(anotherTestClassPath, 'utf8');
+    const fileUtilitiesContent = readFileSync(fileUtilitiesPath, 'utf8');
+    const fileUtilitiesTestContent = readFileSync(
+      fileUtilitiesTestPath,
+      'utf8',
     );
 
-    const methodSymbol = SymbolFactory.createFullSymbol(
-      'getName',
-      SymbolKind.Method,
-      {
-        startLine: 15,
-        startColumn: 1,
-        endLine: 15,
-        endColumn: 10,
-      },
-      'test.cls',
-      {
-        visibility: SymbolVisibility.Public,
-        isStatic: false,
-        isFinal: false,
-        isAbstract: false,
-        isVirtual: false,
-        isOverride: false,
-        isTransient: false,
-        isTestMethod: false,
-        isWebService: false,
-      },
-      classSymbol.id, // parentId
-      {
-        returnType: { name: 'String', isPrimitive: true, isArray: false },
-        parameters: [],
-      }, // typeData
-      'TestClass.getName', // fqn
+    // Create TextDocument instances for the real classes
+    testClassDocument = TextDocument.create(
+      'file://TestClass.cls',
+      'apex',
+      1,
+      testClassContent,
     );
 
-    const systemClass = SymbolFactory.createFullSymbol(
-      'String',
-      SymbolKind.Class,
-      {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
-      },
-      'System.cls',
-      {
-        visibility: SymbolVisibility.Public,
-        isStatic: false,
-        isFinal: false,
-        isAbstract: false,
-        isVirtual: false,
-        isOverride: false,
-        isTransient: false,
-        isTestMethod: false,
-        isWebService: false,
-      },
-      null, // parentId
-      { interfaces: [] }, // typeData
-      'System.String', // fqn
+    // Parse the real Apex classes and add them to the symbol manager
+    const compilerService = new CompilerService();
+
+    // Parse TestClass.cls
+    const testClassTable = new SymbolTable();
+    const testClassListener = new ApexSymbolCollectorListener(testClassTable);
+    const _testClassResult = compilerService.compile(
+      testClassContent,
+      'file://TestClass.cls',
+      testClassListener,
+      {},
+    );
+    symbolManager.addSymbolTable(testClassTable, 'file://TestClass.cls');
+
+    // Parse AnotherTestClass.cls
+    const anotherTestClassTable = new SymbolTable();
+    const anotherTestClassListener = new ApexSymbolCollectorListener(
+      anotherTestClassTable,
+    );
+    const _anotherTestClassResult = compilerService.compile(
+      anotherTestClassContent,
+      'file://AnotherTestClass.cls',
+      anotherTestClassListener,
+      {},
+    );
+    symbolManager.addSymbolTable(
+      anotherTestClassTable,
+      'file://AnotherTestClass.cls',
     );
 
-    // Create SymbolTable and add symbols to it
-    const symbolTable = new SymbolTable();
-    symbolTable.addSymbol(classSymbol);
-    symbolTable.addSymbol(methodSymbol);
+    // Parse FileUtilities.cls
+    const fileUtilitiesTable = new SymbolTable();
+    const fileUtilitiesListener = new ApexSymbolCollectorListener(
+      fileUtilitiesTable,
+    );
+    const _fileUtilitiesResult = compilerService.compile(
+      fileUtilitiesContent,
+      'file://FileUtilities.cls',
+      fileUtilitiesListener,
+      {},
+    );
+    symbolManager.addSymbolTable(
+      fileUtilitiesTable,
+      'file://FileUtilities.cls',
+    );
 
-    const systemSymbolTable = new SymbolTable();
-    systemSymbolTable.addSymbol(systemClass);
-
-    // Register SymbolTables with the symbol manager
-    symbolManager.addSymbolTable(symbolTable, 'test.cls');
-    symbolManager.addSymbolTable(systemSymbolTable, 'System.cls');
+    // Parse FileUtilitiesTest.cls
+    const fileUtilitiesTestTable = new SymbolTable();
+    const fileUtilitiesTestListener = new ApexSymbolCollectorListener(
+      fileUtilitiesTestTable,
+    );
+    const _fileUtilitiesTestResult = compilerService.compile(
+      fileUtilitiesTestContent,
+      'file://FileUtilitiesTest.cls',
+      fileUtilitiesTestListener,
+      {},
+    );
+    symbolManager.addSymbolTable(
+      fileUtilitiesTestTable,
+      'file://FileUtilitiesTest.cls',
+    );
 
     // Set up mock storage
     mockStorage = {
@@ -151,21 +149,6 @@ describe('ApexSymbolManager Integration Tests', () => {
     (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
       getStorage: jest.fn().mockReturnValue(mockStorage),
     });
-
-    // Create test document
-    const testDocument = TextDocument.create(
-      'file://test.cls',
-      'apex',
-      1,
-      `public class TestClass {
-  public String getName() {
-    return 'test';
-  }
-}`,
-    );
-
-    // Mock storage to return the test document
-    mockStorage.getDocument.mockResolvedValue(testDocument);
 
     // Create mock logger
     const mockLogger = {
@@ -189,6 +172,36 @@ describe('ApexSymbolManager Integration Tests', () => {
     // codeActionService = new CodeActionProcessingService(mockLogger, symbolManager);
     // workspaceSymbolService = new WorkspaceSymbolProcessingService(mockLogger, symbolManager);
     // diagnosticService = new DiagnosticProcessingService(mockLogger, symbolManager);
+
+    // Debug: Verify symbols are added correctly
+    const testClassSymbols = symbolManager.findSymbolsInFile(
+      'file://TestClass.cls',
+    );
+    const anotherTestClassSymbols = symbolManager.findSymbolsInFile(
+      'file://AnotherTestClass.cls',
+    );
+
+    console.log(
+      `Debug: Found ${testClassSymbols.length} symbols in TestClass.cls`,
+    );
+    testClassSymbols.forEach((symbol: any) => {
+      console.log(
+        `Debug: TestClass Symbol ${symbol.name} (${symbol.kind}) at ` +
+          `${symbol.location?.startLine}:${symbol.location?.startColumn}-` +
+          `${symbol.location?.endLine}:${symbol.location?.endColumn}`,
+      );
+    });
+
+    console.log(
+      `Debug: Found ${anotherTestClassSymbols.length} symbols in AnotherTestClass.cls`,
+    );
+    anotherTestClassSymbols.forEach((symbol: any) => {
+      console.log(
+        `Debug: AnotherTestClass Symbol ${symbol.name} (${symbol.kind}) at ` +
+          `${symbol.location?.startLine}:${symbol.location?.startColumn}-` +
+          `${symbol.location?.endLine}:${symbol.location?.endColumn}`,
+      );
+    });
   });
 
   afterEach(() => {
@@ -200,27 +213,34 @@ describe('ApexSymbolManager Integration Tests', () => {
       // Verify symbols are in the symbol manager
       const stats = symbolManager.getStats();
       expect(stats.totalSymbols).toBeGreaterThan(0);
-      expect(stats.totalFiles).toBe(2); // test.cls and System.cls
+      expect(stats.totalFiles).toBe(4); // TestClass.cls, AnotherTestClass.cls, FileUtilities.cls, FileUtilitiesTest.cls
 
       // Verify symbols can be found by name
       const testClassSymbols = symbolManager.findSymbolByName('TestClass');
       expect(testClassSymbols.length).toBeGreaterThan(0);
 
-      const stringSymbols = symbolManager.findSymbolByName('String');
-      expect(stringSymbols.length).toBeGreaterThan(0);
+      const fileUtilitiesSymbols =
+        symbolManager.findSymbolByName('FileUtilities');
+      expect(fileUtilitiesSymbols.length).toBeGreaterThan(0);
 
       // Verify symbols can be found in files
-      const testFileSymbols = symbolManager.findSymbolsInFile('test.cls');
+      const testFileSymbols = symbolManager.findSymbolsInFile(
+        'file://TestClass.cls',
+      );
       expect(testFileSymbols.length).toBeGreaterThan(0);
 
-      const systemFileSymbols = symbolManager.findSymbolsInFile('System.cls');
-      expect(systemFileSymbols.length).toBeGreaterThan(0);
+      const fileUtilitiesFileSymbols = symbolManager.findSymbolsInFile(
+        'file://FileUtilities.cls',
+      );
+      expect(fileUtilitiesFileSymbols.length).toBeGreaterThan(0);
     });
 
     it('should provide completion items using symbol manager', async () => {
+      mockStorage.getDocument.mockResolvedValue(testClassDocument);
+
       const params: CompletionParams = {
-        textDocument: { uri: 'file://test.cls' },
-        position: { line: 15, character: 10 },
+        textDocument: { uri: 'file://TestClass.cls' },
+        position: { line: 1, character: 23 }, // Position on 'getStaticValue' method name
         context: {
           triggerKind: 1,
           triggerCharacter: '.',
@@ -234,9 +254,11 @@ describe('ApexSymbolManager Integration Tests', () => {
     });
 
     it('should provide context-aware completion', async () => {
+      mockStorage.getDocument.mockResolvedValue(testClassDocument);
+
       const params: CompletionParams = {
-        textDocument: { uri: 'file://test.cls' },
-        position: { line: 5, character: 15 },
+        textDocument: { uri: 'file://TestClass.cls' },
+        position: { line: 5, character: 20 }, // Position on 'getValue' method name
         context: {
           triggerKind: 1,
           triggerCharacter: 'S',
@@ -252,9 +274,29 @@ describe('ApexSymbolManager Integration Tests', () => {
 
   describe('Hover Service Integration', () => {
     it('should provide hover information using symbol manager', async () => {
+      mockStorage.getDocument.mockResolvedValue(testClassDocument);
+
       const params = {
-        textDocument: { uri: 'file://test.cls' },
-        position: { line: 2, character: 10 }, // Position on 'getName' method
+        textDocument: { uri: 'file://TestClass.cls' },
+        position: { line: 0, character: 7 }, // Position on 'TestClass' class name
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(
+          typeof result.contents === 'object' && 'value' in result.contents,
+        ).toBe(true);
+      }
+    });
+
+    it('should provide hover information for method', async () => {
+      mockStorage.getDocument.mockResolvedValue(testClassDocument);
+
+      const params = {
+        textDocument: { uri: 'file://TestClass.cls' },
+        position: { line: 1, character: 23 }, // Position on 'getStaticValue' method name
       };
 
       const result = await hoverService.processHover(params);
@@ -324,7 +366,9 @@ describe('ApexSymbolManager Integration Tests', () => {
 
     it('should provide file-based symbol lookup via findSymbolsInFile', async () => {
       // Test that services can get all symbols in a file
-      const fileSymbols = symbolManager.findSymbolsInFile('test.cls');
+      const fileSymbols = symbolManager.findSymbolsInFile(
+        'file://TestClass.cls',
+      );
       expect(fileSymbols).toBeDefined();
       expect(Array.isArray(fileSymbols)).toBe(true);
       expect(fileSymbols.length).toBeGreaterThan(0);
@@ -360,147 +404,4 @@ describe('ApexSymbolManager Integration Tests', () => {
       expect(symbolsWithProtocol).toEqual(symbolsWithoutProtocol);
     });
   });
-
-  // TODO: Enable these tests once other services support dependency injection
-  /*
-  describe('Definition Service Integration', () => {
-    it('should find definitions using symbol manager', async () => {
-      const params: DefinitionParams = {
-        textDocument: { uri: 'file://test.cls' },
-        position: { line: 1, character: 7 },
-      };
-
-      const result = await definitionService.processDefinition(params);
-
-      expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
-      expect(result![0].uri).toBe('file://TestClass.cls');
-    });
-  });
-
-  describe('References Service Integration', () => {
-    it('should find references using symbol manager', async () => {
-      const params: ReferenceParams = {
-        textDocument: { uri: 'file://test.cls' },
-        position: { line: 1, character: 7 },
-        context: {
-          includeDeclaration: true,
-        },
-      };
-
-      const result = await referencesService.processReferences(params);
-
-      expect(result).not.toBeNull();
-      expect(result.length).toBeGreaterThan(0);
-      expect(result[0].range.start.line).toBe(14);
-    });
-  });
-
-  describe('Hover Service Integration', () => {
-    it('should provide hover information using symbol manager', async () => {
-      const params: HoverParams = {
-        textDocument: { uri: 'file://test.cls' },
-        position: { line: 15, character: 10 },
-      };
-
-      const result = await hoverService.processHover(params);
-
-      expect(result).not.toBeNull();
-      if (result) {
-        expect(
-          typeof result.contents === 'object' && 'value' in result.contents,
-        ).toBe(true);
-      }
-    });
-  });
-
-  describe('Signature Help Service Integration', () => {
-    it('should provide signature help using symbol manager', async () => {
-      const params: SignatureHelpParams = {
-        textDocument: { uri: 'file://test.cls' },
-        position: { line: 15, character: 10 },
-        context: {
-          triggerKind: 1,
-          triggerCharacter: '(',
-          isRetrigger: false,
-          activeSignatureHelp: undefined,
-        },
-      };
-
-      const result = await signatureHelpService.processSignatureHelp(params);
-
-      expect(result).toBeDefined();
-      if (result !== null) {
-        expect(result.signatures).toBeDefined();
-      }
-    });
-  });
-
-  describe('Code Action Service Integration', () => {
-    it('should provide code actions using symbol manager', async () => {
-      const params: CodeActionParams = {
-        textDocument: { uri: 'file://test.cls' },
-        range: {
-          start: { line: 15, character: 0 },
-          end: { line: 15, character: 10 },
-        },
-        context: {
-          diagnostics: [],
-          only: ['quickfix'],
-        },
-      };
-
-      const result = await codeActionService.processCodeAction(params);
-
-      expect(result).not.toBeNull();
-    });
-  });
-
-  describe('Workspace Symbol Service Integration', () => {
-    it('should provide workspace symbols using symbol manager', async () => {
-      const params: WorkspaceSymbolParams = {
-        query: 'Test',
-      };
-
-      const result =
-        await workspaceSymbolService.processWorkspaceSymbol(params);
-
-      expect(result).not.toBeNull();
-      expect(result.length).toBe(0); // Service has simplified implementation
-    });
-  });
-
-  describe('Diagnostic Service Integration', () => {
-    it('should provide diagnostics using symbol manager', async () => {
-      const params: DocumentDiagnosticParams = {
-        textDocument: { uri: 'file://test.cls' },
-        previousResultId: undefined,
-      };
-
-      const result = await diagnosticService.processDiagnostic(params);
-
-      expect(result).toBeDefined();
-      expect(Array.isArray(result)).toBe(true);
-    });
-  });
-
-  describe('Cross-Service Integration', () => {
-    it('should maintain consistency across different services', async () => {
-      // Test that all services use the same symbol manager instance
-      const completionResult = await completionService.processCompletion({
-        textDocument: { uri: 'file://test.cls' },
-        position: { line: 15, character: 10 },
-        context: { triggerKind: 1, triggerCharacter: '.' },
-      });
-
-      const definitionResult = await definitionService.processDefinition({
-        textDocument: { uri: 'file://test.cls' },
-        position: { line: 1, character: 7 },
-      });
-
-      expect(completionResult).not.toBeNull();
-      expect(definitionResult).not.toBeNull();
-    });
-  });
-  */
 });

@@ -8,6 +8,11 @@
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { SymbolResolutionContext } from '../../src/types/ISymbolManager';
 import { ResolutionRequest } from '../../src/symbols/resolution/types';
+import {
+  SymbolFactory,
+  SymbolKind,
+  SymbolVisibility,
+} from '../../src/types/symbol';
 
 describe('ApexSymbolManager - Enhanced Resolution', () => {
   let symbolManager: ApexSymbolManager;
@@ -96,6 +101,37 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
   describe('getSymbolAtPosition - Enhanced', () => {
     it('should not trigger fallback for exact position matches', async () => {
+      // Create a test symbol first
+      const testSymbol = SymbolFactory.createFullSymbol(
+        'testSymbol',
+        SymbolKind.Variable,
+        {
+          startLine: 10,
+          startColumn: 5,
+          endLine: 10,
+          endColumn: 15,
+        },
+        'test.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        null,
+        { type: { name: 'String', isPrimitive: true, isArray: false } },
+        'testSymbol',
+      );
+
+      // Add the symbol to the manager
+      symbolManager.addSymbol(testSymbol, 'test.cls');
+
       const result = symbolManager.getSymbolAtPositionWithStrategy('test.cls', {
         line: 10,
         character: 5,
@@ -107,6 +143,37 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     });
 
     it('should use exact position resolution for hover requests', async () => {
+      // Create a test symbol first
+      const testSymbol = SymbolFactory.createFullSymbol(
+        'testSymbol',
+        SymbolKind.Variable,
+        {
+          startLine: 10,
+          startColumn: 5,
+          endLine: 10,
+          endColumn: 15,
+        },
+        'test.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        null,
+        { type: { name: 'String', isPrimitive: true, isArray: false } },
+        'testSymbol',
+      );
+
+      // Add the symbol to the manager
+      symbolManager.addSymbol(testSymbol, 'test.cls');
+
       const result = symbolManager.getSymbolAtPositionWithStrategy(
         'test.cls',
         { line: 10, character: 5 },

@@ -672,9 +672,6 @@ export class ApexSymbolCollectorListener
       this.symbolTable.enterScope(name);
       this.logger.debug(`DEBUG: Entered method scope: ${name}`);
       this.logger.debug(() => `Entered method scope: ${name}`);
-
-      // Reset annotations for the next symbol
-      this.resetAnnotations();
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in method declaration: ${errorMessage}`, ctx);
@@ -693,6 +690,10 @@ export class ApexSymbolCollectorListener
 
     // Clear current method symbol
     this.currentMethodSymbol = null;
+
+    // Reset modifiers and annotations for the next symbol
+    this.resetModifiers();
+    this.resetAnnotations();
   }
 
   /**

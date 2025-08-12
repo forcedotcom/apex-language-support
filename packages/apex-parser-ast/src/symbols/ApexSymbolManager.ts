@@ -3420,29 +3420,211 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position: { line: number; character: number },
     requestType?: string,
   ): ApexSymbol | null {
-    // For now, delegate to the existing method
-    // This will be enhanced to use strategies
-    const result = this.getSymbolAtPosition(fileUri, position);
+    let result: ApexSymbol | null;
+    let resolutionMethod: string;
+    let fallbackUsed: boolean;
+
+    // For hover, definition, and references requests, use precise position-based resolution
+    if (
+      requestType === 'hover' ||
+      requestType === 'definition' ||
+      requestType === 'references'
+    ) {
+      result = this.getSymbolAtPositionPrecise(fileUri, position);
+      resolutionMethod = 'exact-position';
+      fallbackUsed = false;
+    } else {
+      // For other request types, use the existing method
+      result = this.getSymbolAtPosition(fileUri, position);
+      resolutionMethod = 'exact-position';
+      fallbackUsed = false;
+    }
 
     // Add metadata about the resolution method used
     if (result) {
-      (result as any).resolutionMethod = 'exact-position';
-      (result as any).fallbackUsed = false;
-    } else {
-      // Create a mock result for testing when no symbol is found
-      const mockResult = {
-        name: 'mockSymbol',
-        type: 'class',
-        qname: 'test.mockSymbol',
-        position: { line: position.line, column: position.character },
-        resolutionMethod: 'exact-position',
-        fallbackUsed: false,
-      } as unknown as ApexSymbol;
-
-      return mockResult;
+      (result as any).resolutionMethod = resolutionMethod;
+      (result as any).fallbackUsed = fallbackUsed;
     }
 
     return result;
+  }
+
+  /**
+   * Get symbol at position with precise resolution (no fallback to containing symbols)
+   * This is used for hover, definition, and references requests where we want exact matches
+   */
+  private getSymbolAtPositionPrecise(
+    fileUri: string,
+    position: { line: number; character: number },
+  ): ApexSymbol | null {
+    try {
+      const normalizedPath = this.normalizeFilePath(fileUri);
+
+      this.logger.debug(
+        () =>
+          `Precise symbol lookup for ${normalizedPath} at ${position.line}:${position.character}`,
+      );
+
+      // Step 1: Try to find TypeReferences at the exact position
+      const typeReferences = this.getReferencesAtPosition(
+        normalizedPath,
+        position,
+      );
+
+      if (typeReferences.length > 0) {
+        // Step 2: Try to resolve the most specific reference
+        this.logger.debug(() => 'TypeReferences found, attempting to resolve');
+        const resolvedSymbol = this.resolveTypeReferenceToSymbol(
+          typeReferences[0],
+          normalizedPath,
+        );
+        if (resolvedSymbol) {
+          this.logger.debug(
+            () =>
+              `Found precise symbol via TypeReference: ${resolvedSymbol.name} (${resolvedSymbol.kind})`,
+          );
+          return resolvedSymbol;
+        }
+      }
+
+      // Step 3: Look for symbols that start exactly at this position or are small identifiers
+      const symbols = this.findSymbolsInFile(normalizedPath);
+
+      // Debug: Log all symbols and their locations
+      this.logger.debug(
+        () => `Found ${symbols.length} symbols in file for precise lookup`,
+      );
+      symbols.forEach((symbol, index) => {
+        const start = `${symbol.location.startLine}:${symbol.location.startColumn}`;
+        const end = `${symbol.location.endLine}:${symbol.location.endColumn}`;
+        const location = `${start}-${end}`;
+        this.logger.debug(
+          () =>
+            `Symbol[${index}]: ${symbol.name} (${symbol.kind}) at ${location}`,
+        );
+      });
+
+      this.logger.debug(
+        () =>
+          `Looking for symbols at position ${position.line}:${position.character}`,
+      );
+
+      const exactMatchSymbols = symbols.filter((symbol) => {
+        const { startLine, startColumn, endLine, endColumn } = symbol.location;
+
+        // Prefer matching within the identifier (name) span when available
+        const identifierLocation = (symbol as any).identifierLocation as
+          | {
+              startLine: number;
+              startColumn: number;
+              endLine: number;
+              endColumn: number;
+            }
+          | undefined;
+
+        // Check if the position is exactly at the start of the symbol
+        const isExactStart =
+          position.line === startLine && position.character === startColumn;
+
+        // Check if the position is within the symbol's scope bounds
+        const isWithinScope =
+          (position.line > startLine ||
+            (position.line === startLine &&
+              position.character >= startColumn)) &&
+          (position.line < endLine ||
+            (position.line === endLine && position.character <= endColumn));
+
+        // Check if the position is within the identifier bounds (more precise)
+        let isWithinIdentifier = false;
+        if (identifierLocation) {
+          const {
+            startLine: idStartLine,
+            startColumn: idStartColumn,
+            endLine: idEndLine,
+            endColumn: idEndColumn,
+          } = identifierLocation;
+          isWithinIdentifier =
+            (position.line > idStartLine ||
+              (position.line === idStartLine &&
+                position.character >= idStartColumn)) &&
+            (position.line < idEndLine ||
+              (position.line === idEndLine &&
+                position.character <= idEndColumn));
+        }
+
+        // For precise resolution, prefer exact start matches
+        if (isExactStart) {
+          this.logger.debug(
+            () =>
+              `Found exact start match: ${symbol.name} at ${startLine}:${startColumn}`,
+          );
+          return true;
+        }
+
+        // Prefer identifier matches over broader scope matches when hovering names
+        if (isWithinIdentifier) {
+          this.logger.debug(
+            () =>
+              `Found identifier position match: ${symbol.name} at identifier ` +
+              `${identifierLocation!.startLine}:${identifierLocation!.startColumn}-` +
+              `${identifierLocation!.endLine}:${identifierLocation!.endColumn}`,
+          );
+          return true;
+        }
+
+        // Include within-scope matches for small symbols (identifiers, method names, etc.)
+        if (isWithinScope) {
+          // Calculate symbol size to determine if it's a small identifier or large containing symbol
+          const symbolSize =
+            (endLine - startLine) * 1000 + (endColumn - startColumn);
+
+          // Special case: Allow class symbols when hovering on the class name (first line)
+          if (symbol.kind === 'class' && position.line === startLine) {
+            this.logger.debug(
+              () =>
+                `Found class symbol match on first line: ${symbol.name} (size: ${symbolSize})`,
+            );
+            return true;
+          }
+
+          // Allow small symbols (identifiers, method names, etc.) but reject large containing symbols
+          if (symbolSize < 200) {
+            // Increased threshold for small symbols
+            this.logger.debug(
+              () =>
+                `Found small symbol match: ${symbol.name} (size: ${symbolSize})`,
+            );
+            return true;
+          }
+        }
+
+        return false;
+      });
+
+      if (exactMatchSymbols.length > 0) {
+        // Return the smallest (most specific) symbol
+        const mostSpecific = exactMatchSymbols.reduce((prev, current) => {
+          const prevSize =
+            (prev.location.endLine - prev.location.startLine) * 1000 +
+            (prev.location.endColumn - prev.location.startColumn);
+          const currentSize =
+            (current.location.endLine - current.location.startLine) * 1000 +
+            (current.location.endColumn - current.location.startColumn);
+          return currentSize < prevSize ? current : prev;
+        });
+
+        this.logger.debug(
+          () => `Returning most specific symbol: ${mostSpecific.name}`,
+        );
+        return mostSpecific;
+      }
+
+      this.logger.debug(() => 'No precise symbol match found');
+      return null;
+    } catch (error) {
+      this.logger.debug(() => `Error in precise symbol lookup: ${error}`);
+      return null;
+    }
   }
 
   /**
