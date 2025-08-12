@@ -28,7 +28,7 @@ describe('Local Variable Declaration Parser Tests', () => {
 
   beforeEach(() => {
     logger = TestLogger.getInstance();
-    logger.setLogLevel('debug');
+    logger.setLogLevel('error');
     compilerService = new CompilerService();
     listener = new ApexSymbolCollectorListener();
   });
@@ -134,7 +134,6 @@ private with sharing class FileUtilitiesTest {
     }
 }`;
 
-      console.log('Compiling FileUtilitiesTest class');
       const result: CompilationResult<SymbolTable> = compilerService.compile(
         fileContent,
         'FileUtilitiesTest.cls',
@@ -142,12 +141,9 @@ private with sharing class FileUtilitiesTest {
       );
 
       if (result.errors.length > 0) {
-        console.log(`Compilation errors found: ${result.errors.length}`);
         result.errors.forEach((error, index) => {
-          console.log(`Error ${index + 1}: ${error.message}`);
+          // Log errors for debugging but don't fail the test
         });
-      } else {
-        console.log('No compilation errors found');
       }
 
       const symbolTable = result.result;
@@ -156,27 +152,11 @@ private with sharing class FileUtilitiesTest {
       // Get all symbols from all scopes
       const allSymbols = getAllSymbolsFromAllScopes(symbolTable!);
 
-      console.log(`Total symbols found: ${allSymbols.length}`);
-      allSymbols.forEach((symbol, index) => {
-        console.log(
-          `Symbol ${index + 1}: name=${symbol.name}, kind=${symbol.kind}, ` +
-            `line=${symbol.location.startLine}, type=${symbol._typeData?.type?.name || 'unknown'}`,
-        );
-      });
-
       // Find all property variables
       const propertyVariables = allSymbols.filter(
         (symbol) =>
           symbol.name === 'property' && symbol.kind === SymbolKind.Variable,
       );
-
-      console.log(`Found ${propertyVariables.length} property variables`);
-      propertyVariables.forEach((prop, index) => {
-        console.log(
-          `Property ${index + 1}: name=${prop.name}, line=${prop.location.startLine}, ` +
-            `scope=${prop.parentId || 'unknown'}`,
-        );
-      });
 
       // We should have 3 property variables (one in each test method)
       expect(propertyVariables.length).toBe(3);
@@ -185,7 +165,6 @@ private with sharing class FileUtilitiesTest {
       const propertyLines = propertyVariables
         .map((prop) => prop.location.startLine)
         .sort();
-      console.log(`Property variable lines: ${propertyLines.join(', ')}`);
 
       // The property variables should be at lines 7, 49, and 73 (1-based parser coordinates)
       expect(propertyLines).toContain(7);

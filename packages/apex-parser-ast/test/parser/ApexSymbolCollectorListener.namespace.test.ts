@@ -61,12 +61,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('top-level-class.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -80,12 +77,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('top-level-interface.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestInterface.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestInterface.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -99,12 +93,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('top-level-enum.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestEnum.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestEnum.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -118,12 +109,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('top-level-trigger.trigger');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestTrigger.trigger',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestTrigger.trigger', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -139,12 +127,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('inner-class.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'OuterClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'OuterClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -158,12 +143,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('inner-interface.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'OuterClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'OuterClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -177,12 +159,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('inner-enum.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'OuterClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'OuterClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -198,31 +177,15 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('method-in-class.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
 
       // Find any method symbol (since the name might be empty)
       const methodSymbol = symbols.find((s) => s.kind === 'method');
-
-      // Debug: Log all symbols
-      console.log(
-        'All symbols:',
-        symbols.map((s) => ({
-          name: s.name,
-          kind: s.kind,
-          namespace: s.namespace,
-          fqn: s.fqn,
-        })),
-      );
-
-      console.log('Method symbol:', methodSymbol);
 
       expect(methodSymbol?.namespace?.toString()).toBe('MyNamespace');
       expect(methodSymbol?.fqn).toBe('mynamespace/mymethod');
@@ -232,12 +195,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('method-in-interface.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestInterface.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestInterface.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -251,12 +211,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('constructor.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -274,12 +231,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('field-in-class.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -293,12 +247,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('property-in-class.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -314,12 +265,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('local-variable.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -333,12 +281,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('method-parameter.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -354,12 +299,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('enum-with-values.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestEnum.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestEnum.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -375,12 +317,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('nested-inner-classes.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'OuterClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'OuterClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -402,12 +341,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('multiple-inner-classes.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'OuterClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'OuterClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -427,7 +363,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('no-namespace.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
+      compilerService.compile(
         sourceCode,
         'TestClass.cls',
         listener,
@@ -446,12 +382,9 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('no-namespace.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestClass.cls',
-        listener,
-        { projectNamespace: '' },
-      );
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        projectNamespace: '',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -465,7 +398,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const sourceCode = readFixture('backward-compatibility.cls');
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
+      compilerService.compile(
         sourceCode,
         'TestClass.cls',
         listener,

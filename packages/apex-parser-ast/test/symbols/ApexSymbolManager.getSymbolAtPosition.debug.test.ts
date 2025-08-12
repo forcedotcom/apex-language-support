@@ -22,7 +22,7 @@ describe('ApexSymbolManager.getSymbolAtPosition - Debug', () => {
   beforeEach(() => {
     // Enable console logging for debugging
     enableConsoleLogging();
-    setLogLevel('debug');
+    setLogLevel('error');
 
     symbolManager = new ApexSymbolManager();
     symbolTable = new SymbolTable();

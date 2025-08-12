@@ -1716,8 +1716,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
 
       // Add more visible debug output
-      console.log(
-        `DEBUG: getSymbolAtPosition called for ${normalizedPath} at ${position.line}:${position.character}`,
+      this.logger.debug(
+        () =>
+          `DEBUG: getSymbolAtPosition called for ${normalizedPath} at ${position.line}:${position.character}`,
       );
 
       // Step 1: Try to find TypeReferences at the position
@@ -1799,8 +1800,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): void {
     try {
       const typeReferences = symbolTable.getAllReferences();
-      console.log(
-        `[DEBUG] Processing ${typeReferences.length} type references from ${filePath}`,
+      this.logger.debug(
+        () =>
+          `[DEBUG] Processing ${typeReferences.length} type references from ${filePath}`,
       );
 
       for (const typeRef of typeReferences) {
@@ -1827,8 +1829,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     filePath: string,
   ): void {
     try {
-      console.log(
-        `[DEBUG] Processing type reference: ${typeRef.name} (qualifier: ${typeRef.qualifier || 'none'})`,
+      this.logger.debug(
+        () =>
+          `[DEBUG] Processing type reference: ${typeRef.name} (qualifier: ${typeRef.qualifier || 'none'})`,
       );
 
       // Find the source symbol (the symbol that contains this reference)
@@ -1837,21 +1840,24 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         filePath,
       );
       if (!sourceSymbol) {
-        console.log(
-          `[DEBUG] No containing symbol found for reference ${typeRef.name} in ${filePath}`,
+        this.logger.debug(
+          () =>
+            `[DEBUG] No containing symbol found for reference ${typeRef.name} in ${filePath}`,
         );
         return;
       }
 
-      console.log(
-        `[DEBUG] Found source symbol: ${sourceSymbol.name} (${sourceSymbol.kind})`,
+      this.logger.debug(
+        () =>
+          `[DEBUG] Found source symbol: ${sourceSymbol.name} (${sourceSymbol.kind})`,
       );
 
       // Find the target symbol (the symbol being referenced)
       const targetSymbol = this.findTargetSymbolForReference(typeRef);
       if (!targetSymbol) {
-        console.log(
-          `[DEBUG] Deferring reference ${typeRef.name} for later resolution`,
+        this.logger.debug(
+          () =>
+            `[DEBUG] Deferring reference ${typeRef.name} for later resolution`,
         );
 
         // Map ReferenceContext to ReferenceType
@@ -1871,8 +1877,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return;
       }
 
-      console.log(
-        `[DEBUG] Found target symbol: ${targetSymbol.name} (${targetSymbol.kind})`,
+      this.logger.debug(
+        () =>
+          `[DEBUG] Found target symbol: ${targetSymbol.name} (${targetSymbol.kind})`,
       );
 
       // Map ReferenceContext to ReferenceType
@@ -1890,8 +1897,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         },
       );
 
-      console.log(
-        `[DEBUG] Successfully added reference: ${sourceSymbol.name} -> ${targetSymbol.name}`,
+      this.logger.debug(
+        () =>
+          `[DEBUG] Successfully added reference: ${sourceSymbol.name} -> ${targetSymbol.name}`,
       );
 
       this.logger.debug(

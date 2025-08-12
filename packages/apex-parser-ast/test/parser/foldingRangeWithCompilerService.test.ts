@@ -16,7 +16,7 @@ import { TestLogger } from '../utils/testLogger';
 describe('CompilerService Folding Range Integration', () => {
   // Set up debug logging for all tests in this suite
   const logger = TestLogger.getInstance();
-  logger.setLogLevel('debug');
+  logger.setLogLevel('error');
 
   describe('Basic Folding Ranges', () => {
     it('should collect folding ranges for class and method declarations', () => {

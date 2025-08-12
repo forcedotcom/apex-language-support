@@ -12,7 +12,6 @@ import {
   SymbolInformation,
   SymbolKind,
   Range,
-  Position,
 } from 'vscode-languageserver-protocol';
 import {
   SymbolTable,
@@ -84,36 +83,26 @@ export class DefaultApexDocumentSymbolProvider
   async provideDocumentSymbols(
     params: DocumentSymbolParams,
   ): Promise<DocumentSymbol[] | SymbolInformation[] | null> {
-    console.log(
-      '=== ApexDocumentSymbolProvider.provideDocumentSymbols called ===',
-    );
     const logger = getLogger();
     logger.debug(
       () => '=== ApexDocumentSymbolProvider.provideDocumentSymbols called ===',
     );
 
     try {
-      console.log('=== Entering try block ===');
       const documentUri = params.textDocument.uri;
-      console.log(`Document URI: ${documentUri}`);
       logger.debug(() => `Document URI: ${documentUri}`);
       logger.debug(
         () => `Attempting to get document from storage for URI: ${documentUri}`,
       );
 
-      console.log('About to call storage.getDocument...');
       logger.debug(() => 'About to call storage.getDocument...');
       const document = await this.storage.getDocument(documentUri);
-      console.log(
-        `Storage.getDocument returned: ${document ? 'document found' : 'document not found'}`,
-      );
       logger.debug(
         () =>
           `Storage.getDocument returned: ${document ? 'document found' : 'document not found'}`,
       );
 
       if (!document) {
-        console.log('Document not found, returning null');
         logger.warn(
           () => `Document not found in storage for URI: ${documentUri}`,
         );
@@ -129,20 +118,16 @@ export class DefaultApexDocumentSymbolProvider
         () => `Document content preview: ${documentText.substring(0, 100)}...`,
       );
 
-      console.log('About to create symbol table and listener...');
       // Create a symbol collector listener to parse the document
       const table = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(table);
-      console.log('Created symbol table and listener');
 
       const settingsManager = ApexSettingsManager.getInstance();
       const options = settingsManager.getCompilationOptions(
         'documentSymbols',
         documentText.length,
       );
-      console.log('Got compilation options:', JSON.stringify(options));
 
-      console.log('About to call compilerService.compile...');
       // Parse the document using the compiler service
       const result = this.compilerService.compile(
         documentText,
@@ -150,8 +135,6 @@ export class DefaultApexDocumentSymbolProvider
         listener,
         options,
       );
-      console.log('CompilerService.compile completed');
-      console.log(`Parse result has ${result.errors.length} errors`);
 
       if (result.errors.length > 0) {
         logger.warn(
@@ -162,16 +145,15 @@ export class DefaultApexDocumentSymbolProvider
 
         // Log the actual errors for debugging
         result.errors.forEach((error, index) => {
-          console.log(
-            `Error ${index + 1}: ${error.message} at ${error.line}:${error.column}`,
+          logger.debug(
+            () =>
+              `Error ${index + 1}: ${error.message} at ${error.line}:${error.column}`,
           );
         });
       }
 
-      console.log('About to get symbol table from result...');
       // Get the symbol table from the compilation result
       const symbolTable = result.result;
-      console.log('Got symbol table from result');
 
       if (!symbolTable) {
         logger.error(() => 'Symbol table is null from compilation result');
@@ -180,10 +162,7 @@ export class DefaultApexDocumentSymbolProvider
 
       const symbols: DocumentSymbol[] = [];
 
-      console.log('About to inspect symbol table...');
-      console.log('About to call symbolTable.getCurrentScope()...');
       const currentScope = symbolTable.getCurrentScope();
-      console.log(`Current scope name: ${currentScope.name}`);
 
       // Debug: Check what's in the symbol table
       logger.debug(() => `Symbol table current scope: ${currentScope.name}`);
@@ -194,13 +173,10 @@ export class DefaultApexDocumentSymbolProvider
           )}`,
       );
 
-      console.log('About to call symbolTable.getAllSymbols()...');
       // Get all symbols from the entire symbol table (not just current scope)
       const allSymbols = symbolTable.getAllSymbols();
-      console.log(`Total symbols in symbol table: ${allSymbols.length}`);
       logger.debug(() => `Total symbols in symbol table: ${allSymbols.length}`);
       allSymbols.forEach((symbol, index) => {
-        console.log(`All symbol ${index}: ${symbol.name} (${symbol.kind})`);
         logger.debug(
           () =>
             `All symbol ${index}: ${symbol.name} (${symbol.kind}) in scope ${symbolTable.getCurrentScopePath()}`,
@@ -211,7 +187,6 @@ export class DefaultApexDocumentSymbolProvider
       const topLevelSymbols = allSymbols.filter((symbol) =>
         inTypeSymbolGroup(symbol),
       );
-      console.log(`Found ${topLevelSymbols.length} top-level symbols`);
 
       // Process each top-level symbol and convert to LSP DocumentSymbol format
       for (const symbol of topLevelSymbols) {
@@ -219,22 +194,12 @@ export class DefaultApexDocumentSymbolProvider
 
         // Recursively collect children for top-level symbol types (classes, interfaces, etc.)
         const childScopes = symbolTable.getCurrentScope().getChildren();
-        console.log(`Found ${childScopes.length} child scopes`);
-        childScopes.forEach((scope, index) => {
-          console.log(`Child scope ${index}: ${scope.name}`);
-        });
 
         const typeScope = childScopes.find(
           (scope: any) => scope.name === symbol.name,
         );
-        console.log(
-          `Type scope for ${symbol.name}: ${typeScope ? 'found' : 'not found'}`,
-        );
 
         if (typeScope) {
-          console.log(
-            `Collecting children for ${symbol.kind} '${symbol.name}'`,
-          );
           logger.debug(
             () => `Collecting children for ${symbol.kind} '${symbol.name}'`,
           );
@@ -242,11 +207,6 @@ export class DefaultApexDocumentSymbolProvider
             typeScope,
             symbol.kind,
           );
-          console.log(
-            `Collected ${documentSymbol.children?.length || 0} children`,
-          );
-        } else {
-          console.log(`No type scope found for ${symbol.name}`);
         }
 
         symbols.push(documentSymbol);

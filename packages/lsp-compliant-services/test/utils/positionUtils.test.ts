@@ -129,6 +129,28 @@ describe('Position Utilities', () => {
 
       expect(result).toBe(true);
     });
+
+    it('should handle edge case: position at start line but after start column (ApexSymbolManager bounds check)', () => {
+      // Test the specific scenario from the debug test
+      // Position: { line: 1, character: 21 }
+      // Symbol location: { startLine: 1, startColumn: 20, endLine: 1, endColumn: 40 }
+      const position: ParserPosition = { line: 1, character: 21 };
+      const result = isPositionInRange(position, 1, 20, 1, 40);
+
+      // This should be true: position is at start line (1) but after start column (20)
+      expect(result).toBe(true);
+    });
+
+    it('should handle edge case: position at end line but before end column (ApexSymbolManager bounds check)', () => {
+      // Test the reverse scenario
+      // Position: { line: 1, character: 39 }
+      // Symbol location: { startLine: 1, startColumn: 20, endLine: 1, endColumn: 40 }
+      const position: ParserPosition = { line: 1, character: 39 };
+      const result = isPositionInRange(position, 1, 20, 1, 40);
+
+      // This should be true: position is at end line (1) but before end column (40)
+      expect(result).toBe(true);
+    });
   });
 
   describe('formatPosition', () => {
@@ -169,6 +191,108 @@ describe('Position Utilities', () => {
       const backToParser = transformLspToParserPosition(lspPosition);
 
       expect(backToParser).toEqual(originalParser);
+    });
+  });
+
+  describe('ApexSymbolManager bounds checking logic', () => {
+    it('should replicate ApexSymbolManager isWithinBounds calculation', () => {
+      // Test the exact logic from ApexSymbolManager.isPositionContainedInSymbol
+      const position = { line: 1, character: 21 };
+      const symbolLocation = {
+        startLine: 1,
+        startColumn: 20,
+        endLine: 1,
+        endColumn: 40,
+      };
+
+      // Replicate the exact logic from ApexSymbolManager
+      const isWithinBounds =
+        (position.line > symbolLocation.startLine ||
+          (position.line === symbolLocation.startLine &&
+            position.character >= symbolLocation.startColumn)) &&
+        (position.line < symbolLocation.endLine ||
+          (position.line === symbolLocation.endLine &&
+            position.character <= symbolLocation.endColumn));
+
+      // Calculate symbol size (used in ApexSymbolManager for optimization)
+      const symbolSize =
+        (symbolLocation.endLine - symbolLocation.startLine) * 1000 +
+        (symbolLocation.endColumn - symbolLocation.startColumn);
+
+      // Verify the bounds checking logic works correctly
+      expect(isWithinBounds).toBe(true);
+      expect(symbolSize).toBe(20);
+      expect(symbolSize < 200).toBe(true);
+
+      // Test edge cases
+      expect(position.line > symbolLocation.startLine).toBe(false);
+      expect(position.line === symbolLocation.startLine).toBe(true);
+      expect(position.character >= symbolLocation.startColumn).toBe(true);
+      expect(position.line < symbolLocation.endLine).toBe(false);
+      expect(position.line === symbolLocation.endLine).toBe(true);
+      expect(position.character <= symbolLocation.endColumn).toBe(true);
+    });
+
+    it('should handle various boundary conditions correctly', () => {
+      const testCases = [
+        {
+          position: { line: 1, character: 20 }, // At start column
+          symbolLocation: {
+            startLine: 1,
+            startColumn: 20,
+            endLine: 1,
+            endColumn: 40,
+          },
+          expected: true,
+          description: 'position at exact start column',
+        },
+        {
+          position: { line: 1, character: 40 }, // At end column
+          symbolLocation: {
+            startLine: 1,
+            startColumn: 20,
+            endLine: 1,
+            endColumn: 40,
+          },
+          expected: true,
+          description: 'position at exact end column',
+        },
+        {
+          position: { line: 1, character: 19 }, // Before start column
+          symbolLocation: {
+            startLine: 1,
+            startColumn: 20,
+            endLine: 1,
+            endColumn: 40,
+          },
+          expected: false,
+          description: 'position before start column',
+        },
+        {
+          position: { line: 1, character: 41 }, // After end column
+          symbolLocation: {
+            startLine: 1,
+            startColumn: 20,
+            endLine: 1,
+            endColumn: 40,
+          },
+          expected: false,
+          description: 'position after end column',
+        },
+      ];
+
+      testCases.forEach(
+        ({ position, symbolLocation, expected, description }) => {
+          const result = isPositionInRange(
+            { line: position.line, character: position.character },
+            symbolLocation.startLine,
+            symbolLocation.startColumn,
+            symbolLocation.endLine,
+            symbolLocation.endColumn,
+          );
+          expect(result).toBe(expected);
+        },
+      );
     });
   });
 });

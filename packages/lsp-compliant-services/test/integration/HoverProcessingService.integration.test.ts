@@ -44,7 +44,7 @@ describe('HoverProcessingService Integration Tests', () => {
   beforeEach(async () => {
     // Enable console logging for debugging
     enableConsoleLogging();
-    setLogLevel('debug');
+    setLogLevel('error');
 
     // Create a real symbol manager for integration testing
     symbolManager = new ApexSymbolManager();
@@ -176,23 +176,28 @@ describe('HoverProcessingService Integration Tests', () => {
       'file://AnotherTestClass.cls',
     );
 
-    console.log(
-      `Debug: Found ${testClassSymbols.length} symbols in TestClass.cls`,
+    // Log debug information using structured logging
+    const logger = getLogger();
+    logger.debug(
+      () => `Debug: Found ${testClassSymbols.length} symbols in TestClass.cls`,
     );
     testClassSymbols.forEach((symbol: any) => {
-      console.log(
-        `Debug: TestClass Symbol ${symbol.name} (${symbol.kind}) at ` +
+      logger.debug(
+        () =>
+          `Debug: TestClass Symbol ${symbol.name} (${symbol.kind}) at ` +
           `${symbol.location?.startLine}:${symbol.location?.startColumn}-` +
           `${symbol.location?.endLine}:${symbol.location?.endColumn}`,
       );
     });
 
-    console.log(
-      `Debug: Found ${anotherTestClassSymbols.length} symbols in AnotherTestClass.cls`,
+    logger.debug(
+      () =>
+        `Debug: Found ${anotherTestClassSymbols.length} symbols in AnotherTestClass.cls`,
     );
     anotherTestClassSymbols.forEach((symbol: any) => {
-      console.log(
-        `Debug: AnotherTestClass Symbol ${symbol.name} (${symbol.kind}) at ` +
+      logger.debug(
+        () =>
+          `Debug: AnotherTestClass Symbol ${symbol.name} (${symbol.kind}) at ` +
           `${symbol.location?.startLine}:${symbol.location?.startColumn}-` +
           `${symbol.location?.endLine}:${symbol.location?.endColumn}`,
       );

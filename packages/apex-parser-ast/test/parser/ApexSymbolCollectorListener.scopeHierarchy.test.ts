@@ -56,14 +56,6 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         listener,
       );
 
-      // Log any errors for debugging
-      if (result.errors.length > 0) {
-        console.log(`Compilation errors found: ${result.errors.length}`);
-        result.errors.forEach((error, index) => {
-          console.log(`Error ${index + 1}: ${error.message}`);
-        });
-      }
-
       // Get the symbol table
       const symbolTable = result.result;
       expect(symbolTable).toBeDefined();
@@ -78,36 +70,16 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       expect(currentScope.name).toBe('file');
       logger.debug(`Current scope name: ${currentScope.name}`);
 
-      // Check all symbols in the symbol table
-      const allSymbols = symbolTable.getAllSymbols();
-      console.log(`Total symbols in symbol table: ${allSymbols.length}`);
-      allSymbols.forEach((symbol, index) => {
-        console.log(`All symbol ${index}: ${symbol.name} (${symbol.kind})`);
-      });
-
       // Check child scopes
       const childScopes = currentScope.getChildren();
-      console.log(`Found ${childScopes.length} child scopes`);
-      childScopes.forEach((scope, index) => {
-        console.log(`Child scope ${index}: ${scope.name}`);
-      });
-
       // The test should find the class scope as a child of the file scope
       const classScope = childScopes.find(
         (scope) => scope.name === 'CommunitiesLandingController',
       );
       expect(classScope).toBeDefined();
-      console.log(
-        `Type scope for CommunitiesLandingController: ${classScope ? 'found' : 'not found'}`,
-      );
-
       if (classScope) {
         // Check symbols in the class scope
         const classSymbols = classScope.getAllSymbols();
-        console.log(`Found ${classSymbols.length} symbols in class scope`);
-        classSymbols.forEach((symbol, index) => {
-          console.log(`Class symbol ${index}: ${symbol.name} (${symbol.kind})`);
-        });
 
         // Should have the method and constructor
         const methods = classSymbols.filter(
@@ -165,8 +137,6 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         includeComments: true,
         includeWhitespace: false,
       };
-      console.log('Using compilation options:', JSON.stringify(options));
-
       logger.debug('Compiling test file with options');
       const result: CompilationResult<SymbolTable> = compilerService.compile(
         apexClassContent,
@@ -174,14 +144,6 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         listener,
         options,
       );
-
-      // Log any errors for debugging
-      if (result.errors.length > 0) {
-        console.log(`Compilation errors found: ${result.errors.length}`);
-        result.errors.forEach((error, index) => {
-          console.log(`Error ${index + 1}: ${error.message}`);
-        });
-      }
 
       // Get the symbol table
       const symbolTable = result.result;
@@ -197,36 +159,18 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       expect(currentScope.name).toBe('file');
       logger.debug(`Current scope name: ${currentScope.name}`);
 
-      // Check all symbols in the symbol table
-      const allSymbols = symbolTable.getAllSymbols();
-      console.log(`Total symbols in symbol table: ${allSymbols.length}`);
-      allSymbols.forEach((symbol, index) => {
-        console.log(`All symbol ${index}: ${symbol.name} (${symbol.kind})`);
-      });
-
       // Check child scopes
       const childScopes = currentScope.getChildren();
-      console.log(`Found ${childScopes.length} child scopes`);
-      childScopes.forEach((scope, index) => {
-        console.log(`Child scope ${index}: ${scope.name}`);
-      });
 
       // The test should find the class scope as a child of the file scope
       const classScope = childScopes.find(
         (scope) => scope.name === 'CommunitiesLandingController',
       );
       expect(classScope).toBeDefined();
-      console.log(
-        `Type scope for CommunitiesLandingController: ${classScope ? 'found' : 'not found'}`,
-      );
 
       if (classScope) {
         // Check symbols in the class scope
         const classSymbols = classScope.getAllSymbols();
-        console.log(`Found ${classSymbols.length} symbols in class scope`);
-        classSymbols.forEach((symbol, index) => {
-          console.log(`Class symbol ${index}: ${symbol.name} (${symbol.kind})`);
-        });
 
         // Should have the method and constructor
         const methods = classSymbols.filter(
@@ -286,29 +230,6 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
         throw new Error('Class scope is null');
       }
 
-      // Add debug logging
-      console.log(
-        `EmptyClass - Total symbols in symbol table: ${symbolTable.getAllSymbols().length}`,
-      );
-      symbolTable.getAllSymbols().forEach((symbol, index) => {
-        console.log(
-          `EmptyClass - All symbol ${index}: ${symbol.name} (${symbol.kind})`,
-        );
-      });
-      console.log(`EmptyClass - Child scopes: ${childScopes.length}`);
-      childScopes.forEach((scope, index) => {
-        console.log(`EmptyClass - Child scope ${index}: ${scope.name}`);
-      });
-      console.log(
-        `EmptyClass - Class scope symbols: ${classScope.getAllSymbols().length}`,
-      );
-      classScope.getAllSymbols().forEach((symbol, index) => {
-        console.log(
-          `EmptyClass - Class symbol ${index}: ${symbol.name} (${symbol.kind})`,
-        );
-      });
-
-      // The class symbol is in the file scope, not the class scope
       // Class scope only contains members (methods, fields, etc.)
       if (!classScope) {
         throw new Error('Class scope is null');
@@ -357,28 +278,6 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
       }
 
       const classSymbols = classScope.getAllSymbols();
-
-      // Add debug logging
-      console.log(
-        `FieldOnlyClass - Total symbols in symbol table: ${symbolTable.getAllSymbols().length}`,
-      );
-      symbolTable.getAllSymbols().forEach((symbol, index) => {
-        console.log(
-          `FieldOnlyClass - All symbol ${index}: ${symbol.name} (${symbol.kind})`,
-        );
-      });
-      console.log(`FieldOnlyClass - Child scopes: ${childScopes.length}`);
-      childScopes.forEach((scope, index) => {
-        console.log(`FieldOnlyClass - Child scope ${index}: ${scope.name}`);
-      });
-      console.log(
-        `FieldOnlyClass - Class scope symbols: ${classSymbols.length}`,
-      );
-      classSymbols.forEach((symbol, index) => {
-        console.log(
-          `FieldOnlyClass - Class symbol ${index}: ${symbol.name} (${symbol.kind})`,
-        );
-      });
 
       // Class scope contains only the members (fields), not the class itself
       expect(classSymbols.length).toBe(2); // Just the 2 fields

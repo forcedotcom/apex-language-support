@@ -6,18 +6,15 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { NamespaceResolutionService } from '../../src/namespace/NamespaceResolutionService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
 import { SymbolKind } from '../../src/types/symbol';
 
 describe('Namespace Resolution Integration', () => {
   let compilerService: CompilerService;
-  let namespaceResolutionService: NamespaceResolutionService;
 
   beforeEach(() => {
     compilerService = new CompilerService();
-    namespaceResolutionService = new NamespaceResolutionService();
   });
 
   describe('Phase 4: CompilerService Integration with Deferred Resolution', () => {
@@ -304,12 +301,9 @@ describe('Namespace Resolution Integration', () => {
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -337,12 +331,12 @@ describe('Namespace Resolution Integration', () => {
 
       // Compile both files
       const listener1 = new ApexSymbolCollectorListener();
-      const result1 = compilerService.compile(file1, 'ClassA.cls', listener1, {
+      compilerService.compile(file1, 'ClassA.cls', listener1, {
         projectNamespace: 'MyNamespace',
       });
 
       const listener2 = new ApexSymbolCollectorListener();
-      const result2 = compilerService.compile(file2, 'ClassB.cls', listener2, {
+      compilerService.compile(file2, 'ClassB.cls', listener2, {
         projectNamespace: 'MyNamespace',
       });
 
@@ -376,12 +370,9 @@ describe('Namespace Resolution Integration', () => {
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'ComplexClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'ComplexClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
@@ -416,25 +407,12 @@ describe('Namespace Resolution Integration', () => {
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'OuterClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'OuterClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-
-      // Debug: Log all symbols to see what we have
-      console.log(
-        'All symbols:',
-        symbols.map((s) => ({
-          name: s.name,
-          kind: s.kind,
-          namespace: s.namespace?.toString(),
-        })),
-      );
 
       // Verify outer class has project namespace
       const outerClass = symbols.find((s) => s.name === 'OuterClass');
@@ -448,7 +426,6 @@ describe('Namespace Resolution Integration', () => {
       const symbolsWithNamespace = symbols.filter(
         (s) => s.namespace?.toString() === 'MyNamespace',
       );
-      const symbolsWithoutNamespace = symbols.filter((s) => !s.namespace);
 
       // At least the main classes should have namespace
       expect(symbolsWithNamespace.length).toBeGreaterThan(0);
@@ -465,25 +442,12 @@ describe('Namespace Resolution Integration', () => {
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestInterface.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestInterface.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-
-      // Debug: Log all symbols to see what we have
-      console.log(
-        'Interface test symbols:',
-        symbols.map((s) => ({
-          name: s.name,
-          kind: s.kind,
-          namespace: s.namespace?.toString(),
-        })),
-      );
 
       // Verify interface has project namespace
       const interfaceSymbol = symbols.find((s) => s.name === 'TestInterface');
@@ -508,25 +472,12 @@ describe('Namespace Resolution Integration', () => {
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = compilerService.compile(
-        sourceCode,
-        'TestEnum.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'TestEnum.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
-
-      // Debug: Log all symbols to see what we have
-      console.log(
-        'Enum test symbols:',
-        symbols.map((s) => ({
-          name: s.name,
-          kind: s.kind,
-          namespace: s.namespace?.toString(),
-        })),
-      );
 
       // Verify enum has project namespace
       const enumSymbol = symbols.find((s) => s.name === 'TestEnum');
@@ -556,7 +507,7 @@ describe('Namespace Resolution Integration', () => {
       for (let i = 0; i < 50; i++) {
         sourceCode += `  public void method${i}() {\n`;
         sourceCode += `    String localVar${i} = "test";\n`;
-        sourceCode += `  }\n`;
+        sourceCode += '  }\n';
       }
 
       sourceCode += '}';
@@ -564,12 +515,9 @@ describe('Namespace Resolution Integration', () => {
       const listener = new ApexSymbolCollectorListener();
       const startTime = performance.now();
 
-      const result = compilerService.compile(
-        sourceCode,
-        'LargeClass.cls',
-        listener,
-        { projectNamespace: 'MyNamespace' },
-      );
+      compilerService.compile(sourceCode, 'LargeClass.cls', listener, {
+        projectNamespace: 'MyNamespace',
+      });
 
       const endTime = performance.now();
       const compilationTime = endTime - startTime;

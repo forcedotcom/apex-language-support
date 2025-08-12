@@ -91,9 +91,6 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
       // Get the symbol table from the listener
       const symbolTable = listener.getResult();
 
-      // Get all symbols from the global scope
-      const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
-
       // Queue symbol processing in the background for better performance
       const backgroundManager = BackgroundProcessingManager.getInstance();
 

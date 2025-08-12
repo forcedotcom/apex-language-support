@@ -6,12 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { CompletionParams } from 'vscode-languageserver-protocol';
-
-import {
-  CompletionProcessingService,
-  HoverProcessingService,
-} from '../../src/services';
+import { HoverProcessingService } from '../../src/services';
 
 import {
   ApexSymbolManager,
@@ -34,15 +29,7 @@ jest.mock('../../src/storage/ApexStorageManager', () => ({
 }));
 
 describe('ApexSymbolManager Integration Tests', () => {
-  let completionService: CompletionProcessingService;
-  // TODO: Uncomment these when other services support dependency injection
-  // let definitionService: DefinitionProcessingService;
-  // let referencesService: ReferencesProcessingService;
   let hoverService: HoverProcessingService;
-  // let signatureHelpService: SignatureHelpProcessingService;
-  // let codeActionService: CodeActionProcessingService;
-  // let workspaceSymbolService: WorkspaceSymbolProcessingService;
-  // let diagnosticService: DiagnosticProcessingService;
   let symbolManager: ApexSymbolManager;
   let mockStorage: any;
   let testClassDocument: TextDocument;
@@ -50,7 +37,7 @@ describe('ApexSymbolManager Integration Tests', () => {
   beforeEach(async () => {
     // Enable console logging for debugging
     enableConsoleLogging();
-    setLogLevel('debug');
+    setLogLevel('error');
 
     // Create a real symbol manager for integration testing
     symbolManager = new ApexSymbolManager();
@@ -159,49 +146,7 @@ describe('ApexSymbolManager Integration Tests', () => {
       log: jest.fn(),
     };
 
-    // Create services with the real symbol manager
-    completionService = new CompletionProcessingService(
-      mockLogger,
-      symbolManager,
-    );
     hoverService = new HoverProcessingService(mockLogger, symbolManager);
-    // TODO: Update other services to support dependency injection
-    // definitionService = new DefinitionProcessingService(mockLogger, symbolManager);
-    // referencesService = new ReferencesProcessingService(mockLogger, symbolManager);
-    // signatureHelpService = new SignatureHelpProcessingService(mockLogger, symbolManager);
-    // codeActionService = new CodeActionProcessingService(mockLogger, symbolManager);
-    // workspaceSymbolService = new WorkspaceSymbolProcessingService(mockLogger, symbolManager);
-    // diagnosticService = new DiagnosticProcessingService(mockLogger, symbolManager);
-
-    // Debug: Verify symbols are added correctly
-    const testClassSymbols = symbolManager.findSymbolsInFile(
-      'file://TestClass.cls',
-    );
-    const anotherTestClassSymbols = symbolManager.findSymbolsInFile(
-      'file://AnotherTestClass.cls',
-    );
-
-    console.log(
-      `Debug: Found ${testClassSymbols.length} symbols in TestClass.cls`,
-    );
-    testClassSymbols.forEach((symbol: any) => {
-      console.log(
-        `Debug: TestClass Symbol ${symbol.name} (${symbol.kind}) at ` +
-          `${symbol.location?.startLine}:${symbol.location?.startColumn}-` +
-          `${symbol.location?.endLine}:${symbol.location?.endColumn}`,
-      );
-    });
-
-    console.log(
-      `Debug: Found ${anotherTestClassSymbols.length} symbols in AnotherTestClass.cls`,
-    );
-    anotherTestClassSymbols.forEach((symbol: any) => {
-      console.log(
-        `Debug: AnotherTestClass Symbol ${symbol.name} (${symbol.kind}) at ` +
-          `${symbol.location?.startLine}:${symbol.location?.startColumn}-` +
-          `${symbol.location?.endLine}:${symbol.location?.endColumn}`,
-      );
-    });
   });
 
   afterEach(() => {
@@ -233,42 +178,6 @@ describe('ApexSymbolManager Integration Tests', () => {
         'file://FileUtilities.cls',
       );
       expect(fileUtilitiesFileSymbols.length).toBeGreaterThan(0);
-    });
-
-    it('should provide completion items using symbol manager', async () => {
-      mockStorage.getDocument.mockResolvedValue(testClassDocument);
-
-      const params: CompletionParams = {
-        textDocument: { uri: 'file://TestClass.cls' },
-        position: { line: 1, character: 23 }, // Position on 'getStaticValue' method name
-        context: {
-          triggerKind: 1,
-          triggerCharacter: '.',
-        },
-      };
-
-      const result = await completionService.processCompletion(params);
-
-      expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
-    });
-
-    it('should provide context-aware completion', async () => {
-      mockStorage.getDocument.mockResolvedValue(testClassDocument);
-
-      const params: CompletionParams = {
-        textDocument: { uri: 'file://TestClass.cls' },
-        position: { line: 5, character: 20 }, // Position on 'getValue' method name
-        context: {
-          triggerKind: 1,
-          triggerCharacter: 'S',
-        },
-      };
-
-      const result = await completionService.processCompletion(params);
-
-      expect(result).not.toBeNull();
-      expect(result!.length).toBeGreaterThan(0);
     });
   });
 

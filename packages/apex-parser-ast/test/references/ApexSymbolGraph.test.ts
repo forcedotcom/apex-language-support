@@ -40,13 +40,6 @@ describe('ApexSymbolGraph', () => {
 
     // Check if symbols were added
     const stats = graph.getStats();
-    console.log('Stats after adding symbols:', stats);
-
-    // Check if we can find the symbols
-    const foundClass = graph.lookupSymbolByName('MyClass');
-    const foundMethod = graph.lookupSymbolByName('myMethod');
-    console.log('Found class:', foundClass.length);
-    console.log('Found method:', foundMethod.length);
 
     // Try to add a reference
     graph.addReference(methodSymbol, classSymbol, ReferenceType.METHOD_CALL, {
@@ -55,16 +48,6 @@ describe('ApexSymbolGraph', () => {
       endLine: 5,
       endColumn: 20,
     });
-
-    // Check stats after adding reference
-    const statsAfterRef = graph.getStats();
-    console.log('Stats after adding reference:', statsAfterRef);
-
-    // Try to find references
-    const referencesTo = graph.findReferencesTo(classSymbol);
-    const referencesFrom = graph.findReferencesFrom(methodSymbol);
-    console.log('References TO class:', referencesTo.length);
-    console.log('References FROM method:', referencesFrom.length);
 
     // This test should pass even if references aren't working
     expect(stats.totalSymbols).toBe(2);
@@ -812,16 +795,6 @@ describe('ApexSymbolGraph', () => {
       // Verify memory savings
       const legacySize = JSON.stringify(legacyEdge).length;
       const optimizedSize = JSON.stringify(optimizedEdge).length;
-
-      console.log(`Legacy edge size: ${legacySize} bytes`);
-      console.log(`Optimized edge size: ${optimizedSize} bytes`);
-      const savingsPercent = (
-        ((legacySize - optimizedSize) / legacySize) *
-        100
-      ).toFixed(1);
-      console.log(
-        `Memory savings: ${legacySize - optimizedSize} bytes (${savingsPercent}%)`,
-      );
 
       // Should have some memory savings (location compression)
       expect(optimizedSize).toBeLessThanOrEqual(legacySize);

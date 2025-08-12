@@ -16,11 +16,7 @@ import {
   DocumentSymbol,
 } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import {
-  LoggerInterface,
-  setLoggerFactory,
-  LoggerFactory,
-} from '@salesforce/apex-lsp-shared';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 import {
   DefaultApexDocumentSymbolProvider,
@@ -54,18 +50,10 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
   let storage: ApexStorageInterface;
 
   beforeEach(async () => {
-    // Set up a test logger factory
-    const testLoggerFactory: LoggerFactory = {
-      getLogger: () =>
-        ({
-          info: jest.fn(),
-          warn: jest.fn(),
-          error: jest.fn(),
-          debug: jest.fn(),
-          log: jest.fn(),
-        }) as LoggerInterface,
-    };
-    setLoggerFactory(testLoggerFactory);
+    // Enable console logging for the test
+    enableConsoleLogging();
+    // Set log level to error only
+    setLogLevel('error');
 
     // Reset the ApexSettingsManager singleton to ensure clean state
     ApexSettingsManager.resetInstance();
@@ -123,20 +111,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const table = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(table);
 
-      const result = compilerService.compile(
+      compilerService.compile(
         apexClassContent,
         'CommunitiesLandingController.cls',
         listener,
       );
-
-      console.log(
-        `Parser test - Total symbols: ${result.result.getAllSymbols().length}`,
-      );
-      result.result.getAllSymbols().forEach((symbol: any, index: number) => {
-        console.log(
-          `Parser test - Symbol ${index}: ${symbol.name} (${symbol.kind})`,
-        );
-      });
 
       // Now test the integration test approach
       const docUri = 'file:///CommunitiesLandingController.cls';

@@ -15,7 +15,7 @@ import { TestLogger } from '../utils/testLogger';
 describe.skip('Standard Apex Library Generation', () => {
   // Set up debug logging for all tests in this suite
   const logger = TestLogger.getInstance();
-  logger.setLogLevel('debug');
+  logger.setLogLevel('error');
 
   it('should generate the Standard Apex Library', async () => {
     const sourceDir = path.join(
