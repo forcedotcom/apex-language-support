@@ -6,102 +6,168 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
+import type {
   LoggerInterface,
+  LogMessageType,
   LoggerFactory,
+} from '@salesforce/apex-lsp-shared';
+import {
   getLogNotificationHandler,
   shouldLog,
 } from '@salesforce/apex-lsp-shared';
-import type { LogMessageType } from '@salesforce/apex-lsp-shared';
 
 /**
- * A browser logger implementation that sends log messages through the
- * configured LogNotificationHandler to the LSP client.
+ * Unified logger implementation that works in both browser and web worker contexts
+ *
+ * This logger can send log messages through multiple channels:
+ * 1. LSP connection via LogNotificationHandler (when available)
+ * 2. postMessage to main thread (when in web worker context)
+ * 3. Console fallback (when neither is available)
  */
-class BrowserLogger implements LoggerInterface {
+class UnifiedLogger implements LoggerInterface {
+  private readonly usePostMessage: boolean;
+
+  constructor(usePostMessage = false) {
+    this.usePostMessage = usePostMessage;
+  }
+
   /**
-   * Logs a message with the specified type.
-   * @param messageType The LSP message type.
-   * @param messageOrProvider The message to log or a function that returns it.
+   * Logs a message with the specified type
    */
-  public log(
-    messageType: LogMessageType,
-    messageOrProvider: string | (() => string),
-  ): void {
-    // Check log level first
-    if (!shouldLog(messageType)) {
+  log(messageType: LogMessageType, message: string | (() => string)): void {
+    const msg = typeof message === 'function' ? message() : message;
+
+    // Check if we should log based on level
+    if (!this.shouldLog(messageType)) {
       return;
     }
 
-    const message =
-      typeof messageOrProvider === 'function'
-        ? messageOrProvider()
-        : messageOrProvider;
-    const handler = getLogNotificationHandler();
+    // Try LSP notification handler first (browser context)
+    this.sendViaLsp(messageType, msg);
 
-    if (handler && typeof handler.sendLogMessage === 'function') {
-      // For backward compatibility, map Debug to Log for older LSP clients
-      const mappedType = messageType === 'debug' ? 'log' : messageType;
-      handler.sendLogMessage({
-        type: mappedType,
-        message,
-      });
-    } else {
-      const fallbackType = messageType.toString();
-      console.warn(
-        '[BrowserLogger] LogNotificationHandler not available or invalid. ' +
-          `Fallback log (${fallbackType}): ${message}`,
-      );
+    // If in web worker context, also send via postMessage
+    if (this.usePostMessage) {
+      this.sendViaPostMessage(messageType, msg);
     }
   }
 
   /**
-   * Log a debug message
-   * @param message - The message to log or function that returns the message
+   * Logs an error message
    */
-  public debug(message: string | (() => string)): void {
-    this.log('debug', message);
+  error(message: string | (() => string)): void {
+    this.log('error', message);
   }
 
   /**
-   * Log an info message
-   * @param message - The message to log or function that returns the message
+   * Logs a warning message
    */
-  public info(message: string | (() => string)): void {
-    this.log('info', message);
-  }
-
-  /**
-   * Log a warning message
-   * @param message - The message to log or function that returns the message
-   */
-  public warn(message: string | (() => string)): void {
+  warn(message: string | (() => string)): void {
     this.log('warning', message);
   }
 
   /**
-   * Log an error message
-   * @param message - The message to log or function that returns the message
+   * Logs an info message
    */
-  public error(message: string | (() => string)): void {
-    this.log('error', message);
+  info(message: string | (() => string)): void {
+    this.log('info', message);
+  }
+
+  /**
+   * Logs a debug message
+   */
+  debug(message: string | (() => string)): void {
+    this.log('debug', message);
+  }
+
+  /**
+   * Determines if a message at the given level should be logged
+   */
+  private shouldLog(messageType: LogMessageType): boolean {
+    // Use the shared logging infrastructure's level checking
+    return shouldLog ? shouldLog(messageType) : true;
+  }
+
+  /**
+   * Sends a log message via LSP notification handler
+   */
+  private sendViaLsp(messageType: LogMessageType, message: string): void {
+    try {
+      const handler = getLogNotificationHandler();
+      if (handler && typeof handler.sendLogMessage === 'function') {
+        // For backward compatibility, map Debug to Log for older LSP clients
+        const mappedType = messageType === 'debug' ? 'log' : messageType;
+        handler.sendLogMessage({
+          type: mappedType,
+          message,
+        });
+      }
+    } catch {
+      // Silently fail if LSP logging is not available
+    }
+  }
+
+  /**
+   * Sends a log message via postMessage (web worker context)
+   */
+  private sendViaPostMessage(
+    messageType: LogMessageType,
+    message: string,
+  ): void {
+    if (this.usePostMessage && typeof self !== 'undefined') {
+      try {
+        self.postMessage({
+          type: 'log',
+          level: messageType === 'warning' ? 'warn' : messageType,
+          message,
+          timestamp: new Date().toISOString(),
+          source: 'apex-ls-unified',
+        });
+      } catch {
+        // Silently fail if postMessage is not available
+      }
+    }
   }
 }
 
 /**
- * A logger factory that creates instances of BrowserLogger.
- * This ensures that loggers obtained via getLogger() will send
- * messages through the configured LogNotificationHandler to the LSP client.
+ * Unified factory for creating loggers that work in both browser and web worker contexts
  */
-export class BrowserLoggerFactory implements LoggerFactory {
-  private static loggerInstance: LoggerInterface | null = null;
+export class UnifiedLoggerFactory implements LoggerFactory {
+  private static browserInstance: UnifiedLoggerFactory;
+  private static workerInstance: UnifiedLoggerFactory;
+  private readonly usePostMessage: boolean;
+
+  private constructor(usePostMessage = false) {
+    this.usePostMessage = usePostMessage;
+  }
 
   /**
-   * Gets a singleton instance of the BrowserLogger.
-   * @returns A Logger instance.
+   * Gets the singleton instance for browser context
    */
-  public getLogger(): LoggerInterface {
-    BrowserLoggerFactory.loggerInstance ??= new BrowserLogger();
-    return BrowserLoggerFactory.loggerInstance;
+  static getBrowserInstance(): UnifiedLoggerFactory {
+    if (!UnifiedLoggerFactory.browserInstance) {
+      UnifiedLoggerFactory.browserInstance = new UnifiedLoggerFactory(false);
+    }
+    return UnifiedLoggerFactory.browserInstance;
+  }
+
+  /**
+   * Gets the singleton instance for web worker context
+   */
+  static getWorkerInstance(): UnifiedLoggerFactory {
+    if (!UnifiedLoggerFactory.workerInstance) {
+      UnifiedLoggerFactory.workerInstance = new UnifiedLoggerFactory(true);
+    }
+    return UnifiedLoggerFactory.workerInstance;
+  }
+
+  /**
+   * Gets a logger instance (implements LoggerFactory interface)
+   */
+  getLogger(): LoggerInterface {
+    return new UnifiedLogger(this.usePostMessage);
   }
 }
+
+// Export convenience functions for backward compatibility
+export const BrowserLoggerFactory = UnifiedLoggerFactory;

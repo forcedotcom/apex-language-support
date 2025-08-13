@@ -15,6 +15,7 @@
     "test:coverage:packages": "turbo run test:coverage --filter=./packages/*",
     "test:coverage:report": "node scripts/merge-coverage.js",
     "test:integration": "turbo run test:integration",
+    "test:web": "node test-web-ext.js web",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "compile": "turbo run compile",

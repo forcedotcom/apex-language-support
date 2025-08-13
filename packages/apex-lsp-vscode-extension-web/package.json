@@ -20,6 +20,10 @@
     "Snippets"
   ],
   "main": "./out/extension.js",
+  "browser": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "languages": [
       {
@@ -133,7 +137,10 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@salesforce/apex-ls-browser": "1.0.0",
+    "vscode-languageclient": "^9.0.1"
+  },
   "devDependencies": {
     "@salesforce/apex-tmlanguage": "1.8.0",
     "@types/vscode": "^1.90.0",

@@ -13,11 +13,11 @@ import {
   setLogLevel,
 } from '@salesforce/apex-lsp-shared';
 
-import { BrowserLogNotificationHandler } from '../../src/utils/BrowserLogNotificationHandler';
+import { UnifiedLogNotificationHandler } from '../../src/utils/BrowserLogNotificationHandler';
 
-describe('BrowserLogNotificationHandler', () => {
+describe('UnifiedLogNotificationHandler (Browser Context)', () => {
   let mockConnection: jest.Mocked<Connection>;
-  let handler: BrowserLogNotificationHandler;
+  let handler: UnifiedLogNotificationHandler;
 
   beforeEach(() => {
     setLogLevel('debug');
@@ -26,19 +26,19 @@ describe('BrowserLogNotificationHandler', () => {
       sendNotification: jest.fn(),
     } as any;
 
-    handler = BrowserLogNotificationHandler.getInstance(mockConnection);
+    handler = UnifiedLogNotificationHandler.getBrowserInstance(mockConnection);
   });
 
   afterEach(() => {
-    BrowserLogNotificationHandler.resetInstance();
+    UnifiedLogNotificationHandler.resetInstances();
   });
 
-  describe('getInstance', () => {
+  describe('getBrowserInstance', () => {
     it('should return the same instance for the same connection', () => {
       const instance1 =
-        BrowserLogNotificationHandler.getInstance(mockConnection);
+        UnifiedLogNotificationHandler.getBrowserInstance(mockConnection);
       const instance2 =
-        BrowserLogNotificationHandler.getInstance(mockConnection);
+        UnifiedLogNotificationHandler.getBrowserInstance(mockConnection);
       expect(instance1).toBe(instance2);
     });
 
@@ -47,9 +47,9 @@ describe('BrowserLogNotificationHandler', () => {
         sendNotification: jest.fn(),
       } as any;
       const instance1 =
-        BrowserLogNotificationHandler.getInstance(mockConnection);
+        UnifiedLogNotificationHandler.getBrowserInstance(mockConnection);
       const instance2 =
-        BrowserLogNotificationHandler.getInstance(mockConnection2);
+        UnifiedLogNotificationHandler.getBrowserInstance(mockConnection2);
       expect(instance1).toBe(instance2);
     });
   });

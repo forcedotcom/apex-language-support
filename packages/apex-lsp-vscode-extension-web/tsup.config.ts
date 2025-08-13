@@ -24,7 +24,7 @@ export default defineConfig({
     'vscode-languageclient',
     'vscode-languageserver-textdocument',
     'vscode-uri',
-    '@salesforce/apex-ls-browser',
+    '@salesforce/apex-ls-browser/client',
     '@salesforce/apex-lsp-compliant-services',
     '@salesforce/apex-lsp-custom-services',
     '@salesforce/apex-lsp-shared',
@@ -58,14 +58,21 @@ export default defineConfig({
       stdio: 'inherit',
     });
 
-    // Prepare package.json for dist (following desktop extension pattern)
+    // Copy the bundled worker from apex-ls-browser
+    execSync('shx cp ../../packages/apex-ls-browser/dist/worker.js dist/', {
+      cwd: sourceDir,
+      stdio: 'inherit',
+    });
+
+    // Prepare package.json for dist
     const originalPackagePath = path.join(sourceDir, 'package.json');
     const pkg = JSON.parse(fs.readFileSync(originalPackagePath, 'utf8'));
 
     const distPackage = {
       ...pkg,
       main: './extension.js',
-      dependencies: {},
+      browser: './extension.js',
+      dependencies: pkg.dependencies,
       devDependencies: {},
       workspaces: undefined,
     };

@@ -7,36 +7,259 @@
  */
 
 import * as vscode from 'vscode';
+import { ApexLspClient } from '@salesforce/apex-ls-browser/client';
 
 // Create an output channel for logs
 let outputChannel: vscode.OutputChannel;
+let apexLspClient: ApexLspClient | undefined;
 
 /**
  * Activate the extension
  * @param context The extension context
  */
 export function activate(context: vscode.ExtensionContext) {
-  // Create output channel
+  // Create output channel immediately and show it
   outputChannel = vscode.window.createOutputChannel(
-    'Apex Language Server (Typescript)',
+    'Apex Language Server (Enhanced Web)',
   );
   context.subscriptions.push(outputChannel);
+  outputChannel.show(); // Show the output channel so we can see logs
 
-  outputChannel.appendLine('Apex Language Support extension is now active!');
+  // Log detailed activation info
+  outputChannel.appendLine('═══════════════════════════════════════════════');
+  outputChannel.appendLine('🚀 ENHANCED APEX LANGUAGE SERVER - ACTIVATION');
+  outputChannel.appendLine('═══════════════════════════════════════════════');
+  outputChannel.appendLine(`📅 Timestamp: ${new Date().toISOString()}`);
+  outputChannel.appendLine(
+    `📁 Extension URI: ${context.extensionUri.toString()}`,
+  );
+  outputChannel.appendLine(`🌐 Extension Mode: ${context.extensionMode}`);
+  outputChannel.appendLine(
+    `🔧 Environment: ${typeof globalThis.Worker !== 'undefined' ? 'Web Workers Supported' : 'No Web Worker Support'}`,
+  );
+
+  // Log workspace info
+  if (vscode.workspace.workspaceFolders) {
+    outputChannel.appendLine(
+      `📂 Workspace Folders: ${vscode.workspace.workspaceFolders.length}`,
+    );
+    vscode.workspace.workspaceFolders.forEach((folder, index) => {
+      outputChannel.appendLine(
+        `   ${index + 1}. ${folder.name}: ${folder.uri.toString()}`,
+      );
+    });
+  } else {
+    outputChannel.appendLine('📂 No workspace folders found');
+  }
 
   // Create and initialize status bar item
   const statusBarItem = createStatusBarItem(context);
-  statusBarItem.text = '$(check) Apex Support Active';
-  statusBarItem.tooltip = 'Apex Language Support is active';
+  statusBarItem.text = '$(sync~spin) Apex LS Debug Mode';
+  statusBarItem.tooltip =
+    'Enhanced Apex Language Server - Debugging activation';
   statusBarItem.show();
 
-  // Register the restart command for future use
+  // Show activation message
+  vscode.window.showInformationMessage(
+    'Enhanced Apex LS: Extension activated - Check Output panel',
+  );
+
+  // Start the enhanced language server with extensive error handling
+  outputChannel.appendLine(
+    '🔄 Starting Enhanced Language Server initialization...',
+  );
+  startEnhancedLanguageServer(context, statusBarItem)
+    .then(() => {
+      outputChannel.appendLine(
+        '✅ SUCCESS: Enhanced Apex Language Server started successfully!',
+      );
+      statusBarItem.text = '$(check) Apex Support Active (Web)';
+      statusBarItem.tooltip =
+        'Enhanced Apex Language Server is active with web worker architecture';
+      vscode.window.showInformationMessage(
+        'Enhanced Apex LS: Language server started successfully!',
+      );
+    })
+    .catch((error) => {
+      outputChannel.appendLine('❌ FAILURE: Language server failed to start');
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack =
+        error instanceof Error ? error.stack : 'No stack trace available';
+      outputChannel.appendLine(`   Error: ${errorMessage}`);
+      outputChannel.appendLine(
+        `   Stack: ${errorStack || 'No stack trace available'}`,
+      );
+      statusBarItem.text = '$(error) Apex LS Error';
+      statusBarItem.tooltip = `Language Server failed to start: ${errorMessage}`;
+      vscode.window
+        .showErrorMessage(
+          `Enhanced Apex LS failed to start: ${errorMessage}`,
+          'Show Output',
+        )
+        .then((selection) => {
+          if (selection === 'Show Output') {
+            outputChannel.show();
+          }
+        });
+    });
+
+  // Register the restart command
   registerRestartCommand(context, statusBarItem);
 
-  // Log activation success
-  outputChannel.appendLine(
-    `Extension activated at ${new Date().toISOString()}`,
-  );
+  // Final activation log
+  outputChannel.appendLine('✅ Extension activation completed');
+  outputChannel.appendLine('═══════════════════════════════════════════════');
+}
+
+/**
+ * Starts the enhanced Apex Language Server using web worker architecture
+ */
+async function startEnhancedLanguageServer(
+  context: vscode.ExtensionContext,
+  statusBarItem: vscode.StatusBarItem,
+): Promise<void> {
+  try {
+    outputChannel.appendLine('─────────────────────────────────────────────');
+    outputChannel.appendLine('🔄 LANGUAGE SERVER STARTUP PROCESS');
+    outputChannel.appendLine('─────────────────────────────────────────────');
+
+    // Step 1: Check Worker support
+    outputChannel.appendLine('1️⃣ Checking Web Worker support...');
+    if (typeof Worker === 'undefined') {
+      throw new Error('Web Workers are not supported in this environment');
+    }
+    outputChannel.appendLine('   ✅ Web Workers are supported');
+
+    // Step 2: Build worker URI and check paths
+    outputChannel.appendLine('2️⃣ Building worker path...');
+    const workerUri = vscode.Uri.joinPath(context.extensionUri, 'worker.js');
+    outputChannel.appendLine(`   📍 Worker URI: ${workerUri.toString()}`);
+    outputChannel.appendLine(
+      `   📁 Extension URI: ${context.extensionUri.toString()}`,
+    );
+
+    // Step 3: Create web worker with error handling
+    outputChannel.appendLine('3️⃣ Creating web worker...');
+    let worker: Worker;
+    try {
+      worker = new Worker(workerUri.toString());
+      outputChannel.appendLine('   ✅ Web worker created successfully');
+    } catch (workerError) {
+      outputChannel.appendLine(`   ❌ Worker creation failed: ${workerError}`);
+      throw new Error(`Failed to create worker: ${workerError}`);
+    }
+
+    // Step 4: Set up worker error handling
+    worker.onerror = (errorEvent) => {
+      const errorMessage = errorEvent.message || String(errorEvent);
+      outputChannel.appendLine(`🚨 Worker Error: ${errorMessage}`);
+      outputChannel.appendLine(
+        `   Filename: ${errorEvent.filename || 'unknown'}`,
+      );
+      outputChannel.appendLine(`   Line: ${errorEvent.lineno || 'unknown'}`);
+    };
+
+    worker.onmessageerror = (error) => {
+      outputChannel.appendLine(`🚨 Worker Message Error: ${error}`);
+    };
+
+    // Step 5: Set up basic worker monitoring
+    outputChannel.appendLine('4️⃣ Setting up worker monitoring...');
+    let workerStarted = false;
+
+    worker.onmessage = (event) => {
+      if (!workerStarted) {
+        outputChannel.appendLine(
+          `   📨 First worker message: ${JSON.stringify(event.data)}`,
+        );
+        workerStarted = true;
+      }
+    };
+
+    outputChannel.appendLine('   ✅ Worker monitoring set up');
+
+    // Step 5: Create LSP client
+    outputChannel.appendLine('5️⃣ Creating LSP client...');
+    try {
+      apexLspClient = new ApexLspClient(worker, {
+        error: (message) => outputChannel.appendLine(`[LSP-ERROR] ${message}`),
+        warn: (message) => outputChannel.appendLine(`[LSP-WARN] ${message}`),
+        info: (message) => outputChannel.appendLine(`[LSP-INFO] ${message}`),
+        log: (message) => outputChannel.appendLine(`[LSP-LOG] ${message}`),
+      });
+      outputChannel.appendLine('   ✅ LSP client created successfully');
+    } catch (clientError) {
+      outputChannel.appendLine(
+        `   ❌ LSP client creation failed: ${clientError}`,
+      );
+      throw new Error(`Failed to create LSP client: ${clientError}`);
+    }
+
+    // Step 6: Initialize the language server
+    outputChannel.appendLine('6️⃣ Initializing language server...');
+    const initParams = {
+      processId: null,
+      rootUri: vscode.workspace.workspaceFolders?.[0]?.uri.toString() || null,
+      capabilities: {
+        textDocument: {
+          documentSymbol: {},
+          foldingRange: {},
+          publishDiagnostics: {},
+        },
+        workspace: {
+          workspaceFolders: true,
+        },
+      },
+      initializationOptions: {
+        logLevel: 'debug',
+        extensionMode: 'development',
+        enableDocumentSymbols: true,
+      },
+      workspaceFolders:
+        vscode.workspace.workspaceFolders?.map((folder) => ({
+          uri: folder.uri.toString(),
+          name: folder.name,
+        })) || [],
+    };
+
+    outputChannel.appendLine(
+      `   📋 Init params: ${JSON.stringify(initParams, null, 2)}`,
+    );
+
+    const initResult = await apexLspClient.initialize(initParams);
+
+    outputChannel.appendLine('   ✅ Language server initialized successfully');
+    outputChannel.appendLine(
+      `   🔧 Server capabilities: ${JSON.stringify(initResult.capabilities, null, 2)}`,
+    );
+
+    // Step 7: Set up disposal
+    outputChannel.appendLine('7️⃣ Setting up cleanup handlers...');
+    context.subscriptions.push({
+      dispose: () => {
+        outputChannel.appendLine(
+          '🧹 Disposing Enhanced Apex Language Server...',
+        );
+        apexLspClient?.dispose();
+        apexLspClient = undefined;
+      },
+    });
+
+    outputChannel.appendLine('─────────────────────────────────────────────');
+    outputChannel.appendLine('✅ LANGUAGE SERVER STARTUP COMPLETED');
+    outputChannel.appendLine('─────────────────────────────────────────────');
+  } catch (error) {
+    outputChannel.appendLine('─────────────────────────────────────────────');
+    outputChannel.appendLine('❌ LANGUAGE SERVER STARTUP FAILED');
+    outputChannel.appendLine('─────────────────────────────────────────────');
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+    outputChannel.appendLine(`Error: ${errorMessage}`);
+    outputChannel.appendLine(`Stack: ${errorStack || 'No stack trace'}`);
+    outputChannel.appendLine('─────────────────────────────────────────────');
+    throw error;
+  }
 }
 
 /**
@@ -54,8 +277,7 @@ function createStatusBarItem(
 }
 
 /**
- * Registers the command to restart the extension functionality
- * This is kept as a placeholder for future language server integration
+ * Registers the command to restart the enhanced language server
  */
 function registerRestartCommand(
   context: vscode.ExtensionContext,
@@ -63,10 +285,40 @@ function registerRestartCommand(
 ): void {
   const restartCommand = vscode.commands.registerCommand(
     'apex.restart.server',
-    () => {
-      outputChannel.appendLine('Restart command triggered - currently a no-op');
-      vscode.window.showInformationMessage('Apex Language Support restarted');
-      statusBarItem.text = '$(check) Apex Support Active';
+    async () => {
+      outputChannel.appendLine(
+        '🔄 Restarting Enhanced Apex Language Server...',
+      );
+      statusBarItem.text = '$(sync~spin) Apex LS Restarting...';
+
+      try {
+        // Dispose existing client
+        if (apexLspClient) {
+          apexLspClient.dispose();
+          apexLspClient = undefined;
+        }
+
+        // Start a new one
+        await startEnhancedLanguageServer(context, statusBarItem);
+
+        outputChannel.appendLine(
+          '✅ Enhanced Apex Language Server restarted successfully!',
+        );
+        vscode.window.showInformationMessage(
+          'Enhanced Apex Language Server restarted successfully!',
+        );
+        statusBarItem.text = '$(check) Apex Support Active (Web)';
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        outputChannel.appendLine(
+          `❌ Failed to restart Enhanced Apex Language Server: ${errorMessage}`,
+        );
+        vscode.window.showErrorMessage(
+          `Failed to restart Apex Language Server: ${errorMessage}`,
+        );
+        statusBarItem.text = '$(error) Apex LS Error';
+      }
     },
   );
 
@@ -77,5 +329,16 @@ function registerRestartCommand(
  * Deactivate the extension
  */
 export function deactivate(): void {
-  outputChannel.appendLine('Deactivating Apex Language Support extension');
+  outputChannel.appendLine(
+    '🧹 Deactivating Enhanced Apex Language Support extension...',
+  );
+
+  if (apexLspClient) {
+    apexLspClient.dispose();
+    apexLspClient = undefined;
+  }
+
+  outputChannel.appendLine(
+    '✅ Enhanced Apex Language Support extension deactivated',
+  );
 }

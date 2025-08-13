@@ -1,13 +1,23 @@
 {
   "name": "@salesforce/apex-ls-browser",
   "version": "1.0.0",
-  "description": "Browser implementation of Apex Language Server",
+  "description": "Unified web worker-based Apex Language Server for browser and Node.js environments",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "exports": {
-    "import": "./dist/index.mjs",
-    "require": "./dist/index.js"
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./worker": {
+      "import": "./dist/worker.mjs",
+      "require": "./dist/worker.js"
+    },
+    "./client": {
+      "import": "./dist/client.mjs",
+      "require": "./dist/client.js"
+    }
   },
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -31,6 +41,9 @@
     "@salesforce/apex-lsp-custom-services": "1.0.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-lsp-shared": "1.0.0",
-    "vscode-languageserver": "^9.0.1"
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "vscode-languageserver-protocol": "^3.17.5",
+    "vscode-jsonrpc": "^8.2.0"
   }
 }

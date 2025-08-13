@@ -3,10 +3,10 @@
   "compilerOptions": {
     "outDir": "./out",
     "rootDir": "./src",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "WebWorker"],
     "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/extension-test.ts"],
   "exclude": ["node_modules", "out", "dist", "**/*.test.ts", "test/**/*"],
   "copyFiles": [
     {

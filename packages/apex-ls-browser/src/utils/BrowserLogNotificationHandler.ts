@@ -6,71 +6,143 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Connection, MessageType } from 'vscode-languageserver/browser';
-import {
-  LogMessageParams,
+import type { Connection } from 'vscode-languageserver/browser';
+import { MessageType } from 'vscode-languageserver/browser';
+import type {
   LogNotificationHandler,
-  shouldLog,
+  LogMessageParams,
 } from '@salesforce/apex-lsp-shared';
-import type { LogMessageType } from '@salesforce/apex-lsp-shared';
+import { shouldLog } from '@salesforce/apex-lsp-shared';
 
 /**
- * Browser-specific implementation of LogNotificationHandler
- * Sends log messages to both the console and the language client
+ * Unified log notification handler that works in both browser and web worker contexts
+ *
+ * This handler can send log notifications through multiple channels:
+ * 1. LSP connection via window/logMessage (browser context)
+ * 2. LSP connection via $/log (web worker context)
+ * 3. postMessage to main thread (web worker context)
+ * 4. Console fallback (when neither is available)
  */
-export class BrowserLogNotificationHandler implements LogNotificationHandler {
-  private static instance: BrowserLogNotificationHandler | undefined;
-  private connection: Connection;
+export class UnifiedLogNotificationHandler implements LogNotificationHandler {
+  private static browserInstance: UnifiedLogNotificationHandler;
+  private static workerInstance: UnifiedLogNotificationHandler;
+  private connection: Connection | null = null;
+  private readonly isWebWorker: boolean;
 
-  private constructor(connection: Connection) {
-    this.connection = connection;
+  private constructor(isWebWorker = false) {
+    this.isWebWorker = isWebWorker;
   }
 
   /**
-   * Get the singleton instance of the BrowserLogNotificationHandler
-   * @param connection The LSP connection to use for sending notifications
-   * @returns The BrowserLogNotificationHandler instance
+   * Gets the singleton instance for browser context
    */
-  public static getInstance(
+  static getBrowserInstance(
     connection: Connection,
-  ): BrowserLogNotificationHandler {
-    if (!BrowserLogNotificationHandler.instance) {
-      BrowserLogNotificationHandler.instance =
-        new BrowserLogNotificationHandler(connection);
+  ): UnifiedLogNotificationHandler {
+    if (!UnifiedLogNotificationHandler.browserInstance) {
+      UnifiedLogNotificationHandler.browserInstance =
+        new UnifiedLogNotificationHandler(false);
     }
-    return BrowserLogNotificationHandler.instance;
+    UnifiedLogNotificationHandler.browserInstance.connection = connection;
+    return UnifiedLogNotificationHandler.browserInstance;
   }
 
   /**
-   * Reset the singleton instance (for testing only)
+   * Gets the singleton instance for web worker context
    */
-  public static resetInstance(): void {
-    BrowserLogNotificationHandler.instance = undefined;
+  static getWorkerInstance(
+    connection?: Connection,
+  ): UnifiedLogNotificationHandler {
+    if (!UnifiedLogNotificationHandler.workerInstance) {
+      UnifiedLogNotificationHandler.workerInstance =
+        new UnifiedLogNotificationHandler(true);
+    }
+    if (connection) {
+      UnifiedLogNotificationHandler.workerInstance.connection = connection;
+    }
+    return UnifiedLogNotificationHandler.workerInstance;
+  }
+
+  /**
+   * Reset instances (for testing only)
+   */
+  static resetInstances(): void {
+    UnifiedLogNotificationHandler.browserInstance = undefined as any;
+    UnifiedLogNotificationHandler.workerInstance = undefined as any;
   }
 
   /**
    * Send a log message to the language client
-   * @param params The log message parameters
    */
-  public sendLogMessage(params: LogMessageParams): void {
+  sendLogMessage(params: LogMessageParams): void {
     // Check if we should log this message based on current log level
     if (!shouldLog(params.type)) {
       return; // Don't log if below current log level
     }
 
-    // Send to language client only - let the client handle OutputChannel logging
-    this.connection.sendNotification('window/logMessage', {
-      type: this.getLogMessageType(params.type),
-      message: params.message,
-    });
+    // Send via LSP connection if available
+    this.sendViaLsp(params);
+
+    // If in web worker context, also send via postMessage
+    if (this.isWebWorker) {
+      this.sendViaPostMessage(params);
+    }
   }
 
   /**
-   * Convert internal log type to LSP message type
-   * @param type The internal log type
-   * @returns The corresponding LSP message type
+   * Sends log message via LSP connection
    */
-  private getLogMessageType(type: LogMessageType): MessageType {
+  private sendViaLsp(params: LogMessageParams): void {
+    if (!this.connection) {
+      return;
+    }
+
+    try {
+      if (this.isWebWorker) {
+        // Web worker context: use $/log notification
+        this.connection.sendNotification('$/log', {
+          level: params.type,
+          message: params.message,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        // Browser context: use window/logMessage
+        this.connection.sendNotification('window/logMessage', {
+          type: this.getLogMessageType(params.type),
+          message: params.message,
+        });
+      }
+    } catch {
+      // If LSP notification fails, silently continue - no need to log errors about logging
+    }
+  }
+
+  /**
+   * Sends log message via postMessage (web worker context)
+   */
+  private sendViaPostMessage(params: LogMessageParams): void {
+    if (typeof self !== 'undefined') {
+      try {
+        self.postMessage({
+          type: 'logNotification',
+          level: params.type,
+          message: params.message,
+          timestamp: new Date().toISOString(),
+          source: 'apex-ls-unified',
+        });
+      } catch (error) {
+        // Fallback to console if postMessage fails
+        console.warn(
+          `[UnifiedLogNotificationHandler] Failed to send via postMessage: ${error}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Convert internal log type to LSP message type (for browser context)
+   */
+  private getLogMessageType(type: string): MessageType {
     switch (type) {
       case 'error':
         return MessageType.Error;
@@ -88,3 +160,6 @@ export class BrowserLogNotificationHandler implements LogNotificationHandler {
     }
   }
 }
+
+// Export convenience functions for backward compatibility
+export const BrowserLogNotificationHandler = UnifiedLogNotificationHandler;

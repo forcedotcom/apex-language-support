@@ -1,46 +1,205 @@
-# Web Apex Language Server
+# Enhanced Apex Language Server Browser Implementation
 
-Web-based integration for the Apex Language Server.
+A unified web worker-based language server that can run in both browser and Node.js environments, consolidating functionality from multiple packages into a single solution.
 
 ## Overview
 
-This package provides the integration layer for using the Apex Language Server in web-based environments. It allows web applications to connect to and utilize the language server for providing Apex language features in browser-based IDEs and code editors.
+This enhanced package provides a unified Apex Language Server that runs in web workers, eliminating Node.js API dependencies and creating a single codebase that works consistently across all platforms. It consolidates functionality from:
+
+- `apex-ls-node` (Node.js language server)
+- `apex-ls-browser` (Browser language server)
+- `apex-lsp-browser-client` (Browser client utilities)
+
+## Architecture
+
+### Web Worker Foundation
+
+The language server is built around a web worker architecture that provides:
+
+- **Platform Independence**: Runs in web workers that work in both browser and Node.js environments
+- **Non-blocking Operations**: Language server operations don't block the main thread
+- **Isolated Context**: Server runs in its own isolated context for better security and performance
+- **Message-based Communication**: Uses standardized message passing for client-server communication
+
+### Key Components
+
+#### 1. Web Worker Language Server (`worker.ts`)
+
+- Implements the LSP protocol in a web worker context
+- Handles document processing, diagnostics, and language features
+- Uses `BrowserMessageReader` and `BrowserMessageWriter` for communication
+
+#### 2. Client Utilities (`client.ts`)
+
+- Provides utilities for connecting to the web worker language server
+- Includes `ApexLspClient` class for high-level client operations
+- Handles message passing between main thread and worker
+
+#### 3. Storage Implementation (`storage/WebWorkerStorage.ts`)
+
+- In-memory storage for web worker environments
+- Provides temporary storage during worker lifetime
+- Includes synchronization methods for persistent storage
+
+#### 4. Logging System (`utils/`)
+
+- `WebWorkerLoggerFactory`: Creates loggers for web worker environments
+- `WebWorkerLogNotificationHandler`: Handles log notifications via postMessage
+- Sends logs to main thread for display or handling
 
 ## Features
 
-- Browser-based implementation of the language server
-- Web worker compatibility
-- Language server initialization for web environments
-- Basic language features (completion, hover)
-- Server mode configuration for performance optimization
-- Platform-agnostic capabilities system
+- **Unified Architecture**: Single codebase for browser and Node.js environments
+- **Web Worker Support**: Runs language server in isolated worker context
+- **Platform Independence**: No Node.js API dependencies
+- **Message-based Communication**: Standardized LSP protocol over web workers
+- **In-memory Storage**: Optimized storage for web worker environments
+- **Enhanced Logging**: Web worker-compatible logging system
+- **Backward Compatibility**: Maintains existing browser storage functionality
 
 ## Dependencies
 
 - `vscode-languageserver`: VSCode Language Server implementation (browser version)
+- `vscode-languageserver-textdocument`: Text document handling
 - `vscode-languageserver-protocol`: LSP protocol definitions
+- `vscode-jsonrpc`: JSON-RPC communication
+- `@salesforce/apex-lsp-parser-ast`: Apex parser and AST
+- `@salesforce/apex-lsp-compliant-services`: LSP compliant services
+- `@salesforce/apex-lsp-shared`: Shared utilities and logging
 
 ## Usage
 
-This package can be integrated into web-based IDEs and code editors that support the Language Server Protocol.
+### Basic Usage
 
 ```typescript
-// Example usage in a web application
-import * as WebApexLanguageServer from 'apex-ls-browser';
+import {
+  createApexLspClient,
+  ApexLspClient,
+} from '@salesforce/apex-ls-browser';
 
-// Initialize and connect to the language server
+// Create a worker with the language server
+const worker = new Worker('/path/to/worker.js');
+
+// Create a client
+const client = new ApexLspClient(worker);
+
+// Initialize the language server
+const result = await client.initialize({
+  processId: null,
+  rootUri: null,
+  capabilities: {},
+  workspaceFolders: null,
+});
 ```
+
+### Advanced Usage
+
+```typescript
+import { createApexLspClient } from '@salesforce/apex-ls-browser';
+
+// Create a client with custom options
+const client = createApexLspClient({
+  worker: new Worker('/path/to/worker.js'),
+  logger: {
+    error: (msg) => console.error(msg),
+    warn: (msg) => console.warn(msg),
+    info: (msg) => console.info(msg),
+    log: (msg) => console.log(msg),
+  },
+  autoListen: true,
+});
+
+// Use the client
+const connection = client.connection;
+const worker = client.worker;
+
+// Initialize
+const result = await client.initialize({
+  processId: null,
+  rootUri: 'file:///workspace',
+  capabilities: {
+    textDocument: {
+      documentSymbol: {},
+      diagnostic: {},
+    },
+  },
+  workspaceFolders: [],
+});
+
+// Clean up
+client.dispose();
+```
+
+### Web Worker Entry Point
+
+```typescript
+// In your worker script
+import { createWebWorkerLanguageServer } from '@salesforce/apex-ls-browser/worker';
+
+// The server will auto-start when imported
+```
+
+### Client Entry Point
+
+```typescript
+// In your main application
+import { createApexLspClient } from '@salesforce/apex-ls-browser/client';
+
+const client = createApexLspClient({
+  worker: new Worker('./worker.js'),
+});
+```
+
+## API Reference
+
+### `createApexLspClient(options)`
+
+Creates an Apex LSP client that connects to a web worker language server.
+
+**Parameters:**
+
+- `options.worker`: The Worker instance running the language server
+- `options.logger`: Optional logger for the connection
+- `options.autoListen`: Whether to automatically listen on the connection (default: true)
+
+**Returns:** `LanguageServerInitResult`
+
+### `ApexLspClient`
+
+Main class for the Apex Language Server client.
+
+**Constructor:** `new ApexLspClient(worker, logger?)`
+
+**Methods:**
+
+- `initialize(params)`: Initialize the language server
+- `sendNotification(method, params?)`: Send a notification
+- `sendRequest(method, params?)`: Send a request
+- `onNotification(method, handler)`: Register notification handler
+- `onRequest(method, handler)`: Register request handler
+- `dispose()`: Clean up resources
+
+### `WebWorkerStorage`
+
+In-memory storage implementation for web worker environments.
+
+**Methods:**
+
+- `get(key)`: Get a value from storage
+- `set(key, value)`: Set a value in storage
+- `delete(key)`: Delete a value from storage
+- `clear()`: Clear all storage
+- `syncWithMainThread(data?)`: Sync with main thread
+- `loadFromMainThread(data)`: Load data from main thread
 
 ## Recent Changes
 
-- **Removed Babel References:**  
-  All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.
-
-- **TypeScript Improvements:**  
-  Explicit types have been added to test files to resolve TypeScript errors. For example, in `apex-lsp-testbed/test/performance/lsp-benchmarks.test.ts`, variables and parameters now have explicit `any` types.
-
-- **Jest Configuration:**  
-  Jest configurations have been streamlined. Each package now uses a single Jest configuration file (`jest.config.cjs`), and the `"jest"` key has been removed from `package.json` files to avoid conflicts.
+- **Web Worker Architecture**: Enhanced with unified web worker-based language server
+- **Platform Independence**: Removed Node.js API dependencies
+- **Client Utilities**: Added comprehensive client utilities for web worker communication
+- **Storage Implementation**: Added in-memory storage for web worker environments
+- **Enhanced Logging**: Web worker-compatible logging system
+- **Multiple Entry Points**: Added `/worker` and `/client` entry points for modular usage
 
 ## Development
 
