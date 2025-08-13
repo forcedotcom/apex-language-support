@@ -2090,22 +2090,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             `Looking for qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
         );
 
-        // Try to find symbols by name first
+        // Find symbols by name (may be empty before std class ingestion)
         const candidates = this.findSymbolByName(typeReference.name);
 
-        if (candidates.length > 0) {
-          const qualifiedSymbol = this.resolveQualifiedReference(
-            typeReference,
-            sourceFile,
-            candidates,
+        // Attempt to resolve qualified reference regardless of initial candidate count
+        const qualifiedSymbol = this.resolveQualifiedReference(
+          typeReference,
+          sourceFile,
+          candidates,
+        );
+        if (qualifiedSymbol) {
+          this.logger.debug(
+            () =>
+              `Resolved qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
           );
-          if (qualifiedSymbol) {
-            this.logger.debug(
-              () =>
-                `Resolved qualified reference: ${typeReference.qualifier}.${typeReference.name}`,
-            );
-            return qualifiedSymbol;
-          }
+          return qualifiedSymbol;
         }
 
         // If qualified reference resolution fails, try to resolve the qualifier as a fallback
@@ -2123,14 +2122,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             return qualifierCandidates[0];
           }
         } else {
-          // For other contexts, only try built-in type resolution if we don't have a user-defined symbol with this name
+          // For other contexts, avoid returning the qualifier directly.
+          // We want method calls like Assert.isNotNull to resolve to the method symbol, not the class.
+          // Any necessary std class ingestion is handled inside resolveQualifiedReference above.
           const qualifierCandidates = this.findSymbolByName(
             typeReference.qualifier,
           );
           if (qualifierCandidates.length === 0) {
-            // Treat standard namespaces like System as resolvable classes when applicable.
-            // This enables lookups such as System.debug by resolving the qualifier to
-            // System (or System.System when available).
+            // Optionally trigger std class load; for METHOD_CALL, allow returning qualifier as fallback
             const qualifierSymbol = this.resolveBuiltInType(
               typeReference.qualifier,
             );
@@ -2140,7 +2139,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   `Resolved qualifier as built-in type fallback: ${typeReference.qualifier} for ` +
                   `${typeReference.qualifier}.${typeReference.name}`,
               );
-              return qualifierSymbol;
+              // After loading qualifier, attempt qualified resolution again
+              const retried = this.resolveQualifiedReference(
+                typeReference,
+                sourceFile,
+                candidates,
+              );
+              if (retried) {
+                return retried;
+              }
+              // If still not resolved and this is a method call, return the qualifier symbol
+              if (typeReference.context === ReferenceContext.METHOD_CALL) {
+                return qualifierSymbol;
+              }
             }
           } else {
             this.logger.debug(

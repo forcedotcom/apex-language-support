@@ -543,6 +543,73 @@ describe('HoverProcessingService Integration Tests', () => {
     });
   });
 
+  describe('Standard Apex Library Hover Tests', () => {
+    it('should provide hover information for the Assert class reference', async () => {
+      mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
+
+      // Find the position of 'Assert' in the first occurrence (e.g., Assert.isNotNull(...))
+      const text = fileUtilitiesTestDocument.getText();
+      const lines = text.split('\n');
+      const assertLineIndex = lines.findIndex((l) =>
+        l.includes('Assert.isNotNull'),
+      );
+      expect(assertLineIndex).toBeGreaterThanOrEqual(0);
+      const assertCharIndex = lines[assertLineIndex].indexOf('Assert');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file://FileUtilitiesTest.cls' },
+        position: { line: assertLineIndex, character: assertCharIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(result.contents).toBeDefined();
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        expect(content).toContain('**Class** Assert');
+        // Standard classes should generally be global
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
+      }
+    });
+
+    it('should provide hover information for the Assert.isNotNull method call', async () => {
+      mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
+
+      // Find the position of 'isNotNull' in the same line
+      const text = fileUtilitiesTestDocument.getText();
+      const lines = text.split('\n');
+      const methodLineIndex = lines.findIndex((l) =>
+        l.includes('Assert.isNotNull'),
+      );
+      expect(methodLineIndex).toBeGreaterThanOrEqual(0);
+      const methodCharIndex = lines[methodLineIndex].indexOf('isNotNull');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file://FileUtilitiesTest.cls' },
+        position: { line: methodLineIndex, character: methodCharIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(result.contents).toBeDefined();
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        // Expected behavior: hovering method token resolves to the method symbol
+        expect(content).toContain('**Method** isNotNull');
+        expect(content).toContain('**Returns:** void');
+        expect(content).toMatch(/static/);
+      }
+    });
+  });
+
   describe('Cross-Class Reference Tests', () => {
     it('should provide hover information when referencing FileUtilities from test class', async () => {
       mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
