@@ -40,6 +40,7 @@ describe('HoverProcessingService Integration Tests', () => {
   let anotherTestClassDocument: TextDocument;
   let fileUtilitiesDocument: TextDocument;
   let fileUtilitiesTestDocument: TextDocument;
+  let stdApexDocument: TextDocument;
 
   beforeEach(async () => {
     // Enable console logging for debugging
@@ -55,6 +56,7 @@ describe('HoverProcessingService Integration Tests', () => {
     const anotherTestClassPath = join(fixturesDir, 'AnotherTestClass.cls');
     const fileUtilitiesPath = join(fixturesDir, 'FileUtilities.cls');
     const fileUtilitiesTestPath = join(fixturesDir, 'FileUtilitiesTest.cls');
+    const stdApexPath = join(fixturesDir, 'StdApex.cls');
 
     const testClassContent = readFileSync(testClassPath, 'utf8');
     const anotherTestClassContent = readFileSync(anotherTestClassPath, 'utf8');
@@ -63,6 +65,7 @@ describe('HoverProcessingService Integration Tests', () => {
       fileUtilitiesTestPath,
       'utf8',
     );
+    const stdApexContent = readFileSync(stdApexPath, 'utf8');
 
     // Create TextDocument instances for the real classes
     testClassDocument = TextDocument.create(
@@ -91,6 +94,13 @@ describe('HoverProcessingService Integration Tests', () => {
       'apex',
       1,
       fileUtilitiesTestContent,
+    );
+
+    stdApexDocument = TextDocument.create(
+      'file://StdApex.cls',
+      'apex',
+      1,
+      stdApexContent,
     );
 
     // Parse the real Apex classes and add them to the symbol manager
@@ -154,6 +164,17 @@ describe('HoverProcessingService Integration Tests', () => {
       fileUtilitiesTestTable,
       'file://FileUtilitiesTest.cls',
     );
+
+    // Parse StdApex.cls
+    const stdApexTable = new SymbolTable();
+    const stdApexListener = new ApexSymbolCollectorListener(stdApexTable);
+    const _stdApexResult = compilerService.compile(
+      stdApexContent,
+      'file://StdApex.cls',
+      stdApexListener,
+      {},
+    );
+    symbolManager.addSymbolTable(stdApexTable, 'file://StdApex.cls');
 
     // Set up mock storage
     mockStorage = {
@@ -545,19 +566,16 @@ describe('HoverProcessingService Integration Tests', () => {
 
   describe('Standard Apex Library Hover Tests', () => {
     it('should provide hover information for the Assert class reference', async () => {
-      mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
+      mockStorage.getDocument.mockResolvedValue(stdApexDocument);
 
-      // Find the position of 'Assert' in the first occurrence (e.g., Assert.isNotNull(...))
-      const text = fileUtilitiesTestDocument.getText();
+      const text = stdApexDocument.getText();
       const lines = text.split('\n');
-      const assertLineIndex = lines.findIndex((l) =>
-        l.includes('Assert.isNotNull'),
-      );
+      const assertLineIndex = lines.findIndex((l) => l.includes('Assert.'));
       expect(assertLineIndex).toBeGreaterThanOrEqual(0);
       const assertCharIndex = lines[assertLineIndex].indexOf('Assert');
 
       const params: HoverParams = {
-        textDocument: { uri: 'file://FileUtilitiesTest.cls' },
+        textDocument: { uri: 'file://StdApex.cls' },
         position: { line: assertLineIndex, character: assertCharIndex },
       };
 
@@ -571,26 +589,22 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('**Class** Assert');
-        // Standard classes should generally be global
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
 
     it('should provide hover information for the Assert.isNotNull method call', async () => {
-      mockStorage.getDocument.mockResolvedValue(fileUtilitiesTestDocument);
+      mockStorage.getDocument.mockResolvedValue(stdApexDocument);
 
-      // Find the position of 'isNotNull' in the same line
-      const text = fileUtilitiesTestDocument.getText();
+      const text = stdApexDocument.getText();
       const lines = text.split('\n');
-      const methodLineIndex = lines.findIndex((l) =>
-        l.includes('Assert.isNotNull'),
-      );
-      expect(methodLineIndex).toBeGreaterThanOrEqual(0);
-      const methodCharIndex = lines[methodLineIndex].indexOf('isNotNull');
+      const lineIndex = lines.findIndex((l) => l.includes('Assert.isNotNull'));
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf('isNotNull');
 
       const params: HoverParams = {
-        textDocument: { uri: 'file://FileUtilitiesTest.cls' },
-        position: { line: methodLineIndex, character: methodCharIndex },
+        textDocument: { uri: 'file://StdApex.cls' },
+        position: { line: lineIndex, character: charIndex },
       };
 
       const result = await hoverService.processHover(params);
@@ -602,10 +616,37 @@ describe('HoverProcessingService Integration Tests', () => {
           typeof result.contents === 'object' && 'value' in result.contents
             ? result.contents.value
             : '';
-        // Expected behavior: hovering method token resolves to the method symbol
         expect(content).toContain('**Method** isNotNull');
         expect(content).toContain('**Returns:** void');
         expect(content).toMatch(/static/);
+      }
+    });
+
+    it('should provide hover information for the System.debug method call', async () => {
+      mockStorage.getDocument.mockResolvedValue(stdApexDocument);
+
+      const text = stdApexDocument.getText();
+      const lines = text.split('\n');
+      const lineIndex = lines.findIndex((l) => l.includes('System.debug'));
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf('debug');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file://StdApex.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(result.contents).toBeDefined();
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        expect(content).toContain('**Method** debug');
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*static.*global/);
       }
     });
   });

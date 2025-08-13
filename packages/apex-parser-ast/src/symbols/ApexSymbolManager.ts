@@ -2670,11 +2670,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return null;
       }
 
-      if (memberCandidates.length === 1) {
-        this.logger.debug(
-          () => `Found member in file: ${memberCandidates[0].name}`,
+      if (memberCandidates.length >= 1) {
+        // Choose best candidate: prefer static methods, otherwise first
+        const staticCandidate = memberCandidates.find(
+          (s) => s.modifiers?.isStatic === true,
         );
-        return memberCandidates[0];
+        const chosen = staticCandidate || memberCandidates[0];
+        this.logger.debug(
+          () =>
+            `Found member in file: ${chosen.name} (candidates: ${memberCandidates.length})`,
+        );
+        return chosen;
       }
 
       // If not found in the same file, try global search
@@ -2687,11 +2693,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           `Found ${globalCandidates.length} global candidates with parentId match`,
       );
 
-      if (globalCandidates.length === 1) {
-        this.logger.debug(
-          () => `Found member globally: ${globalCandidates[0].name}`,
+      if (globalCandidates.length >= 1) {
+        const staticGlobal = globalCandidates.find(
+          (s) => s.modifiers?.isStatic === true,
         );
-        return globalCandidates[0];
+        const chosen = staticGlobal || globalCandidates[0];
+        this.logger.debug(
+          () =>
+            `Found member globally: ${chosen.name} (candidates: ${globalCandidates.length})`,
+        );
+        return chosen;
       }
 
       this.logger.debug(() => 'No qualified reference found');
@@ -2712,6 +2723,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     candidates: ApexSymbol[],
     sourceFile: string,
   ): ApexSymbol | null {
+    // Prefer concrete class symbols with real std class file paths when multiple candidates share the same name
+    // This helps disambiguate cases like "System" which can be both a namespace and a class
+    const classLikeCandidates = candidates.filter(
+      (symbol) =>
+        symbol.kind === SymbolKind.Class &&
+        typeof symbol.filePath === 'string' &&
+        symbol.filePath.endsWith(`/${symbol.name}.cls`),
+    );
+    if (classLikeCandidates.length > 0) {
+      candidates = classLikeCandidates;
+    }
+
     // Prefer same file
     const sameFile = candidates.find(
       (symbol) => symbol.filePath === sourceFile,
