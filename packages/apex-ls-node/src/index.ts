@@ -22,6 +22,7 @@ import {
   FoldingRangeParams,
   FoldingRange,
 } from 'vscode-languageserver/node';
+import { DidChangeConfigurationParams } from 'vscode-languageserver-protocol';
 import {
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
@@ -106,12 +107,22 @@ export function startServer() {
     const initOptions = params.initializationOptions as
       | ApexServerInitializationOptions
       | undefined;
-    const logLevel = initOptions?.logLevel || 'error';
+    const initialLogLevel =
+      (initOptions as any)?.apex?.logLevel ?? initOptions?.logLevel ?? 'error';
 
-    logger.info(`Setting log level to: ${logLevel}`);
+    logger.info(`Setting log level to: ${initialLogLevel}`);
 
     // Set the log level in the logging system
-    setLogLevel(logLevel);
+    setLogLevel(initialLogLevel);
+
+    // Apply full initial configuration if provided (handles nested apex settings)
+    try {
+      if (initOptions) {
+        configurationManager.updateFromLSPConfiguration(initOptions);
+      }
+    } catch (e) {
+      logger.warn(`[SERVER] Failed to apply initial configuration: ${e}`);
+    }
 
     // Initialize ApexLib
     // const { client } = createNodeApexLibAdapter(connection, documents);
@@ -230,6 +241,20 @@ export function startServer() {
       message: 'Apex Language Server is now running in Node.js',
     });
   });
+
+  // Handle configuration changes from the client (VS Code settings updates)
+  connection.onDidChangeConfiguration(
+    (change: DidChangeConfigurationParams) => {
+      logger.info('[SERVER] Received configuration change');
+      try {
+        configurationManager.updateFromLSPConfiguration(change.settings);
+      } catch (error) {
+        logger.error(
+          `[SERVER] Failed to apply configuration: ${String(error)}`,
+        );
+      }
+    },
+  );
 
   // Handle document symbol requests
   connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
