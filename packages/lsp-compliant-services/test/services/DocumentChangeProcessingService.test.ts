@@ -25,38 +25,42 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   })),
 }));
 
-// Mock the symbol manager factory
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  SymbolManagerFactory: {
-    createSymbolManager: jest.fn(() => ({
-      addSymbol: jest.fn(),
-      getSymbol: jest.fn(),
-      findSymbolByName: jest.fn(),
-      removeFile: jest.fn(),
-      addSymbolTable: jest.fn(),
-      getSymbolAtPosition: jest.fn(),
-      getAllReferencesInFile: jest.fn(),
-      resolveSymbol: jest.fn(),
-      getAllSymbolsForCompletion: jest.fn(),
-      getStats: jest.fn(),
-      clear: jest.fn(),
-      optimizeMemory: jest.fn(),
-      createResolutionContext: jest.fn(),
-      constructFQN: jest.fn(),
-      getContainingType: jest.fn(),
-      getAncestorChain: jest.fn(),
-      find: jest.fn(),
-      findBuiltInType: jest.fn(),
-      findSObjectType: jest.fn(),
-      findUserType: jest.fn(),
-      findExternalType: jest.fn(),
-      isStandardApexClass: jest.fn(),
-      getAvailableStandardClasses: jest.fn(),
-      resolveStandardApexClass: jest.fn(),
-    })),
-  },
-  ISymbolManager: jest.fn(),
-}));
+// Mock the symbol processing manager and ISymbolManager type
+jest.mock('@salesforce/apex-lsp-parser-ast', () => {
+  const symbolManager = {
+    addSymbol: jest.fn(),
+    getSymbol: jest.fn(),
+    findSymbolByName: jest.fn(),
+    removeFile: jest.fn(),
+    addSymbolTable: jest.fn(),
+    getSymbolAtPosition: jest.fn(),
+    getAllReferencesInFile: jest.fn(),
+    resolveSymbol: jest.fn(),
+    getAllSymbolsForCompletion: jest.fn(),
+    getStats: jest.fn(),
+    clear: jest.fn(),
+    optimizeMemory: jest.fn(),
+    createResolutionContext: jest.fn(),
+    constructFQN: jest.fn(),
+    getContainingType: jest.fn(),
+    getAncestorChain: jest.fn(),
+    find: jest.fn(),
+    findBuiltInType: jest.fn(),
+    findSObjectType: jest.fn(),
+    findUserType: jest.fn(),
+    findExternalType: jest.fn(),
+    isStandardApexClass: jest.fn(),
+    getAvailableStandardClasses: jest.fn(),
+    resolveStandardApexClass: jest.fn(),
+  };
+  const instance = { getSymbolManager: jest.fn(() => symbolManager) };
+  return {
+    ApexSymbolProcessingManager: {
+      getInstance: jest.fn(() => instance),
+    },
+    ISymbolManager: jest.fn(),
+  };
+});
 
 // Mock the storage manager
 jest.mock('../../src/storage/ApexStorageManager', () => ({
@@ -144,12 +148,15 @@ describe('DocumentChangeProcessingService', () => {
 
     it('should create service with default symbol manager when not provided', () => {
       const {
-        SymbolManagerFactory,
+        ApexSymbolProcessingManager,
       } = require('@salesforce/apex-lsp-parser-ast');
 
       new DocumentChangeProcessingService(mockLogger);
 
-      expect(SymbolManagerFactory.createSymbolManager).toHaveBeenCalled();
+      expect(ApexSymbolProcessingManager.getInstance).toHaveBeenCalled();
+      const instance = (ApexSymbolProcessingManager.getInstance as jest.Mock)
+        .mock.results[0].value;
+      expect(instance.getSymbolManager).toHaveBeenCalled();
     });
   });
 

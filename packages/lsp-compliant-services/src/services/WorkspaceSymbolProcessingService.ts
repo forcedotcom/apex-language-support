@@ -14,7 +14,7 @@ import {
   Range,
 } from 'vscode-languageserver-protocol';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
-import { SymbolManagerFactory } from '@salesforce/apex-lsp-parser-ast';
+import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
 import { transformParserToLspPosition } from '../utils/positionUtils';
 
 /**
@@ -54,7 +54,8 @@ export class WorkspaceSymbolProcessingService
 
   constructor(logger: LoggerInterface) {
     this.logger = logger;
-    this.symbolManager = SymbolManagerFactory.createSymbolManager();
+    this.symbolManager =
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 
   /**

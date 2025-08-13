@@ -19,7 +19,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import {
   ReferenceType,
-  SymbolManagerFactory,
+  ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 
@@ -61,7 +61,8 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
 
   constructor(logger: LoggerInterface) {
     this.logger = logger;
-    this.symbolManager = SymbolManagerFactory.createSymbolManager();
+    this.symbolManager =
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 
   /**

@@ -18,7 +18,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   ISymbolManager,
-  SymbolManagerFactory,
+  ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 
 /**
@@ -58,7 +58,8 @@ export class CompletionProcessingService implements ICompletionProcessor {
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
-      symbolManager || SymbolManagerFactory.createSymbolManager();
+      symbolManager ||
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 
   /**

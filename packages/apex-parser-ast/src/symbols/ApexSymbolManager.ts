@@ -2542,12 +2542,63 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
 
       // First, find the qualifier symbol
-      const qualifierCandidates = this.findSymbolByName(
-        typeReference.qualifier!,
-      );
+      let qualifierCandidates = this.findSymbolByName(typeReference.qualifier!);
       this.logger.debug(
         () => `Found ${qualifierCandidates.length} qualifier candidates`,
       );
+
+      // Integration: if qualifier not yet in graph, and it's a standard class, ingest compiled std symbol table
+      if (qualifierCandidates.length === 0 && this.resourceLoader) {
+        try {
+          const qual = typeReference.qualifier!;
+          let fqn: string | null = null;
+          let ns: string | null = null;
+          let classNameForLookup: string | null = null;
+
+          if (qual.includes('.')) {
+            const parts = qual.split('.');
+            if (parts.length >= 2) {
+              ns = parts[0];
+              classNameForLookup = parts[1];
+              fqn = `${ns}.${classNameForLookup}`;
+            }
+          } else if (isStdApexNamespace(qual)) {
+            ns = qual;
+            classNameForLookup = qual;
+            fqn = `${ns}.${classNameForLookup}`;
+          } else {
+            fqn = this.findFQNForStandardClass(qual);
+            if (fqn) {
+              const parts = fqn.split('.');
+              ns = parts[0];
+              classNameForLookup = parts[1];
+            }
+          }
+
+          if (fqn && ns && classNameForLookup) {
+            const classPath = `${ns}/${classNameForLookup}.cls`;
+            // Ensure compiled synchronously if not already, then ingest the table and retry lookup
+            if (!this.resourceLoader.isClassCompiled(classPath)) {
+              this.resourceLoader.ensureClassLoadedSync(classPath);
+            }
+            const artifact =
+              this.resourceLoader.getCompiledArtifactSync(classPath);
+            if (artifact && artifact.compilationResult?.result) {
+              this.addSymbolTable(artifact.compilationResult.result, classPath);
+              qualifierCandidates = this.findSymbolByName(classNameForLookup);
+              this.logger.debug(
+                () =>
+                  `Ingested std class ${fqn} and found ${qualifierCandidates.length} candidate(s)`,
+              );
+            }
+          }
+        } catch (e) {
+          this.logger.debug(
+            () =>
+              `Std class integration attempt failed for qualifier ${typeReference.qualifier}: ${e}`,
+          );
+        }
+      }
 
       if (qualifierCandidates.length === 0) {
         this.logger.debug(() => 'No qualifier candidates found');

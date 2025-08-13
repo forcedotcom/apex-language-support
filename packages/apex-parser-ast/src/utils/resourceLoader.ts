@@ -830,6 +830,82 @@ export class ResourceLoader {
   }
 
   /**
+   * Synchronously load and compile a single standard Apex class
+   * Useful for synchronous resolution paths where awaiting is not possible
+   */
+  public loadAndCompileClassSync(className: string): CompiledArtifact | null {
+    // Check if class exists in our known structure
+    if (!this.hasClass(className)) {
+      this.logger.debug(
+        () => `Class ${className} not found in standard library`,
+      );
+      return null;
+    }
+
+    try {
+      // Load the file content from memfs directly
+      const content = this.readFileFromMemfs(className);
+      if (!content) {
+        this.logger.warn(() => `Failed to load content for ${className}`);
+        return null;
+      }
+
+      // Compile the single class synchronously
+      const symbolTable = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(symbolTable);
+
+      const result = this.compilerService.compile(
+        content,
+        className,
+        listener,
+        {
+          includeComments: false,
+          includeSingleLineComments: false,
+          associateComments: false,
+        },
+      );
+
+      if (result.errors.length > 0) {
+        this.logger.warn(
+          () => `Compilation errors for ${className}: ${result.errors}`,
+        );
+        return null;
+      }
+
+      // Create compiled artifact
+      let artifact: CompiledArtifact;
+      if ('commentAssociations' in result && 'comments' in result) {
+        artifact = {
+          path: className,
+          compilationResult:
+            result as CompilationResultWithAssociations<SymbolTable>,
+        };
+      } else {
+        artifact = {
+          path: className,
+          compilationResult: {
+            ...result,
+            commentAssociations: [],
+            comments: [],
+          } as CompilationResultWithAssociations<SymbolTable>,
+        };
+      }
+
+      // Store in compiled artifacts map
+      this.compiledArtifacts.set(className, artifact);
+      this.logger.debug(
+        () => `Successfully loaded and compiled (sync) ${className}`,
+      );
+      return artifact;
+    } catch (error) {
+      this.logger.error(
+        () => `Error loading/compiling (sync) ${className}: ${error}`,
+      );
+      return null;
+    }
+  }
+
+  /**
    * Check if a class is available and optionally load it
    * This is the main entry point for lazy loading
    */
@@ -841,6 +917,17 @@ export class ResourceLoader {
 
     // Try to load and compile
     const artifact = await this.loadAndCompileClass(className);
+    return artifact !== null;
+  }
+
+  /**
+   * Synchronously ensure a class is compiled and available
+   */
+  public ensureClassLoadedSync(className: string): boolean {
+    if (this.compiledArtifacts.has(className)) {
+      return true;
+    }
+    const artifact = this.loadAndCompileClassSync(className);
     return artifact !== null;
   }
 

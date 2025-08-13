@@ -12,7 +12,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
-  SymbolManagerFactory,
+  ApexSymbolProcessingManager,
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
 
@@ -40,7 +40,8 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
-      symbolManager || SymbolManagerFactory.createSymbolManager();
+      symbolManager ||
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 
   /**

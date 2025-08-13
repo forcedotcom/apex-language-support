@@ -25,10 +25,10 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   })),
 }));
 
-// Mock the symbol manager factory
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  SymbolManagerFactory: {
-    createSymbolManager: jest.fn(() => ({
+// Mock the symbol processing manager and ISymbolManager type
+jest.mock('@salesforce/apex-lsp-parser-ast', () => {
+  const instance = {
+    getSymbolManager: jest.fn(() => ({
       addSymbol: jest.fn(),
       getSymbol: jest.fn(),
       findSymbolByName: jest.fn(),
@@ -53,9 +53,14 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
       getReferencesAtPosition: jest.fn(),
       getSymbolAtPosition: jest.fn(),
     })),
-  },
-  ISymbolManager: jest.fn(),
-}));
+  };
+  return {
+    ApexSymbolProcessingManager: {
+      getInstance: jest.fn(() => instance),
+    },
+    ISymbolManager: jest.fn(),
+  };
+});
 
 // Mock the storage manager
 jest.mock('../../src/storage/ApexStorageManager', () => ({
@@ -139,12 +144,15 @@ describe('DocumentCloseProcessingService', () => {
 
     it('should create service with default symbol manager when not provided', () => {
       const {
-        SymbolManagerFactory,
+        ApexSymbolProcessingManager,
       } = require('@salesforce/apex-lsp-parser-ast');
 
       new DocumentCloseProcessingService(mockLogger);
 
-      expect(SymbolManagerFactory.createSymbolManager).toHaveBeenCalled();
+      expect(ApexSymbolProcessingManager.getInstance).toHaveBeenCalled();
+      const instance = (ApexSymbolProcessingManager.getInstance as jest.Mock)
+        .mock.results[0].value;
+      expect(instance.getSymbolManager).toHaveBeenCalled();
     });
   });
 

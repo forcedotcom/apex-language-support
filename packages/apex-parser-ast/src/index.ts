@@ -56,9 +56,8 @@ export * from './utils/AnnotationUtils';
 export * from './utils/symbolNarrowing';
 
 // Export cross-file symbol management
-
 export * from './symbols/ApexSymbolManager';
-export * from './symbols/SymbolManagerFactory';
+export * from './symbols/ApexSymbolProcessingManager';
 
 // Export resolution framework types
 export * from './symbols/resolution/types';

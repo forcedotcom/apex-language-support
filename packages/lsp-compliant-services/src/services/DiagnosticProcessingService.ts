@@ -12,7 +12,7 @@ import {
   CompilerService,
   SymbolTable,
   ApexSymbolCollectorListener,
-  SymbolManagerFactory,
+  ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
@@ -68,7 +68,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    */
   constructor(logger: LoggerInterface) {
     this.logger = logger;
-    this.symbolManager = SymbolManagerFactory.createSymbolManager();
+    this.symbolManager =
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 
   /**
