@@ -7,7 +7,7 @@
  */
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { BackgroundProcessingManager } from '@salesforce/apex-lsp-parser-ast';
+import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Service for initializing background processing when the LSP server starts
@@ -42,7 +42,7 @@ export class BackgroundProcessingInitializationService {
 
     try {
       // Initialize the background processing manager
-      const backgroundManager = BackgroundProcessingManager.getInstance();
+      const backgroundManager = ApexSymbolProcessingManager.getInstance();
       backgroundManager.initialize();
 
       this.isInitialized = true;
@@ -69,7 +69,7 @@ export class BackgroundProcessingInitializationService {
     }
 
     try {
-      const backgroundManager = BackgroundProcessingManager.getInstance();
+      const backgroundManager = ApexSymbolProcessingManager.getInstance();
       backgroundManager.shutdown();
 
       this.isInitialized = false;
@@ -104,7 +104,7 @@ export class BackgroundProcessingInitializationService {
 
     if (this.isInitialized) {
       try {
-        const backgroundManager = BackgroundProcessingManager.getInstance();
+        const backgroundManager = ApexSymbolProcessingManager.getInstance();
         status.queueStats = backgroundManager.getQueueStats();
       } catch (error) {
         this.logger.error(() => `Error getting queue stats: ${error}`);

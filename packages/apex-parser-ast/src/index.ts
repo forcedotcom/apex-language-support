@@ -67,8 +67,8 @@ export * from './symbols/resolution/types';
 export * from './symbols/ApexSymbolGraph';
 
 // Export background processing components
-export * from './symbols/EffectBackgroundProcessingService';
-export * from './symbols/BackgroundProcessingManager';
+export * from './symbols/ApexSymbolIndexingService';
+export * from './symbols/ApexSymbolProcessingManager';
 
 // Export semantic validators
 export * from './semantics/modifiers/index';

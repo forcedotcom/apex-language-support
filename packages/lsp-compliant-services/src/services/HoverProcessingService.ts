@@ -11,17 +11,17 @@ import {
   Hover,
   MarkupContent,
   MarkupKind,
-} from 'vscode-languageserver-protocol';
+} from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
-
-import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
-  BackgroundProcessingManager,
-  ISymbolManager,
+  ApexSymbolProcessingManager,
   TypeReference,
   ReferenceContext,
+  ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
+
+import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   transformLspToParserPosition,
   formatPosition,
@@ -44,13 +44,14 @@ export interface IHoverProcessor {
  */
 export class HoverProcessingService implements IHoverProcessor {
   private readonly logger: LoggerInterface;
-  private symbolManager: ISymbolManager;
+  private readonly symbolManager: ISymbolManager;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
+    // Use the real symbol manager from ApexSymbolProcessingManager, not the factory
     this.symbolManager =
       symbolManager ||
-      BackgroundProcessingManager.getInstance().getSymbolManager();
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 
   /**
@@ -109,6 +110,8 @@ export class HoverProcessingService implements IHoverProcessor {
         return null;
       }
 
+      this.logger.debug(() => `Found symbol: ${symbol.name} (${symbol.kind})`);
+
       // Create enhanced resolution context for better accuracy
       const context = this.symbolManager.createResolutionContextWithRequestType(
         document.getText(),
@@ -142,16 +145,6 @@ export class HoverProcessingService implements IHoverProcessor {
 
       this.logger.debug(
         () => `Hover creation result: ${hover ? 'success' : 'null'}`,
-      );
-
-      if (hover) {
-        this.logger.debug(
-          () => `Hover contents: ${JSON.stringify(hover.contents)}`,
-        );
-      }
-
-      this.logger.debug(
-        () => `Returning hover information for: ${symbol.name}`,
       );
 
       return hover;
@@ -213,21 +206,36 @@ export class HoverProcessingService implements IHoverProcessor {
 
       // Fallback: Use symbol manager's cross-file lookup
       this.logger.debug(
-        () =>
-          'No TypeReference data found, using symbol manager cross-file lookup',
+        () => 'Falling back to symbol manager cross-file lookup',
       );
 
-      // For fallback, return empty array to let calling code handle
-      return [];
+      // Use available methods from ISymbolManager interface
+      const allSymbols = this.symbolManager.getAllSymbolsForCompletion();
+      const crossFileSymbols = allSymbols.filter(
+        (symbol: any) => symbol.filePath !== document.uri,
+      );
+
+      if (crossFileSymbols && crossFileSymbols.length > 0) {
+        this.logger.debug(
+          () =>
+            `Found ${crossFileSymbols.length} cross-file symbols via fallback`,
+        );
+        return crossFileSymbols;
+      }
+
+      this.logger.debug(() => 'No cross-file symbols found');
+      return null;
     } catch (error) {
-      this.logger.debug(() => `Error in cross-file symbol search: ${error}`);
+      this.logger.error(
+        () => `Error in cross-file symbol resolution: ${error}`,
+      );
       return null;
     }
   }
 
   /**
-   * Resolve cross-file symbols using TypeReference data
-   * Uses parser package's symbol lookup for cross-file resolution
+   * Resolve cross-file symbols from TypeReference data
+   * This provides more precise resolution than generic cross-file lookup
    */
   private resolveCrossFileSymbolsFromReferences(
     typeReferences: TypeReference[],
@@ -238,7 +246,8 @@ export class HoverProcessingService implements IHoverProcessor {
 
     for (const ref of typeReferences) {
       try {
-        // Find symbols by name that match the TypeReference
+        // Use available methods from ISymbolManager interface
+        // Try to find symbols by name that match the TypeReference
         const foundSymbols = this.symbolManager.findSymbolByName(ref.name);
 
         if (foundSymbols && foundSymbols.length > 0) {
@@ -267,8 +276,7 @@ export class HoverProcessingService implements IHoverProcessor {
         }
       } catch (error) {
         this.logger.debug(
-          () =>
-            `Error resolving cross-file symbol from TypeReference ${ref.name}: ${error}`,
+          () => `Error resolving TypeReference ${ref.name}: ${error}`,
         );
       }
     }
@@ -408,7 +416,7 @@ export class HoverProcessingService implements IHoverProcessor {
       if (methodFile) {
         const fileSymbols = this.symbolManager.findSymbolsInFile(methodFile);
         const containingClass = fileSymbols.find(
-          (s) => s.kind === 'class' && s.id === symbol.parentId,
+          (s: any) => s.kind === 'class' && s.id === symbol.parentId,
         );
         if (containingClass) {
           fqn = `${containingClass.name}.${symbol.name}`;

@@ -15,7 +15,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { DefaultApexDocumentSymbolProvider } from '../documentSymbol/ApexDocumentSymbolProvider';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { BackgroundProcessingManager } from '@salesforce/apex-lsp-parser-ast';
+import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for document symbol processing functionality
@@ -43,7 +43,7 @@ export class DocumentSymbolProcessingService
   constructor(logger: LoggerInterface) {
     this.logger = logger;
     this.symbolManager =
-      BackgroundProcessingManager.getInstance().getSymbolManager();
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 
   /**

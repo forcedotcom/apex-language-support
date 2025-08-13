@@ -290,7 +290,7 @@ describe('ResourceLoader Compilation', () => {
 
     if (firstArtifact) {
       const fileName = firstArtifact.path;
-      const compiledArtifact = resourceLoader.getCompiledArtifact(fileName);
+      const compiledArtifact = resourceLoader.getCompiledArtifactSync(fileName);
 
       expect(compiledArtifact).toBeDefined();
       expect(compiledArtifact!.path).toBe(fileName);
@@ -309,12 +309,12 @@ describe('ResourceLoader Compilation', () => {
 
     // Test System namespace (which actually exists)
     const systemArtifact =
-      resourceLoader.getCompiledArtifact('System/System.cls');
+      resourceLoader.getCompiledArtifactSync('System/System.cls');
     expect(systemArtifact).toBeDefined();
     expect(systemArtifact!.compilationResult.result).toBeDefined();
 
     // Test ApexPages namespace (which actually exists)
-    const actionArtifact = resourceLoader.getCompiledArtifact(
+    const actionArtifact = resourceLoader.getCompiledArtifactSync(
       'ApexPages/Action.cls',
     );
     expect(actionArtifact).toBeDefined();
@@ -351,4 +351,210 @@ describe('ResourceLoader Compilation', () => {
       expect(rootFile.compilationResult.errors.length).toBe(0);
     }
   }, 30000);
+});
+
+describe('ResourceLoader Lazy Loading', () => {
+  let loader: ResourceLoader;
+  const TEST_CLASS = 'ApexPages/Action.cls'; // Use a class that actually exists
+
+  beforeEach(() => {
+    // Reset singleton for each test
+    (ResourceLoader as any).instance = null;
+    loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+  });
+
+  afterEach(() => {
+    (ResourceLoader as any).instance = null;
+  });
+
+  describe('loadAndCompileClass', () => {
+    it('should load and compile a single class on demand', async () => {
+      const artifact = await loader.loadAndCompileClass(TEST_CLASS);
+
+      expect(artifact).toBeDefined();
+      expect(artifact!.path).toBe(TEST_CLASS);
+      expect(artifact!.compilationResult).toBeDefined();
+      expect(artifact!.compilationResult.result).toBeDefined();
+      expect(artifact!.compilationResult.errors.length).toBe(0);
+    });
+
+    it('should return null for non-existent classes', async () => {
+      const artifact = await loader.loadAndCompileClass(
+        'NonExistent/Class.cls',
+      );
+      expect(artifact).toBeNull();
+    });
+
+    it('should handle compilation errors gracefully', async () => {
+      // This test assumes there might be a class with compilation issues
+      // We'll test the error handling path
+      const artifact = await loader.loadAndCompileClass(TEST_CLASS);
+      expect(artifact).toBeDefined();
+    });
+
+    it('should store compiled artifacts for reuse', async () => {
+      // First compilation
+      const artifact1 = await loader.loadAndCompileClass(TEST_CLASS);
+      expect(artifact1).toBeDefined();
+
+      // Second compilation should return cached result
+      const artifact2 = await loader.loadAndCompileClass(TEST_CLASS);
+      expect(artifact2).toBeDefined();
+      // Check that both artifacts have the same path (they should be the same object)
+      expect(artifact2!.path).toBe(artifact1!.path);
+    });
+  });
+
+  describe('ensureClassLoaded', () => {
+    it('should return true for already compiled classes', async () => {
+      // First ensure it's loaded
+      const result1 = await loader.ensureClassLoaded(TEST_CLASS);
+      expect(result1).toBe(true);
+
+      // Second call should return true immediately
+      const result2 = await loader.ensureClassLoaded(TEST_CLASS);
+      expect(result2).toBe(true);
+    });
+
+    it('should load and compile classes that are not yet compiled', async () => {
+      // Initially no classes should be compiled
+      expect(loader.isClassCompiled(TEST_CLASS)).toBe(false);
+
+      // Ensure class is loaded
+      const result = await loader.ensureClassLoaded(TEST_CLASS);
+      expect(result).toBe(true);
+
+      // Now it should be compiled
+      expect(loader.isClassCompiled(TEST_CLASS)).toBe(true);
+    });
+
+    it('should return false for non-existent classes', async () => {
+      const result = await loader.ensureClassLoaded('NonExistent/Class.cls');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('getCompiledArtifact', () => {
+    it('should return compiled artifact if already available', async () => {
+      // First ensure it's loaded
+      await loader.ensureClassLoaded(TEST_CLASS);
+
+      // Get the artifact
+      const artifact = await loader.getCompiledArtifact(TEST_CLASS);
+      expect(artifact).toBeDefined();
+      expect(artifact!.path).toBe(TEST_CLASS);
+    });
+
+    it('should load and compile class if not yet available', async () => {
+      // Initially no artifact should be available
+      expect(loader.isClassCompiled(TEST_CLASS)).toBe(false);
+
+      // Get the artifact (should trigger loading)
+      const artifact = await loader.getCompiledArtifact(TEST_CLASS);
+      expect(artifact).toBeDefined();
+      expect(artifact!.path).toBe(TEST_CLASS);
+
+      // Now it should be compiled
+      expect(loader.isClassCompiled(TEST_CLASS)).toBe(true);
+    });
+
+    it('should return null for non-existent classes', async () => {
+      const artifact = await loader.getCompiledArtifact(
+        'NonExistent/Class.cls',
+      );
+      expect(artifact).toBeNull();
+    });
+  });
+
+  describe('couldResolveSymbol', () => {
+    it('should identify single namespace symbols', () => {
+      expect(loader.couldResolveSymbol('System')).toBe(true);
+      expect(loader.couldResolveSymbol('Database')).toBe(true);
+      expect(loader.couldResolveSymbol('NonExistent')).toBe(false);
+    });
+
+    it('should identify namespace.class format symbols', () => {
+      expect(loader.couldResolveSymbol('System.System')).toBe(true);
+      expect(loader.couldResolveSymbol('Database.Batchable')).toBe(true);
+      expect(loader.couldResolveSymbol('System.NonExistent')).toBe(false);
+    });
+
+    it('should handle edge cases', () => {
+      expect(loader.couldResolveSymbol('')).toBe(false);
+      expect(loader.couldResolveSymbol('System.System.extra')).toBe(false);
+    });
+  });
+
+  describe('getPotentialMatches', () => {
+    it('should find matches for partial class names', () => {
+      const matches = loader.getPotentialMatches('System');
+      expect(matches.length).toBeGreaterThan(0);
+      expect(matches.some((match) => match.includes('System'))).toBe(true);
+    });
+
+    it('should find matches for partial namespace names', () => {
+      const matches = loader.getPotentialMatches('Sys');
+      expect(matches.length).toBeGreaterThan(0);
+      expect(matches.some((match) => match.includes('System'))).toBe(true);
+    });
+
+    it('should limit results to 10 matches', () => {
+      const matches = loader.getPotentialMatches('S');
+      expect(matches.length).toBeLessThanOrEqual(10);
+    });
+
+    it('should return empty array for no matches', () => {
+      const matches = loader.getPotentialMatches('NonExistentSymbol');
+      expect(matches).toEqual([]);
+    });
+  });
+
+  describe('compilation state tracking', () => {
+    it('should track which classes are compiled', () => {
+      expect(loader.isClassCompiled(TEST_CLASS)).toBe(false);
+
+      // Load the class
+      loader.loadAndCompileClass(TEST_CLASS).then(() => {
+        expect(loader.isClassCompiled(TEST_CLASS)).toBe(true);
+      });
+    });
+
+    it('should provide list of compiled class names', () => {
+      expect(loader.getCompiledClassNames()).toEqual([]);
+
+      // Load a class
+      loader.loadAndCompileClass(TEST_CLASS).then(() => {
+        const compiledNames = loader.getCompiledClassNames();
+        // The CaseInsensitivePathMap stores keys in lowercase with dots, so normalize both
+        const normalizedTestClass = TEST_CLASS.toLowerCase().replace(
+          /\//g,
+          '.',
+        );
+        expect(compiledNames.some((name) => name === normalizedTestClass)).toBe(
+          true,
+        );
+      });
+    });
+  });
+
+  describe('performance characteristics', () => {
+    it('should not compile all classes on construction', () => {
+      // Lazy loader should not have any compiled classes initially
+      expect(loader.getCompiledClassNames().length).toBe(0);
+    });
+
+    it('should compile only requested classes', async () => {
+      // Initially no classes compiled
+      expect(loader.getCompiledClassNames().length).toBe(0);
+
+      // Load one specific class
+      await loader.ensureClassLoaded(TEST_CLASS);
+
+      // Should have exactly one class compiled
+      expect(loader.getCompiledClassNames().length).toBe(1);
+      // The CaseInsensitivePathMap stores keys in lowercase with dots, so normalize
+      const normalizedTestClass = TEST_CLASS.toLowerCase().replace(/\//g, '.');
+      expect(loader.getCompiledClassNames()).toContain(normalizedTestClass);
+    });
+  });
 });

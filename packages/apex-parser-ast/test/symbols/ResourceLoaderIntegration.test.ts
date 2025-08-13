@@ -64,7 +64,7 @@ describe('ResourceLoader Integration', () => {
       if (systemAssertSymbol) {
         expect(systemAssertSymbol.name).toBe('assert');
         expect(systemAssertSymbol.modifiers.isBuiltIn).toBe(false);
-        expect(systemAssertSymbol.filePath).toContain('system.assert.cls');
+        expect(systemAssertSymbol.filePath).toContain('System/assert.cls');
       }
     });
 

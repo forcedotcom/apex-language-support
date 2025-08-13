@@ -12,7 +12,7 @@ import {
   SymbolTable,
   CompilerService,
   ApexSymbolCollectorListener,
-  BackgroundProcessingManager,
+  ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
@@ -88,7 +88,7 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
 
     // Queue symbol processing in the background for better performance
-    const backgroundManager = BackgroundProcessingManager.getInstance();
+    const backgroundManager = ApexSymbolProcessingManager.getInstance();
     const taskId = backgroundManager.processSymbolTable(
       symbolTable,
       document.uri,

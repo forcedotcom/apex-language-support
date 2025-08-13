@@ -24,6 +24,7 @@ import {
   SymbolVisibility,
 } from '../types/symbol';
 import { calculateFQN } from '../utils/FQNUtils';
+import { isStdApexNamespace } from '../generated/stdApexNamespaces';
 
 /**
  * Context for symbol resolution
@@ -385,6 +386,17 @@ export class ApexSymbolGraph {
     // Only process if there are actually deferred references to avoid unnecessary work
     if (this.deferredReferences.has(symbol.name)) {
       this.processDeferredReferences(symbol.name);
+    }
+
+    // If this is a standard Apex class, ensure it's properly registered
+    if (filePath.includes('/') && filePath.endsWith('.cls')) {
+      // This might be a standard class from ResourceLoader
+      const namespace = filePath.split('/')[0];
+      if (this.isStandardNamespace(namespace)) {
+        // Mark as standard class
+        symbol.modifiers.isBuiltIn = false;
+        symbol.modifiers.visibility = SymbolVisibility.Global;
+      }
     }
 
     // Update filePath for any symbols in deferred references that match this symbol
@@ -1468,5 +1480,12 @@ export class ApexSymbolGraph {
     const estimatedSymbolSize = 500; // bytes per symbol
     const savedBytes = this.memoryStats.totalSymbols * estimatedSymbolSize;
     return savedBytes;
+  }
+
+  /**
+   * Check if namespace is standard Apex using generated constant
+   */
+  private isStandardNamespace(namespace: string): boolean {
+    return isStdApexNamespace(namespace);
   }
 }

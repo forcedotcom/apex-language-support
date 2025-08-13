@@ -34,6 +34,7 @@ import type { SymbolProvider } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 
 import { ResourceLoader } from '../utils/resourceLoader';
+import { isStdApexNamespace } from '../generated/stdApexNamespaces';
 
 /**
  * File metadata for tracking symbol relationships
@@ -2483,13 +2484,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const builtInType = this.builtInTypeTables.findType(name.toLowerCase());
       if (builtInType) {
         // Only return built-in types for primitive types, not for standard Apex classes
-        const isStandardApexClass = [
-          'system',
-          'database',
-          'schema',
-          'messaging',
-          'connectapi',
-        ].includes(name.toLowerCase());
+        const isStandardApexClass = isStdApexNamespace(name);
         if (!isStandardApexClass) {
           this.logger.debug(() => `Resolved built-in type: ${name}`);
           return {
@@ -3153,48 +3148,35 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @returns true if it's a standard Apex class, false otherwise
    */
   public isStandardApexClass(name: string): boolean {
-    // Extract the namespace/class part (before the dot)
+    // Check if it's a fully qualified name (e.g., "System.assert")
     const parts = name.split('.');
-    if (parts.length === 0) {
-      return false;
+    if (parts.length >= 2) {
+      const namespace = parts[0];
+      const className = parts[1];
+
+      // Use generated constant to validate namespace
+      if (!isStdApexNamespace(namespace)) {
+        return false;
+      }
+
+      // If ResourceLoader is available, check if the class actually exists
+      if (this.resourceLoader) {
+        // Use dot notation and let ResourceLoader normalize to slashes internally
+        // Input: "System.assert" -> ResourceLoader converts to "System/assert.cls" and checks
+        const classPath = `${namespace}.${className}.cls`;
+        return this.resourceLoader.hasClass(classPath);
+      }
+
+      // If ResourceLoader is not available, just check if namespace is standard
+      return true;
     }
 
-    const namespace = parts[0].toLowerCase();
-    const standardNamespaces = [
-      'system',
-      'database',
-      'schema',
-      'messaging',
-      'connectapi',
-      'action',
-      'approval',
-      'auth',
-      'blob',
-      'crypto',
-      'encodingutil',
-      'eventbus',
-      'flow',
-      'http',
-      'json',
-      'limits',
-      'listviewutil',
-      'math',
-      'pattern',
-      'queueable',
-      'rest',
-      'search',
-      'sobject',
-      'soql',
-      'sosl',
-      'string',
-      'test',
-      'trigger',
-      'type',
-      'userinfo',
-      'visualforce',
-    ];
+    // Check if it's just a namespace (e.g., "System")
+    if (parts.length === 1) {
+      return isStdApexNamespace(parts[0]);
+    }
 
-    return standardNamespaces.includes(namespace);
+    return false;
   }
 
   /**
@@ -3203,11 +3185,50 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   public getAvailableStandardClasses(): string[] {
     if (!this.resourceLoader) {
+      // If ResourceLoader is not available, return empty array
+      // This ensures the method doesn't crash when ResourceLoader is not initialized
       return [];
     }
 
     const namespaceStructure = this.resourceLoader.getNamespaceStructure();
-    return Array.from(namespaceStructure.keys());
+    const availableClasses: string[] = [];
+
+    for (const [namespace, classes] of namespaceStructure.entries()) {
+      // Only include namespaces that are in our generated constants
+      if (isStdApexNamespace(namespace)) {
+        // Add the namespace itself
+        availableClasses.push(namespace);
+
+        // Add the individual classes
+        for (const className of classes) {
+          // Remove .cls extension
+          const cleanClassName = className.replace(/\.cls$/, '');
+          availableClasses.push(`${namespace}.${cleanClassName}`);
+        }
+      }
+    }
+
+    return availableClasses;
+  }
+
+  /**
+   * Get available standard namespaces using generated constants
+   */
+  public getAvailableStandardNamespaces(): string[] {
+    if (!this.resourceLoader) {
+      return [];
+    }
+
+    const namespaceStructure = this.resourceLoader.getNamespaceStructure();
+    const availableNamespaces: string[] = [];
+
+    for (const namespace of namespaceStructure.keys()) {
+      if (isStdApexNamespace(namespace)) {
+        availableNamespaces.push(namespace);
+      }
+    }
+
+    return availableNamespaces;
   }
 
   /**
@@ -3656,4 +3677,128 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       position: { line: position.line, character: position.character },
     };
   }
+
+  /**
+   * Enhanced symbol resolution with ResourceLoader integration
+   */
+  private async resolveSymbolWithResourceLoader(
+    name: string,
+    context: SymbolResolutionContext,
+  ): Promise<ApexSymbol | null> {
+    // Step 1: Check if this is a standard Apex class using generated constants
+    if (this.resourceLoader && this.isStandardApexClass(name)) {
+      // Try to resolve from ResourceLoader first
+      const standardClass = await this.resolveStandardApexClassAsync(name);
+      if (standardClass) {
+        return standardClass;
+      }
+    }
+
+    // Step 2: Check built-in types
+    const builtInType = this.resolveBuiltInType(name);
+    if (builtInType) {
+      return builtInType;
+    }
+
+    // Step 3: Check existing symbols in graph
+    const existingSymbols = this.findSymbolByName(name);
+    if (existingSymbols.length > 0) {
+      return this.selectMostSpecificSymbol(
+        existingSymbols,
+        context.sourceFile || '',
+      );
+    }
+
+    return null;
+  }
+
+  /**
+   * Async resolution of standard Apex classes with lazy loading
+   */
+  private async resolveStandardApexClassAsync(
+    name: string,
+  ): Promise<ApexSymbol | null> {
+    if (!this.resourceLoader) {
+      return null;
+    }
+
+    try {
+      // Extract namespace and class name
+      const parts = name.split('.');
+      if (parts.length < 2) {
+        return null;
+      }
+
+      const namespace = parts[0];
+      const className = parts[1];
+      const classPath = `${namespace}/${className}.cls`;
+
+      // Use generated constant to validate namespace
+      if (!isStdApexNamespace(namespace)) {
+        return null;
+      }
+
+      // Check if class exists and is compiled
+      if (!this.resourceLoader.hasClass(classPath)) {
+        return null;
+      }
+
+      // Try to get compiled artifact (this will trigger lazy loading if needed)
+      const artifact = await this.resourceLoader.getCompiledArtifact(classPath);
+      if (artifact) {
+        // Extract symbol from compiled artifact
+        const symbolTable = artifact.compilationResult.result;
+        if (symbolTable) {
+          const symbols = symbolTable.getAllSymbols();
+          const classSymbol = symbols.find((s) => s.name === className);
+
+          if (classSymbol) {
+            // Ensure the symbol has proper metadata
+            classSymbol.filePath = classPath;
+            classSymbol.fqn = name;
+            classSymbol.modifiers.isBuiltIn = false;
+
+            // Add to symbol graph for future lookups
+            this.addSymbol(classSymbol, classPath, symbolTable);
+
+            return classSymbol;
+          }
+        }
+      }
+
+      // If not compiled yet, trigger lazy compilation
+      const compiledArtifact =
+        await this.resourceLoader.loadAndCompileClass(classPath);
+      if (compiledArtifact) {
+        // Process the newly compiled artifact
+        const symbolTable = compiledArtifact.compilationResult.result;
+        if (symbolTable) {
+          const symbols = symbolTable.getAllSymbols();
+          const classSymbol = symbols.find((s) => s.name === className);
+
+          if (classSymbol) {
+            classSymbol.filePath = classPath;
+            classSymbol.fqn = name;
+            classSymbol.modifiers.isBuiltIn = false;
+
+            // Add to symbol graph
+            this.addSymbol(classSymbol, classPath, symbolTable);
+
+            return classSymbol;
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      this.logger.warn(
+        () => `Failed to resolve standard Apex class ${name}: ${error}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Enhanced standard Apex class detection using generated constants
+   */
 }
