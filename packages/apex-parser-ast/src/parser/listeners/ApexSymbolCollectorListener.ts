@@ -35,6 +35,9 @@ import {
   AssignExpressionContext,
   ArrayExpressionContext,
   CastExpressionContext,
+  // Use dedicated method call contexts for precise capture
+  MethodCallContext,
+  DotMethodCallContext,
   SubExpressionContext,
   PostOpExpressionContext,
   PreOpExpressionContext,
@@ -1890,17 +1893,11 @@ export class ApexSymbolCollectorListener
    * Capture method call references (e.g., "FileUtilities.createFile(...)")
    */
   enterMethodCallExpression(ctx: MethodCallExpressionContext): void {
+    // No-op: method calls are captured in enterMethodCall for precise identifier locations
     this.logger.debug(
-      `DEBUG: enterMethodCallExpression called with text: "${ctx.text}"`,
+      () =>
+        `DEBUG: enterMethodCallExpression encountered. Deferring to enterMethodCall for capture. Text: "${ctx.text}"`,
     );
-    this.logger.debug(
-      () => `DEBUG: enterMethodCallExpression called with text: "${ctx.text}"`,
-    );
-    try {
-      this.captureMethodCallReference(ctx);
-    } catch (error) {
-      this.logger.warn(() => `Error capturing method call reference: ${error}`);
-    }
   }
 
   /**
@@ -1927,6 +1924,7 @@ export class ApexSymbolCollectorListener
       `DEBUG: enterDotExpression called with text: "${ctx.text}"`,
     );
     try {
+      // Only capture field accesses here. Dot-method calls are handled in enterDotMethodCall
       this.captureDottedReferences(ctx);
     } catch (error) {
       this.logger.warn(() => `Error capturing dotted references: ${error}`);
@@ -1944,95 +1942,8 @@ export class ApexSymbolCollectorListener
       () => `DEBUG: captureDottedReferences called with text: "${text}"`,
     );
 
-    // Check if this is a method call (contains parentheses)
-    if (text.includes('(')) {
-      this.logger.debug(
-        () => 'DEBUG: Text contains parentheses, checking for method call',
-      );
-      // This is a method call like "FileUtilities.createFile(...)" or "property.setName(...)"
-      const methodMatch = text.match(/^(\w+)\.(\w+)\(/);
-      this.logger.debug(
-        () => `DEBUG: Method match result: ${JSON.stringify(methodMatch)}`,
-      );
-      if (methodMatch) {
-        const qualifier = methodMatch[1];
-        const methodName = methodMatch[2];
-        this.logger.debug(
-          () =>
-            `DEBUG: Extracted qualifier: "${qualifier}", methodName: "${methodName}"`,
-        );
-
-        const location = this.getLocationForReference(ctx);
-        const parentContext = this.getCurrentMethodName();
-
-        // Determine if qualifier is a class name or instance variable
-        const isClassReference = !this.isVariableInScope(qualifier);
-        this.logger.debug(
-          `DEBUG: isClassReference for "${qualifier}": ${isClassReference}`,
-        );
-
-        // Emit appropriate reference for the qualifier
-        const qualifierLocation: SymbolLocation = {
-          startLine: location.startLine,
-          startColumn: location.startColumn,
-          endLine: location.startLine,
-          endColumn: location.startColumn + qualifier.length,
-        };
-
-        if (isClassReference) {
-          // Qualifier is a class name (e.g., FileUtilities)
-          this.logger.debug(
-            () => `DEBUG: Creating CLASS_REFERENCE for "${qualifier}"`,
-          );
-          const classRef = TypeReferenceFactory.createClassReference(
-            qualifier,
-            qualifierLocation,
-            parentContext,
-          );
-          this.symbolTable.addTypeReference(classRef);
-          this.logger.debug(() => `Captured CLASS_REFERENCE: ${qualifier}`);
-        } else {
-          // Qualifier is an instance variable (e.g., property)
-          this.logger.debug(
-            () => `DEBUG: Creating VARIABLE_USAGE for "${qualifier}"`,
-          );
-          const variableRef = TypeReferenceFactory.createVariableUsageReference(
-            qualifier,
-            qualifierLocation,
-            parentContext,
-          );
-          this.symbolTable.addTypeReference(variableRef);
-          this.logger.debug(() => `Captured VARIABLE_USAGE: ${qualifier}`);
-        }
-
-        // Emit METHOD_CALL for the method
-        this.logger.debug(
-          () => `DEBUG: Creating METHOD_CALL for "${methodName}"`,
-        );
-
-        // Create a specific location for the method name part
-        const methodLocation: SymbolLocation = {
-          startLine: location.startLine,
-          startColumn: location.startColumn + qualifier.length + 1, // +1 for the dot
-          endLine: location.startLine,
-          endColumn:
-            location.startColumn + qualifier.length + 1 + methodName.length,
-        };
-
-        const methodRef = TypeReferenceFactory.createMethodCallReference(
-          methodName,
-          methodLocation,
-          qualifier,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(methodRef);
-        this.logger.debug(
-          () => `Captured METHOD_CALL: ${methodName} (qualifier: ${qualifier})`,
-        );
-      } else {
-        this.logger.debug(() => 'DEBUG: Method regex did not match');
-      }
-    } else {
+    // Only handle field access patterns here. Dot-method calls are handled by enterDotMethodCall
+    if (!text.includes('(')) {
       this.logger.debug(
         () =>
           'DEBUG: Text does not contain parentheses, checking for field access',
@@ -2084,6 +1995,108 @@ export class ApexSymbolCollectorListener
       } else {
         this.logger.debug('DEBUG: Field regex did not match');
       }
+    }
+  }
+
+  /**
+   * Capture unqualified method calls using dedicated MethodCallContext
+   */
+  enterMethodCall(ctx: MethodCallContext): void {
+    try {
+      const idNode = ctx.id();
+      const methodName = idNode?.text || 'unknownMethod';
+      const location = idNode
+        ? this.getLocation(idNode)
+        : this.getLocation(ctx);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createMethodCallReference(
+        methodName,
+        location,
+        undefined,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        () => `Captured method call (unqualified): ${methodName}`,
+      );
+    } catch (error) {
+      this.logger.warn(() => `Error capturing MethodCall: ${error}`);
+    }
+  }
+
+  /**
+   * Capture qualified method calls like "Assert.isFalse(...)" using DotMethodCallContext
+   */
+  enterDotMethodCall(ctx: DotMethodCallContext): void {
+    try {
+      const anyIdNode = ctx.anyId();
+      const methodName = anyIdNode?.text || 'unknownMethod';
+      const methodLocation = anyIdNode
+        ? this.getLocation(anyIdNode as unknown as ParserRuleContext)
+        : this.getLocation(ctx);
+
+      // Extract qualifier from the parent DotExpression
+      let qualifier: string | undefined = undefined;
+      let qualifierLocation: SymbolLocation | undefined = undefined;
+      const parent = ctx.parent as ParserRuleContext | undefined;
+      if (
+        parent &&
+        parent.constructor &&
+        parent.constructor.name === 'DotExpressionContext'
+      ) {
+        const dotParent = parent as unknown as DotExpressionContext;
+        const lhs =
+          (dotParent as any).expression?.(0) ||
+          (dotParent as any).expression?.();
+        if (lhs) {
+          qualifier = this.getTextFromContext(lhs);
+          const parentLoc = this.getLocation(dotParent);
+          if (qualifier) {
+            qualifierLocation = {
+              startLine: parentLoc.startLine,
+              startColumn: parentLoc.startColumn,
+              endLine: parentLoc.startLine,
+              endColumn: parentLoc.startColumn + qualifier.length,
+            };
+          }
+        }
+      }
+
+      const parentContext = this.getCurrentMethodName();
+      // Emit qualifier reference first for parity with previous behavior and tests
+      if (qualifier && qualifierLocation) {
+        const isClassReference = !this.isVariableInScope(qualifier);
+        if (isClassReference) {
+          const classRef = TypeReferenceFactory.createClassReference(
+            qualifier,
+            qualifierLocation,
+            parentContext,
+          );
+          this.symbolTable.addTypeReference(classRef);
+        } else {
+          const variableRef = TypeReferenceFactory.createVariableUsageReference(
+            qualifier,
+            qualifierLocation,
+            parentContext,
+          );
+          this.symbolTable.addTypeReference(variableRef);
+        }
+      }
+
+      const reference = TypeReferenceFactory.createMethodCallReference(
+        methodName,
+        methodLocation,
+        qualifier,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        () =>
+          `Captured method call (qualified): ${qualifier ? qualifier + '.' : ''}${methodName}`,
+      );
+    } catch (error) {
+      this.logger.warn(() => `Error capturing DotMethodCall: ${error}`);
     }
   }
 

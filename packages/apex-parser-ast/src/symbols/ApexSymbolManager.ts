@@ -2128,6 +2128,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             typeReference.qualifier,
           );
           if (qualifierCandidates.length === 0) {
+            // Treat standard namespaces like System as resolvable classes when applicable.
+            // This enables lookups such as System.debug by resolving the qualifier to
+            // System (or System.System when available).
             const qualifierSymbol = this.resolveBuiltInType(
               typeReference.qualifier,
             );

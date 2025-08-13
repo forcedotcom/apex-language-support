@@ -76,10 +76,9 @@ describe('ApexSymbolManager Cross-File Resolution (Phase 2)', () => {
         { line: 5, character: 7 },
       );
 
-      // Since System is not a resolvable class in ResourceLoader (it contains individual classes like system.assert.cls),
-      // the symbol resolution falls back to the containing class
+      // System is both a namespace and a standard class (FQN System.System). We now resolve it as a class.
       expect(foundSymbol).toBeDefined();
-      expect(foundSymbol?.name).toBe('TestClass');
+      expect(foundSymbol?.name).toBe('System');
     });
 
     it('should resolve String type reference', () => {
