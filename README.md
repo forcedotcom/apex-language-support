@@ -17,15 +17,10 @@ graph TD
         apex-lsp-shared[apex-lsp-shared]
     end
 
-    subgraph "Node.js Runtime"
-        apex-ls-node[apex-ls-node]
+    subgraph "Unified Runtime"
+        apex-ls[apex-ls]
         apex-lsp-vscode-extension[apex-lsp-vscode-extension]
         apex-lsp-vscode-client[apex-lsp-vscode-client]
-    end
-
-    subgraph "Browser Runtime"
-        apex-ls-browser[apex-ls-browser]
-        apex-lsp-browser-client[apex-lsp-browser-client]
     end
 
     subgraph "Testing & Development"
@@ -38,22 +33,15 @@ graph TD
     apex-lsp-shared --> custom-services
     apex-lsp-shared --> lsp-compliant-services
 
-    %% Node.js implementation
-    custom-services --> apex-ls-node
-    lsp-compliant-services --> apex-ls-node
-    apex-ls-node --> apex-lsp-vscode-client
+    %% Unified implementation
+    custom-services --> apex-ls
+    lsp-compliant-services --> apex-ls
+    apex-ls --> apex-lsp-vscode-client
     apex-lsp-vscode-client --> apex-lsp-vscode-extension
 
-    %% Browser implementation
-    custom-services --> apex-ls-browser
-    lsp-compliant-services --> apex-ls-browser
-    apex-ls-browser --> apex-lsp-browser-client
-
     %% Testing dependencies
-    apex-ls-node --> apex-lsp-testbed
-    apex-ls-browser --> apex-lsp-testbed
+    apex-ls --> apex-lsp-testbed
     apex-lsp-vscode-client --> apex-lsp-testbed
-    apex-lsp-browser-client --> apex-lsp-testbed
 ```
 
 ## Package Descriptions
@@ -65,16 +53,11 @@ graph TD
 - **lsp-compliant-services**: Implements standard LSP services (completion, hover, etc.)
 - **apex-lsp-shared**: Provides shared utilities including logging, notifications, and common functionality used across the language server ecosystem
 
-### Node.js Runtime
+### Unified Runtime
 
-- **apex-ls-node**: TypeScript implementation of the Apex Language Server for Node.js
+- **apex-ls**: Unified TypeScript implementation of the Apex Language Server that works in both Node.js and browser environments
 - **apex-lsp-vscode-client**: VS Code specific client that communicates with the language server
-- **apex-lsp-vscode-extension**: The VS Code extension package that integrates with VS Code's extension API
-
-### Browser Runtime
-
-- **apex-ls-browser**: Browser-compatible implementation of the Apex Language Server
-- **apex-lsp-browser-client**: Browser-based client for the language server
+- **apex-lsp-vscode-extension**: The VS Code extension package that integrates with VS Code's extension API and supports both desktop and web environments
 
 ### Testing & Development
 
@@ -82,17 +65,15 @@ graph TD
 
 ## Key Differences Between Node.js and Browser Implementations
 
-The repository provides two parallel implementations of the language server:
+The repository provides a unified implementation of the language server:
 
-1. **Node.js implementation** (`apex-ls-node`):
-   - Runs in Node.js environment
-   - Uses file system for storage
-   - Designed for desktop IDE integration (VS Code)
+**Unified implementation** (`apex-ls`):
 
-2. **Browser implementation** (`apex-ls-browser`):
-   - Runs in browser environment
-   - Uses IndexedDB for storage
-   - Designed for web-based editors
+- Runs in both Node.js and browser environments
+- Uses in-memory storage for simplicity
+- Automatically detects runtime environment and adapts accordingly
+- Designed for both desktop and web IDE integration (VS Code)
+- Designed for web-based editors
 
 Both implementations maintain feature parity by implementing the same set of LSP handlers and capabilities, allowing for a consistent experience across different environments.
 
@@ -121,12 +102,12 @@ For detailed information about server mode configuration and capabilities, see:
 
 ## Client Libraries
 
-### Browser Client
+### Unified Language Server
 
-The `apex-lsp-browser-client` package provides a TypeScript client for connecting to the Apex Language Server in web-based environments. It handles communication with a language server running in a web worker.
+The `apex-ls` package provides a unified TypeScript implementation that works in both Node.js and browser environments. It automatically detects the runtime and adapts accordingly.
 
 ```bash
-npm install @salesforce/apex-lsp-browser-client
+npm install @salesforce/apex-ls
 ```
 
 ### Testbed
@@ -253,8 +234,7 @@ This project uses GitHub Actions for continuous integration and automated releas
 The `release-extensions.yml` workflow handles automated releases of VS Code extensions:
 
 - **Supported Extensions**:
-  - `apex-lsp-vscode-extension` (VS Code Marketplace)
-  - `apex-lsp-vscode-extension-web` (OpenVSX Registry)
+  - `apex-lsp-vscode-extension` (VS Code Marketplace - supports both desktop and web)
 - **Triggers**: Manual dispatch, workflow calls, or scheduled nightly builds
 - **Features**:
   - Smart change detection (only releases extensions with changes)

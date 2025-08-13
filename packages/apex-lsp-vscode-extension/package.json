@@ -15,12 +15,19 @@
   "engines": {
     "vscode": "^1.90.0"
   },
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
   "categories": [
     "Programming Languages",
     "Linters",
     "Snippets"
   ],
   "main": "./out/extension.js",
+  "browser": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
     "languages": [
@@ -191,7 +198,8 @@
       "activitybar": [
         {
           "id": "apex-explorer",
-          "title": "%viewsContainers.apex-explorer.title%"
+          "title": "%viewsContainers.apex-explorer.title%",
+          "icon": "resources/ApexTsIcon.png"
         }
       ]
     }
@@ -204,6 +212,7 @@
     "package": "cd dist && vsce package --out ../",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
+    "test:web": "node scripts/test-web.js",
     "clean": "rimraf out dist extension .turbo coverage grammars tsconfig.tsbuildinfo server-bundle *.vsix",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage",
@@ -211,7 +220,7 @@
     "lint:fix": "eslint src --fix"
   },
   "dependencies": {
-    "@salesforce/apex-ls-node": "1.0.0",
+    "@salesforce/apex-ls": "1.0.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.0.8"
@@ -221,10 +230,8 @@
     "@salesforce/apex-tmlanguage": "1.8.0",
     "@types/vscode": "^1.90.0",
     "@vscode/test-electron": "^2.1.5",
+    "@vscode/test-web": "^0.0.72",
     "@vscode/vsce": "^2.15.0",
     "shx": "^0.3.4"
-  },
-  "workspaces": [
-    "../apex-ls-node"
-  ]
+  }
 }

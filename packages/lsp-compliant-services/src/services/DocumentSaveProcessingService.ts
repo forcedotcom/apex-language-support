@@ -6,9 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+
+import { TextDocumentChangeEvent } from '../types/shared';
 
 /**
  * Interface for document save processing functionality

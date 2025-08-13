@@ -7,10 +7,23 @@
  */
 
 import * as vscode from 'vscode';
-import { LanguageClient, Trace } from 'vscode-languageclient/node';
 import { WorkspaceSettings, DebugConfig } from './types';
 import { updateLogLevel } from './logging';
 import { EXTENSION_CONSTANTS } from './constants';
+
+// Types for web compatibility
+interface TraceValue {
+  Off: number;
+  Messages: number;
+  Verbose: number;
+}
+
+// Web-compatible Trace enum
+const Trace: TraceValue = {
+  Off: 0,
+  Messages: 1,
+  Verbose: 2,
+};
 
 /**
  * Gets the current workspace settings for the Apex Language Server
@@ -110,7 +123,7 @@ export const getDebugConfig = (): DebugConfig => {
  * Gets trace server configuration
  * @returns The trace server setting as a Trace enum value
  */
-export const getTraceServerConfig = (): Trace => {
+export const getTraceServerConfig = (): number => {
   const config = vscode.workspace.getConfiguration(
     EXTENSION_CONSTANTS.CONFIG_SECTION,
   );
@@ -129,12 +142,19 @@ export const getTraceServerConfig = (): Trace => {
 };
 
 /**
+ * Interface for language client compatible with both Node.js and browser versions
+ */
+interface LanguageClientLike {
+  sendNotification(type: string, params?: any): void;
+}
+
+/**
  * Registers a listener for configuration changes and notifies the server
- * @param client The language client
+ * @param client The language client (Node.js or browser version)
  * @param context The extension context
  */
 export const registerConfigurationChangeListener = (
-  client: LanguageClient,
+  client: LanguageClientLike,
   context: vscode.ExtensionContext,
 ): void => {
   // Listen for configuration changes

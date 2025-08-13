@@ -62,7 +62,7 @@
       "outputs": ["grammars/**"]
     },
     "apex-language-server-extension#bundle": {
-      "dependsOn": ["compile", "@salesforce/apex-ls-node#bundle"],
+      "dependsOn": ["compile", "@salesforce/apex-ls#bundle"],
       "outputs": ["extension/**", "dist/**", "server-bundle/**"]
     },
     "apex-language-server-extension#compile": {
@@ -77,23 +77,6 @@
     "apex-language-server-extension#package": {
       "dependsOn": ["bundle", "^package"],
       "outputs": ["*.vsix"]
-    },
-    "apex-language-server-extension-web#precompile": {
-      "dependsOn": ["^precompile"],
-      "outputs": ["out/**"]
-    },
-    "apex-language-server-extension-web#compile": {
-      "dependsOn": [
-        "precompile",
-        "^precompile",
-        "^compile",
-        "@salesforce/apex-lsp-parser-ast#precompile"
-      ],
-      "outputs": ["out/**", "*.tsbuildinfo"]
-    },
-    "apex-language-server-extension-web#package": {
-      "dependsOn": ["bundle", "^package"],
-      "outputs": ["extension/**"]
     }
   }
 }

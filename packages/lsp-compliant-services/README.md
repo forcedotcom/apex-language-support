@@ -378,8 +378,8 @@ The package includes a storage interface for persisting AST, symbol tables, and 
 
 Runtime-specific implementations are provided by both web and extension packages:
 
-- `@salesforce/apex-lsp-extension`: Node.js filesystem-based implementation
-- `@salesforce/apex-lsp-web`: Browser IndexedDB-based implementation
+- `@salesforce/apex-lsp-node`: Node.js in-memory implementation
+- `@salesforce/apex-lsp-browser`: Browser in-memory implementation
 
 ### Integrating Storage in LSP Server
 
@@ -390,19 +390,14 @@ import {
 } from '@salesforce/apex-lsp-compliant-services';
 
 // For Node.js (VS Code Extension)
-import { NodeFileSystemApexStorage } from '@salesforce/apex-lsp-node';
+import { ApexStorage } from '@salesforce/apex-lsp-compliant-services';
 
-// Or for Browser
-// import { BrowserIndexedDBApexStorage } from '@salesforce/apex-lsp-web';
-
-// Initialize the storage manager with the appropriate implementation
+// Initialize the storage manager with the in-memory implementation
 ApexStorageManager.getInstance({
-  storageFactory: (options) => new NodeFileSystemApexStorage(),
+  storageFactory: (options) => ApexStorage.getInstance(),
   storageOptions: {
     // Configuration options for the storage implementation
-    storagePath: '/path/to/storage',
   },
-  autoPersistIntervalMs: 30000, // Auto-persist every 30 seconds
 });
 
 // Initialize the storage

@@ -63,13 +63,6 @@ export {
   registerConfigurationChangeListener,
 } from './configuration';
 
-// Export server configuration utilities
-export {
-  getDebugOptions,
-  createServerOptions,
-  createClientOptions,
-} from './server-config';
-
 // Export error handling utilities
 export {
   handleAutoRestart,
@@ -77,12 +70,3 @@ export {
   handleClientClosed,
   handleClientError,
 } from './error-handling';
-
-// Export language server utilities
-export {
-  createAndStartClient,
-  startLanguageServer,
-  restartLanguageServer,
-  stopLanguageServer,
-  getLanguageClient,
-} from './language-server';

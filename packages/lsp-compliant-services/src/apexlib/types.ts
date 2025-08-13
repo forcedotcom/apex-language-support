@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DocumentSelector } from 'vscode-languageserver-protocol';
+import { DocumentSelector } from 'vscode-languageserver-protocol/browser';
 
 /**
  * Core interfaces for ApexLib that abstract away editor-specific implementations

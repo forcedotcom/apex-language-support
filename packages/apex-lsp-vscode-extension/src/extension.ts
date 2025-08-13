@@ -22,11 +22,47 @@ import {
   registerRestartCommand,
   setRestartHandler,
 } from './commands';
-import {
-  startLanguageServer,
-  restartLanguageServer,
-  stopLanguageServer,
-} from './language-server';
+// Conditional import for language server (only in non-web environments)
+let startLanguageServer: any;
+let restartLanguageServer: any;
+let stopLanguageServer: any;
+
+// Web language server functions
+let startWebLanguageServer: any;
+let restartWebLanguageServer: any;
+let stopWebLanguageServer: any;
+
+// Dynamically import language server functionality for desktop only
+async function importLanguageServerFunctions() {
+  try {
+    // Only import if we're in a Node.js environment
+    if (
+      typeof process !== 'undefined' &&
+      process.versions &&
+      process.versions.node
+    ) {
+      // Use string-based import to prevent bundler from including Node.js dependencies
+      const moduleName = './extension-node';
+      const module = await import(moduleName);
+      startLanguageServer = module.startLanguageServer;
+      restartLanguageServer = module.restartLanguageServer;
+      stopLanguageServer = module.stopLanguageServer;
+    }
+  } catch (error) {
+    console.log(
+      'Language server functions not available in web environment:',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
+  }
+}
+
+// Import web language server functionality (web-native implementation)
+async function importWebLanguageServerFunctions() {
+  const module = await import('./language-server-web-native');
+  startWebLanguageServer = module.startWebLanguageServer;
+  restartWebLanguageServer = module.restartWebLanguageServer;
+  stopWebLanguageServer = module.stopWebLanguageServer;
+}
 import { getWorkspaceSettings } from './configuration';
 
 /**
@@ -48,13 +84,90 @@ const handleStart = async (context: vscode.ExtensionContext): Promise<void> => {
 };
 
 /**
- * Main extension activation function
+ * Wrapper function for web restart that matches the expected signature
  * @param context The extension context
  */
-export function activate(context: vscode.ExtensionContext): void {
-  // Initialize simple extension logging
-  initializeExtensionLogging(context);
+const handleWebRestart = async (
+  context: vscode.ExtensionContext,
+): Promise<void> => {
+  await startWebLanguageServer(context, handleWebRestart);
+};
 
+/**
+ * Wrapper function for web start that matches the expected signature
+ * @param context The extension context
+ */
+const handleWebStart = async (
+  context: vscode.ExtensionContext,
+): Promise<void> => {
+  await startWebLanguageServer(context, handleWebRestart);
+};
+
+/**
+ * Detects if we're running in a web environment (vscode.dev)
+ */
+function isWebEnvironment(): boolean {
+  try {
+    // Check multiple indicators for web environment
+    const hasWindow = typeof (globalThis as any).window !== 'undefined';
+    const noProcess = typeof (globalThis as any).process === 'undefined';
+
+    // Safely check process.versions.node
+    let noNodeVersions = false;
+    let processVersionsNode = 'undefined';
+    try {
+      const proc = (globalThis as any).process;
+      noNodeVersions = !proc?.versions?.node;
+      processVersionsNode = proc?.versions?.node || 'undefined';
+    } catch {
+      noNodeVersions = true;
+    }
+
+    const isVSCodeWeb = (globalThis as any).VSCODE_WEB === true;
+
+    // VSCode web extension context detection
+    const nav = (globalThis as any).navigator;
+    const isVSCodeWebContext =
+      typeof nav !== 'undefined' &&
+      nav.userAgent &&
+      !nav.userAgent.includes('Electron');
+
+    const isWeb =
+      hasWindow ||
+      noProcess ||
+      noNodeVersions ||
+      isVSCodeWeb ||
+      isVSCodeWebContext;
+
+    // Log detection details for debugging
+    console.log('Web environment detection:', {
+      hasWindow,
+      noProcess,
+      noNodeVersions,
+      isVSCodeWeb,
+      isVSCodeWebContext,
+      userAgent: typeof nav !== 'undefined' ? nav.userAgent : 'undefined',
+      processVersionsNode,
+      result: isWeb,
+    });
+
+    return isWeb;
+  } catch (error) {
+    // If any error occurs, assume we're in a web environment
+    console.log('Error in web environment detection, assuming web:', error);
+    return true;
+  }
+}
+
+/**
+ * Common extension setup (shared between web and desktop)
+ * @param context The extension context
+ * @param restartHandler The restart handler function
+ */
+function setupCommonExtension(
+  context: vscode.ExtensionContext,
+  restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
+): void {
   // Initialize command state
   initializeCommandState(context);
 
@@ -62,12 +175,12 @@ export function activate(context: vscode.ExtensionContext): void {
   createApexServerStatusItem(context);
 
   // Set the restart handler
-  setRestartHandler(handleRestart);
+  setRestartHandler(restartHandler);
 
   // Register restart command
   registerRestartCommand(context);
 
-  // Register log level commands for each log level
+  // Register log level commands
   const logLevels = ['error', 'warning', 'info', 'debug'];
   logLevels.forEach((level) => {
     const commandId = `apex-ls-ts.setLogLevel.${level}`;
@@ -99,15 +212,94 @@ export function activate(context: vscode.ExtensionContext): void {
       updateLogLevelStatusItems(level);
     },
     async () => {
-      await handleRestart(context);
+      await restartHandler(context);
     },
   );
+}
+
+/**
+ * Main extension activation function
+ * @param context The extension context
+ */
+export function activate(context: vscode.ExtensionContext): void {
+  // Log to console immediately (before any other setup)
+  console.log('=== APEX EXTENSION ACTIVATE CALLED ===');
+
+  const isWeb = isWebEnvironment();
+
+  // Log to console before VSCode output channel setup
+  console.log(`Extension detected environment: ${isWeb ? 'WEB' : 'DESKTOP'}`);
+
+  // Initialize simple extension logging
+  initializeExtensionLogging(context);
+
+  // Log environment detection
+  logToOutputChannel(
+    `Activating in ${isWeb ? 'web' : 'desktop'} environment`,
+    'info',
+  );
+
+  if (isWeb) {
+    // Web environment activation (with language server)
+    console.log('About to call activateWebExtension...');
+    activateWebExtension(context).catch((error) => {
+      console.error('Error activating web extension:', error);
+      logToOutputChannel(`Error activating web extension: ${error}`, 'error');
+    });
+  } else {
+    // Desktop environment activation (full language server)
+    activateDesktopExtension(context).catch((error) => {
+      logToOutputChannel(
+        `Error activating desktop extension: ${error}`,
+        'error',
+      );
+    });
+  }
+}
+
+/**
+ * Activate extension in web environment
+ */
+async function activateWebExtension(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  logToOutputChannel('=== activateWebExtension called ===', 'info');
+
+  // Import web language server functions
+  logToOutputChannel('Importing web language server functions...', 'info');
+  await importWebLanguageServerFunctions();
+
+  // Setup common extension functionality
+  setupCommonExtension(context, handleWebRestart);
+
+  logToOutputChannel(
+    'Apex Language Server extension is now active in web environment!',
+    'info',
+  );
+
+  // Start the web worker language server
+  logToOutputChannel('Calling handleWebStart...', 'info');
+  await handleWebStart(context);
+  logToOutputChannel('Web extension activation complete', 'info');
+}
+
+/**
+ * Activate extension in desktop environment
+ */
+async function activateDesktopExtension(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  // Import language server functions
+  await importLanguageServerFunctions();
+
+  // Setup common extension functionality
+  setupCommonExtension(context, handleRestart);
 
   // Log activation
   logToOutputChannel('Apex Language Server extension is now active!', 'info');
 
   // Start the language server
-  handleStart(context);
+  await handleStart(context);
 }
 
 /**
@@ -116,5 +308,13 @@ export function activate(context: vscode.ExtensionContext): void {
 export async function deactivate(): Promise<void> {
   logToOutputChannel('Deactivating Apex Language Server extension', 'info');
 
-  await stopLanguageServer();
+  // Stop desktop language server if running
+  if (stopLanguageServer) {
+    await stopLanguageServer();
+  }
+
+  // Stop web language server if running
+  if (stopWebLanguageServer) {
+    await stopWebLanguageServer();
+  }
 }

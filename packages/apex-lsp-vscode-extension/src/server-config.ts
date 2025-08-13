@@ -80,29 +80,18 @@ export const createServerOptions = (
   // Get debug options
   const debugOptions = getDebugOptions();
 
-  // Determine server mode with environment variable override
-  let serverMode: 'production' | 'development';
-  if (
-    process.env.APEX_LS_MODE === 'production' ||
-    process.env.APEX_LS_MODE === 'development'
-  ) {
-    serverMode = process.env.APEX_LS_MODE;
-    logToOutputChannel(
-      `Using server mode from environment variable: ${serverMode}`,
-      'info',
-    );
-  } else {
-    // Default to extension mode
-    serverMode =
-      context.extensionMode === vscode.ExtensionMode.Development ||
-      context.extensionMode === vscode.ExtensionMode.Test
-        ? 'development'
-        : 'production';
-    logToOutputChannel(
-      `Using server mode from extension mode: ${serverMode}`,
-      'debug',
-    );
-  }
+  // Determine server mode based on extension mode
+  // Note: Environment variables are not available in web workers, so we use extension mode
+  const serverMode =
+    context.extensionMode === vscode.ExtensionMode.Development ||
+    context.extensionMode === vscode.ExtensionMode.Test
+      ? 'development'
+      : 'production';
+
+  logToOutputChannel(
+    `Using server mode from extension mode: ${serverMode}`,
+    'debug',
+  );
 
   return {
     run: {

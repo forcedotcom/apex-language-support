@@ -7,13 +7,22 @@
  */
 
 import * as vscode from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
+
+/**
+ * Generic language client interface compatible with both Node.js and browser versions
+ */
+interface LanguageClientLike {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  sendNotification(type: string, params?: any): void;
+  outputChannel?: vscode.OutputChannel;
+}
 
 /**
  * Global state interface for the extension
  */
 export interface ExtensionState {
-  client: LanguageClient | undefined;
+  client: LanguageClientLike | undefined;
   outputChannel: vscode.OutputChannel;
   statusBarItem: vscode.StatusBarItem;
   globalContext: vscode.ExtensionContext;

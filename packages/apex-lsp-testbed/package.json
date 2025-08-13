@@ -37,7 +37,7 @@
     "lint:fix": "eslint src --fix"
   },
   "dependencies": {
-    "@salesforce/apex-ls-browser": "1.0.0",
+    "@salesforce/apex-ls": "1.0.0",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "vscode-jsonrpc": "^8.2.0",

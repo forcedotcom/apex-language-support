@@ -6,8 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
+import { Diagnostic } from 'vscode-languageserver-protocol/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+
+import { TextDocumentChangeEvent } from '../types/shared';
 import {
   SymbolTable,
   CompilerService,

@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Diagnostic, DocumentDiagnosticParams } from 'vscode-languageserver';
+import {
+  Diagnostic,
+  DocumentDiagnosticParams,
+} from 'vscode-languageserver-protocol/browser';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,

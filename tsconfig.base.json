@@ -41,6 +41,13 @@
         "packages/custom-services/out/*"
       ],
 
+      "@salesforce/apex-ls": ["packages/apex-ls/out"],
+      "@salesforce/apex-ls/*": ["packages/apex-ls/out/*"],
+      "@salesforce/apex-ls/web": ["packages/apex-ls/out/index-minimal-web"],
+      "@salesforce/apex-ls/protocol/lsp-types": [
+        "packages/apex-ls/out/protocol/lsp-types"
+      ],
+
       "@salesforce/apex-ls-node": ["packages/apex-ls-node/out"],
       "@salesforce/apex-ls-node/*": ["packages/apex-ls-node/out/*"],
 
