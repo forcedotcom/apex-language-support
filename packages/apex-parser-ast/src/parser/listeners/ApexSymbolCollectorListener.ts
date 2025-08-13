@@ -305,7 +305,7 @@ export class ApexSymbolCollectorListener
         validationResult.errors.forEach((error) => {
           this.addError(error, ctx);
         });
-        return; // Skip symbol creation if validation fails
+        // Continue symbol creation to maximize collection robustness even with invalid identifiers
       }
 
       // Validate class in interface
@@ -437,7 +437,7 @@ export class ApexSymbolCollectorListener
         validationResult.errors.forEach((error) => {
           this.addError(error, ctx);
         });
-        return; // Skip symbol creation if validation fails
+        // Continue symbol creation to maximize collection robustness even with invalid identifiers
       }
 
       // Validate interface in interface
@@ -587,7 +587,7 @@ export class ApexSymbolCollectorListener
         validationResult.errors.forEach((error) => {
           this.addError(error, ctx);
         });
-        return; // Skip symbol creation if validation fails
+        // Continue symbol creation to maximize collection robustness even with invalid identifiers
       }
 
       // Get current modifiers and annotations

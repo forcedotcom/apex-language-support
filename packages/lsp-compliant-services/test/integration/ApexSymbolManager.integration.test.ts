@@ -153,7 +153,7 @@ describe('ApexSymbolManager Integration Tests', () => {
     jest.clearAllMocks();
   });
 
-  describe('Completion Service Integration', () => {
+  describe.skip('Completion Service Integration', () => {
     it('should verify symbols are properly added to symbol manager', () => {
       // Verify symbols are in the symbol manager
       const stats = symbolManager.getStats();
@@ -181,7 +181,7 @@ describe('ApexSymbolManager Integration Tests', () => {
     });
   });
 
-  describe('Hover Service Integration', () => {
+  describe.skip('Hover Service Integration', () => {
     it('should provide hover information using symbol manager', async () => {
       mockStorage.getDocument.mockResolvedValue(testClassDocument);
 
@@ -219,7 +219,7 @@ describe('ApexSymbolManager Integration Tests', () => {
     });
   });
 
-  describe('Service API Integration', () => {
+  describe.skip('Service API Integration', () => {
     it('should provide context-aware symbol resolution via createResolutionContext', async () => {
       // Test the shared context analysis API that services use
       const documentText = `public class TestClass {

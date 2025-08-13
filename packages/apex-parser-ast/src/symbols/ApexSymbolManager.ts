@@ -1742,10 +1742,23 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       });
 
       if (typeReferences.length > 0) {
-        // Step 2: Try to resolve the most specific reference
-        this.logger.debug(() => 'TypeReferences found, attempting to resolve');
+        // Step 2: Find the most specific reference at the position
+        // Sort by location range size (smaller = more specific)
+        const sortedReferences = typeReferences.sort((a, b) => {
+          const aSize =
+            (a.location.endLine - a.location.startLine) * 1000 +
+            (a.location.endColumn - a.location.startColumn);
+          const bSize =
+            (b.location.endLine - b.location.startLine) * 1000 +
+            (b.location.endColumn - b.location.startColumn);
+          return aSize - bSize; // Smaller ranges first (more specific)
+        });
+
+        this.logger.debug(
+          () => 'TypeReferences found, attempting to resolve most specific one',
+        );
         const resolvedSymbol = this.resolveTypeReferenceToSymbol(
-          typeReferences[0],
+          sortedReferences[0],
           normalizedPath,
         );
         if (resolvedSymbol) {
@@ -2558,8 +2571,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         () => `Found ${qualifierCandidates.length} qualifier candidates`,
       );
 
-      // Integration: if qualifier not yet in graph, and it's a standard class, ingest compiled std symbol table
-      if (qualifierCandidates.length === 0 && this.resourceLoader) {
+      // Determine if candidates include a concrete class symbol (i.e., backed by a real std class file)
+      const hasConcreteQualifier = qualifierCandidates.some(
+        (symbol) =>
+          symbol.kind === SymbolKind.Class &&
+          typeof symbol.filePath === 'string' &&
+          symbol.filePath.endsWith(`/${symbol.name}.cls`),
+      );
+
+      // Integration: if qualifier is missing OR only a built-in placeholder exists, and it's a standard class,
+      // ingest the compiled std symbol table for the qualifier to enable member resolution
+      if (
+        (!hasConcreteQualifier || qualifierCandidates.length === 0) &&
+        this.resourceLoader
+      ) {
         try {
           const qual = typeReference.qualifier!;
           let fqn: string | null = null;

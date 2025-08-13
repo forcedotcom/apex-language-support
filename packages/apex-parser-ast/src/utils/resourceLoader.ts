@@ -865,13 +865,6 @@ export class ResourceLoader {
         },
       );
 
-      if (result.errors.length > 0) {
-        this.logger.warn(
-          () => `Compilation errors for ${className}: ${result.errors}`,
-        );
-        return null;
-      }
-
       // Create compiled artifact
       let artifact: CompiledArtifact;
       if ('commentAssociations' in result && 'comments' in result) {
