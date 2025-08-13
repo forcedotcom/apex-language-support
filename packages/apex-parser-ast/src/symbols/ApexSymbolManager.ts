@@ -2424,7 +2424,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       if (isStandard) {
         if (this.resourceLoader) {
-          const standardClass = this.resolveStandardApexClass(name);
+          let standardClass: ApexSymbol | null = null;
+
+          // Check if it's already a fully qualified name
+          if (name.includes('.')) {
+            // Direct call for FQN like "System.Assert"
+            standardClass = this.resolveStandardApexClass(name);
+          } else {
+            // For namespace-less names like "Assert", find the FQN first
+            const fqn = this.findFQNForStandardClass(name);
+            if (fqn) {
+              standardClass = this.resolveStandardApexClass(fqn);
+            }
+          }
+
           if (standardClass) {
             this.logger.debug(() => `Resolved standard Apex class: ${name}`);
             return standardClass;
@@ -3144,13 +3157,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Check if a class name represents a standard Apex class
-   * @param name The class name to check (e.g., 'System.assert', 'Database.Batchable')
+   * @param name The class name to check (e.g., 'System.Assert', 'Database.Batchable', 'Assert')
    * @returns true if it's a standard Apex class, false otherwise
    */
   public isStandardApexClass(name: string): boolean {
-    // Check if it's a fully qualified name (e.g., "System.assert")
+    // Check if it's a fully qualified name (e.g., "System.Assert")
     const parts = name.split('.');
-    if (parts.length >= 2) {
+    if (parts.length === 2) {
       const namespace = parts[0];
       const className = parts[1];
 
@@ -3162,7 +3175,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // If ResourceLoader is available, check if the class actually exists
       if (this.resourceLoader) {
         // Use dot notation and let ResourceLoader normalize to slashes internally
-        // Input: "System.assert" -> ResourceLoader converts to "System/assert.cls" and checks
+        // Input: "System.Assert" -> ResourceLoader converts to "System/Assert.cls" and checks
         const classPath = `${namespace}.${className}.cls`;
         return this.resourceLoader.hasClass(classPath);
       }
@@ -3171,9 +3184,33 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return true;
     }
 
-    // Check if it's just a namespace (e.g., "System")
+    // Check if it's just a class name without namespace (e.g., "Assert", "Database")
     if (parts.length === 1) {
-      return isStdApexNamespace(parts[0]);
+      const className = parts[0];
+
+      // If ResourceLoader is available, check if this class exists in any standard namespace
+      if (this.resourceLoader) {
+        const namespaceStructure = this.resourceLoader.getNamespaceStructure();
+
+        // Check if the class exists in any standard namespace
+        for (const [namespace, classes] of namespaceStructure.entries()) {
+          if (isStdApexNamespace(namespace)) {
+            // Check if any class in this namespace matches the className
+            for (const classFile of classes) {
+              // Remove .cls extension and check if it matches
+              const cleanClassName = classFile.replace(/\.cls$/, '');
+              if (cleanClassName === className) {
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      }
+
+      // If ResourceLoader is not available, we can't determine if it's a standard class
+      // without namespace, so return false to be safe
+      return false;
     }
 
     return false;
@@ -3209,6 +3246,44 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     return availableClasses;
+  }
+
+  /**
+   * Find the fully qualified name (FQN) for a standard Apex class
+   * @param className The class name without namespace (e.g., 'Assert', 'Batchable')
+   * @returns The FQN if found (e.g., 'System.Assert', 'Database.Batchable'), null otherwise
+   */
+  public findFQNForStandardClass(className: string): string | null {
+    if (!this.resourceLoader) {
+      return null;
+    }
+
+    try {
+      const namespaceStructure = this.resourceLoader.getNamespaceStructure();
+
+      // Search through all standard namespaces
+      for (const [namespace, classes] of namespaceStructure.entries()) {
+        if (isStdApexNamespace(namespace)) {
+          // Check if any class in this namespace matches the className
+          for (const classFile of classes) {
+            const cleanClassName = classFile.replace(/\.cls$/, '');
+            if (cleanClassName === className) {
+              const fqn = `${namespace}.${className}`;
+              this.logger.debug(() => `Found FQN for ${className}: ${fqn}`);
+              return fqn;
+            }
+          }
+        }
+      }
+
+      this.logger.debug(() => `No FQN found for standard class: ${className}`);
+      return null;
+    } catch (error) {
+      this.logger.warn(
+        () => `Error finding FQN for standard class ${className}: ${error}`,
+      );
+      return null;
+    }
   }
 
   /**

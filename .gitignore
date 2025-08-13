@@ -1,6 +1,9 @@
 # Node.js
 node_modules/
 
+# session files
+.session-files/
+
 # Logs
 logs/
 *.log
