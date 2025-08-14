@@ -301,14 +301,19 @@ describe('ApexSymbolManager Cross-File Resolution (Phase 2)', () => {
         symbolManager.addSymbolTable(testResult.result, '/test/TestClass.cls');
       }
 
-      // Hover on Name in: String accountName = acc.Name; (1-based line based on fixture)
+      // Use TypeReferences to find exact FIELD_ACCESS position
+      const refs = symbolManager.getAllReferencesInFile('/test/TestClass.cls');
+      const target = refs.find(
+        (r) => r.name === 'Name' && (r as any).qualifier === 'acc',
+      );
+      expect(target).toBeDefined();
       const found = symbolManager.getSymbolAtPosition('/test/TestClass.cls', {
-        line: 32,
-        character: 30,
+        line: target!.location.startLine,
+        character: target!.location.startColumn,
       });
 
       expect(found).toBeDefined();
-      // Accept either field or property kinds (SymbolKind enum string values)
+      // Accept either field or property kinds
       expect(found?.kind === 'field' || found?.kind === 'property').toBe(true);
       expect(found?.name).toBe('Name');
     });

@@ -1743,9 +1743,20 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       });
 
       if (typeReferences.length > 0) {
-        // Step 2: Find the most specific reference at the position
-        // Sort by location range size (smaller = more specific)
-        const sortedReferences = typeReferences.sort((a, b) => {
+        // Step 2: Prefer FIELD_ACCESS and METHOD_CALL references at the position before others
+        const order = [
+          ReferenceContext.FIELD_ACCESS,
+          ReferenceContext.METHOD_CALL,
+          ReferenceContext.CLASS_REFERENCE,
+          ReferenceContext.TYPE_DECLARATION,
+          ReferenceContext.CONSTRUCTOR_CALL,
+          ReferenceContext.VARIABLE_USAGE,
+          ReferenceContext.PARAMETER_TYPE,
+        ];
+        const sortedReferences = typeReferences.slice().sort((a, b) => {
+          const aPri = order.indexOf(a.context);
+          const bPri = order.indexOf(b.context);
+          if (aPri !== bPri) return aPri - bPri;
           const aSize =
             (a.location.endLine - a.location.startLine) * 1000 +
             (a.location.endColumn - a.location.startColumn);
@@ -2683,6 +2694,150 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
       }
 
+      // If still no qualifier candidates and qualifier looks like an expression chain (e.g., URL.getX)
+      if (qualifierCandidates.length === 0 && typeReference.qualifier) {
+        const rawQualifier = String(typeReference.qualifier).replace(
+          /\(\)$/,
+          '',
+        );
+        if (rawQualifier.includes('.')) {
+          try {
+            const parts = rawQualifier.split('.');
+            // Resolve the root as a class or built-in
+            let currentTypeName: string | null = null;
+            const root = parts.shift() as string;
+            let rootClass = this.findSymbolByName(root).find(
+              (s) => s.kind === SymbolKind.Class,
+            );
+            if (!rootClass) {
+              // Try built-in / std class
+              const fqn = this.findFQNForStandardClass(root);
+              if (fqn) {
+                const std = this.resolveStandardApexClass(fqn);
+                if (std) {
+                  rootClass = std;
+                }
+              } else {
+                const builtin = this.resolveBuiltInType(root);
+                if (builtin) {
+                  rootClass = builtin;
+                }
+              }
+            }
+            // If rootClass exists but not backed by a real class file, try to load std class
+            if (
+              rootClass &&
+              (typeof rootClass.filePath !== 'string' ||
+                !rootClass.filePath.endsWith('.cls'))
+            ) {
+              const fqn = this.findFQNForStandardClass(root);
+              if (fqn) {
+                const std = this.resolveStandardApexClass(fqn);
+                if (std) {
+                  rootClass = std;
+                }
+              }
+            }
+            if (rootClass) {
+              // Ingest std class symbols if available so we can inspect members
+              if (this.resourceLoader && rootClass.filePath?.endsWith('.cls')) {
+                try {
+                  const classPath = rootClass.filePath;
+                  if (!this.resourceLoader.isClassCompiled(classPath)) {
+                    this.resourceLoader.ensureClassLoadedSync(classPath);
+                  }
+                  const artifact =
+                    this.resourceLoader.getCompiledArtifactSync(classPath);
+                  if (artifact && artifact.compilationResult?.result) {
+                    this.addSymbolTable(
+                      artifact.compilationResult.result,
+                      classPath,
+                    );
+                  }
+                } catch (_ingestErr) {
+                  // ignore
+                }
+              }
+              currentTypeName = rootClass.name;
+              // Traverse subsequent parts as members, using return types
+              for (const part of parts) {
+                const memberName = part.replace(/\(\)$/, '');
+                // Load current class symbols
+                const classFileSymbols = this.findSymbolsInFile(
+                  rootClass.filePath,
+                );
+                const method = classFileSymbols.find(
+                  (s) => s.name === memberName && s.kind === SymbolKind.Method,
+                );
+                if (method) {
+                  const rt =
+                    (method as any).returnType ||
+                    (method as any)._typeData?.returnType;
+                  const rtName = rt?.name || rt?.originalTypeString;
+                  if (rtName) {
+                    currentTypeName = rtName;
+                    // Move rootClass to the returned type's class if known
+                    const next = this.findSymbolByName(rtName).find(
+                      (s) => s.kind === SymbolKind.Class,
+                    );
+                    if (next) {
+                      rootClass = next;
+                    } else {
+                      const fqnNext = this.findFQNForStandardClass(rtName);
+                      if (fqnNext) {
+                        const stdNext = this.resolveStandardApexClass(fqnNext);
+                        if (stdNext) rootClass = stdNext;
+                      }
+                    }
+                  }
+                  continue;
+                }
+                const field = classFileSymbols.find(
+                  (s) =>
+                    s.name === memberName &&
+                    (s.kind === SymbolKind.Field ||
+                      s.kind === SymbolKind.Property),
+                );
+                if (field) {
+                  const ft =
+                    (field as any).type || (field as any)._typeData?.type;
+                  const ftName = ft?.name || ft?.originalTypeString;
+                  if (ftName) {
+                    currentTypeName = ftName;
+                    const next = this.findSymbolByName(ftName).find(
+                      (s) => s.kind === SymbolKind.Class,
+                    );
+                    if (next) {
+                      rootClass = next;
+                    }
+                  }
+                  continue;
+                }
+                // If member not found, stop
+                break;
+              }
+              if (currentTypeName) {
+                let recvCandidates = this.findSymbolByName(
+                  currentTypeName,
+                ).filter((s) => s.kind === SymbolKind.Class);
+                if (recvCandidates.length === 0) {
+                  const fqn = this.findFQNForStandardClass(currentTypeName);
+                  if (fqn) {
+                    const std = this.resolveStandardApexClass(fqn);
+                    if (std) recvCandidates = [std];
+                  }
+                }
+                if (recvCandidates.length > 0) {
+                  qualifierCandidates = recvCandidates;
+                }
+              }
+            }
+          } catch (_e) {
+            // Swallow; fall through
+          }
+        }
+      }
+
       // Determine if candidates include a concrete class symbol (i.e., backed by a real std class file)
       const hasConcreteQualifier = qualifierCandidates.some(
         (symbol) =>
@@ -2787,10 +2942,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Fallback: If no parentId match, try matching by name and kind within the same file
       if (memberCandidates.length === 0) {
+        // First prefer fields/properties by name
         memberCandidates = fileSymbols.filter(
           (symbol) =>
-            symbol.name === typeReference.name && symbol.kind === 'method',
+            symbol.name === typeReference.name &&
+            (symbol.kind === 'field' || symbol.kind === 'property'),
         );
+        // Then consider methods if still none
+        if (memberCandidates.length === 0) {
+          memberCandidates = fileSymbols.filter(
+            (symbol) =>
+              symbol.name === typeReference.name && symbol.kind === 'method',
+          );
+        }
         this.logger.debug(
           () =>
             `Fallback: Found ${memberCandidates.length} method(s) in file with matching name`,

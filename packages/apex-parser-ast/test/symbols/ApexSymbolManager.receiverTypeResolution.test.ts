@@ -150,4 +150,23 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     expect(symbol?.kind).toBe(SymbolKind.Method);
     expect(symbol?.name).toBe('getBody');
   });
+
+  it('resolves chained std-class call URL.getOrgDomainUrl().toExternalForm()', () => {
+    addTestClass();
+    // Find the toExternalForm reference in the complex method
+    const refs = symbolManager.getAllReferencesInFile('/test/TestClass.cls');
+    const target = refs.find(
+      (r) =>
+        r.context === ReferenceContext.METHOD_CALL &&
+        r.name === 'toExternalForm',
+    );
+    expect(target).toBeDefined();
+    const sym = symbolManager.getSymbolAtPosition('/test/TestClass.cls', {
+      line: target!.location.startLine,
+      character: target!.location.startColumn,
+    });
+    expect(sym).toBeDefined();
+    expect(sym?.kind).toBe(SymbolKind.Method);
+    expect(sym?.name).toBe('toExternalForm');
+  });
 });
