@@ -39,7 +39,6 @@ import { displayExtensionReleasePlan } from './ext-release-plan';
 import { bumpVersions } from './ext-version-bumper';
 import { determinePublishMatrix } from './ext-publish-matrix';
 import { createGitHubReleases } from './ext-github-releases';
-import { publishVsix } from './ext-publish-vsix';
 import { logAuditEvent } from './audit-logger';
 
 import { log, setOutput } from './utils';
@@ -292,23 +291,6 @@ program
       });
     } catch (error) {
       log.error(`Failed to bump versions: ${error}`);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('ext-publish-vsix')
-  .description('Publish VSIX file to VS Code Marketplace')
-  .action(async () => {
-    try {
-      publishVsix({
-        packageDir: process.env.PACKAGE_DIR || '',
-        vsceToken: process.env.VSCE_PERSONAL_ACCESS_TOKEN || '',
-        isPreRelease: process.env.PRE_RELEASE === 'true',
-        dryRun: process.env.DRY_RUN === 'true',
-      });
-    } catch (error) {
-      log.error(`Failed to publish VSIX: ${error}`);
       process.exit(1);
     }
   });

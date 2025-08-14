@@ -31,16 +31,15 @@ export interface LSPMessage {
 export class LSPTraceParser {
   private static readonly MESSAGE_PATTERNS = {
     // Matches "[Trace - HH:MM:SS AM/PM] Sending request 'method - (id)'"
-    REQUEST:
-      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] Sending request '([^']+) - \((\d+)\)'/,
+    REQUEST: /^\[Trace - .*\] Sending request '([^']+) - \((\d+)\)'\.?/,
 
     // Matches "[Trace - HH:MM:SS AM/PM] Received response 'method - (id)' in Xms"
     RESPONSE:
-      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] Received response '([^']+) - \((\d+)\)' in (\d+)ms/,
+      /^\[Trace - .*\] Received response '([^']+) - \((\d+)\)' in (\d+)ms\.?/,
 
     // Matches "[Trace - HH:MM:SS AM/PM] (Sending|Received) notification 'method'"
     NOTIFICATION:
-      /^\[Trace - (\d{2}:\d{2}:\d{2} [AP]M)\] (Sending|Received) notification '([^']+)'/,
+      /^\[Trace - .*\] (Sending|Received) notification '([^']+)'\.?/,
 
     // Matches log lines with memory information
     MEMORY: /Total Memory \(MB\): (\d+).*Used Memory \(MB\): (\d+)/,
@@ -75,6 +74,12 @@ export class LSPTraceParser {
     for (const line of lines) {
       this.parseLine(line.trim());
     }
+
+    // Process any remaining JSON content at the end
+    if (this.parsingJson && this.currentJson.length > 0) {
+      this.processJsonContent();
+    }
+
     return this.result;
   }
 
@@ -133,7 +138,7 @@ export class LSPTraceParser {
   }
 
   private handleRequest(match: RegExpMatchArray) {
-    const [, , method, id] = match;
+    const [, method, id] = match;
     const originalId = parseInt(id);
     const serialId = this.nextSerialId++;
     this.originalIdToSerialId.set(originalId, serialId);
@@ -148,9 +153,10 @@ export class LSPTraceParser {
   }
 
   private handleResponse(match: RegExpMatchArray) {
-    const [, , method, id, duration] = match;
+    const [, method, id, duration] = match;
     const originalId = parseInt(id);
-    const serialId = this.originalIdToSerialId.get(originalId);
+    const serialId = this.resolveSerialId(originalId);
+
     if (!serialId) {
       // If we haven't seen the request yet, create a new serial ID
       const newSerialId = this.nextSerialId++;
@@ -177,8 +183,20 @@ export class LSPTraceParser {
     this.result.set(this.currentMessageId, request);
   }
 
+  private resolveSerialId(originalId: number): number | undefined {
+    const serialId = this.originalIdToSerialId.get(originalId);
+    if (serialId) {
+      const existing = this.result.get(serialId);
+      if (existing && existing.result !== undefined) {
+        return undefined;
+      }
+      return serialId;
+    }
+    return undefined;
+  }
+
   private handleNotification(match: RegExpMatchArray) {
-    const [, , direction, method] = match;
+    const [, direction, method] = match;
     const serialId = this.nextSerialId++;
     const normalizedDirection = direction
       .toLowerCase()

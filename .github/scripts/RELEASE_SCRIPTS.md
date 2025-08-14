@@ -58,9 +58,6 @@ npx tsx .github/scripts/index.ts ext-publish-matrix
 
 # Create GitHub releases for extensions
 npx tsx .github/scripts/index.ts ext-github-releases
-
-# Publish VSIX file to VS Code Marketplace
-npx tsx .github/scripts/index.ts ext-publish-vsix
 ```
 
 #### NPM Commands (prefixed with "npm-")
@@ -217,7 +214,6 @@ The release scripts are organized in the `.github/scripts` folder:
 ├── ext-version-bumper.ts     # Bump versions for extensions
 ├── ext-publish-matrix.ts     # Determine publish matrix
 ├── ext-github-releases.ts    # Create GitHub releases
-├── ext-publish-vsix.ts       # Publish VSIX to marketplace
 ├── npm-change-detector.ts    # Detect NPM package changes
 ├── npm-package-selector.ts   # Select NPM packages
 ├── npm-package-details.ts    # Extract NPM package details
@@ -237,7 +233,6 @@ The release scripts are organized in the `.github/scripts` folder:
 - **`ext-version-bumper.ts`**: Bump versions for selected extensions
 - **`ext-publish-matrix.ts`**: Determine publish matrix for extensions
 - **`ext-github-releases.ts`**: Create GitHub releases for extensions
-- **`ext-publish-vsix.ts`**: Publish VSIX file to VS Code Marketplace
 
 #### NPM Modules
 
