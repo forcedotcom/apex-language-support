@@ -41,6 +41,7 @@ describe('HoverProcessingService Integration Tests', () => {
   let fileUtilitiesDocument: TextDocument;
   let fileUtilitiesTestDocument: TextDocument;
   let stdApexDocument: TextDocument;
+  let complexTestClassDocument: TextDocument;
 
   beforeEach(async () => {
     // Enable console logging for debugging
@@ -57,6 +58,7 @@ describe('HoverProcessingService Integration Tests', () => {
     const fileUtilitiesPath = join(fixturesDir, 'FileUtilities.cls');
     const fileUtilitiesTestPath = join(fixturesDir, 'FileUtilitiesTest.cls');
     const stdApexPath = join(fixturesDir, 'StdApex.cls');
+    const complexTestClassPath = join(fixturesDir, 'ComplexTestClass.cls');
 
     const testClassContent = readFileSync(testClassPath, 'utf8');
     const anotherTestClassContent = readFileSync(anotherTestClassPath, 'utf8');
@@ -66,6 +68,7 @@ describe('HoverProcessingService Integration Tests', () => {
       'utf8',
     );
     const stdApexContent = readFileSync(stdApexPath, 'utf8');
+    const complexTestClassContent = readFileSync(complexTestClassPath, 'utf8');
 
     // Create TextDocument instances for the real classes
     testClassDocument = TextDocument.create(
@@ -101,6 +104,13 @@ describe('HoverProcessingService Integration Tests', () => {
       'apex',
       1,
       stdApexContent,
+    );
+
+    complexTestClassDocument = TextDocument.create(
+      'file://ComplexTestClass.cls',
+      'apex',
+      1,
+      complexTestClassContent,
     );
 
     // Parse the real Apex classes and add them to the symbol manager
@@ -175,6 +185,22 @@ describe('HoverProcessingService Integration Tests', () => {
       {},
     );
     symbolManager.addSymbolTable(stdApexTable, 'file://StdApex.cls');
+
+    // Parse ComplexTestClass.cls
+    const complexTestClassTable = new SymbolTable();
+    const complexTestClassListener = new ApexSymbolCollectorListener(
+      complexTestClassTable,
+    );
+    const _complexTestClassResult = compilerService.compile(
+      complexTestClassContent,
+      'file://ComplexTestClass.cls',
+      complexTestClassListener,
+      {},
+    );
+    symbolManager.addSymbolTable(
+      complexTestClassTable,
+      'file://ComplexTestClass.cls',
+    );
 
     // Set up mock storage
     mockStorage = {
@@ -692,6 +718,148 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('**Method** createFile');
         expect(content).toContain('**Returns:** String');
+      }
+    });
+  });
+
+  describe('ComplexTestClass Hover Tests', () => {
+    it('should provide hover information for ComplexTestClass class declaration', async () => {
+      mockStorage.getDocument.mockResolvedValue(complexTestClassDocument);
+
+      const text = complexTestClassDocument.getText();
+      const lines = text.split('\n');
+      const classLineIndex = 0;
+      const classCharIndex = lines[classLineIndex].indexOf('ComplexTestClass');
+      expect(classCharIndex).toBeGreaterThanOrEqual(0);
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file://ComplexTestClass.cls' },
+        position: { line: classLineIndex, character: classCharIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        expect(content).toContain('**Class** ComplexTestClass');
+        expect(content).toMatch(/\*\*Modifiers:\*\* .*public/);
+      }
+    });
+
+    it('should provide hover for instance method declaration testFileUtilities', async () => {
+      mockStorage.getDocument.mockResolvedValue(complexTestClassDocument);
+
+      const text = complexTestClassDocument.getText();
+      const lines = text.split('\n');
+      const lineIndex = lines.findIndex((l) =>
+        l.includes('testFileUtilities('),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf('testFileUtilities');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file://ComplexTestClass.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        expect(content).toContain('**Method** testFileUtilities');
+        expect(content).toContain('**Returns:** void');
+      }
+    });
+
+    it('should provide hover for cross-file class reference FileUtilities', async () => {
+      mockStorage.getDocument.mockResolvedValue(complexTestClassDocument);
+
+      const text = complexTestClassDocument.getText();
+      const lines = text.split('\n');
+      const lineIndex = lines.findIndex((l) =>
+        l.includes('FileUtilities.createFile'),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf('FileUtilities');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file://ComplexTestClass.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        expect(content).toContain('**Class** FileUtilities');
+      }
+    });
+
+    it('should provide hover for cross-file static method call createFile', async () => {
+      mockStorage.getDocument.mockResolvedValue(complexTestClassDocument);
+
+      const text = complexTestClassDocument.getText();
+      const lines = text.split('\n');
+      const lineIndex = lines.findIndex((l) =>
+        l.includes('FileUtilities.createFile'),
+      );
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf('createFile');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file://ComplexTestClass.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        expect(content).toContain('**Method** createFile');
+        expect(content).toContain('**Returns:** String');
+      }
+    });
+
+    it('should provide hover information for local variable exists', async () => {
+      mockStorage.getDocument.mockResolvedValue(complexTestClassDocument);
+
+      const text = complexTestClassDocument.getText();
+      const lines = text.split('\n');
+      const lineIndex = lines.findIndex((l) => l.includes('Boolean exists'));
+      expect(lineIndex).toBeGreaterThanOrEqual(0);
+      const charIndex = lines[lineIndex].indexOf('exists');
+
+      const params: HoverParams = {
+        textDocument: { uri: 'file://ComplexTestClass.cls' },
+        position: { line: lineIndex, character: charIndex },
+      };
+
+      const result = await hoverService.processHover(params);
+
+      expect(result).not.toBeNull();
+      if (result) {
+        const content =
+          typeof result.contents === 'object' && 'value' in result.contents
+            ? result.contents.value
+            : '';
+        expect(content).toContain('**Variable** exists');
+        expect(content).toContain('**Type:** Boolean');
       }
     });
   });

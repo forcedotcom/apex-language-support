@@ -20,6 +20,7 @@ import {
   ReferenceContext,
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
+import { Position } from 'vscode-languageserver-protocol';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
@@ -96,21 +97,238 @@ export class HoverProcessingService implements IHoverProcessor {
       );
 
       // Get the symbol at the position using enhanced resolution with strategy
-      const symbol = this.symbolManager.getSymbolAtPositionWithStrategy(
+      let symbol = this.symbolManager.getSymbolAtPositionWithStrategy(
         document.uri,
         parserPosition,
         'hover',
       );
 
       if (!symbol) {
-        this.logger.debug(
-          () =>
-            `No symbol found at parser position ${formatPosition(parserPosition, 'parser')}`,
+        this.logger.debug(() => {
+          const parserPos = formatPosition(parserPosition, 'parser');
+          return `No symbol found at parser position ${parserPos}. Attempting cross-file resolution fallback...`;
+        });
+
+        // Minimal fallback: try resolving via TypeReferences at the exact position
+        try {
+          const typeRefs = this.symbolManager.getReferencesAtPosition(
+            document.uri,
+            parserPosition,
+          );
+          if (Array.isArray(typeRefs) && typeRefs.length > 0) {
+            const order = [
+              ReferenceContext.FIELD_ACCESS,
+              ReferenceContext.METHOD_CALL,
+              ReferenceContext.CLASS_REFERENCE,
+              ReferenceContext.TYPE_DECLARATION,
+              ReferenceContext.CONSTRUCTOR_CALL,
+              ReferenceContext.VARIABLE_USAGE,
+              ReferenceContext.PARAMETER_TYPE,
+            ];
+            const sorted = typeRefs.slice().sort((a: any, b: any) => {
+              const aPri = order.indexOf(a.context);
+              const bPri = order.indexOf(b.context);
+              if (aPri !== bPri) return aPri - bPri;
+              const aSize =
+                (a.location.endLine - a.location.startLine) * 1000 +
+                (a.location.endColumn - a.location.startColumn);
+              const bSize =
+                (b.location.endLine - b.location.startLine) * 1000 +
+                (b.location.endColumn - b.location.startColumn);
+              return aSize - bSize;
+            });
+
+            const bestRef = sorted[0];
+            let candidates = this.symbolManager.findSymbolByName(bestRef.name);
+
+            // Narrow by context
+            if (bestRef.context === ReferenceContext.METHOD_CALL) {
+              candidates = candidates.filter((s: any) => s.kind === 'method');
+            } else if (bestRef.context === ReferenceContext.FIELD_ACCESS) {
+              candidates = candidates.filter(
+                (s: any) => s.kind === 'field' || s.kind === 'property',
+              );
+            } else if (
+              bestRef.context === ReferenceContext.CLASS_REFERENCE ||
+              bestRef.context === ReferenceContext.TYPE_DECLARATION
+            ) {
+              candidates = candidates.filter((s: any) => s.kind === 'class');
+            }
+
+            // If qualifier exists, prefer symbols whose containing type matches
+            if (bestRef.qualifier && candidates.length > 0) {
+              const qualified = candidates.filter((s: any) => {
+                const containing = this.symbolManager.getContainingType(s);
+                return containing && containing.name === bestRef.qualifier;
+              });
+              if (qualified.length > 0) {
+                candidates = qualified;
+              }
+            }
+
+            if (candidates.length > 0) {
+              const picked = candidates[0];
+              return this.createHoverInformation(picked, 0.9);
+            }
+          }
+        } catch (_e) {
+          // ignore and proceed to legacy fallbacks below
+        }
+
+        // Legacy token-based lookup fallback
+        const fallbackContext =
+          this.symbolManager.createResolutionContextWithRequestType(
+            document.getText(),
+            parserPosition,
+            document.uri,
+            'hover',
+          );
+
+        const tokenInfo = this.extractTokenInfo(document, params.position);
+        if (tokenInfo && tokenInfo.word) {
+          this.logger.debug(() => {
+            const qualifierMsg = tokenInfo.qualifier
+              ? ` with qualifier '${tokenInfo.qualifier}'`
+              : '';
+            return `Fallback token-based lookup for word '${tokenInfo.word}'${qualifierMsg}`;
+          });
+
+          let candidates = this.symbolManager.findSymbolByName(tokenInfo.word);
+          if (candidates && candidates.length > 0) {
+            // Prefer cross-file candidates first
+            let filtered = candidates.filter(
+              (s: any) => `file://${s.filePath}` !== document.uri,
+            );
+
+            // Narrow by context
+            if (tokenInfo.isMethodContext) {
+              filtered = filtered.filter((s: any) => s.kind === 'method');
+              if (tokenInfo.qualifier) {
+                filtered = filtered.filter((s: any) => {
+                  const containing = this.symbolManager.getContainingType(s);
+                  return containing && containing.name === tokenInfo.qualifier;
+                });
+              }
+            } else if (tokenInfo.isTypeOrClassContext) {
+              filtered = filtered.filter((s: any) => s.kind === 'class');
+            }
+
+            if (filtered.length === 0) {
+              filtered = candidates;
+            }
+
+            if (filtered.length > 0) {
+              const best = this.resolveBestSymbol(filtered, fallbackContext);
+              if (best) {
+                this.logger.debug(
+                  () =>
+                    `Using token-based fallback symbol: ${best.symbol.name} (${best.symbol.kind})`,
+                );
+                return this.createHoverInformation(
+                  best.symbol,
+                  best.confidence,
+                );
+              }
+            }
+          }
+        }
+
+        // Secondary: reference-based cross-file resolution
+        const crossFileSymbols = this.findCrossFileSymbols(
+          document,
+          params.position,
+          fallbackContext,
         );
+
+        if (crossFileSymbols && crossFileSymbols.length > 0) {
+          const filtered = this.filterSymbolsByContext(
+            crossFileSymbols,
+            fallbackContext,
+          );
+          const best = this.resolveBestSymbol(filtered, fallbackContext);
+          if (best) {
+            this.logger.debug(
+              () =>
+                `Using fallback cross-file symbol: ${best.symbol.name} (${best.symbol.kind})`,
+            );
+            return this.createHoverInformation(best.symbol, best.confidence);
+          }
+        }
+
+        this.logger.debug(() => {
+          const parserPos = formatPosition(parserPosition, 'parser');
+          return `No symbol found at parser position ${parserPos}`;
+        });
         return null;
       }
 
-      this.logger.debug(() => `Found symbol: ${symbol.name} (${symbol.kind})`);
+      // Token-based correction if name under cursor disagrees with selected symbol
+      const primaryTokenInfo = this.extractTokenInfo(document, params.position);
+      if (
+        primaryTokenInfo &&
+        primaryTokenInfo.word &&
+        symbol &&
+        symbol.name !== primaryTokenInfo.word
+      ) {
+        this.logger.debug(() => {
+          const token = primaryTokenInfo.word;
+          const name = symbol!.name;
+          return `Primary symbol '${name}' mismatches token '${token}'. Attempting token-based correction.`;
+        });
+
+        const correctionContext =
+          this.symbolManager.createResolutionContextWithRequestType(
+            document.getText(),
+            parserPosition,
+            document.uri,
+            'hover',
+          );
+
+        let candidates = this.symbolManager.findSymbolByName(
+          primaryTokenInfo.word,
+        );
+        if (candidates && candidates.length > 0) {
+          // Prefer cross-file matches first
+          let filtered = candidates.filter(
+            (s: any) => `file://${s.filePath}` !== document.uri,
+          );
+
+          if (primaryTokenInfo.isMethodContext) {
+            filtered = filtered.filter((s: any) => s.kind === 'method');
+            if (primaryTokenInfo.qualifier) {
+              filtered = filtered.filter((s: any) => {
+                const containing = this.symbolManager.getContainingType(s);
+                return (
+                  containing && containing.name === primaryTokenInfo.qualifier
+                );
+              });
+            }
+          } else if (primaryTokenInfo.isTypeOrClassContext) {
+            filtered = filtered.filter((s: any) => s.kind === 'class');
+          }
+
+          if (filtered.length === 0) {
+            filtered = candidates;
+          }
+
+          if (filtered.length > 0) {
+            const best = this.resolveBestSymbol(filtered, correctionContext);
+            if (best) {
+              this.logger.debug(
+                () =>
+                  `Token-based correction selected symbol: ${best.symbol.name} (${best.symbol.kind})`,
+              );
+              symbol = best.symbol;
+            }
+          }
+        }
+      }
+
+      // Parser now handles precise dotted and cross-file resolution; no additional correction needed.
+
+      this.logger.debug(
+        () => `Found symbol: ${symbol!.name} (${symbol!.kind})`,
+      );
 
       // Create enhanced resolution context for better accuracy
       const context = this.symbolManager.createResolutionContextWithRequestType(
@@ -138,10 +356,10 @@ export class HoverProcessingService implements IHoverProcessor {
 
       this.logger.debug(
         () =>
-          `About to create hover information for symbol: ${symbol.name} with confidence: ${confidence}`,
+          `About to create hover information for symbol: ${symbol!.name} with confidence: ${confidence}`,
       );
 
-      const hover = await this.createHoverInformation(symbol, confidence);
+      const hover = await this.createHoverInformation(symbol!, confidence);
 
       this.logger.debug(
         () => `Hover creation result: ${hover ? 'success' : 'null'}`,
@@ -150,6 +368,78 @@ export class HoverProcessingService implements IHoverProcessor {
       return hover;
     } catch (error) {
       this.logger.error(() => `Error processing hover: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Extract token information at a given position (word, qualifier, context hints)
+   */
+  private extractTokenInfo(
+    document: TextDocument,
+    position: Position,
+  ): {
+    word: string;
+    qualifier?: string;
+    isMethodContext: boolean;
+    isTypeOrClassContext: boolean;
+  } | null {
+    try {
+      const text = document.getText();
+      const offset = document.offsetAt(position);
+
+      // Find token bounds
+      let word = '';
+      let start = offset;
+      let end = offset;
+
+      // Expand left
+      while (start > 0 && /[A-Za-z0-9_]/.test(text[start - 1])) start--;
+      // Expand right
+      while (end < text.length && /[A-Za-z0-9_]/.test(text[end])) end++;
+
+      if (end > start) {
+        word = text.substring(start, end);
+      }
+
+      if (!word) return null;
+
+      // Look for qualifier pattern like Qualifier.word (e.g., FileUtilities.createFile)
+      let qualifier: string | undefined;
+      let isMethodContext = false;
+      let isTypeOrClassContext = false;
+
+      // Look back for dot and previous identifier
+      const before = text.substring(0, start);
+      const dotIndex = before.lastIndexOf('.');
+      if (dotIndex !== -1) {
+        // identifier before dot
+        let qEnd = dotIndex;
+        let qStart = qEnd - 1;
+        while (qStart >= 0 && /[A-Za-z0-9_]/.test(text[qStart])) qStart--;
+        qStart++;
+        if (qStart < qEnd) {
+          qualifier = text.substring(qStart, qEnd);
+        }
+      }
+
+      // Heuristics: if the next non-space char after the word is '(', we are in method context
+      let idx = end;
+      while (idx < text.length && /\s/.test(text[idx])) idx++;
+      if (idx < text.length && text[idx] === '(') {
+        isMethodContext = true;
+      }
+
+      // If previous non-space token is 'new' or we are at a class decl line
+      let pidx = start - 1;
+      while (pidx >= 0 && /\s/.test(text[pidx])) pidx--;
+      const prevSlice = text.substring(Math.max(0, pidx - 20), start);
+      if (/\bclass\b/.test(prevSlice) || /\bnew\b/.test(prevSlice)) {
+        isTypeOrClassContext = true;
+      }
+
+      return { word, qualifier, isMethodContext, isTypeOrClassContext };
+    } catch {
       return null;
     }
   }

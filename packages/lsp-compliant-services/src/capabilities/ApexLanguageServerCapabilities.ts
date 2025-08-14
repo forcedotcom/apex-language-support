@@ -102,7 +102,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
   diagnosticProvider: {
     identifier: 'apex-ls-ts',
     interFileDependencies: true,
-    workspaceDiagnostics: true,
+    workspaceDiagnostics: false,
   },
 };
 

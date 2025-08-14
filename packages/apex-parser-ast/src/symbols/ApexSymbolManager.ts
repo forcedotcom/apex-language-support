@@ -1795,6 +1795,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
       }
 
+      // Note: Positions are already parser-ast format (1-based line, 0-based column).
+      // No off-by-one adjustment is needed here.
+
       // Step 3: Fallback to direct symbol lookup by position
       this.logger.debug(
         () =>
@@ -4166,6 +4169,47 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return resolvedSymbol;
         }
       }
+
+      // Step 2: Try to locate a reference on the same line that spans the position (fallback)
+      try {
+        const allRefs = this.getAllReferencesInFile(normalizedPath);
+        const sameLineSpanning = allRefs.filter(
+          (r) =>
+            r.location.startLine === position.line &&
+            r.location.startColumn <= position.character &&
+            r.location.endColumn >= position.character,
+        );
+        if (sameLineSpanning.length > 0) {
+          const order = [
+            ReferenceContext.FIELD_ACCESS,
+            ReferenceContext.METHOD_CALL,
+            ReferenceContext.CLASS_REFERENCE,
+            ReferenceContext.TYPE_DECLARATION,
+            ReferenceContext.CONSTRUCTOR_CALL,
+            ReferenceContext.VARIABLE_USAGE,
+            ReferenceContext.PARAMETER_TYPE,
+          ];
+          const sorted = sameLineSpanning.slice().sort((a, b) => {
+            const aPri = order.indexOf(a.context);
+            const bPri = order.indexOf(b.context);
+            if (aPri !== bPri) return aPri - bPri;
+            const aSize =
+              (a.location.endLine - a.location.startLine) * 1000 +
+              (a.location.endColumn - a.location.startColumn);
+            const bSize =
+              (b.location.endLine - b.location.startLine) * 1000 +
+              (b.location.endColumn - b.location.startColumn);
+            return aSize - bSize;
+          });
+          const resolvedFromLine = this.resolveTypeReferenceToSymbol(
+            sorted[0],
+            normalizedPath,
+          );
+          if (resolvedFromLine) {
+            return resolvedFromLine;
+          }
+        }
+      } catch {}
 
       // Step 3: Look for symbols that start exactly at this position or are small identifiers
       const symbols = this.findSymbolsInFile(normalizedPath);
