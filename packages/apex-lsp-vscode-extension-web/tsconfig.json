@@ -6,7 +6,7 @@
     "lib": ["ES2022", "WebWorker"],
     "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
-  "include": ["src/**/*", "src/extension-test.ts"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "out", "dist", "**/*.test.ts", "test/**/*"],
   "copyFiles": [
     {

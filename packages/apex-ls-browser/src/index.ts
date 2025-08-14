@@ -345,3 +345,5 @@ export type {
 
 // Re-export LSP protocol types for convenience
 export * from 'vscode-languageserver-protocol';
+
+module.exports = { ...BrowserStorage };
