@@ -153,7 +153,9 @@
   "scripts": {
     "precompile": "shx mkdir -p out/snippets out/grammars && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* out/grammars/ && shx cp -R snippets/* out/snippets/",
     "compile": "tsc --build",
+    "prebundle": "shx test -f ../../packages/apex-ls-browser/dist/worker.js || (cd ../../packages/apex-ls-browser && npm run bundle)",
     "bundle": "tsup",
+    "bundle:force": "cd ../../packages/apex-ls-browser && npm run bundle && cd ../apex-lsp-vscode-extension-web && npm run bundle",
     "copy:files": "shx mkdir -p out/snippets out/grammars && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* out/grammars/ && shx cp -R snippets/* out/snippets/",
     "package": "cd dist && vsce package --out ../",
     "test": "jest --passWithNoTests",
@@ -165,9 +167,8 @@
     "lint:fix": "eslint src --fix"
   },
   "dependencies": {
-    "vscode-jsonrpc": "^9.0.0",
-    "vscode-languageserver-protocol": "^3.17.5",
-    "vscode-languageclient": "^9.0.1"
+    "vscode-jsonrpc": "^8.2.1",
+    "vscode-languageserver-protocol": "^3.17.5"
   },
   "devDependencies": {
     "@salesforce/apex-tmlanguage": "1.8.0",

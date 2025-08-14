@@ -21,7 +21,8 @@ export default defineConfig({
   clean: true,
   external: ['vscode'],
   noExternal: [
-    'vscode-languageclient',
+    'vscode-jsonrpc',
+    'vscode-languageserver-protocol',
     'vscode-languageserver-textdocument',
     'vscode-uri',
     '@salesforce/apex-lsp-compliant-services',
@@ -52,10 +53,13 @@ export default defineConfig({
     );
 
     // Copy other required files
-    execSync('shx cp README.md language-configuration.json LICENSE.txt dist/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
+    execSync(
+      'shx cp README.md language-configuration.json LICENSE.txt package.nls.json dist/',
+      {
+        cwd: sourceDir,
+        stdio: 'inherit',
+      },
+    );
 
     // Copy the bundled worker from apex-ls-browser
     execSync('shx cp ../../packages/apex-ls-browser/dist/worker.js dist/', {
