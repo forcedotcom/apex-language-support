@@ -19,7 +19,34 @@ export default defineConfig({
   dts: false,
   outDir: 'dist',
   clean: true,
-  external: ['vscode'],
+  platform: 'browser',
+  target: 'es2020',
+  external: [
+    'vscode',
+    'util',
+    'fs',
+    'path',
+    'os',
+    'crypto',
+    'stream',
+    'events',
+    'child_process',
+    'http',
+    'https',
+    'url',
+    'querystring',
+    'buffer',
+    'process',
+    'assert',
+    'constants',
+    'domain',
+    'punycode',
+    'string_decoder',
+    'timers',
+    'tty',
+    'vm',
+    'zlib',
+  ],
   noExternal: [
     'vscode-jsonrpc',
     'vscode-languageserver-protocol',
@@ -30,6 +57,20 @@ export default defineConfig({
     '@salesforce/apex-lsp-shared',
     '@salesforce/apex-lsp-parser-ast',
   ],
+  // Ensure Node.js modules are not bundled for browser
+  esbuildOptions(options) {
+    options.platform = 'browser';
+    options.define = {
+      ...options.define,
+      'process.env.NODE_ENV': '"browser"',
+    };
+    // Ensure code is readable and not minified
+    options.minify = false;
+    options.minifyIdentifiers = false;
+    options.minifySyntax = false;
+    options.minifyWhitespace = false;
+    return options;
+  },
   onSuccess: async () => {
     const sourceDir = process.cwd();
 
