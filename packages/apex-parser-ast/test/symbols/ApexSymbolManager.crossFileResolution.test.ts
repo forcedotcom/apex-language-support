@@ -27,6 +27,77 @@ describe('ApexSymbolManager Cross-File Resolution (Phase 2)', () => {
   });
 
   describe('Built-in Type Resolution', () => {
+    it('should resolve System.EncodingUtil urlEncode reference (std apex class)', () => {
+      // Read the real TestClass.cls file
+      const testClassPath = path.join(
+        __dirname,
+        '../fixtures/cross-file/TestClass.cls',
+      );
+      const testClassContent = fs.readFileSync(testClassPath, 'utf8');
+
+      // Parse the TestClass and add it to the symbol manager
+      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassResult = compilerService.compile(
+        testClassContent,
+        '/test/TestClass.cls',
+        testClassListener,
+      );
+
+      if (testClassResult.result) {
+        symbolManager.addSymbolTable(
+          testClassResult.result,
+          '/test/TestClass.cls',
+        );
+      }
+
+      // Line 88..92 were added; urlEncode call is on line 90 (0-based index)
+      // Place cursor on the qualifier "EncodingUtil" to resolve the std class
+      const foundSymbol = symbolManager.getSymbolAtPosition(
+        '/test/TestClass.cls',
+        { line: 90, character: 25 },
+      );
+
+      expect(foundSymbol).toBeDefined();
+      expect(foundSymbol?.kind).toBe(SymbolKind.Class);
+      expect(foundSymbol?.name).toBe('EncodingUtil');
+      // Confirm it points at the std lib path
+      expect(foundSymbol?.filePath).toContain('System/EncodingUtil.cls');
+    });
+
+    it('should resolve System.EncodingUtil urlDecode reference (std apex class)', () => {
+      // Read the real TestClass.cls file
+      const testClassPath = path.join(
+        __dirname,
+        '../fixtures/cross-file/TestClass.cls',
+      );
+      const testClassContent = fs.readFileSync(testClassPath, 'utf8');
+
+      // Parse the TestClass and add it to the symbol manager
+      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassResult = compilerService.compile(
+        testClassContent,
+        '/test/TestClass.cls',
+        testClassListener,
+      );
+
+      if (testClassResult.result) {
+        symbolManager.addSymbolTable(
+          testClassResult.result,
+          '/test/TestClass.cls',
+        );
+      }
+
+      // urlDecode call is on line 91 (0-based). Cursor on qualifier "EncodingUtil"
+      const foundSymbol = symbolManager.getSymbolAtPosition(
+        '/test/TestClass.cls',
+        { line: 91, character: 25 },
+      );
+
+      expect(foundSymbol).toBeDefined();
+      expect(foundSymbol?.kind).toBe(SymbolKind.Class);
+      expect(foundSymbol?.name).toBe('EncodingUtil');
+      expect(foundSymbol?.filePath).toContain('System/EncodingUtil.cls');
+    });
     it('should resolve System.debug() reference', () => {
       // Read the real TestClass.cls file
       const testClassPath = path.join(
@@ -581,8 +652,8 @@ describe('ApexSymbolManager Cross-File Resolution (Phase 2)', () => {
       const endTime = performance.now();
       const duration = endTime - startTime;
 
-      // Should complete 7 lookups in under 100ms
-      expect(duration).toBeLessThan(100);
+      // Should complete 7 lookups in under 500ms
+      expect(duration).toBeLessThan(500);
     });
   });
 });

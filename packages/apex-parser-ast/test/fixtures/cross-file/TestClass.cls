@@ -84,4 +84,10 @@ public class TestClass {
     public void incrementCount(Integer amount) {
         this.count += amount;
     }
+
+    public void testStdApexClasses() {
+        // References to standard Apex class System.EncodingUtil
+        String encoded = EncodingUtil.urlEncode('Hello World', 'UTF-8');
+        String decoded = EncodingUtil.urlDecode('Hello%20World', 'UTF-8');
+    }
 }

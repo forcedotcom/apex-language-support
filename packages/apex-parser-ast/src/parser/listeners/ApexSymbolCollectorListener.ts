@@ -126,6 +126,9 @@ export class ApexSymbolCollectorListener
   private currentFilePath: string = '';
   private semanticErrors: SemanticError[] = [];
   private semanticWarnings: SemanticError[] = [];
+  // Assignment LHS suppression state to avoid duplicate captures from child listeners
+  private suppressAssignmentLHS: boolean = false;
+  private suppressedLHSRange: SymbolLocation | null = null;
 
   /**
    * Creates a new instance of the ApexSymbolCollectorListener.
@@ -1920,6 +1923,14 @@ export class ApexSymbolCollectorListener
    * Capture field access references (e.g., "property.Id")
    */
   enterDotExpression(ctx: DotExpressionContext): void {
+    // Suppress during LHS of assignment to avoid duplicate captures
+    if (this.shouldSuppress(ctx)) {
+      this.logger.debug(
+        () =>
+          `DEBUG: Suppressing enterDotExpression within assignment LHS: "${ctx.text || ''}"`,
+      );
+      return;
+    }
     this.logger.debug(
       `DEBUG: enterDotExpression called with text: "${ctx.text}"`,
     );
@@ -2378,6 +2389,22 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Determine if capturing should be suppressed for the given ctx because
+   * it lies within the current assignment LHS range.
+   */
+  private shouldSuppress(ctx: ParserRuleContext): boolean {
+    if (!this.suppressAssignmentLHS || !this.suppressedLHSRange) return false;
+    const loc = this.getLocation(ctx);
+    const r = this.suppressedLHSRange;
+    const withinLines =
+      loc.startLine >= r.startLine && loc.endLine <= r.endLine;
+    const withinCols =
+      (loc.startLine > r.startLine || loc.startColumn >= r.startColumn) &&
+      (loc.endLine < r.endLine || loc.endColumn <= r.endColumn);
+    return withinLines && withinCols;
+  }
+
+  /**
    * Check if a variable name exists in the current scope
    */
   private isVariableInScope(variableName: string): boolean {
@@ -2399,6 +2426,41 @@ export class ApexSymbolCollectorListener
    * This captures simple variable references like "myVariable"
    */
   enterIdPrimary(ctx: IdPrimaryContext): void {
+    if (this.shouldSuppress(ctx)) {
+      this.logger.debug(
+        () =>
+          `DEBUG: Suppressing idPrimary within assignment LHS: "${ctx.text || ''}"`,
+      );
+      return;
+    }
+    // Skip emitting a VARIABLE_USAGE when this identifier participates in a dotted
+    // expression (e.g., EncodingUtil.urlEncode or obj.field). These cases are
+    // handled by dedicated dot listeners that emit CLASS_REFERENCE, METHOD_CALL,
+    // or FIELD_ACCESS with precise qualifier logic. Allowing idPrimary to emit
+    // here causes duplicate/competing references and misclassification.
+    let parent = ctx.parent as ParserRuleContext | undefined;
+    let insideArguments = false;
+    while (parent) {
+      const ctorName = parent.constructor?.name;
+      if (
+        ctorName === 'ExpressionListContext' ||
+        ctorName === 'ArgumentsContext'
+      ) {
+        insideArguments = true;
+      }
+      if (
+        (ctorName === 'DotExpressionContext' ||
+          ctorName === 'DotMethodCallContext') &&
+        !insideArguments
+      ) {
+        this.logger.debug(
+          () =>
+            `DEBUG: Skipping idPrimary capture inside ${ctorName} (non-argument): "${ctx.text || ''}"`,
+        );
+        return;
+      }
+      parent = parent.parent as ParserRuleContext | undefined;
+    }
     const variableName = this.getTextFromContext(ctx);
     const location = this.getLocation(ctx);
     const parentContext = this.getCurrentMethodName();
@@ -2429,41 +2491,74 @@ export class ApexSymbolCollectorListener
    * This captures both left-hand and right-hand side of assignments
    */
   enterAssignExpression(ctx: AssignExpressionContext): void {
-    // Capture the left-hand side of the assignment (the variable being assigned to)
+    // Decide LHS access (readwrite for compound ops, else write)
+    const text = ctx.text || '';
+    const isCompound = /(\+=|-=|\*=|\/=|&=|\|=|\^=|<<=|>>=|>>>=)/.test(text);
+    const lhsAccess: 'write' | 'readwrite' = isCompound ? 'readwrite' : 'write';
+
     const leftExpression = ctx.expression(0);
     if (leftExpression) {
-      const leftText = this.getTextFromContext(leftExpression);
-      const location = this.getLocation(leftExpression);
+      const lhsLoc = this.getLocation(leftExpression);
       const parentContext = this.getCurrentMethodName();
+      const lhsText = this.getTextFromContext(leftExpression);
 
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for assignment LHS: "${leftText}"`,
-      );
+      // Suppress child captures within LHS range
+      this.suppressAssignmentLHS = true;
+      this.suppressedLHSRange = lhsLoc;
+
+      // If it's a simple identifier, mark as write/readwrite
+      const idMatch = lhsText.match(/^[A-Za-z_]\w*$/);
+      if (idMatch) {
+        const varRef = TypeReferenceFactory.createVariableUsageReference(
+          lhsText,
+          lhsLoc,
+          parentContext,
+          lhsAccess,
+        );
+        this.symbolTable.addTypeReference(varRef);
+        return;
+      }
+
+      // If it's a dotted field reference: obj.field
+      const dotMatch = lhsText.match(/^(\w+)\.(\w+)$/);
+      if (dotMatch) {
+        const objectName = dotMatch[1];
+        const fieldName = dotMatch[2];
+        const objLocation: SymbolLocation = {
+          startLine: lhsLoc.startLine,
+          startColumn: lhsLoc.startColumn,
+          endLine: lhsLoc.startLine,
+          endColumn: lhsLoc.startColumn + objectName.length,
+        };
+        // qualifier read
+        const objRef = TypeReferenceFactory.createVariableUsageReference(
+          objectName,
+          objLocation,
+          parentContext,
+          'read',
+        );
+        this.symbolTable.addTypeReference(objRef);
+        // field write/readwrite
+        const fieldRef = TypeReferenceFactory.createFieldAccessReference(
+          fieldName,
+          lhsLoc,
+          objectName,
+          parentContext,
+          lhsAccess,
+        );
+        this.symbolTable.addTypeReference(fieldRef);
+        return;
+      }
+      // For complex LHS (e.g., arr[i]), we avoid emitting flattened refs; let child listeners capture reads
     }
+  }
 
-    // Capture the right-hand side of the assignment
-    const rightExpression = ctx.expression(1);
-    if (rightExpression) {
-      const rightText = this.getTextFromContext(rightExpression);
-      const location = this.getLocation(rightExpression);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for assignment RHS: "${rightText}"`,
-      );
-    }
+  /**
+   * Cleanup suppression state after assignment expression
+   */
+  exitAssignExpression(): void {
+    this.suppressAssignmentLHS = false;
+    this.suppressedLHSRange = null;
   }
 
   /**

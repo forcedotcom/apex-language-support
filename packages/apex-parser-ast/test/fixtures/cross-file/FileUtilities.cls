@@ -1,16 +1,34 @@
-public class FileUtilities {
-    public static String createFile(String fileName, String content) {
-        // Simulate file creation
-        return 'File created: ' + fileName;
-    }
-    
-    public static void deleteFile(String fileName) {
-        // Simulate file deletion
-        System.debug('Deleting file: ' + fileName);
-    }
-    
-    public static Boolean fileExists(String fileName) {
-        // Simulate file existence check
-        return fileName != null && fileName.length() > 0;
-    }
+public with sharing class FileUtilities {
+    @AuraEnabled
+    public static String createFile(
+        String base64data,
+        String filename,
+        String recordId
+    ) {
+        try {
+            ContentVersion contentVersion = new ContentVersion();
+            contentVersion.VersionData = EncodingUtil.base64Decode(base64data);
+            contentVersion.Title = filename;
+            contentVersion.PathOnClient = filename;
+            insert contentVersion;
+
+            contentVersion = [
+                SELECT ContentDocumentId
+                FROM ContentVersion
+                WHERE Id = :contentVersion.Id
+                WITH USER_MODE
+            ];
+
+            ContentDocumentLink contentDocumentLink = new ContentDocumentLink();
+            contentDocumentLink.ContentDocumentId = contentVersion.ContentDocumentId;
+            contentDocumentLink.LinkedEntityId = recordId;
+            contentDocumentLink.ShareType = 'V';
+            insert contentDocumentLink;
+
+            return contentDocumentLink.Id;
+        } catch (Exception e) {
+            String foo = 'foo';
+            throw new AuraHandledException('Error creating file: ' + e);
+        }
+    }   
 }

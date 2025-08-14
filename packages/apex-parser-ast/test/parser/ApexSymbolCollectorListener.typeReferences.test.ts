@@ -46,8 +46,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       // 3. VARIABLE_USAGE for base64Data (parameter)
       // 4. VARIABLE_USAGE for fileName (parameter)
       // 5. VARIABLE_USAGE for recordId (parameter)
-      // 6. VARIABLE_USAGE for FileUtilities (as part of expression)
-      expect(references).toHaveLength(6);
+      expect(references).toHaveLength(5);
 
       // Check for CLASS_REFERENCE (FileUtilities)
       const classRef = references.find(
@@ -387,8 +386,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       // 3. VARIABLE_USAGE for data (parameter)
       // 4. VARIABLE_USAGE for name (parameter)
       // 5. VARIABLE_USAGE for id (parameter)
-      // 6. VARIABLE_USAGE for FileUtilities (as part of expression)
-      expect(references).toHaveLength(6);
+      expect(references).toHaveLength(5);
 
       // Check CLASS_REFERENCE location accuracy
       const classRef = references.find(

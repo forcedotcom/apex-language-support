@@ -37,6 +37,8 @@ export interface TypeReference {
   parentContext?: string;
   /** Always false during parsing - used for lazy resolution */
   isResolved: boolean;
+  /** Optional access semantics for reads/writes (assignments) */
+  access?: 'read' | 'write' | 'readwrite';
 }
 
 /**
@@ -87,6 +89,7 @@ export class TypeReferenceFactory {
     location: SymbolLocation,
     objectName: string,
     parentContext?: string,
+    access?: 'read' | 'write' | 'readwrite',
   ): TypeReference {
     return {
       name: fieldName,
@@ -95,6 +98,7 @@ export class TypeReferenceFactory {
       qualifier: objectName,
       parentContext,
       isResolved: false,
+      access,
     };
   }
 
@@ -122,6 +126,7 @@ export class TypeReferenceFactory {
     variableName: string,
     location: SymbolLocation,
     parentContext?: string,
+    access?: 'read' | 'write' | 'readwrite',
   ): TypeReference {
     return {
       name: variableName,
@@ -129,6 +134,7 @@ export class TypeReferenceFactory {
       context: ReferenceContext.VARIABLE_USAGE,
       parentContext,
       isResolved: false,
+      access,
     };
   }
 
