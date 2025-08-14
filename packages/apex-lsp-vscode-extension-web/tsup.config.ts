@@ -24,7 +24,6 @@ export default defineConfig({
     'vscode-languageclient',
     'vscode-languageserver-textdocument',
     'vscode-uri',
-    '@salesforce/apex-ls-browser/client',
     '@salesforce/apex-lsp-compliant-services',
     '@salesforce/apex-lsp-custom-services',
     '@salesforce/apex-lsp-shared',

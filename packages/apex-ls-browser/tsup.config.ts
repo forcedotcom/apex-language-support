@@ -14,7 +14,6 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     worker: 'src/worker.ts',
-    client: 'src/client.ts',
   },
   outDir: 'dist',
   clean: true,

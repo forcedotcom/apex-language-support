@@ -7,7 +7,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ApexLspClient } from '@salesforce/apex-ls-browser/client';
+import { ApexLspClient } from './client';
 
 // Create an output channel for logs
 let outputChannel: vscode.OutputChannel;

@@ -336,12 +336,7 @@ const BrowserStorage = require('./storage/BrowserIndexedDBApexStorage');
 
 // Export web worker functionality
 export { createWebWorkerLanguageServer } from './worker';
-export { createApexLspClient, ApexLspClient } from './client';
-export type {
-  ApexLspClientOptions,
-  WebWorkerLanguageServerOptions,
-  EnvironmentType,
-} from './types';
+export type { WebWorkerLanguageServerOptions, EnvironmentType } from './types';
 
 // Re-export LSP protocol types for convenience
 export * from 'vscode-languageserver-protocol';

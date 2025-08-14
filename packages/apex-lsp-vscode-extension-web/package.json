@@ -49,6 +49,17 @@
           ".apex"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "soql",
+        "aliases": [
+          "SOQL",
+          "Salesforce Object Query Language"
+        ],
+        "extensions": [
+          ".soql"
+        ],
+        "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
@@ -72,6 +83,22 @@
       {
         "language": "apex",
         "path": "./snippets/apex.json"
+      },
+      {
+        "language": "apex-anon",
+        "path": "./snippets/apex.json"
+      },
+      {
+        "language": "soql",
+        "path": "./snippets/soql.json"
+      },
+      {
+        "language": "apex",
+        "path": "./snippets/soql.json"
+      },
+      {
+        "language": "apex-anon",
+        "path": "./snippets/soql.json"
       }
     ],
     "configuration": {
@@ -138,7 +165,8 @@
     "lint:fix": "eslint src --fix"
   },
   "dependencies": {
-    "@salesforce/apex-ls-browser": "1.0.0",
+    "vscode-jsonrpc": "^9.0.0",
+    "vscode-languageserver-protocol": "^3.17.5",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
