@@ -87,6 +87,7 @@ describe.skip('ApexSymbolManager - Advanced Performance Tests', () => {
       isTransient: false,
       isTestMethod: false,
       isWebService: false,
+      isBuiltIn: false,
     },
     key: {
       prefix: kind,

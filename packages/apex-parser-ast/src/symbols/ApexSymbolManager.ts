@@ -565,7 +565,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // OPTIMIZED: Delegate to graph which delegates to SymbolTable
-    const symbols = this.symbolGraph.findSymbolByName(name);
+    const symbols = this.symbolGraph.findSymbolByName(name) || [];
+    if (symbols.length === 0) {
+      // Case-insensitive fallback
+      const lower = name.toLowerCase();
+      if (lower !== name) {
+        const alt = this.symbolGraph.findSymbolByName(lower);
+        if (alt && alt.length > 0) {
+          this.unifiedCache.set(cacheKey, alt, 'symbol_lookup');
+          return alt;
+        }
+      }
+    }
     this.unifiedCache.set(cacheKey, symbols, 'symbol_lookup');
     return symbols;
   }
@@ -2196,6 +2207,56 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         return builtInSymbol;
       }
 
+      // Attempt synthesized qualifier for chained METHOD_CALL when qualifier is missing
+      if (
+        typeReference.context === ReferenceContext.METHOD_CALL &&
+        !typeReference.qualifier
+      ) {
+        try {
+          const symbolTable =
+            this.symbolGraph.getSymbolTableForFile(sourceFile);
+          if (symbolTable) {
+            const allRefs = symbolTable.getAllReferences();
+            // Find the closest preceding reference on the same line
+            const currentStart = typeReference.location.startColumn;
+            const currentLine = typeReference.location.startLine;
+            const sameLineRefs = allRefs.filter(
+              (r) => r.location.endLine === currentLine,
+            );
+            // Choose the ref whose endColumn is just before current start
+            let closest: TypeReference | null = null;
+            let maxEndCol = -1;
+            for (const r of sameLineRefs) {
+              const endCol = r.location.endColumn;
+              if (endCol <= currentStart && endCol > maxEndCol) {
+                maxEndCol = endCol;
+                closest = r;
+              }
+            }
+            if (closest) {
+              // Build a simple chain like "<qualifier?>.<name>()"
+              const left = closest.qualifier
+                ? `${closest.qualifier}.${closest.name}()`
+                : `${closest.name}()`;
+              const synthesized: TypeReference = {
+                ...typeReference,
+                qualifier: left,
+              };
+              const resolvedFromSynth = this.resolveQualifiedReference(
+                synthesized,
+                sourceFile,
+                this.findSymbolByName(typeReference.name),
+              );
+              if (resolvedFromSynth) {
+                return resolvedFromSynth;
+              }
+            }
+          }
+        } catch (_e) {
+          // ignore and continue
+        }
+      }
+
       // Step 3: Try to find symbols by name
       const candidates = this.findSymbolByName(typeReference.name);
 
@@ -2711,7 +2772,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             );
             if (!rootClass) {
               // Try built-in / std class
-              const fqn = this.findFQNForStandardClass(root);
+              let fqn = this.findFQNForStandardClass(root);
+              if (!fqn) {
+                const alt = root.charAt(0) + root.slice(1).toLowerCase();
+                if (alt !== root) {
+                  fqn = this.findFQNForStandardClass(alt);
+                }
+              }
               if (fqn) {
                 const std = this.resolveStandardApexClass(fqn);
                 if (std) {
@@ -2730,7 +2797,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               (typeof rootClass.filePath !== 'string' ||
                 !rootClass.filePath.endsWith('.cls'))
             ) {
-              const fqn = this.findFQNForStandardClass(root);
+              let fqn = this.findFQNForStandardClass(root);
+              if (!fqn) {
+                const alt = root.charAt(0) + root.slice(1).toLowerCase();
+                if (alt !== root) {
+                  fqn = this.findFQNForStandardClass(alt);
+                }
+              }
               if (fqn) {
                 const std = this.resolveStandardApexClass(fqn);
                 if (std) {
@@ -2773,7 +2846,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   const rt =
                     (method as any).returnType ||
                     (method as any)._typeData?.returnType;
-                  const rtName = rt?.name || rt?.originalTypeString;
+                  let rtName = rt?.name || rt?.originalTypeString;
+                  if (typeof rtName === 'string' && rtName.includes('.')) {
+                    // Normalize names like "System.Url" to "Url" for lookup
+                    rtName = rtName.split('.').pop();
+                  }
                   if (rtName) {
                     currentTypeName = rtName;
                     // Move rootClass to the returned type's class if known
@@ -2781,12 +2858,53 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                       (s) => s.kind === SymbolKind.Class,
                     );
                     if (next) {
+                      // Ensure class is ingested for member lookup
                       rootClass = next;
+                      if (
+                        this.resourceLoader &&
+                        rootClass.filePath?.endsWith('.cls')
+                      ) {
+                        try {
+                          const cp = rootClass.filePath;
+                          if (!this.resourceLoader.isClassCompiled(cp)) {
+                            this.resourceLoader.ensureClassLoadedSync(cp);
+                          }
+                          const art =
+                            this.resourceLoader.getCompiledArtifactSync(cp);
+                          if (art && art.compilationResult?.result) {
+                            this.addSymbolTable(
+                              art.compilationResult.result,
+                              cp,
+                            );
+                          }
+                        } catch {}
+                      }
                     } else {
                       const fqnNext = this.findFQNForStandardClass(rtName);
                       if (fqnNext) {
                         const stdNext = this.resolveStandardApexClass(fqnNext);
-                        if (stdNext) rootClass = stdNext;
+                        if (stdNext) {
+                          rootClass = stdNext;
+                          if (
+                            this.resourceLoader &&
+                            rootClass.filePath?.endsWith('.cls')
+                          ) {
+                            try {
+                              const cp = rootClass.filePath;
+                              if (!this.resourceLoader.isClassCompiled(cp)) {
+                                this.resourceLoader.ensureClassLoadedSync(cp);
+                              }
+                              const art =
+                                this.resourceLoader.getCompiledArtifactSync(cp);
+                              if (art && art.compilationResult?.result) {
+                                this.addSymbolTable(
+                                  art.compilationResult.result,
+                                  cp,
+                                );
+                              }
+                            } catch {}
+                          }
+                        }
                       }
                     }
                   }
@@ -2801,7 +2919,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 if (field) {
                   const ft =
                     (field as any).type || (field as any)._typeData?.type;
-                  const ftName = ft?.name || ft?.originalTypeString;
+                  let ftName = ft?.name || ft?.originalTypeString;
+                  if (typeof ftName === 'string' && ftName.includes('.')) {
+                    // Normalize names like "System.Url" to "Url" for lookup
+                    ftName = ftName.split('.').pop();
+                  }
                   if (ftName) {
                     currentTypeName = ftName;
                     const next = this.findSymbolByName(ftName).find(
@@ -2809,6 +2931,25 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                     );
                     if (next) {
                       rootClass = next;
+                      if (
+                        this.resourceLoader &&
+                        rootClass.filePath?.endsWith('.cls')
+                      ) {
+                        try {
+                          const cp = rootClass.filePath;
+                          if (!this.resourceLoader.isClassCompiled(cp)) {
+                            this.resourceLoader.ensureClassLoadedSync(cp);
+                          }
+                          const art =
+                            this.resourceLoader.getCompiledArtifactSync(cp);
+                          if (art && art.compilationResult?.result) {
+                            this.addSymbolTable(
+                              art.compilationResult.result,
+                              cp,
+                            );
+                          }
+                        } catch {}
+                      }
                     }
                   }
                   continue;
@@ -2924,6 +3065,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
 
       // Now look for the member within the qualifier's file
+      // Ensure qualifier class symbols are ingested if it's a std class
+      if (this.resourceLoader && qualifier.filePath?.endsWith('.cls')) {
+        try {
+          const classPath = qualifier.filePath;
+          if (!this.resourceLoader.isClassCompiled(classPath)) {
+            this.resourceLoader.ensureClassLoadedSync(classPath);
+          }
+          const artifact =
+            this.resourceLoader.getCompiledArtifactSync(classPath);
+          if (artifact && artifact.compilationResult?.result) {
+            this.addSymbolTable(artifact.compilationResult.result, classPath);
+          }
+        } catch {}
+      }
+
       const fileSymbols = this.findSymbolsInFile(qualifier.filePath);
       this.logger.debug(
         () => `Found ${fileSymbols.length} symbols in qualifier file`,
@@ -2946,15 +3102,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         memberCandidates = fileSymbols.filter(
           (symbol) =>
             symbol.name === typeReference.name &&
-            (symbol.kind === 'field' || symbol.kind === 'property'),
+            (symbol.kind === SymbolKind.Field ||
+              symbol.kind === SymbolKind.Property),
         );
         // Then consider methods if still none
         if (memberCandidates.length === 0) {
           memberCandidates = fileSymbols.filter(
             (symbol) =>
-              symbol.name === typeReference.name && symbol.kind === 'method',
+              symbol.name === typeReference.name &&
+              symbol.kind === SymbolKind.Method,
           );
         }
+        // With case-insensitive lookups enabled, no alternate casing fallback is needed
         this.logger.debug(
           () =>
             `Fallback: Found ${memberCandidates.length} method(s) in file with matching name`,
@@ -3677,13 +3836,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     try {
       const namespaceStructure = this.resourceLoader.getNamespaceStructure();
 
-      // Search through all standard namespaces
+      // Search through all standard namespaces (case-insensitive)
+      const target = className.toLowerCase();
       for (const [namespace, classes] of namespaceStructure.entries()) {
         if (isStdApexNamespace(namespace)) {
           // Check if any class in this namespace matches the className
           for (const classFile of classes) {
             const cleanClassName = classFile.replace(/\.cls$/, '');
-            if (cleanClassName === className) {
+            if (cleanClassName.toLowerCase() === target) {
               const fqn = `${namespace}.${className}`;
               this.logger.debug(() => `Found FQN for ${className}: ${fqn}`);
               return fqn;

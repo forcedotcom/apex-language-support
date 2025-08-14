@@ -1024,7 +1024,10 @@ export class ApexSymbolGraph {
     symbolName: string,
     context?: ResolutionContext,
   ): SymbolLookupResult | null {
-    const symbolIds = this.nameIndex.get(symbolName) || [];
+    const symbolIds =
+      this.nameIndex.get(symbolName) ||
+      this.nameIndex.get(symbolName.toLowerCase()) ||
+      [];
 
     if (symbolIds.length === 0) {
       return null;
