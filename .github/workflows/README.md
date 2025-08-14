@@ -143,7 +143,6 @@ The workflows use TypeScript-based release scripts located in `.github/scripts/`
 - `ext-version-bumper`: Bump versions for selected extensions
 - `ext-publish-matrix`: Determine publish matrix for extensions
 - `ext-github-releases`: Create GitHub releases for extensions
-- `ext-publish-vsix`: Publish VSIX file to VS Code Marketplace
 
 #### NPM Scripts (npm-\*)
 

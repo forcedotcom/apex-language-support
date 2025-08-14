@@ -287,7 +287,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "DEFAULT_MAX_PRICE",
+          "name": "DEFAULT_MAX_PRICE : Decimal",
           "range": {
             "end": {
               "character": 60,
@@ -312,7 +312,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "DEFAULT_PAGE_SIZE",
+          "name": "DEFAULT_PAGE_SIZE : Integer",
           "range": {
             "end": {
               "character": 54,
@@ -809,7 +809,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "MOCK_PICTURE_NAME",
+          "name": "MOCK_PICTURE_NAME : String",
           "range": {
             "end": {
               "character": 69,
@@ -1182,7 +1182,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
             {
               "children": [],
               "kind": 8,
-              "name": "street",
+              "name": "street : String",
               "range": {
                 "end": {
                   "character": 28,
@@ -1207,7 +1207,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
             {
               "children": [],
               "kind": 8,
-              "name": "city",
+              "name": "city : String",
               "range": {
                 "end": {
                   "character": 26,
@@ -1232,7 +1232,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
             {
               "children": [],
               "kind": 8,
-              "name": "state",
+              "name": "state : String",
               "range": {
                 "end": {
                   "character": 27,
@@ -1258,6 +1258,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "children": [],
               "kind": 8,
               "name": "country",
+              "name": "country : String",
               "range": {
                 "end": {
                   "character": 29,
@@ -1282,7 +1283,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
             {
               "children": [],
               "kind": 8,
-              "name": "postalcode",
+              "name": "postalcode : String",
               "range": {
                 "end": {
                   "character": 32,
@@ -1333,7 +1334,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
             {
               "children": [],
               "kind": 8,
-              "name": "lat",
+              "name": "lat : Decimal",
               "range": {
                 "end": {
                   "character": 26,
@@ -1358,7 +1359,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
             {
               "children": [],
               "kind": 8,
-              "name": "lon",
+              "name": "lon : Decimal",
               "range": {
                 "end": {
                   "character": 26,
@@ -2072,7 +2073,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "STREET",
+          "name": "STREET : String",
           "range": {
             "end": {
               "character": 63,
@@ -2097,7 +2098,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "CITY",
+          "name": "CITY : String",
           "range": {
             "end": {
               "character": 48,
@@ -2122,7 +2123,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "POSTAL_CODE",
+          "name": "POSTAL_CODE : String",
           "range": {
             "end": {
               "character": 53,
@@ -2147,7 +2148,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "STATE",
+          "name": "STATE : String",
           "range": {
             "end": {
               "character": 49,
@@ -2172,7 +2173,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "COUNTRY",
+          "name": "COUNTRY : String",
           "range": {
             "end": {
               "character": 49,
@@ -2197,7 +2198,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "LATITUDE",
+          "name": "LATITUDE : Decimal",
           "range": {
             "end": {
               "character": 49,
@@ -2222,7 +2223,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "LONGITUDE",
+          "name": "LONGITUDE : Decimal",
           "range": {
             "end": {
               "character": 51,
@@ -2965,7 +2966,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "x",
+          "name": "x : String",
           "range": {
             "end": {
               "character": 19,
@@ -2990,7 +2991,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "y",
+          "name": "y : String",
           "range": {
             "end": {
               "character": 20,
@@ -3636,6 +3637,1051 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
     "params": {
       "textDocument": {
         "uri": "file:///workspace/force-app/main/default/classes/FileUtilities.cls",
+      },
+    },
+  },
+}
+`;
+exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
+  type: 'request',
+  method: 'textDocument/documentSymbol',
+  id: 175,
+  params: [Object],
+  performance: [Object],
+  result: [Array]
+}: textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "getAnalyticsKey() : string",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 3,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "getOrgId() : string",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 7,
+            },
+            "start": {
+              "character": 25,
+              "line": 6,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 33,
+              "line": 6,
+            },
+            "start": {
+              "character": 25,
+              "line": 6,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 6,
+          "name": "getSecurityFeature() : Boolean",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 10,
+            },
+            "start": {
+              "character": 26,
+              "line": 9,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 44,
+              "line": 9,
+            },
+            "start": {
+              "character": 26,
+              "line": 9,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 8,
+          "name": "Selector : mypkg_App.SomeFactory",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 17,
+            },
+            "start": {
+              "character": 46,
+              "line": 12,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 54,
+              "line": 12,
+            },
+            "start": {
+              "character": 46,
+              "line": 12,
+            },
+          },
+        },
+        {
+          "children": [],
+          "kind": 8,
+          "name": "Service : mypkg_App.SomeFactory",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 26,
+            },
+            "start": {
+              "character": 46,
+              "line": 19,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 53,
+              "line": 19,
+            },
+            "start": {
+              "character": 46,
+              "line": 19,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [],
+                  "kind": 8,
+                  "name": "ClassName : String",
+                  "range": {
+                    "end": {
+                      "character": 31,
+                      "line": 30,
+                    },
+                    "start": {
+                      "character": 22,
+                      "line": 30,
+                    },
+                  },
+                  "selectionRange": {
+                    "end": {
+                      "character": 31,
+                      "line": 30,
+                    },
+                    "start": {
+                      "character": 22,
+                      "line": 30,
+                    },
+                  },
+                },
+                {
+                  "children": [],
+                  "kind": 8,
+                  "name": "NamespacePrefix : String",
+                  "range": {
+                    "end": {
+                      "character": 37,
+                      "line": 31,
+                    },
+                    "start": {
+                      "character": 22,
+                      "line": 31,
+                    },
+                  },
+                  "selectionRange": {
+                    "end": {
+                      "character": 37,
+                      "line": 31,
+                    },
+                    "start": {
+                      "character": 22,
+                      "line": 31,
+                    },
+                  },
+                },
+              ],
+              "kind": 5,
+              "name": "OverrideSettings",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 32,
+                },
+                "start": {
+                  "character": 20,
+                  "line": 29,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 36,
+                  "line": 29,
+                },
+                "start": {
+                  "character": 20,
+                  "line": 29,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 8,
+              "name": "servicesByClassName : Map<String,String>",
+              "range": {
+                "end": {
+                  "character": 81,
+                  "line": 33,
+                },
+                "start": {
+                  "character": 34,
+                  "line": 33,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 53,
+                  "line": 33,
+                },
+                "start": {
+                  "character": 34,
+                  "line": 33,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 9,
+              "name": "SomeFactory(Map<Type,Type>) : void",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 38,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 35,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 24,
+                  "line": 35,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 35,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 6,
+              "name": "newInstance(Type) : Object",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 41,
+                },
+                "start": {
+                  "character": 29,
+                  "line": 40,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 40,
+                  "line": 40,
+                },
+                "start": {
+                  "character": 29,
+                  "line": 40,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "SomeFactory",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 42,
+            },
+            "start": {
+              "character": 18,
+              "line": 28,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 28,
+            },
+            "start": {
+              "character": 18,
+              "line": 28,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 9,
+              "name": "AnotherFactory(Map<SObjectType,Type>) : void",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 46,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 45,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 27,
+                  "line": 45,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 45,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 6,
+              "name": "newInstance(SObjectType) : mypkg_ISObjectSelector",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 51,
+                },
+                "start": {
+                  "character": 45,
+                  "line": 48,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 56,
+                  "line": 48,
+                },
+                "start": {
+                  "character": 45,
+                  "line": 48,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "AnotherFactory",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 52,
+            },
+            "start": {
+              "character": 17,
+              "line": 44,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 31,
+              "line": 44,
+            },
+            "start": {
+              "character": 17,
+              "line": 44,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 6,
+              "name": "getProject(Id) : Project__c",
+              "range": {
+                "end": {
+                  "character": 42,
+                  "line": 55,
+                },
+                "start": {
+                  "character": 17,
+                  "line": 55,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 27,
+                  "line": 55,
+                },
+                "start": {
+                  "character": 17,
+                  "line": 55,
+                },
+              },
+            },
+          ],
+          "kind": 11,
+          "name": "IProjectService",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 56,
+            },
+            "start": {
+              "character": 14,
+              "line": 54,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 54,
+            },
+            "start": {
+              "character": 14,
+              "line": 54,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "children": [],
+              "kind": 22,
+              "name": "Development",
+              "range": {
+                "end": {
+                  "character": 17,
+                  "line": 59,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 59,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 17,
+                  "line": 59,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 59,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 22,
+              "name": "Testing",
+              "range": {
+                "end": {
+                  "character": 13,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 60,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 13,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 60,
+                },
+              },
+            },
+            {
+              "children": [],
+              "kind": 22,
+              "name": "Production",
+              "range": {
+                "end": {
+                  "character": 16,
+                  "line": 61,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 61,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 16,
+                  "line": 61,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 61,
+                },
+              },
+            },
+          ],
+          "kind": 10,
+          "name": "ProjectType",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 62,
+            },
+            "start": {
+              "character": 9,
+              "line": 58,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 20,
+              "line": 58,
+            },
+            "start": {
+              "character": 9,
+              "line": 58,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "SomeManager",
+      "range": {
+        "end": {
+          "character": 3,
+          "line": 63,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 37,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "expectedResponse": [
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "kind": 8,
+              "name": "servicesByClassName : Map<String,String>",
+              "range": {
+                "end": {
+                  "character": 53,
+                  "line": 33,
+                },
+                "start": {
+                  "character": 34,
+                  "line": 33,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 53,
+                  "line": 33,
+                },
+                "start": {
+                  "character": 34,
+                  "line": 33,
+                },
+              },
+            },
+            {
+              "kind": 9,
+              "name": "SomeFactory(Map<System.Type,System.Type>)",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 38,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 35,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 24,
+                  "line": 35,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 35,
+                },
+              },
+            },
+            {
+              "kind": 6,
+              "name": "newInstance(System.Type) : Object",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 41,
+                },
+                "start": {
+                  "character": 29,
+                  "line": 40,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 40,
+                  "line": 40,
+                },
+                "start": {
+                  "character": 29,
+                  "line": 40,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "SomeFactory",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 42,
+            },
+            "start": {
+              "character": 18,
+              "line": 28,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 28,
+            },
+            "start": {
+              "character": 18,
+              "line": 28,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "kind": 9,
+              "name": "AnotherFactory(Map<Schema.SObjectType,System.Type>)",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 46,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 45,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 27,
+                  "line": 45,
+                },
+                "start": {
+                  "character": 13,
+                  "line": 45,
+                },
+              },
+            },
+            {
+              "kind": 6,
+              "name": "newInstance(Schema.SObjectType) : mypkg_ISObjectSelector",
+              "range": {
+                "end": {
+                  "character": 7,
+                  "line": 51,
+                },
+                "start": {
+                  "character": 45,
+                  "line": 48,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 56,
+                  "line": 48,
+                },
+                "start": {
+                  "character": 45,
+                  "line": 48,
+                },
+              },
+            },
+          ],
+          "kind": 5,
+          "name": "AnotherFactory",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 52,
+            },
+            "start": {
+              "character": 17,
+              "line": 44,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 31,
+              "line": 44,
+            },
+            "start": {
+              "character": 17,
+              "line": 44,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "kind": 6,
+              "name": "getProject(Id) : Project__c",
+              "range": {
+                "end": {
+                  "character": 27,
+                  "line": 55,
+                },
+                "start": {
+                  "character": 17,
+                  "line": 55,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 27,
+                  "line": 55,
+                },
+                "start": {
+                  "character": 17,
+                  "line": 55,
+                },
+              },
+            },
+          ],
+          "kind": 11,
+          "name": "IProjectService",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 56,
+            },
+            "start": {
+              "character": 14,
+              "line": 54,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 29,
+              "line": 54,
+            },
+            "start": {
+              "character": 14,
+              "line": 54,
+            },
+          },
+        },
+        {
+          "children": [
+            {
+              "kind": 22,
+              "name": "Development",
+              "range": {
+                "end": {
+                  "character": 17,
+                  "line": 59,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 59,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 17,
+                  "line": 59,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 59,
+                },
+              },
+            },
+            {
+              "kind": 22,
+              "name": "Testing",
+              "range": {
+                "end": {
+                  "character": 13,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 60,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 13,
+                  "line": 60,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 60,
+                },
+              },
+            },
+            {
+              "kind": 22,
+              "name": "Production",
+              "range": {
+                "end": {
+                  "character": 16,
+                  "line": 61,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 61,
+                },
+              },
+              "selectionRange": {
+                "end": {
+                  "character": 16,
+                  "line": 61,
+                },
+                "start": {
+                  "character": 6,
+                  "line": 61,
+                },
+              },
+            },
+          ],
+          "kind": 10,
+          "name": "ProjectType",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 62,
+            },
+            "start": {
+              "character": 9,
+              "line": 58,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 20,
+              "line": 58,
+            },
+            "start": {
+              "character": 9,
+              "line": 58,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "Selector : mypkg_App.SomeFactory",
+          "range": {
+            "end": {
+              "character": 54,
+              "line": 12,
+            },
+            "start": {
+              "character": 46,
+              "line": 12,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 54,
+              "line": 12,
+            },
+            "start": {
+              "character": 46,
+              "line": 12,
+            },
+          },
+        },
+        {
+          "kind": 8,
+          "name": "Service : mypkg_App.SomeFactory",
+          "range": {
+            "end": {
+              "character": 53,
+              "line": 19,
+            },
+            "start": {
+              "character": 46,
+              "line": 19,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 53,
+              "line": 19,
+            },
+            "start": {
+              "character": 46,
+              "line": 19,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "getAnalyticsKey() : String",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 3,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 40,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "getOrgId() : String",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 7,
+            },
+            "start": {
+              "character": 25,
+              "line": 6,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 33,
+              "line": 6,
+            },
+            "start": {
+              "character": 25,
+              "line": 6,
+            },
+          },
+        },
+        {
+          "kind": 6,
+          "name": "getSecurityFeature() : Boolean",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 10,
+            },
+            "start": {
+              "character": 26,
+              "line": 9,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 44,
+              "line": 9,
+            },
+            "start": {
+              "character": 26,
+              "line": 9,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "SomeManager",
+      "range": {
+        "end": {
+          "character": 3,
+          "line": 63,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 37,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///Users/peter.hale/git/apex-language-support/packages/apex-lsp-testbed/test/SomeManager.cls",
       },
     },
   },

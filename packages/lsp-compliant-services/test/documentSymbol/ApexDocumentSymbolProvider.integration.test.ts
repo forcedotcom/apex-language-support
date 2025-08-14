@@ -231,16 +231,15 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
     });
 
     /**
-     * This test validates that a constructor for an inner class,
-     * which has a qualified name, has its location correctly identified.
-     * This is a regression test for the logic that gets the last part of a
-     * qualified name for a constructor.
+     * This test validates that a constructor for an inner class
+     * has its name correctly identified as the class name.
+     * This tests the fix for constructor name resolution.
      */
     it('correctly handles inner class constructors', async () => {
       const apexClassContent = [
         'public class OuterClass {',
         '  public class InnerClass {',
-        '    public InnerClass.InnerClass2() {', //I don't think this is even valid Apex, but it's a valid ANTLR rule
+        '    public InnerClass() {', // Valid constructor syntax
         "      System.debug('Inner class constructor');",
         '    }',
         '  }',
@@ -284,15 +283,15 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
             },
             children: [
               {
-                name: 'InnerClass() : void', // InnerClass is the name of the class still
+                name: 'InnerClass() : void', // Constructor name should be the class name
                 kind: 9, // Constructor
                 range: {
-                  start: { line: 2, character: 22 }, //starts at InnerClass2 since it's after the dot
+                  start: { line: 2, character: 11 },
                   end: { line: 4, character: 5 },
                 },
                 selectionRange: {
-                  start: { line: 2, character: 22 },
-                  end: { line: 2, character: 33 },
+                  start: { line: 2, character: 11 },
+                  end: { line: 2, character: 21 },
                 },
                 children: [],
               },
