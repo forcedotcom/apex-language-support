@@ -2797,14 +2797,36 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
       }
 
-      // For field access references, return null to force fallback to qualifier
-      // This is because qualified reference resolution is not fully implemented
+      // Field access resolution on qualifier type
       if (typeReference.context === ReferenceContext.FIELD_ACCESS) {
-        this.logger.debug(
-          () =>
-            'Qualified reference resolution not fully implemented for field access, returning null',
+        // Find fields/properties with matching parent
+        let fieldCandidates = fileSymbols.filter(
+          (symbol) =>
+            symbol.name === typeReference.name &&
+            symbol.parentId === qualifier.id &&
+            (symbol.kind === SymbolKind.Field ||
+              symbol.kind === SymbolKind.Property),
         );
-        return null;
+
+        // If none found in file, try global candidates by parentId
+        if (fieldCandidates.length === 0) {
+          fieldCandidates = candidates.filter(
+            (symbol) =>
+              symbol.name === typeReference.name &&
+              symbol.parentId === qualifier.id &&
+              (symbol.kind === SymbolKind.Field ||
+                symbol.kind === SymbolKind.Property),
+          );
+        }
+
+        if (fieldCandidates.length > 0) {
+          // Prefer non-static for instance qualifiers
+          const nonStatic = fieldCandidates.find(
+            (s) => s.modifiers?.isStatic === false,
+          );
+          return nonStatic || fieldCandidates[0];
+        }
+        // If still not found, fall through to general logic below
       }
 
       if (memberCandidates.length >= 1) {

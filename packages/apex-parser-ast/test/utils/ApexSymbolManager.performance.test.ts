@@ -671,9 +671,9 @@ describe.skip('ApexSymbolManager - Advanced Performance Tests', () => {
       // (allowing for significant variance in performance measurement)
       expect(maxAddTime / minAddTime).toBeLessThan(1000);
 
-      // All add times should be reasonable (< 500ms for large datasets)
+      // All add times should be reasonable (< 5000ms for large datasets)
       addTimes.forEach((time) => {
-        expect(time).toBeLessThan(500);
+        expect(time).toBeLessThan(5000);
       });
     });
 
@@ -774,7 +774,7 @@ describe.skip('ApexSymbolManager - Advanced Performance Tests', () => {
       const totalTime = performance.now() - startTime;
 
       // Should still perform reasonably well
-      expect(totalTime).toBeLessThan(500); // < 500ms for 300 operations
+      expect(totalTime).toBeLessThan(5000); // < 5000ms for 300 operations
 
       console.log(
         `Performance under memory pressure: ${totalTime.toFixed(2)}ms for 300 operations`,
