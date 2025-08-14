@@ -35,6 +35,7 @@ import {
   AssignExpressionContext,
   ArrayExpressionContext,
   CastExpressionContext,
+  CatchClauseContext,
   // Use dedicated method call contexts for precise capture
   MethodCallContext,
   DotMethodCallContext,
@@ -55,6 +56,9 @@ import {
   LogOrExpressionContext,
   CoalExpressionContext,
   CondExpressionContext,
+  EnhancedForControlContext,
+  TypeRefPrimaryContext,
+  QualifiedNameContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -2187,35 +2191,76 @@ export class ApexSymbolCollectorListener
       `DEBUG: captureConstructorCallReference called with text: "${text}"`,
     );
 
-    // Extract type name from constructor call
-    // Format: "new TypeName(...)" or "newTypeName(...)" (no spaces)
-    const constructorMatch = text.match(/^new\s*(\w+(?:__c)?)\(/);
+    // Handle dotted names and generics, e.g.:
+    // new Map<String,Integer>()
+    // new Namespace.Type(arg)
+    // new List<List<String>>()
+    const match = text.match(
+      /^new\s*([A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*)(?:<([\s\S]*?)>)?\s*>*\s*\(/,
+    );
     this.logger.debug(
       () =>
-        `DEBUG: Constructor match result: ${JSON.stringify(constructorMatch)}`,
+        `DEBUG: Enhanced constructor regex result: ${JSON.stringify(match)}`,
     );
-    if (constructorMatch) {
-      const typeName = constructorMatch[1];
+    if (match) {
+      const typeName = match[1];
+      const genericPart = match[2] || '';
       const location = this.getLocationForReference(ctx);
       const parentContext = this.getCurrentMethodName();
 
-      this.logger.debug(`DEBUG: Creating CONSTRUCTOR_CALL for "${typeName}"`);
-
-      const reference = TypeReferenceFactory.createConstructorCallReference(
+      // Emit constructor call for the base (possibly dotted) type
+      const ctorRef = TypeReferenceFactory.createConstructorCallReference(
         typeName,
         location,
         parentContext,
       );
-
-      this.symbolTable.addTypeReference(reference);
+      this.symbolTable.addTypeReference(ctorRef);
       this.logger.debug(
         () => `Captured constructor call reference: ${typeName}`,
       );
-    } else {
-      this.logger.debug(
-        `DEBUG: No constructor match found for text: "${text}"`,
-      );
+
+      // Best-effort parse of top-level generic arguments and emit PARAMETER_TYPE refs
+      // Split genericPart by top-level commas (ignore commas inside nested < >)
+      const splitTopLevel = (s: string): string[] => {
+        const result: string[] = [];
+        let depth = 0;
+        let start = 0;
+        for (let i = 0; i < s.length; i++) {
+          const ch = s[i];
+          if (ch === '<') depth++;
+          else if (ch === '>') depth = Math.max(0, depth - 1);
+          else if (ch === ',' && depth === 0) {
+            result.push(s.slice(start, i).trim());
+            start = i + 1;
+          }
+        }
+        const tail = s.slice(start).trim();
+        if (tail) result.push(tail);
+        return result;
+      };
+
+      if (genericPart) {
+        const topLevelArgs = splitTopLevel(genericPart);
+        for (const arg of topLevelArgs) {
+          if (!arg) continue;
+          const paramRef = TypeReferenceFactory.createParameterTypeReference(
+            arg,
+            location,
+            parentContext,
+          );
+          this.symbolTable.addTypeReference(paramRef);
+          this.logger.debug(
+            () =>
+              `DEBUG: Created PARAMETER_TYPE for constructor generic: "${arg}"`,
+          );
+        }
+      }
+      return;
     }
+
+    this.logger.debug(
+      `DEBUG: No enhanced constructor match found for text: "${text}"`,
+    );
   }
 
   /**
@@ -2667,6 +2712,101 @@ export class ApexSymbolCollectorListener
       this.logger.debug(
         `DEBUG: Created VARIABLE_USAGE for cast expression: "${exprText}"`,
       );
+    }
+  }
+
+  /**
+   * Capture exception type in catch clauses: catch (QualifiedName e)
+   */
+  enterCatchClause(ctx: CatchClauseContext): void {
+    try {
+      const qn: QualifiedNameContext | undefined = ctx.qualifiedName?.();
+      if (!qn) return;
+      const typeName = this.getTextFromContext(qn);
+      const location = this.getLocation(qn as unknown as ParserRuleContext);
+      const parentContext = this.getCurrentMethodName();
+      const classRef = TypeReferenceFactory.createClassReference(
+        typeName,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(classRef);
+      this.logger.debug(
+        () => `DEBUG: Created CLASS_REFERENCE for catch type: "${typeName}"`,
+      );
+    } catch (e) {
+      this.logger.warn(() => `Error capturing catch clause type: ${e}`);
+    }
+  }
+
+  /**
+   * Capture enhanced-for variable type and source collection usage
+   * for (typeRef id : expression)
+   */
+  enterEnhancedForControl(ctx: EnhancedForControlContext): void {
+    try {
+      const typeRef = ctx.typeRef?.();
+      if (typeRef) {
+        const typeName = this.getTextFromContext(typeRef);
+        const location = this.getLocation(
+          typeRef as unknown as ParserRuleContext,
+        );
+        const parentContext = this.getCurrentMethodName();
+        const paramRef = TypeReferenceFactory.createParameterTypeReference(
+          typeName,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(paramRef);
+        this.logger.debug(
+          () =>
+            `DEBUG: Created PARAMETER_TYPE for enhanced for type: "${typeName}"`,
+        );
+      }
+
+      const expr = ctx.expression?.();
+      if (expr) {
+        const exprText = this.getTextFromContext(expr);
+        const location = this.getLocation(expr as unknown as ParserRuleContext);
+        const parentContext = this.getCurrentMethodName();
+        const usageRef = TypeReferenceFactory.createVariableUsageReference(
+          exprText,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(usageRef);
+        this.logger.debug(
+          () =>
+            `DEBUG: Created VARIABLE_USAGE for enhanced for source: "${exprText}"`,
+        );
+      }
+    } catch (e) {
+      this.logger.warn(() => `Error capturing enhanced for control: ${e}`);
+    }
+  }
+
+  /**
+   * Capture type literals like: TypeName.class
+   */
+  enterTypeRefPrimary(ctx: TypeRefPrimaryContext): void {
+    try {
+      const tr = ctx.typeRef?.();
+      if (!tr) return;
+      const typeName = this.getTextFromContext(tr);
+      const location = this.getLocation(tr as unknown as ParserRuleContext);
+      const parentContext = this.getCurrentMethodName();
+      const classRef = TypeReferenceFactory.createClassReference(
+        typeName,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(classRef);
+      this.logger.debug(
+        () =>
+          `DEBUG: Created CLASS_REFERENCE for type literal: "${typeName}.class"`,
+      );
+    } catch (e) {
+      this.logger.warn(() => `Error capturing typeRefPrimary: ${e}`);
     }
   }
 

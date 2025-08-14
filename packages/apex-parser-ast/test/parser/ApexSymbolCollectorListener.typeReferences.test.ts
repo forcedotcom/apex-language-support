@@ -192,6 +192,26 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       expect(stringRef?.context).toBe(ReferenceContext.TYPE_DECLARATION);
       expect(stringRef?.parentContext).toBe('testMethod');
     });
+
+    it('should capture type literal references via TypeName.class', () => {
+      const sourceCode = `
+        public class TypeLiteralTest {
+          public void m() {
+            Object x = String.class;
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TypeLiteralTest.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      const typeLiteralRefs = references.filter(
+        (r) =>
+          r.context === ReferenceContext.CLASS_REFERENCE && r.name === 'String',
+      );
+      expect(typeLiteralRefs.length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe('Field Access References', () => {
@@ -263,6 +283,59 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       );
       expect(contentVersionConstructor).toBeDefined();
       expect(contentVersionConstructor?.parentContext).toBe('myMethod');
+    });
+
+    it('should capture constructor and generic parameter types (maps/lists, nested generics)', () => {
+      const sourceCode = `
+        public class GenericCtorTest {
+          public void m() {
+            Map<String, Integer> m = new Map<String, Integer>();
+            List<List<String>> l = new List<List<String>>();
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'GenericCtorTest.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      const ctorRefs = references.filter(
+        (r) => r.context === ReferenceContext.CONSTRUCTOR_CALL,
+      );
+      expect(ctorRefs.some((r) => r.name === 'Map')).toBe(true);
+      expect(ctorRefs.some((r) => r.name === 'List')).toBe(true);
+
+      const paramTypeRefs = references.filter(
+        (r) => r.context === ReferenceContext.PARAMETER_TYPE,
+      );
+      expect(paramTypeRefs.some((r) => r.name.includes('String'))).toBe(true);
+      expect(paramTypeRefs.some((r) => r.name.includes('Integer'))).toBe(true);
+    });
+  });
+
+  describe('Catch Clause References', () => {
+    it('should capture exception type in catch clause', () => {
+      const sourceCode = `
+        public class CatchTest {
+          public void m() {
+            try {
+              Integer i = 1;
+            } catch (Exception e) {
+              System.debug(e);
+            }
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'CatchTest.cls', listener);
+      const references = listener.getResult().getAllReferences();
+      const exceptionRefs = references.filter(
+        (r) =>
+          r.context === ReferenceContext.CLASS_REFERENCE &&
+          r.name === 'Exception',
+      );
+      expect(exceptionRefs.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -474,6 +547,34 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const mapRef = paramTypeRefs.find((ref) => ref.name === 'Map');
       expect(mapRef).toBeDefined();
       expect(mapRef?.parentContext).toBe('testMethod');
+    });
+
+    it('should capture enhanced for control: parameter type and source variable usage', () => {
+      const sourceCode = `
+        public class ForEachTest {
+          public void m() {
+            List<String> items = new List<String>();
+            for (String s : items) {
+              System.debug(s);
+            }
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'ForEachTest.cls', listener);
+      const references = listener.getResult().getAllReferences();
+
+      const paramTypeRefs = references.filter(
+        (r) =>
+          r.context === ReferenceContext.PARAMETER_TYPE && r.name === 'String',
+      );
+      const sourceUsageRefs = references.filter(
+        (r) =>
+          r.context === ReferenceContext.VARIABLE_USAGE && r.name === 'items',
+      );
+      expect(paramTypeRefs.length).toBeGreaterThanOrEqual(1);
+      expect(sourceUsageRefs.length).toBeGreaterThanOrEqual(1);
     });
   });
 });
