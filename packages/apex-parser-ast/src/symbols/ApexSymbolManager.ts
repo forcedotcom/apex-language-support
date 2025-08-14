@@ -16,6 +16,7 @@ import {
   SymbolFactory,
   SymbolTable,
   generateUnifiedId,
+  type VariableSymbol,
 } from '../types/symbol';
 import { TypeReference, ReferenceContext } from '../types/typeReference';
 import {
@@ -1722,7 +1723,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           `DEBUG: getSymbolAtPosition called for ${normalizedPath} at ${position.line}:${position.character}`,
       );
 
-      // Step 1: Try to find TypeReferences at the position
+      // Step 1: Try to find TypeReferences at the position (parser-ast format already 1-based line, 0-based column)
       const typeReferences = this.getReferencesAtPosition(
         normalizedPath,
         position,
@@ -2571,6 +2572,117 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         () => `Found ${qualifierCandidates.length} qualifier candidates`,
       );
 
+      // Receiver-type resolution: If qualifier is a local/parameter/field in the current file,
+      // resolve its declared/inferred type to the defining class symbol and use that as qualifier
+      try {
+        // Search for a variable/parameter/field symbol named as the qualifier within the source file
+        const fileSymbols = this.findSymbolsInFile(sourceFile);
+        const potentialReceiver = fileSymbols.find(
+          (s) =>
+            s.name === typeReference.qualifier &&
+            (s.kind === SymbolKind.Variable ||
+              s.kind === SymbolKind.Parameter ||
+              s.kind === SymbolKind.Field ||
+              s.kind === SymbolKind.Property),
+        );
+
+        if (potentialReceiver) {
+          const variableSymbol = potentialReceiver as VariableSymbol;
+          const receiverTypeName =
+            (variableSymbol.type && variableSymbol.type.name) ||
+            (potentialReceiver as any)._typeData?.type?.name ||
+            null;
+
+          if (receiverTypeName) {
+            this.logger.debug(
+              () =>
+                `Resolved receiver type for qualifier '${typeReference.qualifier}': ${receiverTypeName}`,
+            );
+
+            // Try to find a class symbol for the receiver type
+            let receiverTypeCandidates = this.findSymbolByName(
+              receiverTypeName,
+            ).filter((s) => s.kind === SymbolKind.Class);
+
+            // If not found, attempt built-in/standard resolution
+            if (receiverTypeCandidates.length === 0) {
+              const builtIn = this.resolveBuiltInType(receiverTypeName);
+              if (builtIn) {
+                receiverTypeCandidates = [builtIn];
+              } else if (this.isStandardApexClass(receiverTypeName)) {
+                // Resolve FQN for standard class first, then resolve the class symbol
+                const fqn = this.findFQNForStandardClass(receiverTypeName);
+                if (fqn) {
+                  const std = this.resolveStandardApexClass(fqn);
+                  if (std) {
+                    receiverTypeCandidates = [std];
+                  }
+                }
+              }
+            }
+
+            if (receiverTypeCandidates.length > 0) {
+              // If this is a standard Apex class, ensure we ingest its compiled symbol table
+              if (this.resourceLoader) {
+                try {
+                  const chosen = receiverTypeCandidates[0];
+                  // Determine FQN
+                  let fqnForLoad: string | null = null;
+                  if (chosen.fqn && chosen.fqn.includes('.')) {
+                    fqnForLoad = chosen.fqn;
+                  } else {
+                    const resolvedFqn = this.findFQNForStandardClass(
+                      chosen.name,
+                    );
+                    if (resolvedFqn) {
+                      fqnForLoad = resolvedFqn;
+                    }
+                  }
+                  if (fqnForLoad) {
+                    const parts = fqnForLoad.split('.');
+                    if (parts.length >= 2) {
+                      const ns = parts[0];
+                      const cls = parts[1];
+                      const classPath = `${ns}/${cls}.cls`;
+                      if (!this.resourceLoader.isClassCompiled(classPath)) {
+                        this.resourceLoader.ensureClassLoadedSync(classPath);
+                      }
+                      const artifact =
+                        this.resourceLoader.getCompiledArtifactSync(classPath);
+                      if (artifact && artifact.compilationResult?.result) {
+                        this.addSymbolTable(
+                          artifact.compilationResult.result,
+                          classPath,
+                        );
+                        // Refresh candidates after ingestion
+                        receiverTypeCandidates = this.findSymbolByName(
+                          cls,
+                        ).filter((s) => s.kind === SymbolKind.Class);
+                      }
+                    }
+                  }
+                } catch (e) {
+                  this.logger.debug(
+                    () => `Std class ingestion for receiver type failed: ${e}`,
+                  );
+                }
+              }
+
+              qualifierCandidates = receiverTypeCandidates;
+              this.logger.debug(
+                () =>
+                  `Using receiver type '${receiverTypeName}' as qualifier for member resolution`,
+              );
+            }
+          }
+        }
+      } catch (e) {
+        this.logger.debug(
+          () =>
+            `Receiver-type qualifier resolution failed for '${typeReference.qualifier}': ${e}`,
+        );
+      }
+
       // Determine if candidates include a concrete class symbol (i.e., backed by a real std class file)
       const hasConcreteQualifier = qualifierCandidates.some(
         (symbol) =>
@@ -2697,10 +2809,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       if (memberCandidates.length >= 1) {
         // Choose best candidate: prefer static methods, otherwise first
+        // If the receiver was a variable/instance, prefer non-static members
+        const nonStaticCandidate = memberCandidates.find(
+          (s) => s.modifiers?.isStatic === false,
+        );
         const staticCandidate = memberCandidates.find(
           (s) => s.modifiers?.isStatic === true,
         );
-        const chosen = staticCandidate || memberCandidates[0];
+        const chosen =
+          nonStaticCandidate || staticCandidate || memberCandidates[0];
         this.logger.debug(
           () =>
             `Found member in file: ${chosen.name} (candidates: ${memberCandidates.length})`,

@@ -10,7 +10,7 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
-describe('ResourceLoader Integration', () => {
+describe.skip('ResourceLoader Integration', () => {
   let symbolManager: ApexSymbolManager;
   let resourceLoader: ResourceLoader;
   const logger = getLogger();

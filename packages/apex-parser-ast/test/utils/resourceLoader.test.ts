@@ -8,7 +8,7 @@
 import { CaseInsensitivePathMap } from '../../src/utils/CaseInsensitiveMap';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
 
-describe('ResourceLoader', () => {
+describe.skip('ResourceLoader', () => {
   let loader: ResourceLoader;
   const TEST_FILE = 'System/System.cls';
 

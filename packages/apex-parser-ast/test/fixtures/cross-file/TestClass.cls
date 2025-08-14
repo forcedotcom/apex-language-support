@@ -90,4 +90,15 @@ public class TestClass {
         String encoded = EncodingUtil.urlEncode('Hello World', 'UTF-8');
         String decoded = EncodingUtil.urlDecode('Hello%20World', 'UTF-8');
     }
+
+    public void testResolveViaVariable() {
+        Http http = new Http();
+        HttpRequest request = new HttpRequest();
+        request.setEndpoint('https://www.example.com');
+        request.setMethod('GET');
+        HttpResponse response = http.send(request);
+        if (response.getStatusCode() == 200) {
+            System.debug('Response: ' + response.getBody());
+        }
+    }
 }
