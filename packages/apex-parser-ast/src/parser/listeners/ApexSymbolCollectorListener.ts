@@ -2144,20 +2144,23 @@ export class ApexSymbolCollectorListener
       // Determine if this is a type declaration (variable/field declaration) or parameter
       const isTypeDeclaration = this.isTypeDeclarationContext(ctx);
 
-      // Always capture the base type (handles both identifier base types and LIST/MAP/SET tokens)
+      // Use grammar structure: typeName is either LIST/SET/MAP (reserved) or id (regular identifier)
       const baseTypeId = typeName.id();
       let baseTypeName: string | undefined;
       let baseLocation: SymbolLocation | undefined;
 
       if (baseTypeId) {
+        // Regular identifier case: id typeArguments?
         baseTypeName = baseTypeId.text;
         baseLocation = this.getLocationForReference(baseTypeId);
       } else {
-        // Fallback: extract base token text (e.g., "List" from "List<String>")
+        // Collection type case: LIST/SET/MAP typeArguments?
+        // The grammar ensures these are the only reserved types without id()
         const fullText = typeName.text || '';
-        const inferredBase = fullText.split('<')[0];
-        if (inferredBase) {
-          baseTypeName = inferredBase;
+        // For collection types, the base is the first token (LIST, SET, or MAP)
+        const collectionMatch = fullText.match(/^(LIST|SET|MAP)/);
+        if (collectionMatch) {
+          baseTypeName = collectionMatch[1];
           const tnLoc = this.getLocationForReference(
             typeName as unknown as ParserRuleContext,
           );
@@ -2165,7 +2168,7 @@ export class ApexSymbolCollectorListener
             startLine: tnLoc.startLine,
             startColumn: tnLoc.startColumn,
             endLine: tnLoc.startLine,
-            endColumn: tnLoc.startColumn + inferredBase.length,
+            endColumn: tnLoc.startColumn + baseTypeName.length,
           };
         }
       }
