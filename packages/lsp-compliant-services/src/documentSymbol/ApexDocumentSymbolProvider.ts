@@ -13,7 +13,7 @@ import {
   SymbolKind,
   Range,
   Position,
-} from 'vscode-languageserver-protocol';
+} from 'vscode-languageserver-protocol/browser';
 import {
   SymbolTable,
   CompilerService,

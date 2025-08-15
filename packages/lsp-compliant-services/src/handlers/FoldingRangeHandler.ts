@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { FoldingRangeParams, FoldingRange } from 'vscode-languageserver';
+import {
+  FoldingRangeParams,
+  FoldingRange,
+} from 'vscode-languageserver-protocol/browser';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { dispatch } from '../utils/handlerUtil';

@@ -9,7 +9,7 @@ import {
   DocumentSymbolParams,
   SymbolInformation,
   DocumentSymbol,
-} from 'vscode-languageserver';
+} from 'vscode-languageserver-protocol/browser';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { dispatch } from '../utils/handlerUtil';

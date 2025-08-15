@@ -14,7 +14,7 @@ yarn-error.log*
 # Build output
 dist/
 out/
-
+.vscode-test-web
 # Bundled output
 bundle/
 

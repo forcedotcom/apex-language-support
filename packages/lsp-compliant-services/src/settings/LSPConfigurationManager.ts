@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ServerCapabilities } from 'vscode-languageserver-protocol';
+import { ServerCapabilities } from 'vscode-languageserver-protocol/browser';
 
 import {
   ApexCapabilitiesManager,

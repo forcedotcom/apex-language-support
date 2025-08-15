@@ -1,0 +1,11 @@
+{
+  "name": "Apex Language Support Testing",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:18",
+  "customizations": {
+    "vscode": {
+      "extensions": ["./packages/apex-lsp-vscode-extension"]
+    }
+  },
+  "forwardPorts": [3000],
+  "postCreateCommand": "npm install"
+}

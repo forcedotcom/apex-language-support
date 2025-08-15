@@ -6,8 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+
+import { TextDocumentChangeEvent } from '../types/shared';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ApexSymbol } from '@salesforce/apex-lsp-parser-ast';
 

@@ -7,7 +7,17 @@
  */
 
 import * as vscode from 'vscode';
-import { LanguageClient, State } from 'vscode-languageclient/node';
+// Conditional import to avoid loading Node.js modules in web environment
+let LanguageClient: any;
+let State: any;
+
+// Only import Node.js modules if we're in a Node.js environment
+if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+  const nodeModule = require('vscode-languageclient/node');
+  LanguageClient = nodeModule.LanguageClient;
+  State = nodeModule.State;
+}
+
 import { createServerOptions, createClientOptions } from './server-config';
 import { logToOutputChannel } from './logging';
 import {
@@ -25,7 +35,7 @@ import {
 /**
  * Global language client instance
  */
-let client: LanguageClient | undefined;
+let client: any | undefined;
 
 /**
  * Track the last output channel created by the LanguageClient
@@ -45,6 +55,15 @@ export const createAndStartClient = (
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): void => {
+  // Check if Node.js modules are available
+  if (!LanguageClient || !State) {
+    logToOutputChannel(
+      'Node.js language client modules not available in this environment',
+      'error',
+    );
+    return;
+  }
+
   try {
     // Dispose previous output channel if it exists
     if (lastServerOutputChannel) {
@@ -64,7 +83,7 @@ export const createAndStartClient = (
     lastServerOutputChannel = client.outputChannel;
 
     // Track client state changes
-    client.onDidChangeState((event) => {
+    client.onDidChangeState((event: any) => {
       logToOutputChannel(
         `Client state changed: ${State[event.oldState]} -> ${State[event.newState]}`,
         'debug',
@@ -88,7 +107,7 @@ export const createAndStartClient = (
 
     // Start the client
     logToOutputChannel('Starting Apex Language Server client...', 'info');
-    client.start().catch((error) => {
+    client.start().catch((error: any) => {
       logToOutputChannel(`Failed to start client: ${error}`, 'error');
       setStartingFlag(false);
       updateApexServerStatusError();
@@ -172,7 +191,7 @@ export const stopLanguageServer = async (): Promise<void> => {
 };
 
 /**
- * Gets the current language client
- * @returns The language client or undefined
+ * Gets the current language client instance
+ * @returns The language client instance or undefined
  */
-export const getLanguageClient = (): LanguageClient | undefined => client;
+export const getLanguageClient = (): any | undefined => client;

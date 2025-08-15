@@ -6,11 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// This file serves as the entry point for the bundled language server
-// It will be spawned as a child process by the VS Code extension
+import { startServer } from '@salesforce/apex-ls';
 
-// Use require to ensure side effects are executed
-// The language server starts when this module is loaded
-import { startServer } from '@salesforce/apex-ls-node';
-
+// Start the unified Apex Language Server
 startServer();

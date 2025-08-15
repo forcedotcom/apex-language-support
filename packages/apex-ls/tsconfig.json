@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "out",
+    "rootDir": "src",
+    "lib": ["ES2020", "DOM", "WebWorker"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "out", "test/**/*"],
+  "references": [
+    { "path": "../apex-parser-ast" },
+    { "path": "../custom-services" },
+    { "path": "../lsp-compliant-services" },
+    { "path": "../apex-lsp-shared" }
+  ]
+}

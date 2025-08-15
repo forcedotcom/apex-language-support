@@ -5,8 +5,9 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+
+import { TextDocumentChangeEvent } from '../types/shared';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { dispatch } from '../utils/handlerUtil';

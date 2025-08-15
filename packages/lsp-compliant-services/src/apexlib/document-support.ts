@@ -9,7 +9,7 @@
 import {
   DocumentSelector,
   DocumentFilter,
-} from 'vscode-languageserver-protocol';
+} from 'vscode-languageserver-protocol/browser';
 
 import { ApexLibConfig, EditorContext } from './types';
 

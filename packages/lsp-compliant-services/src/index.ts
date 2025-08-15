@@ -7,13 +7,14 @@
  */
 
 import {
-  TextDocumentChangeEvent,
   DocumentSymbolParams,
   SymbolInformation,
   DocumentSymbol,
   Diagnostic,
-} from 'vscode-languageserver';
+} from 'vscode-languageserver-protocol/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+
+import { TextDocumentChangeEvent } from './types/shared';
 
 import { HandlerFactory } from './factories/HandlerFactory';
 import { dispatchProcessOnDiagnostic } from './handlers/DiagnosticHandler';
@@ -68,6 +69,9 @@ export * from './capabilities/ApexCapabilitiesManager';
 
 // Export ApexLib
 export * from './apexlib';
+
+// Export shared types
+export * from './types/shared';
 
 // Legacy dispatch function exports for backward compatibility
 // These use the new handler architecture internally
