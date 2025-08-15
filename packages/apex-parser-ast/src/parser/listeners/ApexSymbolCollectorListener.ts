@@ -2156,21 +2156,16 @@ export class ApexSymbolCollectorListener
       } else {
         // Collection type case: LIST/SET/MAP typeArguments?
         // The grammar ensures these are the only reserved types without id()
-        const fullText = typeName.text || '';
         // For collection types, the base is the first token (List, Set, or Map)
-        const collectionMatch = fullText.match(/^(List|Set|Map)/);
-        if (collectionMatch) {
-          baseTypeName = collectionMatch[1];
-          const tnLoc = this.getLocationForReference(
-            typeName as unknown as ParserRuleContext,
-          );
-          baseLocation = {
-            startLine: tnLoc.startLine,
-            startColumn: tnLoc.startColumn,
-            endLine: tnLoc.startLine,
-            endColumn: tnLoc.startColumn + baseTypeName.length,
-          };
-        }
+
+        baseTypeName = `${typeName.LIST() || typeName.SET() || typeName.MAP()}`;
+        const tnLoc = this.getLocationForReference(typeName);
+        baseLocation = {
+          startLine: tnLoc.startLine,
+          startColumn: tnLoc.startColumn,
+          endLine: tnLoc.startLine,
+          endColumn: tnLoc.startColumn + baseTypeName.length,
+        };
       }
 
       if (baseTypeName && baseLocation) {
@@ -2290,9 +2285,7 @@ export class ApexSymbolCollectorListener
       if (!anyId) return;
 
       const typeName = anyId.text;
-      const location = this.getLocationForReference(
-        anyId as unknown as ParserRuleContext,
-      );
+      const location = this.getLocationForReference(anyId);
       const parentContext = this.getCurrentMethodName();
 
       // Emit constructor call for the base type
@@ -2378,57 +2371,82 @@ export class ApexSymbolCollectorListener
    * Capture field access reference from DotExpressionContext
    */
   private captureFieldAccessReference(ctx: DotExpressionContext): void {
-    const text = ctx.text || '';
+    // Use grammar structure instead of string parsing
+    const dotMethodCall = (ctx as any).dotMethodCall?.();
+    const anyId = ctx.anyId();
 
-    // Check if this is a method call (contains parentheses)
-    if (text.includes('(')) {
-      // This is a method call like "FileUtilities.createFile(...)"
-      const methodMatch = text.match(/^(\w+)\.(\w+)\(/);
-      if (methodMatch) {
-        const qualifier = methodMatch[1];
-        const methodName = methodMatch[2];
-        const location = this.getLocationForReference(ctx);
-        const parentContext = this.getCurrentMethodName();
-
-        const reference = TypeReferenceFactory.createMethodCallReference(
-          methodName,
-          location,
-          qualifier,
-          parentContext,
-        );
-
-        this.symbolTable.addTypeReference(reference);
-        this.logger.debug(
-          `DEBUG: Captured method call reference from dot expression: ${methodName} (qualifier: ${qualifier})`,
-        );
-        this.logger.debug(
-          () =>
-            `Captured method call reference from dot expression: ${methodName} (qualifier: ${qualifier})`,
-        );
-      }
-    } else {
-      // This is field access like "property.Id"
-      const fieldMatch = text.match(/^(\w+)\.(\w+)$/);
-      if (fieldMatch) {
-        const objectName = fieldMatch[1];
-        const fieldName = fieldMatch[2];
-        const location = this.getLocationForReference(ctx);
-        const parentContext = this.getCurrentMethodName();
-
-        const reference = TypeReferenceFactory.createFieldAccessReference(
-          fieldName,
-          location,
-          objectName,
-          parentContext,
-        );
-
-        this.symbolTable.addTypeReference(reference);
-        this.logger.debug(
-          () =>
-            `Captured field access reference: ${fieldName} (object: ${objectName})`,
-        );
-      }
+    if (dotMethodCall) {
+      // This is a method call - handle with dotMethodCall context
+      this.handleMethodCallFromDotExpression(dotMethodCall, ctx);
+    } else if (anyId) {
+      // This is field access - handle with anyId context
+      this.handleFieldAccessFromDotExpression(anyId, ctx);
     }
+  }
+
+  private handleMethodCallFromDotExpression(
+    dotMethodCall: any,
+    dotCtx: DotExpressionContext,
+  ): void {
+    // Extract method name and qualifier from dotMethodCall context
+    const methodName = dotMethodCall.id()?.text;
+    const qualifier = this.getQualifierFromDotExpression(dotCtx);
+
+    if (methodName && qualifier) {
+      const location = this.getLocationForReference(dotMethodCall);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createMethodCallReference(
+        methodName,
+        location,
+        qualifier,
+        parentContext,
+      );
+
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        () =>
+          `Captured method call reference from dot expression: ${methodName} (qualifier: ${qualifier})`,
+      );
+    }
+  }
+
+  private handleFieldAccessFromDotExpression(
+    anyId: any,
+    dotCtx: DotExpressionContext,
+  ): void {
+    // Extract field name and qualifier from anyId context
+    const fieldName = anyId.text;
+    const qualifier = this.getQualifierFromDotExpression(dotCtx);
+
+    if (fieldName && qualifier) {
+      const location = this.getLocationForReference(anyId);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createFieldAccessReference(
+        fieldName,
+        location,
+        qualifier,
+        parentContext,
+      );
+
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        () =>
+          `Captured field access reference: ${fieldName} (object: ${qualifier})`,
+      );
+    }
+  }
+
+  private getQualifierFromDotExpression(
+    ctx: DotExpressionContext,
+  ): string | undefined {
+    // Get the left-hand side expression (the qualifier)
+    const lhs = (ctx as any).expression?.(0) || (ctx as any).expression?.();
+    if (lhs) {
+      return this.getTextFromContext(lhs);
+    }
+    return undefined;
   }
 
   /**
