@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { HashMap } from 'data-structure-typed';
+import { HashMap, Deque } from 'data-structure-typed';
 import { getLogger, type EnumValue } from '@salesforce/apex-lsp-shared';
 import { Position } from 'vscode-languageserver-protocol';
 import {
@@ -111,7 +111,7 @@ interface UnifiedCacheStats {
   evictionCount: number;
   hitRate: number;
   averageEntrySize: number;
-  typeDistribution: Map<CacheEntryType, number>;
+  typeDistribution: HashMap<CacheEntryType, number>;
   lastOptimization: number;
 }
 
@@ -120,11 +120,12 @@ interface UnifiedCacheStats {
  */
 export class UnifiedCache {
   private readonly logger = getLogger();
-  private cache: Map<string, WeakRef<UnifiedCacheEntry<any>>> = new Map();
+  private cache: HashMap<string, WeakRef<UnifiedCacheEntry<any>>> =
+    new HashMap();
   private readonly registry = new FinalizationRegistry<string>((key) => {
     this.handleGarbageCollected(key);
   });
-  private accessOrder: string[] = [];
+  private accessOrder: Deque<string> = new Deque();
   private stats: UnifiedCacheStats = {
     totalEntries: 0,
     totalSize: 0,
@@ -133,7 +134,7 @@ export class UnifiedCache {
     evictionCount: 0,
     hitRate: 0,
     averageEntrySize: 0,
-    typeDistribution: new Map(),
+    typeDistribution: new HashMap(),
     lastOptimization: Date.now(),
   };
   private readonly maxSize: number;
@@ -254,7 +255,7 @@ export class UnifiedCache {
 
   clear(): void {
     this.cache.clear();
-    this.accessOrder = [];
+    this.accessOrder.clear();
     this.stats = {
       totalEntries: 0,
       totalSize: 0,
@@ -263,7 +264,7 @@ export class UnifiedCache {
       evictionCount: 0,
       hitRate: 0,
       averageEntrySize: 0,
-      typeDistribution: new Map(),
+      typeDistribution: new HashMap(),
       lastOptimization: Date.now(),
     };
   }
@@ -278,7 +279,7 @@ export class UnifiedCache {
     // Remove expired entries
     const now = Date.now();
     for (const [key, entryRef] of this.cache.entries()) {
-      const entry = entryRef.deref();
+      const entry = entryRef?.deref();
       if (!entry || now - entry.timestamp > this.ttl) {
         this.delete(key);
       }
@@ -332,9 +333,11 @@ export class UnifiedCache {
   }
 
   private evictLRU(): void {
-    if (this.accessOrder.length === 0) return;
+    if (this.accessOrder.isEmpty()) return;
 
-    const lruKey = this.accessOrder[0];
+    const lruKey = this.accessOrder.shift();
+    if (!lruKey) return;
+
     const wasDeleted = this.delete(lruKey);
 
     // Always increment eviction count and remove from access order
@@ -364,10 +367,19 @@ export class UnifiedCache {
   }
 
   private removeFromAccessOrder(key: string): void {
-    const index = this.accessOrder.indexOf(key);
-    if (index > -1) {
-      this.accessOrder.splice(index, 1);
+    // For Deque, we need to manually remove the key by rebuilding the deque
+    // This is less efficient but maintains the order
+    const tempDeque = new Deque<string>();
+
+    while (!this.accessOrder.isEmpty()) {
+      const item = this.accessOrder.shift();
+      if (item && item !== key) {
+        tempDeque.push(item);
+      }
     }
+
+    // Restore the deque without the removed key
+    this.accessOrder = tempDeque;
   }
 
   private updateStats(
@@ -510,6 +522,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Always add symbol to the SymbolTable
+    // TODO: This is a hack to add the symbol to the SymbolTable
+    // We should not be doing this here, but it's a quick fix to get the symbol added to the SymbolTable
+    // We should be adding the symbol to the SymbolTable in the SymbolTableManager
+    // This is a hack to get the symbol added to the SymbolTable
+    // We should be adding the symbol to the SymbolTable in the SymbolTableManager
     tempSymbolTable!.addSymbol(symbol);
 
     // Add to symbol graph (it has its own duplicate detection)
