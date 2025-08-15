@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "./out",
     "rootDir": "./src",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "WebWorker"],
     "tsBuildInfoFile": "./out/.tsbuildinfo"
   },
   "include": ["src/**/*"],

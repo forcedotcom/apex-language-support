@@ -19,17 +19,58 @@ export default defineConfig({
   dts: false,
   outDir: 'dist',
   clean: true,
-  external: ['vscode'],
+  platform: 'browser',
+  target: 'es2020',
+  external: [
+    'vscode',
+    'util',
+    'fs',
+    'path',
+    'os',
+    'crypto',
+    'stream',
+    'events',
+    'child_process',
+    'http',
+    'https',
+    'url',
+    'querystring',
+    'buffer',
+    'process',
+    'assert',
+    'constants',
+    'domain',
+    'punycode',
+    'string_decoder',
+    'timers',
+    'tty',
+    'vm',
+    'zlib',
+  ],
   noExternal: [
-    'vscode-languageclient',
+    'vscode-jsonrpc',
+    'vscode-languageserver-protocol',
     'vscode-languageserver-textdocument',
     'vscode-uri',
-    '@salesforce/apex-ls-browser',
     '@salesforce/apex-lsp-compliant-services',
     '@salesforce/apex-lsp-custom-services',
     '@salesforce/apex-lsp-shared',
     '@salesforce/apex-lsp-parser-ast',
   ],
+  // Ensure Node.js modules are not bundled for browser
+  esbuildOptions(options) {
+    options.platform = 'browser';
+    options.define = {
+      ...options.define,
+      'process.env.NODE_ENV': '"browser"',
+    };
+    // Ensure code is readable and not minified
+    options.minify = false;
+    options.minifyIdentifiers = false;
+    options.minifySyntax = false;
+    options.minifyWhitespace = false;
+    return options;
+  },
   onSuccess: async () => {
     const sourceDir = process.cwd();
 
@@ -53,19 +94,32 @@ export default defineConfig({
     );
 
     // Copy other required files
-    execSync('shx cp README.md language-configuration.json LICENSE.txt dist/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
+    execSync(
+      'shx cp README.md language-configuration.json LICENSE.txt package.nls.json dist/',
+      {
+        cwd: sourceDir,
+        stdio: 'inherit',
+      },
+    );
 
-    // Prepare package.json for dist (following desktop extension pattern)
+    // Copy the bundled worker from apex-ls-browser (IIFE version)
+    execSync(
+      'shx cp ../../packages/apex-ls-browser/dist/worker.js dist/worker.js',
+      {
+        cwd: sourceDir,
+        stdio: 'inherit',
+      },
+    );
+
+    // Prepare package.json for dist
     const originalPackagePath = path.join(sourceDir, 'package.json');
     const pkg = JSON.parse(fs.readFileSync(originalPackagePath, 'utf8'));
 
     const distPackage = {
       ...pkg,
       main: './extension.js',
-      dependencies: {},
+      browser: './extension.js',
+      dependencies: pkg.dependencies,
       devDependencies: {},
       workspaces: undefined,
     };

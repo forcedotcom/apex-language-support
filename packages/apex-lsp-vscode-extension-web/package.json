@@ -20,6 +20,10 @@
     "Snippets"
   ],
   "main": "./out/extension.js",
+  "browser": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "languages": [
       {
@@ -45,6 +49,17 @@
           ".apex"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "soql",
+        "aliases": [
+          "SOQL",
+          "Salesforce Object Query Language"
+        ],
+        "extensions": [
+          ".soql"
+        ],
+        "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
@@ -68,6 +83,22 @@
       {
         "language": "apex",
         "path": "./snippets/apex.json"
+      },
+      {
+        "language": "apex-anon",
+        "path": "./snippets/apex.json"
+      },
+      {
+        "language": "soql",
+        "path": "./snippets/soql.json"
+      },
+      {
+        "language": "apex",
+        "path": "./snippets/soql.json"
+      },
+      {
+        "language": "apex-anon",
+        "path": "./snippets/soql.json"
       }
     ],
     "configuration": {
@@ -122,7 +153,9 @@
   "scripts": {
     "precompile": "shx mkdir -p out/snippets out/grammars && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* out/grammars/ && shx cp -R snippets/* out/snippets/",
     "compile": "tsc --build",
+    "prebundle": "shx test -f ../../packages/apex-ls-browser/dist/worker.js || (cd ../../packages/apex-ls-browser && npm run bundle)",
     "bundle": "tsup",
+    "bundle:force": "cd ../../packages/apex-ls-browser && npm run bundle && cd ../apex-lsp-vscode-extension-web && npm run bundle",
     "copy:files": "shx mkdir -p out/snippets out/grammars && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* out/grammars/ && shx cp -R snippets/* out/snippets/",
     "package": "cd dist && vsce package --out ../",
     "test": "jest --passWithNoTests",
@@ -133,7 +166,10 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
   },
-  "dependencies": {},
+  "dependencies": {
+    "vscode-jsonrpc": "^8.2.1",
+    "vscode-languageserver-protocol": "^3.17.5"
+  },
   "devDependencies": {
     "@salesforce/apex-tmlanguage": "1.8.0",
     "@types/vscode": "^1.90.0",

@@ -43,8 +43,8 @@ import {
   setLoggerFactory,
 } from '@salesforce/apex-lsp-shared';
 
-import { BrowserLogNotificationHandler } from './utils/BrowserLogNotificationHandler';
-import { BrowserLoggerFactory } from './utils/BrowserLoggerFactory';
+import { UnifiedLogNotificationHandler } from './utils/BrowserLogNotificationHandler';
+import { UnifiedLoggerFactory } from './utils/BrowserLoggerFactory';
 
 /* browser specific setup code */
 
@@ -58,12 +58,12 @@ const messageWriter = new BrowserMessageWriter(
 const connection = createConnection(messageReader, messageWriter);
 
 // Set the logger factory early
-setLoggerFactory(new BrowserLoggerFactory());
+setLoggerFactory(UnifiedLoggerFactory.getBrowserInstance());
 
 // Set up logging
 const logger = getLogger();
 setLogNotificationHandler(
-  BrowserLogNotificationHandler.getInstance(connection),
+  UnifiedLogNotificationHandler.getBrowserInstance(connection),
 );
 
 // Initialize capabilities manager
@@ -332,5 +332,16 @@ documents.listen(connection);
 connection.listen();
 
 // Export the storage implementation for browsers
-const BrowserStorage = require('./storage/BrowserIndexedDBApexStorage');
-module.exports = { ...BrowserStorage };
+import * as BrowserStorage from './storage/BrowserIndexedDBApexStorage';
+
+// Export web worker functionality
+export { createSimpleWebWorkerLanguageServer } from './worker';
+export type { WebWorkerLanguageServerOptions, EnvironmentType } from './types';
+
+// Re-export LSP protocol types for convenience
+export * from 'vscode-languageserver-protocol';
+
+// Export browser storage for compatibility
+export { BrowserStorage };
+
+// Note: No CommonJS exports to avoid issues in web worker environment

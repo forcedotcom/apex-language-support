@@ -178,7 +178,6 @@ mockConnection.onRequest.mockImplementation((method: string, handler: any) => {
   return mockConnection;
 });
 
-
 mockDocuments.onDidOpen.mockImplementation((handler: OnDidOpenHandler) => {
   mockHandlers.onDidOpen = handler;
   return mockDocuments;
@@ -395,8 +394,8 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   LogMessage: jest.fn(),
 }));
 
-// Import the BrowserLogNotificationHandler after mocking
-import { BrowserLogNotificationHandler } from '../src/utils/BrowserLogNotificationHandler';
+// Import the UnifiedLogNotificationHandler after mocking
+import { UnifiedLogNotificationHandler } from '../src/utils/BrowserLogNotificationHandler';
 
 describe('Apex Language Server Browser', () => {
   beforeEach(() => {
@@ -404,7 +403,7 @@ describe('Apex Language Server Browser', () => {
     jest.clearAllMocks();
 
     // Reset the singleton instance
-    (BrowserLogNotificationHandler as any).instance = undefined;
+    UnifiedLogNotificationHandler.resetInstances();
 
     // Reset mock handlers
     Object.keys(mockHandlers).forEach((key) => {
@@ -561,7 +560,7 @@ describe('Apex Language Server Browser', () => {
       'Apex Language Server exiting without proper shutdown',
     );
   });
-  
+
   it('should handle $/ping request', async () => {
     // First trigger the initialized callback to register the request handlers
     expect(mockConnection.onInitialized).toHaveBeenCalled();
