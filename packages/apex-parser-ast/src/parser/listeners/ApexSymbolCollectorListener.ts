@@ -43,6 +43,11 @@ import {
   TypeRefPrimaryContext,
   QualifiedNameContext,
   AnyIdContext,
+  // Add contexts for type checking
+  TypeListContext,
+  TypeNameContext,
+  InstanceOfExpressionContext,
+  ExpressionListContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -84,6 +89,7 @@ import {
   isClassSymbol,
   isInterfaceSymbol,
 } from '../../utils/symbolNarrowing';
+import { isContextType } from '../../utils/contextTypeGuards';
 
 interface SemanticError {
   type: 'semantic';
@@ -2253,10 +2259,12 @@ export class ApexSymbolCollectorListener
   private isGenericArgument(ctx: TypeRefContext): boolean {
     let current: any = ctx.parent;
     while (current) {
-      const ctorName = current.constructor?.name;
-      if (ctorName === 'TypeListContext') return true;
+      if (isContextType(current, TypeListContext)) return true;
       // Stop if we climb past the TypeRef owner (another TypeRef or TypeName)
-      if (ctorName === 'TypeRefContext' || ctorName === 'TypeNameContext') {
+      if (
+        isContextType(current, TypeRefContext) ||
+        isContextType(current, TypeNameContext)
+      ) {
         // keep climbing; generic arguments are nested under TypeList within TypeName
       }
       current = current.parent;
@@ -2411,20 +2419,18 @@ export class ApexSymbolCollectorListener
     let current: any = ctx.parent;
 
     while (current) {
-      const ctorName = current.constructor?.name;
-
       // Check for variable/field declaration contexts
       if (
-        ctorName === 'FieldDeclarationContext' ||
-        ctorName === 'PropertyDeclarationContext' ||
-        ctorName === 'LocalVariableDeclarationContext' ||
-        ctorName === 'VariableDeclaratorContext'
+        isContextType(current, FieldDeclarationContext) ||
+        isContextType(current, PropertyDeclarationContext) ||
+        isContextType(current, LocalVariableDeclarationContext) ||
+        isContextType(current, VariableDeclaratorContext)
       ) {
         return true;
       }
 
       // Check for parameter contexts
-      if (ctorName === 'FormalParameterContext') {
+      if (isContextType(current, FormalParameterContext)) {
         return false;
       }
 
@@ -2511,29 +2517,31 @@ export class ApexSymbolCollectorListener
     let current = ctx.parent;
 
     while (current) {
-      const ctorName = current.constructor?.name;
-
-      switch (ctorName) {
-        case 'FormalParameterContext':
-        case 'MethodDeclarationContext':
-        case 'InterfaceMethodDeclarationContext':
-        case 'LocalVariableDeclarationContext':
-        case 'NewExpressionContext':
-        case 'CastExpressionContext':
-        case 'InstanceOfExpressionContext':
-        case 'EnhancedForControlContext':
-        case 'TypeRefPrimaryContext':
-          return this.getCurrentMethodName();
-
-        case 'FieldDeclarationContext':
-        case 'PropertyDeclarationContext':
-          return this.currentTypeSymbol?.name;
-
-        default:
-          // Move up to parent
-          current = current.parent;
-          continue;
+      // Check for method-related contexts
+      if (
+        isContextType(current, FormalParameterContext) ||
+        isContextType(current, MethodDeclarationContext) ||
+        isContextType(current, InterfaceMethodDeclarationContext) ||
+        isContextType(current, LocalVariableDeclarationContext) ||
+        isContextType(current, NewExpressionContext) ||
+        isContextType(current, CastExpressionContext) ||
+        isContextType(current, InstanceOfExpressionContext) ||
+        isContextType(current, EnhancedForControlContext) ||
+        isContextType(current, TypeRefPrimaryContext)
+      ) {
+        return this.getCurrentMethodName();
       }
+
+      // Check for field/property contexts
+      if (
+        isContextType(current, FieldDeclarationContext) ||
+        isContextType(current, PropertyDeclarationContext)
+      ) {
+        return this.currentTypeSymbol?.name;
+      }
+
+      // Move up to parent
+      current = current.parent;
     }
 
     // Fallback to current method or type context
@@ -2561,12 +2569,10 @@ export class ApexSymbolCollectorListener
    */
   private isVariableInScope(variableName: string): boolean {
     // Check if the variable exists in the current symbol table scope
-    const currentScope = this.symbolTable.getCurrentScope();
-    if (!currentScope) return false;
-
-    // Look for the variable in the current scope
-    const symbols = currentScope.getAllSymbols();
-    return symbols.some((symbol: ApexSymbol) => symbol.name === variableName);
+    return this.symbolTable
+      .getCurrentScope()
+      ?.getAllSymbols()
+      .some((symbol: ApexSymbol) => symbol.name === variableName);
   }
 
   /**
@@ -2578,17 +2584,11 @@ export class ApexSymbolCollectorListener
     let current: any = ctx.parent;
 
     while (current) {
-      const ctorName = current.constructor?.name;
-
       // If we find an expression list, this is likely a method call parameter
-      if (ctorName === 'ExpressionListContext') {
-        return true;
-      }
-
-      // If we find a method call context, this is definitely a parameter
       if (
-        ctorName === 'MethodCallContext' ||
-        ctorName === 'DotMethodCallContext'
+        isContextType(current, ExpressionListContext) ||
+        isContextType(current, MethodCallContext) ||
+        isContextType(current, DotMethodCallContext)
       ) {
         return true;
       }
@@ -2608,10 +2608,8 @@ export class ApexSymbolCollectorListener
     let current: any = ctx.parent;
 
     while (current) {
-      const ctorName = current.constructor?.name;
-
       // If we find an assignment expression, this is in an assignment LHS
-      if (ctorName === 'AssignExpressionContext') {
+      if (isContextType(current, AssignExpressionContext)) {
         return true;
       }
 
@@ -2621,10 +2619,6 @@ export class ApexSymbolCollectorListener
 
     return false;
   }
-
-  // ============================================================================
-  // PHASE 2: COMPLETE REFERENCE CAPTURE - Additional Listener Methods
-  // ============================================================================
 
   /**
    * Handle anyId in dot expressions (e.g., the "Id" in "property.Id")
@@ -2643,8 +2637,8 @@ export class ApexSymbolCollectorListener
           `DEBUG: Parent context: ${parent?.constructor?.name || 'undefined'}`,
       );
 
-      if (parent && parent.constructor?.name === 'DotExpressionContext') {
-        const dotContext = parent as any;
+      if (parent && isContextType(parent, DotExpressionContext)) {
+        const dotContext = parent;
         const fieldName = ctx.text;
 
         this.logger.debug(
@@ -2739,10 +2733,9 @@ export class ApexSymbolCollectorListener
     if (!isMethodCallParameter) {
       let parent = ctx.parent as ParserRuleContext | undefined;
       while (parent) {
-        const ctorName = parent.constructor?.name;
         if (
-          ctorName === 'DotExpressionContext' ||
-          ctorName === 'DotMethodCallContext'
+          isContextType(parent, DotExpressionContext) ||
+          isContextType(parent, DotMethodCallContext)
         ) {
           this.logger.debug(
             () =>
