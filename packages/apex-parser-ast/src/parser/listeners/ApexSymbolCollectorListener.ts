@@ -1970,74 +1970,64 @@ export class ApexSymbolCollectorListener
    */
   private captureDottedReferences(ctx: DotExpressionContext): void {
     try {
-      // Only handle field access patterns here. Dot-method calls are handled by enterDotMethodCall
-      // Check if this contains a method call by looking for parentheses
-      const hasMethodCall = ctx.text?.includes('(') || false;
+      // If this is a dot-method call variant, skip here; handled by enterDotMethodCall
+      const dotCall = (ctx as any).dotMethodCall?.();
+      if (dotCall) {
+        return;
+      }
 
-      if (!hasMethodCall) {
-        this.logger.debug(
-          () =>
-            'DEBUG: Text does not contain parentheses, checking for field access',
-        );
+      // Otherwise this is a property/field access: <lhs>.<anyId>
+      const rhs = ctx.anyId();
+      const lhs = (ctx as any).expression?.(0) || (ctx as any).expression?.();
+      if (!rhs || !lhs) return;
 
-        // Get the left expression (the object) and the right part (field or method)
-        const expressions = ctx.expression();
-        if (
-          expressions &&
-          Array.isArray(expressions) &&
-          expressions.length > 0
-        ) {
-          const leftExpression = expressions[0];
-          const rightPart = ctx.anyId();
+      const fieldName = rhs.text;
+      const qualifier = this.getTextFromContext(lhs);
+      const parentContext = this.getCurrentMethodName();
 
-          if (leftExpression && rightPart) {
-            const objectName = leftExpression.text;
-            const fieldName = rightPart.text;
+      // Compute qualifier location from the dot-expression start and qualifier length
+      const parentLoc = this.getLocation(ctx);
+      let qualifierLocation: SymbolLocation | undefined;
+      if (qualifier) {
+        qualifierLocation = {
+          startLine: parentLoc.startLine,
+          startColumn: parentLoc.startColumn,
+          endLine: parentLoc.startLine,
+          endColumn: parentLoc.startColumn + qualifier.length,
+        };
+      }
 
-            this.logger.debug(
-              () =>
-                `DEBUG: Extracted objectName: "${objectName}", fieldName: "${fieldName}"`,
-            );
-
-            const location = this.getLocation(ctx);
-            const parentContext = this.getCurrentMethodName();
-
-            // Emit VARIABLE_USAGE for the object (always an instance variable)
-            const objectLocation: SymbolLocation = {
-              startLine: location.startLine,
-              startColumn: location.startColumn,
-              endLine: location.startLine,
-              endColumn: location.startColumn + objectName.length,
-            };
-            this.logger.debug(
-              `DEBUG: Creating VARIABLE_USAGE for "${objectName}"`,
-            );
-            const variableRef =
-              TypeReferenceFactory.createVariableUsageReference(
-                objectName,
-                objectLocation,
-                parentContext,
-              );
-            this.symbolTable.addTypeReference(variableRef);
-
-            // Emit FIELD_ACCESS for the field
-            this.logger.debug(
-              `DEBUG: Creating FIELD_ACCESS for "${fieldName}"`,
-            );
-            const fieldRef = TypeReferenceFactory.createFieldAccessReference(
-              fieldName,
-              location,
-              objectName,
-              parentContext,
-            );
-            this.symbolTable.addTypeReference(fieldRef);
-            this.logger.debug(
-              () =>
-                `Captured VARIABLE_USAGE: ${objectName} and FIELD_ACCESS: ${fieldName}`,
-            );
-          }
+      // Emit qualifier reference for simple identifiers
+      if (qualifier && qualifierLocation && !qualifier.includes('.')) {
+        const isClassReference = !this.isVariableInScope(qualifier);
+        if (isClassReference) {
+          const classRef = TypeReferenceFactory.createClassReference(
+            qualifier,
+            qualifierLocation,
+            parentContext,
+          );
+          this.symbolTable.addTypeReference(classRef);
+        } else {
+          const variableRef = TypeReferenceFactory.createVariableUsageReference(
+            qualifier,
+            qualifierLocation,
+            parentContext,
+          );
+          this.symbolTable.addTypeReference(variableRef);
         }
       }
+
+      // Emit FIELD_ACCESS for the RHS with precise location at the identifier token
+      const fieldLocation = this.getLocationForReference(
+        rhs as unknown as ParserRuleContext,
+      );
+      const fieldRef = TypeReferenceFactory.createFieldAccessReference(
+        fieldName,
+        fieldLocation,
+        qualifier,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(fieldRef);
     } catch (error) {
       this.logger.warn(() => `Error capturing dotted references: ${error}`);
     }
