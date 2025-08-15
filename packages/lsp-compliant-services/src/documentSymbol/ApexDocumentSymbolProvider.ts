@@ -194,7 +194,7 @@ export class DefaultApexDocumentSymbolProvider
   /**
    * Formats the display name for a symbol based on its type
    * For methods, includes parameter types and return type for better UX
-   * For fields, includes type information for better UX
+   * For fields and properties, includes type information for better UX
    * For other symbols, returns the simple name
    */
   private formatSymbolName(symbol: ApexSymbol): string {
@@ -223,18 +223,21 @@ export class DefaultApexDocumentSymbolProvider
       }
     }
 
-    // Check if this is a field symbol
-    if (symbol.kind === 'field' && 'type' in symbol) {
+    // Check if this is a field or property symbol
+    if (
+      (symbol.kind === 'field' || symbol.kind === 'property') &&
+      'type' in symbol
+    ) {
       try {
-        const fieldSymbol = symbol as VariableSymbol;
-        const typeString = this.formatTypeInfo(fieldSymbol.type);
+        const variableSymbol = symbol as VariableSymbol;
+        const typeString = this.formatTypeInfo(variableSymbol.type);
 
         // Format: fieldName : Type
         return `${symbol.name} : ${typeString}`;
       } catch (error) {
         getLogger().warn(
           () =>
-            `Error formatting field symbol name for '${symbol.name}': ${error}`,
+            `Error formatting ${symbol.kind} symbol name for '${symbol.name}': ${error}`,
         );
         // Fallback to original name if anything goes wrong
         return symbol.name;
