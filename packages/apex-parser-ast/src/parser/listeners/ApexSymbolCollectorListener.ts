@@ -2157,8 +2157,8 @@ export class ApexSymbolCollectorListener
         // Collection type case: LIST/SET/MAP typeArguments?
         // The grammar ensures these are the only reserved types without id()
         const fullText = typeName.text || '';
-        // For collection types, the base is the first token (LIST, SET, or MAP)
-        const collectionMatch = fullText.match(/^(LIST|SET|MAP)/);
+        // For collection types, the base is the first token (List, Set, or Map)
+        const collectionMatch = fullText.match(/^(List|Set|Map)/);
         if (collectionMatch) {
           baseTypeName = collectionMatch[1];
           const tnLoc = this.getLocationForReference(
