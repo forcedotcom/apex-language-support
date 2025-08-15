@@ -2368,42 +2368,6 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Capture type declaration reference from TypeRefContext
-   */
-  private captureTypeDeclarationReference(ctx: TypeRefContext): void {
-    const text = ctx.text || '';
-
-    // Extract type name from type reference
-    // Format: "TypeName" or "TypeName__c"
-    const typeMatch = text.match(/^(\w+(?:__c)?)$/);
-    if (typeMatch) {
-      const typeName = typeMatch[1];
-      const location = this.getLocationForReference(ctx);
-      const parentContext = this.getCurrentMethodName();
-
-      // Check if we already have a reference for this type in the same context
-      if (this.hasExistingTypeReference(typeName, parentContext)) {
-        this.logger.debug(
-          () =>
-            `DEBUG: Skipping duplicate type reference: ${typeName} in context: ${parentContext}`,
-        );
-        return;
-      }
-
-      const reference = TypeReferenceFactory.createTypeDeclarationReference(
-        typeName,
-        location,
-        parentContext,
-      );
-
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        () => `Captured type declaration reference: ${typeName}`,
-      );
-    }
-  }
-
-  /**
    * Get the name of the current method being processed
    * Traverses the scope stack to find the parent method scope
    */
@@ -2544,63 +2508,32 @@ export class ApexSymbolCollectorListener
     ctx: TypeRefContext,
   ): string | undefined {
     // Traverse up the parse tree to find the appropriate context
-    let current: any = ctx.parent;
+    let current = ctx.parent;
 
     while (current) {
       const ctorName = current.constructor?.name;
 
-      // Check for method-related contexts
-      if (ctorName === 'FormalParameterContext') {
-        return this.getCurrentMethodName();
-      }
+      switch (ctorName) {
+        case 'FormalParameterContext':
+        case 'MethodDeclarationContext':
+        case 'InterfaceMethodDeclarationContext':
+        case 'LocalVariableDeclarationContext':
+        case 'NewExpressionContext':
+        case 'CastExpressionContext':
+        case 'InstanceOfExpressionContext':
+        case 'EnhancedForControlContext':
+        case 'TypeRefPrimaryContext':
+          return this.getCurrentMethodName();
 
-      if (
-        ctorName === 'MethodDeclarationContext' ||
-        ctorName === 'InterfaceMethodDeclarationContext'
-      ) {
-        return this.getCurrentMethodName();
-      }
+        case 'FieldDeclarationContext':
+        case 'PropertyDeclarationContext':
+          return this.currentTypeSymbol?.name;
 
-      // Check for field/property contexts
-      if (
-        ctorName === 'FieldDeclarationContext' ||
-        ctorName === 'PropertyDeclarationContext'
-      ) {
-        return this.currentTypeSymbol?.name;
+        default:
+          // Move up to parent
+          current = current.parent;
+          continue;
       }
-
-      // Check for local variable contexts
-      if (ctorName === 'LocalVariableDeclarationContext') {
-        return this.getCurrentMethodName();
-      }
-
-      // Check for constructor call contexts
-      if (ctorName === 'NewExpressionContext') {
-        return this.getCurrentMethodName();
-      }
-
-      // Check for cast contexts
-      if (ctorName === 'CastExpressionContext') {
-        return this.getCurrentMethodName();
-      }
-
-      // Check for instanceof contexts
-      if (ctorName === 'InstanceOfExpressionContext') {
-        return this.getCurrentMethodName();
-      }
-
-      // Check for enhanced for contexts
-      if (ctorName === 'EnhancedForControlContext') {
-        return this.getCurrentMethodName();
-      }
-
-      // Check for type literal contexts
-      if (ctorName === 'TypeRefPrimaryContext') {
-        return this.getCurrentMethodName();
-      }
-
-      // Move up to parent
-      current = current.parent;
     }
 
     // Fallback to current method or type context
