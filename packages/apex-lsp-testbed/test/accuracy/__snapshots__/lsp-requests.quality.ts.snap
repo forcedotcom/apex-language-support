@@ -1130,7 +1130,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "BASE_URL : String",
+          "name": "BASE_URL",
           "range": {
             "end": {
               "character": 99,
@@ -1257,6 +1257,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
             {
               "children": [],
               "kind": 8,
+              "name": "country",
               "name": "country : String",
               "range": {
                 "end": {
@@ -3641,7 +3642,6 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
   },
 }
 `;
-
 exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',

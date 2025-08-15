@@ -12,6 +12,7 @@ import {
   SymbolTable,
   CompilerService,
   ApexSymbolCollectorListener,
+  ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
@@ -20,12 +21,12 @@ import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
 import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
 import { ApexSettingsManager } from '../settings/ApexSettingsManager';
-import { IDocumentProcessor } from '../handlers/DidChangeDocumentHandler';
+import { IDocumentChangeProcessor } from './DocumentChangeProcessingService';
 
 /**
  * Service for processing document changes
  */
-export class DocumentProcessingService implements IDocumentProcessor {
+export class DocumentProcessingService implements IDocumentChangeProcessor {
   constructor(private readonly logger: LoggerInterface) {}
 
   /**
@@ -85,6 +86,22 @@ export class DocumentProcessingService implements IDocumentProcessor {
 
     // Get all symbols from the global scope
     const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
+
+    // Queue symbol processing in the background for better performance
+    const backgroundManager = ApexSymbolProcessingManager.getInstance();
+    const taskId = backgroundManager.processSymbolTable(
+      symbolTable,
+      document.uri,
+      {
+        priority: 'NORMAL', // Document changes are normal priority
+        enableCrossFileResolution: true,
+        enableReferenceProcessing: true,
+      },
+    );
+
+    this.logger.debug(
+      () => `Document change symbol processing queued: ${taskId}`,
+    );
 
     // Create the definition provider
     const definitionUpserter = new DefaultApexDefinitionUpserter(

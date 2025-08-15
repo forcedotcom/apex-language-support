@@ -10,6 +10,7 @@ import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { ApexError } from '@salesforce/apex-lsp-parser-ast';
+import { transformParserToLspPosition } from './positionUtils';
 
 /**
  * Utility function to log handler errors consistently
@@ -73,25 +74,36 @@ export function getDiagnosticsFromErrors(
   const { includeCodes = true } = options;
 
   return errors.map((error) => {
-    // Calculate range with proper bounds checking
-    const startLine = Math.max(0, error.line - 1);
-    const startCharacter = Math.max(0, error.column - 1);
+    // Convert parser positions (1-based) to LSP positions (0-based)
+    const startPosition = transformParserToLspPosition({
+      line: Math.max(1, error.line), // Ensure minimum line 1
+      character: Math.max(0, error.column - 1), // Convert 1-based column to 0-based
+    });
 
     // Use endLine and endColumn if available, otherwise calculate reasonable end
-    let endLine = startLine;
-    let endCharacter = startCharacter + 1; // Default to 1 character width
+    let endPosition = {
+      line: startPosition.line,
+      character: startPosition.character + 1,
+    }; // Default to 1 character width
 
     if (error.endLine !== undefined && error.endColumn !== undefined) {
-      endLine = Math.max(0, error.endLine - 1);
-      endCharacter = Math.max(0, error.endColumn - 1);
+      endPosition = transformParserToLspPosition({
+        line: Math.max(1, error.endLine), // Ensure minimum line 1
+        character: Math.max(0, error.endColumn - 1), // Convert 1-based column to 0-based
+      });
     } else if (error.source) {
       // Estimate end position based on source text
       const lines = error.source.split('\n');
       if (lines.length > 1) {
-        endLine = startLine + lines.length - 1;
-        endCharacter = lines[lines.length - 1].length;
+        endPosition = transformParserToLspPosition({
+          line: Math.max(1, error.line + lines.length - 1),
+          character: lines[lines.length - 1].length,
+        });
       } else {
-        endCharacter = startCharacter + error.source.length;
+        endPosition = {
+          line: startPosition.line,
+          character: startPosition.character + error.source.length,
+        };
       }
     }
 
@@ -104,8 +116,8 @@ export function getDiagnosticsFromErrors(
     // Create diagnostic with enhanced information
     const diagnostic: Diagnostic = {
       range: {
-        start: { line: startLine, character: startCharacter },
-        end: { line: endLine, character: endCharacter },
+        start: { line: startPosition.line, character: startPosition.character },
+        end: { line: endPosition.line, character: endPosition.character },
       },
       message: error.message,
       severity: DiagnosticSeverity.Error,
@@ -117,8 +129,14 @@ export function getDiagnosticsFromErrors(
             location: {
               uri: error.filePath,
               range: {
-                start: { line: startLine, character: startCharacter },
-                end: { line: endLine, character: endCharacter },
+                start: {
+                  line: startPosition.line,
+                  character: startPosition.character,
+                },
+                end: {
+                  line: endPosition.line,
+                  character: endPosition.character,
+                },
               },
             },
             message: error.message,

@@ -6,14 +6,16 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { HashMap } from 'data-structure-typed';
 import { promises as fs } from 'fs';
 
-import { HashMap } from 'data-structure-typed';
 import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
 import type {
   ApexReference,
-  ApexStorageInterface,
+  DocumentSymbolInfo,
+  SymbolInfo,
 } from '@salesforce/apex-lsp-compliant-services';
+import { ApexStorageBase } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { URI } from 'vscode-uri';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -23,15 +25,19 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
  * This is a no-op implementation that doesn't actually store anything persistently.
  * In a real implementation, this would use Node.js filesystem APIs or a database.
  */
-export class NodeFileSystemApexStorage implements ApexStorageInterface {
+export class NodeFileSystemApexStorage extends ApexStorageBase {
   // In-memory storage
-  private astMap: HashMap<string, ApexClassInfo[], [string, ApexClassInfo[]]> =
-    new HashMap();
-  private typeInfoMap: Map<string, TypeInfo> = new Map();
+  private astMap: HashMap<string, ApexClassInfo[]> = new HashMap();
+  private typeInfoMap: HashMap<string, TypeInfo> = new HashMap();
   private references: ApexReference[] = [];
-  private documents: Map<string, TextDocument> = new Map();
+  private documents: HashMap<string, TextDocument> = new HashMap();
   private initialized = false;
   private readonly logger = getLogger();
+
+  constructor() {
+    super();
+  }
+
   /**
    * Initialize the storage system
    * @param options Configuration options for storage
@@ -42,7 +48,9 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
     // - Initialize database connections
     // - Load existing data into memory
 
-    this.logger.debug(`Initializing Node.js storage with options: ${options}`);
+    this.logger.debug(
+      () => `Initializing Node.js storage with options: ${options}`,
+    );
     this.initialized = true;
   }
 
@@ -55,7 +63,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
     // - Save any pending data
     // - Close database connections
 
-    this.logger.debug('Shutting down Node.js storage');
+    this.logger.debug(() => 'Shutting down Node.js storage');
     this.initialized = false;
   }
 
@@ -166,7 +174,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
 
     // In a real implementation, this would flush all in-memory
     // data to disk or database
-    this.logger.debug('Persisting data to Node.js storage');
+    this.logger.debug(() => 'Persisting data to Node.js storage');
   }
 
   /**
@@ -200,7 +208,7 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
 
       return document;
     } catch (error) {
-      this.logger.error(`Error reading document ${uri}: ${error}`);
+      this.logger.error(() => `Error reading document ${uri}: ${error}`);
       return null;
     }
   }
@@ -277,5 +285,92 @@ export class NodeFileSystemApexStorage implements ApexStorageInterface {
     // Store the document in memory cache
     this.documents.set(uri, document);
     return true;
+  }
+
+  async deleteDocument(uri: string): Promise<boolean> {
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    // Remove the document from memory cache
+    this.documents.delete(uri);
+    return true;
+  }
+
+  // Override protected implementation methods for parser data access
+  protected async _getDocumentSymbolsImpl(
+    documentUri: string,
+  ): Promise<DocumentSymbolInfo[]> {
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    this.logger.debug(() => `Getting document symbols for: ${documentUri}`);
+    // Implementation would parse document and return document symbols
+    // This is a placeholder - actual implementation would use parser internally
+    return [];
+  }
+
+  protected async _getSymbolAtLocationImpl(
+    documentUri: string,
+    line: number,
+    column: number,
+  ): Promise<SymbolInfo | null> {
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    this.logger.debug(
+      () => `Getting symbol at location ${line}:${column} in ${documentUri}`,
+    );
+    // Implementation would find symbol at specific location
+    // This is a placeholder - actual implementation would use parser internally
+    return null;
+  }
+
+  protected async _getAllSymbolsInDocumentImpl(
+    documentUri: string,
+  ): Promise<SymbolInfo[]> {
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    this.logger.debug(() => `Getting all symbols in document: ${documentUri}`);
+    // Implementation would get all symbols in document
+    // This is a placeholder - actual implementation would use parser internally
+    return [];
+  }
+
+  protected async _findSymbolInDocumentImpl(
+    symbolName: string,
+    documentUri: string,
+  ): Promise<SymbolInfo | null> {
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    this.logger.debug(
+      () => `Finding symbol ${symbolName} in document: ${documentUri}`,
+    );
+    // Implementation would find symbol by name in document
+    // This is a placeholder - actual implementation would use parser internally
+    return null;
+  }
+
+  protected async _getSymbolTypeInfoImpl(
+    symbolName: string,
+    documentUri: string,
+  ): Promise<TypeInfo | null> {
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+
+    this.logger.debug(
+      () =>
+        `Getting type info for symbol ${symbolName} in document: ${documentUri}`,
+    );
+    // Implementation would get type info for symbol
+    // This is a placeholder - actual implementation would use parser internally
+    return null;
   }
 }

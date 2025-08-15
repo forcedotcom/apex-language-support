@@ -5,25 +5,13 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
+
+import { TextDocumentChangeEvent, Diagnostic } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { dispatch } from '../utils/handlerUtil';
-
-/**
- * Interface for document processing functionality to make handlers more testable
- */
-export interface IDocumentProcessor {
-  /**
-   * Process a document change event
-   * @param event The document change event
-   * @returns Diagnostics for the changed document
-   */
-  processDocumentChange(
-    event: TextDocumentChangeEvent<TextDocument>,
-  ): Promise<Diagnostic[] | undefined>;
-}
+import { IDocumentChangeProcessor } from '../services/DocumentChangeProcessingService';
 
 /**
  * Handler for document change events
@@ -31,7 +19,7 @@ export interface IDocumentProcessor {
 export class DidChangeDocumentHandler {
   constructor(
     private readonly logger: LoggerInterface,
-    private readonly documentProcessor: IDocumentProcessor,
+    private readonly documentChangeProcessor: IDocumentChangeProcessor,
   ) {}
 
   /**
@@ -48,7 +36,7 @@ export class DidChangeDocumentHandler {
 
     try {
       return await dispatch(
-        this.documentProcessor.processDocumentChange(event),
+        this.documentChangeProcessor.processDocumentChange(event),
         'Error processing document change',
       );
     } catch (error) {

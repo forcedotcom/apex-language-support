@@ -7,7 +7,7 @@
  */
 
 import { IntPair, OldVersionProvider, SourceInfo } from '../types/source';
-import { Namespace, Namespaces } from './namespaces';
+import { Namespace, Namespaces } from '../namespace/NamespaceUtils';
 import {
   StructuredVersion,
   StructuredVersionRange,

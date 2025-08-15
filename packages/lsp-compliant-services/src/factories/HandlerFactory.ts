@@ -8,11 +8,11 @@
 
 import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-shared';
 
+import { DidChangeDocumentHandler } from '../handlers/DidChangeDocumentHandler';
 import {
-  DidChangeDocumentHandler,
-  IDocumentProcessor,
-} from '../handlers/DidChangeDocumentHandler';
-import { DocumentProcessingService } from '../services/DocumentProcessingService';
+  IDocumentChangeProcessor,
+  DocumentChangeProcessingService,
+} from '../services/DocumentChangeProcessingService';
 import { DocumentSymbolHandler } from '../handlers/DocumentSymbolHandler';
 import {
   DocumentSymbolProcessingService,
@@ -28,6 +28,11 @@ import {
   DocumentCloseProcessingService,
   IDocumentCloseProcessor,
 } from '../services/DocumentCloseProcessingService';
+import { HoverHandler } from '../handlers/HoverHandler';
+import {
+  HoverProcessingService,
+  IHoverProcessor,
+} from '../services/HoverProcessingService';
 
 /**
  * Factory for creating handlers with proper dependency injection
@@ -39,22 +44,22 @@ export class HandlerFactory {
    */
   static createDidChangeDocumentHandler(): DidChangeDocumentHandler {
     const logger = getLogger();
-    const documentProcessor = new DocumentProcessingService(logger);
+    const documentChangeProcessor = new DocumentChangeProcessingService(logger);
 
-    return new DidChangeDocumentHandler(logger, documentProcessor);
+    return new DidChangeDocumentHandler(logger, documentChangeProcessor);
   }
 
   /**
    * Create a DidChangeDocumentHandler with custom dependencies (for testing)
    * @param logger Custom logger implementation
-   * @param documentProcessor Custom document processor implementation
+   * @param documentChangeProcessor Custom document change processor implementation
    * @returns A configured DidChangeDocumentHandler instance
    */
   static createDidChangeDocumentHandlerWithDependencies(
     logger: LoggerInterface,
-    documentProcessor: IDocumentProcessor,
+    documentChangeProcessor: IDocumentChangeProcessor,
   ): DidChangeDocumentHandler {
-    return new DidChangeDocumentHandler(logger, documentProcessor);
+    return new DidChangeDocumentHandler(logger, documentChangeProcessor);
   }
 
   /**
@@ -127,5 +132,29 @@ export class HandlerFactory {
     documentCloseProcessor: IDocumentCloseProcessor,
   ): DidCloseDocumentHandler {
     return new DidCloseDocumentHandler(logger, documentCloseProcessor);
+  }
+
+  /**
+   * Create a HoverHandler with default dependencies
+   * @returns A configured HoverHandler instance
+   */
+  static createHoverHandler(): HoverHandler {
+    const logger = getLogger();
+    const hoverProcessor = new HoverProcessingService(logger);
+
+    return new HoverHandler(logger, hoverProcessor);
+  }
+
+  /**
+   * Create a HoverHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param hoverProcessor Custom hover processor implementation
+   * @returns A configured HoverHandler instance
+   */
+  static createHoverHandlerWithDependencies(
+    logger: LoggerInterface,
+    hoverProcessor: IHoverProcessor,
+  ): HoverHandler {
+    return new HoverHandler(logger, hoverProcessor);
   }
 }

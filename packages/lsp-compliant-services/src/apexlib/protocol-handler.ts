@@ -13,6 +13,7 @@ import {
   LanguageServerClient,
   ApexLibConfig,
 } from './types';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 /**
  * Handles protocol operations for ApexLib
@@ -41,9 +42,8 @@ export class ApexLibProtocolHandler implements TextDocumentContentProvider {
 
       return result.content;
     } catch (error) {
-      console.error(
-        `Failed to resolve ${this.config.customScheme} URI: ${uri}`,
-        error,
+      getLogger().error(
+        `Failed to resolve ${this.config.customScheme} URI: ${uri} Error: ${error}`,
       );
       throw error;
     }

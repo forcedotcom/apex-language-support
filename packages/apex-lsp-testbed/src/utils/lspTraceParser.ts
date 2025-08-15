@@ -5,6 +5,9 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+import { HashMap } from 'data-structure-typed';
+
 export interface LSPMessage {
   type: 'request' | 'notification' | 'response';
   method: string;
@@ -51,22 +54,22 @@ export class LSPTraceParser {
   private currentMessageId: number | null = null;
   private currentJsonType: 'params' | 'result' | null = null;
   private nextSerialId = 1;
-  private originalIdToSerialId: Map<number, number> = new Map();
-  private result: Map<number, LSPMessage> = new Map();
+  private originalIdToSerialId: HashMap<number, number> = new HashMap();
+  private result: HashMap<number, LSPMessage> = new HashMap();
 
   /**
    * Parses the LSP trace log content and returns a map of id to LSPMessage.
    * @param logContent The content of the LSP trace log
-   * @returns Map<number, LSPMessage>
+   * @returns HashMap<number, LSPMessage>
    */
-  parse(logContent: string): Map<number, LSPMessage> {
-    this.result = new Map();
+  parse(logContent: string): HashMap<number, LSPMessage> {
+    this.result = new HashMap();
     this.currentJson = [];
     this.parsingJson = false;
     this.currentMessageId = null;
     this.currentJsonType = null;
     this.nextSerialId = 1;
-    this.originalIdToSerialId = new Map();
+    this.originalIdToSerialId = new HashMap();
     const lines = logContent.split('\n');
     for (const line of lines) {
       this.parseLine(line.trim());
@@ -230,8 +233,9 @@ export class LSPTraceParser {
       }
       // Fallback for notification params: attach to most recent notification without params
       if (this.currentJsonType === 'params') {
-        for (const [id, msg] of Array.from(this.result.entries()).reverse()) {
-          if (msg.type === 'notification' && msg.params === undefined) {
+        const entries = Array.from(this.result.entries()).reverse();
+        for (const [id, msg] of entries) {
+          if (msg && msg.type === 'notification' && msg.params === undefined) {
             msg.params = jsonContent;
             this.result.set(id, msg);
             return;

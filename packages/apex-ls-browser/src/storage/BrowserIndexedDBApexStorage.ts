@@ -6,25 +6,22 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
-import type {
-  ApexReference,
-  ApexStorageInterface,
-} from '@salesforce/apex-lsp-compliant-services';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { HashMap } from 'data-structure-typed';
+import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
+import type { ApexReference } from '@salesforce/apex-lsp-compliant-services';
+import { ApexStorageBase } from '@salesforce/apex-lsp-compliant-services';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 /**
- * Implementation of ApexStorageInterface for browser environments.
+ * Implementation of ApexStorageBase for browser environments.
  * This is a no-op implementation that doesn't actually persist data.
  * In a real implementation, this would use IndexedDB or other browser storage.
  */
-export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
+export class BrowserIndexedDBApexStorage extends ApexStorageBase {
   // In-memory storage for the no-op implementation
   private initialized: boolean = false;
-  private astMap: HashMap<string, ApexClassInfo[], [string, ApexClassInfo[]]> =
-    new HashMap();
-  private typeInfoMap: Map<string, TypeInfo> = new Map();
+  private astMap: HashMap<string, ApexClassInfo[]> = new HashMap();
+  private typeInfoMap: HashMap<string, TypeInfo> = new HashMap();
   private references: ApexReference[] = [];
   private readonly logger = getLogger();
   /**
@@ -197,6 +194,42 @@ export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
   }
 
   async setDocument(uri: string, document: TextDocument): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  async deleteDocument(uri: string): Promise<boolean> {
+    throw new Error('Method not implemented.');
+  }
+
+  protected async _getDocumentSymbolsImpl(documentUri: string): Promise<any[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  protected async _getSymbolAtLocationImpl(
+    documentUri: string,
+    line: number,
+    column: number,
+  ): Promise<any | null> {
+    throw new Error('Method not implemented.');
+  }
+
+  protected async _getAllSymbolsInDocumentImpl(
+    documentUri: string,
+  ): Promise<any[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  protected async _findSymbolInDocumentImpl(
+    symbolName: string,
+    documentUri: string,
+  ): Promise<any | null> {
+    throw new Error('Method not implemented.');
+  }
+
+  protected async _getSymbolTypeInfoImpl(
+    symbolName: string,
+    documentUri: string,
+  ): Promise<TypeInfo | null> {
     throw new Error('Method not implemented.');
   }
 }

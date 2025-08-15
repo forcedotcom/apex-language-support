@@ -34,7 +34,7 @@ export async function processOnDiagnostic(
       () => `Processing diagnostic request for: ${params.textDocument.uri}`,
     );
 
-    const diagnosticProcessor = new DiagnosticProcessingService();
+    const diagnosticProcessor = new DiagnosticProcessingService(logger);
     const diagnostics = await dispatch(
       diagnosticProcessor.processDiagnostic(params),
       'Error processing diagnostic request',
