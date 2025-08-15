@@ -7,13 +7,27 @@
  */
 
 import * as vscode from 'vscode';
-import {
-  LanguageClientOptions,
-  ServerOptions,
-  TransportKind,
-  CloseAction,
-  ErrorAction,
-} from 'vscode-languageclient/node';
+// Conditional import to avoid loading Node.js modules in web environment
+let LanguageClientOptions: any;
+let ServerOptions: any;
+let TransportKind: any;
+let CloseAction: any;
+let ErrorAction: any;
+
+// Only import Node.js modules if we're in a Node.js environment
+if (
+  typeof process !== 'undefined' &&
+  process.versions &&
+  process.versions.node
+) {
+  const nodeModule = require('vscode-languageclient/node');
+  LanguageClientOptions = nodeModule.LanguageClientOptions;
+  ServerOptions = nodeModule.ServerOptions;
+  TransportKind = nodeModule.TransportKind;
+  CloseAction = nodeModule.CloseAction;
+  ErrorAction = nodeModule.ErrorAction;
+}
+
 import { getDebugConfig, getWorkspaceSettings } from './configuration';
 import { logToOutputChannel } from './logging';
 import { DEBUG_CONFIG } from './constants';
@@ -57,9 +71,16 @@ export const getDebugOptions = (): string[] | undefined => {
  * @param context The extension context
  * @returns Server options configuration
  */
-export const createServerOptions = (
-  context: vscode.ExtensionContext,
-): ServerOptions => {
+export const createServerOptions = (context: vscode.ExtensionContext): any => {
+  // Check if Node.js modules are available
+  if (!ServerOptions || !TransportKind) {
+    logToOutputChannel(
+      'Node.js server modules not available in this environment',
+      'error',
+    );
+    throw new Error('Node.js server modules not available in this environment');
+  }
+
   // Check if we're running in development mode (from project) or production (installed)
   const isDevelopment =
     context.extensionMode === vscode.ExtensionMode.Development;
@@ -125,9 +146,16 @@ export const createServerOptions = (
  * @param context The extension context
  * @returns Client options configuration
  */
-export const createClientOptions = (
-  context: vscode.ExtensionContext,
-): LanguageClientOptions => {
+export const createClientOptions = (context: vscode.ExtensionContext): any => {
+  // Check if Node.js modules are available
+  if (!LanguageClientOptions || !ErrorAction || !CloseAction) {
+    logToOutputChannel(
+      'Node.js client modules not available in this environment',
+      'error',
+    );
+    throw new Error('Node.js client modules not available in this environment');
+  }
+
   const settings = getWorkspaceSettings();
 
   // Map VS Code extension mode to server mode
@@ -172,7 +200,7 @@ const handleClientError = (
   error: Error,
   message: any,
   _count: number | undefined,
-): { action: ErrorAction } => {
+): { action: any } => {
   logToOutputChannel(
     `LSP Error: ${message?.toString() || 'Unknown error'}`,
     'error',
@@ -188,7 +216,7 @@ const handleClientError = (
  * Handles the client closed event
  * @returns Close action to take
  */
-const handleClientClosed = (): { action: CloseAction } => {
+const handleClientClosed = (): { action: any } => {
   logToOutputChannel(
     `Connection to server closed - ${new Date().toISOString()}`,
     'info',

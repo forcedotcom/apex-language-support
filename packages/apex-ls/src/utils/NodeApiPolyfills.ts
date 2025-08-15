@@ -524,19 +524,48 @@ export const assert = {
 export function initializeNodeApiPolyfills(): void {
   // Set up global polyfills
   if (typeof globalThis !== 'undefined') {
-    (globalThis as any).fs = fs;
-    (globalThis as any).path = path;
-    (globalThis as any).child_process = child_process;
-    (globalThis as any).os = os;
-    (globalThis as any).process = process;
-    (globalThis as any).crypto = crypto;
-    (globalThis as any).Buffer = Buffer;
-    (globalThis as any).util = util;
-    (globalThis as any).EventEmitter = EventEmitter;
-    (globalThis as any).Readable = Readable;
-    (globalThis as any).Writable = Writable;
-    (globalThis as any).Transform = Transform;
-    (globalThis as any).URL = URL;
-    (globalThis as any).assert = assert;
+    // Only set polyfills if they don't already exist
+    if (!(globalThis as any).fs) {
+      (globalThis as any).fs = fs;
+    }
+    if (!(globalThis as any).path) {
+      (globalThis as any).path = path;
+    }
+    if (!(globalThis as any).child_process) {
+      (globalThis as any).child_process = child_process;
+    }
+    if (!(globalThis as any).os) {
+      (globalThis as any).os = os;
+    }
+    if (!(globalThis as any).process) {
+      (globalThis as any).process = process;
+    }
+    if (!(globalThis as any).crypto) {
+      (globalThis as any).crypto = crypto;
+    }
+    if (!(globalThis as any).Buffer) {
+      (globalThis as any).Buffer = Buffer;
+    }
+    if (!(globalThis as any).util) {
+      (globalThis as any).util = util;
+    }
+    if (!(globalThis as any).EventEmitter) {
+      (globalThis as any).EventEmitter = EventEmitter;
+    }
+    if (!(globalThis as any).Readable) {
+      (globalThis as any).Readable = Readable;
+    }
+    if (!(globalThis as any).Writable) {
+      (globalThis as any).Writable = Writable;
+    }
+    if (!(globalThis as any).Transform) {
+      (globalThis as any).Transform = Transform;
+    }
+    if (!(globalThis as any).URL) {
+      (globalThis as any).URL = URL;
+    }
+    if (!(globalThis as any).assert) {
+      (globalThis as any).assert = assert;
+    }
   }
 }

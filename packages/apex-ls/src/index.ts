@@ -21,7 +21,10 @@ import {
 
 // Import web-compatible connection and document management
 import { createWebConnection } from './protocol/web-connection';
-import { WebTextDocuments } from './protocol/web-text-documents';
+import {
+  WebTextDocuments,
+  WebTextDocument,
+} from './protocol/web-text-documents';
 
 // Import Node.js API polyfills for WebContainer support
 import { initializeNodeApiPolyfills } from './utils/NodeApiPolyfills';
@@ -134,7 +137,22 @@ export function startServer(injectedPlatformAdapter?: PlatformAdapter) {
 
   // Server state
   let isShutdown = false;
-  const documents = new WebTextDocuments(TextDocument);
+
+  // Use appropriate document class based on environment
+  let documents: WebTextDocuments;
+  if (environment === 'browser' || environment === 'webcontainer') {
+    documents = new WebTextDocuments(WebTextDocument);
+  } else {
+    // For Node.js environment, use the original TextDocument
+    // Only import Node.js dependencies when in Node.js environment
+    try {
+      const { TextDocument } = require('vscode-languageserver-textdocument');
+      documents = new WebTextDocuments(TextDocument);
+    } catch (_error) {
+      // Fallback to WebTextDocument if Node.js TextDocument is not available
+      documents = new WebTextDocuments(WebTextDocument);
+    }
+  }
 
   // Initialize storage
   const storageManager = ApexStorageManager.getInstance({

@@ -82,6 +82,30 @@ export class WebConnection implements Connection {
         }
         break;
 
+      case 'textDocument/didOpen':
+        // Handle as notification (no response needed)
+        const didOpenHandler = this.handlers.get('textDocument/didOpen');
+        if (didOpenHandler) {
+          await didOpenHandler(params);
+        }
+        break;
+
+      case 'textDocument/didChange':
+        // Handle as notification (no response needed)
+        const didChangeHandler = this.handlers.get('textDocument/didChange');
+        if (didChangeHandler) {
+          await didChangeHandler(params);
+        }
+        break;
+
+      case 'textDocument/didClose':
+        // Handle as notification (no response needed)
+        const didCloseHandler = this.handlers.get('textDocument/didClose');
+        if (didCloseHandler) {
+          await didCloseHandler(params);
+        }
+        break;
+
       case 'textDocument/documentSymbol':
         if (this.documentSymbolHandler) {
           const result = await this.documentSymbolHandler(params);

@@ -15,8 +15,8 @@ export default defineConfig([
   {
     entry: {
       extension: 'src/extension.ts',
-      'server-worker': 'src/server-worker.ts',
-      'language-server-webcontainer': 'src/language-server-webcontainer.ts',
+      client: 'src/client.ts',
+      'webcontainer-setup': 'src/webcontainer-setup.ts',
     },
     format: ['cjs'],
     splitting: false,
@@ -26,11 +26,6 @@ export default defineConfig([
     outDir: 'dist',
     clean: true,
     target: 'es2020',
-    esbuildOptions: (options) => {
-      options.alias = {
-        '@salesforce/apex-ls/web': '../apex-ls/out/index-minimal-web.js',
-      };
-    },
     external: [
       'vscode',
       'fs',
@@ -75,7 +70,6 @@ export default defineConfig([
       'vscode-languageserver-textdocument',
       'vscode-uri',
       '@salesforce/apex-lsp-shared',
-      '@salesforce/apex-ls/web', // Web version via export mapping
       '@salesforce/apex-lsp-parser-ast', // Required by apex-ls
       '@salesforce/apex-lsp-compliant-services', // DEPENDENCY OF APEX-LS
       '@salesforce/apex-lsp-custom-services', // DEPENDENCY OF APEX-LS
