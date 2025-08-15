@@ -223,8 +223,8 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const sourceCode = `
         public class TestClass {
           public void testMethod() {
-            Property__c property = new Property__c();
-            String id = property.Id;
+            Property__c property = new Property__c(); // dotted method call
+            String id = property.Id; // dotted field access
           }
         }
       `;

@@ -1981,7 +1981,6 @@ export class ApexSymbolCollectorListener
       const lhs = (ctx as any).expression?.(0) || (ctx as any).expression?.();
       if (!rhs || !lhs) return;
 
-      const fieldName = rhs.text;
       const qualifier = this.getTextFromContext(lhs);
       const parentContext = this.getCurrentMethodName();
 
@@ -2016,18 +2015,7 @@ export class ApexSymbolCollectorListener
           this.symbolTable.addTypeReference(variableRef);
         }
       }
-
-      // Emit FIELD_ACCESS for the RHS with precise location at the identifier token
-      const fieldLocation = this.getLocationForReference(
-        rhs as unknown as ParserRuleContext,
-      );
-      const fieldRef = TypeReferenceFactory.createFieldAccessReference(
-        fieldName,
-        fieldLocation,
-        qualifier,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(fieldRef);
+      // Field access emission happens in enterAnyId to avoid duplicates
     } catch (error) {
       this.logger.warn(() => `Error capturing dotted references: ${error}`);
     }
