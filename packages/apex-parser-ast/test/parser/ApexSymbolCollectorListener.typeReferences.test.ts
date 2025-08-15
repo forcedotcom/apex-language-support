@@ -507,7 +507,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
   });
 
   describe('Parameter Type References', () => {
-    it.only('should capture parameter type references', () => {
+    it('should capture parameter type references', () => {
       const sourceCode = `
         public class TestClass {
           public void testMethod(String param1, Property__c param2, List<String> param3, Map<String, Property__c> param4) {
