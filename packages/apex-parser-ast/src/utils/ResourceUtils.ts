@@ -13,23 +13,26 @@
  * They all use the 'apex-resources:' scheme to indicate they're
  * resources within the Apex library.
  */
-export const RESOURCE_URIS = {
-  /**
-   * Base URI to resources in the package
-   */
-  BASE_RESOURCES_URI: 'apex-resources:/resources',
+/**
+ * APEX_RESOURCES_SCHEME is the scheme used to identify resources in the Apex library.
+ * It is used to prefix all resource URIs.
+ */
+export const APEX_RESOURCES_SCHEME = 'apex-resources';
 
-  /**
-   * URI to StandardApexLibrary in the package
-   */
-  STANDARD_APEX_LIBRARY_URI: 'apex-resources:/resources/StandardApexLibrary',
+/**
+ * Base URI to resources in the package
+ */
+export const BASE_RESOURCES_URI = `${APEX_RESOURCES_SCHEME}:///resources`;
 
-  /**
-   * URI to the version file in the package
-   */
-  VERSION_FILE_URI:
-    'apex-resources:/resources/StandardApexLibrary/.version.json',
-};
+/**
+ * URI to StandardApexLibrary in the package
+ */
+export const STANDARD_APEX_LIBRARY_URI = `${APEX_RESOURCES_SCHEME}:///resources/StandardApexLibrary`;
+
+/**
+ * URI to the version file in the package
+ */
+export const VERSION_FILE_URI = `${APEX_RESOURCES_SCHEME}:///resources/StandardApexLibrary/.version.json`;
 
 /**
  * Information about Salesforce version
@@ -53,12 +56,12 @@ export const DEFAULT_SALESFORCE_VERSION = 254;
  * @returns A file path suitable for Node.js environments
  */
 export function uriToNodePath(uri: string, basePath?: string): string {
-  if (!uri.startsWith('apex-resources:/')) {
+  if (!uri.startsWith(APEX_RESOURCES_SCHEME)) {
     throw new Error(`Invalid apex-resources URI: ${uri}`);
   }
 
   // Remove the scheme and get the path portion
-  const resourcePath = uri.replace('apex-resources:/', '');
+  const resourcePath = uri.replace(APEX_RESOURCES_SCHEME, '');
 
   // Make sure the resource path starts with a slash if it's not empty
   const formattedPath =
