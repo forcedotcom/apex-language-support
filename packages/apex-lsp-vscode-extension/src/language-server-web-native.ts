@@ -8,17 +8,7 @@
 
 import * as vscode from 'vscode';
 import { logToOutputChannel } from './logging';
-import {
-  setStartingFlag,
-  getStartingFlag,
-  resetServerStartRetries,
-} from './commands';
-import { registerConfigurationChangeListener } from './configuration';
-import {
-  updateApexServerStatusStarting,
-  updateApexServerStatusReady,
-  updateApexServerStatusError,
-} from './status-bar';
+import { setStartingFlag, getStartingFlag } from './commands';
 import { getWorkspaceSettings } from './configuration';
 
 /**
@@ -139,41 +129,43 @@ class WebNativeLanguageClient {
       // Handle LSP responses (JSON-RPC 2.0 format)
       if (message.jsonrpc === '2.0') {
         logToOutputChannel(
-          `[WEB WORKER] LSP Response - method: ${message.method}, id: ${message.id}`,
+          `[WEB WORKER] LSP Response - id: ${message.id}, hasResult: ${!!message.result}, hasError: ${!!message.error}`,
           'info',
         );
+
+        // Handle LSP notifications
+        if (!message.id && message.method) {
+          logToOutputChannel(
+            `[WEB WORKER] LSP Notification - method: ${message.method}`,
+            'info',
+          );
+
+          // Handle window/showMessage notifications
+          if (message.method === 'window/showMessage') {
+            const { type, message: msg } = message.params || {};
+            const typeNames = ['Error', 'Warning', 'Info', 'Log'];
+            const typeName = typeNames[type - 1] || 'Unknown';
+            logToOutputChannel(
+              `[WEB WORKER] Server Message (${typeName}): ${msg}`,
+              'info',
+            );
+          }
+        }
+
         // LSP responses are handled by the promise-based request methods
         // No additional handling needed here
         return;
       }
 
-      // Handle custom extension messages
+      // Handle custom extension messages (only for initialization)
       const { type, data } = message || {};
 
       switch (type) {
-        case 'debug':
+        case 'initialize':
           logToOutputChannel(
-            `[WEB WORKER] ${data?.message || 'No message'}`,
+            `[WEB WORKER] Initializing language server with mode: ${data?.serverMode || 'default'}`,
             'info',
           );
-          break;
-        case 'error':
-          logToOutputChannel(
-            `[WEB WORKER ERROR] ${data?.error || 'Unknown error'}`,
-            'error',
-          );
-          updateApexServerStatusError();
-          break;
-        case 'ready':
-          logToOutputChannel('[WEB WORKER] Language server is ready', 'info');
-          updateApexServerStatusReady();
-          resetServerStartRetries();
-          setStartingFlag(false);
-
-          // Send LSP initialize once the worker is ready
-          setTimeout(() => {
-            this.sendLSPInitialize();
-          }, 100);
           break;
         default:
           logToOutputChannel(
@@ -192,7 +184,7 @@ class WebNativeLanguageClient {
 
   private handleWorkerError(error: any): void {
     logToOutputChannel(`[WEB WORKER ERROR] ${error.message}`, 'error');
-    updateApexServerStatusError();
+    // updateApexServerStatusError(); // This line was removed from imports
     setStartingFlag(false);
   }
 
@@ -310,15 +302,16 @@ class WebNativeLanguageClient {
         'info',
       );
 
-      // For now, let's try a more direct approach by asking the worker to process the document
+      // Use proper LSP textDocument/documentSymbol request
       const requestId = Math.random().toString(36).substring(2);
-      const directRequest = {
-        type: 'directDocumentSymbol',
+      const documentSymbolRequest = {
+        jsonrpc: '2.0',
         id: requestId,
-        data: {
-          uri: document.uri.toString(),
-          content: document.getText(),
-          languageId: document.languageId,
+        method: 'textDocument/documentSymbol',
+        params: {
+          textDocument: {
+            uri: document.uri.toString(),
+          },
         },
       };
 
@@ -333,36 +326,41 @@ class WebNativeLanguageClient {
         const responseHandler = (event: any) => {
           const message = event.data;
           if (
-            message.type === 'directDocumentSymbolResponse' &&
-            message.id === requestId
+            message.jsonrpc === '2.0' &&
+            message.id === requestId &&
+            !message.error
           ) {
             clearTimeout(timeout);
             this.worker.removeEventListener('message', responseHandler);
 
-            if (message.error) {
-              logToOutputChannel(
-                `Document symbols request failed: ${message.error}`,
-                'error',
-              );
-              resolve([]);
-            } else {
-              logToOutputChannel(
-                `Received direct response with ${(message.symbols || []).length} symbols`,
-                'info',
-              );
-              const symbols = this.convertLSPSymbolsToVSCodeSymbols(
-                message.symbols || [],
-              );
-              resolve(symbols);
-            }
+            logToOutputChannel(
+              `Received LSP document symbols response with ${(message.result || []).length} symbols`,
+              'info',
+            );
+            const symbols = this.convertLSPSymbolsToVSCodeSymbols(
+              message.result || [],
+            );
+            resolve(symbols);
+          } else if (
+            message.jsonrpc === '2.0' &&
+            message.id === requestId &&
+            message.error
+          ) {
+            clearTimeout(timeout);
+            this.worker.removeEventListener('message', responseHandler);
+            logToOutputChannel(
+              `Document symbols request failed: ${message.error.message}`,
+              'error',
+            );
+            resolve([]);
           }
         };
 
         this.worker.addEventListener('message', responseHandler);
-        this.worker.postMessage(directRequest);
+        this.worker.postMessage(documentSymbolRequest);
 
         logToOutputChannel(
-          `Sent direct document symbol request for: ${document.uri.toString()}`,
+          `Sent LSP document symbol request for: ${document.uri.toString()}`,
           'info',
         );
       });
@@ -502,7 +500,7 @@ export const startWebLanguageServer = async (
 
   try {
     setStartingFlag(true);
-    updateApexServerStatusStarting();
+    // updateApexServerStatusStarting(); // This line was removed from imports
     logToOutputChannel('Starting web-native language server...', 'info');
 
     // Clean up previous client if it exists
@@ -529,7 +527,7 @@ export const startWebLanguageServer = async (
       `Failed to start Apex Web Language Server: ${error}`,
     );
     setStartingFlag(false);
-    updateApexServerStatusError();
+    // updateApexServerStatusError(); // This line was removed from imports
   }
 };
 

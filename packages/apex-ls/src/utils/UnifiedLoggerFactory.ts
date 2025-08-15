@@ -2,8 +2,7 @@
  * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import {
@@ -15,10 +14,10 @@ import {
 } from '@salesforce/apex-lsp-shared';
 
 /**
- * A unified logger implementation that works in both Node.js and browser environments
+ * A unified logger implementation that works in Node.js, WebContainer, and browser environments
  */
 class UnifiedLogger implements LoggerInterface {
-  constructor(private environment: 'node' | 'browser') {}
+  constructor(private environment: 'node' | 'webcontainer' | 'browser') {}
 
   /**
    * Formats a timestamp in the format [5:46:20 AM]
@@ -135,7 +134,7 @@ class UnifiedLogger implements LoggerInterface {
 export class UnifiedLoggerFactory implements LoggerFactory {
   private static loggerInstance: LoggerInterface | null = null;
 
-  constructor(private environment: 'node' | 'browser') {}
+  constructor(private environment: 'node' | 'webcontainer' | 'browser') {}
 
   /**
    * Gets a singleton instance of the UnifiedLogger.

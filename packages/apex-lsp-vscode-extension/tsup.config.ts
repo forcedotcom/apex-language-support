@@ -16,6 +16,7 @@ export default defineConfig([
     entry: {
       extension: 'src/extension.ts',
       'server-worker': 'src/server-worker.ts',
+      'language-server-webcontainer': 'src/language-server-webcontainer.ts',
     },
     format: ['cjs'],
     splitting: false,

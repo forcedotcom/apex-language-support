@@ -15,8 +15,6 @@ import {
   Diagnostic,
   FoldingRangeParams,
   FoldingRange,
-  ServerCapabilities,
-  TextDocumentContentChangeEvent,
   Connection,
   TextDocumentChangeEvent,
 } from './protocol/lsp-types';
@@ -24,6 +22,9 @@ import {
 // Import web-compatible connection and document management
 import { createWebConnection } from './protocol/web-connection';
 import { WebTextDocuments } from './protocol/web-text-documents';
+
+// Import Node.js API polyfills for WebContainer support
+import { initializeNodeApiPolyfills } from './utils/NodeApiPolyfills';
 
 import {
   dispatchProcessOnChangeDocument,
@@ -58,7 +59,12 @@ interface ApexServerInitializationOptions {
 /**
  * Detects the current runtime environment
  */
-function detectEnvironment(): 'node' | 'browser' {
+function detectEnvironment(): 'node' | 'webcontainer' | 'browser' {
+  // Check if we're in a WebContainer environment
+  if (typeof globalThis !== 'undefined' && (globalThis as any).WebContainer) {
+    return 'webcontainer';
+  }
+
   // Check if we're in a browser environment
   if (typeof window !== 'undefined' || typeof self !== 'undefined') {
     return 'browser';
@@ -79,19 +85,26 @@ function detectEnvironment(): 'node' | 'browser' {
 
 /**
  * Creates a connection based on the environment and arguments
- * Note: This version only supports browser/web worker environments
+ * Now supports Node.js, WebContainer, and browser environments
  */
 function createLanguageServerConnection(
-  environment: 'node' | 'browser',
+  environment: 'node' | 'webcontainer' | 'browser',
 ): Connection {
-  if (environment === 'browser') {
+  if (environment === 'webcontainer') {
+    // WebContainer environment - use our web-compatible connection with Node.js API support
+    // Initialize Node.js API polyfills for WebContainer
+    initializeNodeApiPolyfills();
+    return createWebConnection();
+  } else if (environment === 'browser') {
     // Browser/Web Worker environment - use our web-compatible connection
     return createWebConnection();
+  } else if (environment === 'node') {
+    // Node.js environment - use standard Node.js connection
+    // Import Node.js specific connection
+    const { createConnection } = require('vscode-languageserver/node');
+    return createConnection();
   } else {
-    // Node.js environment - throw error as this package only supports browser
-    throw new Error(
-      'Node.js environment is not supported in this web-compatible version. Use @salesforce/apex-ls-node for Node.js support.',
-    );
+    throw new Error(`Unsupported environment: ${environment}`);
   }
 }
 
@@ -151,15 +164,18 @@ export function startServer(injectedPlatformAdapter?: PlatformAdapter) {
 
     let mode: 'production' | 'development';
 
-    if (environment === 'browser') {
+    if (environment === 'webcontainer') {
+      // For WebContainer, use development mode by default to enable all features
+      mode = extensionMode || 'development';
+      logger.info(`Using ${mode} mode for WebContainer environment`);
+    } else if (environment === 'browser') {
       // For browser, use production mode by default
       mode = extensionMode || 'production';
       logger.info(`Using ${mode} mode for browser environment`);
     } else {
-      // Node.js environment is not supported in this web-compatible version
-      throw new Error(
-        'Node.js environment is not supported in this web-compatible version. Use @salesforce/apex-ls-node for Node.js support.',
-      );
+      // Node.js environment - use development mode by default
+      mode = extensionMode || 'development';
+      logger.info(`Using ${mode} mode for Node.js environment`);
     }
 
     // Set the mode and get capabilities
@@ -402,14 +418,11 @@ export function startServer(injectedPlatformAdapter?: PlatformAdapter) {
   connection.listen();
 }
 
-// Note: Direct execution is not supported in this web-compatible version
-// Use startServer() or startServerSafe() functions instead
-
-// Export PlatformAdapter for use in web workers
+// Export PlatformAdapter for use in web workers and WebContainers
 export { PlatformAdapter } from './utils/PlatformAdapter';
 
 /**
- * Web worker safe startServer function that creates PlatformAdapter from exports
+ * WebContainer safe startServer function that creates PlatformAdapter from exports
  */
 export function startServerSafe() {
   const environment = detectEnvironment();
@@ -417,5 +430,14 @@ export function startServerSafe() {
   return startServer(platformAdapter);
 }
 
-// Export for use in web workers and other environments
+/**
+ * WebContainer-specific startServer function
+ */
+export function startServerInWebContainer() {
+  const environment = 'webcontainer';
+  const platformAdapter = new PlatformAdapter(environment);
+  return startServer(platformAdapter);
+}
+
+// Export for use in web workers, WebContainers, and other environments
 export default startServer;

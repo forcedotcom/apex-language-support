@@ -2,8 +2,7 @@
  * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { MessageType, Connection } from '../protocol/lsp-types';
@@ -15,15 +14,18 @@ import {
 } from '@salesforce/apex-lsp-shared';
 
 /**
- * Unified implementation of LogNotificationHandler that works in both Node.js and browser environments
+ * Unified implementation of LogNotificationHandler that works in Node.js, WebContainer, and browser environments
  * Sends log messages to both the console and the language client
  */
 export class UnifiedLogNotificationHandler implements LogNotificationHandler {
   private static instance: UnifiedLogNotificationHandler | undefined;
   private connection: Connection;
-  private environment: 'node' | 'browser';
+  private environment: 'node' | 'webcontainer' | 'browser';
 
-  private constructor(connection: Connection, environment: 'node' | 'browser') {
+  private constructor(
+    connection: Connection,
+    environment: 'node' | 'webcontainer' | 'browser',
+  ) {
     this.connection = connection;
     this.environment = environment;
   }
@@ -36,7 +38,7 @@ export class UnifiedLogNotificationHandler implements LogNotificationHandler {
    */
   public static getInstance(
     connection: Connection,
-    environment: 'node' | 'browser',
+    environment: 'node' | 'webcontainer' | 'browser',
   ): UnifiedLogNotificationHandler {
     if (!UnifiedLogNotificationHandler.instance) {
       UnifiedLogNotificationHandler.instance =

@@ -2,8 +2,7 @@
  * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import type { Connection } from '../protocol/lsp-types';
@@ -19,7 +18,7 @@ import { UnifiedLogNotificationHandler } from './UnifiedLogNotificationHandler';
  * Platform adapter that handles environment-specific initialization
  */
 export class PlatformAdapter {
-  constructor(private environment: 'node' | 'browser') {}
+  constructor(private environment: 'node' | 'webcontainer' | 'browser') {}
 
   /**
    * Initialize logging before connection is available

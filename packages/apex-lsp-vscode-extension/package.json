@@ -223,7 +223,11 @@
     "@salesforce/apex-ls": "1.0.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
-    "vscode-uri": "^3.0.8"
+    "vscode-uri": "^3.0.8",
+    "@webcontainer/api": "^1.6.4-internal.3"
+  },
+  "optionalDependencies": {
+    "@webcontainer/api": "^1.17.0"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.5",

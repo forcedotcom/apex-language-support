@@ -28,15 +28,19 @@ export function startMinimalWebServer() {
   const connection = createWebConnection();
 
   // Set up basic initialization
-  connection.onInitialize((params: InitializeParams): InitializeResult => {
-    return {
+  connection.onInitialize(
+    (params: InitializeParams): InitializeResult => ({
       capabilities: {
         documentSymbolProvider: true,
         foldingRangeProvider: true,
         textDocumentSync: 1, // Full sync
       },
-    };
-  });
+      serverInfo: {
+        name: 'apex-ls-minimal-web',
+        version: '1.0.0',
+      },
+    }),
+  );
 
   connection.onInitialized(() => {
     connection.sendNotification('window/showMessage', {
@@ -97,18 +101,17 @@ export function startMinimalWebServer() {
   });
 
   // Handle basic requests
-  connection.onRequest('apexlib/resolve', async (params) => {
-    return { content: '// Mock resolved content', uri: params.uri };
-  });
+  connection.onRequest('apexlib/resolve', async (params) => ({
+    content: '// Mock resolved content',
+    uri: params.uri,
+  }));
 
-  connection.onRequest('$/ping', async () => {
-    return {
-      message: 'pong',
-      timestamp: new Date().toISOString(),
-      server: 'apex-ls-minimal-web',
-      environment: 'browser',
-    };
-  });
+  connection.onRequest('$/ping', async () => ({
+    message: 'pong',
+    timestamp: new Date().toISOString(),
+    server: 'apex-ls-minimal-web',
+    environment: 'browser',
+  }));
 
   // Handle shutdown
   connection.onShutdown(() => {
