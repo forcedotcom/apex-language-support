@@ -12,12 +12,16 @@
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ReferenceContext } from '../../src/types/typeReference';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolCollectorListener with Type References', () => {
   let compilerService: CompilerService;
 
   beforeEach(() => {
     compilerService = new CompilerService();
+    // Enable console logging for debugging
+    enableConsoleLogging();
+    setLogLevel('debug');
   });
 
   describe('Method Call References', () => {

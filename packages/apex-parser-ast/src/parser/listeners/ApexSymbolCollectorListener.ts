@@ -39,26 +39,10 @@ import {
   // Use dedicated method call contexts for precise capture
   MethodCallContext,
   DotMethodCallContext,
-  SubExpressionContext,
-  PostOpExpressionContext,
-  PreOpExpressionContext,
-  NegExpressionContext,
-  Arth1ExpressionContext,
-  Arth2ExpressionContext,
-  BitExpressionContext,
-  CmpExpressionContext,
-  InstanceOfExpressionContext,
-  EqualityExpressionContext,
-  BitAndExpressionContext,
-  BitNotExpressionContext,
-  BitOrExpressionContext,
-  LogAndExpressionContext,
-  LogOrExpressionContext,
-  CoalExpressionContext,
-  CondExpressionContext,
   EnhancedForControlContext,
   TypeRefPrimaryContext,
   QualifiedNameContext,
+  AnyIdContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -68,6 +52,7 @@ import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
 import { TypeReferenceFactory } from '../../types/typeReference';
+import type { TypeReference } from '../../types/typeReference';
 import {
   EnumSymbol,
   MethodSymbol,
@@ -225,38 +210,47 @@ export class ApexSymbolCollectorListener
    */
   enterAnnotation(ctx: AnnotationContext): void {
     try {
-      const name = ctx.text.replace('@', '');
+      // Extract qualified annotation name via parser context
+      const qn = ctx.qualifiedName?.();
+      const ids = qn?.id();
+      const _name =
+        ids && ids.length > 0
+          ? ids.map((i) => i.text).join('.')
+          : (ctx.text || '').replace(/^@/, '');
+      // Preserve parameters in the annotation name for compatibility with existing tests
+      const nameWithParams = (ctx.text || '').replace(/^@/, '');
+
       const parameters: AnnotationParameter[] = [];
 
-      // Process annotation parameters
-      const paramStart = ctx.text.indexOf('(');
-      if (paramStart > 0) {
-        const paramEnd = ctx.text.lastIndexOf(')');
-        if (paramEnd > paramStart) {
-          const paramsStr = ctx.text.substring(paramStart + 1, paramEnd);
-          const paramPairs = paramsStr.split(',');
-          for (const pair of paramPairs) {
-            const equalsPos = pair.indexOf('=');
-            if (equalsPos > 0) {
-              const paramName = pair.substring(0, equalsPos).trim();
-              const paramValue = pair.substring(equalsPos + 1).trim();
-              parameters.push({
-                name: paramName,
-                value: paramValue,
-              });
-            }
-          }
+      // elementValuePairs form: name = value (, name = value)*
+      const pairs = ctx.elementValuePairs?.();
+      if (pairs) {
+        const list = pairs.elementValuePair?.() || [];
+        for (const p of list) {
+          const pname = p.id()?.text;
+          const pvalCtx = p.elementValue?.();
+          const pval = pvalCtx
+            ? this.getTextFromContext(pvalCtx as unknown as ParserRuleContext)
+            : '';
+          parameters.push({ name: pname, value: pval });
+        }
+      } else {
+        // Single elementValue (positional) form
+        const single = ctx.elementValue?.();
+        if (single) {
+          const value = this.getTextFromContext(
+            single as unknown as ParserRuleContext,
+          );
+          parameters.push({ value });
         }
       }
 
-      // Create annotation object
       const annotation: Annotation = {
-        name,
+        name: nameWithParams,
         location: this.getLocation(ctx),
         parameters,
       };
 
-      // Add to current annotations
       this.currentAnnotations.push(annotation);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -947,9 +941,6 @@ export class ApexSymbolCollectorListener
         this.currentMethodSymbol.parameters.push(paramSymbol);
       }
       this.symbolTable.addSymbol(paramSymbol);
-
-      // Capture parameter type references
-      this.captureParameterTypeReferences(ctx);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in parameter: ${errorMessage}`, ctx);
@@ -1091,7 +1082,7 @@ export class ApexSymbolCollectorListener
 
         // Process the local variable declaration directly here
         // since the parser doesn't call enterLocalVariableDeclaration
-        this.processLocalVariableDeclaration(localVarDecl as any);
+        this.processLocalVariableDeclaration(localVarDecl);
       } else {
         this.logger.debug(() => 'No local variable declaration child found');
       }
@@ -1310,15 +1301,15 @@ export class ApexSymbolCollectorListener
    */
   enterEnumConstants(ctx: EnumConstantsContext): void {
     try {
-      const enumType = this.createTypeInfo(
-        this.currentTypeSymbol?.name ?? 'Object',
-      );
-      const enumSymbol = this.currentTypeSymbol as EnumSymbol | null;
-
-      if (!enumSymbol || !isEnumSymbol(enumSymbol)) {
+      if (!isEnumSymbol(this.currentTypeSymbol)) {
         this.addError('Enum constants found outside of enum declaration', ctx);
         return;
       }
+
+      const enumType = this.createTypeInfo(
+        this.currentTypeSymbol?.name ?? 'Object',
+      );
+      const enumSymbol = this.currentTypeSymbol;
 
       for (const id of ctx.id()) {
         const name = id.text;
@@ -1412,7 +1403,6 @@ export class ApexSymbolCollectorListener
         validationResult.errors.forEach((error) => {
           this.addError(error, ctx);
         });
-        return; // Skip symbol creation if validation fails
       }
 
       const variableSymbol = this.createVariableSymbol(
@@ -1956,7 +1946,9 @@ export class ApexSymbolCollectorListener
     if (this.shouldSuppress(ctx)) {
       this.logger.debug(
         () =>
-          `DEBUG: Suppressing enterDotExpression within assignment LHS: "${ctx.text || ''}"`,
+          `DEBUG: Suppression state: suppressAssignmentLHS=${
+            this.suppressAssignmentLHS
+          }, suppressedLHSRange=${JSON.stringify(this.suppressedLHSRange)}`,
       );
       return;
     }
@@ -1977,64 +1969,77 @@ export class ApexSymbolCollectorListener
    * VARIABLE_USAGE and FIELD_ACCESS for field access.
    */
   private captureDottedReferences(ctx: DotExpressionContext): void {
-    const text = ctx.text || '';
-    this.logger.debug(
-      () => `DEBUG: captureDottedReferences called with text: "${text}"`,
-    );
+    try {
+      // Only handle field access patterns here. Dot-method calls are handled by enterDotMethodCall
+      // Check if this contains a method call by looking for parentheses
+      const hasMethodCall = ctx.text?.includes('(') || false;
 
-    // Only handle field access patterns here. Dot-method calls are handled by enterDotMethodCall
-    if (!text.includes('(')) {
-      this.logger.debug(
-        () =>
-          'DEBUG: Text does not contain parentheses, checking for field access',
-      );
-      // This is field access like "property.Id"
-      const fieldMatch = text.match(/^(\w+)\.(\w+)$/);
-      this.logger.debug(
-        () => `DEBUG: Field match result: ${JSON.stringify(fieldMatch)}`,
-      );
-      if (fieldMatch) {
-        const objectName = fieldMatch[1];
-        const fieldName = fieldMatch[2];
+      if (!hasMethodCall) {
         this.logger.debug(
           () =>
-            `DEBUG: Extracted objectName: "${objectName}", fieldName: "${fieldName}"`,
+            'DEBUG: Text does not contain parentheses, checking for field access',
         );
 
-        const location = this.getLocationForReference(ctx);
-        const parentContext = this.getCurrentMethodName();
+        // Get the left expression (the object) and the right part (field or method)
+        const expressions = ctx.expression();
+        if (
+          expressions &&
+          Array.isArray(expressions) &&
+          expressions.length > 0
+        ) {
+          const leftExpression = expressions[0];
+          const rightPart = ctx.anyId();
 
-        // Emit VARIABLE_USAGE for the object (always an instance variable)
-        const objectLocation: SymbolLocation = {
-          startLine: location.startLine,
-          startColumn: location.startColumn,
-          endLine: location.startLine,
-          endColumn: location.startColumn + objectName.length,
-        };
-        this.logger.debug(`DEBUG: Creating VARIABLE_USAGE for "${objectName}"`);
-        const variableRef = TypeReferenceFactory.createVariableUsageReference(
-          objectName,
-          objectLocation,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(variableRef);
+          if (leftExpression && rightPart) {
+            const objectName = leftExpression.text;
+            const fieldName = rightPart.text;
 
-        // Emit FIELD_ACCESS for the field
-        this.logger.debug(`DEBUG: Creating FIELD_ACCESS for "${fieldName}"`);
-        const fieldRef = TypeReferenceFactory.createFieldAccessReference(
-          fieldName,
-          location,
-          objectName,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(fieldRef);
-        this.logger.debug(
-          () =>
-            `Captured VARIABLE_USAGE: ${objectName} and FIELD_ACCESS: ${fieldName}`,
-        );
-      } else {
-        this.logger.debug('DEBUG: Field regex did not match');
+            this.logger.debug(
+              () =>
+                `DEBUG: Extracted objectName: "${objectName}", fieldName: "${fieldName}"`,
+            );
+
+            const location = this.getLocation(ctx);
+            const parentContext = this.getCurrentMethodName();
+
+            // Emit VARIABLE_USAGE for the object (always an instance variable)
+            const objectLocation: SymbolLocation = {
+              startLine: location.startLine,
+              startColumn: location.startColumn,
+              endLine: location.startLine,
+              endColumn: location.startColumn + objectName.length,
+            };
+            this.logger.debug(
+              `DEBUG: Creating VARIABLE_USAGE for "${objectName}"`,
+            );
+            const variableRef =
+              TypeReferenceFactory.createVariableUsageReference(
+                objectName,
+                objectLocation,
+                parentContext,
+              );
+            this.symbolTable.addTypeReference(variableRef);
+
+            // Emit FIELD_ACCESS for the field
+            this.logger.debug(
+              `DEBUG: Creating FIELD_ACCESS for "${fieldName}"`,
+            );
+            const fieldRef = TypeReferenceFactory.createFieldAccessReference(
+              fieldName,
+              location,
+              objectName,
+              parentContext,
+            );
+            this.symbolTable.addTypeReference(fieldRef);
+            this.logger.debug(
+              () =>
+                `Captured VARIABLE_USAGE: ${objectName} and FIELD_ACCESS: ${fieldName}`,
+            );
+          }
+        }
       }
+    } catch (error) {
+      this.logger.warn(() => `Error capturing dotted references: ${error}`);
     }
   }
 
@@ -2145,7 +2150,119 @@ export class ApexSymbolCollectorListener
    */
   enterTypeRef(ctx: TypeRefContext): void {
     try {
-      this.captureTypeDeclarationReference(ctx);
+      // If this TypeRef is a generic argument (inside a TypeList), skip here.
+      // The outer owning TypeRef will capture generic parameter references once with precise locations.
+      if (this.isGenericArgument(ctx)) {
+        return;
+      }
+
+      const typeNames = ctx.typeName();
+      if (!typeNames || typeNames.length === 0) return;
+
+      // Get the first typeName (there should only be one in most cases)
+      const typeName = typeNames[0];
+      if (!typeName) return;
+
+      // Determine if this is a type declaration (variable/field declaration) or parameter
+      const isTypeDeclaration = this.isTypeDeclarationContext(ctx);
+
+      // Always capture the base type (handles both identifier base types and LIST/MAP/SET tokens)
+      const baseTypeId = typeName.id();
+      let baseTypeName: string | undefined;
+      let baseLocation: SymbolLocation | undefined;
+
+      if (baseTypeId) {
+        baseTypeName = baseTypeId.text;
+        baseLocation = this.getLocationForReference(baseTypeId);
+      } else {
+        // Fallback: extract base token text (e.g., "List" from "List<String>")
+        const fullText = typeName.text || '';
+        const inferredBase = fullText.split('<')[0];
+        if (inferredBase) {
+          baseTypeName = inferredBase;
+          const tnLoc = this.getLocationForReference(
+            typeName as unknown as ParserRuleContext,
+          );
+          baseLocation = {
+            startLine: tnLoc.startLine,
+            startColumn: tnLoc.startColumn,
+            endLine: tnLoc.startLine,
+            endColumn: tnLoc.startColumn + inferredBase.length,
+          };
+        }
+      }
+
+      if (baseTypeName && baseLocation) {
+        const parentContext = this.determineTypeReferenceContext(ctx);
+        const baseReference = isTypeDeclaration
+          ? TypeReferenceFactory.createTypeDeclarationReference(
+              baseTypeName,
+              baseLocation,
+              parentContext,
+            )
+          : TypeReferenceFactory.createParameterTypeReference(
+              baseTypeName,
+              baseLocation,
+              parentContext,
+            );
+        this.symbolTable.addTypeReference(baseReference);
+        this.logger.debug(
+          () =>
+            `DEBUG: Created ${
+              isTypeDeclaration ? 'TYPE_DECLARATION' : 'PARAMETER_TYPE'
+            } for base type: "${baseTypeName}" in context: ${
+              parentContext || 'unknown'
+            }`,
+        );
+      }
+
+      // Check for generics using parser structure
+      const typeArgs = typeName.typeArguments();
+      if (typeArgs) {
+        const typeList = typeArgs.typeList();
+        if (typeList) {
+          for (const genericTypeRef of typeList.typeRef()) {
+            const genericTypeName = genericTypeRef.text;
+            const location = this.getLocationForReference(genericTypeRef);
+            const parentContext = this.determineTypeReferenceContext(ctx);
+
+            // Check if we already have a reference for this generic type at the same location
+            if (
+              this.hasExistingTypeReferenceAtLocation(
+                genericTypeName,
+                location,
+                parentContext,
+              )
+            ) {
+              this.logger.debug(
+                () =>
+                  `DEBUG: Skipping duplicate generic type reference at location: ${genericTypeName} ` +
+                  `in context: ${parentContext}`,
+              );
+              continue;
+            }
+
+            const genericReference = isTypeDeclaration
+              ? TypeReferenceFactory.createTypeDeclarationReference(
+                  genericTypeName,
+                  location,
+                  parentContext,
+                )
+              : TypeReferenceFactory.createParameterTypeReference(
+                  genericTypeName,
+                  location,
+                  parentContext,
+                );
+            this.symbolTable.addTypeReference(genericReference);
+
+            this.logger.debug(
+              () =>
+                `DEBUG: Created PARAMETER_TYPE for generic type: "${genericTypeName}" ` +
+                `in context: ${parentContext || 'unknown'}`,
+            );
+          }
+        }
+      }
     } catch (error) {
       this.logger.warn(
         () => `Error capturing type declaration reference: ${error}`,
@@ -2154,61 +2271,50 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Capture method call reference from MethodCallExpressionContext
-   * This handles method calls without qualifiers (e.g., "createFile(...)")
+   * Detect whether a TypeRef node is used as a generic argument (e.g., the String in List<String>)
+   * by checking if any ancestor is a TypeList context.
    */
-  private captureMethodCallReference(ctx: MethodCallExpressionContext): void {
-    const text = ctx.text || '';
-
-    // Extract method name from method call without qualifier
-    // Format: "methodName(...)" (no qualifier)
-    const methodMatch = text.match(/^(\w+)\(/);
-    if (methodMatch) {
-      const methodName = methodMatch[1];
-      const location = this.getLocationForReference(ctx);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createMethodCallReference(
-        methodName,
-        location,
-        undefined, // No qualifier for this context
-        parentContext,
-      );
-
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        () => `Captured method call reference without qualifier: ${methodName}`,
-      );
+  private isGenericArgument(ctx: TypeRefContext): boolean {
+    let current: any = ctx.parent;
+    while (current) {
+      const ctorName = current.constructor?.name;
+      if (ctorName === 'TypeListContext') return true;
+      // Stop if we climb past the TypeRef owner (another TypeRef or TypeName)
+      if (ctorName === 'TypeRefContext' || ctorName === 'TypeNameContext') {
+        // keep climbing; generic arguments are nested under TypeList within TypeName
+      }
+      current = current.parent;
     }
+    return false;
   }
 
   /**
-   * Capture constructor call reference from NewExpressionContext
+   * Capture constructor call reference from NewExpressionContext using parser structure
    */
   private captureConstructorCallReference(ctx: NewExpressionContext): void {
-    const text = ctx.text || '';
-    this.logger.debug(
-      `DEBUG: captureConstructorCallReference called with text: "${text}"`,
-    );
+    try {
+      const creator = ctx.creator();
+      if (!creator) return;
 
-    // Handle dotted names and generics, e.g.:
-    // new Map<String,Integer>()
-    // new Namespace.Type(arg)
-    // new List<List<String>>()
-    const match = text.match(
-      /^new\s*([A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*)(?:<([\s\S]*?)>)?\s*>*\s*\(/,
-    );
-    this.logger.debug(
-      () =>
-        `DEBUG: Enhanced constructor regex result: ${JSON.stringify(match)}`,
-    );
-    if (match) {
-      const typeName = match[1];
-      const genericPart = match[2] || '';
-      const location = this.getLocationForReference(ctx);
+      const createdName = creator.createdName();
+      if (!createdName) return;
+
+      // Get the base type name from the createdName
+      const idCreatedNamePairs = createdName.idCreatedNamePair();
+      if (!idCreatedNamePairs || idCreatedNamePairs.length === 0) return;
+
+      // Get the first idCreatedNamePair (the base type)
+      const firstPair = idCreatedNamePairs[0];
+      const anyId = firstPair.anyId();
+      if (!anyId) return;
+
+      const typeName = anyId.text;
+      const location = this.getLocationForReference(
+        anyId as unknown as ParserRuleContext,
+      );
       const parentContext = this.getCurrentMethodName();
 
-      // Emit constructor call for the base (possibly dotted) type
+      // Emit constructor call for the base type
       const ctorRef = TypeReferenceFactory.createConstructorCallReference(
         typeName,
         location,
@@ -2219,48 +2325,72 @@ export class ApexSymbolCollectorListener
         () => `Captured constructor call reference: ${typeName}`,
       );
 
-      // Best-effort parse of top-level generic arguments and emit PARAMETER_TYPE refs
-      // Split genericPart by top-level commas (ignore commas inside nested < >)
-      const splitTopLevel = (s: string): string[] => {
-        const result: string[] = [];
-        let depth = 0;
-        let start = 0;
-        for (let i = 0; i < s.length; i++) {
-          const ch = s[i];
-          if (ch === '<') depth++;
-          else if (ch === '>') depth = Math.max(0, depth - 1);
-          else if (ch === ',' && depth === 0) {
-            result.push(s.slice(start, i).trim());
-            start = i + 1;
-          }
-        }
-        const tail = s.slice(start).trim();
-        if (tail) result.push(tail);
-        return result;
-      };
+      // Handle generic type arguments if present
+      const typeArgs = firstPair.typeList();
+      if (typeArgs) {
+        for (const typeRef of typeArgs.typeRef()) {
+          const genericTypeName = typeRef.text;
+          const genericLocation = this.getLocationForReference(typeRef);
 
-      if (genericPart) {
-        const topLevelArgs = splitTopLevel(genericPart);
-        for (const arg of topLevelArgs) {
-          if (!arg) continue;
+          // Check if we already have a reference for this constructor generic type at the same location
+          if (
+            this.hasExistingTypeReferenceAtLocation(
+              genericTypeName,
+              genericLocation,
+              parentContext,
+            )
+          ) {
+            this.logger.debug(
+              () =>
+                `DEBUG: Skipping duplicate constructor generic type reference at location: ${genericTypeName} ` +
+                `in context: ${parentContext}`,
+            );
+            continue;
+          }
+
           const paramRef = TypeReferenceFactory.createParameterTypeReference(
-            arg,
-            location,
+            genericTypeName,
+            genericLocation,
             parentContext,
           );
           this.symbolTable.addTypeReference(paramRef);
           this.logger.debug(
             () =>
-              `DEBUG: Created PARAMETER_TYPE for constructor generic: "${arg}"`,
+              `DEBUG: Created PARAMETER_TYPE for constructor generic: "${genericTypeName}"`,
           );
         }
       }
-      return;
-    }
 
-    this.logger.debug(
-      `DEBUG: No enhanced constructor match found for text: "${text}"`,
-    );
+      // Handle dotted names (e.g., Namespace.Type)
+      if (idCreatedNamePairs.length > 1) {
+        for (let i = 1; i < idCreatedNamePairs.length; i++) {
+          const pair = idCreatedNamePairs[i];
+          const anyId = pair.anyId();
+          if (anyId) {
+            const dottedTypeName = anyId.text;
+            const dottedLocation = this.getLocationForReference(
+              anyId as unknown as ParserRuleContext,
+            );
+
+            const dottedParamRef =
+              TypeReferenceFactory.createParameterTypeReference(
+                dottedTypeName,
+                dottedLocation,
+                parentContext,
+              );
+            this.symbolTable.addTypeReference(dottedParamRef);
+            this.logger.debug(
+              () =>
+                `DEBUG: Created PARAMETER_TYPE for dotted constructor type: "${dottedTypeName}"`,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        () => `Error capturing constructor call reference: ${error}`,
+      );
+    }
   }
 
   /**
@@ -2334,6 +2464,15 @@ export class ApexSymbolCollectorListener
       const location = this.getLocationForReference(ctx);
       const parentContext = this.getCurrentMethodName();
 
+      // Check if we already have a reference for this type in the same context
+      if (this.hasExistingTypeReference(typeName, parentContext)) {
+        this.logger.debug(
+          () =>
+            `DEBUG: Skipping duplicate type reference: ${typeName} in context: ${parentContext}`,
+        );
+        return;
+      }
+
       const reference = TypeReferenceFactory.createTypeDeclarationReference(
         typeName,
         location,
@@ -2343,83 +2482,6 @@ export class ApexSymbolCollectorListener
       this.symbolTable.addTypeReference(reference);
       this.logger.debug(
         () => `Captured type declaration reference: ${typeName}`,
-      );
-    }
-  }
-
-  /**
-   * Capture parameter type references from FormalParameterContext
-   * Handles both simple types and complex types with dots (e.g., List<String>, Map<String, Property__c>)
-   */
-  private captureParameterTypeReferences(ctx: FormalParameterContext): void {
-    const typeRef = ctx.typeRef();
-    if (!typeRef) return;
-
-    const text = typeRef.text || '';
-    this.logger.debug(
-      `DEBUG: captureParameterTypeReferences called with text: "${text}"`,
-    );
-
-    // Handle complex types with dots (e.g., List<String>, Map<String, Property__c>)
-    if (text.includes('<') && text.includes('>')) {
-      // Extract the base type (e.g., "List" from "List<String>")
-      const baseTypeMatch = text.match(/^(\w+(?:__c)?)</);
-      if (baseTypeMatch) {
-        const baseTypeName = baseTypeMatch[1];
-        const location = this.getLocationForReference(typeRef);
-        const parentContext = this.getCurrentMethodName();
-
-        const baseReference = TypeReferenceFactory.createParameterTypeReference(
-          baseTypeName,
-          location,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(baseReference);
-        this.logger.debug(
-          `DEBUG: Created PARAMETER_TYPE for base type: "${baseTypeName}"`,
-        );
-      }
-
-      // Extract generic type parameters (e.g., "String" from "List<String>")
-      const genericMatches = text.match(/<([^>]+)>/g);
-      if (genericMatches) {
-        for (const genericMatch of genericMatches) {
-          // Remove < and > and split by comma
-          const genericTypes = genericMatch
-            .slice(1, -1)
-            .split(',')
-            .map((t) => t.trim());
-          for (const genericType of genericTypes) {
-            const location = this.getLocationForReference(typeRef);
-            const parentContext = this.getCurrentMethodName();
-
-            const genericReference =
-              TypeReferenceFactory.createParameterTypeReference(
-                genericType,
-                location,
-                parentContext,
-              );
-            this.symbolTable.addTypeReference(genericReference);
-            this.logger.debug(
-              `DEBUG: Created PARAMETER_TYPE for generic type: "${genericType}"`,
-            );
-          }
-        }
-      }
-    } else {
-      // Handle simple types (e.g., "String", "Property__c")
-      const typeName = text.trim();
-      const location = this.getLocationForReference(typeRef);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createParameterTypeReference(
-        typeName,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created PARAMETER_TYPE for simple type: "${typeName}"`,
       );
     }
   }
@@ -2459,6 +2521,176 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Determine if a type reference is in a type declaration context (variable/field declaration)
+   * @param ctx The TypeRefContext
+   * @returns true if this is a type declaration, false otherwise
+   */
+  private isTypeDeclarationContext(ctx: TypeRefContext): boolean {
+    // Traverse up the parse tree to find the appropriate context
+    let current: any = ctx.parent;
+
+    while (current) {
+      const ctorName = current.constructor?.name;
+
+      // Check for variable/field declaration contexts
+      if (
+        ctorName === 'FieldDeclarationContext' ||
+        ctorName === 'PropertyDeclarationContext' ||
+        ctorName === 'LocalVariableDeclarationContext' ||
+        ctorName === 'VariableDeclaratorContext'
+      ) {
+        return true;
+      }
+
+      // Check for parameter contexts
+      if (ctorName === 'FormalParameterContext') {
+        return false;
+      }
+
+      // Move up to parent
+      current = current.parent;
+    }
+
+    // Default to type declaration if we can't determine
+    return true;
+  }
+
+  /**
+   * Check if a type reference already exists for the given type name and context
+   * This helps prevent duplicate type references
+   * @param typeName The type name to check
+   * @param context The context to check in
+   * @returns true if a reference already exists, false otherwise
+   */
+  private hasExistingTypeReference(
+    typeName: string,
+    context: string | undefined,
+  ): boolean {
+    if (!context) return false;
+
+    // Get all references from the symbol table and check for duplicates
+    const allReferences = this.symbolTable.getAllReferences();
+
+    // Only consider it a duplicate if an identical name+context already exists twice or more.
+    // This keeps one occurrence for cases like List<String> and Map<String, T> that legitimately
+    // need multiple distinct String references at different locations.
+    let count = 0;
+    for (const ref of allReferences as TypeReference[]) {
+      if (
+        ref.name === typeName &&
+        (ref.context === 5 || ref.context === 6) &&
+        ref.parentContext === context
+      ) {
+        count += 1;
+        if (count >= 2) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if a type reference already exists at the same location
+   * This helps prevent duplicate type references at the exact same position
+   * @param typeName The type name to check
+   * @param location The location to check
+   * @param context The context to check in
+   * @returns true if a reference already exists at the same location, false otherwise
+   */
+  private hasExistingTypeReferenceAtLocation(
+    typeName: string,
+    location: SymbolLocation,
+    context: string | undefined,
+  ): boolean {
+    if (!context) return false;
+
+    // Get all references from the symbol table and check for exact location matches
+    const allReferences = this.symbolTable.getAllReferences();
+
+    return allReferences.some(
+      (ref) =>
+        ref.name === typeName &&
+        (ref.context === 5 || ref.context === 6) && // TYPE_DECLARATION = 5, PARAMETER_TYPE = 6
+        ref.parentContext === context &&
+        ref.location.startLine === location.startLine &&
+        ref.location.startColumn === location.startColumn &&
+        ref.location.endLine === location.endLine &&
+        ref.location.endColumn === location.endColumn,
+    );
+  }
+
+  /**
+   * Determine the appropriate context for a type reference based on the parser tree
+   * @param ctx The TypeRefContext
+   * @returns The context string or undefined if not in a recognizable context
+   */
+  private determineTypeReferenceContext(
+    ctx: TypeRefContext,
+  ): string | undefined {
+    // Traverse up the parse tree to find the appropriate context
+    let current: any = ctx.parent;
+
+    while (current) {
+      const ctorName = current.constructor?.name;
+
+      // Check for method-related contexts
+      if (ctorName === 'FormalParameterContext') {
+        return this.getCurrentMethodName();
+      }
+
+      if (
+        ctorName === 'MethodDeclarationContext' ||
+        ctorName === 'InterfaceMethodDeclarationContext'
+      ) {
+        return this.getCurrentMethodName();
+      }
+
+      // Check for field/property contexts
+      if (
+        ctorName === 'FieldDeclarationContext' ||
+        ctorName === 'PropertyDeclarationContext'
+      ) {
+        return this.currentTypeSymbol?.name;
+      }
+
+      // Check for local variable contexts
+      if (ctorName === 'LocalVariableDeclarationContext') {
+        return this.getCurrentMethodName();
+      }
+
+      // Check for constructor call contexts
+      if (ctorName === 'NewExpressionContext') {
+        return this.getCurrentMethodName();
+      }
+
+      // Check for cast contexts
+      if (ctorName === 'CastExpressionContext') {
+        return this.getCurrentMethodName();
+      }
+
+      // Check for instanceof contexts
+      if (ctorName === 'InstanceOfExpressionContext') {
+        return this.getCurrentMethodName();
+      }
+
+      // Check for enhanced for contexts
+      if (ctorName === 'EnhancedForControlContext') {
+        return this.getCurrentMethodName();
+      }
+
+      // Check for type literal contexts
+      if (ctorName === 'TypeRefPrimaryContext') {
+        return this.getCurrentMethodName();
+      }
+
+      // Move up to parent
+      current = current.parent;
+    }
+
+    // Fallback to current method or type context
+    return this.getCurrentMethodName() || this.currentTypeSymbol?.name;
+  }
+
+  /**
    * Determine if capturing should be suppressed for the given ctx because
    * it lies within the current assignment LHS range.
    */
@@ -2487,9 +2719,153 @@ export class ApexSymbolCollectorListener
     return symbols.some((symbol: ApexSymbol) => symbol.name === variableName);
   }
 
+  /**
+   * Check if an identifier is a method call parameter
+   * This helps distinguish between identifiers that should be captured
+   * even when they appear inside dot expressions
+   */
+  private isMethodCallParameter(ctx: IdPrimaryContext): boolean {
+    let current: any = ctx.parent;
+
+    while (current) {
+      const ctorName = current.constructor?.name;
+
+      // If we find an expression list, this is likely a method call parameter
+      if (ctorName === 'ExpressionListContext') {
+        return true;
+      }
+
+      // If we find a method call context, this is definitely a parameter
+      if (
+        ctorName === 'MethodCallContext' ||
+        ctorName === 'DotMethodCallContext'
+      ) {
+        return true;
+      }
+
+      // Move up to parent
+      current = current.parent;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if an identifier is in an assignment LHS context
+   * This helps prevent duplication between enterAssignExpression and enterAnyId
+   */
+  private isInAssignmentLHS(ctx: AnyIdContext): boolean {
+    let current: any = ctx.parent;
+
+    while (current) {
+      const ctorName = current.constructor?.name;
+
+      // If we find an assignment expression, this is in an assignment LHS
+      if (ctorName === 'AssignExpressionContext') {
+        return true;
+      }
+
+      // Move up to parent
+      current = current.parent;
+    }
+
+    return false;
+  }
+
   // ============================================================================
   // PHASE 2: COMPLETE REFERENCE CAPTURE - Additional Listener Methods
   // ============================================================================
+
+  /**
+   * Handle anyId in dot expressions (e.g., the "Id" in "property.Id")
+   * This captures field access references directly from the parser structure
+   */
+  enterAnyId(ctx: AnyIdContext): void {
+    try {
+      this.logger.debug(
+        () => `DEBUG: enterAnyId called with text: "${ctx.text || ''}"`,
+      );
+
+      // Check if this is part of a dot expression
+      const parent = ctx.parent;
+      this.logger.debug(
+        () =>
+          `DEBUG: Parent context: ${parent?.constructor?.name || 'undefined'}`,
+      );
+
+      if (parent && parent.constructor?.name === 'DotExpressionContext') {
+        const dotContext = parent as any;
+        const fieldName = ctx.text;
+
+        this.logger.debug(
+          () => `DEBUG: Processing dot expression for field: "${fieldName}"`,
+        );
+
+        // Check if we're in an assignment LHS context to avoid duplication
+        if (this.isInAssignmentLHS(ctx)) {
+          this.logger.debug(
+            () =>
+              `DEBUG: Skipping field access capture in assignment LHS: "${fieldName}"`,
+          );
+          return;
+        }
+
+        // Get the left expression (the object)
+        const expressions = dotContext.expression();
+        this.logger.debug(
+          () =>
+            `DEBUG: Expressions type: ${typeof expressions}, isArray: ${Array.isArray(expressions)}`,
+        );
+
+        // Handle both array and single expression cases
+        let leftExpression: any = null;
+        if (Array.isArray(expressions) && expressions.length > 0) {
+          leftExpression = expressions[0];
+        } else if (expressions && typeof expressions === 'object') {
+          // Single expression case
+          leftExpression = expressions;
+        }
+
+        this.logger.debug(
+          () =>
+            `DEBUG: Left expression type: ${leftExpression?.constructor?.name || 'undefined'}`,
+        );
+
+        if (leftExpression) {
+          const objectName = leftExpression.text;
+
+          this.logger.debug(
+            () => `DEBUG: Left expression (object): "${objectName}"`,
+          );
+
+          // Create FIELD_ACCESS reference
+          const location = this.getLocationForReference(ctx);
+          const parentContext = this.getCurrentMethodName();
+
+          const fieldRef = TypeReferenceFactory.createFieldAccessReference(
+            fieldName,
+            location,
+            objectName,
+            parentContext,
+          );
+
+          this.symbolTable.addTypeReference(fieldRef);
+          this.logger.debug(
+            () => `Captured FIELD_ACCESS: ${fieldName} (object: ${objectName})`,
+          );
+        }
+      } else {
+        this.logger.debug(
+          () =>
+            `DEBUG: Not in dot expression context, parent: ${parent?.constructor?.name || 'undefined'}`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        () => `Error handling anyId in dot expression: ${error}`,
+      );
+    }
+  }
 
   /**
    * Capture identifier usage in primary expressions (e.g., variable names)
@@ -2503,34 +2879,31 @@ export class ApexSymbolCollectorListener
       );
       return;
     }
+
+    // Check if this identifier is a method call parameter
+    const isMethodCallParameter = this.isMethodCallParameter(ctx);
+
     // Skip emitting a VARIABLE_USAGE when this identifier participates in a dotted
-    // expression (e.g., EncodingUtil.urlEncode or obj.field). These cases are
-    // handled by dedicated dot listeners that emit CLASS_REFERENCE, METHOD_CALL,
-    // or FIELD_ACCESS with precise qualifier logic. Allowing idPrimary to emit
-    // here causes duplicate/competing references and misclassification.
-    let parent = ctx.parent as ParserRuleContext | undefined;
-    let insideArguments = false;
-    while (parent) {
-      const ctorName = parent.constructor?.name;
-      if (
-        ctorName === 'ExpressionListContext' ||
-        ctorName === 'ArgumentsContext'
-      ) {
-        insideArguments = true;
+    // expression (e.g., EncodingUtil.urlEncode or obj.field), UNLESS it's a method call parameter.
+    // Method call parameters need to be captured even inside dot expressions.
+    if (!isMethodCallParameter) {
+      let parent = ctx.parent as ParserRuleContext | undefined;
+      while (parent) {
+        const ctorName = parent.constructor?.name;
+        if (
+          ctorName === 'DotExpressionContext' ||
+          ctorName === 'DotMethodCallContext'
+        ) {
+          this.logger.debug(
+            () =>
+              `DEBUG: Skipping idPrimary capture inside dot expression: "${ctx.text || ''}"`,
+          );
+          return;
+        }
+        parent = parent.parent as ParserRuleContext | undefined;
       }
-      if (
-        (ctorName === 'DotExpressionContext' ||
-          ctorName === 'DotMethodCallContext') &&
-        !insideArguments
-      ) {
-        this.logger.debug(
-          () =>
-            `DEBUG: Skipping idPrimary capture inside ${ctorName} (non-argument): "${ctx.text || ''}"`,
-        );
-        return;
-      }
-      parent = parent.parent as ParserRuleContext | undefined;
     }
+
     const variableName = this.getTextFromContext(ctx);
     const location = this.getLocation(ctx);
     const parentContext = this.getCurrentMethodName();
@@ -2793,7 +3166,7 @@ export class ApexSymbolCollectorListener
       const tr = ctx.typeRef?.();
       if (!tr) return;
       const typeName = this.getTextFromContext(tr);
-      const location = this.getLocation(tr as unknown as ParserRuleContext);
+      const location = this.getLocation(tr);
       const parentContext = this.getCurrentMethodName();
       const classRef = TypeReferenceFactory.createClassReference(
         typeName,
@@ -2807,610 +3180,6 @@ export class ApexSymbolCollectorListener
       );
     } catch (e) {
       this.logger.warn(() => `Error capturing typeRefPrimary: ${e}`);
-    }
-  }
-
-  /**
-   * Capture sub-expression references
-   * This captures parenthesized expressions like "(myVariable)"
-   */
-  enterSubExpression(ctx: SubExpressionContext): void {
-    const expression = ctx.expression();
-    if (expression) {
-      const exprText = this.getTextFromContext(expression);
-      const location = this.getLocation(expression);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        exprText,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for sub-expression: "${exprText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture post-operation expression references
-   * This captures post-increment/decrement like "myVariable++"
-   */
-  enterPostOpExpression(ctx: PostOpExpressionContext): void {
-    const expression = ctx.expression();
-    if (expression) {
-      const exprText = this.getTextFromContext(expression);
-      const location = this.getLocation(expression);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        exprText,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for post-op expression: "${exprText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture pre-operation expression references
-   * This captures pre-increment/decrement like "++myVariable"
-   */
-  enterPreOpExpression(ctx: PreOpExpressionContext): void {
-    const expression = ctx.expression();
-    if (expression) {
-      const exprText = this.getTextFromContext(expression);
-      const location = this.getLocationForReference(expression);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        exprText,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for pre-op expression: "${exprText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture negation expression references
-   * This captures unary negation like "!myVariable" or "~myVariable"
-   */
-  enterNegExpression(ctx: NegExpressionContext): void {
-    const expression = ctx.expression();
-    if (expression) {
-      const exprText = this.getTextFromContext(expression);
-      const location = this.getLocation(expression);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        exprText,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for negation expression: "${exprText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture arithmetic expression references (multiplication/division)
-   * This captures expressions like "a * b" or "a / b"
-   */
-  enterArth1Expression(ctx: Arth1ExpressionContext): void {
-    // Capture both operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 2) {
-      // Left operand
-      const leftText = this.getTextFromContext(expressions[0]);
-      const leftLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const leftReference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        leftLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(leftReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for arth1 left operand: "${leftText}"`,
-      );
-
-      // Right operand
-      const rightText = this.getTextFromContext(expressions[1]);
-      const rightLocation = this.getLocation(expressions[1]);
-      const rightReference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        rightLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(rightReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for arth1 right operand: "${rightText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture arithmetic expression references (addition/subtraction)
-   * This captures expressions like "a + b" or "a - b"
-   */
-  enterArth2Expression(ctx: Arth2ExpressionContext): void {
-    // Capture both operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 2) {
-      // Left operand
-      const leftText = this.getTextFromContext(expressions[0]);
-      const leftLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const leftReference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        leftLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(leftReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for arth2 left operand: "${leftText}"`,
-      );
-
-      // Right operand
-      const rightText = this.getTextFromContext(expressions[1]);
-      const rightLocation = this.getLocation(expressions[1]);
-      const rightReference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        rightLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(rightReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for arth2 right operand: "${rightText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture bitwise expression references
-   * This captures bitwise operations like "a << b" or "a >> b"
-   */
-  enterBitExpression(ctx: BitExpressionContext): void {
-    // Capture both operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 2) {
-      // Left operand
-      const leftText = this.getTextFromContext(expressions[0]);
-      const leftLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const leftReference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        leftLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(leftReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for bit left operand: "${leftText}"`,
-      );
-
-      // Right operand
-      const rightText = this.getTextFromContext(expressions[1]);
-      const rightLocation = this.getLocation(expressions[1]);
-      const rightReference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        rightLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(rightReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for bit right operand: "${rightText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture comparison expression references
-   * This captures comparisons like "a > b" or "a < b"
-   */
-  enterCmpExpression(ctx: CmpExpressionContext): void {
-    // Capture both operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 2) {
-      // Left operand
-      const leftText = this.getTextFromContext(expressions[0]);
-      const leftLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const leftReference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        leftLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(leftReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for cmp left operand: "${leftText}"`,
-      );
-
-      // Right operand
-      const rightText = this.getTextFromContext(expressions[1]);
-      const rightLocation = this.getLocation(expressions[1]);
-      const rightReference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        rightLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(rightReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for cmp right operand: "${rightText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture instanceof expression references
-   * This captures type checking like "myVariable instanceof String"
-   */
-  enterInstanceOfExpression(ctx: InstanceOfExpressionContext): void {
-    // Capture the expression being checked
-    const expression = ctx.expression();
-    if (expression) {
-      const exprText = this.getTextFromContext(expression);
-      const location = this.getLocation(expression);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        exprText,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for instanceof expression: "${exprText}"`,
-      );
-    }
-
-    // Capture the type being checked against
-    const typeRef = ctx.typeRef();
-    if (typeRef) {
-      const typeName = this.getTextFromContext(typeRef);
-      const location = this.getLocation(typeRef);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createClassReference(
-        typeName,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created CLASS_REFERENCE for instanceof type: "${typeName}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture equality expression references
-   * This captures equality checks like "a == b" or "a != b"
-   */
-  enterEqualityExpression(ctx: EqualityExpressionContext): void {
-    // Capture both operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 2) {
-      // Left operand
-      const leftText = this.getTextFromContext(expressions[0]);
-      const leftLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const leftReference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        leftLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(leftReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for equality left operand: "${leftText}"`,
-      );
-
-      // Right operand
-      const rightText = this.getTextFromContext(expressions[1]);
-      const rightLocation = this.getLocation(expressions[1]);
-      const rightReference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        rightLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(rightReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for equality right operand: "${rightText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture bitwise AND expression references
-   * This captures bitwise AND like "a & b"
-   */
-  enterBitAndExpression(ctx: BitAndExpressionContext): void {
-    // Capture both operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 2) {
-      // Left operand
-      const leftText = this.getTextFromContext(expressions[0]);
-      const leftLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const leftReference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        leftLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(leftReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for bitAnd left operand: "${leftText}"`,
-      );
-
-      // Right operand
-      const rightText = this.getTextFromContext(expressions[1]);
-      const rightLocation = this.getLocation(expressions[1]);
-      const rightReference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        rightLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(rightReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for bitAnd right operand: "${rightText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture bitwise XOR expression references
-   * This captures bitwise XOR like "a ^ b"
-   */
-  enterBitNotExpression(ctx: BitNotExpressionContext): void {
-    // Capture both operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 2) {
-      // Left operand
-      const leftText = this.getTextFromContext(expressions[0]);
-      const leftLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const leftReference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        leftLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(leftReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for bitXor left operand: "${leftText}"`,
-      );
-
-      // Right operand
-      const rightText = this.getTextFromContext(expressions[1]);
-      const rightLocation = this.getLocation(expressions[1]);
-      const rightReference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        rightLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(rightReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for bitXor right operand: "${rightText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture bitwise OR expression references
-   * This captures bitwise OR like "a | b"
-   */
-  enterBitOrExpression(ctx: BitOrExpressionContext): void {
-    // Capture both operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 2) {
-      // Left operand
-      const leftText = this.getTextFromContext(expressions[0]);
-      const leftLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const leftReference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        leftLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(leftReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for bitOr left operand: "${leftText}"`,
-      );
-
-      // Right operand
-      const rightText = this.getTextFromContext(expressions[1]);
-      const rightLocation = this.getLocation(expressions[1]);
-      const rightReference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        rightLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(rightReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for bitOr right operand: "${rightText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture logical AND expression references
-   * This captures logical AND like "a && b"
-   */
-  enterLogAndExpression(ctx: LogAndExpressionContext): void {
-    // Capture both operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 2) {
-      // Left operand
-      const leftText = this.getTextFromContext(expressions[0]);
-      const leftLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const leftReference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        leftLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(leftReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for logAnd left operand: "${leftText}"`,
-      );
-
-      // Right operand
-      const rightText = this.getTextFromContext(expressions[1]);
-      const rightLocation = this.getLocation(expressions[1]);
-      const rightReference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        rightLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(rightReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for logAnd right operand: "${rightText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture logical OR expression references
-   * This captures logical OR like "a || b"
-   */
-  enterLogOrExpression(ctx: LogOrExpressionContext): void {
-    // Capture both operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 2) {
-      // Left operand
-      const leftText = this.getTextFromContext(expressions[0]);
-      const leftLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const leftReference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        leftLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(leftReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for logOr left operand: "${leftText}"`,
-      );
-
-      // Right operand
-      const rightText = this.getTextFromContext(expressions[1]);
-      const rightLocation = this.getLocation(expressions[1]);
-      const rightReference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        rightLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(rightReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for logOr right operand: "${rightText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture coalescing expression references
-   * This captures null coalescing like "a ?? b"
-   */
-  enterCoalExpression(ctx: CoalExpressionContext): void {
-    // Capture both operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 2) {
-      // Left operand
-      const leftText = this.getTextFromContext(expressions[0]);
-      const leftLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const leftReference = TypeReferenceFactory.createVariableUsageReference(
-        leftText,
-        leftLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(leftReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for coalesce left operand: "${leftText}"`,
-      );
-
-      // Right operand
-      const rightText = this.getTextFromContext(expressions[1]);
-      const rightLocation = this.getLocation(expressions[1]);
-      const rightReference = TypeReferenceFactory.createVariableUsageReference(
-        rightText,
-        rightLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(rightReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for coalesce right operand: "${rightText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture conditional expression references
-   * This captures ternary operators like "a ? b : c"
-   */
-  enterCondExpression(ctx: CondExpressionContext): void {
-    // Capture all three operands
-    const expressions = ctx.expression();
-    if (expressions && expressions.length >= 3) {
-      // Condition operand
-      const conditionText = this.getTextFromContext(expressions[0]);
-      const conditionLocation = this.getLocation(expressions[0]);
-      const parentContext = this.getCurrentMethodName();
-
-      const conditionReference =
-        TypeReferenceFactory.createVariableUsageReference(
-          conditionText,
-          conditionLocation,
-          parentContext,
-        );
-      this.symbolTable.addTypeReference(conditionReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for condition: "${conditionText}"`,
-      );
-
-      // True operand
-      const trueText = this.getTextFromContext(expressions[1]);
-      const trueLocation = this.getLocation(expressions[1]);
-      const trueReference = TypeReferenceFactory.createVariableUsageReference(
-        trueText,
-        trueLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(trueReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for true branch: "${trueText}"`,
-      );
-
-      // False operand
-      const falseText = this.getTextFromContext(expressions[2]);
-      const falseLocation = this.getLocation(expressions[2]);
-      const falseReference = TypeReferenceFactory.createVariableUsageReference(
-        falseText,
-        falseLocation,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(falseReference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for false branch: "${falseText}"`,
-      );
     }
   }
 

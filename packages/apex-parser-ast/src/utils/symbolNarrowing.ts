@@ -28,50 +28,61 @@ export const hasIdMethod = (
 /**
  * Type predicate to check if a symbol is an EnumSymbol
  */
-export const isEnumSymbol = (symbol: ApexSymbol): symbol is EnumSymbol =>
-  symbol.kind === SymbolKind.Enum;
+export const isEnumSymbol = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is EnumSymbol => !!symbol && symbol.kind === SymbolKind.Enum;
 
 /**
  * Type predicate to check if a symbol is a MethodSymbol
  */
-export const isMethodSymbol = (symbol: ApexSymbol): symbol is MethodSymbol =>
-  symbol.kind === SymbolKind.Method || symbol.kind === SymbolKind.Constructor;
+export const isMethodSymbol = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is MethodSymbol =>
+  !!symbol &&
+  (symbol.kind === SymbolKind.Method || symbol.kind === SymbolKind.Constructor);
 
 /**
  * Type predicate to check if a symbol is a ClassSymbol
  */
-export const isClassSymbol = (symbol: ApexSymbol): symbol is TypeSymbol =>
-  symbol.kind === SymbolKind.Class;
+export const isClassSymbol = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is TypeSymbol => !!symbol && symbol.kind === SymbolKind.Class;
 
 /**
  * Type predicate to check if a symbol is an InterfaceSymbol
  */
-export const isInterfaceSymbol = (symbol: ApexSymbol): symbol is TypeSymbol =>
-  symbol.kind === SymbolKind.Interface;
+export const isInterfaceSymbol = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is TypeSymbol => !!symbol && symbol.kind === SymbolKind.Interface;
 
 /**
  * Type predicate to check if a symbol is a TriggerSymbol
  */
-export const isTriggerSymbol = (symbol: ApexSymbol): symbol is TypeSymbol =>
-  symbol.kind === SymbolKind.Trigger;
+export const isTriggerSymbol = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is TypeSymbol => !!symbol && symbol.kind === SymbolKind.Trigger;
 
 /**
  * Type predicate to check if a symbol is in the TypeSymbol family (Class, Interface, Enum, or Trigger)
  */
-export const inTypeSymbolGroup = (symbol: ApexSymbol): symbol is TypeSymbol =>
-  symbol.kind === SymbolKind.Class ||
-  symbol.kind === SymbolKind.Interface ||
-  symbol.kind === SymbolKind.Enum ||
-  symbol.kind === SymbolKind.Trigger;
+export const inTypeSymbolGroup = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is TypeSymbol =>
+  !!symbol &&
+  (symbol.kind === SymbolKind.Class ||
+    symbol.kind === SymbolKind.Enum ||
+    symbol.kind === SymbolKind.Interface ||
+    symbol.kind === SymbolKind.Trigger);
 
 /**
  * Type predicate to check if a symbol is a VariableSymbol
  */
 export const isVariableSymbol = (
-  symbol: ApexSymbol,
+  symbol: ApexSymbol | undefined | null,
 ): symbol is VariableSymbol =>
-  symbol.kind === SymbolKind.Property ||
-  symbol.kind === SymbolKind.Field ||
-  symbol.kind === SymbolKind.Variable ||
-  symbol.kind === SymbolKind.Parameter ||
-  symbol.kind === SymbolKind.EnumValue;
+  !!symbol &&
+  (symbol.kind === SymbolKind.Property ||
+    symbol.kind === SymbolKind.Field ||
+    symbol.kind === SymbolKind.Variable ||
+    symbol.kind === SymbolKind.Parameter ||
+    symbol.kind === SymbolKind.EnumValue);
