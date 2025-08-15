@@ -164,52 +164,6 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Create default modifiers
-   */
-  private createDefaultModifiers(): SymbolModifiers {
-    return {
-      visibility: SymbolVisibility.Default,
-      isStatic: false,
-      isFinal: false,
-      isAbstract: false,
-      isVirtual: false,
-      isOverride: false,
-      isTransient: false,
-      isTestMethod: false,
-      isWebService: false,
-      isBuiltIn: false,
-    };
-  }
-
-  /**
-   * Reset modifiers to defaults
-   */
-  private resetModifiers(): void {
-    this.currentModifiers = this.createDefaultModifiers();
-  }
-
-  /**
-   * Get the current modifiers
-   */
-  private getCurrentModifiers(): SymbolModifiers {
-    return { ...this.currentModifiers };
-  }
-
-  /**
-   * Reset the current annotations list
-   */
-  private resetAnnotations(): void {
-    this.currentAnnotations = [];
-  }
-
-  /**
-   * Get the current annotations
-   */
-  private getCurrentAnnotations(): Annotation[] {
-    return [...this.currentAnnotations];
-  }
-
-  /**
    * Called when entering an annotation in the Apex code.
    * Processes the annotation and its parameters, creating an annotation object.
    * @param ctx The parser context for the annotation.
@@ -1102,173 +1056,6 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Called when entering a local variable declaration
-   */
-  enterLocalVariableDeclaration(ctx: LocalVariableDeclarationContext): void {
-    // DISABLED: This method is disabled to prevent double processing
-    // Local variable declarations are processed in enterLocalVariableDeclarationStatement
-    // which provides the proper statement context
-    return;
-
-    /*
-    try {
-      this.logger.debug(
-        () =>
-          `enterLocalVariableDeclaration: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
-      );
-      // Get current modifiers and reset for next declaration
-      const modifiers = this.getCurrentModifiers();
-      this.resetModifiers();
-
-      // Get the type
-      const varTypeText = ctx.typeRef()
-        ? this.getTextFromContext(ctx.typeRef())
-        : 'Object';
-      const varType = this.createTypeInfo(varTypeText);
-
-      // Process each variable declared
-      const variableDeclarators = ctx
-        .variableDeclarators()
-        .variableDeclarator();
-      
-      // Collect all variable names in this statement for duplicate checking within the statement
-      const statementVariableNames = new Set<string>();
-      
-      for (const declarator of variableDeclarators) {
-        const name = declarator.id()?.text ?? 'unknownVariable';
-
-        // Check for duplicate variable names within the same statement
-        if (statementVariableNames.has(name)) {
-          this.addError(
-            `Duplicate variable declaration: '${name}' is already declared in this statement`,
-            declarator,
-          );
-          continue; // Skip processing this duplicate variable
-        }
-        statementVariableNames.add(name);
-
-        // Check for duplicate variable declaration in the current scope (from previous statements)
-        const existingSymbol = this.symbolTable.findSymbolInCurrentScope(name);
-        if (existingSymbol) {
-          this.addError(
-            `Duplicate variable declaration: '${name}' is already declared in this scope`,
-            declarator,
-          );
-          continue; // Skip processing this duplicate variable
-        }
-
-        this.logger.debug(
-          () =>
-            `Processing local variable: ${name} in method: ${this.currentMethodSymbol?.name}`,
-        );
-
-        // Always process the variable in the current scope
-        this.processVariableDeclarator(
-          declarator,
-          varType,
-          modifiers,
-          SymbolKind.Variable,
-        );
-      }
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(
-        `Error in local variable declaration: ${errorMessage}`,
-        ctx,
-      );
-    }
-    */
-  }
-
-  /**
-   * Process a local variable declaration (extracted from statement)
-   */
-  private processLocalVariableDeclaration(ctx: any): void {
-    try {
-      this.logger.debug(
-        () =>
-          `processLocalVariableDeclaration: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
-      );
-      // Get current modifiers and reset for next declaration
-      const modifiers = this.getCurrentModifiers();
-      this.resetModifiers();
-
-      // Extract type reference and variable declarators from children
-      // The structure is: modifier* typeRef variableDeclarators
-      let typeRefChild: any = null;
-      let variableDeclaratorsChild: any = null;
-
-      // Find the typeRef and variableDeclarators children
-      for (const child of ctx.children || []) {
-        if (child.constructor.name === 'TypeRefContext') {
-          typeRefChild = child;
-        } else if (child.constructor.name === 'VariableDeclaratorsContext') {
-          variableDeclaratorsChild = child;
-        }
-      }
-
-      // Get the type
-      const varTypeText = typeRefChild
-        ? this.getTextFromContext(typeRefChild)
-        : 'Object';
-      const varType = this.createTypeInfo(varTypeText);
-
-      // Process each variable declared
-      if (variableDeclaratorsChild) {
-        const variableDeclarators =
-          variableDeclaratorsChild.variableDeclarator();
-
-        // Collect all variable names in this statement for duplicate checking within the statement
-        const statementVariableNames = new Set<string>();
-
-        for (const declarator of variableDeclarators) {
-          const name = declarator.id()?.text ?? 'unknownVariable';
-
-          // Check for duplicate variable names within the same statement
-          if (statementVariableNames.has(name)) {
-            this.addError(
-              `Duplicate variable declaration: '${name}' is already declared in this statement`,
-              declarator,
-            );
-            continue; // Skip processing this duplicate variable
-          }
-          statementVariableNames.add(name);
-
-          // Check for duplicate variable declaration in the current scope (from previous statements)
-          const existingSymbol =
-            this.symbolTable.findSymbolInCurrentScope(name);
-          if (existingSymbol) {
-            this.addError(
-              `Duplicate variable declaration: '${name}' is already declared in this scope`,
-              declarator,
-            );
-            continue; // Skip processing this duplicate variable
-          }
-
-          this.logger.debug(
-            () =>
-              `Processing local variable: ${name} in method: ${this.currentMethodSymbol?.name}`,
-          );
-
-          // Always process the variable in the current scope
-          this.processVariableDeclarator(
-            declarator,
-            varType,
-            modifiers,
-            SymbolKind.Variable,
-          );
-        }
-      }
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(
-        `Error in local variable declaration: ${errorMessage}`,
-        ctx,
-      );
-    }
-  }
-
-  /**
    * Called when entering an enum declaration
    */
   enterEnumDeclaration(ctx: EnumDeclarationContext): void {
@@ -1378,454 +1165,6 @@ export class ApexSymbolCollectorListener
     this.symbolTable.exitScope();
     this.blockDepth--;
   }
-
-  /**
-   * Process a variable declarator
-   */
-  private processVariableDeclarator(
-    ctx: VariableDeclaratorContext,
-    type: TypeInfo,
-    modifiers: SymbolModifiers,
-    kind: SymbolKind.Field | SymbolKind.Variable | SymbolKind.EnumValue,
-  ): void {
-    try {
-      this.logger.debug(
-        () =>
-          // eslint-disable-next-line max-len
-          `processVariableDeclarator: ${ctx.text} in method: ${this.currentMethodSymbol?.name} type: ${type.name} kind: ${kind}`,
-      );
-
-      const name = ctx.id()?.text ?? 'unknownVariable';
-
-      // Validate identifier
-      const validationResult = IdentifierValidator.validateIdentifier(
-        name,
-        kind,
-        false, // Variables are never top-level
-        this.createValidationScope(),
-      );
-
-      if (!validationResult.isValid) {
-        validationResult.errors.forEach((error) => {
-          this.addError(error, ctx);
-        });
-      }
-
-      const variableSymbol = this.createVariableSymbol(
-        ctx,
-        modifiers,
-        name,
-        kind,
-        type,
-      );
-
-      this.symbolTable.addSymbol(variableSymbol);
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error in variable: ${errorMessage}`, ctx);
-    }
-  }
-
-  /**
-   * Get location information from a context
-   */
-  private getLocation(ctx: ParserRuleContext): SymbolLocation {
-    return {
-      startLine: ctx.start.line, // Use native ANTLR 1-based line numbers
-      startColumn: ctx.start.charPositionInLine, // Both use 0-based columns
-      endLine: ctx.stop?.line ?? ctx.start.line, // Use native ANTLR 1-based line numbers
-      endColumn:
-        (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
-        (ctx.stop?.text?.length ?? 0),
-    };
-  }
-
-  /**
-   * Get precise location information for just the identifier (name)
-   * This excludes any surrounding context like keywords, modifiers, etc.
-   *
-   * @param ctx The parser context containing the identifier
-   * @param name The name of the identifier to locate
-   * @returns The precise location of the identifier
-   */
-  private getIdentifierLocation(ctx: ParserRuleContext): SymbolLocation {
-    // Try to find the identifier node within the context
-    // For most contexts, the identifier is accessible via ctx.id()
-    let identifierNode: any = null;
-
-    // Check if the context has an id() method (most common case)
-    if (hasIdMethod(ctx)) {
-      identifierNode = ctx.id();
-    }
-
-    // If we found the identifier node, use its position
-    if (identifierNode && identifierNode.start && identifierNode.stop) {
-      return {
-        startLine: identifierNode.start.line, // Use native ANTLR 1-based line numbers
-        startColumn: identifierNode.start.charPositionInLine, // Both use 0-based columns
-        endLine: identifierNode.stop.line, // Use native ANTLR 1-based line numbers
-        endColumn:
-          identifierNode.stop.charPositionInLine +
-          identifierNode.stop.text.length,
-      };
-    }
-    // Final fallback - return the full context location
-    return this.getLocation(ctx);
-  }
-
-  /**
-   * Apply a modifier to the modifiers object
-   */
-  private applyModifier(modifiers: SymbolModifiers, modifier: string): void {
-    switch (modifier.toLowerCase()) {
-      case 'public':
-        modifiers.visibility = SymbolVisibility.Public;
-        break;
-      case 'private':
-        modifiers.visibility = SymbolVisibility.Private;
-        break;
-      case 'protected':
-        modifiers.visibility = SymbolVisibility.Protected;
-        break;
-      case 'global':
-        modifiers.visibility = SymbolVisibility.Global;
-        break;
-      case 'static':
-        modifiers.isStatic = true;
-        break;
-      case 'final':
-        modifiers.isFinal = true;
-        break;
-      case 'abstract':
-        modifiers.isAbstract = true;
-        break;
-      case 'virtual':
-        modifiers.isVirtual = true;
-        break;
-      case 'override':
-        modifiers.isOverride = true;
-        break;
-      case 'transient':
-        modifiers.isTransient = true;
-        break;
-      case 'testmethod':
-        modifiers.isTestMethod = true;
-        break;
-      case 'webservice':
-        modifiers.isWebService = true;
-        break;
-    }
-  }
-
-  /**
-   * Extract text from a parser context
-   */
-  private getTextFromContext(ctx: any): string {
-    if (!ctx) return '';
-    return ctx.text || '';
-  }
-
-  /**
-   * Get the return type from a method declaration context
-   * Handles both typeRef and VOID cases
-   */
-  private getReturnType(
-    ctx: MethodDeclarationContext | InterfaceMethodDeclarationContext,
-  ): TypeInfo {
-    if (ctx.typeRef()) {
-      return this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
-    }
-    // Handle VOID case
-    return createPrimitiveType('void');
-  }
-
-  /**
-   * Create a TypeInfo object from a type string
-   * Uses createTypeInfo for comprehensive namespace resolution
-   */
-  private createTypeInfo(typeString: string): TypeInfo {
-    return createTypeInfo(typeString);
-  }
-
-  /**
-   * Check if a symbol has a parent that is a class (meaning it's an inner class)
-   * @param symbol The symbol to check, defaults to the current type symbol if not provided
-   * @returns true if the symbol is an inner class, false otherwise
-   */
-  private hasClassParent(symbol?: TypeSymbol | null): boolean {
-    if (!symbol) {
-      return false;
-    }
-    const parent = symbol.parent;
-    return parent !== null && parent !== undefined && isClassSymbol(parent);
-  }
-
-  /**
-   * Check if a symbol is nested within another inner class
-   * @param symbol The symbol to check, defaults to the current type symbol if not provided
-   * @returns true if the symbol is nested within another inner class, false otherwise
-   */
-  private isNestedInInnerClass(symbol?: TypeSymbol | null): boolean {
-    // Use the provided symbol or fall back to current type symbol
-    const symbolToCheck = symbol || this.currentTypeSymbol;
-
-    // If no symbol to check, return false
-    if (!symbolToCheck) {
-      return false;
-    }
-
-    // Start with the parent
-    let current = symbolToCheck.parent;
-    let classCount = 0;
-
-    // Traverse up the parent chain
-    while (current) {
-      if (isClassSymbol(current)) {
-        classCount++;
-        // If we find more than one class in the parent chain,
-        // this means we have a nested inner class
-        if (classCount > 1) {
-          return true;
-        }
-      }
-      current = current.parent;
-    }
-
-    return false;
-  }
-
-  /**
-   * Add an error to the error list
-   */
-  addError(message: string, ctx: ParserRuleContext): void {
-    const error: SemanticError = {
-      type: 'semantic',
-      severity: 'error',
-      message,
-      line: ctx.start.line,
-      column: ctx.start.charPositionInLine,
-      filePath: this.currentFilePath,
-    };
-    this.semanticErrors.push(error);
-    super.addError(message, ctx);
-  }
-
-  /**
-   * Add a warning to the warning list
-   */
-  addWarning(message: string, ctx: ParserRuleContext): void {
-    const warning: SemanticError = {
-      type: 'semantic',
-      severity: 'warning',
-      message,
-      line: ctx.start.line,
-      column: ctx.start.charPositionInLine,
-      filePath: this.currentFilePath,
-    };
-    this.semanticWarnings.push(warning);
-    super.addWarning(message, ctx);
-  }
-
-  /**
-   * Get all semantic errors
-   */
-  getErrors(): SemanticError[] {
-    return this.semanticErrors;
-  }
-
-  /**
-   * Get all semantic warnings
-   */
-  getWarnings(): string[] {
-    return this.semanticWarnings.map((warning) => warning.message);
-  }
-
-  /**
-   * Get all semantic warnings with full details
-   */
-  getSemanticWarnings(): SemanticError[] {
-    return this.semanticWarnings;
-  }
-
-  private createTypeSymbol(
-    ctx: ParserRuleContext,
-    name: string,
-    kind:
-      | SymbolKind.Class
-      | SymbolKind.Interface
-      | SymbolKind.Trigger
-      | SymbolKind.Enum,
-    modifiers: SymbolModifiers,
-  ): TypeSymbol | EnumSymbol {
-    const location = this.getLocation(ctx);
-    const parent = this.currentTypeSymbol;
-
-    // Get the identifier location for the type symbol
-    const identifierLocation = this.getIdentifierLocation(ctx);
-
-    // Determine namespace based on context
-    const namespace = this.determineNamespaceForType(name, kind);
-
-    // Get current scope path for unique symbol ID
-    const scopePath = this.symbolTable.getCurrentScopePath();
-
-    const typeSymbol = SymbolFactory.createFullSymbolWithNamespace(
-      name,
-      kind,
-      location,
-      this.currentFilePath,
-      modifiers,
-      parent?.id || null,
-      { interfaces: [] },
-      namespace, // Pass the determined namespace (can be null)
-      this.getCurrentAnnotations(),
-      identifierLocation,
-      scopePath, // Pass scope path for unique ID generation
-    ) as TypeSymbol;
-
-    // Fix the parent key to use the correct kind
-    if (parent && typeSymbol.parentKey) {
-      typeSymbol.parentKey.kind = parent.kind;
-    }
-
-    // For enums, we need to add the values array
-    // TODO: change to a more generic approach
-    if (isEnumSymbol(typeSymbol)) {
-      typeSymbol.values = [];
-      return typeSymbol;
-    }
-
-    return typeSymbol;
-  }
-
-  /**
-   * Determine namespace for a type based on context
-   */
-  private determineNamespaceForType(
-    name: string,
-    kind: SymbolKind,
-  ): Namespace | null {
-    // Top-level types get project namespace
-    if (!this.currentTypeSymbol) {
-      return this.currentNamespace;
-    }
-
-    // Inner types inherit from outer type
-    const parentNamespace = this.currentTypeSymbol.namespace;
-    if (parentNamespace instanceof Namespace) {
-      return parentNamespace;
-    }
-    return null;
-  }
-
-  private createMethodSymbol(
-    ctx: ParserRuleContext,
-    name: string,
-    modifiers: SymbolModifiers,
-    returnType: TypeInfo,
-    identifierLocation?: SymbolLocation,
-  ): MethodSymbol {
-    const location = this.getLocation(ctx);
-    const parent = this.currentTypeSymbol;
-
-    // Inherit namespace from containing type
-    const parentNamespace = parent?.namespace;
-    const namespace =
-      parentNamespace instanceof Namespace ? parentNamespace : null;
-
-    // Get current scope path for unique symbol ID
-    const scopePath = this.symbolTable.getCurrentScopePath();
-
-    const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
-      name,
-      SymbolKind.Method,
-      location,
-      this.currentFilePath,
-      modifiers,
-      parent?.id || null,
-      { returnType, parameters: [] },
-      namespace, // Inherit namespace from parent (can be null)
-      this.getCurrentAnnotations(),
-      identifierLocation ?? this.getIdentifierLocation(ctx),
-      scopePath, // Pass scope path for unique ID generation
-    ) as MethodSymbol;
-
-    // Initialize the parameters array for MethodSymbol interface
-    methodSymbol.parameters = [];
-    methodSymbol.returnType = returnType;
-    methodSymbol.isConstructor = false;
-
-    return methodSymbol;
-  }
-
-  private createVariableSymbol(
-    ctx: ParserRuleContext,
-    modifiers: SymbolModifiers,
-    name: string,
-    kind:
-      | SymbolKind.Property
-      | SymbolKind.Variable
-      | SymbolKind.Parameter
-      | SymbolKind.Field
-      | SymbolKind.EnumValue,
-    type: TypeInfo,
-  ): VariableSymbol {
-    const location = this.getLocation(ctx);
-    const parent = this.currentTypeSymbol || this.currentMethodSymbol;
-
-    // Get the identifier location for the variable symbol
-    const identifierLocation = this.getIdentifierLocation(ctx);
-
-    // Inherit namespace from containing type or method
-    const parentNamespace = parent?.namespace;
-    const namespace =
-      parentNamespace instanceof Namespace ? parentNamespace : null;
-
-    // Get current scope path for unique symbol ID
-    const scopePath = this.symbolTable.getCurrentScopePath();
-
-    const variableSymbol = SymbolFactory.createFullSymbolWithNamespace(
-      name,
-      kind,
-      location,
-      this.currentFilePath,
-      modifiers,
-      parent?.id || null,
-      { type },
-      namespace, // Inherit namespace from parent (can be null)
-      this.getCurrentAnnotations(),
-      identifierLocation,
-      scopePath, // Pass scope path for unique ID generation
-    ) as VariableSymbol;
-
-    // Set the type property for VariableSymbol interface compatibility
-    variableSymbol.type = type;
-
-    return variableSymbol;
-  }
-
-  private getCurrentPath(): string[] {
-    const path: string[] = [];
-    let current = this.currentTypeSymbol;
-    while (current) {
-      path.unshift(current.name);
-      current = current.parent as TypeSymbol | null;
-    }
-    return path;
-  }
-
-  /**
-   * Create a validation scope for identifier validation
-   */
-  private createValidationScope() {
-    return {
-      // Assume long identifiers supported if namespace is set
-      supportsLongIdentifiers: this.projectNamespace !== undefined,
-      version: 58, // Default to latest Apex API version
-      isFileBased: true,
-    };
-  }
-
   /**
    * Called when entering a trigger declaration
    */
@@ -1964,64 +1303,6 @@ export class ApexSymbolCollectorListener
     try {
       // Only capture field accesses here. Dot-method calls are handled in enterDotMethodCall
       this.captureDottedReferences(ctx);
-    } catch (error) {
-      this.logger.warn(() => `Error capturing dotted references: ${error}`);
-    }
-  }
-
-  /**
-   * Capture references for dotted expressions (e.g., FileUtilities.createFile or property.Id)
-   * Emits both CLASS_REFERENCE/VARIABLE_USAGE and METHOD_CALL for method calls,
-   * VARIABLE_USAGE and FIELD_ACCESS for field access.
-   */
-  private captureDottedReferences(ctx: DotExpressionContext): void {
-    try {
-      // If this is a dot-method call variant, skip here; handled by enterDotMethodCall
-      const dotCall = (ctx as any).dotMethodCall?.();
-      if (dotCall) {
-        return;
-      }
-
-      // Otherwise this is a property/field access: <lhs>.<anyId>
-      const rhs = ctx.anyId();
-      const lhs = (ctx as any).expression?.(0) || (ctx as any).expression?.();
-      if (!rhs || !lhs) return;
-
-      const qualifier = this.getTextFromContext(lhs);
-      const parentContext = this.getCurrentMethodName();
-
-      // Compute qualifier location from the dot-expression start and qualifier length
-      const parentLoc = this.getLocation(ctx);
-      let qualifierLocation: SymbolLocation | undefined;
-      if (qualifier) {
-        qualifierLocation = {
-          startLine: parentLoc.startLine,
-          startColumn: parentLoc.startColumn,
-          endLine: parentLoc.startLine,
-          endColumn: parentLoc.startColumn + qualifier.length,
-        };
-      }
-
-      // Emit qualifier reference for simple identifiers
-      if (qualifier && qualifierLocation && !qualifier.includes('.')) {
-        const isClassReference = !this.isVariableInScope(qualifier);
-        if (isClassReference) {
-          const classRef = TypeReferenceFactory.createClassReference(
-            qualifier,
-            qualifierLocation,
-            parentContext,
-          );
-          this.symbolTable.addTypeReference(classRef);
-        } else {
-          const variableRef = TypeReferenceFactory.createVariableUsageReference(
-            qualifier,
-            qualifierLocation,
-            parentContext,
-          );
-          this.symbolTable.addTypeReference(variableRef);
-        }
-      }
-      // Field access emission happens in enterAnyId to avoid duplicates
     } catch (error) {
       this.logger.warn(() => `Error capturing dotted references: ${error}`);
     }
@@ -2250,6 +1531,861 @@ export class ApexSymbolCollectorListener
         () => `Error capturing type declaration reference: ${error}`,
       );
     }
+  }
+
+  /**
+   * Handle anyId in dot expressions (e.g., the "Id" in "property.Id")
+   * This captures field access references directly from the parser structure
+   */
+  enterAnyId(ctx: AnyIdContext): void {
+    try {
+      this.logger.debug(
+        () => `DEBUG: enterAnyId called with text: "${ctx.text || ''}"`,
+      );
+
+      // Check if this is part of a dot expression
+      const parent = ctx.parent;
+      this.logger.debug(
+        () =>
+          `DEBUG: Parent context: ${parent?.constructor?.name || 'undefined'}`,
+      );
+
+      if (parent && isContextType(parent, DotExpressionContext)) {
+        const dotContext = parent;
+        const fieldName = ctx.text;
+
+        this.logger.debug(
+          () => `DEBUG: Processing dot expression for field: "${fieldName}"`,
+        );
+
+        // Check if we're in an assignment LHS context to avoid duplication
+        if (this.isInAssignmentLHS(ctx)) {
+          this.logger.debug(
+            () =>
+              `DEBUG: Skipping field access capture in assignment LHS: "${fieldName}"`,
+          );
+          return;
+        }
+
+        // Get the left expression (the object)
+        const expressions = dotContext.expression();
+        this.logger.debug(
+          () =>
+            `DEBUG: Expressions type: ${typeof expressions}, isArray: ${Array.isArray(expressions)}`,
+        );
+
+        // Handle both array and single expression cases
+        const leftExpression =
+          Array.isArray(expressions) && expressions.length > 0
+            ? expressions[0]
+            : (expressions ?? null);
+
+        this.logger.debug(
+          () =>
+            `DEBUG: Left expression type: ${leftExpression?.constructor?.name || 'undefined'}`,
+        );
+
+        if (leftExpression) {
+          const objectName = leftExpression.text;
+
+          this.logger.debug(
+            () => `DEBUG: Left expression (object): "${objectName}"`,
+          );
+
+          // Create FIELD_ACCESS reference
+          const location = this.getLocationForReference(ctx);
+          const parentContext = this.getCurrentMethodName();
+
+          const fieldRef = TypeReferenceFactory.createFieldAccessReference(
+            fieldName,
+            location,
+            objectName,
+            parentContext,
+          );
+
+          this.symbolTable.addTypeReference(fieldRef);
+          this.logger.debug(
+            () => `Captured FIELD_ACCESS: ${fieldName} (object: ${objectName})`,
+          );
+        }
+      } else {
+        this.logger.debug(
+          () =>
+            `DEBUG: Not in dot expression context, parent: ${parent?.constructor?.name || 'undefined'}`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        () => `Error handling anyId in dot expression: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * Capture identifier usage in primary expressions (e.g., variable names)
+   * This captures simple variable references like "myVariable"
+   */
+  enterIdPrimary(ctx: IdPrimaryContext): void {
+    if (this.shouldSuppress(ctx)) {
+      this.logger.debug(
+        () =>
+          `DEBUG: Suppressing idPrimary within assignment LHS: "${ctx.text || ''}"`,
+      );
+      return;
+    }
+
+    // Skip emitting a VARIABLE_USAGE when this identifier participates in a dotted
+    // expression (e.g., EncodingUtil.urlEncode or obj.field), UNLESS it's a method call parameter.
+    // Method call parameters need to be captured even inside dot expressions.
+    if (!this.isMethodCallParameter(ctx)) {
+      let parent: ParserRuleContext | undefined = ctx.parent;
+      while (parent) {
+        if (
+          isContextType(parent, DotExpressionContext) ||
+          isContextType(parent, DotMethodCallContext)
+        ) {
+          this.logger.debug(
+            () =>
+              `DEBUG: Skipping idPrimary capture inside dot expression: "${ctx.text || ''}"`,
+          );
+          return;
+        }
+        parent = parent.parent;
+      }
+    }
+
+    const variableName = this.getTextFromContext(ctx);
+    const location = this.getLocation(ctx);
+    const parentContext = this.getCurrentMethodName();
+
+    const reference = TypeReferenceFactory.createVariableUsageReference(
+      variableName,
+      location,
+      parentContext,
+    );
+    this.symbolTable.addTypeReference(reference);
+    this.logger.debug(
+      `DEBUG: Created VARIABLE_USAGE for primary identifier: "${variableName}"`,
+    );
+  }
+
+  /**
+   * Capture primary expression references
+   * This handles the overall primary expression context
+   */
+  enterPrimaryExpression(ctx: PrimaryExpressionContext): void {
+    // The specific primary types are handled by their individual listeners
+    // This method can be used for general primary expression processing if needed
+    this.logger.debug('DEBUG: Entering primary expression context');
+  }
+
+  /**
+   * Capture assignment expression references
+   * This captures both left-hand and right-hand side of assignments
+   */
+  enterAssignExpression(ctx: AssignExpressionContext): void {
+    // Decide LHS access (readwrite for compound ops, else write)
+    const isCompound = !!(
+      ctx.ADD_ASSIGN() ||
+      ctx.SUB_ASSIGN() ||
+      ctx.MUL_ASSIGN() ||
+      ctx.DIV_ASSIGN() ||
+      ctx.AND_ASSIGN() ||
+      ctx.OR_ASSIGN() ||
+      ctx.XOR_ASSIGN() ||
+      ctx.LSHIFT_ASSIGN() ||
+      ctx.RSHIFT_ASSIGN() ||
+      ctx.URSHIFT_ASSIGN()
+    );
+    const lhsAccess: 'write' | 'readwrite' = isCompound ? 'readwrite' : 'write';
+
+    const leftExpression = ctx.expression(0);
+    if (leftExpression) {
+      const lhsLoc = this.getLocation(leftExpression);
+      const parentContext = this.getCurrentMethodName();
+      const lhsText = this.getTextFromContext(leftExpression);
+
+      // Suppress child captures within LHS range
+      this.suppressAssignmentLHS = true;
+      this.suppressedLHSRange = lhsLoc;
+
+      // If it's a simple identifier, mark as write/readwrite
+      if (isContextType(leftExpression, PrimaryExpressionContext)) {
+        const varRef = TypeReferenceFactory.createVariableUsageReference(
+          lhsText,
+          lhsLoc,
+          parentContext,
+          lhsAccess,
+        );
+        this.symbolTable.addTypeReference(varRef);
+        return;
+      }
+
+      // If it's a dotted field reference: obj.field
+      if (isContextType(leftExpression, DotExpressionContext)) {
+        const dotExpr = leftExpression;
+        const anyId = dotExpr.anyId();
+        if (anyId) {
+          const fieldName = this.getTextFromContext(anyId);
+          const objectExpr = dotExpr.expression();
+          if (objectExpr) {
+            const objectName = this.getTextFromContext(objectExpr);
+            const objLocation: SymbolLocation = {
+              startLine: lhsLoc.startLine,
+              startColumn: lhsLoc.startColumn,
+              endLine: lhsLoc.startLine,
+              endColumn: lhsLoc.startColumn + objectName.length,
+            };
+            // qualifier read
+            const objRef = TypeReferenceFactory.createVariableUsageReference(
+              objectName,
+              objLocation,
+              parentContext,
+              'read',
+            );
+            this.symbolTable.addTypeReference(objRef);
+            // field write/readwrite
+            const fieldRef = TypeReferenceFactory.createFieldAccessReference(
+              fieldName,
+              lhsLoc,
+              objectName,
+              parentContext,
+              lhsAccess,
+            );
+            this.symbolTable.addTypeReference(fieldRef);
+            return;
+          }
+        }
+      }
+      // For complex LHS (e.g., arr[i]), we avoid emitting flattened refs; let child listeners capture reads
+    }
+  }
+
+  /**
+   * Cleanup suppression state after assignment expression
+   */
+  exitAssignExpression(): void {
+    this.suppressAssignmentLHS = false;
+    this.suppressedLHSRange = null;
+  }
+
+  /**
+   * Capture array expression references
+   * This captures array access like "myArray[index]"
+   */
+  enterArrayExpression(ctx: ArrayExpressionContext): void {
+    // Capture the array variable name
+    const arrayExpression = ctx.expression(0);
+    if (arrayExpression) {
+      const arrayName = this.getTextFromContext(arrayExpression);
+      const location = this.getLocation(arrayExpression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        arrayName,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for array access: "${arrayName}"`,
+      );
+    }
+
+    // Capture the index expression
+    const indexExpression = ctx.expression(1);
+    if (indexExpression) {
+      const indexText = this.getTextFromContext(indexExpression);
+      const location = this.getLocation(indexExpression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        indexText,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for array index: "${indexText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture cast expression references
+   * This captures type casting like "(String) myVariable"
+   */
+  enterCastExpression(ctx: CastExpressionContext): void {
+    // Capture the type being cast to
+    const typeRef = ctx.typeRef();
+    if (typeRef) {
+      const typeName = this.getTextFromContext(typeRef);
+      const location = this.getLocation(typeRef);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createClassReference(
+        typeName,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created CLASS_REFERENCE for cast type: "${typeName}"`,
+      );
+    }
+
+    // Capture the expression being cast
+    const expression = ctx.expression();
+    if (expression) {
+      const exprText = this.getTextFromContext(expression);
+      const location = this.getLocation(expression);
+      const parentContext = this.getCurrentMethodName();
+
+      const reference = TypeReferenceFactory.createVariableUsageReference(
+        exprText,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(reference);
+      this.logger.debug(
+        `DEBUG: Created VARIABLE_USAGE for cast expression: "${exprText}"`,
+      );
+    }
+  }
+
+  /**
+   * Capture exception type in catch clauses: catch (QualifiedName e)
+   */
+  enterCatchClause(ctx: CatchClauseContext): void {
+    try {
+      const qn: QualifiedNameContext | undefined = ctx.qualifiedName?.();
+      if (!qn) return;
+      const typeName = this.getTextFromContext(qn);
+      const location = this.getLocation(qn as unknown as ParserRuleContext);
+      const parentContext = this.getCurrentMethodName();
+      const classRef = TypeReferenceFactory.createClassReference(
+        typeName,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(classRef);
+      this.logger.debug(
+        () => `DEBUG: Created CLASS_REFERENCE for catch type: "${typeName}"`,
+      );
+    } catch (e) {
+      this.logger.warn(() => `Error capturing catch clause type: ${e}`);
+    }
+  }
+
+  /**
+   * Capture enhanced-for variable type and source collection usage
+   * for (typeRef id : expression)
+   */
+  enterEnhancedForControl(ctx: EnhancedForControlContext): void {
+    try {
+      const typeRef = ctx.typeRef?.();
+      if (typeRef) {
+        const typeName = this.getTextFromContext(typeRef);
+        const location = this.getLocation(typeRef);
+        const parentContext = this.getCurrentMethodName();
+        const paramRef = TypeReferenceFactory.createParameterTypeReference(
+          typeName,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(paramRef);
+        this.logger.debug(
+          () =>
+            `DEBUG: Created PARAMETER_TYPE for enhanced for type: "${typeName}"`,
+        );
+      }
+
+      const expr = ctx.expression?.();
+      if (expr) {
+        const exprText = this.getTextFromContext(expr);
+        const location = this.getLocation(expr);
+        const parentContext = this.getCurrentMethodName();
+        const usageRef = TypeReferenceFactory.createVariableUsageReference(
+          exprText,
+          location,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(usageRef);
+        this.logger.debug(
+          () =>
+            `DEBUG: Created VARIABLE_USAGE for enhanced for source: "${exprText}"`,
+        );
+      }
+    } catch (e) {
+      this.logger.warn(() => `Error capturing enhanced for control: ${e}`);
+    }
+  }
+
+  /**
+   * Capture type literals like: TypeName.class
+   */
+  enterTypeRefPrimary(ctx: TypeRefPrimaryContext): void {
+    try {
+      const tr = ctx.typeRef?.();
+      if (!tr) return;
+      const typeName = this.getTextFromContext(tr);
+      const location = this.getLocation(tr);
+      const parentContext = this.getCurrentMethodName();
+      const classRef = TypeReferenceFactory.createClassReference(
+        typeName,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(classRef);
+      this.logger.debug(
+        () =>
+          `DEBUG: Created CLASS_REFERENCE for type literal: "${typeName}.class"`,
+      );
+    } catch (e) {
+      this.logger.warn(() => `Error capturing typeRefPrimary: ${e}`);
+    }
+  }
+
+  /**
+   * Called when entering a for loop initialization
+   */
+  enterForInit(ctx: any): void {
+    try {
+      this.logger.debug(
+        () =>
+          `enterForInit: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
+      );
+
+      // Check if this is a local variable declaration (e.g., "Integer i = 0")
+      const localVarDecl = ctx.localVariableDeclaration();
+      if (localVarDecl) {
+        // Process the local variable declaration within the for loop
+        this.processLocalVariableDeclaration(localVarDecl);
+      }
+
+      // Note: If it's an expressionList (e.g., "i = 0"), we don't need to process it
+      // as a variable declaration since it's just an assignment to an existing variable
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in for loop initialization: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Called when entering a for statement
+   */
+  enterForStatement(ctx: any): void {
+    try {
+      this.logger.debug(
+        () =>
+          `enterForStatement: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
+      );
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in for statement: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Add an error to the error list
+   */
+  addError(message: string, ctx: ParserRuleContext): void {
+    const error: SemanticError = {
+      type: 'semantic',
+      severity: 'error',
+      message,
+      line: ctx.start.line,
+      column: ctx.start.charPositionInLine,
+      filePath: this.currentFilePath,
+    };
+    this.semanticErrors.push(error);
+    super.addError(message, ctx);
+  }
+
+  /**
+   * Add a warning to the warning list
+   */
+  addWarning(message: string, ctx: ParserRuleContext): void {
+    const warning: SemanticError = {
+      type: 'semantic',
+      severity: 'warning',
+      message,
+      line: ctx.start.line,
+      column: ctx.start.charPositionInLine,
+      filePath: this.currentFilePath,
+    };
+    this.semanticWarnings.push(warning);
+    super.addWarning(message, ctx);
+  }
+
+  /**
+   * Get all semantic errors
+   */
+  getErrors(): SemanticError[] {
+    return this.semanticErrors;
+  }
+
+  /**
+   * Get all semantic warnings
+   */
+  getWarnings(): string[] {
+    return this.semanticWarnings.map((warning) => warning.message);
+  }
+
+  /**
+   * Get all semantic warnings with full details
+   */
+  getSemanticWarnings(): SemanticError[] {
+    return this.semanticWarnings;
+  }
+
+  /**
+   * Create default modifiers
+   */
+  private createDefaultModifiers(): SymbolModifiers {
+    return {
+      visibility: SymbolVisibility.Default,
+      isStatic: false,
+      isFinal: false,
+      isAbstract: false,
+      isVirtual: false,
+      isOverride: false,
+      isTransient: false,
+      isTestMethod: false,
+      isWebService: false,
+      isBuiltIn: false,
+    };
+  }
+
+  /**
+   * Reset modifiers to defaults
+   */
+  private resetModifiers(): void {
+    this.currentModifiers = this.createDefaultModifiers();
+  }
+
+  /**
+   * Get the current modifiers
+   */
+  private getCurrentModifiers(): SymbolModifiers {
+    return { ...this.currentModifiers };
+  }
+
+  /**
+   * Reset the current annotations list
+   */
+  private resetAnnotations(): void {
+    this.currentAnnotations = [];
+  }
+
+  /**
+   * Get the current annotations
+   */
+  private getCurrentAnnotations(): Annotation[] {
+    return [...this.currentAnnotations];
+  }
+
+  /**
+   * Process a local variable declaration (extracted from statement)
+   */
+  private processLocalVariableDeclaration(ctx: any): void {
+    try {
+      this.logger.debug(
+        () =>
+          `processLocalVariableDeclaration: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
+      );
+      // Get current modifiers and reset for next declaration
+      const modifiers = this.getCurrentModifiers();
+      this.resetModifiers();
+
+      // Extract type reference and variable declarators from children
+      // The structure is: modifier* typeRef variableDeclarators
+      let typeRefChild: any = null;
+      let variableDeclaratorsChild: any = null;
+
+      // Find the typeRef and variableDeclarators children
+      for (const child of ctx.children || []) {
+        if (child.constructor.name === 'TypeRefContext') {
+          typeRefChild = child;
+        } else if (child.constructor.name === 'VariableDeclaratorsContext') {
+          variableDeclaratorsChild = child;
+        }
+      }
+
+      // Get the type
+      const varTypeText = typeRefChild
+        ? this.getTextFromContext(typeRefChild)
+        : 'Object';
+      const varType = this.createTypeInfo(varTypeText);
+
+      // Process each variable declared
+      if (variableDeclaratorsChild) {
+        const variableDeclarators =
+          variableDeclaratorsChild.variableDeclarator();
+
+        // Collect all variable names in this statement for duplicate checking within the statement
+        const statementVariableNames = new Set<string>();
+
+        for (const declarator of variableDeclarators) {
+          const name = declarator.id()?.text ?? 'unknownVariable';
+
+          // Check for duplicate variable names within the same statement
+          if (statementVariableNames.has(name)) {
+            this.addError(
+              `Duplicate variable declaration: '${name}' is already declared in this statement`,
+              declarator,
+            );
+            continue; // Skip processing this duplicate variable
+          }
+          statementVariableNames.add(name);
+
+          // Check for duplicate variable declaration in the current scope (from previous statements)
+          const existingSymbol =
+            this.symbolTable.findSymbolInCurrentScope(name);
+          if (existingSymbol) {
+            this.addError(
+              `Duplicate variable declaration: '${name}' is already declared in this scope`,
+              declarator,
+            );
+            continue; // Skip processing this duplicate variable
+          }
+
+          this.logger.debug(
+            () =>
+              `Processing local variable: ${name} in method: ${this.currentMethodSymbol?.name}`,
+          );
+
+          // Always process the variable in the current scope
+          this.processVariableDeclarator(
+            declarator,
+            varType,
+            modifiers,
+            SymbolKind.Variable,
+          );
+        }
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(
+        `Error in local variable declaration: ${errorMessage}`,
+        ctx,
+      );
+    }
+  }
+
+  /**
+   * Process a variable declarator
+   */
+  private processVariableDeclarator(
+    ctx: VariableDeclaratorContext,
+    type: TypeInfo,
+    modifiers: SymbolModifiers,
+    kind: SymbolKind.Field | SymbolKind.Variable | SymbolKind.EnumValue,
+  ): void {
+    try {
+      this.logger.debug(
+        () =>
+          // eslint-disable-next-line max-len
+          `processVariableDeclarator: ${ctx.text} in method: ${this.currentMethodSymbol?.name} type: ${type.name} kind: ${kind}`,
+      );
+
+      const name = ctx.id()?.text ?? 'unknownVariable';
+
+      // Validate identifier
+      const validationResult = IdentifierValidator.validateIdentifier(
+        name,
+        kind,
+        false, // Variables are never top-level
+        this.createValidationScope(),
+      );
+
+      if (!validationResult.isValid) {
+        validationResult.errors.forEach((error) => {
+          this.addError(error, ctx);
+        });
+      }
+
+      const variableSymbol = this.createVariableSymbol(
+        ctx,
+        modifiers,
+        name,
+        kind,
+        type,
+      );
+
+      this.symbolTable.addSymbol(variableSymbol);
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in variable: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Get location information from a context
+   */
+  private getLocation(ctx: ParserRuleContext): SymbolLocation {
+    return {
+      startLine: ctx.start.line, // Use native ANTLR 1-based line numbers
+      startColumn: ctx.start.charPositionInLine, // Both use 0-based columns
+      endLine: ctx.stop?.line ?? ctx.start.line, // Use native ANTLR 1-based line numbers
+      endColumn:
+        (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
+        (ctx.stop?.text?.length ?? 0),
+    };
+  }
+
+  /**
+   * Get precise location information for just the identifier (name)
+   * This excludes any surrounding context like keywords, modifiers, etc.
+   *
+   * @param ctx The parser context containing the identifier
+   * @param name The name of the identifier to locate
+   * @returns The precise location of the identifier
+   */
+  private getIdentifierLocation(ctx: ParserRuleContext): SymbolLocation {
+    // Try to find the identifier node within the context
+    // For most contexts, the identifier is accessible via ctx.id()
+    let identifierNode: any = null;
+
+    // Check if the context has an id() method (most common case)
+    if (hasIdMethod(ctx)) {
+      identifierNode = ctx.id();
+    }
+
+    // If we found the identifier node, use its position
+    if (identifierNode && identifierNode.start && identifierNode.stop) {
+      return {
+        startLine: identifierNode.start.line, // Use native ANTLR 1-based line numbers
+        startColumn: identifierNode.start.charPositionInLine, // Both use 0-based columns
+        endLine: identifierNode.stop.line, // Use native ANTLR 1-based line numbers
+        endColumn:
+          identifierNode.stop.charPositionInLine +
+          identifierNode.stop.text.length,
+      };
+    }
+    // Final fallback - return the full context location
+    return this.getLocation(ctx);
+  }
+
+  /**
+   * Apply a modifier to the modifiers object
+   */
+  private applyModifier(modifiers: SymbolModifiers, modifier: string): void {
+    switch (modifier.toLowerCase()) {
+      case 'public':
+        modifiers.visibility = SymbolVisibility.Public;
+        break;
+      case 'private':
+        modifiers.visibility = SymbolVisibility.Private;
+        break;
+      case 'protected':
+        modifiers.visibility = SymbolVisibility.Protected;
+        break;
+      case 'global':
+        modifiers.visibility = SymbolVisibility.Global;
+        break;
+      case 'static':
+        modifiers.isStatic = true;
+        break;
+      case 'final':
+        modifiers.isFinal = true;
+        break;
+      case 'abstract':
+        modifiers.isAbstract = true;
+        break;
+      case 'virtual':
+        modifiers.isVirtual = true;
+        break;
+      case 'override':
+        modifiers.isOverride = true;
+        break;
+      case 'transient':
+        modifiers.isTransient = true;
+        break;
+      case 'testmethod':
+        modifiers.isTestMethod = true;
+        break;
+      case 'webservice':
+        modifiers.isWebService = true;
+        break;
+    }
+  }
+
+  /**
+   * Extract text from a parser context
+   */
+  private getTextFromContext(ctx: any): string {
+    if (!ctx) return '';
+    return ctx.text || '';
+  }
+
+  /**
+   * Get the return type from a method declaration context
+   * Handles both typeRef and VOID cases
+   */
+  private getReturnType(
+    ctx: MethodDeclarationContext | InterfaceMethodDeclarationContext,
+  ): TypeInfo {
+    if (ctx.typeRef()) {
+      return this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
+    }
+    // Handle VOID case
+    return createPrimitiveType('void');
+  }
+
+  /**
+   * Create a TypeInfo object from a type string
+   * Uses createTypeInfo for comprehensive namespace resolution
+   */
+  private createTypeInfo(typeString: string): TypeInfo {
+    return createTypeInfo(typeString);
+  }
+
+  /**
+   * Check if a symbol has a parent that is a class (meaning it's an inner class)
+   * @param symbol The symbol to check, defaults to the current type symbol if not provided
+   * @returns true if the symbol is an inner class, false otherwise
+   */
+  private hasClassParent(symbol?: TypeSymbol | null): boolean {
+    if (!symbol) {
+      return false;
+    }
+    const parent = symbol.parent;
+    return parent !== null && parent !== undefined && isClassSymbol(parent);
+  }
+
+  /**
+   * Check if a symbol is nested within another inner class
+   * @param symbol The symbol to check, defaults to the current type symbol if not provided
+   * @returns true if the symbol is nested within another inner class, false otherwise
+   */
+  private isNestedInInnerClass(symbol?: TypeSymbol | null): boolean {
+    // Use the provided symbol or fall back to current type symbol
+    const symbolToCheck = symbol || this.currentTypeSymbol;
+
+    // If no symbol to check, return false
+    if (!symbolToCheck) {
+      return false;
+    }
+
+    // Start with the parent
+    let current = symbolToCheck.parent;
+    let classCount = 0;
+
+    // Traverse up the parent chain
+    while (current) {
+      if (isClassSymbol(current)) {
+        classCount++;
+        // If we find more than one class in the parent chain,
+        // this means we have a nested inner class
+        if (classCount > 1) {
+          return true;
+        }
+      }
+      current = current.parent;
+    }
+
+    return false;
   }
 
   /**
@@ -2619,450 +2755,240 @@ export class ApexSymbolCollectorListener
 
     return false;
   }
+  private createTypeSymbol(
+    ctx: ParserRuleContext,
+    name: string,
+    kind:
+      | SymbolKind.Class
+      | SymbolKind.Interface
+      | SymbolKind.Trigger
+      | SymbolKind.Enum,
+    modifiers: SymbolModifiers,
+  ): TypeSymbol | EnumSymbol {
+    const location = this.getLocation(ctx);
+    const parent = this.currentTypeSymbol;
+
+    // Get the identifier location for the type symbol
+    const identifierLocation = this.getIdentifierLocation(ctx);
+
+    // Determine namespace based on context
+    const namespace = this.determineNamespaceForType(name, kind);
+
+    // Get current scope path for unique symbol ID
+    const scopePath = this.symbolTable.getCurrentScopePath();
+
+    const typeSymbol = SymbolFactory.createFullSymbolWithNamespace(
+      name,
+      kind,
+      location,
+      this.currentFilePath,
+      modifiers,
+      parent?.id || null,
+      { interfaces: [] },
+      namespace, // Pass the determined namespace (can be null)
+      this.getCurrentAnnotations(),
+      identifierLocation,
+      scopePath, // Pass scope path for unique ID generation
+    ) as TypeSymbol;
+
+    // Fix the parent key to use the correct kind
+    if (parent && typeSymbol.parentKey) {
+      typeSymbol.parentKey.kind = parent.kind;
+    }
+
+    // For enums, we need to add the values array
+    // TODO: change to a more generic approach
+    if (isEnumSymbol(typeSymbol)) {
+      typeSymbol.values = [];
+      return typeSymbol;
+    }
+
+    return typeSymbol;
+  }
 
   /**
-   * Handle anyId in dot expressions (e.g., the "Id" in "property.Id")
-   * This captures field access references directly from the parser structure
+   * Determine namespace for a type based on context
    */
-  enterAnyId(ctx: AnyIdContext): void {
+  private determineNamespaceForType(
+    name: string,
+    kind: SymbolKind,
+  ): Namespace | null {
+    // Top-level types get project namespace
+    if (!this.currentTypeSymbol) {
+      return this.currentNamespace;
+    }
+
+    // Inner types inherit from outer type
+    const parentNamespace = this.currentTypeSymbol.namespace;
+    if (parentNamespace instanceof Namespace) {
+      return parentNamespace;
+    }
+    return null;
+  }
+
+  private createMethodSymbol(
+    ctx: ParserRuleContext,
+    name: string,
+    modifiers: SymbolModifiers,
+    returnType: TypeInfo,
+    identifierLocation?: SymbolLocation,
+  ): MethodSymbol {
+    const location = this.getLocation(ctx);
+    const parent = this.currentTypeSymbol;
+
+    // Inherit namespace from containing type
+    const parentNamespace = parent?.namespace;
+    const namespace =
+      parentNamespace instanceof Namespace ? parentNamespace : null;
+
+    // Get current scope path for unique symbol ID
+    const scopePath = this.symbolTable.getCurrentScopePath();
+
+    const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
+      name,
+      SymbolKind.Method,
+      location,
+      this.currentFilePath,
+      modifiers,
+      parent?.id || null,
+      { returnType, parameters: [] },
+      namespace, // Inherit namespace from parent (can be null)
+      this.getCurrentAnnotations(),
+      identifierLocation ?? this.getIdentifierLocation(ctx),
+      scopePath, // Pass scope path for unique ID generation
+    ) as MethodSymbol;
+
+    // Initialize the parameters array for MethodSymbol interface
+    methodSymbol.parameters = [];
+    methodSymbol.returnType = returnType;
+    methodSymbol.isConstructor = false;
+
+    return methodSymbol;
+  }
+
+  private createVariableSymbol(
+    ctx: ParserRuleContext,
+    modifiers: SymbolModifiers,
+    name: string,
+    kind:
+      | SymbolKind.Property
+      | SymbolKind.Variable
+      | SymbolKind.Parameter
+      | SymbolKind.Field
+      | SymbolKind.EnumValue,
+    type: TypeInfo,
+  ): VariableSymbol {
+    const location = this.getLocation(ctx);
+    const parent = this.currentTypeSymbol || this.currentMethodSymbol;
+
+    // Get the identifier location for the variable symbol
+    const identifierLocation = this.getIdentifierLocation(ctx);
+
+    // Inherit namespace from containing type or method
+    const parentNamespace = parent?.namespace;
+    const namespace =
+      parentNamespace instanceof Namespace ? parentNamespace : null;
+
+    // Get current scope path for unique symbol ID
+    const scopePath = this.symbolTable.getCurrentScopePath();
+
+    const variableSymbol = SymbolFactory.createFullSymbolWithNamespace(
+      name,
+      kind,
+      location,
+      this.currentFilePath,
+      modifiers,
+      parent?.id || null,
+      { type },
+      namespace, // Inherit namespace from parent (can be null)
+      this.getCurrentAnnotations(),
+      identifierLocation,
+      scopePath, // Pass scope path for unique ID generation
+    ) as VariableSymbol;
+
+    // Set the type property for VariableSymbol interface compatibility
+    variableSymbol.type = type;
+
+    return variableSymbol;
+  }
+
+  private getCurrentPath(): string[] {
+    const path: string[] = [];
+    let current = this.currentTypeSymbol;
+    while (current) {
+      path.unshift(current.name);
+      current = current.parent as TypeSymbol | null;
+    }
+    return path;
+  }
+
+  /**
+   * Create a validation scope for identifier validation
+   */
+  private createValidationScope() {
+    return {
+      // Assume long identifiers supported if namespace is set
+      supportsLongIdentifiers: this.projectNamespace !== undefined,
+      version: 58, // Default to latest Apex API version
+      isFileBased: true,
+    };
+  }
+
+  /**
+   * Capture references for dotted expressions (e.g., FileUtilities.createFile or property.Id)
+   * Emits both CLASS_REFERENCE/VARIABLE_USAGE and METHOD_CALL for method calls,
+   * VARIABLE_USAGE and FIELD_ACCESS for field access.
+   */
+  private captureDottedReferences(ctx: DotExpressionContext): void {
     try {
-      this.logger.debug(
-        () => `DEBUG: enterAnyId called with text: "${ctx.text || ''}"`,
-      );
+      // If this is a dot-method call variant, skip here; handled by enterDotMethodCall
+      const dotCall = (ctx as any).dotMethodCall?.();
+      if (dotCall) {
+        return;
+      }
 
-      // Check if this is part of a dot expression
-      const parent = ctx.parent;
-      this.logger.debug(
-        () =>
-          `DEBUG: Parent context: ${parent?.constructor?.name || 'undefined'}`,
-      );
+      // Otherwise this is a property/field access: <lhs>.<anyId>
+      const rhs = ctx.anyId();
+      const lhs = (ctx as any).expression?.(0) || (ctx as any).expression?.();
+      if (!rhs || !lhs) return;
 
-      if (parent && isContextType(parent, DotExpressionContext)) {
-        const dotContext = parent;
-        const fieldName = ctx.text;
+      const qualifier = this.getTextFromContext(lhs);
+      const parentContext = this.getCurrentMethodName();
 
-        this.logger.debug(
-          () => `DEBUG: Processing dot expression for field: "${fieldName}"`,
-        );
+      // Compute qualifier location from the dot-expression start and qualifier length
+      const parentLoc = this.getLocation(ctx);
+      let qualifierLocation: SymbolLocation | undefined;
+      if (qualifier) {
+        qualifierLocation = {
+          startLine: parentLoc.startLine,
+          startColumn: parentLoc.startColumn,
+          endLine: parentLoc.startLine,
+          endColumn: parentLoc.startColumn + qualifier.length,
+        };
+      }
 
-        // Check if we're in an assignment LHS context to avoid duplication
-        if (this.isInAssignmentLHS(ctx)) {
-          this.logger.debug(
-            () =>
-              `DEBUG: Skipping field access capture in assignment LHS: "${fieldName}"`,
-          );
-          return;
-        }
-
-        // Get the left expression (the object)
-        const expressions = dotContext.expression();
-        this.logger.debug(
-          () =>
-            `DEBUG: Expressions type: ${typeof expressions}, isArray: ${Array.isArray(expressions)}`,
-        );
-
-        // Handle both array and single expression cases
-        let leftExpression: any = null;
-        if (Array.isArray(expressions) && expressions.length > 0) {
-          leftExpression = expressions[0];
-        } else if (expressions && typeof expressions === 'object') {
-          // Single expression case
-          leftExpression = expressions;
-        }
-
-        this.logger.debug(
-          () =>
-            `DEBUG: Left expression type: ${leftExpression?.constructor?.name || 'undefined'}`,
-        );
-
-        if (leftExpression) {
-          const objectName = leftExpression.text;
-
-          this.logger.debug(
-            () => `DEBUG: Left expression (object): "${objectName}"`,
-          );
-
-          // Create FIELD_ACCESS reference
-          const location = this.getLocationForReference(ctx);
-          const parentContext = this.getCurrentMethodName();
-
-          const fieldRef = TypeReferenceFactory.createFieldAccessReference(
-            fieldName,
-            location,
-            objectName,
+      // Emit qualifier reference for simple identifiers
+      if (qualifier && qualifierLocation && !qualifier.includes('.')) {
+        const isClassReference = !this.isVariableInScope(qualifier);
+        if (isClassReference) {
+          const classRef = TypeReferenceFactory.createClassReference(
+            qualifier,
+            qualifierLocation,
             parentContext,
           );
-
-          this.symbolTable.addTypeReference(fieldRef);
-          this.logger.debug(
-            () => `Captured FIELD_ACCESS: ${fieldName} (object: ${objectName})`,
+          this.symbolTable.addTypeReference(classRef);
+        } else {
+          const variableRef = TypeReferenceFactory.createVariableUsageReference(
+            qualifier,
+            qualifierLocation,
+            parentContext,
           );
+          this.symbolTable.addTypeReference(variableRef);
         }
-      } else {
-        this.logger.debug(
-          () =>
-            `DEBUG: Not in dot expression context, parent: ${parent?.constructor?.name || 'undefined'}`,
-        );
       }
+      // Field access emission happens in enterAnyId to avoid duplicates
     } catch (error) {
-      this.logger.warn(
-        () => `Error handling anyId in dot expression: ${error}`,
-      );
-    }
-  }
-
-  /**
-   * Capture identifier usage in primary expressions (e.g., variable names)
-   * This captures simple variable references like "myVariable"
-   */
-  enterIdPrimary(ctx: IdPrimaryContext): void {
-    if (this.shouldSuppress(ctx)) {
-      this.logger.debug(
-        () =>
-          `DEBUG: Suppressing idPrimary within assignment LHS: "${ctx.text || ''}"`,
-      );
-      return;
-    }
-
-    // Check if this identifier is a method call parameter
-    const isMethodCallParameter = this.isMethodCallParameter(ctx);
-
-    // Skip emitting a VARIABLE_USAGE when this identifier participates in a dotted
-    // expression (e.g., EncodingUtil.urlEncode or obj.field), UNLESS it's a method call parameter.
-    // Method call parameters need to be captured even inside dot expressions.
-    if (!isMethodCallParameter) {
-      let parent = ctx.parent as ParserRuleContext | undefined;
-      while (parent) {
-        if (
-          isContextType(parent, DotExpressionContext) ||
-          isContextType(parent, DotMethodCallContext)
-        ) {
-          this.logger.debug(
-            () =>
-              `DEBUG: Skipping idPrimary capture inside dot expression: "${ctx.text || ''}"`,
-          );
-          return;
-        }
-        parent = parent.parent as ParserRuleContext | undefined;
-      }
-    }
-
-    const variableName = this.getTextFromContext(ctx);
-    const location = this.getLocation(ctx);
-    const parentContext = this.getCurrentMethodName();
-
-    const reference = TypeReferenceFactory.createVariableUsageReference(
-      variableName,
-      location,
-      parentContext,
-    );
-    this.symbolTable.addTypeReference(reference);
-    this.logger.debug(
-      `DEBUG: Created VARIABLE_USAGE for primary identifier: "${variableName}"`,
-    );
-  }
-
-  /**
-   * Capture primary expression references
-   * This handles the overall primary expression context
-   */
-  enterPrimaryExpression(ctx: PrimaryExpressionContext): void {
-    // The specific primary types are handled by their individual listeners
-    // This method can be used for general primary expression processing if needed
-    this.logger.debug('DEBUG: Entering primary expression context');
-  }
-
-  /**
-   * Capture assignment expression references
-   * This captures both left-hand and right-hand side of assignments
-   */
-  enterAssignExpression(ctx: AssignExpressionContext): void {
-    // Decide LHS access (readwrite for compound ops, else write)
-    const text = ctx.text || '';
-    const isCompound = /(\+=|-=|\*=|\/=|&=|\|=|\^=|<<=|>>=|>>>=)/.test(text);
-    const lhsAccess: 'write' | 'readwrite' = isCompound ? 'readwrite' : 'write';
-
-    const leftExpression = ctx.expression(0);
-    if (leftExpression) {
-      const lhsLoc = this.getLocation(leftExpression);
-      const parentContext = this.getCurrentMethodName();
-      const lhsText = this.getTextFromContext(leftExpression);
-
-      // Suppress child captures within LHS range
-      this.suppressAssignmentLHS = true;
-      this.suppressedLHSRange = lhsLoc;
-
-      // If it's a simple identifier, mark as write/readwrite
-      const idMatch = lhsText.match(/^[A-Za-z_]\w*$/);
-      if (idMatch) {
-        const varRef = TypeReferenceFactory.createVariableUsageReference(
-          lhsText,
-          lhsLoc,
-          parentContext,
-          lhsAccess,
-        );
-        this.symbolTable.addTypeReference(varRef);
-        return;
-      }
-
-      // If it's a dotted field reference: obj.field
-      const dotMatch = lhsText.match(/^(\w+)\.(\w+)$/);
-      if (dotMatch) {
-        const objectName = dotMatch[1];
-        const fieldName = dotMatch[2];
-        const objLocation: SymbolLocation = {
-          startLine: lhsLoc.startLine,
-          startColumn: lhsLoc.startColumn,
-          endLine: lhsLoc.startLine,
-          endColumn: lhsLoc.startColumn + objectName.length,
-        };
-        // qualifier read
-        const objRef = TypeReferenceFactory.createVariableUsageReference(
-          objectName,
-          objLocation,
-          parentContext,
-          'read',
-        );
-        this.symbolTable.addTypeReference(objRef);
-        // field write/readwrite
-        const fieldRef = TypeReferenceFactory.createFieldAccessReference(
-          fieldName,
-          lhsLoc,
-          objectName,
-          parentContext,
-          lhsAccess,
-        );
-        this.symbolTable.addTypeReference(fieldRef);
-        return;
-      }
-      // For complex LHS (e.g., arr[i]), we avoid emitting flattened refs; let child listeners capture reads
-    }
-  }
-
-  /**
-   * Cleanup suppression state after assignment expression
-   */
-  exitAssignExpression(): void {
-    this.suppressAssignmentLHS = false;
-    this.suppressedLHSRange = null;
-  }
-
-  /**
-   * Capture array expression references
-   * This captures array access like "myArray[index]"
-   */
-  enterArrayExpression(ctx: ArrayExpressionContext): void {
-    // Capture the array variable name
-    const arrayExpression = ctx.expression(0);
-    if (arrayExpression) {
-      const arrayName = this.getTextFromContext(arrayExpression);
-      const location = this.getLocation(arrayExpression);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        arrayName,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for array access: "${arrayName}"`,
-      );
-    }
-
-    // Capture the index expression
-    const indexExpression = ctx.expression(1);
-    if (indexExpression) {
-      const indexText = this.getTextFromContext(indexExpression);
-      const location = this.getLocation(indexExpression);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        indexText,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for array index: "${indexText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture cast expression references
-   * This captures type casting like "(String) myVariable"
-   */
-  enterCastExpression(ctx: CastExpressionContext): void {
-    // Capture the type being cast to
-    const typeRef = ctx.typeRef();
-    if (typeRef) {
-      const typeName = this.getTextFromContext(typeRef);
-      const location = this.getLocation(typeRef);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createClassReference(
-        typeName,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created CLASS_REFERENCE for cast type: "${typeName}"`,
-      );
-    }
-
-    // Capture the expression being cast
-    const expression = ctx.expression();
-    if (expression) {
-      const exprText = this.getTextFromContext(expression);
-      const location = this.getLocation(expression);
-      const parentContext = this.getCurrentMethodName();
-
-      const reference = TypeReferenceFactory.createVariableUsageReference(
-        exprText,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for cast expression: "${exprText}"`,
-      );
-    }
-  }
-
-  /**
-   * Capture exception type in catch clauses: catch (QualifiedName e)
-   */
-  enterCatchClause(ctx: CatchClauseContext): void {
-    try {
-      const qn: QualifiedNameContext | undefined = ctx.qualifiedName?.();
-      if (!qn) return;
-      const typeName = this.getTextFromContext(qn);
-      const location = this.getLocation(qn as unknown as ParserRuleContext);
-      const parentContext = this.getCurrentMethodName();
-      const classRef = TypeReferenceFactory.createClassReference(
-        typeName,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(classRef);
-      this.logger.debug(
-        () => `DEBUG: Created CLASS_REFERENCE for catch type: "${typeName}"`,
-      );
-    } catch (e) {
-      this.logger.warn(() => `Error capturing catch clause type: ${e}`);
-    }
-  }
-
-  /**
-   * Capture enhanced-for variable type and source collection usage
-   * for (typeRef id : expression)
-   */
-  enterEnhancedForControl(ctx: EnhancedForControlContext): void {
-    try {
-      const typeRef = ctx.typeRef?.();
-      if (typeRef) {
-        const typeName = this.getTextFromContext(typeRef);
-        const location = this.getLocation(
-          typeRef as unknown as ParserRuleContext,
-        );
-        const parentContext = this.getCurrentMethodName();
-        const paramRef = TypeReferenceFactory.createParameterTypeReference(
-          typeName,
-          location,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(paramRef);
-        this.logger.debug(
-          () =>
-            `DEBUG: Created PARAMETER_TYPE for enhanced for type: "${typeName}"`,
-        );
-      }
-
-      const expr = ctx.expression?.();
-      if (expr) {
-        const exprText = this.getTextFromContext(expr);
-        const location = this.getLocation(expr as unknown as ParserRuleContext);
-        const parentContext = this.getCurrentMethodName();
-        const usageRef = TypeReferenceFactory.createVariableUsageReference(
-          exprText,
-          location,
-          parentContext,
-        );
-        this.symbolTable.addTypeReference(usageRef);
-        this.logger.debug(
-          () =>
-            `DEBUG: Created VARIABLE_USAGE for enhanced for source: "${exprText}"`,
-        );
-      }
-    } catch (e) {
-      this.logger.warn(() => `Error capturing enhanced for control: ${e}`);
-    }
-  }
-
-  /**
-   * Capture type literals like: TypeName.class
-   */
-  enterTypeRefPrimary(ctx: TypeRefPrimaryContext): void {
-    try {
-      const tr = ctx.typeRef?.();
-      if (!tr) return;
-      const typeName = this.getTextFromContext(tr);
-      const location = this.getLocation(tr);
-      const parentContext = this.getCurrentMethodName();
-      const classRef = TypeReferenceFactory.createClassReference(
-        typeName,
-        location,
-        parentContext,
-      );
-      this.symbolTable.addTypeReference(classRef);
-      this.logger.debug(
-        () =>
-          `DEBUG: Created CLASS_REFERENCE for type literal: "${typeName}.class"`,
-      );
-    } catch (e) {
-      this.logger.warn(() => `Error capturing typeRefPrimary: ${e}`);
-    }
-  }
-
-  /**
-   * Called when entering a for loop initialization
-   */
-  enterForInit(ctx: any): void {
-    try {
-      this.logger.debug(
-        () =>
-          `enterForInit: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
-      );
-
-      // Check if this is a local variable declaration (e.g., "Integer i = 0")
-      const localVarDecl = ctx.localVariableDeclaration();
-      if (localVarDecl) {
-        // Process the local variable declaration within the for loop
-        this.processLocalVariableDeclaration(localVarDecl);
-      }
-
-      // Note: If it's an expressionList (e.g., "i = 0"), we don't need to process it
-      // as a variable declaration since it's just an assignment to an existing variable
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error in for loop initialization: ${errorMessage}`, ctx);
-    }
-  }
-
-  /**
-   * Called when entering a for statement
-   */
-  enterForStatement(ctx: any): void {
-    try {
-      this.logger.debug(
-        () =>
-          `enterForStatement: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
-      );
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error in for statement: ${errorMessage}`, ctx);
+      this.logger.warn(() => `Error capturing dotted references: ${error}`);
     }
   }
 }
