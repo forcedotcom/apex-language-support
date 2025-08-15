@@ -98,20 +98,10 @@ export class UnifiedLogNotificationHandler implements LogNotificationHandler {
     }
 
     try {
-      if (this.isWebWorker) {
-        // Web worker context: use $/log notification
-        this.connection.sendNotification('$/log', {
-          level: params.type,
-          message: params.message,
-          timestamp: new Date().toISOString(),
-        });
-      } else {
-        // Browser context: use window/logMessage
-        this.connection.sendNotification('window/logMessage', {
-          type: this.getLogMessageType(params.type),
-          message: params.message,
-        });
-      }
+      this.connection.sendNotification('window/logMessage', {
+        type: this.getLogMessageType(params.type),
+        message: params.message,
+      });
     } catch {
       // If LSP notification fails, silently continue - no need to log errors about logging
     }

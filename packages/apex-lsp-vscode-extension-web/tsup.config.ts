@@ -102,11 +102,14 @@ export default defineConfig({
       },
     );
 
-    // Copy the bundled worker from apex-ls-browser
-    execSync('shx cp ../../packages/apex-ls-browser/dist/worker.js dist/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
+    // Copy the bundled worker from apex-ls-browser (IIFE version)
+    execSync(
+      'shx cp ../../packages/apex-ls-browser/dist/worker.js dist/worker.js',
+      {
+        cwd: sourceDir,
+        stdio: 'inherit',
+      },
+    );
 
     // Prepare package.json for dist
     const originalPackagePath = path.join(sourceDir, 'package.json');

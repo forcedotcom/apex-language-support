@@ -332,13 +332,16 @@ documents.listen(connection);
 connection.listen();
 
 // Export the storage implementation for browsers
-const BrowserStorage = require('./storage/BrowserIndexedDBApexStorage');
+import * as BrowserStorage from './storage/BrowserIndexedDBApexStorage';
 
 // Export web worker functionality
-export { createWebWorkerLanguageServer } from './worker';
+export { createSimpleWebWorkerLanguageServer } from './worker';
 export type { WebWorkerLanguageServerOptions, EnvironmentType } from './types';
 
 // Re-export LSP protocol types for convenience
 export * from 'vscode-languageserver-protocol';
 
-module.exports = { ...BrowserStorage };
+// Export browser storage for compatibility
+export { BrowserStorage };
+
+// Note: No CommonJS exports to avoid issues in web worker environment

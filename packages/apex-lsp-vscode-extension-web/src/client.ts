@@ -161,7 +161,8 @@ export class ApexLspClient {
     if (this.isDisposed) {
       throw new Error('Client has been disposed');
     }
-    return this.connection.sendRequest('initialize', params);
+    const result = await this.connection.sendRequest('initialize', params);
+    return result as InitializeResult;
   }
 
   /**

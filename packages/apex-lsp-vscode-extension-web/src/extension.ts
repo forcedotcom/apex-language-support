@@ -139,7 +139,7 @@ async function startEnhancedLanguageServer(
       `   📁 Extension URI: ${context.extensionUri.toString()}`,
     );
 
-    // Step 3: Create web worker with error handling
+    // Step 3: Create web worker
     outputChannel.appendLine('3️⃣ Creating web worker...');
     let worker: Worker;
     try {
@@ -151,13 +151,10 @@ async function startEnhancedLanguageServer(
     }
 
     // Step 4: Set up worker error handling
+    outputChannel.appendLine('4️⃣ Setting up worker error handling...');
     worker.onerror = (errorEvent) => {
       const errorMessage = errorEvent.message || String(errorEvent);
       outputChannel.appendLine(`🚨 Worker Error: ${errorMessage}`);
-      outputChannel.appendLine(
-        `   Filename: ${errorEvent.filename || 'unknown'}`,
-      );
-      outputChannel.appendLine(`   Line: ${errorEvent.lineno || 'unknown'}`);
     };
 
     worker.onmessageerror = (error) => {
@@ -165,22 +162,20 @@ async function startEnhancedLanguageServer(
     };
 
     // Step 5: Set up basic worker monitoring
-    outputChannel.appendLine('4️⃣ Setting up worker monitoring...');
-    let workerStarted = false;
-
+    outputChannel.appendLine('5️⃣ Setting up worker monitoring...');
     worker.onmessage = (event) => {
-      if (!workerStarted) {
+      // Log first message to confirm worker is working
+      if (event.data && typeof event.data === 'object' && event.data.method) {
         outputChannel.appendLine(
-          `   📨 First worker message: ${JSON.stringify(event.data)}`,
+          `   📨 LSP ${event.data.method} request received`,
         );
-        workerStarted = true;
       }
     };
 
     outputChannel.appendLine('   ✅ Worker monitoring set up');
 
-    // Step 5: Create LSP client
-    outputChannel.appendLine('5️⃣ Creating LSP client...');
+    // Step 6: Create LSP client
+    outputChannel.appendLine('6️⃣ Creating LSP client...');
     try {
       apexLspClient = new ApexLspClient(worker, {
         error: (message) => outputChannel.appendLine(`[LSP-ERROR] ${message}`),
@@ -196,8 +191,8 @@ async function startEnhancedLanguageServer(
       throw new Error(`Failed to create LSP client: ${clientError}`);
     }
 
-    // Step 6: Initialize the language server
-    outputChannel.appendLine('6️⃣ Initializing language server...');
+    // Step 7: Initialize the language server
+    outputChannel.appendLine('7️⃣ Initializing language server...');
     const initParams = {
       processId: null,
       rootUri: vscode.workspace.workspaceFolders?.[0]?.uri.toString() || null,
@@ -223,19 +218,20 @@ async function startEnhancedLanguageServer(
         })) || [],
     };
 
-    outputChannel.appendLine(
-      `   📋 Init params: ${JSON.stringify(initParams, null, 2)}`,
-    );
+    try {
+      await apexLspClient.initialize(initParams);
+      outputChannel.appendLine(
+        '   ✅ Language server initialized successfully',
+      );
+    } catch (initError) {
+      outputChannel.appendLine(
+        `   ❌ Language server initialization failed: ${initError}`,
+      );
+      throw initError;
+    }
 
-    const initResult = await apexLspClient.initialize(initParams);
-
-    outputChannel.appendLine('   ✅ Language server initialized successfully');
-    outputChannel.appendLine(
-      `   🔧 Server capabilities: ${JSON.stringify(initResult.capabilities, null, 2)}`,
-    );
-
-    // Step 7: Set up disposal
-    outputChannel.appendLine('7️⃣ Setting up cleanup handlers...');
+    // Step 8: Set up disposal
+    outputChannel.appendLine('8️⃣ Setting up cleanup handlers...');
     context.subscriptions.push({
       dispose: () => {
         outputChannel.appendLine(

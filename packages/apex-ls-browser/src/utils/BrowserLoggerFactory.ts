@@ -42,6 +42,9 @@ class UnifiedLogger implements LoggerInterface {
       return;
     }
 
+    // Always log to console as fallback
+    this.sendViaConsole(messageType, msg);
+
     // Try LSP notification handler first (browser context)
     this.sendViaLsp(messageType, msg);
 
@@ -103,6 +106,35 @@ class UnifiedLogger implements LoggerInterface {
       }
     } catch {
       // Silently fail if LSP logging is not available
+    }
+  }
+
+  /**
+   * Sends a log message via console (fallback)
+   */
+  private sendViaConsole(messageType: LogMessageType, message: string): void {
+    const timestamp = new Date().toISOString();
+    const formatted = `[${timestamp}] [${messageType.toUpperCase()}] ${message}`;
+
+    switch (messageType) {
+      case 'error':
+        console.error(formatted);
+        break;
+      case 'warning':
+        console.warn(formatted);
+        break;
+      case 'info':
+        console.info(formatted);
+        break;
+      case 'log':
+        console.log(formatted);
+        break;
+      case 'debug':
+        console.debug(formatted);
+        break;
+      default:
+        console.log(formatted);
+        break;
     }
   }
 
