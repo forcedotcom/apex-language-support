@@ -153,7 +153,7 @@
   "scripts": {
     "precompile": "shx mkdir -p out/snippets out/grammars && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* out/grammars/ && shx cp -R snippets/* out/snippets/",
     "compile": "tsc --build",
-    "prebundle": "shx test -f ../../packages/apex-ls-browser/dist/worker.js || (cd ../../packages/apex-ls-browser && npm run bundle)",
+    "prebundle": "shx test -f ../../packages/apex-ls-browser/dist/worker.mjs || (cd ../../packages/apex-ls-browser && npm run bundle)",
     "bundle": "tsup",
     "bundle:force": "cd ../../packages/apex-ls-browser && npm run bundle && cd ../apex-lsp-vscode-extension-web && npm run bundle",
     "copy:files": "shx mkdir -p out/snippets out/grammars && shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars/* out/grammars/ && shx cp -R snippets/* out/snippets/",
@@ -175,6 +175,7 @@
     "@types/vscode": "^1.90.0",
     "@vscode/test-electron": "^2.1.5",
     "@vscode/vsce": "^2.15.0",
+    "rollup-plugin-node-polyfills": "^0.2.1",
     "shx": "^0.3.4"
   }
 }

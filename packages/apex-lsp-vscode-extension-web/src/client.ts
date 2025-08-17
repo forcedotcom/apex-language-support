@@ -18,7 +18,6 @@ import type {
   InitializeParams,
   InitializeResult,
 } from 'vscode-languageserver-protocol';
-import type { ApexLspClientOptions, LanguageServerInitResult } from './types';
 
 /**
  * Creates a message reader that reads messages from a worker
@@ -79,35 +78,6 @@ function createApexLspConnection(worker: Worker, logger?: Logger) {
   const reader = createWorkerMessageReader(worker);
   const writer = createWorkerMessageWriter(worker);
   return createMessageConnection(reader, writer, logger);
-}
-
-/**
- * Creates an Apex LSP client that connects to a web worker language server
- *
- * @param options Configuration options for the client
- * @returns A client instance that can communicate with the language server
- */
-export function createApexLspClient(
-  options: ApexLspClientOptions,
-): LanguageServerInitResult {
-  const { worker, logger, autoListen = true } = options;
-
-  const connection = createApexLspConnection(worker, logger);
-
-  if (autoListen) {
-    connection.listen();
-  }
-
-  return {
-    connection,
-    worker,
-    initialize: async (params: InitializeParams): Promise<InitializeResult> =>
-      connection.sendRequest('initialize', params),
-    dispose: () => {
-      connection.dispose();
-      worker.terminate();
-    },
-  };
 }
 
 /**

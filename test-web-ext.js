@@ -2,7 +2,7 @@
 
 /**
  * Enhanced Apex Language Server Test Script
- * Tests the enhanced apex-ls-browser package in web environment (Story 0.1 focus)
+ * Tests the enhanced apex-ls-browser package in web environment
  */
 
 const { execSync } = require('child_process');
@@ -28,7 +28,7 @@ function printHelp() {
   console.log('Usage: node test-web-ext.js <command>');
   console.log('');
   console.log('Commands:');
-  console.log('  web      - Test web extension (Story 0.1 focus)');
+  console.log('  web      - Test web extension');
   console.log('  help     - Show this help message');
   console.log('');
   console.log('Examples:');
@@ -132,14 +132,11 @@ function testWebExtension() {
   console.log(`📁 Test workspace location: ${testWorkspacePath}`);
   console.log(`🔧 Extension development path: ${webExtensionDistPath}`);
   console.log('');
-  console.log('🔧 Enhanced Browser Options:');
-  console.log('   - Web security completely disabled');
+  console.log('🔧 Browser Options:');
+  console.log('   - Web security disabled');
   console.log('   - Site isolation disabled');
-  console.log('   - Insecure content allowed');
-  console.log('   - Display compositor disabled');
   console.log('   - Remote debugging enabled on port 9222');
   console.log('   - DevTools opened automatically');
-  console.log('   - Virtual file system provider enabled for workspace access');
   console.log('');
   console.log('✨ What to test in the browser:');
   console.log('   - Open TestClass.cls file');
@@ -149,14 +146,6 @@ function testWebExtension() {
   console.log('   - Test folding ranges (collapse/expand methods)');
   console.log('   - Test diagnostics (should show any syntax errors)');
   console.log('   - Check browser console for web worker messages');
-  console.log('   - Verify enhanced apex-ls-browser is running in web worker');
-  console.log('');
-  console.log('🔍 Enhanced Language Server Features to Verify:');
-  console.log('   - Web worker-based language server is active');
-  console.log('   - LSP communication over web worker message passing');
-  console.log('   - In-memory storage working correctly');
-  console.log('   - Unified logging system functioning');
-  console.log('   - Platform-independent operation confirmed');
   console.log('');
 
   // Check if extension dist exists

@@ -23,6 +23,7 @@ export default defineConfig({
   target: 'es2020',
   external: [
     'vscode',
+    // Node.js modules that should be external or polyfilled
     'util',
     'fs',
     'path',
@@ -46,6 +47,16 @@ export default defineConfig({
     'tty',
     'vm',
     'zlib',
+    // Exclude problematic dependencies for now
+    'axios',
+    'fast-levenshtein',
+    'web-worker',
+    'setimmediate',
+    'rollup-plugin-node-polyfills/polyfills/setimmediate',
+    'rollup-plugin-node-polyfills/polyfills/timers',
+    'rollup-plugin-node-polyfills/polyfills/empty',
+    'rollup-plugin-node-polyfills/polyfills/process-es6',
+    'rollup-plugin-node-polyfills/polyfills/buffer-es6',
   ],
   noExternal: [
     'vscode-jsonrpc',
@@ -57,18 +68,54 @@ export default defineConfig({
     '@salesforce/apex-lsp-shared',
     '@salesforce/apex-lsp-parser-ast',
   ],
-  // Ensure Node.js modules are not bundled for browser
+  // Enhanced Node.js polyfills and browser environment configuration
   esbuildOptions(options) {
     options.platform = 'browser';
     options.define = {
       ...options.define,
       'process.env.NODE_ENV': '"browser"',
+      'process.env.BROWSER': 'true',
+      global: 'globalThis',
     };
-    // Ensure code is readable and not minified
+
+    // Node.js polyfills for browser environment
+    options.alias = {
+      ...options.alias,
+      // Polyfill Node.js modules for browser
+      util: 'rollup-plugin-node-polyfills/polyfills/util',
+      buffer: 'rollup-plugin-node-polyfills/polyfills/buffer-es6',
+      process: 'rollup-plugin-node-polyfills/polyfills/process-es6',
+      events: 'rollup-plugin-node-polyfills/polyfills/events',
+      stream: 'rollup-plugin-node-polyfills/polyfills/stream',
+      path: 'rollup-plugin-node-polyfills/polyfills/path',
+      querystring: 'rollup-plugin-node-polyfills/polyfills/qs',
+      url: 'rollup-plugin-node-polyfills/polyfills/url',
+      string_decoder: 'rollup-plugin-node-polyfills/polyfills/string-decoder',
+      punycode: 'rollup-plugin-node-polyfills/polyfills/punycode',
+      http: 'rollup-plugin-node-polyfills/polyfills/http',
+      https: 'rollup-plugin-node-polyfills/polyfills/http',
+      os: 'rollup-plugin-node-polyfills/polyfills/os',
+      assert: 'rollup-plugin-node-polyfills/polyfills/assert',
+      constants: 'rollup-plugin-node-polyfills/polyfills/constants',
+      domain: 'rollup-plugin-node-polyfills/polyfills/domain',
+      // Use custom timers polyfill that's compatible with ES module workers
+      timers: './src/polyfills/timers.ts',
+      // Provide custom setImmediate implementation for ES module workers
+      setimmediate: './src/polyfills/timers.ts',
+      tty: 'rollup-plugin-node-polyfills/polyfills/tty',
+      vm: 'rollup-plugin-node-polyfills/polyfills/vm',
+      zlib: 'rollup-plugin-node-polyfills/polyfills/zlib',
+      crypto: 'rollup-plugin-node-polyfills/polyfills/crypto-browserify',
+      fs: 'rollup-plugin-node-polyfills/polyfills/empty',
+      child_process: 'rollup-plugin-node-polyfills/polyfills/empty',
+    };
+
+    // Ensure code is readable and not minified for debugging
     options.minify = false;
     options.minifyIdentifiers = false;
     options.minifySyntax = false;
     options.minifyWhitespace = false;
+
     return options;
   },
   onSuccess: async () => {
@@ -102,7 +149,8 @@ export default defineConfig({
       },
     );
 
-    // Copy the bundled worker from apex-ls-browser (IIFE version)
+    // Copy worker versions from apex-ls-browser
+    // Use ESM versions for browser compatibility
     execSync(
       'shx cp ../../packages/apex-ls-browser/dist/worker.js dist/worker.js',
       {

@@ -17,7 +17,6 @@ import {
   BrowserMessageReader,
   BrowserMessageWriter,
   DocumentSymbol,
-  Diagnostic,
   TextDocumentSyncKind,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -37,8 +36,8 @@ import { WebWorkerStorage } from './storage/WebWorkerStorage';
 import type { ApexServerInitializationOptions } from './types';
 
 /**
- * Creates a simplified web worker-based language server
- * This version avoids problematic dependencies that cause importScripts issues
+ * Creates a simplified web worker-based language server for ES modules
+ * This version is designed specifically for ES module workers and doesn't auto-start
  */
 export async function createSimpleWebWorkerLanguageServer() {
   // Create message reader and writer for web worker communication
@@ -65,43 +64,45 @@ export async function createSimpleWebWorkerLanguageServer() {
   // Initialize storage with web worker storage
   const storage = WebWorkerStorage.getInstance();
   await storage.initialize();
-  logger.info('[SIMPLE-WORKER] Storage initialized');
+  logger.info('[SIMPLE-WORKER-ESM] Storage initialized');
 
   // Server state
   const documents = new TextDocuments(TextDocument);
 
   // Set up document event handlers
   documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
-    logger.info(`[SIMPLE-WORKER] Document opened: ${event.document.uri}`);
+    logger.info(`[SIMPLE-WORKER-ESM] Document opened: ${event.document.uri}`);
     // Store document in storage
     storage.setDocument(event.document.uri, event.document);
   });
 
   documents.onDidChangeContent(
     (change: TextDocumentChangeEvent<TextDocument>) => {
-      logger.info(`[SIMPLE-WORKER] Document changed: ${change.document.uri}`);
+      logger.info(
+        `[SIMPLE-WORKER-ESM] Document changed: ${change.document.uri}`,
+      );
       // Update document in storage
       storage.setDocument(change.document.uri, change.document);
     },
   );
 
   documents.onDidClose((event) => {
-    logger.info(`[SIMPLE-WORKER] Document closed: ${event.document.uri}`);
+    logger.info(`[SIMPLE-WORKER-ESM] Document closed: ${event.document.uri}`);
     // Clear document from storage
     storage.clearFile(event.document.uri);
   });
 
   documents.onDidSave((event: TextDocumentChangeEvent<TextDocument>) => {
-    logger.info(`[SIMPLE-WORKER] Document saved: ${event.document.uri}`);
+    logger.info(`[SIMPLE-WORKER-ESM] Document saved: ${event.document.uri}`);
     // Update document in storage
     storage.setDocument(event.document.uri, event.document);
   });
 
   // Handle initialization
   connection.onInitialize((params: InitializeParams): InitializeResult => {
-    logger.info('[SIMPLE-WORKER] Initializing language server...');
-    logger.info(`[SIMPLE-WORKER] Root URI: ${params.rootUri}`);
-    logger.info(`[SIMPLE-WORKER] Process ID: ${params.processId}`);
+    logger.info('[SIMPLE-WORKER-ESM] Initializing language server...');
+    logger.info(`[SIMPLE-WORKER-ESM] Root URI: ${params.rootUri}`);
+    logger.info(`[SIMPLE-WORKER-ESM] Process ID: ${params.processId}`);
 
     // Extract initialization options - TESTING STEP 2
     const initOptions = params.initializationOptions as
@@ -146,82 +147,36 @@ export async function createSimpleWebWorkerLanguageServer() {
     }
 
     // Create simple capabilities for web worker - TESTING STEP 2
-    const capabilities = {
-      textDocumentSync: TextDocumentSyncKind.Incremental, // Incremental sync
+    const capabilities: any = {
+      textDocumentSync: TextDocumentSyncKind.Incremental, // Incremental
       documentSymbolProvider: true,
       foldingRangeProvider: true,
-      workspace: {
-        workspaceFolders: {
-          supported: true,
-        },
+      completionProvider: {
+        resolveProvider: false,
+        triggerCharacters: ['.'],
+      },
+      hoverProvider: true,
+      definitionProvider: true,
+      referencesProvider: true,
+      diagnosticProvider: {
+        interFileDependencies: false,
+        workspaceDiagnostics: false,
       },
     };
 
-    logger.info(`Using ${mode} mode capabilities for web worker environment`);
-
-    return { capabilities } as InitializeResult;
+    logger.info('[SIMPLE-WORKER-ESM] Language server initialized successfully');
+    return { capabilities };
   });
 
+  // Handle initialized notification
   connection.onInitialized(() => {
-    logger.info('[SIMPLE-WORKER] Language server initialized');
-
-    // Register additional request handlers after initialization
-    connection.onRequest('$/ping', async () => {
-      logger.debug('[SIMPLE-WORKER] Received $/ping request');
-      try {
-        const response = {
-          message: 'pong',
-          timestamp: new Date().toISOString(),
-          server: 'apex-ls-webworker',
-        };
-        logger.debug(
-          `[SIMPLE-WORKER] Responding to $/ping with: ${JSON.stringify(response)}`,
-        );
-        return response;
-      } catch (error) {
-        logger.error(
-          `[SIMPLE-WORKER] Error processing $/ping request: ${error}`,
-        );
-        throw error;
-      }
-    });
-
-    // Handle diagnostic requests
-    connection.onRequest(
-      'textDocument/diagnostic',
-      async (params: DocumentSymbolParams) => {
-        logger.debug(
-          `[SIMPLE-WORKER] Received diagnostic request for: ${params.textDocument.uri}`,
-        );
-
-        try {
-          // For now, return empty diagnostics
-          // This can be enhanced with actual Apex parsing later
-          const diagnostics: Diagnostic[] = [];
-          logger.debug(
-            `[SIMPLE-WORKER] Result for diagnostic (${params.textDocument.uri}): ${JSON.stringify(diagnostics)}`,
-          );
-          return diagnostics;
-        } catch (error) {
-          logger.error(
-            `[SIMPLE-WORKER] Error processing diagnostic for ${params.textDocument.uri}: ${error}`,
-          );
-          return [];
-        }
-      },
-    );
-
-    // Handle workspace diagnostic requests
-    connection.onRequest('workspace/diagnostic', async (params) => {
-      logger.debug('[SIMPLE-WORKER] workspace/diagnostic requested by client');
-      return { items: [] };
-    });
+    logger.info('[SIMPLE-WORKER-ESM] Language server initialized');
   });
 
-  // Handle document symbols request
+  // Handle document symbol request
   connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
     logger.info(
-      `[SIMPLE-WORKER] Document symbols request for: ${params.textDocument.uri}`,
+      `[SIMPLE-WORKER-ESM] Document symbols request for: ${params.textDocument.uri}`,
     );
 
     try {
@@ -229,13 +184,13 @@ export async function createSimpleWebWorkerLanguageServer() {
       const document = await storage.getDocument(params.textDocument.uri);
       if (!document) {
         logger.warn(
-          `[SIMPLE-WORKER] Document not found: ${params.textDocument.uri}`,
+          `[SIMPLE-WORKER-ESM] Document not found: ${params.textDocument.uri}`,
         );
         return [];
       }
 
-      // For now, return a simple symbol structure
-      // This can be enhanced with actual Apex parsing once the parser-ast package is web-worker compatible
+      // For now, return simple document symbols
+      // This can be enhanced with actual Apex parsing later
       const symbols: DocumentSymbol[] = [
         {
           name: 'TestClass',
@@ -266,12 +221,12 @@ export async function createSimpleWebWorkerLanguageServer() {
       ];
 
       logger.info(
-        `[SIMPLE-WORKER] Returning ${symbols.length} symbols for: ${params.textDocument.uri}`,
+        `[SIMPLE-WORKER-ESM] Returning ${symbols.length} symbols for: ${params.textDocument.uri}`,
       );
       return symbols;
     } catch (error) {
       logger.error(
-        `[SIMPLE-WORKER] Error processing document symbols for ${params.textDocument.uri}: ${error}`,
+        `[SIMPLE-WORKER-ESM] Error processing document symbols for ${params.textDocument.uri}: ${error}`,
       );
       return [];
     }
@@ -280,7 +235,7 @@ export async function createSimpleWebWorkerLanguageServer() {
   // Handle folding range request
   connection.onFoldingRanges(async (params: FoldingRangeParams) => {
     logger.info(
-      `[SIMPLE-WORKER] Folding ranges request for: ${params.textDocument.uri}`,
+      `[SIMPLE-WORKER-ESM] Folding ranges request for: ${params.textDocument.uri}`,
     );
 
     try {
@@ -288,7 +243,7 @@ export async function createSimpleWebWorkerLanguageServer() {
       const document = await storage.getDocument(params.textDocument.uri);
       if (!document) {
         logger.warn(
-          `[SIMPLE-WORKER] Document not found: ${params.textDocument.uri}`,
+          `[SIMPLE-WORKER-ESM] Document not found: ${params.textDocument.uri}`,
         );
         return [];
       }
@@ -309,12 +264,12 @@ export async function createSimpleWebWorkerLanguageServer() {
       ];
 
       logger.info(
-        `[SIMPLE-WORKER] Returning ${foldingRanges.length} folding ranges for: ${params.textDocument.uri}`,
+        `[SIMPLE-WORKER-ESM] Returning ${foldingRanges.length} folding ranges for: ${params.textDocument.uri}`,
       );
       return foldingRanges;
     } catch (error) {
       logger.error(
-        `[SIMPLE-WORKER] Error processing folding ranges for ${params.textDocument.uri}: ${error}`,
+        `[SIMPLE-WORKER-ESM] Error processing folding ranges for ${params.textDocument.uri}: ${error}`,
       );
       return [];
     }
@@ -322,67 +277,45 @@ export async function createSimpleWebWorkerLanguageServer() {
 
   // Handle shutdown
   connection.onShutdown(() => {
-    logger.info('[SIMPLE-WORKER] Shutdown requested');
+    logger.info('[SIMPLE-WORKER-ESM] Shutdown requested');
   });
 
   // Handle exit
   connection.onExit(() => {
-    logger.info('[SIMPLE-WORKER] Exit requested');
+    logger.info('[SIMPLE-WORKER-ESM] Exit requested');
     process.exit(0);
   });
 
   // Listen on the connection
-  logger.info('[SIMPLE-WORKER] Starting to listen on connection...');
+  logger.info('[SIMPLE-WORKER-ESM] Starting to listen on connection...');
   documents.listen(connection);
   connection.listen();
-  logger.info('[SIMPLE-WORKER] Connection listening started');
+  logger.info('[SIMPLE-WORKER-ESM] Connection listening started');
 
-  logger.info('[SIMPLE-WORKER] Simplified language server ready!');
+  logger.info('[SIMPLE-WORKER-ESM] Simplified language server ready!');
 }
 
-// Auto-start only for classic workers, not ES module workers
-// ES module workers should be started explicitly by the client
-if (typeof self !== 'undefined' && 'DedicatedWorkerGlobalScope' in self) {
-  // Check if this is an ES module context
-  // In ESM builds, import.meta will be available
-  // In CJS builds, it will be undefined
-  // Use a try-catch approach to safely detect ES modules
-  let isESModule = false;
-  try {
-    // @ts-ignore - import.meta is only available in ES modules
-    isESModule = typeof import.meta !== 'undefined' && import.meta.url;
-  } catch {
-    // import.meta is not available, so this is a CJS environment
-    isESModule = false;
-  }
+// Initialize the worker synchronously
+console.log('[SIMPLE-WORKER-ESM] ES module worker initializing...');
 
-  if (!isESModule) {
-    // Only auto-start for classic workers
+// Listen for messages
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'ready_check') {
+    // Send ready message back to main thread
+    self.postMessage('ready');
+  } else if (event.data && event.data.type === 'start') {
     console.log(
-      '[SIMPLE-WORKER] Starting Apex Language Server (classic worker)...',
+      '[SIMPLE-WORKER-ESM] Starting Apex Language Server (ES module)...',
     );
     createSimpleWebWorkerLanguageServer().catch((error) => {
-      console.error('[SIMPLE-WORKER] Failed to start language server:', error);
-    });
-  } else {
-    // For ES modules, listen for start message
-    console.log(
-      '[SIMPLE-WORKER] ES module worker ready, waiting for start message...',
-    );
-    self.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'start') {
-        console.log(
-          '[SIMPLE-WORKER] Starting Apex Language Server (ES module)...',
-        );
-        createSimpleWebWorkerLanguageServer().catch((error) => {
-          console.error(
-            '[SIMPLE-WORKER] Failed to start language server:',
-            error,
-          );
-        });
-      }
+      console.error(
+        '[SIMPLE-WORKER-ESM] Failed to start language server:',
+        error,
+      );
     });
   }
-} else {
-  console.log('[SIMPLE-WORKER] Not in worker environment, skipping auto-start');
-}
+});
+
+console.log(
+  '[SIMPLE-WORKER-ESM] Worker initialized, waiting for start message...',
+);

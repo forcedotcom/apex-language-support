@@ -334,9 +334,9 @@ connection.listen();
 // Export the storage implementation for browsers
 import * as BrowserStorage from './storage/BrowserIndexedDBApexStorage';
 
-// Export web worker functionality
-export { createSimpleWebWorkerLanguageServer } from './worker';
-export type { WebWorkerLanguageServerOptions, EnvironmentType } from './types';
+// Export web worker functionality (commented out for Jest compatibility)
+// export { createSimpleWebWorkerLanguageServer } from './worker';
+// export type { WebWorkerLanguageServerOptions, EnvironmentType } from './types';
 
 // Re-export LSP protocol types for convenience
 export * from 'vscode-languageserver-protocol';
