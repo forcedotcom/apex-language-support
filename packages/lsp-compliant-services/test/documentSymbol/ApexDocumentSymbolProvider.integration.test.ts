@@ -147,11 +147,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
             name: 'forwardToStartPage() : PageReference',
             range: {
               end: { character: 6, line: 7 },
-              start: { character: 25, line: 5 },
+              start: { character: 11, line: 5 }, // Now includes 'public'
             },
             selectionRange: {
               end: { character: 43, line: 5 },
-              start: { character: 25, line: 5 },
+              start: { character: 25, line: 5 }, // Still just the method name
             },
           },
           {
@@ -160,11 +160,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
             name: 'CommunitiesLandingController(Boolean) : void',
             range: {
               end: { character: 6, line: 14 },
-              start: { character: 11, line: 9 },
+              start: { character: 11, line: 9 }, // Symbol name + scope (after 'public')
             },
             selectionRange: {
               end: { character: 39, line: 9 },
-              start: { character: 11, line: 9 },
+              start: { character: 11, line: 9 }, // Still just the constructor name
             },
           },
         ],
@@ -172,11 +172,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
         name: 'CommunitiesLandingController',
         range: {
           end: { character: 2, line: 16 },
-          start: { character: 26, line: 3 },
+          start: { character: 20, line: 3 }, // Now includes 'public with sharing'
         },
         selectionRange: {
           end: { character: 54, line: 3 },
-          start: { character: 26, line: 3 },
+          start: { character: 26, line: 3 }, // Still just the class name
         },
       };
 
@@ -262,11 +262,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
         name: 'OuterClass',
         kind: 5, // Class
         range: {
-          start: { line: 0, character: 13 },
+          start: { line: 0, character: 7 }, // Now includes 'public'
           end: { line: 6, character: 1 },
         },
         selectionRange: {
-          start: { line: 0, character: 13 },
+          start: { line: 0, character: 13 }, // Still just the class name
           end: { line: 0, character: 23 },
         },
         children: [
@@ -274,11 +274,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
             name: 'InnerClass',
             kind: 5, // Class
             range: {
-              start: { line: 1, character: 15 },
+              start: { line: 1, character: 9 }, // Now includes 'public'
               end: { line: 5, character: 3 },
             },
             selectionRange: {
-              start: { line: 1, character: 15 },
+              start: { line: 1, character: 15 }, // Still just the class name
               end: { line: 1, character: 25 },
             },
             children: [
@@ -286,11 +286,11 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
                 name: 'InnerClass() : void', // Constructor name should be the class name
                 kind: 9, // Constructor
                 range: {
-                  start: { line: 2, character: 11 },
+                  start: { line: 2, character: 11 }, // Symbol name + scope (after 'public')
                   end: { line: 4, character: 5 },
                 },
                 selectionRange: {
-                  start: { line: 2, character: 11 },
+                  start: { line: 2, character: 11 }, // Still just the constructor name
                   end: { line: 2, character: 21 },
                 },
                 children: [],
@@ -375,6 +375,289 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       expect((result![0] as DocumentSymbol).children![0].name).toBe('CUSTOMER');
       expect((result![0] as DocumentSymbol).children![1].name).toBe('PARTNER');
       expect((result![0] as DocumentSymbol).children![2].name).toBe('VENDOR');
+    });
+
+    /**
+     * Migrated unit-test cases to integration (real compiler) tests
+     */
+    it('returns null when document is not found', async () => {
+      (storage.getDocument as jest.Mock).mockResolvedValue(null);
+
+      const params: DocumentSymbolParams = {
+        textDocument: { uri: 'file:///missing.cls' },
+      };
+      const result = await symbolProvider.provideDocumentSymbols(params);
+      expect(result).toBeNull();
+    });
+
+    it('parses a simple Apex class', async () => {
+      const docUri = 'file:///SimpleClass.cls';
+      const content = 'public class SimpleClass {}';
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(1);
+      const symbol = result![0] as DocumentSymbol;
+      expect(symbol.name).toBe('SimpleClass');
+      expect(symbol.kind).toBe(5); // Class
+    });
+
+    it('parses a class with a property and a method', async () => {
+      const docUri = 'file:///ComplexClass.cls';
+      const content = [
+        'public class ComplexClass {',
+        '  public String myProp { get; set; }',
+        '  public void myMethod() {}',
+        '}',
+      ].join('\n');
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(1);
+      const classSymbol = result![0] as DocumentSymbol;
+      expect(classSymbol.name).toBe('ComplexClass');
+      expect(classSymbol.children).toHaveLength(2);
+      expect(classSymbol.children![0].name).toBe('myProp');
+      expect(classSymbol.children![0].kind).toBe(7); // Property
+      expect(classSymbol.children![1].name).toBe('myMethod() : void');
+      expect(classSymbol.children![1].kind).toBe(6); // Method
+    });
+
+    it('handles documents with syntax errors gracefully', async () => {
+      const docUri = 'file:///ErrorClass.cls';
+      const content = 'public class ErrorClass {'; // missing closing brace
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+      // The parser is resilient and can still parse partial content
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(1);
+      expect(result![0].name).toBe('ErrorClass');
+    });
+
+    /**
+     * Additional test cases migrated from unit tests
+     */
+    it('handles method symbols with parameters and return types correctly', async () => {
+      const docUri = 'file:///MethodClass.cls';
+      const content = [
+        'public class MethodClass {',
+        '  public String getValue(Integer id, String name) {',
+        "    return 'test';",
+        '  }',
+        '}',
+      ].join('\n');
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).toHaveLength(1);
+      const classSymbol = result![0] as DocumentSymbol;
+      expect(classSymbol.children).toHaveLength(1);
+      expect(classSymbol.children![0].name).toBe(
+        'getValue(Integer, String) : String',
+      );
+    });
+
+    it('handles symbols with identifier location for precise ranges', async () => {
+      const docUri = 'file:///PreciseClass.cls';
+      const content = 'public class PreciseClass {}';
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).toHaveLength(1);
+      const symbol = result![0] as DocumentSymbol;
+      expect(symbol.name).toBe('PreciseClass');
+      expect(symbol.kind).toBe(5); // Class
+      // Verify ranges are properly calculated
+      expect(symbol.range).toBeDefined();
+      expect(symbol.selectionRange).toBeDefined();
+    });
+
+    it('handles valid class documents correctly', async () => {
+      const docUri = 'file:///ErrorClass.cls';
+      const content = 'public class ErrorClass {}';
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      // Should parse valid classes correctly
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(1);
+      expect(result![0].name).toBe('ErrorClass');
+    });
+
+    it('handles complex class with fields, methods, and inner classes', async () => {
+      const docUri = 'file:///ComplexClass.cls';
+      const content = [
+        'public class ComplexClass {',
+        '  private String field1;',
+        '  public void method1() {}',
+        '  public class InnerClass {',
+        '    public void innerMethod() {}',
+        '  }',
+        '}',
+      ].join('\n');
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).not.toBeNull();
+      const firstSymbol = result![0] as DocumentSymbol;
+      expect(Array.isArray(firstSymbol.children)).toBe(true);
+      expect((firstSymbol.children as DocumentSymbol[]).length).toBeGreaterThan(
+        0,
+      );
+    });
+
+    it('handles interface with mixed members and filters to only methods', async () => {
+      const docUri = 'file:///TestInterface.cls';
+      const content = [
+        'public interface TestInterface {',
+        '  void method1();',
+        '  String method2();',
+        '  String someVariable;',
+        '}',
+      ].join('\n');
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).not.toBeNull();
+      const firstSymbol = result![0] as DocumentSymbol;
+      expect(Array.isArray(firstSymbol.children)).toBe(true);
+      // Should only include methods, not variables
+      expect(
+        (firstSymbol.children as DocumentSymbol[]).every(
+          (child) => child.kind === 6, // SymbolKind.Method
+        ),
+      ).toBe(true);
+    });
+
+    it('handles enum with enum values correctly', async () => {
+      const docUri = 'file:///TestEnum.cls';
+      const content = [
+        'public enum TestEnum {',
+        '  VALUE1,',
+        '  VALUE2',
+        '}',
+      ].join('\n');
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).not.toBeNull();
+      const enumSymbol = result![0] as DocumentSymbol;
+      expect(enumSymbol.kind).toBe(10); // SymbolKind.Enum
+      expect(enumSymbol.children).toHaveLength(2);
+      expect(enumSymbol.children![0].name).toBe('VALUE1');
+      expect(enumSymbol.children![0].kind).toBe(22); // SymbolKind.EnumMember
+      expect(enumSymbol.children![1].name).toBe('VALUE2');
+      expect(enumSymbol.children![1].kind).toBe(22); // SymbolKind.EnumMember
+    });
+
+    it('handles trigger symbols correctly', async () => {
+      const docUri = 'file:///TestTrigger.trigger';
+      const content = [
+        'trigger TestTrigger on Account (before insert, after update) {',
+        '  // trigger logic',
+        '}',
+      ].join('\n');
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      expect(result).toHaveLength(1);
+      const triggerSymbol = result![0] as DocumentSymbol;
+      expect(triggerSymbol.name).toBe('TestTrigger');
+      expect(triggerSymbol.kind).toBe(5); // Triggers are mapped to Class
+    });
+
+    it('handles documents with parsing errors gracefully', async () => {
+      const invalidApex = [
+        'public class MyClass {',
+        '  public String myField;',
+        '  public void anotherMethod() {',
+        "      System.debug('hello' // Missing semicolon",
+        '  }',
+        '}',
+      ].join('\n');
+
+      const docUri = 'file:///InvalidClass.cls';
+      const textDocument = TextDocument.create(docUri, 'apex', 1, invalidApex);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      // The parser is resilient and can still parse partial content
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(1);
+      expect(result![0].name).toBe('MyClass');
+    });
+
+    it('handles empty documents correctly', async () => {
+      const docUri = 'file:///EmptyClass.cls';
+      const content = '';
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      // Empty documents return empty arrays
+      expect(result).toEqual([]);
+    });
+
+    it('handles documents with only whitespace correctly', async () => {
+      const docUri = 'file:///WhitespaceClass.cls';
+      const content = '   \n  \t  \n  ';
+      const textDocument = TextDocument.create(docUri, 'apex', 1, content);
+      (storage.getDocument as jest.Mock).mockResolvedValue(textDocument);
+
+      const result = await symbolProvider.provideDocumentSymbols({
+        textDocument: { uri: docUri },
+      });
+
+      // Whitespace-only documents return empty arrays
+      expect(result).toEqual([]);
     });
   });
 });

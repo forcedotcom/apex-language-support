@@ -71,8 +71,11 @@ export class DefaultApexDocumentSymbolProvider
 {
   private readonly compilerService: CompilerService;
 
-  constructor(private readonly storage: ApexStorageInterface) {
-    this.compilerService = new CompilerService();
+  constructor(
+    private readonly storage: ApexStorageInterface,
+    compilerService?: CompilerService,
+  ) {
+    this.compilerService = compilerService || new CompilerService();
   }
 
   /**
@@ -394,30 +397,27 @@ export class DefaultApexDocumentSymbolProvider
   }
 
   /**
-   * Creates a precise range that excludes leading whitespace
-   * This finds the first non-whitespace character in the line for better UX
+   * Creates the range that covers the symbol name + scope (body)
+   * This excludes modifiers but includes the entire symbol definition
    */
   private createRange(symbol: ApexSymbol): Range {
     const { location } = symbol;
 
-    // The end position is always the end of the full symbol location.
+    const startPosition = transformParserToLspPosition({
+      line: location.symbolRange.startLine,
+      character: location.symbolRange.startColumn,
+    });
+
     const endPosition = transformParserToLspPosition({
       line: location.symbolRange.endLine,
       character: location.symbolRange.endColumn,
-    });
-
-    // Use the precise identifier location for the start of the range.
-    // This provides a "tighter" range that excludes leading modifiers/keywords.
-    const startPosition = transformParserToLspPosition({
-      line: location.identifierRange.startLine,
-      character: location.identifierRange.startColumn,
     });
     return Range.create(startPosition, endPosition);
   }
 
   /**
-   * Creates a precise selection range for the symbol name
-   * This excludes leading whitespace and keywords for better selection behavior
+   * Creates a precise selection range for just the symbol name
+   * This excludes modifiers and scope, providing precise positioning for the identifier
    */
   private createSelectionRange(symbol: ApexSymbol): Range {
     const { location, name } = symbol;

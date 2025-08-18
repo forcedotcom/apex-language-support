@@ -47,7 +47,7 @@ describe('Precise Resolution Test', () => {
 
   it('should find class symbol at exact position for precise resolution', () => {
     const apexCode = `public class TestClass {
-    public void testMethod() {
+    public void myMethod() {
         // method body
     }
 }`;
@@ -69,7 +69,7 @@ describe('Precise Resolution Test', () => {
 
   it('should find method symbol at exact position for precise resolution', () => {
     const apexCode = `public class TestClass {
-    public void testMethod() {
+    public void myMethod() {
         // method body
     }
 }`;
@@ -77,7 +77,7 @@ describe('Precise Resolution Test', () => {
     compileAndAddToManager(apexCode, 'test.cls');
 
     // Test precise resolution at the start of the method name (line 2, character 20)
-    // "    public void testMethod" - "testMethod" starts at character 20
+    // "    public void myMethod" - "myMethod" starts at character 20
     const result = symbolManager.getSymbolAtPosition(
       'test.cls',
       { line: 2, character: 20 }, // 1-based line, 0-based column
@@ -85,13 +85,13 @@ describe('Precise Resolution Test', () => {
     );
 
     expect(result).not.toBeNull();
-    expect(result?.name).toBe('testMethod');
+    expect(result?.name).toBe('myMethod');
     expect(result?.kind).toBe(SymbolKind.Method);
   });
 
   it('should not return containing symbol for precise resolution', () => {
     const apexCode = `public class TestClass {
-    public void testMethod() {
+    public void myMethod() {
         // method body
         if (true) {
             System.debug('test');
@@ -102,7 +102,7 @@ describe('Precise Resolution Test', () => {
     compileAndAddToManager(apexCode, 'test.cls');
 
     // Test precise resolution at the method position (line 2, character 20)
-    // "    public void testMethod" - "testMethod" starts at character 20
+    // "    public void myMethod" - "myMethod" starts at character 20
     const result = symbolManager.getSymbolAtPosition(
       'test.cls',
       { line: 2, character: 20 }, // 1-based line, 0-based column
@@ -111,7 +111,7 @@ describe('Precise Resolution Test', () => {
 
     // Should return the method, not the containing class
     expect(result).not.toBeNull();
-    expect(result?.name).toBe('testMethod');
+    expect(result?.name).toBe('myMethod');
     expect(result?.kind).toBe(SymbolKind.Method);
     expect(result?.name).not.toBe('TestClass');
   });
@@ -120,7 +120,7 @@ describe('Precise Resolution Test', () => {
     const apexCode = `public class TestClass {
     private String testField;
     
-    public void testMethod() {
+    public void myMethod() {
         this.testField = 'value';
     }
 }`;
