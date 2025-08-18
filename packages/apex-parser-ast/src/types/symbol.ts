@@ -391,11 +391,8 @@ export type Position = {
  * Strategy for resolving symbols at a given position
  */
 export type SymbolResolutionStrategy =
-  | 'standard' // Multi-step with TypeReference + fallback
-  | 'precise' // No fallback to containing symbols
-  | 'scope'; // Broader scope resolution (future)
-
-
+  | 'scope' // Multi-step with TypeReference + fallback
+  | 'precise'; // No fallback to containing symbols
 
 export type Range = {
   startLine: number;

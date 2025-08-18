@@ -217,7 +217,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       expect(referencesFrom[0].symbol.name).toBe('TargetClass');
     });
 
-    it('should handle scope-based symbol resolution', () => {
+    it('should handle scope-based symbol resolution with context', () => {
       // Create symbols with different scopes
       const classSymbol = SymbolFactory.createMinimalSymbol(
         'TestClass',

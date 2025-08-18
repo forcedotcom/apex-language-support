@@ -103,7 +103,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const createAccountMethod = symbolGraph.findSymbolByName('createAccount');
       expect(createAccountMethod.length).toBeGreaterThan(0);
 
-      // Verify scope-based resolution
+      // Verify scope-based resolution using context
       const lookupResult = symbolGraph.lookupSymbolWithContext(
         'createAccount',
         {
@@ -269,7 +269,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
         symbolGraph.addSymbol(symbol, 'ComplexService.cls', symbolTable);
       }
 
-      // Test scope-based resolution
+      // Test scope-based resolution with context
       const innerClassLookup = symbolGraph.lookupSymbolWithContext(
         'InnerClass',
         {

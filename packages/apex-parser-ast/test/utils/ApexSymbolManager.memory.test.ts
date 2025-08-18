@@ -304,7 +304,7 @@ describe.skip('ApexSymbolManager - Phase 6.5 Memory Optimization Tests', () => {
       expect(allSymbols.length).toBeGreaterThan(0);
     });
 
-    it('should provide scope-based symbol lookup', () => {
+    it('should provide scope-based symbol lookup using findSymbolsInScope', () => {
       const symbols = [
         createTestSymbol('TestClass', SymbolKind.Class),
         createTestSymbol('testMethod', SymbolKind.Method),
@@ -371,7 +371,7 @@ describe.skip('ApexSymbolManager - Phase 6.5 Memory Optimization Tests', () => {
   });
 
   describe('Phase 6.5.4: Scope-Based Query Enhancement', () => {
-    it('should provide efficient scope-aware symbol lookup', () => {
+    it('should provide efficient scope-aware symbol lookup with scope hierarchy', () => {
       const symbols = [
         createTestSymbol('TestClass', SymbolKind.Class),
         createTestSymbol('publicMethod', SymbolKind.Method),

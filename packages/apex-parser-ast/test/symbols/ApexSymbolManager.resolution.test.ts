@@ -153,7 +153,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result.strategy).toBe('position-based');
     });
 
-    it('should fall back to legacy resolution for unsupported request types', async () => {
+    it('should fall back to scope resolution for unsupported request types', async () => {
       // Compile a test class with a variable
       const apexCode = `
         public class TestClass {
@@ -178,7 +178,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       );
 
       expect(result).toBeDefined();
-      expect(result.strategy).toBe('legacy');
+      expect(result.strategy).toBe('scope');
     });
   });
 
