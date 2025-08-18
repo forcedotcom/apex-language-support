@@ -18,6 +18,7 @@ import {
   type VariableSymbol,
   SymbolLocation,
   Position,
+  SymbolResolutionStrategy,
 } from '../types/symbol';
 import { TypeReference, ReferenceContext } from '../types/typeReference';
 import {
@@ -1736,13 +1737,61 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
+   * Get the most specific symbol at a given position using explicit resolution strategy
+   * This provides unified access to different resolution strategies for LSP services
+   * @param fileUri The file URI to search in
+   * @param position The position to search for symbols (parser-ast format: 1-based line, 0-based column)
+   * @param strategy The resolution strategy to use
+   * @returns The most specific symbol at the position, or null if not found
+   */
+  getSymbolAtPosition(
+    fileUri: string,
+    position: Position,
+    strategy?: SymbolResolutionStrategy,
+  ): ApexSymbol | null {
+    // Default to standard strategy if none specified
+    const resolutionStrategy = strategy || 'standard';
+
+    this.logger.debug(
+      () =>
+        `Using ${resolutionStrategy} strategy for symbol resolution at ${position.line}:${position.character}`,
+    );
+
+    switch (resolutionStrategy) {
+      case 'standard':
+        return this.getSymbolAtPositionLegacy(fileUri, position);
+      case 'precise':
+      case 'hover':
+      case 'definition':
+      case 'references':
+        return this.getSymbolAtPositionPrecise(fileUri, position);
+      case 'scope':
+        // Future: broader scope resolution
+        this.logger.debug(
+          () => 'Scope strategy not yet implemented, falling back to standard',
+        );
+        return this.getSymbolAtPositionLegacy(fileUri, position);
+      default:
+        this.logger.debug(
+          () =>
+            `Unknown strategy ${resolutionStrategy}, falling back to standard`,
+        );
+        return this.getSymbolAtPositionLegacy(fileUri, position);
+    }
+  }
+
+  /**
+   * @deprecated Use getSymbolAtPosition(uri, position, 'standard') instead
    * Get the most specific symbol at a given position in a file
    * This provides reliable position-based symbol lookup for LSP services
    * @param fileUri The file URI to search in
    * @param position The position to search for symbols (parser-ast format: 1-based line, 0-based column)
    * @returns The most specific symbol at the position, or null if not found
    */
-  getSymbolAtPosition(fileUri: string, position: Position): ApexSymbol | null {
+  getSymbolAtPositionLegacy(
+    fileUri: string,
+    position: Position,
+  ): ApexSymbol | null {
     try {
       const normalizedPath = this.normalizeFilePath(fileUri);
 
@@ -4126,8 +4175,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return true;
   }
 
-  // ===== NEW RESOLUTION STRATEGY METHODS =====
-
   /**
    * Resolves a symbol using the appropriate resolution strategy
    */
@@ -4153,40 +4200,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Enhanced getSymbolAtPosition that uses resolution strategies
+   * @deprecated Use getSymbolAtPosition(uri, position, strategy) instead
+   * Uses resolution strategies
    */
   public getSymbolAtPositionWithStrategy(
     fileUri: string,
     position: { line: number; character: number },
     requestType?: string,
   ): ApexSymbol | null {
-    let result: ApexSymbol | null;
-    let resolutionMethod: string;
-    let fallbackUsed: boolean;
+    // Map old requestType to new strategy parameter
+    let strategy: SymbolResolutionStrategy = 'standard';
 
-    // For hover, definition, and references requests, use precise position-based resolution
     if (
       requestType === 'hover' ||
       requestType === 'definition' ||
       requestType === 'references'
     ) {
-      result = this.getSymbolAtPositionPrecise(fileUri, position);
-      resolutionMethod = 'exact-position';
-      fallbackUsed = false;
-    } else {
-      // For other request types, use the existing method
-      result = this.getSymbolAtPosition(fileUri, position);
-      resolutionMethod = 'exact-position';
-      fallbackUsed = false;
+      strategy = 'precise';
     }
 
-    // Add metadata about the resolution method used
-    if (result) {
-      (result as any).resolutionMethod = resolutionMethod;
-      (result as any).fallbackUsed = fallbackUsed;
-    }
-
-    return result;
+    // Delegate to new unified method
+    return this.getSymbolAtPosition(fileUri, position, strategy);
   }
 
   /**

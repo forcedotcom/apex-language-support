@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ApexSymbol } from '../types/symbol';
+import { ApexSymbol, SymbolResolutionStrategy } from '../types/symbol';
 import {
   ReferenceResult,
   DependencyAnalysis,
@@ -199,18 +199,34 @@ export interface ISymbolManager {
   ): TypeReference[];
 
   /**
+   * Get the most specific symbol at a given position using explicit resolution strategy
+   * This provides unified access to different resolution strategies for LSP services
+   * @param fileUri The file URI to search in
+   * @param position The position to search for symbols (0-based)
+   * @param strategy The resolution strategy to use
+   * @returns The most specific symbol at the position, or null if not found
+   */
+  getSymbolAtPosition(
+    fileUri: string,
+    position: { line: number; character: number },
+    strategy?: SymbolResolutionStrategy,
+  ): ApexSymbol | null;
+
+  /**
+   * @deprecated Use getSymbolAtPosition(uri, position, 'standard') instead
    * Get the most specific symbol at a given position in a file
    * This provides reliable position-based symbol lookup for LSP services
    * @param fileUri The file URI to search in
    * @param position The position to search for symbols (0-based)
    * @returns The most specific symbol at the position, or null if not found
    */
-  getSymbolAtPosition(
+  getSymbolAtPositionLegacy(
     fileUri: string,
     position: { line: number; character: number },
   ): ApexSymbol | null;
 
   /**
+   * @deprecated Use getSymbolAtPosition(uri, position, strategy) instead
    * Get the most specific symbol at a given position using strategy-based resolution
    * @param fileUri The file URI to search in
    * @param position The position to search for symbols (0-based)

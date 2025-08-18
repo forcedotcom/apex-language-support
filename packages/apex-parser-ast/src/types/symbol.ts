@@ -387,6 +387,19 @@ export type Position = {
   character: number;
 };
 
+/**
+ * Strategy for resolving symbols at a given position
+ */
+export type SymbolResolutionStrategy =
+  | 'standard' // Multi-step with TypeReference + fallback
+  | 'precise' // No fallback to containing symbols
+  | 'hover' // Alias for 'precise' (LSP hover requests)
+  | 'definition' // Alias for 'precise' (LSP definition requests)
+  | 'references' // Alias for 'precise' (LSP references requests)
+  | 'scope'; // Broader scope resolution (future)
+
+
+
 export type Range = {
   startLine: number;
   /** Start column (1-based) */

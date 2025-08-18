@@ -56,7 +56,7 @@ describe('Precise Resolution Test', () => {
 
     // Test precise resolution at the start of the class name (line 1, character 13)
     // "public class TestClass" - "TestClass" starts at character 13
-    const result = symbolManager.getSymbolAtPositionWithStrategy(
+    const result = symbolManager.getSymbolAtPosition(
       'test.cls',
       { line: 1, character: 13 }, // 1-based line, 0-based column
       'hover',
@@ -78,7 +78,7 @@ describe('Precise Resolution Test', () => {
 
     // Test precise resolution at the start of the method name (line 2, character 20)
     // "    public void testMethod" - "testMethod" starts at character 20
-    const result = symbolManager.getSymbolAtPositionWithStrategy(
+    const result = symbolManager.getSymbolAtPosition(
       'test.cls',
       { line: 2, character: 20 }, // 1-based line, 0-based column
       'hover',
@@ -103,7 +103,7 @@ describe('Precise Resolution Test', () => {
 
     // Test precise resolution at the method position (line 2, character 20)
     // "    public void testMethod" - "testMethod" starts at character 20
-    const result = symbolManager.getSymbolAtPositionWithStrategy(
+    const result = symbolManager.getSymbolAtPosition(
       'test.cls',
       { line: 2, character: 20 }, // 1-based line, 0-based column
       'hover',
@@ -144,7 +144,7 @@ describe('Precise Resolution Test', () => {
 
     // Test precise resolution at the field position (line 2, character 20)
     // "    private String testField" - "testField" starts at character 20
-    const result = symbolManager.getSymbolAtPositionWithStrategy(
+    const result = symbolManager.getSymbolAtPosition(
       'test.cls',
       { line: 2, character: 20 }, // 1-based line, 0-based column
       'hover',
