@@ -393,9 +393,6 @@ export type Position = {
 export type SymbolResolutionStrategy =
   | 'standard' // Multi-step with TypeReference + fallback
   | 'precise' // No fallback to containing symbols
-  | 'hover' // Alias for 'precise' (LSP hover requests)
-  | 'definition' // Alias for 'precise' (LSP definition requests)
-  | 'references' // Alias for 'precise' (LSP references requests)
   | 'scope'; // Broader scope resolution (future)
 
 

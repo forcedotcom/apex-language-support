@@ -45,7 +45,7 @@ describe('Precise Resolution Test', () => {
     }
   };
 
-  it('should find class symbol at exact position for hover request', () => {
+  it('should find class symbol at exact position for precise resolution', () => {
     const apexCode = `public class TestClass {
     public void testMethod() {
         // method body
@@ -59,7 +59,7 @@ describe('Precise Resolution Test', () => {
     const result = symbolManager.getSymbolAtPosition(
       'test.cls',
       { line: 1, character: 13 }, // 1-based line, 0-based column
-      'hover',
+      'precise',
     );
 
     expect(result).not.toBeNull();
@@ -67,7 +67,7 @@ describe('Precise Resolution Test', () => {
     expect(result?.kind).toBe(SymbolKind.Class);
   });
 
-  it('should find method symbol at exact position for hover request', () => {
+  it('should find method symbol at exact position for precise resolution', () => {
     const apexCode = `public class TestClass {
     public void testMethod() {
         // method body
@@ -81,7 +81,7 @@ describe('Precise Resolution Test', () => {
     const result = symbolManager.getSymbolAtPosition(
       'test.cls',
       { line: 2, character: 20 }, // 1-based line, 0-based column
-      'hover',
+      'precise',
     );
 
     expect(result).not.toBeNull();
@@ -89,7 +89,7 @@ describe('Precise Resolution Test', () => {
     expect(result?.kind).toBe(SymbolKind.Method);
   });
 
-  it('should not return containing symbol for hover request', () => {
+  it('should not return containing symbol for precise resolution', () => {
     const apexCode = `public class TestClass {
     public void testMethod() {
         // method body
@@ -106,7 +106,7 @@ describe('Precise Resolution Test', () => {
     const result = symbolManager.getSymbolAtPosition(
       'test.cls',
       { line: 2, character: 20 }, // 1-based line, 0-based column
-      'hover',
+      'precise',
     );
 
     // Should return the method, not the containing class
@@ -116,7 +116,7 @@ describe('Precise Resolution Test', () => {
     expect(result?.name).not.toBe('TestClass');
   });
 
-  it('should find field symbol at exact position for hover request', () => {
+  it('should find field symbol at exact position for precise resolution', () => {
     const apexCode = `public class TestClass {
     private String testField;
     
@@ -147,7 +147,7 @@ describe('Precise Resolution Test', () => {
     const result = symbolManager.getSymbolAtPosition(
       'test.cls',
       { line: 2, character: 20 }, // 1-based line, 0-based column
-      'hover',
+      'precise',
     );
 
     // Debug: Log what we actually got

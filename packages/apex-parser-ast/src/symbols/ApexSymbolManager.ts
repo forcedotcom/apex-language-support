@@ -1761,9 +1761,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       case 'standard':
         return this.getSymbolAtPositionLegacy(fileUri, position);
       case 'precise':
-      case 'hover':
-      case 'definition':
-      case 'references':
         return this.getSymbolAtPositionPrecise(fileUri, position);
       case 'scope':
         // Future: broader scope resolution
@@ -4208,7 +4205,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position: { line: number; character: number },
     requestType?: string,
   ): ApexSymbol | null {
-    // Map old requestType to new strategy parameter
+    // Map old LSP requestType to parser strategy
     let strategy: SymbolResolutionStrategy = 'standard';
 
     if (
