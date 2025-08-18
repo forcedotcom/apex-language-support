@@ -43,9 +43,7 @@ packages/
 ├── lsp-compliant-services/       # Standard LSP protocol implementations
 ├── custom-services/              # Custom language server services
 ├── apex-ls/                      # Unified language server implementation
-├── apex-lsp-vscode-client/       # VS Code client integration
-├── apex-lsp-vscode-extension/    # VS Code desktop extension
-├── apex-lsp-vscode-extension-web/# VS Code web extension
+├── apex-lsp-vscode-extension/    # VS Code extension (desktop & web)
 └── apex-lsp-testbed/             # Testing utilities and benchmarks
 ```
 
@@ -63,9 +61,7 @@ packages/
    - `apex-ls`: Unified language server implementation for Node.js, browser, and web worker environments
 
 4. **Client Layer**:
-   - `apex-lsp-vscode-client`: VS Code client abstraction
-   - `apex-lsp-vscode-extension`: Desktop VS Code extension
-   - `apex-lsp-vscode-extension-web`: Web VS Code extension (deprecated)
+   - `apex-lsp-vscode-extension`: VS Code extension for both desktop and web environments
 
 5. **Testing Layer**:
    - `apex-lsp-testbed`: Integration tests and performance benchmarks
@@ -208,14 +204,9 @@ graph TD
     B --> E
 
     C --> E
-    C --> G[apex-lsp-vscode-client]
-
     D --> E
 
     E --> H[apex-lsp-vscode-extension]
-    E --> J[apex-lsp-vscode-extension-web]
-
-    G --> H
 
     B --> K[apex-lsp-testbed]
     C --> K
@@ -291,12 +282,8 @@ This project uses **Turbo** for smart incremental builds that only rebuild what 
 For VS Code extensions specifically:
 
 ```bash
-# Build desktop extension
+# Build extension (includes both desktop and web)
 cd packages/apex-lsp-vscode-extension
-npm run package:vsix
-
-# Build web extension
-cd packages/apex-lsp-vscode-extension-web
 npm run package
 ```
 

@@ -20,7 +20,6 @@ graph TD
     subgraph "Runtime"
         apex-ls[apex-ls]
         apex-lsp-vscode-extension[apex-lsp-vscode-extension]
-        apex-lsp-vscode-client[apex-lsp-vscode-client]
     end
 
     subgraph "Testing & Development"
@@ -36,12 +35,10 @@ graph TD
     %% Runtime implementation
     custom-services --> apex-ls
     lsp-compliant-services --> apex-ls
-    apex-ls --> apex-lsp-vscode-client
-    apex-lsp-vscode-client --> apex-lsp-vscode-extension
+    apex-ls --> apex-lsp-vscode-extension
 
     %% Testing dependencies
     apex-ls --> apex-lsp-testbed
-    apex-lsp-vscode-client --> apex-lsp-testbed
 ```
 
 ## Package Descriptions
@@ -56,7 +53,6 @@ graph TD
 ### Runtime
 
 - **apex-ls**: Unified Apex Language Server that works across browser, Node.js, and web worker environments
-- **apex-lsp-vscode-client**: VS Code specific client that communicates with the language server
 - **apex-lsp-vscode-extension**: The VS Code extension package that integrates with VS Code's extension API
 
 ### Testing & Development
@@ -231,8 +227,7 @@ This project uses GitHub Actions for continuous integration and automated releas
 The `release-extensions.yml` workflow handles automated releases of VS Code extensions:
 
 - **Supported Extensions**:
-  - `apex-lsp-vscode-extension` (VS Code Marketplace)
-  - `apex-lsp-vscode-extension-web` (OpenVSX Registry)
+  - `apex-lsp-vscode-extension` (VS Code Marketplace and OpenVSX Registry)
 - **Triggers**: Manual dispatch, workflow calls, or scheduled nightly builds
 - **Features**:
   - Smart change detection (only releases extensions with changes)

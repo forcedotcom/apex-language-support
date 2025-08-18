@@ -4,11 +4,11 @@ A unified web worker-based language server that can run in both browser and Node
 
 ## Overview
 
-This enhanced package provides a unified Apex Language Server that runs in web workers, eliminating Node.js API dependencies and creating a single codebase that works consistently across all platforms. It consolidates functionality from:
+This package provides a unified Apex Language Server that runs in web workers, eliminating Node.js API dependencies and creating a single codebase that works consistently across all platforms. It provides:
 
-- `apex-ls-node` (Node.js language server)
-- `apex-ls-browser` (Original browser language server)
-- `apex-lsp-browser-client` (Browser client utilities)
+- Full language server capabilities in both browser and Node.js environments
+- Web worker-based architecture for optimal performance
+- Platform-agnostic implementation that works in any JavaScript runtime
 
 ## Architecture
 

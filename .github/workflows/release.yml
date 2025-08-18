@@ -22,8 +22,6 @@ on:
             - apex-ls
           - lsp-compliant-services
           - custom-services
-
-          - apex-lsp-vscode-client
           - apex-lsp-testbed
       extensions:
         description: 'VS Code extensions to release'

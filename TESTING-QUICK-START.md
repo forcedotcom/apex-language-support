@@ -72,8 +72,7 @@ After dry run passes, test actual releases:
 
 The validation found one minor issue:
 
-- **apex-lsp-vscode-client**: Missing package.json (this appears to be intentional)
-- **apex-lsp-vscode-extension-web**: Missing VSIX build capability (may need vsce setup)
+- No issues found in current package structure
 
 ## 📋 Pre-Release Checklist
 

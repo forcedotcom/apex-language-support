@@ -141,7 +141,7 @@ describe('LSP Request/Response Accuracy', () => {
       // Kill any remaining Node.js processes that might be hanging
       const { execSync } = require('child_process');
       try {
-        execSync('pkill -f "apex-ls-node"', { stdio: 'ignore' });
+        execSync('pkill -f "apex-ls"', { stdio: 'ignore' });
       } catch (_error) {
         // Silently ignore if no processes to kill
       }
