@@ -1126,13 +1126,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return this.findReferencesByType(symbol, ReferenceType.STATIC_ACCESS);
   }
 
-  /**
-   * Find import references for a symbol
-   */
-  findImportReferences(symbol: ApexSymbol): ReferenceResult[] {
-    return this.findReferencesByType(symbol, ReferenceType.IMPORT_REFERENCE);
-  }
-
   // Extended Relationship Type Finders
   findSOSLReferences(symbol: ApexSymbol): ReferenceResult[] {
     return this.findReferencesByType(symbol, ReferenceType.SOSL_REFERENCE);
@@ -1737,20 +1730,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Get the most specific symbol at a given position using explicit resolution strategy
-   * This provides unified access to different resolution strategies for LSP services
+   * Get the most specific symbol at a given position using explicit resolution strategy.
+   * This provides unified access to different resolution strategies for LSP services.
+   *
+   * The method uses TypeReferences as hints to locate symbols but only returns fully resolved
+   * ApexSymbol objects. It may return null even when TypeReferences are found if symbol
+   * resolution fails due to lazy loading, missing dependencies, or other resolution issues.
+   *
    * @param fileUri The file URI to search in
    * @param position The position to search for symbols (parser-ast format: 1-based line, 0-based column)
-   * @param strategy The resolution strategy to use
-   * @returns The most specific symbol at the position, or null if not found
+   * @param strategy The resolution strategy to use:
+   *   - 'scope': Uses multiple fallback strategies including same-line references and size-based filtering
+   *   - 'precise': Returns only symbols at exact position or within identifier bounds (strict positioning)
+   * @returns The most specific symbol at the position, or null if not found or not fully resolved
    */
   getSymbolAtPosition(
     fileUri: string,
     position: Position,
     strategy?: SymbolResolutionStrategy,
   ): ApexSymbol | null {
-    // Default to standard strategy if none specified
-    const resolutionStrategy = strategy || 'standard';
+    // Default to scope strategy if none specified
+    const resolutionStrategy = strategy || 'scope';
 
     this.logger.debug(
       () =>
@@ -1758,34 +1758,32 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     );
 
     switch (resolutionStrategy) {
-      case 'standard':
-        return this.getSymbolAtPositionLegacy(fileUri, position);
+      case 'scope':
+        return this.getSymbolAtPositionWithinScope(fileUri, position);
       case 'precise':
         return this.getSymbolAtPositionPrecise(fileUri, position);
-      case 'scope':
-        // Future: broader scope resolution
-        this.logger.debug(
-          () => 'Scope strategy not yet implemented, falling back to standard',
-        );
-        return this.getSymbolAtPositionLegacy(fileUri, position);
       default:
         this.logger.debug(
-          () =>
-            `Unknown strategy ${resolutionStrategy}, falling back to standard`,
+          () => `Unknown strategy ${resolutionStrategy}, falling back to scope`,
         );
-        return this.getSymbolAtPositionLegacy(fileUri, position);
+        return this.getSymbolAtPositionWithinScope(fileUri, position);
     }
   }
 
   /**
-   * @deprecated Use getSymbolAtPosition(uri, position, 'standard') instead
-   * Get the most specific symbol at a given position in a file
-   * This provides reliable position-based symbol lookup for LSP services
+   * Get the most specific symbol at a given position in a file using scope-based resolution.
+   * This provides intelligent fallback strategies for LSP services when precise positioning fails.
+   *
+   * The scope strategy uses multiple fallback approaches:
+   * 1. TypeReferences at exact position
+   * 2. Same-line references that span the position
+   * 3. Symbols containing the position with size-based filtering
+   *
    * @param fileUri The file URI to search in
    * @param position The position to search for symbols (parser-ast format: 1-based line, 0-based column)
    * @returns The most specific symbol at the position, or null if not found
    */
-  getSymbolAtPositionLegacy(
+  getSymbolAtPositionWithinScope(
     fileUri: string,
     position: Position,
   ): ApexSymbol | null {
@@ -1873,17 +1871,106 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Note: Positions are already parser-ast format (1-based line, 0-based column).
       // No off-by-one adjustment is needed here.
 
-      // Step 3: Fallback to direct symbol lookup by position
+      // Step 3: Try to locate references on the same line that span the position (scope fallback)
+      try {
+        const allRefs = this.getAllReferencesInFile(normalizedPath);
+        const sameLineSpanning = allRefs.filter(
+          (r) =>
+            r.location.identifierRange.startLine === position.line &&
+            r.location.identifierRange.startColumn <= position.character &&
+            r.location.identifierRange.endColumn >= position.character,
+        );
+        if (sameLineSpanning.length > 0) {
+          const order = [
+            ReferenceContext.FIELD_ACCESS,
+            ReferenceContext.METHOD_CALL,
+            ReferenceContext.CLASS_REFERENCE,
+            ReferenceContext.TYPE_DECLARATION,
+            ReferenceContext.CONSTRUCTOR_CALL,
+            ReferenceContext.VARIABLE_USAGE,
+            ReferenceContext.PARAMETER_TYPE,
+          ];
+          const sorted = sameLineSpanning.slice().sort((a, b) => {
+            const aPri = order.indexOf(a.context);
+            const bPri = order.indexOf(b.context);
+            if (aPri !== bPri) return aPri - bPri;
+            const aSize =
+              (a.location.identifierRange.endLine -
+                a.location.identifierRange.startLine) *
+                1000 +
+              (a.location.identifierRange.endColumn -
+                a.location.identifierRange.startColumn);
+            const bSize =
+              (b.location.identifierRange.endLine -
+                b.location.identifierRange.startLine) *
+                1000 +
+              (b.location.identifierRange.endColumn -
+                b.location.identifierRange.startColumn);
+            return aSize - bSize;
+          });
+          const resolvedFromLine = this.resolveTypeReferenceToSymbol(
+            sorted[0],
+            normalizedPath,
+          );
+          if (resolvedFromLine) {
+            this.logger.debug(
+              () =>
+                `Found symbol via same-line reference: ${resolvedFromLine.name} (${resolvedFromLine.kind})`,
+            );
+            return resolvedFromLine;
+          }
+        }
+      } catch (error) {
+        this.logger.debug(
+          () => `Error in same-line reference lookup: ${error}`,
+        );
+      }
+
+      // Step 4: Fallback to direct symbol lookup by position
       this.logger.debug(
         () =>
           'No TypeReferences found or resolved, trying direct symbol lookup',
       );
 
-      const directSymbol = this.findDirectSymbolAtPosition(
-        normalizedPath,
-        position,
-      );
-      if (directSymbol) {
+      // Direct symbol lookup by position with intelligent scope filtering
+      const symbols = this.findSymbolsInFile(normalizedPath);
+      const containingSymbols = symbols.filter((symbol) => {
+        const { startLine, startColumn, endLine, endColumn } =
+          symbol.location.identifierRange;
+
+        // Check if the position is within the symbol's scope bounds
+        const isWithinScope =
+          (position.line > symbol.location.symbolRange.startLine ||
+            (position.line === symbol.location.symbolRange.startLine &&
+              position.character >= symbol.location.symbolRange.startColumn)) &&
+          (position.line < symbol.location.symbolRange.endLine ||
+            (position.line === symbol.location.symbolRange.endLine &&
+              position.character <= symbol.location.symbolRange.endColumn));
+
+        if (isWithinScope) {
+          // For scope strategy, use size-based filtering to prefer smaller, more specific symbols
+          const symbolSize =
+            (endLine - startLine) * 1000 + (endColumn - startColumn);
+
+          // Special case: Always allow class symbols when hovering on the class name (first line)
+          if (symbol.kind === 'class' && position.line === startLine) {
+            return true;
+          }
+
+          // Allow symbols within reasonable size limits for scope strategy
+          // This helps avoid returning overly broad containing symbols
+          return symbolSize < 500; // More permissive than precise strategy
+        }
+
+        return false;
+      });
+
+      if (containingSymbols.length > 0) {
+        const directSymbol =
+          containingSymbols.length === 1
+            ? containingSymbols[0]
+            : this.selectMostSpecificSymbol(containingSymbols, normalizedPath);
+
         this.logger.debug(
           () =>
             `Found symbol via direct lookup: ${directSymbol.name} (${directSymbol.kind})`,
@@ -2386,81 +2473,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return candidates[0];
     } catch (error) {
       this.logger.debug(() => `Error resolving TypeReference: ${error}`);
-      return null;
-    }
-  }
-
-  /**
-   * Find a symbol directly at a position by checking symbol locations
-   * @param filePath The file path to search in
-   * @param position The position to search for
-   * @returns The most specific symbol at the position or null
-   */
-  private findDirectSymbolAtPosition(
-    filePath: string,
-    position: { line: number; character: number },
-  ): ApexSymbol | null {
-    try {
-      const symbols = this.findSymbolsInFile(filePath);
-
-      this.logger.debug(
-        () => `Found ${symbols.length} symbols in file ${filePath}`,
-      );
-
-      // Debug: Log all symbols and their locations
-      symbols.forEach((symbol, index) => {
-        const start = `${symbol.location.identifierRange.startLine}:${symbol.location.identifierRange.startColumn}`;
-        const end = `${symbol.location.identifierRange.endLine}:${symbol.location.identifierRange.endColumn}`;
-        const location = `${start}-${end}`;
-        this.logger.debug(
-          () =>
-            `Symbol[${index}]: ${symbol.name} (${symbol.kind}) at ${location}`,
-        );
-      });
-
-      // Find symbols that contain the position
-      const containingSymbols = symbols.filter((symbol) => {
-        const { startLine, startColumn, endLine, endColumn } =
-          symbol.location.identifierRange;
-        const isContained =
-          (position.line > startLine ||
-            (position.line === startLine &&
-              position.character >= startColumn)) &&
-          (position.line < endLine ||
-            (position.line === endLine && position.character <= endColumn));
-
-        const positionStr = `${position.line}:${position.character}`;
-        const boundsStr = `${startLine}:${startColumn}-${endLine}:${endColumn}`;
-        this.logger.debug(
-          () =>
-            `Checking if position ${positionStr} is in ${symbol.name} (${boundsStr}): ${isContained}`,
-        );
-
-        return isContained;
-      });
-
-      this.logger.debug(
-        () => `Found ${containingSymbols.length} symbols containing position`,
-      );
-
-      if (containingSymbols.length === 0) {
-        this.logger.debug(() => 'No symbols found at position');
-        return null;
-      }
-
-      if (containingSymbols.length === 1) {
-        this.logger.debug(
-          () => `Single symbol found: ${containingSymbols[0].name}`,
-        );
-        return containingSymbols[0];
-      }
-
-      this.logger.debug(
-        () => 'Multiple symbols found, selecting most specific',
-      );
-      return this.selectMostSpecificSymbol(containingSymbols, filePath);
-    } catch (error) {
-      this.logger.error(() => `Error finding symbol at position: ${error}`);
       return null;
     }
   }
@@ -4189,9 +4201,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       };
     }
 
-    // Fall back to legacy resolution for other request types
+    // Fall back to scope resolution for other request types
     return {
-      strategy: 'legacy',
+      strategy: 'scope',
       success: true,
     };
   }
@@ -4206,7 +4218,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     requestType?: string,
   ): ApexSymbol | null {
     // Map old LSP requestType to parser strategy
-    let strategy: SymbolResolutionStrategy = 'standard';
+    let strategy: SymbolResolutionStrategy = 'scope';
 
     if (
       requestType === 'hover' ||
@@ -4221,7 +4233,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * Get symbol at position with precise resolution (no fallback to containing symbols)
+   * Get symbol at position with precise resolution (exact position matches only)
    * This is used for hover, definition, and references requests where we want exact matches
    */
   private getSymbolAtPositionPrecise(
@@ -4258,75 +4270,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         }
       }
 
-      // Step 2: Try to locate a reference on the same line that spans the position (fallback)
-      try {
-        const allRefs = this.getAllReferencesInFile(normalizedPath);
-        const sameLineSpanning = allRefs.filter(
-          (r) =>
-            r.location.identifierRange.startLine === position.line &&
-            r.location.identifierRange.startColumn <= position.character &&
-            r.location.identifierRange.endColumn >= position.character,
-        );
-        if (sameLineSpanning.length > 0) {
-          const order = [
-            ReferenceContext.FIELD_ACCESS,
-            ReferenceContext.METHOD_CALL,
-            ReferenceContext.CLASS_REFERENCE,
-            ReferenceContext.TYPE_DECLARATION,
-            ReferenceContext.CONSTRUCTOR_CALL,
-            ReferenceContext.VARIABLE_USAGE,
-            ReferenceContext.PARAMETER_TYPE,
-          ];
-          const sorted = sameLineSpanning.slice().sort((a, b) => {
-            const aPri = order.indexOf(a.context);
-            const bPri = order.indexOf(b.context);
-            if (aPri !== bPri) return aPri - bPri;
-            const aSize =
-              (a.location.identifierRange.endLine -
-                a.location.identifierRange.startLine) *
-                1000 +
-              (a.location.identifierRange.endColumn -
-                a.location.identifierRange.startColumn);
-            const bSize =
-              (b.location.identifierRange.endLine -
-                b.location.identifierRange.startLine) *
-                1000 +
-              (b.location.identifierRange.endColumn -
-                b.location.identifierRange.startColumn);
-            return aSize - bSize;
-          });
-          const resolvedFromLine = this.resolveTypeReferenceToSymbol(
-            sorted[0],
-            normalizedPath,
-          );
-          if (resolvedFromLine) {
-            return resolvedFromLine;
-          }
-        }
-      } catch {}
-
-      // Step 3: Look for symbols that start exactly at this position or are small identifiers
+      // Step 2: Look for symbols that start exactly at this position
       const symbols = this.findSymbolsInFile(normalizedPath);
-
-      // Debug: Log all symbols and their locations
-      this.logger.debug(
-        () => `Found ${symbols.length} symbols in file for precise lookup`,
-      );
-      symbols.forEach((symbol, index) => {
-        const start = `${symbol.location.identifierRange.startLine}:${symbol.location.identifierRange.startColumn}`;
-        const end = `${symbol.location.identifierRange.endLine}:${symbol.location.identifierRange.endColumn}`;
-        const location = `${start}-${end}`;
-        this.logger.debug(
-          () =>
-            `Symbol[${index}]: ${symbol.name} (${symbol.kind}) at ${location}`,
-        );
-      });
-
-      this.logger.debug(
-        () =>
-          `Looking for symbols at position ${position.line}:${position.character}`,
-      );
-
       const exactMatchSymbols = symbols.filter((symbol) => {
         const { startLine, startColumn, endLine, endColumn } =
           symbol.location.identifierRange;
@@ -4343,16 +4288,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           (position.line < endLine ||
             (position.line === endLine && position.character <= endColumn));
 
-        // Check if the position is within the symbol's scope bounds (fallback)
-        const isWithinScope =
-          (position.line > symbol.location.symbolRange.startLine ||
-            (position.line === symbol.location.symbolRange.startLine &&
-              position.character >= symbol.location.symbolRange.startColumn)) &&
-          (position.line < symbol.location.symbolRange.endLine ||
-            (position.line === symbol.location.symbolRange.endLine &&
-              position.character <= symbol.location.symbolRange.endColumn));
-
-        // For precise resolution, prefer exact start matches
+        // For precise resolution, only return exact matches
         if (isExactStart) {
           this.logger.debug(
             () =>
@@ -4361,7 +4297,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return true;
         }
 
-        // Prefer identifier matches over broader scope matches when hovering names
         if (isWithinIdentifier) {
           this.logger.debug(
             () =>
@@ -4372,52 +4307,29 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           return true;
         }
 
-        // Include within-scope matches for small symbols (identifiers, method names, etc.)
-        if (isWithinScope) {
-          // Calculate symbol size to determine if it's a small identifier or large containing symbol
-          const symbolSize =
-            (endLine - startLine) * 1000 + (endColumn - startColumn);
-
-          // Special case: Allow class symbols when hovering on the class name (first line)
-          if (symbol.kind === 'class' && position.line === startLine) {
-            this.logger.debug(
-              () =>
-                `Found class symbol match on first line: ${symbol.name} (size: ${symbolSize})`,
-            );
-            return true;
-          }
-
-          // Allow small symbols (identifiers, method names, etc.) but reject large containing symbols
-          if (symbolSize < 200) {
-            // Increased threshold for small symbols
-            this.logger.debug(
-              () =>
-                `Found small symbol match: ${symbol.name} (size: ${symbolSize})`,
-            );
-            return true;
-          }
-        }
-
         return false;
       });
 
       if (exactMatchSymbols.length > 0) {
-        // Return the smallest (most specific) symbol
-        const mostSpecific = exactMatchSymbols.reduce((prev, current) => {
-          const prevSize =
-            (prev.location.identifierRange.endLine -
-              prev.location.identifierRange.startLine) *
-              1000 +
-            (prev.location.identifierRange.endColumn -
-              prev.location.identifierRange.startColumn);
-          const currentSize =
-            (current.location.identifierRange.endLine -
-              current.location.identifierRange.startLine) *
-              1000 +
-            (current.location.identifierRange.endColumn -
-              current.location.identifierRange.startColumn);
-          return currentSize < prevSize ? current : prev;
-        });
+        // Return the smallest (most specific) symbol if multiple matches
+        const mostSpecific =
+          exactMatchSymbols.length === 1
+            ? exactMatchSymbols[0]
+            : exactMatchSymbols.reduce((prev, current) => {
+                const prevSize =
+                  (prev.location.identifierRange.endLine -
+                    prev.location.identifierRange.startLine) *
+                    1000 +
+                  (prev.location.identifierRange.endColumn -
+                    prev.location.identifierRange.startColumn);
+                const currentSize =
+                  (current.location.identifierRange.endLine -
+                    current.location.identifierRange.startLine) *
+                    1000 +
+                  (current.location.identifierRange.endColumn -
+                    current.location.identifierRange.startColumn);
+                return currentSize < prevSize ? current : prev;
+              });
 
         this.logger.debug(
           () => `Returning most specific symbol: ${mostSpecific.name}`,
