@@ -79,8 +79,7 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Check no errors
       if (result.errors.length > 0) {
-        result.errors.forEach((error, index) => {
-        });
+        result.errors.forEach((error, index) => {});
       }
       expect(result.errors.length).toBe(0);
       logger.debug('No compilation errors found');
@@ -251,6 +250,15 @@ describe('ApexSymbolCollectorListener', () => {
         'OuterClass.cls',
         listener,
       );
+
+      // Debug: Check for compilation errors
+      if (result.errors.length > 0) {
+        console.log(
+          'Compilation errors:',
+          result.errors.map((e) => e.message),
+        );
+      }
+
       expect(result.errors.length).toBe(0);
 
       const fileScope = result.result!.getCurrentScope();
@@ -270,12 +278,23 @@ describe('ApexSymbolCollectorListener', () => {
         .find((s) => s.name === 'InnerClass');
       expect(innerClassScope).toBeDefined();
 
+      // Debug: Check what symbols are in the inner class scope
+      const innerClassSymbols = innerClassScope!.getAllSymbols();
+      console.log(
+        'Inner class symbols:',
+        innerClassSymbols.map((s) => ({
+          name: s.name,
+          kind: s.kind,
+          isConstructor: (s as any).isConstructor,
+        })),
+      );
+
       const constructorSymbol = innerClassScope!.getSymbol(
         'InnerClass',
       ) as MethodSymbol;
       expect(constructorSymbol).toBeDefined();
       expect(constructorSymbol.isConstructor).toBe(true);
-      expect(constructorSymbol.location.startLine).toBe(4);
+      expect(constructorSymbol.location.symbolRange.startLine).toBe(4);
     });
 
     it('should collect interface symbols', () => {

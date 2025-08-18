@@ -62,8 +62,8 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     );
     expect(target).toBeDefined();
     const symbol = symbolManager.getSymbolAtPosition('/test/TestClass.cls', {
-      line: target!.location.startLine,
-      character: target!.location.startColumn,
+      line: target!.location.identifierRange.startLine,
+      character: target!.location.identifierRange.startColumn,
     });
 
     expect(symbol).toBeDefined();
@@ -82,8 +82,8 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     );
     expect(target).toBeDefined();
     const symbol = symbolManager.getSymbolAtPosition('/test/TestClass.cls', {
-      line: target!.location.startLine,
-      character: target!.location.startColumn,
+      line: target!.location.identifierRange.startLine,
+      character: target!.location.identifierRange.startColumn,
     });
 
     expect(symbol).toBeDefined();
@@ -102,8 +102,8 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     );
     expect(target).toBeDefined();
     const symbol = symbolManager.getSymbolAtPosition('/test/TestClass.cls', {
-      line: target!.location.startLine,
-      character: target!.location.startColumn,
+      line: target!.location.identifierRange.startLine,
+      character: target!.location.identifierRange.startColumn,
     });
 
     expect(symbol).toBeDefined();
@@ -122,8 +122,8 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     );
     expect(target).toBeDefined();
     const symbol = symbolManager.getSymbolAtPosition('/test/TestClass.cls', {
-      line: target!.location.startLine,
-      character: target!.location.startColumn,
+      line: target!.location.identifierRange.startLine,
+      character: target!.location.identifierRange.startColumn,
     });
 
     expect(symbol).toBeDefined();
@@ -142,8 +142,8 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     );
     expect(target).toBeDefined();
     const symbol = symbolManager.getSymbolAtPosition('/test/TestClass.cls', {
-      line: target!.location.startLine,
-      character: target!.location.startColumn,
+      line: target!.location.identifierRange.startLine,
+      character: target!.location.identifierRange.startColumn,
     });
 
     expect(symbol).toBeDefined();
@@ -162,8 +162,8 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
     );
     expect(target).toBeDefined();
     const sym = symbolManager.getSymbolAtPosition('/test/TestClass.cls', {
-      line: target!.location.startLine,
-      character: target!.location.startColumn,
+      line: target!.location.identifierRange.startLine,
+      character: target!.location.identifierRange.startColumn,
     });
     expect(sym).toBeDefined();
     expect(sym?.kind).toBe(SymbolKind.Method);

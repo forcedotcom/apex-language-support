@@ -43,10 +43,18 @@ describe('ApexSymbolGraph', () => {
 
     // Try to add a reference
     graph.addReference(methodSymbol, classSymbol, ReferenceType.METHOD_CALL, {
-      startLine: 5,
-      startColumn: 10,
-      endLine: 5,
-      endColumn: 20,
+      symbolRange: {
+        startLine: 5,
+        startColumn: 10,
+        endLine: 5,
+        endColumn: 20,
+      },
+      identifierRange: {
+        startLine: 5,
+        startColumn: 10,
+        endLine: 5,
+        endColumn: 20,
+      },
     });
 
     // This test should pass even if references aren't working
@@ -67,10 +75,18 @@ describe('ApexSymbolGraph', () => {
     filePath,
     parentId: null,
     location: {
-      startLine: 1,
-      startColumn: 1,
-      endLine: 10,
-      endColumn: 20,
+      symbolRange: {
+        startLine: 1,
+        startColumn: 1,
+        endLine: 10,
+        endColumn: 20,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 1,
+        endLine: 1,
+        endColumn: 10,
+      },
     },
     modifiers: {
       visibility: SymbolVisibility.Public,
@@ -198,10 +214,18 @@ describe('ApexSymbolGraph', () => {
       graph.addSymbol(methodSymbol, 'MyClass.cls');
 
       graph.addReference(methodSymbol, classSymbol, ReferenceType.METHOD_CALL, {
-        startLine: 5,
-        startColumn: 10,
-        endLine: 5,
-        endColumn: 20,
+        symbolRange: {
+          startLine: 5,
+          startColumn: 10,
+          endLine: 5,
+          endColumn: 20,
+        },
+        identifierRange: {
+          startLine: 5,
+          startColumn: 10,
+          endLine: 5,
+          endColumn: 20,
+        },
       });
 
       const references = graph.findReferencesTo(classSymbol);
@@ -235,17 +259,38 @@ describe('ApexSymbolGraph', () => {
       graph.addSymbol(fieldSymbol, 'MyClass.cls');
 
       graph.addReference(methodSymbol, classSymbol, ReferenceType.METHOD_CALL, {
-        startLine: 5,
-        startColumn: 10,
-        endLine: 5,
-        endColumn: 20,
+        symbolRange: {
+          startLine: 5,
+          startColumn: 10,
+          endLine: 5,
+          endColumn: 20,
+        },
+        identifierRange: {
+          startLine: 5,
+          startColumn: 10,
+          endLine: 5,
+          endColumn: 20,
+        },
       });
 
       graph.addReference(
         methodSymbol,
         fieldSymbol,
         ReferenceType.FIELD_ACCESS,
-        { startLine: 6, startColumn: 15, endLine: 6, endColumn: 25 },
+        {
+          symbolRange: {
+            startLine: 6,
+            startColumn: 15,
+            endLine: 6,
+            endColumn: 25,
+          },
+          identifierRange: {
+            startLine: 6,
+            startColumn: 15,
+            endLine: 6,
+            endColumn: 25,
+          },
+        },
       );
 
       const references = graph.findReferencesFrom(methodSymbol);
@@ -276,7 +321,20 @@ describe('ApexSymbolGraph', () => {
         methodSymbol,
         nonExistentSymbol,
         ReferenceType.METHOD_CALL,
-        { startLine: 5, startColumn: 10, endLine: 5, endColumn: 20 },
+        {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 20,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 20,
+          },
+        },
       );
 
       // Check that reference is deferred
@@ -315,10 +373,18 @@ describe('ApexSymbolGraph', () => {
 
       // Add the same reference twice
       const location = {
-        startLine: 5,
-        startColumn: 10,
-        endLine: 5,
-        endColumn: 20,
+        symbolRange: {
+          startLine: 5,
+          startColumn: 10,
+          endLine: 5,
+          endColumn: 20,
+        },
+        identifierRange: {
+          startLine: 5,
+          startColumn: 10,
+          endLine: 5,
+          endColumn: 20,
+        },
       };
       graph.addReference(
         methodSymbol,
@@ -365,24 +431,48 @@ describe('ApexSymbolGraph', () => {
 
       // ClassA depends on ClassB and ClassC
       graph.addReference(classA, classB, ReferenceType.TYPE_REFERENCE, {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
       });
       graph.addReference(classA, classC, ReferenceType.TYPE_REFERENCE, {
-        startLine: 2,
-        startColumn: 1,
-        endLine: 2,
-        endColumn: 10,
+        symbolRange: {
+          startLine: 2,
+          startColumn: 1,
+          endLine: 2,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 2,
+          startColumn: 1,
+          endLine: 2,
+          endColumn: 10,
+        },
       });
 
       // ClassB depends on ClassC
       graph.addReference(classB, classC, ReferenceType.TYPE_REFERENCE, {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
       });
 
       const analysis = graph.analyzeDependencies(classA);
@@ -420,16 +510,32 @@ describe('ApexSymbolGraph', () => {
 
       // Both ClassB and ClassC depend on ClassA
       graph.addReference(classB, classA, ReferenceType.TYPE_REFERENCE, {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
       });
       graph.addReference(classC, classA, ReferenceType.TYPE_REFERENCE, {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
       });
 
       const analysis = graph.analyzeDependencies(classA);
@@ -457,17 +563,33 @@ describe('ApexSymbolGraph', () => {
 
       // Create circular dependency: ClassA -> ClassB -> ClassA
       graph.addReference(classA, classB, ReferenceType.TYPE_REFERENCE, {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
       });
 
       graph.addReference(classB, classA, ReferenceType.TYPE_REFERENCE, {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
       });
 
       const cycles = graph.detectCircularDependencies();
@@ -511,16 +633,32 @@ describe('ApexSymbolGraph', () => {
 
       // Create acyclic dependency: ClassA -> ClassB -> ClassC
       graph.addReference(classA, classB, ReferenceType.TYPE_REFERENCE, {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
       });
       graph.addReference(classB, classC, ReferenceType.TYPE_REFERENCE, {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
       });
 
       const cycles = graph.detectCircularDependencies();
@@ -596,10 +734,18 @@ describe('ApexSymbolGraph', () => {
       graph.addSymbol(methodSymbol, 'MyClass.cls');
 
       graph.addReference(methodSymbol, classSymbol, ReferenceType.METHOD_CALL, {
-        startLine: 5,
-        startColumn: 10,
-        endLine: 5,
-        endColumn: 20,
+        symbolRange: {
+          startLine: 5,
+          startColumn: 10,
+          endLine: 5,
+          endColumn: 20,
+        },
+        identifierRange: {
+          startLine: 5,
+          startColumn: 10,
+          endLine: 5,
+          endColumn: 20,
+        },
       });
 
       const stats = graph.getStats();
@@ -631,7 +777,20 @@ describe('ApexSymbolGraph', () => {
         methodSymbol,
         nonExistentSymbol,
         ReferenceType.METHOD_CALL,
-        { startLine: 5, startColumn: 10, endLine: 5, endColumn: 20 },
+        {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 20,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 20,
+          },
+        },
       );
 
       const stats = graph.getStats();
@@ -716,22 +875,56 @@ describe('ApexSymbolGraph', () => {
 
       // Add different types of references
       graph.addReference(methodSymbol, classSymbol, ReferenceType.METHOD_CALL, {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 10,
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 10,
+        },
       });
       graph.addReference(
         methodSymbol,
         fieldSymbol,
         ReferenceType.FIELD_ACCESS,
-        { startLine: 2, startColumn: 1, endLine: 2, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 2,
+            startColumn: 1,
+            endLine: 2,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 2,
+            startColumn: 1,
+            endLine: 2,
+            endColumn: 10,
+          },
+        },
       );
       graph.addReference(
         classSymbol,
         methodSymbol,
         ReferenceType.TYPE_REFERENCE,
-        { startLine: 3, startColumn: 1, endLine: 3, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 1,
+            endLine: 3,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 1,
+            endLine: 3,
+            endColumn: 10,
+          },
+        },
       );
 
       const references = graph.findReferencesFrom(methodSymbol);
@@ -777,7 +970,7 @@ describe('ApexSymbolGraph', () => {
       expect(optimizedEdge.context?.namespace).toBe('test');
 
       // Verify location is no longer stored in edge (redundant with source symbol)
-      expect(optimizedEdge.location).toBeUndefined();
+      expect(optimizedEdge).not.toHaveProperty('location');
 
       // Convert back to legacy format
       const restoredEdge = fromReferenceEdge(optimizedEdge);

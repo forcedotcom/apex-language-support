@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { ReferenceContext } from '../../src/types/typeReference';
@@ -15,6 +16,8 @@ describe('ApexSymbolCollectorListener - Assignment Reference Capture', () => {
 
   beforeEach(() => {
     compilerService = new CompilerService();
+    enableConsoleLogging();
+    setLogLevel('error');
   });
 
   describe('simple assignments', () => {

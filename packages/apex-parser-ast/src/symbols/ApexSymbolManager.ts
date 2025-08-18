@@ -8,7 +8,6 @@
 
 import { HashMap, Deque } from 'data-structure-typed';
 import { getLogger, type EnumValue } from '@salesforce/apex-lsp-shared';
-import { Position } from 'vscode-languageserver-protocol';
 import {
   ApexSymbol,
   SymbolKind,
@@ -18,6 +17,7 @@ import {
   generateUnifiedId,
   type VariableSymbol,
   SymbolLocation,
+  Position,
 } from '../types/symbol';
 import { TypeReference, ReferenceContext } from '../types/typeReference';
 import {
@@ -1742,10 +1742,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @param position The position to search for symbols (parser-ast format: 1-based line, 0-based column)
    * @returns The most specific symbol at the position, or null if not found
    */
-  getSymbolAtPosition(
-    fileUri: string,
-    position: { line: number; character: number },
-  ): ApexSymbol | null {
+  getSymbolAtPosition(fileUri: string, position: Position): ApexSymbol | null {
     try {
       const normalizedPath = this.normalizeFilePath(fileUri);
 
@@ -4070,7 +4067,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     symbolLocation: SymbolLocation,
   ): boolean {
     const { startLine, startColumn, endLine, endColumn } =
-      symbolLocation.identifierRange;
+      symbolLocation.symbolRange;
 
     // Check if the position is within the symbol's identifier bounds
     if (position.startLine < startLine || position.endLine > endLine) {

@@ -46,16 +46,39 @@ export class CommentAssociator {
     );
     const sortedSymbols = [...symbols].sort(
       (a, b) =>
-        a.location.identifierRange.startLine -
-        b.location.identifierRange.startLine,
+        a.location.symbolRange.startLine - b.location.symbolRange.startLine,
     );
 
+    // Debug: Log symbol information
     this.logger.debug(
       `Associating ${sortedComments.length} comments with ${sortedSymbols.length} symbols`,
     );
 
+    // Debug: Log symbol details
+    symbols.forEach((symbol, index) => {
+      this.logger.debug(
+        () =>
+          `Symbol[${index}]: ${symbol.name} (${symbol.kind}) at lines ` +
+          `${symbol.location.symbolRange.startLine}-${symbol.location.symbolRange.endLine}, ` +
+          `identifier at line ${symbol.location.identifierRange.startLine}`,
+      );
+    });
+
+    // Debug: Log comment details
+    comments.forEach((comment, index) => {
+      this.logger.debug(
+        () =>
+          `Comment[${index}]: "${comment.text.substring(0, 30)}..." at line ${comment.startLine}`,
+      );
+    });
+
     // For each comment, find the best symbol association
     for (const comment of sortedComments) {
+      this.logger.debug(
+        () =>
+          `Processing comment at line ${comment.startLine}: "${comment.text.substring(0, 30)}..."`,
+      );
+
       const candidateAssociations = this.findCandidateAssociations(
         comment,
         sortedSymbols,
@@ -112,15 +135,16 @@ export class CommentAssociator {
     symbol: ApexSymbol,
   ): CommentAssociation | null {
     const commentLine = comment.startLine;
-    const symbolLine = symbol.location.identifierRange.startLine;
+    const symbolLine = symbol.location.symbolRange.startLine;
     const distance = Math.abs(commentLine - symbolLine);
 
     // Determine association type and calculate base confidence
     let associationType: CommentAssociationType;
     let baseConfidence: number;
 
-    if (commentLine === symbolLine) {
-      // Inline comment (same line)
+    // Check if comment is on the same line as the symbol identifier
+    if (commentLine === symbol.location.identifierRange.startLine) {
+      // Inline comment (same line as symbol name)
       associationType = CommentAssociationType.Inline;
       baseConfidence = 0.9;
     } else if (commentLine < symbolLine) {
@@ -137,10 +161,16 @@ export class CommentAssociator {
       // Comment is after the symbol
       // Check if comment is inside the symbol's body first
       if (this.isCommentInsideSymbol(comment, symbol)) {
-        associationType = CommentAssociationType.Internal;
-        baseConfidence = 0.4;
+        // Check if it's a trailing comment (same line as symbol end)
+        if (commentLine === symbol.location.symbolRange.endLine) {
+          associationType = CommentAssociationType.Trailing;
+          baseConfidence = 0.6;
+        } else {
+          associationType = CommentAssociationType.Internal;
+          baseConfidence = 0.4;
+        }
       } else {
-        // Trailing comment
+        // Trailing comment (after symbol but not inside)
         if (distance > this.config.maxTrailingDistance) {
           return null; // Too far away
         }
@@ -181,7 +211,7 @@ export class CommentAssociator {
 
     return {
       comment,
-      symbolKey: symbol.key.name,
+      symbolKey: symbol.name, // Use symbol.name instead of symbol.key.name for consistency
       associationType,
       confidence: finalConfidence,
       distance,
@@ -195,17 +225,11 @@ export class CommentAssociator {
     comment: ApexComment,
     symbol: ApexSymbol,
   ): boolean {
-    // This is a simplified check - in a full implementation, we'd need to track
-    // the end position of symbols to determine if a comment is truly "inside"
-    if (symbol.kind !== SymbolKind.Class && symbol.kind !== SymbolKind.Method) {
-      return false;
-    }
+    // Use the full symbol range to determine if comment is inside
+    const { startLine, endLine } = symbol.location.symbolRange;
 
-    // For now, assume comments after the symbol line are internal if they're close
-    return (
-      comment.startLine > symbol.location.identifierRange.startLine &&
-      comment.startLine - symbol.location.identifierRange.startLine <= 10
-    );
+    // Check if comment is within the symbol's scope
+    return comment.startLine >= startLine && comment.startLine <= endLine;
   }
 
   /**

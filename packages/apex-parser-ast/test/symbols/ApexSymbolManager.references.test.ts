@@ -7,7 +7,7 @@
  */
 
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
-import { SymbolTable } from '../../src/types/symbol';
+import { ApexSymbol, SymbolTable } from '../../src/types/symbol';
 import {
   TypeReferenceFactory,
   ReferenceContext,
@@ -28,11 +28,24 @@ describe('ApexSymbolManager Reference Processing', () => {
       const symbolTable = new SymbolTable();
 
       // Add some test symbols
-      const classSymbol = {
+      const classSymbol: ApexSymbol = {
         id: 'test-class',
         name: 'TestClass',
         kind: 'class' as any,
-        location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         filePath: 'TestClass.cls',
         parentId: null,
         key: {
@@ -62,11 +75,24 @@ describe('ApexSymbolManager Reference Processing', () => {
         parent: null,
       };
 
-      const methodSymbol = {
+      const methodSymbol: ApexSymbol = {
         id: 'test-method',
         name: 'testMethod',
         kind: 'method' as any,
-        location: { startLine: 2, startColumn: 1, endLine: 2, endColumn: 20 },
+        location: {
+          symbolRange: {
+            startLine: 2,
+            startColumn: 1,
+            endLine: 2,
+            endColumn: 20,
+          },
+          identifierRange: {
+            startLine: 2,
+            startColumn: 1,
+            endLine: 2,
+            endColumn: 20,
+          },
+        },
         filePath: 'TestClass.cls',
         parentId: 'test-class',
         key: {
@@ -103,11 +129,24 @@ describe('ApexSymbolManager Reference Processing', () => {
         parent: null,
       };
 
-      const someMethodSymbol = {
+      const someMethodSymbol: ApexSymbol = {
         id: 'test-some-method',
         name: 'someMethod',
         kind: 'method' as any,
-        location: { startLine: 3, startColumn: 1, endLine: 3, endColumn: 20 },
+        location: {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 1,
+            endLine: 3,
+            endColumn: 20,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 1,
+            endLine: 3,
+            endColumn: 20,
+          },
+        },
         filePath: 'TestClass.cls',
         parentId: 'test-class',
         key: {
@@ -144,11 +183,24 @@ describe('ApexSymbolManager Reference Processing', () => {
         parent: null,
       };
 
-      const someFieldSymbol = {
+      const someFieldSymbol: ApexSymbol = {
         id: 'test-some-field',
         name: 'someField',
         kind: 'field' as any,
-        location: { startLine: 4, startColumn: 1, endLine: 4, endColumn: 20 },
+        location: {
+          symbolRange: {
+            startLine: 4,
+            startColumn: 1,
+            endLine: 4,
+            endColumn: 20,
+          },
+          identifierRange: {
+            startLine: 4,
+            startColumn: 1,
+            endLine: 4,
+            endColumn: 20,
+          },
+        },
         filePath: 'TestClass.cls',
         parentId: 'test-class',
         key: {
@@ -197,7 +249,20 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Now create type references that reference the actual symbols
       const methodCallRef = TypeReferenceFactory.createMethodCallReference(
         'someMethod', // This should match the name of someMethodSymbol
-        { startLine: 3, startColumn: 1, endLine: 3, endColumn: 15 },
+        {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 1,
+            endLine: 3,
+            endColumn: 15,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 1,
+            endLine: 3,
+            endColumn: 15,
+          },
+        },
         'TestClass',
         'testMethod',
       );
@@ -206,7 +271,20 @@ describe('ApexSymbolManager Reference Processing', () => {
       // Add a field access reference
       const fieldAccessRef = TypeReferenceFactory.createFieldAccessReference(
         'someField', // This should match the name of someFieldSymbol
-        { startLine: 4, startColumn: 1, endLine: 4, endColumn: 15 },
+        {
+          symbolRange: {
+            startLine: 4,
+            startColumn: 1,
+            endLine: 4,
+            endColumn: 15,
+          },
+          identifierRange: {
+            startLine: 4,
+            startColumn: 1,
+            endLine: 4,
+            endColumn: 15,
+          },
+        },
         'testObject',
         'testMethod',
       );

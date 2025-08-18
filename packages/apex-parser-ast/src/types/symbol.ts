@@ -989,10 +989,10 @@ export class SymbolTable {
     location: SymbolLocation,
   ): boolean {
     return (
-      position.line >= location.symbolRange.startLine &&
-      position.line <= location.symbolRange.endLine &&
-      position.character >= location.symbolRange.startColumn &&
-      position.character < location.symbolRange.endColumn
+      position.line >= location.identifierRange.startLine &&
+      position.line <= location.identifierRange.endLine &&
+      position.character >= location.identifierRange.startColumn &&
+      position.character < location.identifierRange.endColumn
     );
   }
 

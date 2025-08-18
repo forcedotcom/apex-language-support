@@ -13,6 +13,7 @@ import {
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolTable, SymbolKind } from '../../src/types/symbol';
 import { TestLogger } from '../utils/testLogger';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
   let compilerService: CompilerService;
@@ -22,6 +23,8 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
     logger = TestLogger.getInstance();
     logger.debug('Setting up test environment');
     compilerService = new CompilerService();
+    enableConsoleLogging();
+    setLogLevel('error');
   });
 
   describe('Integration Test Reproduction', () => {

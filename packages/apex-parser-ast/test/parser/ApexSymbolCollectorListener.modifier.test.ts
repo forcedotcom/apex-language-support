@@ -6,10 +6,16 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 
 describe('ApexSymbolCollectorListener - Modifier Handling', () => {
+  beforeEach(() => {
+    enableConsoleLogging();
+    setLogLevel('error');
+  });
+
   describe('Method Modifier Isolation', () => {
     it('should correctly handle method modifiers without contamination between methods', () => {
       const apexCode = `

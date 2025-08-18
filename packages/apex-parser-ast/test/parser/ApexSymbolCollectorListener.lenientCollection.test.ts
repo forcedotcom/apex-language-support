@@ -9,6 +9,7 @@
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { ApexSymbol, SymbolKind, SymbolTable } from '../../src/types/symbol';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolCollectorListener lenient collection on validation errors', () => {
   let compiler: CompilerService;
@@ -17,6 +18,8 @@ describe('ApexSymbolCollectorListener lenient collection on validation errors', 
   beforeEach(() => {
     compiler = new CompilerService();
     listener = new ApexSymbolCollectorListener();
+    enableConsoleLogging();
+    setLogLevel('error');
   });
 
   it('collects class and members even when class name is reserved (System)', () => {

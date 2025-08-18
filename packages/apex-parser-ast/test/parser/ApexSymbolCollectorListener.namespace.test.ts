@@ -11,6 +11,7 @@ import * as path from 'path';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
 import { SymbolKind } from '../../src/types/symbol';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 /**
  * Read a fixture file from the namespace fixtures directory
@@ -27,6 +28,8 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
 
   beforeEach(() => {
     compilerService = new CompilerService();
+    enableConsoleLogging();
+    setLogLevel('error');
   });
 
   describe('setProjectNamespace', () => {

@@ -73,6 +73,7 @@ import {
   SymbolFactory,
   ApexSymbol,
   SymbolScope,
+  Range,
 } from '../../types/symbol';
 import {
   ClassModifierValidator,
@@ -480,6 +481,8 @@ export class ApexSymbolCollectorListener
    */
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     try {
+      this.logger.debug(() => 'ENTERING METHOD DECLARATION');
+
       // Enhanced debug logging for method name extraction
       const idNode = ctx.id();
       let name = idNode?.text ?? 'unknownMethod';
@@ -667,6 +670,8 @@ export class ApexSymbolCollectorListener
    */
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     try {
+      this.logger.debug(() => 'ENTERING CONSTRUCTOR DECLARATION');
+
       // Extract constructor name from the qualified name in the context
       const qualifiedName = ctx.qualifiedName();
       const ids = qualifiedName?.id();
@@ -737,9 +742,35 @@ export class ApexSymbolCollectorListener
       const modifiers = this.getCurrentModifiers();
 
       // Get the qualified name id location which is the last id in the qualified name
-      const qualifiedNameIdLocation = lastId
-        ? this.getIdentifierLocation(lastId)
-        : undefined;
+      let qualifiedNameIdLocation: SymbolLocation | undefined;
+      if (lastId?.start && lastId?.stop) {
+        // lastId is a terminal token, so we need to create the location manually
+        qualifiedNameIdLocation = {
+          symbolRange: {
+            startLine: lastId.start.line,
+            startColumn: lastId.start.charPositionInLine,
+            endLine: lastId.stop.line,
+            endColumn:
+              lastId.stop.charPositionInLine + (lastId.stop.text?.length ?? 0),
+          },
+          identifierRange: {
+            startLine: lastId.start.line,
+            startColumn: lastId.start.charPositionInLine,
+            endLine: lastId.stop.line,
+            endColumn:
+              lastId.stop.charPositionInLine + (lastId.stop.text?.length ?? 0),
+          },
+        };
+        this.logger.debug(
+          () =>
+            `DEBUG: Created constructor identifier location: ${JSON.stringify(qualifiedNameIdLocation)}`,
+        );
+      } else {
+        this.logger.debug(
+          () =>
+            `DEBUG: No lastId location found for constructor: lastId=${JSON.stringify(lastId)}`,
+        );
+      }
 
       // Create constructor symbol using createMethodSymbol method
       const constructorSymbol = this.createMethodSymbol(
@@ -748,6 +779,19 @@ export class ApexSymbolCollectorListener
         modifiers,
         createPrimitiveType('void'),
         qualifiedNameIdLocation,
+      );
+
+      this.logger.debug(
+        () =>
+          `DEBUG: Constructor symbol created with location: ${JSON.stringify(constructorSymbol.location)}`,
+      );
+      this.logger.debug(
+        () =>
+          `DEBUG: Constructor symbol location type: ${typeof constructorSymbol.location}`,
+      );
+      this.logger.debug(
+        () =>
+          `DEBUG: Constructor symbol has location: ${!!constructorSymbol.location}`,
       );
 
       // Set constructor-specific properties
@@ -2207,25 +2251,24 @@ export class ApexSymbolCollectorListener
 
   /**
    * Get location information from a context
+   * symbolRange covers the entire context, identifierRange covers just the identifier
    */
   private getLocation(ctx: ParserRuleContext): SymbolLocation {
+    const fullRange = {
+      startLine: ctx.start.line, // Use native ANTLR 1-based line numbers
+      startColumn: ctx.start.charPositionInLine, // Both use 0-based columns
+      endLine: ctx.stop?.line ?? ctx.start.line, // Use native ANTLR 1-based line numbers
+      endColumn:
+        (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
+        (ctx.stop?.text?.length ?? 0),
+    };
+
+    // Get identifier range using parser's direct access methods
+    const identifierRange = this.getIdentifierRange(ctx) || fullRange;
+
     return {
-      symbolRange: {
-        startLine: ctx.start.line, // Use native ANTLR 1-based line numbers
-        startColumn: ctx.start.charPositionInLine, // Both use 0-based columns
-        endLine: ctx.stop?.line ?? ctx.start.line, // Use native ANTLR 1-based line numbers
-        endColumn:
-          (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
-          (ctx.stop?.text?.length ?? 0),
-      },
-      identifierRange: {
-        startLine: ctx.start.line,
-        startColumn: ctx.start.charPositionInLine,
-        endLine: ctx.stop?.line ?? ctx.start.line,
-        endColumn:
-          (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
-          (ctx.stop?.text?.length ?? 0),
-      },
+      symbolRange: fullRange,
+      identifierRange: identifierRange,
     };
   }
 
@@ -2234,42 +2277,74 @@ export class ApexSymbolCollectorListener
    * This excludes any surrounding context like keywords, modifiers, etc.
    *
    * @param ctx The parser context containing the identifier
-   * @param name The name of the identifier to locate
    * @returns The precise location of the identifier
    */
   private getIdentifierLocation(ctx: ParserRuleContext): SymbolLocation {
-    // Try to find the identifier node within the context
-    // For most contexts, the identifier is accessible via ctx.id()
-    let identifierNode: any = null;
+    const identifierRange = this.getIdentifierRange(ctx);
 
-    // Check if the context has an id() method (most common case)
-    if (hasIdMethod(ctx)) {
-      identifierNode = ctx.id();
+    if (identifierRange) {
+      return {
+        symbolRange: identifierRange, // For identifier-only contexts, both ranges are the same
+        identifierRange: identifierRange,
+      };
     }
 
-    // If we found the identifier node, use its position
-    if (identifierNode && identifierNode.start && identifierNode.stop) {
-      return {
-        symbolRange: {
-          startLine: identifierNode.start.line, // Use native ANTLR 1-based line numbers
-          startColumn: identifierNode.start.charPositionInLine, // Both use 0-based columns
-          endLine: identifierNode.stop.line, // Use native ANTLR 1-based line numbers
-          endColumn:
-            identifierNode.stop.charPositionInLine +
-            identifierNode.stop.text.length,
-        },
-        identifierRange: {
+    // Fallback to full context location
+    return this.getLocation(ctx);
+  }
+
+  /**
+   * Extract the precise range of the identifier from a parser context
+   * Uses ANTLR's direct access methods for accurate positioning
+   */
+  private getIdentifierRange(ctx: ParserRuleContext): Range | null {
+    // Strategy 1: Check if the context has an id() method (most common case)
+    if (hasIdMethod(ctx)) {
+      const identifierNode = ctx.id();
+      if (identifierNode?.start && identifierNode?.stop) {
+        return {
           startLine: identifierNode.start.line,
           startColumn: identifierNode.start.charPositionInLine,
           endLine: identifierNode.stop.line,
           endColumn:
             identifierNode.stop.charPositionInLine +
-            identifierNode.stop.text.length,
-        },
-      };
+            (identifierNode.stop.text?.length ?? 0),
+        };
+      }
     }
-    // Final fallback - return the full context location
-    return this.getLocation(ctx);
+
+    // Strategy 2: Check for qualifiedName context (e.g., constructor names)
+    if ('qualifiedName' in ctx && typeof ctx.qualifiedName === 'function') {
+      const qn = ctx.qualifiedName();
+      if (qn?.id && qn.id().length > 0) {
+        const lastId = qn.id()[qn.id().length - 1]; // Get the last identifier in qualified name
+        if (lastId?.start && lastId?.stop) {
+          return {
+            startLine: lastId.start.line,
+            startColumn: lastId.start.charPositionInLine,
+            endLine: lastId.stop.line,
+            endColumn:
+              lastId.stop.charPositionInLine + (lastId.stop.text?.length ?? 0),
+          };
+        }
+      }
+    }
+
+    // Strategy 3: Check for anyId context (e.g., field access)
+    if ('anyId' in ctx && typeof ctx.anyId === 'function') {
+      const anyId = ctx.anyId();
+      if (anyId?.start && anyId?.stop) {
+        return {
+          startLine: anyId.start.line,
+          startColumn: anyId.start.charPositionInLine,
+          endLine: anyId.stop.line,
+          endColumn:
+            anyId.stop.charPositionInLine + (anyId.stop.text?.length ?? 0),
+        };
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -2547,6 +2622,18 @@ export class ApexSymbolCollectorListener
    * @returns ANTLR-compliant location with 1-based line numbers
    */
   private getLocationForReference(ctx: ParserRuleContext): SymbolLocation {
+    // For references, we want to focus on the identifier location
+    // but still provide the full context range
+    const identifierRange = this.getIdentifierRange(ctx);
+
+    if (identifierRange) {
+      return {
+        symbolRange: this.getLocation(ctx).symbolRange, // Full context
+        identifierRange: identifierRange, // Just the identifier
+      };
+    }
+
+    // Fallback to standard location
     return this.getLocation(ctx);
   }
 
@@ -2780,8 +2867,39 @@ export class ApexSymbolCollectorListener
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol;
 
-    // Get the identifier location for the type symbol
-    const identifierLocation = this.getIdentifierLocation(ctx);
+    // Get the identifier location for the type symbol using context-specific extraction
+    let identifierLocation: SymbolLocation;
+
+    if (
+      kind === SymbolKind.Class &&
+      isContextType(ctx, ClassDeclarationContext)
+    ) {
+      const classCtx = ctx as ClassDeclarationContext;
+      const identifierRange = this.extractClassIdentifierRange(classCtx);
+      identifierLocation = identifierRange
+        ? { symbolRange: identifierRange, identifierRange }
+        : this.getLocation(ctx);
+    } else if (
+      kind === SymbolKind.Interface &&
+      isContextType(ctx, InterfaceDeclarationContext)
+    ) {
+      const interfaceCtx = ctx as InterfaceDeclarationContext;
+      const identifierRange = this.extractClassIdentifierRange(
+        interfaceCtx as any,
+      );
+      identifierLocation = identifierRange
+        ? { symbolRange: identifierRange, identifierRange }
+        : this.getLocation(ctx);
+    } else if (kind === SymbolKind.Trigger) {
+      // For triggers, use the standard identifier extraction
+      identifierLocation = this.getIdentifierLocation(ctx);
+    } else if (kind === SymbolKind.Enum) {
+      // For enums, use the standard identifier extraction
+      identifierLocation = this.getIdentifierLocation(ctx);
+    } else {
+      // Fallback to standard identifier extraction
+      identifierLocation = this.getIdentifierLocation(ctx);
+    }
 
     // Determine namespace based on context
     const namespace = this.determineNamespaceForType(name, kind);
@@ -2856,6 +2974,21 @@ export class ApexSymbolCollectorListener
     // Get current scope path for unique symbol ID
     const scopePath = this.symbolTable.getCurrentScopePath();
 
+    // Use provided identifierLocation or extract from context
+    const finalIdentifierLocation =
+      identifierLocation ||
+      (isContextType(ctx, MethodDeclarationContext)
+        ? (() => {
+            const range = this.extractMethodIdentifierRange(
+              ctx as MethodDeclarationContext,
+            );
+            return range
+              ? { symbolRange: range, identifierRange: range }
+              : null;
+          })()
+        : null) ||
+      this.getIdentifierLocation(ctx);
+
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       SymbolKind.Method,
@@ -2866,7 +2999,7 @@ export class ApexSymbolCollectorListener
       { returnType, parameters: [] },
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
-      identifierLocation ?? this.getIdentifierLocation(ctx),
+      finalIdentifierLocation,
       scopePath, // Pass scope path for unique ID generation
     ) as MethodSymbol;
 
@@ -2893,8 +3026,31 @@ export class ApexSymbolCollectorListener
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol || this.currentMethodSymbol;
 
-    // Get the identifier location for the variable symbol
-    const identifierLocation = this.getIdentifierLocation(ctx);
+    // Get the identifier location for the variable symbol using context-specific extraction
+    let identifierLocation: SymbolLocation;
+
+    if (
+      kind === SymbolKind.Field &&
+      isContextType(ctx, FieldDeclarationContext)
+    ) {
+      const fieldCtx = ctx as FieldDeclarationContext;
+      const identifierRange = this.extractFieldIdentifierRange(fieldCtx);
+      identifierLocation = identifierRange
+        ? { symbolRange: identifierRange, identifierRange }
+        : this.getIdentifierLocation(ctx);
+    } else if (
+      kind === SymbolKind.Property &&
+      isContextType(ctx, PropertyDeclarationContext)
+    ) {
+      const propertyCtx = ctx as PropertyDeclarationContext;
+      const identifierRange = this.extractPropertyIdentifierRange(propertyCtx);
+      identifierLocation = identifierRange
+        ? { symbolRange: identifierRange, identifierRange }
+        : this.getIdentifierLocation(ctx);
+    } else {
+      // For other variable types, use the standard identifier extraction
+      identifierLocation = this.getIdentifierLocation(ctx);
+    }
 
     // Inherit namespace from containing type or method
     const parentNamespace = parent?.namespace;
@@ -2997,5 +3153,59 @@ export class ApexSymbolCollectorListener
     } catch (error) {
       this.logger.warn(() => `Error capturing dotted references: ${error}`);
     }
+  }
+
+  /**
+   * Extract identifier range for class declaration contexts
+   * Handles cases where the class name might be in different locations
+   */
+  private extractClassIdentifierRange(
+    ctx: ClassDeclarationContext,
+  ): Range | null {
+    // Use the main identifier extraction method
+    return this.getIdentifierRange(ctx);
+  }
+
+  /**
+   * Extract identifier range for method declaration contexts
+   * Handles both regular methods and constructors
+   */
+  private extractMethodIdentifierRange(
+    ctx: MethodDeclarationContext,
+  ): Range | null {
+    // Use the main identifier extraction method
+    return this.getIdentifierRange(ctx);
+  }
+
+  /**
+   * Extract identifier range for constructor declaration contexts
+   * Handles qualified name cases and extracts the actual constructor name
+   */
+  private extractConstructorIdentifierRange(
+    ctx: ConstructorDeclarationContext,
+  ): Range | null {
+    // Use the main identifier extraction method
+    return this.getIdentifierRange(ctx);
+  }
+
+  /**
+   * Extract identifier range for field declaration contexts
+   * Handles variable declarators within field declarations
+   */
+  private extractFieldIdentifierRange(
+    ctx: FieldDeclarationContext,
+  ): Range | null {
+    // Use the main identifier extraction method
+    return this.getIdentifierRange(ctx);
+  }
+
+  /**
+   * Extract identifier range for property declaration contexts
+   */
+  private extractPropertyIdentifierRange(
+    ctx: PropertyDeclarationContext,
+  ): Range | null {
+    // Use the main identifier extraction method
+    return this.getIdentifierRange(ctx);
   }
 }

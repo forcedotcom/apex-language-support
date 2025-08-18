@@ -398,18 +398,22 @@ describe('ApexSymbolCollectorListener with Type References', () => {
           ref.context === ReferenceContext.CLASS_REFERENCE,
       );
       expect(classRef).toBeDefined();
-      expect(classRef?.location.startLine).toBeGreaterThan(0);
-      expect(classRef?.location.endLine).toBeGreaterThan(0);
-      expect(classRef?.location.startColumn).toBeGreaterThanOrEqual(0);
-      expect(classRef?.location.endColumn).toBeGreaterThan(0);
+      expect(classRef?.location.identifierRange.startLine).toBeGreaterThan(0);
+      expect(classRef?.location.identifierRange.endLine).toBeGreaterThan(0);
+      expect(
+        classRef?.location.identifierRange.startColumn,
+      ).toBeGreaterThanOrEqual(0);
+      expect(classRef?.location.identifierRange.endColumn).toBeGreaterThan(0);
 
       // Check METHOD_CALL location accuracy
       const methodRef = references.find((ref) => ref.name === 'createFile');
       expect(methodRef).toBeDefined();
-      expect(methodRef?.location.startLine).toBeGreaterThan(0);
-      expect(methodRef?.location.endLine).toBeGreaterThan(0);
-      expect(methodRef?.location.startColumn).toBeGreaterThanOrEqual(0);
-      expect(methodRef?.location.endColumn).toBeGreaterThan(0);
+      expect(methodRef?.location.identifierRange.startLine).toBeGreaterThan(0);
+      expect(methodRef?.location.identifierRange.endLine).toBeGreaterThan(0);
+      expect(
+        methodRef?.location.identifierRange.startColumn,
+      ).toBeGreaterThanOrEqual(0);
+      expect(methodRef?.location.identifierRange.endColumn).toBeGreaterThan(0);
 
       // Check for some key references that should exist in this complex test
       const fileUtilitiesRef = references.find(
@@ -418,13 +422,21 @@ describe('ApexSymbolCollectorListener with Type References', () => {
           ref.context === ReferenceContext.CLASS_REFERENCE,
       );
       expect(fileUtilitiesRef).toBeDefined();
-      expect(fileUtilitiesRef?.location.startLine).toBeGreaterThan(0);
-      expect(fileUtilitiesRef?.location.endLine).toBeGreaterThan(0);
+      expect(
+        fileUtilitiesRef?.location.identifierRange.startLine,
+      ).toBeGreaterThan(0);
+      expect(
+        fileUtilitiesRef?.location.identifierRange.endLine,
+      ).toBeGreaterThan(0);
 
       const createFileRef = references.find((ref) => ref.name === 'createFile');
       expect(createFileRef).toBeDefined();
-      expect(createFileRef?.location.startLine).toBeGreaterThan(0);
-      expect(createFileRef?.location.endLine).toBeGreaterThan(0);
+      expect(createFileRef?.location.identifierRange.startLine).toBeGreaterThan(
+        0,
+      );
+      expect(createFileRef?.location.identifierRange.endLine).toBeGreaterThan(
+        0,
+      );
 
       const assertRef = references.find(
         (ref) =>
@@ -432,8 +444,8 @@ describe('ApexSymbolCollectorListener with Type References', () => {
           ref.context === ReferenceContext.CLASS_REFERENCE,
       );
       expect(assertRef).toBeDefined();
-      expect(assertRef?.location.startLine).toBeGreaterThan(0);
-      expect(assertRef?.location.endLine).toBeGreaterThan(0);
+      expect(assertRef?.location.identifierRange.startLine).toBeGreaterThan(0);
+      expect(assertRef?.location.identifierRange.endLine).toBeGreaterThan(0);
     });
   });
 
@@ -472,35 +484,47 @@ describe('ApexSymbolCollectorListener with Type References', () => {
           ref.context === ReferenceContext.CLASS_REFERENCE,
       );
       expect(classRef).toBeDefined();
-      expect(classRef?.location.startLine).toBeGreaterThan(0);
-      expect(classRef?.location.endLine).toBeGreaterThan(0);
-      expect(classRef?.location.startColumn).toBeGreaterThanOrEqual(0);
-      expect(classRef?.location.endColumn).toBeGreaterThan(0);
+      expect(classRef?.location.identifierRange.startLine).toBeGreaterThan(0);
+      expect(classRef?.location.identifierRange.endLine).toBeGreaterThan(0);
+      expect(
+        classRef?.location.identifierRange.startColumn,
+      ).toBeGreaterThanOrEqual(0);
+      expect(classRef?.location.identifierRange.endColumn).toBeGreaterThan(0);
 
       // Check METHOD_CALL location accuracy
       const methodRef = references.find((ref) => ref.name === 'createFile');
       expect(methodRef).toBeDefined();
-      expect(methodRef?.location.startLine).toBeGreaterThan(0);
-      expect(methodRef?.location.endLine).toBeGreaterThan(0);
-      expect(methodRef?.location.startColumn).toBeGreaterThanOrEqual(0);
-      expect(methodRef?.location.endColumn).toBeGreaterThan(0);
+      expect(methodRef?.location.identifierRange.startLine).toBeGreaterThan(0);
+      expect(methodRef?.location.identifierRange.endLine).toBeGreaterThan(0);
+      expect(
+        methodRef?.location.identifierRange.startColumn,
+      ).toBeGreaterThanOrEqual(0);
+      expect(methodRef?.location.identifierRange.endColumn).toBeGreaterThan(0);
 
       // End should be after start for both references
-      expect(classRef?.location.endLine).toBeGreaterThanOrEqual(
-        classRef?.location.startLine || 0,
+      expect(classRef?.location.identifierRange.endLine).toBeGreaterThanOrEqual(
+        classRef?.location.identifierRange.startLine || 0,
       );
-      expect(methodRef?.location.endLine).toBeGreaterThanOrEqual(
-        methodRef?.location.startLine || 0,
+      expect(
+        methodRef?.location.identifierRange.endLine,
+      ).toBeGreaterThanOrEqual(
+        methodRef?.location.identifierRange.startLine || 0,
       );
 
-      if (classRef?.location.endLine === classRef?.location.startLine) {
-        expect(classRef?.location.endColumn).toBeGreaterThan(
-          classRef?.location.startColumn || 0,
+      if (
+        classRef?.location.identifierRange.endLine ===
+        classRef?.location.identifierRange.startLine
+      ) {
+        expect(classRef?.location.identifierRange.endColumn).toBeGreaterThan(
+          classRef?.location.identifierRange.startColumn || 0,
         );
       }
-      if (methodRef?.location.endLine === methodRef?.location.startLine) {
-        expect(methodRef?.location.endColumn).toBeGreaterThan(
-          methodRef?.location.startColumn || 0,
+      if (
+        methodRef?.location.identifierRange.endLine ===
+        methodRef?.location.identifierRange.startLine
+      ) {
+        expect(methodRef?.location.identifierRange.endColumn).toBeGreaterThan(
+          methodRef?.location.identifierRange.startColumn || 0,
         );
       }
     });

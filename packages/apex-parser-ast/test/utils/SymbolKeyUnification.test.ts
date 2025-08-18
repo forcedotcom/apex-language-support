@@ -82,9 +82,25 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
     it('should create SymbolKey from ApexSymbol with unified ID', () => {
       const symbol: ApexSymbol = {
+        id: 'TestFile.cls:TestClass',
         name: 'TestClass',
         kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        filePath: 'TestFile.cls',
+        parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -95,6 +111,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         key: {
           prefix: 'class',
@@ -103,6 +120,8 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         },
         parentKey: null,
         fqn: 'TestClass',
+        _modifierFlags: 0,
+        _isLoaded: true,
       };
 
       const unifiedKey = createFromSymbol(symbol, 'TestFile.cls');
@@ -186,9 +205,25 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
   describe('ApexSymbolManager Integration', () => {
     it('should use unified key system in getSymbolId', () => {
       const symbol: ApexSymbol = {
+        id: 'TestFile.cls:TestClass',
         name: 'TestClass',
         kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        filePath: 'TestFile.cls',
+        parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -199,6 +234,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         key: {
           prefix: 'class',
@@ -208,6 +244,8 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         },
         parentKey: null,
         fqn: 'TestClass',
+        _modifierFlags: 0,
+        _isLoaded: true,
       };
 
       // Add symbol to manager
@@ -219,9 +257,25 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
     it('should maintain backward compatibility with existing SymbolKey usage', () => {
       const symbol: ApexSymbol = {
+        id: 'TestFile.cls:TestClass',
         name: 'TestClass',
         kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        filePath: 'TestFile.cls',
+        parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -232,6 +286,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         key: {
           prefix: 'class',
@@ -239,6 +294,8 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
           path: ['file', 'TestClass'],
         },
         parentKey: null,
+        _modifierFlags: 0,
+        _isLoaded: true,
       };
 
       // Add symbol to manager
@@ -256,9 +313,25 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
     it('should handle symbols without FQN correctly', () => {
       const symbol: ApexSymbol = {
+        id: 'TestFile.cls:testMethod',
         name: 'testMethod',
         kind: SymbolKind.Method,
-        location: { startLine: 5, startColumn: 1, endLine: 5, endColumn: 20 },
+        location: {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 20,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 20,
+          },
+        },
+        filePath: 'TestFile.cls',
+        parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -269,6 +342,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         key: {
           prefix: 'method',
@@ -276,6 +350,8 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
           path: ['file', 'TestClass', 'testMethod'],
         },
         parentKey: null,
+        _modifierFlags: 0,
+        _isLoaded: true,
       };
 
       // Add symbol to manager
@@ -291,9 +367,25 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
   describe('Performance and Consistency', () => {
     it('should generate consistent unified IDs for same symbols', () => {
       const symbol1: ApexSymbol = {
+        id: 'TestFile.cls:TestClass',
         name: 'TestClass',
         kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        filePath: 'TestFile.cls',
+        parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -304,6 +396,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         key: {
           prefix: 'class',
@@ -313,12 +406,30 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         },
         parentKey: null,
         fqn: 'TestClass',
+        _modifierFlags: 0,
+        _isLoaded: true,
       };
 
       const symbol2: ApexSymbol = {
+        id: 'TestFile.cls:TestClass',
         name: 'TestClass',
         kind: SymbolKind.Class,
-        location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        location: {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        filePath: 'TestFile.cls',
+        parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
           isStatic: false,
@@ -329,6 +440,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         key: {
           prefix: 'class',
@@ -338,6 +450,8 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
         },
         parentKey: null,
         fqn: 'TestClass',
+        _modifierFlags: 0,
+        _isLoaded: true,
       };
 
       const key1 = createFromSymbol(symbol1, 'TestFile.cls');
@@ -354,9 +468,25 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       // Create 1000 symbols
       for (let i = 0; i < 1000; i++) {
         const symbol: ApexSymbol = {
+          id: `TestFile.cls:TestClass${i}`,
           name: `TestClass${i}`,
           kind: SymbolKind.Class,
-          location: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+          location: {
+            symbolRange: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 10,
+            },
+            identifierRange: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 10,
+            },
+          },
+          filePath: 'TestFile.cls',
+          parentId: null,
           modifiers: {
             visibility: SymbolVisibility.Public,
             isStatic: false,
@@ -367,6 +497,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
             isTransient: false,
             isTestMethod: false,
             isWebService: false,
+            isBuiltIn: false,
           },
           key: {
             prefix: 'class',
@@ -376,6 +507,8 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
           },
           parentKey: null,
           fqn: `TestClass${i}`,
+          _modifierFlags: 0,
+          _isLoaded: true,
         };
 
         symbols.push(symbol);
