@@ -32,7 +32,7 @@ export async function startUnifiedServer(
 ): Promise<UnifiedApexLanguageServer> {
   const {
     environment: providedEnvironment,
-    commandLineArgs = process?.argv || [],
+    commandLineArgs = typeof process !== 'undefined' ? process.argv : [],
     enableNodeFeatures,
   } = options;
 

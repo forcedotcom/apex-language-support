@@ -5,79 +5,80 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { defineConfig } from 'tsup';
-import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
 
-export default defineConfig({
-  entry: ['out/extension.js', 'out/server.js'],
-  format: ['cjs', 'esm'],
-  splitting: false,
-  treeshake: true,
-  minify: false,
-  dts: false,
-  outDir: 'dist',
-  clean: true,
-  external: ['vscode'],
-  noExternal: [
-    'vscode-languageclient',
-    'vscode-languageserver-textdocument',
-    'vscode-uri',
-    '@salesforce/apex-ls',
-    '@salesforce/apex-lsp-compliant-services',
-    '@salesforce/apex-lsp-custom-services',
-    '@salesforce/apex-lsp-shared',
-    '@salesforce/apex-lsp-parser-ast',
-  ],
-  onSuccess: async () => {
-    // Copy static assets and files
-    const sourceDir = process.cwd();
+import { defineConfig, Options } from 'tsup';
 
-    // Create subdirectories
-    execSync('shx mkdir -p dist/grammars dist/snippets dist/resources', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
+export default defineConfig((options: Options) => {
+  // Always apply polyfill configuration for web compatibility
+  // This ensures web builds work properly regardless of environment variables
+  const { applyPolyfillConfig } = require('../apex-ls/src/polyfills/config');
+  applyPolyfillConfig(options);
 
-    // Copy files
-    execSync('shx cp -R grammars/* dist/grammars/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
-    execSync('shx cp -R snippets/* dist/snippets/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
-    execSync('shx cp -R resources/* dist/resources/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
-    execSync('shx cp README.md dist/', { cwd: sourceDir, stdio: 'inherit' });
-    execSync('shx cp LICENSE.txt dist/', { cwd: sourceDir, stdio: 'inherit' });
-    execSync('shx cp language-configuration.json dist/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
-    execSync('shx cp package.nls*.json dist/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
+  return {
+    entry: ['out/extension.js', 'out/server.js'],
+    format: ['cjs', 'esm'],
+    target: 'es2022',
+    sourcemap: true,
+    clean: true,
+    minify: false,
+    dts: false,
+    external: ['vscode'],
+    noExternal: [
+      '@salesforce/apex-ls',
+      '@salesforce/apex-lsp-compliant-services',
+      '@salesforce/apex-lsp-custom-services',
+      '@salesforce/apex-lsp-parser-ast',
+      '@salesforce/apex-lsp-shared',
+      'vscode-languageserver-textdocument',
+    ],
+    // Ensure browser-compatible versions of packages are used
+    esbuildOptions(options) {
+      // Import polyfill config from apex-ls
+      const {
+        applyPolyfillConfig,
+        polyfillPaths,
+      } = require('../apex-ls/src/polyfills/config');
 
-    // Prepare package.json for dist
-    const originalPackagePath = path.join(sourceDir, 'package.json');
-    const pkg = JSON.parse(fs.readFileSync(originalPackagePath, 'utf8'));
+      // Use neutral platform but prioritize browser fields
+      options.conditions = ['browser', 'import', 'module', 'default'];
+      options.mainFields = ['browser', 'module', 'main'];
+      options.platform = 'browser';
 
-    const distPackage = {
-      ...pkg,
-      main: './extension.js',
-      browser: './extension.js',
-      dependencies: {},
-      devDependencies: {},
-      workspaces: undefined,
-    };
+      // Apply polyfill configuration first
+      applyPolyfillConfig(options);
 
-    const distPackagePath = path.join(sourceDir, 'dist', 'package.json');
-    fs.writeFileSync(distPackagePath, JSON.stringify(distPackage, null, 2));
-  },
+      // Add language server protocol package aliases
+      options.alias = {
+        ...options.alias,
+        // Node.js built-in modules (ensure these take precedence)
+        util: polyfillPaths.utils,
+        crypto: polyfillPaths.crypto,
+        fs: polyfillPaths.fs,
+        path: polyfillPaths.path,
+        events: polyfillPaths.events,
+        net: polyfillPaths.net,
+        os: polyfillPaths.os,
+        buffer: polyfillPaths.buffer,
+        // Language server protocol packages
+        'vscode-jsonrpc/lib/node/main': 'vscode-jsonrpc/lib/browser/main',
+        'vscode-jsonrpc/lib/node/ril': 'vscode-jsonrpc/lib/browser/ril',
+        'vscode-jsonrpc/node': 'vscode-jsonrpc/browser',
+        'vscode-languageserver-protocol/lib/node/main':
+          'vscode-languageserver-protocol/lib/browser/main',
+        'vscode-languageserver-protocol/node':
+          'vscode-languageserver-protocol/browser',
+        'vscode-languageserver/lib/node/main':
+          'vscode-languageserver/lib/browser/main',
+        'vscode-languageserver/node': 'vscode-languageserver/browser',
+        'vscode-languageclient/node': 'vscode-languageclient/browser',
+      };
+      options.define = {
+        ...options.define,
+        global: 'globalThis',
+      };
+    },
+    // Copy worker files, manifest, and fix paths/exports after build
+    onSuccess:
+      'npm run copy:worker && npm run copy:manifest && npm run fix:paths && npm run fix:exports',
+  };
 });
