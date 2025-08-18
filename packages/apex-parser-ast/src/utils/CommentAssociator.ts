@@ -45,7 +45,9 @@ export class CommentAssociator {
       (a, b) => a.startLine - b.startLine,
     );
     const sortedSymbols = [...symbols].sort(
-      (a, b) => a.location.startLine - b.location.startLine,
+      (a, b) =>
+        a.location.identifierRange.startLine -
+        b.location.identifierRange.startLine,
     );
 
     this.logger.debug(
@@ -110,7 +112,7 @@ export class CommentAssociator {
     symbol: ApexSymbol,
   ): CommentAssociation | null {
     const commentLine = comment.startLine;
-    const symbolLine = symbol.location.startLine;
+    const symbolLine = symbol.location.identifierRange.startLine;
     const distance = Math.abs(commentLine - symbolLine);
 
     // Determine association type and calculate base confidence
@@ -201,8 +203,8 @@ export class CommentAssociator {
 
     // For now, assume comments after the symbol line are internal if they're close
     return (
-      comment.startLine > symbol.location.startLine &&
-      comment.startLine - symbol.location.startLine <= 10
+      comment.startLine > symbol.location.identifierRange.startLine &&
+      comment.startLine - symbol.location.identifierRange.startLine <= 10
     );
   }
 

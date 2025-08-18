@@ -246,10 +246,18 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
       kind,
       namespace,
       location: {
-        startLine: 0,
-        startColumn: 0,
-        endLine: 0,
-        endColumn: 0,
+        symbolRange: {
+          startLine: 1,
+          startColumn: 0,
+          endLine: 1,
+          endColumn: 0,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 0,
+          endLine: 1,
+          endColumn: 0,
+        },
       },
       key: {
         path: ['built-in', namespace, name],

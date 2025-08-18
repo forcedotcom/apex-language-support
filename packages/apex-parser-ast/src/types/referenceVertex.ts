@@ -121,10 +121,18 @@ export class ReferenceVertexFactory {
       {
         name: methodName,
         location: {
-          startLine: 0,
-          startColumn: 0,
-          endLine: 0,
-          endColumn: 0,
+          symbolRange: {
+            startLine: 0,
+            startColumn: 0,
+            endLine: 0,
+            endColumn: 0,
+          },
+          identifierRange: {
+            startLine: 0,
+            startColumn: 0,
+            endLine: 0,
+            endColumn: 0,
+          },
         },
       },
       sourceFile,
@@ -163,10 +171,18 @@ export class ReferenceVertexFactory {
       {
         name: fieldName,
         location: {
-          startLine: 0,
-          startColumn: 0,
-          endLine: 0,
-          endColumn: 0,
+          symbolRange: {
+            startLine: 0,
+            startColumn: 0,
+            endLine: 0,
+            endColumn: 0,
+          },
+          identifierRange: {
+            startLine: 0,
+            startColumn: 0,
+            endLine: 0,
+            endColumn: 0,
+          },
         },
       },
       sourceFile,
@@ -204,10 +220,18 @@ export class ReferenceVertexFactory {
       {
         name: typeName,
         location: {
-          startLine: 0,
-          startColumn: 0,
-          endLine: 0,
-          endColumn: 0,
+          symbolRange: {
+            startLine: 0,
+            startColumn: 0,
+            endLine: 0,
+            endColumn: 0,
+          },
+          identifierRange: {
+            startLine: 0,
+            startColumn: 0,
+            endLine: 0,
+            endColumn: 0,
+          },
         },
       },
       sourceFile,
@@ -240,7 +264,8 @@ export class ReferenceVertexFactory {
     sourceFile: string,
   ): string {
     const { name, location } = reference;
-    const { startLine, startColumn, endLine, endColumn } = location;
+    const { startLine, startColumn, endLine, endColumn } =
+      location.identifierRange;
     return `${sourceFile}:${startLine}:${startColumn}:${endLine}:${endColumn}:${name}`;
   }
 }

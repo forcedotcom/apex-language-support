@@ -382,14 +382,27 @@ export interface SymbolModifiers {
   isBuiltIn: boolean;
 }
 
+export type Position = {
+  line: number;
+  character: number;
+};
+
+export type Range = {
+  startLine: number;
+  /** Start column (1-based) */
+  startColumn: number;
+  /** End line (1-based) */
+  endLine: number;
+  /** End column (1-based) */
+  endColumn: number;
+};
+
 /**
  * Location information for a symbol in the source code
  */
 export interface SymbolLocation {
-  startLine: number;
-  startColumn: number;
-  endLine: number;
-  endColumn: number;
+  symbolRange: Range;
+  identifierRange: Range;
 }
 
 /**
@@ -967,19 +980,19 @@ export class SymbolTable {
 
   /**
    * Check if a position is within a location range
-   * @param position The position to check (0-based)
-   * @param location The location range (0-based)
+   * @param position The position to check
+   * @param location The location range
    * @returns True if position is within the location range
    */
   private positionInRange(
-    position: { line: number; character: number },
+    position: Position,
     location: SymbolLocation,
   ): boolean {
     return (
-      position.line >= location.startLine &&
-      position.line <= location.endLine &&
-      position.character >= location.startColumn &&
-      position.character < location.endColumn
+      position.line >= location.symbolRange.startLine &&
+      position.line <= location.symbolRange.endLine &&
+      position.character >= location.symbolRange.startColumn &&
+      position.character < location.symbolRange.endColumn
     );
   }
 

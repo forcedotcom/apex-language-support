@@ -1363,12 +1363,7 @@ export class ApexSymbolCollectorListener
           qualifier = this.getTextFromContext(lhs);
           const parentLoc = this.getLocation(dotParent);
           if (qualifier) {
-            qualifierLocation = {
-              startLine: parentLoc.startLine,
-              startColumn: parentLoc.startColumn,
-              endLine: parentLoc.startLine,
-              endColumn: parentLoc.startColumn + qualifier.length,
-            };
+            qualifierLocation = parentLoc;
           }
         }
       }
@@ -1447,12 +1442,7 @@ export class ApexSymbolCollectorListener
 
         baseTypeName = `${typeName.LIST() || typeName.SET() || typeName.MAP()}`;
         const tnLoc = this.getLocationForReference(typeName);
-        baseLocation = {
-          startLine: tnLoc.startLine,
-          startColumn: tnLoc.startColumn,
-          endLine: tnLoc.startLine,
-          endColumn: tnLoc.startColumn + baseTypeName.length,
-        };
+        baseLocation = tnLoc;
       }
 
       if (baseTypeName && baseLocation) {
@@ -1730,12 +1720,7 @@ export class ApexSymbolCollectorListener
           const objectExpr = dotExpr.expression();
           if (objectExpr) {
             const objectName = this.getTextFromContext(objectExpr);
-            const objLocation: SymbolLocation = {
-              startLine: lhsLoc.startLine,
-              startColumn: lhsLoc.startColumn,
-              endLine: lhsLoc.startLine,
-              endColumn: lhsLoc.startColumn + objectName.length,
-            };
+            const objLocation = lhsLoc;
             // qualifier read
             const objRef = TypeReferenceFactory.createVariableUsageReference(
               objectName,
@@ -2225,12 +2210,22 @@ export class ApexSymbolCollectorListener
    */
   private getLocation(ctx: ParserRuleContext): SymbolLocation {
     return {
-      startLine: ctx.start.line, // Use native ANTLR 1-based line numbers
-      startColumn: ctx.start.charPositionInLine, // Both use 0-based columns
-      endLine: ctx.stop?.line ?? ctx.start.line, // Use native ANTLR 1-based line numbers
-      endColumn:
-        (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
-        (ctx.stop?.text?.length ?? 0),
+      symbolRange: {
+        startLine: ctx.start.line, // Use native ANTLR 1-based line numbers
+        startColumn: ctx.start.charPositionInLine, // Both use 0-based columns
+        endLine: ctx.stop?.line ?? ctx.start.line, // Use native ANTLR 1-based line numbers
+        endColumn:
+          (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
+          (ctx.stop?.text?.length ?? 0),
+      },
+      identifierRange: {
+        startLine: ctx.start.line,
+        startColumn: ctx.start.charPositionInLine,
+        endLine: ctx.stop?.line ?? ctx.start.line,
+        endColumn:
+          (ctx.stop?.charPositionInLine ?? ctx.start.charPositionInLine) +
+          (ctx.stop?.text?.length ?? 0),
+      },
     };
   }
 
@@ -2255,12 +2250,22 @@ export class ApexSymbolCollectorListener
     // If we found the identifier node, use its position
     if (identifierNode && identifierNode.start && identifierNode.stop) {
       return {
-        startLine: identifierNode.start.line, // Use native ANTLR 1-based line numbers
-        startColumn: identifierNode.start.charPositionInLine, // Both use 0-based columns
-        endLine: identifierNode.stop.line, // Use native ANTLR 1-based line numbers
-        endColumn:
-          identifierNode.stop.charPositionInLine +
-          identifierNode.stop.text.length,
+        symbolRange: {
+          startLine: identifierNode.start.line, // Use native ANTLR 1-based line numbers
+          startColumn: identifierNode.start.charPositionInLine, // Both use 0-based columns
+          endLine: identifierNode.stop.line, // Use native ANTLR 1-based line numbers
+          endColumn:
+            identifierNode.stop.charPositionInLine +
+            identifierNode.stop.text.length,
+        },
+        identifierRange: {
+          startLine: identifierNode.start.line,
+          startColumn: identifierNode.start.charPositionInLine,
+          endLine: identifierNode.stop.line,
+          endColumn:
+            identifierNode.stop.charPositionInLine +
+            identifierNode.stop.text.length,
+        },
       };
     }
     // Final fallback - return the full context location
@@ -2634,10 +2639,14 @@ export class ApexSymbolCollectorListener
         ref.name === typeName &&
         (ref.context === 5 || ref.context === 6) && // TYPE_DECLARATION = 5, PARAMETER_TYPE = 6
         ref.parentContext === context &&
-        ref.location.startLine === location.startLine &&
-        ref.location.startColumn === location.startColumn &&
-        ref.location.endLine === location.endLine &&
-        ref.location.endColumn === location.endColumn,
+        ref.location.identifierRange.startLine ===
+          location.identifierRange.startLine &&
+        ref.location.identifierRange.startColumn ===
+          location.identifierRange.startColumn &&
+        ref.location.identifierRange.endLine ===
+          location.identifierRange.endLine &&
+        ref.location.identifierRange.endColumn ===
+          location.identifierRange.endColumn,
     );
   }
 
@@ -2693,10 +2702,13 @@ export class ApexSymbolCollectorListener
     const loc = this.getLocation(ctx);
     const r = this.suppressedLHSRange;
     const withinLines =
-      loc.startLine >= r.startLine && loc.endLine <= r.endLine;
+      loc.identifierRange.startLine >= r.identifierRange.startLine &&
+      loc.identifierRange.endLine <= r.identifierRange.endLine;
     const withinCols =
-      (loc.startLine > r.startLine || loc.startColumn >= r.startColumn) &&
-      (loc.endLine < r.endLine || loc.endColumn <= r.endColumn);
+      (loc.identifierRange.startLine > r.identifierRange.startLine ||
+        loc.identifierRange.startColumn >= r.identifierRange.startColumn) &&
+      (loc.identifierRange.endLine < r.identifierRange.endLine ||
+        loc.identifierRange.endColumn <= r.identifierRange.endColumn);
     return withinLines && withinCols;
   }
 
@@ -2959,12 +2971,7 @@ export class ApexSymbolCollectorListener
       const parentLoc = this.getLocation(ctx);
       let qualifierLocation: SymbolLocation | undefined;
       if (qualifier) {
-        qualifierLocation = {
-          startLine: parentLoc.startLine,
-          startColumn: parentLoc.startColumn,
-          endLine: parentLoc.startLine,
-          endColumn: parentLoc.startColumn + qualifier.length,
-        };
+        qualifierLocation = parentLoc;
       }
 
       // Emit qualifier reference for simple identifiers
