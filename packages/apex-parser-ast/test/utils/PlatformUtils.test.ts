@@ -7,30 +7,17 @@
  */
 
 import {
-  getSalesforceVersionPathNode,
+  getSalesforceVersionUri,
   getSalesforceVersionPathBrowser,
 } from '../../src/utils/PlatformUtils';
 
-// Mock process.cwd() for consistent testing
-const originalCwd = process.cwd;
-process.cwd = jest.fn().mockReturnValue('/mock/current/dir');
-
 describe('PlatformUtils', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  describe('getSalesforceVersionUri', () => {
+    it('should return the URI to the Salesforce version file', () => {
+      const versionUri = getSalesforceVersionUri();
 
-  afterAll(() => {
-    // Restore original process.cwd
-    process.cwd = originalCwd;
-  });
-
-  describe('getSalesforceVersionPathNode', () => {
-    it('should return the path to the Salesforce version file in Node', () => {
-      const versionPath = getSalesforceVersionPathNode();
-
-      expect(versionPath).toBe(
-        '/mock/current/dir/resources/StandardApexLibrary/.version.json',
+      expect(versionUri).toBe(
+        'apex-resources:/resources/StandardApexLibrary/.version.json',
       );
     });
   });

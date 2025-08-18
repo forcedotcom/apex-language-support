@@ -50,39 +50,6 @@ export interface SalesforceVersionInfo {
 export const DEFAULT_SALESFORCE_VERSION = 254;
 
 /**
- * Convert an apex-resources URI to a file path for Node.js environments
- * @param uri The URI to convert
- * @param basePath Optional base directory path to prepend
- * @returns A file path suitable for Node.js environments
- */
-export function uriToNodePath(uri: string, basePath?: string): string {
-  if (!uri.startsWith(APEX_RESOURCES_SCHEME)) {
-    throw new Error(`Invalid apex-resources URI: ${uri}`);
-  }
-
-  // Remove the scheme and get the path portion
-  const resourcePath = uri.replace(`${APEX_RESOURCES_SCHEME}:`, '');
-
-  // Make sure the resource path starts with a slash if it's not empty
-  const formattedPath =
-    resourcePath && !resourcePath.startsWith('/')
-      ? `/${resourcePath}`
-      : resourcePath;
-
-  // Return the path with or without the basePath
-  if (basePath) {
-    // Remove trailing slash from basePath if present
-    const cleanBasePath = basePath.endsWith('/')
-      ? basePath.slice(0, -1)
-      : basePath;
-
-    return `${cleanBasePath}${formattedPath}`;
-  }
-
-  return formattedPath;
-}
-
-/**
  * Convert an apex-resources URI to a URL for browser environments
  * @param uri The URI to convert
  * @param baseUrl Optional base URL to prepend

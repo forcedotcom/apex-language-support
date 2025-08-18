@@ -8,7 +8,6 @@
 
 import {
   RESOURCE_URIS,
-  uriToNodePath,
   uriToBrowserUrl,
   joinUri,
 } from '../../src/utils/ResourceUtils';
@@ -24,26 +23,6 @@ describe('ResourceUtils', () => {
       );
       expect(RESOURCE_URIS.VERSION_FILE_URI).toBe(
         'apex-resources:/resources/StandardApexLibrary/.version.json',
-      );
-    });
-  });
-
-  describe('uriToNodePath', () => {
-    it('should convert a URI to a Node.js path without base path', () => {
-      expect(uriToNodePath('apex-resources:/path/to/resource')).toBe(
-        '/path/to/resource',
-      );
-    });
-
-    it('should convert a URI to a Node.js path with base path', () => {
-      expect(
-        uriToNodePath('apex-resources:/path/to/resource', '/base/dir'),
-      ).toBe('/base/dir/path/to/resource');
-    });
-
-    it('should throw an error for invalid URIs', () => {
-      expect(() => uriToNodePath('invalid-uri')).toThrow(
-        'Invalid apex-resources URI',
       );
     });
   });
