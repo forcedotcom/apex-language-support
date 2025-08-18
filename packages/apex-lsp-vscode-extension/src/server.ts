@@ -11,6 +11,6 @@
 
 // Use require to ensure side effects are executed
 // The language server starts when this module is loaded
-import { startServer } from '@salesforce/apex-ls-node';
+import { startServer } from '@salesforce/apex-ls';
 
 startServer();

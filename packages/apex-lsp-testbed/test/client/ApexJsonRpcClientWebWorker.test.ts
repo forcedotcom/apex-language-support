@@ -32,9 +32,9 @@ describe('ApexJsonRpcClient Web Worker', () => {
 
     const options: JsonRpcClientOptions = {
       serverType: 'webWorker',
-      serverPath: path.join(__dirname, '../../../apex-ls-node/out/index.js'),
+      serverPath: path.join(__dirname, '../../../apex-ls/out/index.js'),
       webWorkerOptions: {
-        workerUrl: path.join(__dirname, '../../../apex-ls-node/out/index.js'),
+        workerUrl: path.join(__dirname, '../../../apex-ls/out/index.js'),
         workerOptions: {
           name: 'test-worker',
         },
@@ -75,7 +75,7 @@ describe('ApexJsonRpcClient Web Worker', () => {
     const privateClient = client as any;
     expect(privateClient.options.webWorkerOptions).toBeDefined();
     expect(privateClient.options.webWorkerOptions.workerUrl).toContain(
-      'apex-ls-node',
+      'apex-ls',
     );
   });
 

@@ -20,8 +20,14 @@
     "Linters",
     "Snippets"
   ],
-  "main": "./out/extension.js",
-  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "browser": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onLanguage:apex",
+    "onLanguage:apex-anon",
+    "onLanguage:soql"
+  ],
   "contributes": {
     "languages": [
       {
@@ -36,6 +42,28 @@
           ".apex"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "apex-anon",
+        "aliases": [
+          "Apex Anonymous",
+          "Anonymous Apex"
+        ],
+        "extensions": [
+          ".apex"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "soql",
+        "aliases": [
+          "SOQL",
+          "Salesforce Object Query Language"
+        ],
+        "extensions": [
+          ".soql"
+        ],
+        "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
@@ -45,6 +73,12 @@
         "path": "./grammars/apex.tmLanguage"
       },
       {
+        "language": "apex-anon",
+        "scopeName": "source.apex",
+        "path": "./grammars/apex.tmLanguage"
+      },
+      {
+        "language": "soql",
         "scopeName": "source.soql",
         "path": "./grammars/soql.tmLanguage"
       }
@@ -53,6 +87,22 @@
       {
         "language": "apex",
         "path": "./snippets/apex.json"
+      },
+      {
+        "language": "apex-anon",
+        "path": "./snippets/apex.json"
+      },
+      {
+        "language": "soql",
+        "path": "./snippets/soql.json"
+      },
+      {
+        "language": "apex",
+        "path": "./snippets/soql.json"
+      },
+      {
+        "language": "apex-anon",
+        "path": "./snippets/soql.json"
       }
     ],
     "configuration": {
@@ -158,6 +208,7 @@
             "error",
             "warning",
             "info",
+            "log",
             "debug"
           ],
           "default": "info",
@@ -185,13 +236,18 @@
       {
         "command": "apex-ls-ts.setLogLevel.debug",
         "title": "%commands.apex-ls-ts.setLogLevel.debug.title%"
+      },
+      {
+        "command": "apex.restart.server",
+        "title": "Restart Apex Language Server"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "apex-explorer",
-          "title": "%viewsContainers.apex-explorer.title%"
+          "title": "%viewsContainers.apex-explorer.title%",
+          "icon": "resources/ApexTsIcon.png"
         }
       ]
     }
@@ -204,14 +260,14 @@
     "package": "cd dist && vsce package --out ../",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
-    "clean": "rimraf out dist extension .turbo coverage grammars tsconfig.tsbuildinfo server-bundle *.vsix",
+    "clean": "rimraf out dist extension .turbo coverage grammars tsconfig.tsbuildinfo server-bundle",
     "clean:all": "npm run clean && rimraf node_modules",
     "clean:coverage": "rimraf coverage",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
   },
   "dependencies": {
-    "@salesforce/apex-ls-node": "1.0.0",
+    "@salesforce/apex-ls": "1.0.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.0.8"
@@ -225,6 +281,6 @@
     "shx": "^0.3.4"
   },
   "workspaces": [
-    "../apex-ls-node"
+    "../apex-ls"
   ]
 }

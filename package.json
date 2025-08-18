@@ -63,6 +63,7 @@
     "@types/semver": "^7.7.0",
     "@typescript-eslint/eslint-plugin": "^8.28.0",
     "@typescript-eslint/parser": "^8.28.0",
+    "@vscode/test-web": "^0.0.72",
     "axios": "^1.6.2",
     "benchmark": "^2.1.4",
     "chalk": "^5.3.0",

@@ -1,0 +1,71 @@
+{
+  "name": "@salesforce/apex-ls",
+  "version": "1.0.0",
+  "description": "Unified Apex Language Server for browser, Node.js, and web worker environments - consolidates apex-ls-node and apex-ls-browser functionality",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./worker": {
+      "import": "./dist/worker.mjs",
+      "require": "./dist/worker.js"
+    },
+    "./worker-esm": {
+      "import": "./dist/worker-esm.mjs",
+      "require": "./dist/worker-esm.js"
+    },
+    "./client": {
+      "import": "./dist/client.mjs",
+      "require": "./dist/client.js"
+    },
+    "./server": {
+      "import": "./dist/server.mjs",
+      "require": "./dist/server.js"
+    }
+  },
+  "sideEffects": false,
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forcedotcom/apex-language-support.git",
+    "directory": "packages/apex-ls"
+  },
+  "scripts": {
+    "compile": "tsc --build",
+    "bundle": "tsup",
+    "test": "jest",
+    "test:coverage": "jest --coverage --coverageDirectory=./coverage",
+    "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
+    "clean:all": "npm run clean && rimraf node_modules",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "rebuild": "npm run clean && npm install && npm run compile && npm run bundle"
+  },
+  "dependencies": {
+    "@apexdevtools/apex-parser": "4.4.1",
+    "@salesforce/apex-lsp-compliant-services": "1.0.0",
+    "@salesforce/apex-lsp-custom-services": "1.0.0",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-shared": "1.0.0",
+    "antlr4ts": "0.5.0-alpha.4",
+    "vscode-jsonrpc": "^8.2.0",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-protocol": "^3.17.5",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "devDependencies": {
+    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "events": "^3.3.0",
+    "node-dir": "^0.1.17",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5"
+  }
+}

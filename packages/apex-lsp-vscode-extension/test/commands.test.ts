@@ -91,12 +91,17 @@ describe('Commands Module', () => {
         EXTENSION_CONSTANTS.RESTART_COMMAND_ID,
         expect.any(Function),
       );
+      expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
+        EXTENSION_CONSTANTS.WEB_RESTART_COMMAND_ID,
+        expect.any(Function),
+      );
     });
 
     it('should add command to context subscriptions', () => {
       registerRestartCommand(mockContext);
 
-      expect(mockContext.subscriptions).toHaveLength(1);
+      // Should register both restart commands (desktop and web compatibility)
+      expect(mockContext.subscriptions).toHaveLength(2);
     });
 
     it('should call restart handler when command is executed and conditions are met', async () => {

@@ -19,11 +19,10 @@ on:
           - changed
           - apex-lsp-shared
           - apex-parser-ast
-          - apex-ls-browser
-          - apex-ls-node
+            - apex-ls
           - lsp-compliant-services
           - custom-services
-          - apex-lsp-browser-client
+
           - apex-lsp-vscode-client
           - apex-lsp-testbed
       extensions:

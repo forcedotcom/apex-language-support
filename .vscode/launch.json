@@ -10,7 +10,7 @@
       ],
       "outFiles": [
         "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js",
-        "${workspaceFolder}/packages/apex-ls-node/out/**/*.js",
+        "${workspaceFolder}/packages/apex-ls/out/**/*.js",
         "${workspaceFolder}/packages/apex-parser-ast/out/**/*.js",
         "${workspaceFolder}/packages/lsp-compliant-services/out/**/*.js"
       ],
@@ -21,7 +21,7 @@
         "${workspaceFolder}/packages/apex-lsp-shared/**",
         "${workspaceFolder}/packages/apex-parser-ast/**",
         "${workspaceFolder}/packages/lsp-compliant-services/**",
-        "${workspaceFolder}/packages/apex-ls-node/**",
+        "${workspaceFolder}/packages/apex-ls/**",
         "!**/node_modules/**"
       ],
       "preLaunchTask": "npm: compile",
@@ -33,7 +33,7 @@
         "../../apex-lsp-shared/src/*": "${workspaceFolder}/packages/apex-lsp-shared/src/*",
         "../../apex-parser-ast/src/*": "${workspaceFolder}/packages/apex-parser-ast/src/*",
         "../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
-        "../../apex-ls-node/src/*": "${workspaceFolder}/packages/apex-ls-node/src/*"
+        "../../apex-ls/src/*": "${workspaceFolder}/packages/apex-ls/src/*"
       }
     },
     {
@@ -45,7 +45,7 @@
       ],
       "outFiles": [
         "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js",
-        "${workspaceFolder}/packages/apex-ls-node/out/**/*.js",
+        "${workspaceFolder}/packages/apex-ls/out/**/*.js",
         "${workspaceFolder}/packages/apex-parser-ast/out/**/*.js",
         "${workspaceFolder}/packages/lsp-compliant-services/out/**/*.js"
       ],
@@ -56,7 +56,7 @@
         "${workspaceFolder}/packages/apex-lsp-shared/**",
         "${workspaceFolder}/packages/apex-parser-ast/**",
         "${workspaceFolder}/packages/lsp-compliant-services/**",
-        "${workspaceFolder}/packages/apex-ls-node/**",
+        "${workspaceFolder}/packages/apex-ls/**",
         "!**/node_modules/**"
       ],
       "preLaunchTask": "npm: compile",
@@ -69,7 +69,7 @@
         "../../apex-lsp-shared/src/*": "${workspaceFolder}/packages/apex-lsp-shared/src/*",
         "../../apex-parser-ast/src/*": "${workspaceFolder}/packages/apex-parser-ast/src/*",
         "../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
-        "../../apex-ls-node/src/*": "${workspaceFolder}/packages/apex-ls-node/src/*"
+        "../../apex-ls/src/*": "${workspaceFolder}/packages/apex-ls/src/*"
       }
     },
     {
@@ -81,20 +81,20 @@
       "sourceMaps": true,
       "outFiles": [
         "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js",
-        "${workspaceFolder}/packages/apex-ls-node/out/**/*.js",
+        "${workspaceFolder}/packages/apex-ls/out/**/*.js",
         "${workspaceFolder}/packages/apex-parser-ast/out/**/*.js",
         "${workspaceFolder}/packages/lsp-compliant-services/out/**/*.js"
       ],
       "resolveSourceMapLocations": [
         "${workspaceFolder}/packages/apex-lsp-vscode-extension/**",
-        "${workspaceFolder}/packages/apex-ls-node/**",
+        "${workspaceFolder}/packages/apex-ls/**",
         "${workspaceFolder}/packages/apex-parser-ast/**",
         "${workspaceFolder}/packages/lsp-compliant-services/**",
         "!**/node_modules/**"
       ],
       "sourceMapPathOverrides": {
         "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*",
-        "../../apex-ls-node/src/*": "${workspaceFolder}/packages/apex-ls-node/src/*",
+        "../../apex-ls/src/*": "${workspaceFolder}/packages/apex-ls/src/*",
         "../../apex-parser-ast/src/*": "${workspaceFolder}/packages/apex-parser-ast/src/*",
         "../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*"
       }

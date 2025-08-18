@@ -24,7 +24,7 @@ export default defineConfig({
     'vscode-languageclient',
     'vscode-languageserver-textdocument',
     'vscode-uri',
-    '@salesforce/apex-ls-node',
+    '@salesforce/apex-ls',
     '@salesforce/apex-lsp-compliant-services',
     '@salesforce/apex-lsp-custom-services',
     '@salesforce/apex-lsp-shared',
@@ -71,6 +71,7 @@ export default defineConfig({
     const distPackage = {
       ...pkg,
       main: './extension.js',
+      browser: './extension.js',
       dependencies: {},
       devDependencies: {},
       workspaces: undefined,

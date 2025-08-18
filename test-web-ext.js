@@ -2,7 +2,7 @@
 
 /**
  * Enhanced Apex Language Server Test Script
- * Tests the enhanced apex-ls-browser package in web environment
+ * Tests the enhanced apex-ls package in web environment
  */
 
 const { execSync } = require('child_process');
@@ -14,7 +14,7 @@ const projectRoot = path.resolve(__dirname);
 const testWorkspacePath = path.join(projectRoot, 'test-workspace');
 const webExtensionDistPath = path.resolve(
   __dirname,
-  'packages/apex-lsp-vscode-extension-web/dist',
+  'packages/apex-lsp-vscode-extension/dist',
 );
 
 // Parse command line arguments
@@ -42,22 +42,24 @@ function buildPackages() {
   console.log('');
 
   const packages = [
-    '@salesforce/apex-ls-browser',
-    'apex-language-server-extension-web',
+    '@salesforce/apex-lsp-parser-ast',
+    '@salesforce/apex-lsp-shared',
+    '@salesforce/apex-lsp-compliant-services',
+    '@salesforce/apex-ls',
+    'apex-language-server-extension',
   ];
 
   packages.forEach((pkg) => {
     console.log(`📦 Building ${pkg}...`);
     try {
-      // Web extension needs compilation first
-      if (pkg === 'apex-language-server-extension-web') {
-        console.log(`  🔧 Compiling ${pkg}...`);
-        execSync(`npm run compile --workspace=${pkg}`, {
-          stdio: 'inherit',
-          cwd: projectRoot,
-        });
-      }
+      // All packages need compilation first
+      console.log(`  🔧 Compiling ${pkg}...`);
+      execSync(`npm run compile --workspace=${pkg}`, {
+        stdio: 'inherit',
+        cwd: projectRoot,
+      });
 
+      // Then bundle
       execSync(`npm run bundle --workspace=${pkg}`, {
         stdio: 'inherit',
         cwd: projectRoot,
@@ -154,7 +156,7 @@ function testWebExtension() {
       `❌ Web extension dist not found at: ${webExtensionDistPath}`,
     );
     console.error(
-      '   Run "npm run bundle --workspace=apex-language-server-extension-web" first',
+      '   Run "npm run bundle --workspace=apex-language-server-extension" first',
     );
     process.exit(1);
   }
@@ -162,7 +164,7 @@ function testWebExtension() {
   // Use random port to avoid conflicts
   const port = 3000 + Math.floor(Math.random() * 1000);
   const command = [
-    'npx vscode-test-web',
+    'npx @vscode/test-web',
     '--browser=chromium',
     '--browserOption=--disable-web-security',
     '--browserOption=--disable-features=VizDisplayCompositor',

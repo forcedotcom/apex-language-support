@@ -41,25 +41,10 @@
         "packages/custom-services/out/*"
       ],
 
-      "@salesforce/apex-ls-node": ["packages/apex-ls-node/out"],
-      "@salesforce/apex-ls-node/*": ["packages/apex-ls-node/out/*"],
 
-      "@salesforce/apex-ls-browser": ["packages/apex-ls-browser/out"],
-      "@salesforce/apex-ls-browser/*": ["packages/apex-ls-browser/out/*"],
+      "@salesforce/apex-ls": ["packages/apex-ls/out"],
+      "@salesforce/apex-ls/*": ["packages/apex-ls/out/*"],
 
-      "@salesforce/apex-lsp-browser-client": [
-        "packages/apex-lsp-browser-client/out"
-      ],
-      "@salesforce/apex-lsp-browser-client/*": [
-        "packages/apex-lsp-browser-client/out/*"
-      ],
-
-      "@salesforce/apex-lsp-vscode-client": [
-        "packages/apex-lsp-vscode-client/out"
-      ],
-      "@salesforce/apex-lsp-vscode-client/*": [
-        "packages/apex-lsp-vscode-client/out/*"
-      ],
 
       "@salesforce/apex-lsp-vscode-extension": [
         "packages/apex-lsp-vscode-extension/out"
@@ -75,11 +60,8 @@
     { "path": "./packages/apex-parser-ast" },
     { "path": "./packages/lsp-compliant-services" },
     { "path": "./packages/custom-services" },
-    { "path": "./packages/apex-ls-node" },
-    { "path": "./packages/apex-ls-browser" },
-    { "path": "./packages/apex-lsp-browser-client" },
+    { "path": "./packages/apex-ls" },
     { "path": "./packages/apex-lsp-testbed" },
-    { "path": "./packages/apex-lsp-vscode-client" },
     { "path": "./packages/apex-lsp-vscode-extension" }
   ]
 }
