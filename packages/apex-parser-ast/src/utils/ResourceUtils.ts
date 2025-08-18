@@ -22,17 +22,17 @@ export const APEX_RESOURCES_SCHEME = 'apex-resources';
 /**
  * Base URI to resources in the package
  */
-export const BASE_RESOURCES_URI = `${APEX_RESOURCES_SCHEME}:///resources`;
+export const BASE_RESOURCES_URI = `${APEX_RESOURCES_SCHEME}:/resources`;
 
 /**
  * URI to StandardApexLibrary in the package
  */
-export const STANDARD_APEX_LIBRARY_URI = `${APEX_RESOURCES_SCHEME}:///resources/StandardApexLibrary`;
+export const STANDARD_APEX_LIBRARY_URI = `${APEX_RESOURCES_SCHEME}:/resources/StandardApexLibrary`;
 
 /**
  * URI to the version file in the package
  */
-export const VERSION_FILE_URI = `${APEX_RESOURCES_SCHEME}:///resources/StandardApexLibrary/.version.json`;
+export const VERSION_FILE_URI = `${APEX_RESOURCES_SCHEME}:/resources/StandardApexLibrary/.version.json`;
 
 /**
  * Information about Salesforce version
@@ -61,7 +61,7 @@ export function uriToNodePath(uri: string, basePath?: string): string {
   }
 
   // Remove the scheme and get the path portion
-  const resourcePath = uri.replace(APEX_RESOURCES_SCHEME, '');
+  const resourcePath = uri.replace(`${APEX_RESOURCES_SCHEME}:`, '');
 
   // Make sure the resource path starts with a slash if it's not empty
   const formattedPath =
@@ -134,3 +134,63 @@ export function joinUri(baseUri: string, relativePath: string): string {
     ? `${baseUri}${cleanPath}`
     : `${baseUri}/${cleanPath}`;
 }
+
+/**
+ * URI handling utilities that work with any protocol
+ */
+export const UriUtils = {
+  /**
+   * Checks if a URI uses the apex-resources scheme
+   */
+  isApexResourceUri(uri: string): boolean {
+    return uri.startsWith(`${APEX_RESOURCES_SCHEME}:`);
+  },
+
+  /**
+   * Checks if a URI is from an external source (non-apex-resources)
+   */
+  isExternalUri(uri: string): boolean {
+    return !this.isApexResourceUri(uri);
+  },
+
+  /**
+   * Creates a resource URI for the given path
+   */
+  createResourceUri(path: string): string {
+    return `${APEX_RESOURCES_SCHEME}:/resources/${path}`;
+  },
+
+  /**
+   * Extracts the path from an apex-resources URI
+   */
+  extractResourcePath(uri: string): string | null {
+    if (!this.isApexResourceUri(uri)) return null;
+    const match = uri.match(/^apex-resources:\/resources\/(.+)$/);
+    return match ? match[1] : null;
+  },
+
+  /**
+   * Normalizes a URI for consistent handling
+   * External URIs are returned as-is, apex-resources URIs are validated
+   */
+  normalizeUri(uri: string): string {
+    if (this.isApexResourceUri(uri)) {
+      // Validate and potentially normalize apex-resources URIs
+      if (!uri.match(/^apex-resources:\/resources\/.+/)) {
+        throw new Error(`Invalid apex-resources URI format: ${uri}`);
+      }
+    }
+    return uri;
+  },
+};
+
+/**
+ * Legacy export for backward compatibility
+ * @deprecated Use individual constants or UriUtils instead
+ */
+export const RESOURCE_URIS = {
+  APEX_RESOURCES_SCHEME,
+  BASE_RESOURCES_URI,
+  STANDARD_APEX_LIBRARY_URI,
+  VERSION_FILE_URI,
+} as const;
