@@ -163,7 +163,7 @@ private with sharing class FileUtilitiesTest {
 
       // Check that we have property variables at the expected lines
       const propertyLines = propertyVariables
-        .map((prop) => prop.location.startLine)
+        .map((prop) => prop.location.symbolRange.startLine)
         .sort();
 
       // The property variables should be at lines 7, 49, and 73 (1-based parser coordinates)
@@ -223,7 +223,7 @@ public class VariableScopeTest {
       logger.debug(`Found ${testVarVariables.length} testVar variables`);
       testVarVariables.forEach((var_, index) => {
         logger.debug(
-          `testVar ${index + 1}: name=${var_.name}, line=${var_.location.startLine}, ` +
+          `testVar ${index + 1}: name=${var_.name}, line=${var_.location.symbolRange.startLine}, ` +
             `type=${var_._typeData?.type?.name || 'unknown'}, scope=${var_.parentId || 'unknown'}`,
         );
       });
@@ -285,7 +285,7 @@ public class NestedScopeTest {
       logger.debug(`Found ${outerVarVariables.length} outerVar variables`);
       outerVarVariables.forEach((var_, index) => {
         logger.debug(
-          `outerVar ${index + 1}: name=${var_.name}, line=${var_.location.startLine}, ` +
+          `outerVar ${index + 1}: name=${var_.name}, line=${var_.location.symbolRange.startLine}, ` +
             `scope=${var_.parentId || 'unknown'}`,
         );
       });
@@ -345,19 +345,19 @@ public class NestedScopeTest {
       expect(var3).toBeDefined();
 
       logger.debug(
-        `var1: line ${var1!.location.startLine}, type ${var1!._typeData?.type?.name || 'unknown'}`,
+        `var1: line ${var1!.location.symbolRange.startLine}, type ${var1!._typeData?.type?.name || 'unknown'}`,
       );
       logger.debug(
-        `var2: line ${var2!.location.startLine}, type ${var2!._typeData?.type?.name || 'unknown'}`,
+        `var2: line ${var2!.location.symbolRange.startLine}, type ${var2!._typeData?.type?.name || 'unknown'}`,
       );
       logger.debug(
-        `var3: line ${var3!.location.startLine}, type ${var3!._typeData?.type?.name || 'unknown'}`,
+        `var3: line ${var3!.location.symbolRange.startLine}, type ${var3!._typeData?.type?.name || 'unknown'}`,
       );
 
       // Check line numbers (accounting for the actual line numbers in the code)
-      expect(var1!.location.startLine).toBe(4);
-      expect(var2!.location.startLine).toBe(5);
-      expect(var3!.location.startLine).toBe(6);
+      expect(var1!.location.symbolRange.startLine).toBe(4);
+      expect(var2!.location.symbolRange.startLine).toBe(5);
+      expect(var3!.location.symbolRange.startLine).toBe(6);
 
       // Check types
       expect(var1!._typeData?.type?.name).toBe('String');
