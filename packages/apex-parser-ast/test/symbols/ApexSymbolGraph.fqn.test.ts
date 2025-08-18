@@ -30,7 +30,20 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       const classSymbol = SymbolFactory.createFullSymbol(
         'TestClass',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         'test.cls',
         {
           visibility: SymbolVisibility.Public,
@@ -42,6 +55,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         null, // parentId
         { interfaces: [] }, // typeData
@@ -65,7 +79,20 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       const classSymbol = SymbolFactory.createFullSymbol(
         'TestClass',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         'test.cls',
         {
           visibility: SymbolVisibility.Public,
@@ -77,6 +104,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         null, // parentId
         { interfaces: [] }, // typeData
@@ -87,7 +115,20 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       const methodSymbol = SymbolFactory.createFullSymbol(
         'testMethod',
         SymbolKind.Method,
-        { startLine: 5, startColumn: 1, endLine: 5, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+        },
         'test.cls',
         {
           visibility: SymbolVisibility.Public,
@@ -99,6 +140,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         classSymbol.id, // parentId
         {
@@ -129,7 +171,20 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       const outerClass = SymbolFactory.createFullSymbol(
         'OuterClass',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         'test.cls',
         {
           visibility: SymbolVisibility.Public,
@@ -141,6 +196,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         null, // parentId
         { interfaces: [] }, // typeData
@@ -151,7 +207,20 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       const innerClass = SymbolFactory.createFullSymbol(
         'InnerClass',
         SymbolKind.Class,
-        { startLine: 3, startColumn: 1, endLine: 3, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 1,
+            endLine: 3,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 1,
+            endLine: 3,
+            endColumn: 10,
+          },
+        },
         'test.cls',
         {
           visibility: SymbolVisibility.Public,
@@ -163,6 +232,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         outerClass.id, // parentId
         { interfaces: [] }, // typeData
@@ -173,7 +243,20 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       const methodSymbol = SymbolFactory.createFullSymbol(
         'innerMethod',
         SymbolKind.Method,
-        { startLine: 5, startColumn: 1, endLine: 5, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+        },
         'test.cls',
         {
           visibility: SymbolVisibility.Public,
@@ -185,6 +268,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         innerClass.id, // parentId
         {
@@ -226,7 +310,20 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       const classSymbol = SymbolFactory.createFullSymbol(
         'TestClass',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         'test.cls',
         {
           visibility: SymbolVisibility.Public,
@@ -238,6 +335,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         null, // parentId
         { interfaces: [] }, // typeData
@@ -265,7 +363,20 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       const classSymbol = SymbolFactory.createFullSymbol(
         'TestClass',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         'test.cls',
         {
           visibility: SymbolVisibility.Public,
@@ -277,6 +388,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         null, // parentId
         { interfaces: [] }, // typeData
@@ -286,7 +398,20 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
       const methodSymbol = SymbolFactory.createFullSymbol(
         'testMethod',
         SymbolKind.Method,
-        { startLine: 5, startColumn: 1, endLine: 5, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+        },
         'test.cls',
         {
           visibility: SymbolVisibility.Public,
@@ -298,6 +423,7 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
           isTransient: false,
           isTestMethod: false,
           isWebService: false,
+          isBuiltIn: false,
         },
         classSymbol.id, // parentId
         {
