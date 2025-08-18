@@ -65,10 +65,18 @@ describe('ApexSymbolGraph - Performance Tests', () => {
     },
     annotations: [],
     location: {
-      startLine: 1,
-      startColumn: 1,
-      endLine: 1,
-      endColumn: name.length + 1,
+      symbolRange: {
+        startLine: 1,
+        startColumn: 1,
+        endLine: 1,
+        endColumn: name.length + 1,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 1,
+        endLine: 1,
+        endColumn: name.length + 1,
+      },
     },
   });
 
@@ -200,10 +208,18 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           targetSymbol,
           ReferenceType.METHOD_CALL,
           {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
+            symbolRange: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 10,
+            },
+            identifierRange: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 10,
+            },
           },
         );
       }
@@ -276,7 +292,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           `Class${sourceIndex}`,
           SymbolKind.Class,
           `Class${sourceIndex}`,
-          `File${sourceIndex}.cls`,
+          `File${i}.cls`,
         );
         const targetSymbol = createTestSymbol(
           `Class${targetIndex}`,
@@ -290,10 +306,18 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           targetSymbol,
           ReferenceType.METHOD_CALL,
           {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
+            symbolRange: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 10,
+            },
+            identifierRange: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 10,
+            },
           },
         );
       }
@@ -366,10 +390,18 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           targetSymbol,
           ReferenceType.METHOD_CALL,
           {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
+            symbolRange: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 10,
+            },
+            identifierRange: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 10,
+            },
           },
         );
       }

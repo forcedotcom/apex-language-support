@@ -27,7 +27,20 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       const symbol = SymbolFactory.createMinimalSymbol(
         'TestClass',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         '/test/file.cls',
       );
 
@@ -39,7 +52,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
 
       // Verify symbol exists in graph
       const foundSymbol = symbolGraph.getSymbol(
-        `${symbol.filePath}:${symbol.name}:${symbol.location.startLine}`,
+        `${symbol.filePath}:${symbol.name}:${symbol.location.symbolRange.startLine}`,
       );
       expect(foundSymbol).toBeDefined();
       expect(foundSymbol?.name).toBe('TestClass');
@@ -55,14 +68,40 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       const classSymbol = SymbolFactory.createMinimalSymbol(
         'TestClass',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         '/test/file.cls',
       );
 
       const methodSymbol = SymbolFactory.createMinimalSymbol(
         'testMethod',
         SymbolKind.Method,
-        { startLine: 5, startColumn: 1, endLine: 5, endColumn: 20 },
+        {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 20,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 20,
+          },
+        },
         '/test/file.cls',
       );
 
@@ -91,14 +130,40 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       const sourceSymbol = SymbolFactory.createMinimalSymbol(
         'SourceClass',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         '/source/file.cls',
       );
 
       const targetSymbol = SymbolFactory.createMinimalSymbol(
         'TargetClass',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         '/target/file.cls',
       );
 
@@ -126,7 +191,20 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
         sourceSymbol,
         targetSymbol,
         ReferenceType.TYPE_REFERENCE,
-        { startLine: 10, startColumn: 1, endLine: 10, endColumn: 20 },
+        {
+          symbolRange: {
+            startLine: 10,
+            startColumn: 1,
+            endLine: 10,
+            endColumn: 20,
+          },
+          identifierRange: {
+            startLine: 10,
+            startColumn: 1,
+            endLine: 10,
+            endColumn: 20,
+          },
+        },
       );
 
       // Verify reference tracking
@@ -144,14 +222,40 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       const classSymbol = SymbolFactory.createMinimalSymbol(
         'TestClass',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         '/test/file.cls',
       );
 
       const methodSymbol = SymbolFactory.createMinimalSymbol(
         'testMethod',
         SymbolKind.Method,
-        { startLine: 5, startColumn: 1, endLine: 5, endColumn: 20 },
+        {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 20,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 20,
+          },
+        },
         '/test/file.cls',
       );
 
@@ -182,7 +286,20 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
         const symbol = SymbolFactory.createMinimalSymbol(
           `Symbol${i}`,
           SymbolKind.Class,
-          { startLine: i + 1, startColumn: 1, endLine: i + 1, endColumn: 10 },
+          {
+            symbolRange: {
+              startLine: i + 1,
+              startColumn: 1,
+              endLine: i + 1,
+              endColumn: 10,
+            },
+            identifierRange: {
+              startLine: i + 1,
+              startColumn: 1,
+              endLine: i + 1,
+              endColumn: 10,
+            },
+          },
           `/test/file${i}.cls`,
         );
         symbols.push(symbol);
@@ -209,19 +326,58 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       const classA = SymbolFactory.createMinimalSymbol(
         'ClassA',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         '/fileA.cls',
       );
       const classB = SymbolFactory.createMinimalSymbol(
         'ClassB',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         '/fileB.cls',
       );
       const classC = SymbolFactory.createMinimalSymbol(
         'ClassC',
         SymbolKind.Class,
-        { startLine: 1, startColumn: 1, endLine: 1, endColumn: 10 },
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
         '/fileC.cls',
       );
 
@@ -241,16 +397,32 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
 
       // Create dependency chain: A -> B -> C
       symbolGraph.addReference(classA, classB, ReferenceType.TYPE_REFERENCE, {
-        startLine: 10,
-        startColumn: 1,
-        endLine: 10,
-        endColumn: 20,
+        symbolRange: {
+          startLine: 10,
+          startColumn: 1,
+          endLine: 10,
+          endColumn: 20,
+        },
+        identifierRange: {
+          startLine: 10,
+          startColumn: 1,
+          endLine: 10,
+          endColumn: 20,
+        },
       });
       symbolGraph.addReference(classB, classC, ReferenceType.TYPE_REFERENCE, {
-        startLine: 15,
-        startColumn: 1,
-        endLine: 15,
-        endColumn: 20,
+        symbolRange: {
+          startLine: 15,
+          startColumn: 1,
+          endLine: 15,
+          endColumn: 20,
+        },
+        identifierRange: {
+          startLine: 15,
+          startColumn: 1,
+          endLine: 15,
+          endColumn: 20,
+        },
       });
 
       // Verify dependency analysis
@@ -281,7 +453,20 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
         const symbol = SymbolFactory.createMinimalSymbol(
           `LargeSymbol${i}`,
           SymbolKind.Class,
-          { startLine: i + 1, startColumn: 1, endLine: i + 1, endColumn: 10 },
+          {
+            symbolRange: {
+              startLine: i + 1,
+              startColumn: 1,
+              endLine: i + 1,
+              endColumn: 10,
+            },
+            identifierRange: {
+              startLine: i + 1,
+              startColumn: 1,
+              endLine: i + 1,
+              endColumn: 10,
+            },
+          },
           `/large/file${Math.floor(i / 100)}.cls`,
         );
 

@@ -8,7 +8,6 @@
 
 import { SymbolTable } from '../../src/types/symbol';
 import {
-  TypeReference,
   ReferenceContext,
   TypeReferenceFactory,
 } from '../../src/types/typeReference';
@@ -24,7 +23,20 @@ describe('SymbolTable with Type References', () => {
     it('should add a type reference to the symbol table', () => {
       const reference = TypeReferenceFactory.createMethodCallReference(
         'createFile',
-        { startLine: 10, startColumn: 5, endLine: 10, endColumn: 15 },
+        {
+          symbolRange: {
+            startLine: 10,
+            startColumn: 5,
+            endLine: 10,
+            endColumn: 15,
+          },
+          identifierRange: {
+            startLine: 10,
+            startColumn: 5,
+            endLine: 10,
+            endColumn: 15,
+          },
+        },
         'FileUtilities',
         'testMethod',
       );
@@ -39,13 +51,39 @@ describe('SymbolTable with Type References', () => {
     it('should add multiple type references', () => {
       const reference1 = TypeReferenceFactory.createMethodCallReference(
         'createFile',
-        { startLine: 10, startColumn: 5, endLine: 10, endColumn: 15 },
+        {
+          symbolRange: {
+            startLine: 10,
+            startColumn: 5,
+            endLine: 10,
+            endColumn: 15,
+          },
+          identifierRange: {
+            startLine: 10,
+            startColumn: 5,
+            endLine: 10,
+            endColumn: 15,
+          },
+        },
         'FileUtilities',
       );
 
       const reference2 = TypeReferenceFactory.createTypeDeclarationReference(
         'Property__c',
-        { startLine: 12, startColumn: 8, endLine: 12, endColumn: 18 },
+        {
+          symbolRange: {
+            startLine: 12,
+            startColumn: 8,
+            endLine: 12,
+            endColumn: 18,
+          },
+          identifierRange: {
+            startLine: 12,
+            startColumn: 8,
+            endLine: 12,
+            endColumn: 18,
+          },
+        },
       );
 
       symbolTable.addTypeReference(reference1);
@@ -62,7 +100,20 @@ describe('SymbolTable with Type References', () => {
     it('should return a copy of references to prevent external modification', () => {
       const reference = TypeReferenceFactory.createMethodCallReference(
         'createFile',
-        { startLine: 10, startColumn: 5, endLine: 10, endColumn: 15 },
+        {
+          symbolRange: {
+            startLine: 10,
+            startColumn: 5,
+            endLine: 10,
+            endColumn: 15,
+          },
+          identifierRange: {
+            startLine: 10,
+            startColumn: 5,
+            endLine: 10,
+            endColumn: 15,
+          },
+        },
       );
 
       symbolTable.addTypeReference(reference);
@@ -73,10 +124,18 @@ describe('SymbolTable with Type References', () => {
       // Modify the returned array
       allReferences.push(
         TypeReferenceFactory.createTypeDeclarationReference('String', {
-          startLine: 15,
-          startColumn: 0,
-          endLine: 15,
-          endColumn: 6,
+          symbolRange: {
+            startLine: 15,
+            startColumn: 0,
+            endLine: 15,
+            endColumn: 6,
+          },
+          identifierRange: {
+            startLine: 15,
+            startColumn: 0,
+            endLine: 15,
+            endColumn: 6,
+          },
         }),
       );
 
@@ -90,7 +149,20 @@ describe('SymbolTable with Type References', () => {
     it('should find references at exact position', () => {
       const reference = TypeReferenceFactory.createMethodCallReference(
         'createFile',
-        { startLine: 9, startColumn: 5, endLine: 9, endColumn: 15 }, // 0-based
+        {
+          symbolRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+          identifierRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+        },
       );
 
       symbolTable.addTypeReference(reference);
@@ -107,7 +179,20 @@ describe('SymbolTable with Type References', () => {
     it('should find references within range', () => {
       const reference = TypeReferenceFactory.createMethodCallReference(
         'createFile',
-        { startLine: 9, startColumn: 5, endLine: 9, endColumn: 15 }, // 0-based
+        {
+          symbolRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+          identifierRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+        },
       );
 
       symbolTable.addTypeReference(reference);
@@ -124,7 +209,20 @@ describe('SymbolTable with Type References', () => {
     it('should not find references outside range', () => {
       const reference = TypeReferenceFactory.createMethodCallReference(
         'createFile',
-        { startLine: 9, startColumn: 5, endLine: 9, endColumn: 15 }, // 0-based
+        {
+          symbolRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+          identifierRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+        },
       );
 
       symbolTable.addTypeReference(reference);
@@ -140,12 +238,38 @@ describe('SymbolTable with Type References', () => {
     it('should find multiple references at same position', () => {
       const reference1 = TypeReferenceFactory.createMethodCallReference(
         'createFile',
-        { startLine: 9, startColumn: 5, endLine: 9, endColumn: 15 }, // 0-based
+        {
+          symbolRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+          identifierRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+        },
       );
 
       const reference2 = TypeReferenceFactory.createFieldAccessReference(
         'Id',
-        { startLine: 9, startColumn: 5, endLine: 9, endColumn: 15 }, // 0-based
+        {
+          symbolRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+          identifierRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+        },
         'property',
       );
 
@@ -167,17 +291,56 @@ describe('SymbolTable with Type References', () => {
     it('should filter references by context', () => {
       const methodCallRef = TypeReferenceFactory.createMethodCallReference(
         'createFile',
-        { startLine: 9, startColumn: 5, endLine: 9, endColumn: 15 }, // 0-based
+        {
+          symbolRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+          identifierRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+        },
       );
 
       const typeDeclRef = TypeReferenceFactory.createTypeDeclarationReference(
         'Property__c',
-        { startLine: 11, startColumn: 8, endLine: 11, endColumn: 18 }, // 0-based
+        {
+          symbolRange: {
+            startLine: 11,
+            startColumn: 8,
+            endLine: 11,
+            endColumn: 18,
+          }, // 0-based
+          identifierRange: {
+            startLine: 11,
+            startColumn: 8,
+            endLine: 11,
+            endColumn: 18,
+          }, // 0-based
+        },
       );
 
       const fieldAccessRef = TypeReferenceFactory.createFieldAccessReference(
         'Id',
-        { startLine: 13, startColumn: 3, endLine: 13, endColumn: 5 }, // 0-based
+        {
+          symbolRange: {
+            startLine: 13,
+            startColumn: 3,
+            endLine: 13,
+            endColumn: 5,
+          }, // 0-based
+          identifierRange: {
+            startLine: 13,
+            startColumn: 3,
+            endLine: 13,
+            endColumn: 5,
+          }, // 0-based
+        },
         'property',
       );
 
@@ -207,13 +370,27 @@ describe('SymbolTable with Type References', () => {
     it('should return empty array for non-existent context', () => {
       const reference = TypeReferenceFactory.createMethodCallReference(
         'createFile',
-        { startLine: 9, startColumn: 5, endLine: 9, endColumn: 15 }, // 0-based
+        {
+          symbolRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+          identifierRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+        },
       );
 
       symbolTable.addTypeReference(reference);
 
+      // Test with a valid enum value that doesn't exist in our test data
       const nonExistentContext = symbolTable.getReferencesByContext(
-        'non_existent_context',
+        ReferenceContext.PARAMETER_TYPE,
       );
       expect(nonExistentContext).toHaveLength(0);
     });
@@ -223,7 +400,20 @@ describe('SymbolTable with Type References', () => {
     it('should correctly handle zero-based positions and locations', () => {
       const reference = TypeReferenceFactory.createMethodCallReference(
         'createFile',
-        { startLine: 9, startColumn: 5, endLine: 9, endColumn: 15 }, // 0-based
+        {
+          symbolRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+          identifierRange: {
+            startLine: 9,
+            startColumn: 5,
+            endLine: 9,
+            endColumn: 15,
+          }, // 0-based
+        },
       );
 
       symbolTable.addTypeReference(reference);

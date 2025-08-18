@@ -252,9 +252,8 @@ export class CompilerService {
           baseResult.result instanceof SymbolTable
         ) {
           const symbolTable = baseResult.result as SymbolTable;
-          const symbols = Array.from(
-            symbolTable.getCurrentScope().getAllSymbols(),
-          );
+          // Use all symbols in the file, not just the current scope
+          const symbols = symbolTable.getAllSymbols();
 
           const associator = new CommentAssociator();
           const commentAssociations = associator.associateComments(
