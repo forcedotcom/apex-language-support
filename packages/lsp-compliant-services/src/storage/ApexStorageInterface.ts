@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
+import type {
+  ApexClassInfo,
+  SymbolLocation,
+  TypeInfo,
+} from '@salesforce/apex-lsp-parser-ast';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 /**
@@ -46,28 +50,6 @@ export interface DocumentSymbolInfo {
   children?: DocumentSymbolInfo[];
   /** Symbol details */
   details?: SymbolDetails;
-}
-
-/**
- * Location information for a symbol
- */
-export interface SymbolLocation {
-  /** Start line (1-based) */
-  startLine: number;
-  /** Start column (1-based) */
-  startColumn: number;
-  /** End line (1-based) */
-  endLine: number;
-  /** End column (1-based) */
-  endColumn: number;
-  /** Identifier start line (1-based) */
-  identifierStartLine?: number;
-  /** Identifier start column (1-based) */
-  identifierStartColumn?: number;
-  /** Identifier end line (1-based) */
-  identifierEndLine?: number;
-  /** Identifier end column (1-based) */
-  identifierEndColumn?: number;
 }
 
 /**

@@ -19,6 +19,7 @@ import {
   SymbolTable,
   SymbolKind,
   SymbolVisibility,
+  SymbolLocation,
 } from '../types/symbol';
 import { calculateFQN } from '../utils/FQNUtils';
 import { isStdApexNamespace } from '../generated/stdApexNamespaces';
@@ -183,12 +184,7 @@ export interface ReferenceResult {
   symbol: ApexSymbol;
   filePath: string;
   referenceType: EnumValue<typeof ReferenceType>;
-  location: {
-    startLine: number;
-    startColumn: number;
-    endLine: number;
-    endColumn: number;
-  };
+  location: SymbolLocation;
   context?: {
     methodName?: string;
     parameterIndex?: number;
@@ -257,12 +253,7 @@ export class ApexSymbolGraph {
     Array<{
       sourceSymbol: ApexSymbol;
       referenceType: EnumValue<typeof ReferenceType>;
-      location: {
-        startLine: number;
-        startColumn: number;
-        endLine: number;
-        endColumn: number;
-      };
+      location: SymbolLocation;
       context?: {
         methodName?: string;
         parameterIndex?: number;
@@ -478,10 +469,18 @@ export class ApexSymbolGraph {
       name: symbolName,
       kind: SymbolKind.Class, // Default to class as fallback
       location: {
-        startLine: lineNumber,
-        startColumn: 0,
-        endLine: lineNumber,
-        endColumn: 0,
+        symbolRange: {
+          startLine: lineNumber,
+          startColumn: 0,
+          endLine: lineNumber,
+          endColumn: 0,
+        },
+        identifierRange: {
+          startLine: lineNumber,
+          startColumn: 0,
+          endLine: lineNumber,
+          endColumn: 0,
+        },
       },
       filePath: filePath,
       parentId: null,
@@ -625,12 +624,7 @@ export class ApexSymbolGraph {
     sourceSymbol: ApexSymbol,
     targetSymbol: ApexSymbol,
     referenceType: EnumValue<typeof ReferenceType>,
-    location: {
-      startLine: number;
-      startColumn: number;
-      endLine: number;
-      endColumn: number;
-    },
+    location: SymbolLocation,
     context?: {
       methodName?: string;
       parameterIndex?: number;
@@ -1255,7 +1249,9 @@ export class ApexSymbolGraph {
     // Ensure we have a valid filePath
     const validFilePath = filePath || symbol.filePath || 'unknown';
     // Include line number to make IDs unique for symbols with the same name
-    const lineInfo = symbol.location ? `:${symbol.location.startLine}` : '';
+    const lineInfo = symbol.location
+      ? `:${symbol.location.identifierRange.startLine}`
+      : '';
     return `${validFilePath}:${symbol.name}${lineInfo}`;
   }
 
@@ -1275,12 +1271,7 @@ export class ApexSymbolGraph {
     sourceSymbol: ApexSymbol,
     targetSymbolName: string,
     referenceType: EnumValue<typeof ReferenceType>,
-    location: {
-      startLine: number;
-      startColumn: number;
-      endLine: number;
-      endColumn: number;
-    },
+    location: SymbolLocation,
     context?: {
       methodName?: string;
       parameterIndex?: number;
@@ -1309,12 +1300,7 @@ export class ApexSymbolGraph {
     sourceSymbol: ApexSymbol,
     targetSymbolName: string,
     referenceType: EnumValue<typeof ReferenceType>,
-    location: {
-      startLine: number;
-      startColumn: number;
-      endLine: number;
-      endColumn: number;
-    },
+    location: SymbolLocation,
     context?: {
       methodName?: string;
       parameterIndex?: number;

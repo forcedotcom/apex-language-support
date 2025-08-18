@@ -20,7 +20,7 @@ export type LSPRequestType =
 /**
  * Position information for resolution requests
  */
-export interface Position {
+export interface ResolutionPosition {
   line: number;
   column: number;
 }
@@ -30,7 +30,7 @@ export interface Position {
  */
 export interface ResolutionRequest {
   type: LSPRequestType;
-  position: Position;
+  position: ResolutionPosition;
 }
 
 /**
@@ -61,5 +61,5 @@ export interface ResolutionResult {
  */
 export interface EnhancedResolutionContext extends SymbolResolutionContext {
   requestType?: LSPRequestType;
-  position?: Position;
+  position?: ResolutionPosition;
 }

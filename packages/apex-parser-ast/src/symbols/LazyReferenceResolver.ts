@@ -272,10 +272,18 @@ export class LazyReferenceResolver {
           name,
           SymbolKind.Class,
           {
-            startLine: 0,
-            startColumn: 0,
-            endLine: 0,
-            endColumn: 0,
+            symbolRange: {
+              startLine: 0,
+              startColumn: 0,
+              endLine: 0,
+              endColumn: 0,
+            },
+            identifierRange: {
+              startLine: 0,
+              startColumn: 0,
+              endLine: 0,
+              endColumn: 0,
+            },
           },
           'builtin',
           {

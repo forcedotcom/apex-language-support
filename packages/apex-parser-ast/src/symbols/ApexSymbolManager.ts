@@ -17,6 +17,7 @@ import {
   SymbolTable,
   generateUnifiedId,
   type VariableSymbol,
+  SymbolLocation,
 } from '../types/symbol';
 import { TypeReference, ReferenceContext } from '../types/typeReference';
 import {
@@ -1494,7 +1495,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return SymbolFactory.createFullSymbol(
       name,
       SymbolKind.Class,
-      { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
+      {
+        symbolRange: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 1 },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 1,
+        },
+      },
       'unknown',
       {
         visibility: SymbolVisibility.Public,
@@ -1714,8 +1723,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         this.logger.debug(
           () =>
             `Reference[${index}]: name="${ref.name}", qualifier="${ref.qualifier}", ` +
-            `location=${ref.location.startLine}:${ref.location.startColumn}-` +
-            `${ref.location.endLine}:${ref.location.endColumn}`,
+            `location=${ref.location.identifierRange.startLine}:${ref.location.identifierRange.startColumn}-` +
+            `${ref.location.identifierRange.endLine}:${ref.location.identifierRange.endColumn}`,
         );
       });
 
@@ -1786,11 +1795,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           const bPri = order.indexOf(b.context);
           if (aPri !== bPri) return aPri - bPri;
           const aSize =
-            (a.location.endLine - a.location.startLine) * 1000 +
-            (a.location.endColumn - a.location.startColumn);
+            (a.location.identifierRange.endLine -
+              a.location.identifierRange.startLine) *
+              1000 +
+            (a.location.identifierRange.endColumn -
+              a.location.identifierRange.startColumn);
           const bSize =
-            (b.location.endLine - b.location.startLine) * 1000 +
-            (b.location.endColumn - b.location.startColumn);
+            (b.location.identifierRange.endLine -
+              b.location.identifierRange.startLine) *
+              1000 +
+            (b.location.identifierRange.endColumn -
+              b.location.identifierRange.startColumn);
           return aSize - bSize; // Smaller ranges first (more specific)
         });
 
@@ -1983,8 +1998,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): ApexSymbol | null {
     // Try to find the symbol at the reference location
     const symbolAtPosition = this.getSymbolAtPosition(filePath, {
-      line: typeRef.location.startLine,
-      character: typeRef.location.startColumn,
+      line: typeRef.location.identifierRange.startLine,
+      character: typeRef.location.identifierRange.startColumn,
     });
 
     if (symbolAtPosition) {
@@ -1996,8 +2011,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     for (const symbol of symbolsInFile) {
       if (
         symbol.location &&
-        symbol.location.startLine <= typeRef.location.startLine &&
-        symbol.location.endLine >= typeRef.location.endLine
+        symbol.location.symbolRange.startLine <=
+          typeRef.location.identifierRange.startLine &&
+        symbol.location.symbolRange.endLine >=
+          typeRef.location.identifierRange.endLine
       ) {
         return symbol;
       }
@@ -2238,16 +2255,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           if (symbolTable) {
             const allRefs = symbolTable.getAllReferences();
             // Find the closest preceding reference on the same line
-            const currentStart = typeReference.location.startColumn;
-            const currentLine = typeReference.location.startLine;
+            const currentStart =
+              typeReference.location.identifierRange.startColumn;
+            const currentLine =
+              typeReference.location.identifierRange.startLine;
             const sameLineRefs = allRefs.filter(
-              (r) => r.location.endLine === currentLine,
+              (r) => r.location.identifierRange.endLine === currentLine,
             );
             // Choose the ref whose endColumn is just before current start
             let closest: TypeReference | null = null;
             let maxEndCol = -1;
             for (const r of sameLineRefs) {
-              const endCol = r.location.endColumn;
+              const endCol = r.location.identifierRange.endColumn;
               if (endCol <= currentStart && endCol > maxEndCol) {
                 maxEndCol = endCol;
                 closest = r;
@@ -2347,8 +2366,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Debug: Log all symbols and their locations
       symbols.forEach((symbol, index) => {
-        const start = `${symbol.location.startLine}:${symbol.location.startColumn}`;
-        const end = `${symbol.location.endLine}:${symbol.location.endColumn}`;
+        const start = `${symbol.location.identifierRange.startLine}:${symbol.location.identifierRange.startColumn}`;
+        const end = `${symbol.location.identifierRange.endLine}:${symbol.location.identifierRange.endColumn}`;
         const location = `${start}-${end}`;
         this.logger.debug(
           () =>
@@ -2358,7 +2377,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       // Find symbols that contain the position
       const containingSymbols = symbols.filter((symbol) => {
-        const { startLine, startColumn, endLine, endColumn } = symbol.location;
+        const { startLine, startColumn, endLine, endColumn } =
+          symbol.location.identifierRange;
         const isContained =
           (position.line > startLine ||
             (position.line === startLine &&
@@ -2442,8 +2462,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         `selectMostSpecificSymbol called with ${candidates.length} candidates`,
     );
     candidates.forEach((candidate, index) => {
-      const start = `${candidate.location.startLine}:${candidate.location.startColumn}`;
-      const end = `${candidate.location.endLine}:${candidate.location.endColumn}`;
+      const start = `${candidate.location.identifierRange.startLine}:${candidate.location.identifierRange.startColumn}`;
+      const end = `${candidate.location.identifierRange.endLine}:${candidate.location.identifierRange.endColumn}`;
       const location = `${start}-${end}`;
       this.logger.debug(
         () =>
@@ -2520,7 +2540,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return Number.MAX_SAFE_INTEGER;
     }
 
-    const { startLine, startColumn, endLine, endColumn } = symbol.location;
+    const { startLine, startColumn, endLine, endColumn } =
+      symbol.location.identifierRange;
 
     // Calculate approximate character count
     const lineCount = endLine - startLine + 1;
@@ -2572,10 +2593,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             filePath: `:${name}`,
             parentId: null,
             location: {
-              startLine: 1,
-              startColumn: 1,
-              endLine: 1,
-              endColumn: name.length,
+              symbolRange: {
+                startLine: 1,
+                startColumn: 1,
+                endLine: 1,
+                endColumn: name.length,
+              },
+              identifierRange: {
+                startLine: 1,
+                startColumn: 1,
+                endLine: 1,
+                endColumn: name.length,
+              },
             },
             key: {
               prefix: 'class',
@@ -3939,10 +3968,18 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         filePath: classPath,
         parentId: null,
         location: {
-          startLine: 1,
-          startColumn: 1,
-          endLine: 1,
-          endColumn: 1,
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 1,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 1,
+          },
         },
         modifiers: {
           visibility: SymbolVisibility.Global,
@@ -3995,7 +4032,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     let bestMatch: ApexSymbol | null = null;
 
     for (const symbol of symbolsInFile) {
-      if (this.isPositionContainedInSymbol(typeRef.location, symbol.location)) {
+      if (
+        this.isPositionContainedInSymbol(
+          typeRef.location.identifierRange,
+          symbol.location,
+        )
+      ) {
         // If we don't have a match yet, use this one
         if (!bestMatch) {
           bestMatch = symbol;
@@ -4025,16 +4067,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       endLine: number;
       endColumn: number;
     },
-    symbolLocation: {
-      startLine: number;
-      startColumn: number;
-      endLine: number;
-      endColumn: number;
-    },
+    symbolLocation: SymbolLocation,
   ): boolean {
-    const { startLine, startColumn, endLine, endColumn } = symbolLocation;
+    const { startLine, startColumn, endLine, endColumn } =
+      symbolLocation.identifierRange;
 
-    // Check if the position is within the symbol's bounds
+    // Check if the position is within the symbol's identifier bounds
     if (position.startLine < startLine || position.endLine > endLine) {
       return false;
     }
@@ -4069,17 +4107,22 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const outer = outerSymbol.location;
 
     // Check if inner symbol starts after outer symbol starts
-    if (inner.startLine < outer.startLine) return false;
+    if (inner.identifierRange.startLine < outer.identifierRange.startLine)
+      return false;
     if (
-      inner.startLine === outer.startLine &&
-      inner.startColumn < outer.startColumn
+      inner.identifierRange.startLine === outer.identifierRange.startLine &&
+      inner.identifierRange.startColumn < outer.identifierRange.startColumn
     ) {
       return false;
     }
 
     // Check if inner symbol ends before outer symbol ends
-    if (inner.endLine > outer.endLine) return false;
-    if (inner.endLine === outer.endLine && inner.endColumn > outer.endColumn) {
+    if (inner.identifierRange.endLine > outer.identifierRange.endLine)
+      return false;
+    if (
+      inner.identifierRange.endLine === outer.identifierRange.endLine &&
+      inner.identifierRange.endColumn > outer.identifierRange.endColumn
+    ) {
       return false;
     }
 
@@ -4192,9 +4235,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const allRefs = this.getAllReferencesInFile(normalizedPath);
         const sameLineSpanning = allRefs.filter(
           (r) =>
-            r.location.startLine === position.line &&
-            r.location.startColumn <= position.character &&
-            r.location.endColumn >= position.character,
+            r.location.identifierRange.startLine === position.line &&
+            r.location.identifierRange.startColumn <= position.character &&
+            r.location.identifierRange.endColumn >= position.character,
         );
         if (sameLineSpanning.length > 0) {
           const order = [
@@ -4211,11 +4254,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             const bPri = order.indexOf(b.context);
             if (aPri !== bPri) return aPri - bPri;
             const aSize =
-              (a.location.endLine - a.location.startLine) * 1000 +
-              (a.location.endColumn - a.location.startColumn);
+              (a.location.identifierRange.endLine -
+                a.location.identifierRange.startLine) *
+                1000 +
+              (a.location.identifierRange.endColumn -
+                a.location.identifierRange.startColumn);
             const bSize =
-              (b.location.endLine - b.location.startLine) * 1000 +
-              (b.location.endColumn - b.location.startColumn);
+              (b.location.identifierRange.endLine -
+                b.location.identifierRange.startLine) *
+                1000 +
+              (b.location.identifierRange.endColumn -
+                b.location.identifierRange.startColumn);
             return aSize - bSize;
           });
           const resolvedFromLine = this.resolveTypeReferenceToSymbol(
@@ -4236,8 +4285,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         () => `Found ${symbols.length} symbols in file for precise lookup`,
       );
       symbols.forEach((symbol, index) => {
-        const start = `${symbol.location.startLine}:${symbol.location.startColumn}`;
-        const end = `${symbol.location.endLine}:${symbol.location.endColumn}`;
+        const start = `${symbol.location.identifierRange.startLine}:${symbol.location.identifierRange.startColumn}`;
+        const end = `${symbol.location.identifierRange.endLine}:${symbol.location.identifierRange.endColumn}`;
         const location = `${start}-${end}`;
         this.logger.debug(
           () =>
@@ -4251,47 +4300,29 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
 
       const exactMatchSymbols = symbols.filter((symbol) => {
-        const { startLine, startColumn, endLine, endColumn } = symbol.location;
+        const { startLine, startColumn, endLine, endColumn } =
+          symbol.location.identifierRange;
 
-        // Prefer matching within the identifier (name) span when available
-        const identifierLocation = (symbol as any).identifierLocation as
-          | {
-              startLine: number;
-              startColumn: number;
-              endLine: number;
-              endColumn: number;
-            }
-          | undefined;
-
-        // Check if the position is exactly at the start of the symbol
+        // Check if the position is exactly at the start of the identifier
         const isExactStart =
           position.line === startLine && position.character === startColumn;
 
-        // Check if the position is within the symbol's scope bounds
-        const isWithinScope =
+        // Check if the position is within the identifier bounds (most precise)
+        const isWithinIdentifier =
           (position.line > startLine ||
             (position.line === startLine &&
               position.character >= startColumn)) &&
           (position.line < endLine ||
             (position.line === endLine && position.character <= endColumn));
 
-        // Check if the position is within the identifier bounds (more precise)
-        let isWithinIdentifier = false;
-        if (identifierLocation) {
-          const {
-            startLine: idStartLine,
-            startColumn: idStartColumn,
-            endLine: idEndLine,
-            endColumn: idEndColumn,
-          } = identifierLocation;
-          isWithinIdentifier =
-            (position.line > idStartLine ||
-              (position.line === idStartLine &&
-                position.character >= idStartColumn)) &&
-            (position.line < idEndLine ||
-              (position.line === idEndLine &&
-                position.character <= idEndColumn));
-        }
+        // Check if the position is within the symbol's scope bounds (fallback)
+        const isWithinScope =
+          (position.line > symbol.location.symbolRange.startLine ||
+            (position.line === symbol.location.symbolRange.startLine &&
+              position.character >= symbol.location.symbolRange.startColumn)) &&
+          (position.line < symbol.location.symbolRange.endLine ||
+            (position.line === symbol.location.symbolRange.endLine &&
+              position.character <= symbol.location.symbolRange.endColumn));
 
         // For precise resolution, prefer exact start matches
         if (isExactStart) {
@@ -4307,8 +4338,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           this.logger.debug(
             () =>
               `Found identifier position match: ${symbol.name} at identifier ` +
-              `${identifierLocation!.startLine}:${identifierLocation!.startColumn}-` +
-              `${identifierLocation!.endLine}:${identifierLocation!.endColumn}`,
+              `${symbol.location.identifierRange.startLine}:${symbol.location.identifierRange.startColumn}-` +
+              `${symbol.location.identifierRange.endLine}:${symbol.location.identifierRange.endColumn}`,
           );
           return true;
         }
@@ -4346,11 +4377,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // Return the smallest (most specific) symbol
         const mostSpecific = exactMatchSymbols.reduce((prev, current) => {
           const prevSize =
-            (prev.location.endLine - prev.location.startLine) * 1000 +
-            (prev.location.endColumn - prev.location.startColumn);
+            (prev.location.identifierRange.endLine -
+              prev.location.identifierRange.startLine) *
+              1000 +
+            (prev.location.identifierRange.endColumn -
+              prev.location.identifierRange.startColumn);
           const currentSize =
-            (current.location.endLine - current.location.startLine) * 1000 +
-            (current.location.endColumn - current.location.startColumn);
+            (current.location.identifierRange.endLine -
+              current.location.identifierRange.startLine) *
+              1000 +
+            (current.location.identifierRange.endColumn -
+              current.location.identifierRange.startColumn);
           return currentSize < prevSize ? current : prev;
         });
 
