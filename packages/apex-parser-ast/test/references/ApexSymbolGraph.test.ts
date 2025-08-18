@@ -776,11 +776,8 @@ describe('ApexSymbolGraph', () => {
       expect(optimizedEdge.context?.isStatic).toBe(true);
       expect(optimizedEdge.context?.namespace).toBe('test');
 
-      // Verify location is compact
-      expect(typeof optimizedEdge.location.startLine).toBe('number');
-      expect(typeof optimizedEdge.location.startColumn).toBe('number');
-      expect(typeof optimizedEdge.location.endLine).toBe('number');
-      expect(typeof optimizedEdge.location.endColumn).toBe('number');
+      // Verify location is no longer stored in edge (redundant with source symbol)
+      expect(optimizedEdge.location).toBeUndefined();
 
       // Convert back to legacy format
       const restoredEdge = fromReferenceEdge(optimizedEdge);
@@ -789,15 +786,21 @@ describe('ApexSymbolGraph', () => {
       expect(restoredEdge.type).toBe(legacyEdge.type);
       expect(restoredEdge.sourceFile).toBe(legacyEdge.sourceFile);
       expect(restoredEdge.targetFile).toBe(legacyEdge.targetFile);
-      expect(restoredEdge.location).toEqual(legacyEdge.location);
+      // Location is now a placeholder since it's not stored in the edge
+      expect(restoredEdge.location).toEqual({
+        startLine: 0,
+        startColumn: 0,
+        endLine: 0,
+        endColumn: 0,
+      });
       expect(restoredEdge.context).toEqual(legacyEdge.context);
 
-      // Verify memory savings
+      // Verify memory savings (location field removed)
       const legacySize = JSON.stringify(legacyEdge).length;
       const optimizedSize = JSON.stringify(optimizedEdge).length;
 
-      // Should have some memory savings (location compression)
-      expect(optimizedSize).toBeLessThanOrEqual(legacySize);
+      // Should have memory savings due to location field removal
+      expect(optimizedSize).toBeLessThan(legacySize);
     });
   });
 });

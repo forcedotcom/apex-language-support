@@ -10,9 +10,6 @@ import { HashMap, DirectedGraph, DirectedVertex } from 'data-structure-typed';
 import {
   getLogger,
   type EnumValue,
-  CompactLocation,
-  toCompactLocation,
-  fromCompactLocation,
   Uint16,
   toUint16,
 } from '@salesforce/apex-lsp-shared';
@@ -94,7 +91,7 @@ export interface ReferenceEdge {
   type: EnumValue<typeof ReferenceType>;
   sourceFile: string;
   targetFile: string;
-  location: CompactLocation; // 8 bytes vs 32 bytes (75% reduction)
+  // location: CompactLocation; // Removed - redundant with source symbol location
   context?: {
     methodName?: string;
     parameterIndex?: Uint16; // 2 bytes vs 8 bytes (75% reduction)
@@ -126,7 +123,7 @@ export const toReferenceEdge = (legacyEdge: {
   type: legacyEdge.type,
   sourceFile: legacyEdge.sourceFile,
   targetFile: legacyEdge.targetFile,
-  location: toCompactLocation(legacyEdge.location),
+  // location: toCompactLocation(legacyEdge.location), // Removed - redundant
   context: legacyEdge.context
     ? {
         methodName: legacyEdge.context.methodName,
@@ -164,7 +161,8 @@ export const fromReferenceEdge = (
   type: edge.type,
   sourceFile: edge.sourceFile,
   targetFile: edge.targetFile,
-  location: fromCompactLocation(edge.location),
+  // location: fromCompactLocation(edge.location), // Removed - redundant
+  location: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 }, // Placeholder for backward compatibility
   context: edge.context
     ? {
         methodName: edge.context.methodName,
@@ -714,7 +712,6 @@ export class ApexSymbolGraph {
       type: referenceType,
       sourceFile: sourceSymbolInGraph.filePath,
       targetFile: targetSymbolInGraph.filePath,
-      location: toCompactLocation(location),
       context: context
         ? {
             methodName: context.methodName,
@@ -817,7 +814,7 @@ export class ApexSymbolGraph {
         symbol: sourceSymbol,
         filePath: sourceSymbol.filePath,
         referenceType: edge.value.type,
-        location: fromCompactLocation(edge.value.location),
+        location: sourceSymbol.location,
         context: edge.value.context
           ? {
               methodName: edge.value.context.methodName,
@@ -879,7 +876,7 @@ export class ApexSymbolGraph {
         symbol: targetSymbol,
         filePath: targetSymbol.filePath,
         referenceType: edge.value.type,
-        location: fromCompactLocation(edge.value.location),
+        location: targetSymbol.location,
         context: edge.value.context
           ? {
               methodName: edge.value.context.methodName,
@@ -1415,7 +1412,6 @@ export class ApexSymbolGraph {
         type: ref.referenceType,
         sourceFile: sourceSymbolInGraph.filePath,
         targetFile: targetSymbol.filePath,
-        location: toCompactLocation(ref.location),
         context: ref.context
           ? {
               methodName: ref.context.methodName,

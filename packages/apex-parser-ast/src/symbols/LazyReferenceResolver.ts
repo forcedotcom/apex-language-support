@@ -47,12 +47,6 @@ interface ReferenceVertex {
   // Core reference data
   id: string;
   name: string;
-  location: {
-    startLine: number;
-    startColumn: number;
-    endLine: number;
-    endColumn: number;
-  };
   context: ReferenceContext;
   qualifier?: string;
   parentContext?: string;
