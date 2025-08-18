@@ -21,6 +21,7 @@ import {
   updateApexServerStatusReady,
   updateApexServerStatusError,
 } from './status-bar';
+import { runEffectRestartLanguageServer } from './observability/instrumented-restart';
 
 /**
  * Global language client instance
@@ -153,7 +154,9 @@ export const restartLanguageServer = async (
     `Restarting Apex Language Server at ${new Date().toISOString()}...`,
     'info',
   );
-  await startLanguageServer(context, restartHandler);
+
+  // Always use Effect.ts instrumented restart
+  await runEffectRestartLanguageServer(context, restartHandler);
 };
 
 /**
@@ -176,3 +179,9 @@ export const stopLanguageServer = async (): Promise<void> => {
  * @returns The language client or undefined
  */
 export const getLanguageClient = (): LanguageClient | undefined => client;
+
+/**
+ * Saves current baseline statistics to file
+ * @param context The extension context
+ */
+// Baseline stats are no longer supported

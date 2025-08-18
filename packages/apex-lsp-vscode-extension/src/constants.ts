@@ -24,6 +24,10 @@ export const EXTENSION_CONSTANTS = {
   SERVER_OUTPUT_CHANNEL_NAME: 'Apex Language Server (Typescript)',
   /** Restart command ID */
   RESTART_COMMAND_ID: 'apex-ls-ts.restart.server',
+  /** DEMO: Effect.ts instrumented restart command ID */
+  DEMO_RESTART_COMMAND_ID: 'apex-ls-ts.demo.restart.server',
+  /** DEMO: Simulated error restart command ID */
+  DEMO_ERROR_RESTART_COMMAND_ID: 'apex-ls-ts.demo.restart.server.error',
   /** Configuration section name */
   CONFIG_SECTION: 'apex-ls-ts',
   /** Log level command IDs */

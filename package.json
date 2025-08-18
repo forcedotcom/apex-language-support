@@ -101,6 +101,7 @@
     "@apexdevtools/apex-parser": "4.4.0",
     "antlr4ts": "0.5.0-alpha.4",
     "data-structure-typed": "^2.0.4",
+    "effect": "^3.17.1",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.1.0"
   },
