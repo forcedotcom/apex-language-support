@@ -398,19 +398,19 @@ export class DefaultApexDocumentSymbolProvider
    * This finds the first non-whitespace character in the line for better UX
    */
   private createRange(symbol: ApexSymbol): Range {
-    const { location, identifierLocation } = symbol;
+    const { location } = symbol;
 
     // The end position is always the end of the full symbol location.
     const endPosition = transformParserToLspPosition({
-      line: location.endLine,
-      character: location.endColumn,
+      line: location.symbolRange.endLine,
+      character: location.symbolRange.endColumn,
     });
 
     // Use the precise identifier location for the start of the range.
     // This provides a "tighter" range that excludes leading modifiers/keywords.
     const startPosition = transformParserToLspPosition({
-      line: identifierLocation?.startLine ?? location.startLine,
-      character: identifierLocation?.startColumn ?? location.startColumn,
+      line: location.identifierRange.startLine,
+      character: location.identifierRange.startColumn,
     });
     return Range.create(startPosition, endPosition);
   }
@@ -420,21 +420,16 @@ export class DefaultApexDocumentSymbolProvider
    * This excludes leading whitespace and keywords for better selection behavior
    */
   private createSelectionRange(symbol: ApexSymbol): Range {
-    const { identifierLocation, location, name } = symbol;
+    const { location, name } = symbol;
 
     const startPosition = transformParserToLspPosition({
-      line: identifierLocation?.startLine ?? location.startLine,
-      character: identifierLocation?.startColumn ?? location.startColumn,
+      line: location.identifierRange.startLine,
+      character: location.identifierRange.startColumn,
     });
 
     const endPosition = transformParserToLspPosition({
-      line:
-        identifierLocation?.endLine ??
-        identifierLocation?.startLine ??
-        location.startLine,
-      character:
-        identifierLocation?.endColumn ??
-        (identifierLocation?.startColumn ?? location.startColumn) + name.length,
+      line: location.identifierRange.endLine,
+      character: location.identifierRange.endColumn,
     });
 
     return Range.create(startPosition, endPosition);

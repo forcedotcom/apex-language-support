@@ -2,59 +2,63 @@
  * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import {
   ApexSymbolManager,
-  SymbolFactory,
+  CompilerService,
+  ApexSymbolCollectorListener,
   SymbolKind,
-  SymbolVisibility,
 } from '@salesforce/apex-lsp-parser-ast';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('Precise Resolution Test', () => {
   let symbolManager: ApexSymbolManager;
+  let compilerService: CompilerService;
 
   beforeEach(() => {
     symbolManager = new ApexSymbolManager();
+    compilerService = new CompilerService();
+    enableConsoleLogging();
+    setLogLevel('error');
   });
 
+  // Helper function to compile Apex code and add to symbol manager
+  const compileAndAddToManager = (
+    apexCode: string,
+    fileName: string = 'test.cls',
+  ): void => {
+    // Create a fresh listener for each compilation to avoid symbol table pollution
+    const listener = new ApexSymbolCollectorListener();
+    const result = compilerService.compile(apexCode, fileName, listener);
+
+    if (result.errors.length > 0) {
+      console.warn(
+        `Compilation warnings: ${result.errors.map((e) => e.message).join(', ')}`,
+      );
+    }
+
+    if (result.result) {
+      symbolManager.addSymbolTable(result.result, fileName);
+    }
+  };
+
   it('should find class symbol at exact position for hover request', () => {
-    // Create a test class symbol
-    const classSymbol = SymbolFactory.createFullSymbol(
-      'TestClass',
-      SymbolKind.Class,
-      {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: 20,
-      },
-      'test.cls',
-      {
-        visibility: SymbolVisibility.Public,
-        isStatic: false,
-        isFinal: false,
-        isAbstract: false,
-        isVirtual: false,
-        isOverride: false,
-        isTransient: false,
-        isTestMethod: false,
-        isWebService: false,
-        isBuiltIn: false,
-      },
-      null,
-      { interfaces: [] },
-      'TestClass',
-    );
+    const apexCode = `public class TestClass {
+    public void testMethod() {
+        // method body
+    }
+}`;
 
-    // Add the symbol to the manager
-    symbolManager.addSymbol(classSymbol, 'test.cls');
+    compileAndAddToManager(apexCode, 'test.cls');
 
-    // Test precise resolution at the start of the class name
+    // Test precise resolution at the start of the class name (line 1, character 13)
+    // "public class TestClass" - "TestClass" starts at character 13
     const result = symbolManager.getSymbolAtPositionWithStrategy(
       'test.cls',
-      { line: 1, character: 1 }, // 1-based line, 0-based column
+      { line: 1, character: 13 }, // 1-based line, 0-based column
       'hover',
     );
 
@@ -64,41 +68,19 @@ describe('Precise Resolution Test', () => {
   });
 
   it('should find method symbol at exact position for hover request', () => {
-    // Create a test method symbol
-    const methodSymbol = SymbolFactory.createFullSymbol(
-      'testMethod',
-      SymbolKind.Method,
-      {
-        startLine: 2,
-        startColumn: 5,
-        endLine: 2,
-        endColumn: 15,
-      },
-      'test.cls',
-      {
-        visibility: SymbolVisibility.Public,
-        isStatic: false,
-        isFinal: false,
-        isAbstract: false,
-        isVirtual: false,
-        isOverride: false,
-        isTransient: false,
-        isTestMethod: false,
-        isWebService: false,
-        isBuiltIn: false,
-      },
-      null,
-      { interfaces: [] },
-      'testMethod',
-    );
+    const apexCode = `public class TestClass {
+    public void testMethod() {
+        // method body
+    }
+}`;
 
-    // Add the symbol to the manager
-    symbolManager.addSymbol(methodSymbol, 'test.cls');
+    compileAndAddToManager(apexCode, 'test.cls');
 
-    // Test precise resolution at the start of the method name
+    // Test precise resolution at the start of the method name (line 2, character 20)
+    // "    public void testMethod" - "testMethod" starts at character 20
     const result = symbolManager.getSymbolAtPositionWithStrategy(
       'test.cls',
-      { line: 2, character: 5 }, // 1-based line, 0-based column
+      { line: 2, character: 20 }, // 1-based line, 0-based column
       'hover',
     );
 
@@ -108,70 +90,22 @@ describe('Precise Resolution Test', () => {
   });
 
   it('should not return containing symbol for hover request', () => {
-    // Create a test class symbol (large containing symbol)
-    const classSymbol = SymbolFactory.createFullSymbol(
-      'TestClass',
-      SymbolKind.Class,
-      {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 10,
-        endColumn: 1,
-      },
-      'test.cls',
-      {
-        visibility: SymbolVisibility.Public,
-        isStatic: false,
-        isFinal: false,
-        isAbstract: false,
-        isVirtual: false,
-        isOverride: false,
-        isTransient: false,
-        isTestMethod: false,
-        isWebService: false,
-        isBuiltIn: false,
-      },
-      null,
-      { interfaces: [] },
-      'TestClass',
-    );
+    const apexCode = `public class TestClass {
+    public void testMethod() {
+        // method body
+        if (true) {
+            System.debug('test');
+        }
+    }
+}`;
 
-    // Create a test method symbol (small symbol)
-    const methodSymbol = SymbolFactory.createFullSymbol(
-      'testMethod',
-      SymbolKind.Method,
-      {
-        startLine: 2,
-        startColumn: 5,
-        endLine: 2,
-        endColumn: 15,
-      },
-      'test.cls',
-      {
-        visibility: SymbolVisibility.Public,
-        isStatic: false,
-        isFinal: false,
-        isAbstract: false,
-        isVirtual: false,
-        isOverride: false,
-        isTransient: false,
-        isTestMethod: false,
-        isWebService: false,
-        isBuiltIn: false,
-      },
-      null,
-      { interfaces: [] },
-      'testMethod',
-    );
+    compileAndAddToManager(apexCode, 'test.cls');
 
-    // Add both symbols to the manager
-    symbolManager.addSymbol(classSymbol, 'test.cls');
-    symbolManager.addSymbol(methodSymbol, 'test.cls');
-
-    // Test precise resolution at the method position
+    // Test precise resolution at the method position (line 2, character 20)
+    // "    public void testMethod" - "testMethod" starts at character 20
     const result = symbolManager.getSymbolAtPositionWithStrategy(
       'test.cls',
-      { line: 2, character: 5 }, // 1-based line, 0-based column
+      { line: 2, character: 20 }, // 1-based line, 0-based column
       'hover',
     );
 
@@ -181,5 +115,48 @@ describe('Precise Resolution Test', () => {
     expect(result?.kind).toBe(SymbolKind.Method);
     expect(result?.name).not.toBe('TestClass');
   });
-});
 
+  it('should find field symbol at exact position for hover request', () => {
+    const apexCode = `public class TestClass {
+    private String testField;
+    
+    public void testMethod() {
+        this.testField = 'value';
+    }
+}`;
+
+    compileAndAddToManager(apexCode, 'test.cls');
+
+    // First, let's see what symbols are available in the file
+    const allSymbols = symbolManager.findSymbolsInFile('test.cls');
+    console.log(
+      `All symbols in file: ${allSymbols.map((s) => `${s.name} (${s.kind})`).join(', ')}`,
+    );
+
+    // Test with regular method first to see if field is parsed
+    const regularResult = symbolManager.getSymbolAtPosition('test.cls', {
+      line: 2,
+      character: 20,
+    });
+    console.log(
+      `Regular method result: ${regularResult?.name} (${regularResult?.kind}) at position 2:20`,
+    );
+
+    // Test precise resolution at the field position (line 2, character 20)
+    // "    private String testField" - "testField" starts at character 20
+    const result = symbolManager.getSymbolAtPositionWithStrategy(
+      'test.cls',
+      { line: 2, character: 20 }, // 1-based line, 0-based column
+      'hover',
+    );
+
+    // Debug: Log what we actually got
+    console.log(
+      `Strategy method result: ${result?.name} (${result?.kind}) at position 2:20`,
+    );
+
+    expect(result).not.toBeNull();
+    expect(result?.name).toBe('testField');
+    expect(result?.kind).toBe(SymbolKind.Field);
+  });
+});

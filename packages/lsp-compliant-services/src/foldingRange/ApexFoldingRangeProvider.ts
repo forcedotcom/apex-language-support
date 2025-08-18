@@ -137,20 +137,20 @@ export class ApexFoldingRangeProvider {
       // Only process block comments that span multiple lines
       if (
         comment.type === CommentType.Block &&
-        comment.endLine > comment.startLine
+        comment.range.endLine > comment.range.startLine
       ) {
         blockCommentRanges.push({
-          startLine: comment.startLine,
-          startColumn: comment.startColumn,
-          endLine: comment.endLine,
-          endColumn: comment.endColumn,
+          startLine: comment.range.startLine,
+          startColumn: comment.range.startColumn,
+          endLine: comment.range.endLine,
+          endColumn: comment.range.endColumn,
           kind: 'comment',
           level: 0,
         });
 
         logger.debug(
           () =>
-            `Added block comment folding range: ${comment.startLine}-${comment.endLine}`,
+            `Added block comment folding range: ${comment.range.startLine}-${comment.range.endLine}`,
         );
       }
     }
