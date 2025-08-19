@@ -12,6 +12,8 @@ import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { TestLogger } from '../utils/testLogger';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import * as fs from 'fs';
+import * as path from 'path';
 
 describe('ApexSymbolManager - Enhanced Resolution', () => {
   let symbolManager: ApexSymbolManager;
@@ -26,6 +28,16 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
     logger = TestLogger.getInstance();
     logger.setLogLevel('error');
   });
+
+  // Helper function to load fixture files
+  const loadFixtureFile = (fileName: string): string => {
+    const fixturePath = path.join(
+      __dirname,
+      '../fixtures/cross-file',
+      fileName,
+    );
+    return fs.readFileSync(fixturePath, 'utf8');
+  };
 
   // Helper function to compile Apex code and add to symbol manager
   const compileAndAddToManager = async (
@@ -288,78 +300,17 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
   describe('Qualified Name Hover Resolution', () => {
     beforeEach(async () => {
-      // Compile and add all fixture classes to the symbol manager
-      const fixtureClasses = [
-        {
-          name: 'FileUtilities',
-          content: `public with sharing class FileUtilities {
-            @AuraEnabled
-            public static String createFile(String base64data, String filename, String recordId) {
-                try {
-                    ContentVersion contentVersion = new ContentVersion();
-                    contentVersion.VersionData = EncodingUtil.base64Decode(base64data);
-                    contentVersion.Title = filename;
-                    contentVersion.PathOnClient = filename;
-                    insert contentVersion;
-                    return contentVersion.Id;
-                } catch (Exception e) {
-                    throw new AuraHandledException('Error creating file: ' + e);
-                }
-            }
-        }`,
-          fileName: 'FileUtilities.cls',
-        },
-        {
-          name: 'ServiceClass',
-          content: `public class ServiceClass {
-            public static String processData(String input) {
-                if (input == null) {
-                    return 'No data provided';
-                }
-                String processed = input.toUpperCase();
-                processed = processed.trim();
-                return 'Processed: ' + processed;
-            }
-        }`,
-          fileName: 'ServiceClass.cls',
-        },
-        {
-          name: 'UtilityClass',
-          content: `public class UtilityClass {
-            public static String formatString(String input) {
-                if (input == null) {
-                    return '';
-                }
-                return input.trim();
-            }
-        }`,
-          fileName: 'UtilityClass.cls',
-        },
-        {
-          name: 'Account',
-          content: `public class Account {
-            public String Name { get; set; }
-            public String BillingStreet { get; set; }
-            public void updateBillingAddress(
-              String street,
-              String city,
-              String state,
-              String postalCode,
-              String country
-            ) {
-                this.BillingStreet = street;
-                this.BillingCity = city;
-                this.BillingState = state;
-                this.BillingPostalCode = postalCode;
-                this.BillingCountry = country;
-            }
-        }`,
-          fileName: 'Account.cls',
-        },
+      // Load and compile fixture classes from files
+      const fixtureFiles = [
+        'FileUtilities.cls',
+        'ServiceClass.cls',
+        'UtilityClass.cls',
+        'Account.cls',
       ];
 
-      for (const fixture of fixtureClasses) {
-        await compileAndAddToManager(fixture.content, fixture.fileName);
+      for (const fileName of fixtureFiles) {
+        const content = loadFixtureFile(fileName);
+        await compileAndAddToManager(content, fileName);
       }
     });
 
@@ -633,127 +584,17 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
   describe('Method Name Resolution in Qualified Calls', () => {
     beforeEach(async () => {
-      // Compile and add all fixture classes to the symbol manager
-      const fixtureClasses = [
-        {
-          name: 'FileUtilities',
-          content: `public with sharing class FileUtilities {
-            @AuraEnabled
-            public static String createFile(String base64data, String filename, String recordId) {
-                try {
-                    ContentVersion contentVersion = new ContentVersion();
-                    contentVersion.VersionData = EncodingUtil.base64Decode(base64data);
-                    contentVersion.Title = filename;
-                    contentVersion.PathOnClient = filename;
-                    insert contentVersion;
-                    return contentVersion.Id;
-                } catch (Exception e) {
-                    throw new AuraHandledException('Error creating file: ' + e);
-                }
-            }
-            
-            public static Boolean fileExists(String filename) {
-                return true; // Simplified for testing
-            }
-        }`,
-          fileName: 'FileUtilities.cls',
-        },
-        {
-          name: 'ServiceClass',
-          content: `public class ServiceClass {
-            public static String processData(String input, Integer maxLength, Boolean trimWhitespace) {
-                if (input == null) {
-                    return 'No data provided';
-                }
-                String processed = input.toUpperCase();
-                if (trimWhitespace) {
-                    processed = processed.trim();
-                }
-                if (maxLength > 0 && processed.length() > maxLength) {
-                    processed = processed.substring(0, maxLength);
-                }
-                return 'Processed: ' + processed;
-            }
-            
-            public static List<String> splitString(String input, String delimiter, Integer maxSplits) {
-                if (input == null || delimiter == null) {
-                    return new List<String>();
-                }
-                List<String> parts = input.split(delimiter);
-                if (maxSplits > 0 && parts.size() > maxSplits) {
-                    return parts.subList(0, maxSplits);
-                }
-                return parts;
-            }
-        }`,
-          fileName: 'ServiceClass.cls',
-        },
-        {
-          name: 'UtilityClass',
-          content: `public class UtilityClass {
-            public static String formatString(String input, Integer maxLength, String suffix) {
-                if (input == null) {
-                    return '';
-                }
-                String formatted = input.trim();
-                if (maxLength > 0 && formatted.length() > maxLength) {
-                    formatted = formatted.substring(0, maxLength);
-                }
-                if (suffix != null && suffix.length() > 0) {
-                    formatted += suffix;
-                }
-                return formatted;
-            }
-            
-            public static Integer calculateSum(List<Integer> numbers, Integer startIndex, Integer endIndex) {
-                if (numbers == null || numbers.isEmpty()) {
-                    return 0;
-                }
-                Integer sum = 0;
-                Integer start = startIndex != null ? startIndex : 0;
-                Integer end = endIndex != null ? endIndex : numbers.size();
-                for (Integer i = start; i < end && i < numbers.size(); i++) {
-                    sum += numbers[i];
-                }
-                return sum;
-            }
-        }`,
-          fileName: 'UtilityClass.cls',
-        },
-        {
-          name: 'Account',
-          content: `public class Account {
-            public String Name { get; set; }
-            public String BillingStreet { get; set; }
-            public String BillingCity { get; set; }
-            public String BillingState { get; set; }
-            public String BillingPostalCode { get; set; }
-            public String BillingCountry { get; set; }
-            
-            public void updateBillingAddress(
-              String street,
-              String city,
-              String state,
-              String postalCode,
-              String country
-            ) {
-                this.BillingStreet = street;
-                this.BillingCity = city;
-                this.BillingState = state;
-                this.BillingPostalCode = postalCode;
-                this.BillingCountry = country;
-            }
-            
-            public String getFullAddress(String separator, String prefix, String suffix) {
-                return this.BillingStreet + separator + this.BillingCity + separator + this.BillingState;
-            }
-        }`,
-          fileName: 'Account.cls',
-        },
+      // Load and compile fixture classes from files
+      const fixtureFiles = [
+        'FileUtilities.cls',
+        'ServiceClass.cls',
+        'UtilityClass.cls',
+        'Account.cls',
       ];
 
-      for (const fixture of fixtureClasses) {
-        await compileAndAddToManager(fixture.content, fixture.fileName);
+      for (const fileName of fixtureFiles) {
+        const content = loadFixtureFile(fileName);
+        await compileAndAddToManager(content, fileName);
       }
     });
 
