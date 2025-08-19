@@ -257,10 +257,7 @@
     "compile": "tsc --build",
     "bundle": "tsup",
     "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
-    "copy:worker": "shx mkdir -p dist && shx cp ../apex-ls/dist/worker.mjs ../apex-ls/dist/worker.mjs.map dist/",
-    "copy:manifest": "shx cp package.json package.nls.json language-configuration.json dist/ && shx cp -R grammars dist/ && shx cp -R snippets dist/ && shx cp -R resources dist/",
-    "fix:paths": "node scripts/fix-package-paths.js",
-    "fix:exports": "node scripts/fix-exports.js",
+    "post-build": "node scripts/post-build.js",
     "package": "cd dist && vsce package --out ../",
     "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
@@ -282,7 +279,16 @@
     "@types/vscode": "^1.90.0",
     "@vscode/test-electron": "^2.1.5",
     "@vscode/vsce": "^2.15.0",
-    "shx": "^0.3.4"
+    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "events": "^3.3.0",
+    "memfs": "^4.14.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "shx": "^0.3.4",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5"
   },
   "workspaces": [
     "../apex-ls"

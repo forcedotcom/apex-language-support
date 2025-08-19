@@ -160,7 +160,7 @@ export function format(format: string, ...args: any[]): string {
 }
 
 // Default export for compatibility
-export default {
+const util = {
   isArray,
   isBoolean,
   isBuffer,
@@ -180,3 +180,10 @@ export default {
   inspect,
   format,
 };
+
+export default util;
+
+// Make util available globally for browser environments
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).util = util;
+}
