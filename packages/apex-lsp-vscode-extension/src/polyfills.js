@@ -1,5 +1,5 @@
 // Browser polyfills for Node.js built-in modules
-import util from 'util';
+// util is provided by vscode-jsonrpc/lib/browser/ril
 import { Buffer } from 'buffer';
 import events from 'events';
 import crypto from 'crypto-browserify';

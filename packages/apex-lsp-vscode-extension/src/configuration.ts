@@ -26,7 +26,7 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
   updateLogLevel(logLevel);
 
   // Map apex-ls-ts configuration to the apex format expected by the language server
-  return {
+  const settings = {
     apex: {
       commentCollection: {
         enableCommentCollection: config.get<boolean>(
@@ -84,8 +84,16 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
           | 'full',
       },
       logLevel,
+      custom: config.get<Record<string, any>>('custom', {}),
     },
   };
+
+  // Ensure custom field exists
+  if (!settings.apex.custom) {
+    settings.apex.custom = {};
+  }
+
+  return settings;
 };
 
 /**

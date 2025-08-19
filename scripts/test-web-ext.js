@@ -3,15 +3,17 @@
 /**
  * VS Code Web Extension Test Runner
  * Tests the Apex Language Server extension in a web environment
- * 
+ *
  * Usage:
  *   npm run test:web
  *   node scripts/test-web-ext.js [web]
- * 
+ *
  * Options:
  *   --debug    : Wait for debugger attachment
  *   --devtools : Open browser devtools during tests
  *   --headless : Run in headless mode (browser hidden)
+ *
+ * The test will timeout after 45 seconds if the extension fails to activate.
  */
 
 const { runTests } = require('@vscode/test-web');
@@ -47,42 +49,50 @@ Last automated check: ${timestamp}
 
 async function runWebExtensionTests() {
   try {
-    const extensionDevelopmentPath = path.resolve(__dirname, '../packages/apex-lsp-vscode-extension');
+    const extensionDevelopmentPath = path.resolve(
+      __dirname,
+      '../packages/apex-lsp-vscode-extension',
+    );
     const extensionDistPath = path.resolve(extensionDevelopmentPath, 'dist');
     const workspacePath = path.resolve(__dirname, '../test-workspace');
-    
+
     // Verify required paths exist
     if (!fs.existsSync(extensionDevelopmentPath)) {
-      throw new Error(`Extension development path not found: ${extensionDevelopmentPath}`);
+      throw new Error(
+        `Extension development path not found: ${extensionDevelopmentPath}`,
+      );
     }
-    
+
     // Check if extension is built
     if (!fs.existsSync(extensionDistPath)) {
       console.log('🔨 Extension not built yet, building...');
       const { execSync } = require('child_process');
       try {
-        execSync('npm run compile && npm run bundle', { 
-          cwd: extensionDevelopmentPath, 
-          stdio: 'inherit' 
+        execSync('npm run compile && npm run bundle', {
+          cwd: extensionDevelopmentPath,
+          stdio: 'inherit',
         });
       } catch (buildError) {
         throw new Error(`Failed to build extension: ${buildError.message}`);
       }
     }
-    
+
     console.log('🌐 Starting VS Code Web Extension Tests...');
     console.log(`📁 Extension path: ${extensionDevelopmentPath}`);
     console.log(`📂 Workspace path: ${workspacePath}`);
-    
+
     // Setup output file for extension host logs
-    const outputLogPath = path.resolve(__dirname, '../slopdocs/devConsoleOutput.txt');
+    const outputLogPath = path.resolve(
+      __dirname,
+      '../slopdocs/devConsoleOutput.txt',
+    );
     const outputDir = path.dirname(outputLogPath);
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
-    
+
     console.log(`📝 Extension logs will be saved to: ${outputLogPath}`);
-    
+
     // Run the web extension tests (without test files - just load the extension)
     const testResult = await runTests({
       extensionDevelopmentPath,
@@ -96,7 +106,9 @@ async function runWebExtensionTests() {
       devtools: process.argv.includes('--devtools'),
       folderPath: fs.existsSync(workspacePath) ? workspacePath : undefined,
       // Add a simple test that just verifies extension loading
-      extensionTestsPath: !process.argv.includes('--interactive') ? undefined : undefined,
+      extensionTestsPath: !process.argv.includes('--interactive')
+        ? undefined
+        : undefined,
       // Custom launch options to capture console output
       launchOptions: {
         args: [
@@ -104,15 +116,26 @@ async function runWebExtensionTests() {
           '--disable-features=VizDisplayCompositor',
           '--enable-logging=stderr',
           '--log-level=0',
-          '--v=1'
-        ]
-      }
+          '--v=1',
+        ],
+      },
     });
-    
-    // Give the browser some time to load and generate logs
-    console.log('⏳ Waiting for extension activation and logs...');
-    await new Promise(resolve => setTimeout(resolve, 10000));
-    
+
+    // Give the browser some time to load and generate logs (45 second timeout)
+    console.log(
+      '⏳ Waiting for extension activation and logs (15s timeout)...',
+    );
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Extension activation timed out after 45 seconds'));
+      }, 15000);
+
+      setTimeout(() => {
+        clearTimeout(timeout);
+        resolve();
+      }, 15000);
+    });
+
     // Try to capture browser console logs using Chrome DevTools Protocol
     if (!process.argv.includes('--headless')) {
       console.log('🔍 Attempting to capture extension host logs...');
@@ -120,10 +143,13 @@ async function runWebExtensionTests() {
         await captureExtensionLogs(outputLogPath);
       } catch (error) {
         console.warn('⚠️ Could not automatically capture logs:', error.message);
-        console.log('📋 Please manually copy the browser console output to:', outputLogPath);
+        console.log(
+          '📋 Please manually copy the browser console output to:',
+          outputLogPath,
+        );
       }
     }
-    
+
     console.log('✅ Web extension test completed!');
   } catch (error) {
     console.error('❌ Web extension test failed:', error.message);

@@ -14,7 +14,6 @@ import {
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import { logToOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
-import { registerConfigurationChangeListener } from './configuration';
 import {
   updateApexServerStatusStarting,
   updateApexServerStatusReady,
@@ -218,6 +217,7 @@ function createInitializeParams(
         vscode.env.machineId === 'someValue' ? 'development' : 'production',
       enableDocumentSymbols: true,
       environment: detectEnvironment(),
+      custom: settings.apex.custom,
     },
     workspaceFolders:
       workspaceFolders?.map((folder) => ({
@@ -332,9 +332,7 @@ function registerUnifiedConfigurationChangeListener(
           // Send configuration change notification to the server
           const settings = getWorkspaceSettings();
           client.sendNotification('workspace/didChangeConfiguration', {
-            settings: {
-              'apex-ls-ts': settings.apex,
-            },
+            settings,
           });
         } catch (error) {
           logToOutputChannel(

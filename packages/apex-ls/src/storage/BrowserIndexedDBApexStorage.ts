@@ -162,41 +162,74 @@ export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
     this.logger.info('Persisting data to browser storage');
   }
 
+  private documentMap: Map<string, TextDocument> = new Map();
+  private hoverMap: Map<string, string> = new Map();
+  private definitionMap: Map<string, ApexReference> = new Map();
+  private referencesMap: Map<string, ApexReference[]> = new Map();
+
   async getDocument(uri: string): Promise<TextDocument | null> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+    return this.documentMap.get(uri) || null;
+  }
+
+  async setDocument(uri: string, document: TextDocument): Promise<boolean> {
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+    this.documentMap.set(uri, document);
+    return true;
   }
 
   async getHover(symbolName: string): Promise<string | undefined> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+    return this.hoverMap.get(symbolName);
   }
 
   async setHover(symbolName: string, hoverText: string): Promise<boolean> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+    this.hoverMap.set(symbolName, hoverText);
+    return true;
   }
 
   async getDefinition(symbolName: string): Promise<ApexReference | undefined> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+    return this.definitionMap.get(symbolName);
   }
 
   async setDefinition(
     symbolName: string,
     definition: ApexReference,
   ): Promise<boolean> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+    this.definitionMap.set(symbolName, definition);
+    return true;
   }
 
   async getReferences(symbolName: string): Promise<ApexReference[]> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+    return this.referencesMap.get(symbolName) || [];
   }
 
   async setReferences(
     symbolName: string,
     references: ApexReference[],
   ): Promise<boolean> {
-    throw new Error('Method not implemented.');
-  }
-
-  async setDocument(uri: string, document: TextDocument): Promise<boolean> {
-    throw new Error('Method not implemented.');
+    if (!this.initialized) {
+      throw new Error('Storage not initialized');
+    }
+    this.referencesMap.set(symbolName, references);
+    return true;
   }
 }

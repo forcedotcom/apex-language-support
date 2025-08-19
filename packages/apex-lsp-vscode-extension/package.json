@@ -213,6 +213,11 @@
           ],
           "default": "info",
           "description": "%configuration.apex-ls-ts.logLevel.description%"
+        },
+        "apex-ls-ts.custom": {
+          "type": "object",
+          "default": {},
+          "description": "Custom configuration for the Apex Language Server"
         }
       }
     },

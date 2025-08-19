@@ -184,6 +184,7 @@ const util = {
 export default util;
 
 // Make util available globally for browser environments
-if (typeof globalThis !== 'undefined') {
+if (typeof globalThis !== 'undefined' && !(globalThis as any).util) {
+  // Only set if not already defined to avoid recursion
   (globalThis as any).util = util;
 }

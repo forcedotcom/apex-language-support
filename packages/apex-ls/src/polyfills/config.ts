@@ -23,7 +23,7 @@ export const polyfillPaths = {
   path: path.resolve(polyfillsDir, 'path-polyfill.ts'),
   process: path.resolve(polyfillsDir, 'process-polyfill.ts'),
   url: path.resolve(polyfillsDir, 'url-polyfill.ts'),
-  util: path.resolve(polyfillsDir, 'utils-polyfill.ts'),
+  util: path.resolve(polyfillsDir, 'util-polyfill.ts'),
 };
 
 export function applyPolyfillConfig(options: BuildOptions): void {
@@ -41,10 +41,12 @@ export function applyPolyfillConfig(options: BuildOptions): void {
     process: polyfillPaths.process,
     stream: 'stream-browserify',
     url: polyfillPaths.url, // Map Node's 'url' module to our polyfill
-    util: polyfillPaths.util, // Map Node's 'util' module to our polyfill
+    util: 'vscode-jsonrpc/lib/browser/ril',
     // Force all vscode packages to use browser versions
-    'vscode-languageserver/lib/node/main': 'vscode-languageserver/lib/browser/main',
-    'vscode-languageserver/lib/node/files': 'vscode-languageserver/lib/browser/main',
+    'vscode-languageserver/lib/node/main':
+      'vscode-languageserver/lib/browser/main',
+    'vscode-languageserver/lib/node/files':
+      'vscode-languageserver/lib/browser/main',
     'vscode-languageserver/lib/node': 'vscode-languageserver/lib/browser',
     'vscode-languageserver/node': 'vscode-languageserver/browser',
     'vscode-jsonrpc/lib/node/main': 'vscode-jsonrpc/lib/browser/main',

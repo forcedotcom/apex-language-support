@@ -47,6 +47,7 @@ export interface WorkspaceSettings {
     resources: {
       loadMode: 'lazy' | 'full';
     };
+    custom: Record<string, any>;
     logLevel: string;
   };
 }

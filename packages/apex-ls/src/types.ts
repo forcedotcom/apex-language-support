@@ -6,13 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { MessageConnection } from 'vscode-jsonrpc';
-import type {
-  InitializeRequest,
-  InitializeErrorCodes,
-  InitializedNotification,
-} from 'vscode-languageserver-protocol';
-
 /**
  * Logger interface that extends Console with additional methods
  */
@@ -78,6 +71,7 @@ export interface ApexServerInitializationOptions {
   enableDocumentSymbols?: boolean;
   trace?: string;
   extensionMode?: ExtensionMode;
+  custom?: Record<string, any>;
   [key: string]: any;
 }
 

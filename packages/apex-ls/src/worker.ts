@@ -119,9 +119,43 @@ export async function createUnifiedWebWorkerLanguageServer() {
       | ApexServerInitializationOptions
       | undefined;
     const logLevel = initOptions?.logLevel || 'error';
+    const custom = initOptions?.custom || {};
 
     logger.info(`Setting log level to: ${logLevel}`);
     setLogLevel(logLevel);
+
+    // Set custom options in global scope
+    (self as any).custom = custom;
+
+    // Set util.custom in global scope
+    if (!(self as any).util) {
+      (self as any).util = {};
+    }
+    (self as any).util.custom = custom;
+
+    // Set util.custom in global scope
+    Object.defineProperty(self, 'util', {
+      value: { custom },
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    });
+
+    // Set util.custom in global scope
+    Object.defineProperty((self as any).util, 'custom', {
+      value: custom,
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    });
+
+    // Log the global scope
+    logger.info(
+      `[UNIFIED-WORKER] Global scope: ${JSON.stringify({
+        custom: (self as any).custom,
+        util: (self as any).util,
+      })}`,
+    );
 
     // Determine server mode
     const extensionMode = initOptions?.extensionMode as
@@ -722,16 +756,8 @@ if (!__IS_TEST_ENV__) {
           '[APEX-WORKER] ✅ Worker environment detected, starting language server...',
         );
 
-        // Isolated execution with comprehensive error handling
-        // Try unified version first, fallback to simple version
-        createUnifiedWebWorkerLanguageServer()
-          .catch((unifiedError) => {
-            console.warn(
-              '[APEX-WORKER] ⚠️ Unified worker failed, falling back to simple worker:',
-              unifiedError,
-            );
-            return createSimpleWebWorkerLanguageServer();
-          })
+        // Use simple version directly for now
+        createSimpleWebWorkerLanguageServer()
           .then(() => {
             console.log(
               '[APEX-WORKER] ✅ Apex Language Server started successfully',
