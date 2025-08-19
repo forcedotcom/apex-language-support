@@ -88,7 +88,7 @@ export class DefaultApexDocumentSymbolProvider
   ): Promise<DocumentSymbol[] | SymbolInformation[] | null> {
     const logger = getLogger();
     logger.debug(
-      () => '=== ApexDocumentSymbolProvider.provideDocumentSymbols called ===',
+      '=== ApexDocumentSymbolProvider.provideDocumentSymbols called ===',
     );
 
     try {
@@ -139,22 +139,6 @@ export class DefaultApexDocumentSymbolProvider
         options,
       );
 
-      if (result.errors.length > 0) {
-        logger.warn(
-          () =>
-            `Parsed with ${result.errors.length} errors, continuing with partial symbols.`,
-        );
-        logger.debug(() => `Parse errors: ${JSON.stringify(result.errors)}`);
-
-        // Log the actual errors for debugging
-        result.errors.forEach((error, index) => {
-          logger.debug(
-            () =>
-              `Error ${index + 1}: ${error.message} at ${error.line}:${error.column}`,
-          );
-        });
-      }
-
       // Get the symbol table from the compilation result
       const symbolTable = result.result;
 
@@ -178,14 +162,6 @@ export class DefaultApexDocumentSymbolProvider
 
       // Get all symbols from the entire symbol table (not just current scope)
       const allSymbols = symbolTable.getAllSymbols();
-      logger.debug(() => `Total symbols in symbol table: ${allSymbols.length}`);
-      allSymbols.forEach((symbol, index) => {
-        logger.debug(
-          () =>
-            `All symbol ${index}: ${symbol.name} (${symbol.kind}) in scope ${symbolTable.getCurrentScopePath()}`,
-        );
-      });
-
       // Filter for only top-level symbols (classes, interfaces, enums, triggers)
       const topLevelSymbols = allSymbols.filter((symbol) =>
         inTypeSymbolGroup(symbol),
@@ -420,7 +396,7 @@ export class DefaultApexDocumentSymbolProvider
    * This excludes modifiers and scope, providing precise positioning for the identifier
    */
   private createSelectionRange(symbol: ApexSymbol): Range {
-    const { location, name } = symbol;
+    const { location } = symbol;
 
     const startPosition = transformParserToLspPosition({
       line: location.identifierRange.startLine,
