@@ -146,4 +146,13 @@ public class TestClass {
             computedCoordinates.add(coords);
         }
     }
+    public void testMap() {
+        Map<String, Object> dataMap = new Map<String, Object>();
+        dataMap.put('key1', 'value1');
+        dataMap.put('key2', 42);
+    }
+    public String testString() {
+        String message = 'Hello World';
+        return message;
+    }
 }

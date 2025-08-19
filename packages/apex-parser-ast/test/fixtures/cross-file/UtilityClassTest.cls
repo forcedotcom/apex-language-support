@@ -1,5 +1,5 @@
-public class TestClass {
-  public void testMethod() {
+public class UtilityClassTest {
+  public void myMethod() {
     String formatted = UtilityClass.formatString('  Hello World  ');
   }
 }

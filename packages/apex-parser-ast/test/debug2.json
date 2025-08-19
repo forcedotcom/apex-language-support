@@ -1,0 +1,72 @@
+[
+  {
+    "name": "FileUtilities",
+    "location": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 20,
+        "endLine": 3,
+        "endColumn": 33
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 20,
+        "endLine": 3,
+        "endColumn": 33
+      }
+    },
+    "context": 1,
+    "parentContext": "myMethod",
+    "isResolved": false
+  },
+  {
+    "name": "createFile",
+    "location": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 34,
+        "endLine": 3,
+        "endColumn": 44
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 34,
+        "endLine": 3,
+        "endColumn": 44
+      }
+    },
+    "context": 0,
+    "qualifier": "FileUtilities",
+    "parentContext": "myMethod",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 20,
+        "endLine": 3,
+        "endColumn": 33
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 20,
+        "endLine": 3,
+        "endColumn": 33
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 34,
+        "endLine": 3,
+        "endColumn": 44
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 34,
+        "endLine": 3,
+        "endColumn": 44
+      }
+    },
+    "isQualified": true
+  }
+]

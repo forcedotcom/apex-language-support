@@ -1,5 +1,5 @@
-public class TestClass {
-  public void testMethod() {
+public class AccountTest {
+  public void mMethod() {
     Account acc = new Account('Test Account');
     String accountName = acc.Name;
   }

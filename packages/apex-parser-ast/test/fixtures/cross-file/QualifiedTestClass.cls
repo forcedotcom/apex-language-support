@@ -1,5 +1,5 @@
-public class TestClass {
-  public void testMethod() {
+public class QualifiedTestClass {
+  public void myMethod() {
     String result = FileUtilities.createFile('test.txt', 'Hello World');
   }
 }

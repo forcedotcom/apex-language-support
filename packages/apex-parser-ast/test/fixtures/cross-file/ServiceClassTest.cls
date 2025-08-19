@@ -1,5 +1,5 @@
-public class TestClass {
-  public void testMethod() {
+public class ServiceClassTest {
+  public void myMethod() {
     String processed = ServiceClass.processData('test data');
   }
 }

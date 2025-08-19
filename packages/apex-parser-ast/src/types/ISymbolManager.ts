@@ -190,7 +190,7 @@ export interface ISymbolManager {
    * Get TypeReference data at a specific position in a file
    * This provides precise AST-based position data for enhanced symbol resolution
    * @param filePath The file path to search in
-   * @param position The position to search for references (0-based)
+   * @param position The position to search for references (1-based line index, 0-based column index)
    * @returns Array of TypeReference objects at the position
    */
   getReferencesAtPosition(
@@ -202,7 +202,7 @@ export interface ISymbolManager {
    * Get the most specific symbol at a given position using explicit resolution strategy
    * This provides unified access to different resolution strategies for LSP services
    * @param fileUri The file URI to search in
-   * @param position The position to search for symbols (0-based)
+   * @param position The position to search for symbols (1-based line index, 0-based column index)
    * @param strategy The resolution strategy to use
    * @returns The most specific symbol at the position, or null if not found
    */
@@ -217,7 +217,7 @@ export interface ISymbolManager {
    * Get the most specific symbol at a given position in a file
    * This provides reliable position-based symbol lookup for LSP services
    * @param fileUri The file URI to search in
-   * @param position The position to search for symbols (0-based)
+   * @param position The position to search for symbols (1-based line index, 0-based column index)
    * @returns The most specific symbol at the position, or null if not found
    */
   getSymbolAtPositionWithinScope(
@@ -229,7 +229,7 @@ export interface ISymbolManager {
    * @deprecated Use getSymbolAtPosition(uri, position, strategy) instead
    * Get the most specific symbol at a given position using strategy-based resolution
    * @param fileUri The file URI to search in
-   * @param position The position to search for symbols (0-based)
+   * @param position The position to search for symbols (1-based line index, 0-based column index)
    * @param requestType The type of LSP request (hover, definition, references, etc.)
    * @returns The most specific symbol at the position, or null if not found
    */
@@ -253,7 +253,7 @@ export interface ISymbolManager {
   /**
    * Create enhanced resolution context with request type information
    * @param documentText The document text for context analysis
-   * @param position The position in the document (0-based)
+   * @param position The position in the document (1-based line index, 0-based column index)
    * @param sourceFile The source file path
    * @param requestType The type of LSP request
    * @returns Enhanced resolution context with request type information
