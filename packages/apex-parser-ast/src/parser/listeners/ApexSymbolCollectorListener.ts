@@ -1405,9 +1405,10 @@ export class ApexSymbolCollectorListener
           (dotParent as any).expression?.();
         if (lhs) {
           qualifier = this.getTextFromContext(lhs);
-          const parentLoc = this.getLocation(dotParent);
+          // Use the left-hand expression location for precise qualifier range
+          const lhsLoc = this.getLocation(lhs as unknown as ParserRuleContext);
           if (qualifier) {
-            qualifierLocation = parentLoc;
+            qualifierLocation = lhsLoc;
           }
         }
       }
@@ -1438,6 +1439,7 @@ export class ApexSymbolCollectorListener
         methodLocation,
         qualifier,
         parentContext,
+        qualifierLocation,
       );
       this.symbolTable.addTypeReference(reference);
       this.logger.debug(
@@ -1629,12 +1631,17 @@ export class ApexSymbolCollectorListener
           // Create FIELD_ACCESS reference
           const location = this.getLocationForReference(ctx);
           const parentContext = this.getCurrentMethodName();
+          const qualifierLocation = this.getLocation(
+            leftExpression as unknown as ParserRuleContext,
+          );
 
           const fieldRef = TypeReferenceFactory.createFieldAccessReference(
             fieldName,
             location,
             objectName,
             parentContext,
+            undefined,
+            qualifierLocation,
           );
 
           this.symbolTable.addTypeReference(fieldRef);

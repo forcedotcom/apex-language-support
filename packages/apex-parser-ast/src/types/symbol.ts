@@ -971,9 +971,21 @@ export class SymbolTable {
     line: number;
     character: number;
   }): TypeReference[] {
-    return this.references.filter((ref) =>
-      this.positionInRange(position, ref.location),
-    );
+    return this.references.filter((ref) => {
+      if (this.positionInRange(position, ref.location)) {
+        return true;
+      }
+      // Also match when cursor is on precise qualifier/member ranges if provided
+      const qLoc = (ref as any).qualifierLocation;
+      if (qLoc && this.positionInRange(position, qLoc)) {
+        return true;
+      }
+      const mLoc = (ref as any).memberLocation;
+      if (mLoc && this.positionInRange(position, mLoc)) {
+        return true;
+      }
+      return false;
+    });
   }
 
   /**

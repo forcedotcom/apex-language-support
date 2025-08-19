@@ -33,12 +33,23 @@ export interface TypeReference {
   context: ReferenceContext;
   /** For "FileUtilities.createFile" - the qualifier */
   qualifier?: string;
+  /** Precise location of the qualifier token when qualified */
+  qualifierLocation?: SymbolLocation;
+  /** Precise location of the member token (method/field) when qualified */
+  memberLocation?: SymbolLocation;
   /** Parent method/class context */
   parentContext?: string;
   /** Always false during parsing - used for lazy resolution */
   isResolved: boolean;
   /** Optional access semantics for reads/writes (assignments) */
   access?: 'read' | 'write' | 'readwrite';
+  /** Optional: indicates a qualified reference (also derivable from qualifier) */
+  isQualified?: boolean;
+  /** Optional: indicates static access when known from parsing */
+  isStatic?: boolean;
+  /** Optional: chain metadata for future chained-call handling */
+  chainIndex?: number;
+  chainLength?: number;
 }
 
 /**
@@ -53,6 +64,8 @@ export class TypeReferenceFactory {
     location: SymbolLocation,
     qualifier?: string,
     parentContext?: string,
+    qualifierLocation?: SymbolLocation,
+    isStatic?: boolean,
   ): TypeReference {
     return {
       name: methodName,
@@ -61,6 +74,10 @@ export class TypeReferenceFactory {
       qualifier,
       parentContext,
       isResolved: false,
+      qualifierLocation,
+      memberLocation: location,
+      isQualified: !!qualifier,
+      isStatic,
     };
   }
 
@@ -90,6 +107,7 @@ export class TypeReferenceFactory {
     objectName: string,
     parentContext?: string,
     access?: 'read' | 'write' | 'readwrite',
+    qualifierLocation?: SymbolLocation,
   ): TypeReference {
     return {
       name: fieldName,
@@ -99,6 +117,9 @@ export class TypeReferenceFactory {
       parentContext,
       isResolved: false,
       access,
+      qualifierLocation,
+      memberLocation: location,
+      isQualified: true,
     };
   }
 

@@ -386,17 +386,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'precise',
       );
 
-      // Current implementation returns the return type (String) instead of the class name (FileUtilities)
-      // TODO: Implement qualified name resolution to return FileUtilities class
       expect(result).toBeDefined();
-      // For now, we expect the current behavior until qualified name resolution is implemented
-      if (result?.name === 'String') {
-        // Current behavior - returns return type
-        expect(result?.kind).toBeDefined();
-      } else if (result?.name === 'FileUtilities') {
-        // Future behavior - should return the class
-        expect(result?.kind).toBe('class');
-      }
+      expect(result?.name).toBe('FileUtilities');
+      expect(result?.kind).toBe('class');
     });
 
     it('should resolve hover on custom Apex class qualified name (ServiceClass)', async () => {
@@ -420,15 +412,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'precise',
       );
 
-      // Current implementation returns the return type (String) instead of the class name (ServiceClass)
       expect(result).toBeDefined();
-      if (result?.name === 'String') {
-        // Current behavior - returns return type
-        expect(result?.kind).toBeDefined();
-      } else if (result?.name === 'ServiceClass') {
-        // Future behavior - should return the class
-        expect(result?.kind).toBe('class');
-      }
+      expect(result?.name).toBe('ServiceClass');
+      expect(result?.kind).toBe('class');
     });
 
     it('should resolve hover on custom Apex class qualified name (UtilityClass)', async () => {
@@ -452,15 +438,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'precise',
       );
 
-      // Current implementation returns the return type (String) instead of the class name (UtilityClass)
       expect(result).toBeDefined();
-      if (result?.name === 'String') {
-        // Current behavior - returns return type
-        expect(result?.kind).toBeDefined();
-      } else if (result?.name === 'UtilityClass') {
-        // Future behavior - should return the class
-        expect(result?.kind).toBe('class');
-      }
+      expect(result?.name).toBe('UtilityClass');
+      expect(result?.kind).toBe('class');
     });
 
     it('should resolve hover on custom Apex class qualified name (Account)', async () => {
@@ -487,14 +467,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'precise',
       );
 
-      // Current implementation doesn't resolve class names in variable declarations
-      // TODO: Implement qualified name resolution to return Account class
-      if (result) {
-        expect(result?.kind).toBeDefined();
-      } else {
-        // Current behavior - returns null for class names in declarations
-        expect(result).toBeNull();
-      }
+      expect(result).toBeDefined();
+      expect(result?.name).toBe('Account');
+      expect(result?.kind).toBe('class');
     });
 
     it('should resolve hover on standard Apex class qualified name (System)', async () => {
@@ -518,14 +493,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'precise',
       );
 
-      // Current implementation doesn't resolve standard Apex class names
-      // TODO: Implement qualified name resolution to return System class
-      if (result) {
-        expect(result?.kind).toBeDefined();
-      } else {
-        // Current behavior - returns null for standard class names
-        expect(result).toBeNull();
-      }
+      expect(result).toBeDefined();
+      expect(result?.name).toBe('System');
+      expect(result?.kind).toBe('class');
     });
 
     it('should resolve hover on standard Apex class qualified name (EncodingUtil)', async () => {
@@ -549,15 +519,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'precise',
       );
 
-      // Current implementation returns the return type (String) instead of the class name (EncodingUtil)
       expect(result).toBeDefined();
-      if (result?.name === 'String') {
-        // Current behavior - returns return type
-        expect(result?.kind).toBeDefined();
-      } else if (result?.name === 'EncodingUtil') {
-        // Future behavior - should return the class
-        expect(result?.kind).toBe('class');
-      }
+      expect(result?.name).toBe('EncodingUtil');
+      expect(result?.kind).toBe('class');
     });
 
     it('should resolve hover on builtin type qualified name (List)', async () => {
@@ -581,14 +545,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'precise',
       );
 
-      // Current implementation doesn't resolve builtin type names in generic declarations
-      // TODO: Implement qualified name resolution to return List class
-      if (result) {
-        expect(result?.kind).toBeDefined();
-      } else {
-        // Current behavior - returns null for builtin type names
-        expect(result).toBeNull();
-      }
+      expect(result).toBeDefined();
+      expect(result?.name).toBe('List');
+      expect(result?.kind).toBe('class');
     });
 
     it('should resolve hover on builtin type qualified name (Map)', async () => {
@@ -612,14 +571,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'precise',
       );
 
-      // Current implementation doesn't resolve builtin type names in generic declarations
-      // TODO: Implement qualified name resolution to return Map class
-      if (result) {
-        expect(result?.kind).toBeDefined();
-      } else {
-        // Current behavior - returns null for builtin type names
-        expect(result).toBeNull();
-      }
+      expect(result).toBeDefined();
+      expect(result?.name).toBe('Map');
+      expect(result?.kind).toBe('class');
     });
 
     it('should resolve hover on builtin type qualified name (String)', async () => {
@@ -645,14 +599,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'precise',
       );
 
-      // Current implementation doesn't resolve builtin type names in static method calls
-      // TODO: Implement qualified name resolution to return String class
-      if (result) {
-        expect(result?.kind).toBeDefined();
-      } else {
-        // Current behavior - returns null for builtin type names
-        expect(result).toBeNull();
-      }
+      expect(result).toBeDefined();
+      expect(result?.name).toBe('String');
+      expect(result?.kind).toBe('class');
     });
 
     it('should resolve hover on builtin type qualified name (Integer)', async () => {
@@ -676,15 +625,9 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
         'precise',
       );
 
-      // Current implementation returns the return type (String) instead of the class name (Integer)
       expect(result).toBeDefined();
-      if (result?.name === 'String') {
-        // Current behavior - returns return type
-        expect(result?.kind).toBeDefined();
-      } else if (result?.name === 'Integer') {
-        // Future behavior - should return the class
-        expect(result?.kind).toBe('class');
-      }
+      expect(result?.name).toBe('Integer');
+      expect(result?.kind).toBe('class');
     });
   });
 
@@ -2150,7 +2093,8 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       });
 
       it('should resolve List parameter type in method signature', async () => {
-        // Test hover on "List<String>" parameter type in "public List<String> process(List<String> items, Integer count)"
+        // Test hover on "List<String>" parameter type in
+        // "public List<String> process(List<String> items, Integer count)"
         const testCode = `
           public class TestClass {
             public List<String> process(List<String> items, Integer count) {
@@ -2187,7 +2131,8 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       });
 
       it('should resolve Map parameter type in method signature', async () => {
-        // Test hover on "Map<String, Object>" parameter type in "public Map<String, Object> transform(Map<String, Object> data)"
+        // Test hover on "Map<String, Object>" parameter type in
+        // "public Map<String, Object> transform(Map<String, Object> data)"
         const testCode = `
           public class TestClass {
             public Map<String, Object> transform(Map<String, Object> data) {
@@ -2270,9 +2215,8 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
         await compileAndAddToManager(testCode, 'TestClass.cls');
 
-        // Position cursor on "ServiceClass" parameter type in "public String process(String input, ServiceClass service)"
-        // Line 2 (0-based) = "            public String process(String input, ServiceClass service) {"
-        // "ServiceClass" parameter type starts at character 42
+        // Position cursor on "ServiceClass" parameter type in
+        // "public String process(String input, ServiceClass service)"
         const result = symbolManager.getSymbolAtPosition(
           'TestClass.cls',
           { line: 2, character: 42 }, // Position on "ServiceClass" parameter type
@@ -2361,7 +2305,8 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
     describe('Generic Type Parameter Resolution', () => {
       it('should resolve List<String> parameter type in method signature', async () => {
-        // Test hover on "List<String>" parameter type in "public List<String> filter(List<String> items, String pattern)"
+        // Test hover on "List<String>" parameter type in
+        // "public List<String> filter(List<String> items, String pattern)"
         const testCode = `
           public class TestClass {
             public List<String> filter(List<String> items, String pattern) {
@@ -2400,7 +2345,8 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       });
 
       it('should resolve Map<String, Object> parameter type in method signature', async () => {
-        // Test hover on "Map<String, Object>" parameter type in "public Map<String, Object> transform(Map<String, Object> data)"
+        // Test hover on "Map<String, Object>" parameter type in
+        // "public Map<String, Object> transform(Map<String, Object> data)"
         const testCode = `
           public class TestClass {
             public Map<String, Object> transform(Map<String, Object> data) {
