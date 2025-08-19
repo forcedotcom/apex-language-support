@@ -83,15 +83,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
     it('should use position-based strategy for hover requests', async () => {
       // Compile a test class with a variable
-      const apexCode = `
-        public class TestClass {
-          public String testVariable;
-
-          public void testMethod() {
-            String localVar = 'test';
-          }
-        }
-      `;
+      const apexCode = loadFixtureFile('SimpleTestClass.cls');
 
       await compileAndAddToManager(apexCode, 'test.cls');
 
@@ -113,15 +105,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
     it('should use position-based strategy for definition requests', async () => {
       // Compile a test class with a variable
-      const apexCode = `
-        public class TestClass {
-          public String testVariable;
-
-          public void testMethod() {
-            String localVar = 'test';
-          }
-        }
-      `;
+      const apexCode = loadFixtureFile('SimpleTestClass.cls');
 
       await compileAndAddToManager(apexCode, 'test.cls');
 
@@ -143,15 +127,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
     it('should use position-based strategy for references requests', async () => {
       // Compile a test class with a variable
-      const apexCode = `
-        public class TestClass {
-          public String testVariable;
-
-          public void testMethod() {
-            String localVar = 'test';
-          }
-        }
-      `;
+      const apexCode = loadFixtureFile('SimpleTestClass.cls');
 
       await compileAndAddToManager(apexCode, 'test.cls');
 
@@ -173,15 +149,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
     it('should fall back to scope resolution for unsupported request types', async () => {
       // Compile a test class with a variable
-      const apexCode = `
-        public class TestClass {
-          public String testVariable;
-
-          public void testMethod() {
-            String localVar = 'test';
-          }
-        }
-      `;
+      const apexCode = loadFixtureFile('SimpleTestClass.cls');
 
       await compileAndAddToManager(apexCode, 'test.cls');
 
@@ -205,15 +173,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
   describe('getSymbolAtPosition - Enhanced', () => {
     it('should not trigger fallback for exact position matches', async () => {
       // Compile a test class with a variable at a specific position
-      const apexCode = `
-        public class TestClass {
-          public String testVariable;
-
-          public void testMethod() {
-            String localVar = 'test';
-          }
-        }
-      `;
+      const apexCode = loadFixtureFile('SimpleTestClass.cls');
 
       await compileAndAddToManager(apexCode, 'test.cls');
 
@@ -235,15 +195,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
     it('should use exact position resolution for hover requests', async () => {
       // Compile a test class with a variable at a specific position
-      const apexCode = `
-        public class TestClass {
-          public String testVariable;
-
-          public void testMethod() {
-            String localVar = 'test';
-          }
-        }
-      `;
+      const apexCode = loadFixtureFile('SimpleTestClass.cls');
 
       await compileAndAddToManager(apexCode, 'test.cls');
 
@@ -318,13 +270,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       // Test hover on "FileUtilities" in "FileUtilities.createFile()"
       // NOTE: Current implementation doesn't support resolving the "Foo" part in "Foo.bar()" expressions
       // This test documents the current behavior and what needs to be implemented
-      const testCode = `
-        public class TestClass {
-          public void testMethod() {
-            String result = FileUtilities.createFile('test.txt', 'Hello World');
-          }
-        }
-      `;
+      const testCode = loadFixtureFile('QualifiedTestClass.cls');
 
       await compileAndAddToManager(testCode, 'TestClass.cls');
 
@@ -344,13 +290,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
     it('should resolve hover on custom Apex class qualified name (ServiceClass)', async () => {
       // Test hover on "ServiceClass" in "ServiceClass.processData()"
-      const testCode = `
-        public class TestClass {
-          public void testMethod() {
-            String processed = ServiceClass.processData('test data');
-          }
-        }
-      `;
+      const testCode = loadFixtureFile('ServiceClassTest.cls');
 
       await compileAndAddToManager(testCode, 'TestClass.cls');
 
@@ -370,13 +310,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
     it('should resolve hover on custom Apex class qualified name (UtilityClass)', async () => {
       // Test hover on "UtilityClass" in "UtilityClass.formatString()"
-      const testCode = `
-        public class TestClass {
-          public void testMethod() {
-            String formatted = UtilityClass.formatString('  Hello World  ');
-          }
-        }
-      `;
+      const testCode = loadFixtureFile('UtilityClassTest.cls');
 
       await compileAndAddToManager(testCode, 'TestClass.cls');
 
@@ -396,14 +330,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
 
     it('should resolve hover on custom Apex class qualified name (Account)', async () => {
       // Test hover on "Account" in "Account.Name"
-      const testCode = `
-        public class TestClass {
-          public void testMethod() {
-            Account acc = new Account('Test Account');
-            String accountName = acc.Name;
-          }
-        }
-      `;
+      const testCode = loadFixtureFile('AccountTest.cls');
 
       await compileAndAddToManager(testCode, 'TestClass.cls');
 
