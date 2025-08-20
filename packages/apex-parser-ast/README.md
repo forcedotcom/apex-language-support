@@ -368,6 +368,105 @@ const databaseSymbol = symbolManager.resolveSymbol('Database');
 const standardClasses = symbolManager.getAvailableStandardClasses();
 ```
 
+## Symbol and Type Reference Support
+
+This package now includes first-class symbol and type reference modeling that powers advanced navigation, refactoring, and analysis scenarios. The system is built around a lightweight reference graph layered over `SymbolTable` data, plus a type resolution pipeline.
+
+### Reference Graph and Query APIs
+
+- **Reference graph**: Maintains directed edges between symbols without duplicating symbol storage. Edges carry compact context (e.g., `methodName`, `parameterIndex`, `namespace`).
+- **Core queries**:
+  - `findReferencesTo(symbol)` and `findReferencesFrom(symbol)`: Retrieve inbound/outbound relationships for any `ApexSymbol` with location and context.
+  - `findRelatedSymbols(symbol, relationshipType)`: Filter references by relationship kind.
+  - `analyzeDependencies(symbol)`: Get dependencies, dependents, impact score, and circular dependency chains.
+  - `detectCircularDependencies()`: Identify cycles in the project reference graph.
+  - `findSymbolByName(name)` / `findSymbolByFQN(fqn)` / `findSymbolsInFile(filePath)`.
+  - `lookupSymbolWithContext(name, context)`: Resolve ambiguous names with file/scope hints.
+
+#### Reference types
+
+Reference edges capture many relationship kinds, for example:
+
+- Method/constructor calls, static/instance access, property/field access
+- Type references, inheritance, interface implementation, enum references
+- Annotations, triggers, DML, SOQL/SOSL, web service, remote action, page/component
+
+These enable precise downstream features like Find References, Go to Implementation, and impact analysis.
+
+### Type Reference Resolution
+
+Type names in variables/parameters are resolved post-parse using `NamespaceResolutionService` and a `SymbolProvider` implementation:
+
+- Resolves `TypeInfo` to concrete `ApexSymbol` with a confidence score.
+- Handles project namespace, global scope, and standard library namespaces.
+- Updates symbols with `resolvedSymbol` and `resolutionConfidence` for consumers.
+
+### Standard Library Integration (Lazy + Full)
+
+`ResourceLoader` provides fast access to the Standard Apex Library with two modes:
+
+- **lazy**: Directory structure is immediately available; files compile on demand.
+- **full**: Eager background compilation for maximum responsiveness.
+
+Helpful APIs:
+
+- `hasClass(pathOrFqn)`, `getAvailableClasses()`, `getNamespaceStructure()`
+- `ensureClassLoaded(name)`, `getCompiledArtifact(name)` (async), `getCompiledArtifactSync(name)`
+- `couldResolveSymbol(symbolName)`, `getPotentialMatches(partial)`
+
+### Putting It Together: Typical Usage
+
+```typescript
+import {
+  CompilerService,
+  ApexSymbolCollectorListener,
+  ApexSymbolManager,
+} from '@salesforce/apex-lsp-parser-ast';
+
+// 1) Compile a file and collect symbols
+const compiler = new CompilerService();
+const listener = new ApexSymbolCollectorListener();
+const result = compiler.compile(source, 'MyClass.cls', listener, {
+  includeComments: true,
+  associateComments: true,
+});
+
+// 2) Register symbols with the manager for cross-file queries
+const manager = new ApexSymbolManager();
+const table = result.result; // SymbolTable
+for (const s of table.getAllSymbols()) {
+  manager.addSymbol(s, 'MyClass.cls', table);
+}
+
+// Optional: prime standard library (lazy loads on demand)
+// manager integrates with ResourceLoader under the hood
+
+// 3) Resolve a symbol and query references
+const cls = manager.findSymbolByFQN('MyNamespace.MyClass');
+if (cls) {
+  const refsTo = manager.findReferencesTo(cls);
+  const deps = manager.analyzeDependencies(cls);
+  const cycles = manager.detectCircularDependencies();
+}
+
+// 4) Context-aware lookup for ambiguous names (public API)
+const resolved = manager.resolveSymbol('List', { expectedNamespace: 'System' });
+// resolved.symbol, resolved.confidence, resolved.isAmbiguous, resolved.candidates
+```
+
+### Consumer Scenarios
+
+- **Go to Definition**: Use `findSymbolByFQN` or `lookupSymbolWithContext`, then jump to `symbol.location`.
+- **Find References**: Use `findReferencesTo` for inbound usages; map results to LSP locations.
+- **Rename**: Combine `findReferencesTo` + `findReferencesFrom` to get a closed set of edits.
+- **Impact Analysis**: Use `analyzeDependencies` to estimate blast radius and `detectCircularDependencies` to surface risks.
+- **Stdlib On-Demand**: Before failing a lookup, call `ResourceLoader.ensureClassLoaded(name)` or let `ApexSymbolManager` leverage it implicitly.
+
+### Notes on Performance and Memory
+
+- Symbols are stored once in `SymbolTable`. The graph only stores reference edges and lightweight node metadata.
+- Caching of lookups, LRU eviction, TTL, and pattern invalidation are used internally to keep queries fast and memory-bounded.
+
 ### Comment Association
 
 When `associateComments: true` is enabled, comments are automatically associated with nearby symbols using spatial analysis:
