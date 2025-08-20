@@ -1,0 +1,2072 @@
+[
+  {
+    "name": "Property__c",
+    "location": {
+      "symbolRange": {
+        "startLine": 6,
+        "startColumn": 8,
+        "endLine": 6,
+        "endColumn": 19
+      },
+      "identifierRange": {
+        "startLine": 6,
+        "startColumn": 8,
+        "endLine": 6,
+        "endColumn": 19
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "Property__c",
+    "location": {
+      "symbolRange": {
+        "startLine": 6,
+        "startColumn": 35,
+        "endLine": 6,
+        "endColumn": 46
+      },
+      "identifierRange": {
+        "startLine": 6,
+        "startColumn": 35,
+        "endLine": 6,
+        "endColumn": 46
+      }
+    },
+    "context": 4,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "property",
+    "location": {
+      "symbolRange": {
+        "startLine": 7,
+        "startColumn": 15,
+        "endLine": 7,
+        "endColumn": 23
+      },
+      "identifierRange": {
+        "startLine": 7,
+        "startColumn": 15,
+        "endLine": 7,
+        "endColumn": 23
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 9,
+        "startColumn": 8,
+        "endLine": 9,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 9,
+        "startColumn": 8,
+        "endLine": 9,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 10,
+        "startColumn": 8,
+        "endLine": 10,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 10,
+        "startColumn": 8,
+        "endLine": 10,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 11,
+        "startColumn": 8,
+        "endLine": 11,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 11,
+        "startColumn": 8,
+        "endLine": 11,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "property",
+    "location": {
+      "symbolRange": {
+        "startLine": 11,
+        "startColumn": 26,
+        "endLine": 11,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 11,
+        "startColumn": 35,
+        "endLine": 11,
+        "endColumn": 37
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "Id",
+    "location": {
+      "symbolRange": {
+        "startLine": 11,
+        "startColumn": 35,
+        "endLine": 11,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 11,
+        "startColumn": 35,
+        "endLine": 11,
+        "endColumn": 37
+      }
+    },
+    "context": 3,
+    "qualifier": "property",
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 11,
+        "startColumn": 26,
+        "endLine": 11,
+        "endColumn": 34
+      },
+      "identifierRange": {
+        "startLine": 11,
+        "startColumn": 26,
+        "endLine": 11,
+        "endColumn": 34
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 11,
+        "startColumn": 35,
+        "endLine": 11,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 11,
+        "startColumn": 35,
+        "endLine": 11,
+        "endColumn": 37
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 14,
+        "startColumn": 8,
+        "endLine": 14,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 14,
+        "startColumn": 8,
+        "endLine": 14,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "FileUtilities",
+    "location": {
+      "symbolRange": {
+        "startLine": 14,
+        "startColumn": 39,
+        "endLine": 14,
+        "endColumn": 52
+      },
+      "identifierRange": {
+        "startLine": 14,
+        "startColumn": 39,
+        "endLine": 14,
+        "endColumn": 52
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "createFile",
+    "location": {
+      "symbolRange": {
+        "startLine": 14,
+        "startColumn": 53,
+        "endLine": 14,
+        "endColumn": 63
+      },
+      "identifierRange": {
+        "startLine": 14,
+        "startColumn": 53,
+        "endLine": 14,
+        "endColumn": 63
+      }
+    },
+    "context": 0,
+    "qualifier": "FileUtilities",
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 14,
+        "startColumn": 39,
+        "endLine": 14,
+        "endColumn": 52
+      },
+      "identifierRange": {
+        "startLine": 14,
+        "startColumn": 39,
+        "endLine": 14,
+        "endColumn": 52
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 14,
+        "startColumn": 53,
+        "endLine": 14,
+        "endColumn": 63
+      },
+      "identifierRange": {
+        "startLine": 14,
+        "startColumn": 53,
+        "endLine": 14,
+        "endColumn": 63
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "base64Data",
+    "location": {
+      "symbolRange": {
+        "startLine": 15,
+        "startColumn": 12,
+        "endLine": 15,
+        "endColumn": 22
+      },
+      "identifierRange": {
+        "startLine": 15,
+        "startColumn": 12,
+        "endLine": 15,
+        "endColumn": 22
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "fileName",
+    "location": {
+      "symbolRange": {
+        "startLine": 16,
+        "startColumn": 12,
+        "endLine": 16,
+        "endColumn": 20
+      },
+      "identifierRange": {
+        "startLine": 16,
+        "startColumn": 12,
+        "endLine": 16,
+        "endColumn": 20
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "recordId",
+    "location": {
+      "symbolRange": {
+        "startLine": 17,
+        "startColumn": 12,
+        "endLine": 17,
+        "endColumn": 20
+      },
+      "identifierRange": {
+        "startLine": 17,
+        "startColumn": 12,
+        "endLine": 17,
+        "endColumn": 20
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "Assert",
+    "location": {
+      "symbolRange": {
+        "startLine": 21,
+        "startColumn": 8,
+        "endLine": 21,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 21,
+        "startColumn": 8,
+        "endLine": 21,
+        "endColumn": 14
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "isNotNull",
+    "location": {
+      "symbolRange": {
+        "startLine": 21,
+        "startColumn": 15,
+        "endLine": 21,
+        "endColumn": 24
+      },
+      "identifierRange": {
+        "startLine": 21,
+        "startColumn": 15,
+        "endLine": 21,
+        "endColumn": 24
+      }
+    },
+    "context": 0,
+    "qualifier": "Assert",
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 21,
+        "startColumn": 8,
+        "endLine": 21,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 21,
+        "startColumn": 8,
+        "endLine": 21,
+        "endColumn": 14
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 21,
+        "startColumn": 15,
+        "endLine": 21,
+        "endColumn": 24
+      },
+      "identifierRange": {
+        "startLine": 21,
+        "startColumn": 15,
+        "endLine": 21,
+        "endColumn": 24
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "contentDocumentLinkId",
+    "location": {
+      "symbolRange": {
+        "startLine": 21,
+        "startColumn": 25,
+        "endLine": 21,
+        "endColumn": 46
+      },
+      "identifierRange": {
+        "startLine": 21,
+        "startColumn": 25,
+        "endLine": 21,
+        "endColumn": 46
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "System",
+    "location": {
+      "symbolRange": {
+        "startLine": 22,
+        "startColumn": 8,
+        "endLine": 22,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 22,
+        "startColumn": 8,
+        "endLine": 22,
+        "endColumn": 14
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "debug",
+    "location": {
+      "symbolRange": {
+        "startLine": 22,
+        "startColumn": 15,
+        "endLine": 22,
+        "endColumn": 20
+      },
+      "identifierRange": {
+        "startLine": 22,
+        "startColumn": 15,
+        "endLine": 22,
+        "endColumn": 20
+      }
+    },
+    "context": 0,
+    "qualifier": "System",
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 22,
+        "startColumn": 8,
+        "endLine": 22,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 22,
+        "startColumn": 8,
+        "endLine": 22,
+        "endColumn": 14
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 22,
+        "startColumn": 15,
+        "endLine": 22,
+        "endColumn": 20
+      },
+      "identifierRange": {
+        "startLine": 22,
+        "startColumn": 15,
+        "endLine": 22,
+        "endColumn": 20
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "contentDocumentLinkId",
+    "location": {
+      "symbolRange": {
+        "startLine": 22,
+        "startColumn": 49,
+        "endLine": 22,
+        "endColumn": 70
+      },
+      "identifierRange": {
+        "startLine": 22,
+        "startColumn": 49,
+        "endLine": 22,
+        "endColumn": 70
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileSucceedsWhenCorrectInput",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 28,
+        "startColumn": 8,
+        "endLine": 28,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 28,
+        "startColumn": 8,
+        "endLine": 28,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 29,
+        "startColumn": 8,
+        "endLine": 29,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 29,
+        "startColumn": 8,
+        "endLine": 29,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 30,
+        "startColumn": 8,
+        "endLine": 30,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 30,
+        "startColumn": 8,
+        "endLine": 30,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 34,
+        "startColumn": 12,
+        "endLine": 34,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 34,
+        "startColumn": 12,
+        "endLine": 34,
+        "endColumn": 18
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "FileUtilities",
+    "location": {
+      "symbolRange": {
+        "startLine": 34,
+        "startColumn": 43,
+        "endLine": 34,
+        "endColumn": 56
+      },
+      "identifierRange": {
+        "startLine": 34,
+        "startColumn": 43,
+        "endLine": 34,
+        "endColumn": 56
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "createFile",
+    "location": {
+      "symbolRange": {
+        "startLine": 34,
+        "startColumn": 57,
+        "endLine": 34,
+        "endColumn": 67
+      },
+      "identifierRange": {
+        "startLine": 34,
+        "startColumn": 57,
+        "endLine": 34,
+        "endColumn": 67
+      }
+    },
+    "context": 0,
+    "qualifier": "FileUtilities",
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 34,
+        "startColumn": 43,
+        "endLine": 34,
+        "endColumn": 56
+      },
+      "identifierRange": {
+        "startLine": 34,
+        "startColumn": 43,
+        "endLine": 34,
+        "endColumn": 56
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 34,
+        "startColumn": 57,
+        "endLine": 34,
+        "endColumn": 67
+      },
+      "identifierRange": {
+        "startLine": 34,
+        "startColumn": 57,
+        "endLine": 34,
+        "endColumn": 67
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "base64Data",
+    "location": {
+      "symbolRange": {
+        "startLine": 35,
+        "startColumn": 16,
+        "endLine": 35,
+        "endColumn": 26
+      },
+      "identifierRange": {
+        "startLine": 35,
+        "startColumn": 16,
+        "endLine": 35,
+        "endColumn": 26
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "fileName",
+    "location": {
+      "symbolRange": {
+        "startLine": 36,
+        "startColumn": 16,
+        "endLine": 36,
+        "endColumn": 24
+      },
+      "identifierRange": {
+        "startLine": 36,
+        "startColumn": 16,
+        "endLine": 36,
+        "endColumn": 24
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "recordId",
+    "location": {
+      "symbolRange": {
+        "startLine": 37,
+        "startColumn": 16,
+        "endLine": 37,
+        "endColumn": 24
+      },
+      "identifierRange": {
+        "startLine": 37,
+        "startColumn": 16,
+        "endLine": 37,
+        "endColumn": 24
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "Assert",
+    "location": {
+      "symbolRange": {
+        "startLine": 39,
+        "startColumn": 12,
+        "endLine": 39,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 39,
+        "startColumn": 12,
+        "endLine": 39,
+        "endColumn": 18
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "fail",
+    "location": {
+      "symbolRange": {
+        "startLine": 39,
+        "startColumn": 19,
+        "endLine": 39,
+        "endColumn": 23
+      },
+      "identifierRange": {
+        "startLine": 39,
+        "startColumn": 19,
+        "endLine": 39,
+        "endColumn": 23
+      }
+    },
+    "context": 0,
+    "qualifier": "Assert",
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 39,
+        "startColumn": 12,
+        "endLine": 39,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 39,
+        "startColumn": 12,
+        "endLine": 39,
+        "endColumn": 18
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 39,
+        "startColumn": 19,
+        "endLine": 39,
+        "endColumn": 23
+      },
+      "identifierRange": {
+        "startLine": 39,
+        "startColumn": 19,
+        "endLine": 39,
+        "endColumn": 23
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "Exception",
+    "location": {
+      "symbolRange": {
+        "startLine": 40,
+        "startColumn": 17,
+        "endLine": 40,
+        "endColumn": 26
+      },
+      "identifierRange": {
+        "startLine": 40,
+        "startColumn": 17,
+        "endLine": 40,
+        "endColumn": 26
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "Assert",
+    "location": {
+      "symbolRange": {
+        "startLine": 42,
+        "startColumn": 12,
+        "endLine": 42,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 42,
+        "startColumn": 12,
+        "endLine": 42,
+        "endColumn": 18
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "isInstanceOfType",
+    "location": {
+      "symbolRange": {
+        "startLine": 42,
+        "startColumn": 19,
+        "endLine": 42,
+        "endColumn": 35
+      },
+      "identifierRange": {
+        "startLine": 42,
+        "startColumn": 19,
+        "endLine": 42,
+        "endColumn": 35
+      }
+    },
+    "context": 0,
+    "qualifier": "Assert",
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 42,
+        "startColumn": 12,
+        "endLine": 42,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 42,
+        "startColumn": 12,
+        "endLine": 42,
+        "endColumn": 18
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 42,
+        "startColumn": 19,
+        "endLine": 42,
+        "endColumn": 35
+      },
+      "identifierRange": {
+        "startLine": 42,
+        "startColumn": 19,
+        "endLine": 42,
+        "endColumn": 35
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "e",
+    "location": {
+      "symbolRange": {
+        "startLine": 42,
+        "startColumn": 36,
+        "endLine": 42,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 42,
+        "startColumn": 36,
+        "endLine": 42,
+        "endColumn": 37
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "AuraHandledException",
+    "location": {
+      "symbolRange": {
+        "startLine": 42,
+        "startColumn": 39,
+        "endLine": 42,
+        "endColumn": 59
+      },
+      "identifierRange": {
+        "startLine": 42,
+        "startColumn": 39,
+        "endLine": 42,
+        "endColumn": 59
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "AuraHandledException",
+    "location": {
+      "symbolRange": {
+        "startLine": 42,
+        "startColumn": 39,
+        "endLine": 42,
+        "endColumn": 59
+      },
+      "identifierRange": {
+        "startLine": 42,
+        "startColumn": 39,
+        "endLine": 42,
+        "endColumn": 59
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectRecordId",
+    "isResolved": false
+  },
+  {
+    "name": "Property__c",
+    "location": {
+      "symbolRange": {
+        "startLine": 49,
+        "startColumn": 8,
+        "endLine": 49,
+        "endColumn": 19
+      },
+      "identifierRange": {
+        "startLine": 49,
+        "startColumn": 8,
+        "endLine": 49,
+        "endColumn": 19
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "Property__c",
+    "location": {
+      "symbolRange": {
+        "startLine": 49,
+        "startColumn": 35,
+        "endLine": 49,
+        "endColumn": 46
+      },
+      "identifierRange": {
+        "startLine": 49,
+        "startColumn": 35,
+        "endLine": 49,
+        "endColumn": 46
+      }
+    },
+    "context": 4,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "property",
+    "location": {
+      "symbolRange": {
+        "startLine": 50,
+        "startColumn": 15,
+        "endLine": 50,
+        "endColumn": 23
+      },
+      "identifierRange": {
+        "startLine": 50,
+        "startColumn": 15,
+        "endLine": 50,
+        "endColumn": 23
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 52,
+        "startColumn": 8,
+        "endLine": 52,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 52,
+        "startColumn": 8,
+        "endLine": 52,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 53,
+        "startColumn": 8,
+        "endLine": 53,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 53,
+        "startColumn": 8,
+        "endLine": 53,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 54,
+        "startColumn": 8,
+        "endLine": 54,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 54,
+        "startColumn": 8,
+        "endLine": 54,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "property",
+    "location": {
+      "symbolRange": {
+        "startLine": 54,
+        "startColumn": 26,
+        "endLine": 54,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 54,
+        "startColumn": 35,
+        "endLine": 54,
+        "endColumn": 37
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "Id",
+    "location": {
+      "symbolRange": {
+        "startLine": 54,
+        "startColumn": 35,
+        "endLine": 54,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 54,
+        "startColumn": 35,
+        "endLine": 54,
+        "endColumn": 37
+      }
+    },
+    "context": 3,
+    "qualifier": "property",
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 54,
+        "startColumn": 26,
+        "endLine": 54,
+        "endColumn": 34
+      },
+      "identifierRange": {
+        "startLine": 54,
+        "startColumn": 26,
+        "endLine": 54,
+        "endColumn": 34
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 54,
+        "startColumn": 35,
+        "endLine": 54,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 54,
+        "startColumn": 35,
+        "endLine": 54,
+        "endColumn": 37
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 58,
+        "startColumn": 12,
+        "endLine": 58,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 58,
+        "startColumn": 12,
+        "endLine": 58,
+        "endColumn": 18
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "FileUtilities",
+    "location": {
+      "symbolRange": {
+        "startLine": 58,
+        "startColumn": 43,
+        "endLine": 58,
+        "endColumn": 56
+      },
+      "identifierRange": {
+        "startLine": 58,
+        "startColumn": 43,
+        "endLine": 58,
+        "endColumn": 56
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "createFile",
+    "location": {
+      "symbolRange": {
+        "startLine": 58,
+        "startColumn": 57,
+        "endLine": 58,
+        "endColumn": 67
+      },
+      "identifierRange": {
+        "startLine": 58,
+        "startColumn": 57,
+        "endLine": 58,
+        "endColumn": 67
+      }
+    },
+    "context": 0,
+    "qualifier": "FileUtilities",
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 58,
+        "startColumn": 43,
+        "endLine": 58,
+        "endColumn": 56
+      },
+      "identifierRange": {
+        "startLine": 58,
+        "startColumn": 43,
+        "endLine": 58,
+        "endColumn": 56
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 58,
+        "startColumn": 57,
+        "endLine": 58,
+        "endColumn": 67
+      },
+      "identifierRange": {
+        "startLine": 58,
+        "startColumn": 57,
+        "endLine": 58,
+        "endColumn": 67
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "base64Data",
+    "location": {
+      "symbolRange": {
+        "startLine": 59,
+        "startColumn": 16,
+        "endLine": 59,
+        "endColumn": 26
+      },
+      "identifierRange": {
+        "startLine": 59,
+        "startColumn": 16,
+        "endLine": 59,
+        "endColumn": 26
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "fileName",
+    "location": {
+      "symbolRange": {
+        "startLine": 60,
+        "startColumn": 16,
+        "endLine": 60,
+        "endColumn": 24
+      },
+      "identifierRange": {
+        "startLine": 60,
+        "startColumn": 16,
+        "endLine": 60,
+        "endColumn": 24
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "recordId",
+    "location": {
+      "symbolRange": {
+        "startLine": 61,
+        "startColumn": 16,
+        "endLine": 61,
+        "endColumn": 24
+      },
+      "identifierRange": {
+        "startLine": 61,
+        "startColumn": 16,
+        "endLine": 61,
+        "endColumn": 24
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "Assert",
+    "location": {
+      "symbolRange": {
+        "startLine": 63,
+        "startColumn": 12,
+        "endLine": 63,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 63,
+        "startColumn": 12,
+        "endLine": 63,
+        "endColumn": 18
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "fail",
+    "location": {
+      "symbolRange": {
+        "startLine": 63,
+        "startColumn": 19,
+        "endLine": 63,
+        "endColumn": 23
+      },
+      "identifierRange": {
+        "startLine": 63,
+        "startColumn": 19,
+        "endLine": 63,
+        "endColumn": 23
+      }
+    },
+    "context": 0,
+    "qualifier": "Assert",
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 63,
+        "startColumn": 12,
+        "endLine": 63,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 63,
+        "startColumn": 12,
+        "endLine": 63,
+        "endColumn": 18
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 63,
+        "startColumn": 19,
+        "endLine": 63,
+        "endColumn": 23
+      },
+      "identifierRange": {
+        "startLine": 63,
+        "startColumn": 19,
+        "endLine": 63,
+        "endColumn": 23
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "Exception",
+    "location": {
+      "symbolRange": {
+        "startLine": 64,
+        "startColumn": 17,
+        "endLine": 64,
+        "endColumn": 26
+      },
+      "identifierRange": {
+        "startLine": 64,
+        "startColumn": 17,
+        "endLine": 64,
+        "endColumn": 26
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "Assert",
+    "location": {
+      "symbolRange": {
+        "startLine": 66,
+        "startColumn": 12,
+        "endLine": 66,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 66,
+        "startColumn": 12,
+        "endLine": 66,
+        "endColumn": 18
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "isInstanceOfType",
+    "location": {
+      "symbolRange": {
+        "startLine": 66,
+        "startColumn": 19,
+        "endLine": 66,
+        "endColumn": 35
+      },
+      "identifierRange": {
+        "startLine": 66,
+        "startColumn": 19,
+        "endLine": 66,
+        "endColumn": 35
+      }
+    },
+    "context": 0,
+    "qualifier": "Assert",
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 66,
+        "startColumn": 12,
+        "endLine": 66,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 66,
+        "startColumn": 12,
+        "endLine": 66,
+        "endColumn": 18
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 66,
+        "startColumn": 19,
+        "endLine": 66,
+        "endColumn": 35
+      },
+      "identifierRange": {
+        "startLine": 66,
+        "startColumn": 19,
+        "endLine": 66,
+        "endColumn": 35
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "e",
+    "location": {
+      "symbolRange": {
+        "startLine": 66,
+        "startColumn": 36,
+        "endLine": 66,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 66,
+        "startColumn": 36,
+        "endLine": 66,
+        "endColumn": 37
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "AuraHandledException",
+    "location": {
+      "symbolRange": {
+        "startLine": 66,
+        "startColumn": 39,
+        "endLine": 66,
+        "endColumn": 59
+      },
+      "identifierRange": {
+        "startLine": 66,
+        "startColumn": 39,
+        "endLine": 66,
+        "endColumn": 59
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "AuraHandledException",
+    "location": {
+      "symbolRange": {
+        "startLine": 66,
+        "startColumn": 39,
+        "endLine": 66,
+        "endColumn": 59
+      },
+      "identifierRange": {
+        "startLine": 66,
+        "startColumn": 39,
+        "endLine": 66,
+        "endColumn": 59
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectBase64Data",
+    "isResolved": false
+  },
+  {
+    "name": "Property__c",
+    "location": {
+      "symbolRange": {
+        "startLine": 73,
+        "startColumn": 8,
+        "endLine": 73,
+        "endColumn": 19
+      },
+      "identifierRange": {
+        "startLine": 73,
+        "startColumn": 8,
+        "endLine": 73,
+        "endColumn": 19
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "Property__c",
+    "location": {
+      "symbolRange": {
+        "startLine": 73,
+        "startColumn": 35,
+        "endLine": 73,
+        "endColumn": 46
+      },
+      "identifierRange": {
+        "startLine": 73,
+        "startColumn": 35,
+        "endLine": 73,
+        "endColumn": 46
+      }
+    },
+    "context": 4,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "property",
+    "location": {
+      "symbolRange": {
+        "startLine": 74,
+        "startColumn": 15,
+        "endLine": 74,
+        "endColumn": 23
+      },
+      "identifierRange": {
+        "startLine": 74,
+        "startColumn": 15,
+        "endLine": 74,
+        "endColumn": 23
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 76,
+        "startColumn": 8,
+        "endLine": 76,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 76,
+        "startColumn": 8,
+        "endLine": 76,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 77,
+        "startColumn": 8,
+        "endLine": 77,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 77,
+        "startColumn": 8,
+        "endLine": 77,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 78,
+        "startColumn": 8,
+        "endLine": 78,
+        "endColumn": 14
+      },
+      "identifierRange": {
+        "startLine": 78,
+        "startColumn": 8,
+        "endLine": 78,
+        "endColumn": 14
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "property",
+    "location": {
+      "symbolRange": {
+        "startLine": 78,
+        "startColumn": 26,
+        "endLine": 78,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 78,
+        "startColumn": 35,
+        "endLine": 78,
+        "endColumn": 37
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "Id",
+    "location": {
+      "symbolRange": {
+        "startLine": 78,
+        "startColumn": 35,
+        "endLine": 78,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 78,
+        "startColumn": 35,
+        "endLine": 78,
+        "endColumn": 37
+      }
+    },
+    "context": 3,
+    "qualifier": "property",
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 78,
+        "startColumn": 26,
+        "endLine": 78,
+        "endColumn": 34
+      },
+      "identifierRange": {
+        "startLine": 78,
+        "startColumn": 26,
+        "endLine": 78,
+        "endColumn": 34
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 78,
+        "startColumn": 35,
+        "endLine": 78,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 78,
+        "startColumn": 35,
+        "endLine": 78,
+        "endColumn": 37
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "String",
+    "location": {
+      "symbolRange": {
+        "startLine": 82,
+        "startColumn": 12,
+        "endLine": 82,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 82,
+        "startColumn": 12,
+        "endLine": 82,
+        "endColumn": 18
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "FileUtilities",
+    "location": {
+      "symbolRange": {
+        "startLine": 82,
+        "startColumn": 43,
+        "endLine": 82,
+        "endColumn": 56
+      },
+      "identifierRange": {
+        "startLine": 82,
+        "startColumn": 43,
+        "endLine": 82,
+        "endColumn": 56
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "createFile",
+    "location": {
+      "symbolRange": {
+        "startLine": 82,
+        "startColumn": 57,
+        "endLine": 82,
+        "endColumn": 67
+      },
+      "identifierRange": {
+        "startLine": 82,
+        "startColumn": 57,
+        "endLine": 82,
+        "endColumn": 67
+      }
+    },
+    "context": 0,
+    "qualifier": "FileUtilities",
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 82,
+        "startColumn": 43,
+        "endLine": 82,
+        "endColumn": 56
+      },
+      "identifierRange": {
+        "startLine": 82,
+        "startColumn": 43,
+        "endLine": 82,
+        "endColumn": 56
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 82,
+        "startColumn": 57,
+        "endLine": 82,
+        "endColumn": 67
+      },
+      "identifierRange": {
+        "startLine": 82,
+        "startColumn": 57,
+        "endLine": 82,
+        "endColumn": 67
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "base64Data",
+    "location": {
+      "symbolRange": {
+        "startLine": 83,
+        "startColumn": 16,
+        "endLine": 83,
+        "endColumn": 26
+      },
+      "identifierRange": {
+        "startLine": 83,
+        "startColumn": 16,
+        "endLine": 83,
+        "endColumn": 26
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "fileName",
+    "location": {
+      "symbolRange": {
+        "startLine": 84,
+        "startColumn": 16,
+        "endLine": 84,
+        "endColumn": 24
+      },
+      "identifierRange": {
+        "startLine": 84,
+        "startColumn": 16,
+        "endLine": 84,
+        "endColumn": 24
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "recordId",
+    "location": {
+      "symbolRange": {
+        "startLine": 85,
+        "startColumn": 16,
+        "endLine": 85,
+        "endColumn": 24
+      },
+      "identifierRange": {
+        "startLine": 85,
+        "startColumn": 16,
+        "endLine": 85,
+        "endColumn": 24
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "Assert",
+    "location": {
+      "symbolRange": {
+        "startLine": 87,
+        "startColumn": 12,
+        "endLine": 87,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 87,
+        "startColumn": 12,
+        "endLine": 87,
+        "endColumn": 18
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "fail",
+    "location": {
+      "symbolRange": {
+        "startLine": 87,
+        "startColumn": 19,
+        "endLine": 87,
+        "endColumn": 23
+      },
+      "identifierRange": {
+        "startLine": 87,
+        "startColumn": 19,
+        "endLine": 87,
+        "endColumn": 23
+      }
+    },
+    "context": 0,
+    "qualifier": "Assert",
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 87,
+        "startColumn": 12,
+        "endLine": 87,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 87,
+        "startColumn": 12,
+        "endLine": 87,
+        "endColumn": 18
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 87,
+        "startColumn": 19,
+        "endLine": 87,
+        "endColumn": 23
+      },
+      "identifierRange": {
+        "startLine": 87,
+        "startColumn": 19,
+        "endLine": 87,
+        "endColumn": 23
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "Exception",
+    "location": {
+      "symbolRange": {
+        "startLine": 88,
+        "startColumn": 17,
+        "endLine": 88,
+        "endColumn": 26
+      },
+      "identifierRange": {
+        "startLine": 88,
+        "startColumn": 17,
+        "endLine": 88,
+        "endColumn": 26
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "Assert",
+    "location": {
+      "symbolRange": {
+        "startLine": 90,
+        "startColumn": 12,
+        "endLine": 90,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 90,
+        "startColumn": 12,
+        "endLine": 90,
+        "endColumn": 18
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "isInstanceOfType",
+    "location": {
+      "symbolRange": {
+        "startLine": 90,
+        "startColumn": 19,
+        "endLine": 90,
+        "endColumn": 35
+      },
+      "identifierRange": {
+        "startLine": 90,
+        "startColumn": 19,
+        "endLine": 90,
+        "endColumn": 35
+      }
+    },
+    "context": 0,
+    "qualifier": "Assert",
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 90,
+        "startColumn": 12,
+        "endLine": 90,
+        "endColumn": 18
+      },
+      "identifierRange": {
+        "startLine": 90,
+        "startColumn": 12,
+        "endLine": 90,
+        "endColumn": 18
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 90,
+        "startColumn": 19,
+        "endLine": 90,
+        "endColumn": 35
+      },
+      "identifierRange": {
+        "startLine": 90,
+        "startColumn": 19,
+        "endLine": 90,
+        "endColumn": 35
+      }
+    },
+    "isQualified": true
+  },
+  {
+    "name": "e",
+    "location": {
+      "symbolRange": {
+        "startLine": 90,
+        "startColumn": 36,
+        "endLine": 90,
+        "endColumn": 37
+      },
+      "identifierRange": {
+        "startLine": 90,
+        "startColumn": 36,
+        "endLine": 90,
+        "endColumn": 37
+      }
+    },
+    "context": 5,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "AuraHandledException",
+    "location": {
+      "symbolRange": {
+        "startLine": 90,
+        "startColumn": 39,
+        "endLine": 90,
+        "endColumn": 59
+      },
+      "identifierRange": {
+        "startLine": 90,
+        "startColumn": 39,
+        "endLine": 90,
+        "endColumn": 59
+      }
+    },
+    "context": 1,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  },
+  {
+    "name": "AuraHandledException",
+    "location": {
+      "symbolRange": {
+        "startLine": 90,
+        "startColumn": 39,
+        "endLine": 90,
+        "endColumn": 59
+      },
+      "identifierRange": {
+        "startLine": 90,
+        "startColumn": 39,
+        "endLine": 90,
+        "endColumn": 59
+      }
+    },
+    "context": 2,
+    "parentContext": "createFileFailsWhenIncorrectFilename",
+    "isResolved": false
+  }
+]

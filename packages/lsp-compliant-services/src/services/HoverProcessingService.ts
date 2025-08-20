@@ -19,8 +19,11 @@ import {
   TypeReference,
   ReferenceContext,
   ISymbolManager,
+  ApexSymbol,
+  isMethodSymbol,
+  isClassSymbol,
+  isInterfaceSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
-import { Position } from 'vscode-languageserver-protocol';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
@@ -102,22 +105,11 @@ export class HoverProcessingService implements IHoverProcessor {
           )} to parser ${formatPosition(parserPosition, 'parser')}`,
       );
 
-      // Primary: Use strategy-based symbol resolution for precise position lookup
-      let symbol = this.symbolManager.getSymbolAtPositionWithStrategy(
+      let symbol = this.symbolManager.getSymbolAtPosition(
         document.uri,
         parserPosition,
-        'hover',
+        'precise',
       );
-
-      if (!symbol) {
-        this.logger.debug(() => {
-          const parserPos = formatPosition(parserPosition, 'parser');
-          return `No symbol found at parser position ${parserPos}. Attempting cross-file resolution...`;
-        });
-
-        // Fallback: Use TypeReference-based cross-file resolution
-        symbol = await this.resolveCrossFileSymbol(document, parserPosition);
-      }
 
       if (!symbol) {
         this.logger.debug(() => {
@@ -129,36 +121,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
       this.logger.debug(() => `Found symbol: ${symbol.name} (${symbol.kind})`);
 
-      // Create enhanced resolution context for better accuracy
-      const context = this.symbolManager.createResolutionContextWithRequestType(
-        document.getText(),
-        parserPosition,
-        document.uri,
-        'hover',
-      );
-
-      // Use strategy-based resolution for confidence scoring
-      const resolutionResult =
-        await this.symbolManager.resolveSymbolWithStrategy(
-          {
-            type: 'hover',
-            position: {
-              line: parserPosition.line,
-              column: parserPosition.character,
-            },
-          },
-          context,
-        );
-
-      // Create hover information with confidence from resolution strategy
-      const confidence = resolutionResult.success ? 0.9 : 0.5;
-
-      this.logger.debug(
-        () =>
-          `About to create hover information for symbol: ${symbol.name} with confidence: ${confidence}`,
-      );
-
-      const hover = await this.createHoverInformation(symbol, confidence);
+      const hover = await this.createHoverInformation(symbol);
 
       this.logger.debug(
         () => `Hover creation result: ${hover ? 'success' : 'null'}`,
@@ -279,10 +242,7 @@ export class HoverProcessingService implements IHoverProcessor {
   /**
    * Create hover information for a symbol
    */
-  private async createHoverInformation(
-    symbol: any,
-    confidence: number,
-  ): Promise<Hover> {
+  private async createHoverInformation(symbol: ApexSymbol): Promise<Hover> {
     const content: string[] = [];
 
     // Basic symbol information
@@ -342,46 +302,40 @@ export class HoverProcessingService implements IHoverProcessor {
     }
 
     // Add type information
-    if (symbol.type) {
-      content.push(`**Type:** ${symbol.type.name}`);
+    if (symbol._typeData?.type?.name) {
+      content.push(`**Type:** ${symbol._typeData?.type?.name}`);
     }
 
-    // Add return type for methods
-    if (symbol.kind === 'method' && symbol.returnType) {
-      content.push(`**Returns:** ${symbol.returnType.name}`);
-    }
+    if (isMethodSymbol(symbol)) {
+      // Add return type for methods
+      if (symbol.returnType) {
+        content.push(`**Returns:** ${symbol.returnType.name}`);
+      }
 
-    // Add parameters for methods
-    if (
-      symbol.kind === 'method' &&
-      symbol.parameters &&
-      symbol.parameters.length > 0
-    ) {
-      const params = symbol.parameters
-        .map((p: any) => `${p.name}: ${p.type?.name || 'any'}`)
-        .join(', ');
-      content.push(`**Parameters:** ${params}`);
+      // Add parameters for methods
+      if (symbol.parameters && symbol.parameters.length > 0) {
+        const params = symbol.parameters
+          .map((p: any) => `${p.name}: ${p.type?.name || 'any'}`)
+          .join(', ');
+        content.push(`**Parameters:** ${params}`);
+      }
     }
 
     // Add inheritance information
-    if (symbol.kind === 'class' && symbol.superClass) {
-      content.push(`**Extends:** ${symbol.superClass}`);
+    if (isClassSymbol(symbol)) {
+      if (symbol.superClass) {
+        content.push(`**Extends:** ${symbol.superClass}`);
+      }
+
+      if (symbol.interfaces && symbol.interfaces.length > 0) {
+        content.push(`**Implements:** ${symbol.interfaces.join(', ')}`);
+      }
     }
 
-    if (
-      symbol.kind === 'class' &&
-      symbol.interfaces &&
-      symbol.interfaces.length > 0
-    ) {
-      content.push(`**Implements:** ${symbol.interfaces.join(', ')}`);
-    }
-
-    if (
-      symbol.kind === 'interface' &&
-      symbol.interfaces &&
-      symbol.interfaces.length > 0
-    ) {
-      content.push(`**Extends:** ${symbol.interfaces.join(', ')}`);
+    if (isInterfaceSymbol(symbol)) {
+      if (symbol.interfaces && symbol.interfaces.length > 0) {
+        content.push(`**Extends:** ${symbol.interfaces.join(', ')}`);
+      }
     }
 
     // Add metrics information using available methods
@@ -411,12 +365,6 @@ export class HoverProcessingService implements IHoverProcessor {
       }
     } catch (error) {
       this.logger.debug(() => `Error getting metrics: ${error}`);
-    }
-
-    // Add confidence information
-    if (confidence < 1.0) {
-      content.push('');
-      content.push(`**Confidence:** ${(confidence * 100).toFixed(1)}%`);
     }
 
     // Add file location

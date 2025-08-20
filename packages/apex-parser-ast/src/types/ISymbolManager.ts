@@ -213,7 +213,6 @@ export interface ISymbolManager {
   ): ApexSymbol | null;
 
   /**
-   * @deprecated Use getSymbolAtPosition(uri, position, 'scope') instead
    * Get the most specific symbol at a given position in a file
    * This provides reliable position-based symbol lookup for LSP services
    * @param fileUri The file URI to search in
@@ -223,20 +222,6 @@ export interface ISymbolManager {
   getSymbolAtPositionWithinScope(
     fileUri: string,
     position: { line: number; character: number },
-  ): ApexSymbol | null;
-
-  /**
-   * @deprecated Use getSymbolAtPosition(uri, position, strategy) instead
-   * Get the most specific symbol at a given position using strategy-based resolution
-   * @param fileUri The file URI to search in
-   * @param position The position to search for symbols (1-based line index, 0-based column index)
-   * @param requestType The type of LSP request (hover, definition, references, etc.)
-   * @returns The most specific symbol at the position, or null if not found
-   */
-  getSymbolAtPositionWithStrategy(
-    fileUri: string,
-    position: { line: number; character: number },
-    requestType?: string,
   ): ApexSymbol | null;
 
   /**

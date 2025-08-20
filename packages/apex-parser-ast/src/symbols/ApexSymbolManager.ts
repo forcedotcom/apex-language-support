@@ -4209,30 +4209,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   /**
-   * @deprecated Use getSymbolAtPosition(uri, position, strategy) instead
-   * Uses resolution strategies
-   */
-  public getSymbolAtPositionWithStrategy(
-    fileUri: string,
-    position: { line: number; character: number },
-    requestType?: string,
-  ): ApexSymbol | null {
-    // Map old LSP requestType to parser strategy
-    let strategy: SymbolResolutionStrategy = 'scope';
-
-    if (
-      requestType === 'hover' ||
-      requestType === 'definition' ||
-      requestType === 'references'
-    ) {
-      strategy = 'precise';
-    }
-
-    // Delegate to new unified method
-    return this.getSymbolAtPosition(fileUri, position, strategy);
-  }
-
-  /**
    * Get symbol at position with precise resolution (exact position matches only)
    * This is used for hover, definition, and references requests where we want exact matches
    */
