@@ -38,7 +38,8 @@ describe('ApexSymbolCollectorListener - Assignment Reference Capture', () => {
       const references = symbolTable.getAllReferences();
       // Also verify a declaration reference exists for variable 'a'
       const declRefs = references.filter(
-        (r) => (r as any).context === 7 /* VARIABLE_DECLARATION */ && r.name === 'a',
+        (r) =>
+          (r as any).context === 7 /* VARIABLE_DECLARATION */ && r.name === 'a',
       );
       expect(declRefs.length).toBeGreaterThanOrEqual(1);
 

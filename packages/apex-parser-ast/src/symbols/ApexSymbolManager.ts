@@ -60,6 +60,12 @@ export interface ImpactAnalysis {
 }
 
 /**
+ * Local cache for quick parent lookup by id within a file
+ * filePath -> (symbolId -> symbol)
+ */
+type ParentLookupCache = Map<string, Map<string, ApexSymbol>>;
+
+/**
  * Symbol metrics for analysis
  */
 export interface SymbolMetrics {
@@ -451,6 +457,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     memoryOptimizationLevel: 'OPTIMAL' as string,
   };
 
+  // Local parent lookup cache per file
+  private parentLookupCache: ParentLookupCache = new Map();
+
   constructor() {
     this.symbolGraph = new ApexSymbolGraph();
     this.fileMetadata = new HashMap();
@@ -496,6 +505,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         symbol.key.kind = symbol.kind;
       }
       symbol.key.unifiedId = generateUnifiedId(symbol.key, normalizedPath);
+    }
+
+    // Attempt to hydrate missing parent linkage before computing FQN (lightweight, cached)
+    if (!symbol.parent && symbol.parentId && symbol.filePath) {
+      try {
+        const cacheForFile = this.getOrBuildParentCacheForFile(normalizedPath);
+        const parentCandidate = cacheForFile.get(symbol.parentId) || null;
+        if (parentCandidate) {
+          symbol.parent = parentCandidate;
+        }
+      } catch (_e) {
+        // best-effort; ignore hydration failure here
+      }
     }
 
     // BUG FIX: Calculate and store FQN if not already present
@@ -1757,17 +1779,26 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         `Using ${resolutionStrategy} strategy for symbol resolution at ${position.line}:${position.character}`,
     );
 
-    switch (resolutionStrategy) {
-      case 'scope':
-        return this.getSymbolAtPositionWithinScope(fileUri, position);
-      case 'precise':
-        return this.getSymbolAtPositionPrecise(fileUri, position);
-      default:
-        this.logger.debug(
-          () => `Unknown strategy ${resolutionStrategy}, falling back to scope`,
-        );
-        return this.getSymbolAtPositionWithinScope(fileUri, position);
+    const result = (() => {
+      switch (resolutionStrategy) {
+        case 'scope':
+          return this.getSymbolAtPositionWithinScope(fileUri, position);
+        case 'precise':
+          return this.getSymbolAtPositionPrecise(fileUri, position);
+        default:
+          this.logger.debug(
+            () =>
+              `Unknown strategy ${resolutionStrategy}, falling back to scope`,
+          );
+          return this.getSymbolAtPositionWithinScope(fileUri, position);
+      }
+    })();
+
+    // Ensure result has hydrated ancestry/FQN before returning to UI layers
+    if (result) {
+      this.ensureSymbolIdentityHydrated(result);
     }
+    return result;
   }
 
   /**
@@ -1989,6 +2020,69 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       this.logger.debug(() => `Error in getSymbolAtPosition: ${error}`);
       return null;
     }
+  }
+
+  /**
+   * Ensure a symbol has sufficient identity for UI consumption by hydrating
+   * parent linkage (when possible) and computing a stable FQN.
+   * This improves data quality so downstream services don't need to reconstruct FQNs.
+   */
+  private ensureSymbolIdentityHydrated(symbol: ApexSymbol): void {
+    if (!symbol) return;
+    try {
+      const normalizedPath = symbol.filePath
+        ? this.normalizeFilePath(symbol.filePath)
+        : null;
+
+      // Fast path: if FQN is already concrete (not just name), skip
+      if (symbol.fqn && symbol.fqn !== symbol.name) {
+        return;
+      }
+
+      // Only attempt hydration for member-like symbols
+      const isMemberKind =
+        symbol.kind === SymbolKind.Method ||
+        symbol.kind === SymbolKind.Constructor ||
+        symbol.kind === SymbolKind.Field ||
+        symbol.kind === SymbolKind.Property;
+
+      // Best-effort: hydrate missing parent from file by parentId
+      if (isMemberKind && !symbol.parent && symbol.parentId && normalizedPath) {
+        try {
+          const cacheForFile =
+            this.getOrBuildParentCacheForFile(normalizedPath);
+          const parentCandidate = cacheForFile.get(symbol.parentId) || null;
+          if (parentCandidate) {
+            symbol.parent = parentCandidate;
+          }
+        } catch (_e) {
+          // ignore
+        }
+      }
+
+      // Compute FQN if missing or too generic
+      if (!symbol.fqn || symbol.fqn === symbol.name) {
+        symbol.fqn = calculateFQN(symbol);
+      }
+    } catch (_e) {
+      // non-fatal; leave symbol as-is
+    }
+  }
+
+  // Build or retrieve a fast lookup cache for a file's symbols
+  private getOrBuildParentCacheForFile(
+    normalizedPath: string,
+  ): Map<string, ApexSymbol> {
+    let cache = this.parentLookupCache.get(normalizedPath);
+    if (cache) return cache;
+
+    const map = new Map<string, ApexSymbol>();
+    const symbols = this.findSymbolsInFile(normalizedPath);
+    for (const s of symbols) {
+      map.set(s.id, s);
+    }
+    this.parentLookupCache.set(normalizedPath, map);
+    return map;
   }
 
   /**
@@ -4319,6 +4413,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         this.logger.debug(
           () => `Returning most specific symbol: ${mostSpecific.name}`,
         );
+        // Hydrate identity before returning
+        this.ensureSymbolIdentityHydrated(mostSpecific);
         return mostSpecific;
       }
 

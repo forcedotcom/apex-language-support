@@ -12,20 +12,22 @@ import {
   MarkupContent,
   MarkupKind,
 } from 'vscode-languageserver';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbolProcessingManager,
-  TypeReference,
-  ReferenceContext,
   ISymbolManager,
   ApexSymbol,
   isMethodSymbol,
   isClassSymbol,
   isInterfaceSymbol,
+  isEnumSymbol,
+  isTriggerSymbol,
+  isConstructorSymbol,
+  isVariableSymbol,
+  inTypeSymbolGroup,
 } from '@salesforce/apex-lsp-parser-ast';
+import { ApexCapabilitiesManager } from '../capabilities/ApexCapabilitiesManager';
 
-import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   transformLspToParserPosition,
   formatPosition,
@@ -55,6 +57,7 @@ export interface IHoverProcessor {
 export class HoverProcessingService implements IHoverProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
+  private readonly capabilitiesManager: ApexCapabilitiesManager;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
@@ -62,6 +65,7 @@ export class HoverProcessingService implements IHoverProcessor {
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    this.capabilitiesManager = ApexCapabilitiesManager.getInstance();
   }
 
   /**
@@ -76,24 +80,6 @@ export class HoverProcessingService implements IHoverProcessor {
     );
 
     try {
-      // Get the storage manager instance
-      const storageManager = ApexStorageManager.getInstance();
-      const storage = storageManager.getStorage();
-
-      // Get the document
-      const document = await storage.getDocument(params.textDocument.uri);
-      if (!document) {
-        this.logger.warn(
-          () => `Document not found: ${params.textDocument.uri}`,
-        );
-        return null;
-      }
-
-      this.logger.debug(
-        () =>
-          `Document found: ${document.uri}, length: ${document.getText().length}`,
-      );
-
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
 
@@ -106,7 +92,7 @@ export class HoverProcessingService implements IHoverProcessor {
       );
 
       let symbol = this.symbolManager.getSymbolAtPosition(
-        document.uri,
+        params.textDocument.uri,
         parserPosition,
         'precise',
       );
@@ -135,158 +121,45 @@ export class HoverProcessingService implements IHoverProcessor {
   }
 
   /**
-   * Resolve cross-file symbols using TypeReference data
-   * This provides precise cross-file resolution when no local symbol is found
-   */
-  private async resolveCrossFileSymbol(
-    document: TextDocument,
-    parserPosition: { line: number; character: number },
-  ): Promise<any | null> {
-    try {
-      this.logger.debug(
-        () =>
-          `Searching for cross-file symbols at parser position ${formatPosition(
-            parserPosition,
-            'parser',
-          )}`,
-      );
-
-      // Use parser package's TypeReference data for precise cross-file resolution
-      const typeReferences = this.symbolManager.getReferencesAtPosition(
-        document.uri,
-        parserPosition,
-      );
-
-      if (typeReferences && typeReferences.length > 0) {
-        this.logger.debug(
-          () =>
-            `Found ${typeReferences.length} TypeReference objects for cross-file resolution`,
-        );
-
-        // Use TypeReference data for cross-file resolution
-        const symbolsFromReferences =
-          this.resolveCrossFileSymbolsFromReferences(
-            typeReferences,
-            document.uri,
-          );
-
-        if (symbolsFromReferences.length > 0) {
-          this.logger.debug(
-            () =>
-              `Resolved ${symbolsFromReferences.length} cross-file symbols using TypeReference data`,
-          );
-          return symbolsFromReferences[0]; // Return the first resolved symbol
-        }
-      }
-
-      this.logger.debug(() => 'No cross-file symbols found');
-      return null;
-    } catch (error) {
-      this.logger.error(
-        () => `Error in cross-file symbol resolution: ${error}`,
-      );
-      return null;
-    }
-  }
-
-  /**
-   * Resolve cross-file symbols from TypeReference data
-   * This provides more precise resolution than generic cross-file lookup
-   */
-  private resolveCrossFileSymbolsFromReferences(
-    typeReferences: TypeReference[],
-    sourceFile: string,
-  ): any[] {
-    const resolvedSymbols: any[] = [];
-
-    for (const ref of typeReferences) {
-      try {
-        // Use available methods from ISymbolManager interface
-        // Try to find symbols by name that match the TypeReference
-        const foundSymbols = this.symbolManager.findSymbolByName(ref.name);
-
-        if (foundSymbols && foundSymbols.length > 0) {
-          // Filter out symbols from the current file (we want cross-file only)
-          const crossFileSymbols = foundSymbols.filter(
-            (symbol: any) => symbol.filePath !== sourceFile,
-          );
-
-          if (crossFileSymbols.length > 0) {
-            // Add context information from TypeReference
-            const enhancedSymbols = crossFileSymbols.map((symbol: any) => ({
-              ...symbol,
-              _typeReference: ref,
-              _context: ref.context,
-              _qualifier: ref.qualifier,
-              _isCrossFile: true,
-            }));
-
-            resolvedSymbols.push(...enhancedSymbols);
-
-            this.logger.debug(
-              () =>
-                `Enhanced cross-file symbol ${ref.name} with TypeReference context: ${ReferenceContext[ref.context]}`,
-            );
-          }
-        }
-      } catch (error) {
-        this.logger.debug(
-          () => `Error resolving TypeReference ${ref.name}: ${error}`,
-        );
-      }
-    }
-
-    return resolvedSymbols;
-  }
-
-  /**
    * Create hover information for a symbol
    */
   private async createHoverInformation(symbol: ApexSymbol): Promise<Hover> {
     const content: string[] = [];
 
-    // Basic symbol information
-    const kindDisplay = symbol.kind
-      ? symbol.kind.charAt(0).toUpperCase() + symbol.kind.slice(1)
-      : 'Symbol';
-    content.push(`**${kindDisplay}** ${symbol.name}`);
+    // Add FQN directly; symbol manager now hydrates identity for resolved symbols
+    const fqn = symbol.fqn || this.symbolManager.constructFQN(symbol);
 
-    // Add FQN using parser package's hierarchical FQN construction
-    let fqn = symbol.fqn;
-    if (!fqn) {
-      // Use the symbol manager's hierarchical FQN construction
-      fqn = this.symbolManager.constructFQN(symbol);
+    // Header: IDE-style signature for all symbol kinds
+    content.push('');
+    content.push('```apex');
+    if (isMethodSymbol(symbol)) {
+      const returnType = symbol.returnType?.name || 'void';
+      const paramsSig = ((symbol as any).parameters || [])
+        .map((p: any) => `${p.type?.name || 'any'} ${p.name}`)
+        .join(', ');
+      const methodName = fqn || symbol.name;
+      content.push(`${returnType} ${methodName}(${paramsSig})`);
+    } else if (isConstructorSymbol(symbol)) {
+      const paramsSig = ((symbol as any).parameters || [])
+        .map((p: any) => `${p.type?.name || 'any'} ${p.name}`)
+        .join(', ');
+      const ctorName = fqn || symbol.name;
+      content.push(`${ctorName}(${paramsSig})`);
+    } else if (isClassSymbol(symbol)) {
+      content.push(`class ${fqn || symbol.name}`);
+    } else if (isInterfaceSymbol(symbol)) {
+      content.push(`interface ${fqn || symbol.name}`);
+    } else if (isEnumSymbol(symbol)) {
+      content.push(`enum ${fqn || symbol.name}`);
+    } else if (isTriggerSymbol(symbol)) {
+      content.push(`trigger ${fqn || symbol.name}`);
+    } else if (isVariableSymbol(symbol)) {
+      const type = symbol._typeData?.type?.name || 'unknown';
+      content.push(`${type} ${fqn || symbol.name}`);
+    } else {
+      content.push(fqn || symbol.name);
     }
-
-    // If FQN is still just the symbol name, try to find containing type
-    if (fqn === symbol.name) {
-      const containingType = this.symbolManager.getContainingType(symbol);
-      if (containingType) {
-        fqn = `${containingType.name}.${symbol.name}`;
-      }
-    }
-
-    // Special handling for cross-class method references
-    // If this is a method and the FQN doesn't include the class name,
-    // and the symbol is from a different file than the current context,
-    // we need to construct the FQN manually
-    if (symbol.kind === 'method' && fqn === symbol.name) {
-      // Try to find the class that contains this method
-      const methodFile = symbol.filePath;
-      if (methodFile) {
-        const fileSymbols = this.symbolManager.findSymbolsInFile(methodFile);
-        const containingClass = fileSymbols.find(
-          (s: any) => s.kind === 'class' && s.id === symbol.parentId,
-        );
-        if (containingClass) {
-          fqn = `${containingClass.name}.${symbol.name}`;
-        }
-      }
-    }
-
-    if (fqn) {
-      content.push(`**FQN:** ${fqn}`);
-    }
+    content.push('```');
 
     // Add modifiers
     if (symbol.modifiers) {
@@ -300,71 +173,67 @@ export class HoverProcessingService implements IHoverProcessor {
         content.push(`**Modifiers:** ${modifiers.join(', ')}`);
       }
     }
-
-    // Add type information
-    if (symbol._typeData?.type?.name) {
-      content.push(`**Type:** ${symbol._typeData?.type?.name}`);
-    }
-
-    if (isMethodSymbol(symbol)) {
-      // Add return type for methods
-      if (symbol.returnType) {
-        content.push(`**Returns:** ${symbol.returnType.name}`);
-      }
-
-      // Add parameters for methods
-      if (symbol.parameters && symbol.parameters.length > 0) {
-        const params = symbol.parameters
-          .map((p: any) => `${p.name}: ${p.type?.name || 'any'}`)
-          .join(', ');
-        content.push(`**Parameters:** ${params}`);
-      }
-    }
-
-    // Add inheritance information
-    if (isClassSymbol(symbol)) {
-      if (symbol.superClass) {
-        content.push(`**Extends:** ${symbol.superClass}`);
-      }
-
-      if (symbol.interfaces && symbol.interfaces.length > 0) {
-        content.push(`**Implements:** ${symbol.interfaces.join(', ')}`);
-      }
-    }
-
-    if (isInterfaceSymbol(symbol)) {
-      if (symbol.interfaces && symbol.interfaces.length > 0) {
-        content.push(`**Extends:** ${symbol.interfaces.join(', ')}`);
-      }
-    }
-
-    // Add metrics information using available methods
-    try {
-      const referencesTo = this.symbolManager.findReferencesTo(symbol);
-      const referencesFrom = this.symbolManager.findReferencesFrom(symbol);
-      const dependencyAnalysis = this.symbolManager.analyzeDependencies(symbol);
-      const totalReferences = referencesTo.length + referencesFrom.length;
-
+    // Add metrics information only in development mode
+    if (this.capabilitiesManager.getMode() === 'development') {
+      // Add type information (compact) for value-like symbols
+      const isTypeLike = inTypeSymbolGroup(symbol);
       if (
-        totalReferences > 0 ||
-        dependencyAnalysis.dependencies.length > 0 ||
-        dependencyAnalysis.dependents.length > 0
+        !isMethodSymbol(symbol) &&
+        !isTypeLike &&
+        symbol._typeData?.type?.name
       ) {
-        content.push('');
-        content.push('**Metrics:**');
-        content.push(`- Reference count: ${totalReferences}`);
-        content.push(
-          `- Dependency count: ${dependencyAnalysis.dependencies.length}`,
-        );
-        content.push(
-          `- Dependents count: ${dependencyAnalysis.dependents.length}`,
-        );
-        content.push(
-          `- Impact score: ${dependencyAnalysis.impactScore.toFixed(2)}`,
-        );
+        content.push(`**Type:** ${symbol._typeData?.type?.name}`);
       }
-    } catch (error) {
-      this.logger.debug(() => `Error getting metrics: ${error}`);
+
+      if (isMethodSymbol(symbol)) {
+        // Method details already shown in signature; skip verbose duplication
+      }
+
+      // Add inheritance information
+      if (isClassSymbol(symbol)) {
+        if (symbol.superClass) {
+          content.push(`**Extends:** ${symbol.superClass}`);
+        }
+
+        if (symbol.interfaces && symbol.interfaces.length > 0) {
+          content.push(`**Implements:** ${symbol.interfaces.join(', ')}`);
+        }
+      }
+
+      if (isInterfaceSymbol(symbol)) {
+        if (symbol.interfaces && symbol.interfaces.length > 0) {
+          content.push(`**Extends:** ${symbol.interfaces.join(', ')}`);
+        }
+      }
+
+      try {
+        const referencesTo = this.symbolManager.findReferencesTo(symbol);
+        const referencesFrom = this.symbolManager.findReferencesFrom(symbol);
+        const dependencyAnalysis =
+          this.symbolManager.analyzeDependencies(symbol);
+        const totalReferences = referencesTo.length + referencesFrom.length;
+
+        if (
+          totalReferences > 0 ||
+          dependencyAnalysis.dependencies.length > 0 ||
+          dependencyAnalysis.dependents.length > 0
+        ) {
+          content.push('');
+          content.push('**Metrics:**');
+          content.push(`- Reference count: ${totalReferences}`);
+          content.push(
+            `- Dependency count: ${dependencyAnalysis.dependencies.length}`,
+          );
+          content.push(
+            `- Dependents count: ${dependencyAnalysis.dependents.length}`,
+          );
+          content.push(
+            `- Impact score: ${dependencyAnalysis.impactScore.toFixed(2)}`,
+          );
+        }
+      } catch (error) {
+        this.logger.debug(() => `Error getting metrics: ${error}`);
+      }
     }
 
     // Add file location

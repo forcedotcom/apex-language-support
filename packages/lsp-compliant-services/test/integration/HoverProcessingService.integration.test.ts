@@ -886,9 +886,10 @@ describe('HoverProcessingService Integration Tests', () => {
           typeof result.contents === 'object' && 'value' in result.contents
             ? result.contents.value
             : '';
-        expect(content).toContain('**Class** String');
+        // New hover format: code block header with FQN
+        expect(content).toContain('```apex');
+        expect(content).toContain('BUILT_IN.String');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*public/);
-        expect(content).toContain('**FQN:** BUILT_IN.String');
       }
     });
 
@@ -914,10 +915,9 @@ describe('HoverProcessingService Integration Tests', () => {
           typeof result.contents === 'object' && 'value' in result.contents
             ? result.contents.value
             : '';
-        // Note: Currently the hover service resolves to the String class when hovering over just the method name
-        // This is expected behavior for the current implementation
-        expect(content).toContain('**Class** String');
-        expect(content).toContain('**FQN:** BUILT_IN.String');
+        // Note: Hover resolves to String class when hovering the method name; header is now a code block
+        expect(content).toContain('```apex');
+        expect(content).toContain('BUILT_IN.String');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*public/);
       }
     });

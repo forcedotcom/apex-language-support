@@ -37,9 +37,14 @@ export const isEnumSymbol = (
  */
 export const isMethodSymbol = (
   symbol: ApexSymbol | undefined | null,
-): symbol is MethodSymbol =>
-  !!symbol &&
-  (symbol.kind === SymbolKind.Method || symbol.kind === SymbolKind.Constructor);
+): symbol is MethodSymbol => !!symbol && symbol.kind === SymbolKind.Method;
+
+/**
+ * Type predicate to check if a symbol is a MethodSymbol
+ */
+export const isConstructorSymbol = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is MethodSymbol => !!symbol && symbol.kind === SymbolKind.Constructor;
 
 /**
  * Type predicate to check if a symbol is a ClassSymbol
@@ -61,6 +66,14 @@ export const isInterfaceSymbol = (
 export const isTriggerSymbol = (
   symbol: ApexSymbol | undefined | null,
 ): symbol is TypeSymbol => !!symbol && symbol.kind === SymbolKind.Trigger;
+
+export const isFieldSymbol = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is VariableSymbol => !!symbol && symbol.kind === SymbolKind.Field;
+
+export const isPropertySymbol = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is VariableSymbol => !!symbol && symbol.kind === SymbolKind.Property;
 
 /**
  * Type predicate to check if a symbol is in the TypeSymbol family (Class, Interface, Enum, or Trigger)
