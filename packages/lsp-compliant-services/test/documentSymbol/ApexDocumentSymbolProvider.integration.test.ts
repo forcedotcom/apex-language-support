@@ -157,7 +157,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
           {
             children: [],
             kind: 9, // SymbolKind.Constructor
-            name: 'CommunitiesLandingController(Boolean) : void',
+            name: 'CommunitiesLandingController',
             range: {
               end: { character: 6, line: 14 },
               start: { character: 11, line: 9 }, // Symbol name + scope (after 'public')
@@ -283,7 +283,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
             },
             children: [
               {
-                name: 'InnerClass() : void', // Constructor name should be the class name
+                name: 'InnerClass', // Constructor name now just class name
                 kind: 9, // Constructor
                 range: {
                   start: { line: 2, character: 11 }, // Symbol name + scope (after 'public')

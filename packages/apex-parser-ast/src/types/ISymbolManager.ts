@@ -15,6 +15,10 @@ import {
 import { type EnumValue } from '@salesforce/apex-lsp-shared';
 import { FQNOptions } from '../utils/FQNUtils';
 import { TypeReference } from '../types/typeReference';
+import type {
+  ApexComment,
+  CommentAssociation,
+} from '../parser/listeners/ApexCommentCollectorListener';
 
 /**
  * Context for symbol resolution
@@ -185,6 +189,20 @@ export interface ISymbolManager {
    * @returns Array of ancestor symbols from top-level to closest parent
    */
   getAncestorChain(symbol: ApexSymbol): ApexSymbol[];
+
+  /**
+   * Store per-file comment associations for later retrieval by services.
+   * Implementations should normalize the file path internally.
+   */
+  setCommentAssociations(
+    filePath: string,
+    associations: CommentAssociation[],
+  ): void;
+
+  /**
+   * Get documentation block comments associated with a symbol.
+   */
+  getBlockCommentsForSymbol(symbol: ApexSymbol): ApexComment[];
 
   /**
    * Get TypeReference data at a specific position in a file

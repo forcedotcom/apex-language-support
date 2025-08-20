@@ -27,7 +27,6 @@ import {
 import {
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
-  dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange,
@@ -37,6 +36,7 @@ import {
   ApexStorage,
   LSPConfigurationManager,
   BackgroundProcessingInitializationService,
+  HandlerFactory,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -314,9 +314,10 @@ documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
     `Web Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
   );
 
-  dispatchProcessOnOpenDocument(event).then((diagnostics) =>
-    handleDiagnostics(event.document.uri, diagnostics),
-  );
+  const handler = HandlerFactory.createDidOpenDocumentHandler();
+  handler
+    .handleDocumentOpen(event)
+    .then((diagnostics) => handleDiagnostics(event.document.uri, diagnostics));
 });
 
 documents.onDidChangeContent((event: TextDocumentChangeEvent<TextDocument>) => {

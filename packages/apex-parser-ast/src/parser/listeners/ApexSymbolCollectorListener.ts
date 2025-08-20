@@ -86,6 +86,7 @@ import { IdentifierValidator } from '../../semantics/validation/IdentifierValida
 import {
   hasIdMethod,
   isEnumSymbol,
+  isConstructorSymbol,
   isMethodSymbol,
   isClassSymbol,
   isInterfaceSymbol,
@@ -723,7 +724,7 @@ export class ApexSymbolCollectorListener
             .join(',') || '';
 
         const duplicateConstructor = existingSymbols.find((s) => {
-          if (!isMethodSymbol(s) || s.name !== name || !s.isConstructor) {
+          if (!isConstructorSymbol(s) || s.name !== name) {
             return false;
           }
           const existingParamTypes =

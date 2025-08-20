@@ -16,6 +16,10 @@ import {
   VariableSymbol,
   SymbolKind,
 } from '../types/symbol';
+import type {
+  CompilationResultWithComments,
+  CompilationResultWithAssociations,
+} from '../parser/compilerService';
 
 /**
  * Type predicate to check if a context has an id() method
@@ -99,3 +103,22 @@ export const isVariableSymbol = (
     symbol.kind === SymbolKind.Variable ||
     symbol.kind === SymbolKind.Parameter ||
     symbol.kind === SymbolKind.EnumValue);
+
+/**
+ * Type predicate to check if a compilation result includes comments
+ */
+export const hasComments = (
+  result: any,
+): result is CompilationResultWithComments<any> =>
+  !!result && typeof result === 'object' && 'comments' in (result as any);
+
+/**
+ * Type predicate to check if a compilation result includes comment associations
+ */
+export const hasCommentAssociations = (
+  result: any,
+): result is CompilationResultWithAssociations<any> =>
+  !!result &&
+  typeof result === 'object' &&
+  'comments' in (result as any) &&
+  'commentAssociations' in (result as any);

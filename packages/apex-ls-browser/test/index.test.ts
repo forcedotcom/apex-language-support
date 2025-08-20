@@ -178,7 +178,6 @@ mockConnection.onRequest.mockImplementation((method: string, handler: any) => {
   return mockConnection;
 });
 
-
 mockDocuments.onDidOpen.mockImplementation((handler: OnDidOpenHandler) => {
   mockHandlers.onDidOpen = handler;
   return mockDocuments;
@@ -241,7 +240,8 @@ jest.mock('vscode-languageserver-textdocument', () => ({
 }));
 
 // Mock the document processing functions
-const mockDispatchProcessOnOpenDocument = jest.fn().mockResolvedValue([]);
+const mockCreateDidOpenDocumentHandler = jest.fn();
+const mockHandleDocumentOpen = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnChangeDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnCloseDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnSaveDocument = jest.fn().mockResolvedValue([]);
@@ -251,13 +251,17 @@ const mockDispatchProcessOnDiagnostic = jest.fn().mockResolvedValue([]);
 
 jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   ...jest.requireActual('@salesforce/apex-lsp-compliant-services'),
-  dispatchProcessOnOpenDocument: mockDispatchProcessOnOpenDocument,
   dispatchProcessOnChangeDocument: mockDispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
   dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol: mockDispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange: mockDispatchProcessOnFoldingRange,
   dispatchProcessOnDiagnostic: mockDispatchProcessOnDiagnostic,
+  HandlerFactory: {
+    createDidOpenDocumentHandler: jest.fn(() =>
+      mockCreateDidOpenDocumentHandler(),
+    ),
+  },
   ApexStorageManager: {
     getInstance: jest.fn().mockReturnValue({
       getStorage: jest.fn(),
@@ -405,6 +409,11 @@ describe('Apex Language Server Browser', () => {
 
     // Reset the singleton instance
     (BrowserLogNotificationHandler as any).instance = undefined;
+
+    // Default open-document handler mock
+    mockCreateDidOpenDocumentHandler.mockReturnValue({
+      handleDocumentOpen: mockHandleDocumentOpen,
+    });
 
     // Reset mock handlers
     Object.keys(mockHandlers).forEach((key) => {
@@ -561,7 +570,7 @@ describe('Apex Language Server Browser', () => {
       'Apex Language Server exiting without proper shutdown',
     );
   });
-  
+
   it('should handle $/ping request', async () => {
     // First trigger the initialized callback to register the request handlers
     expect(mockConnection.onInitialized).toHaveBeenCalled();
@@ -615,8 +624,9 @@ describe('Apex Language Server Browser', () => {
         `Web Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
       );
 
-      // Verify document processing
-      expect(mockDispatchProcessOnOpenDocument).toHaveBeenCalledWith(event);
+      // Verify handler was used
+      expect(mockCreateDidOpenDocumentHandler).toHaveBeenCalled();
+      expect(mockHandleDocumentOpen).toHaveBeenCalledWith(event);
     });
 
     it('should send diagnostics when there are compilation errors', async () => {
@@ -643,8 +653,8 @@ describe('Apex Language Server Browser', () => {
         },
       ];
 
-      // Mock the dispatch function to return diagnostics
-      mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(mockDiagnostics);
+      // Mock the handler to return diagnostics
+      mockHandleDocumentOpen.mockResolvedValueOnce(mockDiagnostics);
 
       // Call the onDidOpen handler
       const onDidOpenHandler = mockHandlers.onDidOpen as OnDidOpenHandler;
@@ -785,7 +795,7 @@ describe('Apex Language Server Browser', () => {
     });
 
     it('should send empty diagnostics array when onDidOpen returns undefined', async () => {
-      mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(undefined);
+      mockHandleDocumentOpen.mockResolvedValueOnce(undefined);
 
       const event: TextDocumentChangeEvent<TextDocument> = {
         document: {

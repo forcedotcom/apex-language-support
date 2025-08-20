@@ -9,6 +9,7 @@
 import { Effect, Queue, Fiber } from 'effect';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { SymbolTable } from '../types/symbol';
+import type { CommentAssociation } from '../parser/listeners/ApexCommentCollectorListener';
 import { ApexSymbolManager } from './ApexSymbolManager';
 
 /**
@@ -55,10 +56,24 @@ export interface SymbolProcessingTask {
 }
 
 /**
+ * Task type for storing comment associations
+ */
+export interface CommentAssociationTask {
+  readonly _tag: 'CommentAssociationTask';
+  readonly id: string;
+  readonly filePath: string;
+  readonly associations: CommentAssociation[];
+  readonly priority: TaskPriority;
+  readonly timestamp: number;
+}
+
+type IndexingTask = SymbolProcessingTask | CommentAssociationTask;
+
+/**
  * Task registry entry for tracking task status
  */
 interface TaskRegistryEntry {
-  task: SymbolProcessingTask;
+  task: IndexingTask;
   status: TaskStatus;
   startTime?: number;
   endTime?: number;
@@ -89,7 +104,7 @@ class TaskRegistry {
   /**
    * Register a new task
    */
-  registerTask(task: SymbolProcessingTask): void {
+  registerTask(task: IndexingTask): void {
     this.tasks.set(task.id, {
       task,
       status: 'PENDING',
@@ -209,7 +224,7 @@ class TaskRegistry {
  * This service manages the queue and delegates actual processing to ApexSymbolManager
  */
 export class ApexSymbolIndexingService {
-  private readonly queue: Queue.Queue<SymbolProcessingTask>;
+  private readonly queue: Queue.Queue<IndexingTask>;
   private readonly taskRegistry: TaskRegistry;
   private readonly symbolManager: ApexSymbolManager;
   private readonly logger = getLogger();
@@ -220,7 +235,7 @@ export class ApexSymbolIndexingService {
     this.taskRegistry = new TaskRegistry();
 
     // Use Effect-TS Queue for thread-safe operations with back-pressure
-    this.queue = Effect.runSync(Queue.bounded<SymbolProcessingTask>(100));
+    this.queue = Effect.runSync(Queue.bounded<IndexingTask>(100));
   }
 
   /**
@@ -254,7 +269,7 @@ export class ApexSymbolIndexingService {
   /**
    * Process a single task by delegating to the symbol manager
    */
-  private processTask(task: SymbolProcessingTask): void {
+  private processTask(task: IndexingTask): void {
     try {
       this.taskRegistry.updateTaskStatus(task.id, 'RUNNING');
 
@@ -262,15 +277,23 @@ export class ApexSymbolIndexingService {
         () => `Processing task ${task.id} for ${task.filePath}`,
       );
 
-      // Delegate to the symbol manager to do the actual work
-      this.symbolManager.addSymbolTable(task.symbolTable, task.filePath);
+      if (task._tag === 'SymbolProcessingTask') {
+        // Delegate to the symbol manager to do the actual work
+        this.symbolManager.addSymbolTable(task.symbolTable, task.filePath);
 
-      // If cross-file resolution is enabled, trigger it
-      if (task.options.enableCrossFileResolution) {
-        this.logger.debug(
-          () => `Cross-file resolution enabled for task ${task.id}`,
+        // If cross-file resolution is enabled, trigger it
+        if (task.options.enableCrossFileResolution) {
+          this.logger.debug(
+            () => `Cross-file resolution enabled for task ${task.id}`,
+          );
+          // The symbol manager will handle cross-file resolution internally
+        }
+      } else if (task._tag === 'CommentAssociationTask') {
+        // Persist comment associations for later retrieval (e.g., hover)
+        this.symbolManager.setCommentAssociations(
+          task.filePath,
+          task.associations,
         );
-        // The symbol manager will handle cross-file resolution internally
       }
 
       this.taskRegistry.updateTaskStatus(task.id, 'COMPLETED');
@@ -289,7 +312,7 @@ export class ApexSymbolIndexingService {
   /**
    * Enqueue a task for background processing
    */
-  enqueue(task: SymbolProcessingTask): void {
+  enqueue(task: IndexingTask): void {
     this.taskRegistry.registerTask(task);
 
     // Use Effect.runSync to offer the task to the queue
@@ -432,5 +455,29 @@ export class ApexSymbolIndexingIntegration {
       timestamp: Date.now(),
       retryCount: 0,
     };
+  }
+
+  /**
+   * Schedule a comment association persistence task
+   */
+  scheduleCommentAssociations(
+    filePath: string,
+    associations: CommentAssociation[],
+    priority: TaskPriority = 'NORMAL',
+  ): string {
+    const taskId = `task_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+    const task: CommentAssociationTask = {
+      _tag: 'CommentAssociationTask',
+      id: taskId,
+      filePath,
+      associations,
+      priority,
+      timestamp: Date.now(),
+    };
+    this.indexingService.enqueue(task);
+    this.logger.debug(() => `Comment associations scheduled: ${taskId}`);
+    return taskId;
   }
 }

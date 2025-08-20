@@ -38,6 +38,11 @@ import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 
 import { ResourceLoader } from '../utils/resourceLoader';
 import { isStdApexNamespace } from '../generated/stdApexNamespaces';
+import type {
+  ApexComment,
+  CommentAssociation,
+} from '../parser/listeners/ApexCommentCollectorListener';
+import { CommentAssociator } from '../utils/CommentAssociator';
 
 /**
  * File metadata for tracking symbol relationships
@@ -63,7 +68,7 @@ export interface ImpactAnalysis {
  * Local cache for quick parent lookup by id within a file
  * filePath -> (symbolId -> symbol)
  */
-type ParentLookupCache = Map<string, Map<string, ApexSymbol>>;
+type ParentLookupCache = HashMap<string, HashMap<string, ApexSymbol>>;
 
 /**
  * Symbol metrics for analysis
@@ -454,11 +459,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     cacheHitRate: 0,
     totalCacheEntries: 0,
     lastCleanup: Date.now(),
-    memoryOptimizationLevel: 'OPTIMAL' as string,
+    memoryOptimizationLevel: 'OPTIMAL',
   };
 
   // Local parent lookup cache per file
-  private parentLookupCache: ParentLookupCache = new Map();
+  private parentLookupCache: ParentLookupCache = new HashMap();
+  private readonly fileCommentAssociations: HashMap<
+    string,
+    CommentAssociation[]
+  > = new HashMap();
 
   constructor() {
     this.symbolGraph = new ApexSymbolGraph();
@@ -484,6 +493,36 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     } catch (error) {
       this.logger.warn(() => `Failed to initialize ResourceLoader: ${error}`);
       this.resourceLoader = null;
+    }
+  }
+
+  /** Store per-file comment associations (normalized path). */
+  public setCommentAssociations(
+    filePath: string,
+    associations: CommentAssociation[],
+  ): void {
+    const normalized = this.normalizeFilePath(filePath);
+    this.fileCommentAssociations.set(normalized, associations || []);
+  }
+
+  /**
+   * Retrieve documentation block comments for the provided symbol if available.
+   */
+  public getBlockCommentsForSymbol(symbol: ApexSymbol): ApexComment[] {
+    try {
+      const filePath = symbol.filePath
+        ? this.normalizeFilePath(symbol.filePath)
+        : '';
+      if (!filePath) return [];
+      const associations = this.fileCommentAssociations.get(filePath) || [];
+      if (associations.length === 0) return [];
+      const key =
+        symbol.key?.unifiedId ||
+        `${symbol.kind}:${symbol.name}:${symbol.filePath}`;
+      const associator = new CommentAssociator();
+      return associator.getDocumentationForSymbol(key, associations);
+    } catch (_e) {
+      return [];
     }
   }
 
@@ -2072,11 +2111,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   // Build or retrieve a fast lookup cache for a file's symbols
   private getOrBuildParentCacheForFile(
     normalizedPath: string,
-  ): Map<string, ApexSymbol> {
+  ): HashMap<string, ApexSymbol> {
     let cache = this.parentLookupCache.get(normalizedPath);
     if (cache) return cache;
 
-    const map = new Map<string, ApexSymbol>();
+    const map = new HashMap<string, ApexSymbol>();
     const symbols = this.findSymbolsInFile(normalizedPath);
     for (const s of symbols) {
       map.set(s.id, s);

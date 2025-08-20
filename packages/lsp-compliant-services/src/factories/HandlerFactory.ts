@@ -33,6 +33,8 @@ import {
   HoverProcessingService,
   IHoverProcessor,
 } from '../services/HoverProcessingService';
+import { DidOpenDocumentHandler } from '../handlers/DidOpenDocumentHandler';
+import { DocumentProcessingService } from '../services/DocumentProcessingService';
 
 /**
  * Factory for creating handlers with proper dependency injection
@@ -47,6 +49,16 @@ export class HandlerFactory {
     const documentChangeProcessor = new DocumentChangeProcessingService(logger);
 
     return new DidChangeDocumentHandler(logger, documentChangeProcessor);
+  }
+
+  /**
+   * Create a DidOpenDocumentHandler with default dependencies
+   * @returns A configured DidOpenDocumentHandler instance
+   */
+  static createDidOpenDocumentHandler(): DidOpenDocumentHandler {
+    const logger = getLogger();
+    const documentProcessingService = new DocumentProcessingService(logger);
+    return new DidOpenDocumentHandler(logger, documentProcessingService);
   }
 
   /**

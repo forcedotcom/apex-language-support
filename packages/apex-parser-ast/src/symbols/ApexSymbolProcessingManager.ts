@@ -69,6 +69,16 @@ export class ApexSymbolProcessingManager {
   }
 
   /**
+   * Store per-file comment associations via the underlying symbol manager.
+   */
+  setCommentAssociations(
+    filePath: string,
+    associations: import('../parser/listeners/ApexCommentCollectorListener').CommentAssociation[],
+  ): void {
+    this.symbolManager.setCommentAssociations(filePath, associations);
+  }
+
+  /**
    * Queue a symbol table for background processing
    * @param symbolTable The symbol table to process
    * @param filePath The file path associated with the symbol table
@@ -99,6 +109,22 @@ export class ApexSymbolProcessingManager {
       () => `Symbol processing queued: ${taskId} for ${filePath}`,
     );
     return taskId;
+  }
+
+  /**
+   * Schedule persistence of comment associations for a file.
+   */
+  scheduleCommentAssociations(
+    filePath: string,
+    associations: import('../parser/listeners/ApexCommentCollectorListener').CommentAssociation[],
+  ): string {
+    // Delegate to the indexing service for background persistence
+    // @ts-ignore - access integration
+    return this.symbolIndexingService.scheduleCommentAssociations(
+      filePath,
+      associations,
+      'NORMAL',
+    );
   }
 
   /**

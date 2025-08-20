@@ -26,7 +26,6 @@ import { DidChangeConfigurationParams } from 'vscode-languageserver-protocol';
 import {
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
-  dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange,
@@ -37,6 +36,7 @@ import {
   dispatchProcessOnResolve,
   LSPQueueManager,
   BackgroundProcessingInitializationService,
+  HandlerFactory,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -474,10 +474,13 @@ export function startServer() {
         )
         .catch((error) => {
           logger.error(() => `Queued document open failed: ${error}`);
-          // Fallback to immediate processing
-          dispatchProcessOnOpenDocument(event).then((diagnostics) =>
-            handleDiagnostics(event.document.uri, diagnostics),
-          );
+          // Fallback to immediate processing via handler
+          const handler = HandlerFactory.createDidOpenDocumentHandler();
+          handler
+            .handleDocumentOpen(event)
+            .then((diagnostics) =>
+              handleDiagnostics(event.document.uri, diagnostics),
+            );
         });
     } else {
       // Process small files immediately
@@ -485,9 +488,12 @@ export function startServer() {
         () => `Processing small document immediately: ${event.document.uri}`,
       );
 
-      dispatchProcessOnOpenDocument(event).then((diagnostics) =>
-        handleDiagnostics(event.document.uri, diagnostics),
-      );
+      const handler = HandlerFactory.createDidOpenDocumentHandler();
+      handler
+        .handleDocumentOpen(event)
+        .then((diagnostics) =>
+          handleDiagnostics(event.document.uri, diagnostics),
+        );
     }
   });
 

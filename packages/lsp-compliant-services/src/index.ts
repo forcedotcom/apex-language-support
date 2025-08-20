@@ -76,9 +76,6 @@ export * from './apexlib';
 // Export LSP queue system
 export * from './queue';
 
-// Legacy dispatch function exports for backward compatibility
-// These use the new handler architecture internally
-
 /**
  * Dispatch function for document change events
  * @param event The document change event

@@ -187,7 +187,8 @@ mockDocuments.onDidSave.mockImplementation((handler: OnDidSaveHandler) => {
 });
 
 // Mock the document processing functions
-const mockDispatchProcessOnOpenDocument = jest.fn().mockResolvedValue([]);
+const mockCreateDidOpenDocumentHandler = jest.fn();
+const mockHandleDocumentOpen = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnChangeDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnCloseDocument = jest.fn().mockResolvedValue([]);
 const mockDispatchProcessOnSaveDocument = jest.fn().mockResolvedValue([]);
@@ -364,7 +365,11 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
     initialize: jest.fn(),
     dispose: jest.fn(),
   }),
-  dispatchProcessOnOpenDocument: mockDispatchProcessOnOpenDocument,
+  HandlerFactory: {
+    createDidOpenDocumentHandler: jest.fn(() =>
+      mockCreateDidOpenDocumentHandler(),
+    ),
+  },
   dispatchProcessOnChangeDocument: mockDispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
   dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
@@ -413,6 +418,11 @@ describe('Apex Language Server', () => {
     originalArgv = process.argv;
     process.argv = [...originalArgv, '--stdio'];
 
+    // Default open-document handler mock
+    mockCreateDidOpenDocumentHandler.mockReturnValue({
+      handleDocumentOpen: mockHandleDocumentOpen,
+    });
+
     // Reset mock handlers
     Object.keys(mockHandlers).forEach((key) => {
       mockHandlers[key as keyof MockHandlerStore] = null;
@@ -437,7 +447,6 @@ describe('Apex Language Server', () => {
     });
 
     // Reset all other mocks
-    mockDispatchProcessOnOpenDocument.mockClear();
     mockDispatchProcessOnChangeDocument.mockClear();
     mockDispatchProcessOnCloseDocument.mockClear();
     mockDispatchProcessOnSaveDocument.mockClear();
@@ -658,7 +667,8 @@ describe('Apex Language Server', () => {
         },
       };
       handler(doc);
-      expect(mockDispatchProcessOnOpenDocument).toHaveBeenCalledWith(doc);
+      expect(mockCreateDidOpenDocumentHandler).toHaveBeenCalled();
+      expect(mockHandleDocumentOpen).toHaveBeenCalledWith(doc);
     });
 
     it('should handle onDidChangeContent', () => {
@@ -731,7 +741,7 @@ describe('Apex Language Server', () => {
           severity: 1,
         },
       ];
-      mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(mockDiagnostics);
+      mockHandleDocumentOpen.mockResolvedValueOnce(mockDiagnostics);
 
       const handler = mockDocuments.onDidOpen.mock.calls[0][0];
       const doc = {
@@ -756,7 +766,7 @@ describe('Apex Language Server', () => {
       // Verify the handler was registered
       expect(mockDocuments.onDidOpen).toHaveBeenCalled();
 
-      mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(undefined);
+      mockHandleDocumentOpen.mockResolvedValueOnce(undefined);
 
       const handler = mockDocuments.onDidOpen.mock.calls[0][0];
       const doc = {
@@ -781,7 +791,7 @@ describe('Apex Language Server', () => {
       // Verify the handler was registered
       expect(mockDocuments.onDidOpen).toHaveBeenCalled();
 
-      mockDispatchProcessOnOpenDocument.mockResolvedValueOnce(null);
+      mockHandleDocumentOpen.mockResolvedValueOnce(null);
 
       const handler = mockDocuments.onDidOpen.mock.calls[0][0];
       const doc = {

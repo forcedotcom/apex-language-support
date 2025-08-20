@@ -42,7 +42,6 @@ export * from './namespace/ResolutionRules';
 
 // Export compiler service
 export * from './parser/compilerService';
-
 // Export resource utilities
 export * from './utils/ResourceUtils';
 export * from './utils/resourceLoader';
