@@ -6,6 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+// Import polyfills first for web compatibility
+import './polyfills';
+
 import * as vscode from 'vscode';
 import {
   initializeExtensionLogging,

@@ -272,11 +272,12 @@ export function createPlatformMessageBridge(logger?: Logger): MessageBridge {
  * Detects the current runtime environment
  */
 function detectEnvironment(): EnvironmentType {
-  // Check for web worker environment
+  // Check for web worker environment (both classic and ES module workers)
+  // ES module workers don't have importScripts, so we check for self and lack of window/document
   if (
     typeof self !== 'undefined' &&
-    typeof importScripts !== 'undefined' &&
-    typeof window === 'undefined'
+    typeof window === 'undefined' &&
+    typeof document === 'undefined'
   ) {
     return 'webworker';
   }

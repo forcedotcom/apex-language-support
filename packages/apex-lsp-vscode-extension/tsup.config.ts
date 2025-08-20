@@ -7,6 +7,8 @@
  */
 
 import { defineConfig, Options } from 'tsup';
+import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
+import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
 
 export default defineConfig((options: Options) => ({
   entry: ['out/extension.js', 'out/server.js'],
@@ -36,6 +38,22 @@ export default defineConfig((options: Options) => ({
     options.mainFields = ['browser', 'module', 'main'];
     options.platform = 'browser';
 
+    // Add esbuild plugins for Node.js polyfills
+    options.plugins = [
+      ...(options.plugins || []),
+      NodeGlobalsPolyfillPlugin({
+        process: true,
+        buffer: true,
+      }),
+      NodeModulesPolyfillPlugin(),
+    ];
+
+    // Ensure process and other globals are injected via esbuild
+    options.define = {
+      ...(options.define || {}),
+      global: 'globalThis',
+    };
+
     // Add specific aliases for vscode language server packages to use browser versions
     options.alias = {
       ...options.alias,
@@ -55,12 +73,12 @@ export default defineConfig((options: Options) => ({
         'vscode-languageserver-protocol/browser',
       // VSCode Language Client aliases
       'vscode-languageclient/node': 'vscode-languageclient/browser',
-      // Node.js built-in modules
-      util: 'vscode-jsonrpc/lib/browser/ril',
-      fs: 'memfs',
+      // Node.js built-in modules - combine plugins with explicit polyfills
       path: 'path-browserify',
       crypto: 'crypto-browserify',
       stream: 'stream-browserify',
+      fs: 'memfs',
+      assert: '../apex-ls/src/polyfills/assert-polyfill.ts',
     };
   },
   // Run consolidated post-build script

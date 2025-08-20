@@ -763,18 +763,8 @@ if (!__IS_TEST_ENV__) {
               '[APEX-WORKER] ✅ Apex Language Server started successfully',
             );
 
-            // Send ready signal to parent
-            if (typeof self.postMessage === 'function') {
-              self.postMessage({
-                type: 'apex-worker-ready',
-                timestamp: new Date().toISOString(),
-                capabilities: [
-                  'documentSymbols',
-                  'foldingRanges',
-                  'diagnostics',
-                ],
-              });
-            }
+            // Worker is ready - communication will happen through LSP protocol
+            // Don't use direct postMessage as it's blocked in VS Code Web
           })
           .catch((error) => {
             console.error(
@@ -782,14 +772,8 @@ if (!__IS_TEST_ENV__) {
               error,
             );
 
-            // Send error signal to parent
-            if (typeof self.postMessage === 'function') {
-              self.postMessage({
-                type: 'apex-worker-error',
-                error: error.message,
-                timestamp: new Date().toISOString(),
-              });
-            }
+            // Error will be handled through LSP protocol
+            // Don't use direct postMessage as it's blocked in VS Code Web
           });
       } else {
         console.log(

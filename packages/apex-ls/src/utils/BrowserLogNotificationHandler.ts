@@ -109,24 +109,13 @@ export class UnifiedLogNotificationHandler implements LogNotificationHandler {
 
   /**
    * Sends log message via postMessage (web worker context)
+   * Note: Direct postMessage is blocked in VS Code web worker environment,
+   * so we'll skip this and rely on LSP connection only
    */
   private sendViaPostMessage(params: LogMessageParams): void {
-    if (typeof self !== 'undefined') {
-      try {
-        self.postMessage({
-          type: 'logNotification',
-          level: params.type,
-          message: params.message,
-          timestamp: new Date().toISOString(),
-          source: 'apex-ls-unified',
-        });
-      } catch (error) {
-        // Fallback to console if postMessage fails
-        console.warn(
-          `[UnifiedLogNotificationHandler] Failed to send via postMessage: ${error}`,
-        );
-      }
-    }
+    // Skip direct postMessage in VS Code web worker environment
+    // All logging will go through the LSP connection instead
+    return;
   }
 
   /**

@@ -219,27 +219,15 @@ export class WebWorkerStorage implements ApexStorageInterface {
   /**
    * Synchronizes storage with the main thread
    *
-   * This method can be used to send storage data to the main thread
-   * for persistent storage or to receive storage data from the main thread.
+   * Note: Direct postMessage is blocked in VS Code web worker environment,
+   * so this method is disabled for now. Storage remains in-memory only.
    *
    * @param data Optional data to sync (if not provided, sends current storage)
    */
   async syncWithMainThread(data?: Record<string, any>): Promise<void> {
-    if (typeof self === 'undefined') {
-      return;
-    }
-
-    try {
-      const syncData = data ?? Object.fromEntries(this.storage);
-      self.postMessage({
-        type: 'storageSync',
-        data: syncData,
-        timestamp: new Date().toISOString(),
-        source: 'apex-ls-webworker',
-      });
-    } catch {
-      // Silently fail if postMessage is not available
-    }
+    // Skip direct postMessage in VS Code web worker environment
+    // Storage will remain in-memory only for now
+    return;
   }
 
   /**

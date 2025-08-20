@@ -279,12 +279,13 @@
     "vscode-uri": "^3.0.8"
   },
   "devDependencies": {
+    "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
+    "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@rollup/plugin-typescript": "^11.1.5",
     "@salesforce/apex-tmlanguage": "1.8.0",
     "@types/vscode": "^1.90.0",
     "@vscode/test-electron": "^2.1.5",
     "@vscode/vsce": "^2.15.0",
-    "assert": "^2.1.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "events": "^3.3.0",

@@ -94,11 +94,12 @@ export class UnifiedStorageFactory {
    * Detects the current runtime environment
    */
   private static detectEnvironment(): EnvironmentType {
-    // Check for web worker environment
+    // Check for web worker environment (both classic and ES module workers)
+    // ES module workers don't have importScripts, so we check for self and lack of window
     if (
       typeof self !== 'undefined' &&
-      typeof importScripts !== 'undefined' &&
-      typeof window === 'undefined'
+      typeof window === 'undefined' &&
+      typeof document === 'undefined'
     ) {
       return 'webworker';
     }

@@ -7,7 +7,6 @@
  */
 
 import * as vscode from 'vscode';
-import { LanguageClient, Trace } from 'vscode-languageclient/node';
 import { WorkspaceSettings, DebugConfig } from './types';
 import { updateLogLevel } from './logging';
 import { EXTENSION_CONSTANTS } from './constants';
@@ -116,33 +115,33 @@ export const getDebugConfig = (): DebugConfig => {
 
 /**
  * Gets trace server configuration
- * @returns The trace server setting as a Trace enum value
+ * @returns The trace server setting as a string value
  */
-export const getTraceServerConfig = (): Trace => {
+export const getTraceServerConfig = (): string => {
   const config = vscode.workspace.getConfiguration(
     EXTENSION_CONSTANTS.CONFIG_SECTION,
   );
   const traceValue = config.get<string>('trace.server', 'off');
 
-  // Map string values to Trace enum
+  // Return string values directly for unified client compatibility
   switch (traceValue.toLowerCase()) {
     case 'verbose':
-      return Trace.Verbose;
+      return 'verbose';
     case 'messages':
-      return Trace.Messages;
+      return 'messages';
     case 'off':
     default:
-      return Trace.Off;
+      return 'off';
   }
 };
 
 /**
  * Registers a listener for configuration changes and notifies the server
- * @param client The language client
+ * @param client The client (any client with sendNotification method)
  * @param context The extension context
  */
 export const registerConfigurationChangeListener = (
-  client: LanguageClient,
+  client: { sendNotification: (method: string, params?: any) => void },
   context: vscode.ExtensionContext,
 ): void => {
   // Listen for configuration changes

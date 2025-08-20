@@ -22,29 +22,41 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 
 async function captureExtensionLogs(outputPath) {
-  // Simple approach: Use puppeteer-like functionality if available
-  // For now, we'll create a placeholder file with instructions
   const timestamp = new Date().toISOString();
-  const instructionMessage = `# Extension Host Logs - ${timestamp}
+  const instructionMessage = `# Apex Language Extension Output - ${timestamp}
 
-Please copy the browser console output here.
+INSTRUCTIONS FOR CAPTURING APEX EXTENSION LOGS:
 
-To capture logs manually:
+1. In VS Code Web, go to: View → Output
+2. In the Output panel dropdown (top right), select "Apex Language Extension (Typescript)"
+3. Copy ALL the content from that output panel
+4. Replace this message with the copied content
+
+ALTERNATIVE - Browser Console:
 1. Open Developer Tools (F12)
-2. Go to Console tab
-3. Look for Extension Host logs
-4. Copy and paste the relevant error messages here
+2. Go to Console tab  
+3. Filter for messages containing "Apex" or "typescript" or "Error"
+4. Copy relevant error messages
 
-Alternatively, check the VS Code Web Output panel:
-1. View → Output
-2. Select "Extension Host" from the dropdown
-3. Copy the error output
+WHAT TO LOOK FOR:
+- TypeScript compilation errors
+- Import/module resolution errors
+- Polyfill-related errors
+- Language server initialization errors
+- Worker communication errors
 
-Last automated check: ${timestamp}
+Last check: ${timestamp}
+
+=== PASTE APEX EXTENSION OUTPUT BELOW THIS LINE ===
+
 `;
 
   fs.writeFileSync(outputPath, instructionMessage, 'utf8');
-  console.log(`📝 Created log file template at: ${outputPath}`);
+  console.log(`📝 Created Apex extension log template at: ${outputPath}`);
+  console.log(`\n🔍 TO CAPTURE LOGS:`);
+  console.log(`1. View → Output`);
+  console.log(`2. Select "Apex Language Extension (Typescript)" from dropdown`);
+  console.log(`3. Copy all content to: ${outputPath}`);
 }
 
 async function runWebExtensionTests() {
@@ -54,13 +66,28 @@ async function runWebExtensionTests() {
       '../packages/apex-lsp-vscode-extension',
     );
     const extensionDistPath = path.resolve(extensionDevelopmentPath, 'dist');
-    const workspacePath = path.resolve(__dirname, '../test-workspace');
+    const workspacePath = path.resolve(__dirname, './test-workspace');
 
     // Verify required paths exist
     if (!fs.existsSync(extensionDevelopmentPath)) {
       throw new Error(
         `Extension development path not found: ${extensionDevelopmentPath}`,
       );
+    }
+
+    // Verify workspace exists, create if needed
+    if (!fs.existsSync(workspacePath)) {
+      console.log('📁 Creating test workspace directory...');
+      fs.mkdirSync(workspacePath, { recursive: true });
+      
+      // Create a basic Apex class for testing
+      const sampleApexClass = `public class HelloWorld {
+    public static void sayHello() {
+        System.debug('Hello from Apex!');
+    }
+}`;
+      fs.writeFileSync(path.join(workspacePath, 'HelloWorld.cls'), sampleApexClass);
+      console.log('✅ Created sample Apex class for testing');
     }
 
     // Check if extension is built
@@ -104,7 +131,7 @@ async function runWebExtensionTests() {
       printServerLog: true, // Enable server logs for capture
       verbose: true, // Enable verbose logging
       devtools: process.argv.includes('--devtools'),
-      folderPath: fs.existsSync(workspacePath) ? workspacePath : undefined,
+      folderPath: workspacePath,
       // Add a simple test that just verifies extension loading
       extensionTestsPath: !process.argv.includes('--interactive')
         ? undefined
@@ -121,19 +148,25 @@ async function runWebExtensionTests() {
       },
     });
 
-    // Give the browser some time to load and generate logs (45 second timeout)
+    // Give the browser some time to load and generate logs
     console.log(
-      '⏳ Waiting for extension activation and logs (15s timeout)...',
+      '⏳ Waiting for extension activation and logs (30s timeout)...',
     );
+    console.log('📋 WHILE WAITING:');
+    console.log('   1. Open VS Code Web that should have launched');
+    console.log('   2. Go to View → Output');
+    console.log('   3. Select "Apex Language Extension (Typescript)" from dropdown');
+    console.log('   4. Watch for any errors in the output');
+    
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error('Extension activation timed out after 45 seconds'));
-      }, 15000);
+        reject(new Error('Extension activation timed out after 30 seconds'));
+      }, 30000);
 
       setTimeout(() => {
         clearTimeout(timeout);
         resolve();
-      }, 15000);
+      }, 30000);
     });
 
     // Try to capture browser console logs using Chrome DevTools Protocol

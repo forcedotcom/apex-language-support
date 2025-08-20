@@ -140,24 +140,16 @@ class UnifiedLogger implements LoggerInterface {
 
   /**
    * Sends a log message via postMessage (web worker context)
+   * Note: Direct postMessage is blocked in VS Code web worker environment,
+   * so we'll skip this and rely on LSP connection only
    */
   private sendViaPostMessage(
     messageType: LogMessageType,
     message: string,
   ): void {
-    if (this.usePostMessage && typeof self !== 'undefined') {
-      try {
-        self.postMessage({
-          type: 'log',
-          level: messageType === 'warning' ? 'warn' : messageType,
-          message,
-          timestamp: new Date().toISOString(),
-          source: 'apex-ls-unified',
-        });
-      } catch {
-        // Silently fail if postMessage is not available
-      }
-    }
+    // Skip direct postMessage in VS Code web worker environment
+    // All logging will go through the LSP connection instead
+    return;
   }
 }
 

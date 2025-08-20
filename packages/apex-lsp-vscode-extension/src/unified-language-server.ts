@@ -41,6 +41,39 @@ function detectEnvironment(): 'desktop' | 'web' {
 }
 
 /**
+ * Safely clone an object for worker serialization, removing non-serializable properties
+ */
+function safeCloneForWorker(obj: any): any {
+  try {
+    // Test if the object can be serialized
+    const testStr = JSON.stringify(obj);
+    return JSON.parse(testStr);
+  } catch {
+    // If serialization fails, create a safe version
+    if (typeof obj !== 'object' || obj === null) {
+      return obj;
+    }
+    
+    const safe: any = {};
+    for (const key in obj) {
+      try {
+        const value = obj[key];
+        if (typeof value === 'function') continue;
+        if (typeof value === 'symbol') continue;
+        if (value instanceof Node) continue; // DOM nodes
+        
+        // Recursively handle nested objects
+        safe[key] = safeCloneForWorker(value);
+      } catch {
+        // Skip any properties that can't be safely cloned
+        continue;
+      }
+    }
+    return safe;
+  }
+}
+
+/**
  * Create initialization parameters
  */
 function createInitializeParams(
@@ -49,7 +82,7 @@ function createInitializeParams(
   const workspaceFolders = vscode.workspace.workspaceFolders;
   const settings = getWorkspaceSettings();
 
-  return {
+  const baseParams = {
     processId: null, // Web environments don't have process IDs
     clientInfo: {
       name: 'Apex Language Server Extension',
@@ -217,7 +250,7 @@ function createInitializeParams(
         vscode.env.machineId === 'someValue' ? 'development' : 'production',
       enableDocumentSymbols: true,
       environment: detectEnvironment(),
-      custom: settings.apex.custom,
+      custom: safeCloneForWorker(settings.apex.custom),
     },
     workspaceFolders:
       workspaceFolders?.map((folder) => ({
@@ -225,6 +258,9 @@ function createInitializeParams(
         name: folder.name,
       })) || null,
   };
+
+  // Return safely cloned parameters for worker serialization
+  return safeCloneForWorker(baseParams);
 }
 
 /**
@@ -261,7 +297,7 @@ export const createAndStartUnifiedClient = async (
       unifiedClient = await UniversalClientFactory.createWebWorkerClient({
         context,
         logger,
-        workerFileName: 'worker.mjs',
+        workerFileName: 'dist/worker.mjs',
       });
       logToOutputChannel('✅ Created web worker client', 'info');
     } else {
@@ -271,7 +307,7 @@ export const createAndStartUnifiedClient = async (
       unifiedClient = await UniversalClientFactory.createWebWorkerClient({
         context,
         logger,
-        workerFileName: 'worker.mjs',
+        workerFileName: 'dist/worker.mjs',
       });
       logToOutputChannel(
         '✅ Created desktop client (using web worker architecture)',
