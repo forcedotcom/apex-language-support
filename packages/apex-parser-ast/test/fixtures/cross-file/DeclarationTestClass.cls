@@ -7,8 +7,8 @@ public class DeclarationTestClass {
     
     // Property declarations
     public String Name { get; set; }
-    public String Description { get; set; }
     public Account Owner { get; set; }
+    public String Description { get; set; }
     
     public void testMethod() {
         // Variable declarations with builtin types

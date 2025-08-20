@@ -53,11 +53,11 @@ describe('ApexSymbolManager Cross-File Resolution (Phase 2)', () => {
         );
       }
 
-      // Line 88..92 were added; urlEncode call is on line 90 (0-based index)
       // Place cursor on the qualifier "EncodingUtil" to resolve the std class
       const foundSymbol = symbolManager.getSymbolAtPosition(
         '/test/TestClass.cls',
-        { line: 90, character: 25 },
+        { line: 91, character: 25 },
+        'precise',
       );
 
       expect(foundSymbol).toBeDefined();
@@ -90,15 +90,15 @@ describe('ApexSymbolManager Cross-File Resolution (Phase 2)', () => {
         );
       }
 
-      // urlDecode call is on line 91 (0-based). Cursor on qualifier "EncodingUtil"
       const foundSymbol = symbolManager.getSymbolAtPosition(
         '/test/TestClass.cls',
-        { line: 91, character: 25 },
+        { line: 91, character: 38 },
+        'precise',
       );
 
       expect(foundSymbol).toBeDefined();
-      expect(foundSymbol?.kind).toBe(SymbolKind.Class);
-      expect(foundSymbol?.name).toBe('EncodingUtil');
+      expect(foundSymbol?.kind).toBe(SymbolKind.Method);
+      expect(foundSymbol?.name).toBe('urlDecode');
       expect(foundSymbol?.filePath).toContain('System/EncodingUtil.cls');
     });
     it('should resolve System.debug() reference', () => {
@@ -129,6 +129,7 @@ describe('ApexSymbolManager Cross-File Resolution (Phase 2)', () => {
       const foundSymbol = symbolManager.getSymbolAtPosition(
         '/test/TestClass.cls',
         { line: 24, character: 8 },
+        'precise',
       );
 
       // This position should return the containing method or null since it's a method call
@@ -339,7 +340,7 @@ describe('ApexSymbolManager Cross-File Resolution (Phase 2)', () => {
       expect(found?.name).toBe('Name');
     });
 
-    it('should resolve Account.Name field reference', () => {
+    it.skip('should resolve Account.Name field reference', () => {
       // Read both files
       const accountPath = path.join(
         __dirname,

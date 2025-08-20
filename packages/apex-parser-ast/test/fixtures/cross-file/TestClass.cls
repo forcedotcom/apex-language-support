@@ -155,4 +155,7 @@ public class TestClass {
         String message = 'Hello World';
         return message;
     }
+    public void testIntegerValueOf() {
+        Integer num = Integer.valueOf('42');
+    }
 }
