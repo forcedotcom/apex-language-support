@@ -2084,6 +2084,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           `[DEBUG] Found target symbol: ${targetSymbol.name} (${targetSymbol.kind})`,
       );
 
+      // Skip creating edges for declaration references; they are not dependencies
+      if (typeRef.context === ReferenceContext.VARIABLE_DECLARATION) {
+        return;
+      }
+
+      // Map ReferenceContext to ReferenceType
       // Map ReferenceContext to ReferenceType
       const referenceType = this.mapReferenceContextToType(typeRef.context);
 
@@ -2216,6 +2222,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       case ReferenceContext.VARIABLE_USAGE:
         return ReferenceType.FIELD_ACCESS;
       case ReferenceContext.PARAMETER_TYPE:
+        return ReferenceType.TYPE_REFERENCE;
+      case ReferenceContext.VARIABLE_DECLARATION:
+        // Declarations are for editor UX; do not create dependency edges
         return ReferenceType.TYPE_REFERENCE;
       default:
         return ReferenceType.TYPE_REFERENCE;

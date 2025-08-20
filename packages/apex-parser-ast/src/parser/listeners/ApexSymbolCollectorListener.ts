@@ -2250,6 +2250,26 @@ export class ApexSymbolCollectorListener
       );
 
       this.symbolTable.addSymbol(variableSymbol);
+
+      // Emit a declaration reference for the variable identifier itself to enable precise hover
+      try {
+        const identifierLocation = this.getIdentifierLocation(
+          ctx as unknown as ParserRuleContext,
+        );
+        const parentContext = this.getCurrentMethodName();
+        const declRef = TypeReferenceFactory.createVariableDeclarationReference(
+          name,
+          identifierLocation,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(declRef);
+        this.logger.debug(
+          () =>
+            `DEBUG: Created VARIABLE_DECLARATION ref for identifier: "${name}"`,
+        );
+      } catch (e) {
+        this.logger.warn(() => `Error creating declaration reference: ${e}`);
+      }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in variable: ${errorMessage}`, ctx);

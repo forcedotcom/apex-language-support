@@ -19,6 +19,8 @@ export enum ReferenceContext {
   CONSTRUCTOR_CALL = 4,
   VARIABLE_USAGE = 5,
   PARAMETER_TYPE = 6,
+  // New: declaration reference for variable/field identifiers
+  VARIABLE_DECLARATION = 7,
 }
 
 /**
@@ -188,6 +190,23 @@ export class TypeReferenceFactory {
       name: className,
       location,
       context: ReferenceContext.CLASS_REFERENCE,
+      parentContext,
+      isResolved: false,
+    };
+  }
+
+  /**
+   * Create a variable/field declaration reference for the identifier token
+   */
+  static createVariableDeclarationReference(
+    variableName: string,
+    location: SymbolLocation,
+    parentContext?: string,
+  ): TypeReference {
+    return {
+      name: variableName,
+      location,
+      context: ReferenceContext.VARIABLE_DECLARATION,
       parentContext,
       isResolved: false,
     };
