@@ -175,5 +175,91 @@ describe('DefaultApexDocumentSymbolProvider - Unit Tests', () => {
       const result = provider.formatSymbolName(methodSymbol);
       expect(result).toBe('testMethod(unknown) : void');
     });
+
+    it('should format field symbols with type information', () => {
+      const provider = symbolProvider as any;
+      const fieldSymbol = {
+        name: 'testField',
+        kind: 'field',
+        type: { originalTypeString: 'String' },
+      };
+
+      const result = provider.formatSymbolName(fieldSymbol);
+      expect(result).toBe('testField : String');
+    });
+
+    it('should format property symbols with type information', () => {
+      const provider = symbolProvider as any;
+      const propertySymbol = {
+        name: 'testProperty',
+        kind: 'property',
+        type: { originalTypeString: 'Integer' },
+      };
+
+      const result = provider.formatSymbolName(propertySymbol);
+      expect(result).toBe('testProperty : Integer');
+    });
+
+    it('should format property symbols with complex type information', () => {
+      const provider = symbolProvider as any;
+      const propertySymbol = {
+        name: 'opps',
+        kind: 'property',
+        type: { originalTypeString: 'Opportunity[]' },
+      };
+
+      const result = provider.formatSymbolName(propertySymbol);
+      expect(result).toBe('opps : Opportunity[]');
+    });
+
+    it('should handle field and property symbols with missing type information', () => {
+      const provider = symbolProvider as any;
+      const fieldSymbol = {
+        name: 'testField',
+        kind: 'field',
+        type: null,
+      };
+      const propertySymbol = {
+        name: 'testProperty',
+        kind: 'property',
+        type: null,
+      };
+
+      const fieldResult = provider.formatSymbolName(fieldSymbol);
+      const propertyResult = provider.formatSymbolName(propertySymbol);
+
+      expect(fieldResult).toBe('testField : unknown');
+      expect(propertyResult).toBe('testProperty : unknown');
+    });
+
+    it('should format customer bug scenario properties correctly', () => {
+      const provider = symbolProvider as any;
+      // These represent the properties from the customer's bug report
+      const valueProperty = {
+        name: 'value',
+        kind: 'property',
+        type: { originalTypeString: 'String' },
+      };
+      const oppsProperty = {
+        name: 'opps',
+        kind: 'property',
+        type: { originalTypeString: 'Opportunity[]' },
+      };
+      const targetAccountProperty = {
+        name: 'targetAccount',
+        kind: 'property',
+        type: { originalTypeString: 'Account' },
+      };
+
+      const valueResult = provider.formatSymbolName(valueProperty);
+      const oppsResult = provider.formatSymbolName(oppsProperty);
+      const targetAccountResult = provider.formatSymbolName(
+        targetAccountProperty,
+      );
+
+      expect(valueResult).toBe('value : String');
+      expect(oppsResult).toBe('opps : Opportunity[]');
+      expect(targetAccountResult).toBe('targetAccount : Account');
+    });
   });
 });
