@@ -427,7 +427,7 @@ describe('DefaultApexDocumentSymbolProvider - Integration Tests', () => {
       const classSymbol = result![0] as DocumentSymbol;
       expect(classSymbol.name).toBe('ComplexClass');
       expect(classSymbol.children).toHaveLength(2);
-      expect(classSymbol.children![0].name).toBe('myProp');
+      expect(classSymbol.children![0].name).toBe('myProp : String');
       expect(classSymbol.children![0].kind).toBe(7); // Property
       expect(classSymbol.children![1].name).toBe('myMethod() : void');
       expect(classSymbol.children![1].kind).toBe(6); // Method
