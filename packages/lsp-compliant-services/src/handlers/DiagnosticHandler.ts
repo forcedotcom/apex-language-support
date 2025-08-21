@@ -7,7 +7,6 @@
  */
 
 import {
-  Diagnostic,
   DocumentDiagnosticParams,
   DocumentDiagnosticReport,
 } from 'vscode-languageserver-protocol';
