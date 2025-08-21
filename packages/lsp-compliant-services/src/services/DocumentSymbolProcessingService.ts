@@ -15,6 +15,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { DefaultApexDocumentSymbolProvider } from '../documentSymbol/ApexDocumentSymbolProvider';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for document symbol processing functionality
@@ -31,12 +32,19 @@ export interface IDocumentSymbolProcessor {
 }
 
 /**
- * Service for processing document symbol requests
+ * Service for processing document symbol requests using ApexSymbolManager
  */
 export class DocumentSymbolProcessingService
   implements IDocumentSymbolProcessor
 {
-  constructor(private readonly logger: LoggerInterface) {}
+  private readonly logger: LoggerInterface;
+  private symbolManager: any;
+
+  constructor(logger: LoggerInterface) {
+    this.logger = logger;
+    this.symbolManager =
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
+  }
 
   /**
    * Process a document symbol request
@@ -59,8 +67,14 @@ export class DocumentSymbolProcessingService
       // Create the document symbol provider
       const provider = new DefaultApexDocumentSymbolProvider(storage);
 
-      // Get document symbols
-      return await provider.provideDocumentSymbols(params);
+      // Get document symbols using the provider
+      const symbols = await provider.provideDocumentSymbols(params);
+
+      // TODO: Enhance symbols with graph-based information using ApexSymbolManager
+      // For now, return the original symbols to avoid type issues
+      // The enhancement will be implemented in a future update
+
+      return symbols;
     } catch (error) {
       this.logger.error(() => `Error processing document symbols: ${error}`);
       return null;

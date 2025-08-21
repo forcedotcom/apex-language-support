@@ -1,0 +1,7 @@
+---
+description: Apex Language
+globs: packages/apex-parser-ast/**/*.ts, packages/lsp-compliant-services/**/*.ts, **/*.md
+alwaysApply: true
+---
+
+Apex has no import statements—never generate or expect them. The compiler resolves types by searching the current namespace, then the global namespace, then other installed namespaces. Fully qualified names (<namespace>.<TypeName>) are used only when a name conflict exists; otherwise, use the unqualified name. A namespace and a type in that namespace can share the same name (e.g., Acme.Acme) and this is valid. Namespace is determined by org/package metadata, not declared in code, and all Apex types and sObjects in the org are known to the compiler without imports.

@@ -12,7 +12,6 @@ import {
   SymbolInformation,
   SymbolKind,
   Range,
-  Position,
 } from 'vscode-languageserver-protocol';
 import {
   SymbolTable,
@@ -29,6 +28,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { ApexSettingsManager } from '../settings/ApexSettingsManager';
+import { transformParserToLspPosition } from '../utils/positionUtils';
 
 /**
  * Maps Apex symbol kinds to LSP symbol kinds
@@ -71,8 +71,11 @@ export class DefaultApexDocumentSymbolProvider
 {
   private readonly compilerService: CompilerService;
 
-  constructor(private readonly storage: ApexStorageInterface) {
-    this.compilerService = new CompilerService();
+  constructor(
+    private readonly storage: ApexStorageInterface,
+    compilerService?: CompilerService,
+  ) {
+    this.compilerService = compilerService || new CompilerService();
   }
 
   /**
@@ -84,13 +87,23 @@ export class DefaultApexDocumentSymbolProvider
     params: DocumentSymbolParams,
   ): Promise<DocumentSymbol[] | SymbolInformation[] | null> {
     const logger = getLogger();
+    logger.debug(
+      '=== ApexDocumentSymbolProvider.provideDocumentSymbols called ===',
+    );
+
     try {
       const documentUri = params.textDocument.uri;
+      logger.debug(() => `Document URI: ${documentUri}`);
       logger.debug(
         () => `Attempting to get document from storage for URI: ${documentUri}`,
       );
 
+      logger.debug(() => 'About to call storage.getDocument...');
       const document = await this.storage.getDocument(documentUri);
+      logger.debug(
+        () =>
+          `Storage.getDocument returned: ${document ? 'document found' : 'document not found'}`,
+      );
 
       if (!document) {
         logger.warn(
@@ -111,6 +124,7 @@ export class DefaultApexDocumentSymbolProvider
       // Create a symbol collector listener to parse the document
       const table = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(table);
+
       const settingsManager = ApexSettingsManager.getInstance();
       const options = settingsManager.getCompilationOptions(
         'documentSymbols',
@@ -125,44 +139,53 @@ export class DefaultApexDocumentSymbolProvider
         options,
       );
 
-      if (result.errors.length > 0) {
-        logger.warn(
-          () =>
-            `Parsed with ${result.errors.length} errors, continuing with partial symbols.`,
-        );
-        logger.debug(() => `Parse errors: ${JSON.stringify(result.errors)}`);
+      // Get the symbol table from the compilation result
+      const symbolTable = result.result;
+
+      if (!symbolTable) {
+        logger.error(() => 'Symbol table is null from compilation result');
+        return null;
       }
 
-      // Get the symbol table from the listener
-      const symbolTable = listener.getResult();
       const symbols: DocumentSymbol[] = [];
 
-      // Get all symbols from the global scope
-      const globalSymbols = symbolTable.getCurrentScope().getAllSymbols();
+      const currentScope = symbolTable.getCurrentScope();
+
+      // Debug: Check what's in the symbol table
+      logger.debug(() => `Symbol table current scope: ${currentScope.name}`);
       logger.debug(
-        () => `Found ${globalSymbols.length} global symbols in document`,
+        () =>
+          `Symbol table current scope path: ${JSON.stringify(
+            symbolTable.getCurrentScopePath(),
+          )}`,
       );
 
-      // Process each symbol and convert to LSP DocumentSymbol format
-      for (const symbol of globalSymbols) {
+      // Get all symbols from the entire symbol table (not just current scope)
+      const allSymbols = symbolTable.getAllSymbols();
+      // Filter for only top-level symbols (classes, interfaces, enums, triggers)
+      const topLevelSymbols = allSymbols.filter((symbol) =>
+        inTypeSymbolGroup(symbol),
+      );
+
+      // Process each top-level symbol and convert to LSP DocumentSymbol format
+      for (const symbol of topLevelSymbols) {
         const documentSymbol = this.createDocumentSymbol(symbol);
 
         // Recursively collect children for top-level symbol types (classes, interfaces, etc.)
-        if (inTypeSymbolGroup(symbol)) {
-          const childScopes = symbolTable.getCurrentScope().getChildren();
-          const typeScope = childScopes.find(
-            (scope: any) => scope.name === symbol.name,
-          );
+        const childScopes = symbolTable.getCurrentScope().getChildren();
 
-          if (typeScope) {
-            logger.debug(
-              () => `Collecting children for ${symbol.kind} '${symbol.name}'`,
-            );
-            documentSymbol.children = this.collectChildren(
-              typeScope,
-              symbol.kind,
-            );
-          }
+        const typeScope = childScopes.find(
+          (scope: any) => scope.name === symbol.name,
+        );
+
+        if (typeScope) {
+          logger.debug(
+            () => `Collecting children for ${symbol.kind} '${symbol.name}'`,
+          );
+          documentSymbol.children = this.collectChildren(
+            typeScope,
+            symbol.kind,
+          );
         }
 
         symbols.push(documentSymbol);
@@ -353,47 +376,41 @@ export class DefaultApexDocumentSymbolProvider
   }
 
   /**
-   * Creates a precise range that excludes leading whitespace
-   * This finds the first non-whitespace character in the line for better UX
+   * Creates the range that covers the symbol name + scope (body)
+   * This excludes modifiers but includes the entire symbol definition
    */
   private createRange(symbol: ApexSymbol): Range {
-    const { location, identifierLocation } = symbol;
+    const { location } = symbol;
 
-    // The end position is always the end of the full symbol location.
-    const endPosition = Position.create(
-      location.endLine - 1,
-      location.endColumn,
-    );
+    const startPosition = transformParserToLspPosition({
+      line: location.symbolRange.startLine,
+      character: location.symbolRange.startColumn,
+    });
 
-    // Use the precise identifier location for the start of the range.
-    // This provides a "tighter" range that excludes leading modifiers/keywords.
-    const startPosition = Position.create(
-      (identifierLocation?.startLine ?? location.startLine) - 1,
-      identifierLocation?.startColumn ?? location.startColumn,
-    );
+    const endPosition = transformParserToLspPosition({
+      line: location.symbolRange.endLine,
+      character: location.symbolRange.endColumn,
+    });
     return Range.create(startPosition, endPosition);
   }
 
   /**
-   * Creates a precise selection range for the symbol name
-   * This excludes leading whitespace and keywords for better selection behavior
+   * Creates a precise selection range for just the symbol name
+   * This excludes modifiers and scope, providing precise positioning for the identifier
    */
   private createSelectionRange(symbol: ApexSymbol): Range {
-    const { identifierLocation, location, name } = symbol;
+    const { location } = symbol;
 
-    const startLine = (identifierLocation?.startLine ?? location.startLine) - 1;
-    const startColumn = identifierLocation?.startColumn ?? location.startColumn;
+    const startPosition = transformParserToLspPosition({
+      line: location.identifierRange.startLine,
+      character: location.identifierRange.startColumn,
+    });
 
-    const endLine =
-      (identifierLocation?.endLine ??
-        identifierLocation?.startLine ??
-        location.startLine) - 1;
-    const endColumn =
-      identifierLocation?.endColumn ?? startColumn + name.length;
+    const endPosition = transformParserToLspPosition({
+      line: location.identifierRange.endLine,
+      character: location.identifierRange.endColumn,
+    });
 
-    return Range.create(
-      Position.create(startLine, startColumn),
-      Position.create(endLine, endColumn),
-    );
+    return Range.create(startPosition, endPosition);
   }
 }

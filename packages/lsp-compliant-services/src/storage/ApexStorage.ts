@@ -6,17 +6,22 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { HashMap } from 'data-structure-typed';
 import { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { HashMap } from 'data-structure-typed';
 
-import { ApexReference, ApexStorageInterface } from './ApexStorageInterface';
+import { ApexStorageBase } from './ApexStorageBase';
+import type {
+  ApexReference,
+  DocumentSymbolInfo,
+  SymbolInfo,
+} from './ApexStorageInterface';
 
 /**
  * ApexStorage is a singleton class that stores the hover, definition, and references for a given key.
  * It is used to store the hover, definition, and references for a given key.
  */
-export class ApexStorage implements ApexStorageInterface {
+export class ApexStorage extends ApexStorageBase {
   private static instance: ApexStorage;
   private hoverMap: HashMap<string, string> = new HashMap();
   private definitionMap: HashMap<string, ApexReference> = new HashMap();
@@ -25,7 +30,9 @@ export class ApexStorage implements ApexStorageInterface {
   private typeInfoMap: HashMap<string, TypeInfo> = new HashMap();
   private initialized = false;
   private documents: HashMap<string, TextDocument> = new HashMap();
-  private constructor() {}
+  private constructor() {
+    super();
+  }
 
   public static getInstance(): ApexStorage {
     if (!ApexStorage.instance) {
@@ -95,17 +102,28 @@ export class ApexStorage implements ApexStorageInterface {
     return true;
   }
 
+  async deleteDocument(uri: string): Promise<boolean> {
+    this.documents.delete(uri);
+    return true;
+  }
+
   // Hover getters and setters
-  public getHover(symbolName: string): string | undefined {
+  public async getHover(symbolName: string): Promise<string | undefined> {
     return this.hoverMap.get(symbolName);
   }
 
-  public setHover(symbolName: string, hoverText: string): void {
+  public async setHover(
+    symbolName: string,
+    hoverText: string,
+  ): Promise<boolean> {
     this.hoverMap.set(symbolName, hoverText);
+    return true;
   }
 
   // Definition getters and setters
-  public getDefinition(symbolName: string): ApexReference | undefined {
+  public async getDefinition(
+    symbolName: string,
+  ): Promise<ApexReference | undefined> {
     return this.definitionMap.get(symbolName);
   }
 
@@ -116,6 +134,7 @@ export class ApexStorage implements ApexStorageInterface {
     this.definitionMap.set(symbolName, definition);
     return true;
   }
+
   // References getters and setters
   public async getReferences(symbolName: string): Promise<ApexReference[]> {
     return this.referencesMap.get(symbolName) || [];
@@ -127,5 +146,50 @@ export class ApexStorage implements ApexStorageInterface {
   ): Promise<boolean> {
     this.referencesMap.set(symbolName, references);
     return true;
+  }
+
+  // Override protected implementation methods for parser data access
+  protected async _getDocumentSymbolsImpl(
+    documentUri: string,
+  ): Promise<DocumentSymbolInfo[]> {
+    // Implementation would parse document and return document symbols
+    // This is a placeholder - actual implementation would use parser internally
+    return [];
+  }
+
+  protected async _getSymbolAtLocationImpl(
+    documentUri: string,
+    line: number,
+    column: number,
+  ): Promise<SymbolInfo | null> {
+    // Implementation would find symbol at specific location
+    // This is a placeholder - actual implementation would use parser internally
+    return null;
+  }
+
+  protected async _getAllSymbolsInDocumentImpl(
+    documentUri: string,
+  ): Promise<SymbolInfo[]> {
+    // Implementation would get all symbols in document
+    // This is a placeholder - actual implementation would use parser internally
+    return [];
+  }
+
+  protected async _findSymbolInDocumentImpl(
+    symbolName: string,
+    documentUri: string,
+  ): Promise<SymbolInfo | null> {
+    // Implementation would find symbol by name in document
+    // This is a placeholder - actual implementation would use parser internally
+    return null;
+  }
+
+  protected async _getSymbolTypeInfoImpl(
+    symbolName: string,
+    documentUri: string,
+  ): Promise<TypeInfo | null> {
+    // Implementation would get type info for symbol
+    // This is a placeholder - actual implementation would use parser internally
+    return null;
   }
 }

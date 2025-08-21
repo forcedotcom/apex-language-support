@@ -27,5 +27,8 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
   },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
   "devDependencies": {}
 }

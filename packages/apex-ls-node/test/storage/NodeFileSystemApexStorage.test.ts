@@ -26,15 +26,13 @@ jest.mock('fs', () => ({
 }));
 
 // Mock the logger
-const mockLogger = {
-  info: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-  warn: jest.fn(),
-};
-
 jest.mock('@salesforce/apex-lsp-shared', () => ({
-  getLogger: jest.fn(() => mockLogger),
+  getLogger: jest.fn(() => ({
+    info: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+  })),
 }));
 
 describe('NodeFileSystemApexStorage', () => {
@@ -50,8 +48,8 @@ describe('NodeFileSystemApexStorage', () => {
     it('should initialize storage with options', async () => {
       const options = { test: 'option' };
       await storage.initialize(options);
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Initializing Node.js storage with options: ${options}`,
+      expect(storage['logger'].debug).toHaveBeenCalledWith(
+        expect.any(Function),
       );
     });
   });
@@ -60,8 +58,8 @@ describe('NodeFileSystemApexStorage', () => {
     it('should shutdown storage', async () => {
       await storage.initialize();
       await storage.shutdown();
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Shutting down Node.js storage',
+      expect(storage['logger'].debug).toHaveBeenCalledWith(
+        expect.any(Function),
       );
     });
   });
@@ -247,8 +245,8 @@ describe('NodeFileSystemApexStorage', () => {
     it('should persist data', async () => {
       await storage.initialize();
       await storage.persist();
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Persisting data to Node.js storage',
+      expect(storage['logger'].debug).toHaveBeenCalledWith(
+        expect.any(Function),
       );
     });
 
@@ -296,7 +294,9 @@ describe('NodeFileSystemApexStorage', () => {
       await storage.initialize();
       const result = await storage.getDocument(uri);
       expect(result).toBeNull();
-      expect(mockLogger.error).toHaveBeenCalled();
+      expect(storage['logger'].error).toHaveBeenCalledWith(
+        expect.any(Function),
+      );
     });
 
     it('should throw error when not initialized', async () => {

@@ -160,7 +160,7 @@ Params: {
     // Optionally, check that all values are LSPMessage-like
     for (const [, msg] of result.entries()) {
       expect(msg).toHaveProperty('type');
-      expect(['request', 'response', 'notification']).toContain(msg.type);
+      expect(['request', 'response', 'notification']).toContain(msg?.type);
       expect(msg).toHaveProperty('method');
     }
   });

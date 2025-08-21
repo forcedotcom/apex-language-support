@@ -209,14 +209,14 @@ public class TestClass {
         c.text.includes('Line 1 comment'),
       );
       expect(firstComment).toBeDefined();
-      expect(firstComment!.startLine).toBe(1);
+      expect(firstComment!.range.startLine).toBe(1);
 
       // Find the second comment
       const secondComment = result.comments.find((c) =>
         c.text.includes('Line 3 comment'),
       );
       expect(secondComment).toBeDefined();
-      expect(secondComment!.startLine).toBe(3);
+      expect(secondComment!.range.startLine).toBe(3);
     });
 
     it('should handle multi-line block comments correctly', () => {
@@ -241,8 +241,8 @@ public class TestClass {
         (c) => c.type === CommentType.Block,
       );
       expect(blockComment).toBeDefined();
-      expect(blockComment!.startLine).toBe(1);
-      expect(blockComment!.endLine).toBe(5);
+      expect(blockComment!.range.startLine).toBe(1);
+      expect(blockComment!.range.endLine).toBe(5);
     });
   });
 

@@ -27,14 +27,16 @@ import {
 import {
   dispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument,
-  dispatchProcessOnOpenDocument,
   dispatchProcessOnSaveDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnDiagnostic,
+  dispatchProcessOnHover,
   ApexStorageManager,
   ApexStorage,
   LSPConfigurationManager,
+  BackgroundProcessingInitializationService,
+  HandlerFactory,
 } from '@salesforce/apex-lsp-compliant-services';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -214,17 +216,30 @@ connection.onCompletion(
 
 // Handle hover requests
 connection.onHover(
-  (_textDocumentPosition: TextDocumentPositionParams): Hover => ({
-    contents: {
-      kind: 'markdown',
-      value: 'This is an example hover text.',
-    },
-  }),
+  async (
+    textDocumentPosition: TextDocumentPositionParams,
+  ): Promise<Hover | null> => {
+    try {
+      return await dispatchProcessOnHover(textDocumentPosition);
+    } catch (error) {
+      logger.error(() => `Error handling hover request: ${error}`);
+      return null;
+    }
+  },
 );
 
 // Handle shutdown request
 connection.onShutdown(() => {
   logger.info('Apex Language Server shutting down...');
+
+  // Shutdown background processing
+  try {
+    backgroundProcessingService.shutdown();
+    logger.info('Background processing shutdown complete');
+  } catch (error) {
+    logger.error(`Error shutting down background processing: ${error}`);
+  }
+
   // Perform cleanup tasks, for now we'll just set a flag
   isShutdown = true;
   logger.info('Apex Language Server shutdown complete');
@@ -236,6 +251,16 @@ connection.onExit(() => {
   if (!isShutdown) {
     // If exit is called without prior shutdown, log a warning
     logger.warn('Apex Language Server exiting without proper shutdown');
+
+    // Still try to shutdown background processing even if shutdown wasn't called
+    try {
+      backgroundProcessingService.shutdown();
+      logger.info('Background processing shutdown complete (exit handler)');
+    } catch (error) {
+      logger.error(
+        `Error shutting down background processing in exit handler: ${error}`,
+      );
+    }
   }
   // In a browser environment, there's not much we can do to actually exit,
   // but we can clean up resources
@@ -251,6 +276,11 @@ const storageManager = ApexStorageManager.getInstance({
   },
 });
 storageManager.initialize();
+
+// Initialize background processing
+const backgroundProcessingService =
+  BackgroundProcessingInitializationService.getInstance();
+backgroundProcessingService.initialize();
 
 // Helper function to handle diagnostics
 const handleDiagnostics = (
@@ -284,9 +314,10 @@ documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
     `Web Apex Language Server opened and processed document: ${JSON.stringify(event)}`,
   );
 
-  dispatchProcessOnOpenDocument(event).then((diagnostics) =>
-    handleDiagnostics(event.document.uri, diagnostics),
-  );
+  const handler = HandlerFactory.createDidOpenDocumentHandler();
+  handler
+    .handleDocumentOpen(event)
+    .then((diagnostics) => handleDiagnostics(event.document.uri, diagnostics));
 });
 
 documents.onDidChangeContent((event: TextDocumentChangeEvent<TextDocument>) => {

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Namespace } from '../semantics/namespaces';
+import { Namespace } from '../namespace/NamespaceUtils';
 
 /**
  * Interface representing information about an Apex type
@@ -49,6 +49,13 @@ export interface TypeInfo {
     endLine: number;
     endColumn: number;
   };
+
+  /**
+   * Indicates if namespace resolution is needed for this type
+   * This is true when the type name is ambiguous or requires
+   * runtime resolution based on context
+   */
+  needsNamespaceResolution?: boolean;
 
   /**
    * Get the namespace of this type

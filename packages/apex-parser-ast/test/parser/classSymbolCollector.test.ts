@@ -78,6 +78,9 @@ describe('ApexSymbolCollectorListener', () => {
       );
 
       // Check no errors
+      if (result.errors.length > 0) {
+        result.errors.forEach((error, index) => {});
+      }
       expect(result.errors.length).toBe(0);
       logger.debug('No compilation errors found');
 
@@ -247,6 +250,15 @@ describe('ApexSymbolCollectorListener', () => {
         'OuterClass.cls',
         listener,
       );
+
+      // Debug: Check for compilation errors
+      if (result.errors.length > 0) {
+        console.log(
+          'Compilation errors:',
+          result.errors.map((e) => e.message),
+        );
+      }
+
       expect(result.errors.length).toBe(0);
 
       const fileScope = result.result!.getCurrentScope();
@@ -266,12 +278,23 @@ describe('ApexSymbolCollectorListener', () => {
         .find((s) => s.name === 'InnerClass');
       expect(innerClassScope).toBeDefined();
 
+      // Debug: Check what symbols are in the inner class scope
+      const innerClassSymbols = innerClassScope!.getAllSymbols();
+      console.log(
+        'Inner class symbols:',
+        innerClassSymbols.map((s) => ({
+          name: s.name,
+          kind: s.kind,
+          isConstructor: (s as any).isConstructor,
+        })),
+      );
+
       const constructorSymbol = innerClassScope!.getSymbol(
         'InnerClass',
       ) as MethodSymbol;
       expect(constructorSymbol).toBeDefined();
       expect(constructorSymbol.isConstructor).toBe(true);
-      expect(constructorSymbol.location.startLine).toBe(4);
+      expect(constructorSymbol.location.symbolRange.startLine).toBe(4);
     });
 
     it('should collect interface symbols', () => {
@@ -450,10 +473,10 @@ describe('ApexSymbolCollectorListener', () => {
     it('should handle nested classes', () => {
       logger.debug('Starting test: handle nested classes');
       const fileContent = `
-        public class Outer {
+        public class OuterClass {
           private Integer outerField;
 
-          public class Inner {
+          public class InnerClass {
             private String innerField;
 
             public void innerMethod() {
@@ -462,7 +485,7 @@ describe('ApexSymbolCollectorListener', () => {
           }
 
           public void outerMethod() {
-            Inner inner = new Inner();
+            InnerClass innerInstance = new InnerClass();
           }
         }
       `;
@@ -470,7 +493,7 @@ describe('ApexSymbolCollectorListener', () => {
       logger.debug('Compiling test file');
       const result: CompilationResult<SymbolTable> = compilerService.compile(
         fileContent,
-        'Outer.cls',
+        'OuterClass.cls',
         listener,
       );
 
@@ -482,11 +505,11 @@ describe('ApexSymbolCollectorListener', () => {
 
       // Check outer class
       const outerClass = globalScope?.getAllSymbols()[0];
-      expect(outerClass?.name).toBe('Outer');
+      expect(outerClass?.name).toBe('OuterClass');
       logger.debug(() => `Found outer class: name=${outerClass?.name}`);
 
       const outerScope = globalScope?.getChildren()[0];
-      expect(outerScope?.name).toBe('Outer');
+      expect(outerScope?.name).toBe('OuterClass');
       logger.debug('Outer scope retrieved');
 
       // Check outer class field
@@ -503,7 +526,7 @@ describe('ApexSymbolCollectorListener', () => {
       // Check inner class
       const innerClass = outerScope
         ?.getAllSymbols()
-        .find((s) => s.name === 'Inner');
+        .find((s) => s.name === 'InnerClass');
       expect(innerClass?.kind).toBe(SymbolKind.Class);
       logger.debug(
         () =>
@@ -513,7 +536,7 @@ describe('ApexSymbolCollectorListener', () => {
       // Check inner class scope
       const innerScope = outerScope
         ?.getChildren()
-        .find((s) => s.name === 'Inner');
+        .find((s) => s.name === 'InnerClass');
 
       if (innerScope) {
         logger.debug('Inner scope found');

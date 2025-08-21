@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { HashMap } from 'data-structure-typed';
 import {
   ApexJsonRpcClient,
   ConsoleLogger,
@@ -37,7 +38,7 @@ export function createClient(
  * This simulates responses without starting a real server
  */
 export class MockApexJsonRpcClient extends ApexJsonRpcClient {
-  private documentContents: Map<string, string> = new Map();
+  private documentContents: HashMap<string, string> = new HashMap();
   private isStarted = false;
   private mockCapabilities = {
     textDocumentSync: {

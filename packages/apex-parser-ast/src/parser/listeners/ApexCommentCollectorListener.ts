@@ -10,6 +10,7 @@ import { CommonTokenStream, Token, ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
+import { SymbolKind, Range } from '../../types/symbol';
 
 /**
  * Represents a comment found in the source code
@@ -19,14 +20,8 @@ export interface ApexComment {
   text: string;
   /** The type of comment */
   type: CommentType;
-  /** Starting line number (1-based) */
-  startLine: number;
-  /** Starting column number (0-based) */
-  startColumn: number;
-  /** Ending line number (1-based) */
-  endLine: number;
-  /** Ending column number (0-based) */
-  endColumn: number;
+  /** The range of the comment in the source code */
+  range: Range;
   /** Original token index in the stream */
   tokenIndex: number;
   /** Whether this comment contains documentation patterns */
@@ -71,6 +66,8 @@ export interface CommentAssociation {
   confidence: number;
   /** Distance in lines between comment and symbol */
   distance: number;
+  /** Kind of the associated symbol (used for prioritization) */
+  symbolKind?: SymbolKind;
 }
 
 /**
@@ -223,13 +220,15 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
       const comment: ApexComment = {
         text: text,
         type: isBlockComment ? CommentType.Block : CommentType.Line,
-        startLine: token.line,
-        startColumn: token.charPositionInLine,
-        endLine: token.line + lines.length - 1,
-        endColumn:
-          lines.length > 1
-            ? lines[lines.length - 1].length
-            : token.charPositionInLine + text.length,
+        range: {
+          startLine: token.line,
+          startColumn: token.charPositionInLine,
+          endLine: token.line + lines.length - 1,
+          endColumn:
+            lines.length > 1
+              ? lines[lines.length - 1].length
+              : token.charPositionInLine + text.length,
+        },
         tokenIndex: token.tokenIndex,
         isDocumentation: this.isDocumentationComment(text),
       };
@@ -237,7 +236,7 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
       this.comments.push(comment);
       this.logger.debug(
         () =>
-          `Collected ${comment.type} comment at line ${comment.startLine}: ${text.substring(0, 50)}...`,
+          `Collected ${comment.type} comment at line ${comment.range.startLine}: ${text.substring(0, 50)}...`,
       );
     } catch (error) {
       this.logger.error(() => `Error processing comment token: ${error}`);
@@ -301,7 +300,9 @@ export class ApexCommentCollectorListener extends BaseApexParserListener<
    */
   getCommentsInRange(startLine: number, endLine: number): ApexComment[] {
     return this.comments.filter(
-      (comment) => comment.startLine >= startLine && comment.endLine <= endLine,
+      (comment) =>
+        comment.range.startLine >= startLine &&
+        comment.range.endLine <= endLine,
     );
   }
 }

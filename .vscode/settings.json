@@ -23,5 +23,7 @@
     "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
   },
   "eslint.nodeEnv": "",
-  "typescript.tsserver.enableTracing": false
+  "typescript.tsserver.enableTracing": false,
+  "bevel.java": "/Users/peter.hale/.cursor/extensions/bevel-software.bevel-1.3.0-universal/backend/amazon-corretto-17.jdk/Contents/Home/bin/java",
+  "java.project.sourcePaths": ["packages/apex-parser-ast/src/symbols"]
 }

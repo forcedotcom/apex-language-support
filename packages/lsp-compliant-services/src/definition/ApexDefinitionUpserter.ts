@@ -55,8 +55,8 @@ export class DefaultApexDefinitionUpserter implements ApexDefinitionUpserter {
         const reference: ApexReference = {
           sourceFile: documentUri,
           targetSymbol: symbol.name,
-          line: symbol.location.startLine,
-          column: symbol.location.startColumn,
+          line: symbol.location.identifierRange.startLine,
+          column: symbol.location.identifierRange.startColumn,
           referenceType: 'type-reference',
         };
         await this.storage.setDefinition(symbol.name, reference);

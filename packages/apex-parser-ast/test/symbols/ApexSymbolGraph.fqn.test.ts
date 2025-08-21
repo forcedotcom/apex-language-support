@@ -1,0 +1,453 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
+import {
+  SymbolFactory,
+  SymbolKind,
+  SymbolVisibility,
+} from '../../src/types/symbol';
+
+describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
+  let symbolGraph: ApexSymbolGraph;
+
+  beforeEach(() => {
+    symbolGraph = new ApexSymbolGraph();
+  });
+
+  afterEach(() => {
+    symbolGraph.clear();
+  });
+
+  describe('FQN Calculation and Storage', () => {
+    it('should calculate and store FQN for top-level class', () => {
+      // Create a symbol without FQN (simulating the bug condition)
+      const classSymbol = SymbolFactory.createFullSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        'test.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        null, // parentId
+        { interfaces: [] }, // typeData
+        undefined, // fqn - intentionally undefined to simulate the bug
+      );
+
+      // Add symbol to graph
+      symbolGraph.addSymbol(classSymbol, 'test.cls');
+
+      // Verify FQN was calculated and stored
+      expect(classSymbol.fqn).toBe('TestClass');
+
+      // Verify FQN can be looked up
+      const foundSymbol = symbolGraph.findSymbolByFQN('TestClass');
+      expect(foundSymbol).toBeTruthy();
+      expect(foundSymbol?.name).toBe('TestClass');
+    });
+
+    it('should calculate and store FQN for nested method', () => {
+      // Create a class symbol
+      const classSymbol = SymbolFactory.createFullSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        'test.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        null, // parentId
+        { interfaces: [] }, // typeData
+        'TestClass', // fqn for class
+      );
+
+      // Create a method symbol without FQN
+      const methodSymbol = SymbolFactory.createFullSymbol(
+        'testMethod',
+        SymbolKind.Method,
+        {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+        },
+        'test.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        classSymbol.id, // parentId
+        {
+          returnType: { name: 'String', isPrimitive: true, isArray: false },
+          parameters: [],
+        }, // typeData
+        undefined, // fqn - intentionally undefined to simulate the bug
+      );
+
+      // Set up parent relationship
+      methodSymbol.parent = classSymbol;
+
+      // Add symbols to graph
+      symbolGraph.addSymbol(classSymbol, 'test.cls');
+      symbolGraph.addSymbol(methodSymbol, 'test.cls');
+
+      // Verify FQN was calculated and stored
+      expect(methodSymbol.fqn).toBe('TestClass.testMethod');
+
+      // Verify FQN can be looked up
+      const foundSymbol = symbolGraph.findSymbolByFQN('TestClass.testMethod');
+      expect(foundSymbol).toBeTruthy();
+      expect(foundSymbol?.name).toBe('testMethod');
+    });
+
+    it('should handle deeply nested symbols', () => {
+      // Create outer class
+      const outerClass = SymbolFactory.createFullSymbol(
+        'OuterClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        'test.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        null, // parentId
+        { interfaces: [] }, // typeData
+        'OuterClass', // fqn for outer class
+      );
+
+      // Create inner class
+      const innerClass = SymbolFactory.createFullSymbol(
+        'InnerClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 1,
+            endLine: 3,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 1,
+            endLine: 3,
+            endColumn: 10,
+          },
+        },
+        'test.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        outerClass.id, // parentId
+        { interfaces: [] }, // typeData
+        undefined, // fqn - intentionally undefined
+      );
+
+      // Create method in inner class
+      const methodSymbol = SymbolFactory.createFullSymbol(
+        'innerMethod',
+        SymbolKind.Method,
+        {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+        },
+        'test.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        innerClass.id, // parentId
+        {
+          returnType: { name: 'String', isPrimitive: true, isArray: false },
+          parameters: [],
+        }, // typeData
+        undefined, // fqn - intentionally undefined
+      );
+
+      // Set up parent relationships
+      innerClass.parent = outerClass;
+      methodSymbol.parent = innerClass;
+
+      // Add symbols to graph
+      symbolGraph.addSymbol(outerClass, 'test.cls');
+      symbolGraph.addSymbol(innerClass, 'test.cls');
+      symbolGraph.addSymbol(methodSymbol, 'test.cls');
+
+      // Verify FQNs were calculated and stored
+      expect(innerClass.fqn).toBe('OuterClass.InnerClass');
+      expect(methodSymbol.fqn).toBe('OuterClass.InnerClass.innerMethod');
+
+      // Verify FQNs can be looked up
+      const foundInnerClass = symbolGraph.findSymbolByFQN(
+        'OuterClass.InnerClass',
+      );
+      expect(foundInnerClass).toBeTruthy();
+      expect(foundInnerClass?.name).toBe('InnerClass');
+
+      const foundMethod = symbolGraph.findSymbolByFQN(
+        'OuterClass.InnerClass.innerMethod',
+      );
+      expect(foundMethod).toBeTruthy();
+      expect(foundMethod?.name).toBe('innerMethod');
+    });
+
+    it('should preserve existing FQNs when already present', () => {
+      // Create a symbol with FQN already set
+      const classSymbol = SymbolFactory.createFullSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        'test.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        null, // parentId
+        { interfaces: [] }, // typeData
+        'CustomNamespace.TestClass', // fqn already set
+      );
+
+      // Add symbol to graph
+      symbolGraph.addSymbol(classSymbol, 'test.cls');
+
+      // Verify existing FQN was preserved
+      expect(classSymbol.fqn).toBe('CustomNamespace.TestClass');
+
+      // Verify FQN can be looked up
+      const foundSymbol = symbolGraph.findSymbolByFQN(
+        'CustomNamespace.TestClass',
+      );
+      expect(foundSymbol).toBeTruthy();
+      expect(foundSymbol?.name).toBe('TestClass');
+    });
+  });
+
+  describe('FQN Index Population', () => {
+    it('should populate FQN index for all symbols', () => {
+      // Create multiple symbols without FQNs
+      const classSymbol = SymbolFactory.createFullSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 1,
+            endLine: 1,
+            endColumn: 10,
+          },
+        },
+        'test.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        null, // parentId
+        { interfaces: [] }, // typeData
+        undefined, // fqn
+      );
+
+      const methodSymbol = SymbolFactory.createFullSymbol(
+        'testMethod',
+        SymbolKind.Method,
+        {
+          symbolRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 1,
+            endLine: 5,
+            endColumn: 10,
+          },
+        },
+        'test.cls',
+        {
+          visibility: SymbolVisibility.Public,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTestMethod: false,
+          isWebService: false,
+          isBuiltIn: false,
+        },
+        classSymbol.id, // parentId
+        {
+          returnType: { name: 'String', isPrimitive: true, isArray: false },
+          parameters: [],
+        }, // typeData
+        undefined, // fqn
+      );
+
+      // Set up parent relationship
+      methodSymbol.parent = classSymbol;
+
+      // Add symbols to graph
+      symbolGraph.addSymbol(classSymbol, 'test.cls');
+      symbolGraph.addSymbol(methodSymbol, 'test.cls');
+
+      // Verify both FQNs can be looked up
+      const foundClass = symbolGraph.findSymbolByFQN('TestClass');
+      expect(foundClass).toBeTruthy();
+      expect(foundClass?.name).toBe('TestClass');
+
+      const foundMethod = symbolGraph.findSymbolByFQN('TestClass.testMethod');
+      expect(foundMethod).toBeTruthy();
+      expect(foundMethod?.name).toBe('testMethod');
+    });
+  });
+});

@@ -73,7 +73,7 @@ describe('processOnDiagnostic', () => {
 
       const result = await processOnDiagnostic(mockParams);
 
-      expect(result).toEqual(mockDiagnostics);
+      expect(result).toEqual({ items: mockDiagnostics, kind: 'full' });
       expect(mockDiagnosticProcessor.processDiagnostic).toHaveBeenCalledWith(
         mockParams,
       );
@@ -90,7 +90,7 @@ describe('processOnDiagnostic', () => {
 
       const result = await processOnDiagnostic(mockParams);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ items: [], kind: 'full' });
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
     });
 
@@ -103,7 +103,7 @@ describe('processOnDiagnostic', () => {
 
       const result = await processOnDiagnostic(mockParams);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ items: [], kind: 'full' });
       expect(mockDiagnosticProcessor.processDiagnostic).toHaveBeenCalledWith(
         mockParams,
       );

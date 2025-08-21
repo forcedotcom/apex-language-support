@@ -65,14 +65,7 @@ describe('Method Variable Declaration', () => {
         listener,
       );
 
-      console.log(
-        'Test 1 Errors:',
-        result.errors.map((e) => ({
-          message: e.message,
-          line: e.line,
-          column: e.column,
-        })),
-      );
+
 
       expect(result.errors.length).toBe(0);
 
@@ -146,14 +139,7 @@ describe('Method Variable Declaration', () => {
         listener,
       );
 
-      console.log(
-        'Test 2 Errors:',
-        result.errors.map((e) => ({
-          message: e.message,
-          line: e.line,
-          column: e.column,
-        })),
-      );
+
 
       expect(result.errors.length).toBe(0);
 

@@ -12,6 +12,8 @@ import {
   SymbolInformation,
   DocumentSymbol,
   Diagnostic,
+  HoverParams,
+  Hover,
 } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -21,7 +23,7 @@ import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
 import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
 
 // Export storage interfaces and classes
-export * from './storage/ApexStorageInterface';
+export * from './storage/ApexStorageBase';
 export * from './storage/ApexStorage';
 export * from './storage/ApexStorageManager';
 
@@ -41,6 +43,7 @@ export * from './handlers/FoldingRangeHandler';
 export * from './handlers/ApexLibResolveHandler';
 export * from './handlers/LogNotificationHandler';
 export * from './handlers/DiagnosticHandler';
+export * from './handlers/HoverHandler';
 
 // Export services
 export * from './services/DocumentProcessingService';
@@ -48,14 +51,15 @@ export * from './services/DocumentSaveProcessingService';
 export * from './services/DocumentCloseProcessingService';
 export * from './services/DocumentSymbolProcessingService';
 export * from './services/DiagnosticProcessingService';
+export * from './services/HoverProcessingService';
+export * from './services/BackgroundProcessingInitializationService';
+export * from './services/CompletionProcessingService';
 
 // Export factories
 export * from './factories/HandlerFactory';
 
-export type {
-  ApexReference,
-  ApexStorageInterface,
-} from './storage/ApexStorageInterface';
+export type { ApexReference } from './storage/ApexStorageInterface';
+export * from './storage/ApexStorageInterface';
 
 // Export settings management
 export * from './settings/ApexLanguageServerSettings';
@@ -69,8 +73,8 @@ export * from './capabilities/ApexCapabilitiesManager';
 // Export ApexLib
 export * from './apexlib';
 
-// Legacy dispatch function exports for backward compatibility
-// These use the new handler architecture internally
+// Export LSP queue system
+export * from './queue';
 
 /**
  * Dispatch function for document change events
@@ -118,6 +122,18 @@ export const dispatchProcessOnDocumentSymbol = async (
 ): Promise<SymbolInformation[] | DocumentSymbol[] | null> => {
   const handler = HandlerFactory.createDocumentSymbolHandler();
   return await handler.handleDocumentSymbol(params);
+};
+
+/**
+ * Dispatch function for hover requests
+ * @param params The hover parameters
+ * @returns Promise resolving to hover information or null
+ */
+export const dispatchProcessOnHover = async (
+  params: HoverParams,
+): Promise<Hover | null> => {
+  const handler = HandlerFactory.createHoverHandler();
+  return await handler.handleHover(params);
 };
 
 // Re-export the existing dispatch functions
