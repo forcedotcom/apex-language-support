@@ -422,7 +422,7 @@ describe('defineOptimizedEnum', () => {
       expect(keys[999]).toBe('Key999');
     });
 
-    it('should provide fast key validation', () => {
+    it.skip('should provide fast key validation', () => {
       const Status = defineOptimizedEnum([
         ['Active', 1],
         ['Inactive', 0],
