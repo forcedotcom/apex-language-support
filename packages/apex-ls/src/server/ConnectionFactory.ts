@@ -6,131 +6,46 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { Connection } from 'vscode-languageserver/browser';
-import type { EnvironmentType } from '../types';
+import type { MessageConnection } from 'vscode-jsonrpc';
+import type { ConnectionConfig } from './ConnectionFactoryInterface';
+import {
+  isWorkerEnvironment,
+  isBrowserEnvironment,
+} from '../utils/EnvironmentDetector';
 
 /**
- * Configuration for creating connections
- */
-export interface ConnectionConfig {
-  environment: EnvironmentType;
-  commandLineArgs?: string[];
-}
-
-/**
- * Factory for creating appropriate LSP connections based on environment
+ * Factory for creating appropriate connections based on environment
  */
 export class ConnectionFactory {
   /**
-   * Creates a connection appropriate for the given environment
+   * Creates a connection appropriate for the current environment
    */
-  static async createConnection(config: ConnectionConfig): Promise<Connection> {
-    const { environment, commandLineArgs = [] } = config;
-
-    switch (environment) {
-      case 'node':
-        return this.createNodeConnection(commandLineArgs);
-
-      case 'webworker':
-        return this.createWebWorkerConnection();
-
-      case 'browser':
-        throw new Error(
-          'Browser environment should use web worker for language server',
-        );
-
-      default:
-        throw new Error(`Unsupported environment: ${environment}`);
+  static async createConnection(
+    config?: ConnectionConfig,
+  ): Promise<MessageConnection> {
+    if (isWorkerEnvironment()) {
+      const { createWorkerConnection } = await import(
+        './WorkerConnectionFactory'
+      );
+      return createWorkerConnection(config);
     }
+
+    if (isBrowserEnvironment()) {
+      throw new Error('Browser implementation not available in worker build');
+    }
+
+    throw new Error('Unsupported environment');
   }
 
   /**
-   * Creates a Node.js connection based on command line arguments
+   * Creates a worker-specific connection
    */
-  private static async createNodeConnection(
-    args: string[],
-  ): Promise<Connection> {
-    // Only available in Node.js environments
-    if (typeof process === 'undefined') {
-      throw new Error(
-        'Node.js connection can only be created in Node.js environment',
-      );
-    }
-
-    // Dynamically import Node.js modules to avoid issues in web environments
-    const { createConnection, ProposedFeatures, createServerSocketTransport } =
-      await import('vscode-languageserver/node');
-
-    let connection: Connection;
-
-    if (args.includes('--stdio')) {
-      connection = createConnection(process.stdin, process.stdout);
-    } else if (args.includes('--node-ipc')) {
-      connection = createConnection(ProposedFeatures.all);
-    } else if (args.includes('--socket')) {
-      const socketIndex = args.indexOf('--socket');
-      const port = parseInt(args[socketIndex + 1], 10);
-      // Create a socket connection using the proper transport
-      const [reader, writer] = createServerSocketTransport(port);
-      connection = createConnection(reader, writer);
-    } else {
-      throw new Error(
-        'Connection type not specified. Use --stdio, --node-ipc, or --socket={number}',
-      );
-    }
-
-    return connection;
-  }
-
-  /**
-   * Creates a web worker connection using browser APIs
-   */
-  private static async createWebWorkerConnection(): Promise<Connection> {
-    const { createConnection, BrowserMessageReader, BrowserMessageWriter } =
-      await import('vscode-languageserver/browser');
-
-    return createConnection(
-      new BrowserMessageReader(self as any),
-      new BrowserMessageWriter(self as any),
+  static async createWorkerConnection(
+    config?: ConnectionConfig,
+  ): Promise<MessageConnection> {
+    const { createWorkerConnection } = await import(
+      './WorkerConnectionFactory'
     );
-  }
-
-  /**
-   * Detects the current environment
-   */
-  static detectEnvironment(): EnvironmentType {
-    // Check for web worker environment (both classic and ES module workers)
-    // ES module workers don't have importScripts, so we check for self and lack of window/document
-    if (
-      typeof self !== 'undefined' &&
-      typeof window === 'undefined' &&
-      typeof document === 'undefined'
-    ) {
-      return 'webworker';
-    }
-
-    // Check for browser environment
-    if (typeof window !== 'undefined') {
-      return 'browser';
-    }
-
-    // Default to Node.js
-    return 'node';
-  }
-
-  /**
-   * Auto-creates a connection based on detected environment
-   */
-  static async createAutoConnection(commandLineArgs?: string[]): Promise<{
-    connection: Connection;
-    environment: EnvironmentType;
-  }> {
-    const environment = this.detectEnvironment();
-    const connection = await this.createConnection({
-      environment,
-      commandLineArgs,
-    });
-
-    return { connection, environment };
+    return createWorkerConnection(config);
   }
 }

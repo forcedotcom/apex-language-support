@@ -39,8 +39,9 @@ import {
 
 import { UnifiedLogNotificationHandler } from './utils/BrowserLogNotificationHandler';
 import { UnifiedLoggerFactory } from './utils/BrowserLoggerFactory';
-import { WebWorkerStorage } from './storage/WebWorkerStorage';
 import { UnifiedStorageFactory } from './storage/UnifiedStorageFactory';
+import { ApexStorageAdapter } from './storage/ApexStorageManager';
+import { createLoggerAdapter } from './utils/LoggerAdapter';
 
 import type { ApexServerInitializationOptions } from './types';
 
@@ -56,7 +57,7 @@ export async function createUnifiedWebWorkerLanguageServer() {
   );
 
   // Set up logging
-  setLoggerFactory(UnifiedLoggerFactory.getWorkerInstance());
+  setLoggerFactory(UnifiedLoggerFactory.getInstance());
   setLogNotificationHandler(
     UnifiedLogNotificationHandler.getWorkerInstance(connection),
   );
@@ -64,15 +65,20 @@ export async function createUnifiedWebWorkerLanguageServer() {
   // Set log level to debug by default for testing
   setLogLevel('debug');
   const logger = getLogger();
+  const jsonrpcLogger = createLoggerAdapter(logger);
 
   // Initialize storage using unified factory
-  const storage = await UnifiedStorageFactory.createStorage({
-    environment: 'webworker',
+  const baseStorage = await UnifiedStorageFactory.createStorage({
     useMemoryStorage: true,
+    logger: jsonrpcLogger,
   });
-  logger.info('[UNIFIED-WORKER] Unified storage initialized');
+  logger.info('[UNIFIED-WORKER] Base storage initialized');
 
-  // Initialize ApexStorageManager with our web worker storage
+  // Create Apex storage adapter
+  const storage = new ApexStorageAdapter(baseStorage);
+  logger.info('[UNIFIED-WORKER] Storage adapter initialized');
+
+  // Initialize ApexStorageManager with our storage adapter
   const storageManager = ApexStorageManager.getInstance({
     storageFactory: () => storage,
     storageOptions: {},
@@ -319,7 +325,9 @@ export async function createUnifiedWebWorkerLanguageServer() {
 
       if (symbols) {
         logger.info(
-          `[UNIFIED-WORKER] Successfully parsed ${Array.isArray(symbols) ? symbols.length : 'unknown'} symbols for: ${params.textDocument.uri}`,
+          `[UNIFIED-WORKER] Successfully parsed ${
+            Array.isArray(symbols) ? symbols.length : 'unknown'
+          } symbols for: ${params.textDocument.uri}`,
         );
         return symbols;
       } else {
@@ -419,7 +427,7 @@ export async function createSimpleWebWorkerLanguageServer() {
   const connection = createConnection(messageReader, messageWriter);
 
   // Set up logging - TESTING STEP 1
-  setLoggerFactory(UnifiedLoggerFactory.getWorkerInstance());
+  setLoggerFactory(UnifiedLoggerFactory.getInstance());
   setLogNotificationHandler(
     UnifiedLogNotificationHandler.getWorkerInstance(connection),
   );
@@ -427,13 +435,20 @@ export async function createSimpleWebWorkerLanguageServer() {
   // Set log level to debug by default for testing
   setLogLevel('debug');
   const logger = getLogger();
+  const jsonrpcLogger = createLoggerAdapter(logger);
 
-  // Initialize storage with web worker storage
-  const storage = WebWorkerStorage.getInstance();
-  await storage.initialize();
-  logger.info('[SIMPLE-WORKER] Storage initialized');
+  // Initialize storage using unified factory
+  const baseStorage = await UnifiedStorageFactory.createStorage({
+    useMemoryStorage: true,
+    logger: jsonrpcLogger,
+  });
+  logger.info('[SIMPLE-WORKER] Base storage initialized');
 
-  // Initialize ApexStorageManager with our web worker storage
+  // Create Apex storage adapter
+  const storage = new ApexStorageAdapter(baseStorage);
+  logger.info('[SIMPLE-WORKER] Storage adapter initialized');
+
+  // Initialize ApexStorageManager with our storage adapter
   const storageManager = ApexStorageManager.getInstance({
     storageFactory: () => storage,
     storageOptions: {},
@@ -650,7 +665,9 @@ export async function createSimpleWebWorkerLanguageServer() {
 
       if (symbols) {
         logger.info(
-          `[SIMPLE-WORKER] Successfully parsed ${Array.isArray(symbols) ? symbols.length : 'unknown'} symbols for: ${params.textDocument.uri}`,
+          `[SIMPLE-WORKER] Successfully parsed ${
+            Array.isArray(symbols) ? symbols.length : 'unknown'
+          } symbols for: ${params.textDocument.uri}`,
         );
         return symbols;
       } else {
@@ -734,8 +751,7 @@ export async function createSimpleWebWorkerLanguageServer() {
 }
 
 // Master-level worker initialization with error isolation
-const __IS_TEST_ENV__ =
-  typeof process !== 'undefined' && !!(process as any).env?.JEST_WORKER_ID;
+const __IS_TEST_ENV__ = false;
 
 if (!__IS_TEST_ENV__) {
   (function initializeApexWorker() {

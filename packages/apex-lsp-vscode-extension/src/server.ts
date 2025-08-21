@@ -11,6 +11,6 @@
 
 // Use require to ensure side effects are executed
 // The language server starts when this module is loaded
-import { startServer } from '@salesforce/apex-ls';
+import { createUnifiedWebWorkerLanguageServer } from '@salesforce/apex-ls/worker';
 
-startServer();
+createUnifiedWebWorkerLanguageServer();

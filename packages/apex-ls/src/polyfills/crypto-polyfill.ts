@@ -14,12 +14,24 @@
 // Use the browser's built-in crypto API
 const webCrypto = globalThis.crypto;
 
+// Type assertion to ensure we get the correct ArrayBuffer type
+const createArrayBuffer = (length: number): ArrayBuffer => new ArrayBuffer(length);
+
 // Convert between Node.js Buffer and browser TypedArray
 function toBuffer(data: ArrayBuffer | Uint8Array): Uint8Array {
   if (data instanceof ArrayBuffer) {
     return new Uint8Array(data);
   }
   return data;
+}
+
+// Create a proper BufferSource from Uint8Array for crypto operations
+function toBufferSource(data: Uint8Array): ArrayBuffer {
+  // Create a new ArrayBuffer and copy the data to ensure proper type compatibility
+  const buffer = createArrayBuffer(data.length);
+  const view = new Uint8Array(buffer);
+  view.set(data);
+  return buffer;
 }
 
 // Randomness functions
@@ -88,7 +100,7 @@ class Hash {
 
     const hashBuffer = await webCrypto.subtle.digest(
       this.algorithm,
-      data.buffer,
+      toBufferSource(data),
     );
     return new Uint8Array(hashBuffer);
   }
@@ -116,7 +128,7 @@ class Hmac {
     webCrypto.subtle
       .importKey(
         'raw',
-        key,
+        toBufferSource(key),
         { name: 'HMAC', hash: { name: this.algorithm } },
         false,
         ['sign'],
@@ -151,7 +163,7 @@ class Hmac {
     const signature = await webCrypto.subtle.sign(
       'HMAC',
       this.key,
-      data.buffer,
+      toBufferSource(data),
     );
     return new Uint8Array(signature);
   }
@@ -176,7 +188,7 @@ class Cipher {
     webCrypto.subtle
       .importKey(
         'raw',
-        key,
+        toBufferSource(key),
         { name: 'AES-CBC', length: key.length * 8 },
         false,
         ['encrypt'],
@@ -194,7 +206,8 @@ class Cipher {
     const encrypted = await webCrypto.subtle.encrypt(
       { name: 'AES-CBC', iv: this.iv },
       this.key,
-      data.buffer,
+      // @ts-ignore - Type conflict between DOM and WebWorker crypto definitions
+      toBufferSource(data),
     );
     return new Uint8Array(encrypted);
   }

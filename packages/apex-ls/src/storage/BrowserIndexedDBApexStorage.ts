@@ -6,230 +6,150 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
-import type {
-  ApexReference,
-  ApexStorageInterface,
-} from '@salesforce/apex-lsp-compliant-services';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import { HashMap } from 'data-structure-typed';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import type { TextDocument } from 'vscode-languageserver-textdocument';
+import type { ApexStorage } from './ApexStorageInterface';
+
 /**
- * Implementation of ApexStorageInterface for browser environments.
- * This is a no-op implementation that doesn't actually persist data.
- * In a real implementation, this would use IndexedDB or other browser storage.
+ * Browser-specific storage implementation using IndexedDB
  */
-export class BrowserIndexedDBApexStorage implements ApexStorageInterface {
-  // In-memory storage for the no-op implementation
-  private initialized: boolean = false;
-  private astMap: HashMap<string, ApexClassInfo[], [string, ApexClassInfo[]]> =
-    new HashMap();
-  private typeInfoMap: Map<string, TypeInfo> = new Map();
-  private references: ApexReference[] = [];
-  private readonly logger = getLogger();
-  /**
-   * Initialize the storage system
-   * @param options Configuration options for storage
-   */
-  async initialize(options?: Record<string, unknown>): Promise<void> {
-    // In a real implementation, this would:
-    // - Open IndexedDB database
-    // - Create object stores if needed
-    // - Initialize caches
+export class BrowserIndexedDBApexStorage implements ApexStorage {
+  private static instance: BrowserIndexedDBApexStorage;
+  private db: IDBDatabase | undefined;
+  private readonly DB_NAME = 'apex-ls-storage';
+  private readonly STORE_NAME = 'documents';
 
-    this.logger.info(`Initializing browser storage with options: ${options}`);
-    this.initialized = true;
+  constructor() {
+    // Private constructor for singleton
   }
 
   /**
-   * Close and clean up the storage system
+   * Gets the singleton instance
    */
-  async shutdown(): Promise<void> {
-    // In a real implementation, this would:
-    // - Close database connections
-    // - Perform any final cleanup
-
-    this.logger.info('Shutting down browser storage');
-    this.initialized = false;
+  static getInstance(): BrowserIndexedDBApexStorage {
+    if (!BrowserIndexedDBApexStorage.instance) {
+      BrowserIndexedDBApexStorage.instance = new BrowserIndexedDBApexStorage();
+    }
+    return BrowserIndexedDBApexStorage.instance;
   }
 
   /**
-   * Store AST for a specified Apex file
+   * Initializes the storage
    */
-  async storeAst(filePath: string, ast: ApexClassInfo[]): Promise<boolean> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
+  async initialize(): Promise<void> {
+    if (this.db) {
+      return;
     }
 
-    // In a real implementation, this would store to IndexedDB
-    this.astMap.set(filePath, ast);
-    return true;
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.DB_NAME, 1);
+
+      request.onerror = () => {
+        reject(new Error('Failed to open IndexedDB'));
+      };
+
+      request.onsuccess = () => {
+        this.db = request.result;
+        resolve();
+      };
+
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+          db.createObjectStore(this.STORE_NAME);
+        }
+      };
+    });
   }
 
   /**
-   * Retrieve AST for a specified Apex file
+   * Gets a document from storage
    */
-  async retrieveAst(filePath: string): Promise<ApexClassInfo[] | null> {
-    if (!this.initialized) {
+  async getDocument(uri: string): Promise<TextDocument | undefined> {
+    if (!this.db) {
       throw new Error('Storage not initialized');
     }
 
-    return this.astMap.get(filePath) || null;
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([this.STORE_NAME], 'readonly');
+      const store = transaction.objectStore(this.STORE_NAME);
+      const request = store.get(uri);
+
+      request.onerror = () => {
+        reject(new Error('Failed to get document from IndexedDB'));
+      };
+
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+    });
   }
 
   /**
-   * Store type information for a specific type
+   * Sets a document in storage
    */
-  async storeTypeInfo(typeName: string, typeInfo: TypeInfo): Promise<boolean> {
-    if (!this.initialized) {
+  async setDocument(uri: string, document: TextDocument): Promise<void> {
+    if (!this.db) {
       throw new Error('Storage not initialized');
     }
 
-    this.typeInfoMap.set(typeName, typeInfo);
-    return true;
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([this.STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(this.STORE_NAME);
+      const request = store.put(document, uri);
+
+      request.onerror = () => {
+        reject(new Error('Failed to store document in IndexedDB'));
+      };
+
+      request.onsuccess = () => {
+        resolve();
+      };
+    });
   }
 
   /**
-   * Retrieve type information for a specific type
+   * Clears a file from storage
    */
-  async retrieveTypeInfo(typeName: string): Promise<TypeInfo | null> {
-    if (!this.initialized) {
+  async clearFile(uri: string): Promise<void> {
+    if (!this.db) {
       throw new Error('Storage not initialized');
     }
 
-    return this.typeInfoMap.get(typeName) || null;
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([this.STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(this.STORE_NAME);
+      const request = store.delete(uri);
+
+      request.onerror = () => {
+        reject(new Error('Failed to clear file from IndexedDB'));
+      };
+
+      request.onsuccess = () => {
+        resolve();
+      };
+    });
   }
 
   /**
-   * Store a reference between symbols
+   * Clears all files from storage
    */
-  async storeReference(reference: ApexReference): Promise<boolean> {
-    if (!this.initialized) {
+  async clearAll(): Promise<void> {
+    if (!this.db) {
       throw new Error('Storage not initialized');
     }
 
-    this.references.push(reference);
-    return true;
-  }
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([this.STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(this.STORE_NAME);
+      const request = store.clear();
 
-  /**
-   * Retrieve all references to a specific symbol
-   */
-  async findReferencesTo(targetSymbol: string): Promise<ApexReference[]> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
+      request.onerror = () => {
+        reject(new Error('Failed to clear all files from IndexedDB'));
+      };
 
-    return this.references.filter((ref) => ref.targetSymbol === targetSymbol);
-  }
-
-  /**
-   * Retrieve all references from a specific file
-   */
-  async findReferencesFrom(sourceFile: string): Promise<ApexReference[]> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    return this.references.filter((ref) => ref.sourceFile === sourceFile);
-  }
-
-  /**
-   * Delete all stored data for a specific file
-   */
-  async clearFile(filePath: string): Promise<boolean> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    this.astMap.delete(filePath);
-    this.references = this.references.filter(
-      (ref) => ref.sourceFile !== filePath,
-    );
-    return true;
-  }
-
-  /**
-   * Persist all in-memory changes to storage
-   */
-  async persist(): Promise<void> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-
-    // In a real implementation, this would ensure all
-    // pending changes are synced to storage
-    this.logger.info('Persisting data to browser storage');
-  }
-
-  private documentMap: Map<string, TextDocument> = new Map();
-  private hoverMap: Map<string, string> = new Map();
-  private definitionMap: Map<string, ApexReference> = new Map();
-  private referencesMap: Map<string, ApexReference[]> = new Map();
-
-  async getDocument(uri: string): Promise<TextDocument | null> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-    return this.documentMap.get(uri) || null;
-  }
-
-  async setDocument(uri: string, document: TextDocument): Promise<boolean> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-    this.documentMap.set(uri, document);
-    return true;
-  }
-
-  async getHover(symbolName: string): Promise<string | undefined> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-    return this.hoverMap.get(symbolName);
-  }
-
-  async setHover(symbolName: string, hoverText: string): Promise<boolean> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-    this.hoverMap.set(symbolName, hoverText);
-    return true;
-  }
-
-  async getDefinition(symbolName: string): Promise<ApexReference | undefined> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-    return this.definitionMap.get(symbolName);
-  }
-
-  async setDefinition(
-    symbolName: string,
-    definition: ApexReference,
-  ): Promise<boolean> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-    this.definitionMap.set(symbolName, definition);
-    return true;
-  }
-
-  async getReferences(symbolName: string): Promise<ApexReference[]> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-    return this.referencesMap.get(symbolName) || [];
-  }
-
-  async setReferences(
-    symbolName: string,
-    references: ApexReference[],
-  ): Promise<boolean> {
-    if (!this.initialized) {
-      throw new Error('Storage not initialized');
-    }
-    this.referencesMap.set(symbolName, references);
-    return true;
+      request.onsuccess = () => {
+        resolve();
+      };
+    });
   }
 }

@@ -1,0 +1,75 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+import type { MessageConnection } from 'vscode-jsonrpc';
+import { isNodeEnvironment } from '../utils/EnvironmentDetector';
+import type { UnifiedServerConfig } from './UnifiedApexLanguageServer';
+import type { NodeConnectionConfig } from '../communication/NodeMessageBridge';
+
+/**
+ * Creates a unified language server instance for Node.js environment
+ */
+export async function createUnifiedLanguageServer(
+  connection?: MessageConnection,
+  nodeConfig?: NodeConnectionConfig,
+): Promise<void> {
+  if (!isNodeEnvironment()) {
+    throw new Error('Node.js server can only run in Node.js environment');
+  }
+
+  // Use provided connection or create one using NodeConnectionFactory
+  const serverConnection = connection || (await createEnvironmentConnection(nodeConfig));
+
+  // Initialize server
+  const { UnifiedApexLanguageServer } = await import(
+    './UnifiedApexLanguageServer'
+  );
+  const config: UnifiedServerConfig = {
+    environment: 'node',
+    connection: serverConnection,
+  };
+  const server = new UnifiedApexLanguageServer(config);
+  await server.initialize();
+}
+
+/**
+ * Creates a connection appropriate for the Node.js environment
+ */
+async function createEnvironmentConnection(
+  nodeConfig?: NodeConnectionConfig,
+): Promise<MessageConnection> {
+  const { createNodeConnection } = await import('./NodeConnectionFactory');
+  
+  return createNodeConnection({
+    nodeConfig: nodeConfig || { mode: 'stdio' },
+  });
+}
+
+/**
+ * Main entry point for Node.js language server
+ * Automatically detects connection mode and starts the server
+ */
+export async function main(): Promise<void> {
+  try {
+    // Default to stdio for command-line usage
+    await createUnifiedLanguageServer();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to start Apex Language Server: ${errorMessage}`);
+    process.exit(1);
+  }
+}
+
+// Auto-start if this file is run directly
+if (require.main === module) {
+  main().catch((error) => {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Fatal error: ${errorMessage}`);
+    process.exit(1);
+  });
+}

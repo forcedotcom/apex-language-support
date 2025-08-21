@@ -6,109 +6,156 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+// Import Buffer from our polyfill
+import { Buffer } from './buffer-polyfill';
+
 /**
- * Minimal fs polyfill for web worker environments
- * This provides basic fs functionality needed by the Apex parser
- * In VS Code web, documents are managed through the workspace API
- * rather than direct file system access
+ * Simple in-memory file system for browser environment
  */
+class MemoryFileSystem {
+  private files: Map<string, Uint8Array> = new Map();
 
-export interface Stats {
-  isFile(): boolean;
-  isDirectory(): boolean;
-  size: number;
-  mtime: Date;
-}
+  readFile(
+    path: string,
+    options?: { encoding?: string; flag?: string } | string,
+  ): Promise<string | Uint8Array> {
+    return new Promise((resolve, reject) => {
+      const data = this.files.get(path);
+      if (!data) {
+        reject(new Error('ENOENT: no such file or directory'));
+        return;
+      }
 
-class MockStats implements Stats {
-  constructor(
-    private isFileValue: boolean = true,
-    public size: number = 0,
-    public mtime: Date = new Date()
-  ) {}
+      if (typeof options === 'string') {
+        options = { encoding: options };
+      }
 
-  isFile(): boolean {
-    return this.isFileValue;
+      if (options?.encoding) {
+        const decoder = new TextDecoder(options.encoding);
+        resolve(decoder.decode(data));
+      } else {
+        resolve(data);
+      }
+    });
   }
 
-  isDirectory(): boolean {
-    return !this.isFileValue;
+  writeFile(
+    path: string,
+    data: string | Uint8Array,
+    options?: { encoding?: string; flag?: string } | string,
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      if (typeof data === 'string') {
+        const encoder = new TextEncoder();
+        this.files.set(path, encoder.encode(data));
+      } else {
+        this.files.set(path, data);
+      }
+      resolve();
+    });
+  }
+
+  unlink(path: string): Promise<void> {
+    return new Promise((resolve) => {
+      this.files.delete(path);
+      resolve();
+    });
+  }
+
+  exists(path: string): Promise<boolean> {
+    return Promise.resolve(this.files.has(path));
   }
 }
 
-export const fs = {
-  // Synchronous file operations
-  readFileSync(filePath: string, encoding?: string): string {
-    console.warn(`fs.readFileSync called with ${filePath} - returning empty string in web worker`);
-    return '';
-  },
+// Create a singleton instance
+const memfs = new MemoryFileSystem();
 
-  existsSync(filePath: string): boolean {
-    console.warn(`fs.existsSync called with ${filePath} - returning false in web worker`);
-    return false;
-  },
-
-  statSync(filePath: string): Stats {
-    console.warn(`fs.statSync called with ${filePath} - returning mock stats in web worker`);
-    return new MockStats();
-  },
-
-  readdirSync(dirPath: string): string[] {
-    console.warn(`fs.readdirSync called with ${dirPath} - returning empty array in web worker`);
-    return [];
-  },
-
-  // Asynchronous file operations with callbacks
-  readFile(filePath: string, encodingOrCallback: string | ((err: Error | null, data?: any) => void), callback?: (err: Error | null, data?: string) => void): void {
-    console.warn(`fs.readFile called with ${filePath} - calling callback with empty data in web worker`);
-    
-    if (typeof encodingOrCallback === 'function') {
-      // No encoding provided, callback is first parameter
-      setTimeout(() => encodingOrCallback(null, Buffer.alloc(0)), 0);
-    } else {
-      // Encoding provided, callback is second parameter
-      setTimeout(() => callback?.(null, ''), 0);
+// Create the fs polyfill
+const fs = {
+  readFile: async (
+    path: string,
+    options?: { encoding?: string; flag?: string } | string | null,
+    callback?: (error: Error | null, data: string | Buffer) => void,
+  ): Promise<string | Buffer> => {
+    try {
+      const data = await memfs.readFile(path, options as any);
+      if (callback) {
+        callback(null, data as any);
+      }
+      return data as any;
+    } catch (error) {
+      if (callback) {
+        callback(error as Error, '' as any);
+      }
+      throw error;
     }
   },
 
-  exists(filePath: string, callback: (exists: boolean) => void): void {
-    console.warn(`fs.exists called with ${filePath} - calling callback with false in web worker`);
-    setTimeout(() => callback(false), 0);
+  writeFile: async (
+    path: string,
+    data: string | Buffer,
+    options?: { encoding?: string; flag?: string } | string | null,
+    callback?: (error: Error | null) => void,
+  ): Promise<void> => {
+    try {
+      await memfs.writeFile(path, data as any, options as any);
+      callback?.(null);
+    } catch (error) {
+      callback?.(error as Error);
+      throw error;
+    }
   },
 
-  stat(filePath: string, callback: (err: Error | null, stats?: Stats) => void): void {
-    console.warn(`fs.stat called with ${filePath} - calling callback with mock stats in web worker`);
-    setTimeout(() => callback(null, new MockStats()), 0);
+  unlink: async (
+    path: string,
+    callback?: (error: Error | null) => void,
+  ): Promise<void> => {
+    try {
+      await memfs.unlink(path);
+      callback?.(null);
+    } catch (error) {
+      callback?.(error as Error);
+      throw error;
+    }
   },
 
-  readdir(dirPath: string, callback: (err: Error | null, files?: string[]) => void): void {
-    console.warn(`fs.readdir called with ${dirPath} - calling callback with empty array in web worker`);
-    setTimeout(() => callback(null, []), 0);
+  exists: async (
+    path: string,
+    callback?: (exists: boolean) => void,
+  ): Promise<boolean> => {
+    const exists = await memfs.exists(path);
+    callback?.(exists);
+    return exists;
   },
 
-  // Promise-based operations
-  promises: {
-    readFile: async (filePath: string, encoding?: string): Promise<string | Buffer> => {
-      console.warn(`fs.promises.readFile called with ${filePath} - returning empty string in web worker`);
-      return encoding ? '' : Buffer.alloc(0);
-    },
+  // Synchronous versions
+  readFileSync: (
+    path: string,
+    options?: { encoding?: string; flag?: string } | string,
+  ): string | Buffer => {
+    throw new Error('Synchronous operations not supported in browser');
+  },
 
-    exists: async (filePath: string): Promise<boolean> => {
-      console.warn(`fs.promises.exists called with ${filePath} - returning false in web worker`);
-      return false;
-    },
+  writeFileSync: (
+    path: string,
+    data: string | Buffer,
+    options?: { encoding?: string; flag?: string } | string,
+  ): void => {
+    throw new Error('Synchronous operations not supported in browser');
+  },
 
-    stat: async (filePath: string): Promise<Stats> => {
-      console.warn(`fs.promises.stat called with ${filePath} - returning mock stats in web worker`);
-      return new MockStats();
-    },
+  unlinkSync: (path: string): void => {
+    throw new Error('Synchronous operations not supported in browser');
+  },
 
-    readdir: async (dirPath: string): Promise<string[]> => {
-      console.warn(`fs.promises.readdir called with ${dirPath} - returning empty array in web worker`);
-      return [];
-    },
+  existsSync: (path: string): boolean => {
+    throw new Error('Synchronous operations not supported in browser');
   },
 };
 
-// Export as default for CommonJS compatibility
-export default fs;
+// Export the fs polyfill
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).fs = fs;
+}
+
+export { fs };

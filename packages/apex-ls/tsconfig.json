@@ -6,7 +6,8 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "WebWorker"],
-    "tsBuildInfoFile": "./out/.tsbuildinfo"
+    "tsBuildInfoFile": "./out/.tsbuildinfo",
+    "skipLibCheck": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "out", "dist", "tsup.config.ts"],

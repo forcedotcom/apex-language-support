@@ -7,10 +7,8 @@
  */
 
 import * as vscode from 'vscode';
-import {
-  UniversalExtensionClient,
-  UniversalClientFactory,
-} from '@salesforce/apex-ls';
+import type { UnifiedClientInterface } from '@salesforce/apex-ls';
+import { UniversalClientFactory } from '@salesforce/apex-ls';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import { logToOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
@@ -24,7 +22,7 @@ import { getWorkspaceSettings } from './configuration';
 /**
  * Global unified language client instance
  */
-let unifiedClient: UniversalExtensionClient | undefined;
+let unifiedClient: UnifiedClientInterface | undefined;
 
 /**
  * Environment detection
@@ -53,7 +51,7 @@ function safeCloneForWorker(obj: any): any {
     if (typeof obj !== 'object' || obj === null) {
       return obj;
     }
-    
+
     const safe: any = {};
     for (const key in obj) {
       try {
@@ -61,7 +59,7 @@ function safeCloneForWorker(obj: any): any {
         if (typeof value === 'function') continue;
         if (typeof value === 'symbol') continue;
         if (value instanceof Node) continue; // DOM nodes
-        
+
         // Recursively handle nested objects
         safe[key] = safeCloneForWorker(value);
       } catch {
@@ -291,33 +289,31 @@ export const createAndStartUnifiedClient = async (
       success: (message: string) => logToOutputChannel(`✅ ${message}`, 'info'),
     };
 
+    // Debug extension URI resolution
+    logToOutputChannel(
+      `🔍 Extension URI: ${context.extensionUri.toString()}`,
+      'debug',
+    );
+    logToOutputChannel(`🔍 Extension path: ${context.extensionPath}`, 'debug');
+    const workerUrl = new URL('dist/worker.mjs', context.extensionUri.toString());
+    logToOutputChannel(`🔍 Worker URL: ${workerUrl.toString()}`, 'debug');
+
+    // Use standard worker path - test script will ensure worker is available
+    const workerFileName = 'dist/worker.mjs';
+
     // Create unified client based on environment
-    if (environment === 'web') {
-      // Use web worker mode
-      unifiedClient = await UniversalClientFactory.createWebWorkerClient({
-        context,
-        logger,
-        workerFileName: 'dist/worker.mjs',
-      });
-      logToOutputChannel('✅ Created web worker client', 'info');
-    } else {
-      // For desktop, we could still use web worker mode for consistency,
-      // or implement Node.js mode when it's available in UniversalClientFactory
-      // For now, let's use web worker mode which works in both environments
-      unifiedClient = await UniversalClientFactory.createWebWorkerClient({
-        context,
-        logger,
-        workerFileName: 'dist/worker.mjs',
-      });
-      logToOutputChannel(
-        '✅ Created desktop client (using web worker architecture)',
-        'info',
-      );
-    }
+    const client = await UniversalClientFactory.createWebWorkerClient({
+      context,
+      logger,
+      workerFileName,
+    });
+
+    // Store the client instance
+    unifiedClient = client;
 
     // Initialize the client
     const initParams = createInitializeParams(context);
-    await unifiedClient.initialize(initParams);
+    await client.initialize(initParams);
 
     logToOutputChannel(
       '✅ Unified language server initialized successfully',
@@ -333,8 +329,8 @@ export const createAndStartUnifiedClient = async (
 
     // Register configuration change listener
     // We'll adapt this to work with the unified client
-    if (unifiedClient) {
-      registerUnifiedConfigurationChangeListener(unifiedClient, context);
+    if (client) {
+      registerUnifiedConfigurationChangeListener(client, context);
     }
 
     logToOutputChannel('🎉 Unified Apex Language Server is ready!', 'info');
@@ -353,7 +349,7 @@ export const createAndStartUnifiedClient = async (
  * Register configuration change listener for unified client
  */
 function registerUnifiedConfigurationChangeListener(
-  client: UniversalExtensionClient,
+  client: UnifiedClientInterface,
   context: vscode.ExtensionContext,
 ): void {
   const configWatcher = vscode.workspace.onDidChangeConfiguration(
@@ -446,6 +442,6 @@ export async function stopUnifiedLanguageServer(): Promise<void> {
 /**
  * Gets the current unified client instance
  */
-export function getUnifiedClient(): UniversalExtensionClient | undefined {
+export function getUnifiedClient(): UnifiedClientInterface | undefined {
   return unifiedClient;
 }

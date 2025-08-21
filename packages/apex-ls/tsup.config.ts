@@ -9,12 +9,36 @@ import { defineConfig } from 'tsup';
 import { BuildOptions } from 'esbuild';
 import { applyPolyfillConfig } from './src/polyfills/config';
 
+// Shared external dependencies to avoid duplication
+const SHARED_EXTERNAL = [
+  'vscode-languageserver',
+  'vscode-languageserver/node',
+  'vscode-languageserver-protocol',
+  'vscode-jsonrpc',
+  'vscode-jsonrpc/node',
+  '@apexdevtools/apex-parser',
+  'antlr4ts',
+  '@salesforce/apex-lsp-parser-ast',
+  '@salesforce/apex-lsp-custom-services',
+  'node-dir',
+  'crypto',
+  'fs',
+  'path',
+];
+
+const SHARED_NO_EXTERNAL = [
+  '@salesforce/apex-lsp-shared',
+  '@salesforce/apex-lsp-compliant-services',
+  'vscode-languageserver-textdocument',
+];
+
 export default defineConfig([
   // Main package build (CJS + ESM)
   {
     format: ['cjs', 'esm'],
     entry: {
       index: 'src/index.ts',
+      browser: 'src/browser.ts',
       server: 'src/server/index.ts',
     },
     outDir: 'dist',
@@ -25,26 +49,8 @@ export default defineConfig([
     splitting: false,
     minify: false,
     sourcemap: true,
-    external: [
-      'vscode-languageserver',
-      'vscode-languageserver/node',
-      'vscode-languageserver-protocol',
-      'vscode-jsonrpc',
-      'vscode-jsonrpc/node',
-      '@apexdevtools/apex-parser',
-      'antlr4ts',
-      '@salesforce/apex-lsp-parser-ast',
-      '@salesforce/apex-lsp-custom-services',
-      'node-dir',
-      'crypto',
-      'fs',
-      'path',
-    ],
-    noExternal: [
-      '@salesforce/apex-lsp-shared',
-      '@salesforce/apex-lsp-compliant-services',
-      'vscode-languageserver-textdocument',
-    ],
+    external: SHARED_EXTERNAL,
+    noExternal: SHARED_NO_EXTERNAL,
     esbuildOptions(options: BuildOptions) {
       options.platform = 'browser';
       options.conditions = ['browser', 'import', 'module', 'default'];
@@ -67,7 +73,8 @@ export default defineConfig([
   // Worker build (Pure ESM for web workers)
   {
     entry: {
-      worker: 'src/worker.ts',
+      worker: 'src/worker-unified.ts',
+      'worker-esm': 'src/worker-esm.ts',
       'minimal-worker': 'src/minimal-worker.ts',
     },
     outDir: 'dist',
@@ -79,26 +86,8 @@ export default defineConfig([
     minify: false,
     sourcemap: true,
     format: ['esm'],
-    external: [
-      'vscode-languageserver',
-      'vscode-languageserver/node',
-      'vscode-languageserver-protocol',
-      'vscode-jsonrpc',
-      'vscode-jsonrpc/node',
-      '@apexdevtools/apex-parser',
-      'antlr4ts',
-      '@salesforce/apex-lsp-parser-ast',
-      '@salesforce/apex-lsp-custom-services',
-      'node-dir',
-      'crypto',
-      'fs',
-      'path',
-    ],
-    noExternal: [
-      '@salesforce/apex-lsp-shared',
-      '@salesforce/apex-lsp-compliant-services',
-      'vscode-languageserver-textdocument',
-    ],
+    external: SHARED_EXTERNAL,
+    noExternal: SHARED_NO_EXTERNAL,
     esbuildOptions(options: BuildOptions) {
       options.platform = 'browser';
       // Apply polyfill configuration

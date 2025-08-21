@@ -15,6 +15,7 @@ import {
   getLogNotificationHandler,
   shouldLog,
 } from '@salesforce/apex-lsp-shared';
+import { LoggingUtils } from './LoggingUtils';
 
 /**
  * Unified logger implementation that works in both browser and web worker contexts
@@ -25,10 +26,8 @@ import {
  * 3. Console fallback (when neither is available)
  */
 class UnifiedLogger implements LoggerInterface {
-  private readonly usePostMessage: boolean;
-
-  constructor(usePostMessage = false) {
-    this.usePostMessage = usePostMessage;
+  constructor() {
+    // Unified constructor since postMessage functionality is not used
   }
 
   /**
@@ -43,15 +42,12 @@ class UnifiedLogger implements LoggerInterface {
     }
 
     // Always log to console as fallback
-    this.sendViaConsole(messageType, msg);
+    LoggingUtils.logToConsole(messageType, msg);
 
     // Try LSP notification handler first (browser context)
     this.sendViaLsp(messageType, msg);
 
-    // If in web worker context, also send via postMessage
-    if (this.usePostMessage) {
-      this.sendViaPostMessage(messageType, msg);
-    }
+    // Note: postMessage functionality removed as it's blocked in VS Code web worker environment
   }
 
   /**
@@ -109,89 +105,40 @@ class UnifiedLogger implements LoggerInterface {
     }
   }
 
-  /**
-   * Sends a log message via console (fallback)
-   */
-  private sendViaConsole(messageType: LogMessageType, message: string): void {
-    const timestamp = new Date().toISOString();
-    const formatted = `[${timestamp}] [${messageType.toUpperCase()}] ${message}`;
 
-    switch (messageType) {
-      case 'error':
-        console.error(formatted);
-        break;
-      case 'warning':
-        console.warn(formatted);
-        break;
-      case 'info':
-        console.info(formatted);
-        break;
-      case 'log':
-        console.log(formatted);
-        break;
-      case 'debug':
-        console.debug(formatted);
-        break;
-      default:
-        console.log(formatted);
-        break;
-    }
-  }
-
-  /**
-   * Sends a log message via postMessage (web worker context)
-   * Note: Direct postMessage is blocked in VS Code web worker environment,
-   * so we'll skip this and rely on LSP connection only
-   */
-  private sendViaPostMessage(
-    messageType: LogMessageType,
-    message: string,
-  ): void {
-    // Skip direct postMessage in VS Code web worker environment
-    // All logging will go through the LSP connection instead
-    return;
-  }
 }
 
 /**
  * Unified factory for creating loggers that work in both browser and web worker contexts
  */
 export class UnifiedLoggerFactory implements LoggerFactory {
-  private static browserInstance: UnifiedLoggerFactory;
-  private static workerInstance: UnifiedLoggerFactory;
-  private readonly usePostMessage: boolean;
+  private static instance: UnifiedLoggerFactory;
 
-  private constructor(usePostMessage = false) {
-    this.usePostMessage = usePostMessage;
+  private constructor() {
+    // Unified constructor since postMessage functionality is not used
   }
 
   /**
-   * Gets the singleton instance for browser context
+   * Gets the singleton instance
    */
-  static getBrowserInstance(): UnifiedLoggerFactory {
-    if (!UnifiedLoggerFactory.browserInstance) {
-      UnifiedLoggerFactory.browserInstance = new UnifiedLoggerFactory(false);
+  static getInstance(): UnifiedLoggerFactory {
+    if (!UnifiedLoggerFactory.instance) {
+      UnifiedLoggerFactory.instance = new UnifiedLoggerFactory();
     }
-    return UnifiedLoggerFactory.browserInstance;
-  }
-
-  /**
-   * Gets the singleton instance for web worker context
-   */
-  static getWorkerInstance(): UnifiedLoggerFactory {
-    if (!UnifiedLoggerFactory.workerInstance) {
-      UnifiedLoggerFactory.workerInstance = new UnifiedLoggerFactory(true);
-    }
-    return UnifiedLoggerFactory.workerInstance;
+    return UnifiedLoggerFactory.instance;
   }
 
   /**
    * Gets a logger instance (implements LoggerFactory interface)
    */
   getLogger(): LoggerInterface {
-    return new UnifiedLogger(this.usePostMessage);
+    return new UnifiedLogger();
   }
 }
 
 // Export convenience functions for backward compatibility
 export const BrowserLoggerFactory = UnifiedLoggerFactory;
+
+// Legacy exports for backward compatibility
+export const getBrowserLoggerFactory = () => UnifiedLoggerFactory.getInstance();
+export const getWorkerLoggerFactory = () => UnifiedLoggerFactory.getInstance();

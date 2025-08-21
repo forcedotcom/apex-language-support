@@ -7,12 +7,12 @@
  */
 
 import type { Connection } from 'vscode-languageserver/browser';
-import { MessageType } from 'vscode-languageserver/browser';
 import type {
   LogNotificationHandler,
   LogMessageParams,
 } from '@salesforce/apex-lsp-shared';
 import { shouldLog } from '@salesforce/apex-lsp-shared';
+import { LoggingUtils } from './LoggingUtils';
 
 /**
  * Unified log notification handler that works in both browser and web worker contexts
@@ -27,10 +27,9 @@ export class UnifiedLogNotificationHandler implements LogNotificationHandler {
   private static browserInstance: UnifiedLogNotificationHandler;
   private static workerInstance: UnifiedLogNotificationHandler;
   private connection: Connection | null = null;
-  private readonly isWebWorker: boolean;
 
-  private constructor(isWebWorker = false) {
-    this.isWebWorker = isWebWorker;
+  private constructor() {
+    // Unified constructor since postMessage functionality is not used
   }
 
   /**
@@ -41,7 +40,7 @@ export class UnifiedLogNotificationHandler implements LogNotificationHandler {
   ): UnifiedLogNotificationHandler {
     if (!UnifiedLogNotificationHandler.browserInstance) {
       UnifiedLogNotificationHandler.browserInstance =
-        new UnifiedLogNotificationHandler(false);
+        new UnifiedLogNotificationHandler();
     }
     UnifiedLogNotificationHandler.browserInstance.connection = connection;
     return UnifiedLogNotificationHandler.browserInstance;
@@ -55,7 +54,7 @@ export class UnifiedLogNotificationHandler implements LogNotificationHandler {
   ): UnifiedLogNotificationHandler {
     if (!UnifiedLogNotificationHandler.workerInstance) {
       UnifiedLogNotificationHandler.workerInstance =
-        new UnifiedLogNotificationHandler(true);
+        new UnifiedLogNotificationHandler();
     }
     if (connection) {
       UnifiedLogNotificationHandler.workerInstance.connection = connection;
@@ -83,10 +82,7 @@ export class UnifiedLogNotificationHandler implements LogNotificationHandler {
     // Send via LSP connection if available
     this.sendViaLsp(params);
 
-    // If in web worker context, also send via postMessage
-    if (this.isWebWorker) {
-      this.sendViaPostMessage(params);
-    }
+    // Note: postMessage functionality removed as it's blocked in VS Code web worker environment
   }
 
   /**
@@ -99,7 +95,7 @@ export class UnifiedLogNotificationHandler implements LogNotificationHandler {
 
     try {
       this.connection.sendNotification('window/logMessage', {
-        type: this.getLogMessageType(params.type),
+        type: LoggingUtils.getLogMessageType(params.type),
         message: params.message,
       });
     } catch {
@@ -107,37 +103,7 @@ export class UnifiedLogNotificationHandler implements LogNotificationHandler {
     }
   }
 
-  /**
-   * Sends log message via postMessage (web worker context)
-   * Note: Direct postMessage is blocked in VS Code web worker environment,
-   * so we'll skip this and rely on LSP connection only
-   */
-  private sendViaPostMessage(params: LogMessageParams): void {
-    // Skip direct postMessage in VS Code web worker environment
-    // All logging will go through the LSP connection instead
-    return;
-  }
 
-  /**
-   * Convert internal log type to LSP message type (for browser context)
-   */
-  private getLogMessageType(type: string): MessageType {
-    switch (type) {
-      case 'error':
-        return MessageType.Error;
-      case 'warning':
-        return MessageType.Warning;
-      case 'info':
-        return MessageType.Info;
-      case 'log':
-        return MessageType.Log;
-      case 'debug':
-        // Map Debug to Log for backward compatibility with older LSP clients
-        return MessageType.Log;
-      default:
-        return MessageType.Log;
-    }
-  }
 }
 
 // Export convenience functions for backward compatibility

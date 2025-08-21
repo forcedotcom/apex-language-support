@@ -1,0 +1,57 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./out/worker",
+    "rootDir": "./src",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "WebWorker"],
+    "tsBuildInfoFile": "./out/worker/.tsbuildinfo",
+    "skipLibCheck": true,
+    "incremental": true,
+    "typeRoots": ["./src/types", "../../node_modules/@types"],
+    "types": ["node", "events"]
+  },
+  "include": [
+    "src/worker.ts",
+    "src/worker-entry.ts",
+    "src/worker-esm.ts",
+    "src/minimal-worker.ts",
+    "src/server/index.worker.ts",
+    "src/server/ConnectionFactory.ts",
+    "src/server/ConnectionFactoryInterface.ts",
+    "src/server/WorkerConnectionFactory.ts",
+    "src/server/UnifiedApexLanguageServer.ts",
+    "src/communication/MessageTransport.ts",
+    "src/communication/WorkerMessageBridge.ts",
+    "src/communication/MessageBridgeFactory.worker.ts",
+    "src/communication/WorkerMessageBridgeFactory.ts",
+    "src/communication/MessageBridgeInterface.ts",
+    "src/communication/TransportMessageHandlers.ts",
+    "src/storage/**/*",
+    "src/types/**/*",
+    "src/types.ts",
+    "src/utils/**/*",
+    "src/polyfills/**/*"
+  ],
+  "exclude": [
+    "src/browser.ts",
+    "src/server/index.ts",
+    "src/server/BrowserConnectionFactory.ts",
+    "src/server/ConnectionFactory.browser.ts",
+    "src/communication/BrowserMessageBridge.ts",
+    "src/communication/BrowserMessageBridgeFactory.ts",
+    "src/communication/MessageBridgeFactory.browser.ts",
+    "src/communication/browser-*.ts",
+    "src/communication/MessageBridgeFactory.ts",
+    "node_modules",
+    "out",
+    "dist",
+    "tsup.config.ts"
+  ],
+  "references": [
+    { "path": "../apex-lsp-shared" },
+    { "path": "../apex-parser-ast" },
+    { "path": "../lsp-compliant-services" }
+  ]
+}

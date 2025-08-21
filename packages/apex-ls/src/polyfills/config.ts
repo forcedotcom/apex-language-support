@@ -6,77 +6,105 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import path from 'path';
-import { BuildOptions } from 'esbuild';
+// In browser environment, we don't need path and url modules
+// These are only used in Node.js environment
+const polyfillsDir = '/polyfills';
 
-const polyfillsDir = path.resolve(__dirname);
-
-export const polyfillPaths = {
-  assert: path.resolve(polyfillsDir, 'assert-polyfill.ts'),
-  buffer: path.resolve(polyfillsDir, 'buffer-polyfill.ts'),
-  child_process: path.resolve(polyfillsDir, 'child_process-polyfill.ts'),
-  crypto: path.resolve(polyfillsDir, 'crypto-polyfill.ts'),
-  events: path.resolve(polyfillsDir, 'events-polyfill.ts'),
-  fs: path.resolve(polyfillsDir, 'fs-polyfill.ts'),
-  net: path.resolve(polyfillsDir, 'net-polyfill.ts'),
-  os: path.resolve(polyfillsDir, 'os-polyfill.ts'),
-  path: path.resolve(polyfillsDir, 'path-polyfill.ts'),
-  process: path.resolve(polyfillsDir, 'process-polyfill.ts'),
-  url: path.resolve(polyfillsDir, 'url-polyfill.ts'),
-  util: path.resolve(polyfillsDir, 'util-polyfill.ts'),
+export const polyfillConfig = {
+  polyfillsDir,
+  polyfills: {
+    assert: {
+      path: `${polyfillsDir}/assert-polyfill.ts`,
+      global: 'assert',
+    },
+    buffer: {
+      path: `${polyfillsDir}/buffer-polyfill.ts`,
+      global: 'Buffer',
+    },
+    child_process: {
+      path: `${polyfillsDir}/child_process-polyfill.ts`,
+      global: 'child_process',
+    },
+    crypto: {
+      path: `${polyfillsDir}/crypto-polyfill.ts`,
+      global: 'crypto',
+    },
+    events: {
+      path: `${polyfillsDir}/events-polyfill.ts`,
+      global: 'events',
+    },
+    fs: {
+      path: `${polyfillsDir}/fs-polyfill.ts`,
+      global: 'fs',
+    },
+    net: {
+      path: `${polyfillsDir}/net-polyfill.ts`,
+      global: 'net',
+    },
+    os: {
+      path: `${polyfillsDir}/os-polyfill.ts`,
+      global: 'os',
+    },
+    path: {
+      path: `${polyfillsDir}/path-polyfill.ts`,
+      global: 'path',
+    },
+    process: {
+      path: `${polyfillsDir}/process-polyfill.ts`,
+      global: 'process',
+    },
+    url: {
+      path: `${polyfillsDir}/url-polyfill.ts`,
+      global: 'url',
+    },
+    util: {
+      path: `${polyfillsDir}/util-polyfill.ts`,
+      global: 'util',
+    },
+  },
 };
 
-export function applyPolyfillConfig(options: BuildOptions): void {
+/**
+ * Applies polyfill configuration to esbuild options
+ */
+export function applyPolyfillConfig(options: any): void {
+  // Add polyfill aliases
   options.alias = {
     ...options.alias,
-    assert: polyfillPaths.assert,
-    buffer: polyfillPaths.buffer,
-    child_process: polyfillPaths.child_process,
-    crypto: polyfillPaths.crypto,
-    events: polyfillPaths.events,
-    fs: polyfillPaths.fs,
-    net: polyfillPaths.net,
-    os: polyfillPaths.os,
-    path: polyfillPaths.path,
-    process: polyfillPaths.process,
-    stream: 'stream-browserify',
-    url: polyfillPaths.url, // Map Node's 'url' module to our polyfill
-    util: 'vscode-jsonrpc/lib/browser/ril',
-    // Force all vscode packages to use browser versions
-    'vscode-languageserver/lib/node/main':
-      'vscode-languageserver/lib/browser/main',
-    'vscode-languageserver/lib/node/files':
-      'vscode-languageserver/lib/browser/main',
-    'vscode-languageserver/lib/node': 'vscode-languageserver/lib/browser',
-    'vscode-languageserver/node': 'vscode-languageserver/browser',
-    'vscode-jsonrpc/lib/node/main': 'vscode-jsonrpc/lib/browser/main',
-    'vscode-jsonrpc/lib/node/ril': 'vscode-jsonrpc/lib/browser/ril',
-    'vscode-jsonrpc/lib/node': 'vscode-jsonrpc/lib/browser',
-    'vscode-jsonrpc/node': 'vscode-jsonrpc/browser',
+    assert: './src/polyfills/assert-polyfill.ts',
+    buffer: './src/polyfills/buffer-polyfill.ts',
+    child_process: './src/polyfills/child_process-polyfill.ts',
+    crypto: './src/polyfills/crypto-polyfill.ts',
+    events: './src/polyfills/events-polyfill.ts',
+    fs: './src/polyfills/fs-polyfill.ts',
+    net: './src/polyfills/net-polyfill.ts',
+    os: './src/polyfills/os-polyfill.ts',
+    path: './src/polyfills/path-polyfill.ts',
+    process: './src/polyfills/process-polyfill.ts',
+    url: './src/polyfills/url-polyfill.ts',
+    util: './src/polyfills/util-polyfill.ts',
   };
 
-  options.inject = [
-    polyfillPaths.assert,
-    polyfillPaths.buffer,
-    polyfillPaths.child_process,
-    polyfillPaths.path,
-    polyfillPaths.os,
-    polyfillPaths.crypto,
-    polyfillPaths.net,
-    polyfillPaths.events,
-    polyfillPaths.process,
-    polyfillPaths.url,
-    polyfillPaths.util,
-    ...(options.inject || []),
-  ];
-
+  // Add polyfill globals
   options.define = {
     ...options.define,
     'process.env.NODE_ENV': '"browser"',
+    'process.env.JEST_WORKER_ID': 'undefined',
+    'process.env.APEX_LS_MODE': 'undefined',
+    'process.platform': '"browser"',
+    'process.version': '"v0.0.0"',
+    'process.versions': '{}',
+    'process.cwd': '"/"',
+    'process.exit': 'undefined',
+    'process.nextTick': 'setTimeout',
+    'process.stdout.write': 'undefined',
+    'process.stderr.write': 'undefined',
+    'Buffer.alloc': '"Uint8Array"',
+    'Buffer.from': '"Uint8Array"',
+    'Buffer.isBuffer': 'false',
+    'Buffer.byteLength': '0',
+    'Buffer.concat': '"Uint8Array"',
+    __dirname: '""',
     global: 'globalThis',
-    'global.Buffer': 'Buffer',
-    'global.process': 'process',
-    'global.url': 'url',
-    'global.util': 'util',
   };
 }

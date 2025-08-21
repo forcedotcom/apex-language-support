@@ -261,6 +261,8 @@
     "precompile": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars . && shx mkdir -p out && shx cp package.nls*.json language-configuration.json out/",
     "compile": "tsc --build",
     "bundle": "tsup",
+    "build": "npm run precompile && npm run compile && npm run bundle && npm run post-build",
+    "rebuild": "npm run clean && npm install && npm run build",
     "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
     "post-build": "node scripts/post-build.js",
     "package": "cd dist && vsce package --out ../",
