@@ -106,13 +106,25 @@ export class ResourceLoader {
     const files = unzipSync(zipData);
 
     let totalSize = 0;
+    let processedCount = 0;
+    
     for (const [path, data] of Object.entries(files)) {
       // Strip the src/resources/StandardApexLibrary/ prefix to get the relative path
-      const relativePath = path.replace(
+      let relativePath = path.replace(
         /^src\/resources\/StandardApexLibrary\//,
         '',
       );
-      const pathParts = relativePath.split(/[\/\\]/);
+      
+      // Normalize Windows backslashes to forward slashes for cross-platform compatibility
+      const originalPath = relativePath;
+      relativePath = relativePath.replace(/\\/g, '/');
+      
+      // Log path normalization for debugging on Windows
+      if (originalPath !== relativePath) {
+        this.logger.debug(() => `Normalized path: "${originalPath}" -> "${relativePath}"`);
+      }
+      
+      const pathParts = relativePath.split('/');
       const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
       const fileName = pathParts[pathParts.length - 1];
 
@@ -125,6 +137,7 @@ export class ResourceLoader {
 
       this.filePaths.push(relativePath);
       totalSize += data.length;
+      processedCount++;
 
       // Store file data in MultiVolumeFileSystem using apex-resources URI
       const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${relativePath}`;
@@ -135,7 +148,7 @@ export class ResourceLoader {
 
     this.logger.debug(
       () =>
-        `MultiVolumeFileSystem structure built: ${this.filePaths.length} files, ${this.namespaces.size} namespaces`,
+        `MultiVolumeFileSystem structure built: ${this.filePaths.length} files, ${this.namespaces.size} namespaces, processed ${processedCount} paths`,
     );
   }
 
