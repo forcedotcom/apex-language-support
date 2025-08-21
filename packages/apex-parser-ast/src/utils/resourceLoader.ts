@@ -107,23 +107,25 @@ export class ResourceLoader {
 
     let totalSize = 0;
     let processedCount = 0;
-    
+
     for (const [path, data] of Object.entries(files)) {
       // Strip the src/resources/StandardApexLibrary/ prefix to get the relative path
       let relativePath = path.replace(
         /^src\/resources\/StandardApexLibrary\//,
         '',
       );
-      
+
       // Normalize Windows backslashes to forward slashes for cross-platform compatibility
       const originalPath = relativePath;
       relativePath = relativePath.replace(/\\/g, '/');
-      
+
       // Log path normalization for debugging on Windows
       if (originalPath !== relativePath) {
-        this.logger.debug(() => `Normalized path: "${originalPath}" -> "${relativePath}"`);
+        this.logger.debug(
+          () => `Normalized path: "${originalPath}" -> "${relativePath}"`,
+        );
       }
-      
+
       const pathParts = relativePath.split('/');
       const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
       const fileName = pathParts[pathParts.length - 1];
@@ -148,7 +150,8 @@ export class ResourceLoader {
 
     this.logger.debug(
       () =>
-        `MultiVolumeFileSystem structure built: ${this.filePaths.length} files, ${this.namespaces.size} namespaces, processed ${processedCount} paths`,
+        `MultiVolumeFileSystem structure built: ${this.filePaths.length} files, ` +
+        `${this.namespaces.size} namespaces, processed ${processedCount} paths`,
     );
   }
 
