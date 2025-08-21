@@ -45,12 +45,6 @@ describe('ResourceLoader', () => {
       const availableClasses = loader.getAvailableClasses();
       expect(availableClasses).toBeDefined();
       expect(availableClasses.length).toBeGreaterThan(0);
-      
-      // Debug: Log the first few available classes to see what's actually loaded
-      console.log('Available classes (first 10):', availableClasses.slice(0, 10));
-      console.log('Looking for TEST_FILE:', TEST_FILE);
-      console.log('TEST_FILE in availableClasses:', availableClasses.includes(TEST_FILE));
-      
       expect(availableClasses).toContain(TEST_FILE);
     });
 
