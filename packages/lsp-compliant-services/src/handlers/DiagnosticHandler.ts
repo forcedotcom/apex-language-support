@@ -9,6 +9,7 @@
 import {
   Diagnostic,
   DocumentDiagnosticParams,
+  DocumentDiagnosticReport,
 } from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
@@ -26,7 +27,7 @@ import { DiagnosticProcessingService } from '../services/DiagnosticProcessingSer
  */
 export async function processOnDiagnostic(
   params: DocumentDiagnosticParams,
-): Promise<Diagnostic[]> {
+): Promise<DocumentDiagnosticReport> {
   const logger = getLogger();
 
   try {
@@ -44,14 +45,18 @@ export async function processOnDiagnostic(
       () =>
         `Returning ${diagnostics.length} diagnostics for: ${params.textDocument.uri}`,
     );
-    return diagnostics;
+    const report: DocumentDiagnosticReport = {
+      kind: 'full',
+      items: diagnostics,
+    };
+    return report;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(
       () =>
         `Error processing diagnostic request for ${params.textDocument.uri}: ${errorMessage}`,
     );
-    return [];
+    return { kind: 'full', items: [] };
   }
 }
 
@@ -63,7 +68,7 @@ export async function processOnDiagnostic(
  */
 export function dispatchProcessOnDiagnostic(
   params: DocumentDiagnosticParams,
-): Promise<Diagnostic[]> {
+): Promise<DocumentDiagnosticReport> {
   return dispatch(
     processOnDiagnostic(params),
     'Error processing diagnostic request',

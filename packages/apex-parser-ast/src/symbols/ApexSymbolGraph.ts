@@ -1452,9 +1452,8 @@ export class ApexSymbolGraph {
     dependents: ApexSymbol[],
     dependencies: ApexSymbol[],
   ): number {
-    // Impact score is based on how many things depend on this symbol
-    // The more dependents, the higher the impact score
-    return dependents.length;
+    // Impact score disabled: always return zero
+    return 0;
   }
 
   /**

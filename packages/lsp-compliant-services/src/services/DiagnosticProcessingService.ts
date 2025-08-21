@@ -146,22 +146,18 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       );
 
       // Convert parsing errors to diagnostics
-      const diagnostics = getDiagnosticsFromErrors(result.errors);
-
       // Enhance diagnostics with cross-file analysis using ApexSymbolManager
-      const enhancedDiagnostics =
-        await this.enhanceDiagnosticsWithGraphAnalysis(
-          diagnostics,
-          params.textDocument.uri,
-          result.errors,
+      return this.enhanceDiagnosticsWithGraphAnalysis(
+        getDiagnosticsFromErrors(result.errors),
+        params.textDocument.uri,
+        result.errors,
+      ).then((enhancedDiagnostics) => {
+        this.logger.debug(
+          () =>
+            `Returning ${enhancedDiagnostics.length} diagnostics for: ${params.textDocument.uri}`,
         );
-
-      this.logger.debug(
-        () =>
-          `Returning ${enhancedDiagnostics.length} diagnostics for: ${params.textDocument.uri}`,
-      );
-
-      return enhancedDiagnostics;
+        return enhancedDiagnostics;
+      });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

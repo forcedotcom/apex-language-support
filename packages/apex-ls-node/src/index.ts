@@ -278,30 +278,27 @@ export function startServer() {
     }
   });
 
-  // Handle diagnostic requests
-  connection.onRequest(
-    'textDocument/diagnostic',
-    async (params: DocumentSymbolParams) => {
-      logger.debug(
-        `[SERVER] Received diagnostic request for: ${params.textDocument.uri}`,
-      );
-      logger.debug(`[SERVER] DiagnosticParams: ${JSON.stringify(params)}`);
+  // Handle diagnostic requests (pull model)
+  connection.onRequest('textDocument/diagnostic', async (params: any) => {
+    logger.debug(
+      `[SERVER] Received diagnostic request for: ${params.textDocument.uri}`,
+    );
+    logger.debug(`[SERVER] DiagnosticParams: ${JSON.stringify(params)}`);
 
-      try {
-        const result = await dispatchProcessOnDiagnostic(params);
-        logger.debug(
-          `[SERVER] Result for diagnostic (${params.textDocument.uri}): ${JSON.stringify(result)}`,
-        );
-        return result;
-      } catch (error) {
-        logger.error(
-          `[SERVER] Error processing diagnostic for ${params.textDocument.uri}: ${error}`,
-        );
-        // Return empty array in case of error, as per LSP spec for graceful failure
-        return [];
-      }
-    },
-  );
+    try {
+      const result = await dispatchProcessOnDiagnostic(params);
+      logger.debug(
+        `[SERVER] Result for diagnostic (${params.textDocument.uri}): ${JSON.stringify(result)}`,
+      );
+      return result;
+    } catch (error) {
+      logger.error(
+        `[SERVER] Error processing diagnostic for ${params.textDocument.uri}: ${error}`,
+      );
+      // Return empty report in case of error, as per LSP spec for graceful failure
+      return { kind: 'full', items: [] };
+    }
+  });
 
   // Handle workspace diagnostic requests (no-op for now)
   connection.onRequest('workspace/diagnostic', async (params) => {
