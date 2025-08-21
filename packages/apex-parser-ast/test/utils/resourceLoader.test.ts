@@ -8,7 +8,7 @@
 import { CaseInsensitivePathMap } from '../../src/utils/CaseInsensitiveMap';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
 
-describe.skip('ResourceLoader', () => {
+describe('ResourceLoader', () => {
   let loader: ResourceLoader;
   const TEST_FILE = 'System/System.cls';
 
@@ -74,6 +74,21 @@ describe.skip('ResourceLoader', () => {
       expect(stats.totalFiles).toBeGreaterThan(0);
       expect(stats.totalSize).toBeGreaterThan(0);
       expect(stats.namespaces.length).toBeGreaterThan(0);
+    });
+
+    it('should handle Windows-style paths correctly', () => {
+      loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
+
+      // Test with Windows-style backslashes
+      expect(loader.hasClass('System\\System.cls')).toBe(true);
+      expect(loader.hasClass('System\\Utils\\Helper.cls')).toBe(false); // This class doesn't exist
+
+      // Test with mixed separators
+      expect(loader.hasClass('System/System.cls')).toBe(true);
+      expect(loader.hasClass('System\\System.cls')).toBe(true);
+
+      // Test with dot notation (which gets converted to slashes)
+      expect(loader.hasClass('System.System.cls')).toBe(true);
     });
   });
 

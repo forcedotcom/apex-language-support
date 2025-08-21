@@ -116,6 +116,49 @@ describe('MultiVolumeFileSystem', () => {
       const volume = fs.getVolume('custom');
       expect(volume.existsSync('/file.txt')).toBe(true);
     });
+
+    it('should normalize Windows backslashes to forward slashes', () => {
+      fs.registerVolume('apex', { protocol: 'apex', rootPath: '/apex' });
+
+      // Test with Windows-style backslashes
+      fs.writeFile(
+        'apex://System\\Utils\\Helper.cls',
+        'public class Helper {}',
+      );
+
+      // The file should be accessible with both backslash and forward slash paths
+      expect(fs.exists('apex://System\\Utils\\Helper.cls')).toBe(true);
+      expect(fs.exists('apex://System/Utils/Helper.cls')).toBe(true);
+
+      // The file should be stored internally with forward slashes
+      const volume = fs.getVolume('apex');
+      expect(volume.existsSync('/apex/System/Utils/Helper.cls')).toBe(true);
+
+      // Content should be readable with either path format
+      expect(fs.readFile('apex://System\\Utils\\Helper.cls')).toBe(
+        'public class Helper {}',
+      );
+      expect(fs.readFile('apex://System/Utils/Helper.cls')).toBe(
+        'public class Helper {}',
+      );
+    });
+
+    it('should handle mixed path separators in Windows paths', () => {
+      fs.registerVolume('apex', { protocol: 'apex', rootPath: '/apex' });
+
+      // Test with mixed separators
+      fs.writeFile('apex://System\\Utils/Helper.cls', 'public class Helper {}');
+
+      // Should work with any combination of separators
+      expect(fs.exists('apex://System\\Utils\\Helper.cls')).toBe(true);
+      expect(fs.exists('apex://System/Utils/Helper.cls')).toBe(true);
+      expect(fs.exists('apex://System\\Utils/Helper.cls')).toBe(true);
+
+      // Content should be accessible
+      expect(fs.readFile('apex://System\\Utils\\Helper.cls')).toBe(
+        'public class Helper {}',
+      );
+    });
   });
 
   describe('File Operations', () => {

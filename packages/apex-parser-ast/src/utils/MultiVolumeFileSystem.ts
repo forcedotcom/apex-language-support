@@ -143,14 +143,24 @@ export class MultiVolumeFileSystem implements FileSystemOperations {
    */
   private normalizePath(protocol: string, path: string): string {
     const config = this.volumeConfigs.get(protocol);
+
+    // Normalize path separators to forward slashes for memfs compatibility
+    // This ensures Windows backslashes are converted to forward slashes
+    const normalizedPath = path.replace(/\\/g, '/');
+
     if (config?.rootPath) {
       // Remove leading slash from path if rootPath already has one
-      const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+      const cleanPath = normalizedPath.startsWith('/')
+        ? normalizedPath.slice(1)
+        : normalizedPath;
       return `${config.rootPath}/${cleanPath}`;
     }
+
     // For volumes without rootPath, ensure we have a proper path structure
     // If the path doesn't start with '/', treat it as a relative path from root
-    return path.startsWith('/') ? path : `/${path}`;
+    return normalizedPath.startsWith('/')
+      ? normalizedPath
+      : `/${normalizedPath}`;
   }
 
   /**
