@@ -8,7 +8,7 @@
 
 import * as vscode from 'vscode';
 import type { UnifiedClientInterface } from '@salesforce/apex-ls';
-import { createConnection, BrowserMessageReader, BrowserMessageWriter } from 'vscode-languageserver/browser';
+import { LanguageClient } from 'vscode-languageclient/browser';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import { logToOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
@@ -291,41 +291,60 @@ export const createAndStartUnifiedClient = async (
     const workerUri = vscode.Uri.joinPath(context.extensionUri, 'dist', 'worker.js');
     logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 
-    // Create worker with standard vscode-languageserver approach
+    // Create worker
     const worker = new Worker(workerUri.toString(), { type: 'classic' });
 
-    // Create LSP connection using standard browser message readers/writers
-    const connection = createConnection(
-      new BrowserMessageReader(worker),
-      new BrowserMessageWriter(worker),
+    // Add debug message listener
+    worker.addEventListener('message', (event) => {
+      if (event.data?.type === 'apex-worker-debug') {
+        logToOutputChannel(
+          `🔍 Worker Debug: ${event.data.message}`,
+          'debug',
+        );
+      }
+    });
+
+    // Create VS Code Language Client for web extension
+    const languageClient = new LanguageClient(
+      'apex-language-server',
+      'Apex Language Server',
+      {
+        documentSelector: [
+          { scheme: 'file', language: 'apex' },
+          { scheme: 'vscode-test-web', language: 'apex' },
+        ],
+        synchronize: {
+          fileEvents: vscode.workspace.createFileSystemWatcher(
+            '**/*.{cls,trigger,apex}',
+          ),
+        },
+      },
+      worker,
     );
 
-    // Store connection for disposal
+    // Store client for disposal with UnifiedClientInterface wrapper
     unifiedClient = {
-      connection,
-      worker,
-      initialize: async (params: InitializeParams) =>
-        connection.sendRequest('initialize', params),
+      languageClient,
+      initialize: async (params: InitializeParams) => {
+        await languageClient.start();
+        return { capabilities: {} }; // Return basic capabilities
+      },
       sendRequest: async (method: string, params?: any) =>
-        connection.sendRequest(method, params),
+        languageClient.sendRequest(method, params),
       sendNotification: (method: string, params?: any) => {
-        connection.sendNotification(method, params);
+        languageClient.sendNotification(method, params);
       },
       onRequest: (method: string, handler: (params: any) => any) => {
-        connection.onRequest(method, handler);
+        languageClient.onRequest(method, handler);
       },
       onNotification: (method: string, handler: (params: any) => void) => {
-        connection.onNotification(method, handler);
+        languageClient.onNotification(method, handler);
       },
-      isDisposed: () => false,
+      isDisposed: () => !languageClient.isRunning(),
       dispose: () => {
-        connection.dispose();
-        worker.terminate();
+        languageClient.stop();
       },
     } as UnifiedClientInterface;
-
-    // Start listening for messages
-    connection.listen();
 
     // Initialize the language server
     const initParams = createInitializeParams(context);

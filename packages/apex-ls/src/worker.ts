@@ -6,886 +6,374 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-console.log('[APEX-WORKER] 🚀 Script loading started - top of worker.ts');
-
+// VS Code web extension worker following the standard pattern
 import {
   createConnection,
-  InitializeParams,
-  InitializeResult,
-  DocumentSymbolParams,
-  TextDocuments,
-  TextDocumentChangeEvent,
-  FoldingRangeParams,
   BrowserMessageReader,
   BrowserMessageWriter,
-  DocumentSymbol,
+  TextDocuments,
   Diagnostic,
+  DiagnosticSeverity,
+  InitializeParams,
+  DidChangeConfigurationNotification,
+  CompletionItem,
+  CompletionItemKind,
+  TextDocumentPositionParams,
   TextDocumentSyncKind,
+  InitializeResult,
+  DocumentDiagnosticReportKind,
+  type DocumentDiagnosticReport,
+  DocumentSymbol,
+  SymbolKind,
+  Range,
 } from 'vscode-languageserver/browser';
+
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-// Add back logging imports - TESTING STEP 1
-import {
-  setLogNotificationHandler,
-  getLogger,
-  setLoggerFactory,
-  setLogLevel,
-} from '@salesforce/apex-lsp-shared';
+console.log('[APEX-WORKER] 🚀 Worker script loading...');
 
-import {
-  dispatchProcessOnDocumentSymbol,
-  ApexStorageManager,
-} from '@salesforce/apex-lsp-compliant-services';
+// Create a connection for the server
+const connection = createConnection(
+  new BrowserMessageReader(self as DedicatedWorkerGlobalScope),
+  new BrowserMessageWriter(self as DedicatedWorkerGlobalScope),
+);
 
-import { WorkerLogNotificationHandler } from './utils/WorkerLogNotificationHandler';
-import { WorkerLoggerFactory } from './utils/WorkerLoggerFactory';
-import { UnifiedStorageFactory } from './storage/UnifiedStorageFactory.worker';
-import { ApexStorageAdapter } from './storage/ApexStorageManager';
-import { createLoggerAdapter } from './utils/LoggerAdapter';
+console.log('[APEX-WORKER] ✅ Connection created');
 
-// Export worker-specific implementations
-export { WorkerMessageBridgeFactory } from './communication/MessageBridgeFactory.worker';
-export { ConnectionFactory as WorkerConnectionFactory } from './server/ConnectionFactory.worker';
-export { WorkerStorageFactory } from './storage/WorkerStorageFactory';
+// Create a simple text document manager.
+const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
-// Export shared interfaces and types
-export type {
-  IMessageBridgeFactory,
-  MessageBridgeConfig,
-} from './communication/interfaces';
-export type {
-  IConnectionFactory,
-  ConnectionConfig,
-} from './server/ConnectionFactoryInterface';
-export type {
-  IStorage,
-  IStorageFactory,
-  StorageConfig,
-} from './storage/StorageInterface';
+let hasConfigurationCapability = false;
+let hasWorkspaceFolderCapability = false;
+let hasDiagnosticRelatedInformationCapability = false;
 
-// Export storage types
-export type { ApexStorage } from './storage/ApexStorageInterface';
-export type { ApexStorageInterface } from './storage/ApexStorageManager';
-export { ApexStorageAdapter } from './storage/ApexStorageManager';
+connection.onInitialize((params: InitializeParams) => {
+  console.log('[APEX-WORKER] 🔧 Initialize request received');
 
-// Export web extension types
-export type { WebWorkerLanguageServerOptions, EnvironmentType } from './types';
+  const capabilities = params.capabilities;
 
-import type { ApexServerInitializationOptions } from './types';
-
-/**
- * Creates a unified web worker-based language server using MessageBridge
- * This version provides platform-agnostic communication
- */
-export async function createUnifiedWebWorkerLanguageServer() {
-  // Create proper LSP connection for web worker
-  const connection = createConnection(
-    new BrowserMessageReader(self as any),
-    new BrowserMessageWriter(self as any),
+  // Does the client support the `workspace/configuration` request?
+  // If not, we fall back using global settings.
+  hasConfigurationCapability = !!(
+    capabilities.workspace && !!capabilities.workspace.configuration
+  );
+  hasWorkspaceFolderCapability = !!(
+    capabilities.workspace && !!capabilities.workspace.workspaceFolders
+  );
+  hasDiagnosticRelatedInformationCapability = !!(
+    capabilities.textDocument &&
+    capabilities.textDocument.publishDiagnostics &&
+    capabilities.textDocument.publishDiagnostics.relatedInformation
   );
 
-  // Set up logging
-  setLoggerFactory(WorkerLoggerFactory.getInstance());
-  setLogNotificationHandler(
-    WorkerLogNotificationHandler.getWorkerInstance(connection),
-  );
-
-  // Set log level to debug by default for testing
-  setLogLevel('debug');
-  const logger = getLogger();
-  const jsonrpcLogger = createLoggerAdapter(logger);
-
-  // Initialize storage using unified factory
-  const baseStorage = await UnifiedStorageFactory.createStorage({
-    useMemoryStorage: true,
-    logger: jsonrpcLogger,
-  });
-  logger.info('[UNIFIED-WORKER] Base storage initialized');
-
-  // Create Apex storage adapter
-  const storage = new ApexStorageAdapter(baseStorage);
-  logger.info('[UNIFIED-WORKER] Storage adapter initialized');
-
-  // Initialize ApexStorageManager with our storage adapter
-  const storageManager = ApexStorageManager.getInstance({
-    storageFactory: () => storage,
-    storageOptions: {},
-  });
-  await storageManager.initialize();
-  logger.info(
-    '[UNIFIED-WORKER] ApexStorageManager initialized with WebWorkerStorage',
-  );
-
-  // Server state
-  const documents = new TextDocuments(TextDocument);
-
-  // Set up document event handlers
-  documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
-    logger.info(`[UNIFIED-WORKER] Document opened: ${event.document.uri}`);
-    storage.setDocument(event.document.uri, event.document);
-  });
-
-  documents.onDidChangeContent(
-    (change: TextDocumentChangeEvent<TextDocument>) => {
-      logger.info(`[UNIFIED-WORKER] Document changed: ${change.document.uri}`);
-      storage.setDocument(change.document.uri, change.document);
-    },
-  );
-
-  documents.onDidClose((event) => {
-    logger.info(`[UNIFIED-WORKER] Document closed: ${event.document.uri}`);
-    storage.clearFile(event.document.uri);
-  });
-
-  documents.onDidSave((event: TextDocumentChangeEvent<TextDocument>) => {
-    logger.info(`[UNIFIED-WORKER] Document saved: ${event.document.uri}`);
-    storage.setDocument(event.document.uri, event.document);
-  });
-
-  // Handle initialization
-  connection.onInitialize((params: InitializeParams): InitializeResult => {
-    logger.info('[UNIFIED-WORKER] Initializing language server...');
-    logger.info(`[UNIFIED-WORKER] Root URI: ${params.rootUri}`);
-    logger.info(`[UNIFIED-WORKER] Process ID: ${params.processId}`);
-
-    // Extract initialization options
-    const initOptions = params.initializationOptions as
-      | ApexServerInitializationOptions
-      | undefined;
-    const logLevel = initOptions?.logLevel || 'error';
-    const custom = initOptions?.custom || {};
-
-    logger.info(`Setting log level to: ${logLevel}`);
-    setLogLevel(logLevel);
-
-    // Set custom options in global scope
-    (self as any).custom = custom;
-
-    // Set util.custom in global scope
-    if (!(self as any).util) {
-      (self as any).util = {};
-    }
-    (self as any).util.custom = custom;
-
-    // Set util.custom in global scope
-    Object.defineProperty(self, 'util', {
-      value: { custom },
-      writable: true,
-      configurable: true,
-      enumerable: true,
-    });
-
-    // Set util.custom in global scope
-    Object.defineProperty((self as any).util, 'custom', {
-      value: custom,
-      writable: true,
-      configurable: true,
-      enumerable: true,
-    });
-
-    // Log the global scope
-    logger.info(
-      `[UNIFIED-WORKER] Global scope: ${JSON.stringify({
-        custom: (self as any).custom,
-        util: (self as any).util,
-      })}`,
-    );
-
-    // Determine server mode
-    const extensionMode = initOptions?.extensionMode as
-      | 'production'
-      | 'development'
-      | undefined;
-
-    let mode: 'production' | 'development';
-
-    // Check for APEX_LS_MODE environment variable (if available in worker)
-    if (
-      (typeof self !== 'undefined' &&
-        'APEX_LS_MODE' in self &&
-        (self as any).APEX_LS_MODE === 'production') ||
-      (self as any).APEX_LS_MODE === 'development'
-    ) {
-      mode = (self as any).APEX_LS_MODE;
-      logger.info(
-        `Using server mode from APEX_LS_MODE environment variable: ${mode}`,
-      );
-    }
-    // Check for extension mode in initialization options
-    else if (extensionMode) {
-      mode = extensionMode;
-      logger.info(
-        `Using server mode from extension initialization options: ${mode}`,
-      );
-    }
-    // Default to production mode for web workers
-    else {
-      mode = 'production';
-      logger.info('Using default production mode for web worker environment');
-    }
-
-    // Create capabilities for web worker
-    const capabilities = {
+  const result: InitializeResult = {
+    capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
+      // Tell the client that this server supports code completion.
+      completionProvider: {
+        resolveProvider: true,
+      },
+      diagnosticProvider: {
+        interFileDependencies: false,
+        workspaceDiagnostics: false,
+      },
+      // Document symbol provider for outline view
       documentSymbolProvider: true,
-      foldingRangeProvider: true,
-      workspace: {
-        workspaceFolders: {
-          supported: true,
-        },
-      },
-    };
-
-    logger.info(`Using ${mode} mode capabilities for web worker environment`);
-
-    return { capabilities } as InitializeResult;
-  });
-
-  connection.onInitialized(() => {
-    logger.info('[UNIFIED-WORKER] Language server initialized');
-
-    // Register additional request handlers after initialization
-    connection.onRequest('$/ping', async () => {
-      logger.debug('[UNIFIED-WORKER] Received $/ping request');
-      try {
-        const response = {
-          message: 'pong',
-          timestamp: new Date().toISOString(),
-          server: 'apex-ls-unified-worker',
-        };
-        logger.debug(
-          `[UNIFIED-WORKER] Responding to $/ping with: ${JSON.stringify(response)}`,
-        );
-        return response;
-      } catch (error) {
-        logger.error(
-          `[UNIFIED-WORKER] Error processing $/ping request: ${error}`,
-        );
-        throw error;
-      }
-    });
-
-    // Handle diagnostic requests
-    connection.onRequest(
-      'textDocument/diagnostic',
-      async (params: DocumentSymbolParams) => {
-        logger.debug(
-          `[UNIFIED-WORKER] Received diagnostic request for: ${params.textDocument.uri}`,
-        );
-
-        try {
-          // For now, return empty diagnostics
-          // This can be enhanced with actual Apex parsing later
-          const diagnostics: Diagnostic[] = [];
-          logger.debug(
-            `[UNIFIED-WORKER] Result for diagnostic (${params.textDocument.uri}): ${JSON.stringify(diagnostics)}`,
-          );
-          return diagnostics;
-        } catch (error) {
-          logger.error(
-            `[UNIFIED-WORKER] Error processing diagnostic for ${params.textDocument.uri}: ${error}`,
-          );
-          return [];
-        }
-      },
-    );
-
-    // Handle workspace diagnostic requests
-    connection.onRequest('workspace/diagnostic', async (params) => {
-      logger.debug('[UNIFIED-WORKER] workspace/diagnostic requested by client');
-      return { items: [] };
-    });
-  });
-
-  // Handle document symbols request using the actual parser
-  connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-    logger.info(
-      `[UNIFIED-WORKER] Document symbols request for: ${params.textDocument.uri}`,
-    );
-
-    try {
-      // Try to use the real parser, fall back to mock if it fails
-      let symbols;
-
-      try {
-        // Use the actual dispatchProcessOnDocumentSymbol function
-        // This will properly parse Apex code and return real symbols
-        symbols = await dispatchProcessOnDocumentSymbol(params);
-        logger.info(
-          `[UNIFIED-WORKER] Real parser returned symbols for: ${params.textDocument.uri}`,
-        );
-      } catch (parserError) {
-        logger.warn(
-          `[UNIFIED-WORKER] Parser failed, using mock symbols: ${parserError}`,
-        );
-
-        // Fall back to mock symbols if real parser fails
-        symbols = [
-          {
-            name: 'TestClass',
-            kind: 5, // SymbolKind.Class
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 10, character: 0 },
-            },
-            selectionRange: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 10 },
-            },
-            children: [
-              {
-                name: 'testMethod',
-                kind: 6, // SymbolKind.Method
-                range: {
-                  start: { line: 2, character: 4 },
-                  end: { line: 5, character: 4 },
-                },
-                selectionRange: {
-                  start: { line: 2, character: 4 },
-                  end: { line: 2, character: 14 },
-                },
-                children: [],
-              },
-            ],
-          },
-        ] as DocumentSymbol[];
-      }
-
-      if (symbols) {
-        logger.info(
-          `[UNIFIED-WORKER] Successfully parsed ${
-            Array.isArray(symbols) ? symbols.length : 'unknown'
-          } symbols for: ${params.textDocument.uri}`,
-        );
-        return symbols;
-      } else {
-        logger.warn(
-          `[UNIFIED-WORKER] No symbols found for: ${params.textDocument.uri}`,
-        );
-        return [];
-      }
-    } catch (error) {
-      logger.error(
-        `[UNIFIED-WORKER] Error processing document symbols for ${params.textDocument.uri}: ${error}`,
-      );
-      // Return empty array instead of throwing to prevent LSP client errors
-      return [];
-    }
-  });
-
-  // Handle folding range request
-  connection.onFoldingRanges(async (params: FoldingRangeParams) => {
-    logger.info(
-      `[UNIFIED-WORKER] Folding ranges request for: ${params.textDocument.uri}`,
-    );
-
-    try {
-      // Get document from storage
-      const document = await storage.getDocument(params.textDocument.uri);
-      if (!document) {
-        logger.warn(
-          `[UNIFIED-WORKER] Document not found: ${params.textDocument.uri}`,
-        );
-        return [];
-      }
-
-      // For now, return simple folding ranges
-      // This can be enhanced with actual Apex parsing later
-      const foldingRanges = [
-        {
-          startLine: 0,
-          endLine: 10,
-          kind: 'region',
-        },
-        {
-          startLine: 2,
-          endLine: 4,
-          kind: 'comment',
-        },
-      ];
-
-      logger.info(
-        `[UNIFIED-WORKER] Returning ${foldingRanges.length} folding ranges for: ${params.textDocument.uri}`,
-      );
-      return foldingRanges;
-    } catch (error) {
-      logger.error(
-        `[UNIFIED-WORKER] Error processing folding ranges for ${params.textDocument.uri}: ${error}`,
-      );
-      return [];
-    }
-  });
-
-  // Handle shutdown
-  connection.onShutdown(() => {
-    logger.info('[UNIFIED-WORKER] Shutdown requested');
-  });
-
-  // Handle exit
-  connection.onExit(() => {
-    logger.info('[UNIFIED-WORKER] Exit requested');
-    // In web worker, we don't use process.exit()
-    // Instead, the worker will be terminated by the main thread
-    self.close?.();
-  });
-
-  // Listen on the connection
-  logger.info('[UNIFIED-WORKER] Starting to listen on connection...');
-  documents.listen(connection);
-  connection.listen();
-  logger.info('[UNIFIED-WORKER] Connection listening started');
-
-  logger.info('[UNIFIED-WORKER] Unified language server ready!');
-}
-
-/**
- * Creates a simplified web worker-based language server
- * This version avoids problematic dependencies that cause importScripts issues
- */
-export async function createSimpleWebWorkerLanguageServer() {
-  console.log('[SIMPLE-WORKER] 🔄 Creating message reader and writer...');
-
-  let connection;
-  try {
-    // Create message reader and writer for web worker communication
-    const messageReader = new BrowserMessageReader(
-      self as DedicatedWorkerGlobalScope,
-    );
-    console.log('[SIMPLE-WORKER] ✓ BrowserMessageReader created');
-
-    const messageWriter = new BrowserMessageWriter(
-      self as DedicatedWorkerGlobalScope,
-    );
-    console.log('[SIMPLE-WORKER] ✓ BrowserMessageWriter created');
-
-    // Create the LSP connection
-    console.log('[SIMPLE-WORKER] 🔄 Creating LSP connection...');
-    connection = createConnection(messageReader, messageWriter);
-    console.log('[SIMPLE-WORKER] ✓ LSP connection created');
-  } catch (readerWriterError) {
-    console.error(
-      '[SIMPLE-WORKER] ❌ Error creating message reader/writer:',
-      readerWriterError,
-    );
-    throw readerWriterError;
-  }
-
-  // Set up logging - TESTING STEP 1
-  setLoggerFactory(WorkerLoggerFactory.getInstance());
-  setLogNotificationHandler(
-    WorkerLogNotificationHandler.getWorkerInstance(connection),
-  );
-
-  // Set log level to debug by default for testing
-  setLogLevel('debug');
-  const logger = getLogger();
-  const jsonrpcLogger = createLoggerAdapter(logger);
-
-  // Initialize storage using unified factory
-  const baseStorage = await UnifiedStorageFactory.createStorage({
-    useMemoryStorage: true,
-    logger: jsonrpcLogger,
-  });
-  logger.info('[SIMPLE-WORKER] Base storage initialized');
-
-  // Create Apex storage adapter
-  const storage = new ApexStorageAdapter(baseStorage);
-  logger.info('[SIMPLE-WORKER] Storage adapter initialized');
-
-  // Initialize ApexStorageManager with our storage adapter
-  const storageManager = ApexStorageManager.getInstance({
-    storageFactory: () => storage,
-    storageOptions: {},
-  });
-  await storageManager.initialize();
-  logger.info(
-    '[SIMPLE-WORKER] ApexStorageManager initialized with WebWorkerStorage',
-  );
-
-  // Server state
-  const documents = new TextDocuments(TextDocument);
-
-  // Set up document event handlers
-  documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
-    logger.info(`[SIMPLE-WORKER] Document opened: ${event.document.uri}`);
-    // Store document in storage
-    storage.setDocument(event.document.uri, event.document);
-  });
-
-  documents.onDidChangeContent(
-    (change: TextDocumentChangeEvent<TextDocument>) => {
-      logger.info(`[SIMPLE-WORKER] Document changed: ${change.document.uri}`);
-      // Update document in storage
-      storage.setDocument(change.document.uri, change.document);
     },
-  );
-
-  documents.onDidClose((event) => {
-    logger.info(`[SIMPLE-WORKER] Document closed: ${event.document.uri}`);
-    // Clear document from storage
-    storage.clearFile(event.document.uri);
-  });
-
-  documents.onDidSave((event: TextDocumentChangeEvent<TextDocument>) => {
-    logger.info(`[SIMPLE-WORKER] Document saved: ${event.document.uri}`);
-    // Update document in storage
-    storage.setDocument(event.document.uri, event.document);
-  });
-
-  // Handle initialization
-  connection.onInitialize((params: InitializeParams): InitializeResult => {
-    logger.info('[SIMPLE-WORKER] Initializing language server...');
-    logger.info(`[SIMPLE-WORKER] Root URI: ${params.rootUri}`);
-    logger.info(`[SIMPLE-WORKER] Process ID: ${params.processId}`);
-
-    // Extract initialization options - TESTING STEP 2
-    const initOptions = params.initializationOptions as
-      | ApexServerInitializationOptions
-      | undefined;
-    const logLevel = initOptions?.logLevel || 'error';
-
-    logger.info(`Setting log level to: ${logLevel}`);
-    setLogLevel(logLevel);
-
-    // Determine server mode - TESTING STEP 2
-    const extensionMode = initOptions?.extensionMode as
-      | 'production'
-      | 'development'
-      | undefined;
-
-    let mode: 'production' | 'development';
-
-    // Check for APEX_LS_MODE environment variable (if available in worker)
-    if (
-      (typeof self !== 'undefined' &&
-        'APEX_LS_MODE' in self &&
-        (self as any).APEX_LS_MODE === 'production') ||
-      (self as any).APEX_LS_MODE === 'development'
-    ) {
-      mode = (self as any).APEX_LS_MODE;
-      logger.info(
-        `Using server mode from APEX_LS_MODE environment variable: ${mode}`,
-      );
-    }
-    // Check for extension mode in initialization options
-    else if (extensionMode) {
-      mode = extensionMode;
-      logger.info(
-        `Using server mode from extension initialization options: ${mode}`,
-      );
-    }
-    // Default to production mode for web workers
-    else {
-      mode = 'production';
-      logger.info('Using default production mode for web worker environment');
-    }
-
-    // Create simple capabilities for web worker - TESTING STEP 2
-    const capabilities = {
-      textDocumentSync: TextDocumentSyncKind.Incremental, // Incremental sync
-      documentSymbolProvider: true,
-      foldingRangeProvider: true,
-      workspace: {
-        workspaceFolders: {
-          supported: true,
-        },
+  };
+  if (hasWorkspaceFolderCapability) {
+    result.capabilities.workspace = {
+      workspaceFolders: {
+        supported: true,
       },
     };
+  }
 
-    logger.info(`Using ${mode} mode capabilities for web worker environment`);
+  console.log('[APEX-WORKER] ✅ Initialize completed');
+  return result;
+});
 
-    return { capabilities } as InitializeResult;
-  });
+connection.onInitialized(() => {
+  console.log('[APEX-WORKER] 🎉 Server initialized');
 
-  connection.onInitialized(() => {
-    logger.info('[SIMPLE-WORKER] Language server initialized');
-
-    // Register additional request handlers after initialization
-    connection.onRequest('$/ping', async () => {
-      logger.debug('[SIMPLE-WORKER] Received $/ping request');
-      try {
-        const response = {
-          message: 'pong',
-          timestamp: new Date().toISOString(),
-          server: 'apex-ls-webworker',
-        };
-        logger.debug(
-          `[SIMPLE-WORKER] Responding to $/ping with: ${JSON.stringify(response)}`,
-        );
-        return response;
-      } catch (error) {
-        logger.error(
-          `[SIMPLE-WORKER] Error processing $/ping request: ${error}`,
-        );
-        throw error;
-      }
+  if (hasConfigurationCapability) {
+    // Register for all configuration changes.
+    connection.client.register(
+      DidChangeConfigurationNotification.type,
+      undefined,
+    );
+  }
+  if (hasWorkspaceFolderCapability) {
+    connection.workspace.onDidChangeWorkspaceFolders((_event) => {
+      console.log('[APEX-WORKER] Workspace folder change event received.');
     });
+  }
+});
 
-    // Handle diagnostic requests
-    connection.onRequest(
-      'textDocument/diagnostic',
-      async (params: DocumentSymbolParams) => {
-        logger.debug(
-          `[SIMPLE-WORKER] Received diagnostic request for: ${params.textDocument.uri}`,
-        );
+// The example settings
+interface ExampleSettings {
+  maxNumberOfProblems: number;
+}
 
-        try {
-          // For now, return empty diagnostics
-          // This can be enhanced with actual Apex parsing later
-          const diagnostics: Diagnostic[] = [];
-          logger.debug(
-            `[SIMPLE-WORKER] Result for diagnostic (${params.textDocument.uri}): ${JSON.stringify(diagnostics)}`,
-          );
-          return diagnostics;
-        } catch (error) {
-          logger.error(
-            `[SIMPLE-WORKER] Error processing diagnostic for ${params.textDocument.uri}: ${error}`,
-          );
-          return [];
-        }
+// The global settings, used when the `workspace/configuration` request is not supported by the client.
+// Please note that this is not the case when using this server with the client provided in this example
+// but could happen with other clients.
+const defaultSettings: ExampleSettings = { maxNumberOfProblems: 1000 };
+let globalSettings: ExampleSettings = defaultSettings;
+
+// Cache the settings of all open documents
+const documentSettings: Map<string, Thenable<ExampleSettings>> = new Map();
+
+connection.onDidChangeConfiguration((change) => {
+  if (hasConfigurationCapability) {
+    // Reset all cached document settings
+    documentSettings.clear();
+  } else {
+    globalSettings = <ExampleSettings>(
+      (change.settings.languageServerExample || defaultSettings)
+    );
+  }
+
+  // Revalidate all open text documents
+  documents.all().forEach(validateTextDocument);
+});
+
+function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
+  if (!hasConfigurationCapability) {
+    return Promise.resolve(globalSettings);
+  }
+  let result = documentSettings.get(resource);
+  if (!result) {
+    result = connection.workspace.getConfiguration({
+      scopeUri: resource,
+      section: 'languageServerExample',
+    });
+    documentSettings.set(resource, result);
+  }
+  return result;
+}
+
+// Only keep settings for open documents
+documents.onDidClose((e) => {
+  documentSettings.delete(e.document.uri);
+});
+
+// The content of a text document has changed. This event is emitted
+// when the text document first opened or when its content has changed.
+documents.onDidChangeContent((change) => {
+  validateTextDocument(change.document);
+});
+
+async function validateTextDocument(textDocument: TextDocument): Promise<void> {
+  // In this simple example we get the settings for every validate run.
+  const settings = await getDocumentSettings(textDocument.uri);
+
+  // The validator creates diagnostics for all uppercase words length 2 and more
+  const text = textDocument.getText();
+  const pattern = /\b[A-Z]{2,}\b/g;
+  let m: RegExpExecArray | null;
+
+  let problems = 0;
+  const diagnostics: Diagnostic[] = [];
+  while ((m = pattern.exec(text)) && problems < settings.maxNumberOfProblems) {
+    problems++;
+    const diagnostic: Diagnostic = {
+      severity: DiagnosticSeverity.Warning,
+      range: {
+        start: textDocument.positionAt(m.index),
+        end: textDocument.positionAt(m.index + m[0].length),
       },
-    );
-
-    // Handle workspace diagnostic requests
-    connection.onRequest('workspace/diagnostic', async (params) => {
-      logger.debug('[SIMPLE-WORKER] workspace/diagnostic requested by client');
-      return { items: [] };
-    });
-  });
-
-  // Handle document symbols request using the actual parser
-  connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-    logger.info(
-      `[SIMPLE-WORKER] Document symbols request for: ${params.textDocument.uri}`,
-    );
-
-    try {
-      // Try to use the real parser, fall back to mock if it fails
-      let symbols;
-
-      try {
-        // Use the actual dispatchProcessOnDocumentSymbol function
-        // This will properly parse Apex code and return real symbols
-        symbols = await dispatchProcessOnDocumentSymbol(params);
-        logger.info(
-          `[SIMPLE-WORKER] Real parser returned symbols for: ${params.textDocument.uri}`,
-        );
-      } catch (parserError) {
-        logger.warn(
-          `[SIMPLE-WORKER] Parser failed, using mock symbols: ${parserError}`,
-        );
-
-        // Fall back to mock symbols if real parser fails
-        symbols = [
-          {
-            name: 'TestClass',
-            kind: 5, // SymbolKind.Class
-            range: {
-              start: { line: 0, character: 0 },
-              end: { line: 10, character: 0 },
-            },
-            selectionRange: {
-              start: { line: 0, character: 0 },
-              end: { line: 0, character: 10 },
-            },
-            children: [
-              {
-                name: 'testMethod',
-                kind: 6, // SymbolKind.Method
-                range: {
-                  start: { line: 2, character: 4 },
-                  end: { line: 5, character: 4 },
-                },
-                selectionRange: {
-                  start: { line: 2, character: 4 },
-                  end: { line: 2, character: 14 },
-                },
-                children: [],
-              },
-            ],
-          },
-        ] as DocumentSymbol[];
-      }
-
-      if (symbols) {
-        logger.info(
-          `[SIMPLE-WORKER] Successfully parsed ${
-            Array.isArray(symbols) ? symbols.length : 'unknown'
-          } symbols for: ${params.textDocument.uri}`,
-        );
-        return symbols;
-      } else {
-        logger.warn(
-          `[SIMPLE-WORKER] No symbols found for: ${params.textDocument.uri}`,
-        );
-        return [];
-      }
-    } catch (error) {
-      logger.error(
-        `[SIMPLE-WORKER] Error processing document symbols for ${params.textDocument.uri}: ${error}`,
-      );
-      // Return empty array instead of throwing to prevent LSP client errors
-      return [];
-    }
-  });
-
-  // Handle folding range request
-  connection.onFoldingRanges(async (params: FoldingRangeParams) => {
-    logger.info(
-      `[SIMPLE-WORKER] Folding ranges request for: ${params.textDocument.uri}`,
-    );
-
-    try {
-      // Get document from storage
-      const document = await storage.getDocument(params.textDocument.uri);
-      if (!document) {
-        logger.warn(
-          `[SIMPLE-WORKER] Document not found: ${params.textDocument.uri}`,
-        );
-        return [];
-      }
-
-      // For now, return simple folding ranges
-      // This can be enhanced with actual Apex parsing later
-      const foldingRanges = [
+      message: `${m[0]} is all uppercase.`,
+      source: 'apex-ls',
+    };
+    if (hasDiagnosticRelatedInformationCapability) {
+      diagnostic.relatedInformation = [
         {
-          startLine: 0,
-          endLine: 10,
-          kind: 'region',
+          location: {
+            uri: textDocument.uri,
+            range: Object.assign({}, diagnostic.range),
+          },
+          message: 'Spelling matters',
         },
         {
-          startLine: 2,
-          endLine: 4,
-          kind: 'comment',
+          location: {
+            uri: textDocument.uri,
+            range: Object.assign({}, diagnostic.range),
+          },
+          message: 'Particularly for names',
         },
       ];
-
-      logger.info(
-        `[SIMPLE-WORKER] Returning ${foldingRanges.length} folding ranges for: ${params.textDocument.uri}`,
-      );
-      return foldingRanges;
-    } catch (error) {
-      logger.error(
-        `[SIMPLE-WORKER] Error processing folding ranges for ${params.textDocument.uri}: ${error}`,
-      );
-      return [];
     }
-  });
+    diagnostics.push(diagnostic);
+  }
 
-  // Handle shutdown
-  connection.onShutdown(() => {
-    logger.info('[SIMPLE-WORKER] Shutdown requested');
-  });
-
-  // Handle exit
-  connection.onExit(() => {
-    logger.info('[SIMPLE-WORKER] Exit requested');
-    // In web worker, we don't use process.exit()
-    // Instead, the worker will be terminated by the main thread
-    self.close?.();
-  });
-
-  // Listen on the connection
-  logger.info('[SIMPLE-WORKER] Starting to listen on connection...');
-  documents.listen(connection);
-  connection.listen();
-  logger.info('[SIMPLE-WORKER] Connection listening started');
-
-  logger.info('[SIMPLE-WORKER] Simplified language server ready!');
+  // Send the computed diagnostics to VSCode.
+  connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
-/**
- * Safe worker initialization that handles both test and production environments
- */
-export function initializeWorker() {
-  try {
-    console.log('[WORKER] 🚀 Initializing worker...');
+connection.languages.diagnostics.on(async (params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (document !== undefined) {
+    // Validate and get diagnostics
+    await validateTextDocument(document);
+    return <DocumentDiagnosticReport>{
+      kind: DocumentDiagnosticReportKind.Full,
+      items: [],
+    };
+  } else {
+    // We don't know the document. We can either try to read it from disk
+    // or we don't report problems for it.
+    return <DocumentDiagnosticReport>{
+      kind: DocumentDiagnosticReportKind.Full,
+      items: [],
+    };
+  }
+});
 
-    // Check if we're actually in a worker environment
-    if (typeof self === 'undefined') {
-      console.log(
-        '[WORKER] Not in worker environment, skipping initialization',
-      );
-      return;
-    }
+// This handler provides the initial list of the completion items.
+connection.onCompletion(
+  (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] =>
+    // The pass parameter contains the position of the text document in
+    // which code complete got requested. For the example we ignore this
+    // info and always provide the same completion items.
+    [
+      {
+        label: 'TypeScript',
+        kind: CompletionItemKind.Text,
+        data: 1,
+      },
+      {
+        label: 'JavaScript',
+        kind: CompletionItemKind.Text,
+        data: 2,
+      },
+      {
+        label: 'Apex',
+        kind: CompletionItemKind.Text,
+        data: 3,
+      },
+    ],
+);
 
-    console.log(
-      '[WORKER] ✓ Worker environment detected, starting language server...',
+// This handler resolves additional information for the item selected in
+// the completion list.
+connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
+  if (item.data === 1) {
+    item.detail = 'TypeScript details';
+    item.documentation = 'TypeScript documentation';
+  } else if (item.data === 2) {
+    item.detail = 'JavaScript details';
+    item.documentation = 'JavaScript documentation';
+  } else if (item.data === 3) {
+    item.detail = 'Apex details';
+    item.documentation = 'Salesforce Apex documentation';
+  }
+  return item;
+});
+
+// Document symbol handler for outline view
+connection.onDocumentSymbol((params) => {
+  console.log('[APEX-WORKER] 📋 Document symbol request received');
+  const document = documents.get(params.textDocument.uri);
+  if (!document) {
+    console.log('[APEX-WORKER] ⚠️ Document not found for symbol request');
+    return [];
+  }
+
+  const text = document.getText();
+  const symbols: DocumentSymbol[] = [];
+
+  // Simple Apex class and method detection
+  const lines = text.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
+
+    // Match class declarations
+    const classMatch = trimmedLine.match(
+      /^(public|private|global)?\s*(abstract|virtual|with|without\s+sharing)?\s*class\s+(\w+)/i,
     );
+    if (classMatch) {
+      const className = classMatch[3];
+      const startPos = document.positionAt(
+        text.indexOf(line) + line.indexOf(className),
+      );
+      const endPos = {
+        line: startPos.line,
+        character: startPos.character + className.length,
+      };
 
-    // Add error listener to catch importScripts and other errors
-    self.addEventListener('error', (event) => {
-      console.error('[WORKER] 🚨 Worker error event:', {
-        message: event.message,
-        filename: event.filename,
-        lineno: event.lineno,
-        colno: event.colno,
-        error: event.error,
+      symbols.push({
+        name: className,
+        kind: SymbolKind.Class,
+        range: Range.create(startPos, endPos),
+        selectionRange: Range.create(startPos, endPos),
+        children: [],
       });
-    });
+      continue;
+    }
 
-    self.addEventListener('unhandledrejection', (event) => {
-      console.error('[WORKER] 🚨 Unhandled promise rejection:', event.reason);
-    });
+    // Match method declarations
+    const methodMatch = trimmedLine.match(
+      /^(public|private|protected|global)?\s*(static|virtual|override|abstract)?\s*(\w+(\[\])?)\s+(\w+)\s*\(/i,
+    );
+    if (methodMatch) {
+      const methodName = methodMatch[5];
+      const returnType = methodMatch[3];
+      const startPos = document.positionAt(
+        text.indexOf(line) + line.indexOf(methodName),
+      );
+      const endPos = {
+        line: startPos.line,
+        character: startPos.character + methodName.length,
+      };
 
-    console.log('[WORKER] 🔄 Creating message readers/writers...');
-
-    // Initialize the language server
-    createSimpleWebWorkerLanguageServer()
-      .then(() => {
-        console.log('[WORKER] ✅ Language server started successfully');
-
-        // Send ready signal if postMessage is available
-        if (typeof self.postMessage === 'function') {
-          self.postMessage({
-            type: 'apex-worker-ready',
-            timestamp: new Date().toISOString(),
-            server: 'apex-ls',
-          });
-        }
-      })
-      .catch((error) => {
-        console.error('[WORKER] ❌ Failed to start language server:', error);
-        console.error('[WORKER] Error stack:', error.stack);
-
-        // Send error signal if postMessage is available
-        if (typeof self.postMessage === 'function') {
-          self.postMessage({
-            type: 'apex-worker-error',
-            error: error.message,
-            stack: error.stack,
-            timestamp: new Date().toISOString(),
-          });
-        }
+      symbols.push({
+        name: `${methodName}(): ${returnType}`,
+        kind: SymbolKind.Method,
+        range: Range.create(startPos, endPos),
+        selectionRange: Range.create(startPos, endPos),
+        children: [],
       });
-  } catch (error) {
-    console.error('[WORKER] 💥 Critical initialization error:', error);
-    console.error('[WORKER] Error stack:', (error as Error).stack);
+      continue;
+    }
+
+    // Match property declarations
+    const propertyMatch = trimmedLine.match(
+      /^(public|private|protected|global)?\s*(static)?\s*(\w+(\[\])?)\s+(\w+)\s*[{;]/i,
+    );
+    if (propertyMatch) {
+      const propertyName = propertyMatch[5];
+      const propertyType = propertyMatch[3];
+      const startPos = document.positionAt(
+        text.indexOf(line) + line.indexOf(propertyName),
+      );
+      const endPos = {
+        line: startPos.line,
+        character: startPos.character + propertyName.length,
+      };
+
+      symbols.push({
+        name: `${propertyName}: ${propertyType}`,
+        kind: SymbolKind.Property,
+        range: Range.create(startPos, endPos),
+        selectionRange: Range.create(startPos, endPos),
+        children: [],
+      });
+    }
   }
-}
 
-// Add minimal test initialization first
-console.log('[WORKER] 🧪 Testing basic worker functionality...');
+  console.log(`[APEX-WORKER] ✅ Found ${symbols.length} symbols`);
+  return symbols;
+});
 
-try {
-  // Test if basic worker APIs are available
-  console.log('[WORKER] ✓ self available:', typeof self !== 'undefined');
-  console.log('[WORKER] ✓ postMessage available:', typeof self.postMessage === 'function');
-  console.log('[WORKER] ✓ addEventListener available:', typeof self.addEventListener === 'function');
-  
-  // Test basic message sending
-  if (typeof self.postMessage === 'function') {
-    self.postMessage({
-      type: 'worker-test',
-      message: 'Worker basic functionality test',
-      timestamp: new Date().toISOString(),
-    });
-  }
-  
-  console.log('[WORKER] ✅ Basic worker test completed');
-} catch (error) {
-  console.error('[WORKER] ❌ Basic worker test failed:', error);
-}
+// Make the text document manager listen on the connection
+// for open, change and close text document events
+documents.listen(connection);
 
-// Auto-initialize the worker
-initializeWorker();
+// Listen on the connection
+connection.listen();
+
+console.log('[APEX-WORKER] 🎧 Connection listening started');
+console.log('[APEX-WORKER] ✅ Apex Language Server Worker ready!');

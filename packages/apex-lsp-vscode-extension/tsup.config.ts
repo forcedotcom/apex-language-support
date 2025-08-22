@@ -25,6 +25,7 @@ export default defineConfig((options: Options) => ({
     '@salesforce/apex-lsp-custom-services',
     '@salesforce/apex-lsp-parser-ast',
     '@salesforce/apex-lsp-shared',
+    'vscode-languageclient',
     'vscode-languageserver-textdocument',
     'vscode-languageserver',
     'vscode-languageserver-protocol',

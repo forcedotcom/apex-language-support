@@ -38,7 +38,6 @@ export default defineConfig([
     format: ['cjs', 'esm'],
     entry: {
       index: 'src/index.ts',
-      server: 'src/server/index.ts',
     },
     outDir: 'dist',
     clean: true,
@@ -114,7 +113,10 @@ export default defineConfig([
     format: ['iife'],
     external: SHARED_EXTERNAL,
     noExternal: SHARED_NO_EXTERNAL,
-    globalName: 'ApexLanguageWorker', // Global namespace for IIFE
+    // No globalName for web worker - should execute immediately
+    footer: {
+      js: '// IIFE worker - remove any return statements',
+    },
     esbuildOptions(options: BuildOptions) {
       options.platform = 'browser';
       options.mainFields = ['browser', 'module', 'main'];
