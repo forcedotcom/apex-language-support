@@ -25,7 +25,7 @@ export {
   initializeExtensionLogging as initializeLogging,
   logToOutputChannel,
   updateLogLevel,
-  getOutputChannel,
+  getClientOutputChannel,
 } from './logging';
 
 // Export status bar utilities

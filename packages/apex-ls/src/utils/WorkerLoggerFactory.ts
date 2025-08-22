@@ -6,61 +6,78 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { Logger } from 'vscode-jsonrpc';
-import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
-import { LoggingUtils } from './LoggingUtils';
+import type { Connection } from 'vscode-languageserver/browser';
+import {
+  LoggerFactory,
+  LoggerInterface,
+  LogMessageType,
+} from '@salesforce/apex-lsp-shared';
 
 /**
- * Creates loggers for worker environments
+ * Worker-specific logger implementation
  */
-export class WorkerLoggerFactory {
-  private static instance: WorkerLoggerFactory;
-  private readonly loggers: Map<string, Logger> = new Map();
+class WorkerLogger implements LoggerInterface {
+  private readonly timers: Map<string, number>;
 
-  private constructor() {}
+  constructor(private readonly connection: Connection) {
+    this.timers = new Map();
+  }
 
-  /**
-   * Gets the singleton instance
-   */
-  static getInstance(): WorkerLoggerFactory {
-    if (!WorkerLoggerFactory.instance) {
-      WorkerLoggerFactory.instance = new WorkerLoggerFactory();
+  public log(
+    messageType: LogMessageType,
+    message: string | (() => string),
+  ): void {
+    const msg = typeof message === 'function' ? message() : message;
+    this.connection.sendNotification('window/logMessage', {
+      type: messageType,
+      message: `[APEX-WORKER] ${msg}`,
+    });
+  }
+
+  public debug(message: string | (() => string)): void {
+    this.log('debug', message);
+  }
+
+  public info(message: string | (() => string)): void {
+    this.log('info', message);
+  }
+
+  public warn(message: string | (() => string)): void {
+    this.log('warning', message);
+  }
+
+  public error(message: string | (() => string)): void {
+    this.log('error', message);
+  }
+
+  public time(label: string): void {
+    this.timers.set(label, performance.now());
+  }
+
+  public timeEnd(label: string): void {
+    const start = this.timers.get(label);
+    if (start === undefined) {
+      this.warn(`Timer '${label}' does not exist`);
+      return;
     }
-    return WorkerLoggerFactory.instance;
+
+    const duration = performance.now() - start;
+    this.info(`${label}: ${duration.toFixed(2)}ms`);
+    this.timers.delete(label);
+  }
+}
+
+/**
+ * Worker-specific logger factory
+ */
+export class WorkerLoggerFactory implements LoggerFactory {
+  private readonly logger: LoggerInterface;
+
+  constructor(connection: Connection) {
+    this.logger = new WorkerLogger(connection);
   }
 
-  /**
-   * Gets a logger for the specified name
-   */
-  getLogger(): LoggerInterface {
-    return this.createLogger('ApexLanguageServer');
-  }
-
-  /**
-   * Creates a logger for worker environments
-   */
-  private createLogger(name: string): LoggerInterface {
-    return {
-      error: (message: string | (() => string)) => {
-        const msg = typeof message === 'function' ? message() : message;
-        console.error(LoggingUtils.formatMessage(name, msg));
-      },
-      warn: (message: string | (() => string)) => {
-        const msg = typeof message === 'function' ? message() : message;
-        console.warn(LoggingUtils.formatMessage(name, msg));
-      },
-      info: (message: string | (() => string)) => {
-        const msg = typeof message === 'function' ? message() : message;
-        console.info(LoggingUtils.formatMessage(name, msg));
-      },
-      log: (message: string | (() => string)) => {
-        const msg = typeof message === 'function' ? message() : message;
-        console.log(LoggingUtils.formatMessage(name, msg));
-      },
-      debug: (message: string | (() => string)) => {
-        const msg = typeof message === 'function' ? message() : message;
-        console.debug(LoggingUtils.formatMessage(name, msg));
-      },
-    };
+  public getLogger(): LoggerInterface {
+    return this.logger;
   }
 }

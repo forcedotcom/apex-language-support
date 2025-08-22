@@ -216,7 +216,7 @@ export class UnifiedClientFactory {
    */
   private static async detectEnvironment(): Promise<EnvironmentType> {
     const { isWorkerEnvironment, isBrowserEnvironment, isNodeEnvironment } =
-      await import('../utils/EnvironmentDetector.worker');
+      await import('../utils/EnvironmentDetector');
 
     if (isWorkerEnvironment()) {
       return 'webworker';

@@ -5,7 +5,13 @@
     "rootDir": "./src",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022", "DOM", "WebWorker", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "WebWorker",
+      "DOM.Iterable",
+      "WebWorker.ImportScripts"
+    ],
     "tsBuildInfoFile": "./out/browser/.tsbuildinfo",
     "skipLibCheck": true,
     "incremental": true,

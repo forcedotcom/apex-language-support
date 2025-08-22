@@ -10,7 +10,11 @@ import * as vscode from 'vscode';
 import type { UnifiedClientInterface } from '@salesforce/apex-ls';
 import { LanguageClient } from 'vscode-languageclient/browser';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
-import { logToOutputChannel } from './logging';
+import {
+  logToOutputChannel,
+  logWorkerMessage,
+  getWorkerServerOutputChannel,
+} from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import {
   updateApexServerStatusStarting,
@@ -273,12 +277,14 @@ export const createAndStartUnifiedClient = async (
     updateApexServerStatusStarting();
 
     const environment = detectEnvironment();
-    logToOutputChannel(
+    logToOutputChannel(`🌍 Environment detected: ${environment} mode`, 'info');
+    logWorkerMessage(
       `🚀 Starting unified language server in ${environment} mode`,
       'info',
     );
 
     // Create logger for the universal client
+    logToOutputChannel('🔧 Creating universal language client...', 'info');
 
     // Debug extension URI resolution
     logToOutputChannel(
@@ -286,28 +292,25 @@ export const createAndStartUnifiedClient = async (
       'debug',
     );
     logToOutputChannel(`🔍 Extension path: ${context.extensionPath}`, 'debug');
-    
+
     // Use vscode.Uri.joinPath for proper URI construction in web environments
-    const workerUri = vscode.Uri.joinPath(context.extensionUri, 'dist', 'worker.js');
+    const workerUri = vscode.Uri.joinPath(
+      context.extensionUri,
+      'dist',
+      'worker.js',
+    );
     logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 
     // Create worker
-    const worker = new Worker(workerUri.toString(), { type: 'classic' });
-
-    // Add debug message listener
-    worker.addEventListener('message', (event) => {
-      if (event.data?.type === 'apex-worker-debug') {
-        logToOutputChannel(
-          `🔍 Worker Debug: ${event.data.message}`,
-          'debug',
-        );
-      }
-    });
+    logToOutputChannel('⚡ Creating web worker...', 'info');
+    const worker = new Worker(workerUri.toString(), { type: 'classic' }); // the magic sauce!!!!
+    logToOutputChannel('✅ Web worker created successfully', 'info');
 
     // Create VS Code Language Client for web extension
+    logToOutputChannel('🔗 Creating Language Client...', 'info');
     const languageClient = new LanguageClient(
       'apex-language-server',
-      'Apex Language Server',
+      'Apex Language Server Extension (Worker/Server)',
       {
         documentSelector: [
           { scheme: 'file', language: 'apex' },
@@ -318,9 +321,53 @@ export const createAndStartUnifiedClient = async (
             '**/*.{cls,trigger,apex}',
           ),
         },
+        // Use our consolidated worker/server output channel if available
+        ...(getWorkerServerOutputChannel()
+          ? { outputChannel: getWorkerServerOutputChannel() }
+          : {}),
       },
       worker,
     );
+    logToOutputChannel('✅ Language Client created successfully', 'info');
+
+    // Set up window/logMessage handler for worker logs
+    languageClient.onNotification('window/logMessage', (params) => {
+      const { type, message } = params;
+      let logType: 'error' | 'warning' | 'info' | 'debug';
+      switch (type) {
+        case 1:
+          logType = 'error';
+          break;
+        case 2:
+          logType = 'warning';
+          break;
+        case 3:
+          logType = 'info';
+          break;
+        case 4:
+          logType = 'debug';
+          break;
+        default:
+          logType = 'info';
+      }
+
+      // Check if message already has [APEX-WORKER] prefix to avoid double-prefixing
+      if (message.startsWith('[APEX-WORKER]')) {
+        // Worker already identified itself, just add timestamp and log level
+        const timestamp = new Date().toLocaleTimeString('en-US', {
+          hour12: true,
+        });
+        const typeString = logType.toUpperCase();
+        const formattedMessage = `[${timestamp}] [${typeString}] ${message}`;
+        const channel = getWorkerServerOutputChannel();
+        if (channel) {
+          channel.appendLine(formattedMessage);
+        }
+      } else {
+        // For messages without worker prefix, use our standard worker prefix
+        logWorkerMessage(message, logType);
+      }
+    });
 
     // Store client for disposal with UnifiedClientInterface wrapper
     unifiedClient = {
@@ -347,10 +394,13 @@ export const createAndStartUnifiedClient = async (
     } as UnifiedClientInterface;
 
     // Initialize the language server
+    logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
     const initParams = createInitializeParams(context);
+    logToOutputChannel('🚀 Initializing unified client...', 'info');
     await unifiedClient.initialize(initParams);
 
-    logToOutputChannel(
+    logToOutputChannel('✅ Unified client initialized successfully', 'info');
+    logWorkerMessage(
       '✅ Unified language server initialized successfully',
       'info',
     );
@@ -358,19 +408,27 @@ export const createAndStartUnifiedClient = async (
     // Set up client state monitoring
     // Note: UniversalExtensionClient doesn't have the same state change events as LanguageClient
     // So we'll mark as ready immediately after successful initialization
+    logToOutputChannel('📊 Updating server status to ready...', 'debug');
     updateApexServerStatusReady();
+    logToOutputChannel('🔄 Resetting retry counters...', 'debug');
     resetServerStartRetries();
     setStartingFlag(false);
 
     // Register configuration change listener
     // We'll adapt this to work with the unified client
     if (unifiedClient) {
+      logToOutputChannel(
+        '⚙️ Registering configuration change listener...',
+        'debug',
+      );
       registerUnifiedConfigurationChangeListener(unifiedClient, context);
+      logToOutputChannel('✅ Configuration listener registered', 'debug');
     }
 
     logToOutputChannel('🎉 Unified Apex Language Server is ready!', 'info');
+    logWorkerMessage('🎉 Unified Apex Language Server is ready!', 'info');
   } catch (error) {
-    logToOutputChannel(
+    logWorkerMessage(
       `❌ Failed to start unified language server: ${error}`,
       'error',
     );
@@ -390,7 +448,7 @@ function registerUnifiedConfigurationChangeListener(
   const configWatcher = vscode.workspace.onDidChangeConfiguration(
     async (event) => {
       if (event.affectsConfiguration('apex-ls-ts')) {
-        logToOutputChannel(
+        logWorkerMessage(
           '⚙️ Configuration changed, notifying language server',
           'debug',
         );
@@ -399,10 +457,12 @@ function registerUnifiedConfigurationChangeListener(
           // Send configuration change notification to the server
           const settings = getWorkspaceSettings();
           client.sendNotification('workspace/didChangeConfiguration', {
-            settings,
+            settings: {
+              'apex-ls-ts': settings,
+            },
           });
         } catch (error) {
-          logToOutputChannel(
+          logWorkerMessage(
             `Failed to send configuration change: ${error}`,
             'error',
           );
@@ -421,12 +481,12 @@ export async function startUnifiedLanguageServer(
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
-  logToOutputChannel('🚀 Starting Unified Apex Language Server...', 'info');
+  logWorkerMessage('🚀 Starting Unified Apex Language Server...', 'info');
 
   try {
     await createAndStartUnifiedClient(context, restartHandler);
   } catch (error) {
-    logToOutputChannel(`❌ Failed to start language server: ${error}`, 'error');
+    logWorkerMessage(`❌ Failed to start language server: ${error}`, 'error');
     throw error;
   }
 }
@@ -438,16 +498,13 @@ export async function restartUnifiedLanguageServer(
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
-  logToOutputChannel('🔄 Restarting Unified Apex Language Server...', 'info');
+  logWorkerMessage('🔄 Restarting Unified Apex Language Server...', 'info');
 
   try {
     await stopUnifiedLanguageServer();
     await startUnifiedLanguageServer(context, restartHandler);
   } catch (error) {
-    logToOutputChannel(
-      `❌ Failed to restart language server: ${error}`,
-      'error',
-    );
+    logWorkerMessage(`❌ Failed to restart language server: ${error}`, 'error');
     throw error;
   }
 }
@@ -456,15 +513,15 @@ export async function restartUnifiedLanguageServer(
  * Stops the unified language server
  */
 export async function stopUnifiedLanguageServer(): Promise<void> {
-  logToOutputChannel('🛑 Stopping Unified Apex Language Server...', 'info');
+  logWorkerMessage('🛑 Stopping Unified Apex Language Server...', 'info');
 
   if (unifiedClient) {
     try {
       unifiedClient.dispose();
       unifiedClient = undefined;
-      logToOutputChannel('✅ Unified language server stopped', 'info');
+      logWorkerMessage('✅ Unified language server stopped', 'info');
     } catch (error) {
-      logToOutputChannel(
+      logWorkerMessage(
         `⚠️ Error stopping language server: ${error}`,
         'warning',
       );

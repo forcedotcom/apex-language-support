@@ -60,17 +60,28 @@ export function activate(context: vscode.ExtensionContext): void {
   // Initialize simple extension logging
   initializeExtensionLogging(context);
 
+  logToOutputChannel('🔧 Extension logging system initialized', 'info');
+  logToOutputChannel(
+    `📍 Extension context: ${context.extensionMode === 1 ? 'Development' : 'Production'} mode`,
+    'info',
+  );
+  logToOutputChannel(`📂 Extension path: ${context.extensionPath}`, 'debug');
+
   // Initialize command state
   initializeCommandState(context);
+  logToOutputChannel('⚙️ Command state initialized', 'debug');
 
   // Create persistent server status LanguageStatusItem
   createApexServerStatusItem(context);
+  logToOutputChannel('📊 Server status item created', 'debug');
 
   // Set the restart handler
   setRestartHandler(handleRestart);
+  logToOutputChannel('🔄 Restart handler configured', 'debug');
 
   // Register restart command
   registerRestartCommand(context);
+  logToOutputChannel('📝 Restart command registered', 'debug');
 
   // Register log level commands for each log level
   const logLevels = ['error', 'warning', 'info', 'debug'];
@@ -88,6 +99,10 @@ export function activate(context: vscode.ExtensionContext): void {
     });
     context.subscriptions.push(disposable);
   });
+  logToOutputChannel(
+    `📋 Registered ${logLevels.length} log level commands`,
+    'debug',
+  );
 
   // Create language status actions for log levels and restart
   createApexLanguageStatusActions(
@@ -107,12 +122,17 @@ export function activate(context: vscode.ExtensionContext): void {
       await handleRestart(context);
     },
   );
+  logToOutputChannel('🎛️ Language status actions created', 'debug');
 
   // Log activation
-  logToOutputChannel('Apex Language Server extension is now active!', 'info');
+  logToOutputChannel(
+    '✅ Extension setup completed, starting language server...',
+    'info',
+  );
 
   // Start the language server
   handleStart(context).catch((error) => {
+    logToOutputChannel(`❌ Failed to start language server: ${error}`, 'error');
     console.error('❌ [APEX-EXT] Failed to start language server:', error);
   });
 

@@ -28,17 +28,29 @@ import {
   Range,
 } from 'vscode-languageserver/browser';
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
+import {
+  getLogger,
+  setLoggerFactory,
+  setLogLevel,
+} from '@salesforce/apex-lsp-shared';
 
-console.log('[APEX-WORKER] 🚀 Worker script loading...');
+import { WorkerLoggerFactory } from './utils/WorkerLoggerFactory';
+
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 // Create a connection for the server
 const connection = createConnection(
-  new BrowserMessageReader(self as DedicatedWorkerGlobalScope),
-  new BrowserMessageWriter(self as DedicatedWorkerGlobalScope),
+  new BrowserMessageReader(self as unknown as DedicatedWorkerGlobalScope),
+  new BrowserMessageWriter(self as unknown as DedicatedWorkerGlobalScope),
 );
 
-console.log('[APEX-WORKER] ✅ Connection created');
+// Set up logging
+setLoggerFactory(new WorkerLoggerFactory(connection));
+const logger = getLogger();
+
+// Send initial log messages
+logger.info('🚀 Worker script loading...');
+logger.info('✅ Connection created');
 
 // Create a simple text document manager.
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
@@ -48,7 +60,7 @@ let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
 
 connection.onInitialize((params: InitializeParams) => {
-  console.log('[APEX-WORKER] 🔧 Initialize request received');
+  logger.info('🔧 Initialize request received');
 
   const capabilities = params.capabilities;
 
@@ -89,12 +101,12 @@ connection.onInitialize((params: InitializeParams) => {
     };
   }
 
-  console.log('[APEX-WORKER] ✅ Initialize completed');
+  logger.info('✅ Initialize completed');
   return result;
 });
 
 connection.onInitialized(() => {
-  console.log('[APEX-WORKER] 🎉 Server initialized');
+  logger.info('🎉 Server initialized');
 
   if (hasConfigurationCapability) {
     // Register for all configuration changes.
@@ -105,7 +117,7 @@ connection.onInitialized(() => {
   }
   if (hasWorkspaceFolderCapability) {
     connection.workspace.onDidChangeWorkspaceFolders((_event) => {
-      console.log('[APEX-WORKER] Workspace folder change event received.');
+      logger.info('Workspace folder change event received.');
     });
   }
 });
@@ -132,6 +144,12 @@ connection.onDidChangeConfiguration((change) => {
     globalSettings = <ExampleSettings>(
       (change.settings.languageServerExample || defaultSettings)
     );
+  }
+
+  // Update log level from configuration
+  const config = change.settings['apex-ls-ts'];
+  if (config?.logLevel) {
+    setLogLevel(config.logLevel);
   }
 
   // Revalidate all open text documents
@@ -273,15 +291,18 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
 
 // Document symbol handler for outline view
 connection.onDocumentSymbol((params) => {
-  console.log('[APEX-WORKER] 📋 Document symbol request received');
+  logger.info('📋 Document symbol request received');
   const document = documents.get(params.textDocument.uri);
   if (!document) {
-    console.log('[APEX-WORKER] ⚠️ Document not found for symbol request');
+    logger.warn('⚠️ Document not found for symbol request');
     return [];
   }
 
   const text = document.getText();
   const symbols: DocumentSymbol[] = [];
+
+  // Start performance timer
+  logger.time?.('Document Symbol Parsing');
 
   // Simple Apex class and method detection
   const lines = text.split('\n');
@@ -364,7 +385,10 @@ connection.onDocumentSymbol((params) => {
     }
   }
 
-  console.log(`[APEX-WORKER] ✅ Found ${symbols.length} symbols`);
+  // End performance timer
+  logger.timeEnd?.('Document Symbol Parsing');
+
+  logger.info(`✅ Found ${symbols.length} symbols`);
   return symbols;
 });
 
@@ -375,5 +399,5 @@ documents.listen(connection);
 // Listen on the connection
 connection.listen();
 
-console.log('[APEX-WORKER] 🎧 Connection listening started');
-console.log('[APEX-WORKER] ✅ Apex Language Server Worker ready!');
+logger.info('🎧 Connection listening started');
+logger.info('✅ Apex Language Server Worker ready!');

@@ -9,7 +9,7 @@
 import * as vscode from 'vscode';
 import { LanguageClient, State } from 'vscode-languageclient/node';
 import { createServerOptions, createClientOptions } from './server-config';
-import { logToOutputChannel } from './logging';
+import { logToOutputChannel, logServerMessage } from './logging';
 import {
   setStartingFlag,
   getStartingFlag,
@@ -27,10 +27,6 @@ import {
  */
 let client: LanguageClient | undefined;
 
-/**
- * Track the last output channel created by the LanguageClient
- */
-let lastServerOutputChannel: vscode.OutputChannel | undefined;
 
 /**
  * Creates and starts the language client
@@ -46,26 +42,17 @@ export const createAndStartClient = (
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): void => {
   try {
-    // Dispose previous output channel if it exists
-    if (lastServerOutputChannel) {
-      lastServerOutputChannel.dispose();
-      lastServerOutputChannel = undefined;
-    }
-
     // Create the language client
     client = new LanguageClient(
       'apex-ls-ts',
-      'Apex Language Server (Typescript)',
+      'Apex Language Server Extension (Worker/Server)',
       serverOptions,
       clientOptions,
     );
 
-    // Track the new output channel
-    lastServerOutputChannel = client.outputChannel;
-
     // Track client state changes
     client.onDidChangeState((event) => {
-      logToOutputChannel(
+      logServerMessage(
         `Client state changed: ${State[event.oldState]} -> ${State[event.newState]}`,
         'debug',
       );
@@ -87,14 +74,14 @@ export const createAndStartClient = (
     });
 
     // Start the client
-    logToOutputChannel('Starting Apex Language Server client...', 'info');
+    logServerMessage('Starting Apex Language Server client...', 'info');
     client.start().catch((error) => {
-      logToOutputChannel(`Failed to start client: ${error}`, 'error');
+      logServerMessage(`Failed to start client: ${error}`, 'error');
       setStartingFlag(false);
       updateApexServerStatusError();
     });
   } catch (e) {
-    logToOutputChannel(`Error creating client: ${e}`, 'error');
+    logServerMessage(`Error creating client: ${e}`, 'error');
     setStartingFlag(false);
     updateApexServerStatusError();
   }
@@ -111,13 +98,13 @@ export const startLanguageServer = async (
 ): Promise<void> => {
   // Guard against multiple simultaneous start attempts
   if (getStartingFlag()) {
-    logToOutputChannel('Blocked duplicate start attempt', 'info');
+    logServerMessage('Blocked duplicate start attempt', 'info');
     return;
   }
 
   try {
     setStartingFlag(true);
-    logToOutputChannel('Starting language server...', 'info');
+    logServerMessage('Starting language server...', 'info');
 
     // Clean up previous client if it exists
     if (client) {
@@ -131,7 +118,7 @@ export const startLanguageServer = async (
 
     createAndStartClient(serverOptions, clientOptions, context, restartHandler);
   } catch (error) {
-    logToOutputChannel(`Error in startLanguageServer: ${error}`, 'error');
+    logServerMessage(`Error in startLanguageServer: ${error}`, 'error');
     vscode.window.showErrorMessage(
       `Failed to start Apex Language Server: ${error}`,
     );
@@ -149,7 +136,7 @@ export const restartLanguageServer = async (
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> => {
-  logToOutputChannel(
+  logServerMessage(
     `Restarting Apex Language Server at ${new Date().toISOString()}...`,
     'info',
   );
@@ -163,11 +150,6 @@ export const stopLanguageServer = async (): Promise<void> => {
   if (client) {
     await client.stop();
     client = undefined;
-  }
-  // Dispose the last output channel if it exists
-  if (lastServerOutputChannel) {
-    lastServerOutputChannel.dispose();
-    lastServerOutputChannel = undefined;
   }
 };
 

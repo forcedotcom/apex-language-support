@@ -13,9 +13,7 @@ import type {
   IMessageBridgeFactory,
 } from './interfaces';
 import { WorkerMessageBridge } from './PlatformBridges.worker';
-import {
-  isWorkerEnvironment,
-} from '../utils/EnvironmentDetector.worker';
+import { isWorkerEnvironment } from '../utils/EnvironmentDetector.worker';
 
 /**
  * Factory for creating worker-specific message bridges
@@ -28,7 +26,7 @@ export class WorkerMessageBridgeFactory implements IMessageBridgeFactory {
     config: MessageBridgeConfig,
   ): Promise<MessageConnection> {
     // Safely get the worker global scope
-    const workerScope = self as DedicatedWorkerGlobalScope;
+    const workerScope = self as unknown as DedicatedWorkerGlobalScope;
     return WorkerMessageBridge.forWorkerServer(workerScope, config.logger);
   }
 }

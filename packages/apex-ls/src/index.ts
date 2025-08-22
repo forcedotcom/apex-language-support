@@ -30,13 +30,13 @@ export { ApexStorageAdapter } from './storage/ApexStorageManager';
 export type {
   UnifiedClientInterface,
   UnifiedClientConfig,
-} from './communication/UnifiedClient.node';
+} from './communication/UnifiedClient';
 
 // Export shared utilities
 // Export environment-specific utilities and factories
-export { isNodeEnvironment } from './utils/EnvironmentDetector.node';
+export { isNodeEnvironment } from './utils/EnvironmentDetector';
 
 // Export shared factories
-export { UnifiedStorageFactory } from './storage/UnifiedStorageFactory.node';
-export { UnifiedClient as UniversalExtensionClient } from './communication/UnifiedClient.node';
-export { UnifiedClientFactory as UniversalClientFactory } from './communication/UnifiedClient.node';
+export { UnifiedStorageFactory } from './storage/UnifiedStorageFactory';
+export { UnifiedClient as UniversalExtensionClient } from './communication/UnifiedClient';
+export { UnifiedClientFactory as UniversalClientFactory } from './communication/UnifiedClient';

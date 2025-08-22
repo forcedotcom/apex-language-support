@@ -6,12 +6,35 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-declare interface DedicatedWorkerGlobalScope extends WorkerGlobalScope {
+declare interface DedicatedWorkerGlobalScope
+  extends WorkerGlobalScope,
+    EventTarget {
   postMessage(message: any, transfer?: Transferable[]): void;
   onmessage:
-    | ((this: DedicatedWorkerGlobalScope, ev: MessageEvent) => any)
+    | ((this: DedicatedWorkerGlobalScope, ev: MessageEvent<any>) => any)
     | null;
   onerror: ((this: DedicatedWorkerGlobalScope, ev: ErrorEvent) => any) | null;
+  addEventListener<K extends keyof DedicatedWorkerGlobalScopeEventMap>(
+    type: K,
+    listener: (
+      this: DedicatedWorkerGlobalScope,
+      ev: DedicatedWorkerGlobalScopeEventMap[K],
+    ) => any,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  removeEventListener<K extends keyof DedicatedWorkerGlobalScopeEventMap>(
+    type: K,
+    listener: (
+      this: DedicatedWorkerGlobalScope,
+      ev: DedicatedWorkerGlobalScopeEventMap[K],
+    ) => any,
+    options?: boolean | EventListenerOptions,
+  ): void;
+}
+
+declare interface DedicatedWorkerGlobalScopeEventMap {
+  message: MessageEvent<any>;
+  error: ErrorEvent;
 }
 
 declare interface WorkerGlobalScope {

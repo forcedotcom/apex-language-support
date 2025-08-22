@@ -7,9 +7,11 @@
  */
 
 import type { IStorage, StorageConfig } from './StorageInterface';
-import { isWorkerEnvironment } from '../utils/EnvironmentDetector.worker';
-import { isBrowserEnvironment } from '../utils/EnvironmentDetector.browser';
-import { isNodeEnvironment } from '../utils/EnvironmentDetector.node';
+import {
+  isWorkerEnvironment,
+  isBrowserEnvironment,
+  isNodeEnvironment,
+} from '../utils/EnvironmentDetector';
 
 /**
  * Factory for creating appropriate storage implementations based on environment

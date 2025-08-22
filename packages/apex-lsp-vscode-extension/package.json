@@ -106,14 +106,14 @@
       }
     ],
     "configuration": {
-      "title": "Apex-LS-TS",
+      "title": "Apex Language Server",
       "properties": {
-        "apex-ls-ts.enable": {
+        "apex.enable": {
           "type": "boolean",
           "default": true,
           "description": "%configuration.apex-ls-ts.enable.description%"
         },
-        "apex-ls-ts.trace.server": {
+        "apex.trace.server": {
           "type": "string",
           "enum": [
             "off",
@@ -123,7 +123,7 @@
           "default": "off",
           "description": "%configuration.apex-ls-ts.trace.server.description%"
         },
-        "apex-ls-ts.debug": {
+        "apex.debug": {
           "type": "string",
           "enum": [
             "off",
@@ -133,67 +133,67 @@
           "default": "off",
           "description": "%configuration.apex-ls-ts.debug.description%"
         },
-        "apex-ls-ts.debugPort": {
+        "apex.debugPort": {
           "type": "number",
           "default": 6009,
           "description": "%configuration.apex-ls-ts.debugPort.description%"
         },
-        "apex-ls-ts.commentCollection.enableCommentCollection": {
+        "apex.commentCollection.enableCommentCollection": {
           "type": "boolean",
           "default": true,
           "description": "%configuration.apex-ls-ts.commentCollection.enableCommentCollection.description%"
         },
-        "apex-ls-ts.commentCollection.includeSingleLineComments": {
+        "apex.commentCollection.includeSingleLineComments": {
           "type": "boolean",
           "default": false,
           "description": "%configuration.apex-ls-ts.commentCollection.includeSingleLineComments.description%"
         },
-        "apex-ls-ts.commentCollection.associateCommentsWithSymbols": {
+        "apex.commentCollection.associateCommentsWithSymbols": {
           "type": "boolean",
           "default": true,
           "description": "%configuration.apex-ls-ts.commentCollection.associateCommentsWithSymbols.description%"
         },
-        "apex-ls-ts.commentCollection.enableForDocumentChanges": {
+        "apex.commentCollection.enableForDocumentChanges": {
           "type": "boolean",
           "default": true,
           "description": "%configuration.apex-ls-ts.commentCollection.enableForDocumentChanges.description%"
         },
-        "apex-ls-ts.commentCollection.enableForDocumentOpen": {
+        "apex.commentCollection.enableForDocumentOpen": {
           "type": "boolean",
           "default": true,
           "description": "%configuration.apex-ls-ts.commentCollection.enableForDocumentOpen.description%"
         },
-        "apex-ls-ts.commentCollection.enableForDocumentSymbols": {
+        "apex.commentCollection.enableForDocumentSymbols": {
           "type": "boolean",
           "default": false,
           "description": "%configuration.apex-ls-ts.commentCollection.enableForDocumentSymbols.description%"
         },
-        "apex-ls-ts.commentCollection.enableForFoldingRanges": {
+        "apex.commentCollection.enableForFoldingRanges": {
           "type": "boolean",
           "default": true,
           "description": "%configuration.apex-ls-ts.commentCollection.enableForFoldingRanges.description%"
         },
-        "apex-ls-ts.performance.commentCollectionMaxFileSize": {
+        "apex.performance.commentCollectionMaxFileSize": {
           "type": "number",
           "default": 102400,
           "description": "%configuration.apex-ls-ts.performance.commentCollectionMaxFileSize.description%"
         },
-        "apex-ls-ts.performance.useAsyncCommentProcessing": {
+        "apex.performance.useAsyncCommentProcessing": {
           "type": "boolean",
           "default": true,
           "description": "%configuration.apex-ls-ts.performance.useAsyncCommentProcessing.description%"
         },
-        "apex-ls-ts.performance.documentChangeDebounceMs": {
+        "apex.performance.documentChangeDebounceMs": {
           "type": "number",
           "default": 300,
           "description": "%configuration.apex-ls-ts.performance.documentChangeDebounceMs.description%"
         },
-        "apex-ls-ts.environment.enablePerformanceLogging": {
+        "apex.environment.enablePerformanceLogging": {
           "type": "boolean",
           "default": false,
           "description": "%configuration.apex-ls-ts.environment.enablePerformanceLogging.description%"
         },
-        "apex-ls-ts.resources.loadMode": {
+        "apex.resources.loadMode": {
           "type": "string",
           "enum": [
             "lazy",
@@ -202,7 +202,7 @@
           "default": "lazy",
           "description": "%configuration.apex-ls-ts.resources.loadMode.description%"
         },
-        "apex-ls-ts.logLevel": {
+        "apex.logLevel": {
           "type": "string",
           "enum": [
             "error",
@@ -214,7 +214,45 @@
           "default": "info",
           "description": "%configuration.apex-ls-ts.logLevel.description%"
         },
-        "apex-ls-ts.custom": {
+        "apex.worker.logLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info",
+            "debug"
+          ],
+          "default": "info",
+          "description": "Log level for Apex worker"
+        },
+        "apex.worker.enablePerformanceLogs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable performance timing logs"
+        },
+        "apex.worker.logCategories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "STARTUP",
+              "LSP",
+              "SYMBOLS",
+              "COMPLETION",
+              "DIAGNOSTICS",
+              "PERFORMANCE"
+            ]
+          },
+          "default": [
+            "STARTUP",
+            "LSP",
+            "SYMBOLS",
+            "COMPLETION",
+            "DIAGNOSTICS"
+          ],
+          "description": "Categories of worker logs to show"
+        },
+        "apex.custom": {
           "type": "object",
           "default": {},
           "description": "Custom configuration for the Apex Language Server"
@@ -223,28 +261,32 @@
     },
     "commands": [
       {
-        "command": "apex-ls-ts.restart.server",
+        "command": "apex.restart.server",
         "title": "%commands.apex-ls-ts.restart.server.title%"
       },
       {
-        "command": "apex-ls-ts.setLogLevel.error",
+        "command": "apex.setLogLevel.error",
         "title": "%commands.apex-ls-ts.setLogLevel.error.title%"
       },
       {
-        "command": "apex-ls-ts.setLogLevel.warning",
+        "command": "apex.setLogLevel.warning",
         "title": "%commands.apex-ls-ts.setLogLevel.warning.title%"
       },
       {
-        "command": "apex-ls-ts.setLogLevel.info",
+        "command": "apex.setLogLevel.info",
         "title": "%commands.apex-ls-ts.setLogLevel.info.title%"
       },
       {
-        "command": "apex-ls-ts.setLogLevel.debug",
+        "command": "apex.setLogLevel.debug",
         "title": "%commands.apex-ls-ts.setLogLevel.debug.title%"
       },
       {
         "command": "apex.restart.server",
         "title": "Restart Apex Language Server"
+      },
+      {
+        "command": "apex.showAggregatedLogs",
+        "title": "Show All Apex Logs"
       }
     ],
     "viewsContainers": {

@@ -12,7 +12,7 @@
 export function getWorkerGlobalScope(): DedicatedWorkerGlobalScope | null {
   try {
     if (typeof self !== 'undefined' && typeof window === 'undefined') {
-      return self as DedicatedWorkerGlobalScope;
+      return self as unknown as DedicatedWorkerGlobalScope;
     }
   } catch {
     // Self is not available

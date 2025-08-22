@@ -187,7 +187,10 @@ export class WorkerMessageBridge extends BaseMessageBridge {
    * Checks if current environment is supported
    */
   protected isEnvironmentSupported(): boolean {
-    return typeof self !== 'undefined' && typeof importScripts !== 'undefined';
+    return (
+      typeof self !== 'undefined' &&
+      typeof (self as any).importScripts === 'function'
+    );
   }
 }
 
@@ -196,7 +199,7 @@ export class WorkerMessageBridge extends BaseMessageBridge {
  */
 export function createWorkerMessageBridge(logger?: Logger): MessageConnection {
   return WorkerMessageBridge.forWorkerServer(
-    self as DedicatedWorkerGlobalScope,
+    self as unknown as DedicatedWorkerGlobalScope,
     logger,
   );
 }
