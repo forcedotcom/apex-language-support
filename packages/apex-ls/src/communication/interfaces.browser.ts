@@ -28,7 +28,8 @@ export interface BrowserClientConfig {
  * Configuration for creating a web worker client
  */
 export interface WebWorkerClientConfig {
-  context: any;
+  context?: any;
   logger?: Logger;
-  workerFileName: string;
+  workerFileName?: string;
+  workerUri?: string; // Pre-constructed worker URI
 }

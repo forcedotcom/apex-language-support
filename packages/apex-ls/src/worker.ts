@@ -443,16 +443,32 @@ export async function createUnifiedWebWorkerLanguageServer() {
  * This version avoids problematic dependencies that cause importScripts issues
  */
 export async function createSimpleWebWorkerLanguageServer() {
-  // Create message reader and writer for web worker communication
-  const messageReader = new BrowserMessageReader(
-    self as DedicatedWorkerGlobalScope,
-  );
-  const messageWriter = new BrowserMessageWriter(
-    self as DedicatedWorkerGlobalScope,
-  );
+  console.log('[SIMPLE-WORKER] 🔄 Creating message reader and writer...');
 
-  // Create the LSP connection
-  const connection = createConnection(messageReader, messageWriter);
+  let connection;
+  try {
+    // Create message reader and writer for web worker communication
+    const messageReader = new BrowserMessageReader(
+      self as DedicatedWorkerGlobalScope,
+    );
+    console.log('[SIMPLE-WORKER] ✓ BrowserMessageReader created');
+
+    const messageWriter = new BrowserMessageWriter(
+      self as DedicatedWorkerGlobalScope,
+    );
+    console.log('[SIMPLE-WORKER] ✓ BrowserMessageWriter created');
+
+    // Create the LSP connection
+    console.log('[SIMPLE-WORKER] 🔄 Creating LSP connection...');
+    connection = createConnection(messageReader, messageWriter);
+    console.log('[SIMPLE-WORKER] ✓ LSP connection created');
+  } catch (readerWriterError) {
+    console.error(
+      '[SIMPLE-WORKER] ❌ Error creating message reader/writer:',
+      readerWriterError,
+    );
+    throw readerWriterError;
+  }
 
   // Set up logging - TESTING STEP 1
   setLoggerFactory(WorkerLoggerFactory.getInstance());
@@ -783,10 +799,10 @@ export async function createSimpleWebWorkerLanguageServer() {
  */
 export function initializeWorker() {
   try {
-    console.log('[WORKER] Initializing worker...');
+    console.log('[WORKER] 🚀 Initializing worker...');
 
     // Check if we're actually in a worker environment
-    if (typeof self === 'undefined' || typeof importScripts === 'undefined') {
+    if (typeof self === 'undefined') {
       console.log(
         '[WORKER] Not in worker environment, skipping initialization',
       );
@@ -794,13 +810,30 @@ export function initializeWorker() {
     }
 
     console.log(
-      '[WORKER] Worker environment detected, starting language server...',
+      '[WORKER] ✓ Worker environment detected, starting language server...',
     );
+
+    // Add error listener to catch importScripts and other errors
+    self.addEventListener('error', (event) => {
+      console.error('[WORKER] 🚨 Worker error event:', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error,
+      });
+    });
+
+    self.addEventListener('unhandledrejection', (event) => {
+      console.error('[WORKER] 🚨 Unhandled promise rejection:', event.reason);
+    });
+
+    console.log('[WORKER] 🔄 Creating message readers/writers...');
 
     // Initialize the language server
     createSimpleWebWorkerLanguageServer()
       .then(() => {
-        console.log('[WORKER] Language server started successfully');
+        console.log('[WORKER] ✅ Language server started successfully');
 
         // Send ready signal if postMessage is available
         if (typeof self.postMessage === 'function') {
@@ -812,20 +845,46 @@ export function initializeWorker() {
         }
       })
       .catch((error) => {
-        console.error('[WORKER] Failed to start language server:', error);
+        console.error('[WORKER] ❌ Failed to start language server:', error);
+        console.error('[WORKER] Error stack:', error.stack);
 
         // Send error signal if postMessage is available
         if (typeof self.postMessage === 'function') {
           self.postMessage({
             type: 'apex-worker-error',
             error: error.message,
+            stack: error.stack,
             timestamp: new Date().toISOString(),
           });
         }
       });
   } catch (error) {
-    console.error('[WORKER] Initialization error:', error);
+    console.error('[WORKER] 💥 Critical initialization error:', error);
+    console.error('[WORKER] Error stack:', (error as Error).stack);
   }
+}
+
+// Add minimal test initialization first
+console.log('[WORKER] 🧪 Testing basic worker functionality...');
+
+try {
+  // Test if basic worker APIs are available
+  console.log('[WORKER] ✓ self available:', typeof self !== 'undefined');
+  console.log('[WORKER] ✓ postMessage available:', typeof self.postMessage === 'function');
+  console.log('[WORKER] ✓ addEventListener available:', typeof self.addEventListener === 'function');
+  
+  // Test basic message sending
+  if (typeof self.postMessage === 'function') {
+    self.postMessage({
+      type: 'worker-test',
+      message: 'Worker basic functionality test',
+      timestamp: new Date().toISOString(),
+    });
+  }
+  
+  console.log('[WORKER] ✅ Basic worker test completed');
+} catch (error) {
+  console.error('[WORKER] ❌ Basic worker test failed:', error);
 }
 
 // Auto-initialize the worker

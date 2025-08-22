@@ -33,7 +33,7 @@ export interface WorkerLaunchResult {
 
 /**
  * Unified worker launcher that works in all environments
- * 
+ *
  * This launcher can be used by:
  * - Web VSCode extensions (vscode.dev)
  * - Desktop VSCode extensions (when using web workers)
@@ -44,7 +44,7 @@ export class WorkerLauncher {
    * Launches a web worker with the unified Apex Language Server
    */
   static async launch(config: WorkerLaunchConfig): Promise<WorkerLaunchResult> {
-    const logger = config.logger || console as Logger;
+    const logger = config.logger || (console as Logger);
     const {
       context,
       workerFileName = 'worker.mjs',
@@ -57,7 +57,9 @@ export class WorkerLauncher {
 
     // Check Worker support
     if (typeof Worker === 'undefined') {
-      const error = new Error('Web Workers are not supported in this environment');
+      const error = new Error(
+        'Web Workers are not supported in this environment',
+      );
       logger.error('❌ [WORKER-LAUNCHER] Worker support check failed', error);
       throw error;
     }
@@ -122,14 +124,20 @@ export class WorkerLauncher {
 
       try {
         // Approach 2: Blob URL fallback for environments with URL resolution issues
-        logger.debug('🔧 [WORKER-LAUNCHER] Attempting blob URL worker creation');
+        logger.debug(
+          '🔧 [WORKER-LAUNCHER] Attempting blob URL worker creation',
+        );
         const response = await fetch(workerUrl);
         if (!response.ok) {
-          throw new Error(`Failed to fetch worker: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Failed to fetch worker: ${response.status} ${response.statusText}`,
+          );
         }
 
         const workerContent = await response.text();
-        const blob = new Blob([workerContent], { type: 'application/javascript' });
+        const blob = new Blob([workerContent], {
+          type: 'application/javascript',
+        });
         const blobUrl = URL.createObjectURL(blob);
 
         worker = new Worker(blobUrl, {
@@ -140,7 +148,9 @@ export class WorkerLauncher {
         // Clean up blob URL after a delay
         setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
 
-        logger.debug('✅ [WORKER-LAUNCHER] Blob URL worker creation successful');
+        logger.debug(
+          '✅ [WORKER-LAUNCHER] Blob URL worker creation successful',
+        );
       } catch (blobError) {
         logger.error(
           '❌ [WORKER-LAUNCHER] Both direct and blob worker creation failed',
@@ -166,10 +176,14 @@ export class WorkerLauncher {
       logger.debug('🔍 [WORKER-LAUNCHER] Validating worker URL accessibility');
       const response = await fetch(workerUrl, { method: 'HEAD' });
 
-      logger.debug(`Worker URL validation result: ${response.status} ${response.statusText}`);
+      logger.debug(
+        `Worker URL validation result: ${response.status} ${response.statusText}`,
+      );
 
       if (!response.ok) {
-        throw new Error(`Worker URL not accessible: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Worker URL not accessible: ${response.status} ${response.statusText}`,
+        );
       }
     } catch (error) {
       logger.error(
@@ -184,19 +198,20 @@ export class WorkerLauncher {
   /**
    * Sets up monitoring and error handling for the worker
    */
-  private static setupWorkerMonitoring(
-    worker: Worker,
-    logger: Logger,
-  ): void {
+  private static setupWorkerMonitoring(worker: Worker, logger: Logger): void {
     // Set up comprehensive error handling
     worker.onerror = (errorEvent) => {
       const errorMessage = errorEvent.message || String(errorEvent);
-      logger.error(`🚨 [WORKER-LAUNCHER] Worker runtime error: ${errorMessage}`);
+      logger.error(
+        `🚨 [WORKER-LAUNCHER] Worker runtime error: ${errorMessage}`,
+      );
     };
 
     worker.onmessageerror = (error) => {
-      logger.error('🚨 [WORKER-LAUNCHER] Worker message error', 
-        error instanceof Error ? error : new Error(String(error)));
+      logger.error(
+        '🚨 [WORKER-LAUNCHER] Worker message error',
+        error instanceof Error ? error : new Error(String(error)),
+      );
     };
 
     // Set up message handling
@@ -205,14 +220,18 @@ export class WorkerLauncher {
 
       switch (data.type) {
         case 'apex-worker-ready':
-          logger.success(`🚀 [WORKER-LAUNCHER] Worker ready! Server: ${data.server || 'unknown'}`);
+          logger.success(
+            `🚀 [WORKER-LAUNCHER] Worker ready! Server: ${data.server || 'unknown'}`,
+          );
           if (data.capabilities) {
             logger.info(`Capabilities: ${data.capabilities.join(', ')}`);
           }
           break;
 
         case 'apex-worker-error':
-          logger.error(`❌ [WORKER-LAUNCHER] Worker error: ${data.error || 'unknown error'}`);
+          logger.error(
+            `❌ [WORKER-LAUNCHER] Worker error: ${data.error || 'unknown error'}`,
+          );
           break;
 
         case 'apex-worker-log':
@@ -235,7 +254,9 @@ export class WorkerLauncher {
 
         default:
           // Pass through other messages (LSP protocol messages)
-          logger.debug(`📨 [WORKER-LAUNCHER] Worker message: ${data.method || 'unknown'}`);
+          logger.debug(
+            `📨 [WORKER-LAUNCHER] Worker message: ${data.method || 'unknown'}`,
+          );
           break;
       }
     };

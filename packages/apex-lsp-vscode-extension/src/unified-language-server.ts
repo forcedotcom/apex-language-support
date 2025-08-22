@@ -8,7 +8,7 @@
 
 import * as vscode from 'vscode';
 import type { UnifiedClientInterface } from '@salesforce/apex-ls';
-import { UniversalClientFactory } from '@salesforce/apex-ls/browser';
+import { createConnection, BrowserMessageReader, BrowserMessageWriter } from 'vscode-languageserver/browser';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import { logToOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
@@ -279,15 +279,6 @@ export const createAndStartUnifiedClient = async (
     );
 
     // Create logger for the universal client
-    const logger = {
-      ...console,
-      info: (message: string) => logToOutputChannel(message, 'info'),
-      error: (message: string, error?: Error) => {
-        logToOutputChannel(`${message}${error ? `: ${error}` : ''}`, 'error');
-      },
-      debug: (message: string) => logToOutputChannel(message, 'debug'),
-      success: (message: string) => logToOutputChannel(`✅ ${message}`, 'info'),
-    };
 
     // Debug extension URI resolution
     logToOutputChannel(
@@ -295,25 +286,50 @@ export const createAndStartUnifiedClient = async (
       'debug',
     );
     logToOutputChannel(`🔍 Extension path: ${context.extensionPath}`, 'debug');
-    const workerUrl = new URL('dist/worker.mjs', context.extensionUri.toString());
-    logToOutputChannel(`🔍 Worker URL: ${workerUrl.toString()}`, 'debug');
+    
+    // Use vscode.Uri.joinPath for proper URI construction in web environments
+    const workerUri = vscode.Uri.joinPath(context.extensionUri, 'dist', 'worker.js');
+    logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 
-    // Use standard worker path - test script will ensure worker is available
-    const workerFileName = 'dist/worker.mjs';
+    // Create worker with standard vscode-languageserver approach
+    const worker = new Worker(workerUri.toString(), { type: 'classic' });
 
-    // Create unified client based on environment
-    const client = await UniversalClientFactory.createWebWorkerClient({
-      context,
-      logger,
-      workerFileName,
-    });
+    // Create LSP connection using standard browser message readers/writers
+    const connection = createConnection(
+      new BrowserMessageReader(worker),
+      new BrowserMessageWriter(worker),
+    );
 
-    // Store the client instance
-    unifiedClient = client;
+    // Store connection for disposal
+    unifiedClient = {
+      connection,
+      worker,
+      initialize: async (params: InitializeParams) =>
+        connection.sendRequest('initialize', params),
+      sendRequest: async (method: string, params?: any) =>
+        connection.sendRequest(method, params),
+      sendNotification: (method: string, params?: any) => {
+        connection.sendNotification(method, params);
+      },
+      onRequest: (method: string, handler: (params: any) => any) => {
+        connection.onRequest(method, handler);
+      },
+      onNotification: (method: string, handler: (params: any) => void) => {
+        connection.onNotification(method, handler);
+      },
+      isDisposed: () => false,
+      dispose: () => {
+        connection.dispose();
+        worker.terminate();
+      },
+    } as UnifiedClientInterface;
 
-    // Initialize the client
+    // Start listening for messages
+    connection.listen();
+
+    // Initialize the language server
     const initParams = createInitializeParams(context);
-    await client.initialize(initParams);
+    await unifiedClient.initialize(initParams);
 
     logToOutputChannel(
       '✅ Unified language server initialized successfully',
@@ -329,8 +345,8 @@ export const createAndStartUnifiedClient = async (
 
     // Register configuration change listener
     // We'll adapt this to work with the unified client
-    if (client) {
-      registerUnifiedConfigurationChangeListener(client, context);
+    if (unifiedClient) {
+      registerUnifiedConfigurationChangeListener(unifiedClient, context);
     }
 
     logToOutputChannel('🎉 Unified Apex Language Server is ready!', 'info');

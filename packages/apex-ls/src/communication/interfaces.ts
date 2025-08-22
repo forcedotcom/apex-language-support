@@ -137,7 +137,8 @@ export interface UnifiedClientConfig {
  * Web worker client configuration
  */
 export interface WebWorkerClientConfig {
-  context: any;
+  context?: any;
   logger?: Logger;
-  workerFileName: string;
+  workerFileName?: string;
+  workerUri?: string; // Pre-constructed worker URI
 }

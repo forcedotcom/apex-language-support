@@ -10,7 +10,10 @@ const path = require('path');
 
 function copyWorkerFiles() {
   console.log('🔧 Copying worker files...');
-  const workerSrc = path.resolve(__dirname, '../../apex-ls/dist/worker.global.js');
+  const workerSrc = path.resolve(
+    __dirname,
+    '../../apex-ls/dist/worker.global.js',
+  );
   const workerMapSrc = path.resolve(
     __dirname,
     '../../apex-ls/dist/worker.global.js.map',
@@ -22,18 +25,18 @@ function copyWorkerFiles() {
   }
 
   if (fs.existsSync(workerSrc)) {
-    // Copy as worker.mjs for ESM compatibility
-    fs.copyFileSync(workerSrc, path.join(distDir, 'worker.mjs'));
-    console.log('✅ Copied worker.global.js as worker.mjs');
+    // Copy worker keeping .js extension since it's IIFE
+    fs.copyFileSync(workerSrc, path.join(distDir, 'worker.js'));
+    console.log('✅ Copied worker.js');
   } else {
-    console.warn('⚠️ worker.global.js not found at:', workerSrc);
+    console.warn('⚠️ worker.js not found at:', workerSrc);
   }
 
   if (fs.existsSync(workerMapSrc)) {
-    fs.copyFileSync(workerMapSrc, path.join(distDir, 'worker.mjs.map'));
-    console.log('✅ Copied worker.global.js.map as worker.mjs.map');
+    fs.copyFileSync(workerMapSrc, path.join(distDir, 'worker.js.map'));
+    console.log('✅ Copied worker.js.map');
   } else {
-    console.warn('⚠️ worker.global.js.map not found at:', workerMapSrc);
+    console.warn('⚠️ worker.js.map not found at:', workerMapSrc);
   }
 }
 

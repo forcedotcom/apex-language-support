@@ -11,7 +11,7 @@ import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfil
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
 
 export default defineConfig((options: Options) => ({
-  entry: ['out/extension.js', 'out/server.js'],
+  entry: ['out/extension.js'],
   format: ['cjs', 'esm'],
   target: 'es2022',
   sourcemap: true,

@@ -108,50 +108,64 @@ async function runWebExtensionTests() {
     }
 
     // Worker files should already be in the dist directory from the extension build
-    // Check if worker files exist in dist directory  
-    const workerSrc = path.resolve(extensionDevelopmentPath, 'dist/worker.mjs');
+    // Check if worker files exist in dist directory
+    const workerSrc = path.resolve(extensionDevelopmentPath, 'dist/worker.js');
     const workerMapSrc = path.resolve(
       extensionDevelopmentPath,
-      'dist/worker.mjs.map',
+      'dist/worker.js.map',
     );
 
     if (fs.existsSync(workerSrc)) {
-      console.log('✅ worker.mjs found in dist directory');
+      console.log('✅ worker.js found in dist directory');
     } else {
-      console.warn('⚠️ worker.mjs not found in dist directory');
+      console.warn('⚠️ worker.js not found in dist directory');
     }
 
     if (fs.existsSync(workerMapSrc)) {
-      console.log('✅ worker.mjs.map found in dist directory');
+      console.log('✅ worker.js.map found in dist directory');
     } else {
-      console.warn('⚠️ worker.mjs.map not found in dist directory');
+      console.warn('⚠️ worker.js.map not found in dist directory');
     }
 
-    // Also create a dist directory in the extension root for URL resolution workaround
+    // Create a dist directory in the extension root for URL resolution workaround
     const rootDistDir = path.resolve(extensionDevelopmentPath, 'dist');
     if (!fs.existsSync(rootDistDir)) {
       fs.mkdirSync(rootDistDir, { recursive: true });
     }
-    
+
+    // Copy worker files to the root dist directory
+    const rootWorkerSrc = path.resolve(rootDistDir, 'worker.js');
+    const rootWorkerMapSrc = path.resolve(rootDistDir, 'worker.js.map');
+    fs.copyFileSync(workerSrc, rootWorkerSrc);
+    fs.copyFileSync(workerMapSrc, rootWorkerMapSrc);
+
     console.log('✅ Worker files found in extension dist directory');
     console.log(`   - Extension worker: ${workerSrc}`);
-    
+
     // The @vscode/test-web server serves from a specific structure
     // Create a dist directory in the extension path so it will be served under /static/devextensions/dist/
     // But the extension URI resolves to /static/ instead of /static/devextensions/
     // This might be a limitation of @vscode/test-web or VS Code Web extension loading
-    
+
     console.log('⚠️ VS Code Web extension URI resolution issue detected');
-    console.log('   Extension is looking for worker at: /static/dist/worker.mjs');  
-    console.log('   But files are served from: /static/devextensions/dist/worker.mjs');
-    console.log('   This is a known limitation of VS Code Web extension testing');
-    
+    console.log(
+      '   Extension is looking for worker at: /static/dist/worker.js',
+    );
+    console.log(
+      '   But files are served from: /static/devextensions/dist/worker.js',
+    );
+    console.log(
+      '   This is a known limitation of VS Code Web extension testing',
+    );
+
     // For now, let's document this as a test environment limitation
     console.log('ℹ️ To test worker loading manually:');
     console.log('   1. Open browser to http://localhost:3000');
     console.log('   2. Open Developer Tools → Console');
     console.log('   3. Look for worker loading errors');
-    console.log('   4. Check if /static/devextensions/dist/worker.mjs loads correctly');
+    console.log(
+      '   4. Check if /static/devextensions/dist/worker.js loads correctly',
+    );
 
     console.log('🌐 Starting VS Code Web Extension Tests...');
     console.log(`📁 Extension path: ${extensionDevelopmentPath}`);

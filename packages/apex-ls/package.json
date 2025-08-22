@@ -15,10 +15,8 @@
       "require": "./dist/browser.js"
     },
     "./worker": {
-      "import": "./dist/worker.mjs"
-    },
-    "./minimal-worker": {
-      "import": "./dist/minimal-worker.mjs"
+      "import": "./dist/worker.mjs",
+      "require": "./dist/worker.js"
     },
     "./server": {
       "import": "./dist/server.mjs",

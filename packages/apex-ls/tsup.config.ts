@@ -98,7 +98,7 @@ export default defineConfig([
       return options;
     },
   },
-  // Worker build (Pure ESM for web workers)
+  // Worker build (IIFE for web workers)
   {
     entry: {
       worker: 'src/worker.ts',
@@ -117,6 +117,16 @@ export default defineConfig([
     globalName: 'ApexLanguageWorker', // Global namespace for IIFE
     esbuildOptions(options: BuildOptions) {
       options.platform = 'browser';
+      options.mainFields = ['browser', 'module', 'main'];
+      options.conditions = ['browser', 'import', 'module', 'default'];
+      options.alias = {
+        ...options.alias,
+        'utils/EnvironmentDetector.node': 'utils/EnvironmentDetector.browser',
+        'storage/UnifiedStorageFactory.node':
+          'storage/UnifiedStorageFactory.browser',
+        'communication/UnifiedClient.node':
+          'communication/UnifiedClient.browser',
+      };
       // Apply polyfill configuration
       applyPolyfillConfig(options);
 
