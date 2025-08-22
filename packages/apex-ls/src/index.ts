@@ -34,9 +34,7 @@ export type {
 
 // Export shared utilities
 // Export environment-specific utilities and factories
-export {
-  isNodeEnvironment,
-} from './utils/EnvironmentDetector.node';
+export { isNodeEnvironment } from './utils/EnvironmentDetector.node';
 
 // Export shared factories
 export { UnifiedStorageFactory } from './storage/UnifiedStorageFactory.node';

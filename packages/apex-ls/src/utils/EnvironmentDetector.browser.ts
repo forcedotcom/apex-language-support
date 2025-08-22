@@ -45,7 +45,18 @@ export function isWorkerEnvironment(): boolean {
  * Checks if the current environment is a browser
  */
 export function isBrowserEnvironment(): boolean {
-  return detectEnvironment() === 'browser';
+  try {
+    return detectEnvironment() === 'browser';
+  } catch {
+    // Fallback: if detectEnvironment fails but we have browser-like globals,
+    // assume we're in a browser environment (e.g., VS Code iframe context)
+    return (
+      typeof window !== 'undefined' ||
+      (typeof globalThis !== 'undefined' &&
+        typeof globalThis.window !== 'undefined') ||
+      (typeof self !== 'undefined' && typeof self.window !== 'undefined')
+    );
+  }
 }
 
 /**

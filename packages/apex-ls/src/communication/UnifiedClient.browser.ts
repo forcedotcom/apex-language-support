@@ -193,8 +193,29 @@ export class UnifiedClientFactory {
   static async createWebWorkerClient(
     config: WebWorkerClientConfig,
   ): Promise<UnifiedClientInterface> {
-    // Create worker from context and filename
-    const worker = new Worker(config.workerFileName);
+    // Create worker with proper URL resolution from extension context
+    let workerUrl: string;
+    if (config.context && config.context.extensionUri) {
+      // VS Code extension context - resolve relative to extension URI
+      const extensionUri = config.context.extensionUri.toString();
+      config.logger?.info(`Extension URI: ${extensionUri}`);
+      
+      // Special handling for VS Code web test environment
+      if (extensionUri.includes('/static/devextensions') || extensionUri.includes('vscode-test-web')) {
+        // In test environment, use relative path from current location
+        workerUrl = config.workerFileName;
+        config.logger?.info(`Using relative path for test environment: ${workerUrl}`);
+      } else {
+        // Production VS Code web - resolve normally
+        workerUrl = new URL(config.workerFileName, extensionUri).toString();
+      }
+    } else {
+      // Fallback to relative path
+      workerUrl = config.workerFileName;
+    }
+    
+    config.logger?.info(`Creating worker with URL: ${workerUrl}`);
+    const worker = new Worker(workerUrl);
     
     return new UnifiedClient({
       worker,

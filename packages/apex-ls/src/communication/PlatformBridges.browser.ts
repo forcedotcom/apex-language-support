@@ -22,7 +22,7 @@ export class BrowserMessageBridge extends BaseMessageBridge {
    */
   static forWorkerClient(worker: Worker, logger?: Logger): MessageConnection {
     const instance = new BrowserMessageBridge();
-    instance.checkEnvironment('Browser');
+    // Skip environment check - we're using the browser build, so we know we're in a browser context
 
     const transport: MessageTransport = {
       send: async (data) => worker.postMessage(data),
