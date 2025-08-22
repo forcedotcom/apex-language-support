@@ -8,8 +8,8 @@
 
 import type { MessageConnection } from 'vscode-jsonrpc';
 import type { EnvironmentType } from '../types';
-import { UnifiedStorageFactory } from '../storage/UnifiedStorageFactory';
-import { isWorkerEnvironment } from '../utils/EnvironmentDetector';
+import { UnifiedStorageFactory } from '../storage/UnifiedStorageFactory.worker';
+import { isWorkerEnvironment } from '../utils/EnvironmentDetector.worker';
 import type { StorageConfig } from '../storage/StorageInterface';
 
 /**

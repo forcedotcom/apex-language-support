@@ -8,56 +8,40 @@
 
 import type { EnvironmentType } from '../types';
 
-/**
- * Safely checks if a global variable exists
- */
-function safeTypeOf(name: string): string {
-  try {
-    return typeof globalThis[name as keyof typeof globalThis];
-  } catch {
-    return 'undefined';
-  }
-}
+import {
+  isNodeProcess,
+  isBrowserWindow,
+  isWebWorkerSelf,
+} from './EnvironmentTypeGuards';
 
 /**
  * Detects the current runtime environment
  */
 export function detectEnvironment(): EnvironmentType {
-  // First check for Node.js environment (has process and no window)
-  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-    return 'node';
-  }
+  try {
+    // First check for Node.js environment
+    if (typeof process !== 'undefined' && isNodeProcess(process)) {
+      return 'node';
+    }
 
-  // Check for web worker environment (has self but no window/document)
-  if (
-    safeTypeOf('self') !== 'undefined' &&
-    safeTypeOf('window') === 'undefined' &&
-    safeTypeOf('document') === 'undefined' &&
-    safeTypeOf('importScripts') !== 'undefined'
-  ) {
-    return 'webworker';
-  }
+    // Check for web worker environment
+    if (typeof self !== 'undefined' && isWebWorkerSelf(self)) {
+      return 'webworker';
+    }
 
-  // Check for ES Module worker (has self, no window/document, no importScripts)
-  if (
-    safeTypeOf('self') !== 'undefined' &&
-    safeTypeOf('window') === 'undefined' &&
-    safeTypeOf('document') === 'undefined' &&
-    safeTypeOf('importScripts') === 'undefined'
-  ) {
-    return 'webworker';
-  }
+    // Check for browser environment
+    if (typeof window !== 'undefined' && isBrowserWindow(window)) {
+      return 'browser';
+    }
 
-  // Check for browser environment (has window and document)
-  if (
-    safeTypeOf('window') !== 'undefined' &&
-    safeTypeOf('document') !== 'undefined'
-  ) {
-    return 'browser';
+    // If we can't definitively determine the environment, throw an error
+    throw new Error('Unable to determine environment');
+  } catch (error) {
+    // If there's an error accessing globals, we can't determine the environment
+    throw new Error(
+      `Environment detection failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
-
-  // Default to Node.js if uncertain
-  return 'node';
 }
 
 /**

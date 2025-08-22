@@ -6,34 +6,31 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { MessageConnection } from 'vscode-jsonrpc';
+import type { MessageConnection, Logger } from 'vscode-jsonrpc';
 
 /**
- * Node.js connection configuration options
+ * Configuration for creating Node.js connections
  */
 export interface NodeConnectionConfig {
-  /**
-   * Connection type: stdio, socket, or ipc
-   */
-  type?: 'stdio' | 'socket' | 'ipc';
-  
-  /**
-   * For socket connections: port number
-   */
-  port?: number;
-  
-  /**
-   * For socket connections: host address (defaults to localhost)
-   */
-  host?: string;
+  mode: 'stdio' | 'socket' | 'ipc';
+  port?: number; // For socket mode
+  host?: string; // For socket mode
+  logger?: Logger;
 }
 
 /**
- * Interface for connection factory implementations
+ * Interface for Node.js-specific connection factories
  */
-export interface IConnectionFactory {
+export interface INodeConnectionFactory {
   /**
-   * Creates a message connection based on the environment and configuration
+   * Creates a connection appropriate for Node.js
    */
   createConnection(config?: NodeConnectionConfig): Promise<MessageConnection>;
 }
+
+/**
+ * Convenience function type for creating Node.js connections
+ */
+export type CreateNodeConnection = (
+  config?: NodeConnectionConfig,
+) => Promise<MessageConnection>;

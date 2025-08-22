@@ -12,9 +12,9 @@ import type { MessageConnection, Logger } from 'vscode-jsonrpc';
  * Configuration for creating connections
  */
 export interface ConnectionConfig {
-  worker?: Worker;
-  workerScope?: DedicatedWorkerGlobalScope;
+  environment?: 'browser' | 'webworker' | 'node';
   logger?: Logger;
+  worker?: any; // Optional worker for browser contexts (typed as any for cross-platform compatibility)
 }
 
 /**

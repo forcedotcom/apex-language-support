@@ -1,0 +1,45 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+// Export shared interfaces and types
+export type {
+  IStorage,
+  IStorageFactory,
+  StorageConfig,
+} from './storage/StorageInterface';
+
+export type {
+  IConnectionFactory,
+  ConnectionConfig,
+} from './server/ConnectionFactoryInterface';
+
+export type {
+  IMessageBridgeFactory,
+  MessageBridgeConfig,
+} from './communication/interfaces';
+
+export type { ApexStorage } from './storage/ApexStorageInterface';
+export type { ApexStorageInterface } from './storage/ApexStorageManager';
+export { ApexStorageAdapter } from './storage/ApexStorageManager';
+
+export type {
+  UnifiedClientInterface,
+  UnifiedClientConfig,
+} from './communication/UnifiedClient.browser';
+
+// Export shared utilities
+export {
+  isWorkerEnvironment,
+  isBrowserEnvironment,
+  isNodeEnvironment,
+} from './utils/EnvironmentDetector.browser';
+
+// Export shared factories
+export { UnifiedStorageFactory } from './storage/UnifiedStorageFactory.browser';
+export { UnifiedClient as UniversalExtensionClient } from './communication/UnifiedClient.browser';
+export { UnifiedClientFactory as UniversalClientFactory } from './communication/UnifiedClient.browser';

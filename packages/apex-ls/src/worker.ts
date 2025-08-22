@@ -37,11 +37,39 @@ import {
   ApexStorageManager,
 } from '@salesforce/apex-lsp-compliant-services';
 
-import { UnifiedLogNotificationHandler } from './utils/BrowserLogNotificationHandler';
-import { UnifiedLoggerFactory } from './utils/BrowserLoggerFactory';
-import { UnifiedStorageFactory } from './storage/UnifiedStorageFactory';
+import { WorkerLogNotificationHandler } from './utils/WorkerLogNotificationHandler';
+import { WorkerLoggerFactory } from './utils/WorkerLoggerFactory';
+import { UnifiedStorageFactory } from './storage/UnifiedStorageFactory.worker';
 import { ApexStorageAdapter } from './storage/ApexStorageManager';
 import { createLoggerAdapter } from './utils/LoggerAdapter';
+
+// Export worker-specific implementations
+export { WorkerMessageBridgeFactory } from './communication/MessageBridgeFactory.worker';
+export { ConnectionFactory as WorkerConnectionFactory } from './server/ConnectionFactory.worker';
+export { WorkerStorageFactory } from './storage/WorkerStorageFactory';
+
+// Export shared interfaces and types
+export type {
+  IMessageBridgeFactory,
+  MessageBridgeConfig,
+} from './communication/interfaces';
+export type {
+  IConnectionFactory,
+  ConnectionConfig,
+} from './server/ConnectionFactoryInterface';
+export type {
+  IStorage,
+  IStorageFactory,
+  StorageConfig,
+} from './storage/StorageInterface';
+
+// Export storage types
+export type { ApexStorage } from './storage/ApexStorageInterface';
+export type { ApexStorageInterface } from './storage/ApexStorageManager';
+export { ApexStorageAdapter } from './storage/ApexStorageManager';
+
+// Export web extension types
+export type { WebWorkerLanguageServerOptions, EnvironmentType } from './types';
 
 import type { ApexServerInitializationOptions } from './types';
 
@@ -57,9 +85,9 @@ export async function createUnifiedWebWorkerLanguageServer() {
   );
 
   // Set up logging
-  setLoggerFactory(UnifiedLoggerFactory.getInstance());
+  setLoggerFactory(WorkerLoggerFactory.getInstance());
   setLogNotificationHandler(
-    UnifiedLogNotificationHandler.getWorkerInstance(connection),
+    WorkerLogNotificationHandler.getWorkerInstance(connection),
   );
 
   // Set log level to debug by default for testing
@@ -427,9 +455,9 @@ export async function createSimpleWebWorkerLanguageServer() {
   const connection = createConnection(messageReader, messageWriter);
 
   // Set up logging - TESTING STEP 1
-  setLoggerFactory(UnifiedLoggerFactory.getInstance());
+  setLoggerFactory(WorkerLoggerFactory.getInstance());
   setLogNotificationHandler(
-    UnifiedLogNotificationHandler.getWorkerInstance(connection),
+    WorkerLogNotificationHandler.getWorkerInstance(connection),
   );
 
   // Set log level to debug by default for testing
@@ -750,58 +778,55 @@ export async function createSimpleWebWorkerLanguageServer() {
   logger.info('[SIMPLE-WORKER] Simplified language server ready!');
 }
 
-// Master-level worker initialization with error isolation
-const __IS_TEST_ENV__ = false;
+/**
+ * Safe worker initialization that handles both test and production environments
+ */
+export function initializeWorker() {
+  try {
+    console.log('[WORKER] Initializing worker...');
 
-if (!__IS_TEST_ENV__) {
-  (function initializeApexWorker() {
-    // Error isolation: Prevent external errors from affecting our worker
-    try {
-      // Diagnostic logging for master-level debugging
-      console.log('[APEX-WORKER] 🚀 Initializing Apex Language Server');
-      console.log('[APEX-WORKER] Environment check:', {
-        hasSelf: typeof self !== 'undefined',
-        hasImportScripts: typeof importScripts !== 'undefined',
-        isESModule: typeof importScripts === 'undefined',
-        workerType:
-          typeof importScripts === 'undefined' ? 'ES Module' : 'Classic',
-      });
-
-      if (typeof self !== 'undefined') {
-        console.log(
-          '[APEX-WORKER] ✅ Worker environment detected, starting language server...',
-        );
-
-        // Use simple version directly for now
-        createSimpleWebWorkerLanguageServer()
-          .then(() => {
-            console.log(
-              '[APEX-WORKER] ✅ Apex Language Server started successfully',
-            );
-
-            // Worker is ready - communication will happen through LSP protocol
-            // Don't use direct postMessage as it's blocked in VS Code Web
-          })
-          .catch((error) => {
-            console.error(
-              '[APEX-WORKER] ❌ Failed to start language server:',
-              error,
-            );
-
-            // Error will be handled through LSP protocol
-            // Don't use direct postMessage as it's blocked in VS Code Web
-          });
-      } else {
-        console.log(
-          '[APEX-WORKER] ⚠️ Not in worker environment, skipping auto-start',
-        );
-      }
-    } catch (initError) {
-      // Ultimate fallback - ensure our worker never crashes the entire context
-      console.error(
-        '[APEX-WORKER] 🛡️ Error isolation caught initialization error:',
-        initError,
+    // Check if we're actually in a worker environment
+    if (typeof self === 'undefined' || typeof importScripts === 'undefined') {
+      console.log(
+        '[WORKER] Not in worker environment, skipping initialization',
       );
+      return;
     }
-  })();
+
+    console.log(
+      '[WORKER] Worker environment detected, starting language server...',
+    );
+
+    // Initialize the language server
+    createSimpleWebWorkerLanguageServer()
+      .then(() => {
+        console.log('[WORKER] Language server started successfully');
+
+        // Send ready signal if postMessage is available
+        if (typeof self.postMessage === 'function') {
+          self.postMessage({
+            type: 'apex-worker-ready',
+            timestamp: new Date().toISOString(),
+            server: 'apex-ls',
+          });
+        }
+      })
+      .catch((error) => {
+        console.error('[WORKER] Failed to start language server:', error);
+
+        // Send error signal if postMessage is available
+        if (typeof self.postMessage === 'function') {
+          self.postMessage({
+            type: 'apex-worker-error',
+            error: error.message,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      });
+  } catch (error) {
+    console.error('[WORKER] Initialization error:', error);
+  }
 }
+
+// Auto-initialize the worker
+initializeWorker();

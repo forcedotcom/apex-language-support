@@ -6,8 +6,31 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { BrowserMessageBridge } from '../../src/communication/BrowserMessageBridge';
-import { WorkerMessageBridge } from '../../src/communication/WorkerMessageBridge';
+import { BrowserMessageBridge } from '../../src/communication/PlatformBridges.browser';
+import { WorkerMessageBridge } from '../../src/communication/PlatformBridges.worker';
+import { isBrowserEnvironment } from '../../src/utils/EnvironmentDetector.browser';
+import { isWorkerEnvironment } from '../../src/utils/EnvironmentDetector.worker';
+
+// Mock environment detection
+jest.mock('../../src/utils/EnvironmentDetector.browser', () => {
+  const mockBrowserEnvironment = jest.fn(() => true);
+  const mockWorkerEnvironment = jest.fn(() => false);
+  return {
+    isBrowserEnvironment: mockBrowserEnvironment,
+    isWorkerEnvironment: mockWorkerEnvironment,
+    isNodeEnvironment: jest.fn(() => false),
+  };
+});
+
+jest.mock('../../src/utils/EnvironmentDetector.worker', () => {
+  const mockBrowserEnvironment = jest.fn(() => false);
+  const mockWorkerEnvironment = jest.fn(() => true);
+  return {
+    isBrowserEnvironment: mockBrowserEnvironment,
+    isWorkerEnvironment: mockWorkerEnvironment,
+    isNodeEnvironment: jest.fn(() => false),
+  };
+});
 
 // Mock Worker for browser tests
 class MockWorker {
@@ -90,7 +113,9 @@ describe('Message Bridge Architecture', () => {
     });
 
     it('should create a browser message bridge for worker client', () => {
-      const connection = BrowserMessageBridge.forWorkerClient(mockWorker as any);
+      const connection = BrowserMessageBridge.forWorkerClient(
+        mockWorker as any,
+      );
       expect(connection).toBeDefined();
       expect(typeof connection.sendRequest).toBe('function');
       expect(typeof connection.sendNotification).toBe('function');
@@ -100,8 +125,8 @@ describe('Message Bridge Architecture', () => {
       // Mock browser globals
       (global as any).window = {};
       (global as any).document = {};
-      
-      const isBrowser = BrowserMessageBridge.isBrowserEnvironment();
+
+      const isBrowser = isBrowserEnvironment();
       expect(isBrowser).toBe(true);
 
       // Cleanup
@@ -110,11 +135,13 @@ describe('Message Bridge Architecture', () => {
     });
 
     it('should handle worker communication', async () => {
-      const connection = BrowserMessageBridge.forWorkerClient(mockWorker as any);
-      
+      const connection = BrowserMessageBridge.forWorkerClient(
+        mockWorker as any,
+      );
+
       // Test sending a message
       const testMessage = { method: 'test', params: { data: 'test' } };
-      
+
       // This should not throw
       expect(() => {
         connection.sendNotification('test', testMessage);
@@ -122,8 +149,10 @@ describe('Message Bridge Architecture', () => {
     });
 
     it('should handle connection errors gracefully', () => {
-      const connection = BrowserMessageBridge.forWorkerClient(mockWorker as any);
-      
+      const connection = BrowserMessageBridge.forWorkerClient(
+        mockWorker as any,
+      );
+
       // Set up error handler
       let errorReceived = false;
       connection.onError(() => {
@@ -149,7 +178,7 @@ describe('Message Bridge Architecture', () => {
 
     it('should create a worker message bridge for worker server', () => {
       const connection = WorkerMessageBridge.forWorkerServer(
-        mockWorkerScope as any
+        mockWorkerScope as any,
       );
       expect(connection).toBeDefined();
       expect(typeof connection.sendRequest).toBe('function');
@@ -160,8 +189,8 @@ describe('Message Bridge Architecture', () => {
       // Mock worker globals
       (global as any).self = {};
       (global as any).importScripts = jest.fn();
-      
-      const isWorker = WorkerMessageBridge.isWorkerEnvironment();
+
+      const isWorker = isWorkerEnvironment();
       expect(isWorker).toBe(true);
 
       // Cleanup
@@ -171,12 +200,12 @@ describe('Message Bridge Architecture', () => {
 
     it('should handle self communication', async () => {
       const connection = WorkerMessageBridge.forWorkerServer(
-        mockWorkerScope as any
+        mockWorkerScope as any,
       );
-      
+
       // Test sending a message
       const testMessage = { method: 'test', params: { data: 'test' } };
-      
+
       // This should not throw
       expect(() => {
         connection.sendNotification('test', testMessage);
@@ -196,23 +225,23 @@ describe('Message Bridge Architecture', () => {
     it('should detect browser environment', () => {
       (global as any).window = {};
       (global as any).document = {};
-      
-      expect(BrowserMessageBridge.isBrowserEnvironment()).toBe(true);
-      expect(WorkerMessageBridge.isWorkerEnvironment()).toBe(false);
+
+      expect(isBrowserEnvironment()).toBe(true);
+      expect(isWorkerEnvironment()).toBe(false);
     });
 
     it('should detect worker environment', () => {
       (global as any).self = {};
       (global as any).importScripts = jest.fn();
-      
-      expect(BrowserMessageBridge.isBrowserEnvironment()).toBe(false);
+
+      expect(isBrowserEnvironment()).toBe(false);
       expect(WorkerMessageBridge.isWorkerEnvironment()).toBe(true);
     });
 
     it('should handle neither environment', () => {
       // No globals set
-      expect(BrowserMessageBridge.isBrowserEnvironment()).toBe(false);
-      expect(WorkerMessageBridge.isWorkerEnvironment()).toBe(false);
+      expect(isBrowserEnvironment()).toBe(false);
+      expect(isWorkerEnvironment()).toBe(false);
     });
   });
 });

@@ -7,26 +7,31 @@
  */
 
 // Export browser-specific implementations
-export { BrowserMessageBridgeFactory } from './communication/BrowserMessageBridgeFactory';
-export { BrowserConnectionFactory } from './server/BrowserConnectionFactory';
+export { BrowserMessageBridgeFactory } from './communication/MessageBridgeFactory.browser';
+export { ConnectionFactory as BrowserConnectionFactory } from './server/ConnectionFactory.browser';
 export { BrowserStorageFactory } from './storage/BrowserStorageFactory';
 
-// Export shared interfaces and types
+// Export browser client implementations
+export { UnifiedClient as UniversalExtensionClient } from './communication/UnifiedClient.browser';
+export { UnifiedClientFactory as UniversalClientFactory } from './communication/UnifiedClient.browser';
+
+// Re-export shared types from index
 export type {
   IMessageBridgeFactory,
   MessageBridgeConfig,
-} from './communication/MessageBridgeInterface';
-export type {
   IConnectionFactory,
   ConnectionConfig,
-} from './server/ConnectionFactoryInterface';
-export type {
   IStorage,
   IStorageFactory,
   StorageConfig,
-} from './storage/StorageInterface';
+  ApexStorage,
+  ApexStorageInterface,
+} from './index.browser';
 
-// Export storage types
-export type { ApexStorage } from './storage/ApexStorageInterface';
-export type { ApexStorageInterface } from './storage/ApexStorageManager';
-export { ApexStorageAdapter } from './storage/ApexStorageManager';
+// Export client types
+export type {
+  UnifiedClientInterface,
+  UnifiedClientConfig,
+  WebWorkerClientConfig,
+} from './communication/interfaces';
+export { ApexStorageAdapter } from './index.browser';

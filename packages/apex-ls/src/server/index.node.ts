@@ -7,9 +7,9 @@
  */
 
 import type { MessageConnection } from 'vscode-jsonrpc';
-import { isNodeEnvironment } from '../utils/EnvironmentDetector';
-import type { UnifiedServerConfig } from './UnifiedApexLanguageServer';
-import type { NodeConnectionConfig } from '../communication/NodeMessageBridge';
+import { isNodeEnvironment } from '../utils/EnvironmentDetector.node';
+import type { UnifiedServerConfig } from './UnifiedApexLanguageServer.node';
+import type { NodeConnectionConfig } from './ConnectionFactoryInterface.node';
 
 /**
  * Creates a unified language server instance for Node.js environment
@@ -23,11 +23,12 @@ export async function createUnifiedLanguageServer(
   }
 
   // Use provided connection or create one using NodeConnectionFactory
-  const serverConnection = connection || (await createEnvironmentConnection(nodeConfig));
+  const serverConnection =
+    connection || (await createEnvironmentConnection(nodeConfig));
 
   // Initialize server
   const { UnifiedApexLanguageServer } = await import(
-    './UnifiedApexLanguageServer'
+    './UnifiedApexLanguageServer.node'
   );
   const config: UnifiedServerConfig = {
     environment: 'node',
@@ -44,10 +45,8 @@ async function createEnvironmentConnection(
   nodeConfig?: NodeConnectionConfig,
 ): Promise<MessageConnection> {
   const { createNodeConnection } = await import('./NodeConnectionFactory');
-  
-  return createNodeConnection({
-    nodeConfig: nodeConfig || { mode: 'stdio' },
-  });
+
+  return createNodeConnection(nodeConfig);
 }
 
 /**

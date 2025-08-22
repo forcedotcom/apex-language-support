@@ -9,7 +9,10 @@
 import { UnifiedStorageFactory } from '../../src/storage/UnifiedStorageFactory';
 import { BrowserStorageFactory } from '../../src/storage/BrowserStorageFactory';
 import { WorkerStorageFactory } from '../../src/storage/WorkerStorageFactory';
-import type { IStorage, StorageConfig } from '../../src/storage/StorageInterface';
+import type {
+  IStorage,
+  StorageConfig,
+} from '../../src/storage/StorageInterface';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 // Mock IndexedDB for browser storage tests
@@ -27,7 +30,10 @@ class MockIDBRequest {
   onsuccess: ((event: Event) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
 
-  constructor(private mockResult?: any, private shouldError = false) {
+  constructor(
+    private mockResult?: any,
+    private shouldError = false,
+  ) {
     setTimeout(() => {
       if (this.shouldError && this.onerror) {
         this.onerror(new Event('error'));
@@ -51,10 +57,16 @@ class MockIDBTransaction {
 }
 
 // Mock environment detection
-jest.mock('../../src/utils/EnvironmentDetector', () => ({
-  isWorkerEnvironment: jest.fn(),
-  isBrowserEnvironment: jest.fn(),
-  isNodeEnvironment: jest.fn(),
+jest.mock('../../src/utils/EnvironmentDetector.browser', () => ({
+  isBrowserEnvironment: jest.fn(() => true),
+}));
+
+jest.mock('../../src/utils/EnvironmentDetector.worker', () => ({
+  isWorkerEnvironment: jest.fn(() => false),
+}));
+
+jest.mock('../../src/utils/EnvironmentDetector.node', () => ({
+  isNodeEnvironment: jest.fn(() => false),
 }));
 
 describe('Storage Architecture', () => {
@@ -99,9 +111,8 @@ describe('Storage Architecture', () => {
 
   describe('BrowserStorageFactory', () => {
     it('should create browser storage with IndexedDB', async () => {
-      const factory = new BrowserStorageFactory();
-      const storage = await factory.createStorage();
-      
+      const storage = await BrowserStorageFactory.createStorage();
+
       expect(storage).toBeDefined();
       expect(typeof storage.getDocument).toBe('function');
       expect(typeof storage.setDocument).toBe('function');
@@ -110,22 +121,20 @@ describe('Storage Architecture', () => {
     });
 
     it('should initialize IndexedDB correctly', async () => {
-      const factory = new BrowserStorageFactory();
-      const storage = await factory.createStorage({
+      const storage = await BrowserStorageFactory.createStorage({
         storagePrefix: 'test-storage',
       });
-      
+
       expect(global.indexedDB.open).toHaveBeenCalledWith('test-storage', 1);
     });
 
     it('should handle storage operations', async () => {
-      const factory = new BrowserStorageFactory();
-      const storage = await factory.createStorage();
-      
+      const storage = await BrowserStorageFactory.createStorage();
+
       // Test document operations
       await storage.setDocument('test-uri', mockTextDocument);
       const retrievedDoc = await storage.getDocument('test-uri');
-      
+
       // These should not throw
       expect(storage.setDocument).toBeDefined();
       expect(storage.getDocument).toBeDefined();
@@ -138,17 +147,18 @@ describe('Storage Architecture', () => {
         return request;
       });
 
-      const factory = new BrowserStorageFactory();
-      
-      await expect(factory.createStorage()).rejects.toThrow('Failed to open IndexedDB');
+      const factory = BrowserStorageFactory;
+
+      await expect(factory.createStorage()).rejects.toThrow(
+        'Failed to open IndexedDB',
+      );
     });
   });
 
   describe('WorkerStorageFactory', () => {
     it('should create worker storage with memory storage', async () => {
-      const factory = new WorkerStorageFactory();
-      const storage = await factory.createStorage();
-      
+      const storage = await WorkerStorageFactory.createStorage();
+
       expect(storage).toBeDefined();
       expect(typeof storage.getDocument).toBe('function');
       expect(typeof storage.setDocument).toBe('function');
@@ -157,25 +167,23 @@ describe('Storage Architecture', () => {
     });
 
     it('should handle document operations in memory', async () => {
-      const factory = new WorkerStorageFactory();
-      const storage = await factory.createStorage();
-      
+      const storage = await WorkerStorageFactory.createStorage();
+
       // Test setting and getting documents
       await storage.setDocument('test-uri', mockTextDocument);
       const retrievedDoc = await storage.getDocument('test-uri');
-      
+
       expect(retrievedDoc).toBe(mockTextDocument);
     });
 
     it('should clear documents correctly', async () => {
-      const factory = new WorkerStorageFactory();
-      const storage = await factory.createStorage();
-      
+      const storage = await WorkerStorageFactory.createStorage();
+
       // Set a document
       await storage.setDocument('test-uri', mockTextDocument);
       let retrievedDoc = await storage.getDocument('test-uri');
       expect(retrievedDoc).toBe(mockTextDocument);
-      
+
       // Clear the document
       await storage.clearFile('test-uri');
       retrievedDoc = await storage.getDocument('test-uri');
@@ -183,16 +191,15 @@ describe('Storage Architecture', () => {
     });
 
     it('should clear all documents', async () => {
-      const factory = new WorkerStorageFactory();
-      const storage = await factory.createStorage();
-      
+      const storage = await WorkerStorageFactory.createStorage();
+
       // Set multiple documents
       await storage.setDocument('test-uri-1', mockTextDocument);
       await storage.setDocument('test-uri-2', mockTextDocument);
-      
+
       // Clear all
       await storage.clearAll();
-      
+
       // Check both are cleared
       expect(await storage.getDocument('test-uri-1')).toBeUndefined();
       expect(await storage.getDocument('test-uri-2')).toBeUndefined();
@@ -200,7 +207,8 @@ describe('Storage Architecture', () => {
   });
 
   describe('UnifiedStorageFactory', () => {
-    const { isWorkerEnvironment, isBrowserEnvironment } = require('../../src/utils/EnvironmentDetector');
+    const { isWorkerEnvironment } = jest.requireMock('../../src/utils/EnvironmentDetector.worker');
+    const { isBrowserEnvironment } = jest.requireMock('../../src/utils/EnvironmentDetector.browser');
 
     beforeEach(() => {
       // Reset the singleton instance
@@ -227,7 +235,9 @@ describe('Storage Architecture', () => {
       isWorkerEnvironment.mockReturnValue(false);
       isBrowserEnvironment.mockReturnValue(false);
 
-      await expect(UnifiedStorageFactory.createStorage()).rejects.toThrow('Unsupported environment');
+      await expect(UnifiedStorageFactory.createStorage()).rejects.toThrow(
+        'Unsupported environment',
+      );
     });
 
     it('should return singleton instance on subsequent calls', async () => {
@@ -236,7 +246,7 @@ describe('Storage Architecture', () => {
 
       const storage1 = await UnifiedStorageFactory.createStorage();
       const storage2 = await UnifiedStorageFactory.createStorage();
-      
+
       expect(storage1).toBe(storage2);
     });
 
@@ -278,22 +288,20 @@ describe('Storage Architecture', () => {
       await storage.setDocument('test-uri-1', mockTextDocument);
       await storage.setDocument('test-uri-2', mockTextDocument);
       await storage.clearAll();
-      
+
       expect(await storage.getDocument('test-uri-1')).toBeUndefined();
       expect(await storage.getDocument('test-uri-2')).toBeUndefined();
     };
 
     it('worker storage should implement IStorage interface correctly', async () => {
-      const factory = new WorkerStorageFactory();
-      const storage = await factory.createStorage();
-      
+      const storage = await WorkerStorageFactory.createStorage();
+
       await testStorageInterface(storage);
     });
 
     it('browser storage should implement IStorage interface correctly', async () => {
-      const factory = new BrowserStorageFactory();
-      const storage = await factory.createStorage();
-      
+      const storage = await BrowserStorageFactory.createStorage();
+
       await testStorageInterface(storage);
     });
   });

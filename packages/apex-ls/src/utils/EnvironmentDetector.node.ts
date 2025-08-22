@@ -6,27 +6,43 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-/**
- * Node.js-specific environment detection utilities
- */
+import type { EnvironmentType } from '../types';
+import { isNodeProcess } from './EnvironmentTypeGuards.node';
 
 /**
- * Check if running in worker environment
+ * Detects the current environment (Node.js-specific)
  */
-export function isWorkerEnvironment(): boolean {
-  return false; // Node.js is never a worker
+export function detectEnvironment(): EnvironmentType {
+  try {
+    if (typeof process !== 'undefined' && isNodeProcess(process)) {
+      return 'node';
+    }
+    return 'node';
+  } catch (error) {
+    // If there's an error accessing globals, we can't determine the environment
+    throw new Error(
+      `Environment detection failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }
 
 /**
- * Check if running in browser environment
- */
-export function isBrowserEnvironment(): boolean {
-  return false; // Node.js is never a browser
-}
-
-/**
- * Check if running in Node.js environment
+ * Checks if the current environment is Node.js
  */
 export function isNodeEnvironment(): boolean {
-  return typeof process !== 'undefined' && process.versions && !!process.versions.node;
+  return detectEnvironment() === 'node';
+}
+
+/**
+ * Checks if the current environment is a browser
+ */
+export function isBrowserEnvironment(): boolean {
+  return false; // Browser is not available in Node.js build
+}
+
+/**
+ * Checks if the current environment is a web worker
+ */
+export function isWorkerEnvironment(): boolean {
+  return false; // Web worker is not available in Node.js build
 }

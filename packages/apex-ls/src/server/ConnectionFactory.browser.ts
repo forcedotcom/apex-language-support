@@ -11,7 +11,7 @@ import type { ConnectionConfig } from './ConnectionFactoryInterface';
 import {
   isWorkerEnvironment,
   isBrowserEnvironment,
-} from '../utils/EnvironmentDetector';
+} from '../utils/EnvironmentDetector.browser';
 
 /**
  * Factory for creating appropriate connections based on environment
@@ -33,9 +33,7 @@ export class ConnectionFactory {
           'Browser environment requires a worker instance. Use createBrowserConnection instead.',
         );
       }
-      const { createBrowserConnection } = await import(
-        './BrowserConnectionFactory'
-      );
+      const { createBrowserConnection } = await import('./BrowserConnection');
       return createBrowserConnection(config);
     }
 
@@ -48,9 +46,7 @@ export class ConnectionFactory {
   static async createBrowserConnection(
     worker: Worker,
   ): Promise<MessageConnection> {
-    const { createBrowserConnection } = await import(
-      './BrowserConnectionFactory'
-    );
+    const { createBrowserConnection } = await import('./BrowserConnection');
     return createBrowserConnection({ worker });
   }
 }

@@ -8,7 +8,7 @@
 
 import * as vscode from 'vscode';
 import type { UnifiedClientInterface } from '@salesforce/apex-ls';
-import { UniversalClientFactory } from '@salesforce/apex-ls';
+import { UniversalClientFactory } from '@salesforce/apex-ls/browser';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import { logToOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';

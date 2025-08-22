@@ -33,16 +33,44 @@ const SHARED_NO_EXTERNAL = [
 ];
 
 export default defineConfig([
-  // Main package build (CJS + ESM)
+  // Node.js build (CJS + ESM)
   {
     format: ['cjs', 'esm'],
     entry: {
       index: 'src/index.ts',
-      browser: 'src/browser.ts',
       server: 'src/server/index.ts',
     },
     outDir: 'dist',
     clean: true,
+    platform: 'node',
+    target: 'es2020',
+    dts: false,
+    splitting: false,
+    minify: false,
+    sourcemap: true,
+    external: SHARED_EXTERNAL,
+    noExternal: SHARED_NO_EXTERNAL,
+    esbuildOptions(options: BuildOptions) {
+      options.platform = 'node';
+      options.define = {
+        ...options.define,
+        'process.env.NODE_ENV': '"node"',
+      };
+      options.minify = false;
+      options.minifyIdentifiers = false;
+      options.minifySyntax = false;
+      options.minifyWhitespace = false;
+      return options;
+    },
+  },
+  // Browser build
+  {
+    format: ['cjs', 'esm'],
+    entry: {
+      browser: 'src/browser.ts',
+    },
+    outDir: 'dist',
+    clean: false,
     platform: 'browser',
     target: 'es2020',
     dts: false,
@@ -56,7 +84,7 @@ export default defineConfig([
       options.conditions = ['browser', 'import', 'module', 'default'];
       options.mainFields = ['browser', 'module', 'main'];
 
-      // Apply polyfill configuration to main build as well
+      // Apply polyfill configuration to browser build
       applyPolyfillConfig(options);
 
       options.define = {
@@ -73,9 +101,7 @@ export default defineConfig([
   // Worker build (Pure ESM for web workers)
   {
     entry: {
-      worker: 'src/worker-unified.ts',
-      'worker-esm': 'src/worker-esm.ts',
-      'minimal-worker': 'src/minimal-worker.ts',
+      worker: 'src/worker.ts',
     },
     outDir: 'dist',
     clean: false,
@@ -85,9 +111,10 @@ export default defineConfig([
     splitting: false,
     minify: false,
     sourcemap: true,
-    format: ['esm'],
+    format: ['iife'],
     external: SHARED_EXTERNAL,
     noExternal: SHARED_NO_EXTERNAL,
+    globalName: 'ApexLanguageWorker', // Global namespace for IIFE
     esbuildOptions(options: BuildOptions) {
       options.platform = 'browser';
       // Apply polyfill configuration

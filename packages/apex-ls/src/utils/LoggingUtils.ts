@@ -6,64 +6,45 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { MessageType } from 'vscode-languageserver/browser';
-import type { LogMessageType } from '@salesforce/apex-lsp-shared';
-
 /**
- * Shared utilities for logging operations across the unified language server
+ * Utility functions for logging
  */
 export class LoggingUtils {
   /**
-   * Convert internal log type to LSP message type
-   * @param type The internal log type
-   * @returns The corresponding LSP message type
+   * Formats a log message with a prefix
    */
-  static getLogMessageType(type: LogMessageType): MessageType {
-    switch (type) {
+  static formatMessage(prefix: string, message: string): string {
+    return `[${prefix}] ${message}`;
+  }
+
+  /**
+   * Logs a message to console with appropriate level
+   */
+  static logToConsole(messageType: string, message: string): void {
+    switch (messageType) {
       case 'error':
-        return MessageType.Error;
+        console.error(message);
+        break;
       case 'warning':
-        return MessageType.Warning;
+        console.warn(message);
+        break;
       case 'info':
-        return MessageType.Info;
-      case 'log':
-        return MessageType.Log;
+        console.info(message);
+        break;
       case 'debug':
-        // Map Debug to Log for backward compatibility with older LSP clients
-        return MessageType.Log;
+        console.debug(message);
+        break;
       default:
-        return MessageType.Log;
+        console.log(message);
+        break;
     }
   }
 
   /**
-   * Send formatted log message to console with consistent formatting
-   * @param messageType The log message type
-   * @param message The message to log
+   * Gets the log message type for LSP
    */
-  static logToConsole(messageType: LogMessageType, message: string): void {
-    const timestamp = new Date().toISOString();
-    const formatted = `[${timestamp}] [${messageType.toUpperCase()}] ${message}`;
-
-    switch (messageType) {
-      case 'error':
-        console.error(formatted);
-        break;
-      case 'warning':
-        console.warn(formatted);
-        break;
-      case 'info':
-        console.info(formatted);
-        break;
-      case 'log':
-        console.log(formatted);
-        break;
-      case 'debug':
-        console.debug(formatted);
-        break;
-      default:
-        console.log(formatted);
-        break;
-    }
+  static getLogMessageType(messageType: string): string {
+    // Map debug to log for LSP compatibility
+    return messageType === 'debug' ? 'log' : messageType;
   }
 }

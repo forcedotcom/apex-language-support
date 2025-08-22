@@ -7,38 +7,36 @@
  */
 
 import type { MessageConnection } from 'vscode-jsonrpc';
-import type {
-  IConnectionFactory,
-  ConnectionConfig,
-} from './ConnectionFactoryInterface';
+import type { ConnectionConfig } from './ConnectionFactoryInterface';
+import { createPlatformMessageBridge } from '../communication/MessageBridgeFactory.browser';
+
+/**
+ * Creates a browser-specific connection with a worker
+ */
+export async function createBrowserConnection(
+  config: ConnectionConfig,
+): Promise<MessageConnection> {
+  if (!config.worker) {
+    throw new Error('Browser connection requires a worker instance');
+  }
+
+  return createPlatformMessageBridge({
+    environment: 'browser',
+    worker: config.worker,
+    logger: config.logger,
+  });
+}
 
 /**
  * Factory for creating browser-specific connections
  */
-export class BrowserConnectionFactory implements IConnectionFactory {
+export class BrowserConnectionFactory {
   /**
-   * Creates a browser-specific connection
+   * Creates a browser-specific connection with a worker
    */
-  async createConnection(
-    config?: ConnectionConfig,
+  static async createConnection(
+    config: ConnectionConfig,
   ): Promise<MessageConnection> {
-    if (!config?.worker) {
-      throw new Error('Browser connection requires a worker instance');
-    }
-
-    const { createBrowserMessageBridge } = await import(
-      '../communication/BrowserMessageBridgeFactory'
-    );
-    return createBrowserMessageBridge({ worker: config.worker });
+    return createBrowserConnection(config);
   }
-}
-
-/**
- * Convenience function for creating browser connections
- */
-export async function createBrowserConnection(
-  config?: ConnectionConfig,
-): Promise<MessageConnection> {
-  const factory = new BrowserConnectionFactory();
-  return factory.createConnection(config);
 }

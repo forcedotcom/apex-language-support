@@ -7,17 +7,72 @@
  */
 
 import type {
+  MessageConnection,
+  Logger,
   MessageReader,
   MessageWriter,
-  Logger,
   DataCallback,
   PartialMessageInfo,
   Message,
   Event,
 } from 'vscode-jsonrpc';
-import { ResponseError, ErrorCodes } from 'vscode-jsonrpc';
-import type { MessageTransport } from './MessageTransport';
-import type { Disposable } from './MessageTransport';
+import {
+  createMessageConnection,
+  ResponseError,
+  ErrorCodes,
+} from 'vscode-jsonrpc';
+import type { MessageTransport, Disposable } from './interfaces';
+
+// =============================================================================
+// UTILITY FUNCTIONS
+// =============================================================================
+
+/**
+ * Extracts error message from various error types
+ */
+export function getErrorMessage(error: unknown): string {
+  if (Array.isArray(error)) {
+    return error[0]?.message || 'Unknown error';
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return 'Unknown error';
+}
+
+/**
+ * Creates a standard error handler for message connections
+ */
+export function createConnectionErrorHandler(
+  context: string,
+  logger?: Logger,
+): (error: [Error, Message | undefined, number | undefined]) => void {
+  return (error) => {
+    const errorMessage = getErrorMessage(error[0]);
+    logger?.error(`${context} message connection error: ${errorMessage}`);
+  };
+}
+
+/**
+ * Creates a standard close handler for message connections
+ */
+export function createConnectionCloseHandler(
+  context: string,
+  logger?: Logger,
+  onClose?: () => void,
+): () => void {
+  return () => {
+    logger?.info(`${context} message connection closed`);
+    onClose?.();
+  };
+}
+
+// =============================================================================
+// TRANSPORT MESSAGE HANDLERS
+// =============================================================================
 
 /**
  * Creates a message reader from a transport with enhanced error handling
@@ -166,4 +221,47 @@ export function createTransportMessageWriter(
       transport.dispose();
     },
   };
+}
+
+// =============================================================================
+// BASE MESSAGE BRIDGE
+// =============================================================================
+
+/**
+ * Base class for all message bridge implementations
+ * Provides common functionality for creating and managing message connections
+ */
+export abstract class BaseMessageBridge {
+  /**
+   * Creates a message connection with standard error and close handlers
+   */
+  protected createConnection(
+    reader: MessageReader,
+    writer: MessageWriter,
+    context: string,
+    logger?: Logger,
+    onClose?: () => void,
+  ): MessageConnection {
+    const connection = createMessageConnection(reader, writer, logger);
+
+    // Set up standard error and close handlers
+    connection.onError(createConnectionErrorHandler(context, logger));
+    connection.onClose(createConnectionCloseHandler(context, logger, onClose));
+
+    return connection;
+  }
+
+  /**
+   * Checks if the current environment is supported
+   */
+  protected abstract isEnvironmentSupported(): boolean;
+
+  /**
+   * Throws an error if the environment is not supported
+   */
+  protected checkEnvironment(environmentName: string): void {
+    if (!this.isEnvironmentSupported()) {
+      throw new Error(`${environmentName} environment not available`);
+    }
+  }
 }

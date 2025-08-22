@@ -7,49 +7,64 @@
  */
 
 import type { MessageConnection } from 'vscode-jsonrpc';
-import type { EnvironmentType } from '../types';
 import type {
   MessageBridgeConfig,
   CreatePlatformMessageBridge,
-} from './MessageBridgeInterface';
+  IMessageBridgeFactory,
+} from './interfaces';
+import { BrowserMessageBridge } from './PlatformBridges.browser';
 import {
   isWorkerEnvironment,
   isBrowserEnvironment,
-} from '../utils/EnvironmentDetector';
+} from '../utils/EnvironmentDetector.browser';
 
 /**
  * Creates a platform-appropriate message bridge factory
  */
+export class BrowserMessageBridgeFactory implements IMessageBridgeFactory {
+  async createMessageBridge(
+    config: MessageBridgeConfig,
+  ): Promise<MessageConnection> {
+    if (!config.worker) {
+      throw new Error('Browser message bridge requires a worker instance');
+    }
+    return BrowserMessageBridge.forWorkerClient(config.worker, config.logger);
+  }
+}
+
 export const createPlatformMessageBridge: CreatePlatformMessageBridge = async (
   config: MessageBridgeConfig = {},
 ): Promise<MessageConnection> => {
+  // Determine environment
   const environment =
     config.environment ||
     (isWorkerEnvironment()
       ? 'webworker'
       : isBrowserEnvironment()
         ? 'browser'
-        : 'node');
+        : 'unknown');
+
+  // Handle unknown environment
+  if (environment === 'unknown') {
+    throw new Error('Unable to determine environment for message bridge');
+  }
 
   switch (environment) {
     case 'browser': {
-      try {
-        const { createBrowserMessageBridge } = await import(
-          './BrowserMessageBridgeFactory'
-        );
-        return createBrowserMessageBridge(config);
-      } catch (error) {
-        throw new Error(
-          'Browser environment detected but browser implementation is not available in this build',
-        );
+      if (!config.worker) {
+        throw new Error('Browser message bridge requires a worker instance');
       }
+      return BrowserMessageBridge.forWorkerClient(config.worker, config.logger);
     }
 
     case 'webworker': {
       throw new Error('Worker implementation not available in browser build');
     }
 
-    case 'node':
+    case 'node': {
+      throw new Error('Node.js implementation not available in browser build');
+    }
+
     default:
       throw new Error(
         `Message bridge not supported for environment: ${environment}`,

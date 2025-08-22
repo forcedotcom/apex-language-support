@@ -12,7 +12,6 @@ import type {
   InitializeResult,
   EnvironmentType,
 } from '../types';
-import { createPlatformMessageBridge } from './MessageBridgeFactory.browser';
 
 /**
  * Configuration for creating a unified client
@@ -20,7 +19,7 @@ import { createPlatformMessageBridge } from './MessageBridgeFactory.browser';
 export interface UnifiedClientConfig {
   environment: EnvironmentType;
   logger?: Logger;
-  worker?: Worker;
+  worker?: any; // Typed as any for cross-platform compatibility
 }
 
 /**
@@ -98,38 +97,9 @@ export class UnifiedClient implements UnifiedClientInterface {
   private async initializeConnection(
     config: UnifiedClientConfig,
   ): Promise<void> {
-    try {
-      switch (config.environment) {
-        case 'webworker':
-          throw new Error(
-            'Web worker client creation should be done from main thread',
-          );
-
-        case 'browser':
-          if (!config.worker) {
-            throw new Error('Worker required for browser environment');
-          }
-          this.connection = await createPlatformMessageBridge({
-            environment: 'browser',
-            worker: config.worker,
-            logger: config.logger,
-          });
-          break;
-
-        case 'node':
-        default:
-          throw new Error(
-            `Unified client not yet implemented for environment: ${config.environment}`,
-          );
-      }
-
-      this.connection.listen();
-      this.connectionResolve();
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to initialize connection: ${errorMessage}`);
-    }
+    throw new Error(
+      'Generic UnifiedClient should not be used directly. Use platform-specific implementations instead.',
+    );
   }
 
   async initialize(params: InitializeParams): Promise<InitializeResult> {
@@ -208,7 +178,7 @@ export class UnifiedClientFactory {
    * Creates a client for web browser environment using a worker
    */
   static createBrowserClient(
-    worker: Worker,
+    worker: any,
     logger?: Logger,
   ): UnifiedClientInterface {
     return new UnifiedClient({
@@ -224,47 +194,17 @@ export class UnifiedClientFactory {
   static async createWebWorkerClient(
     config: WebWorkerClientConfig,
   ): Promise<UnifiedClientInterface> {
-    // Create a web worker using the provided file
-    let workerUrl: URL;
-    
-    // Debug logging
-    console.log('[UnifiedClient] Worker file name:', config.workerFileName);
-    console.log('[UnifiedClient] Extension URI:', config.context.extensionUri);
-    
-    if (config.workerFileName.startsWith('/') || config.workerFileName.startsWith('http')) {
-      // Use absolute URL directly
-      workerUrl = new URL(config.workerFileName, window.location.origin);
-      console.log('[UnifiedClient] Using absolute URL:', workerUrl.toString());
-    } else {
-      // Use relative URL with extension URI
-      workerUrl = new URL(
-        config.workerFileName,
-        config.context.extensionUri,
-      );
-      console.log('[UnifiedClient] Using relative URL:', workerUrl.toString());
-      
-      // WORKAROUND: VS Code Web test environment has incorrect extension URI resolution
-      // It resolves to /static/ instead of /static/devextensions/
-      if (workerUrl.toString().includes('/static/dist/worker.mjs')) {
-        const fixedUrl = workerUrl.toString().replace('/static/dist/', '/static/devextensions/dist/');
-        workerUrl = new URL(fixedUrl);
-        console.log('[UnifiedClient] Applied VS Code Web test fix:', workerUrl.toString());
-      }
-    }
-    
-    const worker = new Worker(workerUrl.toString());
-
-    // Create a browser client that communicates with the worker
-    return this.createBrowserClient(worker, config.logger);
+    // Web worker client creation is not available in worker build
+    throw new Error('Web worker client creation not available in worker build');
   }
 
   /**
    * Creates a client based on auto-detected environment
    */
-  static createAutoClient(
+  static async createAutoClient(
     config: Omit<UnifiedClientConfig, 'environment'>,
-  ): UnifiedClientInterface {
-    const environment = this.detectEnvironment();
+  ): Promise<UnifiedClientInterface> {
+    const environment = await this.detectEnvironment();
     return new UnifiedClient({
       ...config,
       environment,
@@ -274,23 +214,22 @@ export class UnifiedClientFactory {
   /**
    * Detects the current environment
    */
-  private static detectEnvironment(): EnvironmentType {
-    // Check for web worker environment (both classic and ES module workers)
-    // ES module workers don't have importScripts, so we check for self and lack of window/document
-    if (
-      typeof self !== 'undefined' &&
-      typeof window === 'undefined' &&
-      typeof document === 'undefined'
-    ) {
+  private static async detectEnvironment(): Promise<EnvironmentType> {
+    const { isWorkerEnvironment, isBrowserEnvironment, isNodeEnvironment } =
+      await import('../utils/EnvironmentDetector.worker');
+
+    if (isWorkerEnvironment()) {
       return 'webworker';
     }
 
-    // Check for browser environment
-    if (typeof window !== 'undefined') {
+    if (isBrowserEnvironment()) {
       return 'browser';
     }
 
-    // Default to Node.js
-    return 'node';
+    if (isNodeEnvironment()) {
+      return 'node';
+    }
+
+    throw new Error('Unable to detect environment');
   }
 }

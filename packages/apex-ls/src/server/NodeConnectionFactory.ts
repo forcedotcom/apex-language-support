@@ -7,46 +7,31 @@
  */
 
 import type { MessageConnection } from 'vscode-jsonrpc';
-import type {
-  IConnectionFactory,
-  ConnectionConfig,
-} from './ConnectionFactoryInterface';
-import type { NodeConnectionConfig as NodeBridgeConfig } from '../communication/NodeMessageBridge';
-
-/**
- * Extended connection config for Node.js
- */
-export interface NodeConnectionConfig extends ConnectionConfig {
-  nodeConfig?: NodeBridgeConfig;
-}
+import type { NodeConnectionConfig } from './ConnectionFactoryInterface.node';
+import { createPlatformMessageBridge } from '../communication/MessageBridgeFactory.node';
 
 /**
  * Factory for creating Node.js-specific connections
  */
-export class NodeConnectionFactory implements IConnectionFactory {
+export class NodeConnectionFactory {
   /**
    * Creates a Node.js-specific connection
    */
-  async createConnection(
+  static async createConnection(
     config?: NodeConnectionConfig,
   ): Promise<MessageConnection> {
-    const { createNodeMessageBridge } = await import(
-      '../communication/NodeMessageBridgeFactory'
-    );
-    
-    return createNodeMessageBridge({
+    return createPlatformMessageBridge({
       logger: config?.logger,
-      nodeConfig: config?.nodeConfig || { mode: 'stdio' },
+      environment: 'node',
     });
   }
 }
 
 /**
- * Convenience function for creating Node.js connections
+ * Creates a Node.js-specific connection
  */
 export async function createNodeConnection(
   config?: NodeConnectionConfig,
 ): Promise<MessageConnection> {
-  const factory = new NodeConnectionFactory();
-  return factory.createConnection(config);
+  return NodeConnectionFactory.createConnection(config);
 }

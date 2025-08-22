@@ -6,73 +6,24 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { TextDocument } from 'vscode-languageserver-textdocument';
-import type {
-  IStorage,
-  IStorageFactory,
-  StorageConfig,
-} from './StorageInterface';
+import type { IStorage, StorageConfig } from './StorageInterface';
+import { WebWorkerStorage } from './WebWorkerStorage';
 
 /**
- * Worker-specific storage implementation using memory
+ * Factory for creating worker-specific storage instances
  */
-class WorkerStorage implements IStorage {
-  private documents: Map<string, TextDocument>;
-
-  constructor(private config: StorageConfig = {}) {
-    this.documents = new Map();
-  }
-
-  async initialize(): Promise<void> {
-    this.config.logger?.info('Worker storage initialized');
-  }
-
-  async getDocument(uri: string): Promise<TextDocument | undefined> {
-    const document = this.documents.get(uri);
-    this.config.logger?.info(
-      document
-        ? `Document found in worker storage: ${uri}`
-        : `Document not found in worker storage: ${uri}`,
-    );
-    return document;
-  }
-
-  async setDocument(uri: string, document: TextDocument): Promise<void> {
-    this.documents.set(uri, document);
-    this.config.logger?.info(`Document stored in worker storage: ${uri}`);
-  }
-
-  async clearFile(uri: string): Promise<void> {
-    this.documents.delete(uri);
-    this.config.logger?.info(`File cleared from worker storage: ${uri}`);
-  }
-
-  async clearAll(): Promise<void> {
-    this.documents.clear();
-    this.config.logger?.info('All files cleared from worker storage');
-  }
-}
-
-/**
- * Factory for creating worker-specific storage implementations
- */
-export class WorkerStorageFactory implements IStorageFactory {
+export class WorkerStorageFactory {
   /**
-   * Creates a worker-specific storage implementation
+   * Creates a worker-specific storage instance
    */
-  async createStorage(config?: StorageConfig): Promise<IStorage> {
-    const storage = new WorkerStorage(config);
-    await storage.initialize();
-    return storage;
+  static async createStorage(config: StorageConfig = {}): Promise<IStorage> {
+    return WebWorkerStorage.getInstance();
   }
 }
 
 /**
- * Convenience function for creating worker storage
+ * Creates worker storage (function export for unified factory compatibility)
  */
-export async function createWorkerStorage(
-  config?: StorageConfig,
-): Promise<IStorage> {
-  const factory = new WorkerStorageFactory();
-  return factory.createStorage(config);
+export async function createWorkerStorage(config: StorageConfig = {}): Promise<IStorage> {
+  return WorkerStorageFactory.createStorage(config);
 }

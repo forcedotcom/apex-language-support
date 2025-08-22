@@ -7,14 +7,16 @@
  */
 
 // Export Node.js-specific implementations
-export { NodeMessageBridgeFactory } from './communication/NodeMessageBridgeFactory';
+// Export Node.js-specific implementations
+export { NodeMessageBridge } from './communication/NodePlatformBridge';
 export { NodeConnectionFactory } from './server/NodeConnectionFactory';
+export { NodeStorageFactory } from './storage/NodeStorageFactory';
 
-// Export shared interfaces and types
+// Re-export shared types from index
 export type {
   IMessageBridgeFactory,
   MessageBridgeConfig,
-} from './communication/MessageBridgeInterface';
+} from './communication/interfaces';
 export type {
   IConnectionFactory,
   ConnectionConfig,
@@ -25,21 +27,7 @@ export type {
   StorageConfig,
 } from './storage/StorageInterface';
 
-// Export environment detection utilities
-export {
-  isWorkerEnvironment,
-  isBrowserEnvironment,
-  isNodeEnvironment,
-} from './utils/EnvironmentDetector';
-
-// Export unified factories that work in Node.js
-export { UnifiedStorageFactory } from './storage/UnifiedStorageFactory';
-
-// Export Node.js-specific message bridge and connection types
-export type { NodeConnectionConfig } from './communication/NodeMessageBridge';
-export { NodeMessageBridge, createNodeMessageBridge } from './communication/NodeMessageBridge';
-export { createNodeConnection } from './server/NodeConnectionFactory';
-
-// Export server components
-export { UnifiedApexLanguageServer } from './server/UnifiedApexLanguageServer';
-export type { UnifiedServerConfig } from './server/UnifiedApexLanguageServer';
+// Export storage types
+export type { ApexStorage } from './storage/ApexStorageInterface';
+export type { ApexStorageInterface } from './storage/ApexStorageManager';
+export { ApexStorageAdapter } from './storage/ApexStorageManager';
