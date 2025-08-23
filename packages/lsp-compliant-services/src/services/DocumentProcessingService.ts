@@ -10,7 +10,8 @@ import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   SymbolTable,
-  CompilerService,
+  CompilerServiceFactory,
+  ICompilerService,
   ApexSymbolCollectorListener,
 } from '@salesforce/apex-lsp-parser-ast';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
@@ -57,7 +58,7 @@ export class DocumentProcessingService implements IDocumentProcessor {
     // Create a symbol collector listener
     const table = new SymbolTable();
     const listener = new ApexSymbolCollectorListener(table);
-    const compilerService = new CompilerService();
+    const compilerService: ICompilerService = CompilerServiceFactory.createCompilerService();
 
     // Parse the document
     const settingsManager = ApexSettingsManager.getInstance();

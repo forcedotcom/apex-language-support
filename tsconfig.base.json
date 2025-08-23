@@ -4,6 +4,7 @@
     "module": "CommonJS",
     "lib": ["ES2022", "DOM"],
     "moduleResolution": "node",
+    "types": ["node"],
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,
@@ -41,10 +42,8 @@
         "packages/custom-services/out/*"
       ],
 
-
       "@salesforce/apex-ls": ["packages/apex-ls/out"],
       "@salesforce/apex-ls/*": ["packages/apex-ls/out/*"],
-
 
       "@salesforce/apex-lsp-vscode-extension": [
         "packages/apex-lsp-vscode-extension/out"

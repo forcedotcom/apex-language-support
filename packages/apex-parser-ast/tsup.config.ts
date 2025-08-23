@@ -9,13 +9,35 @@ import { defineConfig } from 'tsup';
 
 import { config } from '../../tsup.config';
 
-export default defineConfig({
-  ...config,
-  entry: ['src/index.ts'],
-  outDir: 'dist',
-  clean: true,
-  dts: false,
-  splitting: false,
-  noExternal: [],
-  external: [],
-});
+export default defineConfig([
+  // Default build (Node.js)
+  {
+    ...config,
+    entry: {
+      index: 'src/index.ts',
+      node: 'src/node.ts',
+    },
+    outDir: 'dist',
+    clean: true,
+    dts: false,
+    splitting: false,
+    noExternal: [],
+    external: [],
+  },
+  // Web build (excludes antlr4ts dependencies)
+  {
+    ...config,
+    entry: {
+      web: 'src/web.ts',
+    },
+    outDir: 'dist',
+    clean: false,
+    dts: false,
+    splitting: false,
+    noExternal: [],
+    external: [
+      '@apexdevtools/apex-parser',
+      'antlr4ts',
+    ],
+  },
+]);

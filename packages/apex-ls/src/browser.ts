@@ -19,7 +19,5 @@ export type {
 } from './index.browser';
 
 // Export client types that are still needed
-export type {
-  UnifiedClientInterface,
-} from './communication/interfaces';
+export type { ClientInterface } from './communication/interfaces';
 export { ApexStorageAdapter } from './index.browser';

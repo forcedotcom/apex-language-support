@@ -23,9 +23,9 @@ export function parse(urlString: string): any {
       hash: url.hash,
       host: url.host,
       origin: url.origin,
-      href: url.href
+      href: url.href,
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       protocol: '',
       hostname: '',
@@ -35,28 +35,28 @@ export function parse(urlString: string): any {
       hash: '',
       host: '',
       origin: '',
-      href: urlString
+      href: urlString,
     };
   }
 }
 
 export function format(urlObject: any): string {
   if (!urlObject) return '';
-  
+
   const protocol = urlObject.protocol || '';
   const hostname = urlObject.hostname || '';
   const port = urlObject.port ? `:${urlObject.port}` : '';
   const pathname = urlObject.pathname || '';
   const search = urlObject.search || '';
   const hash = urlObject.hash || '';
-  
+
   return `${protocol}//${hostname}${port}${pathname}${search}${hash}`;
 }
 
 export function resolve(from: string, to: string): string {
   try {
     return new URL(to, from).href;
-  } catch (error) {
+  } catch (_error) {
     return to;
   }
 }

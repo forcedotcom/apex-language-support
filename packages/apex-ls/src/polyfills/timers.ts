@@ -13,7 +13,10 @@
  */
 
 // Simple setImmediate implementation using setTimeout
-export function setImmediate(callback: (...args: any[]) => void, ...args: any[]): any {
+export function setImmediate(
+  callback: (...args: any[]) => void,
+  ...args: any[]
+): any {
   return setTimeout(callback, 0, ...args);
 }
 

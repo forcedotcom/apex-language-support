@@ -7,7 +7,7 @@
  */
 
 import * as vscode from 'vscode';
-import type { UnifiedClientInterface } from '@salesforce/apex-ls';
+import type { ClientInterface } from '@salesforce/apex-ls';
 import { LanguageClient } from 'vscode-languageclient/browser';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import {
@@ -24,9 +24,9 @@ import {
 import { getWorkspaceSettings } from './configuration';
 
 /**
- * Global unified language client instance
+ * Global language client instance
  */
-let unifiedClient: UnifiedClientInterface | undefined;
+let client: ClientInterface | undefined;
 
 /**
  * Environment detection
@@ -266,9 +266,9 @@ function createInitializeParams(
 }
 
 /**
- * Creates and starts the unified language client
+ * Creates and starts the language client
  */
-export const createAndStartUnifiedClient = async (
+export const createAndStartClient = async (
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> => {
@@ -279,7 +279,7 @@ export const createAndStartUnifiedClient = async (
     const environment = detectEnvironment();
     logToOutputChannel(`🌍 Environment detected: ${environment} mode`, 'info');
     logWorkerMessage(
-      `🚀 Starting unified language server in ${environment} mode`,
+      `🚀 Starting  language server in ${environment} mode`,
       'info',
     );
 
@@ -297,13 +297,13 @@ export const createAndStartUnifiedClient = async (
     const workerUri = vscode.Uri.joinPath(
       context.extensionUri,
       'dist',
-      'worker.js',
+      'worker.global.js',
     );
     logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 
     // Create worker
     logToOutputChannel('⚡ Creating web worker...', 'info');
-    const worker = new Worker(workerUri.toString(), { type: 'classic' }); // the magic sauce!!!!
+    const worker = new Worker(workerUri.toString(), { type: 'classic' });
     logToOutputChannel('✅ Web worker created successfully', 'info');
 
     // Create VS Code Language Client for web extension
@@ -369,8 +369,8 @@ export const createAndStartUnifiedClient = async (
       }
     });
 
-    // Store client for disposal with UnifiedClientInterface wrapper
-    unifiedClient = {
+    // Store client for disposal with ClientInterface wrapper
+    client = {
       languageClient,
       initialize: async (params: InitializeParams) => {
         await languageClient.start();
@@ -391,19 +391,16 @@ export const createAndStartUnifiedClient = async (
       dispose: () => {
         languageClient.stop();
       },
-    } as UnifiedClientInterface;
+    } as ClientInterface;
 
     // Initialize the language server
     logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
     const initParams = createInitializeParams(context);
-    logToOutputChannel('🚀 Initializing unified client...', 'info');
-    await unifiedClient.initialize(initParams);
+    logToOutputChannel('🚀 Initializing client...', 'info');
+    await client.initialize(initParams);
 
-    logToOutputChannel('✅ Unified client initialized successfully', 'info');
-    logWorkerMessage(
-      '✅ Unified language server initialized successfully',
-      'info',
-    );
+    logToOutputChannel('✅ Client initialized successfully', 'info');
+    logWorkerMessage('✅ Language server initialized successfully', 'info');
 
     // Set up client state monitoring
     // Note: UniversalExtensionClient doesn't have the same state change events as LanguageClient
@@ -415,23 +412,20 @@ export const createAndStartUnifiedClient = async (
     setStartingFlag(false);
 
     // Register configuration change listener
-    // We'll adapt this to work with the unified client
-    if (unifiedClient) {
+    // We'll adapt this to work with the client
+    if (client) {
       logToOutputChannel(
         '⚙️ Registering configuration change listener...',
         'debug',
       );
-      registerUnifiedConfigurationChangeListener(unifiedClient, context);
+      registerConfigurationChangeListener(client, context);
       logToOutputChannel('✅ Configuration listener registered', 'debug');
     }
 
-    logToOutputChannel('🎉 Unified Apex Language Server is ready!', 'info');
-    logWorkerMessage('🎉 Unified Apex Language Server is ready!', 'info');
+    logToOutputChannel('🎉 Apex Language Server is ready!', 'info');
+    logWorkerMessage('🎉 Apex Language Server is ready!', 'info');
   } catch (error) {
-    logWorkerMessage(
-      `❌ Failed to start unified language server: ${error}`,
-      'error',
-    );
+    logWorkerMessage(`❌ Failed to start language server: ${error}`, 'error');
     setStartingFlag(false);
     updateApexServerStatusError();
     throw error;
@@ -439,10 +433,10 @@ export const createAndStartUnifiedClient = async (
 };
 
 /**
- * Register configuration change listener for unified client
+ * Register configuration change listener for client
  */
-function registerUnifiedConfigurationChangeListener(
-  client: UnifiedClientInterface,
+function registerConfigurationChangeListener(
+  client: ClientInterface,
   context: vscode.ExtensionContext,
 ): void {
   const configWatcher = vscode.workspace.onDidChangeConfiguration(
@@ -475,16 +469,16 @@ function registerUnifiedConfigurationChangeListener(
 }
 
 /**
- * Starts the unified language server
+ * Starts the language server
  */
-export async function startUnifiedLanguageServer(
+export async function startLanguageServer(
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
-  logWorkerMessage('🚀 Starting Unified Apex Language Server...', 'info');
+  logWorkerMessage('🚀 Starting Apex Language Server...', 'info');
 
   try {
-    await createAndStartUnifiedClient(context, restartHandler);
+    await createAndStartClient(context, restartHandler);
   } catch (error) {
     logWorkerMessage(`❌ Failed to start language server: ${error}`, 'error');
     throw error;
@@ -492,17 +486,17 @@ export async function startUnifiedLanguageServer(
 }
 
 /**
- * Restarts the unified language server
+ * Restarts the language server
  */
-export async function restartUnifiedLanguageServer(
+export async function restartLanguageServer(
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
-  logWorkerMessage('🔄 Restarting Unified Apex Language Server...', 'info');
+  logWorkerMessage('🔄 Restarting Apex Language Server...', 'info');
 
   try {
-    await stopUnifiedLanguageServer();
-    await startUnifiedLanguageServer(context, restartHandler);
+    await stopLanguageServer();
+    await startLanguageServer(context, restartHandler);
   } catch (error) {
     logWorkerMessage(`❌ Failed to restart language server: ${error}`, 'error');
     throw error;
@@ -510,16 +504,16 @@ export async function restartUnifiedLanguageServer(
 }
 
 /**
- * Stops the unified language server
+ * Stops the language server
  */
-export async function stopUnifiedLanguageServer(): Promise<void> {
-  logWorkerMessage('🛑 Stopping Unified Apex Language Server...', 'info');
+export async function stopLanguageServer(): Promise<void> {
+  logWorkerMessage('🛑 Stopping Apex Language Server...', 'info');
 
-  if (unifiedClient) {
+  if (client) {
     try {
-      unifiedClient.dispose();
-      unifiedClient = undefined;
-      logWorkerMessage('✅ Unified language server stopped', 'info');
+      client.dispose();
+      client = undefined;
+      logWorkerMessage('✅ Language server stopped', 'info');
     } catch (error) {
       logWorkerMessage(
         `⚠️ Error stopping language server: ${error}`,
@@ -532,8 +526,8 @@ export async function stopUnifiedLanguageServer(): Promise<void> {
 }
 
 /**
- * Gets the current unified client instance
+ * Gets the current client instance
  */
-export function getUnifiedClient(): UnifiedClientInterface | undefined {
-  return unifiedClient;
+export function getClient(): ClientInterface | undefined {
+  return client;
 }

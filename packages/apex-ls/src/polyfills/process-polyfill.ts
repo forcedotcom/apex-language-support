@@ -21,7 +21,9 @@ export const process = {
   },
   cwd: () => '/',
   exit: (code?: number) => {
-    console.warn(`process.exit(${code}) called in web worker - terminating worker`);
+    console.warn(
+      `process.exit(${code}) called in web worker - terminating worker`,
+    );
     if (typeof self !== 'undefined' && 'close' in self) {
       (self as any).close();
     }

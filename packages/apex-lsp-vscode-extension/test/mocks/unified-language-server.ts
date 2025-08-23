@@ -6,11 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as vscode from 'vscode';
-
-// Mock implementations for the unified language server functions
-export const createAndStartUnifiedClient = jest.fn().mockResolvedValue(undefined);
-export const startUnifiedLanguageServer = jest.fn().mockResolvedValue(undefined);
-export const restartUnifiedLanguageServer = jest.fn().mockResolvedValue(undefined);
-export const stopUnifiedLanguageServer = jest.fn().mockResolvedValue(undefined);
-export const getUnifiedClient = jest.fn().mockReturnValue(undefined);
+// Mock implementations for the language server functions
+export const createAndStartClient = jest.fn().mockResolvedValue(undefined);
+export const startLanguageServer = jest.fn().mockResolvedValue(undefined);
+export const restartLanguageServer = jest.fn().mockResolvedValue(undefined);
+export const stopLanguageServer = jest.fn().mockResolvedValue(undefined);
+export const getClient = jest.fn().mockReturnValue(undefined);

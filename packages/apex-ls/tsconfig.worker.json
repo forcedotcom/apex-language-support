@@ -3,8 +3,8 @@
   "compilerOptions": {
     "outDir": "./out/worker",
     "rootDir": "./src",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "lib": [
       "ES2022",
       "WebWorker",
@@ -12,16 +12,23 @@
       "DOM",
       "DOM.Iterable"
     ],
+    "target": "ES2020",
+    "types": ["webworker", "node"],
     "tsBuildInfoFile": "./out/worker/.tsbuildinfo",
     "skipLibCheck": true,
     "incremental": true,
-    "typeRoots": ["./src/types", "../../node_modules/@types"],
-    "types": ["webworker", "node", "events"]
+    "typeRoots": ["./src/types", "../../node_modules/@types"]
   },
-  "include": ["src/**/*.ts", "src/**/*.worker.ts"],
+  "include": ["src/worker.ts", "src/utils/**/*.worker.ts", "src/utils/WorkerLoggerFactory.ts", "src/polyfills/**/*.ts", "src/types.ts"],
   "exclude": [
     "src/**/*.browser.ts",
+    "src/**/*.node.ts",
     "src/browser.ts",
+    "src/node.ts",
+    "src/server/**/*.ts",
+    "src/communication/**/*.ts",
+    "src/utils/EnvironmentDetector.ts",
+    "src/utils/EnvironmentTypeGuards.ts",
     "node_modules",
     "out",
     "dist",

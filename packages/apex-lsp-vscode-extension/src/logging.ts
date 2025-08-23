@@ -31,10 +31,7 @@ export const initializeExtensionLogging = (
     EXTENSION_CONSTANTS.WORKER_SERVER_OUTPUT_CHANNEL_NAME,
   );
 
-  context.subscriptions.push(
-    clientOutputChannel,
-    workerServerOutputChannel,
-  );
+  context.subscriptions.push(clientOutputChannel, workerServerOutputChannel);
 
   // Set initial log level from workspace settings
   const config = vscode.workspace.getConfiguration('apex-ls-ts');
@@ -79,8 +76,9 @@ export const getClientOutputChannel = (): vscode.OutputChannel | undefined =>
  * Gets the worker/server output channel instance
  * @returns The worker/server output channel or undefined if not initialized
  */
-export const getWorkerServerOutputChannel = (): vscode.OutputChannel | undefined =>
-  workerServerOutputChannel;
+export const getWorkerServerOutputChannel = ():
+  | vscode.OutputChannel
+  | undefined => workerServerOutputChannel;
 
 /**
  * Logs a message to the worker/server output channel (for worker and server logs)

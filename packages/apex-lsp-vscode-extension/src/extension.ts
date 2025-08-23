@@ -26,11 +26,22 @@ import {
   setRestartHandler,
 } from './commands';
 import {
-  startUnifiedLanguageServer,
-  restartUnifiedLanguageServer,
-  stopUnifiedLanguageServer,
-} from './unified-language-server';
+  startLanguageServer,
+  restartLanguageServer,
+  stopLanguageServer,
+} from './language-server';
+import {
+  startWebLanguageServer,
+  restartWebLanguageServer,
+  stopWebLanguageServer,
+} from './language-server.browser';
 import { getWorkspaceSettings } from './configuration';
+
+/**
+ * Detect if we're running in a web environment (VS Code Web)
+ * @returns true if running in web environment
+ */
+const isWebEnvironment = (): boolean => vscode.env.uiKind === vscode.UIKind.Web;
 
 /**
  * Wrapper function for restart that matches the expected signature
@@ -39,7 +50,11 @@ import { getWorkspaceSettings } from './configuration';
 const handleRestart = async (
   context: vscode.ExtensionContext,
 ): Promise<void> => {
-  await restartUnifiedLanguageServer(context, handleRestart);
+  if (isWebEnvironment()) {
+    await restartWebLanguageServer(context, handleRestart);
+  } else {
+    await restartLanguageServer(context, handleRestart);
+  }
 };
 
 /**
@@ -47,7 +62,11 @@ const handleRestart = async (
  * @param context The extension context
  */
 const handleStart = async (context: vscode.ExtensionContext): Promise<void> => {
-  await startUnifiedLanguageServer(context, handleRestart);
+  if (isWebEnvironment()) {
+    await startWebLanguageServer(context, handleRestart);
+  } else {
+    await startLanguageServer(context, handleRestart);
+  }
 };
 
 /**
@@ -63,6 +82,10 @@ export function activate(context: vscode.ExtensionContext): void {
   logToOutputChannel('🔧 Extension logging system initialized', 'info');
   logToOutputChannel(
     `📍 Extension context: ${context.extensionMode === 1 ? 'Development' : 'Production'} mode`,
+    'info',
+  );
+  logToOutputChannel(
+    `🌐 Environment: ${isWebEnvironment() ? 'Web' : 'Desktop'}`,
     'info',
   );
   logToOutputChannel(`📂 Extension path: ${context.extensionPath}`, 'debug');
@@ -145,5 +168,9 @@ export function activate(context: vscode.ExtensionContext): void {
 export async function deactivate(): Promise<void> {
   logToOutputChannel('Deactivating Apex Language Server extension', 'info');
 
-  await stopUnifiedLanguageServer();
+  if (isWebEnvironment()) {
+    await stopWebLanguageServer();
+  } else {
+    await stopLanguageServer();
+  }
 }

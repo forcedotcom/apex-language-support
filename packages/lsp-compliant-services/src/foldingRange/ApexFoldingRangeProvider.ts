@@ -8,7 +8,8 @@
 
 import { FoldingRange as LSPFoldingRange } from 'vscode-languageserver-protocol';
 import {
-  CompilerService,
+  ICompilerService,
+  CompilerServiceFactory,
   ApexFoldingRangeListener,
   ApexComment,
   CommentType,
@@ -36,10 +37,10 @@ const logger = getLogger();
  * Provider for Apex folding ranges
  */
 export class ApexFoldingRangeProvider {
-  private compilerService: CompilerService;
+  private compilerService: ICompilerService;
 
   constructor(private readonly storage: ApexStorageInterface) {
-    this.compilerService = new CompilerService();
+    this.compilerService = CompilerServiceFactory.createCompilerService();
   }
 
   /**

@@ -30,6 +30,7 @@ import {
 } from './listeners/ApexCommentCollectorListener';
 import { CommentAssociator } from '../utils/CommentAssociator';
 import { SymbolTable } from '../types/symbol';
+import { ICompilerService } from './ICompilerService';
 
 /**
  * Result of a compilation process, containing any errors, warnings, and the final result.
@@ -85,7 +86,7 @@ export interface CompilationOptions {
 /**
  * Service for parsing and compiling Apex code.
  */
-export class CompilerService {
+export class CompilerService implements ICompilerService {
   private projectNamespace?: string;
   private readonly logger = getLogger();
 

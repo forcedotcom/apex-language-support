@@ -9,6 +9,121 @@
 import { defineConfig, Options } from 'tsup';
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } = fs;
+
+// Copy utility functions
+function copyDirRecursive(src: string, dest: string) {
+  if (!existsSync(dest)) {
+    mkdirSync(dest, { recursive: true });
+  }
+
+  const entries = readdirSync(src, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcPath, destPath);
+    } else {
+      copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+function copyStaticAssets() {
+  console.log('🔧 Copying static assets...');
+  const packageSrcDir = path.resolve('.');
+  const distDir = path.resolve('./dist');
+
+  // Ensure dist directory exists
+  if (!existsSync(distDir)) {
+    mkdirSync(distDir, { recursive: true });
+  }
+
+  // Copy worker file from apex-ls
+  const workerSrc = path.resolve('../apex-ls/dist/worker.global.js');
+  const workerMapSrc = path.resolve('../apex-ls/dist/worker.global.js.map');
+  
+  if (existsSync(workerSrc)) {
+    copyFileSync(workerSrc, path.join(distDir, 'worker.global.js'));
+    console.log('✅ Copied worker.global.js');
+  }
+  if (existsSync(workerMapSrc)) {
+    copyFileSync(workerMapSrc, path.join(distDir, 'worker.global.js.map'));
+    console.log('✅ Copied worker.global.js.map');
+  }
+
+  // Copy manifest and configuration files
+  const filesToCopy = [
+    'package.json',
+    'package.nls.json', 
+    'language-configuration.json',
+  ];
+
+  const dirsToCopy = ['grammars', 'snippets', 'resources'];
+
+  // Copy files
+  filesToCopy.forEach((file) => {
+    const srcFile = path.join(packageSrcDir, file);
+    const destFile = path.join(distDir, file);
+    if (existsSync(srcFile)) {
+      copyFileSync(srcFile, destFile);
+      console.log(`✅ Copied ${file}`);
+    }
+  });
+
+  // Copy directories recursively
+  dirsToCopy.forEach((dir) => {
+    const srcDirPath = path.join(packageSrcDir, dir);
+    const destDirPath = path.join(distDir, dir);
+    if (existsSync(srcDirPath)) {
+      copyDirRecursive(srcDirPath, destDirPath);
+      console.log(`✅ Copied ${dir}/`);
+    }
+  });
+
+  // Fix package.json paths
+  const packagePath = path.join(distDir, 'package.json');
+  if (existsSync(packagePath)) {
+    const content = readFileSync(packagePath, 'utf8');
+    const packageJson = JSON.parse(content);
+    
+    // Fix main and browser paths
+    if (packageJson.main && packageJson.main.includes('./dist/')) {
+      packageJson.main = packageJson.main.replace('./dist/', './');
+      console.log(`✅ Fixed main path: ${packageJson.main}`);
+    }
+    if (packageJson.browser && packageJson.browser.includes('./dist/')) {
+      packageJson.browser = packageJson.browser.replace('./dist/', './');
+      console.log(`✅ Fixed browser path: ${packageJson.browser}`);
+    }
+    
+    writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
+    console.log('✅ Fixed package.json paths');
+  }
+
+  // Fix exports in extension.mjs
+  const extensionPath = path.join(distDir, 'extension.mjs');
+  if (existsSync(extensionPath)) {
+    let content = readFileSync(extensionPath, 'utf8');
+    const defaultExportMatch = content.match(/export default require_extension\(\);/);
+    
+    if (defaultExportMatch) {
+      content = content.replace(
+        'export default require_extension();',
+        `const extensionModule = require_extension();
+export const activate = extensionModule.activate;
+export const deactivate = extensionModule.deactivate;`
+      );
+      writeFileSync(extensionPath, content, 'utf8');
+      console.log('✅ Fixed extension.mjs exports');
+    }
+  }
+}
 
 export default defineConfig((options: Options) => ({
   entry: ['out/extension.js'],
@@ -82,6 +197,9 @@ export default defineConfig((options: Options) => ({
       assert: '../apex-ls/src/polyfills/assert-polyfill.ts',
     };
   },
-  // Run consolidated post-build script
-  onSuccess: 'node scripts/post-build.js',
+  // Run integrated asset copying
+  onSuccess: () => {
+    copyStaticAssets();
+    console.log('✅ All build tasks completed successfully!');
+  },
 }));

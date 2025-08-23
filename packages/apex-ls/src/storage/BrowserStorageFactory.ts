@@ -22,8 +22,10 @@ export class BrowserStorageFactory {
 }
 
 /**
- * Creates browser storage (function export for unified factory compatibility)
+ * Creates browser storage (function export for factory compatibility)
  */
-export async function createBrowserStorage(config: StorageConfig = {}): Promise<IStorage> {
+export async function createBrowserStorage(
+  config: StorageConfig = {},
+): Promise<IStorage> {
   return BrowserStorageFactory.createStorage(config);
 }

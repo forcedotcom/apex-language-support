@@ -15,7 +15,7 @@ import {
 /**
  * Creates storage instances appropriate for the current environment
  */
-export class UnifiedStorageFactory {
+export class StorageFactory {
   /**
    * Creates a storage instance appropriate for the current environment
    */

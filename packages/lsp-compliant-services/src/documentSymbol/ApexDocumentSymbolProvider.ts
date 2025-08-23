@@ -16,7 +16,8 @@ import {
 } from 'vscode-languageserver-protocol';
 import {
   SymbolTable,
-  CompilerService,
+  ICompilerService,
+  CompilerServiceFactory,
   ApexSymbolCollectorListener,
   ApexSymbol,
   VariableSymbol,
@@ -69,10 +70,10 @@ export interface ApexDocumentSymbolProvider {
 export class DefaultApexDocumentSymbolProvider
   implements ApexDocumentSymbolProvider
 {
-  private readonly compilerService: CompilerService;
+  private readonly compilerService: ICompilerService;
 
   constructor(private readonly storage: ApexStorageInterface) {
-    this.compilerService = new CompilerService();
+    this.compilerService = CompilerServiceFactory.createCompilerService();
   }
 
   /**

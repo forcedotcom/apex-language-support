@@ -11,11 +11,13 @@ module.exports = {
       __dirname,
       '../apex-lsp-shared/out/index.js',
     ),
-    '^@salesforce/apex-ls$': path.resolve(
+    '^@salesforce/apex-ls$': path.resolve(__dirname, '../apex-ls/src/index.ts'),
+    '^\\./language-server$': path.join(
       __dirname,
-      '../apex-ls/src/index.ts',
+      'test',
+      'mocks',
+      'language-server.ts',
     ),
-    '^\\./unified-language-server$': path.join(__dirname, 'test', 'mocks', 'unified-language-server.ts'),
   },
   transformIgnorePatterns: [
     '/node_modules/(?!(\\.pnpm|@apexdevtools|antlr4ts|vscode-languageclient)).+\\.js$',

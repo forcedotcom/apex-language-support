@@ -6,8 +6,28 @@
   "module": "out/index.js",
   "types": "out/index.d.ts",
   "exports": {
-    "import": "./out/index.js",
-    "require": "./out/index.js"
+    ".": {
+      "browser": {
+        "types": "./dist/web.d.ts",
+        "import": "./dist/web.mjs",
+        "require": "./dist/web.js"
+      },
+      "worker": {
+        "types": "./dist/web.d.ts",
+        "import": "./dist/web.mjs",
+        "require": "./dist/web.js"
+      },
+      "node": {
+        "types": "./dist/node.d.ts",
+        "import": "./dist/node.mjs",
+        "require": "./dist/node.js"
+      },
+      "default": {
+        "types": "./out/index.d.ts",
+        "import": "./out/index.js",
+        "require": "./out/index.js"
+      }
+    }
   },
   "sideEffects": false,
   "license": "BSD-3-Clause",

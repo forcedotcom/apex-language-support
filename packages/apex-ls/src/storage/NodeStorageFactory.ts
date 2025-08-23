@@ -55,8 +55,10 @@ export class NodeStorageFactory {
 }
 
 /**
- * Creates Node storage (function export for unified factory compatibility)
+ * Creates Node storage (function export for factory compatibility)
  */
-export async function createNodeStorage(config?: StorageConfig): Promise<IStorage> {
+export async function createNodeStorage(
+  config?: StorageConfig,
+): Promise<IStorage> {
   return NodeStorageFactory.createStorage(config);
 }

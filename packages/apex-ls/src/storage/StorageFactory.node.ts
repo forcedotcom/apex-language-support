@@ -10,9 +10,9 @@ import type { IStorage, StorageConfig } from './StorageInterface';
 import { isNodeEnvironment } from '../utils/EnvironmentDetector.node';
 
 /**
- * Factory for creating unified storage instances based on environment
+ * Factory for creating storage instances based on environment
  */
-export class UnifiedStorageFactory {
+export class StorageFactory {
   /**
    * Creates a storage instance appropriate for the current environment
    */

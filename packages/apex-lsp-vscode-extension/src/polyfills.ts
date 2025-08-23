@@ -1,7 +1,11 @@
-// Browser polyfills for Node.js built-in modules
-// This file MUST be imported first to ensure global polyfills are available
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
 
-/* eslint-disable @typescript-eslint/no-var-requires */
 declare const require: any;
 
 // Import critical polyfills first and set them globally immediately
@@ -38,8 +42,8 @@ if (!util.inherits) {
           value: constructor,
           enumerable: false,
           writable: true,
-          configurable: true
-        }
+          configurable: true,
+        },
       });
     }
   };
@@ -47,7 +51,7 @@ if (!util.inherits) {
 
 // Import polyfills with require to avoid TypeScript errors
 // Note: crypto is handled via esbuild alias, not global polyfill
-const stream = require('stream-browserify'); 
+const stream = require('stream-browserify');
 const path = require('path-browserify');
 
 // Use a simple assert implementation instead of external file
@@ -84,5 +88,11 @@ if (typeof window !== 'undefined') {
 }
 
 // Verify critical polyfills are available
-console.log('[POLYFILLS] Process polyfill loaded:', typeof (globalThis as any).process);
-console.log('[POLYFILLS] Buffer polyfill loaded:', typeof (globalThis as any).Buffer);
+console.log(
+  '[POLYFILLS] Process polyfill loaded:',
+  typeof (globalThis as any).process,
+);
+console.log(
+  '[POLYFILLS] Buffer polyfill loaded:',
+  typeof (globalThis as any).Buffer,
+);

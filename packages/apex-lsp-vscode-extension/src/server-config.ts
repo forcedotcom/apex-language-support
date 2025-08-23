@@ -42,10 +42,7 @@ export const getDebugOptions = (): string[] | undefined => {
     ];
   } else {
     // Default to 'inspect' mode
-    logServerMessage(
-      `Enabling debug mode on port ${debugConfig.port}`,
-      'info',
-    );
+    logServerMessage(`Enabling debug mode on port ${debugConfig.port}`, 'info');
     debugFlags = [DEBUG_CONFIG.NOLAZY_FLAG, `--inspect=${debugConfig.port}`];
   }
 
@@ -157,7 +154,9 @@ export const createClientOptions = (
       configurationSection: 'apex',
     },
     // Use our consolidated worker/server output channel if available
-    ...(getWorkerServerOutputChannel() ? { outputChannel: getWorkerServerOutputChannel() } : {}),
+    ...(getWorkerServerOutputChannel()
+      ? { outputChannel: getWorkerServerOutputChannel() }
+      : {}),
     // Add error handling with proper retry logic
     errorHandler: {
       error: handleClientError,

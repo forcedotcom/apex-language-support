@@ -7,10 +7,9 @@
  */
 
 import type { ExtensionContext } from 'vscode';
-import type { EnvironmentType } from '../types';
-import { UnifiedClientFactory } from '../communication/UnifiedClient';
-import type { UnifiedClientInterface } from '../communication/UnifiedClient';
-import type { Logger } from '../types';
+import type { EnvironmentType, Logger } from '../types';
+import { ClientFactory } from '../communication/Client';
+import type { ClientInterface } from '../communication/Client';
 
 /**
  * Configuration for launching a worker
@@ -27,12 +26,12 @@ export interface WorkerLaunchConfig {
  */
 export interface WorkerLaunchResult {
   worker: Worker;
-  client: UnifiedClientInterface;
+  client: ClientInterface;
   environment: EnvironmentType;
 }
 
 /**
- * Unified worker launcher that works in all environments
+ * worker launcher that works in all environments
  *
  * This launcher can be used by:
  * - Web VSCode extensions (vscode.dev)
@@ -41,7 +40,7 @@ export interface WorkerLaunchResult {
  */
 export class WorkerLauncher {
   /**
-   * Launches a web worker with the unified Apex Language Server
+   * Launches a web worker with the Apex Language Server
    */
   static async launch(config: WorkerLaunchConfig): Promise<WorkerLaunchResult> {
     const logger = config.logger || (console as Logger);
@@ -67,18 +66,18 @@ export class WorkerLauncher {
     // Create worker
     const worker = await this.createWorker(context, workerFileName, logger);
 
-    // Create unified client
-    const client = UnifiedClientFactory.createBrowserClient(worker, {
-      error: (message) => logger.error(`[LSP-CLIENT] ${message}`),
-      warn: (message) => logger.error(`[LSP-CLIENT] ${message}`),
-      info: (message) => logger.info(`[LSP-CLIENT] ${message}`),
-      log: (message) => logger.debug(`[LSP-CLIENT] ${message}`),
+    // Create client
+    const client = ClientFactory.createBrowserClient(worker, {
+      error: (message: any) => logger.error(`[LSP-CLIENT] ${message}`),
+      warn: (message: any) => logger.error(`[LSP-CLIENT] ${message}`),
+      info: (message: any) => logger.info(`[LSP-CLIENT] ${message}`),
+      log: (message: any) => logger.debug(`[LSP-CLIENT] ${message}`),
     });
 
     // Set up worker monitoring
     this.setupWorkerMonitoring(worker, logger);
 
-    logger.success('✅ [WORKER-LAUNCHER] Unified worker launched successfully');
+    logger.success('✅ [WORKER-LAUNCHER] worker launched successfully');
 
     return {
       worker,
@@ -115,7 +114,7 @@ export class WorkerLauncher {
       logger.debug('🔧 [WORKER-LAUNCHER] Attempting direct worker creation');
       worker = new Worker(workerUrl, {
         type: 'module',
-        name: 'apex-language-server-unified',
+        name: 'apex-language-server',
       });
 
       logger.debug('✅ [WORKER-LAUNCHER] Direct worker creation successful');
@@ -142,7 +141,7 @@ export class WorkerLauncher {
 
         worker = new Worker(blobUrl, {
           type: 'module',
-          name: 'apex-language-server-unified',
+          name: 'apex-language-server',
         });
 
         // Clean up blob URL after a delay

@@ -7,8 +7,11 @@
  */
 
 import * as vscode from 'vscode';
-import { LanguageClient, State } from 'vscode-languageclient/node';
-import { createServerOptions, createClientOptions } from './server-config';
+import { LanguageClient, State } from 'vscode-languageclient/browser';
+import {
+  createWebServerOptions,
+  createWebClientOptions,
+} from './server-config.browser';
 import { logServerMessage } from './logging';
 import {
   setStartingFlag,
@@ -23,36 +26,36 @@ import {
 } from './status-bar';
 
 /**
- * Global language client instance
+ * Global language client instance for web
  */
-let client: LanguageClient | undefined;
+let webClient: LanguageClient | undefined;
 
 /**
- * Creates and starts the language client
- * @param serverOptions The server options
+ * Creates and starts the web language client
+ * @param worker The web worker for the language server
  * @param clientOptions The client options
  * @param context The extension context
  * @param restartHandler The function to handle server restart
  */
-export const createAndStartClient = (
-  serverOptions: any,
+export const createAndStartWebClient = (
+  worker: Worker,
   clientOptions: any,
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): void => {
   try {
-    // Create the language client
-    client = new LanguageClient(
-      'apex-ls-ts',
-      'Apex Language Server Extension (Worker/Server)',
-      serverOptions,
+    // Create the web language client
+    webClient = new LanguageClient(
+      'apex-ls-web',
+      'Apex Language Server Extension (Web)',
       clientOptions,
+      worker,
     );
 
     // Track client state changes
-    client.onDidChangeState((event) => {
+    webClient.onDidChangeState((event) => {
       logServerMessage(
-        `Client state changed: ${State[event.oldState]} -> ${State[event.newState]}`,
+        `Web client state changed: ${State[event.oldState]} -> ${State[event.newState]}`,
         'debug',
       );
 
@@ -63,7 +66,7 @@ export const createAndStartClient = (
         setStartingFlag(false);
 
         // Register configuration change listener when client is ready
-        registerConfigurationChangeListener(client!, context);
+        registerConfigurationChangeListener(webClient!, context);
       } else if (event.newState === State.Starting) {
         updateApexServerStatusStarting();
       } else {
@@ -73,51 +76,51 @@ export const createAndStartClient = (
     });
 
     // Start the client
-    logServerMessage('Starting Apex Language Server client...', 'info');
-    client.start().catch((error) => {
-      logServerMessage(`Failed to start client: ${error}`, 'error');
+    logServerMessage('Starting Apex Web Language Server client...', 'info');
+    webClient.start().catch((error) => {
+      logServerMessage(`Failed to start web client: ${error}`, 'error');
       setStartingFlag(false);
       updateApexServerStatusError();
     });
   } catch (e) {
-    logServerMessage(`Error creating client: ${e}`, 'error');
+    logServerMessage(`Error creating web client: ${e}`, 'error');
     setStartingFlag(false);
     updateApexServerStatusError();
   }
 };
 
 /**
- * Starts the language server
+ * Starts the web language server
  * @param context The extension context
  * @param restartHandler The function to handle server restart
  */
-export const startLanguageServer = async (
+export const startWebLanguageServer = async (
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> => {
   // Guard against multiple simultaneous start attempts
   if (getStartingFlag()) {
-    logServerMessage('Blocked duplicate start attempt', 'info');
+    logServerMessage('Blocked duplicate web start attempt', 'info');
     return;
   }
 
   try {
     setStartingFlag(true);
-    logServerMessage('Starting language server...', 'info');
+    logServerMessage('Starting web language server...', 'info');
 
     // Clean up previous client if it exists
-    if (client) {
-      await client.stop();
-      client = undefined;
+    if (webClient) {
+      await webClient.stop();
+      webClient = undefined;
     }
 
     // Set up server and client components
-    const serverOptions = createServerOptions(context);
-    const clientOptions = createClientOptions(context);
+    const worker = createWebServerOptions(context);
+    const clientOptions = createWebClientOptions(context);
 
-    createAndStartClient(serverOptions, clientOptions, context, restartHandler);
+    createAndStartWebClient(worker, clientOptions, context, restartHandler);
   } catch (error) {
-    logServerMessage(`Error in startLanguageServer: ${error}`, 'error');
+    logServerMessage(`Error in startWebLanguageServer: ${error}`, 'error');
     vscode.window.showErrorMessage(
       `Failed to start Apex Language Server: ${error}`,
     );
@@ -127,33 +130,33 @@ export const startLanguageServer = async (
 };
 
 /**
- * Restarts the language server
+ * Restarts the web language server
  * @param context The extension context
  * @param restartHandler The function to handle server restart
  */
-export const restartLanguageServer = async (
+export const restartWebLanguageServer = async (
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> => {
   logServerMessage(
-    `Restarting Apex Language Server at ${new Date().toISOString()}...`,
+    `Restarting Apex Web Language Server at ${new Date().toISOString()}...`,
     'info',
   );
-  await startLanguageServer(context, restartHandler);
+  await startWebLanguageServer(context, restartHandler);
 };
 
 /**
- * Stops the language server
+ * Stops the web language server
  */
-export const stopLanguageServer = async (): Promise<void> => {
-  if (client) {
-    await client.stop();
-    client = undefined;
+export const stopWebLanguageServer = async (): Promise<void> => {
+  if (webClient) {
+    await webClient.stop();
+    webClient = undefined;
   }
 };
 
 /**
- * Gets the current language client
+ * Gets the current web language client
  * @returns The language client or undefined
  */
-export const getLanguageClient = (): LanguageClient | undefined => client;
+export const getWebLanguageClient = (): LanguageClient | undefined => webClient;

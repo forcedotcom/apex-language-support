@@ -8,27 +8,25 @@
 
 import type { MessageConnection } from 'vscode-jsonrpc';
 import { isWorkerEnvironment } from '../utils/EnvironmentDetector';
-import type { UnifiedServerConfig } from './UnifiedApexLanguageServer';
+import type { ServerConfig } from './ApexLanguageServer';
 import { ConnectionFactory } from './ConnectionFactory';
 
 /**
- * Creates a unified language server instance for worker environment
+ * Creates a language server instance for worker environment
  */
-export async function createUnifiedLanguageServer(
+export async function createLanguageServer(
   connection?: MessageConnection,
 ): Promise<void> {
   // Use provided connection or create one using ConnectionFactory
   const serverConnection = connection || (await createEnvironmentConnection());
 
   // Initialize server
-  const { UnifiedApexLanguageServer } = await import(
-    './UnifiedApexLanguageServer'
-  );
-  const config: UnifiedServerConfig = {
+  const { ApexLanguageServer } = await import('./ApexLanguageServer');
+  const config: ServerConfig = {
     environment: 'webworker',
     connection: serverConnection,
   };
-  const server = new UnifiedApexLanguageServer(config);
+  const server = new ApexLanguageServer(config);
   await server.initialize();
 }
 

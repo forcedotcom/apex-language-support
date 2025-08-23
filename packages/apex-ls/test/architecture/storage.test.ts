@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { UnifiedStorageFactory } from '../../src/storage/UnifiedStorageFactory';
+import { StorageFactory } from '../../src/storage/StorageFactory';
 import { BrowserStorageFactory } from '../../src/storage/BrowserStorageFactory';
 import { WorkerStorageFactory } from '../../src/storage/WorkerStorageFactory';
 import type {
@@ -206,20 +206,24 @@ describe('Storage Architecture', () => {
     });
   });
 
-  describe('UnifiedStorageFactory', () => {
-    const { isWorkerEnvironment } = jest.requireMock('../../src/utils/EnvironmentDetector.worker');
-    const { isBrowserEnvironment } = jest.requireMock('../../src/utils/EnvironmentDetector.browser');
+  describe('StorageFactory', () => {
+    const { isWorkerEnvironment } = jest.requireMock(
+      '../../src/utils/EnvironmentDetector.worker',
+    );
+    const { isBrowserEnvironment } = jest.requireMock(
+      '../../src/utils/EnvironmentDetector.browser',
+    );
 
     beforeEach(() => {
       // Reset the singleton instance
-      (UnifiedStorageFactory as any).instance = undefined;
+      (StorageFactory as any).instance = undefined;
     });
 
     it('should create worker storage in worker environment', async () => {
       isWorkerEnvironment.mockReturnValue(true);
       isBrowserEnvironment.mockReturnValue(false);
 
-      const storage = await UnifiedStorageFactory.createStorage();
+      const storage = await StorageFactory.createStorage();
       expect(storage).toBeDefined();
     });
 
@@ -227,7 +231,7 @@ describe('Storage Architecture', () => {
       isWorkerEnvironment.mockReturnValue(false);
       isBrowserEnvironment.mockReturnValue(true);
 
-      const storage = await UnifiedStorageFactory.createStorage();
+      const storage = await StorageFactory.createStorage();
       expect(storage).toBeDefined();
     });
 
@@ -235,7 +239,7 @@ describe('Storage Architecture', () => {
       isWorkerEnvironment.mockReturnValue(false);
       isBrowserEnvironment.mockReturnValue(false);
 
-      await expect(UnifiedStorageFactory.createStorage()).rejects.toThrow(
+      await expect(StorageFactory.createStorage()).rejects.toThrow(
         'Unsupported environment',
       );
     });
@@ -244,8 +248,8 @@ describe('Storage Architecture', () => {
       isWorkerEnvironment.mockReturnValue(true);
       isBrowserEnvironment.mockReturnValue(false);
 
-      const storage1 = await UnifiedStorageFactory.createStorage();
-      const storage2 = await UnifiedStorageFactory.createStorage();
+      const storage1 = await StorageFactory.createStorage();
+      const storage2 = await StorageFactory.createStorage();
 
       expect(storage1).toBe(storage2);
     });
@@ -264,7 +268,7 @@ describe('Storage Architecture', () => {
         } as any,
       };
 
-      const storage = await UnifiedStorageFactory.createStorage(config);
+      const storage = await StorageFactory.createStorage(config);
       expect(storage).toBeDefined();
     });
   });

@@ -395,8 +395,8 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   LogMessage: jest.fn(),
 }));
 
-// Import the UnifiedLogNotificationHandler after mocking
-import { UnifiedLogNotificationHandler } from '../src/utils/BrowserLogNotificationHandler';
+// Import the LogNotificationHandler after mocking
+import { LogNotificationHandler } from '../src/utils/BrowserLogNotificationHandler';
 
 describe('Apex Language Server Browser', () => {
   beforeEach(() => {
@@ -404,7 +404,7 @@ describe('Apex Language Server Browser', () => {
     jest.clearAllMocks();
 
     // Reset the singleton instance
-    UnifiedLogNotificationHandler.resetInstances();
+    LogNotificationHandler.resetInstances();
 
     // Reset mock handlers
     Object.keys(mockHandlers).forEach((key) => {

@@ -10,8 +10,8 @@ import * as path from 'path';
 
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
+import { CompilerService } from '../parser/compilerService';
 import {
-  CompilerService,
   ApexSymbolCollectorListener,
   RuntimeSymbol,
   SymbolTable,

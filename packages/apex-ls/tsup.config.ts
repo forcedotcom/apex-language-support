@@ -19,18 +19,40 @@ const SHARED_EXTERNAL = [
   '@apexdevtools/apex-parser',
   'antlr4ts',
   '@salesforce/apex-lsp-parser-ast',
-  '@salesforce/apex-lsp-custom-services',
   'node-dir',
-  'crypto',
-  'fs',
-  'path',
 ];
 
-const SHARED_NO_EXTERNAL = [
+// Node.js modules that should be polyfilled for browser/worker builds
+const NODE_MODULES_TO_POLYFILL = ['crypto', 'fs', 'path'];
+
+// Worker-specific externals (bundle as little as possible for minimal worker)
+const WORKER_EXTERNAL = [
+  'vscode-languageserver/**',
+  'vscode-languageserver-protocol/**',
+  'vscode-languageserver-types/**',
+  'vscode-jsonrpc/**',
+  '@apexdevtools/apex-parser',
+  'antlr4ts',
+  'node-dir',
+  // Externalize Node.js modules
+  'path',
+  'fs',
+  'crypto',
+  'util',
+  'url',
+  'os',
+  'child_process',
+  'stream',
+  'events',
+  // Externalize any other potentially problematic modules
+  '@salesforce/apex-lsp-custom-services',
   '@salesforce/apex-lsp-shared',
-  '@salesforce/apex-lsp-compliant-services',
   'vscode-languageserver-textdocument',
+  '@salesforce/apex-lsp-parser-ast',
+  '@salesforce/apex-lsp-compliant-services',
 ];
+
+const SHARED_NO_EXTERNAL: string[] = [];
 
 export default defineConfig([
   // Node.js build (CJS + ESM)
@@ -47,7 +69,9 @@ export default defineConfig([
     splitting: false,
     minify: false,
     sourcemap: true,
-    external: SHARED_EXTERNAL,
+    external: SHARED_EXTERNAL.concat([
+      '@salesforce/apex-lsp-compliant-services',
+    ]),
     noExternal: SHARED_NO_EXTERNAL,
     esbuildOptions(options: BuildOptions) {
       options.platform = 'node';
@@ -76,7 +100,7 @@ export default defineConfig([
     splitting: false,
     minify: false,
     sourcemap: true,
-    external: SHARED_EXTERNAL,
+    external: SHARED_EXTERNAL.concat(NODE_MODULES_TO_POLYFILL),
     noExternal: SHARED_NO_EXTERNAL,
     esbuildOptions(options: BuildOptions) {
       options.platform = 'browser';
@@ -111,23 +135,19 @@ export default defineConfig([
     minify: false,
     sourcemap: true,
     format: ['iife'],
-    external: SHARED_EXTERNAL,
+    external: WORKER_EXTERNAL,
     noExternal: SHARED_NO_EXTERNAL,
-    // No globalName for web worker - should execute immediately
-    footer: {
-      js: '// IIFE worker - remove any return statements',
-    },
+    // IIFE format for VS Code Language Client compatibility
+    globalName: '',
     esbuildOptions(options: BuildOptions) {
       options.platform = 'browser';
       options.mainFields = ['browser', 'module', 'main'];
-      options.conditions = ['browser', 'import', 'module', 'default'];
+      options.conditions = ['worker', 'browser', 'import', 'module', 'default'];
       options.alias = {
         ...options.alias,
         'utils/EnvironmentDetector.node': 'utils/EnvironmentDetector.browser',
-        'storage/UnifiedStorageFactory.node':
-          'storage/UnifiedStorageFactory.browser',
-        'communication/UnifiedClient.node':
-          'communication/UnifiedClient.browser',
+        'storage/StorageFactory.node': 'storage/StorageFactory.browser',
+        'communication/Client.node': 'communication/Client.browser',
       };
       // Apply polyfill configuration
       applyPolyfillConfig(options);

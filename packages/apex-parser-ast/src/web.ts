@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// This file exports the public API for the @salesforce/apex-lsp-parser-ast package
+// Web-only exports - excludes CompilerService to prevent bundling antlr4ts dependencies
 
 // Export base listener
 export * from './parser/listeners/BaseApexParserListener';
@@ -38,10 +38,10 @@ export * from './parser/ICompilerService';
 // Export compiler service factory for web compatibility
 export * from './parser/CompilerServiceFactory';
 
-// Export compiler service types only (not the implementation to avoid bundling antlr4ts)
+// Export compiler service types only (not implementation)
 export type { CompilationResult, CompilationResultWithComments, CompilationOptions } from './parser/compilerService';
 
-// Export web stub parser for testing
+// Export web stub parser for web environments
 export * from './parser/webStubParser';
 
 // Export resource utilities

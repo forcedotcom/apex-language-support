@@ -9,7 +9,8 @@
 import { Diagnostic, DocumentDiagnosticParams } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
-  CompilerService,
+  ICompilerService,
+  CompilerServiceFactory,
   SymbolTable,
   ApexSymbolCollectorListener,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -129,7 +130,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       // Create a symbol collector listener
       const table = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(table);
-      const compilerService = new CompilerService();
+      const compilerService: ICompilerService = CompilerServiceFactory.createCompilerService();
 
       // Parse the document
       const options = {

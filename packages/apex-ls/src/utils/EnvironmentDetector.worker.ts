@@ -7,7 +7,19 @@
  */
 
 import type { EnvironmentType } from '../types';
-import { isWebWorkerSelf } from './EnvironmentTypeGuards';
+
+/**
+ * Type guard for web worker self (inlined to avoid import issues)
+ */
+function isWebWorkerSelf(obj: unknown): boolean {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'self' in globalThis &&
+    'postMessage' in obj &&
+    typeof (obj as any).postMessage === 'function'
+  );
+}
 
 /**
  * Detects the current runtime environment

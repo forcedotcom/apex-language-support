@@ -6,13 +6,12 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { BrowserConnectionFactory } from '../../src/server/BrowserConnectionFactory';
+import { ConnectionFactory as BrowserConnectionFactory } from '../../src/server/ConnectionFactory';
 import { ConnectionFactory as WorkerConnectionFactory } from '../../src/server/ConnectionFactory.worker';
-import { ConnectionFactory } from '../../src/server/ConnectionFactory.browser';
 import type { ConnectionConfig } from '../../src/server/ConnectionFactoryInterface';
 
 // Mock the message bridge modules
-jest.mock('../../src/communication/PlatformBridges.browser', () => ({
+jest.mock('../../src/communication/PlatformBridges', () => ({
   BrowserMessageBridge: {
     forWorkerClient: jest.fn().mockReturnValue({
       sendRequest: jest.fn(),

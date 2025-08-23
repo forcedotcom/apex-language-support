@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { BrowserMessageBridge } from '../../src/communication/PlatformBridges.browser';
+import { BrowserMessageBridge } from '../../src/communication/PlatformBridges';
 import { WorkerMessageBridge } from '../../src/communication/PlatformBridges.worker';
 import { isBrowserEnvironment } from '../../src/utils/EnvironmentDetector.browser';
 import { isWorkerEnvironment } from '../../src/utils/EnvironmentDetector.worker';

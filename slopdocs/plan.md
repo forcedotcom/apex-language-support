@@ -36,34 +36,37 @@ The existing `lsp-compliant-services` package provides production-ready services
 **Objective**: Set up proper service initialization in the worker context
 
 **Files to modify:**
+
 - `packages/apex-ls/src/worker.ts`
 
 **Tasks:**
 
 1. **Import required services at the top of worker.ts:**
+
    ```typescript
    // Add these imports to worker.ts
-   import { 
+   import {
      dispatchProcessOnDocumentSymbol,
      dispatchProcessOnChangeDocument,
-     ApexStorageManager 
+     ApexStorageManager,
    } from '@salesforce/apex-lsp-compliant-services';
    ```
 
 2. **Initialize storage manager after connection creation:**
+
    ```typescript
    // After connection creation, add:
    const storageManager = ApexStorageManager.getInstance();
-   
+
    // Ensure documents are stored when opened/changed
    documents.onDidOpen(async (event) => {
      await storageManager.addDocument(event.document);
    });
-   
+
    documents.onDidChangeContent(async (event) => {
      await storageManager.updateDocument(event.document);
    });
-   
+
    documents.onDidClose(async (event) => {
      await storageManager.removeDocument(event.document.uri);
    });
@@ -74,35 +77,39 @@ The existing `lsp-compliant-services` package provides production-ready services
 **Objective**: Replace regex-based symbol detection with ANTLR-based parsing
 
 **Files to modify:**
+
 - `packages/apex-ls/src/worker.ts` (lines 293-393)
 
 **Tasks:**
 
 1. **Replace the entire `connection.onDocumentSymbol` handler:**
+
    ```typescript
    // Replace existing onDocumentSymbol handler with:
    connection.onDocumentSymbol(async (params) => {
      logger.info('📋 Document symbol request received');
-     
+
      try {
        logger.time?.('Document Symbol Processing');
-       
+
        // Use the compliant service for document symbols
        const result = await dispatchProcessOnDocumentSymbol(params);
-       
+
        logger.timeEnd?.('Document Symbol Processing');
-       logger.info(`✅ Found ${result?.length || 0} symbols using compliant services`);
-       
+       logger.info(
+         `✅ Found ${result?.length || 0} symbols using compliant services`,
+       );
+
        return result;
      } catch (error) {
        logger.error(`❌ Error in document symbol processing: ${error}`);
-       
+
        // Fallback to basic implementation if service fails
        const document = documents.get(params.textDocument.uri);
        if (!document) {
          return [];
        }
-       
+
        // Keep existing regex-based fallback for safety
        return await generateFallbackSymbols(document);
      }
@@ -112,55 +119,63 @@ The existing `lsp-compliant-services` package provides production-ready services
 2. **Create fallback function for error cases:**
    ```typescript
    // Add this function to handle service failures gracefully
-   async function generateFallbackSymbols(document: TextDocument): Promise<DocumentSymbol[]> {
+   async function generateFallbackSymbols(
+     document: TextDocument,
+   ): Promise<DocumentSymbol[]> {
      logger.warn('🔄 Using fallback symbol detection');
      // Keep the existing regex-based logic as fallback
      // [Move existing symbol detection code here]
    }
    ```
 
-### Step 3: Replace Diagnostic Handler  
+### Step 3: Replace Diagnostic Handler
 
 **Objective**: Replace uppercase word detection with real Apex syntax/semantic diagnostics
 
 **Files to modify:**
+
 - `packages/apex-ls/src/worker.ts` (lines 185-249)
 
 **Tasks:**
 
 1. **Replace `validateTextDocument` function:**
+
    ```typescript
-   async function validateTextDocument(textDocument: TextDocument): Promise<void> {
+   async function validateTextDocument(
+     textDocument: TextDocument,
+   ): Promise<void> {
      logger.debug(`🔍 Validating document: ${textDocument.uri}`);
-     
+
      try {
        // Use compliant service for diagnostics
        const changeEvent = { document: textDocument, contentChanges: [] };
        const diagnostics = await dispatchProcessOnChangeDocument(changeEvent);
-       
+
        if (diagnostics && diagnostics.length > 0) {
          logger.info(`📊 Found ${diagnostics.length} diagnostic issues`);
-         connection.sendDiagnostics({ 
-           uri: textDocument.uri, 
-           diagnostics 
+         connection.sendDiagnostics({
+           uri: textDocument.uri,
+           diagnostics,
          });
        } else {
          // Clear any existing diagnostics
-         connection.sendDiagnostics({ 
-           uri: textDocument.uri, 
-           diagnostics: [] 
+         connection.sendDiagnostics({
+           uri: textDocument.uri,
+           diagnostics: [],
          });
        }
      } catch (error) {
        logger.error(`❌ Error in diagnostic processing: ${error}`);
-       
+
        // Fallback to basic diagnostics to maintain functionality
        await validateTextDocumentFallback(textDocument);
      }
    }
-   
+
    // Keep existing validation as fallback
-   async function validateTextDocumentFallback(textDocument: TextDocument): Promise<void> {
+   async function validateTextDocumentFallback(
+     textDocument: TextDocument,
+   ): Promise<void> {
      logger.warn('🔄 Using fallback diagnostic validation');
      // [Move existing uppercase word detection here]
    }
@@ -171,40 +186,47 @@ The existing `lsp-compliant-services` package provides production-ready services
 **Objective**: Replace hardcoded completion items with context-aware Apex completions
 
 **Files to modify:**
+
 - `packages/apex-ls/src/worker.ts` (lines 251-290)
 
 **Tasks:**
 
 1. **Import completion services:**
+
    ```typescript
    // Add to imports section
-   import { 
-     dispatchProcessOnCompletion  // If available
+   import {
+     dispatchProcessOnCompletion, // If available
    } from '@salesforce/apex-lsp-compliant-services';
    ```
 
 2. **Update completion handler (if service available):**
+
    ```typescript
    // Replace existing onCompletion handler
-   connection.onCompletion(async (params: TextDocumentPositionParams): Promise<CompletionItem[]> => {
-     logger.debug('💡 Completion request received');
-     
-     try {
-       // Check if completion service is available
-       if (typeof dispatchProcessOnCompletion === 'function') {
-         const result = await dispatchProcessOnCompletion(params);
-         logger.info(`✅ Generated ${result?.length || 0} completion items`);
-         return result || [];
+   connection.onCompletion(
+     async (params: TextDocumentPositionParams): Promise<CompletionItem[]> => {
+       logger.debug('💡 Completion request received');
+
+       try {
+         // Check if completion service is available
+         if (typeof dispatchProcessOnCompletion === 'function') {
+           const result = await dispatchProcessOnCompletion(params);
+           logger.info(`✅ Generated ${result?.length || 0} completion items`);
+           return result || [];
+         }
+       } catch (error) {
+         logger.error(`❌ Error in completion processing: ${error}`);
        }
-     } catch (error) {
-       logger.error(`❌ Error in completion processing: ${error}`);
-     }
-     
-     // Enhanced fallback completions for Apex
-     return getApexCompletionFallback(params);
-   });
-   
-   function getApexCompletionFallback(params: TextDocumentPositionParams): CompletionItem[] {
+
+       // Enhanced fallback completions for Apex
+       return getApexCompletionFallback(params);
+     },
+   );
+
+   function getApexCompletionFallback(
+     params: TextDocumentPositionParams,
+   ): CompletionItem[] {
      // Enhanced completion items with more Apex-specific suggestions
      return [
        {
@@ -243,45 +265,48 @@ The existing `lsp-compliant-services` package provides production-ready services
 **Objective**: Add proper error boundaries and configuration support
 
 **Files to modify:**
+
 - `packages/apex-ls/src/worker.ts`
 
 **Tasks:**
 
 1. **Add service configuration in `onDidChangeConfiguration`:**
+
    ```typescript
    connection.onDidChangeConfiguration((change) => {
      // Existing configuration handling...
-     
+
      // Update log level from configuration
      const config = change.settings['apex-ls-ts'];
      if (config?.logLevel) {
        setLogLevel(config.logLevel);
      }
-     
+
      // Configure compliant services if needed
      if (config?.services) {
        logger.info('🔧 Updating service configuration');
        // Apply service-specific settings
      }
-     
+
      // Revalidate all open text documents
      documents.all().forEach(validateTextDocument);
    });
    ```
 
 2. **Add graceful service initialization:**
+
    ```typescript
    // Add after connection creation
    let servicesInitialized = false;
-   
+
    async function initializeServices(): Promise<void> {
      try {
        logger.info('🚀 Initializing compliant services...');
-       
+
        // Initialize storage manager
        const storageManager = ApexStorageManager.getInstance();
        await storageManager.initialize();
-       
+
        servicesInitialized = true;
        logger.info('✅ Services initialized successfully');
      } catch (error) {
@@ -290,13 +315,13 @@ The existing `lsp-compliant-services` package provides production-ready services
        servicesInitialized = false;
      }
    }
-   
+
    // Call during server initialization
    connection.onInitialized(async () => {
      logger.info('🎉 Server initialized');
-     
+
      await initializeServices();
-     
+
      // Existing initialization code...
    });
    ```
@@ -308,27 +333,29 @@ The existing `lsp-compliant-services` package provides production-ready services
 **Tasks:**
 
 1. **Build and test the integration:**
+
    ```bash
    # Navigate to apex-ls package
    cd packages/apex-ls
-   
+
    # Clean and rebuild
    npm run clean
    npm run build
-   
+
    # Run tests to ensure no regressions
    npm run test
    npm run test:web
    ```
 
 2. **Test in VS Code extension:**
+
    ```bash
-   # Navigate to extension package  
+   # Navigate to extension package
    cd packages/apex-lsp-vscode-extension
-   
+
    # Build the extension
    npm run build
-   
+
    # Test the extension works with new worker
    # Open a .cls file and verify:
    # - Document symbols show proper Apex class structure
@@ -338,7 +365,7 @@ The existing `lsp-compliant-services` package provides production-ready services
 
 3. **Verification checklist:**
    - [ ] Document outline shows proper Apex classes, methods, and properties
-   - [ ] Syntax errors are detected in Apex files  
+   - [ ] Syntax errors are detected in Apex files
    - [ ] Completion suggestions are contextual and Apex-specific
    - [ ] Error fallbacks work when services fail
    - [ ] No regressions in basic worker functionality
@@ -351,6 +378,7 @@ The existing `lsp-compliant-services` package provides production-ready services
 **Tasks:**
 
 1. **Add performance monitoring:**
+
    ```typescript
    // Add to worker.ts for monitoring service performance
    const performanceMetrics = {
@@ -360,13 +388,13 @@ The existing `lsp-compliant-services` package provides production-ready services
      averageSymbolTime: 0,
      averageDiagnosticTime: 0,
    };
-   
+
    // Update metrics in each service call
    function updateMetrics(operation: string, duration: number) {
      performanceMetrics[`${operation}Requests`]++;
-     performanceMetrics[`average${operation}Time`] = 
+     performanceMetrics[`average${operation}Time`] =
        (performanceMetrics[`average${operation}Time`] + duration) / 2;
-     
+
      logger.info(`📊 ${operation} completed in ${duration}ms`);
    }
    ```
@@ -376,7 +404,8 @@ The existing `lsp-compliant-services` package provides production-ready services
    // Add periodic cleanup for large files
    setInterval(() => {
      const memoryUsage = (performance as any).memory?.usedJSHeapSize;
-     if (memoryUsage > 50 * 1024 * 1024) { // 50MB threshold
+     if (memoryUsage > 50 * 1024 * 1024) {
+       // 50MB threshold
        logger.warn('🧹 High memory usage detected, triggering cleanup');
        // Trigger garbage collection if available
        if (global.gc) {
@@ -397,7 +426,7 @@ apex-language-support/
 ├── packages/
 │   ├── apex-ls/                    # Main language server package
 │   │   ├── src/worker.ts          # Web worker implementation (TO MODIFY)
-│   │   ├── src/browser.ts         # Browser entry point  
+│   │   ├── src/browser.ts         # Browser entry point
 │   │   └── src/node.ts            # Node.js entry point
 │   ├── lsp-compliant-services/     # Production Apex services (READY TO USE)
 │   │   ├── src/documentSymbol/    # ANTLR-based symbol provider
@@ -417,7 +446,7 @@ apex-language-support/
 worker.ts → Basic LSP Handlers → Regex parsing → LSP Responses
                 ↓
          Simple symbol detection
-         Uppercase word diagnostics  
+         Uppercase word diagnostics
          Hardcoded completions
 ```
 
@@ -469,7 +498,7 @@ connection.onDocumentSymbol(async (params) => {
 
 1. **Comprehensive fallbacks** - Keep existing regex-based implementations as fallbacks
 2. **Gradual integration** - Implement one service at a time with testing
-3. **Performance monitoring** - Add timing and memory usage tracking  
+3. **Performance monitoring** - Add timing and memory usage tracking
 4. **Error boundaries** - Wrap all service calls in try-catch with fallbacks
 5. **Configuration flags** - Allow disabling services if issues arise
 
@@ -480,13 +509,13 @@ connection.onDocumentSymbol(async (params) => {
 async function safeServiceCall<T>(
   serviceCall: () => Promise<T>,
   fallback: () => T,
-  operationName: string
+  operationName: string,
 ): Promise<T> {
   try {
     const startTime = performance.now();
     const result = await serviceCall();
     const duration = performance.now() - startTime;
-    
+
     logger.info(`✅ ${operationName} completed in ${duration.toFixed(2)}ms`);
     return result;
   } catch (error) {
@@ -508,7 +537,7 @@ The extension should support configuration to control service behavior:
 ```json
 {
   "apex-ls-ts.services.enableAdvancedParsing": {
-    "type": "boolean", 
+    "type": "boolean",
     "default": true,
     "description": "Enable ANTLR-based Apex parsing for better language features"
   },
@@ -519,7 +548,7 @@ The extension should support configuration to control service behavior:
   },
   "apex-ls-ts.services.fallbackOnError": {
     "type": "boolean",
-    "default": true, 
+    "default": true,
     "description": "Fall back to basic functionality when advanced services fail"
   },
   "apex-ls-ts.performance.enableMetrics": {
@@ -554,7 +583,7 @@ The extension should support configuration to control service behavior:
 - [ ] All tests pass after integration
 - [ ] Extension loads and works in VS Code
 - [ ] No console errors or unhandled exceptions
-- [ ] Service errors are logged appropriately 
+- [ ] Service errors are logged appropriately
 - [ ] Build process completes successfully
 
 ---
@@ -590,28 +619,33 @@ The extension should support configuration to control service behavior:
 This plan has been updated to reflect the **actual current state** of the repository as of the consolidation work completed. The key points for implementation are:
 
 ### What Already Exists ✅
+
 - Complete `lsp-compliant-services` package with production-ready Apex language services
 - ANTLR-based document symbol provider with proper AST parsing
 - All necessary dependencies and build configuration
 - Working web worker architecture with browser/node/worker builds
 
 ### What Needs To Be Done 🔧
+
 - **ONLY ONE FILE needs modification**: `packages/apex-ls/src/worker.ts`
 - Replace 3 basic LSP handlers with calls to existing production services:
   1. `connection.onDocumentSymbol` - Replace regex with `dispatchProcessOnDocumentSymbol`
-  2. `validateTextDocument` - Replace uppercase detection with `dispatchProcessOnChangeDocument`  
+  2. `validateTextDocument` - Replace uppercase detection with `dispatchProcessOnChangeDocument`
   3. `connection.onCompletion` - Enhance with better Apex completions (optional)
 - Add proper error handling and fallbacks
 - Initialize `ApexStorageManager` for document caching
 
 ### What NOT To Do ❌
+
 - Do not create new packages or services (they already exist)
 - Do not modify build configuration (it's already correct)
 - Do not add external dependencies (they're already included)
 - Do not rewrite the entire worker (only replace specific handlers)
 
 ### Success Criteria 🎯
+
 After implementation, users should see:
+
 - **Document outline** showing real Apex class structure instead of regex-based detection
 - **Error diagnostics** for actual Apex syntax errors instead of uppercase words
 - **Better completion** suggestions with Apex-specific items
