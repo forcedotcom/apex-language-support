@@ -8,9 +8,7 @@
 
 import type { MessageConnection } from 'vscode-jsonrpc';
 import type { ConnectionConfig } from './ConnectionFactoryInterface';
-import {
-  isWorkerEnvironment,
-} from '../utils/EnvironmentDetector.worker';
+import { isWorkerEnvironment } from '../utils/EnvironmentDetector.worker';
 import { WorkerMessageBridge } from '../communication/bridges';
 
 /**

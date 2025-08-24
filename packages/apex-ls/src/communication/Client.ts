@@ -94,9 +94,7 @@ export class Client implements ClientInterface {
     });
   }
 
-  private async initializeConnection(
-    config: ClientConfig,
-  ): Promise<void> {
+  private async initializeConnection(config: ClientConfig): Promise<void> {
     throw new Error(
       'Generic Client should not be used directly. Use platform-specific implementations instead.',
     );
@@ -177,10 +175,7 @@ export class ClientFactory {
   /**
    * Creates a client for web browser environment using a worker
    */
-  static createBrowserClient(
-    worker: any,
-    logger?: Logger,
-  ): ClientInterface {
+  static createBrowserClient(worker: any, logger?: Logger): ClientInterface {
     return new Client({
       environment: 'browser',
       worker,

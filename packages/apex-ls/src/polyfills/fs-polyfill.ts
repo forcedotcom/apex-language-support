@@ -6,8 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Import Buffer from our polyfill
-import { Buffer } from './buffer-polyfill';
+// Import Buffer from browserify package
+import { Buffer } from 'buffer';
 
 /**
  * Simple in-memory file system for browser environment

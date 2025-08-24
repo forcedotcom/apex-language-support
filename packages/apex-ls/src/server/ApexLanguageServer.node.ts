@@ -42,7 +42,7 @@ export class ApexLanguageServer {
    */
   async initialize(): Promise<void> {
     // Initialize storage
-    const storage = await StorageFactory.createStorage(this.storageConfig);
+    const _storage = await StorageFactory.createStorage(this.storageConfig);
 
     // Initialize server
     this.connection.listen();

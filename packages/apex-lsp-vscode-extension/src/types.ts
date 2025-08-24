@@ -12,7 +12,9 @@ import * as vscode from 'vscode';
  * Global state interface for the extension
  */
 export interface ExtensionState {
-  client: { sendNotification: (method: string, params?: any) => void } | undefined;
+  client:
+    | { sendNotification: (method: string, params?: any) => void }
+    | undefined;
   outputChannel: vscode.OutputChannel;
   statusBarItem: vscode.StatusBarItem;
   globalContext: vscode.ExtensionContext;

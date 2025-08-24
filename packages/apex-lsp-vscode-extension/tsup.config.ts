@@ -79,7 +79,7 @@ export default defineConfig((options: Options) => ({
       crypto: 'crypto-browserify',
       stream: 'stream-browserify',
       fs: 'memfs',
-      assert: '../apex-ls/src/polyfills/assert-polyfill.ts',
+      assert: 'assert',
     };
   },
   // Run consolidated post-build script

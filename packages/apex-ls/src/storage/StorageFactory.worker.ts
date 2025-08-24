@@ -7,9 +7,7 @@
  */
 
 import type { IStorage, StorageConfig } from './StorageInterface';
-import {
-  isWorkerEnvironment,
-} from '../utils/EnvironmentDetector.worker';
+import { isWorkerEnvironment } from '../utils/EnvironmentDetector.worker';
 
 /**
  * Creates storage instances appropriate for the current environment

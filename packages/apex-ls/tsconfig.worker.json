@@ -10,26 +10,45 @@
       "WebWorker",
       "WebWorker.ImportScripts",
       "DOM",
-      "DOM.Iterable"
+      "DOM.Iterable",
+      "ESNext.AsyncIterable",
+      "ESNext.Disposable"
     ],
     "tsBuildInfoFile": "./out/worker/.tsbuildinfo",
     "skipLibCheck": true,
     "incremental": true,
     "typeRoots": ["./src/types", "../../node_modules/@types"],
-    "types": ["webworker", "node", "events"]
+    "types": [
+      "webworker",
+      "node",
+      "events",
+      "node/net",
+      "node/stream",
+      "node/buffer",
+      "node/process"
+    ]
   },
-  "include": ["src/**/*.ts", "src/**/*.worker.ts"],
-  "exclude": [
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.worker.ts",
     "src/**/*.browser.ts",
-    "src/**/*.node.ts", 
-    "src/browser.ts",
-    "src/utils/EnvironmentDetector.browser.ts",
-    "src/communication/factory.browser.ts",
+    "src/**/*.node.ts",
+    "src/storage/StorageFactory.worker.ts",
+    "src/utils/EnvironmentDetector.worker.ts",
     "src/communication/Client.ts",
+    "src/server/ApexLanguageServer.ts",
     "src/communication/NodePlatformBridge.ts",
-    "src/communication/index.ts",
+    "src/utils/EnvironmentDetector.node.ts",
+    "src/utils/EnvironmentTypeGuards.node.ts",
+    "src/server/ConnectionFactoryInterface.node.ts",
+    "src/communication/factory.browser.ts",
+    "src/utils/EnvironmentDetector.browser.ts"
+  ],
+  "exclude": [
+    "src/browser.ts",
     "src/index.ts",
     "src/node.ts",
+    "src/server/index.node.ts",
     "node_modules",
     "out",
     "dist",

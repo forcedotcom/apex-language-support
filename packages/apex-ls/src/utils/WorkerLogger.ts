@@ -8,7 +8,6 @@
 
 import type { Connection } from 'vscode-languageserver/browser';
 import { MessageType } from 'vscode-languageserver/browser';
-import type { CorrelatedMessage } from './CorrelatedMessage';
 
 /**
  * Log categories for worker operations

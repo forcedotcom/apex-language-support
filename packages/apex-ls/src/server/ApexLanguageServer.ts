@@ -40,7 +40,7 @@ export class ApexLanguageServer {
    */
   async initialize(): Promise<void> {
     // Initialize storage with environment-specific configuration
-    const storage = await StorageFactory.createStorage({
+    const _storage = await StorageFactory.createStorage({
       ...this.storageConfig,
       useMemoryStorage: isWorkerEnvironment(),
     });

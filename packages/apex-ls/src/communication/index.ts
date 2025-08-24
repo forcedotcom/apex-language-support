@@ -16,14 +16,14 @@ export type {
   Disposable,
   ClientInterface,
   IMessageBridgeFactory,
-  
+
   // Configuration types
   MessageBridgeConfig,
   BrowserConfig,
   NodeConfig,
   WorkerConfig,
   ClientConfig,
-  
+
   // LSP types re-exports
   InitializeParams,
   InitializeResult,
@@ -31,22 +31,16 @@ export type {
 } from './types';
 
 // =============================================================================
-// TRANSPORT IMPLEMENTATIONS  
+// TRANSPORT IMPLEMENTATIONS
 // =============================================================================
 
-export { 
-  WorkerMessageTransport,
-  SelfMessageTransport 
-} from './transports';
+export { WorkerMessageTransport, SelfMessageTransport } from './transports';
 
 // =============================================================================
 // BRIDGE IMPLEMENTATIONS
 // =============================================================================
 
-export { 
-  BrowserMessageBridge,
-  WorkerMessageBridge 
-} from './bridges';
+export { BrowserMessageBridge, WorkerMessageBridge } from './bridges';
 
 // Legacy export for existing code (from MessageBridge.ts)
 export {
@@ -62,10 +56,7 @@ export {
 // CLIENT IMPLEMENTATION
 // =============================================================================
 
-export { 
-  Client,
-  ClientFactory 
-} from './Client';
+export { Client, ClientFactory } from './Client';
 
 // =============================================================================
 // FACTORY

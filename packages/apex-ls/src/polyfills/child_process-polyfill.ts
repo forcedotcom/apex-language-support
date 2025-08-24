@@ -39,15 +39,23 @@ class MockChildProcess implements ChildProcess {
   }
 }
 
-export function spawn(command: string, args?: string[], options?: any): ChildProcess {
+export function spawn(
+  command: string,
+  args?: string[],
+  options?: any,
+): ChildProcess {
   // Return mock child process - can't actually spawn processes in browser
-  console.warn(`child_process.spawn('${command}') called in browser environment - returning mock process`);
+  console.warn(
+    `child_process.spawn('${command}') called in browser environment - returning mock process`,
+  );
   return new MockChildProcess();
 }
 
 export function exec(command: string, callback?: Function): ChildProcess {
   // Return mock child process and call callback with empty result if provided
-  console.warn(`child_process.exec('${command}') called in browser environment - returning mock process`);
+  console.warn(
+    `child_process.exec('${command}') called in browser environment - returning mock process`,
+  );
   if (callback) {
     // Call callback asynchronously with no error and empty stdout/stderr
     setTimeout(() => callback(null, '', ''), 0);
@@ -57,28 +65,48 @@ export function exec(command: string, callback?: Function): ChildProcess {
 
 export function execSync(command: string, options?: any): string {
   // Can't execute commands synchronously in browser
-  console.warn(`child_process.execSync('${command}') called in browser environment - returning empty string`);
+  console.warn(
+    `child_process.execSync('${command}') called in browser environment - returning empty string`,
+  );
   return '';
 }
 
-export function fork(modulePath: string, args?: string[], options?: any): ChildProcess {
+export function fork(
+  modulePath: string,
+  args?: string[],
+  options?: any,
+): ChildProcess {
   // Can't fork processes in browser
-  console.warn(`child_process.fork('${modulePath}') called in browser environment - returning mock process`);
+  console.warn(
+    `child_process.fork('${modulePath}') called in browser environment - returning mock process`,
+  );
   return new MockChildProcess();
 }
 
-export function execFile(file: string, args?: string[], callback?: Function): ChildProcess {
+export function execFile(
+  file: string,
+  args?: string[],
+  callback?: Function,
+): ChildProcess {
   // Can't execute files in browser
-  console.warn(`child_process.execFile('${file}') called in browser environment - returning mock process`);
+  console.warn(
+    `child_process.execFile('${file}') called in browser environment - returning mock process`,
+  );
   if (callback) {
     setTimeout(() => callback(null, '', ''), 0);
   }
   return new MockChildProcess();
 }
 
-export function execFileSync(file: string, args?: string[], options?: any): string {
+export function execFileSync(
+  file: string,
+  args?: string[],
+  options?: any,
+): string {
   // Can't execute files synchronously in browser
-  console.warn(`child_process.execFileSync('${file}') called in browser environment - returning empty string`);
+  console.warn(
+    `child_process.execFileSync('${file}') called in browser environment - returning empty string`,
+  );
   return '';
 }
 
@@ -90,7 +118,7 @@ const childProcess = {
   fork,
   execFile,
   execFileSync,
-  ChildProcess: MockChildProcess
+  ChildProcess: MockChildProcess,
 };
 
 export default childProcess;

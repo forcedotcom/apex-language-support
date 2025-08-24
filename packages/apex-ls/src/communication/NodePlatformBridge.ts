@@ -15,7 +15,7 @@ import {
   IPCMessageReader,
   IPCMessageWriter,
 } from 'vscode-jsonrpc/node';
-import * as net from 'net';
+import net from '../polyfills/net-polyfill';
 import { BaseMessageBridge } from './MessageBridge';
 import type { NodeMessageBridgeConfig } from './types';
 import { isNodeEnvironment } from '../utils/EnvironmentDetector.node';
@@ -32,7 +32,7 @@ export class NodeMessageBridge extends BaseMessageBridge {
     const instance = new NodeMessageBridge();
     instance.checkEnvironment('Node.js');
 
-    const reader = new StreamMessageReader(process.stdin);
+    const reader = new StreamMessageReader(process.stdin as any);
     const writer = new StreamMessageWriter(process.stdout);
 
     return instance.createConnection(reader, writer, 'Stdio', logger);
@@ -50,8 +50,8 @@ export class NodeMessageBridge extends BaseMessageBridge {
     instance.checkEnvironment('Node.js');
 
     const socket = net.createConnection({ port, host });
-    const reader = new SocketMessageReader(socket);
-    const writer = new SocketMessageWriter(socket);
+    const reader = new SocketMessageReader(socket as any);
+    const writer = new SocketMessageWriter(socket as any);
 
     // Handle socket errors
     socket.on('error', (error: any) => {

@@ -8,7 +8,6 @@
 
 import type { Logger, MessageConnection } from 'vscode-jsonrpc';
 import type { InitializeParams, InitializeResult } from '../types';
-import type { ClientConfig as ImportedClientConfig } from './types';
 import { NodeMessageBridge } from './NodePlatformBridge';
 
 /**
@@ -81,9 +80,7 @@ export class Client implements ClientInterface {
     });
   }
 
-  private async initializeConnection(
-    config: ClientConfig,
-  ): Promise<void> {
+  private async initializeConnection(config: ClientConfig): Promise<void> {
     try {
       this.connection = NodeMessageBridge.createConnection({
         mode: 'stdio',
@@ -183,9 +180,7 @@ export class ClientFactory {
   /**
    * Creates a client for web worker environment from Node.js context
    */
-  static async createWebWorkerClient(
-    config: any,
-  ): Promise<ClientInterface> {
+  static async createWebWorkerClient(config: any): Promise<ClientInterface> {
     throw new Error(
       'createWebWorkerClient is not available in Node.js environment. Use browser-specific entry point.',
     );

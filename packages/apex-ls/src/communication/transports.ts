@@ -65,7 +65,9 @@ export class SelfMessageTransport implements MessageTransport {
 
   constructor() {
     if (typeof self === 'undefined' || !('postMessage' in self)) {
-      throw new Error('SelfMessageTransport can only be used in a worker context');
+      throw new Error(
+        'SelfMessageTransport can only be used in a worker context',
+      );
     }
     this.selfContext = self as any;
   }

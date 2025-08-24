@@ -7,10 +7,10 @@
  */
 
 import type { MessageConnection, Logger } from 'vscode-jsonrpc';
-import { 
-  BaseMessageBridge, 
-  createTransportMessageReader, 
-  createTransportMessageWriter 
+import {
+  BaseMessageBridge,
+  createTransportMessageReader,
+  createTransportMessageWriter,
 } from './MessageBridge';
 import { WorkerMessageTransport, SelfMessageTransport } from './transports';
 import type { MessageTransport } from './types';
@@ -66,7 +66,10 @@ export class WorkerMessageBridge extends BaseMessageBridge {
   }
 
   protected isEnvironmentSupported(): boolean {
-    return typeof self !== 'undefined' && typeof (self as any).importScripts === 'function';
+    return (
+      typeof self !== 'undefined' &&
+      typeof (self as any).importScripts === 'function'
+    );
   }
 
   createConnection(): MessageConnection {

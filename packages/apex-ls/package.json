@@ -48,6 +48,13 @@
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.1",
+    "assert": "^2.1.0",
+    "events": "^3.3.0",
+    "util": "^0.12.5",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "crypto-browserify": "^3.12.1",
+    "buffer": "^6.0.3",
     "@salesforce/apex-lsp-compliant-services": "1.0.0",
     "@salesforce/apex-lsp-custom-services": "1.0.0",
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
@@ -60,15 +67,8 @@
   },
   "devDependencies": {
     "@types/node": "^20.19.4",
-    "assert": "^2.1.0",
-    "buffer": "^6.0.3",
-    "crypto-browserify": "^3.12.1",
-    "events": "^3.3.0",
     "jest-environment-jsdom": "^30.0.5",
     "node-dir": "^0.1.17",
-    "path-browserify": "^1.0.1",
-    "process": "^0.11.10",
-    "stream-browserify": "^3.0.0",
-    "util": "^0.12.5"
+    "stream-browserify": "^3.0.0"
   }
 }

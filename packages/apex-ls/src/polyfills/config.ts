@@ -13,25 +13,10 @@ const polyfillsDir = '/polyfills';
 export const polyfillConfig = {
   polyfillsDir,
   polyfills: {
-    assert: {
-      path: `${polyfillsDir}/assert-polyfill.ts`,
-      global: 'assert',
-    },
-    buffer: {
-      path: `${polyfillsDir}/buffer-polyfill.ts`,
-      global: 'Buffer',
-    },
+    // Custom browser-specific polyfills (maintained)
     child_process: {
       path: `${polyfillsDir}/child_process-polyfill.ts`,
       global: 'child_process',
-    },
-    crypto: {
-      path: `${polyfillsDir}/crypto-polyfill.ts`,
-      global: 'crypto',
-    },
-    events: {
-      path: `${polyfillsDir}/events-polyfill.ts`,
-      global: 'events',
     },
     fs: {
       path: `${polyfillsDir}/fs-polyfill.ts`,
@@ -45,21 +30,41 @@ export const polyfillConfig = {
       path: `${polyfillsDir}/os-polyfill.ts`,
       global: 'os',
     },
+
+    // Browserify packages (replaced)
+    assert: {
+      path: 'assert',
+      global: 'assert',
+    },
+    buffer: {
+      path: 'buffer',
+      global: 'Buffer',
+    },
+    crypto: {
+      path: 'crypto-browserify',
+      global: 'crypto',
+    },
+    events: {
+      path: 'events',
+      global: 'events',
+    },
     path: {
-      path: `${polyfillsDir}/path-polyfill.ts`,
+      path: 'path-browserify',
       global: 'path',
     },
     process: {
-      path: `${polyfillsDir}/process-polyfill.ts`,
+      path: 'process',
       global: 'process',
     },
-    url: {
-      path: `${polyfillsDir}/url-polyfill.ts`,
-      global: 'url',
-    },
     util: {
-      path: `${polyfillsDir}/util-polyfill.ts`,
+      path: 'util',
       global: 'util',
+    },
+
+    // Native browser APIs
+    url: {
+      path: 'URL',
+      global: 'url',
     },
   },
 };
@@ -71,18 +76,18 @@ export function applyPolyfillConfig(options: any): void {
   // Add polyfill aliases
   options.alias = {
     ...options.alias,
-    assert: './src/polyfills/assert-polyfill.ts',
-    buffer: './src/polyfills/buffer-polyfill.ts',
+    assert: 'assert',
+    buffer: 'buffer',
     child_process: './src/polyfills/child_process-polyfill.ts',
-    crypto: './src/polyfills/crypto-polyfill.ts',
-    events: './src/polyfills/events-polyfill.ts',
+    crypto: 'crypto-browserify',
+    events: 'events',
     fs: './src/polyfills/fs-polyfill.ts',
     net: './src/polyfills/net-polyfill.ts',
     os: './src/polyfills/os-polyfill.ts',
-    path: './src/polyfills/path-polyfill.ts',
-    process: './src/polyfills/process-polyfill.ts',
-    url: './src/polyfills/url-polyfill.ts',
-    util: './src/polyfills/util-polyfill.ts',
+    path: 'path-browserify',
+    process: 'process',
+    url: 'url',
+    util: 'util',
   };
 
   // Add polyfill globals

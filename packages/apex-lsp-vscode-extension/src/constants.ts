@@ -21,7 +21,8 @@ export const EXTENSION_CONSTANTS = {
   /** Client output channel name */
   CLIENT_OUTPUT_CHANNEL_NAME: 'Apex Language Server Extension (Client)',
   /** Worker/Server output channel name */
-  WORKER_SERVER_OUTPUT_CHANNEL_NAME: 'Apex Language Server Extension (Worker/Server)',
+  WORKER_SERVER_OUTPUT_CHANNEL_NAME:
+    'Apex Language Server Extension (Worker/Server)',
   /** Restart command ID */
   RESTART_COMMAND_ID: 'apex-ls-ts.restart.server',
   /** Restart command ID (alternative for web compatibility) */

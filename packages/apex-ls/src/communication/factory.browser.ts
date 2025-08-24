@@ -7,14 +7,9 @@
  */
 
 import type { MessageConnection } from 'vscode-jsonrpc';
-import type { 
-  MessageBridgeConfig, 
-  BrowserConfig, 
-  WorkerConfig,
-} from './types';
+import type { MessageBridgeConfig, BrowserConfig, WorkerConfig } from './types';
 import { BrowserMessageBridge, WorkerMessageBridge } from './bridges';
 import { detectEnvironment } from '../utils/EnvironmentDetector.browser';
-import { WorkerMessageTransport, SelfMessageTransport } from './transports';
 
 // =============================================================================
 // BROWSER-SPECIFIC MESSAGE BRIDGE FACTORY
@@ -27,9 +22,11 @@ export class MessageBridgeFactory {
   /**
    * Creates a message bridge automatically detecting the environment
    */
-  static async createBridge(config: MessageBridgeConfig): Promise<MessageConnection> {
-    const environment = config.environment || await detectEnvironment();
-    
+  static async createBridge(
+    config: MessageBridgeConfig,
+  ): Promise<MessageConnection> {
+    const environment = config.environment || (await detectEnvironment());
+
     switch (environment) {
       case 'browser':
         return this.createBrowserBridge(config as BrowserConfig);

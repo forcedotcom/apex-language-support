@@ -6,10 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { Logger } from 'vscode-jsonrpc';
 import type { LogMessageParams } from '@salesforce/apex-lsp-shared';
 import type { Connection } from 'vscode-languageserver/browser';
-import { LogMessageType } from '@salesforce/apex-lsp-shared';
 import { LoggingUtils } from './LoggingUtils';
 
 /**
