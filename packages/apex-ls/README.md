@@ -1,10 +1,10 @@
-# Unified Apex Language Server
+# Apex Language Server
 
-A unified web worker-based language server that can run in both browser and Node.js environments, consolidating functionality from multiple packages into a single solution.
+A web worker-based language server that can run in both browser and Node.js environments, consolidating functionality from multiple packages into a single solution.
 
 ## Overview
 
-This package provides a unified Apex Language Server that runs in web workers, eliminating Node.js API dependencies and creating a single codebase that works consistently across all platforms. It provides:
+This package provides an Apex Language Server that runs in web workers, eliminating Node.js API dependencies and creating a single codebase that works consistently across all platforms. It provides:
 
 - Full language server capabilities in both browser and Node.js environments
 - Web worker-based architecture for optimal performance
@@ -49,7 +49,7 @@ The language server is built around a web worker architecture that provides:
 
 ## Features
 
-- **Unified Architecture**: Single codebase for browser and Node.js environments
+- **Architecture**: Single codebase for browser and Node.js environments
 - **Web Worker Support**: Runs language server in isolated worker context
 - **Platform Independence**: No Node.js API dependencies
 - **Message-based Communication**: Standardized LSP protocol over web workers

@@ -8,13 +8,13 @@
 
 import type { MessageConnection } from 'vscode-jsonrpc';
 import { isNodeEnvironment } from '../utils/EnvironmentDetector.node';
-import type { UnifiedServerConfig } from './UnifiedApexLanguageServer.node';
+import type { ServerConfig } from './ApexLanguageServer.node';
 import type { NodeConnectionConfig } from './ConnectionFactoryInterface.node';
 
 /**
- * Creates a unified language server instance for Node.js environment
+ * Creates a language server instance for Node.js environment
  */
-export async function createUnifiedLanguageServer(
+export async function createLanguageServer(
   connection?: MessageConnection,
   nodeConfig?: NodeConnectionConfig,
 ): Promise<void> {
@@ -27,14 +27,12 @@ export async function createUnifiedLanguageServer(
     connection || (await createEnvironmentConnection(nodeConfig));
 
   // Initialize server
-  const { UnifiedApexLanguageServer } = await import(
-    './UnifiedApexLanguageServer.node'
-  );
-  const config: UnifiedServerConfig = {
+  const { ApexLanguageServer } = await import('./ApexLanguageServer.node');
+  const config: ServerConfig = {
     environment: 'node',
     connection: serverConnection,
   };
-  const server = new UnifiedApexLanguageServer(config);
+  const server = new ApexLanguageServer(config);
   await server.initialize();
 }
 
@@ -56,7 +54,7 @@ async function createEnvironmentConnection(
 export async function main(): Promise<void> {
   try {
     // Default to stdio for command-line usage
-    await createUnifiedLanguageServer();
+    await createLanguageServer();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`Failed to start Apex Language Server: ${errorMessage}`);

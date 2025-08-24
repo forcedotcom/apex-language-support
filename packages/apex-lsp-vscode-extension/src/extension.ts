@@ -26,10 +26,10 @@ import {
   setRestartHandler,
 } from './commands';
 import {
-  startUnifiedLanguageServer,
-  restartUnifiedLanguageServer,
-  stopUnifiedLanguageServer,
-} from './unified-language-server';
+  startLanguageServer,
+  restartLanguageServer,
+  stopLanguageServer,
+} from './language-server';
 import { getWorkspaceSettings } from './configuration';
 
 /**
@@ -39,7 +39,7 @@ import { getWorkspaceSettings } from './configuration';
 const handleRestart = async (
   context: vscode.ExtensionContext,
 ): Promise<void> => {
-  await restartUnifiedLanguageServer(context, handleRestart);
+  await restartLanguageServer(context, handleRestart);
 };
 
 /**
@@ -47,7 +47,7 @@ const handleRestart = async (
  * @param context The extension context
  */
 const handleStart = async (context: vscode.ExtensionContext): Promise<void> => {
-  await startUnifiedLanguageServer(context, handleRestart);
+  await startLanguageServer(context, handleRestart);
 };
 
 /**
@@ -145,5 +145,5 @@ export function activate(context: vscode.ExtensionContext): void {
 export async function deactivate(): Promise<void> {
   logToOutputChannel('Deactivating Apex Language Server extension', 'info');
 
-  await stopUnifiedLanguageServer();
+  await stopLanguageServer();
 }

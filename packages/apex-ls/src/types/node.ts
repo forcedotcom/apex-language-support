@@ -19,7 +19,7 @@ export interface Logger {
 }
 
 /**
- * Environment types supported by the unified language server
+ * Environment types supported by the language server
  */
 export type EnvironmentType = 'browser' | 'webworker' | 'node';
 

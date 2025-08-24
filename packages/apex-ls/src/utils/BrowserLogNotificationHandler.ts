@@ -8,14 +8,14 @@
 
 import type { Connection } from 'vscode-languageserver/browser';
 import type {
-  LogNotificationHandler,
+  LogNotificationHandler as ILogNotificationHandler,
   LogMessageParams,
 } from '@salesforce/apex-lsp-shared';
 import { shouldLog } from '@salesforce/apex-lsp-shared';
 import { LoggingUtils } from './LoggingUtils';
 
 /**
- * Unified log notification handler that works in both browser and web worker contexts
+ * Log notification handler that works in both browser and web worker contexts
  *
  * This handler can send log notifications through multiple channels:
  * 1. LSP connection via window/logMessage (browser context)
@@ -23,51 +23,45 @@ import { LoggingUtils } from './LoggingUtils';
  * 3. postMessage to main thread (web worker context)
  * 4. Console fallback (when neither is available)
  */
-export class UnifiedLogNotificationHandler implements LogNotificationHandler {
-  private static browserInstance: UnifiedLogNotificationHandler;
-  private static workerInstance: UnifiedLogNotificationHandler;
+export class LogNotificationHandler implements ILogNotificationHandler {
+  private static browserInstance: LogNotificationHandler;
+  private static workerInstance: LogNotificationHandler;
   private connection: Connection | null = null;
 
   private constructor() {
-    // Unified constructor since postMessage functionality is not used
+    // constructor since postMessage functionality is not used
   }
 
   /**
    * Gets the singleton instance for browser context
    */
-  static getBrowserInstance(
-    connection: Connection,
-  ): UnifiedLogNotificationHandler {
-    if (!UnifiedLogNotificationHandler.browserInstance) {
-      UnifiedLogNotificationHandler.browserInstance =
-        new UnifiedLogNotificationHandler();
+  static getBrowserInstance(connection: Connection): LogNotificationHandler {
+    if (!LogNotificationHandler.browserInstance) {
+      LogNotificationHandler.browserInstance = new LogNotificationHandler();
     }
-    UnifiedLogNotificationHandler.browserInstance.connection = connection;
-    return UnifiedLogNotificationHandler.browserInstance;
+    LogNotificationHandler.browserInstance.connection = connection;
+    return LogNotificationHandler.browserInstance;
   }
 
   /**
    * Gets the singleton instance for web worker context
    */
-  static getWorkerInstance(
-    connection?: Connection,
-  ): UnifiedLogNotificationHandler {
-    if (!UnifiedLogNotificationHandler.workerInstance) {
-      UnifiedLogNotificationHandler.workerInstance =
-        new UnifiedLogNotificationHandler();
+  static getWorkerInstance(connection?: Connection): LogNotificationHandler {
+    if (!LogNotificationHandler.workerInstance) {
+      LogNotificationHandler.workerInstance = new LogNotificationHandler();
     }
     if (connection) {
-      UnifiedLogNotificationHandler.workerInstance.connection = connection;
+      LogNotificationHandler.workerInstance.connection = connection;
     }
-    return UnifiedLogNotificationHandler.workerInstance;
+    return LogNotificationHandler.workerInstance;
   }
 
   /**
    * Reset instances (for testing only)
    */
   static resetInstances(): void {
-    UnifiedLogNotificationHandler.browserInstance = undefined as any;
-    UnifiedLogNotificationHandler.workerInstance = undefined as any;
+    LogNotificationHandler.browserInstance = undefined as any;
+    LogNotificationHandler.workerInstance = undefined as any;
   }
 
   /**
@@ -102,9 +96,7 @@ export class UnifiedLogNotificationHandler implements LogNotificationHandler {
       // If LSP notification fails, silently continue - no need to log errors about logging
     }
   }
-
-
 }
 
 // Export convenience functions for backward compatibility
-export const BrowserLogNotificationHandler = UnifiedLogNotificationHandler;
+export const BrowserLogNotificationHandler = LogNotificationHandler;

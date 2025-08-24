@@ -13,11 +13,11 @@ import {
   setLogLevel,
 } from '@salesforce/apex-lsp-shared';
 
-import { UnifiedLogNotificationHandler } from '../../src/utils/BrowserLogNotificationHandler';
+import { LogNotificationHandler } from '../../src/utils/BrowserLogNotificationHandler';
 
-describe('UnifiedLogNotificationHandler (Browser Context)', () => {
+describe('LogNotificationHandler (Browser Context)', () => {
   let mockConnection: jest.Mocked<Connection>;
-  let handler: UnifiedLogNotificationHandler;
+  let handler: LogNotificationHandler;
 
   beforeEach(() => {
     setLogLevel('debug');
@@ -26,19 +26,19 @@ describe('UnifiedLogNotificationHandler (Browser Context)', () => {
       sendNotification: jest.fn(),
     } as any;
 
-    handler = UnifiedLogNotificationHandler.getBrowserInstance(mockConnection);
+    handler = LogNotificationHandler.getBrowserInstance(mockConnection);
   });
 
   afterEach(() => {
-    UnifiedLogNotificationHandler.resetInstances();
+    LogNotificationHandler.resetInstances();
   });
 
   describe('getBrowserInstance', () => {
     it('should return the same instance for the same connection', () => {
       const instance1 =
-        UnifiedLogNotificationHandler.getBrowserInstance(mockConnection);
+        LogNotificationHandler.getBrowserInstance(mockConnection);
       const instance2 =
-        UnifiedLogNotificationHandler.getBrowserInstance(mockConnection);
+        LogNotificationHandler.getBrowserInstance(mockConnection);
       expect(instance1).toBe(instance2);
     });
 
@@ -47,9 +47,9 @@ describe('UnifiedLogNotificationHandler (Browser Context)', () => {
         sendNotification: jest.fn(),
       } as any;
       const instance1 =
-        UnifiedLogNotificationHandler.getBrowserInstance(mockConnection);
+        LogNotificationHandler.getBrowserInstance(mockConnection);
       const instance2 =
-        UnifiedLogNotificationHandler.getBrowserInstance(mockConnection2);
+        LogNotificationHandler.getBrowserInstance(mockConnection2);
       expect(instance1).toBe(instance2);
     });
   });

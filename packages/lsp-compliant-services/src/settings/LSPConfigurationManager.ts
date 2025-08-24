@@ -48,7 +48,7 @@ export interface LSPConfigurationOptions {
 /**
  * Manages LSP configuration and capabilities for the Apex Language Server
  *
- * Provides a unified interface for configuring the language server
+ * Provides a interface for configuring the language server
  * capabilities and settings based on server mode, environment, and custom overrides.
  * Integrates with both capabilities management and settings management systems.
  */

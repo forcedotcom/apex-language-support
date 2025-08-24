@@ -22,10 +22,7 @@ export type { ApexStorage } from './storage/ApexStorageInterface';
 export type { ApexStorageInterface } from './storage/ApexStorageManager';
 export { ApexStorageAdapter } from './storage/ApexStorageManager';
 
-export type {
-  UnifiedClientInterface,
-  UnifiedClientConfig,
-} from './communication/interfaces';
+export type { ClientInterface, ClientConfig } from './communication/interfaces';
 
 // Export shared utilities
 export {
@@ -35,4 +32,4 @@ export {
 } from './utils/EnvironmentDetector.browser';
 
 // Export shared factories
-export { UnifiedStorageFactory } from './storage/UnifiedStorageFactory.browser';
+export { StorageFactory } from './storage/StorageFactory.browser';

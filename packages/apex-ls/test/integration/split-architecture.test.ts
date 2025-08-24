@@ -15,8 +15,8 @@ import { BrowserMessageBridge } from '../../src/communication/PlatformBridges.br
 import { WorkerMessageBridge } from '../../src/communication/PlatformBridges.worker';
 import { BrowserConnectionFactory } from '../../src/server/BrowserConnectionFactory';
 import { ConnectionFactory as WorkerConnectionFactory } from '../../src/server/ConnectionFactory.worker';
-import { UnifiedStorageFactory } from '../../src/storage/UnifiedStorageFactory';
-import { UnifiedApexLanguageServer } from '../../src/server/UnifiedApexLanguageServer';
+import { StorageFactory } from '../../src/storage/StorageFactory';
+import { ApexLanguageServer } from '../../src/server/ApexLanguageServer';
 import type { MessageConnection } from 'vscode-jsonrpc';
 
 // Mock Worker for testing
@@ -199,7 +199,7 @@ describe('Split Architecture Regression Tests', () => {
 
     beforeEach(() => {
       // Reset singleton
-      (UnifiedStorageFactory as any).instance = undefined;
+      (StorageFactory as any).instance = undefined;
     });
 
     it('should handle storage creation in different environments', async () => {
@@ -207,29 +207,29 @@ describe('Split Architecture Regression Tests', () => {
       isWorkerEnvironment.mockReturnValue(false);
       isBrowserEnvironment.mockReturnValue(true);
 
-      const browserStorage = await UnifiedStorageFactory.createStorage();
+      const browserStorage = await StorageFactory.createStorage();
       expect(browserStorage).toBeDefined();
 
       // Reset singleton for next test
-      (UnifiedStorageFactory as any).instance = undefined;
+      (StorageFactory as any).instance = undefined;
 
       // Test worker environment
       isWorkerEnvironment.mockReturnValue(true);
       isBrowserEnvironment.mockReturnValue(false);
 
-      const workerStorage = await UnifiedStorageFactory.createStorage();
+      const workerStorage = await StorageFactory.createStorage();
       expect(workerStorage).toBeDefined();
     });
   });
 
   describe('Server Initialization', () => {
-    it('should initialize unified server with different configurations', async () => {
+    it('should initialize server with different configurations', async () => {
       const serverConfig = {
         environment: 'browser' as const,
         connection: BrowserMessageBridge.forWorkerClient(mockWorker as any),
       };
 
-      const server = new UnifiedApexLanguageServer(serverConfig);
+      const server = new ApexLanguageServer(serverConfig);
       expect(server).toBeDefined();
 
       // Should not throw during initialization
@@ -252,13 +252,13 @@ describe('Split Architecture Regression Tests', () => {
       );
 
       // Reset singleton
-      (UnifiedStorageFactory as any).instance = undefined;
+      (StorageFactory as any).instance = undefined;
 
       // Mock unsupported environment
       isWorkerEnvironment.mockReturnValue(false);
       isBrowserEnvironment.mockReturnValue(false);
 
-      await expect(UnifiedStorageFactory.createStorage()).rejects.toThrow(
+      await expect(StorageFactory.createStorage()).rejects.toThrow(
         'Unsupported environment',
       );
     });
@@ -308,8 +308,8 @@ describe('Split Architecture Regression Tests', () => {
       isWorkerEnvironment.mockReturnValue(true);
       isBrowserEnvironment.mockReturnValue(false);
 
-      const storage1 = await UnifiedStorageFactory.createStorage();
-      const storage2 = await UnifiedStorageFactory.createStorage();
+      const storage1 = await StorageFactory.createStorage();
+      const storage2 = await StorageFactory.createStorage();
 
       // Should return the same instance
       expect(storage1).toBe(storage2);
@@ -332,10 +332,10 @@ describe('Split Architecture Regression Tests', () => {
         import('../../src/server/ConnectionFactory.worker'),
       ).resolves.toBeDefined();
       await expect(
-        import('../../src/storage/UnifiedStorageFactory.browser'),
+        import('../../src/storage/StorageFactory.browser'),
       ).resolves.toBeDefined();
       await expect(
-        import('../../src/storage/UnifiedStorageFactory.worker'),
+        import('../../src/storage/StorageFactory.worker'),
       ).resolves.toBeDefined();
     });
 

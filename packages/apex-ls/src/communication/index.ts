@@ -14,9 +14,9 @@ export type {
   IMessageBridgeFactory,
   CreatePlatformMessageBridge,
   NodeConnectionConfig,
-  UnifiedClientConfig,
+  ClientConfig,
   WebWorkerClientConfig,
-  UnifiedClientInterface,
+  ClientInterface,
 } from './interfaces';
 
 // Base message bridge and utilities
@@ -54,5 +54,5 @@ export {
   createPlatformMessageBridge,
 } from './MessageBridgeFactory';
 
-// High-level unified client
-export { UnifiedClient, UnifiedClientFactory } from './UnifiedClient';
+// High-level client
+export { Client, ClientFactory } from './Client';

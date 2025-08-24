@@ -75,9 +75,9 @@ export type CreatePlatformMessageBridge = (
 ) => Promise<MessageConnection>;
 
 /**
- * Unified client interface that works across all environments
+ * Client interface that works across all environments
  */
-export interface UnifiedClientInterface {
+export interface ClientInterface {
   /**
    * Initializes the language server
    */
@@ -125,9 +125,9 @@ export interface NodeConnectionConfig {
 }
 
 /**
- * Unified client configuration for all environments
+ * Client configuration for all environments
  */
-export interface UnifiedClientConfig {
+export interface ClientConfig {
   environment: EnvironmentType;
   logger?: Logger;
   worker?: any; // Typed as any for cross-platform compatibility

@@ -9,7 +9,7 @@
 import type {
   LoggerInterface,
   LogMessageType,
-  LoggerFactory,
+  LoggerFactory as ILoggerFactory,
 } from '@salesforce/apex-lsp-shared';
 import {
   getLogNotificationHandler,
@@ -18,16 +18,16 @@ import {
 import { LoggingUtils } from './LoggingUtils';
 
 /**
- * Unified logger implementation that works in both browser and web worker contexts
+ * logger implementation that works in both browser and web worker contexts
  *
  * This logger can send log messages through multiple channels:
  * 1. LSP connection via LogNotificationHandler (when available)
  * 2. postMessage to main thread (when in web worker context)
  * 3. Console fallback (when neither is available)
  */
-class UnifiedLogger implements LoggerInterface {
+class Logger implements LoggerInterface {
   constructor() {
-    // Unified constructor since postMessage functionality is not used
+    // constructor since postMessage functionality is not used
   }
 
   /**
@@ -104,41 +104,39 @@ class UnifiedLogger implements LoggerInterface {
       // Silently fail if LSP logging is not available
     }
   }
-
-
 }
 
 /**
- * Unified factory for creating loggers that work in both browser and web worker contexts
+ * Factory for creating loggers that work in both browser and web worker contexts
  */
-export class UnifiedLoggerFactory implements LoggerFactory {
-  private static instance: UnifiedLoggerFactory;
+export class LoggerFactory implements ILoggerFactory {
+  private static instance: LoggerFactory;
 
   private constructor() {
-    // Unified constructor since postMessage functionality is not used
+    // constructor since postMessage functionality is not used
   }
 
   /**
    * Gets the singleton instance
    */
-  static getInstance(): UnifiedLoggerFactory {
-    if (!UnifiedLoggerFactory.instance) {
-      UnifiedLoggerFactory.instance = new UnifiedLoggerFactory();
+  static getInstance(): LoggerFactory {
+    if (!LoggerFactory.instance) {
+      LoggerFactory.instance = new LoggerFactory();
     }
-    return UnifiedLoggerFactory.instance;
+    return LoggerFactory.instance;
   }
 
   /**
    * Gets a logger instance (implements LoggerFactory interface)
    */
   getLogger(): LoggerInterface {
-    return new UnifiedLogger();
+    return new Logger();
   }
 }
 
 // Export convenience functions for backward compatibility
-export const BrowserLoggerFactory = UnifiedLoggerFactory;
+export const BrowserLoggerFactory = LoggerFactory;
 
 // Legacy exports for backward compatibility
-export const getBrowserLoggerFactory = () => UnifiedLoggerFactory.getInstance();
-export const getWorkerLoggerFactory = () => UnifiedLoggerFactory.getInstance();
+export const getBrowserLoggerFactory = () => LoggerFactory.getInstance();
+export const getWorkerLoggerFactory = () => LoggerFactory.getInstance();

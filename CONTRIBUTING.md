@@ -42,7 +42,7 @@ packages/
 ├── apex-lsp-shared/             # Centralized logging utilities
 ├── lsp-compliant-services/       # Standard LSP protocol implementations
 ├── custom-services/              # Custom language server services
-├── apex-ls/                      # Unified language server implementation
+├── apex-ls/                      # Language server implementation
 ├── apex-lsp-vscode-extension/    # VS Code extension (desktop & web)
 └── apex-lsp-testbed/             # Testing utilities and benchmarks
 ```
@@ -58,7 +58,7 @@ packages/
    - `custom-services`: Salesforce-specific language features
 
 3. **Server Layer**:
-   - `apex-ls`: Unified language server implementation for Node.js, browser, and web worker environments
+   - `apex-ls`: Language server implementation for Node.js, browser, and web worker environments
 
 4. **Client Layer**:
    - `apex-lsp-vscode-extension`: VS Code extension for both desktop and web environments

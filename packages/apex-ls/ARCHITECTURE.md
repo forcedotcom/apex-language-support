@@ -46,7 +46,7 @@ Creates appropriate connections based on the runtime environment.
 - ✅ Proper error handling for unsupported configurations
 
 ```typescript
-// Unified factory usage
+// Factory usage
 const connection = await ConnectionFactory.createConnection({ worker });
 
 // Environment-specific usage
@@ -61,17 +61,17 @@ Provides persistent storage with environment-appropriate implementations.
 - **`StorageInterface`** - Abstract storage interface
 - **`BrowserStorageFactory`** - IndexedDB-based storage for browsers
 - **`WorkerStorageFactory`** - Memory-based storage for workers
-- **`UnifiedStorageFactory`** - Environment-aware factory
+- **`StorageFactory`** - Environment-aware factory
 
 #### Key Features:
 - ✅ **Browser**: IndexedDB for persistent document storage
 - ✅ **Worker**: In-memory storage for temporary processing
-- ✅ Unified interface with async operations
+- ✅ Interface with async operations
 - ✅ Automatic environment detection and storage selection
 
 ```typescript
-// Unified storage creation
-const storage = await UnifiedStorageFactory.createStorage({
+// Storage creation
+const storage = await StorageFactory.createStorage({
   storagePrefix: 'apex-ls',
   logger
 });
@@ -86,7 +86,7 @@ await storage.clearFile(uri);
 Handles language server initialization and management.
 
 #### Components:
-- **`UnifiedApexLanguageServer`** - Core server implementation
+- **`ApexLanguageServer`** - Core server implementation
 - **`server/index.ts`** - Browser server entry point
 - **`server/index.worker.ts`** - Worker server entry point
 - **`ConnectionFactory`** - Server connection management
@@ -94,15 +94,15 @@ Handles language server initialization and management.
 #### Key Features:
 - ✅ Environment-specific server initialization
 - ✅ Automatic storage configuration based on environment
-- ✅ Unified configuration interface
+- ✅ Configuration interface
 - ✅ Proper lifecycle management
 
 ```typescript
 // Browser context
-await createUnifiedLanguageServer(connection, worker);
+await createLanguageServer(connection, worker);
 
 // Worker context
-await createUnifiedLanguageServer(connection);
+await createLanguageServer(connection);
 ```
 
 ## Build System
@@ -145,8 +145,8 @@ export { WorkerStorageFactory } from './storage/WorkerStorageFactory';
 ```typescript
 // Environment detection utilities
 export { isWorkerEnvironment, isBrowserEnvironment } from './utils/EnvironmentDetector';
-// Unified factories and shared types
-export { UnifiedStorageFactory } from './storage/UnifiedStorageFactory';
+// Factories and shared types
+export { StorageFactory } from './storage/StorageFactory';
 // + factory interfaces and common types
 ```
 

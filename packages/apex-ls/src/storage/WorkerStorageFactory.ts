@@ -22,8 +22,10 @@ export class WorkerStorageFactory {
 }
 
 /**
- * Creates worker storage (function export for unified factory compatibility)
+ * Creates worker storage (function export for factory compatibility)
  */
-export async function createWorkerStorage(config: StorageConfig = {}): Promise<IStorage> {
+export async function createWorkerStorage(
+  config: StorageConfig = {},
+): Promise<IStorage> {
   return WorkerStorageFactory.createStorage(config);
 }

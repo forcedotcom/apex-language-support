@@ -12,7 +12,7 @@ import type {
 } from 'vscode-languageserver-protocol';
 import { WorkerLauncher } from '../launcher/WorkerLauncher';
 import type { WorkerLaunchResult } from '../launcher/WorkerLauncher';
-import type { UnifiedClientInterface } from '../communication/UnifiedClient';
+import type { ClientInterface } from '../communication/Client';
 import type { Logger } from '../types';
 
 /**
@@ -36,7 +36,7 @@ export interface UniversalClientConfig {
  */
 export class UniversalExtensionClient {
   private config: UniversalClientConfig;
-  private client: UnifiedClientInterface | null = null;
+  private client: ClientInterface | null = null;
   private workerResult: WorkerLaunchResult | null = null;
   private isDisposed = false;
 
@@ -123,8 +123,8 @@ export class UniversalExtensionClient {
     // For now, this is a placeholder
     // In the future, this could:
     // 1. Use the traditional LanguageClient from vscode-languageclient/node
-    // 2. Launch the unified server in a child process
-    // 3. Use the unified server directly if running in the same process
+    // 2. Launch the server in a child process
+    // 3. Use the server directly if running in the same process
 
     throw new Error(
       'Node.js client mode not yet implemented - use web worker mode',
@@ -210,7 +210,7 @@ export class UniversalExtensionClient {
   /**
    * Get the underlying client (for advanced usage)
    */
-  getUnderlyingClient(): UnifiedClientInterface | null {
+  getUnderlyingClient(): ClientInterface | null {
     return this.client;
   }
 

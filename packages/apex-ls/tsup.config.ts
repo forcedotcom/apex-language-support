@@ -124,10 +124,8 @@ export default defineConfig([
       options.alias = {
         ...options.alias,
         'utils/EnvironmentDetector.node': 'utils/EnvironmentDetector.browser',
-        'storage/UnifiedStorageFactory.node':
-          'storage/UnifiedStorageFactory.browser',
-        'communication/UnifiedClient.node':
-          'communication/UnifiedClient.browser',
+        'storage/StorageFactory.node': 'storage/StorageFactory.browser',
+        'communication/Client.node': 'communication/Client.browser',
       };
       // Apply polyfill configuration
       applyPolyfillConfig(options);

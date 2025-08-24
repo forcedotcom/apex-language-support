@@ -7,21 +7,34 @@
  */
 
 import type { Logger, MessageConnection } from 'vscode-jsonrpc';
-import type { InitializeParams, InitializeResult } from '../types';
-import type { WebWorkerClientConfig } from './interfaces';
-import { createPlatformMessageBridge } from './MessageBridgeFactory.node';
+import type {
+  InitializeParams,
+  InitializeResult,
+  EnvironmentType,
+} from '../types';
 
 /**
- * Configuration for creating a unified client
+ * Configuration for creating a client
  */
-export interface UnifiedClientConfig {
+export interface ClientConfig {
+  environment: EnvironmentType;
   logger?: Logger;
+  worker?: any; // Typed as any for cross-platform compatibility
 }
 
 /**
- * Unified client interface that works across all environments
+ * Configuration for creating a web worker client
  */
-export interface UnifiedClientInterface {
+export interface WebWorkerClientConfig {
+  context: any;
+  logger?: Logger;
+  workerFileName: string;
+}
+
+/**
+ * Client interface that works across all environments
+ */
+export interface ClientInterface {
   /**
    * Initializes the language server
    */
@@ -59,16 +72,16 @@ export interface UnifiedClientInterface {
 }
 
 /**
- * Unified client implementation using MessageBridge
+ * Client implementation using MessageBridge
  */
-export class UnifiedClient implements UnifiedClientInterface {
+export class Client implements ClientInterface {
   private connection!: MessageConnection;
   private disposed = false;
   private connectionPromise: Promise<void>;
   private connectionResolve!: () => void;
   private connectionReject!: (error: Error) => void;
 
-  constructor(config: UnifiedClientConfig) {
+  constructor(config: ClientConfig) {
     this.connectionPromise = new Promise((resolve, reject) => {
       this.connectionResolve = resolve;
       this.connectionReject = reject;
@@ -82,21 +95,11 @@ export class UnifiedClient implements UnifiedClientInterface {
   }
 
   private async initializeConnection(
-    config: UnifiedClientConfig,
+    config: ClientConfig,
   ): Promise<void> {
-    try {
-      this.connection = await createPlatformMessageBridge({
-        logger: config.logger,
-        environment: 'node',
-      });
-
-      this.connection.listen();
-      this.connectionResolve();
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to initialize connection: ${errorMessage}`);
-    }
+    throw new Error(
+      'Generic Client should not be used directly. Use platform-specific implementations instead.',
+    );
   }
 
   async initialize(params: InitializeParams): Promise<InitializeResult> {
@@ -168,35 +171,65 @@ export class UnifiedClient implements UnifiedClientInterface {
 }
 
 /**
- * Factory for creating unified clients
+ * Factory for creating clients
  */
-export class UnifiedClientFactory {
+export class ClientFactory {
   /**
-   * Creates a client for Node.js environment
+   * Creates a client for web browser environment using a worker
    */
-  static createNodeClient(logger?: Logger): UnifiedClientInterface {
-    return new UnifiedClient({
+  static createBrowserClient(
+    worker: any,
+    logger?: Logger,
+  ): ClientInterface {
+    return new Client({
+      environment: 'browser',
+      worker,
       logger,
     });
   }
 
   /**
-   * Creates a client for web worker environment from Node.js context
+   * Creates a client for web worker environment
    */
   static async createWebWorkerClient(
     config: WebWorkerClientConfig,
-  ): Promise<UnifiedClientInterface> {
-    throw new Error(
-      'createWebWorkerClient is not available in Node.js environment. Use browser-specific entry point.',
-    );
+  ): Promise<ClientInterface> {
+    // Web worker client creation is not available in worker build
+    throw new Error('Web worker client creation not available in worker build');
   }
 
   /**
    * Creates a client based on auto-detected environment
    */
   static async createAutoClient(
-    config: UnifiedClientConfig = {},
-  ): Promise<UnifiedClientInterface> {
-    return new UnifiedClient(config);
+    config: Omit<ClientConfig, 'environment'>,
+  ): Promise<ClientInterface> {
+    const environment = await this.detectEnvironment();
+    return new Client({
+      ...config,
+      environment,
+    });
+  }
+
+  /**
+   * Detects the current environment
+   */
+  private static async detectEnvironment(): Promise<EnvironmentType> {
+    const { isWorkerEnvironment, isBrowserEnvironment, isNodeEnvironment } =
+      await import('../utils/EnvironmentDetector');
+
+    if (isWorkerEnvironment()) {
+      return 'webworker';
+    }
+
+    if (isBrowserEnvironment()) {
+      return 'browser';
+    }
+
+    if (isNodeEnvironment()) {
+      return 'node';
+    }
+
+    throw new Error('Unable to detect environment');
   }
 }

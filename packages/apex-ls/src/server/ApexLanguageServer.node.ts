@@ -10,25 +10,25 @@ import type { MessageConnection } from 'vscode-jsonrpc';
 import type { EnvironmentType } from '../types';
 import { isNodeEnvironment } from '../utils/EnvironmentDetector.node';
 import type { StorageConfig } from '../storage/StorageInterface';
-import { UnifiedStorageFactory } from '../storage/UnifiedStorageFactory.node';
+import { StorageFactory } from '../storage/StorageFactory.node';
 
 /**
- * Configuration for creating a unified server
+ * Configuration for creating a server
  */
-export interface UnifiedServerConfig {
+export interface ServerConfig {
   environment: EnvironmentType;
   connection: MessageConnection;
   storageConfig?: StorageConfig;
 }
 
 /**
- * Unified language server implementation
+ * language server implementation
  */
-export class UnifiedApexLanguageServer {
+export class ApexLanguageServer {
   private readonly connection: MessageConnection;
   private readonly storageConfig?: StorageConfig;
 
-  constructor(config: UnifiedServerConfig) {
+  constructor(config: ServerConfig) {
     if (!isNodeEnvironment()) {
       throw new Error('Node.js server can only run in Node.js environment');
     }
@@ -42,9 +42,7 @@ export class UnifiedApexLanguageServer {
    */
   async initialize(): Promise<void> {
     // Initialize storage
-    const storage = await UnifiedStorageFactory.createStorage(
-      this.storageConfig,
-    );
+    const storage = await StorageFactory.createStorage(this.storageConfig);
 
     // Initialize server
     this.connection.listen();

@@ -16,34 +16,34 @@ import {
 /**
  * Factory for creating appropriate storage implementations based on environment
  */
-export class UnifiedStorageFactory {
+export class StorageFactory {
   private static instance: IStorage;
 
   /**
    * Creates a storage implementation appropriate for the current environment
    */
   static async createStorage(config?: StorageConfig): Promise<IStorage> {
-    if (UnifiedStorageFactory.instance) {
-      return UnifiedStorageFactory.instance;
+    if (StorageFactory.instance) {
+      return StorageFactory.instance;
     }
 
     if (isWorkerEnvironment()) {
       const { createWorkerStorage } = await import('./WorkerStorageFactory');
-      UnifiedStorageFactory.instance = await createWorkerStorage(config);
-      return UnifiedStorageFactory.instance;
+      StorageFactory.instance = await createWorkerStorage(config);
+      return StorageFactory.instance;
     }
 
     if (isBrowserEnvironment()) {
       const { createBrowserStorage } = await import('./BrowserStorageFactory');
-      UnifiedStorageFactory.instance = await createBrowserStorage(config);
-      return UnifiedStorageFactory.instance;
+      StorageFactory.instance = await createBrowserStorage(config);
+      return StorageFactory.instance;
     }
 
     if (isNodeEnvironment()) {
       // For Node.js, use dedicated node storage
       const { createNodeStorage } = await import('./NodeStorageFactory');
-      UnifiedStorageFactory.instance = await createNodeStorage(config);
-      return UnifiedStorageFactory.instance;
+      StorageFactory.instance = await createNodeStorage(config);
+      return StorageFactory.instance;
     }
 
     throw new Error('Unsupported environment');

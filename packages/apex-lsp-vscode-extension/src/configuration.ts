@@ -123,7 +123,7 @@ export const getTraceServerConfig = (): string => {
   );
   const traceValue = config.get<string>('trace.server', 'off');
 
-  // Return string values directly for unified client compatibility
+  // Return string values directly for client compatibility
   switch (traceValue.toLowerCase()) {
     case 'verbose':
       return 'verbose';

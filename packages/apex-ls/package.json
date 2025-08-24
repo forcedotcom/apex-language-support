@@ -1,7 +1,7 @@
 {
   "name": "@salesforce/apex-ls",
   "version": "1.0.0",
-  "description": "Unified Apex Language Server for browser, Node.js, and web worker environments - consolidates apex-ls-node and apex-ls-browser functionality",
+  "description": "Apex Language Server for browser, Node.js, and web worker environments - consolidates apex-ls-node and apex-ls-browser functionality",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",

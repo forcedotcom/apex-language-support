@@ -8,28 +8,28 @@
 
 import type { MessageConnection } from 'vscode-jsonrpc';
 import type { EnvironmentType } from '../types';
-import { UnifiedStorageFactory } from '../storage/UnifiedStorageFactory.worker';
+import { StorageFactory } from '../storage/StorageFactory.worker';
 import { isWorkerEnvironment } from '../utils/EnvironmentDetector.worker';
 import type { StorageConfig } from '../storage/StorageInterface';
 
 /**
- * Configuration for the unified server
+ * Configuration for the server
  */
-export interface UnifiedServerConfig {
+export interface ServerConfig {
   environment: EnvironmentType;
   connection: MessageConnection;
   storageConfig?: StorageConfig;
 }
 
 /**
- * Unified Apex language server implementation
+ * Apex language server implementation
  */
-export class UnifiedApexLanguageServer {
+export class ApexLanguageServer {
   private environment: EnvironmentType;
   private connection: MessageConnection;
   private storageConfig?: StorageConfig;
 
-  constructor(config: UnifiedServerConfig) {
+  constructor(config: ServerConfig) {
     this.environment = config.environment;
     this.connection = config.connection;
     this.storageConfig = config.storageConfig;
@@ -40,7 +40,7 @@ export class UnifiedApexLanguageServer {
    */
   async initialize(): Promise<void> {
     // Initialize storage with environment-specific configuration
-    const storage = await UnifiedStorageFactory.createStorage({
+    const storage = await StorageFactory.createStorage({
       ...this.storageConfig,
       useMemoryStorage: isWorkerEnvironment(),
     });

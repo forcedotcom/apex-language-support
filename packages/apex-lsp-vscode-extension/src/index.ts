@@ -84,5 +84,5 @@ export {
   startLanguageServer,
   restartLanguageServer,
   stopLanguageServer,
-  getLanguageClient,
+  getClient,
 } from './language-server';

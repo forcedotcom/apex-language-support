@@ -52,18 +52,18 @@ graph TD
 
 ### Runtime
 
-- **apex-ls**: Unified Apex Language Server that works across browser, Node.js, and web worker environments
+- **apex-ls**: Apex Language Server that works across browser, Node.js, and web worker environments
 - **apex-lsp-vscode-extension**: The VS Code extension package that integrates with VS Code's extension API
 
 ### Testing & Development
 
 - **apex-lsp-testbed**: Testing utilities and integration tests for the language server
 
-## Unified Language Server Implementation
+## Language Server Implementation
 
-The repository provides a unified implementation of the language server that works across multiple environments:
+The repository provides an implementation of the language server that works across multiple environments:
 
-**apex-ls**: Unified Apex Language Server
+**apex-ls**: Apex Language Server
 
 - Runs in Node.js, browser, and web worker environments
 - Uses appropriate storage mechanisms (file system for Node.js, IndexedDB for browser)
