@@ -22,7 +22,8 @@ export type { ApexStorage } from './storage/ApexStorageInterface';
 export type { ApexStorageInterface } from './storage/ApexStorageManager';
 export { ApexStorageAdapter } from './storage/ApexStorageManager';
 
-export type { ClientInterface, ClientConfig } from './communication/interfaces';
+export type { ClientInterface, ClientConfig } from './communication/types';
+export { Client, ClientFactory } from './communication/Client';
 
 // Export shared utilities
 export {

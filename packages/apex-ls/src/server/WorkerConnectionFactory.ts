@@ -8,7 +8,7 @@
 
 import type { MessageConnection } from 'vscode-jsonrpc';
 import type { ConnectionConfig } from './ConnectionFactoryInterface';
-import { createPlatformMessageBridge } from '../communication/MessageBridgeFactory.worker';
+import { WorkerMessageBridge } from '../communication/bridges';
 
 /**
  * Creates a worker-specific connection
@@ -16,8 +16,5 @@ import { createPlatformMessageBridge } from '../communication/MessageBridgeFacto
 export async function createWorkerConnection(
   config?: ConnectionConfig,
 ): Promise<MessageConnection> {
-  return createPlatformMessageBridge({
-    environment: 'webworker',
-    logger: config?.logger,
-  });
+  return WorkerMessageBridge.forWorkerServer(config?.logger);
 }

@@ -17,7 +17,7 @@ import {
 } from 'vscode-jsonrpc/node';
 import * as net from 'net';
 import { BaseMessageBridge } from './MessageBridge';
-import type { NodeMessageBridgeConfig } from './interfaces.node';
+import type { NodeMessageBridgeConfig } from './types';
 import { isNodeEnvironment } from '../utils/EnvironmentDetector.node';
 
 /**

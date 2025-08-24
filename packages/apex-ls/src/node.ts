@@ -16,7 +16,7 @@ export { NodeStorageFactory } from './storage/NodeStorageFactory';
 export type {
   IMessageBridgeFactory,
   MessageBridgeConfig,
-} from './communication/interfaces';
+} from './communication/types';
 export type {
   IConnectionFactory,
   ConnectionConfig,

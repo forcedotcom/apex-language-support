@@ -6,20 +6,49 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Core interfaces and types
+// =============================================================================
+// TYPES AND INTERFACES
+// =============================================================================
+
 export type {
+  // Core interfaces
   MessageTransport,
   Disposable,
-  MessageBridgeConfig,
-  IMessageBridgeFactory,
-  CreatePlatformMessageBridge,
-  NodeConnectionConfig,
-  ClientConfig,
-  WebWorkerClientConfig,
   ClientInterface,
-} from './interfaces';
+  IMessageBridgeFactory,
+  
+  // Configuration types
+  MessageBridgeConfig,
+  BrowserConfig,
+  NodeConfig,
+  WorkerConfig,
+  ClientConfig,
+  
+  // LSP types re-exports
+  InitializeParams,
+  InitializeResult,
+  EnvironmentType,
+} from './types';
 
-// Base message bridge and utilities
+// =============================================================================
+// TRANSPORT IMPLEMENTATIONS  
+// =============================================================================
+
+export { 
+  WorkerMessageTransport,
+  SelfMessageTransport 
+} from './transports';
+
+// =============================================================================
+// BRIDGE IMPLEMENTATIONS
+// =============================================================================
+
+export { 
+  BrowserMessageBridge,
+  WorkerMessageBridge 
+} from './bridges';
+
+// Legacy export for existing code (from MessageBridge.ts)
 export {
   BaseMessageBridge,
   getErrorMessage,
@@ -29,30 +58,27 @@ export {
   createTransportMessageWriter,
 } from './MessageBridge';
 
-// Platform-specific bridges and transports
-export {
-  WorkerMessageTransport,
-  SelfMessageTransport,
-  BrowserMessageBridge,
-  WorkerMessageBridge,
-  createBrowserMessageBridge,
-  createWorkerMessageBridge,
-} from './PlatformBridges';
+// =============================================================================
+// CLIENT IMPLEMENTATION
+// =============================================================================
 
-// Node.js-specific bridges (conditionally imported)
+export { 
+  Client,
+  ClientFactory 
+} from './Client';
+
+// =============================================================================
+// FACTORY
+// =============================================================================
+
+export { MessageBridgeFactory } from './factory.browser';
+
+// =============================================================================
+// LEGACY EXPORTS (for backward compatibility)
+// =============================================================================
+
+// Re-export Node-specific bridge for environments that need it
 export type { NodeMessageBridge } from './NodePlatformBridge';
 
-// Factory classes and functions
-export {
-  BrowserMessageBridgeFactory,
-  NodeMessageBridgeFactory,
-  WorkerMessageBridgeFactory,
-  createBrowserMessageBridgeFactory,
-  createNodeMessageBridgeFactory,
-  createWorkerMessageBridgeFactory,
-  createWorkerMessageBridgeWithScope,
-  createPlatformMessageBridge,
-} from './MessageBridgeFactory';
-
-// High-level client
-export { Client, ClientFactory } from './Client';
+// Legacy factory functions (deprecated - use MessageBridgeFactory instead)
+// Removed - files no longer exist after consolidation

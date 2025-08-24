@@ -8,7 +8,7 @@
 
 import type { MessageConnection } from 'vscode-jsonrpc';
 import type { NodeConnectionConfig } from './ConnectionFactoryInterface.node';
-import { createPlatformMessageBridge } from '../communication/MessageBridgeFactory.node';
+import { NodeMessageBridge } from '../communication/NodePlatformBridge';
 
 /**
  * Factory for creating Node.js-specific connections
@@ -20,9 +20,9 @@ export class NodeConnectionFactory {
   static async createConnection(
     config?: NodeConnectionConfig,
   ): Promise<MessageConnection> {
-    return createPlatformMessageBridge({
+    return NodeMessageBridge.createConnection({
+      mode: 'stdio',
       logger: config?.logger,
-      environment: 'node',
     });
   }
 }

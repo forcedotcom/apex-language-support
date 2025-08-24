@@ -19,5 +19,5 @@ export type {
 } from './index.browser';
 
 // Export client types that are still needed
-export type { ClientInterface } from './communication/interfaces';
+export type { ClientInterface } from './communication/types';
 export { ApexStorageAdapter } from './index.browser';

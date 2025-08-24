@@ -21,7 +21,7 @@ export type {
 export type {
   IMessageBridgeFactory,
   MessageBridgeConfig,
-} from './communication/interfaces';
+} from './communication/types';
 
 export type { ApexStorage } from './storage/ApexStorageInterface';
 export type { ApexStorageInterface } from './storage/ApexStorageManager';

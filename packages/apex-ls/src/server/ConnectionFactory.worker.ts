@@ -11,7 +11,7 @@ import type { ConnectionConfig } from './ConnectionFactoryInterface';
 import {
   isWorkerEnvironment,
 } from '../utils/EnvironmentDetector.worker';
-import { createPlatformMessageBridge } from '../communication/MessageBridgeFactory.worker';
+import { WorkerMessageBridge } from '../communication/bridges';
 
 /**
  * Factory for creating appropriate connections based on environment
@@ -24,10 +24,7 @@ export class ConnectionFactory {
     config?: ConnectionConfig,
   ): Promise<MessageConnection> {
     if (isWorkerEnvironment()) {
-      return createPlatformMessageBridge({
-        environment: 'webworker',
-        logger: config?.logger,
-      });
+      return WorkerMessageBridge.forWorkerServer(config?.logger);
     }
 
     throw new Error('Unsupported environment');
