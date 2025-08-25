@@ -31,6 +31,7 @@ export default defineConfig((options: Options) => ({
     'vscode-languageserver-protocol',
     'vscode-jsonrpc',
     'util',
+    'web-worker',
   ],
   // Ensure browser-compatible versions of packages are used
   esbuildOptions(options) {

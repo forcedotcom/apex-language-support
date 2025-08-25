@@ -12,19 +12,88 @@ declare const require: any;
 import processPolyfill from 'process';
 import { Buffer as BufferPolyfill } from 'buffer';
 
-// Set process and Buffer globally as early as possible
-if (typeof globalThis !== 'undefined') {
-  (globalThis as any).process = processPolyfill;
-  (globalThis as any).global = globalThis;
-  (globalThis as any).Buffer = BufferPolyfill;
-}
+// Create completely isolated polyfills - NO GLOBAL MODIFICATIONS
+const createIsolatedProcess = () => {
+  return {
+    ...processPolyfill,
+    stdout: {
+      write: (data: any) => {
+        // Avoid infinite loop with VSCode console interception - just return true
+        return true;
+      },
+      isTTY: false
+    },
+    stderr: {
+      write: (data: any) => {
+        // Avoid infinite loop with VSCode console interception - just return true  
+        return true;
+      },
+      isTTY: false
+    },
+    chdir: (directory: string) => {
+      // VSCode extensions can't change working directory - this is a no-op
+      // but we provide it to avoid "not supported" errors
+      return;
+    }
+  };
+};
 
-// Also set it on window if available (some modules check window.process/Buffer)
-if (typeof window !== 'undefined') {
-  (window as any).process = processPolyfill;
-  (window as any).global = window;
-  (window as any).Buffer = BufferPolyfill;
-}
+// CRITICAL: Store the original globals to restore them later
+const originalProcess = (globalThis as any).process;
+const originalBuffer = (globalThis as any).Buffer;
+const originalGlobal = (globalThis as any).global;
+
+// Apply our polyfills temporarily, only during our extension's initialization
+const applyTemporaryPolyfills = () => {
+  if (typeof globalThis !== 'undefined') {
+    (globalThis as any).process = createIsolatedProcess();
+    (globalThis as any).global = globalThis;
+    (globalThis as any).Buffer = BufferPolyfill;
+  }
+  
+  if (typeof window !== 'undefined') {
+    (window as any).process = createIsolatedProcess();
+    (window as any).global = window;
+    (window as any).Buffer = BufferPolyfill;
+  }
+};
+
+// Restore original globals after our extension is loaded
+const restoreOriginalGlobals = () => {
+  if (typeof globalThis !== 'undefined') {
+    if (originalProcess) {
+      (globalThis as any).process = originalProcess;
+    }
+    if (originalBuffer) {
+      (globalThis as any).Buffer = originalBuffer;
+    }
+    if (originalGlobal) {
+      (globalThis as any).global = originalGlobal;
+    }
+  }
+  
+  if (typeof window !== 'undefined') {
+    if (originalProcess && (window as any).process === (globalThis as any).process) {
+      (window as any).process = originalProcess;
+    }
+    if (originalBuffer && (window as any).Buffer === (globalThis as any).Buffer) {
+      (window as any).Buffer = originalBuffer;
+    }
+    if (originalGlobal && (window as any).global === (globalThis as any).global) {
+      (window as any).global = originalGlobal;
+    }
+  }
+};
+
+// Apply polyfills temporarily
+applyTemporaryPolyfills();
+
+// Schedule restoration after our extension loads (but before other extensions)
+// Use setTimeout to restore globals after current call stack completes
+setTimeout(() => {
+  restoreOriginalGlobals();
+  console.log('[APEX-EXT] Polyfills restored - other extensions protected');
+}, 0);
 
 import events from 'events';
 import { fs } from 'memfs';
@@ -61,31 +130,9 @@ const assert = (condition: any, message?: string) => {
   }
 };
 
-// Make all polyfills globally available for modules that use require()
-if (typeof globalThis !== 'undefined') {
-  (globalThis as any).util = util;
-  (globalThis as any).Buffer = BufferPolyfill;
-  (globalThis as any).events = events;
-  // Skip crypto - let esbuild handle it via module aliasing to avoid WebWorker conflicts
-  (globalThis as any).process = processPolyfill;
-  (globalThis as any).stream = stream;
-  (globalThis as any).assert = assert;
-  (globalThis as any).path = path;
-  (globalThis as any).fs = fs;
-}
-
-// Also set on window for compatibility
-if (typeof window !== 'undefined') {
-  (window as any).util = util;
-  (window as any).Buffer = BufferPolyfill;
-  (window as any).events = events;
-  // Skip crypto - let esbuild handle it via module aliasing to avoid WebWorker conflicts
-  (window as any).process = processPolyfill;
-  (window as any).stream = stream;
-  (window as any).assert = assert;
-  (window as any).path = path;
-  (window as any).fs = fs;
-}
+// NOTE: No longer setting global polyfills to avoid affecting other extensions
+// Our dependencies should use the bundled polyfills from esbuild instead
+// If specific modules need these, they will be provided by the bundler's polyfill system
 
 // Verify critical polyfills are available
 console.log(

@@ -98,6 +98,7 @@ describe('Configuration Module', () => {
           if (key === 'performance.documentChangeDebounceMs') return 300;
           if (key === 'environment.enablePerformanceLogging') return false;
           if (key === 'resources.loadMode') return 'lazy';
+          if (key === 'custom') return {};
           return defaultValue;
         },
       );
@@ -127,6 +128,7 @@ describe('Configuration Module', () => {
             loadMode: 'lazy',
           },
           logLevel: 'info',
+          custom: {},
         },
       });
     });

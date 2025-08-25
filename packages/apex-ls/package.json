@@ -7,19 +7,19 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./browser": {
+      "types": "./dist/browser.d.ts",
       "import": "./dist/browser.mjs",
-      "require": "./dist/browser.js",
-      "types": "./dist/browser.d.ts"
+      "require": "./dist/browser.js"
     },
     "./worker": {
+      "types": "./dist/worker.d.ts",
       "import": "./dist/worker.global.js",
-      "require": "./dist/worker.global.js",
-      "types": "./dist/worker.d.ts"
+      "require": "./dist/worker.global.js"
     }
   },
   "sideEffects": false,

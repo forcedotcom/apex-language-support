@@ -8,6 +8,7 @@
 import { defineConfig } from 'tsup';
 import { BuildOptions } from 'esbuild';
 import { applyPolyfillConfig } from './src/polyfills/config';
+import { copyFileSync, existsSync } from 'fs';
 
 // Shared external dependencies to avoid duplication
 const SHARED_EXTERNAL = [
@@ -60,6 +61,23 @@ export default defineConfig([
       options.minifySyntax = false;
       options.minifyWhitespace = false;
       return options;
+    },
+    onSuccess: async () => {
+      // Copy TypeScript definition files from out/ to dist/
+      const filesToCopy = [
+        { from: 'out/index.d.ts', to: 'dist/index.d.ts' },
+        { from: 'out/browser.d.ts', to: 'dist/browser.d.ts' },
+        { from: 'out/worker.d.ts', to: 'dist/worker.d.ts' },
+      ];
+      
+      for (const { from, to } of filesToCopy) {
+        if (existsSync(from)) {
+          copyFileSync(from, to);
+          console.log(`✅ Copied ${from} -> ${to}`);
+        } else {
+          console.warn(`⚠️ Source file not found: ${from}`);
+        }
+      }
     },
   },
   // Browser build

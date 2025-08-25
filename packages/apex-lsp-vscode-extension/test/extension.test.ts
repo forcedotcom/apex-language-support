@@ -13,7 +13,7 @@ jest.mock('vscode-languageclient/node', () => ({
 }));
 
 // Mock language server module
-jest.mock('../src/-language-server', () => ({
+jest.mock('../src/language-server', () => ({
   startLanguageServer: jest.fn().mockResolvedValue(undefined),
   restartLanguageServer: jest.fn().mockResolvedValue(undefined),
   stopLanguageServer: jest.fn().mockResolvedValue(undefined),

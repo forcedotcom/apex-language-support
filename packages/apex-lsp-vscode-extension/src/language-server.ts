@@ -10,6 +10,8 @@ import * as vscode from 'vscode';
 import type { ClientInterface } from '@salesforce/apex-lsp-shared';
 import { LanguageClient } from 'vscode-languageclient/browser';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
+// Import web-worker package as per documentation
+import Worker from 'web-worker';
 import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import {
@@ -28,11 +30,8 @@ let Client: ClientInterface | undefined;
  * Environment detection
  */
 function detectEnvironment(): 'desktop' | 'web' {
-  // Check if we're in a web environment
-  if (
-    typeof Worker !== 'undefined' &&
-    vscode.env.uiKind === vscode.UIKind.Web
-  ) {
+  // Check if we're in a web environment (VSCode for web)
+  if (vscode.env.uiKind === vscode.UIKind.Web) {
     return 'web';
   }
   return 'desktop';
@@ -297,9 +296,11 @@ export const createAndStartClient = async (
     );
     logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 
-    // Create worker
+    // Create worker using cross-platform web-worker package
     logToOutputChannel('⚡ Creating web worker...', 'info');
-    const worker = new Worker(workerUri.toString(), { type: 'classic' }); // the magic sauce!!!!
+    const worker = new Worker(workerUri.toString(), {
+      type: 'classic',
+    });
     logToOutputChannel('✅ Web worker created successfully', 'info');
 
     // Create VS Code Language Client for web extension
