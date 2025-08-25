@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { MessageTransport } from './types';
+import type { MessageTransport } from './Interfaces';
 
 // =============================================================================
 // BROWSER/WORKER TRANSPORTS

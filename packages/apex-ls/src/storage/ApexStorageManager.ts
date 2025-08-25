@@ -8,7 +8,8 @@
 
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
-import type { ApexStorage } from './ApexStorageInterface';
+// ApexStorage interface was consolidated into IStorage in StorageInterface.ts
+import type { IStorage } from './StorageInterface';
 
 /**
  * Interface for type references between Apex symbols
@@ -62,7 +63,7 @@ export class ApexStorageAdapter implements ApexStorageInterface {
   private referencesToMap: Map<string, ApexReference[]>;
   private referencesFromMap: Map<string, ApexReference[]>;
 
-  constructor(private baseStorage: ApexStorage) {
+  constructor(private baseStorage: IStorage) {
     this.astMap = new Map();
     this.typeInfoMap = new Map();
     this.referencesMap = new Map();
@@ -72,7 +73,7 @@ export class ApexStorageAdapter implements ApexStorageInterface {
   }
 
   async initialize(options?: Record<string, unknown>): Promise<void> {
-    await this.baseStorage.initialize();
+    await this.baseStorage.initialize(options as any);
   }
 
   async getDocument(uri: string): Promise<TextDocument | null> {

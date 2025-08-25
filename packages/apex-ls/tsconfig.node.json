@@ -34,12 +34,8 @@
     "src/**/*.node.ts",
     "src/**/*.browser.ts",
     "src/**/*.worker.ts",
-    "src/storage/StorageFactory.worker.ts",
-    "src/utils/EnvironmentDetector.worker.ts",
     "src/server/ApexLanguageServer.ts",
-    "src/communication/Client.ts",
-    "src/communication/factory.browser.ts",
-    "src/utils/EnvironmentDetector.browser.ts",
+    "src/communication/NodeClient.ts",
     "src/polyfills/**/*.ts"
   ],
   "exclude": [

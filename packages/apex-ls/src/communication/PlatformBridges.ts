@@ -11,9 +11,16 @@ import {
   BaseMessageBridge,
   createTransportMessageReader,
   createTransportMessageWriter,
-} from './MessageBridge';
-import { WorkerMessageTransport, SelfMessageTransport } from './transports';
-import type { MessageTransport } from './types';
+} from './CoreBridge';
+import {
+  WorkerMessageTransport,
+  SelfMessageTransport,
+} from './MessageTransports';
+import type {
+  MessageTransport,
+  BrowserConfig,
+  WorkerConfig,
+} from './Interfaces';
 
 // =============================================================================
 // MESSAGE BRIDGES
@@ -50,6 +57,16 @@ export class BrowserMessageBridge extends BaseMessageBridge {
     const bridge = new BrowserMessageBridge(transport, logger);
     return bridge.createConnection();
   }
+
+  /**
+   * Creates a message connection from browser config (platform bridge method)
+   */
+  static createConnection(config: BrowserConfig): MessageConnection {
+    if (!config.worker) {
+      throw new Error('Worker required for browser environment');
+    }
+    return BrowserMessageBridge.forWorkerClient(config.worker, config.logger);
+  }
 }
 
 /**
@@ -85,5 +102,12 @@ export class WorkerMessageBridge extends BaseMessageBridge {
     const transport = new SelfMessageTransport();
     const bridge = new WorkerMessageBridge(transport, logger);
     return bridge.createConnection();
+  }
+
+  /**
+   * Creates a message connection from worker config (platform bridge method)
+   */
+  static createConnection(config: WorkerConfig): MessageConnection {
+    return WorkerMessageBridge.forWorkerServer(config.logger);
   }
 }

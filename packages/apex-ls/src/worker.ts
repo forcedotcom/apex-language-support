@@ -34,7 +34,7 @@ import {
   setLogLevel,
 } from '@salesforce/apex-lsp-shared';
 
-import { WorkerLoggerFactory } from './utils/WorkerLoggerFactory';
+import { LoggerFactory } from './utils/Logging';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -45,7 +45,7 @@ const connection = createConnection(
 );
 
 // Set up logging
-setLoggerFactory(new WorkerLoggerFactory(connection));
+setLoggerFactory(LoggerFactory.getInstance());
 const logger = getLogger();
 
 // Send initial log messages

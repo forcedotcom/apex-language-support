@@ -16,9 +16,9 @@ import {
   IPCMessageWriter,
 } from 'vscode-jsonrpc/node';
 import net from '../polyfills/net-polyfill';
-import { BaseMessageBridge } from './MessageBridge';
-import type { NodeMessageBridgeConfig } from './types';
-import { isNodeEnvironment } from '../utils/EnvironmentDetector.node';
+import { BaseMessageBridge } from './CoreBridge';
+import type { NodeConfig } from './Interfaces';
+import { isNodeEnvironment } from '../utils/Environment';
 
 /**
  * Node.js-specific message bridge implementation
@@ -77,7 +77,7 @@ export class NodeMessageBridge extends BaseMessageBridge {
   /**
    * Creates a message connection based on configuration
    */
-  static createConnection(config: NodeMessageBridgeConfig): MessageConnection {
+  static createConnection(config: NodeConfig): MessageConnection {
     const instance = new NodeMessageBridge();
     instance.checkEnvironment('Node.js');
 
@@ -115,7 +115,7 @@ export class NodeMessageBridge extends BaseMessageBridge {
  * Convenience function for creating Node.js message bridges
  */
 export async function createNodeMessageBridge(
-  config: NodeMessageBridgeConfig,
+  config: NodeConfig,
 ): Promise<MessageConnection> {
   return NodeMessageBridge.createConnection(config);
 }

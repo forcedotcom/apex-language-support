@@ -12,7 +12,7 @@ import type {
 } from 'vscode-languageserver-protocol';
 import { WorkerLauncher } from '../launcher/WorkerLauncher';
 import type { WorkerLaunchResult } from '../launcher/WorkerLauncher';
-import type { ClientInterface } from '../communication/types';
+import type { ClientInterface } from '../communication/Interfaces';
 import type { Logger } from '../types';
 
 /**

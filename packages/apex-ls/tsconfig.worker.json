@@ -33,16 +33,10 @@
     "src/**/*.worker.ts",
     "src/**/*.browser.ts",
     "src/**/*.node.ts",
-    "src/storage/StorageFactory.worker.ts",
-    "src/utils/EnvironmentDetector.worker.ts",
-    "src/communication/Client.ts",
+    "src/communication/BrowserClient.ts",
     "src/server/ApexLanguageServer.ts",
-    "src/communication/NodePlatformBridge.ts",
-    "src/utils/EnvironmentDetector.node.ts",
-    "src/utils/EnvironmentTypeGuards.node.ts",
-    "src/server/ConnectionFactoryInterface.node.ts",
-    "src/communication/factory.browser.ts",
-    "src/utils/EnvironmentDetector.browser.ts"
+    "src/communication/NodeBridge.ts",
+    "src/communication/PlatformBridges.ts"
   ],
   "exclude": [
     "src/browser.ts",

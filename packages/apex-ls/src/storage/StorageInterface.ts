@@ -8,6 +8,7 @@
 
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import type { Logger } from 'vscode-jsonrpc';
+import type { EnvironmentType } from '../types';
 
 /**
  * Configuration for storage implementations
@@ -16,14 +17,16 @@ export interface StorageConfig {
   useMemoryStorage?: boolean;
   storagePrefix?: string;
   logger?: Logger;
+  environment?: EnvironmentType;
 }
 
 /**
- * Interface for basic storage operations
+ * Unified interface for storage operations
+ * Consolidates IStorage and ApexStorage interfaces which were 99% identical
  */
 export interface IStorage {
   /**
-   * Initialize the storage
+   * Initialize the storage with optional configuration
    */
   initialize(config?: StorageConfig): Promise<void>;
 
@@ -53,9 +56,24 @@ export interface IStorage {
  */
 export interface IStorageFactory {
   /**
-   * Creates a storage implementation appropriate for the environment
+   * Creates a storage implementation for the specific environment
    */
   createStorage(config?: StorageConfig): Promise<IStorage>;
+
+  /**
+   * Indicates if this factory supports the given environment
+   */
+  supports(environment: EnvironmentType): boolean;
+}
+
+/**
+ * Interface for storage factory registry
+ */
+export interface IStorageFactoryRegistry {
+  register(environment: EnvironmentType, factory: IStorageFactory): void;
+  createStorage(config?: StorageConfig): Promise<IStorage>;
+  getSupportedEnvironments(): EnvironmentType[];
+  isSupported(environment: EnvironmentType): boolean;
 }
 
 /**

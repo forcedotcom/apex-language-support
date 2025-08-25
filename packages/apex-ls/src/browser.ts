@@ -7,17 +7,16 @@
  */
 
 // Export browser storage implementation (still needed)
-export { BrowserStorageFactory } from './storage/BrowserStorageFactory';
+export { BrowserStorageFactory } from './storage/StorageImplementations';
 
 // Re-export shared types that are still needed
 export type {
   IStorage,
   IStorageFactory,
   StorageConfig,
-  ApexStorage,
   ApexStorageInterface,
 } from './index.browser';
 
 // Export client types that are still needed
-export type { ClientInterface } from './communication/types';
+export type { ClientInterface } from './communication/Interfaces';
 export { ApexStorageAdapter } from './index.browser';

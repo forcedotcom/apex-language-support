@@ -42,35 +42,23 @@ export interface Disposable {
 // =============================================================================
 
 /**
- * Base configuration for message bridges
+ * Base configuration for all communication components
  */
-export interface MessageBridgeConfig {
-  environment?: EnvironmentType;
+export interface BaseConfig {
   logger?: Logger;
-  worker?: any; // Optional worker for browser contexts
 }
 
 /**
  * Browser-specific configuration
  */
-export interface BrowserConfig extends MessageBridgeConfig {
+export interface BrowserConfig extends BaseConfig {
   worker: Worker; // Required for browser contexts
 }
 
 /**
- * Node.js connection configuration
+ * Node.js-specific configuration
  */
-export interface NodeConfig {
-  mode: 'stdio' | 'socket' | 'ipc';
-  port?: number;
-  host?: string;
-  logger?: Logger;
-}
-
-/**
- * Node.js-specific message bridge configuration
- */
-export interface NodeMessageBridgeConfig extends MessageBridgeConfig {
+export interface NodeConfig extends BaseConfig {
   mode: 'stdio' | 'socket' | 'ipc';
   port?: number; // For socket mode
   host?: string; // For socket mode
@@ -79,19 +67,16 @@ export interface NodeMessageBridgeConfig extends MessageBridgeConfig {
 /**
  * Worker-specific configuration
  */
-export interface WorkerConfig extends MessageBridgeConfig {
-  context?: any;
-  workerFileName?: string;
-  workerUri?: string;
+export interface WorkerConfig extends BaseConfig {
+  // Worker configuration is minimal - just needs logger
 }
 
 /**
- * Unified client configuration
+ * Unified client configuration for cross-platform use
  */
-export interface ClientConfig {
+export interface ClientConfig extends BaseConfig {
   environment: EnvironmentType;
-  logger?: Logger;
-  worker?: any;
+  worker?: Worker; // Required for browser environment
 }
 
 // =============================================================================
@@ -119,12 +104,5 @@ export interface ClientInterface {
  * Interface for message bridge factories
  */
 export interface IMessageBridgeFactory {
-  createMessageBridge(config: MessageBridgeConfig): Promise<MessageConnection>;
+  createMessageBridge(config: BaseConfig): Promise<MessageConnection>;
 }
-
-/**
- * Factory function type for creating platform-appropriate bridges
- */
-export type CreatePlatformMessageBridge = (
-  config?: MessageBridgeConfig,
-) => Promise<MessageConnection>;

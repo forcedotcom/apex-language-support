@@ -12,7 +12,7 @@ import type {
   LogMessageParams,
 } from '@salesforce/apex-lsp-shared';
 import { shouldLog } from '@salesforce/apex-lsp-shared';
-import { LoggingUtils } from './LoggingUtils';
+import { LoggingUtils } from './Logging';
 
 /**
  * Log notification handler that works in both browser and web worker contexts

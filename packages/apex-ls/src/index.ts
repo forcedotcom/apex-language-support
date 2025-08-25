@@ -16,24 +16,24 @@ export type {
 export type {
   IConnectionFactory,
   ConnectionConfig,
-} from './server/ConnectionFactoryInterface';
+} from './server/ConnectionFactory';
 
 export type {
   IMessageBridgeFactory,
-  MessageBridgeConfig,
-} from './communication/types';
+  BaseConfig,
+} from './communication/Interfaces';
 
-export type { ApexStorage } from './storage/ApexStorageInterface';
 export type { ApexStorageInterface } from './storage/ApexStorageManager';
 export { ApexStorageAdapter } from './storage/ApexStorageManager';
 
-export type { ClientInterface, ClientConfig } from './communication/Client';
+export type { ClientInterface } from './communication/Interfaces';
+export type { NodeClientConfig } from './communication/NodeClient';
 
 // Export shared utilities
 // Export environment-specific utilities and factories
-export { isNodeEnvironment } from './utils/EnvironmentDetector';
+export { isNodeEnvironment } from './utils/Environment';
 
 // Export shared factories
 export { StorageFactory } from './storage/StorageFactory';
-export { Client as UniversalExtensionClient } from './communication/Client';
-export { ClientFactory as UniversalClientFactory } from './communication/Client';
+export { Client as UniversalExtensionClient } from './communication/NodeClient';
+export { ClientFactory as UniversalClientFactory } from './communication/NodeClient';

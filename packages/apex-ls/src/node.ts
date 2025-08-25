@@ -8,19 +8,19 @@
 
 // Export Node.js-specific implementations
 // Export Node.js-specific implementations
-export { NodeMessageBridge } from './communication/NodePlatformBridge';
+export { NodeMessageBridge } from './communication/NodeBridge';
 export { NodeConnectionFactory } from './server/NodeConnectionFactory';
 export { NodeStorageFactory } from './storage/NodeStorageFactory';
 
 // Re-export shared types from index
 export type {
   IMessageBridgeFactory,
-  MessageBridgeConfig,
-} from './communication/types';
+  BaseConfig,
+} from './communication/Interfaces';
 export type {
   IConnectionFactory,
   ConnectionConfig,
-} from './server/ConnectionFactoryInterface';
+} from './server/ConnectionFactory';
 export type {
   IStorage,
   IStorageFactory,
@@ -28,6 +28,6 @@ export type {
 } from './storage/StorageInterface';
 
 // Export storage types
-export type { ApexStorage } from './storage/ApexStorageInterface';
+// ApexStorage interface moved to StorageInterface as IStorage
 export type { ApexStorageInterface } from './storage/ApexStorageManager';
 export { ApexStorageAdapter } from './storage/ApexStorageManager';

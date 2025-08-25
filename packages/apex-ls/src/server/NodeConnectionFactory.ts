@@ -7,31 +7,49 @@
  */
 
 import type { MessageConnection } from 'vscode-jsonrpc';
-import type { NodeConnectionConfig } from './ConnectionFactoryInterface.node';
-import { NodeMessageBridge } from '../communication/NodePlatformBridge';
+import type { EnvironmentType } from '../types';
+import type { ConnectionConfig } from './ConnectionFactory';
+import { BaseConnectionFactory } from './ConnectionFactory';
+import { NodeMessageBridge } from '../communication/NodeBridge';
 
 /**
- * Factory for creating Node.js-specific connections
+ * Node.js-specific connection factory
  */
-export class NodeConnectionFactory {
-  /**
-   * Creates a Node.js-specific connection
-   */
-  static async createConnection(
-    config?: NodeConnectionConfig,
-  ): Promise<MessageConnection> {
-    return NodeMessageBridge.createConnection({
-      mode: 'stdio',
-      logger: config?.logger,
-    });
+export class NodeConnectionFactory extends BaseConnectionFactory {
+  supports(environment: EnvironmentType): boolean {
+    return environment === 'node';
   }
-}
 
-/**
- * Creates a Node.js-specific connection
- */
-export async function createNodeConnection(
-  config?: NodeConnectionConfig,
-): Promise<MessageConnection> {
-  return NodeConnectionFactory.createConnection(config);
+  async createConnection(
+    config?: ConnectionConfig,
+  ): Promise<MessageConnection> {
+    this.validateConfig(config);
+
+    try {
+      return NodeMessageBridge.createConnection({
+        mode: config?.mode ?? 'stdio',
+        logger: config?.logger,
+        port: config?.port,
+        host: config?.host,
+      });
+    } catch (error) {
+      this.handleError(error as Error, 'NodeConnectionFactory');
+    }
+  }
+
+  /**
+   * Node.js specific configuration validation
+   */
+  protected validateConfig(config?: ConnectionConfig): void {
+    super.validateConfig(config);
+
+    if (config?.mode === 'socket') {
+      if (!config.port) {
+        throw new Error('Port is required for socket mode');
+      }
+      if (config.port < 1 || config.port > 65535) {
+        throw new Error('Port must be between 1 and 65535');
+      }
+    }
+  }
 }

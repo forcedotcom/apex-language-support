@@ -16,21 +16,21 @@ export type {
 export type {
   IConnectionFactory,
   ConnectionConfig,
-} from './server/ConnectionFactoryInterface';
+} from './server/ConnectionFactory';
 
-export type { ApexStorage } from './storage/ApexStorageInterface';
+// ApexStorage interface moved to StorageInterface as IStorage
 export type { ApexStorageInterface } from './storage/ApexStorageManager';
 export { ApexStorageAdapter } from './storage/ApexStorageManager';
 
-export type { ClientInterface, ClientConfig } from './communication/types';
-export { Client, ClientFactory } from './communication/Client';
+export type { ClientInterface, ClientConfig } from './communication/Interfaces';
+export { Client, ClientFactory } from './communication/BrowserClient';
 
 // Export shared utilities
 export {
   isWorkerEnvironment,
   isBrowserEnvironment,
   isNodeEnvironment,
-} from './utils/EnvironmentDetector.browser';
+} from './utils/Environment';
 
 // Export shared factories
-export { StorageFactory } from './storage/StorageFactory.browser';
+export { StorageFactory } from './storage/StorageFactory';

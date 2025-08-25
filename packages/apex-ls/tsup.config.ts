@@ -125,7 +125,7 @@ export default defineConfig([
         ...options.alias,
         'utils/EnvironmentDetector.node': 'utils/EnvironmentDetector.browser',
         'storage/StorageFactory.node': 'storage/StorageFactory.browser',
-        'communication/Client.node': 'communication/Client.browser',
+        'communication/Client': 'communication/Client.browser',
       };
       // Apply polyfill configuration
       applyPolyfillConfig(options);

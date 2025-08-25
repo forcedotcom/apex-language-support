@@ -8,8 +8,8 @@
 
 import type { ExtensionContext } from 'vscode';
 import type { EnvironmentType, Logger } from '../types';
-import { ClientFactory } from '../communication/Client';
-import type { ClientInterface } from '../communication/Client';
+import { ClientFactory } from '../communication/BrowserClient';
+import type { ClientInterface } from '../communication/BrowserClient';
 
 /**
  * Configuration for launching a worker
@@ -68,10 +68,10 @@ export class WorkerLauncher {
 
     // Create client
     const client = ClientFactory.createBrowserClient(worker, {
-      error: (message) => logger.error(`[LSP-CLIENT] ${message}`),
-      warn: (message) => logger.error(`[LSP-CLIENT] ${message}`),
-      info: (message) => logger.info(`[LSP-CLIENT] ${message}`),
-      log: (message) => logger.debug(`[LSP-CLIENT] ${message}`),
+      error: (message: string) => logger.error(`[LSP-CLIENT] ${message}`),
+      warn: (message: string) => logger.error(`[LSP-CLIENT] ${message}`),
+      info: (message: string) => logger.info(`[LSP-CLIENT] ${message}`),
+      log: (message: string) => logger.debug(`[LSP-CLIENT] ${message}`),
     });
 
     // Set up worker monitoring

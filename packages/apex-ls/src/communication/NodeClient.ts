@@ -8,57 +8,18 @@
 
 import type { Logger, MessageConnection } from 'vscode-jsonrpc';
 import type { InitializeParams, InitializeResult } from '../types';
-import { NodeMessageBridge } from './NodePlatformBridge';
+import type { ClientInterface } from './Interfaces';
+import { NodeMessageBridge } from './NodeBridge';
 
 /**
- * Configuration for creating a client
+ * Node.js-specific configuration for creating a client
  */
-export interface ClientConfig {
+export interface NodeClientConfig {
   logger?: Logger;
 }
 
 /**
- * Client interface that works across all environments
- */
-export interface ClientInterface {
-  /**
-   * Initializes the language server
-   */
-  initialize(params: InitializeParams): Promise<InitializeResult>;
-
-  /**
-   * Sends a notification to the server
-   */
-  sendNotification(method: string, params?: any): void;
-
-  /**
-   * Sends a request to the server
-   */
-  sendRequest<T = any>(method: string, params?: any): Promise<T>;
-
-  /**
-   * Registers a notification handler
-   */
-  onNotification(method: string, handler: (params: any) => void): void;
-
-  /**
-   * Registers a request handler
-   */
-  onRequest(method: string, handler: (params: any) => any): void;
-
-  /**
-   * Checks if the client is disposed
-   */
-  isDisposed(): boolean;
-
-  /**
-   * Disposes the client
-   */
-  dispose(): void;
-}
-
-/**
- * Client implementation using MessageBridge
+ * Node.js client implementation using MessageBridge
  */
 export class Client implements ClientInterface {
   private connection!: MessageConnection;
@@ -67,7 +28,7 @@ export class Client implements ClientInterface {
   private connectionResolve!: () => void;
   private connectionReject!: (error: Error) => void;
 
-  constructor(config: ClientConfig) {
+  constructor(config: NodeClientConfig) {
     this.connectionPromise = new Promise((resolve, reject) => {
       this.connectionResolve = resolve;
       this.connectionReject = reject;
@@ -80,7 +41,7 @@ export class Client implements ClientInterface {
     });
   }
 
-  private async initializeConnection(config: ClientConfig): Promise<void> {
+  private async initializeConnection(config: NodeClientConfig): Promise<void> {
     try {
       this.connection = NodeMessageBridge.createConnection({
         mode: 'stdio',
@@ -165,16 +126,14 @@ export class Client implements ClientInterface {
 }
 
 /**
- * Factory for creating clients
+ * Factory for creating Node.js clients
  */
 export class ClientFactory {
   /**
    * Creates a client for Node.js environment
    */
   static createNodeClient(logger?: Logger): ClientInterface {
-    return new Client({
-      logger,
-    });
+    return new Client({ logger });
   }
 
   /**
@@ -190,7 +149,7 @@ export class ClientFactory {
    * Creates a client based on auto-detected environment
    */
   static async createAutoClient(
-    config: ClientConfig = {},
+    config: NodeClientConfig = {},
   ): Promise<ClientInterface> {
     return new Client(config);
   }

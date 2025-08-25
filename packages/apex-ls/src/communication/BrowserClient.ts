@@ -11,68 +11,16 @@ import type {
   InitializeParams,
   InitializeResult,
   EnvironmentType,
-} from '../types';
+  ClientConfig,
+  ClientInterface,
+} from './Interfaces';
+
+// Re-export the interface for external use
+export type { ClientInterface };
+import { BrowserMessageBridge, WorkerMessageBridge } from './PlatformBridges';
 
 /**
- * Configuration for creating a client
- */
-export interface ClientConfig {
-  environment: EnvironmentType;
-  logger?: Logger;
-  worker?: any; // Typed as any for cross-platform compatibility
-}
-
-/**
- * Configuration for creating a web worker client
- */
-export interface WebWorkerClientConfig {
-  context: any;
-  logger?: Logger;
-  workerFileName: string;
-}
-
-/**
- * Client interface that works across all environments
- */
-export interface ClientInterface {
-  /**
-   * Initializes the language server
-   */
-  initialize(params: InitializeParams): Promise<InitializeResult>;
-
-  /**
-   * Sends a notification to the server
-   */
-  sendNotification(method: string, params?: any): void;
-
-  /**
-   * Sends a request to the server
-   */
-  sendRequest<T = any>(method: string, params?: any): Promise<T>;
-
-  /**
-   * Registers a notification handler
-   */
-  onNotification(method: string, handler: (params: any) => void): void;
-
-  /**
-   * Registers a request handler
-   */
-  onRequest(method: string, handler: (params: any) => any): void;
-
-  /**
-   * Checks if the client is disposed
-   */
-  isDisposed(): boolean;
-
-  /**
-   * Disposes the client
-   */
-  dispose(): void;
-}
-
-/**
- * Client implementation using MessageBridge
+ * Browser-specific client implementation
  */
 export class Client implements ClientInterface {
   private connection!: MessageConnection;
@@ -95,9 +43,35 @@ export class Client implements ClientInterface {
   }
 
   private async initializeConnection(config: ClientConfig): Promise<void> {
-    throw new Error(
-      'Generic Client should not be used directly. Use platform-specific implementations instead.',
-    );
+    try {
+      switch (config.environment) {
+        case 'browser':
+          if (!config.worker) {
+            throw new Error('Worker required for browser environment');
+          }
+          this.connection = BrowserMessageBridge.createConnection({
+            worker: config.worker,
+            logger: config.logger,
+          });
+          break;
+        case 'webworker':
+          this.connection = WorkerMessageBridge.createConnection({
+            logger: config.logger,
+          });
+          break;
+        default:
+          throw new Error(
+            `Unsupported environment for browser client: ${config.environment}`,
+          );
+      }
+
+      this.connection.listen();
+      this.connectionResolve();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to initialize connection: ${errorMessage}`);
+    }
   }
 
   async initialize(params: InitializeParams): Promise<InitializeResult> {
@@ -169,7 +143,7 @@ export class Client implements ClientInterface {
 }
 
 /**
- * Factory for creating clients
+ * Factory for creating clients in browser environments
  */
 export class ClientFactory {
   /**
@@ -186,18 +160,18 @@ export class ClientFactory {
   /**
    * Creates a client for web worker environment
    */
-  static async createWebWorkerClient(
-    config: WebWorkerClientConfig,
-  ): Promise<ClientInterface> {
-    // Web worker client creation is not available in worker build
-    throw new Error('Web worker client creation not available in worker build');
+  static createWebWorkerClient(logger?: Logger): ClientInterface {
+    return new Client({
+      environment: 'webworker',
+      logger,
+    });
   }
 
   /**
    * Creates a client based on auto-detected environment
    */
   static async createAutoClient(
-    config: Omit<ClientConfig, 'environment'>,
+    config: Omit<ClientConfig, 'environment'> = {},
   ): Promise<ClientInterface> {
     const environment = await this.detectEnvironment();
     return new Client({
@@ -210,8 +184,9 @@ export class ClientFactory {
    * Detects the current environment
    */
   private static async detectEnvironment(): Promise<EnvironmentType> {
-    const { isWorkerEnvironment, isBrowserEnvironment, isNodeEnvironment } =
-      await import('../utils/EnvironmentDetector.browser');
+    const { isWorkerEnvironment, isBrowserEnvironment } = await import(
+      '../utils/Environment'
+    );
 
     if (isWorkerEnvironment()) {
       return 'webworker';
@@ -221,10 +196,6 @@ export class ClientFactory {
       return 'browser';
     }
 
-    if (isNodeEnvironment()) {
-      return 'node';
-    }
-
-    throw new Error('Unable to detect environment');
+    throw new Error('Unable to detect browser environment');
   }
 }

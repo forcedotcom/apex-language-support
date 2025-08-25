@@ -21,7 +21,7 @@ import {
   ResponseError,
   ErrorCodes,
 } from 'vscode-jsonrpc';
-import type { MessageTransport, Disposable } from './types';
+import type { MessageTransport, Disposable } from './Interfaces';
 
 // =============================================================================
 // UTILITY FUNCTIONS

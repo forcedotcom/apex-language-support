@@ -7,14 +7,42 @@
  */
 
 import type { MessageConnection } from 'vscode-jsonrpc';
-import type { ConnectionConfig } from './ConnectionFactoryInterface';
-import { WorkerMessageBridge } from '../communication/bridges';
+import type { EnvironmentType } from '../types';
+import type { ConnectionConfig } from './ConnectionFactory';
+import { BaseConnectionFactory } from './ConnectionFactory';
+import { WorkerMessageBridge } from '../communication/PlatformBridges';
 
 /**
- * Creates a worker-specific connection
+ * Web Worker-specific connection factory
  */
-export async function createWorkerConnection(
-  config?: ConnectionConfig,
-): Promise<MessageConnection> {
-  return WorkerMessageBridge.forWorkerServer(config?.logger);
+export class WorkerConnectionFactory extends BaseConnectionFactory {
+  supports(environment: EnvironmentType): boolean {
+    return environment === 'webworker';
+  }
+
+  async createConnection(
+    config?: ConnectionConfig,
+  ): Promise<MessageConnection> {
+    this.validateConfig(config);
+
+    try {
+      return WorkerMessageBridge.forWorkerServer(config?.logger);
+    } catch (error) {
+      this.handleError(error as Error, 'WorkerConnectionFactory');
+    }
+  }
+
+  /**
+   * Web Worker specific configuration validation
+   */
+  protected validateConfig(config?: ConnectionConfig): void {
+    super.validateConfig(config);
+
+    // Worker connections don't use socket-specific options
+    if (config?.mode && config.mode !== 'stdio') {
+      throw new Error(
+        `Worker connections only support stdio mode, got: ${config.mode}`,
+      );
+    }
+  }
 }
