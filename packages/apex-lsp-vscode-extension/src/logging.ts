@@ -12,9 +12,10 @@ import type { LogMessageType } from '@salesforce/apex-lsp-shared';
 import { EXTENSION_CONSTANTS } from './constants';
 
 /**
- * Global output channel for extension logging
+ * Global output channels for logging
  */
-let extensionOutputChannel: vscode.OutputChannel;
+let clientOutputChannel: vscode.OutputChannel;
+let workerServerOutputChannel: vscode.OutputChannel;
 
 /**
  * Initializes the logging system
@@ -23,10 +24,14 @@ let extensionOutputChannel: vscode.OutputChannel;
 export const initializeExtensionLogging = (
   context: vscode.ExtensionContext,
 ): void => {
-  extensionOutputChannel = vscode.window.createOutputChannel(
-    EXTENSION_CONSTANTS.EXTENSION_OUTPUT_CHANNEL_NAME,
+  clientOutputChannel = vscode.window.createOutputChannel(
+    EXTENSION_CONSTANTS.CLIENT_OUTPUT_CHANNEL_NAME,
   );
-  context.subscriptions.push(extensionOutputChannel);
+  workerServerOutputChannel = vscode.window.createOutputChannel(
+    EXTENSION_CONSTANTS.WORKER_SERVER_OUTPUT_CHANNEL_NAME,
+  );
+
+  context.subscriptions.push(clientOutputChannel, workerServerOutputChannel);
 
   // Set initial log level from workspace settings
   const config = vscode.workspace.getConfiguration('apex-ls-ts');
@@ -35,7 +40,7 @@ export const initializeExtensionLogging = (
 };
 
 /**
- * Logs a message to the extension output channel
+ * Logs a message to the client output channel (for extension activation and client logs)
  * @param message The message to log
  * @param messageType The type of log message
  */
@@ -49,7 +54,7 @@ export const logToOutputChannel = (
   const typeString = messageType.toUpperCase();
   const formattedMessage = `[${timestamp}] [${typeString}] ${message}`;
 
-  extensionOutputChannel.appendLine(formattedMessage);
+  clientOutputChannel.appendLine(formattedMessage);
 };
 
 /**
@@ -61,8 +66,70 @@ export const updateLogLevel = (logLevel: string): void => {
 };
 
 /**
- * Gets the extension output channel instance
- * @returns The extension output channel
+ * Gets the client output channel instance
+ * @returns The client output channel or undefined if not initialized
  */
-export const getOutputChannel = (): vscode.OutputChannel =>
-  extensionOutputChannel;
+export const getClientOutputChannel = (): vscode.OutputChannel | undefined =>
+  clientOutputChannel;
+
+/**
+ * Gets the worker/server output channel instance
+ * @returns The worker/server output channel or undefined if not initialized
+ */
+export const getWorkerServerOutputChannel = ():
+  | vscode.OutputChannel
+  | undefined => workerServerOutputChannel;
+
+/**
+ * Logs a message to the worker/server output channel (for worker and server logs)
+ * @param message The message to log
+ * @param messageType The type of log message
+ */
+export const logToWorkerServerOutputChannel = (
+  message: string,
+  messageType: LogMessageType = 'info',
+): void => {
+  if (!shouldLog(messageType)) return;
+
+  const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
+  const typeString = messageType.toUpperCase();
+  const formattedMessage = `[${timestamp}] [${typeString}] ${message}`;
+
+  workerServerOutputChannel.appendLine(formattedMessage);
+};
+
+/**
+ * Logs a message to the worker/server output channel with [WORKER] prefix
+ * @param message The message to log
+ * @param messageType The type of log message
+ */
+export const logWorkerMessage = (
+  message: string,
+  messageType: LogMessageType = 'info',
+): void => {
+  if (!shouldLog(messageType)) return;
+
+  const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
+  const typeString = messageType.toUpperCase();
+  const formattedMessage = `[${timestamp}] [${typeString}] [WORKER] ${message}`;
+
+  workerServerOutputChannel.appendLine(formattedMessage);
+};
+
+/**
+ * Logs a message to the worker/server output channel with [SERVER] prefix
+ * @param message The message to log
+ * @param messageType The type of log message
+ */
+export const logServerMessage = (
+  message: string,
+  messageType: LogMessageType = 'info',
+): void => {
+  if (!shouldLog(messageType)) return;
+
+  const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
+  const typeString = messageType.toUpperCase();
+  const formattedMessage = `[${timestamp}] [${typeString}] [SERVER] ${message}`;
+
+  workerServerOutputChannel.appendLine(formattedMessage);
+};

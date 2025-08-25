@@ -62,7 +62,7 @@
       "outputs": ["grammars/**"]
     },
     "apex-language-server-extension#bundle": {
-      "dependsOn": ["compile", "@salesforce/apex-ls-node#bundle"],
+      "dependsOn": ["compile", "@salesforce/apex-ls#bundle"],
       "outputs": ["extension/**", "dist/**", "server-bundle/**"]
     },
     "apex-language-server-extension#compile": {

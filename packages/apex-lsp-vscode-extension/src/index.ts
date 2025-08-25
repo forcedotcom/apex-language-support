@@ -25,7 +25,7 @@ export {
   initializeExtensionLogging as initializeLogging,
   logToOutputChannel,
   updateLogLevel,
-  getOutputChannel,
+  getClientOutputChannel,
 } from './logging';
 
 // Export status bar utilities
@@ -84,5 +84,5 @@ export {
   startLanguageServer,
   restartLanguageServer,
   stopLanguageServer,
-  getLanguageClient,
+  getClient,
 } from './language-server';

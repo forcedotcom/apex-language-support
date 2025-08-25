@@ -42,38 +42,26 @@ packages/
 ├── apex-lsp-shared/             # Centralized logging utilities
 ├── lsp-compliant-services/       # Standard LSP protocol implementations
 ├── custom-services/              # Custom language server services
-├── apex-ls-node/                 # Node.js language server implementation
-├── apex-ls-browser/              # Browser-based language server
-├── apex-lsp-browser-client/      # Browser client for language server
-├── apex-lsp-vscode-client/       # VS Code client integration
-├── apex-lsp-vscode-extension/    # VS Code desktop extension
-├── apex-lsp-vscode-extension-web/# VS Code web extension
+├── apex-ls/                      # Language server implementation
+├── apex-lsp-vscode-extension/    # VS Code extension (desktop & web)
 └── apex-lsp-testbed/             # Testing utilities and benchmarks
 ```
 
 ### Layer Architecture
 
 1. **Foundation Layer**:
-
    - `apex-lsp-shared`: Centralized logging across all packages
    - `apex-parser-ast`: Core parsing, AST generation, and symbol analysis
 
 2. **Service Layer**:
-
    - `lsp-compliant-services`: Standard LSP services (hover, completion, etc.)
    - `custom-services`: Salesforce-specific language features
 
 3. **Server Layer**:
-
-   - `apex-ls-node`: Node.js-based language server implementation
-   - `apex-ls-browser`: Browser-compatible language server
+   - `apex-ls`: Language server implementation for Node.js, browser, and web worker environments
 
 4. **Client Layer**:
-
-   - `apex-lsp-browser-client`: Browser client implementation
-   - `apex-lsp-vscode-client`: VS Code client abstraction
-   - `apex-lsp-vscode-extension`: Desktop VS Code extension
-   - `apex-lsp-vscode-extension-web`: Web VS Code extension
+   - `apex-lsp-vscode-extension`: VS Code extension for both desktop and web environments
 
 5. **Testing Layer**:
    - `apex-lsp-testbed`: Integration tests and performance benchmarks
@@ -160,7 +148,7 @@ apex-parser-ast (core parsing)
          ↓
 lsp-compliant-services + custom-services (services)
          ↓
-apex-ls-node + apex-ls-browser (servers)
+apex-ls (unified server)
          ↓
 apex-lsp-*-client packages (clients)
          ↓
@@ -186,7 +174,7 @@ Each package supports these build targets:
 
 ```json
 "apex-language-server-extension#bundle": {
-  "dependsOn": ["compile", "@salesforce/apex-ls-node#bundle"],
+  "dependsOn": ["compile", "@salesforce/apex-ls#bundle"],
   "outputs": ["extension/**", "bundle/**", "server-bundle/**"]
 }
 ```
@@ -209,27 +197,16 @@ graph TD
     A[apex-lsp-shared] --> B[apex-parser-ast]
     A --> C[lsp-compliant-services]
     A --> D[custom-services]
-    A --> E[apex-ls-node]
-    A --> F[apex-ls-browser]
+    A --> E[apex-ls]
 
     B --> C
     B --> D
     B --> E
-    B --> F
 
     C --> E
-    C --> F
-    C --> G[apex-lsp-vscode-client]
-
     D --> E
-    D --> F
 
     E --> H[apex-lsp-vscode-extension]
-    F --> I[apex-lsp-browser-client]
-    F --> J[apex-lsp-vscode-extension-web]
-
-    G --> H
-    I --> J
 
     B --> K[apex-lsp-testbed]
     C --> K
@@ -305,12 +282,8 @@ This project uses **Turbo** for smart incremental builds that only rebuild what 
 For VS Code extensions specifically:
 
 ```bash
-# Build desktop extension
+# Build extension (includes both desktop and web)
 cd packages/apex-lsp-vscode-extension
-npm run package:vsix
-
-# Build web extension
-cd packages/apex-lsp-vscode-extension-web
 npm run package
 ```
 

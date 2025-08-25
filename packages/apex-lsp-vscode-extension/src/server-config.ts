@@ -15,7 +15,7 @@ import {
   ErrorAction,
 } from 'vscode-languageclient/node';
 import { getDebugConfig, getWorkspaceSettings } from './configuration';
-import { logToOutputChannel } from './logging';
+import { logServerMessage, getWorkerServerOutputChannel } from './logging';
 import { DEBUG_CONFIG } from './constants';
 
 /**
@@ -32,7 +32,7 @@ export const getDebugOptions = (): string[] | undefined => {
   // Determine debug flags based on mode
   let debugFlags: string[];
   if (debugConfig.mode === DEBUG_CONFIG.INSPECT_BRK_MODE) {
-    logToOutputChannel(
+    logServerMessage(
       `Enabling debug mode with break on port ${debugConfig.port}`,
       'info',
     );
@@ -42,10 +42,7 @@ export const getDebugOptions = (): string[] | undefined => {
     ];
   } else {
     // Default to 'inspect' mode
-    logToOutputChannel(
-      `Enabling debug mode on port ${debugConfig.port}`,
-      'info',
-    );
+    logServerMessage(`Enabling debug mode on port ${debugConfig.port}`, 'info');
     debugFlags = [DEBUG_CONFIG.NOLAZY_FLAG, `--inspect=${debugConfig.port}`];
   }
 
@@ -71,8 +68,8 @@ export const createServerOptions = (
     ? context.asAbsolutePath('out/server.js')
     : context.asAbsolutePath('server.js');
 
-  logToOutputChannel(`Server module path: ${serverModule}`, 'debug');
-  logToOutputChannel(
+  logServerMessage(`Server module path: ${serverModule}`, 'debug');
+  logServerMessage(
     `Running in ${isDevelopment ? 'development' : 'production'} mode`,
     'debug',
   );
@@ -87,7 +84,7 @@ export const createServerOptions = (
     process.env.APEX_LS_MODE === 'development'
   ) {
     serverMode = process.env.APEX_LS_MODE;
-    logToOutputChannel(
+    logServerMessage(
       `Using server mode from environment variable: ${serverMode}`,
       'info',
     );
@@ -98,7 +95,7 @@ export const createServerOptions = (
       context.extensionMode === vscode.ExtensionMode.Test
         ? 'development'
         : 'production';
-    logToOutputChannel(
+    logServerMessage(
       `Using server mode from extension mode: ${serverMode}`,
       'debug',
     );
@@ -156,6 +153,10 @@ export const createClientOptions = (
         vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
       configurationSection: 'apex',
     },
+    // Use our consolidated worker/server output channel if available
+    ...(getWorkerServerOutputChannel()
+      ? { outputChannel: getWorkerServerOutputChannel() }
+      : {}),
     // Add error handling with proper retry logic
     errorHandler: {
       error: handleClientError,
@@ -184,12 +185,12 @@ const handleClientError = (
   message: any,
   _count: number | undefined,
 ): { action: ErrorAction } => {
-  logToOutputChannel(
+  logServerMessage(
     `LSP Error: ${message?.toString() || 'Unknown error'}`,
     'error',
   );
   if (error) {
-    logToOutputChannel(`Error details: ${error}`, 'debug');
+    logServerMessage(`Error details: ${error}`, 'debug');
   }
   // Always continue on errors, we handle retries separately
   return { action: ErrorAction.Continue };
@@ -200,7 +201,7 @@ const handleClientError = (
  * @returns Close action to take
  */
 const handleClientClosed = (): { action: CloseAction } => {
-  logToOutputChannel(
+  logServerMessage(
     `Connection to server closed - ${new Date().toISOString()}`,
     'info',
   );

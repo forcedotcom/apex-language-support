@@ -22,9 +22,9 @@ async function exampleWebWorkerUsage() {
   // Configure the client to use web worker
   const options: JsonRpcClientOptions = {
     serverType: 'webWorker',
-    serverPath: path.join(__dirname, '../../apex-ls-node/out/index.js'),
+    serverPath: path.join(__dirname, '../../apex-ls/out/index.js'),
     webWorkerOptions: {
-      workerUrl: path.join(__dirname, '../../apex-ls-node/out/index.js'),
+      workerUrl: path.join(__dirname, '../../apex-ls/out/index.js'),
       workerOptions: {
         name: 'apex-language-server-worker',
       },

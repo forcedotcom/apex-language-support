@@ -29,9 +29,9 @@ const logger = new ConsoleLogger('WebWorkerExample');
 
 const options = {
   serverType: 'webWorker',
-  serverPath: path.join(__dirname, 'path/to/apex-ls-node/out/index.js'),
+  serverPath: path.join(__dirname, 'path/to/apex-ls/out/index.js'),
   webWorkerOptions: {
-    workerUrl: path.join(__dirname, 'path/to/apex-ls-node/out/index.js'),
+    workerUrl: path.join(__dirname, 'path/to/apex-ls/out/index.js'),
     workerOptions: {
       name: 'apex-language-server-worker',
     },
@@ -77,9 +77,9 @@ You can also use web workers with the existing `nodeServer` type by providing `w
 ```typescript
 const options = {
   serverType: 'nodeServer', // Still uses nodeServer type
-  serverPath: path.join(__dirname, 'path/to/apex-ls-node/out/index.js'),
+  serverPath: path.join(__dirname, 'path/to/apex-ls/out/index.js'),
   webWorkerOptions: {
-    workerUrl: path.join(__dirname, 'path/to/apex-ls-node/out/index.js'),
+    workerUrl: path.join(__dirname, 'path/to/apex-ls/out/index.js'),
     workerOptions: {
       name: 'apex-language-server-worker',
     },

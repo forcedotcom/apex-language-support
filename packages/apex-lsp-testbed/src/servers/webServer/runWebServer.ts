@@ -12,7 +12,7 @@ import * as path from 'path';
 import { createWebLanguageServerHarness } from './webLanguageServerHarness';
 
 /**
- * Find the apex-ls-browser module path
+ * Find the apex-ls module path
  */
 function findWebServerPath(): string {
   // Start from current directory
@@ -42,11 +42,11 @@ function findWebServerPath(): string {
     process.exit(1);
   }
 
-  // Find apex-ls-browser package
+  // Find apex-ls package
   const webServerPath = path.join(
     currentDir,
     'packages',
-    'apex-ls-browser',
+    'apex-ls',
     'out',
     'src',
     'index.js',
@@ -55,7 +55,7 @@ function findWebServerPath(): string {
   if (!fs.existsSync(webServerPath)) {
     console.error(`Web server module not found at: ${webServerPath}`);
     console.error(
-      'Make sure to build the apex-ls-browser package first with: npm run build',
+      'Make sure to build the apex-ls package first with: npm run build',
     );
     process.exit(1);
   }

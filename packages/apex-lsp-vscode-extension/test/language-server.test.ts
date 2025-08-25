@@ -7,7 +7,60 @@
  */
 
 import * as vscode from 'vscode';
-import { State } from 'vscode-languageclient/node';
+
+// Mock vscode.Uri at the top level
+(vscode as any).Uri = {
+  joinPath: jest.fn().mockImplementation((base, ...paths) => ({
+    toString: jest.fn().mockReturnValue(`${base.toString()}/${paths.join('/')}`),
+    scheme: base.scheme,
+    path: `${base.path}/${paths.join('/')}`,
+    authority: base.authority,
+    query: base.query,
+    fragment: base.fragment,
+  })),
+};
+
+// Mock vscode.env and vscode.UIKind
+(vscode as any).env = {
+  uiKind: 1, // Desktop UI kind
+};
+
+(vscode as any).UIKind = {
+  Desktop: 1,
+  Web: 2,
+};
+
+// Mock Worker API (browser API not available in Node test environment)
+(global as any).Worker = jest.fn().mockImplementation(() => ({
+  postMessage: jest.fn(),
+  terminate: jest.fn(),
+  onmessage: null,
+  onerror: null,
+}));
+
+// Mock vscode-languageclient/browser before importing it
+jest.mock('vscode-languageclient/browser', () => ({
+  LanguageClient: jest.fn().mockImplementation(() => ({
+    start: jest.fn().mockResolvedValue(undefined),
+    stop: jest.fn().mockResolvedValue(undefined),
+    dispose: jest.fn(),
+    sendNotification: jest.fn(),
+    onNotification: jest.fn(),
+    state: 3, // Running state
+  })),
+  State: {
+    Stopped: 1,
+    Starting: 2,
+    Running: 3,
+  },
+  TransportKind: {
+    ipc: 'ipc',
+    pipe: 'pipe',
+    stdio: 'stdio',
+  },
+}));
+
+const { State } = require('vscode-languageclient/browser');
 import {
   startLanguageServer,
   restartLanguageServer,
@@ -26,11 +79,38 @@ jest.mock('../src/status-bar', () => ({
 // Mock the logging module
 jest.mock('../src/logging', () => ({
   logToOutputChannel: jest.fn(),
+  getWorkerServerOutputChannel: jest.fn(),
 }));
 
 // Mock the configuration module
 jest.mock('../src/configuration', () => ({
   registerConfigurationChangeListener: jest.fn(),
+  getWorkspaceSettings: jest.fn().mockReturnValue({
+    apex: {
+      commentCollection: {
+        enableCommentCollection: true,
+        includeSingleLineComments: false,
+        associateCommentsWithSymbols: false,
+        enableForDocumentChanges: true,
+        enableForDocumentOpen: true,
+        enableForDocumentSymbols: false,
+        enableForFoldingRanges: false,
+      },
+      performance: {
+        commentCollectionMaxFileSize: 102400,
+        useAsyncCommentProcessing: true,
+        documentChangeDebounceMs: 300,
+      },
+      environment: {
+        enablePerformanceLogging: false,
+      },
+      resources: {
+        loadMode: 'lazy',
+      },
+      logLevel: 'info',
+      custom: {},
+    },
+  }),
 }));
 
 // Mock the commands module
@@ -85,8 +165,20 @@ describe('Language Server Module', () => {
     MockLanguageClient.mockImplementation(() => mockClient);
 
     // Create mock context
+    const mockUri = {
+      toString: jest.fn().mockReturnValue('file:///test/extension'),
+      scheme: 'file',
+      path: '/test/extension',
+      authority: '',
+      query: '',
+      fragment: '',
+    };
+    
     mockContext = {
       subscriptions: [],
+      extensionUri: mockUri,
+      extensionPath: '/test/extension',
+      asAbsolutePath: jest.fn((path: string) => `/test/extension/${path}`),
     } as unknown as vscode.ExtensionContext;
 
     // Mock workspace configuration
@@ -278,14 +370,11 @@ describe('Language Server Module', () => {
       expect(client).toBe(mockClient);
     });
 
-    it('should return undefined when no client exists', () => {
-      // Reset modules to clear any previous state
-      jest.resetModules();
-      const {
-        getLanguageClient: getClient,
-      } = require('../src/language-server');
+    it('should return undefined when no client exists', async () => {
+      // Stop any existing client first to ensure clean state
+      await stopLanguageServer();
 
-      const client = getClient();
+      const client = getLanguageClient();
 
       expect(client).toBeUndefined();
     });

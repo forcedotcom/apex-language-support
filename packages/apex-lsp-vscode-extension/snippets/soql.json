@@ -1,0 +1,300 @@
+{
+  "SELECT Query": {
+    "prefix": "select",
+    "body": [
+      "SELECT ${1:Id, Name}",
+      "FROM ${2:Account}",
+      "WHERE ${3:Id = :recordId}",
+      "$0"
+    ],
+    "description": "Basic SELECT query"
+  },
+  "SELECT with WHERE": {
+    "prefix": "selectwhere",
+    "body": [
+      "SELECT ${1:Id, Name}",
+      "FROM ${2:Account}",
+      "WHERE ${3:Name LIKE '%${4:searchTerm}%'}",
+      "$0"
+    ],
+    "description": "SELECT query with WHERE clause"
+  },
+  "SELECT with ORDER BY": {
+    "prefix": "selectorder",
+    "body": [
+      "SELECT ${1:Id, Name}",
+      "FROM ${2:Account}",
+      "ORDER BY ${3:Name} ${4|ASC,DESC|}",
+      "$0"
+    ],
+    "description": "SELECT query with ORDER BY"
+  },
+  "SELECT with LIMIT": {
+    "prefix": "selectlimit",
+    "body": [
+      "SELECT ${1:Id, Name}",
+      "FROM ${2:Account}",
+      "LIMIT ${3:100}",
+      "$0"
+    ],
+    "description": "SELECT query with LIMIT"
+  },
+  "SELECT with OFFSET": {
+    "prefix": "selectoffset",
+    "body": [
+      "SELECT ${1:Id, Name}",
+      "FROM ${2:Account}",
+      "LIMIT ${3:100}",
+      "OFFSET ${4:200}",
+      "$0"
+    ],
+    "description": "SELECT query with OFFSET"
+  },
+  "SELECT with GROUP BY": {
+    "prefix": "selectgroup",
+    "body": [
+      "SELECT ${1:COUNT(Id), Type}",
+      "FROM ${2:Account}",
+      "GROUP BY ${3:Type}",
+      "$0"
+    ],
+    "description": "SELECT query with GROUP BY"
+  },
+  "SELECT with HAVING": {
+    "prefix": "selecthaving",
+    "body": [
+      "SELECT ${1:COUNT(Id), Type}",
+      "FROM ${2:Account}",
+      "GROUP BY ${3:Type}",
+      "HAVING ${4:COUNT(Id) > 10}",
+      "$0"
+    ],
+    "description": "SELECT query with HAVING clause"
+  },
+  "SELECT with Subquery": {
+    "prefix": "selectsub",
+    "body": [
+      "SELECT ${1:Id, Name, (SELECT Id, Name FROM ${2:Contacts})}",
+      "FROM ${3:Account}",
+      "$0"
+    ],
+    "description": "SELECT query with subquery"
+  },
+  "SELECT with INNER JOIN": {
+    "prefix": "selectinner",
+    "body": [
+      "SELECT ${1:Account.Id, Account.Name, Contact.Name}",
+      "FROM ${2:Contact}",
+      "WHERE ${3:AccountId IN (SELECT Id FROM Account WHERE Type = '${4:Customer}')}",
+      "$0"
+    ],
+    "description": "SELECT query with INNER JOIN (using subquery)"
+  },
+  "SELECT with LEFT JOIN": {
+    "prefix": "selectleft",
+    "body": [
+      "SELECT ${1:Account.Id, Account.Name, Contact.Name}",
+      "FROM ${2:Account}",
+      "LEFT JOIN ${3:Contact} ON Account.Id = Contact.AccountId",
+      "$0"
+    ],
+    "description": "SELECT query with LEFT JOIN"
+  },
+  "SELECT with Aggregate": {
+    "prefix": "selectagg",
+    "body": [
+      "SELECT ${1:COUNT(Id), AVG(Amount), SUM(Amount), MIN(CreatedDate), MAX(CreatedDate)}",
+      "FROM ${2:Opportunity}",
+      "$0"
+    ],
+    "description": "SELECT query with aggregate functions"
+  },
+  "SELECT with Date Functions": {
+    "prefix": "selectdate",
+    "body": [
+      "SELECT ${1:Id, Name, CreatedDate}",
+      "FROM ${2:Account}",
+      "WHERE CreatedDate = ${3|TODAY,YESTERDAY,TOMORROW,THIS_WEEK,LAST_WEEK,NEXT_WEEK,THIS_MONTH,LAST_MONTH,NEXT_MONTH,THIS_QUARTER,LAST_QUARTER,NEXT_QUARTER,THIS_YEAR,LAST_YEAR,NEXT_YEAR|}",
+      "$0"
+    ],
+    "description": "SELECT query with date functions"
+  },
+  "SELECT with Text Functions": {
+    "prefix": "selecttext",
+    "body": [
+      "SELECT ${1:Id, Name, UPPER(Name), LOWER(Name), TRIM(Name)}",
+      "FROM ${2:Account}",
+      "$0"
+    ],
+    "description": "SELECT query with text functions"
+  },
+  "SELECT with Math Functions": {
+    "prefix": "selectmath",
+    "body": [
+      "SELECT ${1:Id, Name, ROUND(Amount, 2), FLOOR(Amount), CEILING(Amount)}",
+      "FROM ${2:Opportunity}",
+      "$0"
+    ],
+    "description": "SELECT query with math functions"
+  },
+  "SELECT with CASE": {
+    "prefix": "selectcase",
+    "body": [
+      "SELECT ${1:Id, Name},",
+      "CASE ${2:Type}",
+      "\tWHEN '${3:Customer}' THEN '${4:Active Customer}'",
+      "\tWHEN '${5:Prospect}' THEN '${6:Potential Customer}'",
+      "\tELSE '${7:Other}'",
+      "END AS ${8:Status}",
+      "FROM ${9:Account}",
+      "$0"
+    ],
+    "description": "SELECT query with CASE statement"
+  },
+  "SELECT with FOR UPDATE": {
+    "prefix": "selectforupdate",
+    "body": [
+      "SELECT ${1:Id, Name}",
+      "FROM ${2:Account}",
+      "WHERE ${3:Id = :recordId}",
+      "FOR UPDATE",
+      "$0"
+    ],
+    "description": "SELECT query with FOR UPDATE"
+  },
+  "SELECT with ALL ROWS": {
+    "prefix": "selectallrows",
+    "body": [
+      "SELECT ${1:Id, Name}",
+      "FROM ${2:Account}",
+      "WHERE ${3:IsDeleted = true}",
+      "ALL ROWS",
+      "$0"
+    ],
+    "description": "SELECT query with ALL ROWS (including deleted records)"
+  },
+  "Database.query": {
+    "prefix": "dbquery",
+    "body": [
+      "List<${1:SObject}> ${2:records} = Database.query('",
+      "\tSELECT ${3:Id, Name}",
+      "\tFROM ${4:Account}",
+      "\tWHERE ${5:Id = :recordId}",
+      "');",
+      "$0"
+    ],
+    "description": "Database.query with SOQL string"
+  },
+  "Database.query with LIMIT": {
+    "prefix": "dbquerylimit",
+    "body": [
+      "List<${1:SObject}> ${2:records} = Database.query('",
+      "\tSELECT ${3:Id, Name}",
+      "\tFROM ${4:Account}",
+      "\tWHERE ${5:Id = :recordId}",
+      "\tLIMIT ${6:100}",
+      "');",
+      "$0"
+    ],
+    "description": "Database.query with SOQL string and LIMIT"
+  },
+  "SOQL in String Variable": {
+    "prefix": "soqlstring",
+    "body": [
+      "String ${1:query} = '",
+      "\tSELECT ${2:Id, Name}",
+      "\tFROM ${3:Account}",
+      "\tWHERE ${4:Id = :recordId}",
+      "';",
+      "$0"
+    ],
+    "description": "SOQL query stored in a String variable"
+  },
+  "SOQL with Dynamic WHERE": {
+    "prefix": "soqldynamic",
+    "body": [
+      "String ${1:query} = 'SELECT ${2:Id, Name} FROM ${3:Account}';",
+      "if (${4:condition}) {",
+      "\t${1:query} += ' WHERE ${5:Id = :recordId}';",
+      "}",
+      "List<${6:SObject}> ${7:records} = Database.query(${1:query});",
+      "$0"
+    ],
+    "description": "Dynamic SOQL query with conditional WHERE clause"
+  },
+  "SOQL with Binding Variables": {
+    "prefix": "soqlbind",
+    "body": [
+      "List<${1:SObject}> ${2:records} = [",
+      "\tSELECT ${3:Id, Name}",
+      "\tFROM ${4:Account}",
+      "\tWHERE ${5:Id = :${6:recordId}}",
+      "];",
+      "$0"
+    ],
+    "description": "SOQL query with Apex binding variables"
+  },
+  "SOQL with Multiple Bindings": {
+    "prefix": "soqlmultibind",
+    "body": [
+      "List<${1:SObject}> ${2:records} = [",
+      "\tSELECT ${3:Id, Name}",
+      "\tFROM ${4:Account}",
+      "\tWHERE ${5:Name LIKE :${6:searchTerm}}",
+      "\tAND ${7:Type = :${8:accountType}}",
+      "\tAND ${9:CreatedDate > :${10:startDate}}",
+      "];",
+      "$0"
+    ],
+    "description": "SOQL query with multiple Apex binding variables"
+  },
+  "SOQL with FOR Loop": {
+    "prefix": "soqlfor",
+    "body": [
+      "for (${1:SObject} ${2:record} : [",
+      "\tSELECT ${3:Id, Name}",
+      "\tFROM ${4:Account}",
+      "\tWHERE ${5:Id = :recordId}",
+      "]) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "SOQL query in a FOR loop"
+  },
+  "SOQL with Aggregate Result": {
+    "prefix": "soqlaggresult",
+    "body": [
+      "AggregateResult[] ${1:results} = [",
+      "\tSELECT ${2:COUNT(Id) recordCount, Type}",
+      "\tFROM ${3:Account}",
+      "\tGROUP BY ${4:Type}",
+      "];",
+      "$0"
+    ],
+    "description": "SOQL aggregate query with AggregateResult"
+  },
+  "SOQL with Custom Object": {
+    "prefix": "soqlcustom",
+    "body": [
+      "List<${1:CustomObject__c}> ${2:records} = [",
+      "\tSELECT ${3:Id, Name, Custom_Field__c}",
+      "\tFROM ${1:CustomObject__c}",
+      "\tWHERE ${4:Id = :recordId}",
+      "];",
+      "$0"
+    ],
+    "description": "SOQL query for custom object"
+  },
+  "SOQL with Relationship": {
+    "prefix": "soqlrel",
+    "body": [
+      "List<${1:Contact}> ${2:contacts} = [",
+      "\tSELECT ${3:Id, Name, Account.Id, Account.Name}",
+      "\tFROM ${1:Contact}",
+      "\tWHERE ${4:AccountId = :accountId}",
+      "];",
+      "$0"
+    ],
+    "description": "SOQL query with relationship fields"
+  }
+}

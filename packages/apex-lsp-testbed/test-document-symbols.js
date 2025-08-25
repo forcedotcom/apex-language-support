@@ -38,13 +38,7 @@ console.log('Test file content:');
 console.log(testApexContent);
 
 // Path to the language server
-const serverPath = path.join(
-  __dirname,
-  '..',
-  'apex-ls-node',
-  'out',
-  'index.js',
-);
+const serverPath = path.join(__dirname, '..', 'apex-ls', 'out', 'index.js');
 
 console.log('\nStarting language server at:', serverPath);
 

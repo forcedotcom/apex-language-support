@@ -48,7 +48,6 @@ on:
         options:
           - all
           - apex-lsp-vscode-extension
-          - apex-lsp-vscode-extension-web
       registries:
         description: 'Registries to publish to'
         required: false

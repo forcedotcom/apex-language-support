@@ -137,7 +137,7 @@ export async function createClientOptions(
         serverPath: path.join(
           repoRoot,
           'packages',
-          'apex-ls-node',
+          'apex-ls',
           'out',
           'index.js',
         ),
@@ -181,7 +181,7 @@ export async function createClientOptions(
         serverPath: path.join(
           repoRoot,
           'packages',
-          'apex-ls-node',
+          'apex-ls',
           'out',
           'index.js',
         ),
@@ -189,7 +189,7 @@ export async function createClientOptions(
           workerUrl: path.join(
             repoRoot,
             'packages',
-            'apex-ls-node',
+            'apex-ls',
             'out',
             'index.js',
           ),

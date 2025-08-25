@@ -18,12 +18,15 @@ export const EXTENSION_CONSTANTS = {
   MIN_RESTART_DELAY_MS: 5000,
   /** Status bar priority */
   STATUS_BAR_PRIORITY: 100,
-  /** Output channel name */
-  EXTENSION_OUTPUT_CHANNEL_NAME: 'Apex Language Extension (Typescript)',
-  /** Server output channel name */
-  SERVER_OUTPUT_CHANNEL_NAME: 'Apex Language Server (Typescript)',
+  /** Client output channel name */
+  CLIENT_OUTPUT_CHANNEL_NAME: 'Apex Language Server Extension (Client)',
+  /** Worker/Server output channel name */
+  WORKER_SERVER_OUTPUT_CHANNEL_NAME:
+    'Apex Language Server Extension (Worker/Server)',
   /** Restart command ID */
   RESTART_COMMAND_ID: 'apex-ls-ts.restart.server',
+  /** Restart command ID (alternative for web compatibility) */
+  WEB_RESTART_COMMAND_ID: 'apex.restart.server',
   /** Configuration section name */
   CONFIG_SECTION: 'apex-ls-ts',
   /** Log level command IDs */

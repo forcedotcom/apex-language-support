@@ -1,0 +1,158 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+import { defineConfig } from 'tsup';
+import { BuildOptions } from 'esbuild';
+import { applyPolyfillConfig } from './src/polyfills/config';
+import { copyFileSync, existsSync } from 'fs';
+
+// Shared external dependencies to avoid duplication
+const SHARED_EXTERNAL = [
+  'vscode-languageserver',
+  'vscode-languageserver/node',
+  'vscode-languageserver-protocol',
+  'vscode-jsonrpc',
+  'vscode-jsonrpc/node',
+  '@apexdevtools/apex-parser',
+  'antlr4ts',
+  '@salesforce/apex-lsp-parser-ast',
+  '@salesforce/apex-lsp-custom-services',
+  'node-dir',
+  'crypto',
+  'fs',
+  'path',
+];
+
+const SHARED_NO_EXTERNAL = [
+  '@salesforce/apex-lsp-shared',
+  '@salesforce/apex-lsp-compliant-services',
+  'vscode-languageserver-textdocument',
+];
+
+export default defineConfig([
+  // Node.js build (CJS + ESM)
+  {
+    format: ['cjs', 'esm'],
+    entry: {
+      index: 'src/index.ts',
+    },
+    outDir: 'dist',
+    clean: true,
+    platform: 'node',
+    target: 'es2020',
+    dts: false,
+    splitting: false,
+    minify: false,
+    sourcemap: true,
+    external: SHARED_EXTERNAL,
+    noExternal: SHARED_NO_EXTERNAL,
+    esbuildOptions(options: BuildOptions) {
+      options.platform = 'node';
+      options.define = {
+        ...options.define,
+        'process.env.NODE_ENV': '"node"',
+      };
+      options.minify = false;
+      options.minifyIdentifiers = false;
+      options.minifySyntax = false;
+      options.minifyWhitespace = false;
+      return options;
+    },
+    onSuccess: async () => {
+      // Copy TypeScript definition files from out/ to dist/
+      const filesToCopy = [
+        { from: 'out/index.d.ts', to: 'dist/index.d.ts' },
+        { from: 'out/browser.d.ts', to: 'dist/browser.d.ts' },
+        { from: 'out/worker.d.ts', to: 'dist/worker.d.ts' },
+      ];
+      
+      for (const { from, to } of filesToCopy) {
+        if (existsSync(from)) {
+          copyFileSync(from, to);
+          console.log(`✅ Copied ${from} -> ${to}`);
+        } else {
+          console.warn(`⚠️ Source file not found: ${from}`);
+        }
+      }
+    },
+  },
+  // Browser build
+  {
+    format: ['cjs', 'esm'],
+    entry: {
+      browser: 'src/browser.ts',
+    },
+    outDir: 'dist',
+    clean: false,
+    platform: 'browser',
+    target: 'es2020',
+    dts: false,
+    splitting: false,
+    minify: false,
+    sourcemap: true,
+    external: SHARED_EXTERNAL,
+    noExternal: SHARED_NO_EXTERNAL,
+    esbuildOptions(options: BuildOptions) {
+      options.platform = 'browser';
+      options.conditions = ['browser', 'import', 'module', 'default'];
+      options.mainFields = ['browser', 'module', 'main'];
+
+      // Apply polyfill configuration to browser build
+      applyPolyfillConfig(options);
+
+      options.define = {
+        ...options.define,
+        'process.env.NODE_ENV': '"browser"',
+      };
+      options.minify = false;
+      options.minifyIdentifiers = false;
+      options.minifySyntax = false;
+      options.minifyWhitespace = false;
+      return options;
+    },
+  },
+  // Worker build (IIFE for web workers)
+  {
+    entry: {
+      worker: 'src/worker.ts',
+    },
+    outDir: 'dist',
+    clean: false,
+    platform: 'browser',
+    target: 'es2020',
+    dts: false,
+    splitting: false,
+    minify: false,
+    sourcemap: true,
+    format: ['iife'],
+    external: SHARED_EXTERNAL,
+    noExternal: SHARED_NO_EXTERNAL,
+    // No globalName for web worker - should execute immediately
+    footer: {
+      js: '// IIFE worker - remove any return statements',
+    },
+    esbuildOptions(options: BuildOptions) {
+      options.platform = 'browser';
+      options.mainFields = ['browser', 'module', 'main'];
+      options.conditions = ['browser', 'import', 'module', 'default'];
+      options.alias = {
+        ...options.alias,
+        'utils/EnvironmentDetector.node': 'utils/EnvironmentDetector.browser',
+        'storage/StorageFactory.node': 'storage/StorageFactory.browser',
+        'communication/Client': 'communication/Client.browser',
+      };
+      // Apply polyfill configuration
+      applyPolyfillConfig(options);
+
+      options.minify = false;
+      options.minifyIdentifiers = false;
+      options.minifySyntax = false;
+      options.minifyWhitespace = false;
+      return options;
+    },
+  },
+]);

@@ -42,11 +42,7 @@ export const config: Options = {
     '@salesforce/apex-lsp-parser-ast',
     '@salesforce/apex-lsp-custom-services',
     '@salesforce/apex-lsp-compliant-services',
-    '@salesforce/apex-ls-browser',
-    '@salesforce/apex-ls-node',
     '@salesforce/apex-lsp-testbed',
-    '@salesforce/apex-lsp-browser-client',
-    '@salesforce/apex-lsp-vscode-client',
     '@salesforce/apex-lsp-vscode-extension',
   ],
 };

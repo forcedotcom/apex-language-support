@@ -26,6 +26,10 @@ jest.mock('../src/configuration', () => ({
 // Mock the logging module
 jest.mock('../src/logging', () => ({
   logToOutputChannel: jest.fn(),
+  logServerMessage: jest.fn(),
+  getWorkerServerOutputChannel: jest.fn().mockReturnValue({
+    appendLine: jest.fn(),
+  }),
   getOutputChannel: jest.fn().mockReturnValue({
     appendLine: jest.fn(),
   }),

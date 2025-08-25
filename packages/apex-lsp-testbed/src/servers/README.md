@@ -24,12 +24,12 @@ The testbed supports multiple different language server implementations:
 
 ### Node.js-based Servers
 
-- **nodeServer/** - TypeScript implementation for Node.js (`apex-ls-node`)
+- **nodeServer/** - TypeScript implementation for Node.js (`apex-ls`)
   - Designed for VS Code integration
   - Uses Node.js standard I/O for communication
   - Provides core LSP functionality
 
-- **nodeServer/webServer/** - TypeScript implementation for web browsers (`apex-ls-browser`)
+- **nodeServer/webServer/** - TypeScript implementation for web browsers (`apex-ls`)
   - _Coming soon_
   - Will adapt the node server for browser environments
 

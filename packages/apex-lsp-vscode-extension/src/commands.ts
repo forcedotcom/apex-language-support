@@ -51,36 +51,44 @@ export const setRestartHandler = (
 export const registerRestartCommand = (
   context: vscode.ExtensionContext,
 ): void => {
-  const restartCommand = vscode.commands.registerCommand(
-    EXTENSION_CONSTANTS.RESTART_COMMAND_ID,
-    async () => {
-      // Only allow manual restart if we're not already starting and we're outside cooldown period
-      const now = Date.now();
-      if (
-        !isStarting &&
-        now - lastRestartTime > EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS
-      ) {
-        lastRestartTime = now;
-        serverStartRetries = 0; // Reset retry counter on manual restart
+  const restartLogic = async () => {
+    // Only allow manual restart if we're not already starting and we're outside cooldown period
+    const now = Date.now();
+    if (
+      !isStarting &&
+      now - lastRestartTime > EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS
+    ) {
+      lastRestartTime = now;
+      serverStartRetries = 0; // Reset retry counter on manual restart
 
-        if (restartHandler) {
-          await restartHandler(context);
-        } else {
-          logToOutputChannel('Restart handler not set', 'error');
-        }
+      if (restartHandler) {
+        await restartHandler(context);
       } else {
-        logToOutputChannel(
-          'Restart blocked: Server is already starting or in cooldown period',
-          'info',
-        );
-        vscode.window.showInformationMessage(
-          'Server restart was requested too soon after previous attempt. Please wait a moment before trying again.',
-        );
+        logToOutputChannel('Restart handler not set', 'error');
       }
-    },
+    } else {
+      logToOutputChannel(
+        'Restart blocked: Server is already starting or in cooldown period',
+        'info',
+      );
+      vscode.window.showInformationMessage(
+        'Server restart was requested too soon after previous attempt. Please wait a moment before trying again.',
+      );
+    }
+  };
+
+  // Register both restart commands for compatibility
+  const restartCommand1 = vscode.commands.registerCommand(
+    EXTENSION_CONSTANTS.RESTART_COMMAND_ID,
+    restartLogic,
   );
 
-  context.subscriptions.push(restartCommand);
+  const restartCommand2 = vscode.commands.registerCommand(
+    EXTENSION_CONSTANTS.WEB_RESTART_COMMAND_ID,
+    restartLogic,
+  );
+
+  context.subscriptions.push(restartCommand1, restartCommand2);
 };
 
 /**

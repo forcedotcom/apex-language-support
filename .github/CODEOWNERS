@@ -17,5 +17,4 @@
 /packages/apex-parser-ast/  @forcedotcom/ide-experience
 /packages/lsp-compliant-services/  @forcedotcom/ide-experience
 /packages/custom-services/  @forcedotcom/ide-experience
-/packages/apex-ls-browser/  @forcedotcom/ide-experience
-/packages/apex-ls-node/  @forcedotcom/ide-experience
+/packages/apex-ls/  @forcedotcom/ide-experience
