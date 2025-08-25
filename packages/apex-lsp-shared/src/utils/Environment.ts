@@ -42,9 +42,7 @@ export function isBrowserWindow(value: any): value is Window {
 /**
  * Type guard to check if a value is a web worker self object
  */
-export function isWebWorkerSelf(
-  value: any,
-): value is typeof self {
+export function isWebWorkerSelf(value: any): value is typeof self {
   return (
     value &&
     typeof value === 'object' &&

@@ -11,8 +11,7 @@ import type {
   LogNotificationHandler as ILogNotificationHandler,
   LogMessageParams,
 } from '@salesforce/apex-lsp-shared';
-import { shouldLog } from '@salesforce/apex-lsp-shared';
-import { LoggingUtils } from '@salesforce/apex-lsp-shared';
+import { shouldLog, LoggingUtils } from '@salesforce/apex-lsp-shared';
 
 /**
  * Log notification handler that works in both browser and web worker contexts

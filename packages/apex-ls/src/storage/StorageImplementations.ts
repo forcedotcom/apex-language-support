@@ -7,7 +7,11 @@
  */
 
 import type { TextDocument } from 'vscode-languageserver-textdocument';
-import type { EnvironmentType, IStorage, StorageConfig } from '@salesforce/apex-lsp-shared';
+import type {
+  EnvironmentType,
+  IStorage,
+  StorageConfig,
+} from '@salesforce/apex-lsp-shared';
 import { BaseStorageFactory } from './StorageFactory';
 
 /**

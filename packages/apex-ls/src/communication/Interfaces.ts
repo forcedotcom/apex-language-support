@@ -6,23 +6,21 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { MessageConnection, Logger } from 'vscode-jsonrpc';
-import type { EnvironmentType } from '@salesforce/apex-lsp-shared';
-import type { InitializeParams, InitializeResult } from '@salesforce/apex-lsp-shared';
+import type { MessageConnection } from 'vscode-jsonrpc';
+
+// Platform-specific configuration interfaces
+import type { BaseConfig, EnvironmentType } from '@salesforce/apex-lsp-shared';
 
 // Re-export from shared package
-export type { 
-  EnvironmentType, 
-  InitializeParams, 
+export type {
+  EnvironmentType,
+  InitializeParams,
   InitializeResult,
   MessageTransport,
   Disposable,
   BaseConfig,
-  ClientInterface
+  ClientInterface,
 } from '@salesforce/apex-lsp-shared';
-
-// Platform-specific configuration interfaces
-import type { BaseConfig } from '@salesforce/apex-lsp-shared';
 
 /**
  * Browser-specific configuration

@@ -7,7 +7,10 @@
  */
 
 import type { Logger, MessageConnection } from 'vscode-jsonrpc';
-import type { InitializeParams, InitializeResult } from '@salesforce/apex-lsp-shared';
+import type {
+  InitializeParams,
+  InitializeResult,
+} from '@salesforce/apex-lsp-shared';
 import type { ClientInterface } from './Interfaces';
 import { NodeMessageBridge } from './NodeBridge';
 
