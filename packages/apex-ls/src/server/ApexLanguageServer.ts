@@ -7,8 +7,7 @@
  */
 
 import type { MessageConnection } from 'vscode-jsonrpc';
-import type { EnvironmentType } from '../types';
-import type { StorageConfig } from '../storage/StorageInterface';
+import type { EnvironmentType, StorageConfig } from '@salesforce/apex-lsp-shared';
 import {
   isNodeEnvironment,
   isWorkerEnvironment,

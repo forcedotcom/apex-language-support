@@ -6,13 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { EnvironmentType } from '../types';
+import type { EnvironmentType } from '@salesforce/apex-lsp-shared';
 import type {
   IStorage,
   IStorageFactory,
   IStorageFactoryRegistry,
   StorageConfig,
-} from './StorageInterface';
+} from '@salesforce/apex-lsp-shared';
 import { detectEnvironment } from '../utils/Environment';
 
 /**

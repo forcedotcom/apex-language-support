@@ -6,74 +6,15 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-/**
- * Logger interface that extends Console with additional methods
- */
-export interface Logger extends Console {
-  success(message: string): void;
-}
-
-/**
- * Environment types supported by the language server
- */
-export type EnvironmentType = 'browser' | 'webworker' | 'node';
-
-/**
- * Log level type for consistent typing across the application
- */
-export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
-
-/**
- * Extension mode type for consistent typing
- */
-export type ExtensionMode = 'production' | 'development';
-
-/**
- * Options for creating a web worker language server
- */
-export interface WebWorkerLanguageServerOptions {
-  /**
-   * The environment type where the server will run
-   */
-  environment: EnvironmentType;
-
-  /**
-   * Log level for the language server
-   */
-  logLevel?: LogLevel;
-
-  /**
-   * Whether to enable document symbols
-   */
-  enableDocumentSymbols?: boolean;
-
-  /**
-   * Trace level for debugging
-   */
-  trace?: string;
-
-  /**
-   * Extension mode (production/development)
-   */
-  extensionMode?: ExtensionMode;
-
-  /**
-   * Custom initialization options
-   */
-  initializationOptions?: Record<string, any>;
-}
-
-/**
- * Interface for server initialization options
- */
-export interface ApexServerInitializationOptions {
-  logLevel?: LogLevel;
-  enableDocumentSymbols?: boolean;
-  trace?: string;
-  extensionMode?: ExtensionMode;
-  custom?: Record<string, any>;
-  [key: string]: any;
-}
+// Re-export shared types from the shared package
+export type {
+  EnvironmentType,
+  LogLevel,
+  ExtensionMode,
+  Logger,
+  WebWorkerLanguageServerOptions,
+  ApexServerInitializationOptions,
+} from '@salesforce/apex-lsp-shared';
 
 // Re-export the actual LSP types from vscode-languageserver
 export type {

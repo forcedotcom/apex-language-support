@@ -7,7 +7,7 @@
  */
 
 import type { MessageConnection } from 'vscode-jsonrpc';
-import type { EnvironmentType } from '../types';
+import type { EnvironmentType } from '@salesforce/apex-lsp-shared';
 import type { ConnectionConfig } from './ConnectionFactory';
 import { BaseConnectionFactory } from './ConnectionFactory';
 import { NodeMessageBridge } from '../communication/NodeBridge';

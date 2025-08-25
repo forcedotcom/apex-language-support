@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { EnvironmentType } from '../types';
+import type { EnvironmentType } from '@salesforce/apex-lsp-shared';
 
 // =============================================================================
 // TYPE GUARDS

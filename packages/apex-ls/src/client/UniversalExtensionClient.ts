@@ -13,7 +13,7 @@ import type {
 import { WorkerLauncher } from '../launcher/WorkerLauncher';
 import type { WorkerLaunchResult } from '../launcher/WorkerLauncher';
 import type { ClientInterface } from '../communication/Interfaces';
-import type { Logger } from '../types';
+import type { Logger } from '@salesforce/apex-lsp-shared';
 
 /**
  * Configuration for the universal extension client

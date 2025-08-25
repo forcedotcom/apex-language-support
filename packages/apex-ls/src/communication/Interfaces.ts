@@ -7,46 +7,22 @@
  */
 
 import type { MessageConnection, Logger } from 'vscode-jsonrpc';
-import type {
-  EnvironmentType,
-  InitializeParams,
+import type { EnvironmentType } from '@salesforce/apex-lsp-shared';
+import type { InitializeParams, InitializeResult } from '@salesforce/apex-lsp-shared';
+
+// Re-export from shared package
+export type { 
+  EnvironmentType, 
+  InitializeParams, 
   InitializeResult,
-} from '../types';
+  MessageTransport,
+  Disposable,
+  BaseConfig,
+  ClientInterface
+} from '@salesforce/apex-lsp-shared';
 
-// Re-export for convenience
-export type { EnvironmentType, InitializeParams, InitializeResult };
-
-// =============================================================================
-// CORE INTERFACES
-// =============================================================================
-
-/**
- * Platform-agnostic message transport interface
- */
-export interface MessageTransport {
-  send(message: any): Promise<void>;
-  listen(handler: (message: any) => void): { dispose(): void };
-  onError(handler: (error: Error) => void): { dispose(): void };
-  dispose(): void;
-}
-
-/**
- * Disposable interface for cleanup
- */
-export interface Disposable {
-  dispose(): void;
-}
-
-// =============================================================================
-// CONFIGURATION TYPES
-// =============================================================================
-
-/**
- * Base configuration for all communication components
- */
-export interface BaseConfig {
-  logger?: Logger;
-}
+// Platform-specific configuration interfaces
+import type { BaseConfig } from '@salesforce/apex-lsp-shared';
 
 /**
  * Browser-specific configuration
@@ -79,22 +55,7 @@ export interface ClientConfig extends BaseConfig {
   worker?: Worker; // Required for browser environment
 }
 
-// =============================================================================
-// CLIENT INTERFACE
-// =============================================================================
-
-/**
- * Unified client interface that works across all environments
- */
-export interface ClientInterface {
-  initialize(params: InitializeParams): Promise<InitializeResult>;
-  sendNotification(method: string, params?: any): void;
-  sendRequest<T = any>(method: string, params?: any): Promise<T>;
-  onNotification(method: string, handler: (params: any) => void): void;
-  onRequest(method: string, handler: (params: any) => any): void;
-  isDisposed(): boolean;
-  dispose(): void;
-}
+// ClientInterface is now exported from @salesforce/apex-lsp-shared
 
 // =============================================================================
 // FACTORY INTERFACES

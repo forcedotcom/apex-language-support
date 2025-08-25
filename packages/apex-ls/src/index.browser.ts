@@ -11,16 +11,18 @@ export type {
   IStorage,
   IStorageFactory,
   StorageConfig,
-} from './storage/StorageInterface';
+} from '@salesforce/apex-lsp-shared';
 
 export type {
   IConnectionFactory,
   ConnectionConfig,
 } from './server/ConnectionFactory';
 
-// ApexStorage interface moved to StorageInterface as IStorage
-export type { ApexStorageInterface } from './storage/ApexStorageManager';
-export { ApexStorageAdapter } from './storage/ApexStorageManager';
+// Re-export Apex storage types from the compliant services package
+export type {
+  ApexStorageInterface,
+  ApexReference,
+} from '@salesforce/apex-lsp-compliant-services';
 
 export type { ClientInterface, ClientConfig } from './communication/Interfaces';
 export { Client, ClientFactory } from './communication/BrowserClient';

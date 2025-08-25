@@ -7,7 +7,7 @@
  */
 
 import type { ExtensionContext } from 'vscode';
-import type { EnvironmentType, Logger } from '../types';
+import type { EnvironmentType, Logger } from '@salesforce/apex-lsp-shared';
 import { ClientFactory } from '../communication/BrowserClient';
 import type { ClientInterface } from '../communication/BrowserClient';
 

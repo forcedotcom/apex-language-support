@@ -25,9 +25,7 @@ export type {
   IStorage,
   IStorageFactory,
   StorageConfig,
-} from './storage/StorageInterface';
+} from '@salesforce/apex-lsp-shared';
 
 // Export storage types
-// ApexStorage interface moved to StorageInterface as IStorage
-export type { ApexStorageInterface } from './storage/ApexStorageManager';
-export { ApexStorageAdapter } from './storage/ApexStorageManager';
+export type { ApexStorageInterface } from '@salesforce/apex-lsp-compliant-services';

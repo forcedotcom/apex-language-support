@@ -8,6 +8,7 @@
 
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import type { Logger } from 'vscode-jsonrpc';
+
 import type { EnvironmentType } from '../types';
 
 /**

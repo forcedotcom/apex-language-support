@@ -10,13 +10,10 @@
 export { BrowserStorageFactory } from './storage/StorageImplementations';
 
 // Re-export shared types that are still needed
-export type {
-  IStorage,
-  IStorageFactory,
-  StorageConfig,
-  ApexStorageInterface,
-} from './index.browser';
+export type { IStorage, IStorageFactory, StorageConfig } from './index.browser';
 
 // Export client types that are still needed
 export type { ClientInterface } from './communication/Interfaces';
-export { ApexStorageAdapter } from './index.browser';
+
+// Export Apex-specific types from compliant-services
+export type { ApexStorageInterface } from '@salesforce/apex-lsp-compliant-services';

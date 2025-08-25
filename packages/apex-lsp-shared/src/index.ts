@@ -7,6 +7,10 @@
  */
 
 export * from './notification';
+export * from './types';
+export * from './storage/StorageInterface';
+export * from './utils/CorrelatedMessage';
+export * from './communication/Interfaces';
 export {
   setLogNotificationHandler,
   getLogNotificationHandler,
