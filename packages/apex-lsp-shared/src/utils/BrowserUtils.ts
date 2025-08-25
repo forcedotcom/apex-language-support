@@ -9,10 +9,10 @@
 /**
  * Gets the worker global scope if available
  */
-export function getWorkerGlobalScope(): DedicatedWorkerGlobalScope | null {
+export function getWorkerGlobalScope(): typeof self | null {
   try {
     if (typeof self !== 'undefined' && typeof window === 'undefined') {
-      return self as unknown as DedicatedWorkerGlobalScope;
+      return self;
     }
   } catch {
     // Self is not available

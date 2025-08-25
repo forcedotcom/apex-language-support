@@ -16,7 +16,7 @@ export type {
 export type {
   IConnectionFactory,
   ConnectionConfig,
-} from './server/ConnectionFactory';
+} from '@salesforce/apex-lsp-shared';
 
 // Re-export Apex storage types from the compliant services package
 export type {
@@ -32,7 +32,7 @@ export {
   isWorkerEnvironment,
   isBrowserEnvironment,
   isNodeEnvironment,
-} from './utils/Environment';
+} from '@salesforce/apex-lsp-shared';
 
 // Export shared factories
 export { StorageFactory } from './storage/StorageFactory';

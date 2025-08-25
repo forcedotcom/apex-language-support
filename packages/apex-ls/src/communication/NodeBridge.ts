@@ -18,7 +18,7 @@ import {
 import net from '../polyfills/net-polyfill';
 import { BaseMessageBridge } from './CoreBridge';
 import type { NodeConfig } from './Interfaces';
-import { isNodeEnvironment } from '../utils/Environment';
+import { isNodeEnvironment } from '@salesforce/apex-lsp-shared';
 
 /**
  * Node.js-specific message bridge implementation

@@ -10,11 +10,11 @@ import type {
   LoggerInterface,
   LogMessageType,
   LoggerFactory as ILoggerFactory,
-} from '@salesforce/apex-lsp-shared';
+} from '../index';
 import {
   getLogNotificationHandler,
   shouldLog,
-} from '@salesforce/apex-lsp-shared';
+} from '../index';
 import type { Connection } from 'vscode-languageserver';
 import { detectEnvironment } from './Environment';
 
@@ -181,16 +181,16 @@ export class UniversalLogger implements LoggerInterface {
 /**
  * Universal logger factory that works across all environments
  */
-export class LoggerFactory implements ILoggerFactory {
-  private static instance?: LoggerFactory;
+export class UniversalLoggerFactory implements ILoggerFactory {
+  private static instance?: UniversalLoggerFactory;
 
   private constructor() {}
 
-  static getInstance(): LoggerFactory {
-    if (!LoggerFactory.instance) {
-      LoggerFactory.instance = new LoggerFactory();
+  static getInstance(): UniversalLoggerFactory {
+    if (!UniversalLoggerFactory.instance) {
+      UniversalLoggerFactory.instance = new UniversalLoggerFactory();
     }
-    return LoggerFactory.instance;
+    return UniversalLoggerFactory.instance;
   }
 
   /**
@@ -211,7 +211,7 @@ export class LoggerFactory implements ILoggerFactory {
    * Creates a logger with automatic connection detection
    */
   static createLogger(connection?: Connection): LoggerInterface {
-    return LoggerFactory.getInstance().createLogger(connection);
+    return UniversalLoggerFactory.getInstance().createLogger(connection);
   }
 }
 

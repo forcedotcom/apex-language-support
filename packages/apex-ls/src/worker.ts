@@ -32,9 +32,8 @@ import {
   getLogger,
   setLoggerFactory,
   setLogLevel,
+  UniversalLoggerFactory,
 } from '@salesforce/apex-lsp-shared';
-
-import { LoggerFactory } from './utils/Logging';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -44,9 +43,11 @@ const connection = createConnection(
   new BrowserMessageWriter(self as unknown as DedicatedWorkerGlobalScope),
 );
 
-// Set up logging
-setLoggerFactory(LoggerFactory.getInstance());
-const logger = getLogger();
+// Set up logging with connection
+setLogLevel('info'); // Enable info level logs to see worker messages
+const loggerFactory = UniversalLoggerFactory.getInstance();
+const logger = loggerFactory.createLogger(connection);
+setLoggerFactory(loggerFactory);
 
 // Send initial log messages
 logger.info('🚀 Worker script loading...');

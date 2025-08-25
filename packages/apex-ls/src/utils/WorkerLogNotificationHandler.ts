@@ -8,7 +8,7 @@
 
 import type { LogMessageParams } from '@salesforce/apex-lsp-shared';
 import type { Connection } from 'vscode-languageserver/browser';
-import { LoggingUtils } from './Logging';
+import { LoggingUtils } from '@salesforce/apex-lsp-shared';
 
 /**
  * Handles log notifications in worker environments

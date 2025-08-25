@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { EnvironmentType } from '@salesforce/apex-lsp-shared';
+import type { EnvironmentType } from '../types';
 
 // =============================================================================
 // TYPE GUARDS
@@ -44,7 +44,7 @@ export function isBrowserWindow(value: any): value is Window {
  */
 export function isWebWorkerSelf(
   value: any,
-): value is DedicatedWorkerGlobalScope {
+): value is typeof self {
   return (
     value &&
     typeof value === 'object' &&

@@ -20,7 +20,7 @@ export type {
 export type {
   IConnectionFactory,
   ConnectionConfig,
-} from './server/ConnectionFactory';
+} from '@salesforce/apex-lsp-shared';
 export type {
   IStorage,
   IStorageFactory,

@@ -7,7 +7,7 @@
  */
 
 import type { MessageConnection, Logger } from 'vscode-jsonrpc';
-import type { EnvironmentType } from '@salesforce/apex-lsp-shared';
+import type { EnvironmentType } from '../types';
 import { detectEnvironment } from '../utils/Environment';
 
 /**

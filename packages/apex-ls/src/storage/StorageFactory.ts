@@ -13,7 +13,7 @@ import type {
   IStorageFactoryRegistry,
   StorageConfig,
 } from '@salesforce/apex-lsp-shared';
-import { detectEnvironment } from '../utils/Environment';
+import { detectEnvironment } from '@salesforce/apex-lsp-shared';
 
 /**
  * Registry for managing environment-specific storage factories

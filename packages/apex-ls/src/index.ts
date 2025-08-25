@@ -20,7 +20,7 @@ export type {
 export type {
   IConnectionFactory,
   ConnectionConfig,
-} from './server/ConnectionFactory';
+} from '@salesforce/apex-lsp-shared';
 
 export type { IMessageBridgeFactory } from './communication/Interfaces';
 
@@ -36,7 +36,7 @@ export type { NodeClientConfig } from './communication/NodeClient';
 
 // Export shared utilities
 // Export environment-specific utilities and factories
-export { isNodeEnvironment } from './utils/Environment';
+export { isNodeEnvironment } from '@salesforce/apex-lsp-shared';
 
 // Export shared factories
 export { StorageFactory } from './storage/StorageFactory';

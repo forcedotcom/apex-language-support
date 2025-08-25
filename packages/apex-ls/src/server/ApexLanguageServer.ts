@@ -12,7 +12,7 @@ import {
   isNodeEnvironment,
   isWorkerEnvironment,
   isBrowserEnvironment,
-} from '../utils/Environment';
+} from '@salesforce/apex-lsp-shared';
 
 /**
  * Unified configuration for the server

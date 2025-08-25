@@ -185,7 +185,7 @@ export class ClientFactory {
    */
   private static async detectEnvironment(): Promise<EnvironmentType> {
     const { isWorkerEnvironment, isBrowserEnvironment } = await import(
-      '../utils/Environment'
+      '@salesforce/apex-lsp-shared'
     );
 
     if (isWorkerEnvironment()) {
