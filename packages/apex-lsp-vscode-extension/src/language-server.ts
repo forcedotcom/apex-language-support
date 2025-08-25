@@ -7,14 +7,10 @@
  */
 
 import * as vscode from 'vscode';
-import type { ClientInterface } from '@salesforce/apex-ls';
+import type { ClientInterface } from '@salesforce/apex-lsp-shared';
 import { LanguageClient } from 'vscode-languageclient/browser';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
-import {
-  logToOutputChannel,
-  logWorkerMessage,
-  getWorkerServerOutputChannel,
-} from './logging';
+import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import {
   updateApexServerStatusStarting,
@@ -278,7 +274,7 @@ export const createAndStartClient = async (
 
     const environment = detectEnvironment();
     logToOutputChannel(`🌍 Environment detected: ${environment} mode`, 'info');
-    logWorkerMessage(
+    logToOutputChannel(
       `🚀 Starting language server in ${environment} mode`,
       'info',
     );
@@ -330,42 +326,14 @@ export const createAndStartClient = async (
     );
     logToOutputChannel('✅ Language Client created successfully', 'info');
 
-    // Set up window/logMessage handler for worker logs
+    // Set up window/logMessage handler for worker/server logs
     languageClient.onNotification('window/logMessage', (params) => {
-      const { type, message } = params;
-      let logType: 'error' | 'warning' | 'info' | 'debug';
-      switch (type) {
-        case 1:
-          logType = 'error';
-          break;
-        case 2:
-          logType = 'warning';
-          break;
-        case 3:
-          logType = 'info';
-          break;
-        case 4:
-          logType = 'debug';
-          break;
-        default:
-          logType = 'info';
-      }
+      const { message } = params;
 
-      // Check if message already has [APEX-WORKER] prefix to avoid double-prefixing
-      if (message.startsWith('[APEX-WORKER]')) {
-        // Worker already identified itself, just add timestamp and log level
-        const timestamp = new Date().toLocaleTimeString('en-US', {
-          hour12: true,
-        });
-        const typeString = logType.toUpperCase();
-        const formattedMessage = `[${timestamp}] [${typeString}] ${message}`;
-        const channel = getWorkerServerOutputChannel();
-        if (channel) {
-          channel.appendLine(formattedMessage);
-        }
-      } else {
-        // For messages without worker prefix, use our standard worker prefix
-        logWorkerMessage(message, logType);
+      // All messages from the worker/server go directly to the worker/server channel without additional formatting
+      const channel = getWorkerServerOutputChannel();
+      if (channel) {
+        channel.appendLine(message);
       }
     });
 
@@ -399,8 +367,7 @@ export const createAndStartClient = async (
     logToOutputChannel('🚀 Initializing client...', 'info');
     await Client.initialize(initParams);
 
-    logToOutputChannel('✅ client initialized successfully', 'info');
-    logWorkerMessage('✅ language server initialized successfully', 'info');
+    logToOutputChannel('✅ Client initialized successfully', 'info');
 
     // Set up client state monitoring
     // Note: UniversalExtensionClient doesn't have the same state change events as LanguageClient
@@ -423,9 +390,8 @@ export const createAndStartClient = async (
     }
 
     logToOutputChannel('🎉 Apex Language Server is ready!', 'info');
-    logWorkerMessage('🎉 Apex Language Server is ready!', 'info');
   } catch (error) {
-    logWorkerMessage(`❌ Failed to start language server: ${error}`, 'error');
+    logToOutputChannel(`❌ Failed to start language server: ${error}`, 'error');
     setStartingFlag(false);
     updateApexServerStatusError();
     throw error;
@@ -442,7 +408,7 @@ function registerConfigurationChangeListener(
   const configWatcher = vscode.workspace.onDidChangeConfiguration(
     async (event) => {
       if (event.affectsConfiguration('apex-ls-ts')) {
-        logWorkerMessage(
+        logToOutputChannel(
           '⚙️ Configuration changed, notifying language server',
           'debug',
         );
@@ -456,7 +422,7 @@ function registerConfigurationChangeListener(
             },
           });
         } catch (error) {
-          logWorkerMessage(
+          logToOutputChannel(
             `Failed to send configuration change: ${error}`,
             'error',
           );
@@ -475,12 +441,12 @@ export async function startLanguageServer(
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
-  logWorkerMessage('🚀 Starting Apex Language Server...', 'info');
+  logToOutputChannel('🚀 Starting Apex Language Server...', 'info');
 
   try {
     await createAndStartClient(context, restartHandler);
   } catch (error) {
-    logWorkerMessage(`❌ Failed to start language server: ${error}`, 'error');
+    logToOutputChannel(`❌ Failed to start language server: ${error}`, 'error');
     throw error;
   }
 }
@@ -492,13 +458,16 @@ export async function restartLanguageServer(
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
-  logWorkerMessage('🔄 Restarting Apex Language Server...', 'info');
+  logToOutputChannel('🔄 Restarting Apex Language Server...', 'info');
 
   try {
     await stopLanguageServer();
     await startLanguageServer(context, restartHandler);
   } catch (error) {
-    logWorkerMessage(`❌ Failed to restart language server: ${error}`, 'error');
+    logToOutputChannel(
+      `❌ Failed to restart language server: ${error}`,
+      'error',
+    );
     throw error;
   }
 }
@@ -507,15 +476,15 @@ export async function restartLanguageServer(
  * Stops the language server
  */
 export async function stopLanguageServer(): Promise<void> {
-  logWorkerMessage('🛑 Stopping Apex Language Server...', 'info');
+  logToOutputChannel('🛑 Stopping Apex Language Server...', 'info');
 
   if (Client) {
     try {
       Client.dispose();
       Client = undefined;
-      logWorkerMessage('✅ language server stopped', 'info');
+      logToOutputChannel('✅ Language server stopped', 'info');
     } catch (error) {
-      logWorkerMessage(
+      logToOutputChannel(
         `⚠️ Error stopping language server: ${error}`,
         'warning',
       );

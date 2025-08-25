@@ -29,7 +29,6 @@ import {
 } from 'vscode-languageserver/browser';
 
 import {
-  getLogger,
   setLoggerFactory,
   setLogLevel,
   UniversalLoggerFactory,
@@ -148,7 +147,7 @@ connection.onDidChangeConfiguration((change) => {
   }
 
   // Update log level from configuration
-  const config = change.settings['apex-ls-ts'];
+  const config = change.settings?.['apex-ls'];
   if (config?.logLevel) {
     setLogLevel(config.logLevel);
   }

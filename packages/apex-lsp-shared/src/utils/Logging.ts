@@ -101,9 +101,6 @@ export class UniversalLogger implements LoggerInterface {
 
     const formattedMsg = LoggingUtils.formatMessage(msg);
 
-    // Always log to console as fallback
-    LoggingUtils.logToConsole(messageType, formattedMsg);
-
     // Send via connection if available (worker or server context)
     if (this.connection) {
       this.sendViaConnection(messageType, formattedMsg);
@@ -111,7 +108,12 @@ export class UniversalLogger implements LoggerInterface {
     }
 
     // Send via LSP notification handler (browser context)
-    this.sendViaLsp(messageType, formattedMsg);
+    if (this.sendViaLsp(messageType, formattedMsg)) {
+      return;
+    }
+
+    // Fallback to console only if no other method worked
+    LoggingUtils.logToConsole(messageType, formattedMsg);
   }
 
   private sendViaConnection(
@@ -133,15 +135,17 @@ export class UniversalLogger implements LoggerInterface {
     }
   }
 
-  private sendViaLsp(messageType: LogMessageType, message: string): void {
+  private sendViaLsp(messageType: LogMessageType, message: string): boolean {
     try {
       const handler = getLogNotificationHandler();
       if (handler && typeof handler.sendLogMessage === 'function') {
         handler.sendLogMessage({ type: messageType, message });
+        return true;
       }
     } catch (_error) {
-      // LSP handler not available or failed - already logged to console
+      // LSP handler not available or failed
     }
+    return false;
   }
 
   debug(message: string | (() => string)): void {

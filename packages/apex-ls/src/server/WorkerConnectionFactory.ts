@@ -7,8 +7,10 @@
  */
 
 import type { MessageConnection } from 'vscode-jsonrpc';
-import type { EnvironmentType } from '@salesforce/apex-lsp-shared';
-import type { ConnectionConfig } from '@salesforce/apex-lsp-shared';
+import type {
+  EnvironmentType,
+  ConnectionConfig,
+} from '@salesforce/apex-lsp-shared';
 import { BaseConnectionFactory } from '@salesforce/apex-lsp-shared';
 import { WorkerMessageBridge } from '../communication/PlatformBridges';
 
