@@ -125,12 +125,12 @@ function fixPackagePaths() {
 }
 
 function fixExports() {
-  console.log('🔧 Fixing extension.mjs exports for VSCode compatibility...');
+  console.log('🔧 Fixing extension.web.js exports for VSCode compatibility...');
 
-  const extensionPath = path.resolve(__dirname, '../dist/extension.mjs');
+  const extensionPath = path.resolve(__dirname, '../dist/extension.web.js');
 
   if (!fs.existsSync(extensionPath)) {
-    console.log('⚠️ extension.mjs not found, skipping export fix');
+    console.log('⚠️ extension.web.js not found, skipping export fix');
     return;
   }
 
@@ -151,10 +151,10 @@ export const deactivate = extensionModule.deactivate;`,
 
     fs.writeFileSync(extensionPath, content, 'utf8');
     console.log(
-      '✅ Fixed extension.mjs exports - VSCode should now find activate/deactivate functions',
+      '✅ Fixed extension.web.js exports - VSCode should now find activate/deactivate functions',
     );
   } else {
-    console.log('⚠️ Default export pattern not found in extension.mjs');
+    console.log('⚠️ Default export pattern not found in extension.web.js');
   }
 }
 
@@ -191,7 +191,7 @@ function validateBuild() {
   }
 
   // Check if critical files exist
-  const criticalFiles = ['extension.js', 'extension.mjs', 'package.json'];
+  const criticalFiles = ['extension.js', 'extension.web.js', 'package.json'];
   let allPresent = true;
 
   criticalFiles.forEach((file) => {

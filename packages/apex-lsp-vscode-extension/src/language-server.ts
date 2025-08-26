@@ -317,7 +317,11 @@ export const createAndStartClient = async (
           fileEvents: vscode.workspace.createFileSystemWatcher(
             '**/*.{cls,trigger,apex}',
           ),
+          // Tell the client to synchronize configuration from this section
+          configurationSection: 'apex',
         },
+        // Provide initial settings to the server
+        initializationOptions: getWorkspaceSettings(),
         // Use our consolidated worker/server output channel if available
         ...(getWorkerServerOutputChannel()
           ? { outputChannel: getWorkerServerOutputChannel() }

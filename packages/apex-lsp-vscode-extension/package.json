@@ -21,7 +21,7 @@
     "Snippets"
   ],
   "main": "./dist/extension.js",
-  "browser": "./dist/extension.js",
+  "browser": "./dist/extension.web.js",
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:apex",
@@ -318,6 +318,8 @@
   },
   "dependencies": {
     "@salesforce/apex-ls": "1.0.0",
+    "os-browserify": "^0.3.0",
+    "url-browserify": "^2.0.0",
     "vscode-languageclient": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.0.8",

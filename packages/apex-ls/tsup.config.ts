@@ -69,7 +69,7 @@ export default defineConfig([
         { from: 'out/browser.d.ts', to: 'dist/browser.d.ts' },
         { from: 'out/worker.d.ts', to: 'dist/worker.d.ts' },
       ];
-      
+
       for (const { from, to } of filesToCopy) {
         if (existsSync(from)) {
           copyFileSync(from, to);
