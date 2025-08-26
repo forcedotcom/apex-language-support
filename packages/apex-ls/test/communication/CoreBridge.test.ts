@@ -23,6 +23,8 @@ jest.mock('vscode-jsonrpc', () => ({
     sendNotification: jest.fn(),
     listen: jest.fn(),
     dispose: jest.fn(),
+    onError: jest.fn(),
+    onClose: jest.fn(),
   })),
   ResponseError: jest.fn().mockImplementation((code, message) => ({
     code,
@@ -35,11 +37,10 @@ jest.mock('vscode-jsonrpc', () => ({
 }));
 
 // Mock transport
-class MockTransport implements MessageTransport {
-  onMessage = jest.fn();
-  onError = jest.fn(); 
-  onClose = jest.fn();
-  send = jest.fn();
+class MockTransport {
+  send = jest.fn().mockResolvedValue(undefined);
+  listen = jest.fn().mockReturnValue({ dispose: jest.fn() });
+  onError = jest.fn().mockReturnValue({ dispose: jest.fn() });
   dispose = jest.fn();
 }
 
@@ -105,31 +106,33 @@ describe('CoreBridge', () => {
     it('should handle transport messages', () => {
       const reader = createTransportMessageReader(mockTransport);
       const mockCallback = jest.fn();
+      
       reader.listen(mockCallback);
-
-      // Simulate message from transport
+      
+      expect(mockTransport.listen).toHaveBeenCalled();
+      
+      // Simulate message from transport by calling the handler that was passed to listen
+      const messageHandler = mockTransport.listen.mock.calls[0][0];
       const testMessage = { jsonrpc: '2.0', method: 'test' };
-      if (mockTransport.onMessage.mock.calls.length > 0) {
-        const messageHandler = mockTransport.onMessage.mock.calls[0][0];
-        messageHandler(testMessage);
-        expect(mockCallback).toHaveBeenCalledWith(testMessage);
-      }
+      messageHandler(testMessage);
+      
+      expect(mockCallback).toHaveBeenCalledWith(testMessage);
     });
 
     it('should handle transport errors', () => {
       const reader = createTransportMessageReader(mockTransport);
-      const mockCallback = jest.fn();
       const mockErrorCallback = jest.fn();
 
-      reader.listen(mockCallback);
       reader.onError(mockErrorCallback);
-
+      
+      expect(mockTransport.onError).toHaveBeenCalled();
+      
       // Simulate error from transport
-      if (mockTransport.onError.mock.calls.length > 0) {
-        const errorHandler = mockTransport.onError.mock.calls[0][0];
-        errorHandler(new Error('Transport error'));
-        expect(mockErrorCallback).toHaveBeenCalled();
-      }
+      const errorHandler = mockTransport.onError.mock.calls[0][0];
+      const testError = new Error('Transport error');
+      errorHandler(testError);
+      
+      expect(mockErrorCallback).toHaveBeenCalledWith(testError);
     });
   });
 
@@ -183,11 +186,11 @@ describe('CoreBridge', () => {
       reader.listen(mockCallback);
 
       // Simulate malformed message
-      if (mockTransport.onMessage.mock.calls.length > 0) {
-        const messageHandler = mockTransport.onMessage.mock.calls[0][0];
-        messageHandler('invalid json');
-        // Should not crash
-      }
+      const messageHandler = mockTransport.listen.mock.calls[0][0];
+      messageHandler('invalid json');
+      
+      // Should not crash and should still call the callback
+      expect(mockCallback).toHaveBeenCalledWith('invalid json');
     });
 
     it('should handle large messages', async () => {

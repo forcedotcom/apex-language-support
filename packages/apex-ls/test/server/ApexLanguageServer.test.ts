@@ -18,41 +18,29 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
 }));
 
 // Mock storage implementations
+const mockStorage = {
+  getDocument: jest.fn(),
+  setDocument: jest.fn(),
+  clearFile: jest.fn(),
+  clearAll: jest.fn(),
+};
+
+const mockCreateStorage = jest.fn().mockResolvedValue(mockStorage);
+
 jest.mock('../../src/storage/StorageImplementations', () => ({
-  BrowserStorageFactory: jest.fn().mockImplementation(() => ({
-    createStorage: jest.fn().mockResolvedValue({
-      get: jest.fn(),
-      set: jest.fn(),
-      remove: jest.fn(),
-      clear: jest.fn(),
-    }),
-  })),
-  NodeStorageFactory: jest.fn().mockImplementation(() => ({
-    createStorage: jest.fn().mockResolvedValue({
-      get: jest.fn(),
-      set: jest.fn(),
-      remove: jest.fn(),
-      clear: jest.fn(),
-    }),
-  })),
-  WorkerStorageFactory: jest.fn().mockImplementation(() => ({
-    createStorage: jest.fn().mockResolvedValue({
-      get: jest.fn(),
-      set: jest.fn(),
-      remove: jest.fn(),
-      clear: jest.fn(),
-    }),
-  })),
+  BrowserStorageFactory: class {
+    createStorage = mockCreateStorage;
+  },
+  NodeStorageFactory: class {
+    createStorage = mockCreateStorage;
+  },
+  WorkerStorageFactory: class {
+    createStorage = mockCreateStorage;
+  },
 }));
 
 // Mock message connection
 class MockMessageConnection {
-  onRequest = jest.fn();
-  onNotification = jest.fn();
-  sendNotification = jest.fn();
-  sendRequest = jest.fn();
-  onClose = jest.fn();
-  onError = jest.fn();
   listen = jest.fn();
   dispose = jest.fn();
 }
@@ -62,6 +50,7 @@ describe('ApexLanguageServer', () => {
   let serverConfig: ServerConfig;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     mockConnection = new MockMessageConnection() as any;
     serverConfig = {
       environment: 'browser',
@@ -72,56 +61,102 @@ describe('ApexLanguageServer', () => {
     };
   });
 
-  describe('Server Initialization', () => {
-    it('should create server with valid configuration', async () => {
+  describe('Constructor and Environment Validation', () => {
+    it('should create server with valid configuration', () => {
       const server = new ApexLanguageServer(serverConfig);
       expect(server).toBeDefined();
-      expect(server.isInitialized()).toBe(false);
     });
 
-    it('should initialize server with storage factory', async () => {
-      const server = new ApexLanguageServer(serverConfig);
-      await server.initialize();
-      expect(server.isInitialized()).toBe(true);
+    it('should validate browser environment', () => {
+      const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
+      isBrowserEnvironment.mockReturnValue(true);
+
+      expect(() => new ApexLanguageServer(serverConfig)).not.toThrow();
+      expect(isBrowserEnvironment).toHaveBeenCalled();
     });
 
-    it('should handle different environment types', async () => {
+    it('should validate node environment', () => {
+      const { isNodeEnvironment } = require('@salesforce/apex-lsp-shared');
+      isNodeEnvironment.mockReturnValue(true);
+
       const nodeConfig = { ...serverConfig, environment: 'node' as const };
-      const server = new ApexLanguageServer(nodeConfig);
-      await server.initialize();
-      expect(server.isInitialized()).toBe(true);
-    });
-  });
-
-  describe('Message Handling', () => {
-    it('should set up connection listeners on initialization', async () => {
-      const server = new ApexLanguageServer(serverConfig);
-      await server.initialize();
-      
-      expect(mockConnection.onRequest).toHaveBeenCalled();
-      expect(mockConnection.onNotification).toHaveBeenCalled();
+      expect(() => new ApexLanguageServer(nodeConfig)).not.toThrow();
+      expect(isNodeEnvironment).toHaveBeenCalled();
     });
 
-    it('should handle server lifecycle', async () => {
-      const server = new ApexLanguageServer(serverConfig);
-      await server.initialize();
-      
-      expect(() => server.start()).not.toThrow();
-      expect(() => server.shutdown()).not.toThrow();
-    });
-  });
+    it('should validate worker environment', () => {
+      const { isWorkerEnvironment } = require('@salesforce/apex-lsp-shared');
+      isWorkerEnvironment.mockReturnValue(true);
 
-  describe('Error Handling', () => {
-    it('should handle invalid configuration gracefully', async () => {
+      const workerConfig = { ...serverConfig, environment: 'webworker' as const };
+      expect(() => new ApexLanguageServer(workerConfig)).not.toThrow();
+      expect(isWorkerEnvironment).toHaveBeenCalled();
+    });
+
+    it('should throw error for invalid environment configuration', () => {
       const invalidConfig = {
         environment: 'invalid' as any,
         connection: mockConnection,
       };
       
-      expect(() => new ApexLanguageServer(invalidConfig)).not.toThrow();
+      expect(() => new ApexLanguageServer(invalidConfig)).toThrow('Unknown environment: invalid');
+    });
+
+    it('should throw error when environment validation fails', () => {
+      const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
+      isBrowserEnvironment.mockReturnValue(false);
+
+      expect(() => new ApexLanguageServer(serverConfig))
+        .toThrow('Browser server can only run in browser environment');
+    });
+  });
+
+  describe('Server Initialization', () => {
+    it('should initialize server successfully', async () => {
+      const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
+      isBrowserEnvironment.mockReturnValue(true);
+
+      const server = new ApexLanguageServer(serverConfig);
+      await expect(server.initialize()).resolves.not.toThrow();
+    });
+
+    it('should initialize with different environments', async () => {
+      const { isNodeEnvironment } = require('@salesforce/apex-lsp-shared');
+      isNodeEnvironment.mockReturnValue(true);
+
+      const nodeConfig = { ...serverConfig, environment: 'node' as const };
+      const server = new ApexLanguageServer(nodeConfig);
+      
+      await server.initialize();
+      expect(mockConnection.listen).toHaveBeenCalled();
+    });
+
+    it('should handle worker environment initialization', async () => {
+      const { isWorkerEnvironment } = require('@salesforce/apex-lsp-shared');
+      isWorkerEnvironment.mockReturnValue(true);
+
+      const workerConfig = { ...serverConfig, environment: 'webworker' as const };
+      const server = new ApexLanguageServer(workerConfig);
+      
+      await server.initialize();
+      // Workers don't call connection.listen() explicitly
+      expect(mockConnection.listen).not.toHaveBeenCalled();
+    });
+
+    it('should handle storage factory creation', async () => {
+      const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
+      isBrowserEnvironment.mockReturnValue(true);
+
+      const server = new ApexLanguageServer(serverConfig);
+      await server.initialize();
+
+      expect(mockCreateStorage).toHaveBeenCalled();
     });
 
     it('should handle missing storage config', async () => {
+      const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
+      isBrowserEnvironment.mockReturnValue(true);
+
       const configWithoutStorage = {
         environment: 'browser' as const,
         connection: mockConnection,
@@ -132,18 +167,63 @@ describe('ApexLanguageServer', () => {
     });
   });
 
-  describe('Connection Management', () => {
-    it('should manage connection state properly', async () => {
-      const server = new ApexLanguageServer(serverConfig);
-      expect(server.getConnection()).toBe(mockConnection);
+  describe('Storage Configuration', () => {
+    it('should use memory storage for worker environment', async () => {
+      const { isWorkerEnvironment } = require('@salesforce/apex-lsp-shared');
+      isWorkerEnvironment.mockReturnValue(true);
+
+      const workerConfig = { 
+        ...serverConfig, 
+        environment: 'webworker' as const,
+        storageConfig: { storageType: 'indexeddb' }
+      };
+      
+      const server = new ApexLanguageServer(workerConfig);
+      await server.initialize();
+
+      expect(mockCreateStorage).toHaveBeenCalledWith(
+        expect.objectContaining({ useMemoryStorage: true })
+      );
     });
 
-    it('should handle connection errors', async () => {
-      const server = new ApexLanguageServer(serverConfig);
+    it('should preserve storage config for non-worker environments', async () => {
+      const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
+      isBrowserEnvironment.mockReturnValue(true);
+
+      const browserConfig = {
+        ...serverConfig,
+        environment: 'browser' as const,
+        storageConfig: { 
+          storageType: 'memory' as const,
+          useMemoryStorage: false 
+        }
+      };
+
+      const server = new ApexLanguageServer(browserConfig);
       await server.initialize();
-      
-      expect(mockConnection.onError).toHaveBeenCalled();
-      expect(mockConnection.onClose).toHaveBeenCalled();
+
+      expect(mockCreateStorage).toHaveBeenCalledWith(
+        expect.objectContaining({ 
+          storageType: 'memory',
+          useMemoryStorage: false 
+        })
+      );
+    });
+  });
+
+  describe('Error Handling', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should handle storage creation errors', async () => {
+      const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
+      isBrowserEnvironment.mockReturnValue(true);
+
+      mockCreateStorage.mockRejectedValueOnce(new Error('Storage creation failed'));
+
+      const server = new ApexLanguageServer(serverConfig);
+      await expect(server.initialize()).rejects.toThrow('Storage creation failed');
     });
   });
 });

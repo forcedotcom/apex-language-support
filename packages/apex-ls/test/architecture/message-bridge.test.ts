@@ -245,7 +245,7 @@ describe('Message Bridge Architecture', () => {
 
       // In web test environment (jsdom), browser environment will be true
       // so we just test that worker detection works
-      expect(WorkerMessageBridge.isWorkerEnvironment()).toBe(true);
+      expect(isWorkerEnvironment()).toBe(true);
     });
 
     it('should handle neither environment', () => {

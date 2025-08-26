@@ -94,7 +94,10 @@ applyTemporaryPolyfills();
 // Use setTimeout to restore globals after current call stack completes
 setTimeout(() => {
   restoreOriginalGlobals();
-  console.log('[APEX-EXT] Polyfills restored - other extensions protected');
+  // Skip logging in test environment to avoid Jest exit code issues
+  if (process.env.NODE_ENV !== 'test') {
+    console.log('[APEX-EXT] Polyfills restored - other extensions protected');
+  }
 }, 0);
 
 // Use the util polyfill that has inherits function

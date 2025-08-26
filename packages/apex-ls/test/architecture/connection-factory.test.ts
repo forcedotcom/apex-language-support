@@ -204,7 +204,7 @@ describe('Connection Factory Architecture', () => {
       isBrowserEnvironment.mockReturnValue(false);
 
       await expect(ConnectionFactory.createConnection()).rejects.toThrow(
-        'Worker implementation not available in browser build',
+        'Unsupported environment',
       );
     });
 

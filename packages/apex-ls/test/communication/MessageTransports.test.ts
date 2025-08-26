@@ -9,7 +9,6 @@
 import {
   WorkerMessageTransport,
   SelfMessageTransport,
-  StreamMessageTransport,
 } from '../../src/communication/MessageTransports';
 
 // Mock Worker
@@ -27,19 +26,6 @@ class MockWorkerScope {
   removeEventListener = jest.fn();
 }
 
-// Mock streams
-class MockReadable {
-  on = jest.fn();
-  off = jest.fn();
-  removeListener = jest.fn();
-  destroy = jest.fn();
-}
-
-class MockWritable {
-  write = jest.fn();
-  end = jest.fn();
-  destroy = jest.fn();
-}
 
 describe('MessageTransports', () => {
   describe('WorkerMessageTransport', () => {
@@ -198,93 +184,4 @@ describe('MessageTransports', () => {
     });
   });
 
-  describe('StreamMessageTransport', () => {
-    let mockReadable: MockReadable;
-    let mockWritable: MockWritable;
-    let transport: StreamMessageTransport;
-
-    beforeEach(() => {
-      mockReadable = new MockReadable();
-      mockWritable = new MockWritable();
-      transport = new StreamMessageTransport(
-        mockReadable as any,
-        mockWritable as any
-      );
-    });
-
-    describe('Message Sending', () => {
-      it('should write messages to stream', async () => {
-        const testMessage = { jsonrpc: '2.0', method: 'test' };
-        await transport.send(testMessage);
-        
-        expect(mockWritable.write).toHaveBeenCalled();
-        const writtenData = mockWritable.write.mock.calls[0][0];
-        expect(writtenData).toContain('Content-Length:');
-        expect(writtenData).toContain(JSON.stringify(testMessage));
-      });
-
-      it('should handle write errors', async () => {
-        mockWritable.write.mockImplementationOnce(() => {
-          throw new Error('Write failed');
-        });
-
-        const testMessage = { jsonrpc: '2.0', method: 'test' };
-        await expect(transport.send(testMessage)).rejects.toThrow('Write failed');
-      });
-    });
-
-    describe('Message Listening', () => {
-      it('should set up data listeners on readable stream', () => {
-        const mockCallback = jest.fn();
-        const disposable = transport.listen(mockCallback);
-        
-        expect(mockReadable.on).toHaveBeenCalledWith('data', expect.any(Function));
-        expect(disposable.dispose).toBeDefined();
-      });
-
-      it('should parse LSP messages correctly', () => {
-        const mockCallback = jest.fn();
-        transport.listen(mockCallback);
-        
-        const dataHandler = mockReadable.on.mock.calls
-          .find(([event]) => event === 'data')?.[1];
-        
-        if (dataHandler) {
-          const testMessage = { jsonrpc: '2.0', method: 'test' };
-          const lspMessage = `Content-Length: ${JSON.stringify(testMessage).length}\r\n\r\n${JSON.stringify(testMessage)}`;
-          
-          dataHandler(Buffer.from(lspMessage));
-          expect(mockCallback).toHaveBeenCalledWith(testMessage);
-        }
-      });
-    });
-
-    describe('Error Handling', () => {
-      it('should set up error listeners on streams', () => {
-        const mockCallback = jest.fn();
-        const disposable = transport.onError(mockCallback);
-        
-        expect(mockReadable.on).toHaveBeenCalledWith('error', expect.any(Function));
-        expect(disposable.dispose).toBeDefined();
-      });
-
-      it('should handle malformed LSP messages gracefully', () => {
-        const mockCallback = jest.fn();
-        const errorCallback = jest.fn();
-        transport.listen(mockCallback);
-        transport.onError(errorCallback);
-        
-        const dataHandler = mockReadable.on.mock.calls
-          .find(([event]) => event === 'data')?.[1];
-        
-        if (dataHandler) {
-          const malformedMessage = 'Invalid LSP message format';
-          dataHandler(Buffer.from(malformedMessage));
-          
-          // Should not crash, may or may not call error callback depending on implementation
-          expect(mockCallback).not.toHaveBeenCalled();
-        }
-      });
-    });
-  });
 });

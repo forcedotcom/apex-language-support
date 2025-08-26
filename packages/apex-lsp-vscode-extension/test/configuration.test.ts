@@ -106,6 +106,7 @@ describe('Configuration Module', () => {
       const settings = getWorkspaceSettings();
 
       expect(settings).toEqual({
+        maxNumberOfProblems: 1000,
         apex: {
           commentCollection: {
             enableCommentCollection: true,
