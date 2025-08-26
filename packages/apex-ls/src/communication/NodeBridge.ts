@@ -15,7 +15,7 @@ import {
   IPCMessageReader,
   IPCMessageWriter,
 } from 'vscode-jsonrpc/node';
-import net from '../polyfills/net-polyfill';
+import * as net from 'net';
 import { BaseMessageBridge } from './CoreBridge';
 import type { NodeConfig } from './Interfaces';
 import { isNodeEnvironment } from '@salesforce/apex-lsp-shared';
