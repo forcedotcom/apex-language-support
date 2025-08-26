@@ -10,6 +10,17 @@ import { BrowserConnectionFactory } from '../../src/server/BrowserConnectionFact
 import { ConnectionFactory as WorkerConnectionFactory } from '../../src/server/ConnectionFactory.worker';
 import { ConnectionFactory } from '../../src/server/ConnectionFactory.browser';
 import type { ConnectionConfig } from '../../src/server/ConnectionFactoryInterface';
+import { isBrowserEnvironment } from '../../src/utils/EnvironmentDetector.browser';
+import { isWorkerEnvironment } from '../../src/utils/EnvironmentDetector.worker';
+
+// Mock environment detection
+jest.mock('../../src/utils/EnvironmentDetector.browser', () => ({
+  isBrowserEnvironment: jest.fn(),
+}));
+
+jest.mock('../../src/utils/EnvironmentDetector.worker', () => ({
+  isWorkerEnvironment: jest.fn(),
+}));
 
 // Mock the message bridge modules
 jest.mock('../../src/communication/PlatformBridges.browser', () => ({
@@ -269,8 +280,12 @@ describe('Connection Factory Architecture', () => {
 
   describe('Error Handling', () => {
     it('should handle factory creation errors gracefully', async () => {
-      // Mock the import to throw an error
-      jest.doMock('../../src/communication/PlatformBridges.browser', () => {
+      // Modify the existing mock to throw an error
+      const {
+        BrowserMessageBridge,
+      } = require('../../src/communication/PlatformBridges.browser');
+      
+      BrowserMessageBridge.forWorkerClient.mockImplementationOnce(() => {
         throw new Error('Module import failed');
       });
 
@@ -279,7 +294,9 @@ describe('Connection Factory Architecture', () => {
         worker: mockWorker as any,
       };
 
-      await expect(factory.createConnection(config)).rejects.toThrow();
+      await expect(factory.createConnection(config)).rejects.toThrow(
+        'Module import failed',
+      );
     });
 
     it('should handle message bridge creation errors', async () => {

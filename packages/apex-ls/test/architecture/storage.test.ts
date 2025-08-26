@@ -17,11 +17,13 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 // Mock IndexedDB for browser storage tests
 class MockIDBDatabase {
+  private objectStore = new MockIDBObjectStore();
+  
   objectStoreNames = {
     contains: jest.fn(() => false),
   };
   createObjectStore = jest.fn();
-  transaction = jest.fn();
+  transaction = jest.fn(() => new MockIDBTransaction(this.objectStore));
 }
 
 class MockIDBRequest {
@@ -29,6 +31,7 @@ class MockIDBRequest {
   error: any = null;
   onsuccess: ((event: Event) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
+  onupgradeneeded: ((event: IDBVersionChangeEvent) => void) | null = null;
 
   constructor(
     private mockResult?: any,
@@ -46,14 +49,35 @@ class MockIDBRequest {
 }
 
 class MockIDBObjectStore {
-  get = jest.fn((key: string) => new MockIDBRequest());
-  put = jest.fn((value: any, key: string) => new MockIDBRequest(undefined));
-  delete = jest.fn((key: string) => new MockIDBRequest(undefined));
-  clear = jest.fn(() => new MockIDBRequest(undefined));
+  private storage = new Map<string, any>();
+
+  get = jest.fn((key: string) => {
+    const value = this.storage.get(key);
+    return new MockIDBRequest(value);
+  });
+  
+  put = jest.fn((value: any, key: string) => {
+    this.storage.set(key, value);
+    return new MockIDBRequest(undefined);
+  });
+  
+  delete = jest.fn((key: string) => {
+    this.storage.delete(key);
+    return new MockIDBRequest(undefined);
+  });
+  
+  clear = jest.fn(() => {
+    this.storage.clear();
+    return new MockIDBRequest(undefined);
+  });
 }
 
 class MockIDBTransaction {
-  objectStore = jest.fn(() => new MockIDBObjectStore());
+  objectStore = jest.fn();
+  
+  constructor(objectStore: MockIDBObjectStore) {
+    this.objectStore = jest.fn(() => objectStore);
+  }
 }
 
 // Mock environment detection
@@ -68,6 +92,22 @@ jest.mock('../../src/utils/EnvironmentDetector.worker', () => ({
 jest.mock('../../src/utils/EnvironmentDetector.node', () => ({
   isNodeEnvironment: jest.fn(() => false),
 }));
+
+// Mock the shared library's detectEnvironment function
+jest.mock('@salesforce/apex-lsp-shared', () => {
+  const original = jest.requireActual('@salesforce/apex-lsp-shared');
+  return {
+    ...original,
+    detectEnvironment: jest.fn(() => {
+      const { isWorkerEnvironment } = require('../../src/utils/EnvironmentDetector.worker');
+      const { isBrowserEnvironment } = require('../../src/utils/EnvironmentDetector.browser');
+      
+      if (isWorkerEnvironment()) return 'webworker';
+      if (isBrowserEnvironment()) return 'browser';
+      throw new Error('Unable to determine environment');
+    }),
+  };
+});
 
 describe('Storage Architecture', () => {
   let mockTextDocument: TextDocument;
@@ -90,12 +130,17 @@ describe('Storage Architecture', () => {
     // Mock IndexedDB
     (global as any).indexedDB = {
       open: jest.fn((name: string, version: number) => {
-        const request = new MockIDBRequest(new MockIDBDatabase());
+        const db = new MockIDBDatabase();
+        const request = new MockIDBRequest(db);
+        
+        // Add upgrade needed handler
+        (request as any).onupgradeneeded = null;
+        
         // Simulate upgrade needed
         setTimeout(() => {
-          if (request.onupgradeneeded) {
-            request.onupgradeneeded({
-              target: { result: new MockIDBDatabase() },
+          if ((request as any).onupgradeneeded) {
+            (request as any).onupgradeneeded({
+              target: { result: db },
             } as any);
           }
         }, 0);
@@ -240,7 +285,7 @@ describe('Storage Architecture', () => {
       isBrowserEnvironment.mockReturnValue(false);
 
       await expect(StorageFactory.createStorage()).rejects.toThrow(
-        'Unsupported environment',
+        'Unable to determine environment',
       );
     });
 

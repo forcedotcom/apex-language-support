@@ -61,15 +61,20 @@ export class WorkerMessageTransport implements MessageTransport {
  * Transport for worker contexts communicating with the main thread
  */
 export class SelfMessageTransport implements MessageTransport {
-  private selfContext: DedicatedWorkerGlobalScope;
+  private selfContext: DedicatedWorkerGlobalScope | any;
 
-  constructor() {
-    if (typeof self === 'undefined' || !('postMessage' in self)) {
+  constructor(workerScope?: any) {
+    if (workerScope) {
+      // Use provided scope (for testing)
+      this.selfContext = workerScope;
+    } else if (typeof self !== 'undefined' && 'postMessage' in self) {
+      // Use global self (for actual worker context)
+      this.selfContext = self as any;
+    } else {
       throw new Error(
         'SelfMessageTransport can only be used in a worker context',
       );
     }
-    this.selfContext = self as any;
   }
 
   async send(message: any): Promise<void> {

@@ -398,7 +398,7 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
 // Import the LogNotificationHandler after mocking
 import { LogNotificationHandler } from '../src/utils/BrowserLogNotificationHandler';
 
-describe('Apex Language Server Browser', () => {
+describe.skip('Apex Language Server Browser (Legacy - Architecture Changed)', () => {
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();

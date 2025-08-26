@@ -143,5 +143,17 @@ export class StorageFactory {
   }
 }
 
+// Register the available storage factories
+import { 
+  NodeStorageFactory, 
+  BrowserStorageFactory, 
+  WorkerStorageFactory 
+} from './StorageImplementations';
+
 // Singleton instance for easy access
 export const storageFactory = StorageFactoryRegistry.getInstance();
+
+// Register the available factories
+storageFactory.register('node', new NodeStorageFactory());
+storageFactory.register('browser', new BrowserStorageFactory());
+storageFactory.register('webworker', new WorkerStorageFactory());
