@@ -2,17 +2,18 @@
   "extends": "./tsconfig.base.shared.json",
   "compilerOptions": {
     "outDir": "./out/worker",
-    "module": "ESNext", 
+    "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": [
       "ES2022",
       "WebWorker",
-      "WebWorker.ImportScripts", 
+      "WebWorker.ImportScripts",
       "DOM",
       "DOM.Iterable",
       "ESNext.AsyncIterable",
       "ESNext.Disposable"
     ],
+
     "tsBuildInfoFile": "./out/worker/.tsbuildinfo"
   },
   "include": [
