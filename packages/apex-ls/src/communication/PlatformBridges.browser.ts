@@ -12,13 +12,9 @@ import {
   createTransportMessageReader,
   createTransportMessageWriter,
 } from './CoreBridge';
-import {
-  WorkerMessageTransport,
-} from './MessageTransports';
-import type {
-  MessageTransport,
-  BrowserConfig,
-} from './Interfaces';
+import { WorkerMessageTransport } from './MessageTransports';
+import type { MessageTransport } from '@salesforce/apex-lsp-shared';
+import type { BrowserConfig } from './Interfaces';
 
 /**
  * Browser-side bridge for communicating with workers

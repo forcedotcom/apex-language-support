@@ -71,7 +71,6 @@ function getVsixPattern(extension: string): string {
     case 'apex-lsp-vscode-extension':
       // Pattern matches both desktop and web builds from unified extension
       return '*apex-language-server-extension*-[0-9]*.vsix';
-    // apex-lsp-vscode-extension-web was consolidated into apex-lsp-vscode-extension
     default:
       return `*${extension}*.vsix`;
   }

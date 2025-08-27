@@ -11,9 +11,9 @@ import type {
   InitializeParams,
   InitializeResult,
   EnvironmentType,
-  ClientConfig,
   ClientInterface,
-} from './Interfaces';
+} from '@salesforce/apex-lsp-shared';
+import type { ClientConfig } from './Interfaces';
 
 // Re-export the interface for external use
 export type { ClientInterface };

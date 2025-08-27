@@ -12,7 +12,7 @@ import type {
 } from 'vscode-languageserver-protocol';
 import { WorkerLauncher } from '../launcher/WorkerLauncher';
 import type { WorkerLaunchResult } from '../launcher/WorkerLauncher';
-import type { ClientInterface } from '../communication/Interfaces';
+import type { ClientInterface } from '@salesforce/apex-lsp-shared';
 import type { Logger } from '@salesforce/apex-lsp-shared';
 
 /**
@@ -129,7 +129,9 @@ export class UniversalExtensionClient {
   /**
    * Initialize Node.js-based client (placeholder for future implementation)
    */
-  private async initializeNodeClient(params: InitializeParams): Promise<ClientInterface> {
+  private async initializeNodeClient(
+    params: InitializeParams,
+  ): Promise<ClientInterface> {
     const logger = this.config.logger;
     if (!logger) {
       throw new Error('Logger is required');

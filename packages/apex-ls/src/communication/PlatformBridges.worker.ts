@@ -12,13 +12,9 @@ import {
   createTransportMessageReader,
   createTransportMessageWriter,
 } from './CoreBridge';
-import {
-  SelfMessageTransport,
-} from './MessageTransports';
-import type {
-  MessageTransport,
-  WorkerConfig,
-} from './Interfaces';
+import { SelfMessageTransport } from './MessageTransports';
+import type { MessageTransport } from '@salesforce/apex-lsp-shared';
+import type { WorkerConfig } from './Interfaces';
 
 /**
  * Worker-side bridge for communicating with the main thread
@@ -39,7 +35,10 @@ export class WorkerMessageBridge extends BaseMessageBridge {
 
   static isWorkerEnvironment(): boolean {
     // Use the same logic as the environment detector
-    return typeof self !== 'undefined' && typeof (self as any).importScripts === 'function';
+    return (
+      typeof self !== 'undefined' &&
+      typeof (self as any).importScripts === 'function'
+    );
   }
 
   createConnection(): MessageConnection {
@@ -51,15 +50,26 @@ export class WorkerMessageBridge extends BaseMessageBridge {
   /**
    * Creates a worker-to-main-thread message bridge for server-side communication
    */
-  static forWorkerServer(workerScopeOrLogger?: any | Logger, logger?: Logger): MessageConnection {
+  static forWorkerServer(
+    workerScopeOrLogger?: any | Logger,
+    logger?: Logger,
+  ): MessageConnection {
     let actualLogger: Logger | undefined;
     let workerScope: any | undefined;
 
     // Handle overloaded parameters
-    if (typeof workerScopeOrLogger === 'object' && workerScopeOrLogger && 'postMessage' in workerScopeOrLogger) {
+    if (
+      typeof workerScopeOrLogger === 'object' &&
+      workerScopeOrLogger &&
+      'postMessage' in workerScopeOrLogger
+    ) {
       workerScope = workerScopeOrLogger;
       actualLogger = logger;
-    } else if (typeof workerScopeOrLogger === 'object' && workerScopeOrLogger && ('info' in workerScopeOrLogger || 'warn' in workerScopeOrLogger)) {
+    } else if (
+      typeof workerScopeOrLogger === 'object' &&
+      workerScopeOrLogger &&
+      ('info' in workerScopeOrLogger || 'warn' in workerScopeOrLogger)
+    ) {
       actualLogger = workerScopeOrLogger;
     }
 

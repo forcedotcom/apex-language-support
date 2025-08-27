@@ -21,7 +21,7 @@ import {
   ResponseError,
   ErrorCodes,
 } from 'vscode-jsonrpc';
-import type { MessageTransport, Disposable } from './Interfaces';
+import type { MessageTransport, Disposable } from '@salesforce/apex-lsp-shared';
 
 // =============================================================================
 // UTILITY FUNCTIONS

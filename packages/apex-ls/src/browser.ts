@@ -6,14 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Export browser storage implementation (still needed)
+// Export browser-specific implementations
 export { BrowserStorageFactory } from './storage/StorageImplementations';
 
-// Re-export shared types that are still needed
-export type { IStorage, IStorageFactory, StorageConfig } from './index.browser';
-
-// Export client types that are still needed
-export type { ClientInterface } from './communication/Interfaces';
-
-// Export Apex-specific types from compliant-services
-export type { ApexStorageInterface } from '@salesforce/apex-lsp-compliant-services';
+// For types, import directly from source packages:
+// - @salesforce/apex-lsp-shared for: IStorage, IStorageFactory, StorageConfig, ClientInterface
+// - @salesforce/apex-lsp-compliant-services for: ApexStorageInterface

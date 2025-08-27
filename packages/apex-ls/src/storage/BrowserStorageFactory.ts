@@ -7,7 +7,7 @@
  */
 
 import type { TextDocument } from 'vscode-languageserver-textdocument';
-import type { IStorage, StorageConfig } from './StorageInterface';
+import type { IStorage, StorageConfig } from '@salesforce/apex-lsp-shared';
 
 /**
  * Base storage class with common functionality

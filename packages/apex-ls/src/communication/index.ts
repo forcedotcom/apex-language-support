@@ -7,28 +7,19 @@
  */
 
 // =============================================================================
-// TYPES AND INTERFACES
+// PACKAGE-SPECIFIC TYPES AND INTERFACES
 // =============================================================================
 
 export type {
-  // Core interfaces
-  MessageTransport,
-  Disposable,
-  ClientInterface,
-  IMessageBridgeFactory,
-
-  // Configuration types
-  BaseConfig,
+  // Local configuration types only
   BrowserConfig,
-  NodeConfig,
   WorkerConfig,
   ClientConfig,
-
-  // LSP types re-exports
-  InitializeParams,
-  InitializeResult,
-  EnvironmentType,
+  IMessageBridgeFactory,
 } from './Interfaces';
+
+// Export Node configuration from NodeBridge where it's defined
+export type { NodeConfig } from './NodeBridge';
 
 // =============================================================================
 // TRANSPORT IMPLEMENTATIONS

@@ -16,11 +16,8 @@ import {
   WorkerMessageTransport,
   SelfMessageTransport,
 } from './MessageTransports';
-import type {
-  MessageTransport,
-  BrowserConfig,
-  WorkerConfig,
-} from './Interfaces';
+import type { MessageTransport } from '@salesforce/apex-lsp-shared';
+import type { BrowserConfig, WorkerConfig } from './Interfaces';
 
 // =============================================================================
 // MESSAGE BRIDGES

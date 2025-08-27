@@ -7,25 +7,13 @@
  */
 
 // Export Node.js-specific implementations
-// Export Node.js-specific implementations
 export { NodeMessageBridge } from './communication/NodeBridge';
 export { NodeConnectionFactory } from './server/NodeConnectionFactory';
 export { NodeStorageFactory } from './storage/NodeStorageFactory';
 
-// Re-export shared types from index
-export type {
-  IMessageBridgeFactory,
-  BaseConfig,
-} from './communication/Interfaces';
-export type {
-  IConnectionFactory,
-  ConnectionConfig,
-} from '@salesforce/apex-lsp-shared';
-export type {
-  IStorage,
-  IStorageFactory,
-  StorageConfig,
-} from '@salesforce/apex-lsp-shared';
+// Export package-specific types
+export type { IMessageBridgeFactory } from './communication/Interfaces';
 
-// Export storage types
-export type { ApexStorageInterface } from '@salesforce/apex-lsp-compliant-services';
+// For types, import directly from source packages:
+// - @salesforce/apex-lsp-shared for: BaseConfig, IConnectionFactory, ConnectionConfig, IStorage, IStorageFactory, StorageConfig
+// - @salesforce/apex-lsp-compliant-services for: ApexStorageInterface

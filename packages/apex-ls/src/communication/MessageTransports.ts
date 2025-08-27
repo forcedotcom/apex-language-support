@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { MessageTransport } from './Interfaces';
+import type { MessageTransport } from '@salesforce/apex-lsp-shared';
 
 // =============================================================================
 // BROWSER/WORKER TRANSPORTS

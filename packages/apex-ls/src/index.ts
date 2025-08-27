@@ -6,33 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Export shared interfaces and types from the shared package
-export type {
-  IStorage,
-  IStorageFactory,
-  StorageConfig,
-  EnvironmentType,
-  LogLevel,
-  ExtensionMode,
-  Logger,
-} from '@salesforce/apex-lsp-shared';
-
-export type {
-  IConnectionFactory,
-  ConnectionConfig,
-} from '@salesforce/apex-lsp-shared';
-
+// Export package-specific types only
 export type { IMessageBridgeFactory } from './communication/Interfaces';
-
-// Re-export shared types and interfaces
-export type { BaseConfig, ClientInterface } from '@salesforce/apex-lsp-shared';
-
-// Re-export Apex storage types from the compliant services package
-export type {
-  ApexStorageInterface,
-  ApexReference,
-} from '@salesforce/apex-lsp-compliant-services';
 export type { NodeClientConfig } from './communication/NodeClient';
+
+// Note: For external types, import directly from their source packages:
+// - @salesforce/apex-lsp-shared for: IStorage, IStorageFactory, StorageConfig, EnvironmentType, LogLevel, ExtensionMode, Logger, BaseConfig, ClientInterface, IConnectionFactory, ConnectionConfig
+// - @salesforce/apex-lsp-compliant-services for: ApexStorageInterface, ApexReference
 
 // Export shared utilities
 // Export environment-specific utilities and factories

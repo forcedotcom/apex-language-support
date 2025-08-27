@@ -3,13 +3,13 @@
   "compilerOptions": {
     "outDir": "./out/browser",
     "module": "ESNext",
-    "moduleResolution": "bundler", 
+    "moduleResolution": "bundler",
     "lib": [
       "ES2022",
       "DOM",
       "WebWorker",
       "DOM.Iterable",
-      "WebWorker.ImportScripts", 
+      "WebWorker.ImportScripts",
       "ESNext.AsyncIterable",
       "ESNext.Disposable"
     ],

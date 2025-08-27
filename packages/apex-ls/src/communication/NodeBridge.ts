@@ -17,7 +17,13 @@ import {
 } from 'vscode-jsonrpc/node';
 import * as net from 'net';
 import { BaseMessageBridge } from './CoreBridge';
-import type { NodeConfig } from './Interfaces';
+// Local interfaces for Node.js configuration
+export interface NodeConfig {
+  mode: 'stdio' | 'socket' | 'ipc';
+  port?: number; // For socket mode
+  host?: string; // For socket mode
+  logger?: Logger;
+}
 import { isNodeEnvironment } from '@salesforce/apex-lsp-shared';
 
 /**
