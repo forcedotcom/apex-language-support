@@ -7,8 +7,6 @@
     "typeRoots": ["./src/types", "../../node_modules/@types"],
     "types": [
       "node",
-      "events", 
-      "webworker",
       "node/net",
       "node/stream", 
       "node/buffer",
