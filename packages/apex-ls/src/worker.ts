@@ -174,14 +174,11 @@ function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
 // Only keep settings for open documents
 documents.onDidClose((e) => {
   documentSettings.delete(e.document.uri);
-  symbolCache.delete(e.document.uri);
 });
 
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent((change) => {
-  // Clear symbol cache for changed document since content has changed
-  symbolCache.delete(change.document.uri);
   validateTextDocument(change.document);
 });
 
@@ -292,32 +289,12 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
   return item;
 });
 
-// Cache for document symbols to reduce duplicate processing and logging
-const symbolCache = new Map<
-  string,
-  { symbols: DocumentSymbol[]; timestamp: number; version: number }
->();
-const SYMBOL_CACHE_DURATION = 1000; // 1 second cache duration
-
 // Document symbol handler for outline view
 connection.onDocumentSymbol((params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) {
     logger.warn('⚠️ Document not found for symbol request');
     return [];
-  }
-
-  const uri = params.textDocument.uri;
-  const now = Date.now();
-  const cached = symbolCache.get(uri);
-
-  // Check if we have a recent cached result for the same document version
-  if (
-    cached &&
-    now - cached.timestamp < SYMBOL_CACHE_DURATION &&
-    cached.version === document.version
-  ) {
-    return cached.symbols;
   }
 
   logger.info('📋 Document symbol request received');
@@ -413,13 +390,6 @@ connection.onDocumentSymbol((params) => {
   logger.timeEnd?.('Document Symbol Parsing');
 
   logger.info(`✅ Found ${symbols.length} symbols`);
-
-  // Cache the result
-  symbolCache.set(uri, {
-    symbols,
-    timestamp: now,
-    version: document.version,
-  });
 
   return symbols;
 });

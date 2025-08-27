@@ -56,7 +56,10 @@ export class UniversalExtensionClient {
       throw new Error('Client has been disposed');
     }
 
-    const logger = this.config.logger!;
+    const logger = this.config.logger;
+    if (!logger) {
+      throw new Error('Logger is required');
+    }
 
     try {
       logger.info(
@@ -65,21 +68,25 @@ export class UniversalExtensionClient {
 
       switch (this.config.mode) {
         case 'webworker':
-          await this.initializeWebWorkerClient(params);
+          this.client = await this.initializeWebWorkerClient(params);
           break;
 
         case 'node':
-          await this.initializeNodeClient(params);
+          this.client = await this.initializeNodeClient(params);
           break;
 
         default:
           throw new Error(`Unsupported mode: ${this.config.mode}`);
       }
 
+      if (!this.client) {
+        throw new Error('Client initialization failed');
+      }
+
       logger.success(
         `✅ [UNIVERSAL-CLIENT] ${this.config.mode} language server initialized`,
       );
-      return await this.client!.initialize(params);
+      return await this.client.initialize(params);
     } catch (error) {
       logger.error(
         `❌ [UNIVERSAL-CLIENT] Failed to initialize ${this.config.mode} language server`,
@@ -94,29 +101,39 @@ export class UniversalExtensionClient {
    */
   private async initializeWebWorkerClient(
     params: InitializeParams,
-  ): Promise<void> {
-    const logger = this.config.logger!;
+  ): Promise<ClientInterface> {
+    const logger = this.config.logger;
+    if (!logger) {
+      throw new Error('Logger is required');
+    }
 
     logger.info('🔧 [UNIVERSAL-CLIENT] Setting up web worker client');
+
+    const workerFileName = this.config.workerFileName;
+    if (!workerFileName) {
+      throw new Error('Worker file name is required for web worker mode');
+    }
 
     // Launch worker
     this.workerResult = await WorkerLauncher.launch({
       context: this.config.context,
-      workerFileName: this.config.workerFileName!,
+      workerFileName: workerFileName,
       environment: 'browser',
       logger,
     });
 
-    this.client = this.workerResult.client;
-
     logger.info('✅ [UNIVERSAL-CLIENT] Web worker client ready');
+    return this.workerResult.client;
   }
 
   /**
    * Initialize Node.js-based client (placeholder for future implementation)
    */
-  private async initializeNodeClient(params: InitializeParams): Promise<void> {
-    const logger = this.config.logger!;
+  private async initializeNodeClient(params: InitializeParams): Promise<ClientInterface> {
+    const logger = this.config.logger;
+    if (!logger) {
+      throw new Error('Logger is required');
+    }
 
     logger.info('🔧 [UNIVERSAL-CLIENT] Setting up Node.js client');
 
@@ -186,10 +203,12 @@ export class UniversalExtensionClient {
       return;
     }
 
-    const logger = this.config.logger!;
-    logger.info(
-      `🧹 [UNIVERSAL-CLIENT] Disposing ${this.config.mode} language server`,
-    );
+    const logger = this.config.logger;
+    if (logger) {
+      logger.info(
+        `🧹 [UNIVERSAL-CLIENT] Disposing ${this.config.mode} language server`,
+      );
+    }
 
     if (this.client) {
       this.client.dispose();
@@ -202,9 +221,11 @@ export class UniversalExtensionClient {
     }
 
     this.isDisposed = true;
-    logger.info(
-      `✅ [UNIVERSAL-CLIENT] ${this.config.mode} language server disposed`,
-    );
+    if (logger) {
+      logger.info(
+        `✅ [UNIVERSAL-CLIENT] ${this.config.mode} language server disposed`,
+      );
+    }
   }
 
   /**

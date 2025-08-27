@@ -54,9 +54,7 @@ function findVsixFiles(extension: string, artifactsPath: string): string[] {
       case 'apex-lsp-vscode-extension':
         vsixPattern = '*apex-language-server-extension-*.vsix';
         break;
-      case 'apex-lsp-vscode-extension-web':
-        vsixPattern = '*apex-language-server-extension-web-*.vsix';
-        break;
+      // apex-lsp-vscode-extension-web was consolidated into apex-lsp-vscode-extension
       default:
         vsixPattern = `*${extension}*.vsix`;
     }

@@ -166,7 +166,7 @@ The scripts implement automatic package filtering to ensure proper separation be
 
 - **Filter**: Only packages with a `publisher` field in `package.json`
 - **Purpose**: VS Code Marketplace publishing
-- **Examples**: `apex-lsp-vscode-extension`, `apex-lsp-vscode-extension-web`
+- **Examples**: `apex-lsp-vscode-extension` (supports both desktop and web)
 - **Scripts**: `ext-change-detector`, `ext-package-selector`, `ext-version-bumper`, etc.
 
 #### NPM Packages (npm-\* scripts)

@@ -6,9 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { BrowserConnectionFactory } from '../../src/server/BrowserConnectionFactory';
-import { ConnectionFactory as WorkerConnectionFactory } from '../../src/server/ConnectionFactory.worker';
-import { ConnectionFactory } from '../../src/server/ConnectionFactory.browser';
+import { ConnectionFactory as BrowserConnectionFactory } from '../../src/server/BrowserConnectionFactory';
+import { WorkerConnectionFactory } from '../../src/server/WorkerConnectionFactory';
 import type { ConnectionConfig } from '../../src/server/ConnectionFactoryInterface';
 import { isBrowserEnvironment } from '../../src/utils/EnvironmentDetector.browser';
 import { isWorkerEnvironment } from '../../src/utils/EnvironmentDetector.worker';
@@ -124,11 +123,14 @@ describe('Connection Factory Architecture', () => {
       const config: ConnectionConfig = {};
 
       await expect(factory.createConnection(config)).rejects.toThrow(
-        'Browser connection requires a worker instance',
+        'Browser environment requires a worker instance',
       );
     });
 
     it('should use BrowserMessageBridge.forWorkerClient', async () => {
+      // Mock browser environment
+      isBrowserEnvironment.mockReturnValue(true);
+      
       const {
         BrowserMessageBridge,
       } = require('../../src/communication/PlatformBridges.browser');
@@ -141,6 +143,7 @@ describe('Connection Factory Architecture', () => {
       await factory.createConnection(config);
       expect(BrowserMessageBridge.forWorkerClient).toHaveBeenCalledWith(
         mockWorker,
+        undefined, // logger parameter
       );
     });
   });
@@ -203,7 +206,7 @@ describe('Connection Factory Architecture', () => {
       isWorkerEnvironment.mockReturnValue(true);
       isBrowserEnvironment.mockReturnValue(false);
 
-      await expect(ConnectionFactory.createConnection()).rejects.toThrow(
+      await expect(BrowserConnectionFactory.createConnection()).rejects.toThrow(
         'Unsupported environment',
       );
     });
@@ -216,7 +219,7 @@ describe('Connection Factory Architecture', () => {
         worker: mockWorker as any,
       };
 
-      const connection = await ConnectionFactory.createConnection(config);
+      const connection = await BrowserConnectionFactory.createConnection(config);
       expect(connection).toBeDefined();
     });
 
@@ -224,7 +227,7 @@ describe('Connection Factory Architecture', () => {
       isWorkerEnvironment.mockReturnValue(false);
       isBrowserEnvironment.mockReturnValue(true);
 
-      await expect(ConnectionFactory.createConnection()).rejects.toThrow(
+      await expect(BrowserConnectionFactory.createConnection()).rejects.toThrow(
         'Browser environment requires a worker instance',
       );
     });
@@ -233,13 +236,13 @@ describe('Connection Factory Architecture', () => {
       isWorkerEnvironment.mockReturnValue(false);
       isBrowserEnvironment.mockReturnValue(false);
 
-      await expect(ConnectionFactory.createConnection()).rejects.toThrow(
+      await expect(BrowserConnectionFactory.createConnection()).rejects.toThrow(
         'Unsupported environment',
       );
     });
 
     it('should create browser connection using convenience method', async () => {
-      const connection = await ConnectionFactory.createBrowserConnection(
+      const connection = await BrowserConnectionFactory.createBrowserConnection(
         mockWorker as any,
       );
       expect(connection).toBeDefined();
@@ -248,6 +251,9 @@ describe('Connection Factory Architecture', () => {
 
   describe('Connection Interface Compliance', () => {
     it('should create connections that implement MessageConnection interface', async () => {
+      // Mock browser environment
+      isBrowserEnvironment.mockReturnValue(true);
+      
       const factory = BrowserConnectionFactory;
       const config: ConnectionConfig = {
         worker: mockWorker as any,
@@ -265,6 +271,9 @@ describe('Connection Factory Architecture', () => {
     });
 
     it('should handle connection lifecycle correctly', async () => {
+      // Mock browser environment
+      isBrowserEnvironment.mockReturnValue(true);
+      
       const factory = BrowserConnectionFactory;
       const config: ConnectionConfig = {
         worker: mockWorker as any,
@@ -280,6 +289,9 @@ describe('Connection Factory Architecture', () => {
 
   describe('Error Handling', () => {
     it('should handle factory creation errors gracefully', async () => {
+      // Mock browser environment
+      isBrowserEnvironment.mockReturnValue(true);
+      
       // Modify the existing mock to throw an error
       const {
         BrowserMessageBridge,
@@ -300,6 +312,9 @@ describe('Connection Factory Architecture', () => {
     });
 
     it('should handle message bridge creation errors', async () => {
+      // Mock browser environment
+      isBrowserEnvironment.mockReturnValue(true);
+      
       const {
         BrowserMessageBridge,
       } = require('../../src/communication/PlatformBridges.browser');

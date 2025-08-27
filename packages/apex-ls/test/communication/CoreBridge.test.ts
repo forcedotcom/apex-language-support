@@ -12,7 +12,7 @@ import {
   createTransportMessageWriter,
   getErrorMessage,
 } from '../../src/communication/CoreBridge';
-import type { MessageTransport } from '../../src/communication/Interfaces';
+import type { MessageTransport } from '@salesforce/apex-lsp-shared';
 
 // Mock vscode-jsonrpc
 jest.mock('vscode-jsonrpc', () => ({

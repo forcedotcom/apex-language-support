@@ -1,31 +1,19 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "./tsconfig.base.shared.json",
   "compilerOptions": {
     "outDir": "./out/browser",
-    "rootDir": "./src",
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "bundler", 
     "lib": [
       "ES2022",
       "DOM",
       "WebWorker",
       "DOM.Iterable",
-      "WebWorker.ImportScripts",
+      "WebWorker.ImportScripts", 
       "ESNext.AsyncIterable",
       "ESNext.Disposable"
     ],
-    "tsBuildInfoFile": "./out/browser/.tsbuildinfo",
-    "skipLibCheck": true,
-    "incremental": true,
-    "typeRoots": ["./src/types", "../../node_modules/@types"],
-    "types": [
-      "webworker",
-      "node",
-      "node/net",
-      "node/stream",
-      "node/buffer",
-      "node/process"
-    ]
+    "tsBuildInfoFile": "./out/browser/.tsbuildinfo"
   },
   "include": [
     "src/browser.ts",

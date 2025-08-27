@@ -6,45 +6,48 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { MessageConnection } from 'vscode-jsonrpc';
-import type {
-  EnvironmentType,
-  ConnectionConfig,
-} from '@salesforce/apex-lsp-shared';
-import { BaseConnectionFactory } from '@salesforce/apex-lsp-shared';
-import { WorkerMessageBridge } from '../communication/PlatformBridges';
+import type { MessageConnection, Logger } from 'vscode-jsonrpc';
+import { WorkerMessageBridge } from '../communication/PlatformBridges.worker';
 
 /**
- * Web Worker-specific connection factory
+ * Configuration for worker connection factory
  */
-export class WorkerConnectionFactory extends BaseConnectionFactory {
-  supports(environment: EnvironmentType): boolean {
-    return environment === 'webworker';
-  }
+export interface WorkerConnectionConfig {
+  logger?: Logger;
+}
 
-  async createConnection(
-    config?: ConnectionConfig,
-  ): Promise<MessageConnection> {
-    this.validateConfig(config);
-
-    try {
-      return WorkerMessageBridge.forWorkerServer(config?.logger);
-    } catch (error) {
-      this.handleError(error as Error, 'WorkerConnectionFactory');
-    }
+/**
+ * Factory for creating worker-side message connections
+ */
+export class ConnectionFactory {
+  /**
+   * Instance method - creates a message connection for worker environment
+   */
+  async createConnection(config?: WorkerConnectionConfig): Promise<MessageConnection> {
+    return WorkerMessageBridge.forWorkerServer(undefined, config?.logger);
   }
 
   /**
-   * Web Worker specific configuration validation
+   * Instance method - creates a message connection for worker server
    */
-  protected validateConfig(config?: ConnectionConfig): void {
-    super.validateConfig(config);
+  forWorkerServer(logger?: Logger): MessageConnection {
+    return WorkerMessageBridge.forWorkerServer(undefined, logger);
+  }
 
-    // Worker connections don't use socket-specific options
-    if (config?.mode && config.mode !== 'stdio') {
-      throw new Error(
-        `Worker connections only support stdio mode, got: ${config.mode}`,
-      );
-    }
+  /**
+   * Static method - creates a message connection for worker environment
+   */
+  static async createConnection(config?: WorkerConnectionConfig): Promise<MessageConnection> {
+    return WorkerMessageBridge.forWorkerServer(undefined, config?.logger);
+  }
+
+  /**
+   * Static method - creates a message connection for worker server
+   */
+  static forWorkerServer(logger?: Logger): MessageConnection {
+    return WorkerMessageBridge.forWorkerServer(undefined, logger);
   }
 }
+
+// Export alias for the test that expects WorkerConnectionFactory
+export { ConnectionFactory as WorkerConnectionFactory };

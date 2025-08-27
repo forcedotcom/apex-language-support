@@ -19,7 +19,7 @@ on:
           - changed
           - apex-lsp-shared
           - apex-parser-ast
-            - apex-ls
+          - apex-ls
           - lsp-compliant-services
           - custom-services
           - apex-lsp-testbed
@@ -33,7 +33,6 @@ on:
           - all
           - changed
           - apex-lsp-vscode-extension
-          - apex-lsp-vscode-extension-web
       pre-release:
         description: 'Publish as pre-release version'
         required: false

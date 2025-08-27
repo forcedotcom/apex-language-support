@@ -13,8 +13,8 @@
 
 import { BrowserMessageBridge } from '../../src/communication/PlatformBridges.browser';
 import { WorkerMessageBridge } from '../../src/communication/PlatformBridges.worker';
-import { BrowserConnectionFactory } from '../../src/server/BrowserConnectionFactory';
-import { ConnectionFactory as WorkerConnectionFactory } from '../../src/server/ConnectionFactory.worker';
+import { ConnectionFactory as BrowserConnectionFactory } from '../../src/server/BrowserConnectionFactory';
+import { WorkerConnectionFactory } from '../../src/server/WorkerConnectionFactory';
 import { StorageFactory } from '../../src/storage/StorageFactory';
 import { ApexLanguageServer } from '../../src/server/ApexLanguageServer';
 import type { MessageConnection } from 'vscode-jsonrpc';
@@ -188,27 +188,25 @@ describe('Split Architecture Regression Tests', () => {
     });
 
     it('should handle full connection factory flow', async () => {
-      const { isWorkerEnvironment, isBrowserEnvironment } = jest.requireMock(
-        '../../src/utils/EnvironmentDetector.worker'
-      );
+      const browserMocks = jest.requireMock('../../src/utils/EnvironmentDetector.browser');
+      const workerMocks = jest.requireMock('../../src/utils/EnvironmentDetector.worker');
       const sharedMocks = jest.requireMock('@salesforce/apex-lsp-shared');
 
       // Test browser connection factory
-      isBrowserEnvironment.mockReturnValue(true);
-      isWorkerEnvironment.mockReturnValue(false);
+      browserMocks.isBrowserEnvironment.mockReturnValue(true);
+      workerMocks.isWorkerEnvironment.mockReturnValue(false);
       sharedMocks.isBrowserEnvironment.mockReturnValue(true);
       sharedMocks.isWorkerEnvironment.mockReturnValue(false);
       
-      const browserFactory = new BrowserConnectionFactory();
-      const browserConnection = await browserFactory.createConnection({
+      const browserConnection = await BrowserConnectionFactory.createConnection({
         worker: mockWorker as any,
       });
 
       expect(browserConnection).toBeDefined();
 
       // Test worker connection factory - mock worker environment
-      isBrowserEnvironment.mockReturnValue(false);
-      isWorkerEnvironment.mockReturnValue(true);
+      browserMocks.isBrowserEnvironment.mockReturnValue(false);
+      workerMocks.isWorkerEnvironment.mockReturnValue(true);
       sharedMocks.isBrowserEnvironment.mockReturnValue(false);
       sharedMocks.isWorkerEnvironment.mockReturnValue(true);
       
@@ -289,10 +287,8 @@ describe('Split Architecture Regression Tests', () => {
 
   describe('Error Handling and Edge Cases', () => {
     it('should handle worker creation failures gracefully', async () => {
-      const factory = new BrowserConnectionFactory();
-
-      await expect(factory.createConnection({})).rejects.toThrow(
-        'Browser connection requires a worker instance',
+      await expect(BrowserConnectionFactory.createConnection({})).rejects.toThrow(
+        'Browser environment requires a worker instance',
       );
     });
 
@@ -383,13 +379,13 @@ describe('Split Architecture Regression Tests', () => {
         import('../../src/server/BrowserConnectionFactory'),
       ).resolves.toBeDefined();
       await expect(
-        import('../../src/server/ConnectionFactory.worker'),
+        import('../../src/server/WorkerConnectionFactory'),
       ).resolves.toBeDefined();
       await expect(
-        import('../../src/storage/StorageFactory.browser'),
+        import('../../src/storage/BrowserStorageFactory'),
       ).resolves.toBeDefined();
       await expect(
-        import('../../src/storage/StorageFactory.worker'),
+        import('../../src/storage/WorkerStorageFactory'),
       ).resolves.toBeDefined();
     });
 
@@ -404,10 +400,12 @@ describe('Split Architecture Regression Tests', () => {
 
   describe('Performance Characteristics', () => {
     it('should create connections efficiently', async () => {
+      const browserMocks = jest.requireMock('../../src/utils/EnvironmentDetector.browser');
+      browserMocks.isBrowserEnvironment.mockReturnValue(true);
+      
       const startTime = performance.now();
 
-      const factory = new BrowserConnectionFactory();
-      await factory.createConnection({ worker: mockWorker as any });
+      await BrowserConnectionFactory.createConnection({ worker: mockWorker as any });
 
       const endTime = performance.now();
       const duration = endTime - startTime;

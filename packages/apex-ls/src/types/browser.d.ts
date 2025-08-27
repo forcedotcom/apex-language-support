@@ -8,6 +8,12 @@
 
 // Declare global types for browser environment
 declare global {
+  // Declare Worker constructor for browser environment
+  const Worker: {
+    new (scriptURL: string | URL, options?: WorkerOptions): Worker;
+    prototype: Worker;
+  };
+
   // Declare Worker type for browser environment
   interface Worker {
     postMessage(message: any, transfer?: Transferable[]): void;
@@ -76,4 +82,13 @@ declare global {
     | 'activating'
     | 'activated'
     | 'redundant';
+
+  // Declare WorkerOptions for browser environment
+  interface WorkerOptions {
+    type?: 'classic' | 'module';
+    credentials?: 'omit' | 'same-origin' | 'include';
+    name?: string;
+  }
 }
+
+export {};

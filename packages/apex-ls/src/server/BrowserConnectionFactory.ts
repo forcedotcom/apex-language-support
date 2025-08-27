@@ -8,59 +8,47 @@
 
 import type { MessageConnection, Logger } from 'vscode-jsonrpc';
 import { BrowserMessageBridge } from '../communication/PlatformBridges.browser';
-import type { ConnectionConfig } from './ConnectionFactoryInterface';
+import { isBrowserEnvironment } from '../utils/EnvironmentDetector.browser';
 
 /**
  * Configuration for browser connection factory
  */
-export interface BrowserConnectionConfig {
-  worker: Worker;
+export interface ConnectionConfig {
+  worker?: Worker;
   logger?: Logger;
 }
 
 /**
  * Factory for creating browser-side message connections
  */
-export class BrowserConnectionFactory {
+export class ConnectionFactory {
   /**
    * Creates a message connection from browser to worker
    */
-  async createConnection(config: ConnectionConfig): Promise<MessageConnection> {
-    if (!config.worker) {
-      throw new Error('Browser connection requires a worker instance');
+  static async createConnection(config?: ConnectionConfig): Promise<MessageConnection> {
+    // Check if browser environment is supported
+    if (!isBrowserEnvironment()) {
+      throw new Error('Unsupported environment');
     }
-    if (config.logger) {
-      return BrowserMessageBridge.forWorkerClient(config.worker, config.logger);
-    } else {
-      return BrowserMessageBridge.forWorkerClient(config.worker);
+    
+    if (!config || !config.worker) {
+      throw new Error('Browser environment requires a worker instance');
     }
+    
+    return BrowserMessageBridge.forWorkerClient(config.worker, config.logger);
   }
 
   /**
    * Creates a message connection with worker instance
    */
-  forWorker(worker: Worker, logger?: Logger): MessageConnection {
+  static forWorker(worker: Worker, logger?: Logger): MessageConnection {
     return BrowserMessageBridge.forWorkerClient(worker, logger);
   }
 
   /**
-   * Static version for backward compatibility
+   * Convenience method for creating browser connections
    */
-  static async createConnection(config: ConnectionConfig): Promise<MessageConnection> {
-    if (!config.worker) {
-      throw new Error('Browser connection requires a worker instance');
-    }
-    if (config.logger) {
-      return BrowserMessageBridge.forWorkerClient(config.worker, config.logger);
-    } else {
-      return BrowserMessageBridge.forWorkerClient(config.worker);
-    }
-  }
-
-  /**
-   * Static version for backward compatibility
-   */
-  static forWorker(worker: Worker, logger?: Logger): MessageConnection {
+  static createBrowserConnection(worker: Worker, logger?: Logger): MessageConnection {
     return BrowserMessageBridge.forWorkerClient(worker, logger);
   }
 }

@@ -1,0 +1,35 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "skipLibCheck": true,
+    "incremental": true,
+    "typeRoots": ["./src/types", "../../node_modules/@types"],
+    "types": [
+      "node",
+      "events", 
+      "webworker",
+      "node/net",
+      "node/stream", 
+      "node/buffer",
+      "node/process"
+    ]
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "out", 
+    "dist",
+    "tsup.config.ts",
+    "test/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
+  "references": [
+    { "path": "../apex-lsp-shared" },
+    { "path": "../apex-parser-ast" },
+    { "path": "../lsp-compliant-services" }
+  ]
+}

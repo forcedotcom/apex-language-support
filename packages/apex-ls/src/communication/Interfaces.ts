@@ -9,17 +9,25 @@
 import type { MessageConnection } from 'vscode-jsonrpc';
 
 // Platform-specific configuration interfaces
-import type { BaseConfig, EnvironmentType } from '@salesforce/apex-lsp-shared';
-
-// Re-export from shared package
-export type {
-  EnvironmentType,
-  InitializeParams,
+import type { 
+  BaseConfig, 
+  EnvironmentType, 
+  InitializeParams, 
   InitializeResult,
   MessageTransport,
   Disposable,
-  BaseConfig,
-  ClientInterface,
+  ClientInterface 
+} from '@salesforce/apex-lsp-shared';
+
+// Re-export all interfaces that are used by other modules
+export type { 
+  ClientInterface, 
+  BaseConfig, 
+  EnvironmentType, 
+  InitializeParams, 
+  InitializeResult, 
+  MessageTransport, 
+  Disposable 
 } from '@salesforce/apex-lsp-shared';
 
 /**
