@@ -2,12 +2,15 @@
  * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or
- * https://opensource.org/licenses/BSD-3-Clause
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { defineConfig } from 'tsup';
-import { nodeBaseConfig, browserBaseConfig } from '../../build-config/tsup.shared';
+import {
+  nodeBaseConfig,
+  browserBaseConfig,
+} from '../../build-config/tsup.shared';
 import { copyFileSync, existsSync } from 'fs';
 
 // Define once, reuse everywhere
@@ -22,7 +25,9 @@ const APEX_LS_EXTERNAL = [
   '@salesforce/apex-lsp-parser-ast',
   '@salesforce/apex-lsp-custom-services',
   'node-dir',
-  'crypto', 'fs', 'path',
+  'crypto',
+  'fs',
+  'path',
 ];
 
 const APEX_LS_BUNDLE = [
@@ -34,7 +39,7 @@ const APEX_LS_BUNDLE = [
 // Copy type definitions helper
 const copyDtsFiles = () => {
   const files = ['index.d.ts', 'browser.d.ts', 'worker.d.ts'];
-  files.forEach(file => {
+  files.forEach((file) => {
     if (existsSync(`out/${file}`)) {
       copyFileSync(`out/${file}`, `dist/${file}`);
       console.log(`✅ Copied ${file}`);
@@ -55,7 +60,7 @@ export default defineConfig([
     onSuccess: copyDtsFiles,
   },
 
-  // Browser library build  
+  // Browser library build
   {
     name: 'browser',
     ...browserBaseConfig,
@@ -74,7 +79,7 @@ export default defineConfig([
   // Web Worker build - IIFE only
   {
     name: 'worker',
-    entry: { worker: 'src/worker.ts' },
+    entry: { worker: 'src/server.ts' },
     outDir: 'dist',
     platform: 'browser',
     format: ['iife'],

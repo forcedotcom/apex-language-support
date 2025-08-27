@@ -27,7 +27,7 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
   // Map apex-ls-ts configuration to the apex format expected by the language server
   const settings = {
     // Language server worker expects this format
-    maxNumberOfProblems: 1000, // Required by worker.ts
+    maxNumberOfProblems: 1000, // Required by server.ts
     apex: {
       commentCollection: {
         enableCommentCollection: config.get<boolean>(

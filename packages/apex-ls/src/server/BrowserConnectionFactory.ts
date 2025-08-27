@@ -25,16 +25,18 @@ export class ConnectionFactory {
   /**
    * Creates a message connection from browser to worker
    */
-  static async createConnection(config?: ConnectionConfig): Promise<MessageConnection> {
+  static async createConnection(
+    config?: ConnectionConfig,
+  ): Promise<MessageConnection> {
     // Check if browser environment is supported
     if (!isBrowserEnvironment()) {
       throw new Error('Unsupported environment');
     }
-    
+
     if (!config || !config.worker) {
       throw new Error('Browser environment requires a worker instance');
     }
-    
+
     return BrowserMessageBridge.forWorkerClient(config.worker, config.logger);
   }
 
@@ -48,7 +50,10 @@ export class ConnectionFactory {
   /**
    * Convenience method for creating browser connections
    */
-  static createBrowserConnection(worker: Worker, logger?: Logger): MessageConnection {
+  static createBrowserConnection(
+    worker: Worker,
+    logger?: Logger,
+  ): MessageConnection {
     return BrowserMessageBridge.forWorkerClient(worker, logger);
   }
 }

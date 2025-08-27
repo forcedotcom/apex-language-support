@@ -11,7 +11,10 @@
  */
 
 export function isWorkerEnvironment(): boolean {
-  return typeof self !== 'undefined' && typeof (self as any).importScripts === 'function';
+  return (
+    typeof self !== 'undefined' &&
+    typeof (self as any).importScripts === 'function'
+  );
 }
 
 export function isBrowserEnvironment(): boolean {

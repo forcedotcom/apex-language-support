@@ -12,8 +12,7 @@ import type {
 } from 'vscode-languageserver-protocol';
 import { WorkerLauncher } from '../launcher/WorkerLauncher';
 import type { WorkerLaunchResult } from '../launcher/WorkerLauncher';
-import type { ClientInterface } from '@salesforce/apex-lsp-shared';
-import type { Logger } from '@salesforce/apex-lsp-shared';
+import type { ClientInterface, Logger } from '@salesforce/apex-lsp-shared';
 
 /**
  * Configuration for the universal extension client

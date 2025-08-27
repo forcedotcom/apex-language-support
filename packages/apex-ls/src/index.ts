@@ -11,7 +11,9 @@ export type { IMessageBridgeFactory } from './communication/Interfaces';
 export type { NodeClientConfig } from './communication/NodeClient';
 
 // Note: For external types, import directly from their source packages:
-// - @salesforce/apex-lsp-shared for: IStorage, IStorageFactory, StorageConfig, EnvironmentType, LogLevel, ExtensionMode, Logger, BaseConfig, ClientInterface, IConnectionFactory, ConnectionConfig
+// - @salesforce/apex-lsp-shared for: IStorage, IStorageFactory,
+// StorageConfig, EnvironmentType, LogLevel, ExtensionMode, Logger,
+// BaseConfig, ClientInterface, IConnectionFactory, ConnectionConfig
 // - @salesforce/apex-lsp-compliant-services for: ApexStorageInterface, ApexReference
 
 // Export shared utilities

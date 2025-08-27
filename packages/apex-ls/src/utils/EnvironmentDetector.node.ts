@@ -11,7 +11,11 @@
  */
 
 export function isNodeEnvironment(): boolean {
-  return typeof process !== 'undefined' && process.versions && !!process.versions.node;
+  return (
+    typeof process !== 'undefined' &&
+    process.versions &&
+    !!process.versions.node
+  );
 }
 
 export function isBrowserEnvironment(): boolean {

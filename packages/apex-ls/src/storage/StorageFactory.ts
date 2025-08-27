@@ -144,10 +144,10 @@ export class StorageFactory {
 }
 
 // Register the available storage factories
-import { 
-  NodeStorageFactory, 
-  BrowserStorageFactory, 
-  WorkerStorageFactory 
+import {
+  NodeStorageFactory,
+  BrowserStorageFactory,
+  WorkerStorageFactory,
 } from './StorageImplementations';
 
 // Singleton instance for easy access

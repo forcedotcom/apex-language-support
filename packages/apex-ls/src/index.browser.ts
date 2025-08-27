@@ -13,7 +13,8 @@ export type { ClientConfig } from './communication/Interfaces';
 export { Client, ClientFactory } from './communication/BrowserClient';
 
 // For types, import directly from source packages:
-// - @salesforce/apex-lsp-shared for: IStorage, IStorageFactory, StorageConfig, IConnectionFactory, ConnectionConfig, ClientInterface
+// - @salesforce/apex-lsp-shared for: IStorage, IStorageFactory,
+// StorageConfig, IConnectionFactory, ConnectionConfig, ClientInterface
 // - @salesforce/apex-lsp-compliant-services for: ApexStorageInterface, ApexReference
 
 // Export shared utilities

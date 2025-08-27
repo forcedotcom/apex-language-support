@@ -23,7 +23,9 @@ export class ConnectionFactory {
   /**
    * Instance method - creates a message connection for worker environment
    */
-  async createConnection(config?: WorkerConnectionConfig): Promise<MessageConnection> {
+  async createConnection(
+    config?: WorkerConnectionConfig,
+  ): Promise<MessageConnection> {
     return WorkerMessageBridge.forWorkerServer(undefined, config?.logger);
   }
 
@@ -37,7 +39,9 @@ export class ConnectionFactory {
   /**
    * Static method - creates a message connection for worker environment
    */
-  static async createConnection(config?: WorkerConnectionConfig): Promise<MessageConnection> {
+  static async createConnection(
+    config?: WorkerConnectionConfig,
+  ): Promise<MessageConnection> {
     return WorkerMessageBridge.forWorkerServer(undefined, config?.logger);
   }
 

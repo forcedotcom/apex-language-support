@@ -15,5 +15,6 @@ export { NodeStorageFactory } from './storage/NodeStorageFactory';
 export type { IMessageBridgeFactory } from './communication/Interfaces';
 
 // For types, import directly from source packages:
-// - @salesforce/apex-lsp-shared for: BaseConfig, IConnectionFactory, ConnectionConfig, IStorage, IStorageFactory, StorageConfig
+// - @salesforce/apex-lsp-shared for: BaseConfig, IConnectionFactory,
+// ConnectionConfig, IStorage, IStorageFactory, StorageConfig
 // - @salesforce/apex-lsp-compliant-services for: ApexStorageInterface
