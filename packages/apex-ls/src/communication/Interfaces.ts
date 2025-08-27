@@ -8,14 +8,14 @@
 
 import type { MessageConnection } from 'vscode-jsonrpc';
 
-// Import only what we need for local interface definitions
+// Platform-specific configuration interfaces
 import type { BaseConfig, EnvironmentType } from '@salesforce/apex-lsp-shared';
 
 /**
  * Browser-specific configuration
  */
 export interface BrowserConfig extends BaseConfig {
-  worker: Worker; // Required for browser contexts
+  worker: any; // Worker - type only available in browser environment
 }
 
 /**
@@ -39,7 +39,7 @@ export interface WorkerConfig extends BaseConfig {
  */
 export interface ClientConfig extends BaseConfig {
   environment: EnvironmentType;
-  worker?: Worker; // Required for browser environment
+  worker?: any; // Worker - type only available in browser environment
 }
 
 // ClientInterface is now exported from @salesforce/apex-lsp-shared

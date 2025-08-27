@@ -37,7 +37,8 @@ export class BrowserMessageBridge extends BaseMessageBridge {
   }
 
   protected isEnvironmentSupported(): boolean {
-    return typeof window !== 'undefined' && typeof Worker !== 'undefined';
+    const { isWindowAvailable, isWorkerAPIAvailable } = require('../utils/EnvironmentUtils');
+    return isWindowAvailable() && isWorkerAPIAvailable();
   }
 
   createConnection(): MessageConnection {
@@ -49,7 +50,7 @@ export class BrowserMessageBridge extends BaseMessageBridge {
   /**
    * Creates a browser-to-worker message bridge for client-side communication
    */
-  static forWorkerClient(worker: Worker, logger?: Logger): MessageConnection {
+  static forWorkerClient(worker: any, logger?: Logger): MessageConnection {
     const transport = new WorkerMessageTransport(worker);
     const bridge = new BrowserMessageBridge(transport, logger);
     return bridge.createConnection();
@@ -80,10 +81,8 @@ export class WorkerMessageBridge extends BaseMessageBridge {
   }
 
   protected isEnvironmentSupported(): boolean {
-    return (
-      typeof self !== 'undefined' &&
-      typeof (self as any).importScripts === 'function'
-    );
+    const { isWorkerThread } = require('../utils/EnvironmentUtils');
+    return isWorkerThread();
   }
 
   createConnection(): MessageConnection {

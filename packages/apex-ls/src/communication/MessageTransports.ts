@@ -16,7 +16,7 @@ import type { MessageTransport } from '@salesforce/apex-lsp-shared';
  * Transport for browser main thread communicating TO a worker
  */
 export class WorkerMessageTransport implements MessageTransport {
-  constructor(private worker: Worker) {}
+  constructor(private worker: any) {}
 
   async send(message: any): Promise<void> {
     this.worker.postMessage(message);
@@ -37,7 +37,7 @@ export class WorkerMessageTransport implements MessageTransport {
   }
 
   onError(handler: (error: Error) => void): { dispose(): void } {
-    const errorHandler = (event: ErrorEvent) => {
+    const errorHandler = (event: any) => {
       const error = new Error(event.message || 'Worker error');
       handler(error);
     };
@@ -67,13 +67,19 @@ export class SelfMessageTransport implements MessageTransport {
     if (workerScope) {
       // Use provided scope (for testing)
       this.selfContext = workerScope;
-    } else if (typeof self !== 'undefined' && 'postMessage' in self) {
-      // Use global self (for actual worker context)
-      this.selfContext = self as any;
     } else {
-      throw new Error(
-        'SelfMessageTransport can only be used in a worker context',
-      );
+      // Use type-safe access to worker self context
+      const {
+        getWorkerSelf,
+        isWorkerPostMessageAvailable,
+      } = require('../utils/EnvironmentUtils');
+      if (isWorkerPostMessageAvailable()) {
+        this.selfContext = getWorkerSelf();
+      } else {
+        throw new Error(
+          'SelfMessageTransport can only be used in a worker context',
+        );
+      }
     }
   }
 
@@ -96,7 +102,7 @@ export class SelfMessageTransport implements MessageTransport {
   }
 
   onError(handler: (error: Error) => void): { dispose(): void } {
-    const errorHandler = (event: ErrorEvent) => {
+    const errorHandler = (event: any) => {
       const error = new Error(event.message || 'Worker error');
       handler(error);
     };

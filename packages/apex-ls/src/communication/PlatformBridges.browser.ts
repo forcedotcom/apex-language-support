@@ -34,7 +34,8 @@ export class BrowserMessageBridge extends BaseMessageBridge {
   }
 
   static isBrowserEnvironment(): boolean {
-    return typeof window !== 'undefined' && typeof Worker !== 'undefined';
+    const { isBrowserMainThread } = require('../utils/EnvironmentUtils');
+    return isBrowserMainThread();
   }
 
   createConnection(): MessageConnection {
@@ -46,7 +47,7 @@ export class BrowserMessageBridge extends BaseMessageBridge {
   /**
    * Creates a browser-to-worker message bridge for client-side communication
    */
-  static forWorkerClient(worker: Worker, logger?: Logger): MessageConnection {
+  static forWorkerClient(worker: any, logger?: Logger): MessageConnection {
     const transport = new WorkerMessageTransport(worker);
     const bridge = new BrowserMessageBridge(transport, logger);
     return bridge.createConnection();

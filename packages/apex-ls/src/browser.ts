@@ -6,9 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Export browser-specific implementations
-export { BrowserStorageFactory } from './storage/StorageImplementations';
-
 // For types, import directly from source packages:
 // - @salesforce/apex-lsp-shared for: IStorage, IStorageFactory, StorageConfig, ClientInterface
 // - @salesforce/apex-lsp-compliant-services for: ApexStorageInterface

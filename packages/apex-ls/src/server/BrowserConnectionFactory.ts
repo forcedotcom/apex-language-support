@@ -8,13 +8,12 @@
 
 import type { MessageConnection, Logger } from 'vscode-jsonrpc';
 import { BrowserMessageBridge } from '../communication/PlatformBridges.browser';
-import { isBrowserEnvironment } from '../utils/EnvironmentDetector.browser';
 
 /**
  * Configuration for browser connection factory
  */
 export interface ConnectionConfig {
-  worker?: Worker;
+  worker?: any; // Worker type only available in browser environment
   logger?: Logger;
 }
 
@@ -28,7 +27,10 @@ export class ConnectionFactory {
   static async createConnection(
     config?: ConnectionConfig,
   ): Promise<MessageConnection> {
-    // Check if browser environment is supported
+    // Check environment first
+    const { isBrowserEnvironment } = await import(
+      '@salesforce/apex-lsp-shared'
+    );
     if (!isBrowserEnvironment()) {
       throw new Error('Unsupported environment');
     }
@@ -43,7 +45,7 @@ export class ConnectionFactory {
   /**
    * Creates a message connection with worker instance
    */
-  static forWorker(worker: Worker, logger?: Logger): MessageConnection {
+  static forWorker(worker: any, logger?: Logger): MessageConnection {
     return BrowserMessageBridge.forWorkerClient(worker, logger);
   }
 
@@ -51,7 +53,7 @@ export class ConnectionFactory {
    * Convenience method for creating browser connections
    */
   static createBrowserConnection(
-    worker: Worker,
+    worker: any,
     logger?: Logger,
   ): MessageConnection {
     return BrowserMessageBridge.forWorkerClient(worker, logger);
