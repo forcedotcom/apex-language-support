@@ -23,6 +23,8 @@ import {
   validateApexSettings,
 } from './ApexLanguageServerSettings';
 
+declare const self: any;
+
 /**
  * Configuration options for the LSP server
  */
@@ -46,7 +48,7 @@ export interface LSPConfigurationOptions {
 /**
  * Manages LSP configuration and capabilities for the Apex Language Server
  *
- * Provides a unified interface for configuring the language server
+ * Provides a interface for configuring the language server
  * capabilities and settings based on server mode, environment, and custom overrides.
  * Integrates with both capabilities management and settings management systems.
  */
@@ -336,11 +338,16 @@ export class LSPConfigurationManager {
     if (typeof globalThis !== 'undefined' && 'window' in globalThis) {
       return 'browser';
     }
-    // Check for web worker environment
+    // Check for web worker environment (both classic and ES module workers)
     if (
       typeof globalThis !== 'undefined' &&
       'self' in globalThis &&
-      'importScripts' in globalThis
+      // Check for worker-specific properties that exist in both classic and ES module workers
+      ('DedicatedWorkerGlobalScope' in globalThis ||
+        'SharedWorkerGlobalScope' in globalThis ||
+        'ServiceWorkerGlobalScope' in globalThis ||
+        // For ES module workers, check if we're in a worker context
+        (typeof self !== 'undefined' && 'postMessage' in self))
     ) {
       return 'web-worker';
     }

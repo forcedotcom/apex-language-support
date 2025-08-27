@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.shared.json",
+  "compilerOptions": {
+    "outDir": "./out",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "WebWorker"],
+    "tsBuildInfoFile": "./out/.tsbuildinfo",
+    "declaration": true,
+    "declarationMap": true
+  }
+}

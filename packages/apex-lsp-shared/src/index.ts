@@ -7,6 +7,14 @@
  */
 
 export * from './notification';
+export * from './types';
+export * from './storage/StorageInterface';
+export * from './utils/CorrelatedMessage';
+export * from './utils/Environment';
+export * from './utils/BrowserUtils';
+export * from './utils/Logging';
+export * from './factories/ConnectionFactory';
+export * from './communication/Interfaces';
 export {
   setLogNotificationHandler,
   getLogNotificationHandler,
@@ -156,6 +164,18 @@ export interface LoggerInterface {
    * @param messageProvider - Function that returns the message to log
    */
   error(messageProvider: () => string): void;
+
+  /**
+   * Start a performance timer
+   * @param label The label for the timer
+   */
+  time?(label: string): void;
+
+  /**
+   * End a performance timer and log the duration
+   * @param label The label for the timer
+   */
+  timeEnd?(label: string): void;
 }
 
 /**

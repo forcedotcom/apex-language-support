@@ -7,7 +7,7 @@
  */
 
 /**
- * Unified LSP Performance Benchmarks
+ * LSP Performance Benchmarks
  *
  * This test file can benchmark any of the three LSP server implementations
  * by setting the SERVER_TYPE environment variable:

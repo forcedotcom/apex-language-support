@@ -20,7 +20,7 @@ The scripts automatically filter packages based on their type:
 #### VS Code Extensions (ext-\* scripts)
 
 - **Scope**: Only packages with a `publisher` field in `package.json`
-- **Examples**: `apex-lsp-vscode-extension`, `apex-lsp-vscode-extension-web`
+- **Examples**: `apex-lsp-vscode-extension` (supports both desktop and web)
 - **Purpose**: VS Code Marketplace publishing
 
 #### NPM Packages (npm-\* scripts)
@@ -89,7 +89,7 @@ IS_NIGHTLY=true VERSION_BUMP=minor PRE_RELEASE=false IS_PROMOTION=false PROMOTIO
 npx tsx .github/scripts/index.ts ext-change-detector
 
 # ext-package-selector
-SELECTED_EXTENSIONS=all AVAILABLE_EXTENSIONS=apex-lsp-vscode-extension,apex-lsp-vscode-extension-web CHANGED_EXTENSIONS=apex-lsp-vscode-extension \
+SELECTED_EXTENSIONS=all AVAILABLE_EXTENSIONS=apex-lsp-vscode-extension CHANGED_EXTENSIONS=apex-lsp-vscode-extension \
 npx tsx .github/scripts/index.ts ext-package-selector
 
 # ext-release-plan
@@ -234,7 +234,7 @@ jobs:
 | Variable                     | Description                  | Example                                                   |
 | ---------------------------- | ---------------------------- | --------------------------------------------------------- |
 | `SELECTED_EXTENSIONS`        | Extension selection mode     | `none`, `all`, `changed`, `apex-lsp-vscode-extension`     |
-| `AVAILABLE_EXTENSIONS`       | Available VS Code extensions | `apex-lsp-vscode-extension,apex-lsp-vscode-extension-web` |
+| `AVAILABLE_EXTENSIONS`       | Available VS Code extensions | `apex-lsp-vscode-extension` |
 | `CHANGED_EXTENSIONS`         | Changed VS Code extensions   | `apex-lsp-vscode-extension`                               |
 | `REGISTRIES`                 | Registries to publish to     | `all`, `vsce`, `ovsx`                                     |
 | `VSIX_ARTIFACTS_PATH`        | Path to VSIX artifacts       | `./vsix-artifacts`                                        |

@@ -1,0 +1,44 @@
+{
+  "extends": "./tsconfig.base.shared.json",
+  "compilerOptions": {
+    "outDir": "./out/worker",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "ES2022",
+      "WebWorker",
+      "WebWorker.ImportScripts",
+      "DOM",
+      "DOM.Iterable",
+      "ESNext.AsyncIterable",
+      "ESNext.Disposable"
+    ],
+
+    "tsBuildInfoFile": "./out/worker/.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.worker.ts",
+    "src/**/*.browser.ts",
+    "src/**/*.node.ts",
+    "src/communication/BrowserClient.ts",
+    "src/server/ApexLanguageServer.ts",
+    "src/communication/NodeBridge.ts",
+    "src/communication/PlatformBridges.ts"
+  ],
+  "exclude": [
+    "src/browser.ts",
+    "src/index.ts",
+    "src/node.ts",
+    "src/server/index.node.ts",
+    "node_modules",
+    "out",
+    "dist",
+    "tsup.config.ts"
+  ],
+  "references": [
+    { "path": "../apex-lsp-shared" },
+    { "path": "../apex-parser-ast" },
+    { "path": "../lsp-compliant-services" }
+  ]
+}

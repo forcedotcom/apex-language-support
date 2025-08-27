@@ -31,9 +31,7 @@ runs:
               # It's a VS Code extension
               EXTENSIONS="$EXTENSIONS,$PKG_NAME"
               if [ "$PKG_NAME" = "apex-lsp-vscode-extension" ]; then
-                EXTENSION_PATHS="$EXTENSION_PATHS,desktop:$pkg"
-              elif [ "$PKG_NAME" = "apex-lsp-vscode-extension-web" ]; then
-                EXTENSION_PATHS="$EXTENSION_PATHS,web:$pkg"
+                EXTENSION_PATHS="$EXTENSION_PATHS,desktop:$pkg,web:$pkg"
               fi
             else
               # It's an NPM package

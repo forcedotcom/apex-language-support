@@ -1,0 +1,87 @@
+{
+  "name": "@salesforce/apex-ls",
+  "version": "1.0.0",
+  "description": "Apex Language Server for browser, Node.js, and web worker environments - consolidates apex-ls-node and apex-ls-browser functionality",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "node": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.mjs",
+        "require": "./dist/index.js"
+      },
+      "browser": {
+        "types": "./dist/browser.d.ts",
+        "import": "./dist/browser.mjs",
+        "require": "./dist/browser.js"
+      },
+      "default": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.mjs",
+        "require": "./dist/index.js"
+      }
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.mjs",
+      "require": "./dist/browser.js"
+    },
+    "./worker": {
+      "types": "./dist/worker.d.ts",
+      "import": "./dist/worker.global.js",
+      "require": "./dist/worker.global.js"
+    }
+  },
+  "sideEffects": false,
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forcedotcom/apex-language-support.git",
+    "directory": "packages/apex-ls"
+  },
+  "scripts": {
+    "compile": "npm run compile:browser & npm run compile:worker & npm run compile:node & wait",
+    "compile:browser": "tsc --build tsconfig.browser.json",
+    "compile:worker": "tsc --build tsconfig.worker.json",
+    "compile:node": "tsc --build tsconfig.node.json",
+    "bundle": "tsup",
+    "build": "npm run compile",
+    "test": "jest",
+    "test:web": "jest --config jest.config.web.cjs",
+    "test:coverage": "jest --coverage --coverageDirectory=./coverage",
+    "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
+    "clean:all": "npm run clean && rimraf node_modules",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "rebuild": "npm run clean && npm install && npm run build"
+  },
+  "dependencies": {
+    "@apexdevtools/apex-parser": "4.4.1",
+    "@salesforce/apex-lsp-compliant-services": "1.0.0",
+    "@salesforce/apex-lsp-custom-services": "1.0.0",
+    "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-shared": "1.0.0",
+    "antlr4ts": "0.5.0-alpha.4",
+    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "events": "^3.3.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "util": "^0.12.5",
+    "vscode-jsonrpc": "^8.2.0",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-protocol": "^3.17.5",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.4",
+    "@types/webworker": "^0.0.25",
+    "jest-environment-jsdom": "^30.0.5",
+    "node-dir": "^0.1.17",
+    "stream-browserify": "^3.0.0",
+    "ts-node": "^10.9.2"
+  }
+}

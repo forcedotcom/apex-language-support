@@ -5,78 +5,76 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
 import { defineConfig } from 'tsup';
-import { execSync } from 'child_process';
-import fs from 'fs';
-import path from 'path';
+import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
+import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
+import {
+  nodeBaseConfig,
+  browserBaseConfig,
+  BROWSER_ALIASES,
+} from '../../build-config/tsup.shared';
 
-export default defineConfig({
-  entry: ['out/extension.js', 'out/server.js'],
-  format: ['cjs', 'esm'],
-  splitting: false,
-  treeshake: true,
-  minify: false,
-  dts: false,
-  outDir: 'dist',
-  clean: true,
-  external: ['vscode'],
-  noExternal: [
-    'vscode-languageclient',
-    'vscode-languageserver-textdocument',
-    'vscode-uri',
-    '@salesforce/apex-ls-node',
-    '@salesforce/apex-lsp-compliant-services',
-    '@salesforce/apex-lsp-custom-services',
-    '@salesforce/apex-lsp-shared',
-    '@salesforce/apex-lsp-parser-ast',
-  ],
-  onSuccess: async () => {
-    // Copy static assets and files
-    const sourceDir = process.cwd();
+// Extension-specific packages to bundle
+const EXTENSION_NO_EXTERNAL = [
+  '@salesforce/apex-ls',
+  '@salesforce/apex-lsp-compliant-services',
+  '@salesforce/apex-lsp-custom-services',
+  '@salesforce/apex-lsp-parser-ast',
+  '@salesforce/apex-lsp-shared',
+  'vscode-languageserver-textdocument',
+  'vscode-languageserver',
+  'vscode-languageserver-protocol',
+  'vscode-jsonrpc',
+  'util',
+];
 
-    // Create subdirectories
-    execSync('shx mkdir -p dist/grammars dist/snippets dist/resources', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
-
-    // Copy files
-    execSync('shx cp -R grammars/* dist/grammars/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
-    execSync('shx cp -R snippets/* dist/snippets/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
-    execSync('shx cp -R resources/* dist/resources/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
-    execSync('shx cp README.md dist/', { cwd: sourceDir, stdio: 'inherit' });
-    execSync('shx cp LICENSE.txt dist/', { cwd: sourceDir, stdio: 'inherit' });
-    execSync('shx cp language-configuration.json dist/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
-    execSync('shx cp package.nls*.json dist/', {
-      cwd: sourceDir,
-      stdio: 'inherit',
-    });
-
-    // Prepare package.json for dist
-    const originalPackagePath = path.join(sourceDir, 'package.json');
-    const pkg = JSON.parse(fs.readFileSync(originalPackagePath, 'utf8'));
-
-    const distPackage = {
-      ...pkg,
-      main: './extension.js',
-      dependencies: {},
-      devDependencies: {},
-      workspaces: undefined,
-    };
-
-    const distPackagePath = path.join(sourceDir, 'dist', 'package.json');
-    fs.writeFileSync(distPackagePath, JSON.stringify(distPackage, null, 2));
+export default defineConfig([
+  // Desktop Node.js Build - Simple and clean
+  {
+    name: 'desktop',
+    ...nodeBaseConfig,
+    entry: ['out/extension.js'],
+    outDir: 'dist',
+    outExtension: () => ({ js: '.js' }),
+    external: [
+      ...nodeBaseConfig.external!,
+      'vm',
+      'net',
+      'worker_threads',
+      'web-worker',
+    ],
+    noExternal: [...EXTENSION_NO_EXTERNAL, 'vscode-languageclient/node'],
+    onSuccess: 'node scripts/post-build.js',
   },
-});
+
+  // Web Browser Build - Focused on polyfills only where needed
+  {
+    name: 'web',
+    ...browserBaseConfig,
+    entry: ['out/extension.js'],
+    outDir: 'dist',
+    outExtension: () => ({ js: '.web.js' }),
+    noExternal: [
+      ...EXTENSION_NO_EXTERNAL,
+      'vscode-languageclient',
+      'web-worker',
+    ],
+    esbuildOptions(options) {
+      // Essential browser setup
+      options.platform = 'browser';
+      options.conditions = ['browser', 'import', 'module', 'default'];
+      options.mainFields = ['browser', 'module', 'main'];
+
+      // Polyfills - only what we need
+      options.plugins = [
+        ...(options.plugins || []),
+        NodeGlobalsPolyfillPlugin({ process: true, buffer: true }),
+        NodeModulesPolyfillPlugin(),
+      ];
+
+      options.define = { global: 'globalThis' };
+      options.alias = BROWSER_ALIASES;
+    },
+  },
+]);
