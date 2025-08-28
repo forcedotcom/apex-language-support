@@ -19,7 +19,7 @@ import {
   initializeExtensionLogging,
   logToOutputChannel,
   updateLogLevel,
-  getOutputChannel,
+  getClientOutputChannel,
 } from '../src/logging';
 
 describe('Logging Module', () => {
@@ -62,7 +62,7 @@ describe('Logging Module', () => {
       initializeExtensionLogging(mockContext);
 
       expect(vscode.window.createOutputChannel).toHaveBeenCalledWith(
-        'Apex Language Extension (Typescript)',
+        'Apex Language Server Extension (Client)',
       );
       expect(mockContext.subscriptions).toContain(mockOutputChannel);
     });
@@ -134,11 +134,11 @@ describe('Logging Module', () => {
     });
   });
 
-  describe('getOutputChannel', () => {
-    it('should return the output channel after initialization', () => {
+  describe('getClientOutputChannel', () => {
+    it('should return the client output channel after initialization', () => {
       initializeExtensionLogging(mockContext);
 
-      const outputChannel = getOutputChannel();
+      const outputChannel = getClientOutputChannel();
 
       expect(outputChannel).toBe(mockOutputChannel);
     });
@@ -149,10 +149,10 @@ describe('Logging Module', () => {
 
       // Re-import the module to get fresh state
       const {
-        getOutputChannel: freshGetOutputChannel,
+        getClientOutputChannel: freshGetClientOutputChannel,
       } = require('../src/logging');
 
-      const outputChannel = freshGetOutputChannel();
+      const outputChannel = freshGetClientOutputChannel();
 
       expect(outputChannel).toBeUndefined();
     });

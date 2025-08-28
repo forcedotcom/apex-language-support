@@ -7,13 +7,14 @@
  */
 
 import * as vscode from 'vscode';
-import { LanguageClient } from 'vscode-languageclient/node';
 
 /**
  * Global state interface for the extension
  */
 export interface ExtensionState {
-  client: LanguageClient | undefined;
+  client:
+    | { sendNotification: (method: string, params?: any) => void }
+    | undefined;
   outputChannel: vscode.OutputChannel;
   statusBarItem: vscode.StatusBarItem;
   globalContext: vscode.ExtensionContext;
@@ -47,6 +48,7 @@ export interface WorkspaceSettings {
     resources: {
       loadMode: 'lazy' | 'full';
     };
+    custom: Record<string, any>;
     logLevel: string;
   };
 }

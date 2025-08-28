@@ -6,16 +6,19 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { defineConfig } from 'tsup';
-
-import { config } from '../../tsup.config';
+import { nodeBaseConfig } from '../../build-config/tsup.shared';
 
 export default defineConfig({
-  ...config,
+  ...nodeBaseConfig,
+  name: 'shared',
   entry: ['src/index.ts'],
+  format: ['cjs', 'esm'],
   outDir: 'dist',
-  clean: true,
-  dts: false,
-  splitting: false,
+  outExtension({ format }) {
+    return {
+      js: format === 'esm' ? '.mjs' : '.js',
+    };
+  },
   noExternal: [],
   external: [],
 });

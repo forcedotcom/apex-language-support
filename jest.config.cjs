@@ -30,12 +30,8 @@ module.exports = {
       '<rootDir>/packages/lsp-compliant-services/src/index.ts',
     '^@salesforce/apex-lsp-custom-services$':
       '<rootDir>/packages/custom-services/src/index.ts',
-    '^@salesforce/apex-ls-node$':
-      '<rootDir>/packages/apex-ls-node/src/index.ts',
-    '^@salesforce/apex-ls-browser$':
-      '<rootDir>/packages/apex-ls-browser/src/index.ts',
-    '^@salesforce/apex-lsp-browser-client$':
-      '<rootDir>/packages/apex-lsp-browser-client/src/index.ts',
+    '^@salesforce/apex-ls$':
+      '<rootDir>/packages/apex-ls/src/index.ts',
     '^@salesforce/apex-lsp-testbed$':
       '<rootDir>/packages/apex-lsp-testbed/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',

@@ -19,7 +19,7 @@
   "scripts": {
     "compile": "tsc --build",
     "bundle": "tsup",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
     "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",

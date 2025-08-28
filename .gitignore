@@ -71,6 +71,7 @@ extension/
 *.vsix
 .vscode-test/
 grammars/
+.vscode-test-web* 
 
 # Language server bundle copied into the VS Code extension package
 packages/apex-lsp-vscode-extension/server-bundle/
