@@ -29,10 +29,6 @@ export interface ServerConfig {
 
 // Import the unified storage factory registry
 // Import storage factories directly like the working tests do
-import {
-  WorkerStorageFactory,
-  BrowserStorageFactory,
-} from '../storage/StorageImplementations';
 
 /**
  * Unified Apex language server implementation
@@ -57,8 +53,10 @@ export class ApexLanguageServer {
    */
   private async createStorage(config?: StorageConfig): Promise<IStorage> {
     // Import fresh each time to avoid module cache issues with mocked tests
-    const { WorkerStorageFactory, BrowserStorageFactory } = await import('../storage/StorageImplementations');
-    
+    const { WorkerStorageFactory, BrowserStorageFactory } = await import(
+      '../storage/StorageImplementations'
+    );
+
     switch (this.environment) {
       case 'browser':
         const browserFactory = new BrowserStorageFactory();
@@ -68,7 +66,9 @@ export class ApexLanguageServer {
         // Use WorkerStorageFactory the exact same way as the working tests
         return WorkerStorageFactory.createStorage(config);
       default:
-        throw new Error(`Unsupported environment for storage: ${this.environment}`);
+        throw new Error(
+          `Unsupported environment for storage: ${this.environment}`,
+        );
     }
   }
 

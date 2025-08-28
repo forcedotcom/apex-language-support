@@ -8,10 +8,3 @@
 
 // Export package-specific types
 export type { ClientConfig } from './communication/Interfaces';
-
-// Export shared utilities
-export {
-  isWorkerEnvironment,
-  isBrowserEnvironment,
-  isNodeEnvironment,
-} from '@salesforce/apex-lsp-shared';
