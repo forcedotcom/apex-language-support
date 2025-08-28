@@ -17,7 +17,7 @@ import {
   SelfMessageTransport,
 } from './MessageTransports';
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
-import type { BrowserConfig, WorkerConfig } from './Interfaces';
+import type { BrowserConfig, WorkerConfig, Worker } from './Interfaces';
 
 // =============================================================================
 // MESSAGE BRIDGES
@@ -50,7 +50,7 @@ export class BrowserMessageBridge extends BaseMessageBridge {
   /**
    * Creates a browser-to-worker message bridge for client-side communication
    */
-  static forWorkerClient(worker: any, logger?: Logger): MessageConnection {
+  static forWorkerClient(worker: Worker, logger?: Logger): MessageConnection {
     const transport = new WorkerMessageTransport(worker);
     const bridge = new BrowserMessageBridge(transport, logger);
     return bridge.createConnection();

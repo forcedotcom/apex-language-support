@@ -7,6 +7,7 @@
  */
 
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
+import type { Worker } from './Interfaces';
 
 // =============================================================================
 // BROWSER/WORKER TRANSPORTS
@@ -16,7 +17,7 @@ import type { MessageTransport } from '@salesforce/apex-lsp-shared';
  * Transport for browser main thread communicating TO a worker
  */
 export class WorkerMessageTransport implements MessageTransport {
-  constructor(private worker: any) {}
+  constructor(private worker: Worker) {}
 
   async send(message: any): Promise<void> {
     this.worker.postMessage(message);
@@ -37,7 +38,7 @@ export class WorkerMessageTransport implements MessageTransport {
   }
 
   onError(handler: (error: Error) => void): { dispose(): void } {
-    const errorHandler = (event: any) => {
+    const errorHandler = (event: ErrorEvent) => {
       const error = new Error(event.message || 'Worker error');
       handler(error);
     };
@@ -102,7 +103,7 @@ export class SelfMessageTransport implements MessageTransport {
   }
 
   onError(handler: (error: Error) => void): { dispose(): void } {
-    const errorHandler = (event: any) => {
+    const errorHandler = (event: ErrorEvent) => {
       const error = new Error(event.message || 'Worker error');
       handler(error);
     };

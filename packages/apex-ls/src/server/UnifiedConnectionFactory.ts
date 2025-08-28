@@ -13,13 +13,14 @@ import {
   BaseConnectionFactory,
 } from '@salesforce/apex-lsp-shared';
 import { BrowserMessageBridge } from '../communication/PlatformBridges.browser';
+import type { Worker } from '../communication/Interfaces';
 
 /**
  * Unified configuration for all connection types
  */
 export interface UnifiedConnectionConfig {
   environment?: EnvironmentType;
-  worker?: any; // Worker type only available in browser/worker environments
+  worker?: Worker;
   logger?: Logger;
   mode?: 'stdio' | 'socket' | 'ipc'; // Use 'ipc' to match base interface
   port?: number;
@@ -143,7 +144,7 @@ export class UnifiedConnectionFactory extends BaseConnectionFactory {
    * Static convenience methods for specific environments
    */
   static createBrowserConnection(
-    worker: any, // Worker type only available in browser environment
+    worker: Worker, // Worker type only available in browser environment
     logger?: Logger,
   ): MessageConnection {
     return BrowserMessageBridge.forWorkerClient(worker, logger);
@@ -176,7 +177,7 @@ export class UnifiedConnectionFactory extends BaseConnectionFactory {
 
 // Legacy compatibility exports
 export const BrowserConnectionFactory = {
-  createConnection: (config?: { worker?: any; logger?: Logger }) =>
+  createConnection: (config?: { worker?: Worker; logger?: Logger }) =>
     UnifiedConnectionFactory.createConnection({
       environment: 'browser',
       worker: config?.worker,

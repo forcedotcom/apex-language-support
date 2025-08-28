@@ -8,12 +8,13 @@
 
 import type { MessageConnection, Logger } from 'vscode-jsonrpc';
 import { BrowserMessageBridge } from '../communication/PlatformBridges.browser';
+import type { Worker } from '../communication/Interfaces';
 
 /**
  * Configuration for browser connection factory
  */
 export interface ConnectionConfig {
-  worker?: any; // Worker type only available in browser environment
+  worker?: Worker;
   logger?: Logger;
 }
 
@@ -45,7 +46,7 @@ export class ConnectionFactory {
   /**
    * Creates a message connection with worker instance
    */
-  static forWorker(worker: any, logger?: Logger): MessageConnection {
+  static forWorker(worker: Worker, logger?: Logger): MessageConnection {
     return BrowserMessageBridge.forWorkerClient(worker, logger);
   }
 
@@ -53,7 +54,7 @@ export class ConnectionFactory {
    * Convenience method for creating browser connections
    */
   static createBrowserConnection(
-    worker: any,
+    worker: Worker,
     logger?: Logger,
   ): MessageConnection {
     return BrowserMessageBridge.forWorkerClient(worker, logger);
