@@ -45,11 +45,6 @@ export interface SalesforceVersionInfo {
 }
 
 /**
- * Default Salesforce version to use if version file cannot be loaded
- */
-export const DEFAULT_SALESFORCE_VERSION = 254;
-
-/**
  * Convert an apex-resources URI to a URL for browser environments
  * @param uri The URI to convert
  * @param baseUrl Optional base URL to prepend

@@ -208,6 +208,14 @@ export enum Version {
   V252 = 252,
   V254 = 254,
   V256 = 256,
+  V258 = 258,
+  V260 = 260,
+  V262 = 262,
+  V264 = 264,
+  V266 = 266,
+  V268 = 268,
+  V270 = 270,
+  V272 = 272,
 }
 
 export class VersionUtils {
@@ -219,8 +227,8 @@ export class VersionUtils {
   /**
    * This should always be the max version supported.
    */
-  static readonly MAX: Version = Version.V254;
-  static readonly CURRENT: Version = Version.V254;
+  static readonly MAX: Version = Version.V256;
+  static readonly CURRENT: Version = Version.V256;
 
   /**
    * We deprecate some behavior but we can't enforce it until the new compiler is everywhere.
@@ -301,6 +309,14 @@ export class VersionUtils {
     [Version.V252, 62],
     [Version.V254, 63],
     [Version.V256, 64],
+    [Version.V258, 65],
+    [Version.V260, 66],
+    [Version.V262, 67],
+    [Version.V264, 68],
+    [Version.V266, 69],
+    [Version.V268, 70],
+    [Version.V270, 71],
+    [Version.V272, 72],
   ] as [Version, number][]);
 
   static fromInternal(version: number): Version | undefined {

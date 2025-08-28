@@ -92,6 +92,7 @@ import {
   isInterfaceSymbol,
 } from '../../utils/symbolNarrowing';
 import { isContextType } from '../../utils/contextTypeGuards';
+import { DEFAULT_SALESFORCE_API_VERSION } from '../../constants/constants';
 
 interface SemanticError {
   type: 'semantic';
@@ -3125,7 +3126,7 @@ export class ApexSymbolCollectorListener
     return {
       // Assume long identifiers supported if namespace is set
       supportsLongIdentifiers: this.projectNamespace !== undefined,
-      version: 58, // Default to latest Apex API version
+      version: DEFAULT_SALESFORCE_API_VERSION,
       isFileBased: true,
     };
   }

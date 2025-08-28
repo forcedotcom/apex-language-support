@@ -157,8 +157,6 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
     message: string,
     context: ParserRuleContext,
   ): void {
-    // this.addWarning(`Syntax error: ${message}`, context);
-    // Also add to error listener
-    // this.addError(`Syntax error: ${message}`, context);
+    /** no-op */
   }
 }

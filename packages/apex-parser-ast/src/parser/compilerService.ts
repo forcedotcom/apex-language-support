@@ -32,6 +32,7 @@ import { CommentAssociator } from '../utils/CommentAssociator';
 import { SymbolTable } from '../types/symbol';
 import { NamespaceResolutionService } from '../namespace/NamespaceResolutionService';
 import { ApexSymbolCollectorListener } from './listeners/ApexSymbolCollectorListener';
+import { DEFAULT_SALESFORCE_API_VERSION } from '../constants/constants';
 
 /**
  * Result of a compilation process, containing any errors, warnings, and the final result.
@@ -489,8 +490,7 @@ export class CompilerService {
     // This will be enhanced when we have full CompilationContext type support
     return {
       namespace: namespace ? { toString: () => namespace } : null,
-      version: 58, // Default to latest version
-      isTrusted: true,
+      version: DEFAULT_SALESFORCE_API_VERSION,
       sourceType: 'FILE',
       referencingType: null,
       enclosingTypes: [],

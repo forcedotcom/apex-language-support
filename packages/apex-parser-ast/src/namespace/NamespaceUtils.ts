@@ -478,7 +478,7 @@ const validateAndNormalizeInput = (
 
 /**
  * Step 4: Apply resolution rules in order
- * Maps to Java rule application process
+ * Maps to Apex rule application process
  */
 const applyResolutionRules = (
   context: NamespaceResolutionContext,
