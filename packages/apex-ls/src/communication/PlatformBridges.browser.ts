@@ -14,7 +14,7 @@ import {
 } from './CoreBridge';
 import { WorkerMessageTransport } from './MessageTransports';
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
-import type { BrowserConfig } from './Interfaces';
+import type { BrowserConfig, Worker } from './Interfaces';
 
 /**
  * Browser-side bridge for communicating with workers
@@ -34,7 +34,8 @@ export class BrowserMessageBridge extends BaseMessageBridge {
   }
 
   static isBrowserEnvironment(): boolean {
-    return typeof window !== 'undefined' && typeof Worker !== 'undefined';
+    const { isBrowserMainThread } = require('../utils/EnvironmentUtils');
+    return isBrowserMainThread();
   }
 
   createConnection(): MessageConnection {

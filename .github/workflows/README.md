@@ -242,7 +242,6 @@ graph TB
 
     subgraph "Extensions"
         H[apex-lsp-vscode-extension]
-        I[apex-lsp-vscode-extension-web]
     end
 ```
 
@@ -465,10 +464,9 @@ sequenceDiagram
 
 **Note:** NPM package releases are currently enabled and functional.
 
-### VS Code Extensions (2 total)
+### VS Code Extensions (1 total)
 
-- `apex-lsp-vscode-extension` (desktop)
-- `apex-lsp-vscode-extension-web` (web)
+- `apex-lsp-vscode-extension` (unified desktop/web extension)
 
 ## Artifact Management
 

@@ -36,10 +36,16 @@ import {
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-// Create a connection for the server
+// Create a connection for the server using type-safe worker context
+const { getWorkerSelf } = require('./utils/EnvironmentUtils');
+const workerSelf = getWorkerSelf();
+if (!workerSelf) {
+  throw new Error('Worker context not available');
+}
+
 const connection = createConnection(
-  new BrowserMessageReader(self as unknown as DedicatedWorkerGlobalScope),
-  new BrowserMessageWriter(self as unknown as DedicatedWorkerGlobalScope),
+  new BrowserMessageReader(workerSelf),
+  new BrowserMessageWriter(workerSelf),
 );
 
 // Set up logging with connection

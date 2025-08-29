@@ -13,7 +13,6 @@
       "ESNext.AsyncIterable",
       "ESNext.Disposable"
     ],
-
     "tsBuildInfoFile": "./out/worker/.tsbuildinfo"
   },
   "include": [
