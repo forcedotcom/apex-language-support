@@ -15,9 +15,130 @@ import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 
 // Mock dependencies
-jest.mock('@salesforce/apex-lsp-parser-ast');
+jest.mock('@salesforce/apex-lsp-parser-ast', () => {
+  const symbolManager = {
+    findSymbolByName: jest.fn().mockReturnValue([]),
+    findSymbolsInFile: jest.fn().mockReturnValue([]),
+    findRelatedSymbols: jest.fn().mockReturnValue([]),
+    resolveSymbol: jest.fn().mockReturnValue(null),
+    findSymbolByFQN: jest.fn().mockReturnValue(null),
+    findFilesForSymbol: jest.fn().mockReturnValue([]),
+    addSymbol: jest.fn(),
+    removeSymbol: jest.fn(),
+    removeFile: jest.fn(),
+    addSymbolTable: jest.fn(),
+    refresh: jest.fn(),
+    findReferencesTo: jest.fn().mockReturnValue([]),
+    findReferencesFrom: jest.fn().mockReturnValue([]),
+    analyzeDependencies: jest.fn().mockReturnValue({
+      dependencies: [],
+      dependents: [],
+      impactScore: 0,
+      circularDependencies: [],
+    }),
+    detectCircularDependencies: jest.fn().mockReturnValue([]),
+    getImpactAnalysis: jest.fn().mockReturnValue({
+      directImpact: [],
+      indirectImpact: [],
+      breakingChanges: [],
+      migrationPath: [],
+      riskAssessment: 'low',
+    }),
+    getSymbolMetrics: jest.fn().mockReturnValue(new Map()),
+    computeMetrics: jest.fn().mockReturnValue({
+      referenceCount: 0,
+      dependencyCount: 0,
+      dependentCount: 0,
+      cyclomaticComplexity: 1,
+      depthOfInheritance: 0,
+      couplingScore: 0,
+      impactScore: 0,
+      changeImpactRadius: 0,
+      refactoringRisk: 0,
+      usagePatterns: [],
+      accessPatterns: [],
+      lifecycleStage: 'active',
+    }),
+    getMostReferencedSymbols: jest.fn().mockReturnValue([]),
+    addSymbolsBatch: jest.fn(),
+    analyzeDependenciesBatch: jest.fn().mockResolvedValue(new Map()),
+    getRelationshipStats: jest.fn().mockReturnValue({
+      totalReferences: 0,
+      methodCalls: 0,
+      fieldAccess: 0,
+      typeReferences: 0,
+      constructorCalls: 0,
+      staticAccess: 0,
+      importReferences: 0,
+      relationshipTypeCounts: new Map(),
+      mostCommonRelationshipType: null,
+      leastCommonRelationshipType: null,
+      averageReferencesPerType: 0,
+    }),
+    findSymbolsByPattern: jest.fn().mockReturnValue([]),
+    getPerformanceStats: jest.fn().mockReturnValue({
+      totalQueries: 0,
+      averageQueryTime: 0,
+      cacheHitRate: 0,
+      slowQueries: [],
+      memoryUsage: 0,
+    }),
+    clearCache: jest.fn(),
+    getCacheStats: jest.fn().mockReturnValue({
+      totalEntries: 0,
+      totalSize: 0,
+      hitCount: 0,
+      missCount: 0,
+      evictionCount: 0,
+      hitRate: 0,
+      averageEntrySize: 0,
+      typeDistribution: new Map(),
+      lastOptimization: 0,
+    }),
+    getStats: jest.fn().mockReturnValue({
+      totalSymbols: 0,
+      totalFiles: 0,
+      totalReferences: 0,
+      circularDependencies: 0,
+      cacheHitRate: 0,
+    }),
+    createResolutionContext: jest.fn().mockReturnValue({
+      sourceFile: 'file:///test/TestClass.cls',
+      namespaceContext: 'public',
+      currentScope: 'global',
+      scopeChain: ['global'],
+      expectedType: undefined,
+      parameterTypes: [],
+      accessModifier: 'public',
+      isStatic: false,
+      inheritanceChain: [],
+      interfaceImplementations: [],
+      importStatements: [],
+    }),
+  };
+  return {
+    ApexError: jest.fn(),
+    CompilerService: jest.fn(),
+    SymbolTable: jest.fn(),
+    ApexSymbolCollectorListener: jest.fn(),
+    ApexSymbolProcessingManager: {
+      getInstance: jest.fn(() => ({
+        getSymbolManager: jest.fn(() => symbolManager),
+      })),
+    },
+  };
+});
 jest.mock('@salesforce/apex-lsp-shared', () => ({
   getLogger: jest.fn(),
+  defineEnum: jest.fn((entries) => {
+    const result: any = {};
+    entries.forEach(([key, value]: [string, any], index: number) => {
+      const val = value !== undefined ? value : index;
+      result[key] = val;
+      result[val] = key;
+    });
+    return Object.freeze(result);
+  }),
 }));
 jest.mock('../../src/storage/ApexStorageManager');
 jest.mock('../../src/settings/ApexSettingsManager');
@@ -51,7 +172,11 @@ describe('DiagnosticProcessingService', () => {
     // Mock the getLogger function to return our mock logger
     (getLogger as jest.Mock).mockReturnValue(mockLogger);
 
-    service = new DiagnosticProcessingService();
+    // Reset the getDiagnosticsFromErrors mock
+    const { getDiagnosticsFromErrors } = require('../../src/utils/handlerUtil');
+    getDiagnosticsFromErrors.mockReset();
+
+    service = new DiagnosticProcessingService(mockLogger);
   });
 
   describe('processDiagnostic', () => {
@@ -94,11 +219,15 @@ describe('DiagnosticProcessingService', () => {
         ],
       };
 
+      // Mock the CompilerService
+      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
+      const mockCompile = jest.fn().mockReturnValue(mockCompileResult);
+      CompilerService.mockImplementation(() => ({
+        compile: mockCompile,
+      }));
+
       // Mock the getDiagnosticsFromErrors function
-      const {
-        getDiagnosticsFromErrors,
-      } = require('../../src/utils/handlerUtil');
-      getDiagnosticsFromErrors.mockReturnValue([
+      const mockGetDiagnosticsFromErrors = jest.fn().mockReturnValue([
         {
           range: {
             start: { line: 0, character: 0 },
@@ -109,11 +238,10 @@ describe('DiagnosticProcessingService', () => {
         },
       ]);
 
-      // Mock the CompilerService
-      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
-      CompilerService.mockImplementation(() => ({
-        compile: jest.fn().mockReturnValue(mockCompileResult),
-      }));
+      const {
+        getDiagnosticsFromErrors,
+      } = require('../../src/utils/handlerUtil');
+      getDiagnosticsFromErrors.mockImplementation(mockGetDiagnosticsFromErrors);
 
       const result = await service.processDiagnostic(params);
 
@@ -144,6 +272,12 @@ describe('DiagnosticProcessingService', () => {
       CompilerService.mockImplementation(() => ({
         compile: jest.fn().mockReturnValue(mockCompileResult),
       }));
+
+      // Mock the getDiagnosticsFromErrors function to return empty array
+      const {
+        getDiagnosticsFromErrors,
+      } = require('../../src/utils/handlerUtil');
+      getDiagnosticsFromErrors.mockReturnValue([]);
 
       const result = await service.processDiagnostic(params);
 

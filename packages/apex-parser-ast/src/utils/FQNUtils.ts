@@ -11,38 +11,7 @@
  */
 
 import { ApexSymbol, SymbolKind } from '../types/symbol';
-
-// List of known Salesforce built-in namespaces
-export const BUILT_IN_NAMESPACES = [
-  'System',
-  'Schema',
-  'Apex',
-  'ApexPages',
-  'Approval',
-  'Auth',
-  'Cache',
-  'Canvas',
-  'ChatterAnswers',
-  'ConnectApi',
-  'Database',
-  'Dom',
-  'EventBus',
-  'Flow',
-  'KbManagement',
-  'Label',
-  'Messaging',
-  'Metadata',
-  'Process',
-  'QuickAction',
-  'Reports',
-  'Search',
-  'Site',
-  'Support',
-  'Test',
-  'Trigger',
-  'UserProvisioning',
-  'Visualforce',
-];
+import { STD_APEX_NAMESPACES } from '../generated/stdApexNamespaces';
 
 /**
  * Options for FQN generation
@@ -77,13 +46,20 @@ export function calculateFQN(symbol: ApexSymbol, options?: FQNOptions): string {
   let fqn = symbol.name;
 
   // If the symbol has a parent, prepend the parent's FQN
+  // Skip block scopes in FQN construction - only include meaningful scopes
   if (symbol.parent) {
-    fqn = `${symbol.parent.name}.${fqn}`;
+    // Only include parent if it's not a block scope
+    if (!isBlockScope(symbol.parent)) {
+      fqn = `${symbol.parent.name}.${fqn}`;
+    }
 
-    // Continue up the hierarchy
+    // Continue up the hierarchy, skipping block scopes
     let currentParent = symbol.parent.parent;
     while (currentParent) {
-      fqn = `${currentParent.name}.${fqn}`;
+      // Skip block scopes in FQN construction
+      if (!isBlockScope(currentParent)) {
+        fqn = `${currentParent.name}.${fqn}`;
+      }
       currentParent = currentParent.parent;
     }
   }
@@ -166,7 +142,7 @@ export function isBuiltInType(symbol: any): boolean {
     'Integer',
     'Long',
     'String',
-    'ID',
+    'Id', // Consistent with Salesforce Apex documentation
     'Date',
     'Datetime',
     'Time',
@@ -186,7 +162,7 @@ export function isBuiltInType(symbol: any): boolean {
 
   // Check if this is a type from a built-in namespace
   const namespace = symbol.namespace || extractNamespace(symbol.name);
-  return namespace ? BUILT_IN_NAMESPACES.includes(namespace) : false;
+  return namespace ? STD_APEX_NAMESPACES.includes(namespace) : false;
 }
 
 /**
@@ -229,7 +205,7 @@ export function extractNamespace(
   if (!name) return '';
 
   // If it's a built-in namespace, return the name itself
-  if (BUILT_IN_NAMESPACES.includes(name)) {
+  if (STD_APEX_NAMESPACES.includes(name as any)) {
     return name;
   }
 
@@ -237,13 +213,25 @@ export function extractNamespace(
   if (name.includes('.')) {
     const parts = name.split('.');
     // Check if the first part is a built-in namespace
-    if (BUILT_IN_NAMESPACES.includes(parts[0])) {
+    if (STD_APEX_NAMESPACES.includes(parts[0] as any)) {
       return parts[0];
     }
   }
 
   // Return default namespace if provided
   return defaultNamespace || '';
+}
+
+/**
+ * Check if a symbol represents a block scope (should be skipped in FQN)
+ * @param symbol The symbol to check
+ * @returns True if the symbol is a block scope, false otherwise
+ */
+export function isBlockScope(symbol: any): boolean {
+  if (!symbol || !symbol.name) return false;
+
+  // Block scopes are named with the pattern "block{number}"
+  return symbol.name.startsWith('block') && /^block\d+$/.test(symbol.name);
 }
 
 /**
@@ -261,7 +249,7 @@ export function isBuiltInFQN(fqn: string): boolean {
   if (!fqn) return false;
 
   // Check if the FQN starts with a built-in namespace
-  for (const namespace of BUILT_IN_NAMESPACES) {
+  for (const namespace of STD_APEX_NAMESPACES) {
     if (fqn === namespace || fqn.startsWith(`${namespace}.`)) {
       return true;
     }

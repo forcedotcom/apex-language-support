@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { ApexClassInfo, TypeInfo } from '@salesforce/apex-lsp-parser-ast';
+import type {
+  ApexClassInfo,
+  SymbolLocation,
+  TypeInfo,
+} from '@salesforce/apex-lsp-parser-ast';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 /**
@@ -33,8 +37,70 @@ export interface ApexReference {
 }
 
 /**
+ * Information about a document symbol for LSP requests
+ */
+export interface DocumentSymbolInfo {
+  /** Symbol name */
+  name: string;
+  /** Symbol kind (class, method, field, etc.) */
+  kind: string;
+  /** Symbol location */
+  location: SymbolLocation;
+  /** Child symbols */
+  children?: DocumentSymbolInfo[];
+  /** Symbol details */
+  details?: SymbolDetails;
+}
+
+/**
+ * Detailed information about a symbol
+ */
+export interface SymbolDetails {
+  /** Return type for methods */
+  returnType?: string;
+  /** Parameters for methods */
+  parameters?: ParameterInfo[];
+  /** Visibility modifier */
+  visibility?: string;
+  /** Whether the symbol is static */
+  isStatic?: boolean;
+  /** Whether the symbol is final */
+  isFinal?: boolean;
+  /** Whether the symbol is abstract */
+  isAbstract?: boolean;
+  /** Fully qualified name */
+  fqn?: string;
+}
+
+/**
+ * Parameter information for methods
+ */
+export interface ParameterInfo {
+  /** Parameter name */
+  name: string;
+  /** Parameter type */
+  type: string;
+  /** Whether parameter is optional */
+  optional?: boolean;
+}
+
+/**
+ * Symbol information for general use
+ */
+export interface SymbolInfo {
+  /** Symbol name */
+  name: string;
+  /** Symbol kind */
+  kind: string;
+  /** Symbol location */
+  location: SymbolLocation;
+  /** Symbol details */
+  details?: SymbolDetails;
+}
+
+/**
  * Interface for persistent storage of Apex language artifacts
- * This supports storing and retrieving AST, symbol tables, and references
+ * This defines the contract for storing and retrieving AST, symbol tables, and references
  * between symbols.
  */
 export interface ApexStorageInterface {
@@ -131,6 +197,13 @@ export interface ApexStorageInterface {
   setDocument(uri: string, document: TextDocument): Promise<boolean>;
 
   /**
+   * Delete a document for a given URI
+   * @param uri The URI of the document to delete
+   * @returns Promise resolving to success boolean
+   */
+  deleteDocument(uri: string): Promise<boolean>;
+
+  /**
    * Set a definition for a given symbol
    * @param symbolName The name of the symbol to set the definition for
    * @param definition The ApexReference to store as the definition
@@ -158,4 +231,75 @@ export interface ApexStorageInterface {
    * @returns Promise resolving to array of references
    */
   getReferences(symbolName: string): Promise<ApexReference[]>;
+
+  /**
+   * Get definition for a given symbol
+   * @param symbolName The name of the symbol to get definition for
+   * @returns Promise resolving to definition reference or undefined if not found
+   */
+  getDefinition(symbolName: string): Promise<ApexReference | undefined>;
+
+  /**
+   * Get hover information for a given symbol
+   * @param symbolName The name of the symbol to get hover info for
+   * @returns Promise resolving to hover text or undefined if not found
+   */
+  getHover(symbolName: string): Promise<string | undefined>;
+
+  /**
+   * Set hover information for a given symbol
+   * @param symbolName The name of the symbol to set hover info for
+   * @param hoverText The hover text to store
+   * @returns Promise resolving to success boolean
+   */
+  setHover(symbolName: string, hoverText: string): Promise<boolean>;
+
+  /**
+   * Parse document and return document symbols
+   * @param documentUri URI of the document to parse
+   * @returns Promise resolving to array of document symbol information
+   */
+  getDocumentSymbols(documentUri: string): Promise<DocumentSymbolInfo[]>;
+
+  /**
+   * Get symbol information for a specific location in a document
+   * @param documentUri URI of the document
+   * @param line Line number (1-based)
+   * @param column Column number (1-based)
+   * @returns Promise resolving to symbol information or null if not found
+   */
+  getSymbolAtLocation(
+    documentUri: string,
+    line: number,
+    column: number,
+  ): Promise<SymbolInfo | null>;
+
+  /**
+   * Get all symbols in a document with their locations
+   * @param documentUri URI of the document
+   * @returns Promise resolving to array of symbol information
+   */
+  getAllSymbolsInDocument(documentUri: string): Promise<SymbolInfo[]>;
+
+  /**
+   * Find symbol by name in a specific document
+   * @param symbolName Name of the symbol to find
+   * @param documentUri URI of the document to search in
+   * @returns Promise resolving to symbol information or null if not found
+   */
+  findSymbolInDocument(
+    symbolName: string,
+    documentUri: string,
+  ): Promise<SymbolInfo | null>;
+
+  /**
+   * Get type information for a symbol in a specific document
+   * @param symbolName Name of the symbol to get type info for
+   * @param documentUri URI of the document
+   * @returns Promise resolving to type information or null if not found
+   */
+  getSymbolTypeInfo(
+    symbolName: string,
+    documentUri: string,
+  ): Promise<TypeInfo | null>;
 }

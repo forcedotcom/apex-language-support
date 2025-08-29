@@ -30,6 +30,9 @@ import {
 } from './listeners/ApexCommentCollectorListener';
 import { CommentAssociator } from '../utils/CommentAssociator';
 import { SymbolTable } from '../types/symbol';
+import { NamespaceResolutionService } from '../namespace/NamespaceResolutionService';
+import { ApexSymbolCollectorListener } from './listeners/ApexSymbolCollectorListener';
+import { DEFAULT_SALESFORCE_API_VERSION } from '../constants/constants';
 
 /**
  * Result of a compilation process, containing any errors, warnings, and the final result.
@@ -88,6 +91,8 @@ export interface CompilationOptions {
 export class CompilerService {
   private projectNamespace?: string;
   private readonly logger = getLogger();
+  private readonly namespaceResolutionService =
+    new NamespaceResolutionService();
 
   /**
    * Create a new CompilerService instance
@@ -198,11 +203,32 @@ export class CompilerService {
       const walker = new ParseTreeWalker();
       walker.walk(listener, parseTree);
 
-      // Walk the tree with comment collector if requested
-      let comments: ApexComment[] = [];
-      if (commentCollector) {
-        walker.walk(commentCollector, parseTree);
-        comments = commentCollector.getResult();
+      // Phase 4: Deferred namespace resolution
+      if (listener instanceof ApexSymbolCollectorListener) {
+        this.logger.debug(
+          () => 'Starting Phase 4: Deferred namespace resolution',
+        );
+        const symbolTable = listener.getResult();
+
+        // Create compilation context for namespace resolution
+        const compilationContext = this.createCompilationContext(
+          namespace,
+          fileName,
+        );
+
+        // Create symbol provider for namespace resolution
+        const symbolProvider = this.createSymbolProvider();
+
+        // Perform deferred namespace resolution
+        this.namespaceResolutionService.resolveDeferredReferences(
+          symbolTable,
+          compilationContext,
+          symbolProvider,
+        );
+
+        this.logger.debug(
+          () => 'Completed Phase 4: Deferred namespace resolution',
+        );
       }
 
       // Build the result
@@ -213,6 +239,13 @@ export class CompilerService {
         warnings: listener.getWarnings(),
       };
 
+      // Walk the tree with comment collector if requested
+      let comments: ApexComment[] = [];
+      if (commentCollector) {
+        walker.walk(commentCollector, parseTree);
+        comments = commentCollector.getResult();
+      }
+
       if (options.includeComments !== false) {
         // Handle comment association if requested
         if (
@@ -220,9 +253,8 @@ export class CompilerService {
           baseResult.result instanceof SymbolTable
         ) {
           const symbolTable = baseResult.result as SymbolTable;
-          const symbols = Array.from(
-            symbolTable.getCurrentScope().getAllSymbols(),
-          );
+          // Use all symbols in the file, not just the current scope
+          const symbols = symbolTable.getAllSymbols();
 
           const associator = new CommentAssociator();
           const commentAssociations = associator.associateComments(
@@ -445,5 +477,40 @@ export class CompilerService {
     }
 
     return results;
+  }
+
+  /**
+   * Create compilation context for namespace resolution
+   */
+  private createCompilationContext(
+    namespace: string | undefined,
+    fileName: string,
+  ): any {
+    // For now, create a basic compilation context
+    // This will be enhanced when we have full CompilationContext type support
+    return {
+      namespace: namespace ? { toString: () => namespace } : null,
+      version: DEFAULT_SALESFORCE_API_VERSION,
+      sourceType: 'FILE',
+      referencingType: null,
+      enclosingTypes: [],
+      parentTypes: [],
+      isStaticContext: false,
+    };
+  }
+
+  /**
+   * Create symbol provider for namespace resolution
+   */
+  private createSymbolProvider(): any {
+    // For now, create a basic symbol provider
+    // This will be enhanced when we have full SymbolProvider type support
+    return {
+      find: (referencingType: any, fullName: string) => null,
+      findBuiltInType: (name: string) => null,
+      findSObjectType: (name: string) => null,
+      findUserType: (name: string, namespace?: string) => null,
+      findExternalType: (name: string, packageName: string) => null,
+    };
   }
 }

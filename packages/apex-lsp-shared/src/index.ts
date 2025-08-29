@@ -26,6 +26,36 @@ export type {
 } from './notification';
 import { LogMessageType } from './notification';
 
+// Export enum utilities
+export * from './enumUtils';
+
+// Export optimized enum utilities for memory efficiency (excluding duplicates)
+export {
+  defineOptimizedEnum,
+  getOptimizedEnumKeys,
+  getOptimizedEnumValues,
+  getOptimizedEnumEntries,
+  isValidOptimizedEnumKey,
+  isValidOptimizedEnumValue,
+  calculateOptimizedEnumSavings,
+  compareEnumMemoryUsage,
+} from './optimizedEnumUtils';
+
+// Export logger functionality
+export * from './logger';
+
+// Explicitly export commonly used functions
+export {
+  defineEnum,
+  isValidEnumKey,
+  isValidEnumValue,
+  getEnumKeys,
+  getEnumValues,
+  getEnumEntries,
+} from './enumUtils';
+
+// Export smaller numeric types for memory optimization
+export * from './smallNumericTypes';
 /**
  * Priority mapping for log levels (higher number = higher priority)
  */

@@ -27,17 +27,25 @@ export * from './utils/CommentAssociator';
 // Export type definitions
 export * from './types/typeInfo';
 export * from './types/symbol';
+export * from './types/typeReference';
+export * from './types/referenceVertex';
 export * from './types/qname';
 export * from './types/source';
 export * from './types/unitType';
 export * from './types/classInfo';
+export * from './types/ISymbolManager';
+
+// Export namespace resolution types and components
+export * from './namespace/NamespaceUtils';
+export * from './utils/BuiltInTypeTables';
+export * from './namespace/ResolutionRules';
 
 // Export compiler service
 export * from './parser/compilerService';
-
 // Export resource utilities
 export * from './utils/ResourceUtils';
 export * from './utils/resourceLoader';
+export * from './utils/MultiVolumeFileSystem';
 
 // Export platform-specific utilities
 export * from './utils/PlatformUtils';
@@ -45,6 +53,20 @@ export * from './utils/PlatformUtils';
 // Export utils
 export * from './utils/AnnotationUtils';
 export * from './utils/symbolNarrowing';
+
+// Export cross-file symbol management
+export * from './symbols/ApexSymbolManager';
+export * from './symbols/ApexSymbolProcessingManager';
+
+// Export resolution framework types
+export * from './symbols/resolution/types';
+
+// Export reference graph and types
+export * from './symbols/ApexSymbolGraph';
+
+// Export background processing components
+export * from './symbols/ApexSymbolIndexingService';
+export * from './symbols/ApexSymbolProcessingManager';
 
 // Export semantic validators
 export * from './semantics/modifiers/index';

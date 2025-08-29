@@ -17,6 +17,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { ApexSettingsManager } from '../settings/ApexSettingsManager';
+import { transformParserToLspPosition } from '../utils/positionUtils';
 
 /**
  * Interface for AST folding range
@@ -136,20 +137,20 @@ export class ApexFoldingRangeProvider {
       // Only process block comments that span multiple lines
       if (
         comment.type === CommentType.Block &&
-        comment.endLine > comment.startLine
+        comment.range.endLine > comment.range.startLine
       ) {
         blockCommentRanges.push({
-          startLine: comment.startLine,
-          startColumn: comment.startColumn,
-          endLine: comment.endLine,
-          endColumn: comment.endColumn,
+          startLine: comment.range.startLine,
+          startColumn: comment.range.startColumn,
+          endLine: comment.range.endLine,
+          endColumn: comment.range.endColumn,
           kind: 'comment',
           level: 0,
         });
 
         logger.debug(
           () =>
-            `Added block comment folding range: ${comment.startLine}-${comment.endLine}`,
+            `Added block comment folding range: ${comment.range.startLine}-${comment.range.endLine}`,
         );
       }
     }
@@ -207,18 +208,28 @@ export class ApexFoldingRangeProvider {
     astRange: ASTFoldingRange,
   ): LSPFoldingRange | null {
     try {
+      const startPosition = transformParserToLspPosition({
+        line: astRange.startLine,
+        character: astRange.startColumn ?? 0,
+      });
+
+      const endPosition = transformParserToLspPosition({
+        line: astRange.endLine,
+        character: astRange.endColumn ?? 0,
+      });
+
       const lspRange: LSPFoldingRange = {
-        startLine: astRange.startLine - 1, // Convert from 1-based to 0-based
-        endLine: astRange.endLine - 1, // Convert from 1-based to 0-based
+        startLine: startPosition.line,
+        endLine: endPosition.line,
       };
 
       // Add optional properties if they exist
       if (astRange.startColumn !== undefined) {
-        lspRange.startCharacter = astRange.startColumn;
+        lspRange.startCharacter = startPosition.character;
       }
 
       if (astRange.endColumn !== undefined) {
-        lspRange.endCharacter = astRange.endColumn;
+        lspRange.endCharacter = endPosition.character;
       }
 
       // Convert folding range kind

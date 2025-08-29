@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { RESOURCE_URIS, uriToNodePath, uriToBrowserUrl } from './ResourceUtils';
+import { RESOURCE_URIS, uriToBrowserUrl } from './ResourceUtils';
 
 /**
  * Utility functions for platform-specific path operations
@@ -26,29 +26,11 @@ export function getSalesforceVersionPathBrowser(basePath?: string): string {
   return uriToBrowserUrl(RESOURCE_URIS.VERSION_FILE_URI, basePath);
 }
 
-// Node.js-specific code that will only be used in Node.js environments
-// This is separated to avoid including Node.js modules in browser builds
-// It will be properly tree-shaken by most bundlers when used in browser contexts
-export let getSalesforceVersionPathNode: () => string;
-
-if (
-  typeof process !== 'undefined' &&
-  process.versions &&
-  process.versions.node
-) {
-  // We're in a Node.js environment
-  getSalesforceVersionPathNode = () => {
-    // Get the current directory where the code is running
-    const currentDir = process.cwd();
-
-    // Convert URI to Node.js path
-    return uriToNodePath(RESOURCE_URIS.VERSION_FILE_URI, currentDir);
-  };
-} else {
-  // Not in Node.js - provide a function that throws a helpful error
-  getSalesforceVersionPathNode = () => {
-    throw new Error(
-      'getSalesforceVersionPathNode is only available in Node.js environments',
-    );
-  };
+/**
+ * Get the URI to the Salesforce version file
+ * This function returns the URI directly without conversion
+ * @returns The URI to the Salesforce version file
+ */
+export function getSalesforceVersionUri(): string {
+  return RESOURCE_URIS.VERSION_FILE_URI;
 }

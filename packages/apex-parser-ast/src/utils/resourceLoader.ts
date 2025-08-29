@@ -8,22 +8,20 @@
 
 import { unzipSync } from 'fflate';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { Volume } from 'memfs';
 
 import { zipData } from '../generated/apexSrcLoader';
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CompilerService, CompilationOptions } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
-import type { SymbolTable } from '../types/symbol';
+import { SymbolTable } from '../types/symbol';
+import { MultiVolumeFileSystem } from './MultiVolumeFileSystem';
+import { RESOURCE_URIS } from './ResourceUtils';
 
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
-}
-
-interface FileContent {
-  decoded: boolean;
-  contents: string | Uint8Array;
-  originalPath: string;
+  preloadStdClasses?: boolean;
 }
 
 interface CompiledArtifact {
@@ -31,153 +29,255 @@ interface CompiledArtifact {
   compilationResult: CompilationResultWithAssociations<SymbolTable>;
 }
 
-function isDecodedContent(contents: string | Uint8Array): contents is string {
-  return typeof contents === 'string';
-}
-
 /**
- * ResourceLoader class for loading and compiling Apex files from embedded zip data.
+ * Enhanced ResourceLoader class for loading and compiling standard Apex classes from embedded zip data.
+ * Uses memfs for efficient in-memory file storage and management.
  *
- * Performance Improvements:
- * - Delegates to CompilerService.compileMultiple() for compilation
- * - Configurable concurrency limits via CompilerService
- * - Progress reporting and timing metrics
- * - Cleaner separation of concerns: ResourceLoader handles file management, CompilerService handles compilation
+ * Core Responsibilities:
+ * - Store all files in memfs during initialization
+ * - Provide access to file contents via memfs
+ * - Compile source code on-demand
+ * - Provide access to source for goto definition
  *
  * @example
  * ```typescript
  * const loader = ResourceLoader.getInstance({
- *   loadMode: 'full',
- *   compilationOptions: {
- *     maxConcurrent: 8
- *   }
+ *   loadMode: 'lazy',
+ *   preloadCommonClasses: true
  * });
  *
- * // Configure compilation after initialization
- * loader.configureCompilation({
- *   maxConcurrent: 6
- * });
+ * // Files are immediately available via memfs
+ * const availableClasses = loader.getAvailableClasses();
  *
- * await loader.initialize();
- *
- * // Check compilation progress
- * const stats = loader.getCompilationStats();
- * console.log(`Compiled ${stats.compiledFiles}/${stats.totalFiles} files`);
+ * // Content loaded on-demand via memfs
+ * const source = await loader.getFile('System/System.cls');
  * ```
  */
 export class ResourceLoader {
   private static instance: ResourceLoader;
-  private fileMap: CaseInsensitivePathMap<FileContent> =
-    new CaseInsensitivePathMap();
+  // Store compiled artifacts for backward compatibility
   private compiledArtifacts: CaseInsensitivePathMap<CompiledArtifact> =
     new CaseInsensitivePathMap();
   private initialized = false;
   private compilationPromise: Promise<void> | null = null;
   private loadMode: 'lazy' | 'full' = 'full';
+  private preloadStdClasses: boolean = false;
   private readonly logger = getLogger();
   private compilerService: CompilerService;
+  private multiVolumeFS: MultiVolumeFileSystem;
+  private filePaths: string[] = []; // Cache of available file paths
+  private namespaces: Map<string, string[]> = new Map();
+  private totalSize: number = 0; // Total size of all files
+  private accessCount: number = 0; // Simple access counter for statistics
 
   private constructor(options?: ResourceLoaderOptions) {
     if (options?.loadMode) {
       this.loadMode = options.loadMode;
     }
-    this.compilerService = new CompilerService();
-  }
-
-  public async initialize(): Promise<void> {
-    if (this.initialized) {
-      return;
+    if (options?.preloadStdClasses) {
+      this.preloadStdClasses = options.preloadStdClasses;
     }
 
-    try {
-      // Unzip the contents
-      const files = unzipSync(zipData);
+    this.compilerService = new CompilerService();
+    this.multiVolumeFS = new MultiVolumeFileSystem();
 
-      this.logger.debug(() => `Raw zip entries: ${Object.keys(files).length}`);
+    // Register the apex-resources volume
+    this.multiVolumeFS.registerVolume('apex-resources', {
+      protocol: 'apex-resources',
+      rootPath: '/apex-resources',
+      readOnly: false,
+    });
 
-      // Convert each file to string and store in map
-      let processedFiles = 0;
-      Object.entries(files)
-        .filter(([path]) => path.endsWith('.cls'))
-        .forEach(([path, data]) => {
-          if (this.loadMode === 'full') {
-            this.fileMap.set(path, {
-              decoded: true,
-              contents: new TextDecoder().decode(data),
-              originalPath: path,
-            });
-          } else {
-            this.fileMap.set(path, {
-              decoded: false,
-              contents: data,
-              originalPath: path,
-            });
-          }
-          processedFiles++;
-        });
+    // Build memfs structure immediately
+    this.buildMemfsStructure();
 
-      this.logger.debug(() => `Processed files: ${processedFiles}`);
+    // Note: initialization and preloading will be handled by initialize() method
+    // This ensures the constructor only handles basic structure setup
+  }
 
-      // Calculate and log statistics
-      const dirStats = new Map<string, number>();
-      let totalFiles = 0;
+  /**
+   * Build memfs structure immediately
+   * @private
+   */
+  private buildMemfsStructure(): void {
+    this.logger.debug(() => 'Building memfs structure...');
 
-      for (const [_normalizedPath, content] of this.fileMap.entries()) {
-        if (!content) continue;
-        // Use the original path for directory statistics to maintain compatibility
-        const dir =
-          content.originalPath
-            .split(/[\/\\]/)
-            .slice(0, -1)
-            .join('/') || '(root)';
-        dirStats.set(dir, (dirStats.get(dir) || 0) + 1);
-        totalFiles++;
-      }
+    // Extract zip data to get file paths and metadata
+    const files = unzipSync(zipData);
 
-      this.logger.debug(
-        () => '\nResource Loading Statistics:\n---------------------------',
+    let totalSize = 0;
+    let processedCount = 0;
+
+    for (const [path, data] of Object.entries(files)) {
+      // Strip the src/resources/StandardApexLibrary/ prefix to get the relative path
+      let relativePath = path.replace(
+        /^src\/resources\/StandardApexLibrary\//,
+        '',
       );
-      this.logger.debug(() => `Total files loaded: ${totalFiles}`);
-      this.logger.debug(() => `Loading mode: ${this.loadMode}`);
-      this.logger.debug(() => '\nFiles per directory:');
-      for (const [dir, count] of dirStats.entries()) {
-        this.logger.debug(() => `  ${dir}: ${count} files`);
-      }
-      this.logger.debug(() => '---------------------------\n');
 
-      // Start compilation when loadMode is 'full'
-      if (this.loadMode === 'full') {
-        // Create and start the compilation promise
-        this.compilationPromise = (async () => {
+      // Normalize Windows backslashes to forward slashes for cross-platform compatibility
+      const originalPath = relativePath;
+      relativePath = relativePath.replace(/\\/g, '/');
+
+      // Log path normalization for debugging on Windows
+      if (originalPath !== relativePath) {
+        this.logger.debug(
+          () => `Normalized path: "${originalPath}" -> "${relativePath}"`,
+        );
+      }
+
+      const pathParts = relativePath.split('/');
+      const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
+      const fileName = pathParts[pathParts.length - 1];
+
+      if (namespace) {
+        if (!this.namespaces.has(namespace)) {
+          this.namespaces.set(namespace, []);
+        }
+        this.namespaces.get(namespace)!.push(fileName);
+      }
+
+      this.filePaths.push(relativePath);
+      totalSize += data.length;
+      processedCount++;
+
+      // Store file data in MultiVolumeFileSystem using apex-resources URI
+      const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${relativePath}`;
+      this.multiVolumeFS.writeFile(uriPath, Buffer.from(data));
+    }
+
+    this.totalSize = totalSize;
+
+    this.logger.debug(
+      () =>
+        `MultiVolumeFileSystem structure built: ${this.filePaths.length} files, ` +
+        `${this.namespaces.size} namespaces, processed ${processedCount} paths`,
+    );
+  }
+
+  /**
+   * Check if file exists using MultiVolumeFileSystem
+   * @private
+   */
+  private memfsExists(path: string): boolean {
+    const normalizedPath = this.normalizePath(path);
+
+    try {
+      // Use MultiVolumeFileSystem for efficient file existence check
+      const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${normalizedPath}`;
+      const exists = this.multiVolumeFS.exists(uriPath);
+
+      // If found, return true immediately
+      if (exists) {
+        return true;
+      }
+
+      // If not found, fall back to case-insensitive lookup
+      for (const filePath of this.filePaths) {
+        if (
+          this.normalizePath(filePath).toLowerCase() ===
+          normalizedPath.toLowerCase()
+        ) {
+          return true;
+        }
+      }
+      return false;
+    } catch {
+      // If MultiVolumeFileSystem throws an error, fall back to case-insensitive lookup
+      for (const filePath of this.filePaths) {
+        if (
+          this.normalizePath(filePath).toLowerCase() ===
+          normalizedPath.toLowerCase()
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Get file content using MultiVolumeFileSystem
+   * @private
+   */
+  private async memfsReadFile(path: string): Promise<string | undefined> {
+    const normalizedPath = this.normalizePath(path);
+
+    try {
+      // Try to read directly from MultiVolumeFileSystem first
+      const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${normalizedPath}`;
+      const content = this.multiVolumeFS.readFile(uriPath, 'utf8') as string;
+
+      // Update access statistics
+      this.accessCount++;
+
+      return content;
+    } catch (_error) {
+      // If direct read fails, try case-insensitive lookup using filePaths
+      for (const filePath of this.filePaths) {
+        if (
+          this.normalizePath(filePath).toLowerCase() ===
+          normalizedPath.toLowerCase()
+        ) {
           try {
-            this.logger.debug(() => 'Starting async compilation...');
-            await this.compileAllArtifacts();
-            this.logger.debug(() => 'Async compilation completed successfully');
-          } catch (error) {
-            this.logger.debug(() => `Compilation failed: ${error}`);
-            throw error;
-          } finally {
-            this.compilationPromise = null; // Reset promise after completion
+            const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${filePath}`;
+            const content = this.multiVolumeFS.readFile(
+              uriPath,
+              'utf8',
+            ) as string;
+
+            // Update access statistics
+            this.accessCount++;
+
+            return content;
+          } catch (_innerError) {
+            // Continue to next entry
           }
-        })();
-
-        // Wait for compilation to start before marking as initialized
-        await new Promise<void>((resolve) => {
-          const checkCompilation = () => {
-            if (this.compilationPromise) {
-              resolve();
-            } else {
-              setTimeout(checkCompilation, 10);
-            }
-          };
-          checkCompilation();
-        });
+        }
       }
+      return undefined;
+    }
+  }
 
-      this.initialized = true;
-    } catch (error) {
-      this.logger.error(() => `Failed to initialize resource loader: ${error}`);
-      throw error;
+  /**
+   * Read file content directly from memfs without requiring initialization
+   * This is used for lazy loading
+   * @private
+   */
+  private readFileFromMemfs(path: string): string | undefined {
+    try {
+      const normalizedPath = this.normalizePath(path);
+      const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${normalizedPath}`;
+      const content = this.multiVolumeFS.readFile(uriPath, 'utf8') as string;
+
+      // Update access statistics
+      this.accessCount++;
+
+      return content;
+    } catch (_error) {
+      // If direct read fails, try case-insensitive lookup using filePaths
+      for (const filePath of this.filePaths) {
+        if (
+          this.normalizePath(filePath).toLowerCase() ===
+          this.normalizePath(path).toLowerCase()
+        ) {
+          try {
+            const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${filePath}`;
+            const content = this.multiVolumeFS.readFile(
+              uriPath,
+              'utf8',
+            ) as string;
+
+            // Update access statistics
+            this.accessCount++;
+
+            return content;
+          } catch (_innerError) {
+            // Continue to next entry
+          }
+        }
+      }
+      return undefined;
     }
   }
 
@@ -188,55 +288,231 @@ export class ResourceLoader {
     return ResourceLoader.instance;
   }
 
-  public getFile(path: string): string | undefined {
+  /**
+   * Get file content with true lazy loading using memfs
+   * @param path The file path
+   * @returns Promise that resolves to the file content
+   */
+  public async getFile(path: string): Promise<string | undefined> {
     if (!this.initialized) {
       throw new Error(
         'ResourceLoader not initialized. Call initialize() first.',
       );
     }
-    const fileContent = this.fileMap.get(path);
-    if (!fileContent) {
-      return undefined;
+
+    // Use memfs for simple file access
+    return this.memfsReadFile(path);
+  }
+
+  /**
+   * Get file content synchronously using MultiVolumeFileSystem
+   * @param path The file path
+   * @returns The file content or undefined if not found
+   */
+  public getFileSync(path: string): string | undefined {
+    if (!this.initialized) {
+      throw new Error(
+        'ResourceLoader not initialized. Call initialize() first.',
+      );
     }
 
-    if (isDecodedContent(fileContent.contents)) {
-      return fileContent.contents;
-    } else {
-      // Decode on demand
-      const decoded = new TextDecoder().decode(fileContent.contents);
-      this.fileMap.set(path, {
-        ...fileContent,
-        decoded: true,
-        contents: decoded,
-      });
-      return decoded;
+    const normalizedPath = this.normalizePath(path);
+
+    try {
+      // Try to read directly from MultiVolumeFileSystem first
+      const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${normalizedPath}`;
+      const content = this.multiVolumeFS.readFile(uriPath, 'utf8') as string;
+
+      // Update access statistics
+      this.accessCount++;
+
+      return content;
+    } catch (_error) {
+      // If direct read fails, try case-insensitive lookup using filePaths
+      for (const filePath of this.filePaths) {
+        if (
+          this.normalizePath(filePath).toLowerCase() ===
+          normalizedPath.toLowerCase()
+        ) {
+          try {
+            const uriPath = `${RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI}/${filePath}`;
+            const content = this.multiVolumeFS.readFile(
+              uriPath,
+              'utf8',
+            ) as string;
+
+            // Update access statistics
+            this.accessCount++;
+
+            return content;
+          } catch (_innerError) {
+            // Continue to next entry
+          }
+        }
+      }
+      return undefined;
     }
   }
 
-  public getAllFiles(): CaseInsensitivePathMap<string> {
+  /**
+   * Preload common classes for better performance
+   * @private
+   */
+  private async preloadCommonClasses(): Promise<void> {
+    const commonClasses = [
+      'System/System.cls',
+      'System/ApexPages.cls',
+      'System/Assert.cls',
+      'System/Callable.cls',
+      'Database/Batchable.cls',
+      'Database/Error.cls',
+    ];
+
+    this.logger.debug(() => 'Preloading common classes...');
+
+    for (const className of commonClasses) {
+      if (this.hasClass(className)) {
+        await this.getFile(className);
+      }
+    }
+
+    this.logger.debug(() => 'Common classes preloaded');
+  }
+
+  /**
+   * Normalize path for consistent lookup
+   * @private
+   */
+  private normalizePath(path: string): string {
+    // Convert backslashes to forward slashes
+    let normalized = path.replace(/\\/g, '/');
+
+    // Handle dot notation (System.System.cls -> System/System.cls)
+    if (normalized.includes('.') && !normalized.includes('/')) {
+      // Check if the entire string ends with .cls
+      if (normalized.endsWith('.cls')) {
+        // Remove .cls from the end
+        normalized = normalized.replace(/\.cls$/i, '');
+        // Split by dots and join with /
+        const parts = normalized.split('.');
+        normalized = parts.join('/') + '.cls';
+      } else {
+        // No .cls extension, just split by dots and join with /
+        const parts = normalized.split('.');
+        normalized = parts.join('/') + '.cls';
+      }
+    } else {
+      // Handle regular paths
+      // Remove .cls extension if present
+      normalized = normalized.replace(/\.cls$/i, '');
+      // Add .cls extension back
+      normalized += '.cls';
+    }
+
+    return normalized;
+  }
+
+  /**
+   * Check if a class exists without loading content
+   * @param className The class name to check
+   * @returns true if the class exists
+   */
+  public hasClass(className: string): boolean {
+    // This method works without initialization since it only checks existence
+    return this.memfsExists(className);
+  }
+
+  /**
+   * Get available class names without loading content
+   * @returns Array of available class names
+   */
+  public getAvailableClasses(): string[] {
+    // This method works without initialization since it only returns the file list
+    return this.filePaths;
+  }
+
+  /**
+   * Get namespace structure
+   * @returns Map of namespaces to their class files
+   */
+  public getNamespaceStructure(): Map<string, string[]> {
+    // This method works without initialization since it only returns the namespace structure
+    return this.namespaces;
+  }
+
+  /**
+   * Get all files with lazy loading using memfs
+   * @returns Promise that resolves to all file contents
+   */
+  public async getAllFiles(): Promise<CaseInsensitivePathMap<string>> {
     if (!this.initialized) {
       throw new Error(
         'ResourceLoader not initialized. Call initialize() first.',
       );
     }
+
     const result = new CaseInsensitivePathMap<string>();
-    for (const [_normalizedPath, content] of this.fileMap.entries()) {
-      if (!content) continue;
-      // Always return the original path format
-      if (isDecodedContent(content.contents)) {
-        result.set(content.originalPath, content.contents);
-      } else {
-        result.set(
-          content.originalPath,
-          new TextDecoder().decode(content.contents),
-        );
+
+    // Load all files in parallel using memfs
+    const loadPromises = this.filePaths.map(async (path) => {
+      const content = await this.getFile(path);
+      if (content) {
+        result.set(path, content);
       }
-    }
+    });
+
+    await Promise.all(loadPromises);
     return result;
   }
 
   /**
-   * Compile all loaded artifacts by delegating to CompilerService.compileMultiple
+   * Get all files synchronously using memfs
+   * @returns Map of all file contents
+   */
+  public getAllFilesSync(): CaseInsensitivePathMap<string> {
+    if (!this.initialized) {
+      throw new Error(
+        'ResourceLoader not initialized. Call initialize() first.',
+      );
+    }
+
+    const result = new CaseInsensitivePathMap<string>();
+
+    // Load all files synchronously using memfs
+    for (const path of this.filePaths) {
+      const content = this.getFileSync(path);
+      if (content) {
+        result.set(path, content);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Initialize with optional preloading and compilation
+   */
+  public async initialize(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+
+    // Mark as initialized
+    this.initialized = true;
+
+    // Preload common classes if requested
+    if (this.preloadStdClasses) {
+      await this.preloadCommonClasses();
+    }
+
+    // Start compilation if in full mode
+    if (this.loadMode === 'full') {
+      this.compilationPromise = this.compileAllArtifacts();
+    }
+  }
+
+  /**
+   * Compile all artifacts and store results
    * @private
    */
   private async compileAllArtifacts(): Promise<void> {
@@ -255,15 +531,18 @@ export class ResourceLoader {
       options: CompilationOptions;
     }> = [];
 
-    for (const [_normalizedPath, content] of this.fileMap.entries()) {
-      if (content && isDecodedContent(content.contents)) {
+    // Get all files for compilation
+    const allFiles = await this.getAllFiles();
+
+    for (const [path, content] of allFiles.entries()) {
+      if (content) {
         // Extract namespace from parent folder path
-        const pathParts = content.originalPath.split(/[\/\\]/);
+        const pathParts = path.split(/[\/\\]/);
         const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
 
         filesToCompile.push({
-          content: content.contents,
-          fileName: content.originalPath,
+          content,
+          fileName: path,
           listener: new ApexSymbolCollectorListener(),
           options: {
             projectNamespace: namespace,
@@ -302,11 +581,20 @@ export class ResourceLoader {
         if (result.result) {
           const compilationResult =
             result as CompilationResultWithAssociations<SymbolTable>;
-          this.compiledArtifacts.set(result.fileName, {
-            path: result.fileName,
+
+          // Convert dot notation back to path notation for consistency
+          const originalPath = this.normalizePath(result.fileName);
+
+          // Store in compiledArtifacts for backward compatibility
+          this.compiledArtifacts.set(originalPath, {
+            path: originalPath,
             compilationResult,
           });
           compiledCount++;
+
+          // Update lazy file map
+          // This part is removed as per the new_code, as the lazyFileMap is removed.
+          // The memfsVolume is now directly used for file existence and content.
 
           if (result.errors.length > 0) {
             errorCount++;
@@ -332,20 +620,6 @@ export class ResourceLoader {
   }
 
   /**
-   * Get compiled artifact for a specific file path
-   * @param path The file path
-   * @returns The compiled artifact or undefined if not found or not compiled
-   */
-  public getCompiledArtifact(path: string): CompiledArtifact | undefined {
-    if (!this.initialized) {
-      throw new Error(
-        'ResourceLoader not initialized. Call initialize() first.',
-      );
-    }
-    return this.compiledArtifacts.get(path);
-  }
-
-  /**
    * Get all compiled artifacts
    * @returns Map of all compiled artifacts
    */
@@ -355,6 +629,7 @@ export class ResourceLoader {
         'ResourceLoader not initialized. Call initialize() first.',
       );
     }
+
     return this.compiledArtifacts;
   }
 
@@ -374,5 +649,378 @@ export class ResourceLoader {
    */
   public isCompiling(): boolean {
     return this.compilationPromise !== null;
+  }
+
+  /**
+   * Get enhanced statistics about loaded and compiled resources
+   * @returns Statistics object
+   */
+  public getStatistics(): {
+    totalFiles: number;
+    loadedFiles: number;
+    compiledFiles: number;
+    loadMode: string;
+    directoryStructure: {
+      totalFiles: number;
+      totalSize: number;
+      namespaces: string[];
+    };
+    lazyFileStats: {
+      totalEntries: number;
+      loadedEntries: number;
+      compiledEntries: number;
+      averageAccessCount: number;
+    };
+    memfsStats: {
+      totalFiles: number;
+      totalSize: number;
+    };
+  } {
+    let compiledFiles = 0;
+
+    // Count compiled files
+    for (const [_path, artifact] of this.compiledArtifacts.entries()) {
+      if (artifact) {
+        compiledFiles++;
+      }
+    }
+
+    return {
+      totalFiles: this.filePaths.length,
+      loadedFiles: this.accessCount, // Use access count as loaded files
+      compiledFiles,
+      loadMode: this.loadMode,
+      directoryStructure: {
+        totalFiles: this.filePaths.length,
+        totalSize: this.totalSize,
+        namespaces: Array.from(this.namespaces.keys()),
+      },
+      lazyFileStats: {
+        totalEntries: this.filePaths.length,
+        loadedEntries: this.accessCount, // Use access count
+        compiledEntries: compiledFiles,
+        averageAccessCount:
+          this.accessCount > 0 ? this.accessCount / this.filePaths.length : 0,
+      },
+      memfsStats: {
+        totalFiles: this.filePaths.length,
+        totalSize: this.totalSize,
+      },
+    };
+  }
+
+  /**
+   * Get directory structure statistics
+   * @returns Directory structure statistics
+   */
+  public getDirectoryStatistics(): {
+    totalFiles: number;
+    totalSize: number;
+    namespaces: string[];
+  } {
+    // This method works without initialization since it only returns directory stats
+    return {
+      totalFiles: this.filePaths.length,
+      totalSize: this.totalSize,
+      namespaces: Array.from(this.namespaces.keys()),
+    };
+  }
+
+  /**
+   * Get the MultiVolumeFileSystem for advanced operations
+   * @returns The MultiVolumeFileSystem instance
+   */
+  public getMultiVolumeFileSystem(): MultiVolumeFileSystem {
+    return this.multiVolumeFS;
+  }
+
+  /**
+   * Get the memfs volume for advanced operations (backward compatibility)
+   * @returns The memfs Volume instance from the apex-resources volume
+   * @deprecated Use getMultiVolumeFileSystem() instead
+   */
+  public getMemfsVolume(): Volume {
+    return this.multiVolumeFS.getVolume('apex-resources');
+  }
+
+  /**
+   * Export the current file system state as JSON
+   * @returns JSON representation of the file system
+   */
+  public exportToJSON(): Record<string, string | null> {
+    return this.multiVolumeFS.exportToJSON('apex-resources')['apex-resources'];
+  }
+
+  /**
+   * Reset the MultiVolumeFileSystem and clear all data
+   */
+  public reset(): void {
+    this.multiVolumeFS.reset('apex-resources');
+    this.compiledArtifacts.clear();
+    this.initialized = false;
+    this.compilationPromise = null;
+
+    // Rebuild directory structure
+    this.buildMemfsStructure();
+    this.initialized = true;
+  }
+
+  /**
+   * Dynamically load and compile a single standard Apex class
+   * This enables lazy loading without full initialization
+   */
+  public async loadAndCompileClass(
+    className: string,
+  ): Promise<CompiledArtifact | null> {
+    // Check if class exists in our known structure
+    if (!this.hasClass(className)) {
+      this.logger.debug(
+        () => `Class ${className} not found in standard library`,
+      );
+      return null;
+    }
+
+    try {
+      // Load the file content from memfs using our private method (this works without initialization)
+      const content = this.readFileFromMemfs(className);
+
+      if (!content) {
+        this.logger.warn(() => `Failed to load content for ${className}`);
+        return null;
+      }
+
+      // Compile the single class
+      const symbolTable = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(symbolTable);
+
+      const result = this.compilerService.compile(
+        content,
+        className, // Use className as the file path
+        listener,
+        {
+          includeComments: false,
+          includeSingleLineComments: false,
+          associateComments: false,
+        }, // Minimal compilation for performance
+      );
+
+      if (result.errors.length > 0) {
+        this.logger.warn(
+          () => `Compilation errors for ${className}: ${result.errors}`,
+        );
+        return null;
+      }
+
+      // Create compiled artifact - handle different result types
+      let artifact: CompiledArtifact;
+
+      if ('commentAssociations' in result && 'comments' in result) {
+        // This is a CompilationResultWithAssociations
+        artifact = {
+          path: className,
+          compilationResult:
+            result as CompilationResultWithAssociations<SymbolTable>,
+        };
+      } else {
+        // This is a regular CompilationResult - we need to convert it
+        // For now, we'll create a minimal artifact
+        artifact = {
+          path: className,
+          compilationResult: {
+            ...result,
+            commentAssociations: [],
+            comments: [],
+          } as CompilationResultWithAssociations<SymbolTable>,
+        };
+      }
+
+      // Store in compiled artifacts map
+      this.compiledArtifacts.set(className, artifact);
+
+      this.logger.debug(() => `Successfully loaded and compiled ${className}`);
+      return artifact;
+    } catch (error) {
+      this.logger.error(() => `Error loading/compiling ${className}: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Synchronously load and compile a single standard Apex class
+   * Useful for synchronous resolution paths where awaiting is not possible
+   */
+  public loadAndCompileClassSync(className: string): CompiledArtifact | null {
+    // Check if class exists in our known structure
+    if (!this.hasClass(className)) {
+      this.logger.debug(
+        () => `Class ${className} not found in standard library`,
+      );
+      return null;
+    }
+
+    try {
+      // Load the file content from memfs directly
+      const content = this.readFileFromMemfs(className);
+      if (!content) {
+        this.logger.warn(() => `Failed to load content for ${className}`);
+        return null;
+      }
+
+      // Compile the single class synchronously
+      const symbolTable = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(symbolTable);
+
+      const result = this.compilerService.compile(
+        content,
+        className,
+        listener,
+        {
+          includeComments: false,
+          includeSingleLineComments: false,
+          associateComments: false,
+        },
+      );
+
+      // Create compiled artifact
+      let artifact: CompiledArtifact;
+      if ('commentAssociations' in result && 'comments' in result) {
+        artifact = {
+          path: className,
+          compilationResult:
+            result as CompilationResultWithAssociations<SymbolTable>,
+        };
+      } else {
+        artifact = {
+          path: className,
+          compilationResult: {
+            ...result,
+            commentAssociations: [],
+            comments: [],
+          } as CompilationResultWithAssociations<SymbolTable>,
+        };
+      }
+
+      // Store in compiled artifacts map
+      this.compiledArtifacts.set(className, artifact);
+      this.logger.debug(
+        () => `Successfully loaded and compiled (sync) ${className}`,
+      );
+      return artifact;
+    } catch (error) {
+      this.logger.error(
+        () => `Error loading/compiling (sync) ${className}: ${error}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Check if a class is available and optionally load it
+   * This is the main entry point for lazy loading
+   */
+  public async ensureClassLoaded(className: string): Promise<boolean> {
+    // If already compiled, return true
+    if (this.compiledArtifacts.has(className)) {
+      return true;
+    }
+
+    // Try to load and compile
+    const artifact = await this.loadAndCompileClass(className);
+    return artifact !== null;
+  }
+
+  /**
+   * Synchronously ensure a class is compiled and available
+   */
+  public ensureClassLoadedSync(className: string): boolean {
+    if (this.compiledArtifacts.has(className)) {
+      return true;
+    }
+    const artifact = this.loadAndCompileClassSync(className);
+    return artifact !== null;
+  }
+
+  /**
+   * Get compiled artifact for a class, loading it if necessary
+   */
+  public async getCompiledArtifact(
+    className: string,
+  ): Promise<CompiledArtifact | null> {
+    // If not compiled, try to load it
+    if (!this.compiledArtifacts.has(className)) {
+      await this.ensureClassLoaded(className);
+    }
+
+    return this.compiledArtifacts.get(className) || null;
+  }
+
+  /**
+   * Get compiled artifact for a class synchronously (for backward compatibility)
+   * This only returns already compiled artifacts, it doesn't trigger lazy loading
+   */
+  public getCompiledArtifactSync(className: string): CompiledArtifact | null {
+    return this.compiledArtifacts.get(className) || null;
+  }
+
+  /**
+   * Check if a symbol name could potentially be resolved from standard library
+   * This helps the symbol manager decide whether to attempt lazy loading
+   */
+  public couldResolveSymbol(symbolName: string): boolean {
+    // Check if this looks like a standard Apex class reference
+    const parts = symbolName.split('.');
+
+    if (parts.length === 1) {
+      // Single name - check if it's a namespace or class
+      return (
+        this.namespaces.has(parts[0]) ||
+        this.filePaths.some((path) => path.endsWith(`/${parts[0]}.cls`))
+      );
+    }
+
+    if (parts.length === 2) {
+      // Namespace.Class format
+      const namespace = parts[0];
+      const className = parts[1];
+      const namespaceFiles = this.namespaces.get(namespace);
+      return (
+        this.namespaces.has(namespace) &&
+        namespaceFiles !== undefined &&
+        namespaceFiles.includes(`${className}.cls`)
+      );
+    }
+
+    return false;
+  }
+
+  /**
+   * Get potential standard library matches for a symbol name
+   * This helps with fuzzy matching and suggestions
+   */
+  public getPotentialMatches(symbolName: string): string[] {
+    const matches: string[] = [];
+    const normalizedName = symbolName.toLowerCase();
+
+    for (const filePath of this.filePaths) {
+      if (filePath.toLowerCase().includes(normalizedName)) {
+        matches.push(filePath);
+      }
+    }
+
+    return matches.slice(0, 10); // Limit results
+  }
+
+  /**
+   * Check if a class is already compiled and available
+   */
+  public isClassCompiled(className: string): boolean {
+    return this.compiledArtifacts.has(className);
+  }
+
+  /**
+   * Get all compiled class names
+   */
+  public getCompiledClassNames(): string[] {
+    return Array.from(this.compiledArtifacts.keys());
   }
 }

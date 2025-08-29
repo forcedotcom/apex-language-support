@@ -38,6 +38,15 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
       }),
     }),
   })),
+  ApexSymbolProcessingManager: {
+    getInstance: jest.fn().mockReturnValue({
+      processSymbolTable: jest.fn().mockReturnValue('mock-task-id'),
+      getSymbolManager: jest.fn().mockReturnValue({
+        addSymbol: jest.fn(),
+        removeFile: jest.fn(),
+      }),
+    }),
+  },
 }));
 
 // Mock the storage manager

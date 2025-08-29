@@ -13,7 +13,6 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
   ApexSymbolCollectorListener,
-  RuntimeSymbol,
   SymbolTable,
   SymbolKind,
   VariableSymbol,
@@ -28,8 +27,8 @@ interface CompilationResult {
   warnings: any[];
 }
 
-interface RuntimeSymbols {
-  [key: string]: RuntimeSymbol;
+interface SymbolMap {
+  [key: string]: ApexSymbol;
 }
 
 interface CleanSymbol {
@@ -180,10 +179,10 @@ export async function compileStubs(
         throw new Error('Compilation failed: No symbol table generated');
       }
 
-      // Wrap symbols in RuntimeSymbol for proper handling of runtime references
+      // Store symbols directly without RuntimeSymbol wrapper
       const symbolTable = result.result;
       const symbols = Array.from(symbolTable.getCurrentScope().getAllSymbols());
-      const runtimeSymbols: RuntimeSymbols = {};
+      const symbolMap: SymbolMap = {};
       const classMethods: { [key: string]: MethodSymbol[] } = {};
 
       // First pass: collect all class symbols and their scopes
@@ -226,18 +225,12 @@ export async function compileStubs(
           }
         }
 
-        runtimeSymbols[symbol.key.name] = new RuntimeSymbol(
-          symbol,
-          symbolTable,
-        );
+        symbolMap[symbol.key.name] = symbol;
       }
 
       // Create a clean version of the symbol table for serialization
       const cleanSymbolTable: CleanSymbolTable = {
-        symbols: Object.entries(runtimeSymbols).map(([key, runtimeSymbol]) => {
-          // Get the underlying symbol without the RuntimeSymbol wrapper
-          const symbol = runtimeSymbol.symbol;
-
+        symbols: Object.entries(symbolMap).map(([key, symbol]) => {
           // Create a clean copy of the symbol without circular references
           const cleanSymbol = {
             key,

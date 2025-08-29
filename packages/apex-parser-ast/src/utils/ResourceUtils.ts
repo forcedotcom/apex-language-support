@@ -13,44 +13,26 @@
  * They all use the 'apex-resources:' scheme to indicate they're
  * resources within the Apex library.
  */
-export const RESOURCE_URIS = {
-  /**
-   * Base URI to resources in the package
-   */
-  BASE_RESOURCES_URI: 'apex-resources:/resources',
-
-  /**
-   * URI to StandardApexLibrary in the package
-   */
-  STANDARD_APEX_LIBRARY_URI: 'apex-resources:/resources/StandardApexLibrary',
-
-  /**
-   * URI to the version file in the package
-   */
-  VERSION_FILE_URI:
-    'apex-resources:/resources/StandardApexLibrary/.version.json',
-};
+/**
+ * APEX_RESOURCES_SCHEME is the scheme used to identify resources in the Apex library.
+ * It is used to prefix all resource URIs.
+ */
+export const APEX_RESOURCES_SCHEME = 'apex-resources';
 
 /**
- * Legacy paths format - maintained for backward compatibility
- * @deprecated Use RESOURCE_URIS instead
+ * Base URI to resources in the package
  */
-export const RESOURCE_PATHS = {
-  /**
-   * Base path to resources in the package
-   */
-  BASE_RESOURCES_PATH: '/resources',
+export const BASE_RESOURCES_URI = `${APEX_RESOURCES_SCHEME}:/resources`;
 
-  /**
-   * Path to StandardApexLibrary in the package
-   */
-  STANDARD_APEX_LIBRARY_PATH: '/resources/StandardApexLibrary',
+/**
+ * URI to StandardApexLibrary in the package
+ */
+export const STANDARD_APEX_LIBRARY_URI = `${APEX_RESOURCES_SCHEME}:/resources/StandardApexLibrary`;
 
-  /**
-   * Path to the version file in the package
-   */
-  VERSION_FILE_PATH: '/resources/StandardApexLibrary/.version.json',
-};
+/**
+ * URI to the version file in the package
+ */
+export const VERSION_FILE_URI = `${APEX_RESOURCES_SCHEME}:/resources/StandardApexLibrary/.version.json`;
 
 /**
  * Information about Salesforce version
@@ -60,44 +42,6 @@ export interface SalesforceVersionInfo {
    * The Salesforce version number
    */
   version: number;
-}
-
-/**
- * Default Salesforce version to use if version file cannot be loaded
- */
-export const DEFAULT_SALESFORCE_VERSION = 254;
-
-/**
- * Convert an apex-resources URI to a file path for Node.js environments
- * @param uri The URI to convert
- * @param basePath Optional base directory path to prepend
- * @returns A file path suitable for Node.js environments
- */
-export function uriToNodePath(uri: string, basePath?: string): string {
-  if (!uri.startsWith('apex-resources:/')) {
-    throw new Error(`Invalid apex-resources URI: ${uri}`);
-  }
-
-  // Remove the scheme and get the path portion
-  const resourcePath = uri.replace('apex-resources:/', '');
-
-  // Make sure the resource path starts with a slash if it's not empty
-  const formattedPath =
-    resourcePath && !resourcePath.startsWith('/')
-      ? `/${resourcePath}`
-      : resourcePath;
-
-  // Return the path with or without the basePath
-  if (basePath) {
-    // Remove trailing slash from basePath if present
-    const cleanBasePath = basePath.endsWith('/')
-      ? basePath.slice(0, -1)
-      : basePath;
-
-    return `${cleanBasePath}${formattedPath}`;
-  }
-
-  return formattedPath;
 }
 
 /**
@@ -154,79 +98,61 @@ export function joinUri(baseUri: string, relativePath: string): string {
 }
 
 /**
- * Get the Salesforce version from the version file
- *
- * This function throws an error by default. The apex-parser-ast package only provides
- * paths to resources - the actual reading of resources should be handled by the
- * consumer based on their environment.
- *
- * Use the platform-specific path utilities from the PlatformUtils module
- * to get the correct path for your environment:
- *
- * For Node.js:
- * ```
- * import { getSalesforceVersionPathNode } from '@salesforce/apex-lsp-parser-ast';
- *
- * async function getVersion() {
- *   try {
- *     const versionPath = getSalesforceVersionPathNode();
- *     // Read the file using your preferred method
- *     const versionData = await fs.readFile(versionPath, 'utf8');
- *     const versionJson = JSON.parse(versionData);
- *     console.log(`Salesforce version: ${versionJson.version}`);
- *   } catch (error) {
- *     console.error('Failed to read version:', error);
- *   }
- * }
- * ```
- *
- * For browsers:
- * ```
- * import { getSalesforceVersionPathBrowser } from '@salesforce/apex-lsp-parser-ast';
- *
- * async function getVersion() {
- *   try {
- *     const versionPath = getSalesforceVersionPathBrowser('/path/to/resources');
- *     // Fetch the file using your preferred method
- *     const response = await fetch(versionPath);
- *     const versionJson = await response.json();
- *     console.log(`Salesforce version: ${versionJson.version}`);
- *   } catch (error) {
- *     console.error('Failed to read version:', error);
- *   }
- * }
- * ```
- *
- * @returns The current Salesforce version number
- * @throws Error if the version file cannot be found or read
+ * URI handling utilities that work with any protocol
  */
-export function getSalesforceVersion(): number {
-  // This function needs to be implemented by the consumer based on their environment
-  // The implementation will differ depending on whether running in Node.js, browser, etc.
-  throw new Error(`Salesforce version file not found.
+export const UriUtils = {
+  /**
+   * Checks if a URI uses the apex-resources scheme
+   */
+  isApexResourceUri(uri: string): boolean {
+    return uri.startsWith(`${APEX_RESOURCES_SCHEME}:`);
+  },
 
-The apex-parser-ast package only provides paths to resources. The actual reading of resources 
-should be handled by you, the consumer.
+  /**
+   * Checks if a URI is from an external source (non-apex-resources)
+   */
+  isExternalUri(uri: string): boolean {
+    return !this.isApexResourceUri(uri);
+  },
 
-Please use the platform-specific path utilities to get the correct path for your environment:
+  /**
+   * Creates a resource URI for the given path
+   */
+  createResourceUri(path: string): string {
+    return `${APEX_RESOURCES_SCHEME}:/resources/${path}`;
+  },
 
-For Node.js:
-  import { getSalesforceVersionPathNode } from '@salesforce/apex-lsp-parser-ast';
-  const versionPath = getSalesforceVersionPathNode();
-  // Then read the file using your preferred method
+  /**
+   * Extracts the path from an apex-resources URI
+   */
+  extractResourcePath(uri: string): string | null {
+    if (!this.isApexResourceUri(uri)) return null;
+    const match = uri.match(/^apex-resources:\/resources\/(.+)$/);
+    return match ? match[1] : null;
+  },
 
-For browsers:
-  import { getSalesforceVersionPathBrowser } from '@salesforce/apex-lsp-parser-ast';
-  const versionPath = getSalesforceVersionPathBrowser('/path/to/resources');
-  // Then fetch the file using your preferred method`);
-}
+  /**
+   * Normalizes a URI for consistent handling
+   * External URIs are returned as-is, apex-resources URIs are validated
+   */
+  normalizeUri(uri: string): string {
+    if (this.isApexResourceUri(uri)) {
+      // Validate and potentially normalize apex-resources URIs
+      if (!uri.match(/^apex-resources:\/resources\/.+/)) {
+        throw new Error(`Invalid apex-resources URI format: ${uri}`);
+      }
+    }
+    return uri;
+  },
+};
 
 /**
- * Get the path to a file in the StandardApexLibrary
- * @param relativePath Path relative to the StandardApexLibrary directory
- * @returns The full path to the resource
- * @deprecated Use joinUri(RESOURCE_URIS.STANDARD_APEX_LIBRARY_URI, relativePath) instead
+ * Legacy export for backward compatibility
+ * @deprecated Use individual constants or UriUtils instead
  */
-export function getStandardApexLibraryFilePath(relativePath: string): string {
-  return `${RESOURCE_PATHS.STANDARD_APEX_LIBRARY_PATH}/${relativePath}`;
-}
+export const RESOURCE_URIS = {
+  APEX_RESOURCES_SCHEME,
+  BASE_RESOURCES_URI,
+  STANDARD_APEX_LIBRARY_URI,
+  VERSION_FILE_URI,
+} as const;
