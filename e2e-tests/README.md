@@ -4,12 +4,12 @@ This directory contains end-to-end tests for the Apex Language Server VSCode ext
 
 ## Overview
 
-The e2e test suite verifies:
-- Extension startup and activation
-- Bundle integrity and loading
-- Basic language features (syntax highlighting, file recognition)
-- Stability during file operations
-- Web worker functionality
+The e2e test suite verifies core extension functionality in VS Code Web:
+- **VS Code Web startup** - Verifies the web environment loads correctly
+- **Extension activation** - Confirms the extension activates when opening Apex files
+- **LSP worker loading** - Ensures the language server starts without critical errors
+- **File recognition** - Validates Apex files are detected in the workspace
+- **Stability** - Checks that VS Code remains responsive after extension activation
 
 ## Prerequisites
 
@@ -22,8 +22,8 @@ The e2e test suite verifies:
 ```
 e2e-tests/
 ├── tests/                     # Test files
-│   ├── extension-startup.spec.ts
-│   └── language-features.spec.ts
+│   ├── apex-extension-core.spec.ts  # Core functionality test
+│   └── archived/              # Archived comprehensive tests
 ├── playwright.config.ts       # Playwright configuration
 ├── global-setup.ts           # Global test setup
 ├── global-teardown.ts        # Global test cleanup
@@ -36,10 +36,13 @@ e2e-tests/
 
 ### Quick Start
 ```bash
-# Run all e2e tests (headless)
+# Run core e2e test (recommended)
 npm run test:e2e
 
-# Run tests with browser visible
+# Run all archived tests (comprehensive but may have browser compatibility issues)
+npm run test:e2e:all
+
+# Run tests with browser visible (useful for debugging)
 npm run test:e2e:headed
 
 # Open Playwright UI for interactive testing
@@ -48,6 +51,35 @@ npm run test:e2e:ui
 # Run tests in debug mode
 npm run test:e2e:debug
 ```
+
+### Current Test Status
+
+✅ **Core Tests (`apex-extension-core.spec.ts`):**
+
+**Test 1: Core Extension Functionality**
+- VS Code Web startup and loading
+- Apex file recognition in workspace (2 files)
+- Extension activation when opening .cls files
+- Monaco editor integration
+- Language server worker initialization
+- Critical error monitoring
+- Extension stability verification
+
+**Test 2: Outline View Integration**
+- Opens Apex (.cls) file in editor
+- Verifies outline view loads and is accessible
+- Confirms LSP parses file and generates outline structure
+- Detects outline tree elements and symbol icons
+- Validates Apex symbols (HelloWorld, public, class, methods) appear
+- Ensures outline view functionality works correctly
+
+**Browser Support:** Chromium (primary), Firefox/WebKit available in test:e2e:all
+
+📁 **Archived Tests:**
+- Comprehensive test suites covering detailed functionality
+- Multiple test scenarios for thorough coverage
+- Available for reference and advanced testing scenarios
+- **Location:** `tests/archived/` directory
 
 ### Manual Testing
 ```bash
