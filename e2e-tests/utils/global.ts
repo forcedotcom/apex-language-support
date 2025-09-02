@@ -20,9 +20,9 @@ const execAsync = promisify(exec);
  * Ensures extension is built and creates test workspace with sample files
  * following TypeScript best practices from .cursor guidelines.
  *
- * @param config - Playwright configuration
+ * @param _config - Playwright configuration
  */
-async function globalSetup(config: FullConfig): Promise<void> {
+export async function globalSetup(_config: FullConfig): Promise<void> {
   console.log('🔧 Setting up e2e test environment...');
 
   // Ensure extension is built
@@ -68,4 +68,23 @@ async function globalSetup(config: FullConfig): Promise<void> {
   console.log('🚀 Global setup completed');
 }
 
+/**
+ * Global teardown for e2e tests.
+ *
+ * Cleans up test environment and temporary files following
+ * TypeScript best practices from .cursor guidelines.
+ *
+ * @param _config - Playwright configuration
+ */
+export async function globalTeardown(_config: FullConfig): Promise<void> {
+  console.log('🧹 Cleaning up e2e test environment...');
+
+  // Clean up any temporary files if needed
+  // For now, we'll keep the test workspace for debugging
+  // Future: Add cleanup logic for CI environments
+
+  console.log('✅ Global teardown completed');
+}
+
+// Default exports for Playwright compatibility
 export default globalSetup;

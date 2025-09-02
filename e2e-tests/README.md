@@ -6,28 +6,27 @@ This directory contains end-to-end tests for the Apex Language Server VSCode ext
 
 ```
 e2e-tests/
-├── config/                     # Configuration files
-│   ├── global-setup.ts         # Global test setup
-│   └── global-teardown.ts      # Global test cleanup
 ├── fixtures/                   # Test data and sample files
 │   └── apex-samples.ts         # Sample Apex files for testing
+├── tests/                      # Test files
+│   └── apex-extension-core.spec.ts  # Core functionality tests
 ├── types/                      # TypeScript type definitions
 │   └── test.types.ts          # Test-related interfaces
 ├── utils/                      # Utility functions and helpers
 │   ├── constants.ts           # Test constants and selectors
 │   ├── test-helpers.ts        # Core test helper functions
-│   └── outline-helpers.ts     # Outline view specific helpers
-├── tests/                     # Test files
-│   └── apex-extension-core.spec.ts  # Core functionality test
-├── test-server.js            # VS Code Web test server
-├── tsconfig.json             # TypeScript configuration
-├── playwright.config.ts      # Main Playwright configuration
-└── README.md                 # This file
+│   ├── outline-helpers.ts     # Outline view specific helpers
+│   └── global.ts              # Global setup and teardown functions
+├── test-server.js             # VS Code Web test server
+├── playwright.config.ts       # Playwright configuration
+├── tsconfig.json              # TypeScript configuration
+└── README.md                  # This file
 ```
 
 ## Overview
 
 The e2e test suite verifies core extension functionality in VS Code Web:
+
 - **VS Code Web startup** - Verifies the web environment loads correctly
 - **Extension activation** - Confirms the extension activates when opening Apex files
 - **LSP worker loading** - Ensures the language server starts without critical errors
@@ -44,6 +43,7 @@ The e2e test suite verifies core extension functionality in VS Code Web:
 ## Running Tests
 
 ### Quick Start
+
 ```bash
 # Run all e2e tests (recommended - headless, parallel, fast)
 npm run test:e2e
@@ -51,7 +51,7 @@ npm run test:e2e
 # Run tests in debug mode with Playwright inspector and headed browser
 npm run test:e2e:debug
 
-# Run tests in visual mode with UI and headed browser (for development)
+# Run tests visually (headed browser, slower execution for watching)
 npm run test:e2e:visual
 ```
 
@@ -60,6 +60,7 @@ npm run test:e2e:visual
 ✅ **Core Tests (`apex-extension-core.spec.ts`):**
 
 **Test 1: Core Extension Functionality**
+
 - VS Code Web startup and loading
 - Apex file recognition in workspace (2+ files)
 - Extension activation when opening .cls files
@@ -69,22 +70,24 @@ npm run test:e2e:visual
 - Extension stability verification
 
 **Test 2: Outline View Integration**
+
 - Opens Apex (.cls) file in editor
 - Verifies outline view loads and is accessible
 - Confirms LSP parses file and generates outline structure
-- Detects outline tree elements and symbol icons
-- Validates Apex symbols (HelloWorld, public, class, methods) appear
+- Validates specific Apex symbols (HelloWorld class, sayHello/add methods) appear
 - Ensures outline view functionality works correctly
 
-**Browser Support:** Chromium (primary), Firefox/WebKit available in test:e2e:all
+**Test 3: Complex Symbol Hierarchy**
 
-📁 **Archived Tests:**
-- Comprehensive test suites covering detailed functionality
-- Multiple test scenarios for thorough coverage
-- Available for reference and advanced testing scenarios
-- **Location:** `tests/archived/` directory
+- Opens ComplexExample.cls with advanced structure
+- Tests parsing of static fields, instance fields, methods, and inner classes
+- Validates proper symbol nesting and hierarchy display
+- Comprehensive LSP symbol recognition testing
+
+**Browser Support:** Chromium (primary)
 
 ### Manual Testing
+
 ```bash
 # Start the test server manually (for development)
 npm run test:web:server
@@ -97,13 +100,16 @@ npx playwright test apex-extension-core.spec.ts
 ## Configuration
 
 ### Environment Configuration
+
 - **Development**: Fast retries, parallel execution
 - **CI/CD**: Conservative settings, sequential execution
 - **Browser**: Chromium with debugging features enabled
 - **Timeouts**: Environment-specific values
 
 ### Test Server (`test-server.js`)
+
 Starts a VS Code Web instance with:
+
 - Extension loaded from `../packages/apex-lsp-vscode-extension`
 - Test workspace with sample Apex files
 - Debug options enabled
@@ -114,30 +120,35 @@ Starts a VS Code Web instance with:
 ### Core Components
 
 #### **Utilities (`utils/`)**
+
 - `test-helpers.ts` - Core test functions (startup, activation, monitoring)
-- `outline-helpers.ts` - Outline view specific functionality
+- `outline-helpers.ts` - Outline view specific functionality  
 - `constants.ts` - Centralized configuration and selectors
-- `index.ts` - Unified exports for easy importing
+- `global.ts` - Combined setup/teardown logic (extension building, workspace creation)
 
 #### **Types (`types/`)**
+
 - Strong TypeScript typing for all test interfaces
 - Console error tracking types
 - Test metrics and environment configurations
 - Sample file definitions
 
 #### **Fixtures (`fixtures/`)**
+
 - Sample Apex classes, triggers, and SOQL queries
 - Follows Apex language rules (no imports, namespace resolution)
 - Comprehensive examples for testing parsing and outline generation
 
 #### **Configuration**
-- Global setup and teardown logic in `config/`
-- Main Playwright configuration in `playwright.config.ts`
-- Environment detection and browser settings inline
+
+- Global setup/teardown combined in `utils/global.ts` - builds extension and creates test workspace  
+- Main Playwright configuration in `playwright.config.ts` with environment detection
+- Test server (`test-server.js`) - VS Code Web instance with pre-loaded extension
 
 ### Design Principles
 
 Following `.cursor` TypeScript guidelines:
+
 - ✅ Strong typing with `readonly` properties
 - ✅ Arrow functions for consistency
 - ✅ Descriptive naming conventions (camelCase, kebab-case)
@@ -150,28 +161,31 @@ Following `.cursor` TypeScript guidelines:
 
 ## Test Data
 
-The global setup creates a test workspace with sample files:
+The global setup creates a test workspace with sample files from `fixtures/apex-samples.ts`:
 
-- **`HelloWorld.cls`**: Basic Apex class with static methods
-- **`ComplexExample.cls`**: Advanced class with inner classes and multiple methods
+- **`HelloWorld.cls`**: Basic Apex class with static methods (sayHello, add)
+- **`ComplexExample.cls`**: Advanced class with fields, methods, and inner Configuration class  
 - **`AccountTrigger.trigger`**: Sample trigger with validation logic
-- **`query.soql`**: Sample SOQL query with joins and filtering
 
 ## Debugging
 
 ### Console Errors
+
 Tests monitor browser console for errors. Non-critical errors (favicon, sourcemaps) are filtered out using centralized patterns.
 
 ### Network Issues
+
 Tests check for worker file loading failures and report network issues with detailed logging.
 
 ### Screenshots and Videos
+
 - Screenshots taken on test failures
 - Videos recorded on retry
 - Traces captured for failed tests
 - Debug screenshots in `test-results/` directory
 
 ### Manual Debugging
+
 1. Start server: `npm run test:web:server`
 2. Open browser to `http://localhost:3000`
 3. Open Developer Tools
@@ -181,6 +195,7 @@ Tests check for worker file loading failures and report network issues with deta
 ## CI/CD Integration
 
 The tests are configured for CI environments:
+
 - **Retries**: 2 attempts on CI
 - **Workers**: 1 (sequential execution on CI)
 - **Reporting**: HTML report generated
@@ -190,27 +205,32 @@ The tests are configured for CI environments:
 ## Troubleshooting
 
 ### Extension Won't Activate
+
 1. Verify extension is built: `npm run bundle` in extension directory
 2. Check `dist/` directory exists with bundled files
 3. Look for console errors in browser DevTools
 
 ### Tests Timeout
+
 1. Check timeout configuration in `playwright.config.ts`
 2. Verify VS Code Web server is responding
 3. Ensure network connectivity
 
 ### Worker Loading Errors
+
 1. Check worker files exist in `dist/` directory
 2. Verify file URLs are accessible
 3. Look for CORS or security policy issues
 
 ### Port Conflicts
+
 - Change port in `playwright.config.ts`
 - Ensure port is not in use by other services
 
 ## Contributing
 
 When adding new tests:
+
 1. Follow existing patterns using utilities from `utils/`
 2. Add proper TypeScript types
 3. Use centralized constants and selectors
@@ -218,23 +238,15 @@ When adding new tests:
 5. Update this README if needed
 6. Follow `.cursor` TypeScript guidelines
 
+## Scripts Summary
+
+- **`test:e2e`**: Main test runner (headless, parallel)
+- **`test:e2e:debug`**: Interactive debugging with Playwright inspector
+- **`test:e2e:visual`**: Headed browser with slower execution for watching tests
+- **`test:web:server`**: Start VS Code Web server manually for debugging
+
 ## Known Limitations
 
-- Some VS Code Web features may not work identically to desktop
-- Worker loading paths may differ between environments
-- Extension debugging capabilities are limited in web context
-- Some file operations may not work in browser environment
-
----
-
-## Recent Improvements
-
-This test suite has been refactored to follow modern TypeScript best practices:
-
-- **Modular Architecture**: Separated concerns into logical modules
-- **Strong Typing**: Added comprehensive TypeScript interfaces
-- **Centralized Configuration**: Environment-specific settings
-- **Reusable Utilities**: Common functions for test operations
-- **Improved Maintainability**: Following `.cursor` guidelines
-- **Better Documentation**: Comprehensive JSDoc comments
-- **Error Handling**: Centralized error filtering and reporting
+- VS Code Web has some differences from desktop VS Code
+- Extension debugging capabilities are limited in web context  
+- Network-dependent features may be unreliable in test environments

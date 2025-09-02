@@ -61,6 +61,6 @@ export default defineConfig({
   },
 
   timeout: process.env.CI ? 120_000 : 60_000,
-  globalSetup: require.resolve('./utils/setup.ts'),
-  globalTeardown: require.resolve('./utils/teardown.ts'),
+  globalSetup: require.resolve('./utils/global.ts'),
+  globalTeardown: require.resolve('./utils/global.ts'),
 });

@@ -1,11 +1,16 @@
-/**
- * Constants for e2e test configuration and timing.
- * 
- * Centralizes all magic numbers and configuration values following
- * TypeScript best practices from .cursor guidelines.
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { TestTimeouts, BrowserArgs, ErrorFilterPattern } from '../types/test.types';
+import type {
+  TestTimeouts,
+  BrowserArgs,
+  ErrorFilterPattern,
+} from '../types/test.types';
 
 /**
  * Test timing configuration in milliseconds.
@@ -56,7 +61,8 @@ export const SELECTORS = {
   APEX_FILE_ICON: '.cls-ext-file-icon, .apex-lang-file-icon',
   CLS_FILE_ICON: '.cls-ext-file-icon',
   OUTLINE_TREE: '.outline-tree, .monaco-tree, .tree-explorer',
-  SYMBOL_ICONS: '.codicon-symbol-class, .codicon-symbol-method, .codicon-symbol-field',
+  SYMBOL_ICONS:
+    '.codicon-symbol-class, .codicon-symbol-method, .codicon-symbol-field',
 } as const;
 
 /**
