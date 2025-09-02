@@ -37,7 +37,10 @@ export class BrowserMessageBridge extends BaseMessageBridge {
   }
 
   protected isEnvironmentSupported(): boolean {
-    const { isWindowAvailable, isWorkerAPIAvailable } = require('../utils/EnvironmentUtils');
+    const {
+      isWindowAvailable,
+      isWorkerAPIAvailable,
+    } = require('../utils/EnvironmentUtils');
     return isWindowAvailable() && isWorkerAPIAvailable();
   }
 

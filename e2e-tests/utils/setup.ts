@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
 import type { FullConfig } from '@playwright/test';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -9,19 +16,22 @@ const execAsync = promisify(exec);
 
 /**
  * Global setup for e2e tests.
- * 
+ *
  * Ensures extension is built and creates test workspace with sample files
  * following TypeScript best practices from .cursor guidelines.
- * 
+ *
  * @param config - Playwright configuration
  */
 async function globalSetup(config: FullConfig): Promise<void> {
   console.log('🔧 Setting up e2e test environment...');
-  
+
   // Ensure extension is built
-  const extensionPath = path.resolve(__dirname, '../../packages/apex-lsp-vscode-extension');
+  const extensionPath = path.resolve(
+    __dirname,
+    '../../packages/apex-lsp-vscode-extension',
+  );
   const distPath = path.join(extensionPath, 'dist');
-  
+
   if (!fs.existsSync(distPath)) {
     console.log('📦 Building extension for web...');
     try {
@@ -36,23 +46,25 @@ async function globalSetup(config: FullConfig): Promise<void> {
   } else {
     console.log('✅ Extension already built');
   }
-  
-  // Create test workspace using fixtures  
+
+  // Create test workspace using fixtures
   const workspacePath = path.resolve(__dirname, '../test-workspace');
   if (!fs.existsSync(workspacePath)) {
     fs.mkdirSync(workspacePath, { recursive: true });
-    
+
     // Create sample files using fixtures
     for (const sampleFile of ALL_SAMPLE_FILES) {
       fs.writeFileSync(
         path.join(workspacePath, sampleFile.filename),
-        sampleFile.content
+        sampleFile.content,
       );
     }
-    
-    console.log(`✅ Created test workspace with ${ALL_SAMPLE_FILES.length} sample files`);
+
+    console.log(
+      `✅ Created test workspace with ${ALL_SAMPLE_FILES.length} sample files`,
+    );
   }
-  
+
   console.log('🚀 Global setup completed');
 }
 

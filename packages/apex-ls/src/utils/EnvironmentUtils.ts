@@ -15,9 +15,11 @@
  * Type-safe check for IndexedDB availability
  */
 export function isIndexedDBAvailable(): boolean {
-  return typeof globalThis !== 'undefined' && 
-         'indexedDB' in globalThis && 
-         (globalThis as any).indexedDB !== null;
+  return (
+    typeof globalThis !== 'undefined' &&
+    'indexedDB' in globalThis &&
+    (globalThis as any).indexedDB !== null
+  );
 }
 
 /**
@@ -31,43 +33,47 @@ export function getIndexedDB(): any | null {
  * Type-safe check for Worker API availability
  */
 export function isWorkerAPIAvailable(): boolean {
-  return typeof globalThis !== 'undefined' && 
-         'Worker' in globalThis;
+  return typeof globalThis !== 'undefined' && 'Worker' in globalThis;
 }
 
 /**
  * Type-safe check for window availability (browser main thread)
  */
 export function isWindowAvailable(): boolean {
-  return typeof globalThis !== 'undefined' && 
-         'window' in globalThis && 
-         (globalThis as any).window !== null;
+  return (
+    typeof globalThis !== 'undefined' &&
+    'window' in globalThis &&
+    (globalThis as any).window !== null
+  );
 }
 
 /**
  * Type-safe check for worker self context
  */
 export function isWorkerSelfAvailable(): boolean {
-  return typeof globalThis !== 'undefined' && 
-         'self' in globalThis && 
-         (globalThis as any).self !== null;
+  return (
+    typeof globalThis !== 'undefined' &&
+    'self' in globalThis &&
+    (globalThis as any).self !== null
+  );
 }
 
 /**
  * Type-safe check for importScripts (worker-specific)
  */
 export function isImportScriptsAvailable(): boolean {
-  return isWorkerSelfAvailable() && 
-         'importScripts' in (globalThis as any).self &&
-         typeof ((globalThis as any).self as any).importScripts === 'function';
+  return (
+    isWorkerSelfAvailable() &&
+    'importScripts' in (globalThis as any).self &&
+    typeof ((globalThis as any).self as any).importScripts === 'function'
+  );
 }
 
 /**
  * Type-safe check for postMessage in worker context
  */
 export function isWorkerPostMessageAvailable(): boolean {
-  return isWorkerSelfAvailable() && 
-         'postMessage' in (globalThis as any).self;
+  return isWorkerSelfAvailable() && 'postMessage' in (globalThis as any).self;
 }
 
 /**
