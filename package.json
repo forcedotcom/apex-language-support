@@ -22,6 +22,7 @@
     "test:e2e:ui": "cd e2e-tests && npx playwright test --ui",
     "test:e2e:headed": "cd e2e-tests && npx playwright test --headed",
     "test:e2e:debug": "cd e2e-tests && npx playwright test --debug",
+    "test:e2e:visual": "cd e2e-tests && DEBUG_MODE=1 npx playwright test apex-extension-core.spec.ts --headed",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "compile": "turbo run compile",
