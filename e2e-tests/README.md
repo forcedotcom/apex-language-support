@@ -7,8 +7,6 @@ This directory contains end-to-end tests for the Apex Language Server VSCode ext
 ```
 e2e-tests/
 ├── config/                     # Configuration files
-│   ├── playwright.config.ts    # Main Playwright configuration
-│   ├── environments.ts         # Environment-specific settings
 │   ├── global-setup.ts         # Global test setup
 │   └── global-teardown.ts      # Global test cleanup
 ├── fixtures/                   # Test data and sample files
@@ -18,14 +16,12 @@ e2e-tests/
 ├── utils/                      # Utility functions and helpers
 │   ├── constants.ts           # Test constants and selectors
 │   ├── test-helpers.ts        # Core test helper functions
-│   ├── outline-helpers.ts     # Outline view specific helpers
-│   └── index.ts              # Centralized exports
+│   └── outline-helpers.ts     # Outline view specific helpers
 ├── tests/                     # Test files
-│   ├── apex-extension-core.spec.ts  # Core functionality test
-│   └── archived/              # Archived comprehensive tests
+│   └── apex-extension-core.spec.ts  # Core functionality test
 ├── test-server.js            # VS Code Web test server
 ├── tsconfig.json             # TypeScript configuration
-├── playwright.config.ts      # Configuration re-export (compatibility)
+├── playwright.config.ts      # Main Playwright configuration
 └── README.md                 # This file
 ```
 
@@ -49,23 +45,14 @@ The e2e test suite verifies core extension functionality in VS Code Web:
 
 ### Quick Start
 ```bash
-# Run core e2e test (recommended - headless, parallel, fast)
+# Run all e2e tests (recommended - headless, parallel, fast)
 npm run test:e2e
 
-# Run all archived tests (comprehensive but may have browser compatibility issues)
-npm run test:e2e:all
-
-# Run tests with browser visible (headed, parallel)
-npm run test:e2e:headed
-
-# Run tests in visual debugging mode (headed, sequential, with hover effects)
-npm run test:e2e:visual
-
-# Open Playwright UI for interactive testing
-npm run test:e2e:ui
-
-# Run tests in debug mode with Playwright inspector
+# Run tests in debug mode with Playwright inspector and headed browser
 npm run test:e2e:debug
+
+# Run tests in visual mode with UI and headed browser (for development)
+npm run test:e2e:visual
 ```
 
 ### Current Test Status
@@ -143,11 +130,10 @@ Starts a VS Code Web instance with:
 - Follows Apex language rules (no imports, namespace resolution)
 - Comprehensive examples for testing parsing and outline generation
 
-#### **Configuration (`config/`)**
-- Environment-specific settings
-- Browser and server configurations
-- Global setup and teardown logic
-- Playwright configuration with proper typing
+#### **Configuration**
+- Global setup and teardown logic in `config/`
+- Main Playwright configuration in `playwright.config.ts`
+- Environment detection and browser settings inline
 
 ### Design Principles
 
@@ -209,7 +195,7 @@ The tests are configured for CI environments:
 3. Look for console errors in browser DevTools
 
 ### Tests Timeout
-1. Check timeout configuration in `config/environments.ts`
+1. Check timeout configuration in `playwright.config.ts`
 2. Verify VS Code Web server is responding
 3. Ensure network connectivity
 
@@ -219,7 +205,7 @@ The tests are configured for CI environments:
 3. Look for CORS or security policy issues
 
 ### Port Conflicts
-- Change port in `config/environments.ts`
+- Change port in `playwright.config.ts`
 - Ensure port is not in use by other services
 
 ## Contributing

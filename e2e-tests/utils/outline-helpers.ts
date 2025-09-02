@@ -117,64 +117,6 @@ const activateOutlineViaCommandPalette = async (page: Page): Promise<boolean> =>
   }
 };
 
-/**
- * Checks outline structure and content for Apex symbols.
- * 
- * @param page - Playwright page instance
- * @returns Object with outline analysis results
- */
-export const analyzeOutlineContent = async (page: Page): Promise<{
-  itemsFound: number;
-  hasOutlineStructure: boolean;
-  symbolCount: number;
-  foundTerms: string[];
-}> => {
-  logStep('Checking outline structure', '🔍');
-  
-  // Wait for LSP to populate outline
-  await page.waitForTimeout(TEST_TIMEOUTS.OUTLINE_GENERATION);
-  
-  let itemsFound = 0;
-  let hasOutlineStructure = false;
-  
-  // Check if outline view has expanded with content
-  const outlineTreeElements = page.locator(SELECTORS.OUTLINE_TREE);
-  const treeCount = await outlineTreeElements.count();
-  
-  if (treeCount > 0) {
-    itemsFound += treeCount;
-    hasOutlineStructure = true;
-    logStep(`Found ${treeCount} outline tree structures`, '   ');
-  }
-  
-  // Look for symbol icons that indicate outline content
-  const symbolIcons = page.locator(SELECTORS.SYMBOL_ICONS);
-  const symbolCount = await symbolIcons.count();
-  
-  if (symbolCount > 0) {
-    itemsFound += symbolCount;
-    logStep(`Found ${symbolCount} symbol icons`, '   ');
-  }
-  
-  // Check for Apex-specific terms
-  const foundTerms: string[] = [];
-  for (const term of APEX_TERMS) {
-    const termElements = page.locator(`text=${term}`);
-    const termCount = await termElements.count();
-    
-    if (termCount > 0) {
-      foundTerms.push(term);
-      logStep(`Found "${term}" mentioned ${termCount} times (likely in outline or editor)`, '   ');
-    }
-  }
-  
-  return {
-    itemsFound,
-    hasOutlineStructure,
-    symbolCount,
-    foundTerms,
-  };
-};
 
 /**
  * Takes a screenshot for debugging outline view issues.

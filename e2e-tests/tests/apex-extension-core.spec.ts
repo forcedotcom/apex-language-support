@@ -7,7 +7,6 @@
  */
 import { test, expect } from '@playwright/test';
 
-// Import utilities following new organized structure
 import {
   setupConsoleMonitoring,
   setupNetworkMonitoring,
@@ -26,7 +25,6 @@ import {
 
 import {
   findAndActivateOutlineView,
-  analyzeOutlineContent,
   validateApexSymbolsInOutline,
   captureOutlineViewScreenshot,
   reportOutlineTestResults,
@@ -167,9 +165,6 @@ test.describe('Apex Extension Core Functionality', () => {
 
     // Validate that specific Apex symbols are populated in the outline
     const symbolValidation = await validateApexSymbolsInOutline(page);
-
-    // Also run legacy analysis for comparison
-    const analysis = await analyzeOutlineContent(page);
 
     // Filter and analyze errors
     const criticalErrors = filterCriticalErrors(consoleErrors);
