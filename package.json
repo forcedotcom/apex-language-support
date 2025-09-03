@@ -16,7 +16,7 @@
     "test:coverage:report": "node scripts/merge-coverage.js",
     "test:integration": "turbo run test:integration",
     "test:web": "node scripts/test-web-ext.js web",
-    "test:web:server": "node e2e-tests/test-server.js",
+    "test:e2e:server": "node e2e-tests/test-server.js",
     "test:e2e": "cd e2e-tests && npx playwright test",
     "test:e2e:debug": "cd e2e-tests && npx playwright test --debug --headed",
     "test:e2e:visual": "cd e2e-tests && DEBUG_MODE=1 npx playwright test --headed",

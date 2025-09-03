@@ -54,7 +54,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run test:web:server',
+    command: 'npm run test:e2e:server',
     port: 3000,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
