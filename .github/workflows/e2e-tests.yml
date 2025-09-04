@@ -67,10 +67,9 @@ jobs:
           echo "  TMPDIR: $TMPDIR"
           echo "  PWD: $PWD"
           echo "Checking test workspace setup..."
-          cd e2e-tests
-          ls -la
-          echo "Running Playwright tests..."
-          npx playwright test --reporter=line
+          ls -la e2e-tests/
+          echo "Running Playwright tests from root directory..."
+          cd e2e-tests && npx playwright test --reporter=line
         env:
           CI: true
           DEBUG: pw:webserver

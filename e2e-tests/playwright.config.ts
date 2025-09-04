@@ -64,6 +64,7 @@ export default defineConfig({
     port: 3000,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    cwd: process.cwd().endsWith('e2e-tests') ? '..' : '.',
   },
 
   timeout: process.env.CI ? 120_000 : 60_000,
