@@ -27,14 +27,52 @@ async function startTestServer() {
       );
     }
 
-    if (!fs.existsSync(workspacePath)) {
-      console.log('📁 Creating test workspace directory...');
-      fs.mkdirSync(workspacePath, { recursive: true });
+    // Verify extension is built (check for critical files)
+    const distPath = path.join(extensionDevelopmentPath, 'dist');
+    const packageJsonPath = path.join(distPath, 'package.json');
+    const extensionJsPath = path.join(distPath, 'extension.js');
+    const extensionWebJsPath = path.join(distPath, 'extension.web.js');
+
+    if (!fs.existsSync(distPath)) {
+      throw new Error(
+        `Extension dist directory not found: ${distPath}. Run 'npm run build' in the extension directory first.`,
+      );
     }
+
+    if (!fs.existsSync(packageJsonPath)) {
+      throw new Error(
+        `Extension package.json not found in dist: ${packageJsonPath}. Extension build may be incomplete.`,
+      );
+    }
+
+    if (!fs.existsSync(extensionJsPath)) {
+      throw new Error(
+        `Extension main file not found: ${extensionJsPath}. Extension build may be incomplete.`,
+      );
+    }
+
+    if (!fs.existsSync(extensionWebJsPath)) {
+      console.warn(
+        `⚠️ Extension web file not found: ${extensionWebJsPath}. Web functionality may be limited.`,
+      );
+    }
+    fs.mkdirSync(workspacePath, { recursive: true });
 
     console.log('🌐 Starting VS Code Web Test Server...');
     console.log(`📁 Extension path: ${extensionDevelopmentPath}`);
     console.log(`📂 Workspace path: ${workspacePath}`);
+    console.log(`🔍 CI environment: ${process.env.CI ? 'Yes' : 'No'}`);
+
+    // Log extension files for debugging
+    console.log('📋 Extension files:');
+    const distFiles = fs.readdirSync(distPath);
+    distFiles.forEach((file) => {
+      const filePath = path.join(distPath, file);
+      const stats = fs.statSync(filePath);
+      console.log(
+        `   ${file} (${stats.isDirectory() ? 'dir' : stats.size + ' bytes'})`,
+      );
+    });
 
     // Start the web server (this will keep running)
     await runTests({
