@@ -82,7 +82,7 @@ async function startTestServer() {
     await runTests({
       extensionDevelopmentPath,
       folderPath: workspacePath,
-      headless: false, // Keep browser open for testing
+      headless: process.env.CI ? true : false, // Headless in CI, headed locally for debugging
       browserType: 'chromium',
       version: 'stable',
       printServerLog: true,
@@ -97,6 +97,16 @@ async function startTestServer() {
           '--enable-logging=stderr',
           '--log-level=0',
           '--v=1',
+          ...(process.env.CI 
+            ? [
+                '--no-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
+              ]
+            : []
+          ),
         ],
       },
     });
