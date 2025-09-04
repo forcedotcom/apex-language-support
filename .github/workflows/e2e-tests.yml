@@ -65,7 +65,12 @@ jobs:
           echo "  CI: $CI"
           echo "  RUNNER_TEMP: $RUNNER_TEMP"
           echo "  TMPDIR: $TMPDIR"
-          npm run test:e2e
+          echo "  PWD: $PWD"
+          echo "Checking test workspace setup..."
+          cd e2e-tests
+          ls -la
+          echo "Running Playwright tests..."
+          npx playwright test --reporter=line
         env:
           CI: true
           DEBUG: pw:webserver

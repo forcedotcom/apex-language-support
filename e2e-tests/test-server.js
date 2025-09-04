@@ -59,6 +59,7 @@ async function startTestServer() {
         `⚠️ Extension web file not found: ${extensionWebJsPath}. Web functionality may be limited.`,
       );
     }
+
     fs.mkdirSync(workspacePath, { recursive: true });
 
     console.log('🌐 Starting VS Code Web Test Server...');

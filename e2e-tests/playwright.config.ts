@@ -43,7 +43,13 @@ export default defineConfig({
             '--log-level=0',
             '--v=1',
             ...(process.env.CI || process.env.DEBUG_MODE
-              ? ['--no-sandbox', '--disable-dev-shm-usage']
+              ? [
+                  '--no-sandbox',
+                  '--disable-dev-shm-usage',
+                  '--disable-background-timer-throttling',
+                  '--disable-backgrounding-occluded-windows',
+                  '--disable-renderer-backgrounding',
+                ]
               : []),
           ],
           headless: process.env.CI || !process.env.DEBUG_MODE ? true : false,
