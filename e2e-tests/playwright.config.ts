@@ -42,7 +42,7 @@ export default defineConfig({
             '--enable-logging=stderr',
             '--log-level=0',
             '--v=1',
-            ...(process.env.DEBUG_MODE
+            ...(process.env.CI || process.env.DEBUG_MODE
               ? ['--no-sandbox', '--disable-dev-shm-usage']
               : []),
           ],

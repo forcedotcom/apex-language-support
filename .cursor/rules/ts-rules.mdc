@@ -110,6 +110,7 @@ The application we are working on uses the following tech stack:
 - Include elaborate details in the body of the commit message
 - Always follow the conventional commit message format
 - Add two newlines after the commit message title
+- Do not ever commit and push without asking for consent from the user
 
 ## When to create a class
 

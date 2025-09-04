@@ -59,7 +59,13 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: |
+          echo "🧪 Starting e2e tests..."
+          echo "Environment variables:"
+          echo "  CI: $CI"
+          echo "  RUNNER_TEMP: $RUNNER_TEMP"
+          echo "  TMPDIR: $TMPDIR"
+          npm run test:e2e
         env:
           CI: true
           DEBUG: pw:webserver

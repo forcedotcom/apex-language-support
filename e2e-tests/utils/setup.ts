@@ -46,7 +46,10 @@ export async function setupTestWorkspace(
   const workspacePath =
     customWorkspacePath ||
     (process.env.CI
-      ? path.join(process.env.TMPDIR || '/tmp', 'apex-e2e-workspace')
+      ? path.join(
+          process.env.RUNNER_TEMP || process.env.TMPDIR || '/tmp',
+          'apex-e2e-workspace',
+        )
       : path.resolve(__dirname, '../test-workspace'));
 
   // Ensure workspace directory exists
