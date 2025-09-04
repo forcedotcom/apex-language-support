@@ -2,9 +2,10 @@ name: E2E Tests
 
 on:
   push:
-    branches: [main, kyledev/e2eTesting]
+    branches: [main, kyledev/e2eTests]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   e2e-tests:

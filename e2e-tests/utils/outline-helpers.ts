@@ -11,27 +11,29 @@ import { OUTLINE_SELECTORS, TEST_TIMEOUTS, SELECTORS } from './constants';
 import { logStep, logSuccess, logWarning } from './test-helpers';
 
 /**
- * Expected symbol structure for HelloWorld.cls file.
+ * Expected symbol structure for ApexClassExample.cls file.
  */
 export const EXPECTED_APEX_SYMBOLS = {
-  className: 'HelloWorld',
+  className: 'ApexClassExample',
   classType: 'class',
   methods: [
     { name: 'sayHello', visibility: 'public', isStatic: true },
     { name: 'add', visibility: 'public', isStatic: true },
+    { name: 'getCurrentUserName', visibility: 'public', isStatic: true },
+    { name: 'formatPhoneNumber', visibility: 'public', isStatic: true },
+    { name: 'isValidEmail', visibility: 'public', isStatic: true },
   ],
-  totalSymbols: 3, // 1 class + 2 methods
+  totalSymbols: 6, // 1 class + 5+ methods (we have many more in the comprehensive class)
 } as const;
 
 /**
  * Attempts to find and activate the outline view.
+ * Throws an error if outline view cannot be found or activated.
  *
  * @param page - Playwright page instance
- * @returns True if outline view was found/activated
+ * @throws Error if outline view cannot be found or activated
  */
-export const findAndActivateOutlineView = async (
-  page: Page,
-): Promise<boolean> => {
+export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
   logStep('Opening outline view', '🗂️');
 
   // First, try to find outline view in the explorer sidebar
@@ -50,16 +52,16 @@ export const findAndActivateOutlineView = async (
       // Highlight the outline section in debug mode
       if (process.env.DEBUG_MODE && count > 0) {
         await outlineElement.first().hover();
-        await page.waitForTimeout(500);
       }
 
       // If it's the text selector, try to click to expand
       if (selector === 'text=OUTLINE') {
         try {
           await outlineElement.first().click();
-          await page.waitForTimeout(1000);
+          // Wait for outline tree to become visible after clicking
+          await page.waitForSelector('.outline-tree', { timeout: 2000 });
           logSuccess('Clicked to expand outline view');
-        } catch (e) {
+        } catch (_e) {
           logStep('Outline view found but click not needed', 'ℹ️');
         }
       }
@@ -69,35 +71,43 @@ export const findAndActivateOutlineView = async (
 
   // If outline not visible, try to activate it via command palette
   if (!outlineFound) {
-    outlineFound = await activateOutlineViaCommandPalette(page);
+    try {
+      await activateOutlineViaCommandPalette(page);
+      outlineFound = true;
+    } catch (error) {
+      throw new Error(
+        `Failed to activate outline via command palette: ${error}`,
+      );
+    }
   }
 
   if (outlineFound) {
     logSuccess('Outline view is now visible and activated');
+  } else {
+    throw new Error('Outline view could not be found or activated');
   }
-
-  return outlineFound;
 };
 
 /**
  * Activates outline view using the command palette.
+ * Throws an error if activation fails.
  *
  * @param page - Playwright page instance
- * @returns True if successfully activated
+ * @throws Error if activation fails
  */
-const activateOutlineViaCommandPalette = async (
-  page: Page,
-): Promise<boolean> => {
+const activateOutlineViaCommandPalette = async (page: Page): Promise<void> => {
   logStep('Outline view not immediately visible, trying to activate it', '🔍');
 
   try {
     // Open command palette
     await page.keyboard.press('Control+Shift+P');
-    await page.waitForTimeout(1000);
+    await page.waitForSelector('.quick-input-widget', { timeout: 2000 });
 
     // Type command to show outline
     await page.keyboard.type('outline');
-    await page.waitForTimeout(1000);
+    await page.waitForSelector('.quick-input-list .monaco-list-row', {
+      timeout: 2000,
+    });
 
     // Try to find and click outline command
     const outlineCommand = page
@@ -108,19 +118,27 @@ const activateOutlineViaCommandPalette = async (
     const isVisible = await outlineCommand.isVisible({ timeout: 2000 });
     if (isVisible) {
       await outlineCommand.click();
-      await page.waitForTimeout(2000);
+      // Wait for outline tree to appear after command execution
+      await page.waitForSelector('.outline-tree, [id*="outline"]', {
+        timeout: 3000,
+      });
       logSuccess('Activated outline view via command palette');
-      return true;
     } else {
       // Close command palette
       await page.keyboard.press('Escape');
-      return false;
+      throw new Error('Outline command not visible in command palette');
     }
   } catch (error) {
-    logWarning('Failed to activate outline via command palette');
     // Ensure command palette is closed
     await page.keyboard.press('Escape').catch(() => {});
-    return false;
+
+    if (
+      error instanceof Error &&
+      error.message.includes('Outline command not visible')
+    ) {
+      throw error; // Re-throw our custom error
+    }
+    throw new Error(`Failed to activate outline via command palette: ${error}`);
   }
 };
 
@@ -162,8 +180,14 @@ export const validateApexSymbolsInOutline = async (
 }> => {
   logStep('Validating Apex symbols in outline', '🔍');
 
-  // Wait additional time for LSP to populate symbols
-  await page.waitForTimeout(TEST_TIMEOUTS.OUTLINE_GENERATION);
+  // Wait for LSP to populate symbols by checking for any outline content
+  try {
+    await page.waitForSelector('.outline-tree .monaco-list-row', {
+      timeout: TEST_TIMEOUTS.OUTLINE_GENERATION,
+    });
+  } catch {
+    // Continue even if no symbols are found - we'll detect this in validation
+  }
 
   let classFound = false;
   const methodsFound: string[] = [];
@@ -173,7 +197,7 @@ export const validateApexSymbolsInOutline = async (
   // Look for class symbol with specific icon
   const classSelectors = [
     '.codicon-symbol-class',
-    '[aria-label*="HelloWorld"]',
+    '[aria-label*="ApexClassExample"]',
     `text=${EXPECTED_APEX_SYMBOLS.className}`,
     `.outline-tree .monaco-list-row:has-text("${EXPECTED_APEX_SYMBOLS.className}")`,
   ];
@@ -190,7 +214,6 @@ export const validateApexSymbolsInOutline = async (
       // Highlight the found class symbol in debug mode
       if (process.env.DEBUG_MODE) {
         await classElements.first().hover();
-        await page.waitForTimeout(300);
       }
       break;
     }
@@ -217,7 +240,6 @@ export const validateApexSymbolsInOutline = async (
         // Highlight the found method symbol in debug mode
         if (process.env.DEBUG_MODE) {
           await methodElements.first().hover();
-          await page.waitForTimeout(200);
         }
         break;
       }
@@ -251,7 +273,6 @@ export const validateApexSymbolsInOutline = async (
   // Extended pause in debug mode to show validation results
   if (process.env.DEBUG_MODE) {
     logStep('Validation complete - showing final outline state', '🎉');
-    await page.waitForTimeout(2000);
   }
 
   return {
@@ -261,58 +282,4 @@ export const validateApexSymbolsInOutline = async (
     totalSymbolsDetected,
     isValidStructure,
   };
-};
-
-/**
- * Reports comprehensive outline test results with symbol validation.
- *
- * @param outlineFound - Whether outline view was found
- * @param symbolValidation - Results from symbol validation
- * @param criticalErrors - Number of critical errors
- */
-export const reportOutlineTestResults = (
-  outlineFound: boolean,
-  symbolValidation: {
-    classFound: boolean;
-    methodsFound: string[];
-    totalSymbolsDetected: number;
-    isValidStructure: boolean;
-  },
-  criticalErrors: number,
-): void => {
-  console.log('🎉 Outline view test COMPLETED');
-  console.log('   - File opened: ✅ .cls file loaded in editor');
-  console.log('   - Extension: ✅ Language features activated');
-  console.log(
-    `   - Outline: ${outlineFound ? '✅' : '⚠️'} Outline view ${outlineFound ? 'loaded' : 'attempted'}`,
-  );
-
-  if (symbolValidation.isValidStructure) {
-    console.log('   - Symbols: ✅ All expected Apex symbols found');
-    console.log(
-      `     • Class: ${symbolValidation.classFound ? '✅' : '❌'} HelloWorld`,
-    );
-    console.log(
-      `     • Methods: ${symbolValidation.methodsFound.length}/${EXPECTED_APEX_SYMBOLS.methods.length} (${symbolValidation.methodsFound.join(', ')})`,
-    );
-    console.log(
-      `     • Total: ${symbolValidation.totalSymbolsDetected} symbols detected`,
-    );
-  } else {
-    console.log('   - Symbols: ⚠️  Some expected symbols not found');
-    console.log(
-      `     • Class: ${symbolValidation.classFound ? '✅' : '❌'} HelloWorld`,
-    );
-    console.log(
-      `     • Methods: ${symbolValidation.methodsFound.length}/${EXPECTED_APEX_SYMBOLS.methods.length} (${symbolValidation.methodsFound.join(', ')})`,
-    );
-  }
-
-  console.log(
-    `   - Errors: ✅ ${criticalErrors} critical errors (threshold: 5)`,
-  );
-  console.log('');
-  console.log(
-    '   ✨ This test validates LSP symbol parsing and outline population',
-  );
 };

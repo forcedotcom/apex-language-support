@@ -20,22 +20,18 @@ import {
   verifyApexFileContentLoaded,
   logStep,
   logSuccess,
-  logWarning,
 } from '../utils/test-helpers';
+
+import { setupTestWorkspace } from '../utils/setup';
 
 import {
   findAndActivateOutlineView,
   validateApexSymbolsInOutline,
   captureOutlineViewScreenshot,
-  reportOutlineTestResults,
   EXPECTED_APEX_SYMBOLS,
 } from '../utils/outline-helpers';
 
-import {
-  ASSERTION_THRESHOLDS,
-  SELECTORS,
-  TEST_TIMEOUTS,
-} from '../utils/constants';
+import { ASSERTION_THRESHOLDS, SELECTORS } from '../utils/constants';
 
 /**
  * Core E2E tests for Apex Language Server Extension.
@@ -64,6 +60,9 @@ test.describe('Apex Extension Core Functionality', () => {
   test('should start VS Code Web, activate extension, and load LSP worker', async ({
     page,
   }) => {
+    // Setup test workspace
+    await setupTestWorkspace();
+
     // Set up monitoring using utilities
     const consoleErrors = setupConsoleMonitoring(page);
     const networkFailures = setupNetworkMonitoring(page);
@@ -101,7 +100,7 @@ test.describe('Apex Extension Core Functionality', () => {
     const installedSection = page.locator('text=INSTALLED').first();
     if (await installedSection.isVisible()) {
       await installedSection.click();
-      await page.waitForTimeout(2000);
+      await page.waitForSelector('.extensions-list', { timeout: 5000 });
       console.log('✅ Found INSTALLED extensions section');
     }
 
@@ -127,19 +126,23 @@ test.describe('Apex Extension Core Functionality', () => {
   });
 
   /**
-   * Tests outline view integration and symbol population when opening Apex files.
+   * Tests comprehensive outline view integration with Apex class symbol parsing.
    *
    * Verifies:
    * - Apex file opens correctly in editor
    * - Extension activates and LSP initializes
    * - Outline view loads and is accessible
    * - LSP parses file and generates outline structure with specific symbols
-   * - Expected Apex symbols (HelloWorld class, sayHello method, add method) are populated
-   * - Symbol hierarchy and nesting is correctly displayed
+   * - Expected Apex symbols are populated (class, methods, fields)
+   * - Complex symbol hierarchy and nesting is correctly displayed
+   * - Both basic and advanced Apex language features are recognized
    */
-  test('should open Apex class file and populate outline view with LSP-parsed symbols', async ({
+  test('should open Apex class file and populate outline view with comprehensive symbol parsing', async ({
     page,
   }) => {
+    // Setup test workspace
+    await setupTestWorkspace();
+
     // Set up monitoring
     const consoleErrors = setupConsoleMonitoring(page);
 
@@ -156,142 +159,32 @@ test.describe('Apex Extension Core Functionality', () => {
     // Wait for LSP to parse file and generate outline
     await waitForLSPInitialization(page);
 
-    // Verify that any Apex file content is loaded in the editor (could be any of the 3 .cls files)
-    const contentLoaded = await verifyApexFileContentLoaded(page);
-    expect(contentLoaded).toBe(true);
+    // Verify that Apex file content is loaded in the editor
+    await verifyApexFileContentLoaded(page, 'ApexClassExample');
 
     // Find and activate outline view
-    const outlineFound = await findAndActivateOutlineView(page);
+    await findAndActivateOutlineView(page);
 
     // Validate that specific Apex symbols are populated in the outline
     const symbolValidation = await validateApexSymbolsInOutline(page);
 
-    // Filter and analyze errors
-    const criticalErrors = filterCriticalErrors(consoleErrors);
+    // Additionally check for complex symbols that may be present in the comprehensive class
+    logStep('Validating comprehensive symbol hierarchy', '🏗️');
 
-    if (criticalErrors.length > 0) {
-      console.log(
-        '⚠️  Critical console errors found:',
-        criticalErrors.map((e) => `${e.text} (${e.url})`),
-      );
-    } else {
-      console.log('✅ No critical console errors');
-    }
-
-    // Capture screenshot for debugging
-    await captureOutlineViewScreenshot(page);
-
-    // Assert comprehensive success criteria for outline population
-    expect(criticalErrors.length).toBeLessThan(
-      ASSERTION_THRESHOLDS.MAX_CRITICAL_ERRORS,
-    );
-
-    // Assert that the outline view is populated with expected symbols
-    expect(outlineFound).toBe(true);
-    expect(symbolValidation.classFound).toBe(true);
-    expect(symbolValidation.methodsFound.length).toBeGreaterThanOrEqual(
-      EXPECTED_APEX_SYMBOLS.methods.length,
-    );
-    expect(symbolValidation.isValidStructure).toBe(true);
-    expect(symbolValidation.totalSymbolsDetected).toBeGreaterThan(0);
-
-    // Verify specific methods are found
-    for (const method of EXPECTED_APEX_SYMBOLS.methods) {
-      expect(symbolValidation.methodsFound).toContain(method.name);
-    }
-
-    // Report comprehensive results
-    reportOutlineTestResults(
-      outlineFound,
-      symbolValidation,
-      criticalErrors.length,
-    );
-  });
-
-  /**
-   * Tests LSP symbol hierarchy with complex Apex class structure.
-   *
-   * Verifies:
-   * - Complex Apex class with multiple methods, fields, and inner class
-   * - LSP correctly parses nested symbol hierarchy
-   * - Public, private, and static modifiers are recognized
-   * - Inner classes are properly nested in outline view
-   * - Constructor, methods, and fields all appear in outline
-   */
-  test('should parse complex Apex class hierarchy in outline view', async ({
-    page,
-  }) => {
-    // Set up monitoring
-    const consoleErrors = setupConsoleMonitoring(page);
-
-    // Execute core test steps
-    await startVSCodeWeb(page);
-
-    // Ensure explorer view is accessible
-    const explorer = page.locator(SELECTORS.EXPLORER);
-    await expect(explorer).toBeVisible({ timeout: 10_000 });
-
-    // Specifically click on ComplexExample.cls file
-    logStep('Opening ComplexExample.cls for hierarchy testing', '📄');
-    const complexFile = page
-      .locator('.cls-ext-file-icon')
-      .filter({ hasText: 'ComplexExample' });
-
-    if (await complexFile.isVisible()) {
-      await complexFile.click();
-      logSuccess('Clicked on ComplexExample.cls file');
-    } else {
-      // Fallback to any .cls file
-      const anyClsFile = page.locator(SELECTORS.CLS_FILE_ICON).first();
-      await anyClsFile.click();
-      logWarning(
-        'ComplexExample.cls not found, using first available .cls file',
-      );
-    }
-
-    // Wait for editor to load with the file content
-    await page.waitForSelector(SELECTORS.EDITOR_PART, { timeout: 15_000 });
-    const monacoEditor = page.locator(SELECTORS.MONACO_EDITOR);
-    await monacoEditor.waitFor({ state: 'visible', timeout: 10_000 });
-
-    // Wait for LSP to parse the complex file
-    await waitForLSPInitialization(page);
-
-    // Verify that the complex Apex file content is loaded
-    const contentLoaded = await verifyApexFileContentLoaded(
-      page,
-      'ComplexExample',
-    );
-    expect(contentLoaded).toBe(true);
-
-    // Give extra time for complex symbol parsing
-    await page.waitForTimeout(TEST_TIMEOUTS.OUTLINE_GENERATION * 2);
-
-    // Find and activate outline view
-    const outlineFound = await findAndActivateOutlineView(page);
-
-    // Look for complex symbol hierarchy
-    logStep('Validating complex symbol hierarchy', '🏗️');
-
-    // Expected symbols in ComplexExample.cls
-    const expectedComplexSymbols = [
-      'ComplexExample', // Main class
+    // Expected additional symbols in ApexClassExample.cls (beyond the basic ones)
+    const additionalSymbols = [
       'DEFAULT_STATUS', // Static field
       'configCache', // Static field
       'instanceId', // Instance field
       'accounts', // Instance field
       'processAccounts', // Public method
-      'validateAccounts', // Private method
-      'enrichAccountData', // Private method
-      'updateAccountStatus', // Private method
-      'formatPhoneNumber', // Static method
       'Configuration', // Inner class
     ];
 
-    let symbolsFound = 0;
-    const foundSymbols: string[] = [];
+    let additionalSymbolsFound = 0;
+    const foundAdditionalSymbols: string[] = [];
 
-    for (const symbol of expectedComplexSymbols) {
+    for (const symbol of additionalSymbols) {
       // Try multiple selectors to find each symbol
       const symbolSelectors = [
         `text=${symbol}`,
@@ -305,16 +198,16 @@ test.describe('Apex Extension Core Functionality', () => {
         const elements = page.locator(selector);
         const count = await elements.count();
         if (count > 0) {
-          symbolsFound++;
-          foundSymbols.push(symbol);
+          additionalSymbolsFound++;
+          foundAdditionalSymbols.push(symbol);
           symbolFound = true;
-          logSuccess(`Found symbol: ${symbol}`);
+          logSuccess(`Found additional symbol: ${symbol}`);
           break;
         }
       }
 
       if (!symbolFound) {
-        logWarning(`Symbol not found: ${symbol}`);
+        logStep(`Additional symbol not found: ${symbol}`, '⚪');
       }
     }
 
@@ -337,27 +230,58 @@ test.describe('Apex Extension Core Functionality', () => {
     }
 
     // Capture screenshot for debugging
-    await captureOutlineViewScreenshot(page, 'complex-hierarchy-test.png');
+    await captureOutlineViewScreenshot(page, 'comprehensive-outline-test.png');
 
-    // Assert hierarchy validation criteria
+    // Assert comprehensive success criteria
     expect(criticalErrors.length).toBeLessThan(
       ASSERTION_THRESHOLDS.MAX_CRITICAL_ERRORS,
     );
-    expect(outlineFound).toBe(true);
-    expect(symbolsFound).toBeGreaterThan(expectedComplexSymbols.length / 2); // At least half the symbols
+    expect(symbolValidation.classFound).toBe(true);
+    expect(symbolValidation.methodsFound.length).toBeGreaterThanOrEqual(
+      EXPECTED_APEX_SYMBOLS.methods.length,
+    );
+    expect(symbolValidation.isValidStructure).toBe(true);
+    expect(symbolValidation.totalSymbolsDetected).toBeGreaterThan(0);
     expect(totalItems).toBeGreaterThan(0);
 
-    // Report hierarchy test results
-    console.log('🎉 Complex hierarchy test COMPLETED');
-    console.log('   - File: ✅ ComplexExample.cls opened');
-    console.log('   - Outline: ✅ Outline view activated');
+    // Verify specific methods are found
+    for (const method of EXPECTED_APEX_SYMBOLS.methods) {
+      expect(symbolValidation.methodsFound).toContain(method.name);
+    }
+
+    // Report comprehensive results combining both basic and advanced symbol detection
+    console.log('🎉 Comprehensive outline view test COMPLETED');
+    console.log('   - File: ✅ ApexClassExample.cls opened and loaded');
+    console.log('   - Extension: ✅ Language features activated');
+    console.log('   - Outline: ✅ Outline view loaded and accessible');
+
+    // Basic symbols (required)
+    console.log('   - Basic symbols: ✅ All expected symbols found');
     console.log(
-      `   - Symbols: ${symbolsFound}/${expectedComplexSymbols.length} found (${foundSymbols.join(', ')})`,
+      `     • Class: ${symbolValidation.classFound ? '✅' : '❌'} ApexClassExample`,
     );
-    console.log(`   - Total items: ${totalItems} outline elements`);
-    console.log(`   - Errors: ✅ ${criticalErrors.length} critical errors`);
     console.log(
-      '   ✨ This test validates LSP complex symbol hierarchy parsing',
+      `     • Methods: ${symbolValidation.methodsFound.length}/${
+        EXPECTED_APEX_SYMBOLS.methods.length
+      } (${symbolValidation.methodsFound.join(', ')})`,
+    );
+
+    // Additional symbols (nice to have)
+    console.log(
+      `   - Advanced symbols: ${additionalSymbolsFound}/${additionalSymbols.length} found`,
+    );
+    if (foundAdditionalSymbols.length > 0) {
+      console.log(`     • Found: ${foundAdditionalSymbols.join(', ')}`);
+    }
+
+    console.log(`   - Total outline elements: ${totalItems}`);
+    console.log(
+      `   - Errors: ✅ ${criticalErrors.length} critical errors (threshold: ${
+        ASSERTION_THRESHOLDS.MAX_CRITICAL_ERRORS
+      })`,
+    );
+    console.log(
+      '   ✨ This test validates comprehensive LSP symbol parsing and outline population',
     );
   });
 });

@@ -7,7 +7,7 @@
  */
 
 import type { Page } from '@playwright/test';
-import type { ConsoleError, TestEnvironment } from '../types/test.types';
+import type { ConsoleError } from './constants';
 import {
   NON_CRITICAL_ERROR_PATTERNS,
   TEST_TIMEOUTS,
@@ -41,27 +41,6 @@ export const logSuccess = (message: string): void => {
 export const logWarning = (message: string): void => {
   console.log(`⚠️  ${message}`);
 };
-
-/**
- * Logs an error with consistent formatting.
- *
- * @param message - The error message
- */
-export const logError = (message: string): void => {
-  console.log(`❌ ${message}`);
-};
-
-/**
- * Gets test environment configuration based on current environment.
- *
- * @returns Test environment configuration
- */
-export const getTestEnvironment = (): TestEnvironment => ({
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  timeout: process.env.CI ? 120_000 : 60_000,
-  isCI: Boolean(process.env.CI),
-});
 
 /**
  * Filters console errors to exclude non-critical patterns.
@@ -130,8 +109,10 @@ export const startVSCodeWeb = async (page: Page): Promise<void> => {
   logStep('Starting VS Code Web', '🚀');
   await page.goto('/', { waitUntil: 'networkidle' });
 
-  // Give VS Code extra time to fully load
-  await page.waitForTimeout(TEST_TIMEOUTS.VS_CODE_STARTUP);
+  // Wait for VS Code workbench to be fully loaded and interactive
+  await page.waitForSelector(SELECTORS.STATUSBAR, {
+    timeout: TEST_TIMEOUTS.VS_CODE_STARTUP,
+  });
 
   // Verify VS Code workbench loaded
   await page.waitForSelector(SELECTORS.WORKBENCH, {
@@ -183,7 +164,11 @@ export const activateExtension = async (page: Page): Promise<void> => {
     // Hover to show file selection in debug mode
     if (process.env.DEBUG_MODE) {
       await clsFile.hover();
-      await page.waitForTimeout(500);
+      await page
+        .waitForSelector(SELECTORS.CLS_FILE_ICON + ':hover', { timeout: 1000 })
+        .catch(() => {
+          // Ignore hover selector timeout - it's just for debug visibility
+        });
     }
 
     await clsFile.click();
@@ -221,8 +206,36 @@ export const activateExtension = async (page: Page): Promise<void> => {
  */
 export const waitForLSPInitialization = async (page: Page): Promise<void> => {
   logStep('Waiting for LSP server to initialize', '⚙️');
-  await page.waitForTimeout(TEST_TIMEOUTS.LSP_INITIALIZATION);
-  logSuccess('LSP initialization time completed');
+
+  // Wait for Monaco editor to be ready and responsive
+  await page.waitForSelector(
+    SELECTORS.MONACO_EDITOR + ' .monaco-editor-background',
+    {
+      timeout: TEST_TIMEOUTS.LSP_INITIALIZATION,
+    },
+  );
+
+  // Wait for any language server activity by checking for syntax highlighting or symbols
+  await page.evaluate(
+    async () =>
+      new Promise((resolve) => {
+        const checkInterval = setInterval(() => {
+          const editor = document.querySelector('.monaco-editor .view-lines');
+          if (editor && editor.children.length > 0) {
+            clearInterval(checkInterval);
+            resolve(true);
+          }
+        }, 100);
+
+        // Timeout after 8 seconds
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          resolve(true);
+        }, 8000);
+      }),
+  );
+
+  logSuccess('LSP server initialization detected');
 };
 
 /**
@@ -244,15 +257,16 @@ export const verifyVSCodeStability = async (page: Page): Promise<void> => {
 
 /**
  * Verifies that Apex code content is loaded and visible in the editor.
+ * Throws an error if content is not loaded or doesn't match expectations.
  *
  * @param page - Playwright page instance
  * @param expectedContent - Optional specific content to look for
- * @returns True if content is visible
+ * @throws Error if content is not visible or doesn't match expectations
  */
 export const verifyApexFileContentLoaded = async (
   page: Page,
   expectedContent?: string,
-): Promise<boolean> => {
+): Promise<void> => {
   logStep('Verifying Apex file content is loaded in editor', '📝');
 
   try {
@@ -276,10 +290,11 @@ export const verifyApexFileContentLoaded = async (
 
       if (hasExpectedContent) {
         logSuccess(`Editor contains expected content: "${expectedContent}"`);
-        return true;
+        return;
       } else {
-        logWarning(`Expected content "${expectedContent}" not found in editor`);
-        return false;
+        throw new Error(
+          `Expected content "${expectedContent}" not found in editor`,
+        );
       }
     }
 
@@ -287,14 +302,19 @@ export const verifyApexFileContentLoaded = async (
       logSuccess(
         `Apex code content loaded in editor: "${firstLineText?.trim()}"`,
       );
-      return true;
+      return;
     } else {
-      logWarning('Editor content may not contain recognizable Apex code');
-      return false;
+      throw new Error('Editor content does not contain recognizable Apex code');
     }
   } catch (error) {
-    logWarning(`Could not verify editor content: ${error}`);
-    return false;
+    if (
+      error instanceof Error &&
+      (error.message.includes('Expected content') ||
+        error.message.includes('Editor content does not contain'))
+    ) {
+      throw error; // Re-throw our custom errors
+    }
+    throw new Error(`Could not verify editor content: ${error}`);
   }
 };
 
@@ -321,3 +341,51 @@ export const reportTestResults = (
   );
   console.log(`   - Worker: ✅ ${networkFailures} failures (threshold: 3)`);
 };
+
+/**
+ * Test sample file type definition.
+ */
+export interface SampleFile {
+  readonly filename: string;
+  readonly description: string;
+  readonly content: string;
+}
+
+/**
+ * Creates a sample file object for testing.
+ *
+ * @param filename - The file name with extension
+ * @param content - The file content
+ * @param description - Optional description of the file
+ * @returns Sample file object for test workspace
+ */
+const createSampleFile = (
+  filename: string,
+  content: string,
+  description?: string,
+): SampleFile => ({
+  filename,
+  content,
+  description: description || `Sample ${filename} for testing`,
+});
+
+/**
+ * Creates the comprehensive Apex class example file.
+ *
+ * @returns Sample file with comprehensive Apex class content
+ */
+const createApexClassExampleFile = (): SampleFile => {
+  // Import the content from constants to avoid duplication
+  const { APEX_CLASS_EXAMPLE_CONTENT } = require('./constants');
+
+  return createSampleFile(
+    'ApexClassExample.cls',
+    APEX_CLASS_EXAMPLE_CONTENT,
+    'Comprehensive Apex class for testing language features and outline view',
+  );
+};
+
+/**
+ * All sample files for workspace creation.
+ */
+export const ALL_SAMPLE_FILES = [createApexClassExampleFile()] as const;

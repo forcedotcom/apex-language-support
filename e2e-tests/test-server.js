@@ -16,7 +16,9 @@ async function startTestServer() {
       __dirname,
       '../packages/apex-lsp-vscode-extension',
     );
-    const workspacePath = path.resolve(__dirname, './test-workspace');
+    const workspacePath = process.env.CI
+      ? path.join(process.env.TMPDIR || '/tmp', 'apex-e2e-workspace')
+      : path.resolve(__dirname, './test-workspace');
 
     // Verify paths exist
     if (!fs.existsSync(extensionDevelopmentPath)) {
