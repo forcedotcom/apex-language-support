@@ -20,13 +20,15 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI || process.env.DEBUG_MODE ? 1 : undefined,
-  reporter: 'html',
+  reporter: process.env.CI
+    ? [['html'], ['line'], ['junit', { outputFile: 'test-results/junit.xml' }]]
+    : 'html',
 
   use: {
     baseURL: 'http://localhost:3000',
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    trace: process.env.CI ? 'retain-on-failure' : 'on-first-retry',
+    screenshot: process.env.CI ? 'on' : 'only-on-failure',
+    video: process.env.CI ? 'on' : 'retain-on-failure',
     actionTimeout: 15000,
   },
 

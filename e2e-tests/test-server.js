@@ -62,6 +62,27 @@ async function startTestServer() {
 
     fs.mkdirSync(workspacePath, { recursive: true });
 
+    // Copy test workspace files in CI environment
+    if (process.env.CI) {
+      const sourceWorkspace = path.resolve(__dirname, './test-workspace');
+      if (fs.existsSync(sourceWorkspace)) {
+        console.log(
+          `📋 Copying test workspace from ${sourceWorkspace} to ${workspacePath}`,
+        );
+        const files = fs.readdirSync(sourceWorkspace);
+        files.forEach((file) => {
+          const src = path.join(sourceWorkspace, file);
+          const dest = path.join(workspacePath, file);
+          fs.copyFileSync(src, dest);
+        });
+        console.log('✅ Test workspace files copied successfully');
+      } else {
+        console.warn(
+          '⚠️ Source test workspace not found, creating empty workspace',
+        );
+      }
+    }
+
     console.log('🌐 Starting VS Code Web Test Server...');
     console.log(`📁 Extension path: ${extensionDevelopmentPath}`);
     console.log(`📂 Workspace path: ${workspacePath}`);
@@ -72,6 +93,17 @@ async function startTestServer() {
     const distFiles = fs.readdirSync(distPath);
     distFiles.forEach((file) => {
       const filePath = path.join(distPath, file);
+      const stats = fs.statSync(filePath);
+      console.log(
+        `   ${file} (${stats.isDirectory() ? 'dir' : stats.size + ' bytes'})`,
+      );
+    });
+
+    // Log workspace files for debugging
+    console.log('📋 Workspace files:');
+    const workspaceFiles = fs.readdirSync(workspacePath);
+    workspaceFiles.forEach((file) => {
+      const filePath = path.join(workspacePath, file);
       const stats = fs.statSync(filePath);
       console.log(
         `   ${file} (${stats.isDirectory() ? 'dir' : stats.size + ' bytes'})`,
