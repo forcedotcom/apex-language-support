@@ -82,7 +82,7 @@ async function startTestServer() {
     await runTests({
       extensionDevelopmentPath,
       folderPath: workspacePath,
-      headless: process.env.CI ? true : false, // Headless in CI, headed locally for debugging
+      headless: true, // Always headless - Playwright will open its own browser window
       browserType: 'chromium',
       version: 'stable',
       printServerLog: true,
@@ -97,7 +97,7 @@ async function startTestServer() {
           '--enable-logging=stderr',
           '--log-level=0',
           '--v=1',
-          ...(process.env.CI 
+          ...(process.env.CI
             ? [
                 '--no-sandbox',
                 '--disable-dev-shm-usage',
@@ -105,8 +105,7 @@ async function startTestServer() {
                 '--disable-backgrounding-occluded-windows',
                 '--disable-renderer-backgrounding',
               ]
-            : []
-          ),
+            : []),
         ],
       },
     });
