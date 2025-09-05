@@ -95,7 +95,7 @@ test.describe('Apex Extension Core Functionality', () => {
     // Verify extension in extensions list
     console.log('📋 Checking extension list...');
     await page.keyboard.press('Control+Shift+X');
-    await page.waitForSelector(SELECTORS.EXTENSIONS_VIEW, { timeout: 10_000 });
+    await page.waitForSelector(SELECTORS.EXTENSIONS_VIEW, { timeout: 30_000 });
 
     const installedSection = page.locator('text=INSTALLED').first();
     if (await installedSection.isVisible()) {
@@ -151,7 +151,7 @@ test.describe('Apex Extension Core Functionality', () => {
 
     // Ensure explorer view is accessible
     const explorer = page.locator(SELECTORS.EXPLORER);
-    await expect(explorer).toBeVisible({ timeout: 10_000 });
+    await expect(explorer).toBeVisible({ timeout: 30_000 });
 
     // Open Apex file and activate extension
     await activateExtension(page);

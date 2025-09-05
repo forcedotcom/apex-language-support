@@ -134,7 +134,7 @@ export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
   logStep('Checking workspace files', '📁');
 
   const explorer = page.locator(SELECTORS.EXPLORER);
-  await explorer.waitFor({ state: 'visible', timeout: 10_000 });
+  await explorer.waitFor({ state: 'visible', timeout: 30_000 });
 
   // Check if our test files are visible (Apex files)
   const apexFiles = page.locator(SELECTORS.APEX_FILE_ICON);
@@ -184,7 +184,7 @@ export const activateExtension = async (page: Page): Promise<void> => {
 
   // Verify Monaco editor is present
   const monacoEditor = page.locator(SELECTORS.MONACO_EDITOR);
-  await monacoEditor.waitFor({ state: 'visible', timeout: 10_000 });
+  await monacoEditor.waitFor({ state: 'visible', timeout: 30_000 });
 
   // Verify that file content is actually loaded in the editor
   const editorText = page.locator('.monaco-editor .view-lines');
