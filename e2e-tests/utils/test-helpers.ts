@@ -136,6 +136,12 @@ export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
   const explorer = page.locator(SELECTORS.EXPLORER);
   await explorer.waitFor({ state: 'visible', timeout: 30_000 });
 
+  // Wait a bit for the file system to stabilize in CI environments
+  if (process.env.CI) {
+    logStep('Waiting for file system to stabilize in CI...', '⏳');
+    await page.waitForTimeout(2000);
+  }
+
   // Check if our test files are visible (Apex files)
   const apexFiles = page.locator(SELECTORS.APEX_FILE_ICON);
   const fileCount = await apexFiles.count();
@@ -158,9 +164,13 @@ export const activateExtension = async (page: Page): Promise<void> => {
   logStep('Activating extension', '🔌');
 
   const clsFile = page.locator(SELECTORS.CLS_FILE_ICON).first();
-  const isVisible = await clsFile.isVisible();
 
-  if (isVisible) {
+  await clsFile.waitFor({
+    state: 'visible',
+    timeout: 15_000,
+  });
+
+  if (await clsFile.isVisible()) {
     // Hover to show file selection in debug mode
     if (process.env.DEBUG_MODE) {
       await clsFile.hover();
