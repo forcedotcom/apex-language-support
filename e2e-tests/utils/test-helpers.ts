@@ -7,40 +7,13 @@
  */
 
 import type { Page } from '@playwright/test';
-import type { ConsoleError } from './constants';
+import type { ConsoleError, NetworkError } from './constants';
 import {
   NON_CRITICAL_ERROR_PATTERNS,
-  TEST_TIMEOUTS,
+  NON_CRITICAL_NETWORK_PATTERNS,
   SELECTORS,
+  APEX_CLASS_EXAMPLE_CONTENT,
 } from './constants';
-
-/**
- * Logs a test step with consistent formatting.
- *
- * @param step - The step description
- * @param icon - Optional emoji icon (defaults to 🔍)
- */
-export const logStep = (step: string, icon = '🔍'): void => {
-  console.log(`${icon} ${step}...`);
-};
-
-/**
- * Logs a successful operation with consistent formatting.
- *
- * @param message - The success message
- */
-export const logSuccess = (message: string): void => {
-  console.log(`✅ ${message}`);
-};
-
-/**
- * Logs a warning with consistent formatting.
- *
- * @param message - The warning message
- */
-export const logWarning = (message: string): void => {
-  console.log(`⚠️  ${message}`);
-};
 
 /**
  * Filters console errors to exclude non-critical patterns.
@@ -60,6 +33,93 @@ export const filterCriticalErrors = (errors: ConsoleError[]): ConsoleError[] =>
         text.includes('warning'),
     );
   });
+
+/**
+ * Validates that all console errors are in the allowList.
+ * Returns detailed information about any errors that are NOT allowed.
+ *
+ * @param errors - Array of console errors to validate
+ * @returns Object with validation results and details about non-allowed errors
+ */
+export const validateAllErrorsInAllowList = (
+  errors: ConsoleError[],
+): {
+  allErrorsAllowed: boolean;
+  nonAllowedErrors: ConsoleError[];
+  totalErrors: number;
+  allowedErrors: number;
+} => {
+  const nonAllowedErrors: ConsoleError[] = [];
+  let allowedErrors = 0;
+
+  errors.forEach((error) => {
+    const text = error.text.toLowerCase();
+    const url = (error.url || '').toLowerCase();
+
+    const isAllowed = NON_CRITICAL_ERROR_PATTERNS.some(
+      (pattern) =>
+        text.includes(pattern.toLowerCase()) ||
+        url.includes(pattern.toLowerCase()) ||
+        text.includes('warning'),
+    );
+
+    if (isAllowed) {
+      allowedErrors++;
+    } else {
+      nonAllowedErrors.push(error);
+    }
+  });
+
+  return {
+    allErrorsAllowed: nonAllowedErrors.length === 0,
+    nonAllowedErrors,
+    totalErrors: errors.length,
+    allowedErrors,
+  };
+};
+
+/**
+ * Validates that all network errors are in the allowList.
+ * Returns detailed information about any errors that are NOT allowed.
+ *
+ * @param errors - Array of network errors to validate
+ * @returns Object with validation results and details about non-allowed errors
+ */
+export const validateAllNetworkErrorsInAllowList = (
+  errors: NetworkError[],
+): {
+  allErrorsAllowed: boolean;
+  nonAllowedErrors: NetworkError[];
+  totalErrors: number;
+  allowedErrors: number;
+} => {
+  const nonAllowedErrors: NetworkError[] = [];
+  let allowedErrors = 0;
+
+  errors.forEach((error) => {
+    const url = error.url.toLowerCase();
+    const description = error.description.toLowerCase();
+
+    const isAllowed = NON_CRITICAL_NETWORK_PATTERNS.some(
+      (pattern) =>
+        url.includes(pattern.toLowerCase()) ||
+        description.includes(pattern.toLowerCase()),
+    );
+
+    if (isAllowed) {
+      allowedErrors++;
+    } else {
+      nonAllowedErrors.push(error);
+    }
+  });
+
+  return {
+    allErrorsAllowed: nonAllowedErrors.length === 0,
+    nonAllowedErrors,
+    totalErrors: errors.length,
+    allowedErrors,
+  };
+};
 
 /**
  * Sets up console error monitoring for a page.
@@ -83,21 +143,25 @@ export const setupConsoleMonitoring = (page: Page): ConsoleError[] => {
 };
 
 /**
- * Sets up network failure monitoring for worker files.
+ * Sets up network error monitoring for all failed requests.
  *
  * @param page - Playwright page instance
- * @returns Array to collect network failures
+ * @returns Array to collect network errors
  */
-export const setupNetworkMonitoring = (page: Page): string[] => {
-  const networkFailures: string[] = [];
+export const setupNetworkMonitoring = (page: Page): NetworkError[] => {
+  const networkErrors: NetworkError[] = [];
 
   page.on('response', (response) => {
-    if (!response.ok() && response.url().includes('worker')) {
-      networkFailures.push(`${response.status()} ${response.url()}`);
+    if (!response.ok()) {
+      networkErrors.push({
+        status: response.status(),
+        url: response.url(),
+        description: `HTTP ${response.status()} ${response.statusText()}`,
+      });
     }
   });
 
-  return networkFailures;
+  return networkErrors;
 };
 
 /**
@@ -106,22 +170,19 @@ export const setupNetworkMonitoring = (page: Page): string[] => {
  * @param page - Playwright page instance
  */
 export const startVSCodeWeb = async (page: Page): Promise<void> => {
-  logStep('Starting VS Code Web', '🚀');
   await page.goto('/', { waitUntil: 'networkidle' });
 
   // Wait for VS Code workbench to be fully loaded and interactive
   await page.waitForSelector(SELECTORS.STATUSBAR, {
-    timeout: TEST_TIMEOUTS.VS_CODE_STARTUP,
+    timeout: 60_000, // VS Code startup timeout
   });
 
   // Verify VS Code workbench loaded
   await page.waitForSelector(SELECTORS.WORKBENCH, {
-    timeout: TEST_TIMEOUTS.SELECTOR_WAIT,
+    timeout: 30_000, // Selector wait timeout
   });
   const workbench = page.locator(SELECTORS.WORKBENCH);
   await workbench.waitFor({ state: 'visible' });
-
-  logSuccess('VS Code Web started successfully');
 };
 
 /**
@@ -131,26 +192,17 @@ export const startVSCodeWeb = async (page: Page): Promise<void> => {
  * @returns Number of Apex files found
  */
 export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
-  logStep('Checking workspace files', '📁');
-
   const explorer = page.locator(SELECTORS.EXPLORER);
   await explorer.waitFor({ state: 'visible', timeout: 30_000 });
 
   // Wait a bit for the file system to stabilize in CI environments
   if (process.env.CI) {
-    logStep('Waiting for file system to stabilize in CI...', '⏳');
     await page.waitForTimeout(2000);
   }
 
   // Check if our test files are visible (Apex files)
   const apexFiles = page.locator(SELECTORS.APEX_FILE_ICON);
   const fileCount = await apexFiles.count();
-
-  if (fileCount > 0) {
-    logSuccess(`Found ${fileCount} Apex files in workspace`);
-  } else {
-    logWarning('No Apex files found in workspace');
-  }
 
   return fileCount;
 };
@@ -161,8 +213,6 @@ export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
  * @param page - Playwright page instance
  */
 export const activateExtension = async (page: Page): Promise<void> => {
-  logStep('Activating extension', '🔌');
-
   const clsFile = page.locator(SELECTORS.CLS_FILE_ICON).first();
 
   await clsFile.waitFor({
@@ -182,9 +232,8 @@ export const activateExtension = async (page: Page): Promise<void> => {
     }
 
     await clsFile.click();
-    logSuccess('Clicked on .cls file to activate extension');
   } else {
-    logWarning('No .cls file found to activate extension');
+    throw new Error('No .cls file found to activate extension');
   }
 
   // Wait for editor to load
@@ -202,10 +251,10 @@ export const activateExtension = async (page: Page): Promise<void> => {
 
   // Check if the editor contains some text content
   const hasContent = await editorText.locator('.view-line').first().isVisible();
-  if (hasContent) {
-    logSuccess('Extension activated - Monaco editor loaded with file content');
-  } else {
-    logWarning('Extension activated but file content may not be loaded yet');
+  if (!hasContent) {
+    throw new Error(
+      'Extension activated but file content may not be loaded yet',
+    );
   }
 };
 
@@ -215,13 +264,11 @@ export const activateExtension = async (page: Page): Promise<void> => {
  * @param page - Playwright page instance
  */
 export const waitForLSPInitialization = async (page: Page): Promise<void> => {
-  logStep('Waiting for LSP server to initialize', '⚙️');
-
   // Wait for Monaco editor to be ready and responsive
   await page.waitForSelector(
     SELECTORS.MONACO_EDITOR + ' .monaco-editor-background',
     {
-      timeout: TEST_TIMEOUTS.LSP_INITIALIZATION,
+      timeout: 30_000, // LSP initialization timeout
     },
   );
 
@@ -244,8 +291,6 @@ export const waitForLSPInitialization = async (page: Page): Promise<void> => {
         }, 8000);
       }),
   );
-
-  logSuccess('LSP server initialization detected');
 };
 
 /**
@@ -254,15 +299,11 @@ export const waitForLSPInitialization = async (page: Page): Promise<void> => {
  * @param page - Playwright page instance
  */
 export const verifyVSCodeStability = async (page: Page): Promise<void> => {
-  logStep('Final stability check', '🎯');
-
   const sidebar = page.locator(SELECTORS.SIDEBAR);
   await sidebar.waitFor({ state: 'visible' });
 
   const statusbar = page.locator(SELECTORS.STATUSBAR);
   await statusbar.waitFor({ state: 'visible' });
-
-  logSuccess('VS Code remains stable and responsive');
 };
 
 /**
@@ -277,8 +318,6 @@ export const verifyApexFileContentLoaded = async (
   page: Page,
   expectedContent?: string,
 ): Promise<void> => {
-  logStep('Verifying Apex file content is loaded in editor', '📝');
-
   try {
     // Wait for editor content to load
     const editorContent = page.locator('.monaco-editor .view-lines .view-line');
@@ -299,7 +338,6 @@ export const verifyApexFileContentLoaded = async (
       const hasExpectedContent = fullText.includes(expectedContent);
 
       if (hasExpectedContent) {
-        logSuccess(`Editor contains expected content: "${expectedContent}"`);
         return;
       } else {
         throw new Error(
@@ -309,9 +347,6 @@ export const verifyApexFileContentLoaded = async (
     }
 
     if (hasApexKeywords) {
-      logSuccess(
-        `Apex code content loaded in editor: "${firstLineText?.trim()}"`,
-      );
       return;
     } else {
       throw new Error('Editor content does not contain recognizable Apex code');
@@ -329,35 +364,10 @@ export const verifyApexFileContentLoaded = async (
 };
 
 /**
- * Reports test results with consistent formatting.
- *
- * @param testName - Name of the test
- * @param fileCount - Number of files found
- * @param criticalErrors - Number of critical errors
- * @param networkFailures - Number of network failures
- */
-export const reportTestResults = (
-  testName: string,
-  fileCount: number,
-  criticalErrors: number,
-  networkFailures: number,
-): void => {
-  console.log(`🎉 ${testName} test PASSED`);
-  console.log('   - VS Code Web: ✅ Started');
-  console.log('   - Extension: ✅ Activated');
-  console.log(`   - Files: ✅ ${fileCount} Apex files loaded`);
-  console.log(
-    `   - Errors: ✅ ${criticalErrors} critical errors (threshold: 5)`,
-  );
-  console.log(`   - Worker: ✅ ${networkFailures} failures (threshold: 3)`);
-};
-
-/**
  * Test sample file type definition.
  */
 export interface SampleFile {
   readonly filename: string;
-  readonly description: string;
   readonly content: string;
 }
 
@@ -366,17 +376,11 @@ export interface SampleFile {
  *
  * @param filename - The file name with extension
  * @param content - The file content
- * @param description - Optional description of the file
  * @returns Sample file object for test workspace
  */
-const createSampleFile = (
-  filename: string,
-  content: string,
-  description?: string,
-): SampleFile => ({
+const createSampleFile = (filename: string, content: string): SampleFile => ({
   filename,
   content,
-  description: description || `Sample ${filename} for testing`,
 });
 
 /**
@@ -384,16 +388,8 @@ const createSampleFile = (
  *
  * @returns Sample file with comprehensive Apex class content
  */
-const createApexClassExampleFile = (): SampleFile => {
-  // Import the content from constants to avoid duplication
-  const { APEX_CLASS_EXAMPLE_CONTENT } = require('./constants');
-
-  return createSampleFile(
-    'ApexClassExample.cls',
-    APEX_CLASS_EXAMPLE_CONTENT,
-    'Comprehensive Apex class for testing language features and outline view',
-  );
-};
+const createApexClassExampleFile = (): SampleFile =>
+  createSampleFile('ApexClassExample.cls', APEX_CLASS_EXAMPLE_CONTENT);
 
 /**
  * All sample files for workspace creation.

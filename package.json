@@ -7,7 +7,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "test": "turbo run test",
+    "test": "turbo run test --filter=./packages/*",
     "test:coverage": "turbo run test:coverage",
     "test:perf": "turbo run test:perf",
     "test:quality": "turbo run test:quality",
@@ -16,10 +16,10 @@
     "test:coverage:report": "node scripts/merge-coverage.js",
     "test:integration": "turbo run test:integration",
     "test:web": "node scripts/test-web-ext.js web",
-    "test:e2e": "npm run rebuild && cd e2e-tests && npx playwright test",
-    "test:e2e:debug": "npm run rebuild && cd e2e-tests && npx playwright test --debug --headed",
-    "test:e2e:server": "npm run rebuild && node e2e-tests/test-server.js",
-    "test:e2e:visual": "npm run rebuild && cd e2e-tests && DEBUG_MODE=1 npx playwright test --headed",
+    "test:e2e": "npm run rebuild && npm run test -w e2e-tests",
+    "test:e2e:debug": "npm run rebuild && npm run test:debug -w e2e-tests",
+    "test:e2e:server": "npm run rebuild && npm run server -w e2e-tests",
+    "test:e2e:visual": "npm run rebuild && npm run test:visual -w e2e-tests",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "compile": "turbo run compile",
@@ -116,7 +116,8 @@
   },
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "e2e-tests"
   ],
   "config": {
     "commitizen": {

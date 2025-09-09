@@ -1,0 +1,17 @@
+{
+  "name": "e2e-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end tests for Apex Language Server Extension",
+  "scripts": {
+    "test": "playwright test",
+    "test:debug": "playwright test --debug --headed",
+    "test:visual": "DEBUG_MODE=1 playwright test --headed",
+    "server": "node test-server.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^20.11.30",
+    "typescript": "^5.8.2"
+  }
+}

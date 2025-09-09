@@ -28,50 +28,32 @@ jobs:
 
       - name: Build all packages and extension
         run: |
-          echo "🔧 Building all packages..."
           npm run compile
           npm run bundle
-          echo "🔧 Building VS Code extension..."
-          cd packages/apex-lsp-vscode-extension
-          npm run build
-          echo "✅ Build completed"
-          ls -la dist/
+          npm run build -w packages/apex-lsp-vscode-extension
 
       - name: Verify extension build
         run: |
-          echo "🔍 Verifying extension build artifacts..."
-          cd packages/apex-lsp-vscode-extension
-          if [ ! -f "dist/package.json" ]; then
+          if [ ! -f "packages/apex-lsp-vscode-extension/dist/package.json" ]; then
             echo "❌ package.json not found in dist"
             exit 1
           fi
-          if [ ! -f "dist/extension.js" ]; then
+          if [ ! -f "packages/apex-lsp-vscode-extension/dist/extension.js" ]; then
             echo "❌ extension.js not found in dist"
             exit 1
           fi
-          if [ ! -f "dist/extension.web.js" ]; then
+          if [ ! -f "packages/apex-lsp-vscode-extension/dist/extension.web.js" ]; then
             echo "❌ extension.web.js not found in dist"
             exit 1
           fi
-          echo "✅ All required extension files present"
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests
-        run: |
-          echo "🧪 Starting e2e tests..."
-          echo "Environment variables:"
-          echo "  CI: $CI"
-          echo "  RUNNER_TEMP: $RUNNER_TEMP"
-          echo "  TMPDIR: $TMPDIR"
-          echo "  PWD: $PWD"
-          echo "Test workspace path: $RUNNER_TEMP/apex-e2e-workspace"
-          echo "Running Playwright tests with proper CI configuration..."
-          cd e2e-tests && npx playwright test
+        run: npm run test -w e2e-tests
         env:
           CI: true
-          DEBUG: pw:webserver
 
       - name: Upload test results and artifacts
         if: always()
@@ -83,17 +65,3 @@ jobs:
             e2e-tests/test-results/
           retention-days: 30
           if-no-files-found: warn
-
-      - name: Debug artifact directories
-        if: always()
-        run: |
-          echo "🔍 Debugging artifact directories..."
-          echo "Current working directory: $(pwd)"
-          echo "e2e-tests directory contents:"
-          ls -la e2e-tests/ || echo "e2e-tests directory not found"
-          echo "playwright-report directory:"
-          ls -la e2e-tests/playwright-report/ || echo "playwright-report directory not found"
-          echo "test-results directory:"
-          ls -la e2e-tests/test-results/ || echo "test-results directory not found"
-          echo "Searching for any Playwright artifacts..."
-          find . -name "*.png" -o -name "*.webm" -o -name "*.html" | head -20

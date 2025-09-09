@@ -15,11 +15,9 @@ import {
   activateExtension,
   waitForLSPInitialization,
   verifyVSCodeStability,
-  filterCriticalErrors,
-  reportTestResults,
+  validateAllErrorsInAllowList,
+  validateAllNetworkErrorsInAllowList,
   verifyApexFileContentLoaded,
-  logStep,
-  logSuccess,
 } from '../utils/test-helpers';
 
 import { setupTestWorkspace } from '../utils/setup';
@@ -28,10 +26,9 @@ import {
   findAndActivateOutlineView,
   validateApexSymbolsInOutline,
   captureOutlineViewScreenshot,
-  EXPECTED_APEX_SYMBOLS,
 } from '../utils/outline-helpers';
 
-import { ASSERTION_THRESHOLDS, SELECTORS } from '../utils/constants';
+import { SELECTORS, EXPECTED_APEX_SYMBOLS } from '../utils/constants';
 
 /**
  * Core E2E tests for Apex Language Server Extension.
@@ -65,7 +62,7 @@ test.describe('Apex Extension Core Functionality', () => {
 
     // Set up monitoring using utilities
     const consoleErrors = setupConsoleMonitoring(page);
-    const networkFailures = setupNetworkMonitoring(page);
+    const networkErrors = setupNetworkMonitoring(page);
 
     // Execute test steps using helper functions
     await startVSCodeWeb(page);
@@ -73,23 +70,41 @@ test.describe('Apex Extension Core Functionality', () => {
     await activateExtension(page);
     await waitForLSPInitialization(page);
 
-    // Filter and analyze errors
-    const criticalErrors = filterCriticalErrors(consoleErrors);
+    // Validate all errors are in allowList (strict validation)
+    const errorValidation = validateAllErrorsInAllowList(consoleErrors);
 
     // Report findings
-    if (criticalErrors.length > 0) {
-      console.log(
-        '⚠️  Critical console errors found:',
-        criticalErrors.map((e) => `${e.text} (${e.url})`),
-      );
+    console.log('📊 Console error validation:');
+    console.log(`   - Total errors: ${errorValidation.totalErrors}`);
+    console.log(`   - Allowed errors: ${errorValidation.allowedErrors}`);
+    console.log(
+      `   - Non-allowed errors: ${errorValidation.nonAllowedErrors.length}`,
+    );
+
+    if (!errorValidation.allErrorsAllowed) {
+      console.log('❌ NON-ALLOWED console errors found:');
+      errorValidation.nonAllowedErrors.forEach((error, index) => {
+        console.log(
+          `  ${index + 1}. "${error.text}" (URL: ${error.url || 'no URL'})`,
+        );
+      });
     } else {
-      console.log('✅ No critical console errors');
+      console.log('✅ All console errors are in allowList');
     }
 
-    if (networkFailures.length > 0) {
-      console.log('⚠️  Worker network failures:', networkFailures);
+    // Validate all network errors are in allowList (strict validation)
+    const networkValidation =
+      validateAllNetworkErrorsInAllowList(networkErrors);
+
+    if (!networkValidation.allErrorsAllowed) {
+      console.log('❌ NON-ALLOWED network errors found:');
+      networkValidation.nonAllowedErrors.forEach((error, index) => {
+        console.log(
+          `  ${index + 1}. HTTP ${error.status} ${error.url} (${error.description})`,
+        );
+      });
     } else {
-      console.log('✅ No worker loading failures');
+      console.log('✅ All network errors are in allowList');
     }
 
     // Verify extension in extensions list
@@ -107,21 +122,14 @@ test.describe('Apex Extension Core Functionality', () => {
     // Final stability verification
     await verifyVSCodeStability(page);
 
-    // Assert success criteria using constants
-    expect(criticalErrors.length).toBeLessThan(
-      ASSERTION_THRESHOLDS.MAX_CRITICAL_ERRORS,
-    );
-    expect(networkFailures.length).toBeLessThan(
-      ASSERTION_THRESHOLDS.MAX_NETWORK_FAILURES,
-    );
-    expect(fileCount).toBeGreaterThan(ASSERTION_THRESHOLDS.MIN_FILE_COUNT);
+    // Assert success criteria - STRICT validation: all errors must be in allowList
+    expect(errorValidation.allErrorsAllowed).toBe(true);
+    expect(networkValidation.allErrorsAllowed).toBe(true);
+    expect(fileCount).toBeGreaterThan(0); // find at least one Apex file
 
     // Report final results
-    reportTestResults(
-      'Core functionality',
-      fileCount,
-      criticalErrors.length,
-      networkFailures.length,
+    console.log(
+      `🎉 Core functionality test PASSED - ${fileCount} Apex files loaded, all errors validated`,
     );
   });
 
@@ -166,10 +174,18 @@ test.describe('Apex Extension Core Functionality', () => {
     await findAndActivateOutlineView(page);
 
     // Validate that specific Apex symbols are populated in the outline
-    const symbolValidation = await validateApexSymbolsInOutline(page);
+    const symbolValidation = await validateApexSymbolsInOutline(
+      page,
+      EXPECTED_APEX_SYMBOLS,
+    );
+
+    // Assert exact matches instead of loose counting
+    expect(symbolValidation.classFound).toBe(true);
+    expect(symbolValidation.allExpectedMethodsFound).toBe(true);
+    expect(symbolValidation.exactMatch).toBe(true);
 
     // Additionally check for complex symbols that may be present in the comprehensive class
-    logStep('Validating comprehensive symbol hierarchy', '🏗️');
+    console.log('🏗️ Validating comprehensive symbol hierarchy...');
 
     // Expected additional symbols in ApexClassExample.cls (beyond the basic ones)
     const additionalSymbols = [
@@ -201,13 +217,13 @@ test.describe('Apex Extension Core Functionality', () => {
           additionalSymbolsFound++;
           foundAdditionalSymbols.push(symbol);
           symbolFound = true;
-          logSuccess(`Found additional symbol: ${symbol}`);
+          console.log(`✅ Found additional symbol: ${symbol}`);
           break;
         }
       }
 
       if (!symbolFound) {
-        logStep(`Additional symbol not found: ${symbol}`, '⚪');
+        console.log(`⚪ Additional symbol not found: ${symbol}`);
       }
     }
 
@@ -217,37 +233,41 @@ test.describe('Apex Extension Core Functionality', () => {
     );
     const totalItems = await outlineItems.count();
 
-    // Filter and analyze errors
-    const criticalErrors = filterCriticalErrors(consoleErrors);
+    // Validate all errors are in allowList (strict validation)
+    const errorValidation = validateAllErrorsInAllowList(consoleErrors);
 
-    if (criticalErrors.length > 0) {
-      console.log(
-        '⚠️  Critical console errors found:',
-        criticalErrors.map((e) => `${e.text} (${e.url})`),
-      );
+    // Report findings
+    console.log('📊 Outline test - Console error validation:');
+    console.log(`   - Total errors: ${errorValidation.totalErrors}`);
+    console.log(`   - Allowed errors: ${errorValidation.allowedErrors}`);
+    console.log(
+      `   - Non-allowed errors: ${errorValidation.nonAllowedErrors.length}`,
+    );
+
+    if (!errorValidation.allErrorsAllowed) {
+      console.log('❌ NON-ALLOWED console errors found:');
+      errorValidation.nonAllowedErrors.forEach((error, index) => {
+        console.log(
+          `  ${index + 1}. "${error.text}" (URL: ${error.url || 'no URL'})`,
+        );
+      });
     } else {
-      console.log('✅ No critical console errors');
+      console.log('✅ All console errors are in allowList');
     }
 
     // Capture screenshot for debugging
     await captureOutlineViewScreenshot(page, 'comprehensive-outline-test.png');
 
-    // Assert comprehensive success criteria
-    expect(criticalErrors.length).toBeLessThan(
-      ASSERTION_THRESHOLDS.MAX_CRITICAL_ERRORS,
-    );
-    expect(symbolValidation.classFound).toBe(true);
-    expect(symbolValidation.methodsFound.length).toBeGreaterThanOrEqual(
-      EXPECTED_APEX_SYMBOLS.methods.length,
-    );
-    expect(symbolValidation.isValidStructure).toBe(true);
-    expect(symbolValidation.totalSymbolsDetected).toBeGreaterThan(0);
+    // Assert comprehensive success criteria - STRICT validation with exact matching
+    expect(errorValidation.allErrorsAllowed).toBe(true);
+    expect(symbolValidation.exactMatch).toBe(true);
+    expect(symbolValidation.missingMethods).toHaveLength(0);
     expect(totalItems).toBeGreaterThan(0);
 
-    // Verify specific methods are found
-    for (const method of EXPECTED_APEX_SYMBOLS.methods) {
-      expect(symbolValidation.methodsFound).toContain(method.name);
-    }
+    // Verify all specific methods are found (exact matching)
+    expect(symbolValidation.exactMethodsFound).toEqual(
+      expect.arrayContaining(EXPECTED_APEX_SYMBOLS.methods.map((m) => m.name)),
+    );
 
     // Report comprehensive results combining both basic and advanced symbol detection
     console.log('🎉 Comprehensive outline view test COMPLETED');
@@ -255,15 +275,15 @@ test.describe('Apex Extension Core Functionality', () => {
     console.log('   - Extension: ✅ Language features activated');
     console.log('   - Outline: ✅ Outline view loaded and accessible');
 
-    // Basic symbols (required)
+    // Basic symbols (required) - exact matching
     console.log('   - Basic symbols: ✅ All expected symbols found');
     console.log(
-      `     • Class: ${symbolValidation.classFound ? '✅' : '❌'} ApexClassExample`,
+      `     • Class: ${symbolValidation.classFound ? '✅' : '❌'} ${EXPECTED_APEX_SYMBOLS.className}`,
     );
     console.log(
-      `     • Methods: ${symbolValidation.methodsFound.length}/${
+      `     • Methods: ${symbolValidation.exactMethodsFound.length}/${
         EXPECTED_APEX_SYMBOLS.methods.length
-      } (${symbolValidation.methodsFound.join(', ')})`,
+      } (${symbolValidation.exactMethodsFound.join(', ')})`,
     );
 
     // Additional symbols (nice to have)
@@ -276,9 +296,7 @@ test.describe('Apex Extension Core Functionality', () => {
 
     console.log(`   - Total outline elements: ${totalItems}`);
     console.log(
-      `   - Errors: ✅ ${criticalErrors.length} critical errors (threshold: ${
-        ASSERTION_THRESHOLDS.MAX_CRITICAL_ERRORS
-      })`,
+      `   - Errors: ✅ ${errorValidation.nonAllowedErrors.length} non-allowed errors (strict validation: must be 0)`,
     );
     console.log(
       '   ✨ This test validates comprehensive LSP symbol parsing and outline population',

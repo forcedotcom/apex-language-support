@@ -8,7 +8,6 @@
 import path from 'path';
 import fs from 'fs';
 import { ALL_SAMPLE_FILES, type SampleFile } from './test-helpers';
-import { logStep, logSuccess } from './test-helpers';
 
 /**
  * Options for setting up the test workspace.
@@ -38,10 +37,6 @@ export async function setupTestWorkspace(
     verbose = true,
   } = options;
 
-  if (verbose) {
-    logStep('Setting up test workspace', '🔧');
-  }
-
   // Determine workspace path
   const workspacePath =
     customWorkspacePath ||
@@ -60,12 +55,6 @@ export async function setupTestWorkspace(
     const filePath = path.join(workspacePath, sampleFile.filename);
     fs.writeFileSync(filePath, sampleFile.content);
   });
-
-  if (verbose) {
-    logSuccess(
-      `Created test workspace with ${sampleFiles.length} sample files`,
-    );
-  }
 
   return workspacePath;
 }

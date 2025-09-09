@@ -7,24 +7,7 @@
  */
 
 import type { Page } from '@playwright/test';
-import { OUTLINE_SELECTORS, TEST_TIMEOUTS, SELECTORS } from './constants';
-import { logStep, logSuccess, logWarning } from './test-helpers';
-
-/**
- * Expected symbol structure for ApexClassExample.cls file.
- */
-export const EXPECTED_APEX_SYMBOLS = {
-  className: 'ApexClassExample',
-  classType: 'class',
-  methods: [
-    { name: 'sayHello', visibility: 'public', isStatic: true },
-    { name: 'add', visibility: 'public', isStatic: true },
-    { name: 'getCurrentUserName', visibility: 'public', isStatic: true },
-    { name: 'formatPhoneNumber', visibility: 'public', isStatic: true },
-    { name: 'isValidEmail', visibility: 'public', isStatic: true },
-  ],
-  totalSymbols: 6, // 1 class + 5+ methods (we have many more in the comprehensive class)
-} as const;
+import { OUTLINE_SELECTORS, type ExpectedApexSymbols } from './constants';
 
 /**
  * Attempts to find and activate the outline view.
@@ -34,8 +17,6 @@ export const EXPECTED_APEX_SYMBOLS = {
  * @throws Error if outline view cannot be found or activated
  */
 export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
-  logStep('Opening outline view', '🗂️');
-
   // First, try to find outline view in the explorer sidebar
   let outlineFound = false;
 
@@ -44,9 +25,6 @@ export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
     const count = await outlineElement.count();
 
     if (count > 0) {
-      logSuccess(
-        `Found outline view with selector: ${selector} (${count} elements)`,
-      );
       outlineFound = true;
 
       // Highlight the outline section in debug mode
@@ -56,14 +34,9 @@ export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
 
       // If it's the text selector, try to click to expand
       if (selector === 'text=OUTLINE') {
-        try {
-          await outlineElement.first().click();
-          // Wait for outline tree to become visible after clicking
-          await page.waitForSelector('.outline-tree', { timeout: 2000 });
-          logSuccess('Clicked to expand outline view');
-        } catch (_e) {
-          logStep('Outline view found but click not needed', 'ℹ️');
-        }
+        await outlineElement.first().click();
+        // Wait for outline tree to become visible after clicking
+        await page.waitForSelector('.outline-tree', { timeout: 2000 });
       }
       break;
     }
@@ -81,9 +54,7 @@ export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
     }
   }
 
-  if (outlineFound) {
-    logSuccess('Outline view is now visible and activated');
-  } else {
+  if (!outlineFound) {
     throw new Error('Outline view could not be found or activated');
   }
 };
@@ -96,8 +67,6 @@ export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
  * @throws Error if activation fails
  */
 const activateOutlineViaCommandPalette = async (page: Page): Promise<void> => {
-  logStep('Outline view not immediately visible, trying to activate it', '🔍');
-
   try {
     // Open command palette
     await page.keyboard.press('Control+Shift+P');
@@ -122,7 +91,6 @@ const activateOutlineViaCommandPalette = async (page: Page): Promise<void> => {
       await page.waitForSelector('.outline-tree, [id*="outline"]', {
         timeout: 3000,
       });
-      logSuccess('Activated outline view via command palette');
     } else {
       // Close command palette
       await page.keyboard.press('Escape');
@@ -157,9 +125,9 @@ export const captureOutlineViewScreenshot = async (
       path: `test-results/${filename}`,
       fullPage: true,
     });
-    logStep(`Screenshot saved: test-results/${filename}`, '📸');
+    console.log(`Screenshot saved: test-results/${filename}`, '📸');
   } catch (error) {
-    logWarning(`Failed to capture screenshot: ${error}`);
+    console.log(`⚠️  Failed to capture screenshot: ${error}`);
   }
 };
 
@@ -167,39 +135,32 @@ export const captureOutlineViewScreenshot = async (
  * Validates specific Apex symbols are present in the outline view.
  *
  * @param page - Playwright page instance
- * @returns Detailed symbol validation results
+ * @param expectedSymbols - The exact symbols we expect to find in the outline
+ * @returns Detailed validation results with specific missing/found symbols
  */
 export const validateApexSymbolsInOutline = async (
   page: Page,
+  expectedSymbols: ExpectedApexSymbols,
 ): Promise<{
   classFound: boolean;
-  methodsFound: string[];
-  symbolIconsCount: number;
-  totalSymbolsDetected: number;
-  isValidStructure: boolean;
+  exactMethodsFound: string[];
+  missingMethods: string[];
+  unexpectedMethods: string[];
+  allExpectedMethodsFound: boolean;
+  exactMatch: boolean;
 }> => {
-  logStep('Validating Apex symbols in outline', '🔍');
-
   // Wait for LSP to populate symbols by checking for any outline content
-  try {
-    await page.waitForSelector('.outline-tree .monaco-list-row', {
-      timeout: TEST_TIMEOUTS.OUTLINE_GENERATION,
-    });
-  } catch {
-    // Continue even if no symbols are found - we'll detect this in validation
-  }
+  await page.waitForSelector('.outline-tree .monaco-list-row', {
+    timeout: 5_000, // Outline generation timeout
+  });
 
+  // Validate class exists
   let classFound = false;
-  const methodsFound: string[] = [];
-  let symbolIconsCount = 0;
-  let totalSymbolsDetected = 0;
-
-  // Look for class symbol with specific icon
   const classSelectors = [
     '.codicon-symbol-class',
-    '[aria-label*="ApexClassExample"]',
-    `text=${EXPECTED_APEX_SYMBOLS.className}`,
-    `.outline-tree .monaco-list-row:has-text("${EXPECTED_APEX_SYMBOLS.className}")`,
+    `[aria-label*="${expectedSymbols.className}"]`,
+    `text=${expectedSymbols.className}`,
+    `.outline-tree .monaco-list-row:has-text("${expectedSymbols.className}")`,
   ];
 
   for (const selector of classSelectors) {
@@ -207,9 +168,6 @@ export const validateApexSymbolsInOutline = async (
     const count = await classElements.count();
     if (count > 0) {
       classFound = true;
-      logSuccess(
-        `Found class symbol: ${EXPECTED_APEX_SYMBOLS.className} (selector: ${selector})`,
-      );
 
       // Highlight the found class symbol in debug mode
       if (process.env.DEBUG_MODE) {
@@ -219,8 +177,11 @@ export const validateApexSymbolsInOutline = async (
     }
   }
 
-  // Look for method symbols
-  for (const method of EXPECTED_APEX_SYMBOLS.methods) {
+  // Validate each expected method exists
+  const exactMethodsFound: string[] = [];
+  const expectedMethodNames = expectedSymbols.methods.map((m) => m.name);
+
+  for (const method of expectedSymbols.methods) {
     const methodSelectors = [
       '.codicon-symbol-method',
       `[aria-label*="${method.name}"]`,
@@ -228,14 +189,13 @@ export const validateApexSymbolsInOutline = async (
       `.outline-tree .monaco-list-row:has-text("${method.name}")`,
     ];
 
+    let methodFound = false;
     for (const selector of methodSelectors) {
       const methodElements = page.locator(selector);
       const count = await methodElements.count();
       if (count > 0) {
-        methodsFound.push(method.name);
-        logSuccess(
-          `Found method symbol: ${method.name} (selector: ${selector})`,
-        );
+        exactMethodsFound.push(method.name);
+        methodFound = true;
 
         // Highlight the found method symbol in debug mode
         if (process.env.DEBUG_MODE) {
@@ -244,42 +204,47 @@ export const validateApexSymbolsInOutline = async (
         break;
       }
     }
+
+    if (!methodFound) {
+      console.log(`❌ Expected method '${method.name}' not found in outline`);
+    }
   }
 
-  // Count total symbol icons
-  const symbolIcons = page.locator(SELECTORS.SYMBOL_ICONS);
-  symbolIconsCount = await symbolIcons.count();
-
-  // Count outline tree items that look like symbols
-  const outlineItems = page.locator(
-    '.outline-tree .monaco-list-row, .tree-explorer .monaco-list-row',
+  // Calculate validation results
+  const missingMethods = expectedMethodNames.filter(
+    (name) => !exactMethodsFound.includes(name),
   );
-  const outlineItemCount = await outlineItems.count();
-  totalSymbolsDetected = outlineItemCount;
 
-  const isValidStructure =
-    classFound && methodsFound.length >= EXPECTED_APEX_SYMBOLS.methods.length;
+  // For now, we don't check for unexpected methods since the class might have additional methods
+  // This could be enhanced in the future if needed
+  const unexpectedMethods: string[] = [];
 
-  logStep('Symbol validation results:', '📊');
-  logStep(`  - Class found: ${classFound ? '✅' : '❌'}`, '   ');
-  logStep(
-    `  - Methods found: ${methodsFound.length}/${EXPECTED_APEX_SYMBOLS.methods.length} (${methodsFound.join(', ')})`,
-    '   ',
+  const allExpectedMethodsFound = missingMethods.length === 0;
+  const exactMatch = classFound && allExpectedMethodsFound;
+
+  // Report results with specific details
+  console.log('📊 Symbol validation results (exact matching):');
+  console.log(
+    `   - Class '${expectedSymbols.className}': ${classFound ? '✅' : '❌'}`,
   );
-  logStep(`  - Symbol icons: ${symbolIconsCount}`, '   ');
-  logStep(`  - Total symbols: ${totalSymbolsDetected}`, '   ');
-  logStep(`  - Valid structure: ${isValidStructure ? '✅' : '❌'}`, '   ');
+  console.log(`   - Expected methods: ${expectedMethodNames.join(', ')}`);
+  console.log(`   - Found methods: ${exactMethodsFound.join(', ')}`);
 
-  // Extended pause in debug mode to show validation results
-  if (process.env.DEBUG_MODE) {
-    logStep('Validation complete - showing final outline state', '🎉');
+  if (missingMethods.length > 0) {
+    console.log(`   - Missing methods: ❌ ${missingMethods.join(', ')}`);
   }
+
+  console.log(
+    `   - All expected found: ${allExpectedMethodsFound ? '✅' : '❌'}`,
+  );
+  console.log(`   - Exact match: ${exactMatch ? '✅' : '❌'}`);
 
   return {
     classFound,
-    methodsFound,
-    symbolIconsCount,
-    totalSymbolsDetected,
-    isValidStructure,
+    exactMethodsFound,
+    missingMethods,
+    unexpectedMethods,
+    allExpectedMethodsFound,
+    exactMatch,
   };
 };

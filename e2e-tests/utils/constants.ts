@@ -17,33 +17,15 @@ export interface ConsoleError {
 }
 
 /**
- * Configuration for test timeouts in milliseconds.
+ * Network error information captured during testing.
  */
-export interface TestTimeouts {
-  /** Time to wait for VS Code Web to start */
-  readonly VS_CODE_STARTUP: number;
-  /** Time to wait for LSP server initialization */
-  readonly LSP_INITIALIZATION: number;
-  /** Time to wait for selectors to appear */
-  readonly SELECTOR_WAIT: number;
-  /** Time to wait for actions to complete */
-  readonly ACTION_TIMEOUT: number;
-  /** Time for file parsing and outline generation */
-  readonly OUTLINE_GENERATION: number;
-}
-
-/**
- * Test environment configuration.
- */
-export interface TestEnvironment {
-  /** Number of test retries on CI */
-  readonly retries: number;
-  /** Number of parallel workers */
-  readonly workers: number | undefined;
-  /** Test timeout in milliseconds */
-  readonly timeout: number;
-  /** Whether running in CI environment */
-  readonly isCI: boolean;
+export interface NetworkError {
+  /** HTTP status code */
+  readonly status: number;
+  /** URL that failed to load */
+  readonly url: string;
+  /** Description of the error */
+  readonly description: string;
 }
 
 /**
@@ -52,28 +34,35 @@ export interface TestEnvironment {
 export type ErrorFilterPattern = string;
 
 /**
- * Test timing configuration in milliseconds.
- */
-export const TEST_TIMEOUTS: TestTimeouts = {
-  VS_CODE_STARTUP: 12_000,
-  LSP_INITIALIZATION: 8_000,
-  SELECTOR_WAIT: 30_000,
-  ACTION_TIMEOUT: 15_000,
-  OUTLINE_GENERATION: 5_000,
-} as const;
-
-/**
  * Patterns for filtering out non-critical console errors.
  */
 export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
+  // Resource loading errors (VS Code Web environment)
   'favicon.ico',
   'sourcemap',
   'webPackagePaths.js',
   'workbench.web.main.nls.js',
+
+  // LSP and language server related non-critical errors
+  'Request textDocument/diagnostic failed', // Known VS Code Web LSP issue Todo: W-19587882 for removal
+
+  // VS Code lifecycle and shutdown related
   'Long running operations during shutdown',
   'lifecycle',
+
+  // Network and connectivity (often transient)
   'hostname could not be found',
-  'textDocument/diagnostic failed', // Known VS Code Web LSP issue
+] as const;
+
+/**
+ * Patterns for filtering out non-critical network errors.
+ * These patterns match network errors that are expected in VS Code Web environment
+ * and do not indicate actual problems with the extension functionality.
+ */
+export const NON_CRITICAL_NETWORK_PATTERNS: readonly ErrorFilterPattern[] = [
+  // VS Code Web resource loading (404 errors are expected)
+  'webPackagePaths.js',
+  'workbench.web.main.nls.js',
 ] as const;
 
 /**
@@ -92,15 +81,6 @@ export const SELECTORS = {
   OUTLINE_TREE: '.outline-tree, .monaco-tree, .tree-explorer',
   SYMBOL_ICONS:
     '.codicon-symbol-class, .codicon-symbol-method, .codicon-symbol-field',
-} as const;
-
-/**
- * Test assertion thresholds.
- */
-export const ASSERTION_THRESHOLDS = {
-  MAX_CRITICAL_ERRORS: 3,
-  MAX_NETWORK_FAILURES: 3,
-  MIN_FILE_COUNT: 0,
 } as const;
 
 /**
@@ -313,3 +293,37 @@ export const APEX_CLASS_EXAMPLE_CONTENT =
         }
     }
 }` as const;
+
+/**
+ * Interface for expected Apex symbols in outline view.
+ */
+export interface ExpectedApexSymbols {
+  /** Name of the Apex class */
+  readonly className: string;
+  /** Type of the class symbol */
+  readonly classType: 'class' | 'interface' | 'enum';
+  /** Expected methods in the class */
+  readonly methods: readonly {
+    readonly name: string;
+    readonly visibility?: 'public' | 'private' | 'protected' | 'global';
+    readonly isStatic?: boolean;
+  }[];
+  /** Minimum expected total symbols (class + methods + fields) */
+  readonly totalSymbols?: number;
+}
+
+/**
+ * Expected symbol structure for ApexClassExample.cls file.
+ */
+export const EXPECTED_APEX_SYMBOLS: ExpectedApexSymbols = {
+  className: 'ApexClassExample',
+  classType: 'class',
+  methods: [
+    { name: 'sayHello', visibility: 'public', isStatic: true },
+    { name: 'add', visibility: 'public', isStatic: true },
+    { name: 'getCurrentUserName', visibility: 'public', isStatic: true },
+    { name: 'formatPhoneNumber', visibility: 'public', isStatic: true },
+    { name: 'isValidEmail', visibility: 'public', isStatic: true },
+  ],
+  totalSymbols: 6, // 1 class + 5+ methods (we have many more in the comprehensive class)
+};
