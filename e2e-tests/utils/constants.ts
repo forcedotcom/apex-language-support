@@ -213,7 +213,7 @@ export const APEX_CLASS_EXAMPLE_CONTENT =
         if (String.isBlank(email)) {
             return false;
         }
-        Pattern emailPattern = Pattern.compile('^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$');
+        Pattern emailPattern = Pattern.compile('^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\\\.[a-zA-Z]{2,}$');
         return emailPattern.matcher(email).matches();
     }
     
