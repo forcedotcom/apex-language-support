@@ -93,8 +93,10 @@ export class IndexedDBStorage extends BaseStorage {
       this.dbName = this.config.storagePrefix;
     }
 
-    const { getIndexedDB, isIndexedDBAvailable } = await import('../utils/EnvironmentUtils');
-    
+    const { getIndexedDB, isIndexedDBAvailable } = await import(
+      '../utils/EnvironmentUtils'
+    );
+
     if (!isIndexedDBAvailable()) {
       throw new Error('IndexedDB is not available in this environment');
     }
@@ -245,8 +247,10 @@ export class BrowserStorageFactory extends BaseStorageFactory {
       let storage: IStorage;
 
       // Use IndexedDB for browsers, fallback to memory if not available
-      const { isIndexedDBAvailable } = await import('../utils/EnvironmentUtils');
-      
+      const { isIndexedDBAvailable } = await import(
+        '../utils/EnvironmentUtils'
+      );
+
       if (isIndexedDBAvailable()) {
         storage = new IndexedDBStorage();
       } else {

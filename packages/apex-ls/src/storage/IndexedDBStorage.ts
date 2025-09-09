@@ -40,8 +40,10 @@ export class BrowserIndexedDBApexStorage {
    * Initialize the IndexedDB storage
    */
   async initialize(): Promise<void> {
-    const { getIndexedDB, isIndexedDBAvailable } = await import('../utils/EnvironmentUtils');
-    
+    const { getIndexedDB, isIndexedDBAvailable } = await import(
+      '../utils/EnvironmentUtils'
+    );
+
     if (!isIndexedDBAvailable()) {
       throw new Error('IndexedDB is not available in this environment');
     }

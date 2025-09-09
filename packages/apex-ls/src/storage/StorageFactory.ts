@@ -125,8 +125,11 @@ export class StorageFactoryRegistry implements IStorageFactoryRegistry {
    * Checks if we're in a test environment without brittle stack inspection
    */
   private isTestEnvironment(): boolean {
-    return typeof process !== 'undefined' && 
-           (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined);
+    return (
+      typeof process !== 'undefined' &&
+      (process.env.NODE_ENV === 'test' ||
+        process.env.JEST_WORKER_ID !== undefined)
+    );
   }
 }
 
@@ -154,24 +157,21 @@ async function ensureFactoriesRegistered() {
   if (factoriesRegistered) return;
 
   // Import exactly like the working storage tests do
-  const {
-    WorkerStorageFactory,
-    BrowserStorageFactory,
-  } = await import('./StorageImplementations');
+  const { WorkerStorageFactory, BrowserStorageFactory } = await import(
+    './StorageImplementations'
+  );
 
   // Create factory objects using the exact same pattern as the tests
   const nodeFactory = {
     supports: (environment: EnvironmentType) => environment === 'node',
-    createStorage: async (config?: StorageConfig) => {
-      return WorkerStorageFactory.createStorage(config);
-    },
+    createStorage: async (config?: StorageConfig) =>
+      WorkerStorageFactory.createStorage(config),
   };
 
   const workerFactory = {
     supports: (environment: EnvironmentType) => environment === 'webworker',
-    createStorage: async (config?: StorageConfig) => {
-      return WorkerStorageFactory.createStorage(config);
-    },
+    createStorage: async (config?: StorageConfig) =>
+      WorkerStorageFactory.createStorage(config),
   };
 
   const browserFactory = {
