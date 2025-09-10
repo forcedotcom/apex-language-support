@@ -21,7 +21,6 @@ import {
   DocumentDiagnosticParams,
   DocumentDiagnosticReport,
   DocumentDiagnosticReportKind,
-  DiagnosticSeverity,
 } from 'vscode-languageserver/browser';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -35,17 +34,16 @@ import {
 
 // LCS services and handlers
 import {
+  dispatchProcessOnOpenDocument,
   dispatchProcessOnChangeDocument,
   dispatchProcessOnSaveDocument,
   dispatchProcessOnCloseDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
-} from '@salesforce/apex-lsp-compliant-services';
-
-// LCS service types (for lazy loading)
-import type {
   CompletionProcessingService,
   DiagnosticProcessingService,
+  ApexStorageManager,
+  ApexStorage,
 } from '@salesforce/apex-lsp-compliant-services';
 
 /**
@@ -68,16 +66,17 @@ export class LCSAdapter {
   private hasWorkspaceFolderCapability = false;
   private hasDiagnosticRelatedInformationCapability = false;
   private initialized = false;
-  private completionProcessor: CompletionProcessingService | null = null;
-  private diagnosticProcessor: DiagnosticProcessingService | null = null;
+  private completionProcessor: CompletionProcessingService;
+  private diagnosticProcessor: DiagnosticProcessingService;
 
   constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
     this.logger = config.logger || this.createDefaultLogger();
     this.documents = new TextDocuments(TextDocument);
 
-    // LCS services will be initialized lazily when first needed
-    // This reduces initial bundle loading time
+    // Initialize LCS services
+    this.completionProcessor = new CompletionProcessingService(this.logger);
+    this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
 
     this.setupEventHandlers();
   }
@@ -94,13 +93,6 @@ export class LCSAdapter {
 
     // Initialize ApexStorageManager singleton with storage factory
     try {
-      const { ApexStorageManager } = await import(
-        '@salesforce/apex-lsp-compliant-services'
-      );
-      const { ApexStorage } = await import(
-        '@salesforce/apex-lsp-compliant-services'
-      );
-
       const storageManager = ApexStorageManager.getInstance({
         storageFactory: () => ApexStorage.getInstance(),
         autoPersistIntervalMs: 30000, // Auto-persist every 30 seconds
@@ -138,56 +130,6 @@ export class LCSAdapter {
   }
 
   /**
-   * Lazy initialization of completion processor
-   */
-  private async initializeCompletionProcessor(): Promise<CompletionProcessingService | null> {
-    if (this.completionProcessor) {
-      return this.completionProcessor;
-    }
-
-    try {
-      this.logger.debug('Lazy loading CompletionProcessingService...');
-      const { CompletionProcessingService } = await import(
-        '@salesforce/apex-lsp-compliant-services'
-      );
-      this.completionProcessor = new CompletionProcessingService(this.logger);
-      this.logger.debug('CompletionProcessingService loaded successfully');
-      return this.completionProcessor;
-    } catch (error) {
-      this.logger.error(
-        `Failed to load CompletionProcessingService: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      this.logger.debug(`CompletionProcessingService error details:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Lazy initialization of diagnostic processor
-   */
-  private async initializeDiagnosticProcessor(): Promise<DiagnosticProcessingService | null> {
-    if (this.diagnosticProcessor) {
-      return this.diagnosticProcessor;
-    }
-
-    try {
-      this.logger.debug('Lazy loading DiagnosticProcessingService...');
-      const { DiagnosticProcessingService } = await import(
-        '@salesforce/apex-lsp-compliant-services'
-      );
-      this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
-      this.logger.debug('DiagnosticProcessingService loaded successfully');
-      return this.diagnosticProcessor;
-    } catch (error) {
-      this.logger.error(
-        `Failed to load DiagnosticProcessingService: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      this.logger.debug(`DiagnosticProcessingService error details:`, error);
-      return null;
-    }
-  }
-
-  /**
    * Set up basic event handlers
    */
   private setupEventHandlers(): void {
@@ -202,6 +144,38 @@ export class LCSAdapter {
    * Set up document-related event handlers using LCS
    */
   private setupDocumentHandlers(): void {
+    // Document open events - process documents when they are first opened
+    this.documents.onDidOpen(async (open) => {
+      try {
+        console.log('[LCS-ADAPTER] Document opened:', {
+          uri: open.document.uri,
+          version: open.document.version,
+          textLength: open.document.getText().length,
+        });
+        this.logger.debug(`Processing document open: ${open.document.uri}`);
+
+        // Use LCS dispatch function for document open events
+        const diagnostics = await dispatchProcessOnOpenDocument(open);
+
+        // Send initial diagnostics for the opened document
+        this.connection.sendDiagnostics({
+          uri: open.document.uri,
+          diagnostics: diagnostics || [],
+        });
+
+        this.logger.debug(
+          `Sent ${(diagnostics || []).length} initial diagnostics for ${open.document.uri}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Error processing document open for ${open.document.uri}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        this.logger.debug('Document open error details:', error);
+      }
+    });
+
     // Document change events with enhanced processing
     this.documents.onDidChangeContent(async (change) => {
       try {
@@ -216,12 +190,10 @@ export class LCSAdapter {
         const diagnostics = await dispatchProcessOnChangeDocument(change);
 
         // Also trigger additional diagnostic processing for better analysis
-        const diagnosticProcessor = await this.initializeDiagnosticProcessor();
-        const additionalDiagnostics = diagnosticProcessor
-          ? await diagnosticProcessor.processDiagnostic({
-              textDocument: { uri: change.document.uri },
-            })
-          : [];
+        const additionalDiagnostics =
+          await this.diagnosticProcessor.processDiagnostic({
+            textDocument: { uri: change.document.uri },
+          });
 
         // Combine diagnostics from both sources
         const combinedDiagnostics = [
@@ -231,11 +203,16 @@ export class LCSAdapter {
 
         // Remove duplicates based on range and message
         const uniqueDiagnostics = combinedDiagnostics.filter(
-          (diagnostic, index, array) => !array.slice(0, index).some(other => 
-            other.range.start.line === diagnostic.range.start.line &&
-            other.range.start.character === diagnostic.range.start.character &&
-            other.message === diagnostic.message
-          ),
+          (diagnostic, index, array) =>
+            !array
+              .slice(0, index)
+              .some(
+                (other) =>
+                  other.range.start.line === diagnostic.range.start.line &&
+                  other.range.start.character ===
+                    diagnostic.range.start.character &&
+                  other.message === diagnostic.message,
+              ),
         );
 
         this.connection.sendDiagnostics({
@@ -248,9 +225,11 @@ export class LCSAdapter {
         );
       } catch (error) {
         this.logger.error(
-          `Error processing document change for ${change.document.uri}: ${error instanceof Error ? error.message : String(error)}`,
+          `Error processing document change for ${change.document.uri}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         );
-        this.logger.debug(`Document change error details:`, error);
+        this.logger.debug('Document change error details:', error);
       }
     });
 
@@ -260,9 +239,11 @@ export class LCSAdapter {
         await dispatchProcessOnSaveDocument(save);
       } catch (error) {
         this.logger.error(
-          `Error processing document save for ${save.document.uri}: ${error instanceof Error ? error.message : String(error)}`,
+          `Error processing document save for ${save.document.uri}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         );
-        this.logger.debug(`Document save error details:`, error);
+        this.logger.debug('Document save error details:', error);
       }
     });
 
@@ -272,9 +253,11 @@ export class LCSAdapter {
         await dispatchProcessOnCloseDocument(close);
       } catch (error) {
         this.logger.error(
-          `Error processing document close for ${close.document.uri}: ${error instanceof Error ? error.message : String(error)}`,
+          `Error processing document close for ${close.document.uri}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         );
-        this.logger.debug(`Document close error details:`, error);
+        this.logger.debug('Document close error details:', error);
       }
     });
   }
@@ -289,9 +272,11 @@ export class LCSAdapter {
         return await dispatchProcessOnDocumentSymbol(params);
       } catch (error) {
         this.logger.error(
-          `Error processing document symbols for ${params.textDocument.uri}: ${error instanceof Error ? error.message : String(error)}`,
+          `Error processing document symbols for ${params.textDocument.uri}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         );
-        this.logger.debug(`Document symbols error details:`, error);
+        this.logger.debug('Document symbols error details:', error);
         return [];
       }
     });
@@ -310,9 +295,13 @@ export class LCSAdapter {
         } catch (error) {
           console.error('[LCS-ADAPTER] Error processing hover:', error);
           this.logger.error(
-            `Error processing hover for ${params.textDocument.uri} at ${params.position.line}:${params.position.character}: ${error instanceof Error ? error.message : String(error)}`,
+            `Error processing hover for ${params.textDocument.uri} at ${
+              params.position.line
+            }:${params.position.character}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
           );
-          this.logger.debug(`Hover error details:`, error);
+          this.logger.debug('Hover error details:', error);
           return null;
         }
       },
@@ -325,20 +314,19 @@ export class LCSAdapter {
       ): Promise<DocumentDiagnosticReport> => {
         try {
           this.logger.debug('Processing diagnostics request with LCS');
-          const diagnosticProcessor =
-            await this.initializeDiagnosticProcessor();
-          const diagnostics = diagnosticProcessor
-            ? await diagnosticProcessor.processDiagnostic(params)
-            : [];
+          const diagnostics =
+            await this.diagnosticProcessor.processDiagnostic(params);
           return {
             kind: DocumentDiagnosticReportKind.Full,
             items: diagnostics,
           };
         } catch (error) {
           this.logger.error(
-            `Error processing diagnostics for ${params.textDocument.uri}: ${error instanceof Error ? error.message : String(error)}`,
+            `Error processing diagnostics for ${params.textDocument.uri}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
           );
-          this.logger.debug(`Diagnostics error details:`, error);
+          this.logger.debug('Diagnostics error details:', error);
           return {
             kind: DocumentDiagnosticReportKind.Full,
             items: [],
@@ -351,10 +339,7 @@ export class LCSAdapter {
     this.connection.onCompletion(
       async (params: CompletionParams): Promise<CompletionItem[]> => {
         this.logger.debug('Processing completion request with LCS');
-        const completionProcessor = await this.initializeCompletionProcessor();
-        const result = completionProcessor
-          ? await completionProcessor.processCompletion(params)
-          : null;
+        const result = await this.completionProcessor.processCompletion(params);
         return result || [];
       },
     );
@@ -422,7 +407,7 @@ export class LCSAdapter {
     }
 
     if (this.hasWorkspaceFolderCapability) {
-      this.connection.workspace.onDidChangeWorkspaceFolders((event) => {
+      this.connection.workspace.onDidChangeWorkspaceFolders((_event) => {
         this.logger.info('Workspace folder change event received.');
       });
     }

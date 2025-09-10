@@ -291,7 +291,7 @@ export const createAndStartClient = async (
     // Use vscode.Uri.joinPath for proper URI construction in web environments
     // Choose worker based on environment to optimize for web compatibility
     const workerFile = environment === 'web' ? 'worker-web.js' : 'worker.js';
-    
+
     const workerUri = vscode.Uri.joinPath(
       context.extensionUri,
       'dist',

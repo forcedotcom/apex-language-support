@@ -8,14 +8,14 @@
 
 /**
  * Web Worker polyfills for Node.js APIs
- * 
+ *
  * This module provides polyfills for Node.js APIs that are needed in web worker environments.
  * These polyfills ensure compatibility when running language server code in browser contexts.
  */
 
 /**
  * Set up process polyfill for web worker environment
- * 
+ *
  * Many Node.js packages expect a global `process` object with specific properties.
  * This polyfill provides the minimal interface needed for compatibility.
  */
@@ -39,7 +39,7 @@ export function setupProcessPolyfill(): void {
 
 /**
  * Set up Buffer polyfill for web worker environment
- * 
+ *
  * Attempts to use the bundled Buffer polyfill first, falling back to a minimal
  * implementation if the full polyfill is not available.
  */
@@ -63,7 +63,7 @@ export function setupBufferPolyfill(): void {
 
 /**
  * Initialize all web worker polyfills
- * 
+ *
  * Call this function early in your web worker to set up all necessary polyfills
  * for Node.js APIs that may be required by the language server components.
  */
