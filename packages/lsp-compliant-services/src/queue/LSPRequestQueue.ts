@@ -437,7 +437,8 @@ export class LSPRequestQueue {
    */
   private async executeHoverRequest(task: LSPRequestTask): Promise<any> {
     const service = new HoverProcessingService(getLogger());
-    return service.processHover(task.params);
+    const result = await service.processHover(task.params);
+    return result;
   }
 
   /**

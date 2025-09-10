@@ -31,11 +31,8 @@ interface SetupOptions {
 export async function setupTestWorkspace(
   options: SetupOptions = {},
 ): Promise<string> {
-  const {
-    sampleFiles = ALL_SAMPLE_FILES,
-    workspacePath: customWorkspacePath,
-    verbose = true,
-  } = options;
+  const { sampleFiles = ALL_SAMPLE_FILES, workspacePath: customWorkspacePath } =
+    options;
 
   // Determine workspace path
   const workspacePath =

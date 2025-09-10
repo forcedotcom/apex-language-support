@@ -14,6 +14,7 @@ import {
   SELECTORS,
   APEX_CLASS_EXAMPLE_CONTENT,
 } from './constants';
+import { setupTestWorkspace } from './setup';
 
 /**
  * Filters console errors to exclude non-critical patterns.
@@ -395,3 +396,356 @@ const createApexClassExampleFile = (): SampleFile =>
  * All sample files for workspace creation.
  */
 export const ALL_SAMPLE_FILES = [createApexClassExampleFile()] as const;
+
+/**
+ * Result object for full test session setup.
+ */
+export interface TestSessionResult {
+  readonly consoleErrors: ConsoleError[];
+  readonly networkErrors: NetworkError[];
+}
+
+/**
+ * Result object for test session validation.
+ */
+export interface ValidationResult {
+  readonly consoleValidation: {
+    allErrorsAllowed: boolean;
+    nonAllowedErrors: ConsoleError[];
+    totalErrors: number;
+    allowedErrors: number;
+  };
+  readonly networkValidation: {
+    allErrorsAllowed: boolean;
+    nonAllowedErrors: NetworkError[];
+    totalErrors: number;
+    allowedErrors: number;
+  };
+  readonly summary: string;
+}
+
+/**
+ * LCS integration detection result.
+ */
+export interface LCSDetectionResult {
+  readonly lcsIntegrationActive: boolean;
+  readonly workerDetected: boolean;
+  readonly bundleSize?: number;
+  readonly hasLCSMessages: boolean;
+  readonly hasStubFallback: boolean;
+  readonly hasErrorIndicators: boolean;
+  readonly summary: string;
+}
+
+/**
+ * Sets up a complete test session with monitoring, workspace, and extension activation.
+ * This consolidates the common setup pattern used across all tests.
+ *
+ * @param page - Playwright page instance
+ * @returns Object containing error monitoring arrays
+ */
+export const setupFullTestSession = async (
+  page: Page,
+): Promise<TestSessionResult> => {
+  // Setup test workspace
+  await setupTestWorkspace();
+
+  // Set up monitoring
+  const consoleErrors = setupConsoleMonitoring(page);
+  const networkErrors = setupNetworkMonitoring(page);
+
+  // Execute core test steps
+  await startVSCodeWeb(page);
+  await verifyWorkspaceFiles(page);
+  await activateExtension(page);
+  await waitForLSPInitialization(page);
+
+  return { consoleErrors, networkErrors };
+};
+
+/**
+ * Performs comprehensive validation of test session results.
+ * Consolidates error validation and reporting logic.
+ *
+ * @param consoleErrors - Console errors collected during test
+ * @param networkErrors - Network errors collected during test
+ * @returns Validation results with summary
+ */
+export const performStrictValidation = (
+  consoleErrors: ConsoleError[],
+  networkErrors: NetworkError[],
+): ValidationResult => {
+  const consoleValidation = validateAllErrorsInAllowList(consoleErrors);
+  const networkValidation = validateAllNetworkErrorsInAllowList(networkErrors);
+
+  let summary = '📊 Validation Results:\n';
+  summary += `   - Console errors: ${consoleValidation.totalErrors} (${consoleValidation.allowedErrors} allowed, `;
+  summary += `${consoleValidation.nonAllowedErrors.length} blocked)\n`;
+  summary += `   - Network errors: ${networkValidation.totalErrors} (${networkValidation.allowedErrors} allowed, `;
+  summary += `${networkValidation.nonAllowedErrors.length} blocked)\n`;
+  const passed =
+    consoleValidation.allErrorsAllowed && networkValidation.allErrorsAllowed;
+  summary += `   - Overall status: ${passed ? '✅ PASSED' : '❌ FAILED'}`;
+
+  if (consoleValidation.nonAllowedErrors.length > 0) {
+    summary += '\n❌ Non-allowed console errors:';
+    consoleValidation.nonAllowedErrors.forEach((error, index) => {
+      summary += `\n  ${index + 1}. "${error.text}" (URL: ${error.url || 'no URL'})`;
+    });
+  }
+
+  if (networkValidation.nonAllowedErrors.length > 0) {
+    summary += '\n❌ Non-allowed network errors:';
+    networkValidation.nonAllowedErrors.forEach((error, index) => {
+      summary += `\n  ${index + 1}. HTTP ${error.status} ${error.url} (${error.description})`;
+    });
+  }
+
+  return { consoleValidation, networkValidation, summary };
+};
+
+/**
+ * Detects LCS integration status by analyzing console messages and worker behavior.
+ * Consolidates LCS detection logic from multiple test files.
+ *
+ * @param page - Playwright page instance
+ * @returns LCS detection results
+ */
+export const detectLCSIntegration = async (
+  page: Page,
+): Promise<LCSDetectionResult> => {
+  const consoleMessages: string[] = [];
+  const lcsMessages: string[] = [];
+  const workerMessages: string[] = [];
+
+  // Enhanced console monitoring for LCS detection
+  page.on('console', (msg) => {
+    const text = msg.text();
+    consoleMessages.push(text);
+
+    if (text.includes('LCS') || text.includes('LSP-Compliant-Services')) {
+      lcsMessages.push(text);
+    }
+
+    if (text.includes('Worker') || text.includes('worker')) {
+      workerMessages.push(text);
+    }
+  });
+
+  // Wait for LCS initialization
+  await page.waitForTimeout(5000);
+
+  // Analyze console messages for LCS indicators
+  const hasStubFallback = consoleMessages.some(
+    (msg) =>
+      msg.includes('stub mode') ||
+      msg.includes('fallback') ||
+      msg.includes('Stub implementation'),
+  );
+
+  const hasLCSSuccess = consoleMessages.some(
+    (msg) =>
+      msg.includes('LCS Adapter') ||
+      msg.includes('LCS integration') ||
+      msg.includes('✅ Apex Language Server Worker with LCS ready'),
+  );
+
+  const hasErrorIndicators = consoleMessages.some(
+    (msg) =>
+      msg.includes('❌ Failed to start LCS') ||
+      msg.includes('🔄 Falling back to stub'),
+  );
+
+  // Check for worker detection
+  let workerDetected = false;
+  let bundleSize: number | undefined;
+
+  try {
+    const responses: { url: string; size: number }[] = [];
+
+    page.on('response', async (response) => {
+      if (
+        response.url().includes('worker.js') &&
+        response.url().includes('devextensions')
+      ) {
+        try {
+          const buffer = await response.body();
+          responses.push({
+            url: response.url(),
+            size: buffer.length,
+          });
+          bundleSize = buffer.length;
+          workerDetected = true;
+        } catch (_error) {
+          // Ignore size measurement errors
+        }
+      }
+    });
+
+    // Also check for extension worker in DOM
+    const extensionWorkerInDOM = await page.evaluate(() => {
+      const scripts = Array.from(document.querySelectorAll('script'));
+      return scripts.some(
+        (script) =>
+          script.src.includes('worker.js') &&
+          script.src.includes('devextensions'),
+      );
+    });
+
+    workerDetected = workerDetected || extensionWorkerInDOM;
+  } catch (_error) {
+    // Ignore worker detection errors
+  }
+
+  const lcsIntegrationActive =
+    hasLCSSuccess || (!hasStubFallback && !hasErrorIndicators);
+
+  const bundleSizeMB = bundleSize
+    ? `${Math.round((bundleSize / 1024 / 1024) * 100) / 100} MB`
+    : 'Unknown';
+
+  let summary = '🔍 LCS Integration Analysis:\n';
+  summary += `   - LCS Integration: ${lcsIntegrationActive ? '✅ ACTIVE' : '❌ INACTIVE'}\n`;
+  summary += `   - Worker Detected: ${workerDetected ? '✅ YES' : '❌ NO'}\n`;
+  summary += `   - Bundle Size: ${bundleSizeMB}\n`;
+  summary += `   - LCS Messages: ${lcsMessages.length}\n`;
+  summary += `   - Stub Fallback: ${hasStubFallback ? '⚠️ YES' : '✅ NO'}\n`;
+  summary += `   - Error Indicators: ${hasErrorIndicators ? '❌ YES' : '✅ NO'}`;
+
+  return {
+    lcsIntegrationActive,
+    workerDetected,
+    bundleSize,
+    hasLCSMessages: lcsMessages.length > 0,
+    hasStubFallback,
+    hasErrorIndicators,
+    summary,
+  };
+};
+
+/**
+ * Waits for LCS services to be ready by checking for completion functionality.
+ * Replaces unreliable setTimeout calls with deterministic waiting.
+ *
+ * @param page - Playwright page instance
+ */
+export const waitForLCSReady = async (page: Page): Promise<void> => {
+  try {
+    // Wait for editor to be ready
+    const monacoEditor = page.locator(SELECTORS.MONACO_EDITOR);
+    await monacoEditor.waitFor({ state: 'visible', timeout: 15000 });
+
+    // Try to trigger completion to test LCS services
+    await monacoEditor.click();
+    await positionCursorInConstructor(page);
+    await page.keyboard.type('System.');
+
+    // Wait for completion suggestion or timeout
+    await page
+      .waitForSelector('.suggest-widget, .monaco-list, [id*="suggest"]', {
+        timeout: 5000,
+      })
+      .catch(() => {
+        // Completion might not appear immediately, continue
+      });
+
+    // Clean up the typed text
+    await page.keyboard.press('Control+Z'); // Undo the typing
+  } catch (_error) {
+    // If LCS readiness check fails, continue - this is informational
+    console.log('ℹ️ LCS readiness check completed with minor issues');
+  }
+};
+
+/**
+ * Tests LSP language services functionality (completion, symbols, etc.).
+ * Consolidates LSP functionality testing from multiple files.
+ *
+ * @param page - Playwright page instance
+ * @returns Object indicating which LSP features are working
+ */
+export const testLSPFunctionality = async (
+  page: Page,
+): Promise<{
+  completionTested: boolean;
+  symbolsTested: boolean;
+  editorResponsive: boolean;
+}> => {
+  const monacoEditor = page.locator(SELECTORS.MONACO_EDITOR);
+  let completionTested = false;
+  let symbolsTested = false;
+  let editorResponsive = false;
+
+  try {
+    // Test editor responsiveness
+    await monacoEditor.click();
+    editorResponsive = await monacoEditor.isVisible();
+
+    // Test completion services
+    await positionCursorInConstructor(page);
+    await page.keyboard.type('System.');
+    await page.waitForTimeout(2000);
+
+    const completionWidget = page.locator(
+      '.suggest-widget, .monaco-list, [id*="suggest"]',
+    );
+    completionTested = await completionWidget.isVisible().catch(() => false);
+
+    if (completionTested) {
+      await page.keyboard.press('Escape'); // Close completion
+    }
+
+    // Clean up typed text
+    await page.keyboard.press('Control+Z');
+
+    // Test document symbols
+    await page.keyboard.press('Control+Shift+O'); // Open symbol picker
+    await page.waitForTimeout(1000);
+
+    const symbolPicker = page.locator(
+      '.quick-input-widget, [id*="quickInput"]',
+    );
+    symbolsTested = await symbolPicker.isVisible().catch(() => false);
+
+    if (symbolsTested) {
+      await page.keyboard.press('Escape'); // Close symbol picker
+    }
+  } catch (_error) {
+    // LSP functionality testing is informational
+  }
+
+  return { completionTested, symbolsTested, editorResponsive };
+};
+
+/**
+ * Positions the cursor inside the constructor method of the ApexClassExample class.
+ * This provides a proper context for testing completion services.
+ *
+ * @param page - Playwright page instance
+ */
+export const positionCursorInConstructor = async (
+  page: Page,
+): Promise<void> => {
+  try {
+    // Use Ctrl+F to find the constructor method
+    await page.keyboard.press('Control+F');
+    await page.waitForTimeout(500);
+
+    // Search for the constructor method signature
+    await page.keyboard.type('this.instanceId = instanceId;');
+    await page.keyboard.press('Enter'); // Search
+    await page.keyboard.press('Escape'); // Close search dialog
+
+    // Position cursor at the end of the constructor method, before the closing brace
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter'); // Add new line
+    await page.keyboard.type('        '); // Add proper indentation (8 spaces to match constructor body)
+  } catch (_error) {
+    console.log(
+      '⚠️ Could not position cursor in constructor, using default position',
+    );
+    // Fallback to end of file if constructor positioning fails
+    await page.keyboard.press('Control+End');
+    await page.keyboard.type('\n    ');
+  }
+};

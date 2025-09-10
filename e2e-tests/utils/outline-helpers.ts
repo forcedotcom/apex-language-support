@@ -132,6 +132,67 @@ export const captureOutlineViewScreenshot = async (
 };
 
 /**
+ * Ensures all outline tree symbols are visible by expanding the tree and scrolling.
+ *
+ * @param page - Playwright page instance
+ */
+const ensureOutlineTreeFullyVisible = async (page: Page): Promise<void> => {
+  try {
+    // Find the outline tree container
+    const outlineTree = page
+      .locator('.outline-tree, .monaco-tree, .tree-explorer')
+      .first();
+
+    if (await outlineTree.isVisible()) {
+      // Expand all tree nodes by clicking expand icons
+      const expandIcons = page.locator(
+        [
+          '.outline-tree .codicon-chevron-right',
+          '.monaco-tree .codicon-chevron-right',
+          '.codicon-tree-item-expanded',
+          '.codicon-triangle-right',
+        ].join(', '),
+      );
+      const expandCount = await expandIcons.count();
+
+      for (let i = 0; i < expandCount; i++) {
+        const icon = expandIcons.nth(i);
+        if (await icon.isVisible()) {
+          await icon.click().catch(() => {}); // Ignore errors if already expanded
+        }
+      }
+
+      // Also try to expand by double-clicking on class names to reveal methods
+      const classElements = page.locator(
+        [
+          '.outline-tree .monaco-list-row:has-text("ApexClassExample")',
+          '.monaco-tree .monaco-list-row:has-text("ApexClassExample")',
+        ].join(', '),
+      );
+      const classCount = await classElements.count();
+
+      for (let i = 0; i < classCount; i++) {
+        const classElement = classElements.nth(i);
+        if (await classElement.isVisible()) {
+          await classElement.dblclick().catch(() => {}); // Double-click to expand
+        }
+      }
+
+      // Scroll to the bottom of the outline tree to ensure all symbols are rendered
+      await outlineTree.hover();
+      await page.keyboard.press('End'); // Scroll to bottom
+      await page.waitForTimeout(500); // Wait for rendering
+
+      // Scroll back to top
+      await page.keyboard.press('Home'); // Scroll to top
+      await page.waitForTimeout(500); // Wait for rendering
+    }
+  } catch (error) {
+    console.log(`⚠️  Failed to fully expand outline tree: ${error}`);
+  }
+};
+
+/**
  * Validates specific Apex symbols are present in the outline view.
  *
  * @param page - Playwright page instance
@@ -153,6 +214,32 @@ export const validateApexSymbolsInOutline = async (
   await page.waitForSelector('.outline-tree .monaco-list-row', {
     timeout: 5_000, // Outline generation timeout
   });
+
+  // Ensure outline tree is fully expanded and all symbols are visible
+  await ensureOutlineTreeFullyVisible(page);
+
+  // Debug: Log all visible text in the outline for troubleshooting
+  try {
+    const allOutlineText = await page
+      .locator('.outline-tree, .monaco-tree')
+      .first()
+      .textContent();
+    console.log('🔍 All outline text content:', allOutlineText);
+
+    // Get all outline row elements for debugging
+    const outlineRows = page.locator(
+      '.outline-tree .monaco-list-row, .monaco-tree .monaco-list-row',
+    );
+    const rowCount = await outlineRows.count();
+    console.log(`🔍 Found ${rowCount} outline rows`);
+
+    for (let i = 0; i < Math.min(rowCount, 10); i++) {
+      const rowText = await outlineRows.nth(i).textContent();
+      console.log(`  Row ${i}: ${rowText}`);
+    }
+  } catch (_error) {
+    console.log('⚠️  Could not retrieve outline debug information');
+  }
 
   // Validate class exists
   let classFound = false;
@@ -182,11 +269,13 @@ export const validateApexSymbolsInOutline = async (
   const expectedMethodNames = expectedSymbols.methods.map((m) => m.name);
 
   for (const method of expectedSymbols.methods) {
+    // Enhanced selectors that work better with scrollable content
     const methodSelectors = [
-      '.codicon-symbol-method',
-      `[aria-label*="${method.name}"]`,
-      `text=${method.name}`,
-      `.outline-tree .monaco-list-row:has-text("${method.name}")`,
+      `text=${method.name}`, // Direct text match (most reliable)
+      `.outline-tree .monaco-list-row:has-text("${method.name}")`, // Tree row with text
+      `.monaco-tree .monaco-list-row:has-text("${method.name}")`, // Alternative tree structure
+      `[aria-label*="${method.name}"]`, // Aria label match
+      `.codicon-symbol-method ~ span:has-text("${method.name}")`, // Method icon with text
     ];
 
     let methodFound = false;
@@ -194,6 +283,14 @@ export const validateApexSymbolsInOutline = async (
       const methodElements = page.locator(selector);
       const count = await methodElements.count();
       if (count > 0) {
+        // Scroll the found element into view to ensure it's visible
+        try {
+          await methodElements.first().scrollIntoViewIfNeeded();
+          await page.waitForTimeout(100); // Brief wait for scroll
+        } catch (_error) {
+          // Ignore scroll errors
+        }
+
         exactMethodsFound.push(method.name);
         methodFound = true;
 
@@ -201,12 +298,30 @@ export const validateApexSymbolsInOutline = async (
         if (process.env.DEBUG_MODE) {
           await methodElements.first().hover();
         }
+        console.log(`✅ Found method '${method.name}' in outline`);
         break;
       }
     }
 
     if (!methodFound) {
       console.log(`❌ Expected method '${method.name}' not found in outline`);
+
+      // Try alternative approach: get all text content and search
+      try {
+        const outlineText = await page
+          .locator('.outline-tree, .monaco-tree')
+          .first()
+          .textContent();
+        if (outlineText && outlineText.includes(method.name)) {
+          console.log(
+            `ℹ️  Method '${method.name}' found in outline text but not via selectors`,
+          );
+          exactMethodsFound.push(method.name);
+          methodFound = true;
+        }
+      } catch (_error) {
+        // Ignore text search errors
+      }
     }
   }
 

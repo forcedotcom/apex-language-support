@@ -18,12 +18,21 @@ function copyWorkerFiles() {
     __dirname,
     '../../apex-ls/dist/worker.global.js.map',
   );
+  const workerWebSrc = path.resolve(
+    __dirname,
+    '../../apex-ls/dist/worker-web.global.js',
+  );
+  const workerWebMapSrc = path.resolve(
+    __dirname,
+    '../../apex-ls/dist/worker-web.global.js.map',
+  );
   const distDir = path.resolve(__dirname, '../dist');
 
   if (!fs.existsSync(distDir)) {
     fs.mkdirSync(distDir, { recursive: true });
   }
 
+  // Copy main worker
   if (fs.existsSync(workerSrc)) {
     // Copy worker keeping .js extension since it's IIFE
     fs.copyFileSync(workerSrc, path.join(distDir, 'worker.js'));
@@ -37,6 +46,21 @@ function copyWorkerFiles() {
     console.log('✅ Copied worker.js.map');
   } else {
     console.warn('⚠️ worker.js.map not found at:', workerMapSrc);
+  }
+
+  // Copy web worker variant
+  if (fs.existsSync(workerWebSrc)) {
+    fs.copyFileSync(workerWebSrc, path.join(distDir, 'worker-web.js'));
+    console.log('✅ Copied worker-web.js');
+  } else {
+    console.warn('⚠️ worker-web.js not found at:', workerWebSrc);
+  }
+
+  if (fs.existsSync(workerWebMapSrc)) {
+    fs.copyFileSync(workerWebMapSrc, path.join(distDir, 'worker-web.js.map'));
+    console.log('✅ Copied worker-web.js.map');
+  } else {
+    console.warn('⚠️ worker-web.js.map not found at:', workerWebMapSrc);
   }
 }
 
