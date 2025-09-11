@@ -21,16 +21,15 @@ import {
 
 import { LCSAdapter } from './server/LCSAdapter';
 import { setupWebWorkerPolyfills } from './utils/webWorkerPolyfills';
-
-// Initialize polyfills early in the worker lifecycle
-setupWebWorkerPolyfills();
+import { getWorkerSelf } from './utils/EnvironmentUtils';
 
 /**
  * Main worker entry point with LCS integration
  */
 async function startServer(): Promise<void> {
+  // Initialize polyfills early in the worker lifecycle
+  await setupWebWorkerPolyfills();
   // Create a connection for the server using type-safe worker context
-  const { getWorkerSelf } = require('./utils/EnvironmentUtils');
   const workerSelf = getWorkerSelf();
   if (!workerSelf) {
     throw new Error('Worker context not available');

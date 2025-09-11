@@ -43,11 +43,11 @@ export function setupProcessPolyfill(): void {
  * Attempts to use the bundled Buffer polyfill first, falling back to a minimal
  * implementation if the full polyfill is not available.
  */
-export function setupBufferPolyfill(): void {
+export async function setupBufferPolyfill(): Promise<void> {
   if (typeof globalThis.Buffer === 'undefined') {
     try {
-      // Try to use the bundled Buffer polyfill
-      const { Buffer } = require('buffer');
+      // Try to use the bundled Buffer polyfill with dynamic import
+      const { Buffer } = await import('buffer');
       globalThis.Buffer = Buffer;
       console.log('[APEX-WORKER] Buffer polyfill loaded successfully');
     } catch (_error) {
@@ -67,7 +67,7 @@ export function setupBufferPolyfill(): void {
  * Call this function early in your web worker to set up all necessary polyfills
  * for Node.js APIs that may be required by the language server components.
  */
-export function setupWebWorkerPolyfills(): void {
+export async function setupWebWorkerPolyfills(): Promise<void> {
   setupProcessPolyfill();
-  setupBufferPolyfill();
+  await setupBufferPolyfill();
 }

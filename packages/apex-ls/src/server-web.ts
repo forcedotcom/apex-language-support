@@ -7,9 +7,6 @@
  */
 
 // Full LCS web worker for VS Code web environments
-// This version runs complete LCS integration with proper polyfills
-
-// ESM imports - grouped by source
 import {
   createConnection,
   BrowserMessageReader,
@@ -23,18 +20,16 @@ import {
 } from '@salesforce/apex-lsp-shared';
 
 import { setupWebWorkerPolyfills } from './utils/webWorkerPolyfills';
-
-// Initialize polyfills early in the worker lifecycle
-setupWebWorkerPolyfills();
+import { getWorkerSelf } from './utils/EnvironmentUtils';
 
 /**
  * Full LCS web worker entry point for VS Code web
- * Runs complete LCS integration with optimized bundle
  */
 async function startWebWorker(): Promise<void> {
+  // Initialize polyfills early in the worker lifecycle
+  await setupWebWorkerPolyfills();
   try {
     // Create a connection for the server using type-safe worker context
-    const { getWorkerSelf } = require('./utils/EnvironmentUtils');
     const workerSelf = getWorkerSelf();
     if (!workerSelf) {
       throw new Error('Worker context not available');
@@ -51,22 +46,16 @@ async function startWebWorker(): Promise<void> {
     const logger = loggerFactory.createLogger(connection);
     setLoggerFactory(loggerFactory);
 
-    // Send initial log messages
-    logger.info('🚀 Full LCS Web Worker loading...');
-    logger.info('✅ Connection created');
+    const { LCSAdapter } = await import('./server/LCSAdapter'); // Load bearing await import. DO NOT REMOVE.
 
-    // Load the full LCS adapter
-    logger.info('🔧 Loading full LCS integration...');
-    const { LCSAdapter } = await import('./server/LCSAdapter');
-
+    // Load the full server via adapter
+    logger.info('🚀 Web Worker loading...');
     const lcsAdapter = new LCSAdapter({
       connection,
       logger: logger as any,
     } as any);
 
     await lcsAdapter.initialize();
-    logger.info('✅ Full LCS Adapter loaded successfully');
-
     logger.info('✅ Apex Language Server Web Worker ready!');
   } catch (_error) {
     console.error('❌ Failed to start web worker:', _error);

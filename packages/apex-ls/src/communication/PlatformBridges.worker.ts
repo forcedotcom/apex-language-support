@@ -15,6 +15,7 @@ import {
 import { SelfMessageTransport } from './MessageTransports';
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
 import type { WorkerConfig } from './Interfaces';
+import { isWorkerThread } from '../utils/EnvironmentUtils';
 
 /**
  * Worker-side bridge for communicating with the main thread
@@ -34,7 +35,6 @@ export class WorkerMessageBridge extends BaseMessageBridge {
   }
 
   static isWorkerEnvironment(): boolean {
-    const { isWorkerThread } = require('../utils/EnvironmentUtils');
     return isWorkerThread();
   }
 
