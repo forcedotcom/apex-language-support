@@ -10,6 +10,7 @@ import { defineConfig } from 'tsup';
 import {
   nodeBaseConfig,
   browserBaseConfig,
+  configureWebWorkerPolyfills,
 } from '../../build-config/tsup.shared';
 import { copyFileSync, existsSync } from 'fs';
 
@@ -19,22 +20,22 @@ const APEX_LS_EXTERNAL = [
   // VSCode Language Server Protocol (Node.js specific)
   'vscode-languageserver/node',
   'vscode-jsonrpc/node',
-  
+
   // Parser engine - large Salesforce Apex grammar parser (~2MB)
   '@apexdevtools/apex-parser',
-  // ANTLR4 TypeScript runtime - grammar processing engine  
+  // ANTLR4 TypeScript runtime - grammar processing engine
   'antlr4ts',
-  
+
   // AST and symbol processing - complex analysis engine
   '@salesforce/apex-lsp-parser-ast',
   // Custom services - specialized language features
   '@salesforce/apex-lsp-custom-services',
-  
+
   // Node.js built-in and utility modules
-  'node-dir',    // Directory scanning utilities
-  'crypto',      // Cryptographic functions
-  'fs',          // File system operations
-  'path',        // Path manipulation utilities
+  'node-dir', // Directory scanning utilities
+  'crypto', // Cryptographic functions
+  'fs', // File system operations
+  'path', // Path manipulation utilities
 ];
 
 // Worker-specific externals for browser/webworker compatibility
@@ -44,15 +45,15 @@ const WORKER_EXTERNAL = [
   '@apexdevtools/apex-parser',
   // Grammar processing - loaded when syntax analysis is required
   'antlr4ts',
-  
+
   // AST processing - complex symbol management, lazy loaded for performance
   '@salesforce/apex-lsp-parser-ast',
   // Custom services - specialized features loaded as needed
   '@salesforce/apex-lsp-custom-services',
-  
+
   // Heavy utility libraries - externalized to keep worker bundle manageable
   'data-structure-typed', // Advanced data structures and algorithms
-  'effect',               // Functional programming utilities and effects
+  'effect', // Functional programming utilities and effects
 ];
 
 // Always bundle these for consistent behavior across all environments
@@ -62,15 +63,15 @@ const APEX_LS_BUNDLE = [
   '@salesforce/apex-lsp-shared',
   // Core LSP services - main language server functionality and protocol handling
   '@salesforce/apex-lsp-compliant-services',
-  
+
   // VSCode LSP Protocol libraries - essential for LSP communication
   'vscode-languageserver-textdocument', // Document lifecycle management
-  'vscode-languageserver-protocol',     // LSP message types and interfaces
-  'vscode-jsonrpc',                     // JSON-RPC communication protocol
+  'vscode-languageserver-protocol', // LSP message types and interfaces
+  'vscode-jsonrpc', // JSON-RPC communication protocol
 ];
 
 // Copy type definitions helper
-const copyDtsFiles = () => {
+const copyDtsFiles = async (): Promise<void> => {
   const files = ['index.d.ts', 'browser.d.ts', 'worker.d.ts'];
   files.forEach((file) => {
     if (existsSync(`out/${file}`)) {
@@ -124,29 +125,8 @@ export default defineConfig([
     noExternal: APEX_LS_BUNDLE,
     splitting: false,
     esbuildOptions(options) {
-      options.conditions = ['browser', 'worker', 'import', 'module', 'default'];
-      options.mainFields = ['browser', 'module', 'main'];
-      // Browser polyfills for Node.js APIs
-      options.alias = {
-        path: 'path-browserify',
-        crypto: 'crypto-browserify',
-        stream: 'stream-browserify',
-        fs: 'memfs',
-        os: 'os-browserify/browser',
-        process: 'process/browser.js',
-        buffer: 'buffer',
-      };
-      // Define global replacements for webworker environment
-      options.define = {
-        ...options.define,
-        'process.env.NODE_ENV': '"production"',
-        global: 'globalThis',
-        Buffer: 'globalThis.Buffer',
-      };
-      // Optimize bundle size with tree shaking
-      options.treeShaking = true;
-      // Ensure webworker globals are available
-      options.inject = options.inject || [];
+      // Apply comprehensive web worker polyfill configuration
+      configureWebWorkerPolyfills(options);
     },
   },
 
@@ -166,29 +146,8 @@ export default defineConfig([
     noExternal: APEX_LS_BUNDLE,
     splitting: false,
     esbuildOptions(options) {
-      options.conditions = ['browser', 'worker', 'import', 'module', 'default'];
-      options.mainFields = ['browser', 'module', 'main'];
-      // Browser polyfills for Node.js APIs
-      options.alias = {
-        path: 'path-browserify',
-        crypto: 'crypto-browserify',
-        stream: 'stream-browserify',
-        fs: 'memfs',
-        os: 'os-browserify/browser',
-        process: 'process/browser.js',
-        buffer: 'buffer',
-      };
-      // Define global replacements for webworker environment
-      options.define = {
-        ...options.define,
-        'process.env.NODE_ENV': '"production"',
-        global: 'globalThis',
-        Buffer: 'globalThis.Buffer',
-      };
-      // Optimize bundle size with tree shaking
-      options.treeShaking = true;
-      // Ensure webworker globals are available
-      options.inject = options.inject || [];
+      // Apply comprehensive web worker polyfill configuration
+      configureWebWorkerPolyfills(options);
     },
   },
 ]);

@@ -6,7 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Full LCS web worker for VS Code web environments
+import processPolyfill from 'process';
+import { Buffer } from 'buffer';
+
 import {
   createConnection,
   BrowserMessageReader,
@@ -19,15 +21,30 @@ import {
   UniversalLoggerFactory,
 } from '@salesforce/apex-lsp-shared';
 
-import { setupWebWorkerPolyfills } from './utils/webWorkerPolyfills';
 import { getWorkerSelf } from './utils/EnvironmentUtils';
 
 /**
- * Full LCS web worker entry point for VS Code web
+ * VS Code web-specific worker entry point with dynamic LCS adapter loading
  */
 async function startWebWorker(): Promise<void> {
-  // Initialize polyfills early in the worker lifecycle
-  await setupWebWorkerPolyfills();
+  // Set up Node.js polyfills as globals immediately
+  (globalThis as any).process = processPolyfill;
+  (globalThis as any).Buffer = Buffer;
+  (globalThis as any).global = globalThis;
+
+  // Validate that the web worker environment is properly configured
+  const hasProcess = typeof globalThis.process !== 'undefined';
+  const hasBuffer = typeof globalThis.Buffer !== 'undefined';
+
+  if (!hasProcess || !hasBuffer) {
+    console.error('[APEX-WORKER] Environment validation failed:', {
+      process: hasProcess,
+      Buffer: hasBuffer,
+    });
+    throw new Error('Web worker environment validation failed');
+  }
+
+  console.log('[APEX-WORKER] Environment validation successful');
   try {
     // Create a connection for the server using type-safe worker context
     const workerSelf = getWorkerSelf();

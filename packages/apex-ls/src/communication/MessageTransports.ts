@@ -8,7 +8,10 @@
 
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
 import type { Worker } from './Interfaces';
-import { getWorkerSelf, isWorkerPostMessageAvailable } from '../utils/EnvironmentUtils';
+import {
+  getWorkerSelf,
+  isWorkerPostMessageAvailable,
+} from '../utils/EnvironmentUtils';
 
 // =============================================================================
 // BROWSER/WORKER TRANSPORTS

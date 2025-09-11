@@ -18,7 +18,11 @@ import {
 } from './MessageTransports';
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
 import type { BrowserConfig, WorkerConfig, Worker } from './Interfaces';
-import { isWindowAvailable, isWorkerAPIAvailable, isWorkerThread } from '../utils/EnvironmentUtils';
+import {
+  isWindowAvailable,
+  isWorkerAPIAvailable,
+  isWorkerThread,
+} from '../utils/EnvironmentUtils';
 
 // =============================================================================
 // MESSAGE BRIDGES
