@@ -12,11 +12,17 @@ import {
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
-  LSPRequestQueue,
   LSPRequestType,
   RequestPriority,
   LSPQueueStats,
 } from './LSPRequestQueue';
+import { ServiceRegistry } from '../registry/ServiceRegistry';
+import { GenericLSPRequestQueue } from './GenericLSPRequestQueue';
+import { ServiceFactory } from '../factories/ServiceFactory';
+import { DEFAULT_SERVICE_CONFIG } from '../config/ServiceConfiguration';
+import { GenericRequestHandler } from '../registry/GenericRequestHandler';
+import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { ApexSettingsManager } from '../settings/ApexSettingsManager';
 
 /**
  * LSP Queue Manager
@@ -28,16 +34,60 @@ import {
 export class LSPQueueManager {
   private static instance: LSPQueueManager | null = null;
   private readonly logger = getLogger();
-  private readonly requestQueue: LSPRequestQueue;
+  private readonly requestQueue: GenericLSPRequestQueue;
   private readonly symbolManager: ISymbolManager;
+  private readonly serviceRegistry: ServiceRegistry;
   private isShutdown = false;
 
   private constructor() {
-    this.requestQueue = new LSPRequestQueue();
+    // Initialize the service registry
+    this.serviceRegistry = new ServiceRegistry();
+
+    // Initialize the generic queue with the service registry
+    this.requestQueue = new GenericLSPRequestQueue(this.serviceRegistry);
+
     this.symbolManager =
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
 
-    this.logger.debug(() => 'LSP Queue Manager initialized');
+    // Register all services
+    this.registerServices();
+
+    this.logger.debug(
+      () => 'LSP Queue Manager initialized with service registry',
+    );
+  }
+
+  /**
+   * Register all services with the registry
+   */
+  private registerServices(): void {
+    const serviceFactory = new ServiceFactory({
+      logger: this.logger,
+      symbolManager: this.symbolManager,
+      storageManager: ApexStorageManager.getInstance(),
+      settingsManager: ApexSettingsManager.getInstance(),
+    });
+
+    for (const config of DEFAULT_SERVICE_CONFIG) {
+      const service = config.serviceFactory({ serviceFactory });
+      const handler = new GenericRequestHandler(
+        config.requestType,
+        service,
+        config.priority,
+        config.timeout,
+        config.maxRetries,
+      );
+
+      this.serviceRegistry.register(handler, {
+        priority: config.priority,
+        timeout: config.timeout,
+        maxRetries: config.maxRetries,
+      });
+    }
+
+    this.logger.debug(
+      () => `Registered ${DEFAULT_SERVICE_CONFIG.length} services`,
+    );
   }
 
   /**

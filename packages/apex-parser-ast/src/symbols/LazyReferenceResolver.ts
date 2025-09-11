@@ -338,7 +338,7 @@ export class LazyReferenceResolver {
       }
 
       // Now look for the member within the qualifier's file
-      const memberCandidates = fileLookup(qualifier.filePath).filter(
+      const memberCandidates = fileLookup(qualifier.fileUri).filter(
         (symbol) =>
           symbol.name === referenceVertex.name &&
           symbol.parentId === qualifier.id,
@@ -397,7 +397,7 @@ export class LazyReferenceResolver {
       if (targetSymbol.modifiers?.isBuiltIn) return true;
 
       // Same file access
-      if (targetSymbol.filePath === sourceFile) return true;
+      if (targetSymbol.fileUri === sourceFile) return true;
 
       // Global access
       if (targetSymbol.modifiers && targetSymbol.modifiers.isStatic) {
@@ -415,7 +415,7 @@ export class LazyReferenceResolver {
         const sourceNamespace = this.extractNamespaceFromPath(sourceFile);
         const targetNamespace =
           targetSymbol.namespace ||
-          this.extractNamespaceFromPath(targetSymbol.filePath);
+          this.extractNamespaceFromPath(targetSymbol.fileUri);
 
         if (sourceNamespace === targetNamespace) {
           return true;
@@ -451,9 +451,7 @@ export class LazyReferenceResolver {
     sourceFile: string,
   ): ApexSymbol | null {
     // Prefer same file
-    const sameFile = candidates.find(
-      (symbol) => symbol.filePath === sourceFile,
-    );
+    const sameFile = candidates.find((symbol) => symbol.fileUri === sourceFile);
     if (sameFile) return sameFile;
 
     // Prefer accessible symbols

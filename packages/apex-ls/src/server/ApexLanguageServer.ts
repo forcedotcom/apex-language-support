@@ -10,7 +10,6 @@ import type { MessageConnection } from 'vscode-jsonrpc';
 import type {
   EnvironmentType,
   StorageConfig,
-  IStorage,
 } from '@salesforce/apex-lsp-shared';
 import {
   isNodeEnvironment,
@@ -27,8 +26,40 @@ export interface ServerConfig {
   storageConfig?: StorageConfig;
 }
 
-// Import the unified storage factory registry
-// Import storage factories directly like the working tests do
+/**
+ * Environment-aware storage factory registry
+ */
+class StorageFactoryRegistry {
+  private static factories = new Map<EnvironmentType, any>();
+
+  static async getStorageFactory(environment: EnvironmentType) {
+    if (!this.factories.has(environment)) {
+      switch (environment) {
+        case 'node':
+          const { NodeStorageFactory } = await import(
+            '../storage/StorageImplementations'
+          );
+          this.factories.set(environment, new NodeStorageFactory());
+          break;
+        case 'webworker':
+          const { WorkerStorageFactory } = await import(
+            '../storage/StorageImplementations'
+          );
+          this.factories.set(environment, new WorkerStorageFactory());
+          break;
+        case 'browser':
+          const { BrowserStorageFactory } = await import(
+            '../storage/StorageImplementations'
+          );
+          this.factories.set(environment, new BrowserStorageFactory());
+          break;
+        default:
+          throw new Error(`Unsupported environment: ${environment}`);
+      }
+    }
+    return this.factories.get(environment);
+  }
+}
 
 /**
  * Unified Apex language server implementation
@@ -49,36 +80,15 @@ export class ApexLanguageServer {
   }
 
   /**
-   * Creates storage using the exact same pattern as the working tests
-   */
-  private async createStorage(config?: StorageConfig): Promise<IStorage> {
-    // Import fresh each time to avoid module cache issues with mocked tests
-    const { WorkerStorageFactory, BrowserStorageFactory } = await import(
-      '../storage/StorageImplementations'
-    );
-
-    switch (this.environment) {
-      case 'browser':
-        const browserFactory = new BrowserStorageFactory();
-        return browserFactory.createStorage(config);
-      case 'node':
-      case 'webworker':
-        // Use WorkerStorageFactory the exact same way as the working tests
-        return WorkerStorageFactory.createStorage(config);
-      default:
-        throw new Error(
-          `Unsupported environment for storage: ${this.environment}`,
-        );
-    }
-  }
-
-  /**
    * Initializes the language server with environment-aware configuration
    */
   async initialize(): Promise<void> {
-    // Initialize environment-appropriate storage using direct approach like tests
+    // Initialize environment-appropriate storage
+    const StorageFactory = await StorageFactoryRegistry.getStorageFactory(
+      this.environment,
+    );
     const storageConfig = this.getEnvironmentStorageConfig();
-    const _storage = await this.createStorage(storageConfig);
+    const _storage = await StorageFactory.createStorage(storageConfig);
 
     // Environment-specific initialization
     switch (this.environment) {

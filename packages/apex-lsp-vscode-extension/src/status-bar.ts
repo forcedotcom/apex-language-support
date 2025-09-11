@@ -99,57 +99,6 @@ export const updateLogLevelStatusItems = (currentLogLevel: string): void => {
  * @param setLogLevel A function to set the log level
  * @param restartHandler A function to restart the language server
  */
-export const registerApexLanguageStatusMenu = (
-  context: vscode.ExtensionContext,
-  getCurrentLogLevel: () => string,
-  setLogLevel: (level: string) => Promise<void>,
-  restartHandler: () => Promise<void>,
-): void => {
-  const langStatusItem = vscode.languages.createLanguageStatusItem(
-    'apex-ls-ts.actions',
-    'apex',
-  );
-  langStatusItem.name = 'Apex-LS-TS';
-  langStatusItem.text = 'Apex-LS-TS';
-  langStatusItem.detail = 'Apex-LS-TS Language Actions';
-  langStatusItem.command = {
-    title: 'Apex-LS-TS Actions',
-    command: 'apex-ls-ts.languageStatusMenu',
-  };
-  context.subscriptions.push(langStatusItem);
-
-  // Register the menu command
-  const menuCommand = vscode.commands.registerCommand(
-    'apex-ls-ts.languageStatusMenu',
-    async () => {
-      const currentLogLevel = getCurrentLogLevel();
-      const logLevels = ['error', 'warning', 'info', 'debug'];
-      const quickPickItems: vscode.QuickPickItem[] = [
-        ...logLevels.map((level) => ({
-          label: `Log Level: ${level.charAt(0).toUpperCase() + level.slice(1)}`,
-          picked: currentLogLevel === level,
-          description: currentLogLevel === level ? 'Current' : undefined,
-        })),
-        { label: 'Restart Apex-LS-TS Language Server', alwaysShow: true },
-      ];
-      const pick = await vscode.window.showQuickPick(quickPickItems, {
-        placeHolder: 'Select an action',
-      });
-      if (!pick) return;
-      if (pick.label.startsWith('Log Level:')) {
-        const selectedLevel = pick.label
-          .split(':')[1]
-          .replace('$(check)', '')
-          .trim()
-          .toLowerCase();
-        await setLogLevel(selectedLevel);
-      } else if (pick.label === 'Restart Apex-LS-TS Language Server') {
-        await restartHandler();
-      }
-    },
-  );
-  context.subscriptions.push(menuCommand);
-};
 
 /**
  * Creates the persistent LanguageStatusItem for Apex server status

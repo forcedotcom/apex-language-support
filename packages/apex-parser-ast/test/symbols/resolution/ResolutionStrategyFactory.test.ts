@@ -1,11 +1,13 @@
-import {
-  selectResolutionStrategy,
-  ResolutionRequest,
-} from '../../../src/symbols/resolution/strategySelection';
-import {
-  canResolvePositionBasedRequest,
-  resolveSymbolAtPosition,
-} from '../../../src/symbols/resolution/positionBasedResolution';
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+import { selectResolutionStrategy } from '../../../src/symbols/resolution/strategySelection';
+import { resolveSymbolAtPosition } from '../../../src/symbols/resolution/positionBasedResolution';
+import { ResolutionRequest } from '../../../src/symbols/resolution/types';
 
 describe('Resolution Strategy Selection', () => {
   describe('selectResolutionStrategy', () => {
@@ -18,8 +20,8 @@ describe('Resolution Strategy Selection', () => {
       const strategy = selectResolutionStrategy(request);
 
       expect(strategy).toBeDefined();
-      expect(strategy.canResolve(request)).toBe(true);
-      expect(strategy.resolve).toBe(resolveSymbolAtPosition);
+      expect(strategy?.canResolve(request)).toBe(true);
+      expect(strategy?.resolve).toBe(resolveSymbolAtPosition);
     });
 
     it('should select position-based strategy for definition requests', () => {
@@ -31,7 +33,7 @@ describe('Resolution Strategy Selection', () => {
       const strategy = selectResolutionStrategy(request);
 
       expect(strategy).toBeDefined();
-      expect(strategy.canResolve(request)).toBe(true);
+      expect(strategy?.canResolve(request)).toBe(true);
     });
 
     it('should select position-based strategy for references requests', () => {
@@ -43,7 +45,7 @@ describe('Resolution Strategy Selection', () => {
       const strategy = selectResolutionStrategy(request);
 
       expect(strategy).toBeDefined();
-      expect(strategy.canResolve(request)).toBe(true);
+      expect(strategy?.canResolve(request)).toBe(true);
     });
 
     it('should return undefined for unsupported request types', () => {
@@ -66,7 +68,7 @@ describe('Resolution Strategy Selection', () => {
       const strategy = selectResolutionStrategy(request);
 
       expect(strategy).toBeDefined();
-      expect(strategy.priority).toBe('high');
+      expect(strategy?.priority).toBe('high');
     });
   });
 

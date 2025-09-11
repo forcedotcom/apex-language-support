@@ -48,6 +48,7 @@ import {
   TypeNameContext,
   InstanceOfExpressionContext,
   ExpressionListContext,
+  TypeArgumentsContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4ts';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -56,7 +57,11 @@ import { BaseApexParserListener } from './BaseApexParserListener';
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
-import { TypeReferenceFactory } from '../../types/typeReference';
+import {
+  TypeReferenceFactory,
+  ReferenceContext,
+  EnhancedTypeReference,
+} from '../../types/typeReference';
 import type { TypeReference } from '../../types/typeReference';
 import {
   EnumSymbol,
@@ -93,6 +98,7 @@ import {
 } from '../../utils/symbolNarrowing';
 import { isContextType } from '../../utils/contextTypeGuards';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../constants/constants';
+import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 
 interface SemanticError {
   type: 'semantic';
@@ -101,6 +107,15 @@ interface SemanticError {
   line: number;
   column: number;
   filePath: string;
+}
+
+interface ChainScope {
+  isActive: boolean;
+  baseExpression: string;
+  chainNodes: TypeReference[];
+  startLocation: SymbolLocation;
+  depth: number;
+  parentScope?: ChainScope;
 }
 
 /**
@@ -128,6 +143,12 @@ export class ApexSymbolCollectorListener
   private suppressAssignmentLHS: boolean = false;
   private suppressedLHSRange: SymbolLocation | null = null;
 
+  // NEW: Method call parameter tracking
+  private inMethodCallParameters: boolean = false;
+  private methodCallParameterChains: ChainScope[] = [];
+
+  private hierarchicalResolver = new HierarchicalReferenceResolver();
+
   /**
    * Creates a new instance of the ApexSymbolCollectorListener.
    * @param symbolTable Optional existing symbol table to use. If not provided, a new one will be created.
@@ -136,8 +157,8 @@ export class ApexSymbolCollectorListener
     super();
     this.logger = getLogger();
     this.symbolTable = symbolTable || new SymbolTable();
-    // Initialize the file scope
-    this.symbolTable.enterScope('file');
+    // Note: SymbolTable constructor already creates a 'file' scope as root
+    // No need to call enterScope('file') again
   }
 
   /**
@@ -147,6 +168,14 @@ export class ApexSymbolCollectorListener
     this.projectNamespace = namespace;
     this.currentNamespace = namespace ? Namespaces.create(namespace) : null;
     this.logger.debug(() => `Set project namespace to: ${namespace}`);
+  }
+
+  /**
+   * Set the current file path for this compilation
+   */
+  setCurrentFilePath(filePath: string): void {
+    this.currentFilePath = filePath;
+    this.logger.debug(() => `Set current file path to: ${filePath}`);
   }
 
   /**
@@ -162,7 +191,8 @@ export class ApexSymbolCollectorListener
    */
   createNewInstance(): BaseApexParserListener<SymbolTable> {
     const newTable = new SymbolTable();
-    newTable.enterScope('file');
+    // Note: SymbolTable constructor already creates a 'file' scope as root
+    // No need to call enterScope('file') again
     return new ApexSymbolCollectorListener(newTable);
   }
 
@@ -249,13 +279,12 @@ export class ApexSymbolCollectorListener
 
   /**
    * Called when entering a class declaration in the Apex code.
-   * Processes the class declaration, its modifiers, and annotations.
+   * Processes the class declaration, its modifiers, superclass, interfaces, and annotations.
    * @param ctx The parser context for the class declaration.
    */
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownClass';
-      this.logger.debug(() => `Entering class declaration: ${name}`);
 
       // Validate identifier
       const validationResult = IdentifierValidator.validateIdentifier(
@@ -270,6 +299,25 @@ export class ApexSymbolCollectorListener
           this.addError(error, ctx);
         });
         // Continue symbol creation to maximize collection robustness even with invalid identifiers
+      }
+
+      // Check for duplicate class name in the same scope
+      if (this.currentTypeSymbol) {
+        if (name === this.currentTypeSymbol.name) {
+          this.addError(
+            `Inner class '${name}' cannot have the same name as its outer class '${this.currentTypeSymbol.name}'.`,
+            ctx,
+          );
+        }
+
+        // Check for nested inner class by checking if currentTypeSymbol has a parent
+        if (this.currentTypeSymbol && this.currentTypeSymbol.parent) {
+          this.addError(
+            `Inner class '${name}' cannot be defined within another inner class. ` +
+              'Apex does not support nested inner classes.',
+            ctx,
+          );
+        }
       }
 
       // Validate class in interface
@@ -302,26 +350,6 @@ export class ApexSymbolCollectorListener
           .typeList()
           ?.typeRef()
           .map((t) => t.text) || [];
-
-      // Validate inner class rules if this is an inner class
-      if (this.currentTypeSymbol) {
-        // Check for same name as outer class
-        if (name === this.currentTypeSymbol.name) {
-          this.addError(
-            `Inner class '${name}' cannot have the same name as its outer class '${this.currentTypeSymbol.name}'.`,
-            ctx,
-          );
-        }
-
-        // Check for nested inner class by checking if currentTypeSymbol has a parent
-        if (this.currentTypeSymbol && this.currentTypeSymbol.parent) {
-          this.addError(
-            `Inner class '${name}' cannot be defined within another inner class. ` +
-              'Apex does not support nested inner classes.',
-            ctx,
-          );
-        }
-      }
 
       // Create a new class symbol
       const classSymbol = this.createTypeSymbol(
@@ -358,7 +386,6 @@ export class ApexSymbolCollectorListener
 
       // Enter class scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(() => `Entered class scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -372,13 +399,26 @@ export class ApexSymbolCollectorListener
    * Called when exiting a class declaration
    */
   exitClassDeclaration(): void {
-    // Exit the class scope
-    const currentScope = this.symbolTable.getCurrentScope();
-    this.logger.debug(() => `Exiting class scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
 
     // Clear current type symbol
     this.currentTypeSymbol = null;
+
+    // Try to restore parent type symbol from the current scope
+    const scopePath = this.symbolTable.getCurrentScopePath();
+    if (scopePath.length > 1) {
+      // We're still in a nested scope, try to find the parent type symbol
+      const parentScopeName = scopePath[scopePath.length - 1];
+      const parentTypeSymbol = this.symbolTable.lookup(parentScopeName);
+      if (
+        parentTypeSymbol &&
+        (parentTypeSymbol.kind === SymbolKind.Class ||
+          parentTypeSymbol.kind === SymbolKind.Interface ||
+          parentTypeSymbol.kind === SymbolKind.Enum)
+      ) {
+        this.currentTypeSymbol = parentTypeSymbol as TypeSymbol;
+      }
+    }
   }
 
   /**
@@ -387,7 +427,6 @@ export class ApexSymbolCollectorListener
   enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
     try {
       const name = ctx.id()?.text ?? 'unknownInterface';
-      this.logger.debug(() => `Entering interface declaration: ${name}`);
 
       // Validate identifier
       const validationResult = IdentifierValidator.validateIdentifier(
@@ -457,7 +496,6 @@ export class ApexSymbolCollectorListener
 
       // Enter interface scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(() => `Entered interface scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -471,9 +509,24 @@ export class ApexSymbolCollectorListener
    * Called when exiting an interface declaration
    */
   exitInterfaceDeclaration(): void {
-    // Exit the interface scope
     this.symbolTable.exitScope();
     this.currentTypeSymbol = null;
+
+    // Try to restore parent type symbol from the current scope
+    const scopePath = this.symbolTable.getCurrentScopePath();
+    if (scopePath.length > 1) {
+      // We're still in a nested scope, try to find the parent type symbol
+      const parentScopeName = scopePath[scopePath.length - 1];
+      const parentTypeSymbol = this.symbolTable.lookup(parentScopeName);
+      if (
+        parentTypeSymbol &&
+        (parentTypeSymbol.kind === SymbolKind.Class ||
+          parentTypeSymbol.kind === SymbolKind.Interface ||
+          parentTypeSymbol.kind === SymbolKind.Enum)
+      ) {
+        this.currentTypeSymbol = parentTypeSymbol as TypeSymbol;
+      }
+    }
   }
 
   /**
@@ -483,8 +536,6 @@ export class ApexSymbolCollectorListener
    */
   enterMethodDeclaration(ctx: MethodDeclarationContext): void {
     try {
-      this.logger.debug(() => 'ENTERING METHOD DECLARATION');
-
       // Enhanced debug logging for method name extraction
       const idNode = ctx.id();
       let name = idNode?.text ?? 'unknownMethod';
@@ -501,46 +552,6 @@ export class ApexSymbolCollectorListener
           }
         }
       }
-
-      this.logger.debug(
-        `DEBUG: enterMethodDeclaration called for method: ${name}`,
-      );
-      this.logger.debug(
-        `DEBUG: ctx.id() result: ${idNode ? 'present' : 'null'}`,
-      );
-      this.logger.debug(`DEBUG: ctx.text: "${ctx.text}"`);
-      this.logger.debug(
-        `DEBUG: ctx.children count: ${ctx.children?.length || 0}`,
-      );
-      if (ctx.children) {
-        ctx.children.forEach((child, index) => {
-          this.logger.debug(
-            `DEBUG: Child ${index}: ${child.text} (${child.constructor.name})`,
-          );
-        });
-      }
-
-      this.logger.debug(() => '=== Method Declaration Debug ===');
-      this.logger.debug(() => `Context type: ${ctx.constructor.name}`);
-      this.logger.debug(() => `ID node: ${idNode ? 'present' : 'null'}`);
-      this.logger.debug(() => `ID node text: "${idNode?.text || 'undefined'}"`);
-      this.logger.debug(
-        () => `ID node type: ${idNode?.constructor.name || 'null'}`,
-      );
-      this.logger.debug(() => `Extracted name: "${name}"`);
-      this.logger.debug(
-        () => `Current type symbol: ${this.currentTypeSymbol?.name || 'null'}`,
-      );
-      this.logger.debug(
-        () =>
-          `Current namespace: ${this.currentNamespace?.toString() || 'null'}`,
-      );
-
-      this.logger.debug(
-        () =>
-          `Entering method declaration: ${name} in class: ${this.currentTypeSymbol?.name}`,
-      );
-
       // Validate identifier
       const validationResult = IdentifierValidator.validateIdentifier(
         name,
@@ -629,18 +640,12 @@ export class ApexSymbolCollectorListener
 
       // Store the current method symbol
       this.currentMethodSymbol = methodSymbol;
-      this.logger.debug(`DEBUG: Created method symbol: ${methodSymbol.name}`);
 
       // Add method symbol to current scope
       this.symbolTable.addSymbol(methodSymbol);
-      this.logger.debug(
-        `DEBUG: Added method symbol to symbol table: ${methodSymbol.name}`,
-      );
 
       // Enter method scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(`DEBUG: Entered method scope: ${name}`);
-      this.logger.debug(() => `Entered method scope: ${name}`);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error in method declaration: ${errorMessage}`, ctx);
@@ -653,8 +658,6 @@ export class ApexSymbolCollectorListener
    */
   exitMethodDeclaration(): void {
     // Exit method scope
-    const currentScope = this.symbolTable.getCurrentScope();
-    this.logger.debug(() => `Exiting method scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
 
     // Clear current method symbol
@@ -672,14 +675,9 @@ export class ApexSymbolCollectorListener
    */
   enterConstructorDeclaration(ctx: ConstructorDeclarationContext): void {
     try {
-      this.logger.debug(() => 'ENTERING CONSTRUCTOR DECLARATION');
-
       // Extract constructor name from the qualified name in the context
       const qualifiedName = ctx.qualifiedName();
       const ids = qualifiedName?.id();
-      const lastId = ids && ids.length > 0 ? ids[ids.length - 1] : undefined;
-      const name =
-        lastId?.text ?? this.currentTypeSymbol?.name ?? 'unknownConstructor';
 
       // Validate that constructor name is not a dotted name (semantic error)
       if (ids && ids.length > 1) {
@@ -689,6 +687,12 @@ export class ApexSymbolCollectorListener
         this.addError(qualifiedNameError, ctx);
         return;
       }
+
+      // Extract the constructor name (should be a single identifier)
+      const name =
+        ids && ids.length > 0
+          ? ids[0].text
+          : (this.currentTypeSymbol?.name ?? 'unknownConstructor');
 
       // Validate that constructor name matches the enclosing class name
       if (this.currentTypeSymbol && name !== this.currentTypeSymbol.name) {
@@ -743,62 +747,15 @@ export class ApexSymbolCollectorListener
 
       const modifiers = this.getCurrentModifiers();
 
-      // Get the qualified name id location which is the last id in the qualified name
-      let qualifiedNameIdLocation: SymbolLocation | undefined;
-      if (lastId?.start && lastId?.stop) {
-        // lastId is a terminal token, so we need to create the location manually
-        qualifiedNameIdLocation = {
-          symbolRange: {
-            startLine: lastId.start.line,
-            startColumn: lastId.start.charPositionInLine,
-            endLine: lastId.stop.line,
-            endColumn:
-              lastId.stop.charPositionInLine + (lastId.stop.text?.length ?? 0),
-          },
-          identifierRange: {
-            startLine: lastId.start.line,
-            startColumn: lastId.start.charPositionInLine,
-            endLine: lastId.stop.line,
-            endColumn:
-              lastId.stop.charPositionInLine + (lastId.stop.text?.length ?? 0),
-          },
-        };
-        this.logger.debug(
-          () =>
-            `DEBUG: Created constructor identifier location: ${JSON.stringify(qualifiedNameIdLocation)}`,
-        );
-      } else {
-        this.logger.debug(
-          () =>
-            `DEBUG: No lastId location found for constructor: lastId=${JSON.stringify(lastId)}`,
-        );
-      }
-
-      // Create constructor symbol using createMethodSymbol method
-      const constructorSymbol = this.createMethodSymbol(
+      // Create constructor symbol using dedicated createConstructorSymbol method
+      // The getIdentifierLocation method will automatically handle qualified names
+      // and extract the proper identifier location from the parser structure
+      const constructorSymbol = this.createConstructorSymbol(
         ctx,
         name,
         modifiers,
-        createPrimitiveType('void'),
-        qualifiedNameIdLocation,
       );
 
-      this.logger.debug(
-        () =>
-          `DEBUG: Constructor symbol created with location: ${JSON.stringify(constructorSymbol.location)}`,
-      );
-      this.logger.debug(
-        () =>
-          `DEBUG: Constructor symbol location type: ${typeof constructorSymbol.location}`,
-      );
-      this.logger.debug(
-        () =>
-          `DEBUG: Constructor symbol has location: ${!!constructorSymbol.location}`,
-      );
-
-      // Set constructor-specific properties
-      constructorSymbol.isConstructor = true;
-      constructorSymbol.kind = SymbolKind.Constructor;
       this.currentMethodSymbol = constructorSymbol;
       this.symbolTable.addSymbol(constructorSymbol);
       this.symbolTable.enterScope(name);
@@ -830,22 +787,6 @@ export class ApexSymbolCollectorListener
       // Enhanced debug logging for interface method name extraction
       const idNode = ctx.id();
       const name = idNode?.text ?? 'unknownMethod';
-
-      this.logger.debug(() => '=== Interface Method Declaration Debug ===');
-      this.logger.debug(() => `Context type: ${ctx.constructor.name}`);
-      this.logger.debug(() => `ID node: ${idNode ? 'present' : 'null'}`);
-      this.logger.debug(() => `ID node text: "${idNode?.text || 'undefined'}"`);
-      this.logger.debug(
-        () => `ID node type: ${idNode?.constructor.name || 'null'}`,
-      );
-      this.logger.debug(() => `Extracted name: "${name}"`);
-      this.logger.debug(
-        () => `Current type symbol: ${this.currentTypeSymbol?.name || 'null'}`,
-      );
-      this.logger.debug(
-        () =>
-          `Current namespace: ${this.currentNamespace?.toString() || 'null'}`,
-      );
 
       // Get current annotations
       const annotations = this.getCurrentAnnotations();
@@ -902,7 +843,6 @@ export class ApexSymbolCollectorListener
 
       // Enter method scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(() => `Entered interface method scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -960,9 +900,6 @@ export class ApexSymbolCollectorListener
     try {
       const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
       const name = ctx.id?.()?.text ?? 'unknownProperty';
-      this.logger.debug(
-        `Entering property declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
-      );
 
       // Get current modifiers
       const modifiers = this.getCurrentModifiers();
@@ -994,6 +931,19 @@ export class ApexSymbolCollectorListener
       );
       this.symbolTable.addSymbol(propertySymbol);
 
+      // Capture the property name as a type reference
+      const propertyNameNode = ctx.id?.();
+      if (propertyNameNode) {
+        const propertyLocation = this.getLocation(
+          propertyNameNode as unknown as ParserRuleContext,
+        );
+        const propertyReference = TypeReferenceFactory.createPropertyReference(
+          name,
+          propertyLocation,
+        );
+        this.symbolTable.addTypeReference(propertyReference);
+      }
+
       // Reset modifiers and annotations for the next symbol
       this.resetModifiers();
       this.resetAnnotations();
@@ -1007,13 +957,8 @@ export class ApexSymbolCollectorListener
    * Called when entering a field declaration
    */
   enterFieldDeclaration(ctx: FieldDeclarationContext): void {
-    this.logger.debug(() => 'enterFieldDeclaration called');
     try {
       const type = this.createTypeInfo(this.getTextFromContext(ctx.typeRef()!));
-      this.logger.debug(
-        () =>
-          `Entering field declaration in class: ${this.currentTypeSymbol?.name}, type: ${type.name}`,
-      );
 
       // Get current modifiers
       const modifiers = this.getCurrentModifiers();
@@ -1040,11 +985,6 @@ export class ApexSymbolCollectorListener
       for (const declarator of ctx
         .variableDeclarators()
         ?.variableDeclarator() || []) {
-        const name = declarator.id()?.text ?? 'unknownVariable';
-        this.logger.debug(
-          () =>
-            `Processing field variable: ${name} in class: ${this.currentTypeSymbol?.name}`,
-        );
         this.processVariableDeclarator(
           declarator,
           type,
@@ -1067,30 +1007,14 @@ export class ApexSymbolCollectorListener
    */
   enterLocalVariableDeclarationStatement(ctx: ParserRuleContext): void {
     try {
-      this.logger.debug(() => 'enterLocalVariableDeclarationStatement called');
-      this.logger.debug(() => `Context text: ${ctx.text}`);
-      this.logger.debug(
-        () => `Current method: ${this.currentMethodSymbol?.name}`,
-      );
-      this.logger.debug(
-        () => `Current scope: ${this.symbolTable.getCurrentScope().name}`,
-      );
-
       // Extract the local variable declaration from the statement
       // The statement has the structure: localVariableDeclaration SEMI
       // So the first child should be the localVariableDeclaration
       const localVarDecl = ctx.children?.[0];
       if (localVarDecl) {
-        this.logger.debug(
-          () =>
-            `Found local variable declaration child: ${localVarDecl.constructor.name}`,
-        );
-
         // Process the local variable declaration directly here
         // since the parser doesn't call enterLocalVariableDeclaration
         this.processLocalVariableDeclaration(localVarDecl);
-      } else {
-        this.logger.debug(() => 'No local variable declaration child found');
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -1206,8 +1130,6 @@ export class ApexSymbolCollectorListener
    */
   exitBlock(): void {
     // Exit block scope
-    const currentScope = this.symbolTable.getCurrentScope();
-    this.logger.debug(() => `Exiting block scope: ${currentScope.name}`);
     this.symbolTable.exitScope();
     this.blockDepth--;
   }
@@ -1237,7 +1159,6 @@ export class ApexSymbolCollectorListener
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(() => `Entered trigger scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -1281,7 +1202,6 @@ export class ApexSymbolCollectorListener
 
       // Enter trigger scope
       this.symbolTable.enterScope(name);
-      this.logger.debug(() => `Entered trigger scope: ${name}`);
 
       // Reset annotations for the next symbol
       this.resetAnnotations();
@@ -1307,19 +1227,12 @@ export class ApexSymbolCollectorListener
    */
   enterMethodCallExpression(ctx: MethodCallExpressionContext): void {
     // No-op: method calls are captured in enterMethodCall for precise identifier locations
-    this.logger.debug(
-      () =>
-        `DEBUG: enterMethodCallExpression encountered. Deferring to enterMethodCall for capture. Text: "${ctx.text}"`,
-    );
   }
 
   /**
    * Capture constructor call references (e.g., "new Property__c()")
    */
   enterNewExpression(ctx: NewExpressionContext): void {
-    this.logger.debug(
-      `DEBUG: enterNewExpression called with text: "${ctx.text}"`,
-    );
     try {
       this.captureConstructorCallReference(ctx);
     } catch (error) {
@@ -1335,22 +1248,47 @@ export class ApexSymbolCollectorListener
   enterDotExpression(ctx: DotExpressionContext): void {
     // Suppress during LHS of assignment to avoid duplicate captures
     if (this.shouldSuppress(ctx)) {
-      this.logger.debug(
-        () =>
-          `DEBUG: Suppression state: suppressAssignmentLHS=${
-            this.suppressAssignmentLHS
-          }, suppressedLHSRange=${JSON.stringify(this.suppressedLHSRange)}`,
-      );
       return;
     }
-    this.logger.debug(
-      `DEBUG: enterDotExpression called with text: "${ctx.text}"`,
-    );
-    try {
-      // Only capture field accesses here. Dot-method calls are handled in enterDotMethodCall
-      this.captureDottedReferences(ctx);
-    } catch (error) {
-      this.logger.warn(() => `Error capturing dotted references: ${error}`);
+
+    // Handle nested expressions in method call parameters
+    if (this.inMethodCallParameters) {
+      // Create a new chain scope for this parameter expression
+      const parameterChain = this.createNewChainScope(ctx);
+      this.methodCallParameterChains.push(parameterChain);
+      return;
+    }
+
+    // Start a new chain expression scope
+    if (!this.chainExpressionScope) {
+      this.chainExpressionScope = this.createNewChainScope(ctx);
+    } else {
+      // We're already in a chain scope, increment depth
+      this.chainExpressionScope.depth++;
+    }
+  }
+
+  /**
+   * Exit dot expression to finalize chain processing
+   */
+  exitDotExpression(ctx: DotExpressionContext): void {
+    // Handle nested expressions in method call parameters
+    if (this.inMethodCallParameters) {
+      // The parameter chain will be finalized in exitExpressionList
+      return;
+    }
+
+    if (this.chainExpressionScope) {
+      if (this.chainExpressionScope.depth === 0) {
+        // Exiting the root chain expression scope
+        this.finalizeChainScope(this.chainExpressionScope);
+
+        // Clear the scope
+        this.chainExpressionScope = null;
+      } else {
+        // Decrement depth for nested expressions
+        this.chainExpressionScope.depth--;
+      }
     }
   }
 
@@ -1369,13 +1307,9 @@ export class ApexSymbolCollectorListener
       const reference = TypeReferenceFactory.createMethodCallReference(
         methodName,
         location,
-        undefined,
         parentContext,
       );
       this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        () => `Captured method call (unqualified): ${methodName}`,
-      );
     } catch (error) {
       this.logger.warn(() => `Error capturing MethodCall: ${error}`);
     }
@@ -1392,62 +1326,35 @@ export class ApexSymbolCollectorListener
         ? this.getLocation(anyIdNode as unknown as ParserRuleContext)
         : this.getLocation(ctx);
 
-      // Extract qualifier from the parent DotExpression
-      let qualifier: string | undefined = undefined;
-      let qualifierLocation: SymbolLocation | undefined = undefined;
-      const parent = ctx.parent as ParserRuleContext | undefined;
-      if (
-        parent &&
-        parent.constructor &&
-        parent.constructor.name === 'DotExpressionContext'
+      if (this.chainExpressionScope?.isActive) {
+        // Add this method call to the current chain scope
+        this.chainExpressionScope.chainNodes.push(
+          this.createExpressionNode(
+            methodName,
+            methodLocation,
+            ReferenceContext.METHOD_CALL,
+          ),
+        );
+      } else if (
+        this.inMethodCallParameters &&
+        this.methodCallParameterChains.length > 0
       ) {
-        const dotParent = parent as unknown as DotExpressionContext;
-        const lhs =
-          (dotParent as any).expression?.(0) ||
-          (dotParent as any).expression?.();
-        if (lhs) {
-          qualifier = this.getTextFromContext(lhs);
-          // Use the left-hand expression location for precise qualifier range
-          const lhsLoc = this.getLocation(lhs as unknown as ParserRuleContext);
-          if (qualifier) {
-            qualifierLocation = lhsLoc;
-          }
-        }
+        // Add to the most recent parameter chain
+        const currentParamChain =
+          this.methodCallParameterChains[
+            this.methodCallParameterChains.length - 1
+          ];
+        currentParamChain.chainNodes.push(
+          this.createExpressionNode(
+            methodName,
+            methodLocation,
+            ReferenceContext.METHOD_CALL,
+          ),
+        );
+      } else {
+        // Not in chain scope - process as standalone method call
+        this.processStandaloneMethodCall(ctx, methodName, methodLocation);
       }
-
-      const parentContext = this.getCurrentMethodName();
-      // Emit qualifier reference first for parity with previous behavior and tests
-      if (qualifier && qualifierLocation) {
-        const isClassReference = !this.isVariableInScope(qualifier);
-        if (isClassReference) {
-          const classRef = TypeReferenceFactory.createClassReference(
-            qualifier,
-            qualifierLocation,
-            parentContext,
-          );
-          this.symbolTable.addTypeReference(classRef);
-        } else {
-          const variableRef = TypeReferenceFactory.createVariableUsageReference(
-            qualifier,
-            qualifierLocation,
-            parentContext,
-          );
-          this.symbolTable.addTypeReference(variableRef);
-        }
-      }
-
-      const reference = TypeReferenceFactory.createMethodCallReference(
-        methodName,
-        methodLocation,
-        qualifier,
-        parentContext,
-        qualifierLocation,
-      );
-      this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        () =>
-          `Captured method call (qualified): ${qualifier ? qualifier + '.' : ''}${methodName}`,
-      );
     } catch (error) {
       this.logger.warn(() => `Error capturing DotMethodCall: ${error}`);
     }
@@ -1458,12 +1365,6 @@ export class ApexSymbolCollectorListener
    */
   enterTypeRef(ctx: TypeRefContext): void {
     try {
-      // If this TypeRef is a generic argument (inside a TypeList), skip here.
-      // The outer owning TypeRef will capture generic parameter references once with precise locations.
-      if (this.isGenericArgument(ctx)) {
-        return;
-      }
-
       const typeNames = ctx.typeName();
       if (!typeNames || typeNames.length === 0) return;
 
@@ -1471,99 +1372,91 @@ export class ApexSymbolCollectorListener
       const typeName = typeNames[0];
       if (!typeName) return;
 
+      // Check if this is a generic argument (inside a TypeList)
+      const isGenericArg = this.isGenericArgument(ctx);
+
       // Determine if this is a type declaration (variable/field declaration) or parameter
       const isTypeDeclaration = this.isTypeDeclarationContext(ctx);
 
-      // Use grammar structure: typeName is either LIST/SET/MAP (reserved) or id (regular identifier)
-      const baseTypeId = typeName.id();
-      let baseTypeName: string | undefined;
+      // Check if this is a method return type context
+      const isMethodReturnType = this.isMethodReturnTypeContext(ctx);
+
+      // For qualified type names (e.g., System.Url), we need to combine all type names
+      let fullTypeName: string;
       let baseLocation: SymbolLocation | undefined;
 
-      if (baseTypeId) {
-        // Regular identifier case: id typeArguments?
-        baseTypeName = baseTypeId.text;
-        baseLocation = this.getLocationForReference(baseTypeId);
-      } else {
-        // Collection type case: LIST/SET/MAP typeArguments?
-        // The grammar ensures these are the only reserved types without id()
-        // For collection types, the base is the first token (List, Set, or Map)
-
-        baseTypeName = `${typeName.LIST() || typeName.SET() || typeName.MAP()}`;
-        const tnLoc = this.getLocationForReference(typeName);
-        baseLocation = tnLoc;
-      }
-
-      if (baseTypeName && baseLocation) {
-        const parentContext = this.determineTypeReferenceContext(ctx);
-        const baseReference = isTypeDeclaration
-          ? TypeReferenceFactory.createTypeDeclarationReference(
-              baseTypeName,
-              baseLocation,
-              parentContext,
-            )
-          : TypeReferenceFactory.createParameterTypeReference(
-              baseTypeName,
-              baseLocation,
-              parentContext,
-            );
-        this.symbolTable.addTypeReference(baseReference);
-        this.logger.debug(
-          () =>
-            `DEBUG: Created ${
-              isTypeDeclaration ? 'TYPE_DECLARATION' : 'PARAMETER_TYPE'
-            } for base type: "${baseTypeName}" in context: ${
-              parentContext || 'unknown'
-            }`,
-        );
-      }
-
-      // Check for generics using parser structure
-      const typeArgs = typeName.typeArguments();
-      if (typeArgs) {
-        const typeList = typeArgs.typeList();
-        if (typeList) {
-          for (const genericTypeRef of typeList.typeRef()) {
-            const genericTypeName = genericTypeRef.text;
-            const location = this.getLocationForReference(genericTypeRef);
-            const parentContext = this.determineTypeReferenceContext(ctx);
-
-            // Check if we already have a reference for this generic type at the same location
-            if (
-              this.hasExistingTypeReferenceAtLocation(
-                genericTypeName,
-                location,
-                parentContext,
-              )
-            ) {
-              this.logger.debug(
-                () =>
-                  `DEBUG: Skipping duplicate generic type reference at location: ${genericTypeName} ` +
-                  `in context: ${parentContext}`,
-              );
-              continue;
-            }
-
-            const genericReference = isTypeDeclaration
-              ? TypeReferenceFactory.createTypeDeclarationReference(
-                  genericTypeName,
-                  location,
-                  parentContext,
-                )
-              : TypeReferenceFactory.createParameterTypeReference(
-                  genericTypeName,
-                  location,
-                  parentContext,
-                );
-            this.symbolTable.addTypeReference(genericReference);
-
-            this.logger.debug(
-              () =>
-                `DEBUG: Created PARAMETER_TYPE for generic type: "${genericTypeName}" ` +
-                `in context: ${parentContext || 'unknown'}`,
-            );
+      if (typeNames.length > 1) {
+        // This is a qualified type name like System.Url
+        const typeNameParts = typeNames.map((tn) => {
+          const id = tn.id();
+          if (id) {
+            return id.text;
+          } else {
+            // Handle collection types
+            return `${tn.LIST() || tn.SET() || tn.MAP()}`;
           }
+        });
+        fullTypeName = typeNameParts.join('.');
+        baseLocation = this.getLocationForReference(typeNames[0]);
+      } else {
+        // Single type name
+        const baseTypeId = typeName.id();
+        if (baseTypeId) {
+          // Regular identifier case: id typeArguments?
+          fullTypeName = baseTypeId.text;
+          baseLocation = this.getLocationForReference(baseTypeId);
+        } else {
+          // Collection type case: LIST/SET/MAP typeArguments?
+          fullTypeName = `${typeName.LIST() || typeName.SET() || typeName.MAP()}`;
+          baseLocation = this.getLocationForReference(typeName);
         }
       }
+
+      if (fullTypeName && baseLocation) {
+        const parentContext = this.determineTypeReferenceContext(ctx);
+
+        // Extract precise locations for dotted type names
+        const preciseLocations =
+          typeNames.length > 1
+            ? this.getPreciseLocationsForDottedType(typeNames)
+            : undefined;
+
+        // Create the appropriate type reference based on context
+        let baseReference: TypeReference;
+
+        if (isGenericArg) {
+          // Skip creating references for generic arguments here - they are handled by enterTypeArguments
+          return;
+        } else if (isMethodReturnType) {
+          // Use the new createReturnTypeReference method for method return types
+          baseReference = TypeReferenceFactory.createReturnTypeReference(
+            fullTypeName,
+            baseLocation,
+            parentContext,
+            preciseLocations,
+          );
+        } else if (isTypeDeclaration) {
+          baseReference = TypeReferenceFactory.createTypeDeclarationReference(
+            fullTypeName,
+            baseLocation,
+            parentContext,
+            preciseLocations,
+          );
+        } else {
+          // For other cases, use PARAMETER_TYPE
+          baseReference = TypeReferenceFactory.createParameterTypeReference(
+            fullTypeName,
+            baseLocation,
+            parentContext,
+            preciseLocations,
+          );
+        }
+
+        this.symbolTable.addTypeReference(baseReference);
+      }
+
+      // Generic type arguments are now handled by enterTypeArguments method
+      // This provides better separation of concerns and more accurate context tracking
     } catch (error) {
       this.logger.warn(
         () => `Error capturing type declaration reference: ${error}`,
@@ -1577,40 +1470,53 @@ export class ApexSymbolCollectorListener
    */
   enterAnyId(ctx: AnyIdContext): void {
     try {
-      this.logger.debug(
-        () => `DEBUG: enterAnyId called with text: "${ctx.text || ''}"`,
-      );
-
       // Check if this is part of a dot expression
       const parent = ctx.parent;
-      this.logger.debug(
-        () =>
-          `DEBUG: Parent context: ${parent?.constructor?.name || 'undefined'}`,
-      );
 
       if (parent && isContextType(parent, DotExpressionContext)) {
         const dotContext = parent;
         const fieldName = ctx.text;
 
-        this.logger.debug(
-          () => `DEBUG: Processing dot expression for field: "${fieldName}"`,
-        );
-
         // Check if we're in an assignment LHS context to avoid duplication
         if (this.isInAssignmentLHS(ctx)) {
-          this.logger.debug(
-            () =>
-              `DEBUG: Skipping field access capture in assignment LHS: "${fieldName}"`,
+          return;
+        }
+
+        // Add to chain scope if we're in one
+        if (this.chainExpressionScope?.isActive) {
+          this.chainExpressionScope.chainNodes.push(
+            this.createExpressionNode(
+              fieldName,
+              this.getLocation(ctx),
+              ReferenceContext.FIELD_ACCESS,
+            ),
           );
+
+          // Skip creating individual field access reference when in chain scope
+          // The HEAD reference will handle the entire chain
+          return;
+        } else if (
+          this.inMethodCallParameters &&
+          this.methodCallParameterChains.length > 0
+        ) {
+          // Add to the most recent parameter chain
+          const currentParamChain =
+            this.methodCallParameterChains[
+              this.methodCallParameterChains.length - 1
+            ];
+          currentParamChain.chainNodes.push(
+            this.createExpressionNode(
+              fieldName,
+              this.getLocation(ctx),
+              ReferenceContext.FIELD_ACCESS,
+            ),
+          );
+
           return;
         }
 
         // Get the left expression (the object)
         const expressions = dotContext.expression();
-        this.logger.debug(
-          () =>
-            `DEBUG: Expressions type: ${typeof expressions}, isArray: ${Array.isArray(expressions)}`,
-        );
 
         // Handle both array and single expression cases
         const leftExpression =
@@ -1618,22 +1524,13 @@ export class ApexSymbolCollectorListener
             ? expressions[0]
             : (expressions ?? null);
 
-        this.logger.debug(
-          () =>
-            `DEBUG: Left expression type: ${leftExpression?.constructor?.name || 'undefined'}`,
-        );
-
         if (leftExpression) {
           const objectName = leftExpression.text;
-
-          this.logger.debug(
-            () => `DEBUG: Left expression (object): "${objectName}"`,
-          );
 
           // Create FIELD_ACCESS reference
           const location = this.getLocationForReference(ctx);
           const parentContext = this.getCurrentMethodName();
-          const qualifierLocation = this.getLocation(
+          const _qualifierLocation = this.getLocation(
             leftExpression as unknown as ParserRuleContext,
           );
 
@@ -1642,20 +1539,10 @@ export class ApexSymbolCollectorListener
             location,
             objectName,
             parentContext,
-            undefined,
-            qualifierLocation,
           );
 
           this.symbolTable.addTypeReference(fieldRef);
-          this.logger.debug(
-            () => `Captured FIELD_ACCESS: ${fieldName} (object: ${objectName})`,
-          );
         }
-      } else {
-        this.logger.debug(
-          () =>
-            `DEBUG: Not in dot expression context, parent: ${parent?.constructor?.name || 'undefined'}`,
-        );
       }
     } catch (error) {
       this.logger.warn(
@@ -1670,10 +1557,6 @@ export class ApexSymbolCollectorListener
    */
   enterIdPrimary(ctx: IdPrimaryContext): void {
     if (this.shouldSuppress(ctx)) {
-      this.logger.debug(
-        () =>
-          `DEBUG: Suppressing idPrimary within assignment LHS: "${ctx.text || ''}"`,
-      );
       return;
     }
 
@@ -1687,10 +1570,6 @@ export class ApexSymbolCollectorListener
           isContextType(parent, DotExpressionContext) ||
           isContextType(parent, DotMethodCallContext)
         ) {
-          this.logger.debug(
-            () =>
-              `DEBUG: Skipping idPrimary capture inside dot expression: "${ctx.text || ''}"`,
-          );
           return;
         }
         parent = parent.parent;
@@ -1707,9 +1586,6 @@ export class ApexSymbolCollectorListener
       parentContext,
     );
     this.symbolTable.addTypeReference(reference);
-    this.logger.debug(
-      `DEBUG: Created VARIABLE_USAGE for primary identifier: "${variableName}"`,
-    );
   }
 
   /**
@@ -1719,7 +1595,6 @@ export class ApexSymbolCollectorListener
   enterPrimaryExpression(ctx: PrimaryExpressionContext): void {
     // The specific primary types are handled by their individual listeners
     // This method can be used for general primary expression processing if needed
-    this.logger.debug('DEBUG: Entering primary expression context');
   }
 
   /**
@@ -1825,9 +1700,6 @@ export class ApexSymbolCollectorListener
         parentContext,
       );
       this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for array access: "${arrayName}"`,
-      );
     }
 
     // Capture the index expression
@@ -1843,9 +1715,6 @@ export class ApexSymbolCollectorListener
         parentContext,
       );
       this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for array index: "${indexText}"`,
-      );
     }
   }
 
@@ -1861,15 +1730,13 @@ export class ApexSymbolCollectorListener
       const location = this.getLocation(typeRef);
       const parentContext = this.getCurrentMethodName();
 
-      const reference = TypeReferenceFactory.createClassReference(
+      // Use the new CAST_TYPE_REFERENCE context for cast types
+      const reference = TypeReferenceFactory.createCastTypeReference(
         typeName,
         location,
         parentContext,
       );
       this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created CLASS_REFERENCE for cast type: "${typeName}"`,
-      );
     }
 
     // Capture the expression being cast
@@ -1885,9 +1752,6 @@ export class ApexSymbolCollectorListener
         parentContext,
       );
       this.symbolTable.addTypeReference(reference);
-      this.logger.debug(
-        `DEBUG: Created VARIABLE_USAGE for cast expression: "${exprText}"`,
-      );
     }
   }
 
@@ -1907,9 +1771,6 @@ export class ApexSymbolCollectorListener
         parentContext,
       );
       this.symbolTable.addTypeReference(classRef);
-      this.logger.debug(
-        () => `DEBUG: Created CLASS_REFERENCE for catch type: "${typeName}"`,
-      );
     } catch (e) {
       this.logger.warn(() => `Error capturing catch clause type: ${e}`);
     }
@@ -1932,10 +1793,6 @@ export class ApexSymbolCollectorListener
           parentContext,
         );
         this.symbolTable.addTypeReference(paramRef);
-        this.logger.debug(
-          () =>
-            `DEBUG: Created PARAMETER_TYPE for enhanced for type: "${typeName}"`,
-        );
       }
 
       const expr = ctx.expression?.();
@@ -1949,14 +1806,103 @@ export class ApexSymbolCollectorListener
           parentContext,
         );
         this.symbolTable.addTypeReference(usageRef);
-        this.logger.debug(
-          () =>
-            `DEBUG: Created VARIABLE_USAGE for enhanced for source: "${exprText}"`,
-        );
       }
     } catch (e) {
       this.logger.warn(() => `Error capturing enhanced for control: ${e}`);
     }
+  }
+
+  /**
+   * Handle generic type arguments (e.g., <String, List<System.Url>>)
+   * This method is called when entering a typeArguments context
+   */
+  enterTypeArguments(ctx: TypeArgumentsContext): void {
+    try {
+      // Process each type reference in the generic arguments
+      const typeList = ctx.typeList();
+      if (typeList) {
+        const typeRefs = typeList.typeRef();
+
+        // Process each type reference as a generic parameter
+        for (const typeRef of typeRefs) {
+          const typeName = typeRef.text;
+          const location = this.getLocationForReference(typeRef);
+          const parentContext = this.determineTypeReferenceContext(typeRef);
+
+          // Check if this generic argument is in a return type context
+          const isReturnTypeContext = this.isMethodReturnTypeContext(typeRef);
+
+          // Check if we already have a reference for this generic type at the same location
+          if (
+            this.hasExistingTypeReferenceAtLocation(
+              typeName,
+              location,
+              parentContext,
+            )
+          ) {
+            continue;
+          }
+
+          // Create GENERIC_PARAMETER_TYPE reference for generic type arguments
+          const genericReference =
+            TypeReferenceFactory.createGenericParameterTypeReference(
+              typeName,
+              location,
+              parentContext,
+            );
+          this.symbolTable.addTypeReference(genericReference);
+
+          // Create appropriate reference based on context
+          if (isReturnTypeContext) {
+            // For return type contexts, create RETURN_TYPE reference
+            const returnReference =
+              TypeReferenceFactory.createReturnTypeReference(
+                typeName,
+                location,
+                parentContext,
+              );
+            this.symbolTable.addTypeReference(returnReference);
+          } else {
+            // For parameter contexts, create PARAMETER_TYPE reference
+            const paramReference =
+              TypeReferenceFactory.createParameterTypeReference(
+                typeName,
+                location,
+                parentContext,
+              );
+            this.symbolTable.addTypeReference(paramReference);
+          }
+        }
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      this.addError(`Error in type arguments: ${errorMessage}`, ctx);
+    }
+  }
+
+  /**
+   * Handle exit of generic type arguments
+   * This method is called when exiting a typeArguments context
+   * TODO: may not be needed
+   */
+  exitTypeArguments(ctx: TypeArgumentsContext): void {}
+
+  /**
+   * Handle type name contexts (LIST, SET, MAP, or id with optional typeArguments)
+   * This method is called when entering a typeName context
+   * TODO: may not be needed
+   */
+  enterTypeName(ctx: TypeNameContext): void {
+    // nothing to do
+  }
+
+  /**
+   * Handle exit of type name context
+   * This method is called when exiting a typeName context
+   * TODO: may not be needed
+   */
+  exitTypeName(ctx: TypeNameContext): void {
+    // nothing to do
   }
 
   /**
@@ -1969,19 +1915,67 @@ export class ApexSymbolCollectorListener
       const typeName = this.getTextFromContext(tr);
       const location = this.getLocation(tr);
       const parentContext = this.getCurrentMethodName();
+
+      // Use CLASS_REFERENCE for type literals like TypeName.class
       const classRef = TypeReferenceFactory.createClassReference(
         typeName,
         location,
         parentContext,
       );
       this.symbolTable.addTypeReference(classRef);
-      this.logger.debug(
-        () =>
-          `DEBUG: Created CLASS_REFERENCE for type literal: "${typeName}.class"`,
-      );
     } catch (e) {
       this.logger.warn(() => `Error capturing typeRefPrimary: ${e}`);
     }
+  }
+
+  /**
+   * Capture instanceof expression type references
+   * This captures the type in expressions like "obj instanceof String"
+   */
+  enterInstanceOfExpression(ctx: InstanceOfExpressionContext): void {
+    try {
+      const typeRefCtx = ctx.typeRef?.();
+      if (!typeRefCtx) return;
+      const typeName = this.getTextFromContext(typeRefCtx);
+      const location = this.getLocation(typeRefCtx);
+      const parentContext = this.getCurrentMethodName();
+
+      // Use the new INSTANCEOF_TYPE_REFERENCE context for instanceof types
+      const typeRef = TypeReferenceFactory.createInstanceOfTypeReference(
+        typeName,
+        location,
+        parentContext,
+      );
+      this.symbolTable.addTypeReference(typeRef);
+    } catch (e) {
+      this.logger.warn(() => `Error capturing instanceof expression: ${e}`);
+    }
+  }
+
+  /**
+   * Called when entering an expression list (method parameters)
+   * This handles nested expressions in method calls like a.b.c(x.y.z())
+   */
+  enterExpressionList(ctx: ExpressionListContext): void {
+    // Track that we're in method call parameters
+    this.inMethodCallParameters = true;
+
+    // Each expression in the list can be a dot expression
+    // which will create its own chain scope
+  }
+
+  /**
+   * Called when exiting an expression list
+   */
+  exitExpressionList(ctx: ExpressionListContext): void {
+    // Process any method call parameter chains that were created
+    for (const chainScope of this.methodCallParameterChains) {
+      this.finalizeChainScope(chainScope);
+    }
+
+    // Clear the parameter chains
+    this.methodCallParameterChains = [];
+    this.inMethodCallParameters = false;
   }
 
   /**
@@ -1989,11 +1983,6 @@ export class ApexSymbolCollectorListener
    */
   enterForInit(ctx: any): void {
     try {
-      this.logger.debug(
-        () =>
-          `enterForInit: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
-      );
-
       // Check if this is a local variable declaration (e.g., "Integer i = 0")
       const localVarDecl = ctx.localVariableDeclaration();
       if (localVarDecl) {
@@ -2011,6 +2000,7 @@ export class ApexSymbolCollectorListener
 
   /**
    * Called when entering a for statement
+   * TODO: will probably need this when we have a for loop
    */
   enterForStatement(ctx: any): void {
     try {
@@ -2025,7 +2015,7 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Add an error to the error list
+   * Add an error to the error list TODO: may not be needed
    */
   addError(message: string, ctx: ParserRuleContext): void {
     const error: SemanticError = {
@@ -2128,11 +2118,6 @@ export class ApexSymbolCollectorListener
    */
   private processLocalVariableDeclaration(ctx: any): void {
     try {
-      this.logger.debug(
-        () =>
-          `processLocalVariableDeclaration: ${ctx.text} in method: ${this.currentMethodSymbol?.name}`,
-      );
-      // Get current modifiers and reset for next declaration
       const modifiers = this.getCurrentModifiers();
       this.resetModifiers();
 
@@ -2188,11 +2173,6 @@ export class ApexSymbolCollectorListener
             continue; // Skip processing this duplicate variable
           }
 
-          this.logger.debug(
-            () =>
-              `Processing local variable: ${name} in method: ${this.currentMethodSymbol?.name}`,
-          );
-
           // Always process the variable in the current scope
           this.processVariableDeclarator(
             declarator,
@@ -2221,12 +2201,6 @@ export class ApexSymbolCollectorListener
     kind: SymbolKind.Field | SymbolKind.Variable | SymbolKind.EnumValue,
   ): void {
     try {
-      this.logger.debug(
-        () =>
-          // eslint-disable-next-line max-len
-          `processVariableDeclarator: ${ctx.text} in method: ${this.currentMethodSymbol?.name} type: ${type.name} kind: ${kind}`,
-      );
-
       const name = ctx.id()?.text ?? 'unknownVariable';
 
       // Validate identifier
@@ -2265,10 +2239,6 @@ export class ApexSymbolCollectorListener
           parentContext,
         );
         this.symbolTable.addTypeReference(declRef);
-        this.logger.debug(
-          () =>
-            `DEBUG: Created VARIABLE_DECLARATION ref for identifier: "${name}"`,
-        );
       } catch (e) {
         this.logger.warn(() => `Error creating declaration reference: ${e}`);
       }
@@ -2548,9 +2518,6 @@ export class ApexSymbolCollectorListener
         parentContext,
       );
       this.symbolTable.addTypeReference(ctorRef);
-      this.logger.debug(
-        () => `Captured constructor call reference: ${typeName}`,
-      );
 
       // Handle generic type arguments if present
       const typeArgs = firstPair.typeList();
@@ -2567,11 +2534,6 @@ export class ApexSymbolCollectorListener
               parentContext,
             )
           ) {
-            this.logger.debug(
-              () =>
-                `DEBUG: Skipping duplicate constructor generic type reference at location: ${genericTypeName} ` +
-                `in context: ${parentContext}`,
-            );
             continue;
           }
 
@@ -2581,10 +2543,6 @@ export class ApexSymbolCollectorListener
             parentContext,
           );
           this.symbolTable.addTypeReference(paramRef);
-          this.logger.debug(
-            () =>
-              `DEBUG: Created PARAMETER_TYPE for constructor generic: "${genericTypeName}"`,
-          );
         }
       }
 
@@ -2606,10 +2564,6 @@ export class ApexSymbolCollectorListener
                 parentContext,
               );
             this.symbolTable.addTypeReference(dottedParamRef);
-            this.logger.debug(
-              () =>
-                `DEBUG: Created PARAMETER_TYPE for dotted constructor type: "${dottedTypeName}"`,
-            );
           }
         }
       }
@@ -2664,6 +2618,23 @@ export class ApexSymbolCollectorListener
 
     // Fallback to standard location
     return this.getLocation(ctx);
+  }
+
+  /**
+   * Extract precise locations for each part of a dotted type name
+   * @param typeNames Array of TypeNameContext objects
+   * @returns Array of SymbolLocation objects, one for each part
+   */
+  private getPreciseLocationsForDottedType(typeNames: any[]): SymbolLocation[] {
+    return typeNames.map((tn) => {
+      const id = tn.id();
+      if (id) {
+        return this.getLocationForReference(id);
+      } else {
+        // Handle collection types
+        return this.getLocationForReference(tn);
+      }
+    });
   }
 
   /**
@@ -2753,7 +2724,8 @@ export class ApexSymbolCollectorListener
     return allReferences.some(
       (ref) =>
         ref.name === typeName &&
-        (ref.context === 5 || ref.context === 6) && // TYPE_DECLARATION = 5, PARAMETER_TYPE = 6
+        (ref.context === 5 || ref.context === 6 || ref.context === 8) &&
+        // TYPE_DECLARATION=5, PARAMETER_TYPE=6, GENERIC_PARAMETER_TYPE=8
         ref.parentContext === context &&
         ref.location.identifierRange.startLine ===
           location.identifierRange.startLine &&
@@ -2807,6 +2779,96 @@ export class ApexSymbolCollectorListener
 
     // Fallback to current method or type context
     return this.getCurrentMethodName() || this.currentTypeSymbol?.name;
+  }
+
+  /**
+   * Determine if this TypeRef is in a method return type context
+   * @param ctx The TypeRefContext to check
+   * @returns true if this is a method return type, false otherwise
+   */
+  private isMethodReturnTypeContext(ctx: TypeRefContext): boolean {
+    // Traverse up the parse tree to find the appropriate context
+    let current: any = ctx.parent;
+
+    while (current) {
+      // Check for method declaration contexts
+      if (
+        isContextType(current, MethodDeclarationContext) ||
+        isContextType(current, InterfaceMethodDeclarationContext)
+      ) {
+        // We're in a method declaration, but we need to check if this TypeRef
+        // is specifically the return type (not a parameter type or local variable type)
+
+        // In method declarations, the return type comes before the method name
+        // Parameters come after the method name in parentheses
+        // We can distinguish by checking if we're in the return type part
+
+        // For MethodDeclarationContext, the structure is:
+        // modifiers? typeRef methodName ( formalParameters? ) block
+        // For InterfaceMethodDeclarationContext, the structure is:
+        // modifiers? typeRef methodName ( formalParameters? ) ;
+
+        // If we're in a method declaration and this TypeRef is not inside
+        // formalParameters, then it's the return type
+        if (isContextType(current, MethodDeclarationContext)) {
+          const methodCtx = current as MethodDeclarationContext;
+          // Check if this TypeRef is the return type (not in formalParameters)
+          return !this.isInFormalParameters(ctx, methodCtx);
+        } else if (isContextType(current, InterfaceMethodDeclarationContext)) {
+          const methodCtx = current as InterfaceMethodDeclarationContext;
+          // Check if this TypeRef is the return type (not in formalParameters)
+          return !this.isInFormalParameters(ctx, methodCtx);
+        }
+      }
+
+      // Check if this TypeRef is in a local variable declaration context
+      // If it is, it's not a method return type
+      if (
+        isContextType(current, LocalVariableDeclarationContext) ||
+        isContextType(current, FieldDeclarationContext) ||
+        isContextType(current, PropertyDeclarationContext) ||
+        isContextType(current, VariableDeclaratorContext)
+      ) {
+        return false;
+      }
+
+      // Move up to parent
+      current = current.parent;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if a TypeRef is inside formal parameters of a method
+   * @param typeRefCtx The TypeRefContext to check
+   * @param methodCtx The method declaration context
+   * @returns true if the TypeRef is inside formal parameters, false otherwise
+   */
+  private isInFormalParameters(
+    typeRefCtx: TypeRefContext,
+    methodCtx: MethodDeclarationContext | InterfaceMethodDeclarationContext,
+  ): boolean {
+    // Check if the TypeRef is a descendant of formalParameters
+    const formalParams = methodCtx.formalParameters();
+    if (!formalParams) {
+      return false;
+    }
+
+    // Traverse up from the TypeRef to see if we hit formalParameters
+    let current: any = typeRefCtx.parent;
+    while (current) {
+      if (current === formalParams) {
+        return true;
+      }
+      if (current === methodCtx) {
+        // We've reached the method context without hitting formalParameters
+        return false;
+      }
+      current = current.parent;
+    }
+
+    return false;
   }
 
   /**
@@ -2896,46 +2958,11 @@ export class ApexSymbolCollectorListener
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol;
 
-    // Get the identifier location for the type symbol using context-specific extraction
-    let identifierLocation: SymbolLocation;
-
-    if (
-      kind === SymbolKind.Class &&
-      isContextType(ctx, ClassDeclarationContext)
-    ) {
-      const classCtx = ctx as ClassDeclarationContext;
-      const identifierRange = this.extractClassIdentifierRange(classCtx);
-      identifierLocation = identifierRange
-        ? { symbolRange: identifierRange, identifierRange }
-        : this.getLocation(ctx);
-    } else if (
-      kind === SymbolKind.Interface &&
-      isContextType(ctx, InterfaceDeclarationContext)
-    ) {
-      const interfaceCtx = ctx as InterfaceDeclarationContext;
-      const identifierRange = this.extractClassIdentifierRange(
-        interfaceCtx as any,
-      );
-      identifierLocation = identifierRange
-        ? { symbolRange: identifierRange, identifierRange }
-        : this.getLocation(ctx);
-    } else if (kind === SymbolKind.Trigger) {
-      // For triggers, use the standard identifier extraction
-      identifierLocation = this.getIdentifierLocation(ctx);
-    } else if (kind === SymbolKind.Enum) {
-      // For enums, use the standard identifier extraction
-      identifierLocation = this.getIdentifierLocation(ctx);
-    } else {
-      // Fallback to standard identifier extraction
-      identifierLocation = this.getIdentifierLocation(ctx);
-    }
-
     // Determine namespace based on context
     const namespace = this.determineNamespaceForType(name, kind);
 
     // Get current scope path for unique symbol ID
     const scopePath = this.symbolTable.getCurrentScopePath();
-
     const typeSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       kind,
@@ -2946,7 +2973,6 @@ export class ApexSymbolCollectorListener
       { interfaces: [] },
       namespace, // Pass the determined namespace (can be null)
       this.getCurrentAnnotations(),
-      identifierLocation,
       scopePath, // Pass scope path for unique ID generation
     ) as TypeSymbol;
 
@@ -2972,6 +2998,18 @@ export class ApexSymbolCollectorListener
     name: string,
     kind: SymbolKind,
   ): Namespace | null {
+    // For standard Apex classes, extract namespace from file path
+    if (this.currentFilePath && this.currentFilePath.startsWith('apexlib://')) {
+      // Extract namespace from path like 'apexlib://resources/ApexPages/Action.cls'
+      const pathMatch = this.currentFilePath.match(
+        /apexlib:\/\/resources\/([^\/]+)\//,
+      );
+      if (pathMatch) {
+        const namespaceName = pathMatch[1];
+        return Namespaces.create(namespaceName);
+      }
+    }
+
     // Top-level types get project namespace
     if (!this.currentTypeSymbol) {
       return this.currentNamespace;
@@ -2990,7 +3028,6 @@ export class ApexSymbolCollectorListener
     name: string,
     modifiers: SymbolModifiers,
     returnType: TypeInfo,
-    identifierLocation?: SymbolLocation,
   ): MethodSymbol {
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol;
@@ -3003,21 +3040,6 @@ export class ApexSymbolCollectorListener
     // Get current scope path for unique symbol ID
     const scopePath = this.symbolTable.getCurrentScopePath();
 
-    // Use provided identifierLocation or extract from context
-    const finalIdentifierLocation =
-      identifierLocation ||
-      (isContextType(ctx, MethodDeclarationContext)
-        ? (() => {
-            const range = this.extractMethodIdentifierRange(
-              ctx as MethodDeclarationContext,
-            );
-            return range
-              ? { symbolRange: range, identifierRange: range }
-              : null;
-          })()
-        : null) ||
-      this.getIdentifierLocation(ctx);
-
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
       SymbolKind.Method,
@@ -3028,7 +3050,6 @@ export class ApexSymbolCollectorListener
       { returnType, parameters: [] },
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
-      finalIdentifierLocation,
       scopePath, // Pass scope path for unique ID generation
     ) as MethodSymbol;
 
@@ -3055,32 +3076,6 @@ export class ApexSymbolCollectorListener
     const location = this.getLocation(ctx);
     const parent = this.currentTypeSymbol || this.currentMethodSymbol;
 
-    // Get the identifier location for the variable symbol using context-specific extraction
-    let identifierLocation: SymbolLocation;
-
-    if (
-      kind === SymbolKind.Field &&
-      isContextType(ctx, FieldDeclarationContext)
-    ) {
-      const fieldCtx = ctx as FieldDeclarationContext;
-      const identifierRange = this.extractFieldIdentifierRange(fieldCtx);
-      identifierLocation = identifierRange
-        ? { symbolRange: identifierRange, identifierRange }
-        : this.getIdentifierLocation(ctx);
-    } else if (
-      kind === SymbolKind.Property &&
-      isContextType(ctx, PropertyDeclarationContext)
-    ) {
-      const propertyCtx = ctx as PropertyDeclarationContext;
-      const identifierRange = this.extractPropertyIdentifierRange(propertyCtx);
-      identifierLocation = identifierRange
-        ? { symbolRange: identifierRange, identifierRange }
-        : this.getIdentifierLocation(ctx);
-    } else {
-      // For other variable types, use the standard identifier extraction
-      identifierLocation = this.getIdentifierLocation(ctx);
-    }
-
     // Inherit namespace from containing type or method
     const parentNamespace = parent?.namespace;
     const namespace =
@@ -3099,7 +3094,6 @@ export class ApexSymbolCollectorListener
       { type },
       namespace, // Inherit namespace from parent (can be null)
       this.getCurrentAnnotations(),
-      identifierLocation,
       scopePath, // Pass scope path for unique ID generation
     ) as VariableSymbol;
 
@@ -3132,75 +3126,11 @@ export class ApexSymbolCollectorListener
   }
 
   /**
-   * Capture references for dotted expressions (e.g., FileUtilities.createFile or property.Id)
-   * Emits both CLASS_REFERENCE/VARIABLE_USAGE and METHOD_CALL for method calls,
-   * VARIABLE_USAGE and FIELD_ACCESS for field access.
-   */
-  private captureDottedReferences(ctx: DotExpressionContext): void {
-    try {
-      // If this is a dot-method call variant, skip here; handled by enterDotMethodCall
-      const dotCall = (ctx as any).dotMethodCall?.();
-      if (dotCall) {
-        return;
-      }
-
-      // Otherwise this is a property/field access: <lhs>.<anyId>
-      const rhs = ctx.anyId();
-      const lhs = (ctx as any).expression?.(0) || (ctx as any).expression?.();
-      if (!rhs || !lhs) return;
-
-      const qualifier = this.getTextFromContext(lhs);
-      const parentContext = this.getCurrentMethodName();
-
-      // Compute qualifier location from the dot-expression start and qualifier length
-      const parentLoc = this.getLocation(ctx);
-      let qualifierLocation: SymbolLocation | undefined;
-      if (qualifier) {
-        qualifierLocation = parentLoc;
-      }
-
-      // Emit qualifier reference for simple identifiers
-      if (qualifier && qualifierLocation && !qualifier.includes('.')) {
-        const isClassReference = !this.isVariableInScope(qualifier);
-        if (isClassReference) {
-          const classRef = TypeReferenceFactory.createClassReference(
-            qualifier,
-            qualifierLocation,
-            parentContext,
-          );
-          this.symbolTable.addTypeReference(classRef);
-        } else {
-          const variableRef = TypeReferenceFactory.createVariableUsageReference(
-            qualifier,
-            qualifierLocation,
-            parentContext,
-          );
-          this.symbolTable.addTypeReference(variableRef);
-        }
-      }
-      // Field access emission happens in enterAnyId to avoid duplicates
-    } catch (error) {
-      this.logger.warn(() => `Error capturing dotted references: ${error}`);
-    }
-  }
-
-  /**
    * Extract identifier range for class declaration contexts
    * Handles cases where the class name might be in different locations
    */
   private extractClassIdentifierRange(
     ctx: ClassDeclarationContext,
-  ): Range | null {
-    // Use the main identifier extraction method
-    return this.getIdentifierRange(ctx);
-  }
-
-  /**
-   * Extract identifier range for method declaration contexts
-   * Handles both regular methods and constructors
-   */
-  private extractMethodIdentifierRange(
-    ctx: MethodDeclarationContext,
   ): Range | null {
     // Use the main identifier extraction method
     return this.getIdentifierRange(ctx);
@@ -3236,5 +3166,640 @@ export class ApexSymbolCollectorListener
   ): Range | null {
     // Use the main identifier extraction method
     return this.getIdentifierRange(ctx);
+  }
+
+  /**
+   * Create a precise location for just the base expression part
+   */
+  private createPreciseBaseLocation(
+    baseExpression: string,
+    fullLocation: SymbolLocation,
+  ): SymbolLocation {
+    // Calculate the precise location for just the base expression
+    // The base expression starts at the same position as the full location
+    // but ends after the base expression length
+    const baseLength = baseExpression.length;
+
+    return {
+      symbolRange: {
+        startLine: fullLocation.symbolRange.startLine,
+        startColumn: fullLocation.symbolRange.startColumn,
+        endLine: fullLocation.symbolRange.startLine,
+        endColumn: fullLocation.symbolRange.startColumn + baseLength,
+      },
+      identifierRange: {
+        startLine: fullLocation.identifierRange.startLine,
+        startColumn: fullLocation.identifierRange.startColumn,
+        endLine: fullLocation.identifierRange.startLine,
+        endColumn: fullLocation.identifierRange.startColumn + baseLength,
+      },
+    };
+  }
+
+  /**
+   * Create a constructor symbol
+   */
+  private createConstructorSymbol(
+    ctx: ParserRuleContext,
+    name: string,
+    modifiers: SymbolModifiers,
+  ): MethodSymbol {
+    const location = this.getLocation(ctx);
+    const parent = this.currentTypeSymbol;
+
+    // Inherit namespace from containing type
+    const parentNamespace = parent?.namespace;
+    const namespace =
+      parentNamespace instanceof Namespace ? parentNamespace : null;
+
+    // Get current scope path for unique symbol ID
+    const scopePath = this.symbolTable.getCurrentScopePath();
+
+    const constructorSymbol = SymbolFactory.createFullSymbolWithNamespace(
+      name,
+      SymbolKind.Constructor,
+      location,
+      this.currentFilePath,
+      modifiers,
+      parent?.id || null,
+      { returnType: createPrimitiveType('void'), parameters: [] },
+      namespace, // Inherit namespace from parent (can be null)
+      this.getCurrentAnnotations(),
+      scopePath, // Pass scope path for unique ID generation
+    ) as MethodSymbol;
+
+    // Initialize the parameters array for MethodSymbol interface
+    constructorSymbol.parameters = [];
+    constructorSymbol.returnType = createPrimitiveType('void');
+    constructorSymbol.isConstructor = true;
+
+    return constructorSymbol;
+  }
+
+  /**
+   * Create a TypeReference for expression nodes
+   */
+  private createExpressionNode(
+    value: string,
+    location: SymbolLocation,
+    context: ReferenceContext,
+  ): TypeReference {
+    // For individual identifiers in a chain, ensure identifierRange matches symbolRange
+    const correctedLocation: SymbolLocation = {
+      symbolRange: location.symbolRange,
+      identifierRange: location.symbolRange, // For individual identifiers, both ranges should be the same
+    };
+
+    return {
+      name: value, // TypeReference.name
+      location: correctedLocation,
+      context,
+      isResolved: false,
+      parentContext: this.currentMethodSymbol?.name,
+      isStatic: false,
+    };
+  }
+
+  /**
+   * Create a TypeReference that represents a chained expression
+   */
+  private createChainedExpression(
+    fullExpression: string,
+    baseLocation: SymbolLocation,
+    finalLocation: SymbolLocation,
+  ): TypeReference {
+    return {
+      name: fullExpression, // TypeReference.name contains the full expression
+      location: baseLocation, // Use base location as the main location
+      context: ReferenceContext.CHAINED_TYPE,
+      isResolved: false,
+      parentContext: this.currentMethodSymbol?.name,
+      isStatic: false,
+    };
+  }
+
+  /**
+   * Process a standalone method call (not part of a chain)
+   */
+  private processStandaloneMethodCall(
+    ctx: DotMethodCallContext,
+    methodName: string,
+    methodLocation: SymbolLocation,
+  ): void {
+    try {
+      // Extract qualifier from the parent DotExpression
+      let qualifier: string | undefined = undefined;
+      let qualifierLocation: SymbolLocation | undefined = undefined;
+      const parent = ctx.parent as ParserRuleContext | undefined;
+
+      if (
+        parent &&
+        parent.constructor &&
+        parent.constructor.name === 'DotExpressionContext'
+      ) {
+        const dotParent = parent as unknown as DotExpressionContext;
+        const lhs =
+          (dotParent as any).expression?.(0) ||
+          (dotParent as any).expression?.();
+        if (lhs) {
+          qualifier = this.getTextFromContext(
+            lhs as unknown as ParserRuleContext,
+          );
+          qualifierLocation = this.getLocation(
+            lhs as unknown as ParserRuleContext,
+          );
+        }
+      }
+
+      const parentContext = this.getCurrentMethodName();
+
+      // Create method call reference
+      if (qualifier) {
+        const methodRef = TypeReferenceFactory.createMethodCallReference(
+          methodName,
+          methodLocation,
+          parentContext,
+        );
+
+        this.symbolTable.addTypeReference(methodRef);
+
+        // Also create a class reference for the qualifier if it's not a variable in scope
+        if (qualifierLocation && !this.isVariableInScope(qualifier)) {
+          const classRef = TypeReferenceFactory.createClassReference(
+            qualifier,
+            qualifierLocation,
+            parentContext,
+          );
+          this.symbolTable.addTypeReference(classRef);
+        }
+      } else {
+        // For unqualified method calls
+        const reference = TypeReferenceFactory.createMethodCallReference(
+          methodName,
+          methodLocation,
+          parentContext,
+        );
+        this.symbolTable.addTypeReference(reference);
+      }
+    } catch (error) {
+      this.logger.warn(
+        () => `Error processing standalone method call: ${error}`,
+      );
+    }
+  }
+
+  /**
+   * Create a chain root TypeRef from the collected chain scope
+   * The root reference spans the entire chain and contains all nodes
+   * Uses right-to-left analysis to better categorize chain nodes
+   */
+  private createChainRootReference(
+    chainScope: NonNullable<typeof this.chainExpressionScope>,
+  ): void {
+    try {
+      const { baseExpression, chainNodes, startLocation } = chainScope;
+
+      // Special handling for 'this' keyword - treat as instance member access
+      if (baseExpression === 'this') {
+        const parentContext = this.getCurrentMethodName();
+
+        // For 'this' expressions, create individual references for each chain node
+        // This provides better granularity for LSP features and semantic accuracy
+        chainNodes.forEach((chainNode, index) => {
+          const memberName = chainNode.name;
+          const memberLocation = chainNode.location;
+
+          // Use the original context from the chain node
+          // If it was created with METHOD_CALL context, it's a method call
+          // If it was created with FIELD_ACCESS context, it's a field access
+          let context = chainNode.context;
+
+          // If the context is still CHAIN_STEP, we need to determine the appropriate context
+          if (context === ReferenceContext.CHAIN_STEP) {
+            // For 'this.member' expressions, we can't easily determine if it's a method or field
+            // without more context. We'll default to FIELD_ACCESS and let the resolution
+            // system figure it out later.
+            context = ReferenceContext.FIELD_ACCESS;
+          }
+
+          // Create a simple reference for the member access
+          const memberRef = new EnhancedTypeReference(
+            memberName,
+            memberLocation,
+            context,
+            false,
+            parentContext,
+          );
+
+          this.symbolTable.addTypeReference(memberRef);
+        });
+
+        return;
+      }
+
+      // Create a precise location for the base expression (just the first part)
+      const baseExpressionLocation = this.createPreciseBaseLocation(
+        baseExpression,
+        startLocation,
+      );
+
+      // Create initial chain nodes with conservative CHAIN_STEP contexts
+      const initialChainNodes = [
+        this.createExpressionNode(
+          baseExpression,
+          baseExpressionLocation,
+          ReferenceContext.CHAIN_STEP, // Start with ambiguous context
+        ),
+        ...chainNodes.map((node) => ({
+          ...node,
+          // Preserve original context - don't override METHOD_CALL contexts
+        })),
+      ];
+
+      // Apply right-to-left analysis to narrow contexts
+      const analyzedChainNodes = this.analyzeChainWithRightToLeftNarrowing(
+        initialChainNodes,
+        baseExpression,
+        startLocation,
+      );
+
+      // Create a simplified chained expression structure
+      const fullExpression = `${baseExpression}.${chainNodes.map((s) => s.name).join('.')}`;
+      const finalLocation =
+        chainNodes.length > 0
+          ? chainNodes[chainNodes.length - 1].location
+          : startLocation;
+
+      const chainedExpression = this.createChainedExpression(
+        fullExpression,
+        startLocation,
+        finalLocation,
+      );
+
+      // Create root reference with analyzed nodes
+      const rootRef = TypeReferenceFactory.createChainedExpressionReference(
+        analyzedChainNodes,
+        chainedExpression,
+        this.getCurrentMethodName(),
+      );
+
+      this.symbolTable.addTypeReference(rootRef);
+    } catch (error) {
+      this.logger.warn(() => `Error creating chain root reference: ${error}`);
+    }
+  }
+
+  /**
+   * Chain expression scope for capturing complete chains as single units
+   */
+  private chainExpressionScope: {
+    isActive: boolean;
+    baseExpression: string;
+    chainNodes: TypeReference[];
+    startLocation: SymbolLocation;
+    depth: number;
+  } | null = null;
+
+  /**
+   * Get the location of the base expression in a chained expression
+   * e.g., for "System.Url.getOrgDomainUrl()", return the location of "System"
+   */
+  private getBaseExpressionLocation(
+    ctx: DotMethodCallContext,
+    baseQualifier: string,
+  ): SymbolLocation {
+    try {
+      // Get the parent DotExpression to find the base qualifier location
+      const parent = ctx.parent as ParserRuleContext | undefined;
+      if (
+        parent &&
+        parent.constructor &&
+        parent.constructor.name === 'DotExpressionContext'
+      ) {
+        const dotParent = parent as unknown as DotExpressionContext;
+        const lhs =
+          (dotParent as any).expression?.(0) ||
+          (dotParent as any).expression?.();
+        if (lhs) {
+          // Use the left-hand expression location for the base qualifier
+          return this.getLocation(lhs as unknown as ParserRuleContext);
+        }
+      }
+
+      // Fallback: use the context location but adjust for the base qualifier
+      const contextLocation = this.getLocation(ctx);
+      return {
+        ...contextLocation,
+        identifierRange: {
+          startLine: contextLocation.identifierRange.startLine,
+          startColumn: contextLocation.identifierRange.startColumn,
+          endLine: contextLocation.identifierRange.startLine,
+          endColumn:
+            contextLocation.identifierRange.startColumn + baseQualifier.length,
+        },
+      };
+    } catch (error) {
+      this.logger.warn(
+        () => `Error getting base expression location: ${error}`,
+      );
+      // Fallback to context location
+      return this.getLocation(ctx);
+    }
+  }
+
+  /**
+   * Analyze a chained expression using right-to-left parsing knowledge
+   * to progressively narrow the context of each node
+   */
+  private analyzeChainWithRightToLeftNarrowing(
+    chainNodes: TypeReference[],
+    baseExpression: string,
+    startLocation: SymbolLocation,
+  ): TypeReference[] {
+    const analyzedNodes: TypeReference[] = [];
+
+    // Start from the rightmost node (method call) and work leftward
+    for (let i = chainNodes.length - 1; i >= 0; i--) {
+      const currentNode = chainNodes[i];
+      const nextNode = i < chainNodes.length - 1 ? analyzedNodes[0] : null;
+
+      // Apply narrowing rules based on the next node
+      const narrowedContext = this.narrowContextBasedOnNextNode(
+        currentNode,
+        nextNode,
+        i === 0, // isBaseNode
+      );
+
+      // Create new node with narrowed context
+      const narrowedNode: TypeReference = {
+        ...currentNode,
+        context: narrowedContext,
+      };
+
+      analyzedNodes.unshift(narrowedNode);
+    }
+
+    return analyzedNodes;
+  }
+
+  /**
+   * Narrow the context of a node based on what follows it in the chain
+   */
+  private narrowContextBasedOnNextNode(
+    currentNode: TypeReference,
+    nextNode: TypeReference | null,
+    isBaseNode: boolean,
+  ): ReferenceContext {
+    // If this is the rightmost node (method call), it's already well-defined
+    if (nextNode === null) {
+      return currentNode.context; // Keep existing context
+    }
+
+    // Special case: If current node is a standard library class name, treat it as CLASS_REFERENCE
+    if (this.isStandardLibraryClassName(currentNode.name)) {
+      return ReferenceContext.CLASS_REFERENCE;
+    }
+
+    // Special case: If current node is a variable in scope, treat it as CLASS_REFERENCE
+    // This handles cases like "acc.Name" where "acc" is a variable
+    if (this.isVariableInScope(currentNode.name)) {
+      return ReferenceContext.CLASS_REFERENCE;
+    }
+
+    // If current node is already a METHOD_CALL, preserve it
+    // This is needed because the right-to-left analysis might try to narrow it
+    if (currentNode.context === ReferenceContext.METHOD_CALL) {
+      return ReferenceContext.METHOD_CALL;
+    }
+
+    // Apply narrowing rules based on the next node's context
+    switch (nextNode.context) {
+      case ReferenceContext.METHOD_CALL:
+        // If next node is a method call, current node must be:
+        // - Class (for static methods)
+        // - Instance (for instance methods)
+        // - Namespace (for namespace.method calls)
+        if (isBaseNode) {
+          // Base node could be class, namespace, or instance
+          return ReferenceContext.CHAIN_STEP; // Mark as ambiguous
+        } else {
+          // Non-base nodes are more likely to be classes or namespaces
+          return ReferenceContext.CHAIN_STEP;
+        }
+
+      case ReferenceContext.FIELD_ACCESS:
+        // If next node is field access, current node must be:
+        // - Class (for static fields)
+        // - Instance (for instance fields)
+        if (isBaseNode) {
+          return ReferenceContext.CHAIN_STEP;
+        } else {
+          return ReferenceContext.CHAIN_STEP;
+        }
+
+      case ReferenceContext.CHAIN_STEP:
+        // If next node is also ambiguous, current node remains ambiguous
+        return ReferenceContext.CHAIN_STEP;
+
+      default:
+        // For other contexts, use chain step as default
+        return ReferenceContext.CHAIN_STEP;
+    }
+  }
+
+  /**
+   * Create a new chain scope from a dot expression context
+   */
+  private createNewChainScope(ctx: DotExpressionContext): ChainScope {
+    return {
+      isActive: true,
+      baseExpression: this.extractBaseExpressionFromParser(ctx),
+      chainNodes: [],
+      startLocation: this.getLocation(ctx),
+      depth: 0,
+    };
+  }
+
+  /**
+   * Finalize a chain scope by creating the appropriate references
+   */
+  private finalizeChainScope(chainScope: ChainScope): void {
+    if (!chainScope.isActive) return;
+
+    try {
+      const { baseExpression, chainNodes, startLocation } = chainScope;
+
+      // Special handling for 'this' keyword
+      if (baseExpression === 'this') {
+        this.handleThisChain(chainNodes);
+        return;
+      }
+
+      // Create precise location for the base expression
+      const baseExpressionLocation = this.createPreciseBaseLocation(
+        baseExpression,
+        startLocation,
+      );
+
+      // Apply right-to-left analysis
+      const analyzedChainNodes = this.analyzeChainWithRightToLeftNarrowing(
+        [
+          this.createExpressionNode(
+            baseExpression,
+            baseExpressionLocation,
+            ReferenceContext.CHAIN_STEP,
+          ),
+          ...chainNodes,
+        ],
+        baseExpression,
+        startLocation,
+      );
+
+      // Create chained expression
+      const fullExpression = `${baseExpression}.${chainNodes.map((s) => s.name).join('.')}`;
+      const finalLocation =
+        chainNodes.length > 0
+          ? chainNodes[chainNodes.length - 1].location
+          : startLocation;
+
+      const chainedExpression = this.createChainedExpression(
+        fullExpression,
+        startLocation,
+        finalLocation,
+      );
+
+      // Create root reference
+      const rootRef = TypeReferenceFactory.createChainedExpressionReference(
+        analyzedChainNodes,
+        chainedExpression,
+        this.getCurrentMethodName(),
+      );
+
+      this.symbolTable.addTypeReference(rootRef);
+    } catch (error) {
+      this.logger.warn(() => `Error finalizing chain scope: ${error}`);
+    }
+  }
+
+  /**
+   * Extract base expression from parser structure instead of text
+   */
+  private extractBaseExpressionFromParser(ctx: DotExpressionContext): string {
+    try {
+      // Get the left-hand expression to find the base qualifier
+      const lhs = (ctx as any).expression?.(0) || (ctx as any).expression?.();
+      if (lhs) {
+        const text = this.getTextFromContext(
+          lhs as unknown as ParserRuleContext,
+        );
+        // Extract the first part before any dots
+        const baseMatch = text.match(/^([^.]+)/);
+        return baseMatch ? baseMatch[1] : text;
+      }
+      return 'unknown';
+    } catch (error) {
+      this.logger.warn(
+        () => `Error extracting base expression from parser: ${error}`,
+      );
+      return 'unknown';
+    }
+  }
+
+  /**
+   * Handle 'this' chain expressions by creating individual references
+   */
+  private handleThisChain(chainNodes: TypeReference[]): void {
+    const parentContext = this.getCurrentMethodName();
+
+    chainNodes.forEach((chainNode, index) => {
+      const memberName = chainNode.name;
+      const memberLocation = chainNode.location;
+
+      // Determine appropriate context
+      let context = chainNode.context;
+      if (context === ReferenceContext.CHAIN_STEP) {
+        context = ReferenceContext.FIELD_ACCESS;
+      }
+
+      // Create member access reference
+      const memberRef = new EnhancedTypeReference(
+        memberName,
+        memberLocation,
+        context,
+        false,
+        parentContext,
+      );
+
+      this.symbolTable.addTypeReference(memberRef);
+    });
+  }
+
+  /**
+   * Check if a name is a standard library class name
+   * This helps identify standard library classes that should be treated as CLASS_REFERENCE
+   */
+  private isStandardLibraryClassName(name: string): boolean {
+    // Common standard library class names that are often used without namespace qualification
+    const standardClassNames = [
+      'EncodingUtil',
+      'Assert',
+      'System',
+      'Database',
+      'Schema',
+      'Messaging',
+      'ConnectApi',
+      'Flow',
+      'Process',
+      'Approval',
+      'Auth',
+      'Cache',
+      'Canvas',
+      'ChatterAnswers',
+      'CommerceBuyGrp',
+      'CommerceExtension',
+      'CommerceOrders',
+      'CommercePayments',
+      'CommerceTax',
+      'Compression',
+      'Context',
+      'DataRetrieval',
+      'DataSource',
+      'DataWeave',
+      'Datacloud',
+      'Dom',
+      'EventBus',
+      'FormulaEval',
+      'Functions',
+      'Invocable',
+      'InvoiceWriteOff',
+      'IsvPartners',
+      'KbManagement',
+      'LxScheduler',
+      'Metadata',
+      'PlaceQuote',
+      'Pref_center',
+      'QuickAction',
+      'Reports',
+      'RevSalesTrxn',
+      'RevSignaling',
+      'RichMessaging',
+      'Salesforce_Backup',
+      'Search',
+      'Sfc',
+      'Sfdc_Enablement',
+      'Site',
+      'Slack',
+      'Support',
+      'TerritoryMgmt',
+      'TxnSecurity',
+      'UserProvisioning',
+      'VisualEditor',
+      'Wave',
+      'embeddedai',
+      'industriesNlpSvc',
+      'sfdc_surveys',
+    ];
+
+    return standardClassNames.includes(name);
   }
 }

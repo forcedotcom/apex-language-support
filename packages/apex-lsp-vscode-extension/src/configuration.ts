@@ -147,17 +147,19 @@ export const registerConfigurationChangeListener = (
   context: vscode.ExtensionContext,
 ): void => {
   // Listen for configuration changes
-  const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
-    if (event.affectsConfiguration(EXTENSION_CONSTANTS.CONFIG_SECTION)) {
-      // Get updated settings
-      const settings = getWorkspaceSettings();
+  const configListener = vscode.workspace.onDidChangeConfiguration(
+    (event: any) => {
+      if (event.affectsConfiguration(EXTENSION_CONSTANTS.CONFIG_SECTION)) {
+        // Get updated settings
+        const settings = getWorkspaceSettings();
 
-      // Notify the server of the configuration change
-      client.sendNotification('workspace/didChangeConfiguration', {
-        settings,
-      });
-    }
-  });
+        // Notify the server of the configuration change
+        client.sendNotification('workspace/didChangeConfiguration', {
+          settings,
+        });
+      }
+    },
+  );
 
   // Store the listener in the context so it gets disposed properly
   context.subscriptions.push(configListener);

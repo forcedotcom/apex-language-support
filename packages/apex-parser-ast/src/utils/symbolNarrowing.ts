@@ -20,6 +20,7 @@ import type {
   CompilationResultWithComments,
   CompilationResultWithAssociations,
 } from '../parser/compilerService';
+import { ChainedTypeReference, TypeReference } from '../types/typeReference';
 
 /**
  * Type predicate to check if a context has an id() method
@@ -44,11 +45,14 @@ export const isMethodSymbol = (
 ): symbol is MethodSymbol => !!symbol && symbol.kind === SymbolKind.Method;
 
 /**
- * Type predicate to check if a symbol is a MethodSymbol
+ * Type predicate to check if a symbol is a ConstructorSymbol (MethodSymbol with Constructor kind)
  */
 export const isConstructorSymbol = (
   symbol: ApexSymbol | undefined | null,
-): symbol is MethodSymbol => !!symbol && symbol.kind === SymbolKind.Constructor;
+): symbol is MethodSymbol & {
+  kind: SymbolKind.Constructor;
+  isConstructor: true;
+} => !!symbol && symbol.kind === SymbolKind.Constructor;
 
 /**
  * Type predicate to check if a symbol is a ClassSymbol
@@ -122,3 +126,11 @@ export const hasCommentAssociations = (
   typeof result === 'object' &&
   'comments' in (result as any) &&
   'commentAssociations' in (result as any);
+
+export const isChainedTypeReference = (
+  typeReference: TypeReference,
+): typeReference is ChainedTypeReference =>
+  !!typeReference &&
+  typeof typeReference === 'object' &&
+  'chainNodes' in typeReference &&
+  Array.isArray(typeReference.chainNodes);

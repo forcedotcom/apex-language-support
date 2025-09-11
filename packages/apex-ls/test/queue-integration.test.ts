@@ -25,7 +25,7 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   },
 }));
 
-describe('Queue Integration in apex-ls-node', () => {
+describe('Queue Integration in apex-ls', () => {
   let mockQueueManager: any;
 
   beforeEach(() => {
@@ -60,7 +60,7 @@ describe('Queue Integration in apex-ls-node', () => {
         expectedDiagnostics,
       );
 
-      // Simulate the logic from apex-ls-node
+      // Simulate the logic from apex-ls
       const fileSize = event.document.getText().length;
       const isLargeFile = fileSize > 10000; // 10KB threshold
 
@@ -88,7 +88,7 @@ describe('Queue Integration in apex-ls-node', () => {
         contentChanges: [],
       };
 
-      // Simulate the logic from apex-ls-node
+      // Simulate the logic from apex-ls
       const fileSize = event.document.getText().length;
       const isLargeFile = fileSize > 10000; // 10KB threshold
 
@@ -115,7 +115,7 @@ describe('Queue Integration in apex-ls-node', () => {
       const error = new Error('Queue processing failed');
       mockQueueManager.submitDocumentOpenRequest.mockRejectedValue(error);
 
-      // Simulate the error handling logic from apex-ls-node
+      // Simulate the error handling logic from apex-ls
       try {
         await mockQueueManager.submitDocumentOpenRequest(event);
       } catch (err) {
@@ -166,7 +166,7 @@ describe('Queue Integration in apex-ls-node', () => {
       const error = new Error('Save processing failed');
       mockQueueManager.submitDocumentSaveRequest.mockRejectedValue(error);
 
-      // Simulate the error handling logic from apex-ls-node
+      // Simulate the error handling logic from apex-ls
       try {
         await mockQueueManager.submitDocumentSaveRequest(event);
       } catch (err) {
@@ -216,7 +216,7 @@ describe('Queue Integration in apex-ls-node', () => {
       const error = new Error('Close processing failed');
       mockQueueManager.submitDocumentCloseRequest.mockRejectedValue(error);
 
-      // Simulate the error handling logic from apex-ls-node
+      // Simulate the error handling logic from apex-ls
       try {
         await mockQueueManager.submitDocumentCloseRequest(event);
       } catch (err) {
@@ -330,7 +330,7 @@ describe('Queue Integration in apex-ls-node', () => {
       const error = new Error('Queue operation failed');
       mockQueueManager.submitDocumentOpenRequest.mockRejectedValue(error);
 
-      // Simulate the error handling pattern from apex-ls-node
+      // Simulate the error handling pattern from apex-ls
       let caughtError: Error | null = null;
       try {
         await mockQueueManager.submitDocumentOpenRequest(event);

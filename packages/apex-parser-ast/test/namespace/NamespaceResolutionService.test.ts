@@ -7,25 +7,37 @@
  */
 
 import { NamespaceResolutionService } from '../../src/namespace/NamespaceResolutionService';
-import { SymbolTable } from '../../src/types/symbol';
-import { SymbolKind, SymbolLocation } from '../../src/types/symbol';
-import { SymbolFactory } from '../../src/types/symbol';
+import {
+  SymbolTable,
+  SymbolKind,
+  SymbolLocation,
+  SymbolFactory,
+  SymbolVisibility,
+} from '../../src/types/symbol';
 import {
   CompilationContext,
   SymbolProvider,
+  Namespaces,
 } from '../../src/namespace/NamespaceUtils';
-import { Namespaces } from '../../src/namespace/NamespaceUtils';
 
 // Mock data for testing
 const mockLocation: SymbolLocation = {
-  startLine: 1,
-  startColumn: 1,
-  endLine: 1,
-  endColumn: 10,
+  identifierRange: {
+    startLine: 1,
+    startColumn: 1,
+    endLine: 1,
+    endColumn: 10,
+  },
+  symbolRange: {
+    startLine: 1,
+    startColumn: 1,
+    endLine: 1,
+    endColumn: 10,
+  },
 };
 
 const mockModifiers = {
-  visibility: 'public' as const,
+  visibility: SymbolVisibility.Public,
   isStatic: false,
   isFinal: false,
   isAbstract: false,
@@ -35,6 +47,9 @@ const mockModifiers = {
   isDeprecated: false,
   isOverride: false,
   isVirtual: false,
+  isTestMethod: false,
+  isWebService: false,
+  isBuiltIn: false,
 };
 
 const createMockSymbolTableWithTypeReferences = (): SymbolTable => {
@@ -93,7 +108,6 @@ const createMockSymbolProvider = (): jest.Mocked<SymbolProvider> => ({
   find: jest.fn(),
   findBuiltInType: jest.fn(),
   findSObjectType: jest.fn(),
-  findUserType: jest.fn(),
   findExternalType: jest.fn(),
 });
 
@@ -130,8 +144,10 @@ describe('NamespaceResolutionService', () => {
       // Verify that type references were resolved
       const symbols = symbolTable.getAllSymbols();
       const variableSymbol = symbols.find((s) => s.name === 'testVar');
-      expect(variableSymbol?._typeData?.type?.resolvedSymbol).toBeDefined();
-      expect(variableSymbol?._typeData?.type?.resolvedSymbol).toBe(
+      expect(
+        (variableSymbol?._typeData?.type as any)?.resolvedSymbol,
+      ).toBeDefined();
+      expect((variableSymbol?._typeData?.type as any)?.resolvedSymbol).toBe(
         mockResolvedSymbol,
       );
     });
@@ -152,7 +168,9 @@ describe('NamespaceResolutionService', () => {
       // Verify that unresolved references are handled without errors
       const symbols = symbolTable.getAllSymbols();
       const variableSymbol = symbols.find((s) => s.name === 'testVar');
-      expect(variableSymbol?._typeData?.type?.resolvedSymbol).toBeUndefined();
+      expect(
+        (variableSymbol?._typeData?.type as any)?.resolvedSymbol,
+      ).toBeUndefined();
     });
 
     it('should handle symbols without type data', () => {
@@ -233,7 +251,7 @@ describe('NamespaceResolutionService', () => {
 
       const symbols = symbolTable.getAllSymbols();
       const resolvedVariable = symbols.find((s) => s.name === 'qualifiedVar');
-      expect(resolvedVariable?._typeData?.type?.resolvedSymbol).toBe(
+      expect((resolvedVariable?._typeData?.type as any)?.resolvedSymbol).toBe(
         mockResolvedSymbol,
       );
     });
@@ -277,7 +295,7 @@ describe('NamespaceResolutionService', () => {
 
       const symbols = symbolTable.getAllSymbols();
       const resolvedVariable = symbols.find((s) => s.name === 'simpleVar');
-      expect(resolvedVariable?._typeData?.type?.resolvedSymbol).toBe(
+      expect((resolvedVariable?._typeData?.type as any)?.resolvedSymbol).toBe(
         mockResolvedSymbol,
       );
     });
@@ -419,7 +437,7 @@ describe('NamespaceResolutionService', () => {
 
       const symbols = symbolTable.getAllSymbols();
       const resolvedVariable = symbols.find((s) => s.name === 'specialVar');
-      expect(resolvedVariable?._typeData?.type?.resolvedSymbol).toBe(
+      expect((resolvedVariable?._typeData?.type as any)?.resolvedSymbol).toBe(
         mockResolvedSymbol,
       );
     });

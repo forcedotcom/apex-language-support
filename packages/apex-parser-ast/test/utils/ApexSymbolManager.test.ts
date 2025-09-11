@@ -7,7 +7,12 @@
  */
 
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
-import { ApexSymbol, SymbolKind, SymbolTable } from '../../src/types/symbol';
+import {
+  ApexSymbol,
+  SymbolKind,
+  SymbolTable,
+  SymbolFactory,
+} from '../../src/types/symbol';
 import { ReferenceType } from '../../src/symbols/ApexSymbolGraph';
 import {
   CompilerService,
@@ -23,13 +28,11 @@ import {
 describe('ApexSymbolManager', () => {
   let manager: ApexSymbolManager;
   let compilerService: CompilerService;
-  let listener: ApexSymbolCollectorListener;
   const logger = getLogger();
 
   beforeEach(() => {
     manager = new ApexSymbolManager();
     compilerService = new CompilerService();
-    listener = new ApexSymbolCollectorListener();
     enableConsoleLogging();
     setLogLevel('error');
   });
@@ -46,7 +49,11 @@ describe('ApexSymbolManager', () => {
     symbols: ApexSymbol[];
     result: CompilationResult<SymbolTable>;
   }> => {
-    const result = compilerService.compile(apexCode, fileName, listener);
+    const result = compilerService.compile(
+      apexCode,
+      fileName,
+      new ApexSymbolCollectorListener(),
+    );
 
     if (result.errors.length > 0) {
       logger.warn(
@@ -342,10 +349,8 @@ describe('ApexSymbolManager', () => {
         manager.addSymbolTable(result2.result, 'File2.cls');
       }
 
-      // Debug: Check what files are actually found
+      // Check what files are actually found
       const files = manager.findFilesForSymbol('MyClass');
-      console.log('Files found for MyClass:', files);
-      console.log('Manager stats:', manager.getStats());
 
       expect(files.length).toBeGreaterThan(0);
       expect(files).toContain('File1.cls');
@@ -666,6 +671,397 @@ describe('ApexSymbolManager', () => {
 
         // Both should return the same result
         expect(firstLookup).toEqual(secondLookup);
+      }
+    });
+  });
+
+  // ============================================================================
+  // Position Data Integrity Tests
+  // ============================================================================
+
+  describe('Position Data Integrity', () => {
+    it('should preserve symbol position data between add and find operations', async () => {
+      const apexCode = `
+        public class MyClass {
+          public void myMethod() {
+            // method implementation
+          }
+          private String myField;
+        }
+      `;
+
+      const { result } = await compileAndGetSymbols(apexCode, 'MyClass.cls');
+
+      // Add the full symbol table to the manager
+      if (result.result) {
+        manager.addSymbolTable(result.result, 'MyClass.cls');
+      }
+
+      // Find the class symbol
+      const classSymbols = manager.findSymbolByName('MyClass');
+      const classSymbol = classSymbols.find((s) => s.kind === SymbolKind.Class);
+      expect(classSymbol).toBeDefined();
+
+      if (classSymbol) {
+        // Verify position data is preserved
+        expect(classSymbol.location).toBeDefined();
+        expect(classSymbol.location.symbolRange).toBeDefined();
+        expect(classSymbol.location.identifierRange).toBeDefined();
+
+        // Verify the ranges have valid line/column data
+        expect(classSymbol.location.symbolRange.startLine).toBeGreaterThan(0);
+        expect(classSymbol.location.symbolRange.endLine).toBeGreaterThan(0);
+        expect(
+          classSymbol.location.symbolRange.startColumn,
+        ).toBeGreaterThanOrEqual(0);
+        expect(
+          classSymbol.location.symbolRange.endColumn,
+        ).toBeGreaterThanOrEqual(0);
+
+        expect(classSymbol.location.identifierRange.startLine).toBeGreaterThan(
+          0,
+        );
+        expect(classSymbol.location.identifierRange.endLine).toBeGreaterThan(0);
+        expect(
+          classSymbol.location.identifierRange.startColumn,
+        ).toBeGreaterThanOrEqual(0);
+        expect(
+          classSymbol.location.identifierRange.endColumn,
+        ).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it('should preserve method symbol position data with exact ranges', async () => {
+      const apexCode = `
+        public class TestClass {
+          public void testMethod() {
+            System.debug('test');
+          }
+        }
+      `;
+
+      const { result } = await compileAndGetSymbols(apexCode, 'TestClass.cls');
+
+      if (result.result) {
+        manager.addSymbolTable(result.result, 'TestClass.cls');
+      }
+
+      // Find the method symbol
+      const methodSymbols = manager.findSymbolByName('testMethod');
+      const methodSymbol = methodSymbols.find(
+        (s) => s.kind === SymbolKind.Method,
+      );
+      expect(methodSymbol).toBeDefined();
+
+      if (methodSymbol) {
+        // Store original position data
+        const originalLocation = { ...methodSymbol.location };
+        const originalSymbolRange = { ...methodSymbol.location.symbolRange };
+        const originalIdentifierRange = {
+          ...methodSymbol.location.identifierRange,
+        };
+
+        // Find the symbol again to verify data hasn't changed
+        const foundAgain = manager.findSymbolByName('testMethod');
+        const foundMethod = foundAgain.find(
+          (s) => s.kind === SymbolKind.Method,
+        );
+        expect(foundMethod).toBeDefined();
+
+        if (foundMethod) {
+          // Verify position data is identical
+          expect(foundMethod.location.symbolRange).toEqual(originalSymbolRange);
+          expect(foundMethod.location.identifierRange).toEqual(
+            originalIdentifierRange,
+          );
+          expect(foundMethod.location).toEqual(originalLocation);
+        }
+      }
+    });
+
+    it('should preserve position data when adding duplicate symbols', async () => {
+      const apexCode = `
+        public class MyClass {
+          public void myMethod() {}
+        }
+      `;
+
+      const { result } = await compileAndGetSymbols(apexCode, 'MyClass.cls');
+
+      if (result.result) {
+        // Add symbol table twice
+        manager.addSymbolTable(result.result, 'MyClass.cls');
+        manager.addSymbolTable(result.result, 'MyClass.cls');
+      }
+
+      // Find the symbol
+      const classSymbols = manager.findSymbolByName('MyClass');
+      const classSymbol = classSymbols.find((s) => s.kind === SymbolKind.Class);
+      expect(classSymbol).toBeDefined();
+
+      if (classSymbol) {
+        // Verify position data is still valid after duplicate addition
+        expect(classSymbol.location.symbolRange.startLine).toBeGreaterThan(0);
+        expect(classSymbol.location.symbolRange.endLine).toBeGreaterThan(0);
+        expect(classSymbol.location.identifierRange.startLine).toBeGreaterThan(
+          0,
+        );
+        expect(classSymbol.location.identifierRange.endLine).toBeGreaterThan(0);
+      }
+    });
+
+    it('should preserve position data across different lookup methods', async () => {
+      const apexCode = `
+        public class MyClass {
+          public void myMethod() {}
+          private String myField;
+        }
+      `;
+
+      const { result } = await compileAndGetSymbols(apexCode, 'MyClass.cls');
+
+      if (result.result) {
+        manager.addSymbolTable(result.result, 'MyClass.cls');
+      }
+
+      // Test different lookup methods
+      const byName = manager.findSymbolByName('MyClass');
+      const byFQN = manager.findSymbolByFQN('MyClass');
+      const inFile = manager.findSymbolsInFile('MyClass.cls');
+
+      const classByName = byName.find((s) => s.kind === SymbolKind.Class);
+      const classByFQN = byFQN;
+      const classInFile = inFile.find((s) => s.kind === SymbolKind.Class);
+
+      expect(classByName).toBeDefined();
+      expect(classByFQN).toBeDefined();
+      expect(classInFile).toBeDefined();
+
+      if (classByName && classByFQN && classInFile) {
+        // All should have identical position data
+        expect(classByName.location).toEqual(classByFQN.location);
+        expect(classByName.location).toEqual(classInFile.location);
+        expect(classByFQN.location).toEqual(classInFile.location);
+      }
+    });
+
+    it('should preserve position data when FQN is calculated during add', async () => {
+      // Create a symbol without FQN to test FQN calculation
+      const symbol = SymbolFactory.createMinimalSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 5,
+            endColumn: 0,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 13,
+            endLine: 1,
+            endColumn: 22,
+          },
+        },
+        'TestClass.cls',
+      );
+
+      // Store original position data
+      const originalLocation = { ...symbol.location };
+      const originalSymbolRange = { ...symbol.location.symbolRange };
+      const originalIdentifierRange = { ...symbol.location.identifierRange };
+
+      // Add symbol (this will calculate FQN)
+      manager.addSymbol(symbol, 'TestClass.cls');
+
+      // Find the symbol
+      const found = manager.findSymbolByName('TestClass');
+      const foundClass = found.find((s) => s.kind === SymbolKind.Class);
+      expect(foundClass).toBeDefined();
+
+      if (foundClass) {
+        // Verify position data is unchanged despite FQN calculation
+        expect(foundClass.location.symbolRange).toEqual(originalSymbolRange);
+        expect(foundClass.location.identifierRange).toEqual(
+          originalIdentifierRange,
+        );
+        expect(foundClass.location).toEqual(originalLocation);
+
+        // Verify FQN was calculated
+        expect(foundClass.fqn).toBeDefined();
+        expect(foundClass.fqn).toBe('TestClass');
+      }
+    });
+
+    it('should preserve position data when parent linkage is hydrated', async () => {
+      // Create parent and child symbols
+      const parentSymbol = SymbolFactory.createMinimalSymbol(
+        'ParentClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 10,
+            endColumn: 0,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 13,
+            endLine: 1,
+            endColumn: 24,
+          },
+        },
+        'ParentClass.cls',
+      );
+
+      const childSymbol = SymbolFactory.createMinimalSymbol(
+        'childMethod',
+        SymbolKind.Method,
+        {
+          symbolRange: {
+            startLine: 3,
+            startColumn: 2,
+            endLine: 5,
+            endColumn: 2,
+          },
+          identifierRange: {
+            startLine: 3,
+            startColumn: 10,
+            endLine: 3,
+            endColumn: 20,
+          },
+        },
+        'ParentClass.cls',
+        parentSymbol.id,
+      );
+
+      // Store original position data
+      const originalChildLocation = { ...childSymbol.location };
+      const originalParentLocation = { ...parentSymbol.location };
+
+      // Add symbols
+      manager.addSymbol(parentSymbol, 'ParentClass.cls');
+      manager.addSymbol(childSymbol, 'ParentClass.cls');
+
+      // Find symbols
+      const foundParent = manager.findSymbolByName('ParentClass');
+      const foundChild = manager.findSymbolByName('childMethod');
+
+      const parentClass = foundParent.find((s) => s.kind === SymbolKind.Class);
+      const childMethod = foundChild.find((s) => s.kind === SymbolKind.Method);
+
+      expect(parentClass).toBeDefined();
+      expect(childMethod).toBeDefined();
+
+      if (parentClass && childMethod) {
+        // Verify position data is unchanged despite parent linkage
+        expect(parentClass.location).toEqual(originalParentLocation);
+        expect(childMethod.location).toEqual(originalChildLocation);
+      }
+    });
+
+    it('should preserve position data across file operations', async () => {
+      const apexCode = `
+        public class MyClass {
+          public void myMethod() {}
+        }
+      `;
+
+      const { result } = await compileAndGetSymbols(apexCode, 'MyClass.cls');
+
+      if (result.result) {
+        manager.addSymbolTable(result.result, 'MyClass.cls');
+      }
+
+      // Get original position data
+      const originalSymbols = manager.findSymbolsInFile('MyClass.cls');
+      const originalClass = originalSymbols.find(
+        (s) => s.kind === SymbolKind.Class,
+      );
+      expect(originalClass).toBeDefined();
+
+      if (originalClass) {
+        const originalLocation = { ...originalClass.location };
+
+        // Remove and re-add the file
+        manager.removeFile('MyClass.cls');
+
+        if (result.result) {
+          manager.addSymbolTable(result.result, 'MyClass.cls');
+        }
+
+        // Find the symbol again
+        const newSymbols = manager.findSymbolsInFile('MyClass.cls');
+        const newClass = newSymbols.find((s) => s.kind === SymbolKind.Class);
+        expect(newClass).toBeDefined();
+
+        if (newClass) {
+          // Position data should be identical
+          expect(newClass.location).toEqual(originalLocation);
+        }
+      }
+    });
+
+    it('should preserve position data for complex nested symbols', async () => {
+      const apexCode = `
+        public class OuterClass {
+          public class InnerClass {
+            public void innerMethod() {}
+            private String innerField;
+          }
+          public void outerMethod() {}
+        }
+      `;
+
+      const { result } = await compileAndGetSymbols(apexCode, 'OuterClass.cls');
+
+      if (result.result) {
+        manager.addSymbolTable(result.result, 'OuterClass.cls');
+      }
+
+      // Find all symbols
+      const allSymbols = manager.findSymbolsInFile('OuterClass.cls');
+      const outerClass = allSymbols.find(
+        (s) => s.name === 'OuterClass' && s.kind === SymbolKind.Class,
+      );
+      const innerClass = allSymbols.find(
+        (s) => s.name === 'InnerClass' && s.kind === SymbolKind.Class,
+      );
+      const innerMethod = allSymbols.find(
+        (s) => s.name === 'innerMethod' && s.kind === SymbolKind.Method,
+      );
+      const innerField = allSymbols.find(
+        (s) => s.name === 'innerField' && s.kind === SymbolKind.Field,
+      );
+      const outerMethod = allSymbols.find(
+        (s) => s.name === 'outerMethod' && s.kind === SymbolKind.Method,
+      );
+
+      // Verify all symbols have valid position data
+      [outerClass, innerClass, innerMethod, innerField, outerMethod].forEach(
+        (symbol) => {
+          expect(symbol).toBeDefined();
+          if (symbol) {
+            expect(symbol.location.symbolRange.startLine).toBeGreaterThan(0);
+            expect(symbol.location.symbolRange.endLine).toBeGreaterThan(0);
+            expect(symbol.location.identifierRange.startLine).toBeGreaterThan(
+              0,
+            );
+            expect(symbol.location.identifierRange.endLine).toBeGreaterThan(0);
+          }
+        },
+      );
+
+      // Verify nested structure maintains position relationships
+      if (outerClass && innerClass) {
+        expect(outerClass.location.symbolRange.startLine).toBeLessThan(
+          innerClass.location.symbolRange.startLine,
+        );
+        expect(outerClass.location.symbolRange.endLine).toBeGreaterThan(
+          innerClass.location.symbolRange.endLine,
+        );
       }
     });
   });

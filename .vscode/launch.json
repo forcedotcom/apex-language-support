@@ -37,6 +37,83 @@
       }
     },
     {
+      "name": "Debug Jest Test (Prompt for Name)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/jest/bin/jest.js",
+      "args": [
+        "${file}",
+        "--testNamePattern=${input:testName}",
+        "--runInBand",
+        "--no-cache",
+        "--no-coverage",
+        "--verbose"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "cwd": "${workspaceFolder}",
+      "sourceMaps": true,
+      "smartStep": true,
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/packages/**",
+        "!**/node_modules/**"
+      ]
+    },
+    {
+      "name": "Debug Jest Test (Selected Text)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/jest/bin/jest.js",
+      "args": [
+        "${file}",
+        "--testNamePattern=${selectedText}",
+        "--runInBand",
+        "--no-cache",
+        "--no-coverage",
+        "--verbose"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "cwd": "${workspaceFolder}",
+      "sourceMaps": true,
+      "smartStep": true,
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/packages/**",
+        "!**/node_modules/**"
+      ]
+    },
+    {
+      "name": "Debug Jest Test File",
+      "type": "node", 
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/jest/bin/jest.js",
+      "args": [
+        "${file}",
+        "--runInBand",
+        "--no-cache", 
+        "--no-coverage",
+        "--verbose"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "cwd": "${workspaceFolder}",
+      "sourceMaps": true,
+      "smartStep": true,
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/packages/**",
+        "!**/node_modules/**"
+      ]
+    },
+    {
       "name": "Run Extension (Production Mode)",
       "type": "extensionHost",
       "request": "launch",
@@ -87,6 +164,7 @@
       ],
       "resolveSourceMapLocations": [
         "${workspaceFolder}/packages/apex-lsp-vscode-extension/**",
+        "${workspaceFolder}/packages/apex-lsp-shared/**",
         "${workspaceFolder}/packages/apex-ls/**",
         "${workspaceFolder}/packages/apex-parser-ast/**",
         "${workspaceFolder}/packages/lsp-compliant-services/**",
@@ -94,6 +172,7 @@
       ],
       "sourceMapPathOverrides": {
         "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*",
+        "../../apex-lsp-shared/src/*": "${workspaceFolder}/packages/apex-lsp-shared/src/*",
         "../../apex-ls/src/*": "${workspaceFolder}/packages/apex-ls/src/*",
         "../../apex-parser-ast/src/*": "${workspaceFolder}/packages/apex-parser-ast/src/*",
         "../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*"
@@ -175,6 +254,14 @@
       "env": {
         "NODE_OPTIONS": "--enable-source-maps"
       }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "testName",
+      "description": "Enter the test name pattern to run",
+      "default": "",
+      "type": "promptString"
     }
   ]
 }

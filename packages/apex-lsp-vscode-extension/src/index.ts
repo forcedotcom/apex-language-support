@@ -13,12 +13,7 @@ export { activate, deactivate } from './extension';
 export type { ExtensionState, WorkspaceSettings, DebugConfig } from './types';
 
 // Export constants
-export {
-  EXTENSION_CONSTANTS,
-  STATUS_BAR_TEXT,
-  STATUS_BAR_TOOLTIPS,
-  DEBUG_CONFIG,
-} from './constants';
+export { EXTENSION_CONSTANTS } from './constants';
 
 // Export logging utilities
 export {
@@ -31,7 +26,6 @@ export {
 // Export status bar utilities
 export {
   updateLogLevelStatusItems,
-  registerApexLanguageStatusMenu,
   createApexServerStatusItem,
   updateApexServerStatusStarting,
   updateApexServerStatusReady,
@@ -43,7 +37,6 @@ export {
 export {
   initializeCommandState,
   registerRestartCommand,
-  registerLogLevelCommands,
   setRestartHandler,
   setStartingFlag,
   getStartingFlag,
@@ -58,17 +51,8 @@ export {
 // Export configuration utilities
 export {
   getWorkspaceSettings,
-  getDebugConfig,
-  getTraceServerConfig,
   registerConfigurationChangeListener,
 } from './configuration';
-
-// Export server configuration utilities
-export {
-  getDebugOptions,
-  createServerOptions,
-  createClientOptions,
-} from './server-config';
 
 // Export error handling utilities
 export {

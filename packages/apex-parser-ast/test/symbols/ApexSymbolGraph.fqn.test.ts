@@ -7,17 +7,19 @@
  */
 
 import { ApexSymbolGraph } from '../../src/symbols/ApexSymbolGraph';
-import {
-  SymbolFactory,
-  SymbolKind,
-  SymbolVisibility,
-} from '../../src/types/symbol';
+import { CompilerService } from '../../src/parser/compilerService';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
   let symbolGraph: ApexSymbolGraph;
+  let compilerService: CompilerService;
 
   beforeEach(() => {
     symbolGraph = new ApexSymbolGraph();
+    compilerService = new CompilerService();
+    enableConsoleLogging();
+    setLogLevel('error');
   });
 
   afterEach(() => {
@@ -26,47 +28,40 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
 
   describe('FQN Calculation and Storage', () => {
     it('should calculate and store FQN for top-level class', () => {
-      // Create a symbol without FQN (simulating the bug condition)
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        null, // parentId
-        { interfaces: [] }, // typeData
-        undefined, // fqn - intentionally undefined to simulate the bug
+      const sourceCode = `
+        public class TestClass {
+          public void myMethod() {
+            System.debug('Hello World');
+          }
+        }
+      `;
+
+      // Compile the source code
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        sourceCode,
+        'file:///TestClass.cls',
+        listener,
       );
 
-      // Add symbol to graph
-      symbolGraph.addSymbol(classSymbol, 'test.cls');
+      expect(result.result).toBeDefined();
+      if (result.errors.length > 0) {
+        console.log('Compilation errors:', result.errors);
+      }
 
-      // Verify FQN was calculated and stored
-      expect(classSymbol.fqn).toBe('TestClass');
+      // Get the symbol table and add symbols to the graph
+      const symbolTable = listener.getResult();
+      const symbols = symbolTable.getAllSymbols();
+
+      // Add all symbols to the graph
+      for (const symbol of symbols) {
+        symbolGraph.addSymbol(symbol, 'file:///TestClass.cls', symbolTable);
+      }
+
+      // Find the class symbol
+      const classSymbol = symbols.find((s) => s.name === 'TestClass');
+      expect(classSymbol).toBeDefined();
+      expect(classSymbol?.fqn).toBe('TestClass');
 
       // Verify FQN can be looked up
       const foundSymbol = symbolGraph.findSymbolByFQN('TestClass');
@@ -75,221 +70,88 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
     });
 
     it('should calculate and store FQN for nested method', () => {
-      // Create a class symbol
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        null, // parentId
-        { interfaces: [] }, // typeData
-        'TestClass', // fqn for class
+      const sourceCode = `
+        public class TestClass {
+          public String myMethod() {
+            return 'Hello World';
+          }
+        }
+      `;
+
+      // Compile the source code
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        sourceCode,
+        'file:///TestClass.cls',
+        listener,
       );
 
-      // Create a method symbol without FQN
-      const methodSymbol = SymbolFactory.createFullSymbol(
-        'testMethod',
-        SymbolKind.Method,
-        {
-          symbolRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        classSymbol.id, // parentId
-        {
-          returnType: { name: 'String', isPrimitive: true, isArray: false },
-          parameters: [],
-        }, // typeData
-        undefined, // fqn - intentionally undefined to simulate the bug
-      );
+      expect(result.result).toBeDefined();
+      if (result.errors.length > 0) {
+        console.log('Compilation errors:', result.errors);
+      }
 
-      // Set up parent relationship
-      methodSymbol.parent = classSymbol;
+      // Get the symbol table and add symbols to the graph
+      const symbolTable = listener.getResult();
+      const symbols = symbolTable.getAllSymbols();
 
-      // Add symbols to graph
-      symbolGraph.addSymbol(classSymbol, 'test.cls');
-      symbolGraph.addSymbol(methodSymbol, 'test.cls');
+      // Add all symbols to the graph
+      for (const symbol of symbols) {
+        symbolGraph.addSymbol(symbol, 'file:///TestClass.cls', symbolTable);
+      }
 
-      // Verify FQN was calculated and stored
-      expect(methodSymbol.fqn).toBe('TestClass.testMethod');
+      // Find the method symbol
+      const methodSymbol = symbols.find((s) => s.name === 'myMethod');
+      expect(methodSymbol).toBeDefined();
+      expect(methodSymbol?.fqn).toBe('TestClass.myMethod');
 
       // Verify FQN can be looked up
-      const foundSymbol = symbolGraph.findSymbolByFQN('TestClass.testMethod');
+      const foundSymbol = symbolGraph.findSymbolByFQN('TestClass.myMethod');
       expect(foundSymbol).toBeTruthy();
-      expect(foundSymbol?.name).toBe('testMethod');
+      expect(foundSymbol?.name).toBe('myMethod');
     });
 
     it('should handle deeply nested symbols', () => {
-      // Create outer class
-      const outerClass = SymbolFactory.createFullSymbol(
-        'OuterClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        null, // parentId
-        { interfaces: [] }, // typeData
-        'OuterClass', // fqn for outer class
+      const sourceCode = `
+        public class OuterClass {
+          public class InnerClass {
+            public String innerMethod() {
+              return 'Inner method result';
+            }
+          }
+        }
+      `;
+
+      // Compile the source code
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        sourceCode,
+        'file:///OuterClass.cls',
+        listener,
       );
 
-      // Create inner class
-      const innerClass = SymbolFactory.createFullSymbol(
-        'InnerClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 3,
-            startColumn: 1,
-            endLine: 3,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 3,
-            startColumn: 1,
-            endLine: 3,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        outerClass.id, // parentId
-        { interfaces: [] }, // typeData
-        undefined, // fqn - intentionally undefined
-      );
+      expect(result.result).toBeDefined();
+      if (result.errors.length > 0) {
+        console.log('Compilation errors:', result.errors);
+      }
 
-      // Create method in inner class
-      const methodSymbol = SymbolFactory.createFullSymbol(
-        'innerMethod',
-        SymbolKind.Method,
-        {
-          symbolRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        innerClass.id, // parentId
-        {
-          returnType: { name: 'String', isPrimitive: true, isArray: false },
-          parameters: [],
-        }, // typeData
-        undefined, // fqn - intentionally undefined
-      );
+      // Get the symbol table and add symbols to the graph
+      const symbolTable = listener.getResult();
+      const symbols = symbolTable.getAllSymbols();
 
-      // Set up parent relationships
-      innerClass.parent = outerClass;
-      methodSymbol.parent = innerClass;
+      // Add all symbols to the graph
+      for (const symbol of symbols) {
+        symbolGraph.addSymbol(symbol, 'file:///OuterClass.cls', symbolTable);
+      }
 
-      // Add symbols to graph
-      symbolGraph.addSymbol(outerClass, 'test.cls');
-      symbolGraph.addSymbol(innerClass, 'test.cls');
-      symbolGraph.addSymbol(methodSymbol, 'test.cls');
+      // Find the inner class and method symbols
+      const innerClass = symbols.find((s) => s.name === 'InnerClass');
+      const methodSymbol = symbols.find((s) => s.name === 'innerMethod');
 
-      // Verify FQNs were calculated and stored
-      expect(innerClass.fqn).toBe('OuterClass.InnerClass');
-      expect(methodSymbol.fqn).toBe('OuterClass.InnerClass.innerMethod');
+      expect(innerClass).toBeDefined();
+      expect(methodSymbol).toBeDefined();
+      expect(innerClass?.fqn).toBe('OuterClass.InnerClass');
+      expect(methodSymbol?.fqn).toBe('OuterClass.InnerClass.innerMethod');
 
       // Verify FQNs can be looked up
       const foundInnerClass = symbolGraph.findSymbolByFQN(
@@ -306,51 +168,47 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
     });
 
     it('should preserve existing FQNs when already present', () => {
-      // Create a symbol with FQN already set
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
+      const sourceCode = `
+        public class TestClass {
+          public void myMethod() {
+            System.debug('Hello World');
+          }
+        }
+      `;
+
+      // Compile the source code
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        sourceCode,
+        'file:///TestClass.cls',
+        listener,
         {
-          symbolRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
+          projectNamespace: 'CustomNamespace',
         },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        null, // parentId
-        { interfaces: [] }, // typeData
-        'CustomNamespace.TestClass', // fqn already set
       );
 
-      // Add symbol to graph
-      symbolGraph.addSymbol(classSymbol, 'test.cls');
+      expect(result.result).toBeDefined();
+      if (result.errors.length > 0) {
+        console.log('Compilation errors:', result.errors);
+      }
 
-      // Verify existing FQN was preserved
-      expect(classSymbol.fqn).toBe('CustomNamespace.TestClass');
+      // Get the symbol table and add symbols to the graph
+      const symbolTable = listener.getResult();
+      const symbols = symbolTable.getAllSymbols();
+
+      // Add all symbols to the graph
+      for (const symbol of symbols) {
+        symbolGraph.addSymbol(symbol, 'file:///TestClass.cls', symbolTable);
+      }
+
+      // Find the class symbol
+      const classSymbol = symbols.find((s) => s.name === 'TestClass');
+      expect(classSymbol).toBeDefined();
+      expect(classSymbol?.fqn).toBe('customnamespace.testclass');
 
       // Verify FQN can be looked up
       const foundSymbol = symbolGraph.findSymbolByFQN(
-        'CustomNamespace.TestClass',
+        'customnamespace.testclass',
       );
       expect(foundSymbol).toBeTruthy();
       expect(foundSymbol?.name).toBe('TestClass');
@@ -359,95 +217,44 @@ describe('ApexSymbolGraph FQN Bug Fix Tests', () => {
 
   describe('FQN Index Population', () => {
     it('should populate FQN index for all symbols', () => {
-      // Create multiple symbols without FQNs
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        null, // parentId
-        { interfaces: [] }, // typeData
-        undefined, // fqn
+      const sourceCode = `
+        public class TestClass {
+          public String myMethod() {
+            return 'Hello World';
+          }
+        }
+      `;
+
+      // Compile the source code
+      const listener = new ApexSymbolCollectorListener();
+      const result = compilerService.compile(
+        sourceCode,
+        'file:///TestClass.cls',
+        listener,
       );
 
-      const methodSymbol = SymbolFactory.createFullSymbol(
-        'testMethod',
-        SymbolKind.Method,
-        {
-          symbolRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        classSymbol.id, // parentId
-        {
-          returnType: { name: 'String', isPrimitive: true, isArray: false },
-          parameters: [],
-        }, // typeData
-        undefined, // fqn
-      );
+      expect(result.result).toBeDefined();
+      if (result.errors.length > 0) {
+        console.log('Compilation errors:', result.errors);
+      }
 
-      // Set up parent relationship
-      methodSymbol.parent = classSymbol;
+      // Get the symbol table and add symbols to the graph
+      const symbolTable = listener.getResult();
+      const symbols = symbolTable.getAllSymbols();
 
-      // Add symbols to graph
-      symbolGraph.addSymbol(classSymbol, 'test.cls');
-      symbolGraph.addSymbol(methodSymbol, 'test.cls');
+      // Add all symbols to the graph
+      for (const symbol of symbols) {
+        symbolGraph.addSymbol(symbol, 'file:///TestClass.cls', symbolTable);
+      }
 
       // Verify both FQNs can be looked up
       const foundClass = symbolGraph.findSymbolByFQN('TestClass');
       expect(foundClass).toBeTruthy();
       expect(foundClass?.name).toBe('TestClass');
 
-      const foundMethod = symbolGraph.findSymbolByFQN('TestClass.testMethod');
+      const foundMethod = symbolGraph.findSymbolByFQN('TestClass.myMethod');
       expect(foundMethod).toBeTruthy();
-      expect(foundMethod?.name).toBe('testMethod');
+      expect(foundMethod?.name).toBe('myMethod');
     });
   });
 });

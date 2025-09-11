@@ -13,7 +13,7 @@ import type {
   EnvironmentType,
   ClientInterface,
 } from '@salesforce/apex-lsp-shared';
-import type { ClientConfig, Worker } from './Interfaces';
+import type { ClientConfig } from './Interfaces';
 
 // Re-export the interface for external use
 export type { ClientInterface };
@@ -149,7 +149,7 @@ export class ClientFactory {
   /**
    * Creates a client for web browser environment using a worker
    */
-  static createBrowserClient(worker: Worker, logger?: Logger): ClientInterface {
+  static createBrowserClient(worker: any, logger?: Logger): ClientInterface {
     return new Client({
       environment: 'browser',
       worker,

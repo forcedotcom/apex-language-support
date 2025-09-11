@@ -188,6 +188,12 @@ export class CompilerService {
 
       // Set up the main listener
       listener.setErrorListener(errorListener);
+
+      // Set the current file path for the listener
+      if (typeof listener.setCurrentFilePath === 'function') {
+        listener.setCurrentFilePath(fileName);
+      }
+
       const namespace = options.projectNamespace || this.projectNamespace;
       if (namespace && typeof listener.setProjectNamespace === 'function') {
         this.logger.debug(() => `Setting project namespace to: ${namespace}`);
@@ -205,9 +211,6 @@ export class CompilerService {
 
       // Phase 4: Deferred namespace resolution
       if (listener instanceof ApexSymbolCollectorListener) {
-        this.logger.debug(
-          () => 'Starting Phase 4: Deferred namespace resolution',
-        );
         const symbolTable = listener.getResult();
 
         // Create compilation context for namespace resolution
@@ -224,10 +227,6 @@ export class CompilerService {
           symbolTable,
           compilationContext,
           symbolProvider,
-        );
-
-        this.logger.debug(
-          () => 'Completed Phase 4: Deferred namespace resolution',
         );
       }
 
@@ -321,7 +320,7 @@ export class CompilerService {
         message: error instanceof Error ? error.message : String(error),
         line: 0,
         column: 0,
-        filePath: fileName,
+        fileUri: fileName,
       };
 
       const baseErrorResult = {
@@ -437,7 +436,7 @@ export class CompilerService {
               : String(settledResult.reason),
           line: 0,
           column: 0,
-          filePath: config.fileName,
+          fileUri: config.fileName,
         };
 
         const errorResult = {
@@ -462,20 +461,13 @@ export class CompilerService {
 
     const endTime = Date.now();
     const duration = (endTime - startTime) / 1000;
-
-    if (rejectedCount > 0) {
-      this.logger.debug(
-        () =>
-          // eslint-disable-next-line max-len
-          `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed, ${rejectedCount} compilation rejections captured`,
-      );
-    } else {
-      this.logger.debug(
-        () =>
-          `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed`,
-      );
-    }
-
+    this.logger.debug(
+      () =>
+        `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed` +
+        (rejectedCount > 0
+          ? `, ${rejectedCount} compilation rejections captured`
+          : ''),
+    );
     return results;
   }
 

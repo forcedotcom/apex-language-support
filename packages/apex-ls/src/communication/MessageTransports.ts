@@ -7,7 +7,6 @@
  */
 
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
-import type { Worker } from './Interfaces';
 
 // =============================================================================
 // BROWSER/WORKER TRANSPORTS
@@ -68,19 +67,13 @@ export class SelfMessageTransport implements MessageTransport {
     if (workerScope) {
       // Use provided scope (for testing)
       this.selfContext = workerScope;
+    } else if (typeof self !== 'undefined' && 'postMessage' in self) {
+      // Use global self (for actual worker context)
+      this.selfContext = self as any;
     } else {
-      // Use type-safe access to worker self context
-      const {
-        getWorkerSelf,
-        isWorkerPostMessageAvailable,
-      } = require('../utils/EnvironmentUtils');
-      if (isWorkerPostMessageAvailable()) {
-        this.selfContext = getWorkerSelf();
-      } else {
-        throw new Error(
-          'SelfMessageTransport can only be used in a worker context',
-        );
-      }
+      throw new Error(
+        'SelfMessageTransport can only be used in a worker context',
+      );
     }
   }
 

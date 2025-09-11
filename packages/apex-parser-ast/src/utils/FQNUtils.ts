@@ -11,7 +11,7 @@
  */
 
 import { ApexSymbol, SymbolKind } from '../types/symbol';
-import { STD_APEX_NAMESPACES } from '../generated/stdApexNamespaces';
+import { ResourceLoader } from './resourceLoader';
 
 /**
  * Options for FQN generation
@@ -32,37 +32,66 @@ export interface FQNOptions {
 const DEFAULT_OPTIONS: FQNOptions = {
   innerClassDelimiter: '.',
   memberDelimiter: '.',
-  normalizeCase: false,
+  normalizeCase: true, // Enable case normalization by default for Apex case-insensitive convention
 };
 
 /**
  * Calculates the fully qualified name for an Apex symbol
  * @param symbol The symbol to calculate the FQN for
  * @param options Options for FQN generation
+ * @param getParent Function to resolve parent by ID (for lazy loading)
  * @returns The fully qualified name as a string
  */
-export function calculateFQN(symbol: ApexSymbol, options?: FQNOptions): string {
-  // Start with the symbol name
-  let fqn = symbol.name;
+export function calculateFQN(
+  symbol: ApexSymbol,
+  options?: FQNOptions,
+  getParent?: (parentId: string) => ApexSymbol | null,
+): string {
+  // Collect all meaningful parent names (excluding block scopes)
+  const parts: string[] = [symbol.name];
 
-  // If the symbol has a parent, prepend the parent's FQN
-  // Skip block scopes in FQN construction - only include meaningful scopes
-  if (symbol.parent) {
-    // Only include parent if it's not a block scope
-    if (!isBlockScope(symbol.parent)) {
-      fqn = `${symbol.parent.name}.${fqn}`;
-    }
+  // First try to use parentId with getParent function (preferred for lazy loading)
+  if (symbol.parentId && getParent) {
+    let currentParentId: string | null = symbol.parentId;
+    let depth = 0;
 
-    // Continue up the hierarchy, skipping block scopes
-    let currentParent = symbol.parent.parent;
-    while (currentParent) {
-      // Skip block scopes in FQN construction
-      if (!isBlockScope(currentParent)) {
-        fqn = `${currentParent.name}.${fqn}`;
+    while (currentParentId && depth < 10) {
+      // Prevent infinite loops
+      const parent = getParent(currentParentId);
+      if (!parent) {
+        break;
       }
-      currentParent = currentParent.parent;
+
+      // Only include parent if it's not a block scope
+      if (!isBlockScope(parent)) {
+        parts.unshift(parent.name);
+      }
+
+      currentParentId = parent.parentId ?? null;
+      depth++;
+    }
+  } else if (symbol.parent) {
+    // Fallback to direct parent property traversal (for test scenarios)
+    let currentParent: ApexSymbol | null = symbol.parent;
+    let depth = 0;
+
+    while (currentParent && depth < 10) {
+      // Prevent infinite loops
+      if (!currentParent) {
+        break;
+      }
+
+      // Only include parent if it's not a block scope
+      if (!isBlockScope(currentParent)) {
+        parts.unshift(currentParent.name);
+      }
+
+      currentParent = currentParent.parent ?? null;
+      depth++;
     }
   }
+
+  let fqn = parts.join('.');
 
   // Handle namespace
   if (symbol.namespace) {
@@ -72,6 +101,11 @@ export function calculateFQN(symbol: ApexSymbol, options?: FQNOptions): string {
     // Only apply default namespace to top-level symbols
     fqn = `${options.defaultNamespace}.${fqn}`;
     symbol.namespace = options.defaultNamespace;
+  }
+
+  // Apply case normalization if requested (important for Apex case-insensitive convention)
+  if (options?.normalizeCase) {
+    fqn = fqn.toLowerCase();
   }
 
   return fqn;
@@ -105,13 +139,20 @@ export function getNamespaceFromFQN(fqn: string): string | undefined {
 /**
  * Get the chain of ancestors for a symbol
  * @param symbol The symbol to get ancestors for
+ * @param getParent Function to resolve parent by ID (for lazy loading)
  * @returns Array of ancestors from top-level to closest parent
  */
-export function getAncestorChain(symbol: any): any[] {
+export function getAncestorChain(
+  symbol: any,
+  getParent?: (parentId: string) => any,
+): any[] {
   const ancestors: any[] = [];
-  let current = symbol.parent;
+  let currentParentId = symbol.parentId;
 
-  while (current) {
+  while (currentParentId && getParent) {
+    const current = getParent(currentParentId);
+    if (!current) break;
+
     // Only add type-level symbols to the chain
     if (
       current.kind === 'Class' ||
@@ -120,7 +161,7 @@ export function getAncestorChain(symbol: any): any[] {
     ) {
       ancestors.unshift(current);
     }
-    current = current.parent;
+    currentParentId = current.parentId;
   }
 
   return ancestors;
@@ -162,7 +203,13 @@ export function isBuiltInType(symbol: any): boolean {
 
   // Check if this is a type from a built-in namespace
   const namespace = symbol.namespace || extractNamespace(symbol.name);
-  return namespace ? STD_APEX_NAMESPACES.includes(namespace) : false;
+  const resourceLoader = ResourceLoader.getInstance({
+    loadMode: 'lazy',
+    preloadStdClasses: true,
+  });
+  return namespace
+    ? [...resourceLoader.getStandardNamespaces().keys()].includes(namespace)
+    : false;
 }
 
 /**
@@ -203,9 +250,14 @@ export function extractNamespace(
   defaultNamespace?: string,
 ): string {
   if (!name) return '';
-
+  const resourceLoader = ResourceLoader.getInstance({
+    loadMode: 'lazy',
+    preloadStdClasses: true,
+  });
   // If it's a built-in namespace, return the name itself
-  if (STD_APEX_NAMESPACES.includes(name as any)) {
+  if (
+    [...resourceLoader.getStandardNamespaces().keys()].includes(name as any)
+  ) {
     return name;
   }
 
@@ -213,7 +265,11 @@ export function extractNamespace(
   if (name.includes('.')) {
     const parts = name.split('.');
     // Check if the first part is a built-in namespace
-    if (STD_APEX_NAMESPACES.includes(parts[0] as any)) {
+    if (
+      [...resourceLoader.getStandardNamespaces().keys()].includes(
+        parts[0] as any,
+      )
+    ) {
       return parts[0];
     }
   }
@@ -247,10 +303,13 @@ export function isGlobalSymbol(symbol: any): boolean {
  */
 export function isBuiltInFQN(fqn: string): boolean {
   if (!fqn) return false;
-
+  const resourceLoader = ResourceLoader.getInstance({
+    loadMode: 'lazy',
+    preloadStdClasses: true,
+  });
   // Check if the FQN starts with a built-in namespace
-  for (const namespace of STD_APEX_NAMESPACES) {
-    if (fqn === namespace || fqn.startsWith(`${namespace}.`)) {
+  for (const namespace of [...resourceLoader.getStandardNamespaces().keys()]) {
+    if (fqn === namespace.toString() || fqn.startsWith(`${namespace}.`)) {
       return true;
     }
   }

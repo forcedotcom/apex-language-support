@@ -73,7 +73,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const classSymbol = symbols.find((s) => s.name === 'TestClass');
 
       expect(classSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(classSymbol?.fqn).toBe('mynamespace/testclass');
+      expect(classSymbol?.fqn).toBe('mynamespace.testclass');
     });
 
     it('should assign project namespace to top-level interface', () => {
@@ -89,7 +89,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const interfaceSymbol = symbols.find((s) => s.name === 'TestInterface');
 
       expect(interfaceSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(interfaceSymbol?.fqn).toBe('mynamespace/testinterface');
+      expect(interfaceSymbol?.fqn).toBe('mynamespace.testinterface');
     });
 
     it('should assign project namespace to top-level enum', () => {
@@ -105,7 +105,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const enumSymbol = symbols.find((s) => s.name === 'TestEnum');
 
       expect(enumSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(enumSymbol?.fqn).toBe('mynamespace/testenum');
+      expect(enumSymbol?.fqn).toBe('mynamespace.testenum');
     });
 
     it('should assign project namespace to top-level trigger', () => {
@@ -121,7 +121,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const triggerSymbol = symbols.find((s) => s.name === 'TestTrigger');
 
       expect(triggerSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(triggerSymbol?.fqn).toBe('mynamespace/testtrigger');
+      expect(triggerSymbol?.fqn).toBe('mynamespace.testtrigger');
     });
   });
 
@@ -139,7 +139,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const innerSymbol = symbols.find((s) => s.name === 'InnerClass');
 
       expect(innerSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(innerSymbol?.fqn).toBe('mynamespace/innerclass');
+      expect(innerSymbol?.fqn).toBe('mynamespace.innerclass');
     });
 
     it('should inherit namespace for inner interface', () => {
@@ -155,7 +155,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const innerSymbol = symbols.find((s) => s.name === 'InnerInterface');
 
       expect(innerSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(innerSymbol?.fqn).toBe('mynamespace/innerinterface');
+      expect(innerSymbol?.fqn).toBe('mynamespace.innerinterface');
     });
 
     it('should inherit namespace for inner enum', () => {
@@ -171,7 +171,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const innerSymbol = symbols.find((s) => s.name === 'InnerEnum');
 
       expect(innerSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(innerSymbol?.fqn).toBe('mynamespace/innerenum');
+      expect(innerSymbol?.fqn).toBe('mynamespace.innerenum');
     });
   });
 
@@ -191,7 +191,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const methodSymbol = symbols.find((s) => s.kind === 'method');
 
       expect(methodSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(methodSymbol?.fqn).toBe('mynamespace/mymethod');
+      expect(methodSymbol?.fqn).toBe('mynamespace.mymethod');
     });
 
     it('should inherit namespace for method in interface', () => {
@@ -207,7 +207,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const methodSymbol = symbols.find((s) => s.name === 'myMethod');
 
       expect(methodSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(methodSymbol?.fqn).toBe('mynamespace/mymethod');
+      expect(methodSymbol?.fqn).toBe('mynamespace.mymethod');
     });
 
     it('should inherit namespace for constructor', () => {
@@ -225,7 +225,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       );
 
       expect(constructorSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(constructorSymbol?.fqn).toBe('mynamespace/testclass');
+      expect(constructorSymbol?.fqn).toBe('mynamespace.testclass');
     });
   });
 
@@ -243,7 +243,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const fieldSymbol = symbols.find((s) => s.name === 'testField');
 
       expect(fieldSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(fieldSymbol?.fqn).toBe('mynamespace/testfield');
+      expect(fieldSymbol?.fqn).toBe('mynamespace.testfield');
     });
 
     it('should inherit namespace for property in class', () => {
@@ -259,7 +259,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const propertySymbol = symbols.find((s) => s.name === 'testProperty');
 
       expect(propertySymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(propertySymbol?.fqn).toBe('mynamespace/testproperty');
+      expect(propertySymbol?.fqn).toBe('mynamespace.testproperty');
     });
   });
 
@@ -277,7 +277,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const variableSymbol = symbols.find((s) => s.name === 'localVar');
 
       expect(variableSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(variableSymbol?.fqn).toBe('mynamespace/localvar');
+      expect(variableSymbol?.fqn).toBe('mynamespace.localvar');
     });
 
     it('should inherit namespace for parameter in method', () => {
@@ -293,7 +293,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const parameterSymbol = symbols.find((s) => s.name === 'param');
 
       expect(parameterSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(parameterSymbol?.fqn).toBe('mynamespace/param');
+      expect(parameterSymbol?.fqn).toBe('mynamespace.param');
     });
   });
 
@@ -311,7 +311,7 @@ describe('ApexSymbolCollectorListener with Namespace Support - Integration Tests
       const enumValueSymbol = symbols.find((s) => s.name === 'VALUE1');
 
       expect(enumValueSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(enumValueSymbol?.fqn).toBe('mynamespace/value1');
+      expect(enumValueSymbol?.fqn).toBe('mynamespace.value1');
     });
   });
 

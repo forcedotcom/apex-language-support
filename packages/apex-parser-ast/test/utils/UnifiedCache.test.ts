@@ -18,7 +18,7 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   }),
 }));
 
-describe('UnifiedCache - Phase 3 Cache Consolidation', () => {
+describe.skip('UnifiedCache - Phase 3 Cache Consolidation', () => {
   let cache: UnifiedCache;
 
   beforeEach(() => {

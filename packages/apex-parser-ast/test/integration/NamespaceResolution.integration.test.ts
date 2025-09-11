@@ -310,7 +310,7 @@ describe('Namespace Resolution Integration', () => {
       const classSymbol = symbols.find((s) => s.name === 'TestClass');
 
       expect(classSymbol?.namespace?.toString()).toBe('MyNamespace');
-      expect(classSymbol?.fqn).toBe('mynamespace/testclass');
+      expect(classSymbol?.fqn).toBe('mynamespace.testclass');
     });
 
     it('should handle cross-file namespace resolution', () => {

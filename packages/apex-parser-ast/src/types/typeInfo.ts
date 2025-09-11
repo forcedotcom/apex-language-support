@@ -58,6 +58,18 @@ export interface TypeInfo {
   needsNamespaceResolution?: boolean;
 
   /**
+   * Resolved symbol after namespace resolution
+   * This is set by the NamespaceResolutionService during deferred resolution
+   */
+  resolvedSymbol?: any;
+
+  /**
+   * Confidence level of the resolution (0-1)
+   * This is set by the NamespaceResolutionService during deferred resolution
+   */
+  resolutionConfidence?: number;
+
+  /**
    * Get the namespace of this type
    */
   getNamespace(): Namespace | null;

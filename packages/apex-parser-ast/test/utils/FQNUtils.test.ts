@@ -37,20 +37,34 @@ describe('FQN Utilities', () => {
       isTransient: false,
       isTestMethod: false,
       isWebService: false,
+      isBuiltIn: false,
     },
     parent,
     location: {
-      startLine: 1,
-      startColumn: 1,
-      endLine: 1,
-      endColumn: 10,
+      symbolRange: {
+        startLine: 1,
+        startColumn: 1,
+        endLine: 1,
+        endColumn: 10,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 1,
+        endLine: 1,
+        endColumn: 10,
+      },
     },
+    id: '',
+    fileUri: '',
+    parentId: null,
     key: {
       prefix: kind,
       name,
       path: parent ? [...parent.key.path, name] : [name],
     },
-    parentKey: parent ? parent.key : null,
+    parentKey: null,
+    _modifierFlags: 0,
+    _isLoaded: false,
   });
 
   describe('calculateFQN', () => {

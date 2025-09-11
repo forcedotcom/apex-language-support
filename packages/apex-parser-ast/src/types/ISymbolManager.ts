@@ -44,7 +44,7 @@ export interface SymbolResolutionContext {
  * Result of symbol resolution
  */
 export interface SymbolResolutionResult {
-  symbol: ApexSymbol;
+  symbol: ApexSymbol | null;
   filePath: string;
   confidence: number;
   isAmbiguous: boolean;
@@ -228,7 +228,7 @@ export interface ISymbolManager {
     fileUri: string,
     position: { line: number; character: number },
     strategy?: SymbolResolutionStrategy,
-  ): ApexSymbol | null;
+  ): Promise<ApexSymbol | null>;
 
   /**
    * Get the most specific symbol at a given position in a file
@@ -240,7 +240,7 @@ export interface ISymbolManager {
   getSymbolAtPositionWithinScope(
     fileUri: string,
     position: { line: number; character: number },
-  ): ApexSymbol | null;
+  ): Promise<ApexSymbol | null>;
 
   /**
    * Resolve a symbol using the appropriate resolution strategy

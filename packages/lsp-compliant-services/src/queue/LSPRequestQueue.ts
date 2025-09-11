@@ -34,7 +34,8 @@ export type LSPRequestType =
   | 'documentOpen'
   | 'documentSave'
   | 'documentChange'
-  | 'documentClose';
+  | 'documentClose'
+  | 'findMissingArtifact';
 
 /**
  * Request priority levels
@@ -125,6 +126,7 @@ export class LSPRequestQueue {
       definition: 'HIGH',
       documentSymbol: 'HIGH',
       documentOpen: 'HIGH',
+      findMissingArtifact: 'HIGH', // Should be fast to avoid blocking user navigation
 
       // Normal - Analysis, can be background processed
       references: 'NORMAL',
@@ -427,6 +429,8 @@ export class LSPRequestQueue {
         return this.executeDocumentChangeRequest(task);
       case 'documentClose':
         return this.executeDocumentCloseRequest(task);
+      case 'findMissingArtifact':
+        return this.executeFindMissingArtifactRequest(task);
       default:
         throw new Error(`Unknown request type: ${task.type}`);
     }
@@ -567,6 +571,42 @@ export class LSPRequestQueue {
     const { HandlerFactory } = await import('../factories/HandlerFactory');
     const handler = HandlerFactory.createDidCloseDocumentHandler();
     return handler.handleDocumentClose(task.params);
+  }
+
+  /**
+   * Execute find missing artifact request
+   */
+  private async executeFindMissingArtifactRequest(
+    task: LSPRequestTask,
+  ): Promise<any> {
+    this.logger.debug(
+      () =>
+        `Processing findMissingArtifact request: ${JSON.stringify(task.params)}`,
+    );
+
+    try {
+      // Import and use the MissingArtifactHandler to process the request
+      const { MissingArtifactHandler } = await import(
+        '../handlers/MissingArtifactHandler'
+      );
+
+      // Create handler without connection for queue-based processing
+      const handler = new MissingArtifactHandler(this.logger);
+
+      const result = await handler.handleFindMissingArtifact(task.params);
+
+      this.logger.debug(
+        () =>
+          `Successfully processed findMissingArtifact request: ${JSON.stringify(result)}`,
+      );
+
+      return result;
+    } catch (error) {
+      this.logger.error(
+        () => `Error processing findMissingArtifact request: ${error}`,
+      );
+      throw error;
+    }
   }
 
   /**

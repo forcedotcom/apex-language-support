@@ -27,7 +27,7 @@ export interface IndexedDBStorageConfig {
 export class BrowserIndexedDBApexStorage {
   private dbName: string;
   private storeName: string;
-  private db?: any; // IDBDatabase - type only available in browser environment
+  private db?: IDBDatabase;
   private logger?: IndexedDBStorageConfig['logger'];
 
   constructor(config?: IndexedDBStorageConfig) {
@@ -40,16 +40,6 @@ export class BrowserIndexedDBApexStorage {
    * Initialize the IndexedDB storage
    */
   async initialize(): Promise<void> {
-    const { getIndexedDB, isIndexedDBAvailable } = await import(
-      '../utils/EnvironmentUtils'
-    );
-
-    if (!isIndexedDBAvailable()) {
-      throw new Error('IndexedDB is not available in this environment');
-    }
-
-    const indexedDB = getIndexedDB()!;
-
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, 1);
 

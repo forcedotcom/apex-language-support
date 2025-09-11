@@ -64,7 +64,7 @@ export default defineConfig([
   {
     name: 'browser',
     ...browserBaseConfig,
-    entry: { browser: 'src/index.browser.ts' },
+    entry: { browser: 'src/browser.ts' },
     format: ['cjs', 'esm'],
     outDir: 'dist',
     external: APEX_LS_EXTERNAL,

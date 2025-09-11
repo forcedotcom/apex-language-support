@@ -41,7 +41,7 @@ export interface ApexError {
   column: number;
   endLine?: number;
   endColumn?: number;
-  filePath?: string;
+  fileUri?: string;
   source?: string;
 }
 
@@ -82,7 +82,7 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
       message: msg,
       line: line,
       column: charPositionInLine,
-      filePath: this.filePath,
+      fileUri: this.filePath,
       source: offendingSymbol?.text,
     });
   }
@@ -106,7 +106,7 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
       column,
       endLine,
       endColumn,
-      filePath: this.filePath,
+      fileUri: this.filePath,
       source,
     });
   }
@@ -130,7 +130,7 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
       column,
       endLine,
       endColumn,
-      filePath: this.filePath,
+      fileUri: this.filePath,
       source,
     });
   }

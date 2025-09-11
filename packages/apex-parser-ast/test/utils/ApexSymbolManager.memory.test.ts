@@ -12,6 +12,7 @@ import {
   SymbolKind,
   SymbolTable,
   SymbolFactory,
+  SymbolLocation,
 } from '../../src/types/symbol';
 import { ReferenceType } from '../../src/symbols/ApexSymbolGraph';
 import { disableLogging } from '@salesforce/apex-lsp-shared';
@@ -231,20 +232,28 @@ describe.skip('ApexSymbolManager - Phase 6.5 Memory Optimization Tests', () => {
     name: string,
     kind: SymbolKind,
     fqn?: string,
-    filePath: string = 'TestFile.cls',
+    fileUri: string = 'TestFile.cls',
   ): ApexSymbol => {
-    const location = {
-      startLine: 1,
-      startColumn: 1,
-      endLine: 1,
-      endColumn: name.length,
+    const location: SymbolLocation = {
+      symbolRange: {
+        startLine: 1,
+        startColumn: 1,
+        endLine: 1,
+        endColumn: name.length,
+      },
+      identifierRange: {
+        startLine: 1,
+        startColumn: 1,
+        endLine: 1,
+        endColumn: name.length,
+      },
     };
 
     return SymbolFactory.createMinimalSymbol(
       name,
       kind,
       location,
-      filePath,
+      fileUri,
       null,
       0,
     );

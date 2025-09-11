@@ -4,8 +4,17 @@
     "outDir": "./out/node",
     "module": "CommonJS",
     "moduleResolution": "node",
-    "lib": ["ES2022"],
-    "tsBuildInfoFile": "./out/node/.tsbuildinfo"
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "ESNext.AsyncIterable", "ESNext.Disposable"],
+    "tsBuildInfoFile": "./out/node/.tsbuildinfo",
+    "strict": true,
+    "declaration": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
   },
   "include": [
     "src/node.ts",
@@ -25,7 +34,6 @@
     "src/server/ConnectionFactory.ts",
     "src/server/ConnectionFactoryInterface.ts",
     "src/utils/Environment.ts",
-    "src/utils/EnvironmentUtils.ts",
     "src/utils/Logging.ts",
     "src/utils/NodeLoggerFactory.ts",
     "src/utils/EnvironmentDetector.node.ts",

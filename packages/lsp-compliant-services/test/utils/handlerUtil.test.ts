@@ -191,7 +191,7 @@ describe('handlerUtil', () => {
     it('should include file path in related information when available', () => {
       const errors: ApexError[] = [
         createMockError({
-          filePath: 'file:///test.cls',
+          fileUri: 'file:///test.cls',
         }),
       ];
 

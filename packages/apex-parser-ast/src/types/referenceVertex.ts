@@ -92,7 +92,7 @@ export class ReferenceVertexFactory {
       id,
       name: typeReference.name,
       context: typeReference.context,
-      qualifier: typeReference.qualifier,
+      qualifier: undefined, // qualifier property was removed from TypeReference interface
       parentContext: typeReference.parentContext,
       isResolved: false,
       bindingContext: {

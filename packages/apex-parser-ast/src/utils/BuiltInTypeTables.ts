@@ -265,7 +265,7 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
         name: name,
       },
       parentKey: null,
-      filePath: 'built-in://apex',
+      fileUri: 'built-in://apex',
       parentId: null,
       _modifierFlags: 0,
       _isLoaded: true,

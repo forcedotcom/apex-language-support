@@ -13,6 +13,8 @@ import {
   createTypeWithNamespace,
 } from '../namespace/NamespaceUtils';
 import { TypeReference, ReferenceContext } from './typeReference';
+import { generateSymbolId } from './UriBasedIdGenerator';
+import { HierarchicalReference } from './hierarchicalReference';
 
 /**
  * Types of symbols that can be defined in Apex code
@@ -89,18 +91,18 @@ export class SymbolFactory {
     name: string,
     kind: SymbolKind,
     location: SymbolLocation,
-    filePath: string,
+    fileUri: string,
     parentId: string | null = null,
     modifierFlags: number = 0,
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, filePath, scopePath);
+    const id = this.generateId(name, fileUri, scopePath);
     const key: SymbolKey = {
       prefix: kind,
       name,
-      path: [filePath, name],
+      path: [fileUri, name],
       unifiedId: id,
-      filePath,
+      fileUri: fileUri,
       kind,
     };
 
@@ -109,16 +111,16 @@ export class SymbolFactory {
       name,
       kind,
       location,
-      filePath,
+      fileUri: fileUri,
       parentId,
       key,
       parentKey: parentId
         ? {
             prefix: kind,
             name: parentId,
-            path: [filePath, parentId],
+            path: [fileUri, parentId],
             unifiedId: parentId,
-            filePath,
+            fileUri: fileUri,
             kind,
           }
         : null,
@@ -136,7 +138,7 @@ export class SymbolFactory {
     name: string,
     kind: SymbolKind,
     location: SymbolLocation,
-    filePath: string,
+    fileUri: string,
     modifiers: SymbolModifiers,
     parentId: string | null = null,
     typeData?: any,
@@ -147,14 +149,14 @@ export class SymbolFactory {
     parentSymbol?: ApexSymbol, // NEW: Optional parent symbol for proper parentKey construction
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, filePath, scopePath);
+    const id = this.generateId(name, fileUri, scopePath);
     const modifierFlags = this.modifiersToFlags(modifiers);
     const key: SymbolKey = {
       prefix: kind,
       name,
-      path: [filePath, name],
+      path: [fileUri, name],
       unifiedId: id,
-      filePath,
+      fileUri: fileUri,
       fqn,
       kind,
     };
@@ -165,9 +167,9 @@ export class SymbolFactory {
       parentKey = {
         prefix: parentSymbol.kind,
         name: parentSymbol.name,
-        path: [filePath, parentSymbol.name],
+        path: [fileUri, parentSymbol.name],
         unifiedId: parentSymbol.id,
-        filePath: parentSymbol.filePath,
+        fileUri: parentSymbol.fileUri,
         kind: parentSymbol.kind,
       };
     } else if (parentId) {
@@ -175,9 +177,9 @@ export class SymbolFactory {
       parentKey = {
         prefix: kind,
         name: parentId,
-        path: [filePath, parentId],
+        path: [fileUri, parentId],
         unifiedId: parentId,
-        filePath,
+        fileUri,
         kind,
       };
     }
@@ -187,7 +189,7 @@ export class SymbolFactory {
       name,
       kind,
       location,
-      filePath,
+      fileUri,
       parentId,
       key,
       parentKey,
@@ -210,16 +212,15 @@ export class SymbolFactory {
     name: string,
     kind: SymbolKind,
     location: SymbolLocation,
-    filePath: string,
+    fileUri: string,
     modifiers: SymbolModifiers,
     parentId: string | null = null,
     typeData?: any,
     namespace?: string | Namespace | null,
     annotations?: Annotation[],
-    identifierLocation?: SymbolLocation,
     scopePath?: string[],
   ): ApexSymbol {
-    const id = this.generateId(name, filePath, scopePath);
+    const id = this.generateId(name, fileUri, scopePath);
     const modifierFlags = this.modifiersToFlags(modifiers);
 
     // Calculate FQN if namespace is provided (case-insensitive for Apex)
@@ -227,17 +228,17 @@ export class SymbolFactory {
       namespace && typeof namespace === 'object' && 'toString' in namespace
         ? createTypeWithNamespace(namespace as Namespace, name, {
             includeNamespace: true,
-            normalizeCase: true,
-            separator: '/',
+            normalizeCase: true, // Normalize to lowercase for Apex case-insensitive convention
+            separator: '.', // Use dot separator for Apex namespace convention
           })
         : undefined;
 
     const key: SymbolKey = {
       prefix: kind,
       name,
-      path: [filePath, name],
+      path: [fileUri, name],
       unifiedId: id,
-      filePath,
+      fileUri,
       fqn,
       kind,
     };
@@ -247,23 +248,22 @@ export class SymbolFactory {
       name,
       kind,
       location,
-      filePath,
+      fileUri,
       parentId,
       key,
       parentKey: parentId
         ? {
             prefix: kind,
             name: parentId,
-            path: [filePath, parentId],
+            path: [fileUri, parentId],
             unifiedId: parentId,
-            filePath,
+            fileUri,
             kind,
           }
         : null,
       fqn,
       namespace, // Store the Namespace object directly
       annotations,
-      identifierLocation,
       _typeData: typeData,
       _modifierFlags: modifierFlags,
       _isLoaded: true,
@@ -324,23 +324,19 @@ export class SymbolFactory {
   }
 
   /**
-   * Generate a unique ID for a symbol
+   * Generate a unique ID for a symbol using URI-based format
    * @param name The symbol name
    * @param filePath The file path
    * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1", "block1"])
+   * @returns URI-based symbol ID
    */
   private static generateId(
     name: string,
-    filePath: string,
+    fileUri: string,
     scopePath?: string[],
   ): string {
-    if (scopePath && scopePath.length > 0) {
-      // Include scope path in ID to prevent overwrites: "file.cls:Class.method.block:symbolName"
-      const scopeStr = scopePath.join('.');
-      return `${filePath}:${scopeStr}:${name}`;
-    }
-    // Fallback to original format for backward compatibility
-    return `${filePath}:${name}`;
+    // Use the new unified URI-based ID generator
+    return generateSymbolId(name, fileUri, scopePath);
   }
 }
 
@@ -396,11 +392,11 @@ export type SymbolResolutionStrategy =
 
 export type Range = {
   startLine: number;
-  /** Start column (1-based) */
+  /** Start column (0-based) */
   startColumn: number;
   /** End line (1-based) */
   endLine: number;
-  /** End column (1-based) */
+  /** End column (0-based) */
   endColumn: number;
 };
 
@@ -422,7 +418,7 @@ export interface ApexSymbol {
   name: string;
   kind: SymbolKind;
   location: SymbolLocation;
-  filePath: string;
+  fileUri: string;
   parentId: string | null;
 
   // Legacy compatibility - will be removed in Phase 5
@@ -535,7 +531,7 @@ export interface SymbolKey {
   /** The unified symbol ID for graph operations */
   unifiedId?: string;
   /** The file path where this symbol is defined */
-  filePath?: string;
+  fileUri?: string;
   /** The fully qualified name if available */
   fqn?: string;
   /** The symbol kind for enhanced identification */
@@ -543,19 +539,19 @@ export interface SymbolKey {
 }
 
 /**
- * Generate a unified symbol ID from a SymbolKey
+ * Generate a unified symbol ID from a SymbolKey using URI-based format
  * @param key The symbol key
  * @param filePath Optional file path for uniqueness
- * @returns Unified symbol ID string
+ * @returns URI-based symbol ID string
  */
-export const generateUnifiedId = (
-  key: SymbolKey,
-  filePath?: string,
-): string => {
-  // Use FQN if available, otherwise construct from key components
-  const baseId =
-    key.fqn || `${key.kind || 'unknown'}:${key.name}:${key.path.join('.')}`;
-  return filePath ? `${baseId}:${filePath}` : baseId;
+export const generateUnifiedId = (key: SymbolKey, fileUri?: string): string => {
+  // Use the new unified URI-based ID generator
+  const validFileUri = fileUri || key.fileUri || 'unknown';
+  return generateSymbolId(
+    key.name,
+    validFileUri,
+    key.path.length > 0 ? key.path : undefined,
+  );
 };
 
 /**
@@ -574,19 +570,19 @@ export const keyToString = (key: SymbolKey): string =>
  */
 export const createFromSymbol = (
   symbol: ApexSymbol,
-  filePath?: string,
+  fileUri?: string,
 ): SymbolKey => {
   const key: SymbolKey = {
     prefix: symbol.key.prefix || symbol.kind,
     name: symbol.key.name || symbol.name,
-    path: symbol.key.path || [symbol.filePath, symbol.name],
+    path: symbol.key.path || [symbol.fileUri, symbol.name],
     kind: symbol.kind,
     fqn: symbol.fqn,
-    filePath: filePath || symbol.filePath,
+    fileUri: fileUri || symbol.fileUri,
   };
 
   // Generate unified ID
-  key.unifiedId = generateUnifiedId(key, filePath || symbol.filePath);
+  key.unifiedId = generateUnifiedId(key, fileUri || symbol.fileUri);
 
   return key;
 };
@@ -771,7 +767,8 @@ export class SymbolTable {
   private current: SymbolScope;
   private symbolMap: HashMap<string, ApexSymbol> = new HashMap();
   private scopeMap: HashMap<string, SymbolScope> = new HashMap();
-  private references: TypeReference[] = []; // NEW: Store type references
+  private references: TypeReference[] = []; // Store type references
+  private hierarchicalReferences: HierarchicalReference[] = []; // NEW: Store hierarchical references
 
   /**
    * Creates a new symbol table.
@@ -850,7 +847,15 @@ export class SymbolTable {
    * @returns Array of scope names from root to current scope
    */
   getCurrentScopePath(): string[] {
-    return this.current.getPath();
+    const path = this.current.getPath();
+
+    // Filter out the 'file' scope when it's the only scope
+    // The 'file' scope is just a placeholder and doesn't add meaningful uniqueness
+    if (path.length === 1 && path[0] === 'file') {
+      return [];
+    }
+
+    return path;
   }
 
   /**
@@ -998,9 +1003,92 @@ export class SymbolTable {
   }
 
   /**
-   * Check if a position is within a location range
+   * Add a hierarchical reference to the symbol table
+   * @param ref The hierarchical reference to add
+   */
+  addHierarchicalReference(ref: HierarchicalReference): void {
+    this.hierarchicalReferences.push(ref);
+  }
+
+  /**
+   * Get all hierarchical references in the symbol table
+   * @returns Array of all hierarchical references
+   */
+  getAllHierarchicalReferences(): HierarchicalReference[] {
+    return [...this.hierarchicalReferences]; // Return a copy to prevent external modification
+  }
+
+  /**
+   * Get hierarchical references at a specific position
+   * @param position The position to search for references (0-based)
+   * @returns Array of hierarchical references at the position
+   */
+  getHierarchicalReferencesAtPosition(position: {
+    line: number;
+    character: number;
+  }): HierarchicalReference[] {
+    return this.hierarchicalReferences.filter((ref) => {
+      if (this.positionInRange(position, ref.location)) {
+        return true;
+      }
+      // Check if position is within any child references
+      return this.isPositionInHierarchicalReference(position, ref);
+    });
+  }
+
+  /**
+   * Check if a position is within a hierarchical reference or any of its children
    * @param position The position to check
-   * @param location The location range
+   * @param ref The hierarchical reference to check
+   * @returns True if position is within the reference or any of its children
+   */
+  private isPositionInHierarchicalReference(
+    position: { line: number; character: number },
+    ref: HierarchicalReference,
+  ): boolean {
+    // Check the main reference
+    if (this.positionInRange(position, ref.location)) {
+      return true;
+    }
+
+    // Recursively check all children
+    for (const child of ref.children) {
+      if (this.isPositionInHierarchicalReference(position, child)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Find a hierarchical reference by its full qualified name
+   * @param qualifiedName The full qualified name to search for (e.g., "System.debug")
+   * @returns The hierarchical reference if found, undefined otherwise
+   */
+  findHierarchicalReference(
+    qualifiedName: string,
+  ): HierarchicalReference | undefined {
+    return this.hierarchicalReferences.find(
+      (ref) => ref.name === qualifiedName,
+    );
+  }
+
+  /**
+   * Find hierarchical references that start with a given prefix
+   * @param prefix The prefix to search for (e.g., "System")
+   * @returns Array of hierarchical references that start with the prefix
+   */
+  findHierarchicalReferencesByPrefix(prefix: string): HierarchicalReference[] {
+    return this.hierarchicalReferences.filter(
+      (ref) => ref.name.startsWith(prefix + '.') || ref.name === prefix,
+    );
+  }
+
+  /**
+   * Check if a position is within a location range
+   * @param position The position to check (line: 1-based, character: 0-based)
+   * @param location The location range (line: 1-based, character: 0-based)
    * @returns True if position is within the location range
    */
   private positionInRange(
@@ -1011,7 +1099,7 @@ export class SymbolTable {
       position.line >= location.identifierRange.startLine &&
       position.line <= location.identifierRange.endLine &&
       position.character >= location.identifierRange.startColumn &&
-      position.character < location.identifierRange.endColumn
+      position.character <= location.identifierRange.endColumn
     );
   }
 

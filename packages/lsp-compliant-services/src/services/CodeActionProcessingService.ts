@@ -17,7 +17,10 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
+import {
+  ApexSymbolProcessingManager,
+  ISymbolManager,
+} from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Interface for code action processing functionality
@@ -52,11 +55,12 @@ export interface CodeActionContext {
  */
 export class CodeActionProcessingService implements ICodeActionProcessor {
   private readonly logger: LoggerInterface;
-  private symbolManager: any;
+  private readonly symbolManager: ISymbolManager;
 
-  constructor(logger: LoggerInterface) {
+  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
+      symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 
@@ -353,14 +357,14 @@ export class CodeActionProcessingService implements ICodeActionProcessor {
       const symbols = this.symbolManager.findSymbolByName(context.symbolName);
 
       for (const symbol of symbols) {
-        // Get relationship statistics
-        const relationshipStats =
-          this.symbolManager.getRelationshipStats(symbol);
+        // Get references to this symbol to determine relationship statistics
+        const referencesTo = this.symbolManager.findReferencesTo(symbol);
+        const totalReferences = referencesTo.length;
 
         // Show references action
-        if (relationshipStats.totalReferences > 0) {
+        if (totalReferences > 0) {
           const referencesAction: CodeAction = {
-            title: `Show all references (${relationshipStats.totalReferences})`,
+            title: `Show all references (${totalReferences})`,
             kind: CodeActionKind.Source,
             command: {
               title: 'Show references',

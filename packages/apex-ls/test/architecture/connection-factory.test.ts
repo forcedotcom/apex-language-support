@@ -9,20 +9,17 @@
 import { ConnectionFactory as BrowserConnectionFactory } from '../../src/server/BrowserConnectionFactory';
 import { WorkerConnectionFactory } from '../../src/server/WorkerConnectionFactory';
 import type { ConnectionConfig } from '../../src/server/ConnectionFactoryInterface';
-import {
-  isBrowserEnvironment,
-  isWorkerEnvironment,
-} from '@salesforce/apex-lsp-shared';
+import { isBrowserEnvironment } from '../../src/utils/EnvironmentDetector.browser';
+import { isWorkerEnvironment } from '../../src/utils/EnvironmentDetector.worker';
 
 // Mock environment detection
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
-  return {
-    ...actual,
-    isBrowserEnvironment: jest.fn(),
-    isWorkerEnvironment: jest.fn(),
-  };
-});
+jest.mock('../../src/utils/EnvironmentDetector.browser', () => ({
+  isBrowserEnvironment: jest.fn(),
+}));
+
+jest.mock('../../src/utils/EnvironmentDetector.worker', () => ({
+  isWorkerEnvironment: jest.fn(),
+}));
 
 // Mock the message bridge modules
 jest.mock('../../src/communication/PlatformBridges.browser', () => ({
@@ -51,7 +48,26 @@ jest.mock('../../src/communication/PlatformBridges.worker', () => ({
   },
 }));
 
-// Environment detection is already mocked above
+// Mock environment detection
+jest.mock('../../src/utils/EnvironmentDetector.browser', () => {
+  const mockBrowserEnvironment = jest.fn(() => true);
+  const mockWorkerEnvironment = jest.fn(() => false);
+  return {
+    isBrowserEnvironment: mockBrowserEnvironment,
+    isWorkerEnvironment: mockWorkerEnvironment,
+    isNodeEnvironment: jest.fn(() => false),
+  };
+});
+
+jest.mock('../../src/utils/EnvironmentDetector.worker', () => {
+  const mockBrowserEnvironment = jest.fn(() => false);
+  const mockWorkerEnvironment = jest.fn(() => true);
+  return {
+    isBrowserEnvironment: mockBrowserEnvironment,
+    isWorkerEnvironment: mockWorkerEnvironment,
+    isNodeEnvironment: jest.fn(() => false),
+  };
+});
 
 // Mock Worker
 class MockWorker {
@@ -91,9 +107,6 @@ describe('Connection Factory Architecture', () => {
     });
 
     it('should create connection with worker', async () => {
-      // Mock browser environment
-      isBrowserEnvironment.mockReturnValue(true);
-
       const factory = BrowserConnectionFactory;
       const config: ConnectionConfig = {
         worker: mockWorker as any,
@@ -106,9 +119,6 @@ describe('Connection Factory Architecture', () => {
     });
 
     it('should throw error without worker', async () => {
-      // Mock browser environment
-      isBrowserEnvironment.mockReturnValue(true);
-
       const factory = BrowserConnectionFactory;
       const config: ConnectionConfig = {};
 
@@ -120,7 +130,7 @@ describe('Connection Factory Architecture', () => {
     it('should use BrowserMessageBridge.forWorkerClient', async () => {
       // Mock browser environment
       isBrowserEnvironment.mockReturnValue(true);
-
+      
       const {
         BrowserMessageBridge,
       } = require('../../src/communication/PlatformBridges.browser');
@@ -209,8 +219,7 @@ describe('Connection Factory Architecture', () => {
         worker: mockWorker as any,
       };
 
-      const connection =
-        await BrowserConnectionFactory.createConnection(config);
+      const connection = await BrowserConnectionFactory.createConnection(config);
       expect(connection).toBeDefined();
     });
 
@@ -244,7 +253,7 @@ describe('Connection Factory Architecture', () => {
     it('should create connections that implement MessageConnection interface', async () => {
       // Mock browser environment
       isBrowserEnvironment.mockReturnValue(true);
-
+      
       const factory = BrowserConnectionFactory;
       const config: ConnectionConfig = {
         worker: mockWorker as any,
@@ -264,7 +273,7 @@ describe('Connection Factory Architecture', () => {
     it('should handle connection lifecycle correctly', async () => {
       // Mock browser environment
       isBrowserEnvironment.mockReturnValue(true);
-
+      
       const factory = BrowserConnectionFactory;
       const config: ConnectionConfig = {
         worker: mockWorker as any,
@@ -282,12 +291,12 @@ describe('Connection Factory Architecture', () => {
     it('should handle factory creation errors gracefully', async () => {
       // Mock browser environment
       isBrowserEnvironment.mockReturnValue(true);
-
+      
       // Modify the existing mock to throw an error
       const {
         BrowserMessageBridge,
       } = require('../../src/communication/PlatformBridges.browser');
-
+      
       BrowserMessageBridge.forWorkerClient.mockImplementationOnce(() => {
         throw new Error('Module import failed');
       });
@@ -305,7 +314,7 @@ describe('Connection Factory Architecture', () => {
     it('should handle message bridge creation errors', async () => {
       // Mock browser environment
       isBrowserEnvironment.mockReturnValue(true);
-
+      
       const {
         BrowserMessageBridge,
       } = require('../../src/communication/PlatformBridges.browser');

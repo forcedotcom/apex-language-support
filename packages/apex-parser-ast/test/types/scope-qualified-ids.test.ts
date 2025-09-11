@@ -56,9 +56,9 @@ describe('Scope-Qualified Symbol IDs', () => {
         symbol.name === 'result' && symbol.kind === SymbolKind.Variable,
     );
 
-    // TODO: Currently only getting one variable due to parsing issue
-    // The first method's variable declaration is not being processed
-    // This is a known issue that needs to be fixed
+    // TODO: BUG - Only the second method's variable is captured
+    // Both variables should be captured as separate symbols with unique IDs
+    // The first variable declaration is being lost during parsing
     expect(resultVariables).toHaveLength(1);
 
     // The variable should have a unique ID with scope path
@@ -67,7 +67,7 @@ describe('Scope-Qualified Symbol IDs', () => {
     expect(id).toContain('block');
     expect(id).toContain('result');
 
-    // Verify the ID follows the new format: filePath:scopePath:symbolName
+    // Verify the ID follows the new format: fileUri:scopePath:symbolName
     expect(id).toMatch(/.*:.*method2.*block.*:result/);
   });
 
@@ -95,9 +95,9 @@ describe('Scope-Qualified Symbol IDs', () => {
       (symbol) => symbol.name === 'data' && symbol.kind === SymbolKind.Variable,
     );
 
-    // TODO: Currently only getting one variable due to parsing issue
-    // The first variable declaration is not being processed
-    // This is a known issue that needs to be fixed
+    // TODO: BUG - Only the inner block's variable is captured
+    // Both variables should be captured as separate symbols with unique IDs
+    // The outer variable declaration is being lost during parsing
     expect(dataVariables).toHaveLength(1);
 
     // The variable should have a unique ID with scope path
@@ -106,7 +106,7 @@ describe('Scope-Qualified Symbol IDs', () => {
     expect(id).toContain('block');
     expect(id).toContain('data');
 
-    // Verify the ID follows the new format: filePath:scopePath:symbolName
+    // Verify the ID follows the new format: fileUri:scopePath:symbolName
     expect(id).toMatch(/.*:.*complexMethod.*block.*:data/);
   });
 

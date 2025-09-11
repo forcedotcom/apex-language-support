@@ -16,7 +16,11 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
+import {
+  ApexSymbolProcessingManager,
+  ISymbolManager,
+  ReferenceType,
+} from '@salesforce/apex-lsp-parser-ast';
 import { transformParserToLspPosition } from '../utils/positionUtils';
 
 /**
@@ -36,11 +40,12 @@ export interface IReferencesProcessor {
  */
 export class ReferencesProcessingService implements IReferencesProcessor {
   private readonly logger: LoggerInterface;
-  private symbolManager: any;
+  private readonly symbolManager: ISymbolManager;
 
-  constructor(logger: LoggerInterface) {
+  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
+      symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 
@@ -248,10 +253,10 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     const locations: Location[] = [];
 
     try {
-      // Get method calls
-      const methodCalls = this.symbolManager.findReferencesByType(
+      // Get method calls using findRelatedSymbols with METHOD_CALL type
+      const methodCalls = this.symbolManager.findRelatedSymbols(
         symbol,
-        'method-call',
+        ReferenceType.METHOD_CALL,
       );
       for (const call of methodCalls) {
         const location = this.createLocationFromReference(call);
@@ -260,10 +265,10 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         }
       }
 
-      // Get field access
-      const fieldAccess = this.symbolManager.findReferencesByType(
+      // Get field access using findRelatedSymbols with FIELD_ACCESS type
+      const fieldAccess = this.symbolManager.findRelatedSymbols(
         symbol,
-        'field-access',
+        ReferenceType.FIELD_ACCESS,
       );
       for (const access of fieldAccess) {
         const location = this.createLocationFromReference(access);
@@ -272,10 +277,10 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         }
       }
 
-      // Get type references
-      const typeReferences = this.symbolManager.findReferencesByType(
+      // Get type references using findRelatedSymbols with TYPE_REFERENCE type
+      const typeReferences = this.symbolManager.findRelatedSymbols(
         symbol,
-        'type-reference',
+        ReferenceType.TYPE_REFERENCE,
       );
       for (const ref of typeReferences) {
         const location = this.createLocationFromReference(ref);
@@ -284,10 +289,12 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         }
       }
 
-      // Get constructor calls (if it's a class)
+      // Get constructor calls (if it's a class) using findRelatedSymbols with CONSTRUCTOR_CALL type
       if (symbol.kind === 'class') {
-        const constructorCalls =
-          this.symbolManager.findConstructorCalls(symbol);
+        const constructorCalls = this.symbolManager.findRelatedSymbols(
+          symbol,
+          ReferenceType.CONSTRUCTOR_CALL,
+        );
         for (const call of constructorCalls) {
           const location = this.createLocationFromReference(call);
           if (location) {
@@ -296,8 +303,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         }
       }
 
-      // Get static access
-      const staticAccess = this.symbolManager.findStaticAccess(symbol);
+      // Get static access using findRelatedSymbols with STATIC_ACCESS type
+      const staticAccess = this.symbolManager.findRelatedSymbols(
+        symbol,
+        ReferenceType.STATIC_ACCESS,
+      );
       for (const access of staticAccess) {
         const location = this.createLocationFromReference(access);
         if (location) {
@@ -305,8 +315,11 @@ export class ReferencesProcessingService implements IReferencesProcessor {
         }
       }
 
-      // Get import references
-      const importReferences = this.symbolManager.findImportReferences(symbol);
+      // Get import references using findRelatedSymbols with IMPORT_REFERENCE type
+      const importReferences = this.symbolManager.findRelatedSymbols(
+        symbol,
+        ReferenceType.IMPORT_REFERENCE,
+      );
       for (const ref of importReferences) {
         const location = this.createLocationFromReference(ref);
         if (location) {

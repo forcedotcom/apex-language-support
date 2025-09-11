@@ -47,12 +47,15 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       );
 
       if (result.result) {
-        symbolManager.addSymbolTable(result.result, '/test/TestClass.cls');
+        symbolManager.addSymbolTable(
+          result.result,
+          'file:///test/TestClass.cls',
+        );
       }
 
       // Test finding the method symbol at its position (line 2, character 20)
-      const foundSymbol = symbolManager.getSymbolAtPosition(
-        '/test/TestClass.cls',
+      const foundSymbol = await symbolManager.getSymbolAtPosition(
+        'file:///test/TestClass.cls',
         { line: 2, character: 20 },
       );
 
@@ -79,13 +82,13 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       if (result.result) {
         symbolManager.addSymbolTable(
           result.result,
-          '/test/TestClassWithField.cls',
+          'file:///test/TestClassWithField.cls',
         );
       }
 
       // Test finding the field symbol at its position
-      const foundSymbol = symbolManager.getSymbolAtPosition(
-        '/test/TestClassWithField.cls',
+      const foundSymbol = await symbolManager.getSymbolAtPosition(
+        'file:///test/TestClassWithField.cls',
         { line: 2, character: 20 },
       );
 
@@ -112,13 +115,13 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       if (result.result) {
         symbolManager.addSymbolTable(
           result.result,
-          '/test/TestClassSimple.cls',
+          'file:///test/TestClassSimple.cls',
         );
       }
 
       // Test finding the class symbol at its position
-      const foundSymbol = symbolManager.getSymbolAtPosition(
-        '/test/TestClassSimple.cls',
+      const foundSymbol = await symbolManager.getSymbolAtPosition(
+        'file:///test/TestClassSimple.cls',
         { line: 1, character: 13 }, // Class name position (within the class bounds)
       );
 
@@ -145,13 +148,13 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       if (result.result) {
         symbolManager.addSymbolTable(
           result.result,
-          '/test/TestClassWithVariable.cls',
+          'file:///test/TestClassWithVariable.cls',
         );
       }
 
       // Test finding the variable symbol at its position
-      const foundSymbol = symbolManager.getSymbolAtPosition(
-        '/test/TestClassWithVariable.cls',
+      const foundSymbol = await symbolManager.getSymbolAtPosition(
+        'file:///test/TestClassWithVariable.cls',
         { line: 3, character: 15 }, // Variable position (within the variable name range)
       );
 
@@ -178,13 +181,13 @@ describe('ApexSymbolManager.getSymbolAtPosition', () => {
       if (result.result) {
         symbolManager.addSymbolTable(
           result.result,
-          '/test/TestClassOverlapping.cls',
+          'file:///test/TestClassOverlapping.cls',
         );
       }
 
       // Test finding the method symbol at its position (should prioritize method over class)
-      const foundSymbol = symbolManager.getSymbolAtPosition(
-        '/test/TestClassOverlapping.cls',
+      const foundSymbol = await symbolManager.getSymbolAtPosition(
+        'file:///test/TestClassOverlapping.cls',
         { line: 2, character: 16 }, // Method position
       );
 

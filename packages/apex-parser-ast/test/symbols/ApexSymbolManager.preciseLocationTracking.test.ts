@@ -1,0 +1,189 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
+import { CompilerService } from '../../src/parser/compilerService';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { ReferenceContext } from '../../src/types/typeReference';
+import type { ChainedTypeReference } from '../../src/types/typeReference';
+
+describe('ApexSymbolManager - Precise Location Tracking', () => {
+  let symbolManager: ApexSymbolManager;
+  let compilerService: CompilerService;
+
+  beforeEach(() => {
+    symbolManager = new ApexSymbolManager();
+    compilerService = new CompilerService();
+  });
+
+  afterEach(() => {
+    symbolManager.clear();
+  });
+
+  const addTestClass = (sourceCode: string, className: string) => {
+    const testClassUri = `file:///test/${className}.cls`;
+    const listener = new ApexSymbolCollectorListener();
+    const result = compilerService.compile(sourceCode, testClassUri, listener);
+
+    if (result.result) {
+      symbolManager.addSymbolTable(result.result, testClassUri);
+    }
+
+    return testClassUri;
+  };
+
+  describe('Dotted Type Name Location Tracking', () => {
+    it('should track precise locations for each part of System.Url', () => {
+      const testClass = `
+        public class TestClass {
+          public System.Url getUrl() {
+            return null;
+          }
+        }
+      `;
+
+      const testClassUri = addTestClass(testClass, 'TestClass');
+      const references = symbolManager.getAllReferencesInFile(testClassUri);
+
+      // Find the chained type reference for System.Url
+      const chainedTypeRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.CHAINED_TYPE &&
+          ref.name === 'System.Url',
+      );
+      expect(chainedTypeRefs).toHaveLength(1);
+
+      const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+      expect(chainedRef.chainNodes).toHaveLength(2);
+
+      // Check that each chain node has its own location
+      const systemNode = chainedRef.chainNodes[0];
+      const urlNode = chainedRef.chainNodes[1];
+
+      expect(systemNode.name).toBe('System');
+      expect(urlNode.name).toBe('Url');
+
+      // Verify that the locations are different (System and Url should be at different positions)
+      expect(systemNode.location.identifierRange.startColumn).not.toBe(
+        urlNode.location.identifierRange.startColumn,
+      );
+    });
+
+    it('should track precise locations for parameter types', () => {
+      const testClass = `
+        public class TestClass {
+          public void processUrl(System.Url inputUrl) {
+            // Method body
+          }
+        }
+      `;
+
+      const testClassUri = addTestClass(testClass, 'TestClass');
+      const references = symbolManager.getAllReferencesInFile(testClassUri);
+
+      // Find the chained type reference for System.Url parameter
+      const chainedTypeRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.CHAINED_TYPE &&
+          ref.name === 'System.Url',
+      );
+      expect(chainedTypeRefs).toHaveLength(1);
+
+      const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+      expect(chainedRef.chainNodes).toHaveLength(2);
+
+      // Check that each chain node has its own location
+      const systemNode = chainedRef.chainNodes[0];
+      const urlNode = chainedRef.chainNodes[1];
+
+      expect(systemNode.name).toBe('System');
+      expect(urlNode.name).toBe('Url');
+
+      // Verify that the locations are different
+      expect(systemNode.location.identifierRange.startColumn).not.toBe(
+        urlNode.location.identifierRange.startColumn,
+      );
+    });
+
+    it('should track precise locations for field types', () => {
+      const testClass = `
+        public class TestClass {
+          public System.Url myUrl;
+        }
+      `;
+
+      const testClassUri = addTestClass(testClass, 'TestClass');
+      const references = symbolManager.getAllReferencesInFile(testClassUri);
+
+      // Find the chained type reference for System.Url field
+      const chainedTypeRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.CHAINED_TYPE &&
+          ref.name === 'System.Url',
+      );
+      expect(chainedTypeRefs).toHaveLength(1);
+
+      const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+      expect(chainedRef.chainNodes).toHaveLength(2);
+
+      // Check that each chain node has its own location
+      const systemNode = chainedRef.chainNodes[0];
+      const urlNode = chainedRef.chainNodes[1];
+
+      expect(systemNode.name).toBe('System');
+      expect(urlNode.name).toBe('Url');
+
+      // Verify that the locations are different
+      expect(systemNode.location.identifierRange.startColumn).not.toBe(
+        urlNode.location.identifierRange.startColumn,
+      );
+    });
+
+    it('should track precise locations for complex dotted types', () => {
+      const testClass = `
+        public class TestClass {
+          public System.Url getUrl() {
+            return System.Url.getOrgDomainUrl();
+          }
+        }
+      `;
+
+      const testClassUri = addTestClass(testClass, 'TestClass');
+      const references = symbolManager.getAllReferencesInFile(testClassUri);
+
+      // Find all chained type references for System.Url (return type and method call)
+      const chainedTypeRefs = references.filter(
+        (ref) =>
+          ref.context === ReferenceContext.CHAINED_TYPE &&
+          ref.name === 'System.Url',
+      );
+      expect(chainedTypeRefs.length).toBeGreaterThanOrEqual(1);
+
+      // Check the first chained reference (should be the return type)
+      const chainedRef = chainedTypeRefs[0] as ChainedTypeReference;
+      expect(chainedRef.chainNodes).toHaveLength(2);
+
+      // Check that each chain node has its own location
+      const systemNode = chainedRef.chainNodes[0];
+      const urlNode = chainedRef.chainNodes[1];
+
+      expect(systemNode.name).toBe('System');
+      expect(urlNode.name).toBe('Url');
+
+      // Verify that the locations are different
+      expect(systemNode.location.identifierRange.startColumn).not.toBe(
+        urlNode.location.identifierRange.startColumn,
+      );
+
+      // Verify that the locations are in the correct order (System before Url)
+      expect(systemNode.location.identifierRange.startColumn).toBeLessThan(
+        urlNode.location.identifierRange.startColumn,
+      );
+    });
+  });
+});

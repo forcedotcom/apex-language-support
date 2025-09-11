@@ -7,25 +7,13 @@
  */
 
 import { DefinitionParams } from 'vscode-languageserver-protocol';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { DefinitionProcessingService } from '../../src/services/DefinitionProcessingService';
-import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
-
-// Logger is handled by the shared library's global logging system
-
-// Mock ApexStorageManager
-jest.mock('../../src/storage/ApexStorageManager', () => ({
-  ApexStorageManager: {
-    getInstance: jest.fn(),
-  },
-}));
+import { ApexSymbol } from '@salesforce/apex-lsp-parser-ast';
 
 describe('DefinitionProcessingService', () => {
   let service: DefinitionProcessingService;
-  let mockStorage: any;
-  let mockDocument: TextDocument;
   let logger: any;
 
   beforeEach(() => {
@@ -34,31 +22,6 @@ describe('DefinitionProcessingService', () => {
 
     // Setup logger
     logger = getLogger();
-
-    // Setup mock storage
-    mockStorage = {
-      getDocument: jest.fn(),
-    };
-
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
-      getStorage: jest.fn().mockReturnValue(mockStorage),
-    });
-
-    // Setup mock document
-    mockDocument = {
-      uri: 'file:///test/TestClass.cls',
-      getText: jest.fn().mockReturnValue(`
-        public class TestClass {
-          public void testMethod() {
-            String testVar = 'test';
-            // Cursor position here
-          }
-        }
-      `),
-      offsetAt: jest.fn().mockReturnValue(100),
-      positionAt: jest.fn(),
-      lineCount: jest.fn().mockReturnValue(10),
-    } as any;
 
     // Create service instance
     service = new DefinitionProcessingService(logger);
@@ -72,35 +35,68 @@ describe('DefinitionProcessingService', () => {
         position: { line: 5, character: 10 },
       };
 
-      mockStorage.getDocument.mockResolvedValue(mockDocument);
+      // Mock symbol manager to return a symbol
+      const mockSymbol = {
+        name: 'testMethod',
+        kind: 'method',
+        location: {
+          startLine: 5,
+          startColumn: 10,
+          endLine: 5,
+          endColumn: 20,
+          identifierRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 20,
+          },
+        },
+        filePath: '/test/TestClass.cls',
+      };
+      jest
+        .spyOn(service['symbolManager'], 'getSymbolAtPosition')
+        .mockReturnValue(mockSymbol as unknown as ApexSymbol);
 
       // Act
       const result = await service.processDefinition(params);
 
       // Assert
       expect(result).toBeDefined();
-      expect(mockStorage.getDocument).toHaveBeenCalledWith(
-        params.textDocument.uri,
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            uri: 'file:///test/TestClass.cls',
+            range: expect.any(Object),
+          }),
+        ]),
       );
     });
 
-    it('should handle document not found', async () => {
+    it('should handle no symbol found gracefully', async () => {
       // Arrange
       const params: DefinitionParams = {
-        textDocument: { uri: 'file:///test/NonexistentClass.cls' },
+        textDocument: { uri: 'file:///test/TestClass.cls' },
         position: { line: 5, character: 10 },
       };
 
-      mockStorage.getDocument.mockResolvedValue(null);
+      // Mock symbol manager to return no symbol
+      jest
+        .spyOn(service['symbolManager'], 'getSymbolAtPosition')
+        .mockReturnValue(null);
+
+      // Mock missing artifact utils to return not-found
+      jest
+        .spyOn(
+          service['missingArtifactUtils'],
+          'tryResolveMissingArtifactBlocking',
+        )
+        .mockResolvedValue('not-found');
 
       // Act
       const result = await service.processDefinition(params);
 
       // Assert
-      expect(result).toBeNull();
-      expect(mockStorage.getDocument).toHaveBeenCalledWith(
-        params.textDocument.uri,
-      );
+      expect(result).toEqual([]);
     });
 
     it('should handle errors gracefully', async () => {
@@ -110,99 +106,18 @@ describe('DefinitionProcessingService', () => {
         position: { line: 5, character: 10 },
       };
 
-      mockStorage.getDocument.mockRejectedValue(new Error('Storage error'));
+      // Mock symbol manager to throw an error
+      jest
+        .spyOn(service['symbolManager'], 'getSymbolAtPosition')
+        .mockImplementation(() => {
+          throw new Error('Symbol manager error');
+        });
 
       // Act
       const result = await service.processDefinition(params);
 
       // Assert
       expect(result).toBeNull();
-    });
-  });
-
-  describe('context analysis', () => {
-    it('should extract symbol name correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          public void method1() {
-            String variable = 'test';
-          }
-        }
-      `;
-
-      // Act
-      const symbolName = (service as any).extractSymbolName(text, 50);
-
-      // Assert
-      expect(symbolName).toBeDefined();
-    });
-
-    it('should extract import statements correctly', () => {
-      // Arrange
-      const text = `
-        import System.Debug;
-        import System.String;
-        
-        public class TestClass {
-          // Class content
-        }
-      `;
-
-      // Act
-      const imports = (service as any).extractImportStatements(text);
-
-      // Assert
-      expect(imports).toContain('import System.Debug;');
-      expect(imports).toContain('import System.String;');
-    });
-
-    it('should extract namespace context correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          // Class content
-        }
-      `;
-
-      // Act
-      const namespace = (service as any).extractNamespaceContext(text);
-
-      // Assert
-      expect(namespace).toBeDefined();
-    });
-
-    it('should detect static context correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          public static void staticMethod() {
-            // Static context
-          }
-        }
-      `;
-
-      // Act
-      const isStatic = (service as any).isInStaticContext(text, 50);
-
-      // Assert
-      expect(typeof isStatic).toBe('boolean');
-    });
-
-    it('should extract access modifier context correctly', () => {
-      // Arrange
-      const text = `
-        public class TestClass {
-          private String privateField;
-          public String publicField;
-        }
-      `;
-
-      // Act
-      const modifier = (service as any).getAccessModifierContext(text, 50);
-
-      // Assert
-      expect(['public', 'private', 'protected', 'global']).toContain(modifier);
     });
   });
 
@@ -214,7 +129,21 @@ describe('DefinitionProcessingService', () => {
         position: { line: 5, character: 10 },
       };
 
-      mockStorage.getDocument.mockResolvedValue(mockDocument);
+      // Mock symbol manager to return a symbol quickly
+      const mockSymbol = {
+        name: 'testMethod',
+        kind: 'method',
+        location: {
+          startLine: 5,
+          startColumn: 10,
+          endLine: 5,
+          endColumn: 20,
+        },
+        filePath: '/test/TestClass.cls',
+      };
+      jest
+        .spyOn(service['symbolManager'], 'getSymbolAtPosition')
+        .mockReturnValue(mockSymbol as unknown as ApexSymbol);
 
       const startTime = Date.now();
 

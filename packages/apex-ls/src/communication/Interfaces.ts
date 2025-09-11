@@ -7,20 +7,15 @@
  */
 
 import type { MessageConnection } from 'vscode-jsonrpc';
-import WorkerConstructor from 'web-worker';
 
-// Platform-specific configuration interfaces
+// Import only what we need for local interface definitions
 import type { BaseConfig, EnvironmentType } from '@salesforce/apex-lsp-shared';
-
-// Create a clean type alias for Worker instances and export for other files
-export type Worker = InstanceType<typeof WorkerConstructor>;
-export { WorkerConstructor };
 
 /**
  * Browser-specific configuration
  */
 export interface BrowserConfig extends BaseConfig {
-  worker: Worker;
+  worker: Worker; // Required for browser contexts
 }
 
 /**
@@ -44,7 +39,7 @@ export interface WorkerConfig extends BaseConfig {
  */
 export interface ClientConfig extends BaseConfig {
   environment: EnvironmentType;
-  worker?: Worker;
+  worker?: Worker; // Required for browser environment
 }
 
 // ClientInterface is now exported from @salesforce/apex-lsp-shared

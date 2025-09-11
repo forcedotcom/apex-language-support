@@ -60,7 +60,7 @@ export default defineConfig([
       'vscode-languageclient',
       'web-worker',
     ],
-    esbuildOptions(options) {
+    esbuildOptions(options: any) {
       // Essential browser setup
       options.platform = 'browser';
       options.conditions = ['browser', 'import', 'module', 'default'];

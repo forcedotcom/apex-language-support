@@ -83,15 +83,36 @@ class MockWorkerGlobalScope {
   }
 }
 
-// Mock environment detection using shared library
+// Mock environment detection - both local and shared library
+jest.mock('../../src/utils/EnvironmentDetector.browser', () => ({
+  isBrowserEnvironment: jest.fn().mockReturnValue(false),
+  isWorkerEnvironment: jest.fn().mockReturnValue(false),
+  isNodeEnvironment: jest.fn().mockReturnValue(false),
+}));
+
+jest.mock('../../src/utils/EnvironmentDetector.worker', () => ({
+  isBrowserEnvironment: jest.fn().mockReturnValue(false),
+  isWorkerEnvironment: jest.fn().mockReturnValue(false),
+  isNodeEnvironment: jest.fn().mockReturnValue(false),
+}));
+
+jest.mock('../../src/utils/EnvironmentDetector.node', () => ({
+  isBrowserEnvironment: jest.fn().mockReturnValue(false),
+  isWorkerEnvironment: jest.fn().mockReturnValue(false),
+  isNodeEnvironment: jest.fn().mockReturnValue(false),
+}));
+
+// Mock the shared library's environment detection functions  
 jest.mock('@salesforce/apex-lsp-shared', () => {
   const original = jest.requireActual('@salesforce/apex-lsp-shared');
   return {
     ...original,
-    isBrowserEnvironment: jest.fn().mockReturnValue(false),
-    isWorkerEnvironment: jest.fn().mockReturnValue(false),
-    isNodeEnvironment: jest.fn().mockReturnValue(true),
-    detectEnvironment: jest.fn().mockReturnValue('node'),
+    isNodeEnvironment: jest.fn(() => false),
+    isBrowserEnvironment: jest.fn(() => false),
+    isWorkerEnvironment: jest.fn(() => false),
+    detectEnvironment: jest.fn(() => {
+      throw new Error('Unable to determine environment');
+    }),
   };
 });
 
@@ -167,36 +188,40 @@ describe('Split Architecture Regression Tests', () => {
     });
 
     it('should handle full connection factory flow', async () => {
+      const browserMocks = jest.requireMock('../../src/utils/EnvironmentDetector.browser');
+      const workerMocks = jest.requireMock('../../src/utils/EnvironmentDetector.worker');
       const sharedMocks = jest.requireMock('@salesforce/apex-lsp-shared');
 
       // Test browser connection factory
+      browserMocks.isBrowserEnvironment.mockReturnValue(true);
+      workerMocks.isWorkerEnvironment.mockReturnValue(false);
       sharedMocks.isBrowserEnvironment.mockReturnValue(true);
       sharedMocks.isWorkerEnvironment.mockReturnValue(false);
-
-      const browserConnection = await BrowserConnectionFactory.createConnection(
-        {
-          worker: mockWorker as any,
-        },
-      );
+      
+      const browserConnection = await BrowserConnectionFactory.createConnection({
+        worker: mockWorker as any,
+      });
 
       expect(browserConnection).toBeDefined();
 
       // Test worker connection factory - mock worker environment
+      browserMocks.isBrowserEnvironment.mockReturnValue(false);
+      workerMocks.isWorkerEnvironment.mockReturnValue(true);
       sharedMocks.isBrowserEnvironment.mockReturnValue(false);
       sharedMocks.isWorkerEnvironment.mockReturnValue(true);
-
+      
       // Mock the global 'self' object that SelfMessageTransport expects
       (global as any).self = {
         postMessage: jest.fn(),
         addEventListener: jest.fn(),
         removeEventListener: jest.fn(),
       };
-
+      
       const workerFactory = new WorkerConnectionFactory();
       const workerConnection = await workerFactory.createConnection({});
 
       expect(workerConnection).toBeDefined();
-
+      
       // Clean up global mock
       delete (global as any).self;
     });
@@ -204,7 +229,7 @@ describe('Split Architecture Regression Tests', () => {
 
   describe('Storage Layer Integration', () => {
     const { isWorkerEnvironment, isBrowserEnvironment } = jest.requireMock(
-      '@salesforce/apex-lsp-shared',
+      '../../src/utils/EnvironmentDetector.browser',
     );
 
     beforeEach(() => {
@@ -227,8 +252,8 @@ describe('Split Architecture Regression Tests', () => {
       (StorageFactory as any).instance = undefined;
 
       // Test worker environment
-      sharedMocks.isWorkerEnvironment.mockReturnValue(true);
-      sharedMocks.isBrowserEnvironment.mockReturnValue(false);
+      isWorkerEnvironment.mockReturnValue(true);
+      isBrowserEnvironment.mockReturnValue(false);
       sharedMocks.detectEnvironment.mockReturnValue('webworker');
 
       const workerStorage = await StorageFactory.createStorage();
@@ -238,11 +263,15 @@ describe('Split Architecture Regression Tests', () => {
 
   describe('Server Initialization', () => {
     it('should initialize server with different configurations', async () => {
+      const { isBrowserEnvironment } = jest.requireMock(
+        '../../src/utils/EnvironmentDetector.browser'
+      );
       const sharedMocks = jest.requireMock('@salesforce/apex-lsp-shared');
-
+      
       // Mock browser environment for this test
+      isBrowserEnvironment.mockReturnValue(true);
       sharedMocks.isBrowserEnvironment.mockReturnValue(true);
-
+      
       const serverConfig = {
         environment: 'browser' as const,
         connection: BrowserMessageBridge.forWorkerClient(mockWorker as any),
@@ -258,31 +287,30 @@ describe('Split Architecture Regression Tests', () => {
 
   describe('Error Handling and Edge Cases', () => {
     it('should handle worker creation failures gracefully', async () => {
-      const sharedMocks = jest.requireMock('@salesforce/apex-lsp-shared');
-      sharedMocks.isBrowserEnvironment.mockReturnValue(true);
-
-      await expect(
-        BrowserConnectionFactory.createConnection({}),
-      ).rejects.toThrow('Browser environment requires a worker instance');
+      await expect(BrowserConnectionFactory.createConnection({})).rejects.toThrow(
+        'Browser environment requires a worker instance',
+      );
     });
 
     it('should handle environment detection failures', async () => {
+      const { isWorkerEnvironment, isBrowserEnvironment } = jest.requireMock(
+        '../../src/utils/EnvironmentDetector.browser',
+      );
       const sharedMocks = jest.requireMock('@salesforce/apex-lsp-shared');
 
       // Reset singleton
       (StorageFactory as any).instance = undefined;
 
       // Mock unsupported environment
-      sharedMocks.isWorkerEnvironment.mockReturnValue(false);
-      sharedMocks.isBrowserEnvironment.mockReturnValue(false);
+      isWorkerEnvironment.mockReturnValue(false);
+      isBrowserEnvironment.mockReturnValue(false);
       sharedMocks.detectEnvironment.mockImplementationOnce(() => {
         throw new Error('Unable to determine environment');
       });
 
-      // The refactored storage factory gracefully falls back to node environment in tests
-      // when environment detection fails, providing a more robust testing experience
-      const storage = await StorageFactory.createStorage();
-      expect(storage).toBeDefined();
+      await expect(StorageFactory.createStorage()).rejects.toThrow(
+        'Unable to determine environment',
+      );
     });
 
     it('should handle connection disposal properly', () => {
@@ -324,7 +352,7 @@ describe('Split Architecture Regression Tests', () => {
 
     it('should handle storage singleton correctly', async () => {
       const { isWorkerEnvironment, isBrowserEnvironment } = jest.requireMock(
-        '@salesforce/apex-lsp-shared',
+        '../../src/utils/EnvironmentDetector.browser',
       );
 
       isWorkerEnvironment.mockReturnValue(true);
@@ -354,33 +382,30 @@ describe('Split Architecture Regression Tests', () => {
         import('../../src/server/WorkerConnectionFactory'),
       ).resolves.toBeDefined();
       await expect(
-        import('../../src/storage/StorageImplementations'),
+        import('../../src/storage/BrowserStorageFactory'),
       ).resolves.toBeDefined();
       await expect(
-        import('../../src/storage/StorageFactory'),
+        import('../../src/storage/WorkerStorageFactory'),
       ).resolves.toBeDefined();
     });
 
     it('should verify browser module exports correct interfaces', async () => {
-      // Import BrowserStorageFactory directly from its source after removing re-exports
-      const storageModule = await import('../../src/storage/StorageImplementations');
+      const browserModule = await import('../../src/browser');
 
-      // Browser storage should be available directly from StorageImplementations
-      expect(storageModule.BrowserStorageFactory).toBeDefined();
+      // Browser module should have browser-specific exports
+      expect(browserModule.BrowserStorageFactory).toBeDefined();
       // Note: Worker modules cannot be tested via imports as they reference worker-only globals
     });
   });
 
   describe('Performance Characteristics', () => {
     it('should create connections efficiently', async () => {
-      const sharedMocks = jest.requireMock('@salesforce/apex-lsp-shared');
-      sharedMocks.isBrowserEnvironment.mockReturnValue(true);
-
+      const browserMocks = jest.requireMock('../../src/utils/EnvironmentDetector.browser');
+      browserMocks.isBrowserEnvironment.mockReturnValue(true);
+      
       const startTime = performance.now();
 
-      await BrowserConnectionFactory.createConnection({
-        worker: mockWorker as any,
-      });
+      await BrowserConnectionFactory.createConnection({ worker: mockWorker as any });
 
       const endTime = performance.now();
       const duration = endTime - startTime;

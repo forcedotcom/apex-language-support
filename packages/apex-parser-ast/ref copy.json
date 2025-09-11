@@ -1,0 +1,972 @@
+[
+  {
+    "name": "System",
+    "location": {
+      "symbolRange": {
+        "startLine": 2,
+        "startColumn": 18,
+        "endLine": 2,
+        "endColumn": 24
+      },
+      "identifierRange": {
+        "startLine": 2,
+        "startColumn": 18,
+        "endLine": 2,
+        "endColumn": 24
+      }
+    },
+    "context": 2,
+    "isResolved": false,
+    "parentContext": "getUrl",
+    "qualifiedName": "System",
+    "qualifiedPath": ["System"],
+    "isHierarchical": false
+  },
+  {
+    "name": "System",
+    "location": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 15,
+        "endLine": 3,
+        "endColumn": 25
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 22,
+        "endLine": 3,
+        "endColumn": 25
+      }
+    },
+    "context": 1,
+    "isResolved": false,
+    "parentContext": "getUrl",
+    "qualifiedName": "System",
+    "qualifiedPath": ["System"],
+    "isHierarchical": false
+  },
+  {
+    "name": "Url",
+    "location": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 22,
+        "endLine": 3,
+        "endColumn": 25
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 22,
+        "endLine": 3,
+        "endColumn": 25
+      }
+    },
+    "context": 3,
+    "isResolved": false,
+    "qualifier": "System",
+    "parentContext": "getUrl",
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 15,
+        "endLine": 3,
+        "endColumn": 21
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 15,
+        "endLine": 3,
+        "endColumn": 21
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 22,
+        "endLine": 3,
+        "endColumn": 25
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 22,
+        "endLine": 3,
+        "endColumn": 25
+      }
+    },
+    "isQualified": true,
+    "chainIndex": 1,
+    "chainLength": 2,
+    "qualifiedName": "System.Url",
+    "qualifiedPath": ["System", "Url"],
+    "isHierarchical": true,
+    "memberName": "Url",
+    "referenceChainSize": 2,
+    "referenceChainNames": ["System", "Url"]
+  },
+  {
+    "name": "getOrgDomainUrl",
+    "location": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 26,
+        "endLine": 3,
+        "endColumn": 41
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 26,
+        "endLine": 3,
+        "endColumn": 41
+      }
+    },
+    "context": 0,
+    "isResolved": false,
+    "qualifier": "System.Url",
+    "parentContext": "getUrl",
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 15,
+        "endLine": 3,
+        "endColumn": 25
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 22,
+        "endLine": 3,
+        "endColumn": 25
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 26,
+        "endLine": 3,
+        "endColumn": 41
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 26,
+        "endLine": 3,
+        "endColumn": 41
+      }
+    },
+    "isQualified": true,
+    "chainIndex": 1,
+    "chainLength": 2,
+    "qualifiedName": "System.Url.getOrgDomainUrl",
+    "qualifiedPath": ["System.Url", "getOrgDomainUrl"],
+    "isHierarchical": true,
+    "memberName": "getOrgDomainUrl",
+    "referenceChainSize": 2,
+    "referenceChainNames": ["System.Url", "getOrgDomainUrl"]
+  },
+  {
+    "name": "System.Url",
+    "location": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 15,
+        "endLine": 3,
+        "endColumn": 25
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 22,
+        "endLine": 3,
+        "endColumn": 25
+      }
+    },
+    "context": 1,
+    "isResolved": false,
+    "parentContext": "getUrl",
+    "qualifiedName": "System.Url",
+    "qualifiedPath": ["System.Url"],
+    "isHierarchical": false
+  },
+  {
+    "name": "System",
+    "location": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 15,
+        "endLine": 3,
+        "endColumn": 43
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 15,
+        "endLine": 3,
+        "endColumn": 43
+      }
+    },
+    "context": 1,
+    "isResolved": false,
+    "parentContext": "getUrl",
+    "isStatic": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 15,
+        "endLine": 3,
+        "endColumn": 43
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 15,
+        "endLine": 3,
+        "endColumn": 43
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      }
+    },
+    "isQualified": true,
+    "chainLength": 3,
+    "_logger": {},
+    "chainedExpression": {
+      "baseExpression": {
+        "type": "identifier",
+        "value": "System",
+        "location": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          }
+        }
+      },
+      "chain": [
+        {
+          "type": "propertyAccess",
+          "name": "Url",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 60
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "isStatic": false
+        },
+        {
+          "type": "methodCall",
+          "name": "getOrgDomainUrl",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 60
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "arguments": [],
+          "isStatic": false
+        },
+        {
+          "type": "methodCall",
+          "name": "toExternalForm",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "arguments": [],
+          "isStatic": false
+        }
+      ],
+      "locations": {
+        "baseLocation": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          }
+        },
+        "finalLocation": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 44,
+            "endLine": 3,
+            "endColumn": 58
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 44,
+            "endLine": 3,
+            "endColumn": 58
+          }
+        }
+      },
+      "fullExpression": "System.toExternalForm"
+    },
+    "finalStep": {
+      "type": "methodCall",
+      "name": "toExternalForm",
+      "location": {
+        "symbolRange": {
+          "startLine": 3,
+          "startColumn": 44,
+          "endLine": 3,
+          "endColumn": 58
+        },
+        "identifierRange": {
+          "startLine": 3,
+          "startColumn": 44,
+          "endLine": 3,
+          "endColumn": 58
+        }
+      },
+      "arguments": [],
+      "isStatic": false
+    },
+    "baseQualifier": "System",
+    "hasMethodCalls": true,
+    "hasPropertyAccess": true,
+    "qualifiedName": "System",
+    "qualifiedPath": ["System"],
+    "isHierarchical": false
+  },
+  {
+    "name": "Url",
+    "location": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 60
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      }
+    },
+    "context": 3,
+    "isResolved": false,
+    "qualifier": "System.Url",
+    "parentContext": "getUrl",
+    "isStatic": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 60
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 60
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      }
+    },
+    "isQualified": true,
+    "chainLength": 3,
+    "_logger": {},
+    "chainedExpression": {
+      "baseExpression": {
+        "type": "identifier",
+        "value": "System",
+        "location": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          }
+        }
+      },
+      "chain": [
+        {
+          "type": "propertyAccess",
+          "name": "Url",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 60
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "isStatic": false
+        },
+        {
+          "type": "methodCall",
+          "name": "getOrgDomainUrl",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 60
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "arguments": [],
+          "isStatic": false
+        },
+        {
+          "type": "methodCall",
+          "name": "toExternalForm",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "arguments": [],
+          "isStatic": false
+        }
+      ],
+      "locations": {
+        "baseLocation": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          }
+        },
+        "finalLocation": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 44,
+            "endLine": 3,
+            "endColumn": 58
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 44,
+            "endLine": 3,
+            "endColumn": 58
+          }
+        }
+      },
+      "fullExpression": "System.toExternalForm"
+    },
+    "finalStep": {
+      "type": "propertyAccess",
+      "name": "Url",
+      "location": {
+        "symbolRange": {
+          "startLine": 3,
+          "startColumn": 44,
+          "endLine": 3,
+          "endColumn": 60
+        },
+        "identifierRange": {
+          "startLine": 3,
+          "startColumn": 44,
+          "endLine": 3,
+          "endColumn": 58
+        }
+      },
+      "isStatic": false
+    },
+    "baseQualifier": "System",
+    "hasMethodCalls": true,
+    "hasPropertyAccess": true,
+    "qualifiedName": "Url",
+    "qualifiedPath": ["Url"],
+    "isHierarchical": false
+  },
+  {
+    "name": "getOrgDomainUrl",
+    "location": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 60
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      }
+    },
+    "context": 0,
+    "isResolved": false,
+    "qualifier": "System.Url.getOrgDomainUrl()",
+    "parentContext": "getUrl",
+    "isStatic": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 60
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 60
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      }
+    },
+    "isQualified": true,
+    "chainLength": 3,
+    "_logger": {},
+    "chainedExpression": {
+      "baseExpression": {
+        "type": "identifier",
+        "value": "System",
+        "location": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          }
+        }
+      },
+      "chain": [
+        {
+          "type": "propertyAccess",
+          "name": "Url",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 60
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "isStatic": false
+        },
+        {
+          "type": "methodCall",
+          "name": "getOrgDomainUrl",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 60
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "arguments": [],
+          "isStatic": false
+        },
+        {
+          "type": "methodCall",
+          "name": "toExternalForm",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "arguments": [],
+          "isStatic": false
+        }
+      ],
+      "locations": {
+        "baseLocation": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          }
+        },
+        "finalLocation": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 44,
+            "endLine": 3,
+            "endColumn": 58
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 44,
+            "endLine": 3,
+            "endColumn": 58
+          }
+        }
+      },
+      "fullExpression": "System.toExternalForm"
+    },
+    "finalStep": {
+      "type": "methodCall",
+      "name": "getOrgDomainUrl",
+      "location": {
+        "symbolRange": {
+          "startLine": 3,
+          "startColumn": 44,
+          "endLine": 3,
+          "endColumn": 60
+        },
+        "identifierRange": {
+          "startLine": 3,
+          "startColumn": 44,
+          "endLine": 3,
+          "endColumn": 58
+        }
+      },
+      "arguments": [],
+      "isStatic": false
+    },
+    "baseQualifier": "System",
+    "hasMethodCalls": true,
+    "hasPropertyAccess": true,
+    "qualifiedName": "getOrgDomainUrl",
+    "qualifiedPath": ["getOrgDomainUrl"],
+    "isHierarchical": false
+  },
+  {
+    "name": "toExternalForm",
+    "location": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      }
+    },
+    "context": 0,
+    "isResolved": false,
+    "qualifier": "System.Url.getOrgDomainUrl().toExternalForm()",
+    "parentContext": "getUrl",
+    "isStatic": false,
+    "qualifierLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      }
+    },
+    "memberLocation": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 44,
+        "endLine": 3,
+        "endColumn": 58
+      }
+    },
+    "isQualified": true,
+    "chainLength": 3,
+    "_logger": {},
+    "chainedExpression": {
+      "baseExpression": {
+        "type": "identifier",
+        "value": "System",
+        "location": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          }
+        }
+      },
+      "chain": [
+        {
+          "type": "propertyAccess",
+          "name": "Url",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 60
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "isStatic": false
+        },
+        {
+          "type": "methodCall",
+          "name": "getOrgDomainUrl",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 60
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "arguments": [],
+          "isStatic": false
+        },
+        {
+          "type": "methodCall",
+          "name": "toExternalForm",
+          "location": {
+            "symbolRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            },
+            "identifierRange": {
+              "startLine": 3,
+              "startColumn": 44,
+              "endLine": 3,
+              "endColumn": 58
+            }
+          },
+          "arguments": [],
+          "isStatic": false
+        }
+      ],
+      "locations": {
+        "baseLocation": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 15,
+            "endLine": 3,
+            "endColumn": 43
+          }
+        },
+        "finalLocation": {
+          "symbolRange": {
+            "startLine": 3,
+            "startColumn": 44,
+            "endLine": 3,
+            "endColumn": 58
+          },
+          "identifierRange": {
+            "startLine": 3,
+            "startColumn": 44,
+            "endLine": 3,
+            "endColumn": 58
+          }
+        }
+      },
+      "fullExpression": "System.toExternalForm"
+    },
+    "finalStep": {
+      "type": "methodCall",
+      "name": "toExternalForm",
+      "location": {
+        "symbolRange": {
+          "startLine": 3,
+          "startColumn": 44,
+          "endLine": 3,
+          "endColumn": 58
+        },
+        "identifierRange": {
+          "startLine": 3,
+          "startColumn": 44,
+          "endLine": 3,
+          "endColumn": 58
+        }
+      },
+      "arguments": [],
+      "isStatic": false
+    },
+    "baseQualifier": "System",
+    "hasMethodCalls": true,
+    "hasPropertyAccess": true,
+    "qualifiedName": "toExternalForm",
+    "qualifiedPath": ["toExternalForm"],
+    "isHierarchical": false
+  },
+  {
+    "name": "System",
+    "location": {
+      "symbolRange": {
+        "startLine": 3,
+        "startColumn": 15,
+        "endLine": 3,
+        "endColumn": 43
+      },
+      "identifierRange": {
+        "startLine": 3,
+        "startColumn": 15,
+        "endLine": 3,
+        "endColumn": 43
+      }
+    },
+    "context": 1,
+    "isResolved": false,
+    "parentContext": "getUrl",
+    "qualifiedName": "System",
+    "qualifiedPath": ["System"],
+    "isHierarchical": false
+  }
+]

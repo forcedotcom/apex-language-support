@@ -37,8 +37,25 @@ export class DefinitionHandler {
         'Error processing definition request',
       );
 
-      // Return empty array if result is null
-      return result || [];
+      // Normalize the result to always return Location[]
+      if (!result) {
+        return [];
+      } else if (Array.isArray(result)) {
+        // Handle both Location[] and LocationLink[]
+        if (result.length > 0 && 'uri' in result[0] && 'range' in result[0]) {
+          // This is Location[]
+          return result as Location[];
+        } else {
+          // This is LocationLink[], convert to Location[]
+          return (result as any[]).map((link) => ({
+            uri: link.targetUri,
+            range: link.targetRange,
+          }));
+        }
+      } else {
+        // Single Location result
+        return [result];
+      }
     } catch (error) {
       this.logger.error(
         () =>

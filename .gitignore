@@ -75,10 +75,4 @@ grammars/
 
 # Language server bundle copied into the VS Code extension package
 packages/apex-lsp-vscode-extension/server-bundle/
-
-# E2E Testing artifacts
-e2e-tests/test-results/
-e2e-tests/playwright-report/
-e2e-tests/.playwright/
-test-results/
-playwright-report/
+/.windsurf

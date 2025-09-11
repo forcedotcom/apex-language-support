@@ -88,10 +88,7 @@ describe('ApexLanguageServer', () => {
       const { isWorkerEnvironment } = require('@salesforce/apex-lsp-shared');
       isWorkerEnvironment.mockReturnValue(true);
 
-      const workerConfig = {
-        ...serverConfig,
-        environment: 'webworker' as const,
-      };
+      const workerConfig = { ...serverConfig, environment: 'webworker' as const };
       expect(() => new ApexLanguageServer(workerConfig)).not.toThrow();
       expect(isWorkerEnvironment).toHaveBeenCalled();
     });
@@ -101,19 +98,16 @@ describe('ApexLanguageServer', () => {
         environment: 'invalid' as any,
         connection: mockConnection,
       };
-
-      expect(() => new ApexLanguageServer(invalidConfig)).toThrow(
-        'Unknown environment: invalid',
-      );
+      
+      expect(() => new ApexLanguageServer(invalidConfig)).toThrow('Unknown environment: invalid');
     });
 
     it('should throw error when environment validation fails', () => {
       const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
       isBrowserEnvironment.mockReturnValue(false);
 
-      expect(() => new ApexLanguageServer(serverConfig)).toThrow(
-        'Browser server can only run in browser environment',
-      );
+      expect(() => new ApexLanguageServer(serverConfig))
+        .toThrow('Browser server can only run in browser environment');
     });
   });
 
@@ -126,13 +120,28 @@ describe('ApexLanguageServer', () => {
       await expect(server.initialize()).resolves.not.toThrow();
     });
 
-    // Removed redundant test - environment-specific initialization is already tested by:
-    // 1. "should initialize server successfully" (basic initialization)
-    // 2. Storage architecture tests comprehensively test all storage creation patterns
+    it('should initialize with different environments', async () => {
+      const { isNodeEnvironment } = require('@salesforce/apex-lsp-shared');
+      isNodeEnvironment.mockReturnValue(true);
 
-    // Removed redundant test - worker environment initialization is already tested by:
-    // 1. Storage architecture tests: "should create worker storage with memory storage"
-    // 2. Connection behavior differences are not critical functionality needing separate tests
+      const nodeConfig = { ...serverConfig, environment: 'node' as const };
+      const server = new ApexLanguageServer(nodeConfig);
+      
+      await server.initialize();
+      expect(mockConnection.listen).toHaveBeenCalled();
+    });
+
+    it('should handle worker environment initialization', async () => {
+      const { isWorkerEnvironment } = require('@salesforce/apex-lsp-shared');
+      isWorkerEnvironment.mockReturnValue(true);
+
+      const workerConfig = { ...serverConfig, environment: 'webworker' as const };
+      const server = new ApexLanguageServer(workerConfig);
+      
+      await server.initialize();
+      // Workers don't call connection.listen() explicitly
+      expect(mockConnection.listen).not.toHaveBeenCalled();
+    });
 
     it('should handle storage factory creation', async () => {
       const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
@@ -141,9 +150,7 @@ describe('ApexLanguageServer', () => {
       const server = new ApexLanguageServer(serverConfig);
       await server.initialize();
 
-      // With the new registry pattern, storage is created directly without factory mocks
-      // Just verify the server initializes successfully
-      expect(server).toBeDefined();
+      expect(mockCreateStorage).toHaveBeenCalled();
     });
 
     it('should handle missing storage config', async () => {
@@ -154,17 +161,30 @@ describe('ApexLanguageServer', () => {
         environment: 'browser' as const,
         connection: mockConnection,
       };
-
+      
       const server = new ApexLanguageServer(configWithoutStorage);
       await expect(server.initialize()).resolves.not.toThrow();
     });
   });
 
   describe('Storage Configuration', () => {
-    // Removed redundant test - memory storage for worker environment is already tested by:
-    // 1. Storage architecture tests: "should create worker storage with memory storage"
-    // 2. Storage architecture tests: "should handle document operations in memory"
-    // 3. This test only verified server.toBeDefined() which is trivial
+    it('should use memory storage for worker environment', async () => {
+      const { isWorkerEnvironment } = require('@salesforce/apex-lsp-shared');
+      isWorkerEnvironment.mockReturnValue(true);
+
+      const workerConfig = { 
+        ...serverConfig, 
+        environment: 'webworker' as const,
+        storageConfig: { storageType: 'indexeddb' }
+      };
+      
+      const server = new ApexLanguageServer(workerConfig);
+      await server.initialize();
+
+      expect(mockCreateStorage).toHaveBeenCalledWith(
+        expect.objectContaining({ useMemoryStorage: true })
+      );
+    });
 
     it('should preserve storage config for non-worker environments', async () => {
       const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
@@ -173,18 +193,21 @@ describe('ApexLanguageServer', () => {
       const browserConfig = {
         ...serverConfig,
         environment: 'browser' as const,
-        storageConfig: {
+        storageConfig: { 
           storageType: 'memory' as const,
-          useMemoryStorage: false,
-        },
+          useMemoryStorage: false 
+        }
       };
 
       const server = new ApexLanguageServer(browserConfig);
       await server.initialize();
 
-      // With the new registry pattern, storage config is handled appropriately
-      // Just verify the server initializes successfully
-      expect(server).toBeDefined();
+      expect(mockCreateStorage).toHaveBeenCalledWith(
+        expect.objectContaining({ 
+          storageType: 'memory',
+          useMemoryStorage: false 
+        })
+      );
     });
   });
 
@@ -197,10 +220,10 @@ describe('ApexLanguageServer', () => {
       const { isBrowserEnvironment } = require('@salesforce/apex-lsp-shared');
       isBrowserEnvironment.mockReturnValue(true);
 
-      // The refactored storage system provides better error handling and fallbacks
-      // Storage creation should succeed even when preferred storage types fail
+      mockCreateStorage.mockRejectedValueOnce(new Error('Storage creation failed'));
+
       const server = new ApexLanguageServer(serverConfig);
-      await expect(server.initialize()).resolves.not.toThrow();
+      await expect(server.initialize()).rejects.toThrow('Storage creation failed');
     });
   });
 });

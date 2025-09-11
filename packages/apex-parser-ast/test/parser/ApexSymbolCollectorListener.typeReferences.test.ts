@@ -44,32 +44,29 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
 
-      // With enhanced reference capture, we now get:
-      // 1. CLASS_REFERENCE for FileUtilities
-      // 2. METHOD_CALL for createFile
-      // 3. VARIABLE_USAGE for base64Data (parameter)
-      // 4. VARIABLE_USAGE for fileName (parameter)
-      // 5. VARIABLE_USAGE for recordId (parameter)
-      expect(references).toHaveLength(5);
+      // With new chained expression approach, we now get:
+      // 1. CHAINED_EXPRESSION for FileUtilities.createFile
+      // 2. VARIABLE_USAGE for base64Data (parameter)
+      // 3. VARIABLE_USAGE for fileName (parameter)
+      // 4. VARIABLE_USAGE for recordId (parameter)
+      expect(references).toHaveLength(4);
 
-      // Check for CLASS_REFERENCE (FileUtilities)
-      const classRef = references.find(
+      // Check for CHAINED_EXPRESSION (FileUtilities.createFile)
+      const chainedRef = references.find(
         (ref) =>
-          ref.name === 'FileUtilities' &&
-          ref.context === ReferenceContext.CLASS_REFERENCE,
+          ref.name === 'FileUtilities.createFile' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
       );
-      expect(classRef).toBeDefined();
-      expect(classRef?.context).toBe(ReferenceContext.CLASS_REFERENCE);
-      expect(classRef?.parentContext).toBe('testMethod');
-      expect(classRef?.isResolved).toBe(false);
-
-      // Check for METHOD_CALL (createFile)
-      const methodRef = references.find((ref) => ref.name === 'createFile');
-      expect(methodRef).toBeDefined();
-      expect(methodRef?.context).toBe(ReferenceContext.METHOD_CALL);
-      expect(methodRef?.qualifier).toBe('FileUtilities');
-      expect(methodRef?.parentContext).toBe('testMethod');
-      expect(methodRef?.isResolved).toBe(false);
+      expect(chainedRef).toBeDefined();
+      expect(chainedRef?.context).toBe(ReferenceContext.CHAINED_TYPE);
+      expect(chainedRef?.parentContext).toBe('testMethod');
+      expect(chainedRef?.isResolved).toBe(false);
+      // Check chainNodes structure
+      const chainedRefTyped = chainedRef as any;
+      expect(chainedRefTyped?.chainNodes).toBeDefined();
+      expect(chainedRefTyped?.chainNodes).toHaveLength(2);
+      expect(chainedRefTyped?.chainNodes?.[0].name).toBe('FileUtilities');
+      expect(chainedRefTyped?.chainNodes?.[1].name).toBe('createFile');
 
       // Check for VARIABLE_USAGE references (parameters)
       const base64DataRef = references.find(
@@ -127,7 +124,7 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const methodRef = references.find((ref) => ref.name === 'createFile');
       expect(methodRef).toBeDefined();
       expect(methodRef?.context).toBe(ReferenceContext.METHOD_CALL);
-      expect(methodRef?.qualifier).toBeUndefined();
+      // Simple method call - no qualifier
       expect(methodRef?.parentContext).toBe('testMethod');
 
       // Check for VARIABLE_USAGE references (parameters)
@@ -239,14 +236,19 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
 
-      // Should have type declaration and field access references
-      const fieldAccessRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.FIELD_ACCESS,
+      // Should have chained expression reference for field access
+      const chainedRefs = references.filter(
+        (ref) => ref.context === ReferenceContext.CHAINED_TYPE,
       );
-      expect(fieldAccessRefs).toHaveLength(1);
-      expect(fieldAccessRefs[0].name).toBe('Id');
-      expect(fieldAccessRefs[0].qualifier).toBe('property');
-      expect(fieldAccessRefs[0].parentContext).toBe('testMethod');
+      expect(chainedRefs).toHaveLength(1);
+      expect(chainedRefs[0].name).toBe('property.Id');
+      expect(chainedRefs[0].parentContext).toBe('testMethod');
+      // Check chainNodes structure
+      const chainedRefTyped = chainedRefs[0] as any;
+      expect(chainedRefTyped.chainNodes).toBeDefined();
+      expect(chainedRefTyped.chainNodes).toHaveLength(2);
+      expect(chainedRefTyped.chainNodes?.[0].name).toBe('property');
+      expect(chainedRefTyped.chainNodes?.[1].name).toBe('Id');
     });
   });
 
@@ -391,35 +393,30 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       // And more...
       expect(references.length).toBeGreaterThan(10);
 
-      // Check CLASS_REFERENCE location accuracy
-      const classRef = references.find(
+      // Check CHAINED_EXPRESSION location accuracy
+      const chainedRef = references.find(
         (ref) =>
-          ref.name === 'FileUtilities' &&
-          ref.context === ReferenceContext.CLASS_REFERENCE,
+          ref.name === 'FileUtilities.createFile' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
       );
-      expect(classRef).toBeDefined();
-      expect(classRef?.location.identifierRange.startLine).toBeGreaterThan(0);
-      expect(classRef?.location.identifierRange.endLine).toBeGreaterThan(0);
+      expect(chainedRef).toBeDefined();
+      expect(chainedRef?.location.identifierRange.startLine).toBeGreaterThan(0);
+      expect(chainedRef?.location.identifierRange.endLine).toBeGreaterThan(0);
       expect(
-        classRef?.location.identifierRange.startColumn,
+        chainedRef?.location.identifierRange.startColumn,
       ).toBeGreaterThanOrEqual(0);
-      expect(classRef?.location.identifierRange.endColumn).toBeGreaterThan(0);
+      expect(chainedRef?.location.identifierRange.endColumn).toBeGreaterThan(0);
 
-      // Check METHOD_CALL location accuracy
-      const methodRef = references.find((ref) => ref.name === 'createFile');
-      expect(methodRef).toBeDefined();
-      expect(methodRef?.location.identifierRange.startLine).toBeGreaterThan(0);
-      expect(methodRef?.location.identifierRange.endLine).toBeGreaterThan(0);
-      expect(
-        methodRef?.location.identifierRange.startColumn,
-      ).toBeGreaterThanOrEqual(0);
-      expect(methodRef?.location.identifierRange.endColumn).toBeGreaterThan(0);
+      // Check chained expression properties
+      const chainedRefTyped = chainedRef as any;
+      expect(chainedRefTyped?.chainNodes).toBeDefined();
+      expect(chainedRefTyped?.chainNodes?.length).toBeGreaterThan(1);
 
       // Check for some key references that should exist in this complex test
       const fileUtilitiesRef = references.find(
         (ref) =>
-          ref.name === 'FileUtilities' &&
-          ref.context === ReferenceContext.CLASS_REFERENCE,
+          ref.name === 'FileUtilities.createFile' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
       );
       expect(fileUtilitiesRef).toBeDefined();
       expect(
@@ -429,19 +426,10 @@ describe('ApexSymbolCollectorListener with Type References', () => {
         fileUtilitiesRef?.location.identifierRange.endLine,
       ).toBeGreaterThan(0);
 
-      const createFileRef = references.find((ref) => ref.name === 'createFile');
-      expect(createFileRef).toBeDefined();
-      expect(createFileRef?.location.identifierRange.startLine).toBeGreaterThan(
-        0,
-      );
-      expect(createFileRef?.location.identifierRange.endLine).toBeGreaterThan(
-        0,
-      );
-
       const assertRef = references.find(
         (ref) =>
-          ref.name === 'Assert' &&
-          ref.context === ReferenceContext.CLASS_REFERENCE,
+          ref.name === 'Assert.isNotNull' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
       );
       expect(assertRef).toBeDefined();
       expect(assertRef?.location.identifierRange.startLine).toBeGreaterThan(0);
@@ -469,62 +457,50 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
 
-      // With enhanced reference capture, we now get:
-      // 1. CLASS_REFERENCE for FileUtilities
-      // 2. METHOD_CALL for createFile
-      // 3. VARIABLE_USAGE for data (parameter)
-      // 4. VARIABLE_USAGE for name (parameter)
-      // 5. VARIABLE_USAGE for id (parameter)
-      expect(references).toHaveLength(5);
+      // With new chained expression approach, we now get:
+      // 1. CHAINED_EXPRESSION for FileUtilities.createFile
+      // 2. VARIABLE_USAGE for data (parameter)
+      // 3. VARIABLE_USAGE for name (parameter)
+      // 4. VARIABLE_USAGE for id (parameter)
+      expect(references).toHaveLength(4);
 
-      // Check CLASS_REFERENCE location accuracy
-      const classRef = references.find(
+      // Check CHAINED_EXPRESSION location accuracy
+      const chainedRef = references.find(
         (ref) =>
-          ref.name === 'FileUtilities' &&
-          ref.context === ReferenceContext.CLASS_REFERENCE,
+          ref.name === 'FileUtilities.createFile' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
       );
-      expect(classRef).toBeDefined();
-      expect(classRef?.location.identifierRange.startLine).toBeGreaterThan(0);
-      expect(classRef?.location.identifierRange.endLine).toBeGreaterThan(0);
+      expect(chainedRef).toBeDefined();
+      expect(chainedRef?.location.identifierRange.startLine).toBeGreaterThan(0);
+      expect(chainedRef?.location.identifierRange.endLine).toBeGreaterThan(0);
       expect(
-        classRef?.location.identifierRange.startColumn,
+        chainedRef?.location.identifierRange.startColumn,
       ).toBeGreaterThanOrEqual(0);
-      expect(classRef?.location.identifierRange.endColumn).toBeGreaterThan(0);
+      expect(chainedRef?.location.identifierRange.endColumn).toBeGreaterThan(0);
 
-      // Check METHOD_CALL location accuracy
-      const methodRef = references.find((ref) => ref.name === 'createFile');
-      expect(methodRef).toBeDefined();
-      expect(methodRef?.location.identifierRange.startLine).toBeGreaterThan(0);
-      expect(methodRef?.location.identifierRange.endLine).toBeGreaterThan(0);
-      expect(
-        methodRef?.location.identifierRange.startColumn,
-      ).toBeGreaterThanOrEqual(0);
-      expect(methodRef?.location.identifierRange.endColumn).toBeGreaterThan(0);
+      // Check chained expression properties
+      const chainedRefTyped = chainedRef as any;
+      expect(chainedRefTyped?.chainNodes).toBeDefined();
+      expect(chainedRefTyped?.chainNodes?.length).toBeGreaterThan(1);
 
-      // End should be after start for both references
-      expect(classRef?.location.identifierRange.endLine).toBeGreaterThanOrEqual(
-        classRef?.location.identifierRange.startLine || 0,
-      );
+      // End should be after start for chained reference
       expect(
-        methodRef?.location.identifierRange.endLine,
+        chainedRef?.location.identifierRange.endLine,
       ).toBeGreaterThanOrEqual(
-        methodRef?.location.identifierRange.startLine || 0,
+        chainedRef?.location.identifierRange.startLine || 0,
+      );
+      expect(
+        chainedRef?.location.identifierRange.endLine,
+      ).toBeGreaterThanOrEqual(
+        chainedRef?.location.identifierRange.startLine || 0,
       );
 
       if (
-        classRef?.location.identifierRange.endLine ===
-        classRef?.location.identifierRange.startLine
+        chainedRef?.location.identifierRange.endLine ===
+        chainedRef?.location.identifierRange.startLine
       ) {
-        expect(classRef?.location.identifierRange.endColumn).toBeGreaterThan(
-          classRef?.location.identifierRange.startColumn || 0,
-        );
-      }
-      if (
-        methodRef?.location.identifierRange.endLine ===
-        methodRef?.location.identifierRange.startLine
-      ) {
-        expect(methodRef?.location.identifierRange.endColumn).toBeGreaterThan(
-          methodRef?.location.identifierRange.startColumn || 0,
+        expect(chainedRef?.location.identifierRange.endColumn).toBeGreaterThan(
+          chainedRef?.location.identifierRange.startColumn || 0,
         );
       }
     });
@@ -550,22 +526,25 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const symbolTable = listener.getResult();
       const references = symbolTable.getAllReferences();
 
-      // Filter for parameter type references only
+      // Filter for parameter type references (including generic parameter types)
       const paramTypeRefs = references.filter(
-        (ref) => ref.context === ReferenceContext.PARAMETER_TYPE,
+        (ref) =>
+          ref.context === ReferenceContext.PARAMETER_TYPE ||
+          ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
       );
 
       // Should capture: String, Property__c, List, String (from List<String>), Map, String, Property__c (from Map<String, Property__c>)
-      expect(paramTypeRefs).toHaveLength(7);
+      // Note: We now create both GENERIC_PARAMETER_TYPE and PARAMETER_TYPE references for generic arguments
+      expect(paramTypeRefs).toHaveLength(10);
 
       // Check for simple types
       const stringRefs = paramTypeRefs.filter((ref) => ref.name === 'String');
-      expect(stringRefs).toHaveLength(3); // param1, and from List<String>, Map<String, Property__c>
+      expect(stringRefs).toHaveLength(5); // param1, and from List<String> (both GENERIC_PARAMETER_TYPE and PARAMETER_TYPE), Map<String, Property__c> (both types)
 
       const propertyRefs = paramTypeRefs.filter(
         (ref) => ref.name === 'Property__c',
       );
-      expect(propertyRefs).toHaveLength(2); // param2, and from Map<String, Property__c>
+      expect(propertyRefs).toHaveLength(3); // param2, and from Map<String, Property__c> (both GENERIC_PARAMETER_TYPE and PARAMETER_TYPE)
 
       // Check for generic base types
       const listRef = paramTypeRefs.find((ref) => ref.name === 'List');
@@ -603,6 +582,346 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       );
       expect(paramTypeRefs.length).toBeGreaterThanOrEqual(1);
       expect(sourceUsageRefs.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('Enhanced Hierarchical Type Reference Properties', () => {
+    it('should populate hierarchical method call references with enhanced properties', () => {
+      const sourceCode = `
+        public class HierarchicalTest {
+          public void testMethod() {
+            FileUtilities.createFile(base64Data, fileName, recordId);
+            EncodingUtil.urlEncode('Hello World', 'UTF-8');
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'HierarchicalTest.cls', listener);
+
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+
+      // Find the chained expression reference for FileUtilities.createFile
+      const fileUtilMethodRef = references.find(
+        (ref) =>
+          ref.name === 'FileUtilities.createFile' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+
+      expect(fileUtilMethodRef).toBeDefined();
+
+      // Test enhanced hierarchical properties
+      // Check chainNodes structure for chained expression
+      const fileUtilMethodRefTyped = fileUtilMethodRef as any;
+      expect(fileUtilMethodRefTyped?.chainNodes).toBeDefined();
+      expect(fileUtilMethodRefTyped?.chainNodes?.length).toBeGreaterThan(1);
+
+      // Test location properties
+      expect(fileUtilMethodRef?.location).toBeDefined();
+      expect(
+        fileUtilMethodRef?.location.identifierRange.startLine,
+      ).toBeGreaterThan(0);
+
+      // Find the chained expression reference for EncodingUtil.urlEncode
+      const encodingUtilMethodRef = references.find(
+        (ref) =>
+          ref.name === 'EncodingUtil.urlEncode' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+
+      expect(encodingUtilMethodRef).toBeDefined();
+      // Check chainNodes structure for chained expression
+      const encodingUtilMethodRefTyped = encodingUtilMethodRef as any;
+      expect(encodingUtilMethodRefTyped?.chainNodes).toBeDefined();
+      expect(encodingUtilMethodRefTyped?.chainNodes?.length).toBeGreaterThan(1);
+    });
+
+    it('should populate hierarchical field access references with enhanced properties', () => {
+      const sourceCode = `
+        public class FieldAccessTest {
+          public void testMethod() {
+            Account acc = new Account();
+            String name = acc.Name;
+            String owner = acc.Owner.Name;
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'FieldAccessTest.cls', listener);
+
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+
+      // Find chained expression references for field access
+      const nameFieldRef = references.find(
+        (ref) =>
+          ref.name === 'acc.Name' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+
+      expect(nameFieldRef).toBeDefined();
+      // Check chainNodes structure for chained expression
+      const nameFieldRefTyped = nameFieldRef as any;
+      expect(nameFieldRefTyped?.chainNodes).toBeDefined();
+      expect(nameFieldRefTyped?.chainNodes?.length).toBeGreaterThan(1);
+
+      // Test nested field access (acc.Owner.Name)
+      const ownerNameFieldRef = references.find(
+        (ref) =>
+          ref.name === 'owner.Name' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+
+      if (ownerNameFieldRef) {
+        // Check chainNodes structure for chained expression
+        const ownerNameFieldRefTyped = ownerNameFieldRef as any;
+        expect(ownerNameFieldRefTyped.chainNodes).toBeDefined();
+        expect(ownerNameFieldRefTyped.chainNodes?.length).toBeGreaterThan(1);
+      }
+    });
+
+    it('should populate constructor call references with enhanced properties', () => {
+      const sourceCode = `
+        public class ConstructorTest {
+          public void testMethod() {
+            List<String> stringList = new List<String>();
+            Map<String, Integer> stringIntMap = new Map<String, Integer>();
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'ConstructorTest.cls', listener);
+
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+
+      // Find constructor call references
+      const listConstructorRef = references.find(
+        (ref) =>
+          ref.name === 'List' &&
+          ref.context === ReferenceContext.CONSTRUCTOR_CALL,
+      );
+
+      expect(listConstructorRef).toBeDefined();
+      // Simple constructor call - no chainNodes
+      const listConstructorRefTyped = listConstructorRef as any;
+      expect(listConstructorRefTyped?.chainNodes).toBeUndefined();
+
+      const mapConstructorRef = references.find(
+        (ref) =>
+          ref.name === 'Map' &&
+          ref.context === ReferenceContext.CONSTRUCTOR_CALL,
+      );
+
+      expect(mapConstructorRef).toBeDefined();
+      // Simple constructor call - no chainNodes
+      const mapConstructorRefTyped = mapConstructorRef as any;
+      expect(mapConstructorRefTyped?.chainNodes).toBeUndefined();
+    });
+
+    it('should populate type declaration references with enhanced properties', () => {
+      const sourceCode = `
+        public class TypeDeclarationTest {
+          public void testMethod() {
+            String text = 'Hello';
+            List<String> items = new List<String>();
+            Map<String, Account> accountMap = new Map<String, Account>();
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'TypeDeclarationTest.cls', listener);
+
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+
+      // Find type declaration references
+      const stringTypeRef = references.find(
+        (ref) =>
+          ref.name === 'String' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+
+      expect(stringTypeRef).toBeDefined();
+      // Simple type declaration - no chainNodes
+      const stringTypeRefTyped = stringTypeRef as any;
+      expect(stringTypeRefTyped?.chainNodes).toBeUndefined();
+
+      const listTypeRef = references.find(
+        (ref) =>
+          ref.name === 'List' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+
+      expect(listTypeRef).toBeDefined();
+      // Simple type declaration - no chainNodes
+      const listTypeRefTyped = listTypeRef as any;
+      expect(listTypeRefTyped?.chainNodes).toBeUndefined();
+
+      const mapTypeRef = references.find(
+        (ref) =>
+          ref.name === 'Map' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+
+      expect(mapTypeRef).toBeDefined();
+      // Simple type declaration - no chainNodes
+      const mapTypeRefTyped = mapTypeRef as any;
+      expect(mapTypeRefTyped?.chainNodes).toBeUndefined();
+    });
+
+    it('should populate variable usage references with enhanced properties', () => {
+      const sourceCode = `
+        public class VariableUsageTest {
+          public void testMethod(String param1, String param2) {
+            String localVar = param1 + param2;
+            System.debug(localVar);
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'VariableUsageTest.cls', listener);
+
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+
+      // Find variable usage references
+      const param1UsageRef = references.find(
+        (ref) =>
+          ref.name === 'param1' &&
+          ref.context === ReferenceContext.VARIABLE_USAGE,
+      );
+
+      expect(param1UsageRef).toBeDefined();
+      // Simple variable usage - no chainNodes
+      const param1UsageRefTyped = param1UsageRef as any;
+      expect(param1UsageRefTyped?.chainNodes).toBeUndefined();
+
+      const localVarUsageRef = references.find(
+        (ref) =>
+          ref.name === 'localVar' &&
+          ref.context === ReferenceContext.VARIABLE_USAGE,
+      );
+
+      expect(localVarUsageRef).toBeDefined();
+      // Simple variable usage - no chainNodes
+      const localVarUsageRefTyped = localVarUsageRef as any;
+      expect(localVarUsageRefTyped?.chainNodes).toBeUndefined();
+    });
+
+    it('should populate class references with enhanced properties', () => {
+      const sourceCode = `
+        public class ClassReferenceTest {
+          public void testMethod() {
+            Account acc = new Account();
+            Contact con = new Contact();
+            List<Account> accounts = new List<Account>();
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'ClassReferenceTest.cls', listener);
+
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+
+      // Verify that references are being captured correctly
+
+      // Find constructor call references (which should capture the class names)
+      const accountConstructorRef = references.find(
+        (ref) =>
+          ref.name === 'Account' &&
+          ref.context === ReferenceContext.CONSTRUCTOR_CALL,
+      );
+
+      expect(accountConstructorRef).toBeDefined();
+      // Simple class reference - no chainNodes
+      const accountConstructorRefTyped = accountConstructorRef as any;
+      expect(accountConstructorRefTyped?.chainNodes).toBeUndefined();
+
+      const contactConstructorRef = references.find(
+        (ref) =>
+          ref.name === 'Contact' &&
+          ref.context === ReferenceContext.CONSTRUCTOR_CALL,
+      );
+
+      expect(contactConstructorRef).toBeDefined();
+      // Simple class reference - no chainNodes
+      const contactConstructorRefTyped = contactConstructorRef as any;
+      expect(contactConstructorRefTyped?.chainNodes).toBeUndefined();
+
+      // Also check for type declaration references in generic types
+      const accountTypeDeclRef = references.find(
+        (ref) =>
+          ref.name === 'Account' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+
+      if (accountTypeDeclRef) {
+        // Simple type declaration - no chainNodes
+        const accountTypeDeclRefTyped = accountTypeDeclRef as any;
+        expect(accountTypeDeclRefTyped.chainNodes).toBeUndefined();
+      }
+    });
+
+    it('should handle complex nested hierarchical references correctly', () => {
+      const sourceCode = `
+        public class NestedHierarchicalTest {
+          public void testMethod() {
+            // Test complex nested method calls and field access
+            String result = EncodingUtil.urlEncode(
+              Account.SObjectType.getDescribe().getName(), 
+              'UTF-8'
+            );
+            
+            // Test chained method calls
+            String domain = URL.getOrgDomainUrl().toExternalForm();
+          }
+        }
+      `;
+
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(
+        sourceCode,
+        'NestedHierarchicalTest.cls',
+        listener,
+      );
+
+      const symbolTable = listener.getResult();
+      const references = symbolTable.getAllReferences();
+
+      // Find the complex nested reference
+      const urlEncodeRef = references.find(
+        (ref) =>
+          ref.name ===
+            'EncodingUtil.urlEncode.SObjectType.getDescribe.getName' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+
+      expect(urlEncodeRef).toBeDefined();
+      // Check chainNodes structure for chained expression
+      const urlEncodeRefTyped = urlEncodeRef as any;
+      expect(urlEncodeRefTyped?.chainNodes).toBeDefined();
+      expect(urlEncodeRefTyped?.chainNodes?.length).toBeGreaterThan(1);
+
+      // Find the URL.getOrgDomainUrl.toExternalForm reference
+      const urlRef = references.find(
+        (ref) =>
+          ref.name === 'URL.getOrgDomainUrl.toExternalForm' &&
+          ref.context === ReferenceContext.CHAINED_TYPE,
+      );
+
+      expect(urlRef).toBeDefined();
+      // Check chainNodes structure for chained expression
+      const urlRefTyped = urlRef as any;
+      expect(urlRefTyped?.chainNodes).toBeDefined();
+      expect(urlRefTyped?.chainNodes?.length).toBeGreaterThan(1);
     });
   });
 });

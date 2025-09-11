@@ -20,7 +20,6 @@ import {
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 
 /**
- * Tests for Phase 6.5.2: Symbol Key System Unification
  * These tests validate the unified key system that combines SymbolKey and getSymbolId()
  */
 describe('Phase 6.5.2: Symbol Key System Unification', () => {
@@ -41,7 +40,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const unifiedId = generateUnifiedId(key);
-      expect(unifiedId).toBe('TestClass');
+      expect(unifiedId).toBe('file://unknown:file.TestClass:TestClass');
     });
 
     it('should generate unified IDs without FQN', () => {
@@ -53,7 +52,9 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const unifiedId = generateUnifiedId(key);
-      expect(unifiedId).toBe('method:testMethod:file.TestClass.testMethod');
+      expect(unifiedId).toBe(
+        'file://unknown:file.TestClass.testMethod:testMethod',
+      );
     });
 
     it('should include file path in unified ID when provided', () => {
@@ -66,7 +67,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const unifiedId = generateUnifiedId(key, 'TestFile.cls');
-      expect(unifiedId).toBe('TestClass:TestFile.cls');
+      expect(unifiedId).toBe('file://TestFile.cls:file.TestClass:TestClass');
     });
 
     it('should convert SymbolKey to string for legacy compatibility', () => {
@@ -99,7 +100,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
             endColumn: 10,
           },
         },
-        filePath: 'TestFile.cls',
+        fileUri: 'file:///TestFile.cls',
         parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
@@ -131,8 +132,10 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       expect(unifiedKey.path).toEqual(['file', 'TestClass']);
       expect(unifiedKey.kind).toBe(SymbolKind.Class);
       expect(unifiedKey.fqn).toBe('TestClass');
-      expect(unifiedKey.filePath).toBe('TestFile.cls');
-      expect(unifiedKey.unifiedId).toBe('TestClass:TestFile.cls');
+      expect(unifiedKey.fileUri).toBe('TestFile.cls');
+      expect(unifiedKey.unifiedId).toBe(
+        'file://TestFile.cls:file.TestClass:TestClass',
+      );
     });
 
     it('should check if two SymbolKeys are equivalent', () => {
@@ -194,18 +197,18 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       };
 
       const unifiedId = getUnifiedId(key, 'TestFile.cls');
-      expect(unifiedId).toBe('TestClass:TestFile.cls');
+      expect(unifiedId).toBe('file://TestFile.cls:file.TestClass:TestClass');
 
       // Should return cached value
       const cachedId = getUnifiedId(key, 'TestFile.cls');
-      expect(cachedId).toBe('TestClass:TestFile.cls');
+      expect(cachedId).toBe('file://TestFile.cls:file.TestClass:TestClass');
     });
   });
 
   describe('ApexSymbolManager Integration', () => {
     it('should use unified key system in getSymbolId', () => {
       const symbol: ApexSymbol = {
-        id: 'TestFile.cls:TestClass',
+        id: 'file:///TestFile.cls:TestClass',
         name: 'TestClass',
         kind: SymbolKind.Class,
         location: {
@@ -222,7 +225,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
             endColumn: 10,
           },
         },
-        filePath: 'TestFile.cls',
+        fileUri: 'file:///TestFile.cls',
         parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
@@ -252,12 +255,14 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
       manager.addSymbol(symbol, 'TestFile.cls');
 
       // Verify unified ID was generated and cached
-      expect(symbol.key.unifiedId).toBe('TestClass:TestFile.cls');
+      expect(symbol.key.unifiedId).toBe(
+        'file://TestFile.cls:file.TestClass:TestClass',
+      );
     });
 
     it('should maintain backward compatibility with existing SymbolKey usage', () => {
       const symbol: ApexSymbol = {
-        id: 'TestFile.cls:TestClass',
+        id: 'file:///TestFile.cls:TestClass',
         name: 'TestClass',
         kind: SymbolKind.Class,
         location: {
@@ -274,7 +279,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
             endColumn: 10,
           },
         },
-        filePath: 'TestFile.cls',
+        fileUri: 'file:///TestFile.cls',
         parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
@@ -313,7 +318,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
     it('should handle symbols without FQN correctly', () => {
       const symbol: ApexSymbol = {
-        id: 'TestFile.cls:testMethod',
+        id: 'file:///TestFile.cls:testMethod',
         name: 'testMethod',
         kind: SymbolKind.Method,
         location: {
@@ -330,7 +335,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
             endColumn: 20,
           },
         },
-        filePath: 'TestFile.cls',
+        fileUri: 'file:///TestFile.cls',
         parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
@@ -359,7 +364,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
 
       // Verify unified ID was generated without FQN
       expect(symbol.key.unifiedId).toBe(
-        'method:testMethod:file.TestClass.testMethod:TestFile.cls',
+        'file://TestFile.cls:file.TestClass.testMethod:testMethod',
       );
     });
   });
@@ -384,7 +389,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
             endColumn: 10,
           },
         },
-        filePath: 'TestFile.cls',
+        fileUri: 'file:///TestFile.cls',
         parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
@@ -428,7 +433,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
             endColumn: 10,
           },
         },
-        filePath: 'TestFile.cls',
+        fileUri: 'file:///TestFile.cls',
         parentId: null,
         modifiers: {
           visibility: SymbolVisibility.Public,
@@ -485,7 +490,7 @@ describe('Phase 6.5.2: Symbol Key System Unification', () => {
               endColumn: 10,
             },
           },
-          filePath: 'TestFile.cls',
+          fileUri: 'file:///TestFile.cls',
           parentId: null,
           modifiers: {
             visibility: SymbolVisibility.Public,

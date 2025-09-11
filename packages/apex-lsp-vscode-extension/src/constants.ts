@@ -16,6 +16,8 @@ export const EXTENSION_CONSTANTS = {
   COOLDOWN_PERIOD_MS: 30000, // 30 seconds
   /** Minimum delay between restart attempts in milliseconds */
   MIN_RESTART_DELAY_MS: 5000,
+  /** Output channel name */
+  EXTENSION_OUTPUT_CHANNEL_NAME: 'Apex Language Extension (Typescript)',
   /** Status bar priority */
   STATUS_BAR_PRIORITY: 100,
   /** Client output channel name */
@@ -29,55 +31,16 @@ export const EXTENSION_CONSTANTS = {
   WEB_RESTART_COMMAND_ID: 'apex.restart.server',
   /** Configuration section name */
   CONFIG_SECTION: 'apex-ls-ts',
-  /** Log level command IDs */
-  LOG_LEVEL_COMMANDS: {
-    ERROR: 'apex-ls-ts.setLogLevel.error',
-    WARNING: 'apex-ls-ts.setLogLevel.warning',
-    INFO: 'apex-ls-ts.setLogLevel.info',
-    DEBUG: 'apex-ls-ts.setLogLevel.debug',
-  },
-} as const;
-
-/**
- * Status bar text constants
- */
-export const STATUS_BAR_TEXT = {
-  STARTING: '$(sync~spin) Starting Apex Server',
-  READY: '$(check) Apex Server Ready',
-  STOPPED: '$(error) Apex Server Stopped',
-  ERROR: '$(error) Apex Server Error',
-  WARNING: '$(warning) Apex Server Stopped',
-  LOG_LEVEL: {
-    ERROR: '$(error) Log: Error',
-    WARNING: '$(warning) Log: Warning',
-    INFO: '$(info) Log: Info',
-    DEBUG: '$(debug) Log: Debug',
-  },
-} as const;
-
-/**
- * Status bar tooltip constants
- */
-export const STATUS_BAR_TOOLTIPS = {
-  STARTING: 'Apex Language Server is starting',
-  READY: 'Apex Language Server is running',
-  STOPPED: 'Click to restart the Apex Language Server',
-  ERROR: 'Click to restart the Apex Language Server',
-  LOG_LEVEL: {
-    ERROR: 'Click to set log level to Error',
-    WARNING: 'Click to set log level to Warning',
-    INFO: 'Click to set log level to Info',
-    DEBUG: 'Click to set log level to Debug',
-  },
 } as const;
 
 /**
  * Debug configuration constants
  */
 export const DEBUG_CONFIG = {
-  DEFAULT_PORT: 6009,
-  DEFAULT_MODE: 'off',
+  /** Inspect mode for debugging */
   INSPECT_MODE: 'inspect',
+  /** Inspect break mode for debugging with break on first line */
   INSPECT_BRK_MODE: 'inspect-brk',
+  /** No lazy flag for Node.js debugging */
   NOLAZY_FLAG: '--nolazy',
 } as const;

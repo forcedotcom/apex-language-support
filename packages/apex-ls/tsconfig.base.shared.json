@@ -5,15 +5,20 @@
     "skipLibCheck": true,
     "incremental": true,
     "typeRoots": ["./src/types", "../../node_modules/@types"],
-    "types": ["node", "node/net", "node/stream", "node/buffer", "node/process"],
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true
+    "types": [
+      "node",
+      "node/net",
+      "node/stream", 
+      "node/buffer",
+      "node/process"
+    ]
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*"
+  ],
   "exclude": [
     "node_modules",
-    "out",
+    "out", 
     "dist",
     "tsup.config.ts",
     "test/**/*",

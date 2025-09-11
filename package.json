@@ -7,7 +7,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "test": "turbo run test --filter=./packages/*",
+    "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "test:perf": "turbo run test:perf",
     "test:quality": "turbo run test:quality",
@@ -16,10 +16,6 @@
     "test:coverage:report": "node scripts/merge-coverage.js",
     "test:integration": "turbo run test:integration",
     "test:web": "node scripts/test-web-ext.js web",
-    "test:e2e": "npm run rebuild && npm run test -w e2e-tests",
-    "test:e2e:debug": "npm run rebuild && npm run test:debug -w e2e-tests",
-    "test:e2e:server": "npm run rebuild && npm run server -w e2e-tests",
-    "test:e2e:visual": "npm run rebuild && npm run test:visual -w e2e-tests",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "compile": "turbo run compile",
@@ -54,7 +50,6 @@
   "devDependencies": {
     "@commitlint/cli": "^19.2.1",
     "@commitlint/config-conventional": "^19.1.0",
-    "@playwright/test": "^1.55.0",
     "@rollup/plugin-typescript": "^11.1.5",
     "@semantic-release/commit-analyzer": "^10.0.1",
     "@semantic-release/git": "^10.0.1",
@@ -90,7 +85,6 @@
     "istanbul-reports": "^3.1.7",
     "jest": "^29.7.0",
     "jsonc-eslint-parser": "^2.4.0",
-    "playwright": "^1.55.0",
     "prettier": "^3.5.3",
     "rimraf": "^5.0.5",
     "semantic-release": "^22.0.12",
@@ -111,13 +105,13 @@
     "@apexdevtools/apex-parser": "4.4.0",
     "antlr4ts": "0.5.0-alpha.4",
     "data-structure-typed": "^2.0.4",
+    "vscode-languageserver-protocol": "^3.17.5",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.1.0"
   },
   "private": true,
   "workspaces": [
-    "packages/*",
-    "e2e-tests"
+    "packages/*"
   ],
   "config": {
     "commitizen": {

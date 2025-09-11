@@ -21,6 +21,225 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
     symbolTable = new SymbolTable();
   });
 
+  describe('Position Data Integrity in Optimized Architecture', () => {
+    it('should preserve position data when delegating to SymbolTable', () => {
+      // Create a symbol with specific position data
+      const symbol = SymbolFactory.createMinimalSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 10,
+            endColumn: 0,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 13,
+            endLine: 1,
+            endColumn: 22,
+          },
+        },
+        'file:///test/file.cls',
+      );
+
+      // Store original position data
+      const originalLocation = { ...symbol.location };
+      const originalSymbolRange = { ...symbol.location.symbolRange };
+      const originalIdentifierRange = { ...symbol.location.identifierRange };
+
+      // Add symbol to SymbolTable first
+      symbolTable.addSymbol(symbol);
+
+      // Add symbol to graph (should only store reference)
+      symbolGraph.addSymbol(symbol, 'file:///test/file.cls', symbolTable);
+
+      // Verify symbol exists in graph
+      const foundSymbol = symbolGraph.getSymbol(symbol.id);
+      expect(foundSymbol).toBeDefined();
+      expect(foundSymbol?.name).toBe('TestClass');
+
+      // Verify position data is preserved
+      expect(foundSymbol!.location.symbolRange).toEqual(originalSymbolRange);
+      expect(foundSymbol!.location.identifierRange).toEqual(
+        originalIdentifierRange,
+      );
+      expect(foundSymbol!.location).toEqual(originalLocation);
+
+      // Verify symbol is actually stored in SymbolTable with same position data
+      const symbolTableSymbol = symbolTable.lookup('TestClass');
+      expect(symbolTableSymbol).toBeDefined();
+      expect(symbolTableSymbol?.name).toBe('TestClass');
+      expect(symbolTableSymbol!.location).toEqual(originalLocation);
+    });
+
+    it('should preserve position data across multiple add/find operations', () => {
+      const symbols = [
+        SymbolFactory.createMinimalSymbol(
+          'Class1',
+          SymbolKind.Class,
+          {
+            symbolRange: {
+              startLine: 1,
+              startColumn: 0,
+              endLine: 5,
+              endColumn: 0,
+            },
+            identifierRange: {
+              startLine: 1,
+              startColumn: 13,
+              endLine: 1,
+              endColumn: 19,
+            },
+          },
+          'file:///test/file1.cls',
+        ),
+        SymbolFactory.createMinimalSymbol(
+          'Class2',
+          SymbolKind.Class,
+          {
+            symbolRange: {
+              startLine: 7,
+              startColumn: 0,
+              endLine: 12,
+              endColumn: 0,
+            },
+            identifierRange: {
+              startLine: 7,
+              startColumn: 13,
+              endLine: 7,
+              endColumn: 19,
+            },
+          },
+          'file:///test/file2.cls',
+        ),
+        SymbolFactory.createMinimalSymbol(
+          'method1',
+          SymbolKind.Method,
+          {
+            symbolRange: {
+              startLine: 2,
+              startColumn: 2,
+              endLine: 4,
+              endColumn: 2,
+            },
+            identifierRange: {
+              startLine: 2,
+              startColumn: 10,
+              endLine: 2,
+              endColumn: 17,
+            },
+          },
+          'file:///test/file1.cls',
+        ),
+      ];
+
+      // Store original position data
+      const originalLocations = symbols.map((s) => ({ ...s.location }));
+
+      // Add all symbols
+      symbols.forEach((symbol) => {
+        symbolTable.addSymbol(symbol);
+        symbolGraph.addSymbol(symbol, symbol.fileUri, symbolTable);
+      });
+
+      // Find all symbols and verify position data
+      symbols.forEach((originalSymbol, index) => {
+        const foundSymbol = symbolGraph.getSymbol(originalSymbol.id);
+        expect(foundSymbol).toBeDefined();
+        expect(foundSymbol!.location).toEqual(originalLocations[index]);
+      });
+    });
+
+    it('should preserve position data when FQN is calculated during delegation', () => {
+      // Create symbol without FQN
+      const symbol = SymbolFactory.createMinimalSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 5,
+            endColumn: 0,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 13,
+            endLine: 1,
+            endColumn: 22,
+          },
+        },
+        'file:///test/file.cls',
+      );
+
+      // Store original position data
+      const originalLocation = { ...symbol.location };
+
+      // Add to SymbolTable and graph
+      symbolTable.addSymbol(symbol);
+      symbolGraph.addSymbol(symbol, 'file:///test/file.cls', symbolTable);
+
+      // Find symbol
+      const foundSymbol = symbolGraph.getSymbol(symbol.id);
+      expect(foundSymbol).toBeDefined();
+
+      // Verify position data is unchanged despite FQN calculation
+      expect(foundSymbol!.location).toEqual(originalLocation);
+
+      // Verify FQN was calculated
+      expect(foundSymbol!.fqn).toBeDefined();
+      expect(foundSymbol!.fqn).toBe('TestClass');
+    });
+
+    it('should preserve position data when symbols are retrieved by different methods', () => {
+      const symbol = SymbolFactory.createMinimalSymbol(
+        'TestClass',
+        SymbolKind.Class,
+        {
+          symbolRange: {
+            startLine: 1,
+            startColumn: 0,
+            endLine: 5,
+            endColumn: 0,
+          },
+          identifierRange: {
+            startLine: 1,
+            startColumn: 13,
+            endLine: 1,
+            endColumn: 22,
+          },
+        },
+        'file:///test/file.cls',
+      );
+
+      // Store original position data
+      const originalLocation = { ...symbol.location };
+
+      // Add symbol
+      symbolTable.addSymbol(symbol);
+      symbolGraph.addSymbol(symbol, 'file:///test/file.cls', symbolTable);
+
+      // Test different retrieval methods
+      const byId = symbolGraph.getSymbol(symbol.id);
+      const byName = symbolGraph.lookupSymbolByName('TestClass');
+      const byFQN = symbolGraph.lookupSymbolByFQN('TestClass');
+      const inFile = symbolGraph.getSymbolsInFile('file:///test/file.cls');
+
+      // All should return the same symbol with identical position data
+      expect(byId).toBeDefined();
+      expect(byName).toHaveLength(1);
+      expect(byFQN).toBeDefined();
+      expect(inFile).toHaveLength(1);
+
+      expect(byId!.location).toEqual(originalLocation);
+      expect(byName[0].location).toEqual(originalLocation);
+      expect(byFQN!.location).toEqual(originalLocation);
+      expect(inFile[0].location).toEqual(originalLocation);
+    });
+  });
+
   describe('Optimized Symbol Storage', () => {
     it('should store symbols in SymbolTable and only references in graph', () => {
       // Create a symbol
@@ -41,19 +260,17 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
             endColumn: 10,
           },
         },
-        '/test/file.cls',
+        'file:///test/file.cls',
       );
 
       // Add symbol to SymbolTable first
       symbolTable.addSymbol(symbol);
 
       // Add symbol to graph (should only store reference)
-      symbolGraph.addSymbol(symbol, '/test/file.cls', symbolTable);
+      symbolGraph.addSymbol(symbol, 'file:///test/file.cls', symbolTable);
 
       // Verify symbol exists in graph
-      const foundSymbol = symbolGraph.getSymbol(
-        `${symbol.filePath}:${symbol.name}:${symbol.location.symbolRange.startLine}`,
-      );
+      const foundSymbol = symbolGraph.getSymbol(symbol.id);
       expect(foundSymbol).toBeDefined();
       expect(foundSymbol?.name).toBe('TestClass');
 
@@ -82,7 +299,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
             endColumn: 10,
           },
         },
-        '/test/file.cls',
+        'file:///test/file.cls',
       );
 
       const methodSymbol = SymbolFactory.createMinimalSymbol(
@@ -102,7 +319,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
             endColumn: 20,
           },
         },
-        '/test/file.cls',
+        'file:///test/file.cls',
       );
 
       // Add to SymbolTable
@@ -110,8 +327,8 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       symbolTable.addSymbol(methodSymbol);
 
       // Add to graph
-      symbolGraph.addSymbol(classSymbol, '/test/file.cls', symbolTable);
-      symbolGraph.addSymbol(methodSymbol, '/test/file.cls', symbolTable);
+      symbolGraph.addSymbol(classSymbol, 'file:///test/file.cls', symbolTable);
+      symbolGraph.addSymbol(methodSymbol, 'file:///test/file.cls', symbolTable);
 
       // Test findSymbolByName delegation
       const symbolsByName = symbolGraph.findSymbolByName('testMethod');
@@ -119,7 +336,9 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       expect(symbolsByName[0].name).toBe('testMethod');
 
       // Test getSymbolsInFile delegation
-      const symbolsInFile = symbolGraph.getSymbolsInFile('/test/file.cls');
+      const symbolsInFile = symbolGraph.getSymbolsInFile(
+        'file:///test/file.cls',
+      );
       expect(symbolsInFile).toHaveLength(2);
       expect(symbolsInFile.map((s) => s.name)).toContain('TestClass');
       expect(symbolsInFile.map((s) => s.name)).toContain('testMethod');
@@ -144,7 +363,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
             endColumn: 10,
           },
         },
-        '/source/file.cls',
+        'file:///source/file.cls',
       );
 
       const targetSymbol = SymbolFactory.createMinimalSymbol(
@@ -164,7 +383,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
             endColumn: 10,
           },
         },
-        '/target/file.cls',
+        'file:///target/file.cls',
       );
 
       // Create SymbolTables for each file
@@ -177,12 +396,12 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       // Add symbols to graph
       symbolGraph.addSymbol(
         sourceSymbol,
-        '/source/file.cls',
+        'file:///source/file.cls',
         sourceSymbolTable,
       );
       symbolGraph.addSymbol(
         targetSymbol,
-        '/target/file.cls',
+        'file:///target/file.cls',
         targetSymbolTable,
       );
 
@@ -236,7 +455,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
             endColumn: 10,
           },
         },
-        '/test/file.cls',
+        'file:///test/file.cls',
       );
 
       const methodSymbol = SymbolFactory.createMinimalSymbol(
@@ -256,7 +475,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
             endColumn: 20,
           },
         },
-        '/test/file.cls',
+        'file:///test/file.cls',
       );
 
       // Add to SymbolTable with scope management
@@ -266,12 +485,12 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       symbolTable.exitScope();
 
       // Add to graph
-      symbolGraph.addSymbol(classSymbol, '/test/file.cls', symbolTable);
-      symbolGraph.addSymbol(methodSymbol, '/test/file.cls', symbolTable);
+      symbolGraph.addSymbol(classSymbol, 'file:///test/file.cls', symbolTable);
+      symbolGraph.addSymbol(methodSymbol, 'file:///test/file.cls', symbolTable);
 
       // Test context-based lookup
       const lookupResult = symbolGraph.lookupSymbolWithContext('testMethod', {
-        sourceFile: '/test/file.cls',
+        sourceFile: 'file:///test/file.cls',
         currentScope: 'TestClass',
       });
 
@@ -309,7 +528,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       for (const symbol of symbols) {
         const symbolTable = new SymbolTable();
         symbolTable.addSymbol(symbol);
-        symbolGraph.addSymbol(symbol, symbol.filePath, symbolTable);
+        symbolGraph.addSymbol(symbol, symbol.fileUri, symbolTable);
       }
 
       // Verify memory stats
@@ -340,7 +559,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
             endColumn: 10,
           },
         },
-        '/fileA.cls',
+        'file:///fileA.cls',
       );
       const classB = SymbolFactory.createMinimalSymbol(
         'ClassB',
@@ -359,7 +578,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
             endColumn: 10,
           },
         },
-        '/fileB.cls',
+        'file:///fileB.cls',
       );
       const classC = SymbolFactory.createMinimalSymbol(
         'ClassC',
@@ -378,7 +597,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
             endColumn: 10,
           },
         },
-        '/fileC.cls',
+        'file:///fileC.cls',
       );
 
       // Create SymbolTables
@@ -391,9 +610,9 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       tableC.addSymbol(classC);
 
       // Add to graph
-      symbolGraph.addSymbol(classA, '/fileA.cls', tableA);
-      symbolGraph.addSymbol(classB, '/fileB.cls', tableB);
-      symbolGraph.addSymbol(classC, '/fileC.cls', tableC);
+      symbolGraph.addSymbol(classA, 'file:///fileA.cls', tableA);
+      symbolGraph.addSymbol(classB, 'file:///fileB.cls', tableB);
+      symbolGraph.addSymbol(classC, 'file:///fileC.cls', tableC);
 
       // Create dependency chain: A -> B -> C
       symbolGraph.addReference(classA, classB, ReferenceType.TYPE_REFERENCE, {
@@ -445,7 +664,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
       // Create SymbolTables per file (10 files for 1000 symbols)
       const symbolTables = new Map<string, SymbolTable>();
       for (let i = 0; i < 10; i++) {
-        symbolTables.set(`/large/file${i}.cls`, new SymbolTable());
+        symbolTables.set(`file:///large/file${i}.cls`, new SymbolTable());
       }
 
       // Create 1000 symbols
@@ -467,13 +686,13 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
               endColumn: 10,
             },
           },
-          `/large/file${Math.floor(i / 100)}.cls`,
+          `file:///large/file${Math.floor(i / 100)}.cls`,
         );
 
-        const filePath = symbol.filePath;
-        const symbolTable = symbolTables.get(filePath)!;
+        const fileUri = symbol.fileUri;
+        const symbolTable = symbolTables.get(fileUri)!;
         symbolTable.addSymbol(symbol);
-        symbolGraph.addSymbol(symbol, filePath, symbolTable);
+        symbolGraph.addSymbol(symbol, fileUri, symbolTable);
       }
 
       const endTime = Date.now();

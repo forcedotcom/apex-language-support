@@ -14,7 +14,13 @@ import {
   Diagnostic,
   HoverParams,
   Hover,
+  DefinitionParams,
+  Location,
 } from 'vscode-languageserver';
+import type {
+  FindMissingArtifactParams,
+  FindMissingArtifactResult,
+} from '@salesforce/apex-lsp-shared';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { HandlerFactory } from './factories/HandlerFactory';
@@ -44,6 +50,7 @@ export * from './handlers/ApexLibResolveHandler';
 export * from './handlers/LogNotificationHandler';
 export * from './handlers/DiagnosticHandler';
 export * from './handlers/HoverHandler';
+export * from './handlers/MissingArtifactHandler';
 
 // Export services
 export * from './services/DocumentProcessingService';
@@ -54,6 +61,9 @@ export * from './services/DiagnosticProcessingService';
 export * from './services/HoverProcessingService';
 export * from './services/BackgroundProcessingInitializationService';
 export * from './services/CompletionProcessingService';
+export * from './services/MissingArtifactResolutionService';
+export * from './services/IndexingObserver';
+export * from './services/SymbolManagerExtensions';
 
 // Export factories
 export * from './factories/HandlerFactory';
@@ -134,6 +144,33 @@ export const dispatchProcessOnHover = async (
 ): Promise<Hover | null> => {
   const handler = HandlerFactory.createHoverHandler();
   return await handler.handleHover(params);
+};
+
+/**
+ * Dispatch function for definition requests
+ * @param params The definition parameters
+ * @returns Promise resolving to definition locations or null
+ */
+export const dispatchProcessOnDefinition = async (
+  params: DefinitionParams,
+): Promise<Location[] | null> => {
+  const handler = HandlerFactory.createDefinitionHandler();
+  return await handler.handleDefinition(params);
+};
+
+/**
+ * Dispatch function for apex/findMissingArtifact custom requests
+ * @param params The missing artifact parameters
+ * @returns Promise resolving to missing artifact result
+ */
+export const dispatchProcessOnFindMissingArtifact = async (
+  params: FindMissingArtifactParams,
+): Promise<FindMissingArtifactResult> => {
+  // Import the function dynamically to avoid circular dependencies
+  const { processApexFindMissingArtifact } = await import(
+    './handlers/MissingArtifactHandler'
+  );
+  return await processApexFindMissingArtifact(params);
 };
 
 // Re-export the existing dispatch functions

@@ -10,9 +10,9 @@ import type { TextDocument } from 'vscode-languageserver-textdocument';
 import type {
   EnvironmentType,
   IStorage,
-  IStorageFactory,
   StorageConfig,
 } from '@salesforce/apex-lsp-shared';
+import { BaseStorageFactory } from './StorageFactory';
 
 /**
  * Base storage class with common functionality
@@ -51,7 +51,7 @@ abstract class BaseStorage implements IStorage {
  * Memory-based storage implementation
  * Used for web workers and as fallback for other environments
  */
-export class MemoryStorage extends BaseStorage {
+class MemoryStorage extends BaseStorage {
   private documents = new Map<string, TextDocument>();
 
   protected async performInitialization(): Promise<void> {
@@ -83,26 +83,12 @@ export class MemoryStorage extends BaseStorage {
 /**
  * IndexedDB-based storage implementation for browsers
  */
-export class IndexedDBStorage extends BaseStorage {
+class IndexedDBStorage extends BaseStorage {
   private dbName = 'ApexLanguageServer';
   private storeName = 'documents';
-  private db?: any; // IDBDatabase - type only available in browser environment
+  private db?: IDBDatabase;
 
   protected async performInitialization(): Promise<void> {
-    if (this.config?.storagePrefix) {
-      this.dbName = this.config.storagePrefix;
-    }
-
-    const { getIndexedDB, isIndexedDBAvailable } = await import(
-      '../utils/EnvironmentUtils'
-    );
-
-    if (!isIndexedDBAvailable()) {
-      throw new Error('IndexedDB is not available in this environment');
-    }
-
-    const indexedDB = getIndexedDB()!;
-
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, 1);
 
@@ -184,50 +170,21 @@ export class IndexedDBStorage extends BaseStorage {
 }
 
 /**
- * Abstract base class for storage factories with common functionality
- * Provides the same elegant inheritance pattern as BaseConnectionFactory
+ * Node.js-specific storage factory
  */
-export abstract class BaseStorageFactory implements IStorageFactory {
-  abstract supports(environment: EnvironmentType): boolean;
-  abstract createStorage(config?: StorageConfig): Promise<IStorage>;
-
-  /**
-   * Validates storage configuration
-   */
-  protected validateConfig(config?: StorageConfig): void {
-    if (config?.environment && !this.supports(config.environment)) {
-      throw new Error(
-        `Factory does not support environment: ${config.environment}`,
-      );
-    }
-  }
-
-  /**
-   * Handles storage creation errors with context
-   */
-  protected handleError(error: Error, context: string): never {
-    throw new Error(`${context}: ${error.message}`);
-  }
-}
-
-/**
- * Memory storage factory for environments that use in-memory storage
- * Used by Node.js and Web Worker environments
- */
-export class MemoryStorageFactoryImpl extends BaseStorageFactory {
+export class NodeStorageFactory extends BaseStorageFactory {
   supports(environment: EnvironmentType): boolean {
-    return environment === 'node' || environment === 'webworker';
+    return environment === 'node';
   }
 
   async createStorage(config?: StorageConfig): Promise<IStorage> {
     this.validateConfig(config);
 
     try {
-      const storage = new MemoryStorage();
-      await storage.initialize(config);
-      return storage;
+      // Node.js always uses memory storage for now
+      return new MemoryStorage();
     } catch (error) {
-      this.handleError(error as Error, 'MemoryStorageFactory');
+      this.handleError(error as Error, 'NodeStorageFactory');
     }
   }
 }
@@ -244,55 +201,37 @@ export class BrowserStorageFactory extends BaseStorageFactory {
     this.validateConfig(config);
 
     try {
-      let storage: IStorage;
-
       // Use IndexedDB for browsers, fallback to memory if not available
-      const { isIndexedDBAvailable } = await import(
-        '../utils/EnvironmentUtils'
-      );
-
-      if (isIndexedDBAvailable()) {
-        storage = new IndexedDBStorage();
+      if (typeof indexedDB !== 'undefined') {
+        return new IndexedDBStorage();
       } else {
         config?.logger?.warn(
           'IndexedDB not available, falling back to memory storage',
         );
-        storage = new MemoryStorage();
+        return new MemoryStorage();
       }
-
-      // Initialize the storage before returning
-      await storage.initialize(config);
-      return storage;
     } catch (error) {
       this.handleError(error as Error, 'BrowserStorageFactory');
     }
   }
 }
 
-// Legacy aliases for backward compatibility with static methods
-export { MemoryStorageFactoryImpl as MemoryStorageFactory };
+/**
+ * Web Worker-specific storage factory
+ */
+export class WorkerStorageFactory extends BaseStorageFactory {
+  supports(environment: EnvironmentType): boolean {
+    return environment === 'webworker';
+  }
 
-export const NodeStorageFactory = {
-  createStorage: async (config?: StorageConfig) => {
-    const factory = new MemoryStorageFactoryImpl();
-    return factory.createStorage(config);
-  },
-};
+  async createStorage(config?: StorageConfig): Promise<IStorage> {
+    this.validateConfig(config);
 
-export const WorkerStorageFactory = {
-  createStorage: async (config?: StorageConfig) => {
-    const factory = new MemoryStorageFactoryImpl();
-    return factory.createStorage(config);
-  },
-};
-
-// Add static method to BrowserStorageFactory for backward compatibility
-const browserFactoryInstance = new BrowserStorageFactory();
-export const BrowserStorageFactoryStatic = {
-  createStorage: (config?: StorageConfig) =>
-    browserFactoryInstance.createStorage(config),
-};
-
-// Add static method to the exported class
-(BrowserStorageFactory as any).createStorage =
-  BrowserStorageFactoryStatic.createStorage;
+    try {
+      // Workers use memory storage due to limited persistence options
+      return new MemoryStorage();
+    } catch (error) {
+      this.handleError(error as Error, 'WorkerStorageFactory');
+    }
+  }
+}

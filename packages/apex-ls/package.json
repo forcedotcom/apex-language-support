@@ -1,7 +1,7 @@
 {
   "name": "@salesforce/apex-ls",
   "version": "1.0.0",
-  "description": "Apex Language Server for browser, Node.js, and web worker environments - consolidates apex-ls-node and apex-ls-browser functionality",
+  "description": "Apex Language Server for browser, Node.js, and web worker environments",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -74,8 +74,7 @@
     "vscode-jsonrpc": "^8.2.0",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-protocol": "^3.17.5",
-    "vscode-languageserver-textdocument": "^1.0.12",
-    "web-worker": "^1.5.0"
+    "vscode-languageserver-textdocument": "^1.0.12"
   },
   "devDependencies": {
     "@types/node": "^20.19.4",
