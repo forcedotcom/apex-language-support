@@ -9,7 +9,6 @@
 // Export Node.js-specific implementations
 export { NodeMessageBridge } from './communication/NodeBridge';
 export { NodeConnectionFactory } from './server/NodeConnectionFactory';
-export { NodeStorageFactory } from './storage/NodeStorageFactory';
 
 // Export package-specific types
 export type { IMessageBridgeFactory } from './communication/Interfaces';

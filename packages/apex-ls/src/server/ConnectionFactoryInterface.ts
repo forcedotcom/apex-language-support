@@ -7,6 +7,7 @@
  */
 
 import type { MessageConnection, Logger } from 'vscode-jsonrpc';
+import type { Worker } from '../communication/Interfaces';
 
 /**
  * Configuration for connection factories

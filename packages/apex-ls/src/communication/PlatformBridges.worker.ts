@@ -34,11 +34,8 @@ export class WorkerMessageBridge extends BaseMessageBridge {
   }
 
   static isWorkerEnvironment(): boolean {
-    // Use the same logic as the environment detector
-    return (
-      typeof self !== 'undefined' &&
-      typeof (self as any).importScripts === 'function'
-    );
+    const { isWorkerThread } = require('../utils/EnvironmentUtils');
+    return isWorkerThread();
   }
 
   createConnection(): MessageConnection {

@@ -17,7 +17,7 @@ import {
   SelfMessageTransport,
 } from './MessageTransports';
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
-import type { BrowserConfig, WorkerConfig } from './Interfaces';
+import type { BrowserConfig, WorkerConfig, Worker } from './Interfaces';
 
 // =============================================================================
 // MESSAGE BRIDGES
@@ -37,7 +37,11 @@ export class BrowserMessageBridge extends BaseMessageBridge {
   }
 
   protected isEnvironmentSupported(): boolean {
-    return typeof window !== 'undefined' && typeof Worker !== 'undefined';
+    const {
+      isWindowAvailable,
+      isWorkerAPIAvailable,
+    } = require('../utils/EnvironmentUtils');
+    return isWindowAvailable() && isWorkerAPIAvailable();
   }
 
   createConnection(): MessageConnection {
@@ -80,10 +84,8 @@ export class WorkerMessageBridge extends BaseMessageBridge {
   }
 
   protected isEnvironmentSupported(): boolean {
-    return (
-      typeof self !== 'undefined' &&
-      typeof (self as any).importScripts === 'function'
-    );
+    const { isWorkerThread } = require('../utils/EnvironmentUtils');
+    return isWorkerThread();
   }
 
   createConnection(): MessageConnection {

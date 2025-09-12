@@ -8,7 +8,7 @@
 
 import type { MessageConnection, Logger } from 'vscode-jsonrpc';
 import { BrowserMessageBridge } from '../communication/PlatformBridges.browser';
-import { isBrowserEnvironment } from '../utils/EnvironmentDetector.browser';
+import type { Worker } from '../communication/Interfaces';
 
 /**
  * Configuration for browser connection factory
@@ -28,7 +28,10 @@ export class ConnectionFactory {
   static async createConnection(
     config?: ConnectionConfig,
   ): Promise<MessageConnection> {
-    // Check if browser environment is supported
+    // Check environment first
+    const { isBrowserEnvironment } = await import(
+      '@salesforce/apex-lsp-shared'
+    );
     if (!isBrowserEnvironment()) {
       throw new Error('Unsupported environment');
     }

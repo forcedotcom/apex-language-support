@@ -5,17 +5,12 @@
     "skipLibCheck": true,
     "incremental": true,
     "typeRoots": ["./src/types", "../../node_modules/@types"],
-    "types": [
-      "node",
-      "node/net",
-      "node/stream", 
-      "node/buffer",
-      "node/process"
-    ]
+    "types": ["node", "node/net", "node/stream", "node/buffer", "node/process"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
   },
-  "include": [
-    "src/**/*"
-  ],
+  "include": ["src/**/*"],
   "exclude": [
     "node_modules",
     "out", 
