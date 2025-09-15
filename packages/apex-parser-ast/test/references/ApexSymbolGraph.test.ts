@@ -9,8 +9,6 @@
 import {
   ApexSymbolGraph,
   ReferenceType,
-  toReferenceEdge,
-  fromReferenceEdge,
 } from '../../src/symbols/ApexSymbolGraph';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
@@ -1429,65 +1427,6 @@ describe('ApexSymbolGraph', () => {
       expect(references.map((r) => r.referenceType)).toContain(
         ReferenceType.FIELD_ACCESS,
       );
-    });
-
-    it('should support optimized ReferenceEdge with memory savings', () => {
-      // Test the optimized ReferenceEdge conversion
-      const legacyEdge = {
-        type: ReferenceType.METHOD_CALL,
-        sourceFile: 'source.cls',
-        targetFile: 'target.cls',
-        location: {
-          startLine: 10,
-          startColumn: 5,
-          endLine: 10,
-          endColumn: 15,
-        },
-        context: {
-          methodName: 'testMethod',
-          parameterIndex: 42,
-          isStatic: true,
-          namespace: 'test',
-        },
-      };
-
-      // Convert to optimized format
-      const optimizedEdge = toReferenceEdge(legacyEdge);
-
-      // Verify optimized structure
-      expect(optimizedEdge.type).toBe(ReferenceType.METHOD_CALL);
-      expect(optimizedEdge.sourceFile).toBe('source.cls');
-      expect(optimizedEdge.targetFile).toBe('target.cls');
-      expect(optimizedEdge.context?.methodName).toBe('testMethod');
-      expect(optimizedEdge.context?.parameterIndex).toBe(42);
-      expect(optimizedEdge.context?.isStatic).toBe(true);
-      expect(optimizedEdge.context?.namespace).toBe('test');
-
-      // Verify location is no longer stored in edge (redundant with source symbol)
-      expect(optimizedEdge).not.toHaveProperty('location');
-
-      // Convert back to legacy format
-      const restoredEdge = fromReferenceEdge(optimizedEdge);
-
-      // Verify round-trip conversion
-      expect(restoredEdge.type).toBe(legacyEdge.type);
-      expect(restoredEdge.sourceFile).toBe(legacyEdge.sourceFile);
-      expect(restoredEdge.targetFile).toBe(legacyEdge.targetFile);
-      // Location is now a placeholder since it's not stored in the edge
-      expect(restoredEdge.location).toEqual({
-        startLine: 0,
-        startColumn: 0,
-        endLine: 0,
-        endColumn: 0,
-      });
-      expect(restoredEdge.context).toEqual(legacyEdge.context);
-
-      // Verify memory savings (location field removed)
-      const legacySize = JSON.stringify(legacyEdge).length;
-      const optimizedSize = JSON.stringify(optimizedEdge).length;
-
-      // Should have memory savings due to location field removal
-      expect(optimizedSize).toBeLessThan(legacySize);
     });
   });
 });

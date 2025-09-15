@@ -28,7 +28,7 @@ import { ResourceLoader } from '../utils/resourceLoader';
  * Context for symbol resolution
  */
 export interface ResolutionContext {
-  sourceFile?: string;
+  fileUri?: string;
   expectedNamespace?: string;
   currentScope?: string;
   isStatic?: boolean;
@@ -90,8 +90,8 @@ export const ReferenceType = {
  */
 export interface ReferenceEdge {
   type: EnumValue<typeof ReferenceType>;
-  sourceFile: string;
-  targetFile: string;
+  sourceFileUri: string;
+  targetFileUri: string;
   // location: CompactLocation; // Removed - redundant with source symbol location
   context?: {
     methodName?: string;
@@ -100,81 +100,6 @@ export interface ReferenceEdge {
     namespace?: string;
   };
 }
-
-/**
- * Convert legacy edge format to optimized ReferenceEdge
- */
-export const toReferenceEdge = (legacyEdge: {
-  type: EnumValue<typeof ReferenceType>;
-  sourceFile: string;
-  targetFile: string;
-  location: {
-    startLine: number;
-    startColumn: number;
-    endLine: number;
-    endColumn: number;
-  };
-  context?: {
-    methodName?: string;
-    parameterIndex?: number;
-    isStatic?: boolean;
-    namespace?: string;
-  };
-}): ReferenceEdge => ({
-  type: legacyEdge.type,
-  sourceFile: legacyEdge.sourceFile,
-  targetFile: legacyEdge.targetFile,
-  // location: toCompactLocation(legacyEdge.location), // Removed - redundant
-  context: legacyEdge.context
-    ? {
-        methodName: legacyEdge.context.methodName,
-        parameterIndex: legacyEdge.context.parameterIndex
-          ? toUint16(legacyEdge.context.parameterIndex)
-          : undefined,
-        isStatic: legacyEdge.context.isStatic,
-        namespace: legacyEdge.context.namespace,
-      }
-    : undefined,
-});
-
-/**
- * Convert optimized ReferenceEdge back to legacy format
- */
-export const fromReferenceEdge = (
-  edge: ReferenceEdge,
-): {
-  type: EnumValue<typeof ReferenceType>;
-  sourceFile: string;
-  targetFile: string;
-  location: {
-    startLine: number;
-    startColumn: number;
-    endLine: number;
-    endColumn: number;
-  };
-  context?: {
-    methodName?: string;
-    parameterIndex?: number;
-    isStatic?: boolean;
-    namespace?: string;
-  };
-} => ({
-  type: edge.type,
-  sourceFile: edge.sourceFile,
-  targetFile: edge.targetFile,
-  // location: fromCompactLocation(edge.location), // Removed - redundant
-  location: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 }, // Placeholder for backward compatibility
-  context: edge.context
-    ? {
-        methodName: edge.context.methodName,
-        parameterIndex: edge.context.parameterIndex
-          ? Number(edge.context.parameterIndex)
-          : undefined,
-        isStatic: edge.context.isStatic,
-        namespace: edge.context.namespace,
-      }
-    : undefined,
-});
 
 /**
  * Result of a reference query
@@ -236,9 +161,9 @@ export class ApexSymbolGraph {
   // These maps provide O(1) lookup performance for common symbol operations
 
   /**
-   * Maps symbol ID to file path for quick file location lookups
+   * Maps symbol ID to file uri for quick file location lookups
    * Key: Symbol ID (e.g., "file:///path/MyClass.cls:MyClass")
-   * Value: File path (e.g., "file:///path/MyClass.cls")
+   * Value: File uri (e.g., "file:///path/MyClass.cls")
    * Used by: File-based operations, symbol removal, dependency analysis
    */
   private symbolFileMap: HashMap<string, string> = new HashMap();
@@ -252,8 +177,8 @@ export class ApexSymbolGraph {
   private nameIndex: HashMap<string, string[]> = new HashMap();
 
   /**
-   * Maps file paths to arrays of symbol IDs for file-based lookups
-   * Key: File path (e.g., "file:///path/MyClass.cls")
+   * Maps file uris to arrays of symbol IDs for file-based lookups
+   * Key: File uri (e.g., "file:///path/MyClass.cls")
    * Value: Array of symbol IDs in that file
    * Used by: getSymbolsInFile(), file-based symbol enumeration, file removal
    */
@@ -660,8 +585,8 @@ export class ApexSymbolGraph {
     // Create optimized reference edge
     const referenceEdge: ReferenceEdge = {
       type: referenceType,
-      sourceFile: sourceSymbolInGraph.fileUri,
-      targetFile: targetSymbolInGraph.fileUri,
+      sourceFileUri: sourceSymbolInGraph.fileUri,
+      targetFileUri: targetSymbolInGraph.fileUri,
       context: context
         ? {
             methodName: context.methodName,
@@ -1057,10 +982,8 @@ export class ApexSymbolGraph {
     }
 
     // Try to match by source file first
-    if (context.sourceFile) {
-      const fileMatch = candidates.find(
-        (c) => c.fileUri === context.sourceFile,
-      );
+    if (context.fileUri) {
+      const fileMatch = candidates.find((c) => c.fileUri === context.fileUri);
       if (fileMatch) {
         return {
           symbol: fileMatch.symbol,
@@ -1197,6 +1120,7 @@ export class ApexSymbolGraph {
    */
   private extractFilePathFromUri(uri: string): string {
     // If it's a built-in URI, return as-is
+    // TODO: remove once all apex classes are converted to use file uris
     if (uri.startsWith('built-in://')) {
       return uri;
     }
@@ -1247,6 +1171,7 @@ export class ApexSymbolGraph {
 
   /**
    * Create a virtual symbol for built-in types and add the reference immediately
+   * TODO: remove once all apex classes are converted to use file uris
    */
   private createVirtualSymbolForBuiltInType(
     targetSymbol: ApexSymbol,
@@ -1374,8 +1299,8 @@ export class ApexSymbolGraph {
     // Create optimized reference edge
     const referenceEdge: ReferenceEdge = {
       type: referenceType,
-      sourceFile: sourceSymbolInGraph.fileUri,
-      targetFile: targetSymbol.fileUri,
+      sourceFileUri: sourceSymbolInGraph.fileUri,
+      targetFileUri: targetSymbol.fileUri,
       context: context
         ? {
             methodName: context.methodName,
@@ -1473,8 +1398,8 @@ export class ApexSymbolGraph {
       // Create optimized reference edge
       const referenceEdge: ReferenceEdge = {
         type: ref.referenceType,
-        sourceFile: sourceSymbolInGraph.fileUri,
-        targetFile: targetSymbol.fileUri,
+        sourceFileUri: sourceSymbolInGraph.fileUri,
+        targetFileUri: targetSymbol.fileUri,
         context: ref.context
           ? {
               methodName: ref.context.methodName,

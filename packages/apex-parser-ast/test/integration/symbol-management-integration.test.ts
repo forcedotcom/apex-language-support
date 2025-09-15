@@ -107,7 +107,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const lookupResult = symbolGraph.lookupSymbolWithContext(
         'createAccount',
         {
-          sourceFile: 'AccountService.cls',
+          fileUri: 'AccountService.cls',
           currentScope: 'AccountService',
         },
       );
@@ -213,7 +213,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const accountServiceFromContact = symbolGraph.lookupSymbolWithContext(
         'AccountService',
         {
-          sourceFile: 'ContactService.cls',
+          fileUri: 'ContactService.cls',
           currentScope: 'ContactService',
         },
       );
@@ -288,7 +288,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const innerClassLookup = symbolGraph.lookupSymbolWithContext(
         'InnerClass',
         {
-          sourceFile: 'ComplexService.cls',
+          fileUri: 'ComplexService.cls',
           currentScope: 'ComplexService',
         },
       );
@@ -297,7 +297,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const nestedClassLookup = symbolGraph.lookupSymbolWithContext(
         'NestedClass',
         {
-          sourceFile: 'ComplexService.cls',
+          fileUri: 'ComplexService.cls',
           currentScope: 'ComplexService',
         },
       );
@@ -307,7 +307,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const getInnerFieldLookup = symbolGraph.lookupSymbolWithContext(
         'getInnerField',
         {
-          sourceFile: 'ComplexService.cls',
+          fileUri: 'ComplexService.cls',
           currentScope: 'InnerClass',
         },
       );

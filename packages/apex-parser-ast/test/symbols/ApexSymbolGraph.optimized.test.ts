@@ -490,7 +490,7 @@ describe('ApexSymbolGraph - Optimized Architecture', () => {
 
       // Test context-based lookup
       const lookupResult = symbolGraph.lookupSymbolWithContext('testMethod', {
-        sourceFile: 'file:///test/file.cls',
+        fileUri: 'file:///test/file.cls',
         currentScope: 'TestClass',
       });
 

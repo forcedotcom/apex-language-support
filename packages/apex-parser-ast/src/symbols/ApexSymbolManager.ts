@@ -725,7 +725,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (fileUri.includes('test')) {
       return 'public';
     }
-    
+
     // Simple extraction - in a real implementation, this would be more sophisticated
     const match = fileUri.match(/\/([^\/]+)\.cls$/);
     return match ? match[1] : 'public';
@@ -3684,7 +3684,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   private async resolveEntireChain(
     chainNodes: TypeReference[],
-  ): Promise<ChainChainResolutionContext[] | null> {
+  ): Promise<ChainResolutionContext[] | null> {
     if (!chainNodes?.length) {
       return null;
     }
@@ -3718,9 +3718,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   private async findAllPossibleResolutionPaths(
     chainNodes: TypeReference[],
-  ): Promise<ChainChainResolutionContext[][]> {
-    const paths: ChainChainResolutionContext[][] = [];
-    const pathStack = new Stack<ChainChainResolutionContext>();
+  ): Promise<ChainResolutionContext[][]> {
+    const paths: ChainResolutionContext[][] = [];
+    const pathStack = new Stack<ChainResolutionContext>();
 
     await this.exploreResolutionPaths(
       chainNodes,
@@ -3743,9 +3743,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   private async exploreResolutionPaths(
     chainNodes: TypeReference[],
     stepIndex: number,
-    currentContext: ChainChainResolutionContext,
-    pathStack: Stack<ChainChainResolutionContext>,
-    allPaths: ChainChainResolutionContext[][],
+    currentContext: ChainResolutionContext,
+    pathStack: Stack<ChainResolutionContext>,
+    allPaths: ChainResolutionContext[][],
   ): Promise<void> {
     if (stepIndex >= chainNodes.length) {
       // Complete path found - add to results
@@ -3785,8 +3785,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     step: TypeReference,
     currentContext: ChainResolutionContext,
     nextStep?: TypeReference,
-  ): Promise<ChainChainResolutionContext[]> {
-    const resolutions: ChainChainResolutionContext[] = [];
+  ): Promise<ChainResolutionContext[]> {
+    const resolutions: ChainResolutionContext[] = [];
     const stepName = step.name;
 
     // Strategy 1: Try namespace resolution
