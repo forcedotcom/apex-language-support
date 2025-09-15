@@ -8,6 +8,7 @@
 
 import type { ValidationResult } from './ValidationResult';
 import type { TypeInfo } from './TypeValidator';
+import { STANDARD_SOBJECT_TYPES } from '../../constants/constants';
 
 /**
  * Context for SObject validation
@@ -78,50 +79,7 @@ export interface SObjectFieldInfo {
   hasSafeNavigation?: boolean;
 }
 
-/**
- * Standard SObject types that are always valid
- */
-const STANDARD_SOBJECT_TYPES = new Set([
-  'Account',
-  'Contact',
-  'Lead',
-  'Opportunity',
-  'Case',
-  'User',
-  'Profile',
-  'Group',
-  'Queue',
-  'Role',
-  'PermissionSet',
-  'CustomObject',
-  'CustomField',
-  'CustomTab',
-  'CustomApplication',
-  'CustomPage',
-  'CustomComponent',
-  'CustomLabel',
-  'CustomMetadata',
-  'CustomPermission',
-  'CustomSetting',
-  'CustomType',
-  'CustomWebLink',
-  'CustomWorkflow',
-  'CustomValidationRule',
-  'CustomField',
-  'CustomObject',
-  'CustomTab',
-  'CustomApplication',
-  'CustomPage',
-  'CustomComponent',
-  'CustomLabel',
-  'CustomMetadata',
-  'CustomPermission',
-  'CustomSetting',
-  'CustomType',
-  'CustomWebLink',
-  'CustomWorkflow',
-  'CustomValidationRule',
-]);
+// Note: STANDARD_SOBJECT_TYPES is now imported from constants.ts
 
 /**
  * Valid SObject Map key types

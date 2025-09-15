@@ -97,6 +97,7 @@ import {
   isInterfaceSymbol,
 } from '../../utils/symbolNarrowing';
 import { isContextType } from '../../utils/contextTypeGuards';
+import { ResourceLoader } from '../../utils/resourceLoader';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../constants/constants';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 
@@ -3739,67 +3740,12 @@ export class ApexSymbolCollectorListener
    * This helps identify standard library classes that should be treated as CLASS_REFERENCE
    */
   private isStandardLibraryClassName(name: string): boolean {
-    // Common standard library class names that are often used without namespace qualification
-    const standardClassNames = [
-      'EncodingUtil',
-      'Assert',
-      'System',
-      'Database',
-      'Schema',
-      'Messaging',
-      'ConnectApi',
-      'Flow',
-      'Process',
-      'Approval',
-      'Auth',
-      'Cache',
-      'Canvas',
-      'ChatterAnswers',
-      'CommerceBuyGrp',
-      'CommerceExtension',
-      'CommerceOrders',
-      'CommercePayments',
-      'CommerceTax',
-      'Compression',
-      'Context',
-      'DataRetrieval',
-      'DataSource',
-      'DataWeave',
-      'Datacloud',
-      'Dom',
-      'EventBus',
-      'FormulaEval',
-      'Functions',
-      'Invocable',
-      'InvoiceWriteOff',
-      'IsvPartners',
-      'KbManagement',
-      'LxScheduler',
-      'Metadata',
-      'PlaceQuote',
-      'Pref_center',
-      'QuickAction',
-      'Reports',
-      'RevSalesTrxn',
-      'RevSignaling',
-      'RichMessaging',
-      'Salesforce_Backup',
-      'Search',
-      'Sfc',
-      'Sfdc_Enablement',
-      'Site',
-      'Slack',
-      'Support',
-      'TerritoryMgmt',
-      'TxnSecurity',
-      'UserProvisioning',
-      'VisualEditor',
-      'Wave',
-      'embeddedai',
-      'industriesNlpSvc',
-      'sfdc_surveys',
-    ];
+    const resourceLoader = ResourceLoader.getInstance({
+      loadMode: 'lazy',
+      preloadStdClasses: true,
+    });
 
-    return standardClassNames.includes(name);
+    // Check if the name could be resolved from the standard library
+    return resourceLoader.couldResolveSymbol(name);
   }
 }
