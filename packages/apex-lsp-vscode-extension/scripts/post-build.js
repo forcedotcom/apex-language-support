@@ -92,29 +92,10 @@ function copyManifestFiles() {
     const srcDirPath = path.join(packageSrcDir, dir);
     const destDirPath = path.join(distDir, dir);
     if (fs.existsSync(srcDirPath)) {
-      copyDirRecursive(srcDirPath, destDirPath);
+      fs.cpSync(srcDirPath, destDirPath, { recursive: true });
       console.log(`✅ Copied ${dir}/`);
     }
   });
-}
-
-function copyDirRecursive(src, dest) {
-  if (!fs.existsSync(dest)) {
-    fs.mkdirSync(dest, { recursive: true });
-  }
-
-  const entries = fs.readdirSync(src, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-
-    if (entry.isDirectory()) {
-      copyDirRecursive(srcPath, destPath);
-    } else {
-      fs.copyFileSync(srcPath, destPath);
-    }
-  }
 }
 
 function fixPackagePaths() {
@@ -146,40 +127,6 @@ function fixPackagePaths() {
   // Write the updated package.json
   fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
   console.log('✅ Fixed package.json paths for VSCode extension loading');
-}
-
-function fixExports() {
-  console.log('🔧 Fixing extension.web.js exports for VSCode compatibility...');
-
-  const extensionPath = path.resolve(__dirname, '../dist/extension.web.js');
-
-  if (!fs.existsSync(extensionPath)) {
-    console.log('⚠️ extension.web.js not found, skipping export fix');
-    return;
-  }
-
-  let content = fs.readFileSync(extensionPath, 'utf8');
-
-  // Replace the default export with proper named exports
-  const defaultExportMatch = content.match(
-    /export default require_extension\(\);/,
-  );
-
-  if (defaultExportMatch) {
-    content = content.replace(
-      'export default require_extension();',
-      `const extensionModule = require_extension();
-export const activate = extensionModule.activate;
-export const deactivate = extensionModule.deactivate;`,
-    );
-
-    fs.writeFileSync(extensionPath, content, 'utf8');
-    console.log(
-      '✅ Fixed extension.web.js exports - VSCode should now find activate/deactivate functions',
-    );
-  } else {
-    console.log('⚠️ Default export pattern not found in extension.web.js');
-  }
 }
 
 function validateBuild() {
@@ -247,9 +194,6 @@ function main() {
     fixPackagePaths();
     console.log();
 
-    fixExports();
-    console.log();
-
     validateBuild();
     console.log();
 
@@ -268,7 +212,6 @@ module.exports = {
   copyWorkerFiles,
   copyManifestFiles,
   fixPackagePaths,
-  fixExports,
   validateBuild,
   main,
 };

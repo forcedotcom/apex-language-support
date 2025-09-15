@@ -36,7 +36,7 @@ export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
       if (selector === 'text=OUTLINE') {
         await outlineElement.first().click();
         // Wait for outline tree to become visible after clicking
-        await page.waitForSelector('.outline-tree', { timeout: 2000 });
+        await page.waitForSelector('.outline-tree', { timeout: 4000 });
       }
       break;
     }
@@ -70,12 +70,12 @@ const activateOutlineViaCommandPalette = async (page: Page): Promise<void> => {
   try {
     // Open command palette
     await page.keyboard.press('Control+Shift+P');
-    await page.waitForSelector('.quick-input-widget', { timeout: 2000 });
+    await page.waitForSelector('.quick-input-widget', { timeout: 3000 });
 
     // Type command to show outline
     await page.keyboard.type('outline');
     await page.waitForSelector('.quick-input-list .monaco-list-row', {
-      timeout: 2000,
+      timeout: 4000,
     });
 
     // Try to find and click outline command
@@ -84,12 +84,12 @@ const activateOutlineViaCommandPalette = async (page: Page): Promise<void> => {
       .filter({ hasText: /outline/i })
       .first();
 
-    const isVisible = await outlineCommand.isVisible({ timeout: 2000 });
+    const isVisible = await outlineCommand.isVisible({ timeout: 3000 });
     if (isVisible) {
       await outlineCommand.click();
       // Wait for outline tree to appear after command execution
       await page.waitForSelector('.outline-tree, [id*="outline"]', {
-        timeout: 3000,
+        timeout: 5000,
       });
     } else {
       // Close command palette

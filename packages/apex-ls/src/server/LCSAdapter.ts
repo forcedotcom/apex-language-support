@@ -26,7 +26,6 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import {
-  setLoggerFactory,
   setLogLevel,
   UniversalLoggerFactory,
   Logger,
@@ -87,10 +86,6 @@ export class LCSAdapter {
   async initialize(): Promise<void> {
     this.logger.info('🚀 LCS Adapter initializing...');
 
-    // Set up logging factory for LCS services
-    const loggerFactory = UniversalLoggerFactory.getInstance();
-    setLoggerFactory(loggerFactory);
-
     // Initialize ApexStorageManager singleton with storage factory
     try {
       const storageManager = ApexStorageManager.getInstance({
@@ -147,25 +142,9 @@ export class LCSAdapter {
     // Document open events - process documents when they are first opened
     this.documents.onDidOpen(async (open) => {
       try {
-        console.log('[LCS-ADAPTER] Document opened:', {
-          uri: open.document.uri,
-          version: open.document.version,
-          textLength: open.document.getText().length,
-        });
-        this.logger.debug(`Processing document open: ${open.document.uri}`);
-
-        // Use LCS dispatch function for document open events
-        const diagnostics = await dispatchProcessOnOpenDocument(open);
-
-        // Send initial diagnostics for the opened document
-        this.connection.sendDiagnostics({
-          uri: open.document.uri,
-          diagnostics: diagnostics || [],
-        });
-
-        this.logger.debug(
-          `Sent ${(diagnostics || []).length} initial diagnostics for ${open.document.uri}`,
-        );
+        this.logger.debug(`Document opened: ${open.document.uri}`);
+        // Trigger processing for document open; diagnostics are provided via pull API
+        await dispatchProcessOnOpenDocument(open);
       } catch (error) {
         this.logger.error(
           `Error processing document open for ${open.document.uri}: ${
@@ -179,50 +158,9 @@ export class LCSAdapter {
     // Document change events with enhanced processing
     this.documents.onDidChangeContent(async (change) => {
       try {
-        console.log('[LCS-ADAPTER] Document changed:', {
-          uri: change.document.uri,
-          version: change.document.version,
-          textLength: change.document.getText().length,
-        });
-        this.logger.debug(`Processing document change: ${change.document.uri}`);
-
-        // Use LCS dispatch function for document changes
-        const diagnostics = await dispatchProcessOnChangeDocument(change);
-
-        // Also trigger additional diagnostic processing for better analysis
-        const additionalDiagnostics =
-          await this.diagnosticProcessor.processDiagnostic({
-            textDocument: { uri: change.document.uri },
-          });
-
-        // Combine diagnostics from both sources
-        const combinedDiagnostics = [
-          ...(diagnostics || []),
-          ...additionalDiagnostics,
-        ];
-
-        // Remove duplicates based on range and message
-        const uniqueDiagnostics = combinedDiagnostics.filter(
-          (diagnostic, index, array) =>
-            !array
-              .slice(0, index)
-              .some(
-                (other) =>
-                  other.range.start.line === diagnostic.range.start.line &&
-                  other.range.start.character ===
-                    diagnostic.range.start.character &&
-                  other.message === diagnostic.message,
-              ),
-        );
-
-        this.connection.sendDiagnostics({
-          uri: change.document.uri,
-          diagnostics: uniqueDiagnostics,
-        });
-
-        this.logger.debug(
-          `Sent ${uniqueDiagnostics.length} diagnostics for ${change.document.uri}`,
-        );
+        this.logger.debug(`Document changed: ${change.document.uri}`);
+        // Trigger processing for document change; diagnostics are provided via pull API
+        await dispatchProcessOnChangeDocument(change);
       } catch (error) {
         this.logger.error(
           `Error processing document change for ${change.document.uri}: ${
@@ -285,15 +223,11 @@ export class LCSAdapter {
     this.connection.onHover(
       async (params: HoverParams): Promise<Hover | null> => {
         try {
-          console.log('[LCS-ADAPTER] Hover request received:', {
-            uri: params.textDocument.uri,
-            position: params.position,
-          });
+          this.logger.debug(`Hover request: ${params.textDocument.uri}`);
           const result = await dispatchProcessOnHover(params);
-          console.log('[LCS-ADAPTER] Hover result:', result);
+          this.logger.debug('Hover processed');
           return result;
         } catch (error) {
-          console.error('[LCS-ADAPTER] Error processing hover:', error);
           this.logger.error(
             `Error processing hover for ${params.textDocument.uri} at ${
               params.position.line

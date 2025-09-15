@@ -80,15 +80,6 @@ export class HoverProcessingService implements IHoverProcessor {
     );
 
     try {
-      // Check if the document has been processed by checking if it has any symbols
-      const symbolsInFile = this.symbolManager.findSymbolsInFile(params.textDocument.uri);
-      if (symbolsInFile.length === 0) {
-        this.logger.debug(
-          () => `Document ${params.textDocument.uri} has no symbols, likely not processed yet`,
-        );
-        return null;
-      }
-
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
 

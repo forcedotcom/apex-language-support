@@ -54,9 +54,9 @@ export const nodeBaseConfig: Partial<Options> = {
 export const browserBaseConfig: Partial<Options> = {
   platform: 'browser',
   target: 'es2022',
-  format: ['cjs'],
+  format: ['esm'],
   sourcemap: true,
-  clean: false,
+  clean: true,
   minify: false,
   dts: false,
   splitting: false,
@@ -100,7 +100,6 @@ export const NODE_POLYFILLS = {
 export const WEB_WORKER_GLOBALS = {
   // Environment configuration
   'process.env.NODE_ENV': '"production"',
-  'process.env.WEBPACK_BUNDLE': 'true',
 
   // Global aliases
   global: 'globalThis',

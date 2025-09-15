@@ -32,19 +32,6 @@ async function startWebWorker(): Promise<void> {
   (globalThis as any).Buffer = Buffer;
   (globalThis as any).global = globalThis;
 
-  // Validate that the web worker environment is properly configured
-  const hasProcess = typeof globalThis.process !== 'undefined';
-  const hasBuffer = typeof globalThis.Buffer !== 'undefined';
-
-  if (!hasProcess || !hasBuffer) {
-    console.error('[APEX-WORKER] Environment validation failed:', {
-      process: hasProcess,
-      Buffer: hasBuffer,
-    });
-    throw new Error('Web worker environment validation failed');
-  }
-
-  console.log('[APEX-WORKER] Environment validation successful');
   try {
     // Create a connection for the server using type-safe worker context
     const workerSelf = getWorkerSelf();
@@ -74,13 +61,17 @@ async function startWebWorker(): Promise<void> {
 
     await lcsAdapter.initialize();
     logger.info('✅ Apex Language Server Web Worker ready!');
-  } catch (_error) {
-    console.error('❌ Failed to start web worker:', _error);
-    throw _error;
+  } catch (error) {
+    const loggerFactory = UniversalLoggerFactory.getInstance();
+    const fallbackLogger = loggerFactory.createLogger();
+    fallbackLogger.error('❌ Failed to start web worker');
+    throw error;
   }
 }
 
 // Start the web worker
-startWebWorker().catch((_error) => {
-  console.error('❌ Critical error starting web worker:', _error);
+startWebWorker().catch((error) => {
+  const loggerFactory = UniversalLoggerFactory.getInstance();
+  const fallbackLogger = loggerFactory.createLogger();
+  fallbackLogger.error('❌ Critical error starting web worker');
 });

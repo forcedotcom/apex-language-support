@@ -64,14 +64,7 @@ export class DocumentChangeProcessingService
       const storage = storageManager.getStorage();
 
       // Update the document in storage
-      const stored = await storage.setDocument(
-        event.document.uri,
-        event.document,
-      );
-      console.log('[DOC-CHANGE] Document stored:', {
-        uri: event.document.uri,
-        success: stored,
-      });
+      await storage.setDocument(event.document.uri, event.document);
 
       // For now, return empty diagnostics
       // In a full implementation, this would re-parse the document

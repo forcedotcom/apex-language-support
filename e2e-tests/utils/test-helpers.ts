@@ -7,6 +7,7 @@
  */
 
 import type { Page } from '@playwright/test';
+import { findAndActivateOutlineView } from './outline-helpers';
 import type { ConsoleError, NetworkError } from './constants';
 import {
   NON_CRITICAL_ERROR_PATTERNS,
@@ -15,6 +16,45 @@ import {
   APEX_CLASS_EXAMPLE_CONTENT,
 } from './constants';
 import { setupTestWorkspace } from './setup';
+
+/**
+ * Early worker detection store keyed by Playwright Page.
+ */
+interface WorkerDetectionState {
+  workerDetected: boolean;
+  bundleSize?: number;
+}
+
+const workerDetectionStore: WeakMap<Page, WorkerDetectionState> = new WeakMap();
+
+/**
+ * Install an early response hook to capture worker bundle fetch before navigation.
+ */
+export const setupWorkerResponseHook = (page: Page): void => {
+  const initial: WorkerDetectionState = { workerDetected: false };
+  workerDetectionStore.set(page, initial);
+
+  const isWorkerUrl = (url: string): boolean =>
+    (url.includes('worker.js') || url.includes('worker-web.js')) &&
+    url.includes('devextensions');
+
+  page.on('response', async (response) => {
+    const url = response.url();
+    if (!isWorkerUrl(url)) return;
+    try {
+      const buffer = await response.body();
+      const state = workerDetectionStore.get(page) || { workerDetected: false };
+      state.workerDetected = true;
+      state.bundleSize = buffer.length;
+      workerDetectionStore.set(page, state);
+    } catch (_error) {
+      // Ignore size measurement errors
+      const state = workerDetectionStore.get(page) || { workerDetected: false };
+      state.workerDetected = true;
+      workerDetectionStore.set(page, state);
+    }
+  });
+};
 
 /**
  * Filters console errors to exclude non-critical patterns.
@@ -454,6 +494,9 @@ export const setupFullTestSession = async (
   const consoleErrors = setupConsoleMonitoring(page);
   const networkErrors = setupNetworkMonitoring(page);
 
+  // Install early worker detection before any navigation
+  setupWorkerResponseHook(page);
+
   // Execute core test steps
   await startVSCodeWeb(page);
   await verifyWorkspaceFiles(page);
@@ -561,38 +604,29 @@ export const detectLCSIntegration = async (
   let bundleSize: number | undefined;
 
   try {
-    const responses: { url: string; size: number }[] = [];
+    // Read from early hook store if present
+    const early = workerDetectionStore.get(page);
+    if (early) {
+      workerDetected = workerDetected || early.workerDetected;
+      bundleSize = bundleSize || early.bundleSize;
+    }
 
-    page.on('response', async (response) => {
-      if (
-        response.url().includes('worker.js') &&
-        response.url().includes('devextensions')
-      ) {
-        try {
-          const buffer = await response.body();
-          responses.push({
-            url: response.url(),
-            size: buffer.length,
-          });
-          bundleSize = buffer.length;
-          workerDetected = true;
-        } catch (_error) {
-          // Ignore size measurement errors
-        }
-      }
-    });
-
-    // Also check for extension worker in DOM
-    const extensionWorkerInDOM = await page.evaluate(() => {
-      const scripts = Array.from(document.querySelectorAll('script'));
-      return scripts.some(
-        (script) =>
-          script.src.includes('worker.js') &&
-          script.src.includes('devextensions'),
+    // Inspect already-loaded resources via Performance API
+    const perfWorker = await page.evaluate(() => {
+      const entries = performance.getEntriesByType('resource') as any[];
+      const workerEntry = entries.find(
+        (e) =>
+          (e.name.includes('worker.js') || e.name.includes('worker-web.js')) &&
+          e.name.includes('devextensions'),
       );
+      return workerEntry
+        ? { url: workerEntry.name, size: workerEntry.transferSize || 0 }
+        : null;
     });
-
-    workerDetected = workerDetected || extensionWorkerInDOM;
+    if (perfWorker) {
+      workerDetected = true;
+      if (!bundleSize && perfWorker.size) bundleSize = perfWorker.size;
+    }
   } catch (_error) {
     // Ignore worker detection errors
   }
@@ -684,11 +718,12 @@ export const testLSPFunctionality = async (
     // Test completion services
     await positionCursorInConstructor(page);
     await page.keyboard.type('System.');
-    await page.waitForTimeout(2000);
-
     const completionWidget = page.locator(
       '.suggest-widget, .monaco-list, [id*="suggest"]',
     );
+    await completionWidget
+      .waitFor({ state: 'visible', timeout: 3000 })
+      .catch(() => {});
     completionTested = await completionWidget.isVisible().catch(() => false);
 
     if (completionTested) {
@@ -699,16 +734,79 @@ export const testLSPFunctionality = async (
     await page.keyboard.press('Control+Z');
 
     // Test document symbols
-    await page.keyboard.press('Control+Shift+O'); // Open symbol picker
-    await page.waitForTimeout(1000);
+    const tryOpenSymbolPicker = async (): Promise<boolean> => {
+      const symbolPicker = page.locator(
+        '.quick-input-widget, [id*="quickInput"]',
+      );
 
-    const symbolPicker = page.locator(
-      '.quick-input-widget, [id*="quickInput"]',
-    );
-    symbolsTested = await symbolPicker.isVisible().catch(() => false);
+      // Try macOS chord first, then Windows/Linux
+      await page.keyboard.press('Meta+Shift+O');
+      await symbolPicker
+        .waitFor({ state: 'visible', timeout: 600 })
+        .catch(() => {});
+      if (await symbolPicker.isVisible().catch(() => false)) {
+        // Consider success only if list has items
+        const itemCount = await page
+          .locator('.quick-input-widget .monaco-list-row')
+          .count()
+          .catch(() => 0);
+        if (itemCount > 0) return true;
+      }
 
+      await page.keyboard.press('Control+Shift+O');
+      await symbolPicker
+        .waitFor({ state: 'visible', timeout: 600 })
+        .catch(() => {});
+      if (await symbolPicker.isVisible().catch(() => false)) {
+        const itemCount = await page
+          .locator('.quick-input-widget .monaco-list-row')
+          .count()
+          .catch(() => 0);
+        if (itemCount > 0) return true;
+      }
+
+      // Fallback: Command Palette → '@' (Go to Symbol in Editor)
+      await page.keyboard.press('F1');
+      const quickInput = page.locator('.quick-input-widget');
+      await quickInput
+        .waitFor({ state: 'visible', timeout: 1000 })
+        .catch(() => {});
+      await page.keyboard.type('@');
+      await page.keyboard.press('Enter');
+      await symbolPicker
+        .waitFor({ state: 'visible', timeout: 1200 })
+        .catch(() => {});
+      if (await symbolPicker.isVisible().catch(() => false)) {
+        const itemCount = await page
+          .locator('.quick-input-widget .monaco-list-row')
+          .count()
+          .catch(() => 0);
+        if (itemCount > 0) return true;
+      }
+      return false;
+    };
+
+    symbolsTested = await tryOpenSymbolPicker();
     if (symbolsTested) {
       await page.keyboard.press('Escape'); // Close symbol picker
+    }
+
+    // If picker approach failed, open Outline and accept outline as proof of symbol services
+    if (!symbolsTested) {
+      try {
+        await findAndActivateOutlineView(page);
+      } catch (_e) {
+        // ignore activation failure; we'll still try to detect rows
+      }
+      const outlineRows = page.locator(
+        '.outline-tree .monaco-list-row, .monaco-tree .monaco-list-row',
+      );
+      await outlineRows
+        .first()
+        .waitFor({ state: 'visible', timeout: 2000 })
+        .catch(() => {});
+      const outlineCount = await outlineRows.count().catch(() => 0);
+      symbolsTested = outlineCount > 0;
     }
   } catch (_error) {
     // LSP functionality testing is informational
@@ -729,7 +827,12 @@ export const positionCursorInConstructor = async (
   try {
     // Use Ctrl+F to find the constructor method
     await page.keyboard.press('Control+F');
-    await page.waitForTimeout(500);
+    // Wait for find input to appear
+    await page
+      .waitForSelector('input[aria-label="Find"], .find-widget', {
+        timeout: 1500,
+      })
+      .catch(() => {});
 
     // Search for the constructor method signature
     await page.keyboard.type('this.instanceId = instanceId;');

@@ -26,9 +26,9 @@ import { LCSAdapter } from './LCSAdapter';
 
 /**
  * Shared web worker initialization for Apex Language Server.
- * 
+ *
  * This function handles the common setup logic for both standard and web-specific
- * worker environments, including polyfill setup, environment validation, 
+ * worker environments, including polyfill setup, environment validation,
  * connection creation, and LCS adapter initialization.
  */
 export async function startApexWebWorker(): Promise<void> {
@@ -36,20 +36,6 @@ export async function startApexWebWorker(): Promise<void> {
   (globalThis as any).process = processPolyfill;
   (globalThis as any).Buffer = Buffer;
   (globalThis as any).global = globalThis;
-  
-  // Validate that the web worker environment is properly configured
-  const hasProcess = typeof globalThis.process !== 'undefined';
-  const hasBuffer = typeof globalThis.Buffer !== 'undefined';
-
-  if (!hasProcess || !hasBuffer) {
-    console.error('[APEX-WORKER] Environment validation failed:', {
-      process: hasProcess,
-      Buffer: hasBuffer,
-    });
-    throw new Error('Web worker environment validation failed');
-  }
-
-  console.log('[APEX-WORKER] Environment validation successful');
 
   // Create a connection for the server using type-safe worker context
   const workerSelf = getWorkerSelf();
@@ -68,9 +54,8 @@ export async function startApexWebWorker(): Promise<void> {
   const logger = loggerFactory.createLogger(connection);
   setLoggerFactory(loggerFactory);
 
-  // Send initial log messages
+  // Initial lifecycle logs
   logger.info('🚀 Worker script loading...');
-  logger.info('✅ Connection created');
   logger.info('🔧 Starting LCS integration...');
 
   // Create and initialize LCS adapter
@@ -82,6 +67,5 @@ export async function startApexWebWorker(): Promise<void> {
   // Initialize the adapter (this will set up all handlers and start listening)
   await lcsAdapter.initialize();
 
-  logger.info('🎧 Connection listening started');
   logger.info('✅ Apex Language Server Worker ready!');
 }
