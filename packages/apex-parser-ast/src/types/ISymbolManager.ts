@@ -45,7 +45,7 @@ export interface SymbolResolutionContext {
  */
 export interface SymbolResolutionResult {
   symbol: ApexSymbol | null;
-  filePath: string;
+  fileUri: string;
   confidence: number;
   isAmbiguous: boolean;
   candidates?: ApexSymbol[];
@@ -60,7 +60,7 @@ export interface ISymbolManager {
   /**
    * Add a symbol to the manager
    */
-  addSymbol(symbol: ApexSymbol, filePath: string): void;
+  addSymbol(symbol: ApexSymbol, fileUri: string): void;
 
   /**
    * Get symbol by ID
@@ -80,7 +80,7 @@ export interface ISymbolManager {
   /**
    * Find all symbols in a specific file
    */
-  findSymbolsInFile(filePath: string): ApexSymbol[];
+  findSymbolsInFile(fileUri: string): ApexSymbol[];
 
   /**
    * Find files containing a symbol with the given name
@@ -151,7 +151,7 @@ export interface ISymbolManager {
   /**
    * Remove a file's symbols
    */
-  removeFile(filePath: string): void;
+  removeFile(fileUri: string): void;
 
   /**
    * Optimize memory usage
@@ -195,7 +195,7 @@ export interface ISymbolManager {
    * Implementations should normalize the file path internally.
    */
   setCommentAssociations(
-    filePath: string,
+    fileUri: string,
     associations: CommentAssociation[],
   ): void;
 
@@ -207,12 +207,12 @@ export interface ISymbolManager {
   /**
    * Get TypeReference data at a specific position in a file
    * This provides precise AST-based position data for enhanced symbol resolution
-   * @param filePath The file path to search in
+   * @param fileUri The file path to search in
    * @param position The position to search for references (1-based line index, 0-based column index)
    * @returns Array of TypeReference objects at the position
    */
   getReferencesAtPosition(
-    filePath: string,
+    fileUri: string,
     position: { line: number; character: number },
   ): TypeReference[];
 

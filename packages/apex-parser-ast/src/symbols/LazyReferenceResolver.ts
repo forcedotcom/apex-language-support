@@ -97,7 +97,7 @@ export class LazyReferenceResolver {
   resolveReference(
     referenceVertex: ReferenceVertex,
     symbolLookup: (name: string) => ApexSymbol[],
-    fileLookup: (filePath: string) => ApexSymbol[],
+    fileLookup: (fileUri: string) => ApexSymbol[],
   ): ApexSymbol | null {
     // Check if already resolved
     if (referenceVertex.isResolved && referenceVertex.resolvedSymbolId) {
@@ -139,7 +139,7 @@ export class LazyReferenceResolver {
    */
   processQueue(
     symbolLookup: (name: string) => ApexSymbol[],
-    fileLookup: (filePath: string) => ApexSymbol[],
+    fileLookup: (fileUri: string) => ApexSymbol[],
     shouldProcessMore: () => boolean = () =>
       this.lazyResolutionQueue.length > 0,
   ): void {
@@ -198,7 +198,7 @@ export class LazyReferenceResolver {
   private attemptImmediateResolution(
     referenceVertex: ReferenceVertex,
     symbolLookup: (name: string) => ApexSymbol[],
-    fileLookup: (filePath: string) => ApexSymbol[],
+    fileLookup: (fileUri: string) => ApexSymbol[],
   ): ApexSymbol | null {
     try {
       // Step 1: Try built-in type resolution
@@ -319,7 +319,7 @@ export class LazyReferenceResolver {
   private resolveQualifiedReference(
     referenceVertex: ReferenceVertex,
     symbolLookup: (name: string) => ApexSymbol[],
-    fileLookup: (filePath: string) => ApexSymbol[],
+    fileLookup: (fileUri: string) => ApexSymbol[],
   ): ApexSymbol | null {
     try {
       // First, find the qualifier symbol
@@ -432,10 +432,10 @@ export class LazyReferenceResolver {
   /**
    * Extract namespace from file path
    */
-  private extractNamespaceFromPath(filePath: string): string {
+  private extractNamespaceFromPath(fileUri: string): string {
     // Simple namespace extraction - in a real implementation,
     // this would be more sophisticated based on the project structure
-    const parts = filePath.split('/');
+    const parts = fileUri.split('/');
     const forceAppIndex = parts.findIndex((part) => part === 'force-app');
     if (forceAppIndex !== -1 && parts[forceAppIndex + 1] === 'main') {
       return parts[forceAppIndex + 2] || 'default';
@@ -547,7 +547,7 @@ export class LazyReferenceResolver {
   private attemptResolution(
     task: LazyResolutionTask,
     symbolLookup: (name: string) => ApexSymbol[],
-    fileLookup: (filePath: string) => ApexSymbol[],
+    fileLookup: (fileUri: string) => ApexSymbol[],
   ): void {
     const { referenceVertex } = task;
 

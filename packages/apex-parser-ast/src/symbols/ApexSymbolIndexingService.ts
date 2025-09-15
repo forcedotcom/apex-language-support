@@ -48,7 +48,7 @@ export interface SymbolProcessingTask {
   readonly _tag: 'SymbolProcessingTask';
   readonly id: string;
   readonly symbolTable: SymbolTable;
-  readonly filePath: string;
+  readonly fileUri: string;
   readonly priority: TaskPriority;
   readonly options: SymbolProcessingOptions;
   readonly timestamp: number;
@@ -61,7 +61,7 @@ export interface SymbolProcessingTask {
 export interface CommentAssociationTask {
   readonly _tag: 'CommentAssociationTask';
   readonly id: string;
-  readonly filePath: string;
+  readonly fileUri: string;
   readonly associations: CommentAssociation[];
   readonly priority: TaskPriority;
   readonly timestamp: number;
@@ -273,13 +273,11 @@ export class ApexSymbolIndexingService {
     try {
       this.taskRegistry.updateTaskStatus(task.id, 'RUNNING');
 
-      this.logger.debug(
-        () => `Processing task ${task.id} for ${task.filePath}`,
-      );
+      this.logger.debug(() => `Processing task ${task.id} for ${task.fileUri}`);
 
       if (task._tag === 'SymbolProcessingTask') {
         // Delegate to the symbol manager to do the actual work
-        this.symbolManager.addSymbolTable(task.symbolTable, task.filePath);
+        this.symbolManager.addSymbolTable(task.symbolTable, task.fileUri);
 
         // If cross-file resolution is enabled, trigger it
         if (task.options.enableCrossFileResolution) {
@@ -291,7 +289,7 @@ export class ApexSymbolIndexingService {
       } else if (task._tag === 'CommentAssociationTask') {
         // Persist comment associations for later retrieval (e.g., hover)
         this.symbolManager.setCommentAssociations(
-          task.filePath,
+          task.fileUri,
           task.associations,
         );
       }
@@ -392,10 +390,10 @@ export class ApexSymbolIndexingIntegration {
    */
   processSymbolTable(
     symbolTable: SymbolTable,
-    filePath: string,
+    fileUri: string,
     options: SymbolProcessingOptions = {},
   ): string {
-    const task = this.createTask(symbolTable, filePath, options);
+    const task = this.createTask(symbolTable, fileUri, options);
 
     // Enqueue the task
     this.indexingService.enqueue(task);
@@ -431,7 +429,7 @@ export class ApexSymbolIndexingIntegration {
    */
   private createTask(
     symbolTable: SymbolTable,
-    filePath: string,
+    fileUri: string,
     options: SymbolProcessingOptions,
   ): SymbolProcessingTask {
     const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -440,7 +438,7 @@ export class ApexSymbolIndexingIntegration {
       _tag: 'SymbolProcessingTask',
       id: taskId,
       symbolTable,
-      filePath,
+      fileUri,
       priority: options.priority || 'NORMAL',
       options: {
         priority: 'NORMAL',
@@ -461,7 +459,7 @@ export class ApexSymbolIndexingIntegration {
    * Schedule a comment association persistence task
    */
   scheduleCommentAssociations(
-    filePath: string,
+    fileUri: string,
     associations: CommentAssociation[],
     priority: TaskPriority = 'NORMAL',
   ): string {
@@ -471,7 +469,7 @@ export class ApexSymbolIndexingIntegration {
     const task: CommentAssociationTask = {
       _tag: 'CommentAssociationTask',
       id: taskId,
-      filePath,
+      fileUri,
       associations,
       priority,
       timestamp: Date.now(),

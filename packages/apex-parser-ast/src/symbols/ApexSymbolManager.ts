@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { HashMap, Deque, Stack } from 'data-structure-typed';
+import { HashMap, Stack } from 'data-structure-typed';
 import { getLogger, type EnumValue } from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbol,
@@ -19,6 +19,15 @@ import {
   Position,
   SymbolResolutionStrategy,
 } from '../types/symbol';
+import { UnifiedCache } from '../utils/UnifiedCache';
+import {
+  SymbolMetrics,
+  SystemStats,
+  MemoryUsageStats,
+  PerformanceMetrics,
+  RelationshipStats,
+  PatternAnalysis,
+} from '../types/metrics';
 import {
   getProtocolType,
   createFileUri,
@@ -92,400 +101,6 @@ export interface ImpactAnalysis {
 type ParentLookupCache = HashMap<string, HashMap<string, ApexSymbol>>;
 
 /**
- * Symbol metrics for analysis
- */
-export interface SymbolMetrics {
-  referenceCount: number;
-  dependencyCount: number;
-  dependentCount: number;
-  cyclomaticComplexity: number;
-  depthOfInheritance: number;
-  couplingScore: number;
-  impactScore: number;
-  changeImpactRadius: number;
-  refactoringRisk: number;
-  usagePatterns: string[];
-  accessPatterns: string[];
-  lifecycleStage: 'active' | 'deprecated' | 'legacy' | 'experimental';
-}
-
-/**
- * Unified cache entry
- */
-interface UnifiedCacheEntry<T> {
-  value: T;
-  timestamp: number;
-  accessCount: number;
-  lastAccessed: number;
-  type: CacheEntryType;
-  size: number;
-}
-
-/**
- * Cache entry types
- */
-type CacheEntryType =
-  | 'symbol_lookup'
-  | 'fqn_lookup'
-  | 'file_lookup'
-  | 'relationship'
-  | 'metrics'
-  | 'pattern_match'
-  | 'stats'
-  | 'analysis';
-
-/**
- * Unified cache statistics
- */
-interface UnifiedCacheStats {
-  totalEntries: number;
-  totalSize: number;
-  hitCount: number;
-  missCount: number;
-  evictionCount: number;
-  hitRate: number;
-  averageEntrySize: number;
-  typeDistribution: HashMap<CacheEntryType, number>;
-  lastOptimization: number;
-}
-
-/**
- * Unified cache implementation for memory optimization
- */
-export class UnifiedCache {
-  private readonly logger = getLogger();
-  private cache: HashMap<string, WeakRef<UnifiedCacheEntry<any>>> =
-    new HashMap();
-  private readonly registry = new (globalThis as any).FinalizationRegistry(
-    (key: string) => {
-      this.handleGarbageCollected(key);
-    },
-  );
-  private accessOrder: Deque<string> = new Deque();
-  private stats: UnifiedCacheStats = {
-    totalEntries: 0,
-    totalSize: 0,
-    hitCount: 0,
-    missCount: 0,
-    evictionCount: 0,
-    hitRate: 0,
-    averageEntrySize: 0,
-    typeDistribution: new HashMap(),
-    lastOptimization: Date.now(),
-  };
-  private readonly maxSize: number;
-  private readonly maxMemoryBytes: number;
-  private readonly ttl: number;
-  private readonly enableWeakRef: boolean;
-
-  constructor(
-    maxSize: number = 5000,
-    maxMemoryBytes: number = 50 * 1024 * 1024, // 50MB
-    ttl: number = 3 * 60 * 1000, // 3 minutes
-    enableWeakRef: boolean = true,
-  ) {
-    this.maxSize = maxSize;
-    this.maxMemoryBytes = maxMemoryBytes;
-    this.ttl = ttl;
-    this.enableWeakRef = enableWeakRef;
-  }
-
-  get<T>(key: string): T | undefined {
-    const entryRef = this.cache.get(key);
-    if (!entryRef) {
-      this.stats.missCount++;
-      this.updateHitRate();
-      return undefined;
-    }
-
-    const entry = entryRef.deref();
-    if (!entry) {
-      // Entry was garbage collected
-      this.cache.delete(key);
-      this.removeFromAccessOrder(key);
-      this.stats.missCount++;
-      this.updateHitRate();
-      return undefined;
-    }
-
-    // Check TTL
-    if (Date.now() - entry.timestamp > this.ttl) {
-      this.delete(key);
-      this.stats.missCount++;
-      this.updateHitRate();
-      return undefined;
-    }
-
-    // Update access statistics
-    entry.accessCount++;
-    entry.lastAccessed = Date.now();
-    this.updateAccessOrder(key);
-    this.stats.hitCount++;
-    this.updateHitRate();
-
-    return entry.value;
-  }
-
-  set<T>(
-    key: string,
-    value: T,
-    type: CacheEntryType,
-    estimatedSize?: number,
-  ): void {
-    // TEMPORARY: Never add values to cache (completely disable caching)
-    return;
-
-    // Original implementation (commented out for temporary change)
-    /*
-    const size = estimatedSize || this.estimateSize(value);
-    const entry: UnifiedCacheEntry<T> = {
-      value,
-      timestamp: Date.now(),
-      accessCount: 1,
-      lastAccessed: Date.now(),
-      type,
-      size,
-    };
-
-    // Ensure capacity before adding
-    this.ensureCapacity(size);
-
-    // Add to cache
-    if (this.enableWeakRef) {
-      const entryRef = new (globalThis as any).WeakRef(entry);
-      this.cache.set(key, entryRef);
-      this.registry.register(entry, key);
-    } else {
-      this.cache.set(key, new (globalThis as any).WeakRef(entry));
-    }
-
-    this.updateAccessOrder(key);
-    this.updateStats(entry, type, size);
-    */
-  }
-
-  delete(key: string): boolean {
-    const entryRef = this.cache.get(key);
-    if (!entryRef) return false;
-
-    const entry = entryRef.deref();
-    if (entry) {
-      this.stats.totalSize -= entry.size;
-      this.updateTypeDistribution(entry.type, -1);
-    }
-
-    this.cache.delete(key);
-    this.removeFromAccessOrder(key);
-    this.stats.totalEntries--;
-
-    return true;
-  }
-
-  has(key: string): boolean {
-    const entryRef = this.cache.get(key);
-    if (!entryRef) return false;
-
-    const entry = entryRef.deref();
-    if (!entry) {
-      this.cache.delete(key);
-      this.removeFromAccessOrder(key);
-      return false;
-    }
-
-    return Date.now() - entry.timestamp <= this.ttl;
-  }
-
-  clear(): void {
-    this.cache.clear();
-    this.accessOrder.clear();
-    this.stats = {
-      totalEntries: 0,
-      totalSize: 0,
-      hitCount: 0,
-      missCount: 0,
-      evictionCount: 0,
-      hitRate: 0,
-      averageEntrySize: 0,
-      typeDistribution: new HashMap(),
-      lastOptimization: Date.now(),
-    };
-  }
-
-  getStats(): UnifiedCacheStats {
-    return { ...this.stats };
-  }
-
-  optimize(): void {
-    // Remove expired entries
-    const now = Date.now();
-    for (const [key, entryRef] of this.cache.entries()) {
-      const entry = entryRef?.deref();
-      if (!entry || now - entry.timestamp > this.ttl) {
-        this.delete(key);
-      }
-    }
-
-    // Enforce size limits
-    this.enforceSizeLimits();
-
-    this.stats.lastOptimization = now;
-  }
-
-  invalidatePattern(pattern: string): number {
-    const regex = new RegExp(pattern, 'i');
-    let invalidatedCount = 0;
-
-    for (const key of this.cache.keys()) {
-      if (regex.test(key)) {
-        if (this.delete(key)) {
-          invalidatedCount++;
-        }
-      }
-    }
-
-    return invalidatedCount;
-  }
-
-  private ensureCapacity(newEntrySize: number): void {
-    let evictionAttempts = 0;
-    const maxEvictionAttempts = this.stats.totalEntries + 10; // Safety limit
-
-    while (
-      (this.stats.totalEntries >= this.maxSize ||
-        this.stats.totalSize + newEntrySize > this.maxMemoryBytes) &&
-      evictionAttempts < maxEvictionAttempts
-    ) {
-      this.evictLRU();
-      evictionAttempts++;
-    }
-
-    // If we hit the safety limit, log a warning
-    if (evictionAttempts >= maxEvictionAttempts) {
-      this.logger.warn(
-        () =>
-          `Cache eviction safety limit reached: ${evictionAttempts} attempts`,
-      );
-    }
-  }
-
-  private evictLRU(): void {
-    if (this.accessOrder.isEmpty()) return;
-
-    const lruKey = this.accessOrder.shift();
-    if (!lruKey) return;
-
-    const wasDeleted = this.delete(lruKey);
-
-    // Always increment eviction count and remove from access order
-    // even if the entry was already garbage collected
-    this.stats.evictionCount++;
-
-    // If the entry wasn't actually deleted (e.g., already garbage collected),
-    // we still need to remove it from accessOrder to prevent infinite loops
-    if (!wasDeleted) {
-      this.removeFromAccessOrder(lruKey);
-      this.stats.totalEntries = Math.max(0, this.stats.totalEntries - 1);
-    }
-  }
-
-  private enforceSizeLimits(): void {
-    while (
-      this.stats.totalEntries > this.maxSize ||
-      this.stats.totalSize > this.maxMemoryBytes
-    ) {
-      this.evictLRU();
-    }
-  }
-
-  private updateAccessOrder(key: string): void {
-    this.removeFromAccessOrder(key);
-    this.accessOrder.push(key);
-  }
-
-  private removeFromAccessOrder(key: string): void {
-    // For Deque, we need to manually remove the key by rebuilding the deque
-    // This is less efficient but maintains the order
-    const tempDeque = new Deque<string>();
-
-    while (!this.accessOrder.isEmpty()) {
-      const item = this.accessOrder.shift();
-      if (item && item !== key) {
-        tempDeque.push(item);
-      }
-    }
-
-    // Restore the deque without the removed key
-    this.accessOrder = tempDeque;
-  }
-
-  private updateStats(
-    entry: UnifiedCacheEntry<any>,
-    type: CacheEntryType,
-    size: number,
-  ): void {
-    this.stats.totalEntries++;
-    this.stats.totalSize += size;
-    this.updateTypeDistribution(type, 1);
-    this.updateAverageEntrySize();
-  }
-
-  private updateTypeDistribution(type: CacheEntryType, delta: number): void {
-    const current = this.stats.typeDistribution.get(type) || 0;
-    this.stats.typeDistribution.set(type, current + delta);
-  }
-
-  private updateAverageEntrySize(): void {
-    if (this.stats.totalEntries > 0) {
-      this.stats.averageEntrySize =
-        this.stats.totalSize / this.stats.totalEntries;
-    }
-  }
-
-  private updateHitRate(): void {
-    const total = this.stats.hitCount + this.stats.missCount;
-    this.stats.hitRate = total > 0 ? this.stats.hitCount / total : 0;
-  }
-
-  private estimateSize(value: any): number {
-    // Simple size estimation with circular reference protection
-    try {
-      const jsonString = JSON.stringify(value);
-      return new Blob([jsonString]).size;
-    } catch (error) {
-      // If JSON serialization fails due to circular references, estimate size differently
-      if (error instanceof Error && error.message.includes('circular')) {
-        // Estimate size based on object properties
-        if (typeof value === 'object' && value !== null) {
-          let size = 0;
-          for (const key in value) {
-            if (value.hasOwnProperty(key)) {
-              size += key.length;
-              const val = value[key];
-              if (typeof val === 'string') {
-                size += val.length;
-              } else if (typeof val === 'number') {
-                size += 8; // Assume 8 bytes for numbers
-              } else if (typeof val === 'boolean') {
-                size += 1; // Assume 1 byte for booleans
-              }
-            }
-          }
-          return size;
-        }
-      }
-      // Fallback to a reasonable default size
-      return 1024; // 1KB default
-    }
-  }
-
-  private handleGarbageCollected(key: string): void {
-    this.cache.delete(key);
-    this.removeFromAccessOrder(key);
-    this.stats.totalEntries--;
-  }
-}
-
-/**
  * Main Apex Symbol Manager with DST integration
  */
 export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
@@ -542,10 +157,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /** Store per-file comment associations (normalized path). */
   public setCommentAssociations(
-    filePath: string,
+    fileUri: string,
     associations: CommentAssociation[],
   ): void {
-    this.fileCommentAssociations.set(filePath, associations || []);
+    this.fileCommentAssociations.set(fileUri, associations || []);
   }
 
   /**
@@ -553,9 +168,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   public getBlockCommentsForSymbol(symbol: ApexSymbol): ApexComment[] {
     try {
-      const filePath = symbol.fileUri || '';
-      if (!filePath) return [];
-      const associations = this.fileCommentAssociations.get(filePath) || [];
+      const fileUri = symbol.fileUri || '';
+      if (!fileUri) return [];
+      const associations = this.fileCommentAssociations.get(fileUri) || [];
       if (associations.length === 0) return [];
       const key =
         symbol.key?.unifiedId ||
@@ -601,7 +216,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
     }
 
-    // BUG FIX: Calculate and store FQN if not already present
     if (!symbol.fqn) {
       symbol.fqn = calculateFQN(symbol, undefined, (parentId) =>
         this.symbolGraph.getSymbol(parentId),
@@ -627,10 +241,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Always add symbol to the SymbolTable
     // TODO: This is a hack to add the symbol to the SymbolTable
-    // We should not be doing this here, but it's a quick fix to get the symbol added to the SymbolTable
-    // We should be adding the symbol to the SymbolTable in the SymbolTableManager
-    // This is a hack to get the symbol added to the SymbolTable
-    // We should be adding the symbol to the SymbolTable in the SymbolTableManager
     tempSymbolTable!.addSymbol(symbol);
 
     // Add to symbol graph (it has its own duplicate detection)
@@ -718,16 +328,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Find all symbols in a specific file
    */
-  findSymbolsInFile(filePath: string): ApexSymbol[] {
-    const cacheKey = `file_symbols_${filePath}`;
+  findSymbolsInFile(fileUri: string): ApexSymbol[] {
+    const cacheKey = `file_symbols_${fileUri}`;
     const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
     if (cached) {
       return cached;
     }
 
-    // Convert filePath to proper URI format to match how symbols are stored
+    // Convert fileUri to proper URI format to match how symbols are stored
     const properUri =
-      getProtocolType(filePath) !== null ? filePath : createFileUri(filePath);
+      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
     // OPTIMIZED: Delegate to graph which delegates to SymbolTable
     const symbols = this.symbolGraph.getSymbolsInFile(properUri);
@@ -738,19 +348,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Check if a file path is from the standard Apex library
    */
-  private isStandardApexLibraryPath(filePath: string): boolean {
+  private isStandardApexLibraryPath(fileUri: string): boolean {
     // Skip URIs - only check relative paths
-    if (filePath.includes('://')) {
+    if (fileUri.includes('://')) {
       return false;
     }
 
     // Check if the file path starts with a standard Apex namespace
     // Standard Apex classes have paths like "System/Assert.cls", "Database/QueryLocator.cls", etc.
-    if (!filePath || !filePath.includes('/') || !filePath.endsWith('.cls')) {
+    if (!fileUri || !fileUri.includes('/') || !fileUri.endsWith('.cls')) {
       return false;
     }
 
-    const namespace = filePath.split('/')[0];
+    const namespace = fileUri.split('/')[0];
 
     // Use the imported utility function to check if it's a standard namespace
     return this.resourceLoader?.isStdApexNamespace(namespace) || false;
@@ -777,12 +387,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const files = new Set<string>();
 
     for (const symbolId of symbolIds) {
-      const filePath = this.symbolGraph['symbolFileMap'].get(symbolId);
-      if (filePath) {
+      const fileUri = this.symbolGraph['symbolFileMap'].get(symbolId);
+      if (fileUri) {
         // Convert URI back to clean file path for consistency with test expectations
-        const cleanPath = isUserCodeUri(filePath)
-          ? extractFilePath(filePath)
-          : filePath;
+        const cleanPath = isUserCodeUri(fileUri)
+          ? extractFilePath(fileUri)
+          : fileUri;
         files.add(cleanPath);
       }
     }
@@ -807,8 +417,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Backward compatibility method - alias for findSymbolsInFile
    */
-  getSymbolsInFile(filePath: string): ApexSymbol[] {
-    return this.findSymbolsInFile(filePath);
+  getSymbolsInFile(fileUri: string): ApexSymbol[] {
+    return this.findSymbolsInFile(fileUri);
   }
 
   /**
@@ -993,7 +603,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (candidates.length === 0) {
       return {
         symbol: null, // Return null for non-existent symbols
-        filePath: context.sourceFile,
+        fileUri: context.sourceFile,
         confidence: 0,
         isAmbiguous: false,
         resolutionContext: 'No symbols found with this name',
@@ -1003,7 +613,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (candidates.length === 1) {
       return {
         symbol: candidates[0],
-        filePath: candidates[0].key.path[0] || context.sourceFile,
+        fileUri: candidates[0].key.path[0] || context.sourceFile,
         confidence: 0.9, // Higher confidence for single match
         isAmbiguous: false,
         resolutionContext: 'Single symbol found',
@@ -1012,14 +622,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Multiple candidates - use context to disambiguate
     const bestMatch = this.resolveAmbiguousSymbolWithContext(
-      name,
       candidates,
       context,
     );
 
     return {
       symbol: bestMatch.symbol,
-      filePath: bestMatch.filePath,
+      fileUri: bestMatch.fileUri,
       confidence: bestMatch.confidence,
       isAmbiguous: true,
       candidates,
@@ -1037,16 +646,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Get statistics
    */
-  getStats(): {
-    totalSymbols: number;
-    totalFiles: number;
-    totalReferences: number;
-    circularDependencies: number;
-    cacheHitRate: number;
-    totalCacheEntries: number;
-    lastCleanup: number;
-    memoryOptimizationLevel: string;
-  } {
+  getStats(): SystemStats {
     const graphStats = this.symbolGraph.getStats();
     const cacheStats = this.unifiedCache.getStats();
 
@@ -1084,10 +684,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Remove a file's symbols
    */
-  removeFile(filePath: string): void {
-    // Convert filePath to proper URI format to match how symbols are stored
+  removeFile(fileUri: string): void {
+    // Convert fileUri to proper URI format to match how symbols are stored
     const properUri =
-      getProtocolType(filePath) !== null ? filePath : createFileUri(filePath);
+      getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
     // Remove from symbol graph
     this.symbolGraph.removeFile(properUri);
@@ -1097,10 +697,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     this.memoryStats.totalSymbols = graphStats.totalSymbols;
 
     // Remove from file metadata
-    this.fileMetadata.delete(filePath);
+    this.fileMetadata.delete(fileUri);
 
     // Clear cache entries for this file
-    this.unifiedCache.invalidatePattern(filePath);
+    this.unifiedCache.invalidatePattern(fileUri);
   }
 
   /**
@@ -1119,19 +719,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Get relationship statistics for a symbol
    */
-  getRelationshipStats(symbol: ApexSymbol): {
-    totalReferences: number;
-    methodCalls: number;
-    fieldAccess: number;
-    typeReferences: number;
-    constructorCalls: number;
-    staticAccess: number;
-    importReferences: number;
-    relationshipTypeCounts: Map<string, number>;
-    mostCommonRelationshipType: string | null;
-    leastCommonRelationshipType: string | null;
-    averageReferencesPerType: number;
-  } {
+  getRelationshipStats(symbol: ApexSymbol): RelationshipStats {
     const referencesTo = this.findReferencesTo(symbol);
     const _referencesFrom = this.findReferencesFrom(symbol);
 
@@ -1342,31 +930,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return result;
   }
 
-  findSymbolsInFileCached(filePath: string): ApexSymbol[] {
-    const cacheKey = `file_symbols_${filePath}`;
+  findSymbolsInFileCached(fileUri: string): ApexSymbol[] {
+    const cacheKey = `file_symbols_${fileUri}`;
     const cached = this.unifiedCache.get<ApexSymbol[]>(cacheKey);
     if (cached) {
       return cached;
     }
 
-    const result = this.findSymbolsInFile(filePath);
+    const result = this.findSymbolsInFile(fileUri);
     this.unifiedCache.set(cacheKey, result, 'file_lookup');
     return result;
   }
 
-  getRelationshipStatsCached(symbol: ApexSymbol): {
-    totalReferences: number;
-    methodCalls: number;
-    fieldAccess: number;
-    typeReferences: number;
-    constructorCalls: number;
-    staticAccess: number;
-    importReferences: number;
-    relationshipTypeCounts: Map<string, number>;
-    mostCommonRelationshipType: string | null;
-    leastCommonRelationshipType: string | null;
-    averageReferencesPerType: number;
-  } {
+  getRelationshipStatsCached(symbol: ApexSymbol): RelationshipStats {
     const cacheKey = `relationship_stats_${this.getSymbolId(symbol)}`;
     const cached = this.unifiedCache.get<any>(cacheKey);
     if (cached) {
@@ -1378,19 +954,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return result;
   }
 
-  analyzeRelationshipPatternsCached(): {
-    totalSymbols: number;
-    totalRelationships: number;
-    relationshipPatterns: Map<string, number>;
-    patternInsights: string[];
-    mostCommonPatterns: Array<{
-      pattern: string;
-      count: number;
-      percentage: number;
-      matchingSymbols: ApexSymbol[];
-    }>;
-    averageRelationshipsPerSymbol: number;
-  } {
+  analyzeRelationshipPatternsCached(): PatternAnalysis {
     const cacheKey = 'relationship_patterns_analysis';
     const cached = this.unifiedCache.get<any>(cacheKey);
     if (cached) {
@@ -1403,37 +967,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   // Async Methods
-  async getRelationshipStatsAsync(symbol: ApexSymbol): Promise<{
-    totalReferences: number;
-    methodCalls: number;
-    fieldAccess: number;
-    typeReferences: number;
-    constructorCalls: number;
-    staticAccess: number;
-    importReferences: number;
-    relationshipTypeCounts: Map<string, number>;
-    mostCommonRelationshipType: string | null;
-    leastCommonRelationshipType: string | null;
-    averageReferencesPerType: number;
-  }> {
+  async getRelationshipStatsAsync(
+    symbol: ApexSymbol,
+  ): Promise<RelationshipStats> {
     // Simulate async operation
     await new Promise((resolve) => setTimeout(resolve, 1));
     return this.getRelationshipStatsCached(symbol);
   }
 
-  async getPatternAnalysisAsync(): Promise<{
-    totalSymbols: number;
-    totalRelationships: number;
-    relationshipPatterns: Map<string, number>;
-    patternInsights: string[];
-    mostCommonPatterns: Array<{
-      pattern: string;
-      count: number;
-      percentage: number;
-      matchingSymbols: ApexSymbol[];
-    }>;
-    averageRelationshipsPerSymbol: number;
-  }> {
+  async getPatternAnalysisAsync(): Promise<PatternAnalysis> {
     // Simulate async operation
     await new Promise((resolve) => setTimeout(resolve, 1));
     return this.analyzeRelationshipPatternsCached();
@@ -1441,16 +983,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   // Batch Operations
   async addSymbolsBatchOptimized(
-    symbolData: Array<{ symbol: ApexSymbol; filePath: string }>,
+    symbolData: Array<{ symbol: ApexSymbol; fileUri: string }>,
     batchSize: number = 10,
   ): Promise<void> {
     for (let i = 0; i < symbolData.length; i += batchSize) {
       const batch = symbolData.slice(i, i + batchSize);
       await Promise.all(
         batch.map(
-          ({ symbol, filePath }) =>
+          ({ symbol, fileUri }) =>
             new Promise<void>((resolve) => {
-              this.addSymbol(symbol, filePath);
+              this.addSymbol(symbol, fileUri);
               resolve();
             }),
         ),
@@ -1461,40 +1003,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   async analyzeRelationshipsBatch(
     symbols: ApexSymbol[],
     concurrency: number = 4,
-  ): Promise<
-    Map<
-      string,
-      {
-        totalReferences: number;
-        methodCalls: number;
-        fieldAccess: number;
-        typeReferences: number;
-        constructorCalls: number;
-        staticAccess: number;
-        importReferences: number;
-        relationshipTypeCounts: Map<string, number>;
-        mostCommonRelationshipType: string | null;
-        leastCommonRelationshipType: string | null;
-        averageReferencesPerType: number;
-      }
-    >
-  > {
-    const results = new Map<
-      string,
-      {
-        totalReferences: number;
-        methodCalls: number;
-        fieldAccess: number;
-        typeReferences: number;
-        constructorCalls: number;
-        staticAccess: number;
-        importReferences: number;
-        relationshipTypeCounts: Map<string, number>;
-        mostCommonRelationshipType: string | null;
-        leastCommonRelationshipType: string | null;
-        averageReferencesPerType: number;
-      }
-    >();
+  ): Promise<Map<string, RelationshipStats>> {
+    const results = new Map<string, RelationshipStats>();
 
     for (let i = 0; i < symbols.length; i += concurrency) {
       const batch = symbols.slice(i, i + concurrency);
@@ -1513,6 +1023,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return results;
   }
 
+  // TODO: replace with effectful function
   async findSymbolsWithPatternsBatch(
     patterns: Array<{ name: string; pattern: any }>,
     concurrency: number = 2,
@@ -1537,13 +1048,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   // Performance Monitoring
-  getPerformanceMetrics(): {
-    totalQueries: number;
-    averageQueryTime: number;
-    cacheHitRate: number;
-    slowQueries: Array<{ query: string; time: number }>;
-    memoryUsage: number;
-  } {
+  getPerformanceMetrics(): PerformanceMetrics {
     const cacheStats = this.unifiedCache.getStats();
     return {
       totalQueries: cacheStats.hitCount + cacheStats.missCount,
@@ -1556,7 +1061,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   // Batch Operations (alias methods)
   async addSymbolsBatch(
-    symbols: Array<{ symbol: ApexSymbol; filePath: string }>,
+    symbols: Array<{ symbol: ApexSymbol; fileUri: string }>,
   ): Promise<void> {
     return this.addSymbolsBatchOptimized(symbols);
   }
@@ -1580,8 +1085,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const symbols: ApexSymbol[] = [];
 
     // Get symbols from the symbol graph by iterating through file metadata
-    for (const [filePath, _metadata] of this.fileMetadata.entries()) {
-      const fileSymbols = this.findSymbolsInFile(filePath);
+    for (const [fileUri, _metadata] of this.fileMetadata.entries()) {
+      const fileSymbols = this.findSymbolsInFile(fileUri);
       symbols.push(...fileSymbols);
     }
 
@@ -1622,15 +1127,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   private resolveAmbiguousSymbolWithContext(
-    name: string,
     candidates: ApexSymbol[],
     context: SymbolResolutionContext,
-  ): {
-    symbol: ApexSymbol;
-    filePath: string;
-    confidence: number;
-    resolutionContext: string;
-  } {
+  ): SymbolResolutionResult {
     // Enhanced implementation with context analysis
     let bestMatch = candidates[0];
     let confidence = 0.6; // Base confidence for multiple candidates
@@ -1656,8 +1155,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     return {
       symbol: bestMatch,
-      filePath: bestMatch.key.path[0] || context.sourceFile,
+      fileUri: bestMatch.key.path[0] || context.sourceFile,
       confidence: Math.min(confidence, 0.9), // Cap at 0.9
+      isAmbiguous: candidates.length > 1,
+      candidates: candidates,
       resolutionContext: `${resolutionContext}; confidence (${(Math.min(confidence, 0.9) * 100).toFixed(1)}%)`,
     };
   }
@@ -1703,19 +1204,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     });
   }
 
-  analyzeRelationshipPatterns(): {
-    totalSymbols: number;
-    totalRelationships: number;
-    relationshipPatterns: Map<string, number>;
-    patternInsights: string[];
-    mostCommonPatterns: Array<{
-      pattern: string;
-      count: number;
-      percentage: number;
-      matchingSymbols: ApexSymbol[];
-    }>;
-    averageRelationshipsPerSymbol: number;
-  } {
+  analyzeRelationshipPatterns(): PatternAnalysis {
     const allSymbols = this.getAllSymbols();
     const patterns = new Map<string, number>();
     let totalRelationships = 0;
@@ -1782,7 +1271,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Update all symbols to use the proper URI
     symbols.forEach((symbol: ApexSymbol) => {
-      // Update the symbol's filePath to match the table's filePath
+      // Update the symbol's fileUri to match the table's fileUri
       symbol.fileUri = properUri;
       this.addSymbol(symbol, properUri, symbolTable);
     });
@@ -1794,16 +1283,16 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Get TypeReference data at a specific position in a file
    * This provides precise AST-based position data for enhanced symbol resolution
-   * @param filePath The file path to search in
+   * @param fileUri The file path to search in
    * @param position The position to search for references (0-based)
    * @returns Array of TypeReference objects at the position
    */
   getReferencesAtPosition(
-    filePath: string,
+    fileUri: string,
     position: { line: number; character: number },
   ): TypeReference[] {
     try {
-      const symbolTable = this.symbolGraph.getSymbolTableForFile(filePath);
+      const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
 
       if (!symbolTable) {
         return [];
@@ -2096,21 +1585,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Process type references from a SymbolTable and add them to the symbol graph
    * @param symbolTable The symbol table containing type references
-   * @param filePath The file path where the references were found
+   * @param fileUri The file path where the references were found
    */
   private async processTypeReferencesToGraph(
     symbolTable: SymbolTable,
-    filePath: string,
+    fileUri: string,
   ): Promise<void> {
     try {
       const typeReferences = symbolTable.getAllReferences();
 
       for (const typeRef of typeReferences) {
-        await this.processTypeReferenceToGraph(typeRef, filePath);
+        await this.processTypeReferenceToGraph(typeRef, fileUri);
       }
     } catch (error) {
       this.logger.error(
-        () => `Error processing type references for ${filePath}: ${error}`,
+        () => `Error processing type references for ${fileUri}: ${error}`,
       );
     }
   }
@@ -2118,17 +1607,17 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Process a single type reference and add it to the symbol graph
    * @param typeRef The type reference to process
-   * @param filePath The file path where the reference was found
+   * @param fileUri The file path where the reference was found
    */
   private async processTypeReferenceToGraph(
     typeRef: TypeReference,
-    filePath: string,
+    fileUri: string,
   ): Promise<void> {
     try {
       // Find the source symbol (the symbol that contains this reference)
       const sourceSymbol = this.findContainingSymbolForReference(
         typeRef,
-        filePath,
+        fileUri,
       );
       if (!sourceSymbol) {
         return;
@@ -2184,15 +1673,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Find the source symbol that contains the given reference
    * Used for: Position-based lookups (LSP hover, go-to-definition)
    * @param typeRef The type reference
-   * @param filePath The file path
+   * @param fileUri The file path
    * @returns The source symbol or null if not found
    */
   private async findSourceSymbolForReference(
     typeRef: TypeReference,
-    filePath: string,
+    fileUri: string,
   ): Promise<ApexSymbol | null> {
     // Try to find the symbol at the reference location
-    const symbolAtPosition = await this.getSymbolAtPosition(filePath, {
+    const symbolAtPosition = await this.getSymbolAtPosition(fileUri, {
       line: typeRef.location.identifierRange.startLine,
       character: typeRef.location.identifierRange.startColumn,
     });
@@ -2202,7 +1691,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Fallback: look for symbols in the same file that might contain this reference
-    const symbolsInFile = this.findSymbolsInFile(filePath);
+    const symbolsInFile = this.findSymbolsInFile(fileUri);
     for (const symbol of symbolsInFile) {
       if (
         symbol.location &&
@@ -2430,12 +1919,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
   /**
    * Get all TypeReference data for a file
-   * @param filePath The file path to get references for
+   * @param fileUri The file path to get references for
    * @returns Array of all TypeReference objects in the file
    */
-  getAllReferencesInFile(filePath: string): TypeReference[] {
+  getAllReferencesInFile(fileUri: string): TypeReference[] {
     try {
-      const symbolTable = this.symbolGraph.getSymbolTableForFile(filePath);
+      const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
 
       if (!symbolTable) {
         return [];
@@ -2857,7 +2346,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         const fileUri = this.convertToStandardLibraryUri(classPath);
         await this.addSymbolTable(artifact.compilationResult.result, fileUri);
 
-        // Update the class symbol's filePath to use the new URI scheme
+        // Update the class symbol's fileUri to use the new URI scheme
         classSymbol.fileUri = fileUri;
       }
     } catch (_error) {
@@ -2902,8 +2391,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return candidates[0] || null;
   }
 
-  getScopesInFile(filePath: string): string[] {
-    const symbols = this.findSymbolsInFile(filePath);
+  getScopesInFile(fileUri: string): string[] {
+    const symbols = this.findSymbolsInFile(fileUri);
     const scopes = new Set<string>();
 
     symbols.forEach((symbol) => {
@@ -2915,8 +2404,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     return Array.from(scopes);
   }
 
-  findSymbolsInScope(scopeName: string, filePath: string): ApexSymbol[] {
-    const symbols = this.findSymbolsInFile(filePath);
+  findSymbolsInScope(scopeName: string, fileUri: string): ApexSymbol[] {
+    const symbols = this.findSymbolsInFile(fileUri);
     return symbols.filter((symbol) => {
       if (symbol.key && symbol.key.path) {
         return symbol.key.path.join('.').includes(scopeName);
@@ -2938,22 +2427,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   }
 
   // Fix memory usage to include symbolCacheSize
-  getMemoryUsage(): {
-    totalSymbols: number;
-    totalCacheEntries: number;
-    estimatedMemoryUsage: number;
-    fileMetadataSize: number;
-    memoryOptimizationLevel: string;
-    cacheEfficiency: number;
-    recommendations: string[];
-    memoryPoolStats: {
-      totalReferences: number;
-      activeReferences: number;
-      referenceEfficiency: number;
-      poolSize: number;
-    };
-    symbolCacheSize: number;
-  } {
+  getMemoryUsage(): MemoryUsageStats {
     const cacheStats = this.unifiedCache.getStats();
     const estimatedMemoryUsage =
       this.memoryStats.totalSymbols * 1024 + cacheStats.totalSize;
@@ -2978,8 +2452,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     };
   }
 
-  private getSymbolId(symbol: ApexSymbol, filePath?: string): string {
-    const path = filePath || symbol.key.path[0] || 'unknown';
+  private getSymbolId(symbol: ApexSymbol, fileUri?: string): string {
+    const path = fileUri || symbol.key.path[0] || 'unknown';
     // Include the symbol kind to distinguish between different types of symbols with the same name
     return `${symbol.name}:${symbol.kind}:${path}`;
   }
@@ -3577,7 +3051,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           const classSymbol = symbols.find((s) => s.name === className);
 
           if (classSymbol) {
-            // Update the class symbol's filePath to use the new URI scheme
+            // Update the class symbol's fileUri to use the new URI scheme
             classSymbol.fileUri = fileUri;
             return classSymbol;
           }
@@ -3598,15 +3072,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Find the symbol that contains the given reference (the scope)
    * Used for: Reference relationship tracking, Find References From/To
    * @param typeRef The type reference
-   * @param filePath The file path
+   * @param fileUri The file path
    * @returns The containing symbol or null if not found
    */
   private findContainingSymbolForReference(
     typeRef: TypeReference,
-    filePath: string,
+    fileUri: string,
   ): ApexSymbol | null {
     // Find symbols in the file and determine which one contains this reference
-    const symbolsInFile = this.findSymbolsInFile(filePath);
+    const symbolsInFile = this.findSymbolsInFile(fileUri);
 
     // Look for the most specific (innermost) containing symbol
     let bestMatch: ApexSymbol | null = null;
@@ -4189,31 +3663,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       return classSymbol || null;
     }
 
-    // Special case: If stepName is a standard library class name, try to resolve it
-    if (this.isStandardLibraryClassName(stepName)) {
-      // Try to resolve as System.{stepName} first
-      const systemFqn = `System.${stepName}`;
-      let classSymbol = await this.resolveStandardApexClass(systemFqn);
-      if (classSymbol) {
-        return classSymbol;
-      }
-
-      // Try other common namespaces
-      const commonNamespaces = [
-        'Database',
-        'Schema',
-        'Messaging',
-        'ConnectApi',
-      ];
-      for (const namespace of commonNamespaces) {
-        const fqn = `${namespace}.${stepName}`;
-        classSymbol = await this.resolveStandardApexClass(fqn);
-        if (classSymbol) {
-          return classSymbol;
-        }
-      }
-    }
-
     if (currentContext?.type === 'symbol') {
       // Look for nested class in the current symbol
       const nestedClasses = this.findSymbolsInNamespace(
@@ -4236,75 +3685,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     return classSymbol || null;
-  }
-
-  /**
-   * Check if a name is a standard library class name
-   * This helps identify standard library classes that should be resolved with namespace qualification
-   */
-  private isStandardLibraryClassName(name: string): boolean {
-    // Common standard library class names that are often used without namespace qualification
-    const standardClassNames = [
-      'EncodingUtil',
-      'Assert',
-      'System',
-      'Database',
-      'Schema',
-      'Messaging',
-      'ConnectApi',
-      'Flow',
-      'Process',
-      'Approval',
-      'Auth',
-      'Cache',
-      'Canvas',
-      'ChatterAnswers',
-      'CommerceBuyGrp',
-      'CommerceExtension',
-      'CommerceOrders',
-      'CommercePayments',
-      'CommerceTax',
-      'Compression',
-      'Context',
-      'DataRetrieval',
-      'DataSource',
-      'DataWeave',
-      'Datacloud',
-      'Dom',
-      'EventBus',
-      'FormulaEval',
-      'Functions',
-      'Invocable',
-      'InvoiceWriteOff',
-      'IsvPartners',
-      'KbManagement',
-      'LxScheduler',
-      'Metadata',
-      'PlaceQuote',
-      'Pref_center',
-      'QuickAction',
-      'Reports',
-      'RevSalesTrxn',
-      'RevSignaling',
-      'RichMessaging',
-      'Salesforce_Backup',
-      'Search',
-      'Sfc',
-      'Sfdc_Enablement',
-      'Site',
-      'Slack',
-      'Support',
-      'TerritoryMgmt',
-      'TxnSecurity',
-      'UserProvisioning',
-      'VisualEditor',
-      'Wave',
-      'embeddedai',
-      'industriesNlpSvc',
-      'sfdc_surveys',
-    ];
-
-    return standardClassNames.includes(name);
   }
 
   /**
@@ -5145,8 +4525,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         this.symbolGraph['fileToSymbolTable']?.keys() || [],
       );
 
-      for (const filePath of allFiles) {
-        const symbolTable = this.symbolGraph.getSymbolTableForFile(filePath);
+      for (const fileUri of allFiles) {
+        const symbolTable = this.symbolGraph.getSymbolTableForFile(fileUri);
         if (symbolTable) {
           const symbols = symbolTable.getAllSymbols();
           const found = symbols.find((s: ApexSymbol) => s.id === symbolId);

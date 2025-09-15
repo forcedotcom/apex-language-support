@@ -50,10 +50,10 @@ export interface ApexError {
  */
 export class ApexErrorListener implements ANTLRErrorListener<Token> {
   private errors: ApexError[] = [];
-  private filePath: string;
+  private fileUri: string;
 
-  constructor(filePath: string) {
-    this.filePath = filePath;
+  constructor(fileUri: string) {
+    this.fileUri = fileUri;
   }
 
   /**
@@ -61,7 +61,7 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
    * @returns The file path
    */
   public getFilePath(): string {
-    return this.filePath;
+    return this.fileUri;
   }
 
   /**
@@ -82,7 +82,7 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
       message: msg,
       line: line,
       column: charPositionInLine,
-      fileUri: this.filePath,
+      fileUri: this.fileUri,
       source: offendingSymbol?.text,
     });
   }
@@ -106,7 +106,7 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
       column,
       endLine,
       endColumn,
-      fileUri: this.filePath,
+      fileUri: this.fileUri,
       source,
     });
   }
@@ -130,7 +130,7 @@ export class ApexErrorListener implements ANTLRErrorListener<Token> {
       column,
       endLine,
       endColumn,
-      fileUri: this.filePath,
+      fileUri: this.fileUri,
       source,
     });
   }

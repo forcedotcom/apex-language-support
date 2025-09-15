@@ -39,12 +39,12 @@ export interface ResolutionContext {
  */
 export interface SymbolLookupResult {
   symbol: ApexSymbol;
-  filePath: string;
+  fileUri: string;
   confidence: number;
   isAmbiguous: boolean;
   candidates?: Array<{
     symbol: ApexSymbol;
-    filePath: string;
+    fileUri: string;
     symbolTable: SymbolTable;
     lastUpdated: number;
   }>;
@@ -182,7 +182,7 @@ export const fromReferenceEdge = (
 export interface ReferenceResult {
   symbolId: string;
   symbol: ApexSymbol;
-  filePath: string;
+  fileUri: string;
   referenceType: EnumValue<typeof ReferenceType>;
   location: SymbolLocation;
   context?: {
@@ -208,7 +208,7 @@ export interface DependencyAnalysis {
  */
 export interface ReferenceNode {
   symbolId: string;
-  filePath: string;
+  fileUri: string;
   lastUpdated: number;
   referenceCount: number;
   nodeId: number;
@@ -393,7 +393,7 @@ export class ApexSymbolGraph {
     // OPTIMIZED: Add lightweight node to graph
     const referenceNode: ReferenceNode = {
       symbolId,
-      filePath: fileUri,
+      fileUri: fileUri,
       lastUpdated: Date.now(),
       referenceCount: 0,
       nodeId: this.memoryStats.totalVertices + 1,
@@ -441,7 +441,7 @@ export class ApexSymbolGraph {
       }
     }
 
-    // Update filePath for any symbols in deferred references that match this symbol
+    // Update fileUri for any symbols in deferred references that match this symbol
     // This ensures that when deferred references are processed, they can find the source symbols
     for (const [_targetName, refs] of this.deferredReferences.entries()) {
       if (refs) {
@@ -546,9 +546,9 @@ export class ApexSymbolGraph {
     const files = new Set<string>();
 
     for (const symbolId of symbolIds) {
-      const filePath = this.symbolFileMap.get(symbolId);
-      if (filePath) {
-        files.add(filePath);
+      const fileUri = this.symbolFileMap.get(symbolId);
+      if (fileUri) {
+        files.add(fileUri);
       }
     }
 
@@ -605,8 +605,8 @@ export class ApexSymbolGraph {
     const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
     const targetSymbols = this.findSymbolByName(targetSymbol.name);
 
-    // If filePath is undefined, match any symbol with the same name
-    // Otherwise, require exact filePath match
+    // If fileUri is undefined, match any symbol with the same name
+    // Otherwise, require exact fileUri match
     const sourceSymbolInGraph = sourceSymbol.fileUri
       ? sourceSymbols.find((s) => s.fileUri === sourceSymbol.fileUri)
       : sourceSymbols[0]; // Take the first symbol with matching name
@@ -617,7 +617,7 @@ export class ApexSymbolGraph {
 
     if (!sourceSymbolInGraph || !targetSymbolInGraph) {
       // If symbols don't exist yet, add deferred reference
-      // Use symbol name as key since we don't know the exact filePath
+      // Use symbol name as key since we don't know the exact fileUri
       this.addDeferredReference(
         sourceSymbol,
         targetSymbol.name,
@@ -704,8 +704,8 @@ export class ApexSymbolGraph {
     // Find the actual symbol in the graph by name and file path
     const targetSymbols = this.findSymbolByName(symbol.name);
 
-    // If filePath is undefined, match any symbol with the same name
-    // Otherwise, require exact filePath match
+    // If fileUri is undefined, match any symbol with the same name
+    // Otherwise, require exact fileUri match
     const targetSymbolInGraph = symbol.fileUri
       ? targetSymbols.find((s) => s.fileUri === symbol.fileUri)
       : targetSymbols[0]; // Take the first symbol with matching name
@@ -738,7 +738,7 @@ export class ApexSymbolGraph {
       const referenceResult: ReferenceResult = {
         symbolId: String(edge.src),
         symbol: sourceSymbol,
-        filePath: sourceSymbol.fileUri,
+        fileUri: sourceSymbol.fileUri,
         referenceType: edge.value.type,
         location: sourceSymbol.location,
         context: edge.value.context
@@ -766,8 +766,8 @@ export class ApexSymbolGraph {
     // Find the actual symbol in the graph by name and file path
     const sourceSymbols = this.findSymbolByName(symbol.name);
 
-    // If filePath is undefined, match any symbol with the same name
-    // Otherwise, require exact filePath match
+    // If fileUri is undefined, match any symbol with the same name
+    // Otherwise, require exact fileUri match
     const sourceSymbolInGraph = symbol.fileUri
       ? sourceSymbols.find((s) => s.fileUri === symbol.fileUri)
       : sourceSymbols[0]; // Take the first symbol with matching name
@@ -800,7 +800,7 @@ export class ApexSymbolGraph {
       const referenceResult: ReferenceResult = {
         symbolId: String(edge.dest),
         symbol: targetSymbol,
-        filePath: targetSymbol.fileUri,
+        fileUri: targetSymbol.fileUri,
         referenceType: edge.value.type,
         location: targetSymbol.location,
         context: edge.value.context
@@ -960,16 +960,16 @@ export class ApexSymbolGraph {
     const candidates = symbolIds
       .map((id) => {
         const symbol = this.getSymbol(id);
-        const filePath = this.symbolFileMap.get(id);
-        const symbolTable = filePath
-          ? this.fileToSymbolTable.get(filePath)
+        const fileUri = this.symbolFileMap.get(id);
+        const symbolTable = fileUri
+          ? this.fileToSymbolTable.get(fileUri)
           : undefined;
 
-        if (!symbol || !filePath || !symbolTable) return null;
+        if (!symbol || !fileUri || !symbolTable) return null;
 
         return {
           symbol,
-          filePath,
+          fileUri,
           symbolTable,
           lastUpdated: Date.now(),
         };
@@ -988,7 +988,7 @@ export class ApexSymbolGraph {
       const candidate = candidates[0];
       return {
         symbol: candidate.symbol,
-        filePath: candidate.filePath,
+        fileUri: candidate.fileUri,
         confidence: 1.0,
         isAmbiguous: false,
       };
@@ -1002,7 +1002,7 @@ export class ApexSymbolGraph {
     );
     return {
       symbol: resolved.symbol,
-      filePath: resolved.filePath,
+      fileUri: resolved.fileUri,
       confidence: resolved.confidence,
       isAmbiguous: true,
       candidates,
@@ -1040,18 +1040,18 @@ export class ApexSymbolGraph {
     symbolName: string,
     candidates: Array<{
       symbol: ApexSymbol;
-      filePath: string;
+      fileUri: string;
       symbolTable: SymbolTable;
       lastUpdated: number;
     }>,
     context?: ResolutionContext,
-  ): { symbol: ApexSymbol; filePath: string; confidence: number } {
+  ): { symbol: ApexSymbol; fileUri: string; confidence: number } {
     // If no context provided, return first candidate with medium confidence
     if (!context) {
       const candidate = candidates[0];
       return {
         symbol: candidate.symbol,
-        filePath: candidate.filePath,
+        fileUri: candidate.fileUri,
         confidence: 0.5,
       };
     }
@@ -1059,12 +1059,12 @@ export class ApexSymbolGraph {
     // Try to match by source file first
     if (context.sourceFile) {
       const fileMatch = candidates.find(
-        (c) => c.filePath === context.sourceFile,
+        (c) => c.fileUri === context.sourceFile,
       );
       if (fileMatch) {
         return {
           symbol: fileMatch.symbol,
-          filePath: fileMatch.filePath,
+          fileUri: fileMatch.fileUri,
           confidence: 0.8,
         };
       }
@@ -1077,7 +1077,7 @@ export class ApexSymbolGraph {
       const candidate = candidates[0];
       return {
         symbol: candidate.symbol,
-        filePath: candidate.filePath,
+        fileUri: candidate.fileUri,
         confidence: 0.7,
       };
     }
@@ -1086,7 +1086,7 @@ export class ApexSymbolGraph {
     const candidate = candidates[0];
     return {
       symbol: candidate.symbol,
-      filePath: candidate.filePath,
+      fileUri: candidate.fileUri,
       confidence: 0.5,
     };
   }
@@ -1180,13 +1180,13 @@ export class ApexSymbolGraph {
     }
 
     // Extract just the file path from the fileUri (remove symbol name and line number)
-    const filePath = this.extractFilePathFromUri(
+    const theFileUri = this.extractFilePathFromUri(
       fileUri || symbol.fileUri || 'unknown',
     );
     const lineNumber = symbol.location?.identifierRange.startLine;
     return generateSymbolId(
       symbol.name,
-      filePath,
+      theFileUri,
       undefined, // scopePath not available here
       lineNumber,
     );
@@ -1215,8 +1215,8 @@ export class ApexSymbolGraph {
    * Find symbol ID for a symbol
    */
   private findSymbolId(symbol: ApexSymbol): string | null {
-    const filePath = symbol.fileUri || 'unknown';
-    const symbolId = this.getSymbolId(symbol, filePath);
+    const fileUri = symbol.fileUri || 'unknown';
+    const symbolId = this.getSymbolId(symbol, fileUri);
     return this.symbolIds.has(symbolId) ? symbolId : null;
   }
 
@@ -1303,7 +1303,7 @@ export class ApexSymbolGraph {
     // Create a lightweight node for the graph
     const referenceNode: ReferenceNode = {
       symbolId: virtualSymbolId,
-      filePath: virtualSymbol.fileUri,
+      fileUri: virtualSymbol.fileUri,
       lastUpdated: Date.now(),
       referenceCount: 0,
       nodeId: this.memoryStats.totalVertices + 1,
@@ -1451,8 +1451,8 @@ export class ApexSymbolGraph {
       // Find the source symbol in the graph
       const sourceSymbols = this.findSymbolByName(ref.sourceSymbol.name);
 
-      // If filePath is undefined, match any symbol with the same name
-      // Otherwise, require exact filePath match
+      // If fileUri is undefined, match any symbol with the same name
+      // Otherwise, require exact fileUri match
       const sourceSymbolInGraph = ref.sourceSymbol.fileUri
         ? sourceSymbols.find((s) => s.fileUri === ref.sourceSymbol.fileUri)
         : sourceSymbols[0]; // Take the first symbol with matching name

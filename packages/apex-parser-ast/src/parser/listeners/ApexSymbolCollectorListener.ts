@@ -106,7 +106,7 @@ interface SemanticError {
   message: string;
   line: number;
   column: number;
-  filePath: string;
+  fileUri: string;
 }
 
 interface ChainScope {
@@ -173,9 +173,9 @@ export class ApexSymbolCollectorListener
   /**
    * Set the current file path for this compilation
    */
-  setCurrentFilePath(filePath: string): void {
-    this.currentFilePath = filePath;
-    this.logger.debug(() => `Set current file path to: ${filePath}`);
+  setCurrentFileUri(fileUri: string): void {
+    this.currentFilePath = fileUri;
+    this.logger.debug(() => `Set current file path to: ${fileUri}`);
   }
 
   /**
@@ -2024,7 +2024,7 @@ export class ApexSymbolCollectorListener
       message,
       line: ctx.start.line,
       column: ctx.start.charPositionInLine,
-      filePath: this.currentFilePath,
+      fileUri: this.currentFilePath,
     };
     this.semanticErrors.push(error);
     super.addError(message, ctx);
@@ -2040,7 +2040,7 @@ export class ApexSymbolCollectorListener
       message,
       line: ctx.start.line,
       column: ctx.start.charPositionInLine,
-      filePath: this.currentFilePath,
+      fileUri: this.currentFilePath,
     };
     this.semanticWarnings.push(warning);
     super.addWarning(message, ctx);

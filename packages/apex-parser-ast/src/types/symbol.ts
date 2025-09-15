@@ -326,7 +326,7 @@ export class SymbolFactory {
   /**
    * Generate a unique ID for a symbol using URI-based format
    * @param name The symbol name
-   * @param filePath The file path
+   * @param fileUri The file path
    * @param scopePath Optional scope path for uniqueness (e.g., ["TestClass", "method1", "block1"])
    * @returns URI-based symbol ID
    */
@@ -541,7 +541,7 @@ export interface SymbolKey {
 /**
  * Generate a unified symbol ID from a SymbolKey using URI-based format
  * @param key The symbol key
- * @param filePath Optional file path for uniqueness
+ * @param fileUri Optional file path for uniqueness
  * @returns URI-based symbol ID string
  */
 export const generateUnifiedId = (key: SymbolKey, fileUri?: string): string => {
@@ -565,7 +565,7 @@ export const keyToString = (key: SymbolKey): string =>
 /**
  * Create a SymbolKey from an ApexSymbol with unified ID
  * @param symbol The Apex symbol
- * @param filePath Optional file path
+ * @param fileUri Optional file path
  * @returns Enhanced SymbolKey with unified ID
  */
 export const createFromSymbol = (
@@ -590,13 +590,13 @@ export const createFromSymbol = (
 /**
  * Create a SymbolKey from a parent symbol (for parentKey relationships)
  * @param parentSymbol The parent Apex symbol
- * @param filePath Optional file path
+ * @param fileUri Optional file path
  * @returns Enhanced SymbolKey for parent relationship
  */
 export const createParentKey = (
   parentSymbol: ApexSymbol,
-  filePath?: string,
-): SymbolKey => createFromSymbol(parentSymbol, filePath);
+  fileUri?: string,
+): SymbolKey => createFromSymbol(parentSymbol, fileUri);
 
 /**
  * Check if two SymbolKeys are equivalent
@@ -621,16 +621,16 @@ export const areEquivalent = (key1: SymbolKey, key2: SymbolKey): boolean => {
 /**
  * Get the unified ID from a SymbolKey, generating if needed
  * @param key The symbol key
- * @param filePath Optional file path for generation
+ * @param fileUri Optional file path for generation
  * @returns Unified symbol ID
  */
-export const getUnifiedId = (key: SymbolKey, filePath?: string): string => {
+export const getUnifiedId = (key: SymbolKey, fileUri?: string): string => {
   if (key.unifiedId) {
     return key.unifiedId;
   }
 
   // Generate and cache the unified ID
-  key.unifiedId = generateUnifiedId(key, filePath);
+  key.unifiedId = generateUnifiedId(key, fileUri);
   return key.unifiedId;
 };
 

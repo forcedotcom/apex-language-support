@@ -49,11 +49,11 @@ export const hasProtocol = (uri: string, protocol: UriProtocol): boolean =>
 
 /**
  * Create a file URI
- * @param filePath The file path
+ * @param fileUri The file path
  * @returns The file URI
  */
-export const createFileUri = (filePath: string): string =>
-  `${PROTOCOL_PREFIXES.file}${filePath}`;
+export const createFileUri = (fileUri: string): string =>
+  `${PROTOCOL_PREFIXES.file}${fileUri}`;
 
 /**
  * Create an apexlib URI
@@ -132,23 +132,23 @@ export const isBuiltinUri = (uri: string): boolean =>
 
 /**
  * Convert a file path to the appropriate URI based on content analysis
- * @param filePath The file path to convert
+ * @param fileUri The file path to convert
  * @param isStandardApexNamespace Function to check if a namespace is standard Apex
  * @returns The appropriate URI
  */
 export const convertToAppropriateUri = (
-  filePath: string,
+  fileUri: string,
   isStandardApexNamespace: (namespace: string) => boolean,
 ): string => {
   // Check if this is a standard Apex class
-  if (filePath.includes('/') && filePath.endsWith('.cls')) {
-    const namespace = filePath.split('/')[0];
+  if (fileUri.includes('/') && fileUri.endsWith('.cls')) {
+    const namespace = fileUri.split('/')[0];
     if (isStandardApexNamespace(namespace)) {
-      return createApexLibUri(filePath);
+      return createApexLibUri(fileUri);
     }
   }
 
-  return createFileUri(filePath);
+  return createFileUri(fileUri);
 };
 
 /**

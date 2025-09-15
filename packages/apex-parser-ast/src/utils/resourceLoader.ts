@@ -667,11 +667,11 @@ export class ResourceLoader {
       const listener = new ApexSymbolCollectorListener(symbolTable);
 
       // Convert className to proper URI scheme for standard Apex library classes
-      const filePath = UriUtils.createResourceUri(className);
+      const fileUri = UriUtils.createResourceUri(className);
 
       const result = this.compilerService.compile(
         content,
-        filePath, // Use proper URI scheme for standard Apex library classes
+        fileUri, // Use proper URI scheme for standard Apex library classes
         listener,
         {
           includeComments: false,

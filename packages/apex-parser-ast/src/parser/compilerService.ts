@@ -190,8 +190,8 @@ export class CompilerService {
       listener.setErrorListener(errorListener);
 
       // Set the current file path for the listener
-      if (typeof listener.setCurrentFilePath === 'function') {
-        listener.setCurrentFilePath(fileName);
+      if (typeof listener.setCurrentFileUri === 'function') {
+        listener.setCurrentFileUri(fileName);
       }
 
       const namespace = options.projectNamespace || this.projectNamespace;
