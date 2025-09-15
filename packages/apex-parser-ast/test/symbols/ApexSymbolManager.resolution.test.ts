@@ -167,7 +167,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       expect(result.strategy).toBe('position-based');
     });
 
-    it('should fall back to scope resolution for unsupported request types', async () => {
+    it('should use position-based strategy for completion requests', async () => {
       // Compile a test class with a variable
       const apexCode = loadFixtureFile('SimpleTestClass.cls');
 
@@ -192,7 +192,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
       );
 
       expect(result).toBeDefined();
-      expect(result.strategy).toBe('scope');
+      expect(result.strategy).toBe('position-based');
     });
   });
 

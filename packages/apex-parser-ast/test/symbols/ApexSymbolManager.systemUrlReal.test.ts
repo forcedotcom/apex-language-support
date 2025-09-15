@@ -100,10 +100,7 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
     expect(target).toBeDefined();
 
     // Test resolution of the chained expression
-    const symbol = await symbolManager.resolveChainedTypeReference(
-      target!,
-      testClassUri,
-    );
+    const symbol = await symbolManager.resolveChainedTypeReference(target!);
 
     expect(symbol).toBeDefined();
     expect(symbol?.kind).toBe(SymbolKind.Method);

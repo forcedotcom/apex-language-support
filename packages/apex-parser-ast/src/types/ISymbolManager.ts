@@ -241,18 +241,6 @@ export interface ISymbolManager {
     fileUri: string,
     position: { line: number; character: number },
   ): Promise<ApexSymbol | null>;
-
-  /**
-   * Resolve a symbol using the appropriate resolution strategy
-   * @param request The resolution request with type and position information
-   * @param context The resolution context for the request
-   * @returns Promise resolving to the resolution result
-   */
-  resolveSymbolWithStrategy(
-    request: any,
-    context: SymbolResolutionContext,
-  ): Promise<{ strategy: string; success: boolean }>;
-
   /**
    * Create enhanced resolution context with request type information
    * @param documentText The document text for context analysis
