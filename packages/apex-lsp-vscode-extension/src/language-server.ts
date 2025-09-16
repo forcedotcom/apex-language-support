@@ -327,7 +327,10 @@ export const createAndStartClient = async (
         initializationOptions: getWorkspaceSettings(),
         // Use our consolidated worker/server output channel if available
         ...(getWorkerServerOutputChannel()
-          ? { outputChannel: getWorkerServerOutputChannel() }
+          ? {
+              outputChannel: getWorkerServerOutputChannel(),
+              traceOutputChannel: getWorkerServerOutputChannel(),
+            }
           : {}),
       },
       worker,

@@ -29,6 +29,7 @@ export const initializeExtensionLogging = (
   );
   workerServerOutputChannel = vscode.window.createOutputChannel(
     EXTENSION_CONSTANTS.WORKER_SERVER_OUTPUT_CHANNEL_NAME,
+    'apex',
   );
 
   context.subscriptions.push(clientOutputChannel, workerServerOutputChannel);
