@@ -14,6 +14,8 @@ import {
   browserBaseConfig,
   BROWSER_ALIASES,
 } from '../../build-config/tsup.shared';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Extension-specific packages to bundle
 const EXTENSION_NO_EXTERNAL = [
@@ -28,6 +30,145 @@ const EXTENSION_NO_EXTERNAL = [
   'vscode-jsonrpc',
   'util',
 ];
+
+/**
+ * Copy worker files from apex-ls dist to extension dist
+ */
+function copyWorkerFiles() {
+  console.log('🔧 Copying worker files...');
+  const workerSrc = path.resolve(__dirname, '../apex-ls/dist/worker.global.js');
+  const workerMapSrc = path.resolve(
+    __dirname,
+    '../apex-ls/dist/worker.global.js.map',
+  );
+  const workerWebSrc = path.resolve(
+    __dirname,
+    '../apex-ls/dist/worker-web.global.js',
+  );
+  const workerWebMapSrc = path.resolve(
+    __dirname,
+    '../apex-ls/dist/worker-web.global.js.map',
+  );
+  const distDir = path.resolve(__dirname, 'dist');
+
+  if (!fs.existsSync(distDir)) {
+    fs.mkdirSync(distDir, { recursive: true });
+  }
+
+  // Copy main worker
+  if (fs.existsSync(workerSrc)) {
+    fs.copyFileSync(workerSrc, path.join(distDir, 'worker.js'));
+    console.log('✅ Copied worker.js');
+  } else {
+    console.warn('⚠️ worker.js not found at:', workerSrc);
+  }
+
+  if (fs.existsSync(workerMapSrc)) {
+    fs.copyFileSync(workerMapSrc, path.join(distDir, 'worker.js.map'));
+    console.log('✅ Copied worker.js.map');
+  } else {
+    console.warn('⚠️ worker.js.map not found at:', workerMapSrc);
+  }
+
+  // Copy web worker variant
+  if (fs.existsSync(workerWebSrc)) {
+    fs.copyFileSync(workerWebSrc, path.join(distDir, 'worker-web.js'));
+    console.log('✅ Copied worker-web.js');
+  } else {
+    console.warn('⚠️ worker-web.js not found at:', workerWebSrc);
+  }
+
+  if (fs.existsSync(workerWebMapSrc)) {
+    fs.copyFileSync(workerWebMapSrc, path.join(distDir, 'worker-web.js.map'));
+    console.log('✅ Copied worker-web.js.map');
+  } else {
+    console.warn('⚠️ worker-web.js.map not found at:', workerWebMapSrc);
+  }
+}
+
+/**
+ * Copy manifest and configuration files to dist
+ */
+function copyManifestFiles() {
+  console.log('🔧 Copying manifest and configuration files...');
+  const packageSrcDir = __dirname;
+  const distDir = path.resolve(__dirname, 'dist');
+
+  const filesToCopy = [
+    'package.json',
+    'package.nls.json',
+    'language-configuration.json',
+  ];
+
+  const dirsToCopy = ['grammars', 'snippets', 'resources'];
+
+  // Copy files
+  filesToCopy.forEach((file) => {
+    const srcFile = path.join(packageSrcDir, file);
+    const destFile = path.join(distDir, file);
+    if (fs.existsSync(srcFile)) {
+      fs.copyFileSync(srcFile, destFile);
+      console.log(`✅ Copied ${file}`);
+    }
+  });
+
+  // Copy directories recursively
+  dirsToCopy.forEach((dir) => {
+    const srcDirPath = path.join(packageSrcDir, dir);
+    const destDirPath = path.join(distDir, dir);
+    if (fs.existsSync(srcDirPath)) {
+      fs.cpSync(srcDirPath, destDirPath, { recursive: true });
+      console.log(`✅ Copied ${dir}/`);
+    }
+  });
+}
+
+/**
+ * Fix package.json paths for dist directory
+ */
+function fixPackagePaths() {
+  const packagePath = path.resolve(__dirname, 'dist/package.json');
+  if (!fs.existsSync(packagePath)) {
+    console.log(
+      '⚠️ package.json not found in dist directory, skipping path fix',
+    );
+    return;
+  }
+
+  let content = fs.readFileSync(packagePath, 'utf8');
+  const packageJson = JSON.parse(content);
+
+  // Fix main and browser paths
+  if (packageJson.main && packageJson.main.includes('./dist/')) {
+    packageJson.main = packageJson.main.replace('./dist/', './');
+    console.log(`✅ Fixed main path: ${packageJson.main}`);
+  }
+
+  if (packageJson.browser && packageJson.browser.includes('./dist/')) {
+    packageJson.browser = packageJson.browser.replace('./dist/', './');
+    console.log(`✅ Fixed browser path: ${packageJson.browser}`);
+  }
+
+  // Write the updated package.json
+  fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
+  console.log('✅ Fixed package.json paths for VSCode extension loading');
+}
+
+/**
+ * Execute all post-build tasks
+ */
+async function executePostBuildTasks(): Promise<void> {
+  console.log('🚀 Running post-build tasks...');
+  try {
+    copyWorkerFiles();
+    copyManifestFiles();
+    fixPackagePaths();
+    console.log('✅ All post-build tasks completed successfully!');
+  } catch (error) {
+    console.error('❌ Error during post-build tasks:', error);
+    process.exit(1);
+  }
+}
 
 export default defineConfig([
   // Desktop Node.js Build - Simple and clean
@@ -45,7 +186,7 @@ export default defineConfig([
       'web-worker',
     ],
     noExternal: [...EXTENSION_NO_EXTERNAL, 'vscode-languageclient/node'],
-    onSuccess: 'node scripts/post-build.js',
+    onSuccess: executePostBuildTasks,
   },
 
   // Web Browser Build - Focused on polyfills only where needed
