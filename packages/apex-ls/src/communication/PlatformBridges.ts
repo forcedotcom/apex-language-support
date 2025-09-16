@@ -18,6 +18,11 @@ import {
 } from './MessageTransports';
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
 import type { BrowserConfig, WorkerConfig, Worker } from './Interfaces';
+import {
+  isWindowAvailable,
+  isWorkerAPIAvailable,
+  isWorkerThread,
+} from '../utils/EnvironmentUtils';
 
 // =============================================================================
 // MESSAGE BRIDGES
@@ -37,10 +42,6 @@ export class BrowserMessageBridge extends BaseMessageBridge {
   }
 
   protected isEnvironmentSupported(): boolean {
-    const {
-      isWindowAvailable,
-      isWorkerAPIAvailable,
-    } = require('../utils/EnvironmentUtils');
     return isWindowAvailable() && isWorkerAPIAvailable();
   }
 
@@ -84,7 +85,6 @@ export class WorkerMessageBridge extends BaseMessageBridge {
   }
 
   protected isEnvironmentSupported(): boolean {
-    const { isWorkerThread } = require('../utils/EnvironmentUtils');
     return isWorkerThread();
   }
 

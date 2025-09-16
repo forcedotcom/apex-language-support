@@ -16,9 +16,14 @@
     "test:coverage:report": "node scripts/merge-coverage.js",
     "test:integration": "turbo run test:integration",
     "test:web": "node scripts/test-web-ext.js web",
+    "test:e2e": "turbo run rebuild && turbo run test --filter=e2e-tests",
+    "test:e2e:debug": "turbo run rebuild && turbo run test:debug --filter=e2e-tests",
+    "test:e2e:server": "turbo run rebuild && turbo run server --filter=e2e-tests",
+    "test:e2e:visual": "turbo run rebuild && turbo run test:visual --filter=e2e-tests",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "compile": "turbo run compile",
+    "precompile": "turbo run precompile",
     "prepare": "husky",
     "commit": "git-cz",
     "clean": "turbo run clean && rimraf .turbo coverage test-artifacts",
@@ -28,7 +33,7 @@
     "semantic-release": "semantic-release",
     "bundle": "turbo run bundle",
     "package:packages": "turbo run package --filter=./packages/*",
-    "rebuild": "npm run clean && npm install && npm run compile && npm run bundle"
+    "rebuild": "turbo run clean && turbo run compile && turbo run bundle"
   },
   "keywords": [
     "salesforce",

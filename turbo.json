@@ -38,6 +38,18 @@
       "outputs": [],
       "inputs": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
     },
+    "server": {
+      "dependsOn": ["compile"],
+      "cache": false
+    },
+    "test:debug": {
+      "dependsOn": ["compile"],
+      "cache": false
+    },
+    "test:visual": {
+      "dependsOn": ["compile"],
+      "cache": false
+    },
     "lint": {
       "dependsOn": [],
       "outputs": [],
@@ -78,22 +90,9 @@
       "dependsOn": ["bundle", "^package"],
       "outputs": ["*.vsix"]
     },
-    "apex-language-server-extension-web#precompile": {
-      "dependsOn": ["^precompile"],
-      "outputs": ["out/**"]
-    },
-    "apex-language-server-extension-web#compile": {
-      "dependsOn": [
-        "precompile",
-        "^precompile",
-        "^compile",
-        "@salesforce/apex-lsp-parser-ast#precompile"
-      ],
-      "outputs": ["out/**", "*.tsbuildinfo"]
-    },
-    "apex-language-server-extension-web#package": {
-      "dependsOn": ["bundle", "^package"],
-      "outputs": ["extension/**"]
+    "@salesforce/apex-ls#rebuild": {
+      "dependsOn": ["clean", "precompile", "^precompile", "compile", "bundle"],
+      "cache": false
     }
   }
 }

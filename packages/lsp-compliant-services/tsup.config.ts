@@ -19,6 +19,14 @@ export default defineConfig({
       js: format === 'esm' ? '.mjs' : '.js',
     };
   },
-  noExternal: [],
-  external: [],
+  // Keep VSCode protocol deps external to avoid bundling duplicate protocol/runtime
+  noExternal: ['@salesforce/apex-lsp-shared'],
+  external: [
+    'vscode-languageserver',
+    'vscode-languageserver/node',
+    'vscode-languageserver/browser',
+    'vscode-languageserver-protocol',
+    'vscode-jsonrpc',
+    'vscode-jsonrpc/node',
+  ],
 });

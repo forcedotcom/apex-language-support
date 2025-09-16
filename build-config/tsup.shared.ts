@@ -57,9 +57,9 @@ export const nodeBaseConfig: Partial<Options> = {
 export const browserBaseConfig: Partial<Options> = {
   platform: 'browser', 
   target: 'es2022',
-  format: ['cjs'],
+  format: ['esm'],
   sourcemap: true,
-  clean: false,
+  clean: true,
   minify: false,
   dts: false,
   splitting: false,
@@ -67,14 +67,77 @@ export const browserBaseConfig: Partial<Options> = {
 };
 
 /**
- * Browser polyfill aliases - simplified from complex esbuild setup
+ * Comprehensive Node.js polyfills for browser/web worker environments
+ *
+ * These aliases ensure Node.js modules are replaced with browser-compatible
+ * implementations during the build process.
  */
-export const BROWSER_ALIASES = {
-  'path': 'path-browserify',
-  'crypto': 'crypto-browserify', 
-  'stream': 'stream-browserify',
-  'fs': 'memfs',
-  'url': 'url-browserify',
-  'os': 'os-browserify/browser',
+export const NODE_POLYFILLS = {
+  // Core Node.js modules
+  path: 'path-browserify',
+  crypto: 'crypto-browserify',
+  stream: 'stream-browserify',
+  fs: 'memfs',
+  url: 'url-browserify',
+  os: 'os-browserify/browser',
+  events: 'events',
+  assert: 'assert',
+  util: 'util',
+
+  // Buffer and process - essential globals
+  buffer: 'buffer',
+  process: 'process/browser',
+
+  // VSCode specific mappings
   'vscode-languageclient/node': 'vscode-languageclient/browser',
-};
+  'vscode-languageserver/node': 'vscode-languageserver/browser',
+  'vscode-jsonrpc/node': 'vscode-jsonrpc/browser',
+} as const;
+
+/**
+ * Global definitions for web worker environments
+ *
+ * These definitions ensure essential globals are available and properly
+ * configured for browser/worker contexts.
+ */
+export const WEB_WORKER_GLOBALS = {
+  // Environment configuration
+  'process.env.NODE_ENV': '"production"',
+
+  // Global aliases
+  global: 'globalThis',
+} as const;
+
+/**
+ * Inline code to inject essential globals into the worker environment.
+ * This sets up Node.js polyfills as global variables before the main IIFE runs.
+ * The bundler will resolve the module paths through the alias configuration.
+ */
+// No banner injection needed - polyfills are bundled directly
+export const GLOBAL_INJECTION_CODE = '';
+
+/**
+ * Configures esbuild options for web worker builds with comprehensive polyfills
+ *
+ * @param options - esbuild options object to configure
+ */
+export function configureWebWorkerPolyfills(options: any): void {
+  // Set browser/worker resolution conditions
+  options.conditions = ['browser', 'worker', 'import', 'module', 'default'];
+  options.mainFields = ['browser', 'module', 'main'];
+
+  // Apply Node.js polyfills
+  options.alias = { ...options.alias, ...NODE_POLYFILLS };
+
+  // Set global definitions
+  options.define = { ...options.define, ...WEB_WORKER_GLOBALS };
+
+  // Optimize for web worker environment
+  options.treeShaking = true;
+  options.platform = 'browser';
+}
+
+/**
+ * @deprecated Use NODE_POLYFILLS instead
+ */
+export const BROWSER_ALIASES = NODE_POLYFILLS;
