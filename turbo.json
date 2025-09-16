@@ -69,15 +69,15 @@
     "clean:all": {
       "cache": false
     },
-    "apex-language-server-extension#precompile": {
+    "apex-lsp-vscode-extension#precompile": {
       "dependsOn": ["^precompile"],
       "outputs": ["grammars/**"]
     },
-    "apex-language-server-extension#bundle": {
+    "apex-lsp-vscode-extension#bundle": {
       "dependsOn": ["compile", "@salesforce/apex-ls#bundle"],
       "outputs": ["extension/**", "dist/**", "server-bundle/**"]
     },
-    "apex-language-server-extension#compile": {
+    "apex-lsp-vscode-extension#compile": {
       "dependsOn": [
         "precompile",
         "^precompile",
@@ -86,7 +86,7 @@
       ],
       "outputs": ["out/**", "*.tsbuildinfo"]
     },
-    "apex-language-server-extension#package": {
+    "apex-lsp-vscode-extension#package": {
       "dependsOn": ["bundle", "^package"],
       "outputs": ["*.vsix"]
     },
