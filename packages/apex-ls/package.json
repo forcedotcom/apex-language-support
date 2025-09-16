@@ -47,7 +47,6 @@
     "compile:worker": "tsc --build tsconfig.worker.json",
     "compile:node": "tsc --build tsconfig.node.json",
     "bundle": "tsup",
-    "build": "npm run compile",
     "test": "jest",
     "test:web": "jest --config jest.config.browser.cjs",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
@@ -55,7 +54,7 @@
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
-    "rebuild": "npm run clean && npm install && npm run build"
+    "rebuild": "npm run clean && npm run compile"
   },
   "dependencies": {
     "@apexdevtools/apex-parser": "4.4.1",
