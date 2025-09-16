@@ -288,12 +288,15 @@ export const createAndStartClient = async (
     );
     logToOutputChannel(`🔍 Extension path: ${context.extensionPath}`, 'debug');
 
-    // Use vscode.Uri.joinPath for proper URI construction in web environments
+    const workerFile = environment === 'web' ? 'worker-web.js' : 'worker.js';
+
     const workerUri = vscode.Uri.joinPath(
       context.extensionUri,
       'dist',
-      'worker.js',
+      workerFile,
     );
+    logToOutputChannel(`🔍 Environment: ${environment}`, 'debug');
+    logToOutputChannel(`🔍 Worker file: ${workerFile}`, 'debug');
     logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 
     // Create worker using cross-platform web-worker package
@@ -324,7 +327,10 @@ export const createAndStartClient = async (
         initializationOptions: getWorkspaceSettings(),
         // Use our consolidated worker/server output channel if available
         ...(getWorkerServerOutputChannel()
-          ? { outputChannel: getWorkerServerOutputChannel() }
+          ? {
+              outputChannel: getWorkerServerOutputChannel(),
+              traceOutputChannel: getWorkerServerOutputChannel(),
+            }
           : {}),
       },
       worker,

@@ -77,6 +77,18 @@ export * from './apexlib';
 export * from './queue';
 
 /**
+ * Dispatch function for document open events
+ * @param event The document open event
+ * @returns Promise resolving to diagnostics or undefined
+ */
+export const dispatchProcessOnOpenDocument = async (
+  event: TextDocumentChangeEvent<TextDocument>,
+): Promise<Diagnostic[] | undefined> => {
+  const handler = HandlerFactory.createDidOpenDocumentHandler();
+  return await handler.handleDocumentOpen(event);
+};
+
+/**
  * Dispatch function for document change events
  * @param event The document change event
  * @returns Promise resolving to diagnostics or undefined

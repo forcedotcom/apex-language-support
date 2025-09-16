@@ -54,6 +54,7 @@ export default defineConfig([
     ...browserBaseConfig,
     entry: ['out/extension.js'],
     outDir: 'dist',
+    format: ['cjs'],
     outExtension: () => ({ js: '.web.js' }),
     noExternal: [
       ...EXTENSION_NO_EXTERNAL,
