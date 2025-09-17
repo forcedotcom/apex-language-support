@@ -767,6 +767,24 @@ export class ApexSymbolGraph {
   }
 
   /**
+   * Detect circular dependencies involving a specific symbol
+   */
+  detectCircularDependenciesForSymbol(symbol: ApexSymbol): string[][] {
+    const symbolId = this.getSymbolId(symbol, symbol.fileUri);
+    const cycles: string[][] = [];
+    const visited = new Set<string>();
+    const recursionStack = new Set<string>();
+
+    // Start DFS from the specific symbol
+    if (this.symbolToVertex.has(symbolId)) {
+      this.detectCyclesDFS(symbolId, visited, recursionStack, [], cycles);
+    }
+
+    // Filter cycles to only include those that contain the target symbol
+    return cycles.filter((cycle) => cycle.includes(symbolId));
+  }
+
+  /**
    * Helper method for cycle detection using DFS
    */
   private detectCyclesDFS(
@@ -828,7 +846,8 @@ export class ApexSymbolGraph {
     }
 
     const impactScore = this.calculateImpactScore(dependents, dependencies);
-    const circularDependencies = this.detectCircularDependencies();
+    const circularDependencies =
+      this.detectCircularDependenciesForSymbol(symbol);
 
     return {
       dependencies,

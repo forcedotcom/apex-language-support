@@ -1058,6 +1058,268 @@ describe('ApexSymbolGraph', () => {
       const cycles = graph.detectCircularDependencies();
       expect(cycles).toHaveLength(0);
     });
+
+    it('should not report false positive circular dependencies for simple classes', async () => {
+      // Create a simple class similar to StdApex.cls with no circular dependencies
+      const simpleClassCode = `
+        public class StdApex {
+          public StdApex(String msg) {
+            String foo = msg;
+          }
+
+          public void testStdApex() {
+            String foo = 'foo';
+          }
+
+          public static void debug(String message) {
+            System.debug(message);
+            Assert.isNotNull(message);
+          }
+        }
+      `;
+
+      // Compile the simple class
+      await compileAndAddToManager(simpleClassCode, 'file:///test/StdApex.cls');
+
+      // Get the symbols - filter to get unique symbols
+      const allStdApexSymbols = graph.lookupSymbolByName('StdApex');
+      const classSymbols = allStdApexSymbols.filter((s) => s.kind === 'class');
+      const methodSymbols = graph.lookupSymbolByName('testStdApex');
+      const staticMethodSymbols = graph.lookupSymbolByName('debug');
+
+      // Take the first class symbol if there are duplicates
+      expect(classSymbols.length).toBeGreaterThanOrEqual(1);
+      expect(methodSymbols).toHaveLength(1);
+      expect(staticMethodSymbols).toHaveLength(1);
+
+      const classSymbol = classSymbols[0];
+      const methodSymbol = methodSymbols[0];
+      const staticMethodSymbol = staticMethodSymbols[0];
+
+      // Analyze dependencies for each symbol - should not report circular dependencies
+      const classAnalysis = graph.analyzeDependencies(classSymbol);
+      const methodAnalysis = graph.analyzeDependencies(methodSymbol);
+      const staticMethodAnalysis =
+        graph.analyzeDependencies(staticMethodSymbol);
+
+      // None of these symbols should have circular dependencies
+      expect(classAnalysis.circularDependencies).toHaveLength(0);
+      expect(methodAnalysis.circularDependencies).toHaveLength(0);
+      expect(staticMethodAnalysis.circularDependencies).toHaveLength(0);
+    });
+
+    it('should correctly detect circular dependencies for symbols involved in cycles', async () => {
+      // Create ClassA (depends on ClassB)
+      const classACode = `
+        public class ClassA {
+          public ClassB getClassB() {
+            return new ClassB();
+          }
+        }
+      `;
+
+      // Create ClassB (depends on ClassA) - circular dependency
+      const classBCode = `
+        public class ClassB {
+          public ClassA getClassA() {
+            return new ClassA();
+          }
+        }
+      `;
+
+      // Create ClassC (independent, no circular dependency)
+      const classCCode = `
+        public class ClassC {
+          public void methodC() {
+            // Method implementation
+          }
+        }
+      `;
+
+      // Compile all classes
+      await compileAndAddToManager(classACode, 'file:///test/ClassA.cls');
+      await compileAndAddToManager(classBCode, 'file:///test/ClassB.cls');
+      await compileAndAddToManager(classCCode, 'file:///test/ClassC.cls');
+
+      // Get the symbols
+      const classASymbols = graph.lookupSymbolByName('ClassA');
+      const classBSymbols = graph.lookupSymbolByName('ClassB');
+      const classCSymbols = graph.lookupSymbolByName('ClassC');
+
+      expect(classASymbols).toHaveLength(1);
+      expect(classBSymbols).toHaveLength(1);
+      expect(classCSymbols).toHaveLength(1);
+
+      const classA = classASymbols[0];
+      const classB = classBSymbols[0];
+      const classC = classCSymbols[0];
+
+      // Manually add references to create circular dependency: ClassA -> ClassB -> ClassA
+      graph.addReference(classA, classB, ReferenceType.TYPE_REFERENCE, {
+        symbolRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 10,
+        },
+      });
+
+      graph.addReference(classB, classA, ReferenceType.TYPE_REFERENCE, {
+        symbolRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 10,
+        },
+      });
+
+      // Analyze dependencies for each symbol
+      const classAAnalysis = graph.analyzeDependencies(classA);
+      const classBAnalysis = graph.analyzeDependencies(classB);
+      const classCAnalysis = graph.analyzeDependencies(classC);
+
+      // ClassA and ClassB should have circular dependencies (they're in the cycle)
+      expect(classAAnalysis.circularDependencies.length).toBeGreaterThan(0);
+      expect(classBAnalysis.circularDependencies.length).toBeGreaterThan(0);
+
+      // ClassC should not have circular dependencies (it's independent)
+      expect(classCAnalysis.circularDependencies).toHaveLength(0);
+
+      // Verify that the circular dependencies contain the expected symbols
+      const classACycles = classAAnalysis.circularDependencies;
+
+      // At least one cycle should contain both ClassA and ClassB
+      const hasValidCycle = classACycles.some(
+        (cycle) =>
+          cycle.some((symbolId) => symbolId.includes('ClassA')) &&
+          cycle.some((symbolId) => symbolId.includes('ClassB')),
+      );
+      expect(hasValidCycle).toBe(true);
+    });
+
+    it('should handle complex circular dependency scenarios correctly', async () => {
+      // Create a more complex scenario: A -> B -> C -> A (3-way cycle)
+      const classACode = `
+        public class ClassA {
+          public ClassB getClassB() {
+            return new ClassB();
+          }
+        }
+      `;
+
+      const classBCode = `
+        public class ClassB {
+          public ClassC getClassC() {
+            return new ClassC();
+          }
+        }
+      `;
+
+      const classCCode = `
+        public class ClassC {
+          public ClassA getClassA() {
+            return new ClassA();
+          }
+        }
+      `;
+
+      const classDCode = `
+        public class ClassD {
+          public void methodD() {
+            // Independent class
+          }
+        }
+      `;
+
+      // Compile all classes
+      await compileAndAddToManager(classACode, 'file:///test/ClassA.cls');
+      await compileAndAddToManager(classBCode, 'file:///test/ClassB.cls');
+      await compileAndAddToManager(classCCode, 'file:///test/ClassC.cls');
+      await compileAndAddToManager(classDCode, 'file:///test/ClassD.cls');
+
+      // Get the symbols
+      const classASymbols = graph.lookupSymbolByName('ClassA');
+      const classBSymbols = graph.lookupSymbolByName('ClassB');
+      const classCSymbols = graph.lookupSymbolByName('ClassC');
+      const classDSymbols = graph.lookupSymbolByName('ClassD');
+
+      const classA = classASymbols[0];
+      const classB = classBSymbols[0];
+      const classC = classCSymbols[0];
+      const classD = classDSymbols[0];
+
+      // Create 3-way circular dependency: A -> B -> C -> A
+      graph.addReference(classA, classB, ReferenceType.TYPE_REFERENCE, {
+        symbolRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 10,
+        },
+      });
+
+      graph.addReference(classB, classC, ReferenceType.TYPE_REFERENCE, {
+        symbolRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 10,
+        },
+      });
+
+      graph.addReference(classC, classA, ReferenceType.TYPE_REFERENCE, {
+        symbolRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 3,
+          startColumn: 1,
+          endLine: 3,
+          endColumn: 10,
+        },
+      });
+
+      // Analyze dependencies
+      const classAAnalysis = graph.analyzeDependencies(classA);
+      const classBAnalysis = graph.analyzeDependencies(classB);
+      const classCAnalysis = graph.analyzeDependencies(classC);
+      const classDAnalysis = graph.analyzeDependencies(classD);
+
+      // A, B, C should all have circular dependencies (they're in the cycle)
+      expect(classAAnalysis.circularDependencies.length).toBeGreaterThan(0);
+      expect(classBAnalysis.circularDependencies.length).toBeGreaterThan(0);
+      expect(classCAnalysis.circularDependencies.length).toBeGreaterThan(0);
+
+      // D should not have circular dependencies (it's independent)
+      expect(classDAnalysis.circularDependencies).toHaveLength(0);
+    });
   });
 
   describe('File Operations', () => {
