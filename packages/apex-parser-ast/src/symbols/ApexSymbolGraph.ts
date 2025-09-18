@@ -23,6 +23,7 @@ import {
 } from '../types/symbol';
 import { calculateFQN } from '../utils/FQNUtils';
 import { ResourceLoader } from '../utils/resourceLoader';
+import { isStandardApexUri } from '../types/ProtocolHandler';
 
 /**
  * Context for symbol resolution
@@ -1000,19 +1001,93 @@ export class ApexSymbolGraph {
       };
     }
 
-    // Try to match by source file first
+    // Strategy 1: Try to match by source file first (highest priority)
     if (context.fileUri) {
       const fileMatch = candidates.find((c) => c.fileUri === context.fileUri);
       if (fileMatch) {
         return {
           symbol: fileMatch.symbol,
           fileUri: fileMatch.fileUri,
+          confidence: 0.9,
+        };
+      }
+    }
+
+    // Strategy 2: Handle method resolution based on context
+    // For qualified calls like System.debug, prefer the standard library method
+    // For unqualified calls like debug(), prefer local methods
+    const standardLibraryMethods = candidates.filter(
+      (c) =>
+        c.symbol.kind === 'method' && this.isStandardLibraryMethod(c.symbol),
+    );
+
+    const localMethods = candidates.filter(
+      (c) =>
+        // Check if this is a method from the same file/class as the context
+        c.fileUri === context.fileUri ||
+        (c.symbol.kind === 'method' && !this.isStandardLibraryMethod(c.symbol)),
+    );
+
+    // If we have both standard library and local methods, prefer based on context
+    if (standardLibraryMethods.length > 0 && localMethods.length > 0) {
+      // For qualified calls (when expectedNamespace is set), prefer standard library
+      if (context.expectedNamespace) {
+        const bestStandard = standardLibraryMethods[0];
+        return {
+          symbol: bestStandard.symbol,
+          fileUri: bestStandard.fileUri,
+          confidence: 0.8,
+        };
+      }
+      // For unqualified calls, prefer local methods
+      else {
+        const bestLocal = localMethods[0];
+        return {
+          symbol: bestLocal.symbol,
+          fileUri: bestLocal.fileUri,
           confidence: 0.8,
         };
       }
     }
 
-    // Try to match by scope if provided
+    // If only one type exists, use it
+    if (localMethods.length > 0) {
+      const bestLocal = localMethods[0];
+      return {
+        symbol: bestLocal.symbol,
+        fileUri: bestLocal.fileUri,
+        confidence: 0.8,
+      };
+    }
+
+    if (standardLibraryMethods.length > 0) {
+      const bestStandard = standardLibraryMethods[0];
+      return {
+        symbol: bestStandard.symbol,
+        fileUri: bestStandard.fileUri,
+        confidence: 0.8,
+      };
+    }
+
+    // Strategy 3: Prefer non-static methods for instance context, static for static context
+    if (context.isStatic !== undefined) {
+      const contextAwareMethods = candidates.filter((c) => {
+        if (c.symbol.kind !== 'method') return false;
+        const isStatic = c.symbol.modifiers?.isStatic ?? false;
+        return context.isStatic ? isStatic : !isStatic;
+      });
+
+      if (contextAwareMethods.length > 0) {
+        const bestMethod = contextAwareMethods[0];
+        return {
+          symbol: bestMethod.symbol,
+          fileUri: bestMethod.fileUri,
+          confidence: 0.7,
+        };
+      }
+    }
+
+    // Strategy 4: Try to match by scope if provided
     if (context.currentScope) {
       // For now, return first candidate with scope context
       // This can be enhanced with actual scope hierarchy matching
@@ -1020,7 +1095,7 @@ export class ApexSymbolGraph {
       return {
         symbol: candidate.symbol,
         fileUri: candidate.fileUri,
-        confidence: 0.7,
+        confidence: 0.6,
       };
     }
 
@@ -1031,6 +1106,15 @@ export class ApexSymbolGraph {
       fileUri: candidate.fileUri,
       confidence: 0.5,
     };
+  }
+
+  /**
+   * Check if a symbol is from a standard Apex library (like System, String, etc.)
+   */
+  private isStandardLibraryMethod(symbol: ApexSymbol): boolean {
+    // Use the existing isStandardApexUri function to check if the symbol's file URI
+    // is from the standard Apex library
+    return symbol.fileUri ? isStandardApexUri(symbol.fileUri) : false;
   }
 
   /**
