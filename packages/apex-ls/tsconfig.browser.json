@@ -16,7 +16,6 @@
     "tsBuildInfoFile": "./out/browser/.tsbuildinfo"
   },
   "include": [
-    "src/browser.ts",
     "src/index.browser.ts",
     "src/types.ts",
     "src/communication/Interfaces.ts",
@@ -47,7 +46,6 @@
     "src/**/*.node.ts",
     "src/**/*.worker.ts",
     "src/worker.ts",
-    "src/node.ts",
     "src/minimal-worker.ts",
     "src/index.ts",
     "src/communication/index.ts",
