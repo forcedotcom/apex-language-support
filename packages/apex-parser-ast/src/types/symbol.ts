@@ -391,6 +391,7 @@ export type SymbolResolutionStrategy =
   | 'precise'; // No fallback to containing symbols
 
 export type Range = {
+  /** Start line (1-based) */
   startLine: number;
   /** Start column (0-based) */
   startColumn: number;
