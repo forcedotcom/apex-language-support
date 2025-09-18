@@ -436,7 +436,7 @@ describe('SymbolTable with Type References', () => {
       expect(endReferences).toHaveLength(1);
 
       // Test position after end of range
-      const afterEndPosition = { line: 9, character: 15 }; // 0-based, after endColumn: 15
+      const afterEndPosition = { line: 9, character: 16 }; // 0-based, after endColumn: 15
       const afterEndReferences =
         symbolTable.getReferencesAtPosition(afterEndPosition);
       expect(afterEndReferences).toHaveLength(0);

@@ -10,14 +10,19 @@ import {
   DefinitionParams,
   Location,
   Range,
-  Position,
 } from 'vscode-languageserver-protocol';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
-import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
-import { transformParserToLspPosition } from '../utils/positionUtils';
+import {
+  ApexSymbolProcessingManager,
+  ISymbolManager,
+} from '@salesforce/apex-lsp-parser-ast';
+import {
+  transformLspToParserPosition,
+  transformParserToLspPosition,
+} from '../utils/positionUtils';
+
+import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 
 /**
  * Interface for definition processing functionality
@@ -36,12 +41,22 @@ export interface IDefinitionProcessor {
  */
 export class DefinitionProcessingService implements IDefinitionProcessor {
   private readonly logger: LoggerInterface;
-  private symbolManager: any;
+  private readonly symbolManager: ISymbolManager;
 
-  constructor(logger: LoggerInterface) {
+  // Remove the missingArtifactService field - MissingArtifactUtils will create it on-demand
+  private readonly missingArtifactUtils: MissingArtifactUtils;
+
+  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
+      symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+
+    // MissingArtifactUtils will create the service on-demand
+    this.missingArtifactUtils = new MissingArtifactUtils(
+      logger,
+      this.symbolManager,
+    );
   }
 
   /**
@@ -57,51 +72,69 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     );
 
     try {
-      // Get the storage manager instance
-      const storageManager = ApexStorageManager.getInstance();
-      const storage = storageManager.getStorage();
-
-      // Get the document
-      const document = await storage.getDocument(params.textDocument.uri);
-      if (!document) {
-        this.logger.warn(
-          () => `Document not found: ${params.textDocument.uri}`,
-        );
-        return null;
-      }
-
-      // Extract symbol name at position
-      const symbolName = this.extractSymbolNameAtPosition(
-        document,
-        params.position,
-      );
-      if (!symbolName) {
-        this.logger.debug(() => 'No symbol found at position');
-        return [];
-      }
-
-      // Create resolution context
-      const context = this.createResolutionContext(document, params);
-
-      // Use ApexSymbolManager for context-aware symbol resolution
-      const result = this.symbolManager.resolveSymbol(symbolName, context);
-
-      if (!result.symbol) {
-        this.logger.debug(() => `No symbol found for: ${symbolName}`);
-        return [];
-      }
-
-      // Get definition locations
-      const locations = await this.getDefinitionLocations(
-        result.symbol,
-        context,
-      );
+      // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
+      const parserPosition = transformLspToParserPosition(params.position);
 
       this.logger.debug(
         () =>
-          `Returning ${locations.length} definition locations for: ${symbolName}`,
+          `Transformed position from LSP ${params.position.line}:${params.position.character}` +
+          `to parser ${parserPosition.line}:${parserPosition.character}`,
       );
 
+      // Use precise symbol resolution for goto definition
+      let symbol = await this.symbolManager.getSymbolAtPosition(
+        params.textDocument.uri,
+        parserPosition,
+        'precise',
+      );
+
+      if (!symbol) {
+        this.logger.debug(
+          () =>
+            `No symbol found at parser position ${parserPosition.line}:${parserPosition.character}`,
+        );
+
+        // For goto definition, use blocking resolution for missing artifacts
+        // This provides immediate response as the user expects a new tab to be opened
+        const resolutionResult =
+          await this.missingArtifactUtils.tryResolveMissingArtifactBlocking(
+            params.textDocument.uri,
+            params.position,
+            'definition',
+          );
+
+        // If blocking resolution succeeded, retry symbol lookup
+        if (resolutionResult === 'resolved') {
+          this.logger.debug(
+            () => 'Missing artifact resolved, retrying symbol lookup',
+          );
+          symbol = await this.symbolManager.getSymbolAtPosition(
+            params.textDocument.uri,
+            parserPosition,
+            'precise',
+          );
+        }
+
+        // If still no symbol found, return empty results
+        if (!symbol) {
+          return [];
+        }
+      }
+
+      this.logger.debug(() => `Found symbol: ${symbol.name} (${symbol.kind})`);
+      this.logger.debug(
+        () => `Symbol structure: ${JSON.stringify(symbol, null, 2)}`,
+      );
+
+      // Get definition locations
+      const locations = await this.getDefinitionLocations(symbol, params);
+
+      this.logger.debug(
+        () =>
+          `Returning ${locations.length} definition locations for: ${symbol.name}`,
+      );
+
+      // Return the locations array
       return locations;
     } catch (error) {
       this.logger.error(() => `Error processing definition request: ${error}`);
@@ -110,99 +143,9 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
   }
 
   /**
-   * Extract symbol name from text at a specific position
-   * @param text The document text
-   * @param position The position in the text
-   * @returns The extracted symbol name or null
-   */
-  public extractSymbolName(text: string, position: number): string | null {
-    // Simple implementation - extract word at position
-    const words = text.split(/\s+/);
-    let currentPos = 0;
-
-    for (const word of words) {
-      const wordStart = currentPos;
-      const wordEnd = currentPos + word.length;
-
-      if (position >= wordStart && position <= wordEnd) {
-        // Clean up the word (remove punctuation)
-        return word.replace(/[^\w]/g, '');
-      }
-
-      currentPos = wordEnd + 1; // +1 for space
-    }
-
-    return null;
-  }
-
-  /**
-   * Check if the context is static
-   * @param text The document text
-   * @param position The position in the text
-   * @returns True if in static context
-   */
-  public isInStaticContext(text: string, position: number): boolean {
-    // Simple implementation - check for static keyword before position
-    const beforePosition = text.substring(0, position);
-    return beforePosition.includes('static');
-  }
-
-  /**
-   * Get access modifier context
-   * @param text The document text
-   * @param position The position in the text
-   * @returns The access modifier or 'public' as default
-   */
-  public getAccessModifierContext(
-    text: string,
-    position: number,
-  ): 'public' | 'private' | 'protected' | 'global' {
-    // Simple implementation - check for access modifiers before position
-    const beforePosition = text.substring(0, position);
-
-    if (beforePosition.includes('private')) return 'private';
-    if (beforePosition.includes('protected')) return 'protected';
-    if (beforePosition.includes('global')) return 'global';
-
-    return 'public'; // Default
-  }
-
-  /**
-   * Extract symbol name at position from document
-   * @param document The text document
-   * @param position The position
-   * @returns The symbol name or null
-   */
-  private extractSymbolNameAtPosition(
-    document: TextDocument,
-    position: Position,
-  ): string | null {
-    // Simple word extraction (in practice would use AST analysis)
-    const wordRange = this.getWordRangeAtPosition(document, position);
-    if (wordRange) {
-      return document.getText(wordRange);
-    }
-
-    return null;
-  }
-
-  /**
-   * Create resolution context for symbol lookup
-   */
-  private createResolutionContext(
-    document: TextDocument,
-    params: DefinitionParams,
-  ) {
-    // Use shared context analysis from ApexSymbolManager
-    return this.symbolManager.createResolutionContext(
-      document.getText(),
-      params.position,
-      document.uri,
-    );
-  }
-
-  /**
    * Get definition locations for a symbol
+   * For goto definition, we only return the primary definition location
+   * to avoid confusing the user with multiple locations
    */
   private async getDefinitionLocations(
     symbol: any,
@@ -211,27 +154,15 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     const locations: Location[] = [];
 
     try {
-      // Get the primary definition location
+      // Get only the primary definition location for goto definition
       const primaryLocation = this.createLocationFromSymbol(symbol);
       if (primaryLocation) {
         locations.push(primaryLocation);
       }
 
-      // Get related definitions through relationships
-      const relatedDefinitions = await this.getRelatedDefinitions(symbol);
-      locations.push(...relatedDefinitions);
-
-      // Get interface implementations if applicable
-      if (symbol.kind === 'class') {
-        const interfaceDefinitions = await this.getInterfaceDefinitions(symbol);
-        locations.push(...interfaceDefinitions);
-      }
-
-      // Get inherited definitions if applicable
-      if (symbol.kind === 'class' || symbol.kind === 'interface') {
-        const inheritedDefinitions = await this.getInheritedDefinitions(symbol);
-        locations.push(...inheritedDefinitions);
-      }
+      // Note: For goto definition, we don't include related, interface, or inherited definitions
+      // as this would confuse the user by opening multiple locations. The LSP spec allows
+      // Location[] but for goto definition, users typically expect a single, clear result.
     } catch (error) {
       this.logger.debug(() => `Error getting definition locations: ${error}`);
     }
@@ -244,25 +175,67 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
    */
   private createLocationFromSymbol(symbol: any): Location | null {
     if (!symbol.location) {
+      this.logger.debug(
+        () => `Symbol has no location: ${JSON.stringify(symbol)}`,
+      );
       return null;
     }
 
     const uri = this.getSymbolFileUri(symbol);
     if (!uri) {
+      this.logger.debug(() => `Could not get URI for symbol: ${symbol.name}`);
+      return null;
+    }
+
+    // For goto definition, we require precise positioning via identifierRange
+    if (!symbol.location.identifierRange) {
+      this.logger.warn(
+        () =>
+          `Symbol missing precise positioning (identifierRange) required for goto definition: ${JSON.stringify(
+            symbol.location,
+          )}`,
+      );
+      return null;
+    }
+
+    // Use precise identifier range for accurate positioning
+    const startLine = symbol.location.identifierRange.startLine;
+    const startColumn = symbol.location.identifierRange.startColumn;
+    const endLine = symbol.location.identifierRange.endLine;
+    const endColumn = symbol.location.identifierRange.endColumn;
+
+    this.logger.debug(
+      () =>
+        `Using precise identifierRange: ${startLine}:${startColumn}-${endLine}:${endColumn}`,
+    );
+
+    // Validate that we have valid numeric values
+    if (
+      typeof startLine !== 'number' ||
+      typeof startColumn !== 'number' ||
+      typeof endLine !== 'number' ||
+      typeof endColumn !== 'number'
+    ) {
+      this.logger.warn(
+        () =>
+          `Invalid position values: startLine=${startLine}, ` +
+          `startColumn=${startColumn}, endLine=${endLine}, endColumn=${endColumn}`,
+      );
       return null;
     }
 
     const range: Range = {
       start: transformParserToLspPosition({
-        line: symbol.location.startLine,
-        character: symbol.location.startColumn,
+        line: startLine,
+        character: startColumn,
       }),
       end: transformParserToLspPosition({
-        line: symbol.location.endLine,
-        character: symbol.location.endColumn,
+        line: endLine,
+        character: endColumn,
       }),
     };
 
+    this.logger.debug(() => `Created range: ${JSON.stringify(range)}`);
     return { uri, range };
   }
 
@@ -376,59 +349,5 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
     }
 
     return null;
-  }
-
-  /**
-   * Get word range at position (simplified implementation)
-   */
-  private getWordRangeAtPosition(
-    document: TextDocument,
-    position: Position,
-  ): Range | null {
-    const text = document.getText();
-    const offset = document.offsetAt(position);
-
-    // Simple word boundary detection
-    const wordRegex = /\b\w+\b/g;
-    let match;
-
-    while ((match = wordRegex.exec(text)) !== null) {
-      const start = match.index;
-      const end = start + match[0].length;
-
-      if (offset >= start && offset <= end) {
-        return {
-          start: document.positionAt(start),
-          end: document.positionAt(end),
-        };
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Extract import statements from document text
-   */
-  private extractImportStatements(text: string): string[] {
-    const imports: string[] = [];
-    const lines = text.split('\n');
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('import ')) {
-        imports.push(trimmed);
-      }
-    }
-
-    return imports;
-  }
-
-  /**
-   * Extract namespace context from document text
-   */
-  private extractNamespaceContext(text: string): string {
-    // Simplified - would use AST analysis in practice
-    return 'default';
   }
 }

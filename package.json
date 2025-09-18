@@ -7,7 +7,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "test": "turbo run test --filter=./packages/*",
+    "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "test:perf": "turbo run test:perf",
     "test:quality": "turbo run test:quality",
@@ -112,6 +112,7 @@
     "@apexdevtools/apex-parser": "4.4.0",
     "antlr4ts": "0.5.0-alpha.4",
     "data-structure-typed": "^2.0.4",
+    "vscode-languageserver-protocol": "^3.17.5",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-uri": "^3.1.0"
   },

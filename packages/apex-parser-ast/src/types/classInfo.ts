@@ -30,5 +30,5 @@ export interface ApexClassInfo {
   /**
    * The file path where the class is defined
    */
-  filePath?: string;
+  fileUri?: string;
 }

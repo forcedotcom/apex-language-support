@@ -217,7 +217,6 @@ export interface SymbolProvider {
   find(referencingType: ApexSymbol, fullName: string): ApexSymbol | null;
   findBuiltInType(name: string): ApexSymbol | null;
   findSObjectType(name: string): ApexSymbol | null;
-  findUserType(name: string, namespace?: string): ApexSymbol | null;
   findExternalType(name: string, packageName: string): ApexSymbol | null;
 }
 

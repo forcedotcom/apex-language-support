@@ -29,6 +29,15 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
   };
 });
 
+// Mock the parser package's ResourceLoader to prevent embedded content resolution
+jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
+  ResourceLoader: {
+    getInstance: jest.fn().mockReturnValue({
+      getFile: jest.fn().mockResolvedValue(null), // Return null to trigger fallback to storage
+    }),
+  },
+}));
+
 jest.mock('../../src/utils/handlerUtil');
 jest.mock('../../src/storage/ApexStorageManager');
 
@@ -87,7 +96,13 @@ describe('ApexLibResolveHandler', () => {
         `Processing resolve request for: ${params.uri}`,
       );
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Successfully resolved content for: ${params.uri}`,
+        `No embedded content found for: ${params.uri}`,
+      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Falling back to storage for: ${params.uri}`,
+      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        `Successfully resolved content from storage for: ${params.uri}`,
       );
     });
 

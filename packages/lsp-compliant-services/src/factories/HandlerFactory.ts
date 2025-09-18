@@ -33,6 +33,11 @@ import {
   HoverProcessingService,
   IHoverProcessor,
 } from '../services/HoverProcessingService';
+import { DefinitionHandler } from '../handlers/DefinitionHandler';
+import {
+  DefinitionProcessingService,
+  IDefinitionProcessor,
+} from '../services/DefinitionProcessingService';
 import { DidOpenDocumentHandler } from '../handlers/DidOpenDocumentHandler';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
 
@@ -168,5 +173,29 @@ export class HandlerFactory {
     hoverProcessor: IHoverProcessor,
   ): HoverHandler {
     return new HoverHandler(logger, hoverProcessor);
+  }
+
+  /**
+   * Create a DefinitionHandler with default dependencies
+   * @returns A configured DefinitionHandler instance
+   */
+  static createDefinitionHandler(): DefinitionHandler {
+    const logger = getLogger();
+    const definitionProcessor = new DefinitionProcessingService(logger);
+
+    return new DefinitionHandler(logger, definitionProcessor);
+  }
+
+  /**
+   * Create a DefinitionHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param definitionProcessor Custom definition processor implementation
+   * @returns A configured DefinitionHandler instance
+   */
+  static createDefinitionHandlerWithDependencies(
+    logger: LoggerInterface,
+    definitionProcessor: IDefinitionProcessor,
+  ): DefinitionHandler {
+    return new DefinitionHandler(logger, definitionProcessor);
   }
 }

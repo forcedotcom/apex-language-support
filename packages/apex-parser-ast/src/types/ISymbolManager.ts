@@ -44,8 +44,8 @@ export interface SymbolResolutionContext {
  * Result of symbol resolution
  */
 export interface SymbolResolutionResult {
-  symbol: ApexSymbol;
-  filePath: string;
+  symbol: ApexSymbol | null;
+  fileUri: string;
   confidence: number;
   isAmbiguous: boolean;
   candidates?: ApexSymbol[];
@@ -60,7 +60,7 @@ export interface ISymbolManager {
   /**
    * Add a symbol to the manager
    */
-  addSymbol(symbol: ApexSymbol, filePath: string): void;
+  addSymbol(symbol: ApexSymbol, fileUri: string): void;
 
   /**
    * Get symbol by ID
@@ -80,7 +80,7 @@ export interface ISymbolManager {
   /**
    * Find all symbols in a specific file
    */
-  findSymbolsInFile(filePath: string): ApexSymbol[];
+  findSymbolsInFile(fileUri: string): ApexSymbol[];
 
   /**
    * Find files containing a symbol with the given name
@@ -151,7 +151,7 @@ export interface ISymbolManager {
   /**
    * Remove a file's symbols
    */
-  removeFile(filePath: string): void;
+  removeFile(fileUri: string): void;
 
   /**
    * Optimize memory usage
@@ -195,7 +195,7 @@ export interface ISymbolManager {
    * Implementations should normalize the file path internally.
    */
   setCommentAssociations(
-    filePath: string,
+    fileUri: string,
     associations: CommentAssociation[],
   ): void;
 
@@ -207,12 +207,12 @@ export interface ISymbolManager {
   /**
    * Get TypeReference data at a specific position in a file
    * This provides precise AST-based position data for enhanced symbol resolution
-   * @param filePath The file path to search in
+   * @param fileUri The file path to search in
    * @param position The position to search for references (1-based line index, 0-based column index)
    * @returns Array of TypeReference objects at the position
    */
   getReferencesAtPosition(
-    filePath: string,
+    fileUri: string,
     position: { line: number; character: number },
   ): TypeReference[];
 
@@ -228,7 +228,7 @@ export interface ISymbolManager {
     fileUri: string,
     position: { line: number; character: number },
     strategy?: SymbolResolutionStrategy,
-  ): ApexSymbol | null;
+  ): Promise<ApexSymbol | null>;
 
   /**
    * Get the most specific symbol at a given position in a file
@@ -240,19 +240,7 @@ export interface ISymbolManager {
   getSymbolAtPositionWithinScope(
     fileUri: string,
     position: { line: number; character: number },
-  ): ApexSymbol | null;
-
-  /**
-   * Resolve a symbol using the appropriate resolution strategy
-   * @param request The resolution request with type and position information
-   * @param context The resolution context for the request
-   * @returns Promise resolving to the resolution result
-   */
-  resolveSymbolWithStrategy(
-    request: any,
-    context: SymbolResolutionContext,
-  ): Promise<{ strategy: string; success: boolean }>;
-
+  ): Promise<ApexSymbol | null>;
   /**
    * Create enhanced resolution context with request type information
    * @param documentText The document text for context analysis

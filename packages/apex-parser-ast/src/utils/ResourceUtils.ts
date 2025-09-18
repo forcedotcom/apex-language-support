@@ -10,29 +10,29 @@
  * URIs to standard resource locations
  *
  * These URIs use a consistent format regardless of platform.
- * They all use the 'apex-resources:' scheme to indicate they're
+ * They all use the 'apexlib:' scheme to indicate they're
  * resources within the Apex library.
  */
 /**
  * APEX_RESOURCES_SCHEME is the scheme used to identify resources in the Apex library.
  * It is used to prefix all resource URIs.
  */
-export const APEX_RESOURCES_SCHEME = 'apex-resources';
+export const APEX_RESOURCES_SCHEME = 'apexlib';
 
 /**
  * Base URI to resources in the package
  */
-export const BASE_RESOURCES_URI = `${APEX_RESOURCES_SCHEME}:/resources`;
+export const BASE_RESOURCES_URI = `${APEX_RESOURCES_SCHEME}://resources`;
 
 /**
  * URI to StandardApexLibrary in the package
  */
-export const STANDARD_APEX_LIBRARY_URI = `${APEX_RESOURCES_SCHEME}:/resources/StandardApexLibrary`;
+export const STANDARD_APEX_LIBRARY_URI = `${APEX_RESOURCES_SCHEME}://resources/StandardApexLibrary`;
 
 /**
  * URI to the version file in the package
  */
-export const VERSION_FILE_URI = `${APEX_RESOURCES_SCHEME}:/resources/StandardApexLibrary/.version.json`;
+export const VERSION_FILE_URI = `${APEX_RESOURCES_SCHEME}://resources/StandardApexLibrary/.version.json`;
 
 /**
  * Information about Salesforce version
@@ -45,18 +45,23 @@ export interface SalesforceVersionInfo {
 }
 
 /**
- * Convert an apex-resources URI to a URL for browser environments
+ * Default Salesforce version to use if version file cannot be loaded
+ */
+export const DEFAULT_SALESFORCE_VERSION = 258;
+
+/**
+ * Convert an apexlib URI to a URL for browser environments
  * @param uri The URI to convert
  * @param baseUrl Optional base URL to prepend
  * @returns A URL suitable for browser environments
  */
 export function uriToBrowserUrl(uri: string, baseUrl?: string): string {
-  if (!uri.startsWith('apex-resources:/')) {
-    throw new Error(`Invalid apex-resources URI: ${uri}`);
+  if (!uri.startsWith(`${APEX_RESOURCES_SCHEME}://`)) {
+    throw new Error(`Invalid apexlib URI: ${uri}`);
   }
 
   // Remove the scheme and get the path portion
-  const resourcePath = uri.replace('apex-resources:/', '');
+  const resourcePath = uri.replace(`${APEX_RESOURCES_SCHEME}://`, '');
 
   // Make sure the resource path starts with a slash if it's not empty
   const formattedPath =
@@ -82,8 +87,8 @@ export function uriToBrowserUrl(uri: string, baseUrl?: string): string {
  * @returns A new URI with the paths joined
  */
 export function joinUri(baseUri: string, relativePath: string): string {
-  if (!baseUri.startsWith('apex-resources:/')) {
-    throw new Error(`Invalid apex-resources URI: ${baseUri}`);
+  if (!baseUri.startsWith(`${APEX_RESOURCES_SCHEME}://`)) {
+    throw new Error(`Invalid apexlib URI: ${baseUri}`);
   }
 
   // Ensure the relative path doesn't start with a slash
@@ -102,14 +107,14 @@ export function joinUri(baseUri: string, relativePath: string): string {
  */
 export const UriUtils = {
   /**
-   * Checks if a URI uses the apex-resources scheme
+   * Checks if a URI uses the apexlib scheme
    */
   isApexResourceUri(uri: string): boolean {
     return uri.startsWith(`${APEX_RESOURCES_SCHEME}:`);
   },
 
   /**
-   * Checks if a URI is from an external source (non-apex-resources)
+   * Checks if a URI is from an external source (non-apexlib)
    */
   isExternalUri(uri: string): boolean {
     return !this.isApexResourceUri(uri);
@@ -119,27 +124,29 @@ export const UriUtils = {
    * Creates a resource URI for the given path
    */
   createResourceUri(path: string): string {
-    return `${APEX_RESOURCES_SCHEME}:/resources/${path}`;
+    return `${BASE_RESOURCES_URI}/${path}`;
   },
 
   /**
-   * Extracts the path from an apex-resources URI
+   * Extracts the path from an apexlib URI
    */
   extractResourcePath(uri: string): string | null {
     if (!this.isApexResourceUri(uri)) return null;
-    const match = uri.match(/^apex-resources:\/resources\/(.+)$/);
+    const match = uri.match(
+      new RegExp(`^${APEX_RESOURCES_SCHEME}://resources/(.+)$`),
+    );
     return match ? match[1] : null;
   },
 
   /**
    * Normalizes a URI for consistent handling
-   * External URIs are returned as-is, apex-resources URIs are validated
+   * External URIs are returned as-is, apexlib URIs are validated
    */
   normalizeUri(uri: string): string {
     if (this.isApexResourceUri(uri)) {
-      // Validate and potentially normalize apex-resources URIs
-      if (!uri.match(/^apex-resources:\/resources\/.+/)) {
-        throw new Error(`Invalid apex-resources URI format: ${uri}`);
+      // Validate and potentially normalize apexlib URIs
+      if (!uri.match(new RegExp(`^${APEX_RESOURCES_SCHEME}://resources/.+`))) {
+        throw new Error(`Invalid apexlib URI format: ${uri}`);
       }
     }
     return uri;

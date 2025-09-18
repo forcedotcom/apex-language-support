@@ -466,7 +466,7 @@ sequenceDiagram
 
 ### VS Code Extensions (1 total)
 
-- `apex-lsp-vscode-extension` (unified desktop/web extension)
+- `apex-lsp-vscode-extension` (desktop)
 
 ## Artifact Management
 

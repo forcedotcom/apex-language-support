@@ -65,8 +65,6 @@ describe('Method Variable Declaration', () => {
         listener,
       );
 
-
-
       expect(result.errors.length).toBe(0);
 
       const symbolTable = result.result;
@@ -138,8 +136,6 @@ describe('Method Variable Declaration', () => {
         'BlocksTest.cls',
         listener,
       );
-
-
 
       expect(result.errors.length).toBe(0);
 

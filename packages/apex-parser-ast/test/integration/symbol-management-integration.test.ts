@@ -107,7 +107,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const lookupResult = symbolGraph.lookupSymbolWithContext(
         'createAccount',
         {
-          sourceFile: 'AccountService.cls',
+          fileUri: 'AccountService.cls',
           currentScope: 'AccountService',
         },
       );
@@ -192,7 +192,20 @@ describe.skip('Symbol Management - Integration Tests', () => {
           contactServiceSymbol,
           accountServiceSymbol,
           ReferenceType.TYPE_REFERENCE,
-          { startLine: 3, startColumn: 1, endLine: 3, endColumn: 20 },
+          {
+            symbolRange: {
+              startLine: 3,
+              startColumn: 1,
+              endLine: 3,
+              endColumn: 20,
+            },
+            identifierRange: {
+              startLine: 3,
+              startColumn: 1,
+              endLine: 3,
+              endColumn: 20,
+            },
+          },
         );
       }
 
@@ -200,14 +213,16 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const accountServiceFromContact = symbolGraph.lookupSymbolWithContext(
         'AccountService',
         {
-          sourceFile: 'ContactService.cls',
+          fileUri: 'ContactService.cls',
           currentScope: 'ContactService',
         },
       );
 
       expect(accountServiceFromContact).toBeDefined();
       expect(accountServiceFromContact?.symbol.name).toBe('AccountService');
-      expect(accountServiceFromContact?.filePath).toBe('AccountService.cls');
+      expect(accountServiceFromContact?.symbol.fileUri).toBe(
+        'AccountService.cls',
+      );
 
       // Verify dependency analysis
       const contactService = contactSymbolTable.lookup('ContactService');
@@ -273,7 +288,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const innerClassLookup = symbolGraph.lookupSymbolWithContext(
         'InnerClass',
         {
-          sourceFile: 'ComplexService.cls',
+          fileUri: 'ComplexService.cls',
           currentScope: 'ComplexService',
         },
       );
@@ -282,7 +297,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const nestedClassLookup = symbolGraph.lookupSymbolWithContext(
         'NestedClass',
         {
-          sourceFile: 'ComplexService.cls',
+          fileUri: 'ComplexService.cls',
           currentScope: 'ComplexService',
         },
       );
@@ -292,7 +307,7 @@ describe.skip('Symbol Management - Integration Tests', () => {
       const getInnerFieldLookup = symbolGraph.lookupSymbolWithContext(
         'getInnerField',
         {
-          sourceFile: 'ComplexService.cls',
+          fileUri: 'ComplexService.cls',
           currentScope: 'InnerClass',
         },
       );
@@ -311,15 +326,15 @@ describe.skip('Symbol Management - Integration Tests', () => {
       `;
 
       const listener = new ApexSymbolCollectorListener();
-      const result = await compilerService.compile(
+      const result = compilerService.compile(
         apexCode,
         'TestService.cls',
         listener,
       );
 
-      expect(result.success).toBe(true);
+      expect(result.result).toBeDefined();
 
-      const symbolTable = listener.getSymbolTable();
+      const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
 
       // Add symbols through symbol manager
@@ -377,12 +392,12 @@ describe.skip('Symbol Management - Integration Tests', () => {
         listener2,
       );
 
-      expect(result1.success).toBe(true);
-      expect(result2.success).toBe(true);
+      expect(result1.result).toBeDefined();
+      expect(result2.result).toBeDefined();
 
       // Add symbols to manager
-      const symbols1 = listener1.getSymbolTable().getAllSymbols();
-      const symbols2 = listener2.getSymbolTable().getAllSymbols();
+      const symbols1 = listener1.getResult().getAllSymbols();
+      const symbols2 = listener2.getResult().getAllSymbols();
 
       for (const symbol of symbols1) {
         symbolManager.addSymbol(symbol, 'ServiceA.cls');
@@ -448,10 +463,10 @@ describe.skip('Symbol Management - Integration Tests', () => {
       );
       const compileTime = Date.now() - startTime;
 
-      expect(result.success).toBe(true);
+      expect(result.result).toBeDefined();
       expect(compileTime).toBeLessThan(5000); // Should compile within 5 seconds
 
-      const symbolTable = listener.getSymbolTable();
+      const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
 
       // Add to graph
@@ -498,11 +513,11 @@ describe.skip('Symbol Management - Integration Tests', () => {
       );
 
       // Should handle errors gracefully
-      expect(result.success).toBe(false);
+      expect(result.result).toBeUndefined();
       expect(result.errors.length).toBeGreaterThan(0);
 
       // Symbol table should still be available with partial symbols
-      const symbolTable = listener.getSymbolTable();
+      const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
 
       // Should still be able to add valid symbols to graph
@@ -531,9 +546,9 @@ describe.skip('Symbol Management - Integration Tests', () => {
         listener,
       );
 
-      expect(result.success).toBe(true);
+      expect(result.result).toBeDefined();
 
-      const symbolTable = listener.getSymbolTable();
+      const symbolTable = listener.getResult();
       const symbols = symbolTable.getAllSymbols();
 
       // Add symbols multiple times

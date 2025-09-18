@@ -9,6 +9,7 @@
 import { ApexSymbol, SymbolKind, SymbolVisibility } from '../types/symbol';
 import { BuiltInTypeTables } from '../namespace/NamespaceUtils';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { STANDARD_SOBJECT_TYPES } from '../constants/constants';
 
 /**
  * Built-in type tables for Apex
@@ -172,51 +173,7 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
 
     // Common SObject types
     const sObjectTypeNames = [
-      // Standard Objects
-      'Account',
-      'Contact',
-      'Lead',
-      'Opportunity',
-      'Case',
-      'User',
-      'Profile',
-      'Role',
-      'Group',
-      'Queue',
-      'Task',
-      'Event',
-      'Note',
-      'Attachment',
-      'ContentDocument',
-      'ContentVersion',
-      'FeedItem',
-      'FeedComment',
-      'Campaign',
-      'CampaignMember',
-      'Asset',
-      'Contract',
-      'Order',
-      'OrderItem',
-      'Pricebook2',
-      'PricebookEntry',
-      'Product2',
-      'Quote',
-      'QuoteLineItem',
-      'Entitlement',
-      'ServiceContract',
-      'WorkOrder',
-      'WorkOrderLineItem',
-      'KnowledgeArticle',
-      'KnowledgeArticleVersion',
-      'Solution',
-      'Idea',
-      'Vote',
-      'Partner',
-      'PartnerRole',
-      'CollaborationGroup',
-      'CollaborationGroupMember',
-      'Topic',
-      'TopicAssignment',
+      ...Array.from(STANDARD_SOBJECT_TYPES),
       'CustomObject__c', // Placeholder for custom objects
     ];
 
@@ -265,7 +222,7 @@ export class BuiltInTypeTablesImpl implements BuiltInTypeTables {
         name: name,
       },
       parentKey: null,
-      filePath: 'built-in://apex',
+      fileUri: 'built-in://apex',
       parentId: null,
       _modifierFlags: 0,
       _isLoaded: true,

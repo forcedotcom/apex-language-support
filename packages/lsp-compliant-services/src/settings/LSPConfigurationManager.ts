@@ -7,6 +7,7 @@
  */
 
 import { ServerCapabilities } from 'vscode-languageserver-protocol';
+import type { Connection } from 'vscode-languageserver';
 
 import {
   ApexCapabilitiesManager,
@@ -26,6 +27,17 @@ import {
 declare const self: any;
 
 /**
+ * Runtime dependencies that can be injected into the LSP server
+ * These are system-level dependencies that services may need
+ */
+export interface LSPRuntimeDependencies {
+  /** LSP connection for client communication */
+  connection?: Connection;
+
+  /** Additional runtime dependencies can be added here as needed */
+}
+
+/**
  * Configuration options for the LSP server
  */
 export interface LSPConfigurationOptions {
@@ -43,6 +55,9 @@ export interface LSPConfigurationOptions {
 
   /** Whether to auto-detect environment and mode */
   autoDetectEnvironment?: boolean;
+
+  /** Runtime dependencies for services */
+  runtime?: LSPRuntimeDependencies;
 }
 
 /**
@@ -53,12 +68,15 @@ export interface LSPConfigurationOptions {
  * Integrates with both capabilities management and settings management systems.
  */
 export class LSPConfigurationManager {
+  private static instance: LSPConfigurationManager | null = null;
+
   private capabilitiesManager: ApexCapabilitiesManager;
   private settingsManager: ApexSettingsManager;
   private customCapabilities?: Partial<ExtendedServerCapabilities>;
   private environment: 'node' | 'browser' | 'web-worker';
   private autoDetectEnvironment: boolean;
   private settingsChangeListener?: () => void;
+  private runtimeDependencies?: LSPRuntimeDependencies;
 
   constructor(options: LSPConfigurationOptions = {}) {
     this.capabilitiesManager = ApexCapabilitiesManager.getInstance();
@@ -70,6 +88,9 @@ export class LSPConfigurationManager {
       options.initialSettings,
       this.environment === 'browser' ? 'browser' : 'node',
     );
+
+    // Store runtime dependencies
+    this.runtimeDependencies = options.runtime;
 
     // Set the mode if provided, otherwise auto-detect
     if (options.mode) {
@@ -85,6 +106,30 @@ export class LSPConfigurationManager {
 
     // Set up settings change listener
     this.setupSettingsChangeListener();
+
+    // Store as singleton instance
+    LSPConfigurationManager.instance = this;
+  }
+
+  /**
+   * Get or create the singleton instance
+   * @param options - Configuration options (only used if instance doesn't exist)
+   * @returns The singleton instance
+   */
+  static getInstance(
+    options?: LSPConfigurationOptions,
+  ): LSPConfigurationManager {
+    if (!LSPConfigurationManager.instance) {
+      LSPConfigurationManager.instance = new LSPConfigurationManager(options);
+    }
+    return LSPConfigurationManager.instance;
+  }
+
+  /**
+   * Reset the singleton instance (mainly for testing)
+   */
+  static resetInstance(): void {
+    LSPConfigurationManager.instance = null;
   }
 
   /**
@@ -202,6 +247,22 @@ export class LSPConfigurationManager {
     newSettings: Partial<ApexLanguageServerSettings>,
   ): void {
     this.settingsManager.updateSettings(newSettings);
+  }
+
+  /**
+   * Get runtime dependencies
+   * @returns The runtime dependencies (connection, etc.)
+   */
+  public getRuntimeDependencies(): LSPRuntimeDependencies | undefined {
+    return this.runtimeDependencies;
+  }
+
+  /**
+   * Get LSP connection from runtime dependencies
+   * @returns The LSP connection if available
+   */
+  public getConnection(): Connection | undefined {
+    return this.runtimeDependencies?.connection;
   }
 
   /**

@@ -56,6 +56,11 @@ describe('isEnumSymbol', () => {
     modifiers: {} as any,
     key: {} as any,
     parentKey: null,
+    id: 'test-id',
+    fileUri: 'test://file.cls',
+    parentId: null,
+    _modifierFlags: 0,
+    _isLoaded: true,
   };
 
   it('should return true for enum symbols', () => {
@@ -119,6 +124,11 @@ describe('isMethodSymbol', () => {
     modifiers: {} as any,
     key: {} as any,
     parentKey: null,
+    id: 'test-id',
+    fileUri: 'test://file.cls',
+    parentId: null,
+    _modifierFlags: 0,
+    _isLoaded: true,
   };
 
   it('should return true for method symbols', () => {
@@ -182,6 +192,11 @@ describe('isClassSymbol', () => {
     modifiers: {} as any,
     key: {} as any,
     parentKey: null,
+    id: 'test-id',
+    fileUri: 'test://file.cls',
+    parentId: null,
+    _modifierFlags: 0,
+    _isLoaded: true,
   };
 
   it('should return true for class symbols', () => {
@@ -243,6 +258,11 @@ describe('isInterfaceSymbol', () => {
     modifiers: {} as any,
     key: {} as any,
     parentKey: null,
+    id: 'test-id',
+    fileUri: 'test://file.cls',
+    parentId: null,
+    _modifierFlags: 0,
+    _isLoaded: true,
   };
 
   it('should return true for interface symbols', () => {
@@ -306,6 +326,11 @@ describe('isTriggerSymbol', () => {
     modifiers: {} as any,
     key: {} as any,
     parentKey: null,
+    id: 'test-id',
+    fileUri: 'test://file.cls',
+    parentId: null,
+    _modifierFlags: 0,
+    _isLoaded: true,
   };
 
   it('should return true for trigger symbols', () => {
@@ -367,6 +392,11 @@ describe('isVariableSymbol', () => {
     modifiers: {} as any,
     key: {} as any,
     parentKey: null,
+    id: 'test-id',
+    fileUri: 'test://file.cls',
+    parentId: null,
+    _modifierFlags: 0,
+    _isLoaded: true,
   };
 
   it('should return true for property symbols', () => {
@@ -485,6 +515,11 @@ describe('inTypeSymbolGroup', () => {
       modifiers: {} as any,
       key: {} as any,
       parentKey: null,
+      id: 'test-id',
+      fileUri: 'test://file.cls',
+      parentId: null,
+      _modifierFlags: 0,
+      _isLoaded: true,
     } as ApexSymbol;
     expect(inTypeSymbolGroup(symbol)).toBe(true);
   });
@@ -497,6 +532,11 @@ describe('inTypeSymbolGroup', () => {
       modifiers: {} as any,
       key: {} as any,
       parentKey: null,
+      id: 'test-id',
+      fileUri: 'test://file.cls',
+      parentId: null,
+      _modifierFlags: 0,
+      _isLoaded: true,
     } as ApexSymbol;
     expect(inTypeSymbolGroup(symbol)).toBe(true);
   });
@@ -509,6 +549,11 @@ describe('inTypeSymbolGroup', () => {
       modifiers: {} as any,
       key: {} as any,
       parentKey: null,
+      id: 'test-id',
+      fileUri: 'test://file.cls',
+      parentId: null,
+      _modifierFlags: 0,
+      _isLoaded: true,
     } as ApexSymbol;
     expect(inTypeSymbolGroup(symbol)).toBe(true);
   });
@@ -521,6 +566,11 @@ describe('inTypeSymbolGroup', () => {
       modifiers: {} as any,
       key: {} as any,
       parentKey: null,
+      id: 'test-id',
+      fileUri: 'test://file.cls',
+      parentId: null,
+      _modifierFlags: 0,
+      _isLoaded: true,
     } as ApexSymbol;
     expect(inTypeSymbolGroup(symbol)).toBe(true);
   });
@@ -533,6 +583,11 @@ describe('inTypeSymbolGroup', () => {
       modifiers: {} as any,
       key: {} as any,
       parentKey: null,
+      id: 'test-id',
+      fileUri: 'test://file.cls',
+      parentId: null,
+      _modifierFlags: 0,
+      _isLoaded: true,
     } as ApexSymbol;
     expect(inTypeSymbolGroup(symbol)).toBe(false);
   });
@@ -545,6 +600,11 @@ describe('inTypeSymbolGroup', () => {
       modifiers: {} as any,
       key: {} as any,
       parentKey: null,
+      id: 'test-id',
+      fileUri: 'test://file.cls',
+      parentId: null,
+      _modifierFlags: 0,
+      _isLoaded: true,
     } as ApexSymbol;
     expect(inTypeSymbolGroup(symbol)).toBe(false);
   });
@@ -557,6 +617,11 @@ describe('inTypeSymbolGroup', () => {
       modifiers: {} as any,
       key: {} as any,
       parentKey: null,
+      id: 'test-id',
+      fileUri: 'test://file.cls',
+      parentId: null,
+      _modifierFlags: 0,
+      _isLoaded: true,
     } as ApexSymbol;
     expect(inTypeSymbolGroup(symbol)).toBe(false);
   });
@@ -569,6 +634,11 @@ describe('inTypeSymbolGroup', () => {
       modifiers: {} as any,
       key: {} as any,
       parentKey: null,
+      id: 'test-id',
+      fileUri: 'test://file.cls',
+      parentId: null,
+      _modifierFlags: 0,
+      _isLoaded: true,
     } as ApexSymbol;
     expect(inTypeSymbolGroup(symbol)).toBe(false);
   });
@@ -582,6 +652,11 @@ describe('inTypeSymbolGroup', () => {
       modifiers: {} as any,
       key: {} as any,
       parentKey: null,
+      id: 'test-id',
+      fileUri: 'test://file.cls',
+      parentId: null,
+      _modifierFlags: 0,
+      _isLoaded: true,
     } as ApexSymbol;
 
     if (inTypeSymbolGroup(symbol)) {
@@ -601,6 +676,11 @@ describe('SymbolTable', () => {
     modifiers: {} as any,
     key: { prefix: 'test', name: 'test', path: ['test'] },
     parentKey: null,
+    id: 'test-id',
+    fileUri: 'test://file.cls',
+    parentId: null,
+    _modifierFlags: 0,
+    _isLoaded: true,
   };
 
   beforeEach(() => {

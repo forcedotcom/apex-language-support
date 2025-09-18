@@ -69,6 +69,29 @@ export interface ResourceSettings {
 }
 
 /**
+ * Missing artifact resolution settings
+ */
+export interface MissingArtifactSettings {
+  /** Enable missing artifact resolution feature */
+  enabled: boolean;
+
+  /** Timeout for blocking resolution in milliseconds */
+  blockingWaitTimeoutMs: number;
+
+  /** Polling interval for indexing barrier in milliseconds */
+  indexingBarrierPollMs: number;
+
+  /** Maximum number of candidates to open per request */
+  maxCandidatesToOpen: number;
+
+  /** Default timeout hint to send to client in milliseconds */
+  timeoutMsHint: number;
+
+  /** Whether to enable performance marks for debugging */
+  enablePerfMarks: boolean;
+}
+
+/**
  * Complete Apex Language Server settings
  */
 export interface ApexLanguageServerSettings {
@@ -83,6 +106,9 @@ export interface ApexLanguageServerSettings {
 
   /** Resource loading settings */
   resources: ResourceSettings;
+
+  /** Missing artifact resolution settings */
+  findMissingArtifact: MissingArtifactSettings;
 
   /** Server version for compatibility checks */
   version?: string;
@@ -120,6 +146,14 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
   resources: {
     loadMode: 'full',
   },
+  findMissingArtifact: {
+    enabled: true,
+    blockingWaitTimeoutMs: 2000,
+    indexingBarrierPollMs: 100,
+    maxCandidatesToOpen: 3,
+    timeoutMsHint: 1500,
+    enablePerfMarks: false,
+  },
 };
 
 /**
@@ -147,6 +181,13 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
   resources: {
     ...DEFAULT_APEX_SETTINGS.resources,
     loadMode: 'lazy',
+  },
+  findMissingArtifact: {
+    ...DEFAULT_APEX_SETTINGS.findMissingArtifact,
+    // More conservative defaults for browser
+    blockingWaitTimeoutMs: 1500, // Shorter timeout in browser
+    maxCandidatesToOpen: 2, // Fewer files to open in browser
+    timeoutMsHint: 1000, // Shorter client timeout hint
   },
 };
 
@@ -186,6 +227,7 @@ export function validateApexSettings(obj: any): ValidationResult {
     performance: 'object',
     environment: 'object',
     resources: 'object',
+    findMissingArtifact: 'object',
     version: 'string',
     logLevel: 'string',
   };
@@ -256,6 +298,10 @@ export function mergeWithDefaults(
       ...baseDefaults.resources,
       ...userSettings.resources,
     },
+    findMissingArtifact: {
+      ...baseDefaults.findMissingArtifact,
+      ...userSettings.findMissingArtifact,
+    },
     version: userSettings.version || baseDefaults.version,
     logLevel: userSettings.logLevel || baseDefaults.logLevel,
   };
@@ -284,6 +330,10 @@ export function mergeWithExisting(
     resources: {
       ...existingSettings.resources,
       ...partialSettings.resources,
+    },
+    findMissingArtifact: {
+      ...existingSettings.findMissingArtifact,
+      ...partialSettings.findMissingArtifact,
     },
     version: partialSettings.version ?? existingSettings.version,
     logLevel: partialSettings.logLevel ?? existingSettings.logLevel,

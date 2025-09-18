@@ -34,7 +34,7 @@ describe.skip('ResourceLoader Integration', () => {
     });
 
     it('should provide namespace structure immediately', () => {
-      const namespaceStructure = resourceLoader.getNamespaceStructure();
+      const namespaceStructure = resourceLoader.getStandardNamespaces();
       expect(namespaceStructure).toBeDefined();
       expect(namespaceStructure.size).toBeGreaterThan(0);
       expect(namespaceStructure.has('System')).toBe(true);
@@ -64,7 +64,9 @@ describe.skip('ResourceLoader Integration', () => {
       if (systemAssertSymbol) {
         expect(systemAssertSymbol.name).toBe('assert');
         expect(systemAssertSymbol.modifiers.isBuiltIn).toBe(false);
-        expect(systemAssertSymbol.filePath).toContain('System/assert.cls');
+        expect(systemAssertSymbol.fileUri).toContain(
+          'apexlib://resources/System/assert.cls',
+        );
       }
     });
 

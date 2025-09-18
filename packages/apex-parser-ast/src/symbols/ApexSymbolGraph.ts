@@ -13,22 +13,23 @@ import {
   Uint16,
   toUint16,
 } from '@salesforce/apex-lsp-shared';
+import { generateSymbolId, parseSymbolId } from '../types/UriBasedIdGenerator';
 
 import {
   ApexSymbol,
   SymbolTable,
-  SymbolKind,
   SymbolVisibility,
   SymbolLocation,
 } from '../types/symbol';
 import { calculateFQN } from '../utils/FQNUtils';
-import { isStdApexNamespace } from '../generated/stdApexNamespaces';
+import { ResourceLoader } from '../utils/resourceLoader';
+import { isStandardApexUri } from '../types/ProtocolHandler';
 
 /**
  * Context for symbol resolution
  */
 export interface ResolutionContext {
-  sourceFile?: string;
+  fileUri?: string;
   expectedNamespace?: string;
   currentScope?: string;
   isStatic?: boolean;
@@ -39,12 +40,12 @@ export interface ResolutionContext {
  */
 export interface SymbolLookupResult {
   symbol: ApexSymbol;
-  filePath: string;
+  fileUri: string;
   confidence: number;
   isAmbiguous: boolean;
   candidates?: Array<{
     symbol: ApexSymbol;
-    filePath: string;
+    fileUri: string;
     symbolTable: SymbolTable;
     lastUpdated: number;
   }>;
@@ -90,8 +91,8 @@ export const ReferenceType = {
  */
 export interface ReferenceEdge {
   type: EnumValue<typeof ReferenceType>;
-  sourceFile: string;
-  targetFile: string;
+  sourceFileUri: string;
+  targetFileUri: string;
   // location: CompactLocation; // Removed - redundant with source symbol location
   context?: {
     methodName?: string;
@@ -102,87 +103,12 @@ export interface ReferenceEdge {
 }
 
 /**
- * Convert legacy edge format to optimized ReferenceEdge
- */
-export const toReferenceEdge = (legacyEdge: {
-  type: EnumValue<typeof ReferenceType>;
-  sourceFile: string;
-  targetFile: string;
-  location: {
-    startLine: number;
-    startColumn: number;
-    endLine: number;
-    endColumn: number;
-  };
-  context?: {
-    methodName?: string;
-    parameterIndex?: number;
-    isStatic?: boolean;
-    namespace?: string;
-  };
-}): ReferenceEdge => ({
-  type: legacyEdge.type,
-  sourceFile: legacyEdge.sourceFile,
-  targetFile: legacyEdge.targetFile,
-  // location: toCompactLocation(legacyEdge.location), // Removed - redundant
-  context: legacyEdge.context
-    ? {
-        methodName: legacyEdge.context.methodName,
-        parameterIndex: legacyEdge.context.parameterIndex
-          ? toUint16(legacyEdge.context.parameterIndex)
-          : undefined,
-        isStatic: legacyEdge.context.isStatic,
-        namespace: legacyEdge.context.namespace,
-      }
-    : undefined,
-});
-
-/**
- * Convert optimized ReferenceEdge back to legacy format
- */
-export const fromReferenceEdge = (
-  edge: ReferenceEdge,
-): {
-  type: EnumValue<typeof ReferenceType>;
-  sourceFile: string;
-  targetFile: string;
-  location: {
-    startLine: number;
-    startColumn: number;
-    endLine: number;
-    endColumn: number;
-  };
-  context?: {
-    methodName?: string;
-    parameterIndex?: number;
-    isStatic?: boolean;
-    namespace?: string;
-  };
-} => ({
-  type: edge.type,
-  sourceFile: edge.sourceFile,
-  targetFile: edge.targetFile,
-  // location: fromCompactLocation(edge.location), // Removed - redundant
-  location: { startLine: 0, startColumn: 0, endLine: 0, endColumn: 0 }, // Placeholder for backward compatibility
-  context: edge.context
-    ? {
-        methodName: edge.context.methodName,
-        parameterIndex: edge.context.parameterIndex
-          ? Number(edge.context.parameterIndex)
-          : undefined,
-        isStatic: edge.context.isStatic,
-        namespace: edge.context.namespace,
-      }
-    : undefined,
-});
-
-/**
  * Result of a reference query
  */
 export interface ReferenceResult {
   symbolId: string;
   symbol: ApexSymbol;
-  filePath: string;
+  fileUri: string;
   referenceType: EnumValue<typeof ReferenceType>;
   location: SymbolLocation;
   context?: {
@@ -208,7 +134,7 @@ export interface DependencyAnalysis {
  */
 export interface ReferenceNode {
   symbolId: string;
-  filePath: string;
+  fileUri: string;
   lastUpdated: number;
   referenceCount: number;
   nodeId: number;
@@ -233,9 +159,38 @@ export class ApexSymbolGraph {
     new HashMap();
 
   // OPTIMIZED: Indexes for fast lookups (delegate to SymbolTable for actual data)
-  private symbolFileMap: HashMap<string, string> = new HashMap(); // Map symbol ID to file path
+  // These maps provide O(1) lookup performance for common symbol operations
+
+  /**
+   * Maps symbol ID to file uri for quick file location lookups
+   * Key: Symbol ID (e.g., "file:///path/MyClass.cls:MyClass")
+   * Value: File uri (e.g., "file:///path/MyClass.cls")
+   * Used by: File-based operations, symbol removal, dependency analysis
+   */
+  private symbolFileMap: HashMap<string, string> = new HashMap();
+
+  /**
+   * Maps symbol names to arrays of symbol IDs for name-based lookups
+   * Key: Symbol name (e.g., "MyClass", "myMethod")
+   * Value: Array of symbol IDs that have this name
+   * Used by: findSymbolByName(), handles overloading and multiple classes with same name
+   */
   private nameIndex: HashMap<string, string[]> = new HashMap();
+
+  /**
+   * Maps file uris to arrays of symbol IDs for file-based lookups
+   * Key: File uri (e.g., "file:///path/MyClass.cls")
+   * Value: Array of symbol IDs in that file
+   * Used by: getSymbolsInFile(), file-based symbol enumeration, file removal
+   */
   private fileIndex: HashMap<string, string[]> = new HashMap();
+
+  /**
+   * Maps fully qualified names to symbol IDs for hierarchical lookups
+   * Key: Fully qualified name (e.g., "MyNamespace.MyClass.myMethod")
+   * Value: Symbol ID
+   * Used by: findSymbolByFQN(), hierarchical symbol resolution, namespace-aware lookups
+   */
   private fqnIndex: HashMap<string, string> = new HashMap();
 
   // OPTIMIZED: SymbolTable references for delegation
@@ -271,10 +226,13 @@ export class ApexSymbolGraph {
     estimatedMemorySavings: 0,
   };
 
+  private resourceLoader: ResourceLoader;
+
   constructor() {
-    this.logger.debug(
-      () => 'ApexSymbolGraph initialized with optimal architecture',
-    );
+    this.resourceLoader = ResourceLoader.getInstance({
+      loadMode: 'lazy',
+      preloadStdClasses: false,
+    });
   }
 
   /**
@@ -282,44 +240,67 @@ export class ApexSymbolGraph {
    */
   addSymbol(
     symbol: ApexSymbol,
-    filePath: string,
+    fileUri: string,
     symbolTable?: SymbolTable,
   ): void {
-    const symbolId = this.getSymbolId(symbol, filePath);
+    const symbolId = this.getSymbolId(symbol, fileUri);
 
     // Check if symbol already exists to prevent duplicates
     if (this.symbolIds.has(symbolId)) {
-      this.logger.debug(
-        () => `Symbol already exists: ${symbolId}, skipping duplicate addition`,
-      );
       return;
     }
 
     // OPTIMIZED: Register SymbolTable immediately for delegation
+    let targetSymbolTable: SymbolTable;
     if (symbolTable) {
-      this.registerSymbolTable(symbolTable, filePath);
+      this.registerSymbolTable(symbolTable, fileUri);
+      targetSymbolTable = symbolTable;
     } else {
       // For backward compatibility, create a minimal SymbolTable if none provided
       // This ensures the symbol can be found later
-      this.ensureSymbolTableForFile(filePath);
+      this.ensureSymbolTableForFile(fileUri);
+      targetSymbolTable = this.fileToSymbolTable.get(fileUri)!;
     }
+
+    // Add the symbol to the SymbolTable
+    targetSymbolTable.addSymbol(symbol);
 
     // OPTIMIZED: Only track existence, don't store full symbol
     this.symbolIds.add(symbolId);
 
     // Add to indexes for fast lookups
-    this.symbolFileMap.set(symbolId, filePath);
+    this.symbolFileMap.set(symbolId, fileUri);
 
     // BUG FIX: Calculate and store FQN if not already present
-    if (!symbol.fqn) {
-      symbol.fqn = calculateFQN(symbol);
-      this.logger.debug(
-        () => `Calculated FQN for ${symbol.name}: ${symbol.fqn}`,
-      );
+    let fqnToUse = symbol.fqn;
+
+    if (!fqnToUse) {
+      // Create a parent resolution function that works with the symbol's parent relationship
+      const getParent = (parentId: string): ApexSymbol | null => {
+        // First try to find by parentId in the symbol table
+        const allSymbols = targetSymbolTable.getAllSymbols();
+        const parentSymbol = allSymbols.find((s) => s.id === parentId);
+        if (parentSymbol) {
+          return parentSymbol;
+        }
+
+        // If not found, try to find by name (for backward compatibility)
+        const symbolsByName = allSymbols.filter((s) => s.name === parentId);
+        if (symbolsByName.length > 0) {
+          return symbolsByName[0];
+        }
+
+        return null;
+      };
+
+      fqnToUse = calculateFQN(symbol, undefined, getParent);
+      // Store the calculated FQN on the symbol for consistency
+      symbol.fqn = fqnToUse;
+    } else {
     }
 
-    if (symbol.fqn) {
-      this.fqnIndex.set(symbol.fqn, symbolId);
+    if (fqnToUse) {
+      this.fqnIndex.set(fqnToUse, symbolId);
     }
 
     // Add to name index for symbol resolution
@@ -329,17 +310,16 @@ export class ApexSymbolGraph {
       this.nameIndex.set(symbol.name, existingNames);
     }
 
-    // Add to file index
-    const fileSymbols = this.fileIndex.get(filePath) || [];
+    const fileSymbols = this.fileIndex.get(fileUri) || [];
     if (!fileSymbols.includes(symbolId)) {
       fileSymbols.push(symbolId);
-      this.fileIndex.set(filePath, fileSymbols);
+      this.fileIndex.set(fileUri, fileSymbols);
     }
 
     // OPTIMIZED: Add lightweight node to graph
     const referenceNode: ReferenceNode = {
       symbolId,
-      filePath,
+      fileUri: fileUri,
       lastUpdated: Date.now(),
       referenceCount: 0,
       nodeId: this.memoryStats.totalVertices + 1,
@@ -362,7 +342,6 @@ export class ApexSymbolGraph {
     }
 
     this.symbolToVertex.set(symbolId, vertex);
-    this.logger.debug(() => `Added reference node to graph: ${symbolId}`);
 
     // Update memory statistics
     this.memoryStats.totalSymbols++;
@@ -378,26 +357,26 @@ export class ApexSymbolGraph {
     }
 
     // If this is a standard Apex class, ensure it's properly registered
-    if (filePath.includes('/') && filePath.endsWith('.cls')) {
+    if (fileUri.includes('/') && fileUri.endsWith('.cls')) {
       // This might be a standard class from ResourceLoader
-      const namespace = filePath.split('/')[0];
-      if (this.isStandardNamespace(namespace)) {
+      const namespace = fileUri.split('/')[0];
+      if (this.resourceLoader?.isStdApexNamespace(namespace)) {
         // Mark as standard class
         symbol.modifiers.isBuiltIn = false;
         symbol.modifiers.visibility = SymbolVisibility.Global;
       }
     }
 
-    // Update filePath for any symbols in deferred references that match this symbol
+    // Update fileUri for any symbols in deferred references that match this symbol
     // This ensures that when deferred references are processed, they can find the source symbols
     for (const [_targetName, refs] of this.deferredReferences.entries()) {
       if (refs) {
         for (const ref of refs) {
           if (
             ref.sourceSymbol.name === symbol.name &&
-            ref.sourceSymbol.filePath !== filePath
+            ref.sourceSymbol.fileUri !== fileUri
           ) {
-            ref.sourceSymbol.filePath = filePath;
+            ref.sourceSymbol.fileUri = fileUri;
           }
         }
       }
@@ -405,127 +384,53 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * OPTIMIZED: Get symbol by delegating to SymbolTable
+   * Get symbol by delegating to SymbolTable
    */
   getSymbol(symbolId: string): ApexSymbol | null {
-    const filePath = this.symbolFileMap.get(symbolId);
-    if (!filePath) {
-      this.logger.debug(() => `No file path found for symbol ID: ${symbolId}`);
+    // Parse URI-based ID
+    const parsed = parseSymbolId(symbolId);
+    const symbolName = parsed.name;
+    const symbolTable = this.fileToSymbolTable.get(parsed.uri);
+    if (!symbolTable) {
       return null;
     }
 
-    const symbolTable = this.fileToSymbolTable.get(filePath);
-    if (symbolTable) {
-      // OPTIMIZED: Delegate to SymbolTable for actual symbol data
-      // Symbol ID format: filePath:name:kind, so we need to extract the name part
-      const parts = symbolId.split(':');
-      const symbolName = parts.length >= 2 ? parts[1] : '';
-      const _symbolKind = parts.length >= 3 ? parts[2] : '';
+    // Get all symbols from the SymbolTable and find by name
+    const allSymbols = symbolTable.getAllSymbols();
 
-      // Try to find the symbol by name in the SymbolTable
-      const symbol = symbolTable.lookup(symbolName);
-
-      if (symbol) {
-        // Ensure the symbol has the correct filePath property
-        if (!symbol.filePath || symbol.filePath !== filePath) {
-          symbol.filePath = filePath;
-        }
-        return symbol;
-      }
-
-      // If not found by name, try to find by key
-      // The symbol might be stored with a different key format
-      const allSymbols = symbolTable.getAllSymbols();
-      const matchingSymbol = allSymbols.find((s) => s.name === symbolName);
-      if (matchingSymbol) {
-        if (!matchingSymbol.filePath || matchingSymbol.filePath !== filePath) {
-          matchingSymbol.filePath = filePath;
-        }
-        return matchingSymbol;
-      }
+    const matchingSymbol = allSymbols.find((s) => s.name === symbolName);
+    if (matchingSymbol) {
+      // Always create a deep copy to avoid mutating the original symbol
+      const symbolCopy = {
+        ...matchingSymbol,
+        fileUri: parsed.uri,
+        location: {
+          ...matchingSymbol.location,
+          symbolRange: { ...matchingSymbol.location.symbolRange },
+          identifierRange: { ...matchingSymbol.location.identifierRange },
+        },
+        // Preserve parent relationship for FQN calculation
+        parent: matchingSymbol.parent,
+      };
+      return symbolCopy;
     }
 
-    // Fallback: Try to reconstruct symbol from stored data
-    // This is for backward compatibility when SymbolTables aren't available
-    // Symbol ID format: filePath:name:line, so we need to extract the name part
-    const parts = symbolId.split(':');
-    const symbolName = parts.length >= 2 ? parts[1] : '';
-
-    // Find the FQN by looking up the symbolId in the fqnIndex values
-    let fqn = symbolName; // Default to symbol name
-    for (const [fqnKey, id] of this.fqnIndex.entries()) {
-      if (id === symbolId) {
-        fqn = fqnKey;
-        break;
-      }
-    }
-
-    // Create a minimal symbol representation using SymbolFactory
-    // Extract line number from symbol ID (format: filePath:name:line)
-    const lineNumber = parts.length >= 3 ? parseInt(parts[2], 10) || 0 : 0;
-
-    const fallbackSymbol: ApexSymbol = {
-      id: symbolId,
-      name: symbolName,
-      kind: SymbolKind.Class, // Default to class as fallback
-      location: {
-        symbolRange: {
-          startLine: lineNumber,
-          startColumn: 0,
-          endLine: lineNumber,
-          endColumn: 0,
-        },
-        identifierRange: {
-          startLine: lineNumber,
-          startColumn: 0,
-          endLine: lineNumber,
-          endColumn: 0,
-        },
-      },
-      filePath: filePath,
-      parentId: null,
-      key: {
-        prefix: 'class',
-        name: symbolName,
-        path: [filePath, symbolName],
-        unifiedId: symbolId,
-        filePath: filePath,
-        kind: SymbolKind.Class,
-      },
-      parentKey: null,
-      fqn: fqn,
-      _modifierFlags: 0,
-      _isLoaded: true,
-      modifiers: {
-        visibility: SymbolVisibility.Public,
-        isStatic: false,
-        isFinal: false,
-        isAbstract: false,
-        isVirtual: false,
-        isOverride: false,
-        isTransient: false,
-        isTestMethod: false,
-        isWebService: false,
-        isBuiltIn: false,
-      },
-      parent: null,
-    };
-
-    this.logger.debug(() => `Returning fallback symbol for: ${symbolId}`);
-    return fallbackSymbol;
+    return null;
   }
 
   /**
    * OPTIMIZED: Find symbols by name by delegating to SymbolTable
    */
   findSymbolByName(name: string): ApexSymbol[] {
+    // TEMPORARY: Disable symbolCache - always bypass cache
     // Check cache first
-    const cached = this.symbolCache.get(name);
-    if (cached) {
-      return cached;
-    }
+    // const cached = this.symbolCache.get(name);
+    // if (cached) {
+    //   return cached;
+    // }
 
     const symbolIds = this.nameIndex.get(name) || [];
+
     const symbols: ApexSymbol[] = [];
 
     for (const symbolId of symbolIds) {
@@ -535,11 +440,12 @@ export class ApexSymbolGraph {
       }
     }
 
+    // TEMPORARY: Disable symbolCache - never cache results
     // Cache the result if cache isn't full
-    if (this.cacheSize < this.MAX_CACHE_SIZE) {
-      this.symbolCache.set(name, symbols);
-      this.cacheSize++;
-    }
+    // if (this.cacheSize < this.MAX_CACHE_SIZE) {
+    //   this.symbolCache.set(name, symbols);
+    //   this.cacheSize++;
+    // }
 
     return symbols;
   }
@@ -566,9 +472,9 @@ export class ApexSymbolGraph {
     const files = new Set<string>();
 
     for (const symbolId of symbolIds) {
-      const filePath = this.symbolFileMap.get(symbolId);
-      if (filePath) {
-        files.add(filePath);
+      const fileUri = this.symbolFileMap.get(symbolId);
+      if (fileUri) {
+        files.add(fileUri);
       }
     }
 
@@ -590,12 +496,8 @@ export class ApexSymbolGraph {
   /**
    * OPTIMIZED: Get symbols in file by delegating to SymbolTable
    */
-  getSymbolsInFile(filePath: string): ApexSymbol[] {
-    const symbolIds = this.fileIndex.get(filePath) || [];
-    this.logger.debug(
-      () => `Found ${symbolIds.length} symbol IDs for file: ${filePath}`,
-    );
-    this.logger.debug(() => `Symbol IDs: ${symbolIds.join(', ')}`);
+  getSymbolsInFile(fileUri: string): ApexSymbol[] {
+    const symbolIds = this.fileIndex.get(fileUri) || [];
 
     const symbols: ApexSymbol[] = [];
 
@@ -603,17 +505,10 @@ export class ApexSymbolGraph {
       const symbol = this.getSymbol(symbolId);
       if (symbol) {
         symbols.push(symbol);
-        this.logger.debug(
-          () => `Found symbol: ${symbol.name} (${symbol.kind})`,
-        );
       } else {
-        this.logger.debug(() => `Failed to get symbol for ID: ${symbolId}`);
       }
     }
 
-    this.logger.debug(
-      () => `Returning ${symbols.length} symbols for file: ${filePath}`,
-    );
     return symbols;
   }
 
@@ -632,42 +527,23 @@ export class ApexSymbolGraph {
       namespace?: string;
     },
   ): void {
-    this.logger.debug(
-      () => `addReference called: ${sourceSymbol.name} -> ${targetSymbol.name}`,
-    );
-    this.logger.debug(
-      () =>
-        `Source symbol filePath: ${sourceSymbol.filePath}, Target symbol filePath: ${targetSymbol.filePath}`,
-    );
-
     // Find the actual symbols in the graph by name and file path
     const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
     const targetSymbols = this.findSymbolByName(targetSymbol.name);
 
-    this.logger.debug(
-      () =>
-        `Found ${sourceSymbols.length} source symbols and ${targetSymbols.length} target symbols`,
-    );
-
-    // If filePath is undefined, match any symbol with the same name
-    // Otherwise, require exact filePath match
-    const sourceSymbolInGraph = sourceSymbol.filePath
-      ? sourceSymbols.find((s) => s.filePath === sourceSymbol.filePath)
+    // If fileUri is undefined, match any symbol with the same name
+    // Otherwise, require exact fileUri match
+    const sourceSymbolInGraph = sourceSymbol.fileUri
+      ? sourceSymbols.find((s) => s.fileUri === sourceSymbol.fileUri)
       : sourceSymbols[0]; // Take the first symbol with matching name
 
-    const targetSymbolInGraph = targetSymbol.filePath
-      ? targetSymbols.find((s) => s.filePath === targetSymbol.filePath)
+    const targetSymbolInGraph = targetSymbol.fileUri
+      ? targetSymbols.find((s) => s.fileUri === targetSymbol.fileUri)
       : targetSymbols[0]; // Take the first symbol with matching name
-
-    this.logger.debug(
-      () =>
-        `Source symbol in graph: ${sourceSymbolInGraph ? 'found' : 'not found'}, ` +
-        `Target symbol in graph: ${targetSymbolInGraph ? 'found' : 'not found'}`,
-    );
 
     if (!sourceSymbolInGraph || !targetSymbolInGraph) {
       // If symbols don't exist yet, add deferred reference
-      // Use symbol name as key since we don't know the exact filePath
+      // Use symbol name as key since we don't know the exact fileUri
       this.addDeferredReference(
         sourceSymbol,
         targetSymbol.name,
@@ -675,37 +551,43 @@ export class ApexSymbolGraph {
         location,
         context,
       );
-      this.logger.debug(
-        () =>
-          `Added deferred reference: ${sourceSymbol.name} -> ${targetSymbol.name} ` +
-          '(target not found yet)',
-      );
+
+      // For built-in types, create a virtual symbol and add the reference immediately
+      if (
+        targetSymbol.fileUri &&
+        targetSymbol.fileUri.startsWith('built-in://')
+      ) {
+        this.createVirtualSymbolForBuiltInType(
+          targetSymbol,
+          sourceSymbol,
+          referenceType,
+          location,
+          context,
+        );
+      }
       return;
     }
 
     const sourceId = this.getSymbolId(
       sourceSymbolInGraph,
-      sourceSymbolInGraph.filePath,
+      sourceSymbolInGraph.fileUri,
     );
     const targetId = this.getSymbolId(
       targetSymbolInGraph,
-      targetSymbolInGraph.filePath,
+      targetSymbolInGraph.fileUri,
     );
 
     // Check if reference already exists
     const existingEdge = this.referenceGraph.getEdge(sourceId, targetId);
     if (existingEdge) {
-      this.logger.debug(
-        () => `Reference already exists: ${sourceId} -> ${targetId}`,
-      );
       return;
     }
 
     // Create optimized reference edge
     const referenceEdge: ReferenceEdge = {
       type: referenceType,
-      sourceFile: sourceSymbolInGraph.filePath,
-      targetFile: targetSymbolInGraph.filePath,
+      sourceFileUri: sourceSymbolInGraph.fileUri,
+      targetFileUri: targetSymbolInGraph.fileUri,
       context: context
         ? {
             methodName: context.methodName,
@@ -739,7 +621,6 @@ export class ApexSymbolGraph {
     }
 
     this.memoryStats.totalEdges++;
-    this.logger.debug(() => `Added reference: ${sourceId} -> ${targetId}`);
   }
 
   /**
@@ -748,52 +629,29 @@ export class ApexSymbolGraph {
   findReferencesTo(symbol: ApexSymbol): ReferenceResult[] {
     // Find the actual symbol in the graph by name and file path
     const targetSymbols = this.findSymbolByName(symbol.name);
-    this.logger.debug(
-      () =>
-        `findReferencesTo: looking for symbol ${symbol.name} with filePath ${symbol.filePath}`,
-    );
-    this.logger.debug(
-      () =>
-        `findReferencesTo: found ${targetSymbols.length} symbols with name ${symbol.name}`,
-    );
 
-    // If filePath is undefined, match any symbol with the same name
-    // Otherwise, require exact filePath match
-    const targetSymbolInGraph = symbol.filePath
-      ? targetSymbols.find((s) => s.filePath === symbol.filePath)
+    // If fileUri is undefined, match any symbol with the same name
+    // Otherwise, require exact fileUri match
+    const targetSymbolInGraph = symbol.fileUri
+      ? targetSymbols.find((s) => s.fileUri === symbol.fileUri)
       : targetSymbols[0]; // Take the first symbol with matching name
 
     if (!targetSymbolInGraph) {
-      this.logger.debug(
-        () =>
-          `findReferencesTo: no matching symbol found for ${symbol.name} with filePath ${symbol.filePath}`,
-      );
       return [];
     }
 
-    this.logger.debug(
-      () =>
-        `findReferencesTo: found matching symbol with filePath ${targetSymbolInGraph.filePath}`,
-    );
     const targetId = this.getSymbolId(
       targetSymbolInGraph,
-      targetSymbolInGraph.filePath,
+      targetSymbolInGraph.fileUri,
     );
-    this.logger.debug(() => `findReferencesTo: using targetId ${targetId}`);
     const results: ReferenceResult[] = [];
 
     // Get incoming edges from the graph
     const vertex = this.symbolToVertex.get(targetId);
     if (!vertex) {
-      this.logger.debug(
-        () => `findReferencesTo: no vertex found for targetId ${targetId}`,
-      );
       return results;
     }
     const incomingEdges = this.referenceGraph.incomingEdgesOf(vertex.key);
-    this.logger.debug(
-      () => `findReferencesTo: found ${incomingEdges.length} incoming edges`,
-    );
 
     for (const edge of incomingEdges) {
       if (!edge.value) continue;
@@ -806,7 +664,7 @@ export class ApexSymbolGraph {
       const referenceResult: ReferenceResult = {
         symbolId: String(edge.src),
         symbol: sourceSymbol,
-        filePath: sourceSymbol.filePath,
+        fileUri: sourceSymbol.fileUri,
         referenceType: edge.value.type,
         location: sourceSymbol.location,
         context: edge.value.context
@@ -834,10 +692,10 @@ export class ApexSymbolGraph {
     // Find the actual symbol in the graph by name and file path
     const sourceSymbols = this.findSymbolByName(symbol.name);
 
-    // If filePath is undefined, match any symbol with the same name
-    // Otherwise, require exact filePath match
-    const sourceSymbolInGraph = symbol.filePath
-      ? sourceSymbols.find((s) => s.filePath === symbol.filePath)
+    // If fileUri is undefined, match any symbol with the same name
+    // Otherwise, require exact fileUri match
+    const sourceSymbolInGraph = symbol.fileUri
+      ? sourceSymbols.find((s) => s.fileUri === symbol.fileUri)
       : sourceSymbols[0]; // Take the first symbol with matching name
 
     if (!sourceSymbolInGraph) {
@@ -846,7 +704,7 @@ export class ApexSymbolGraph {
 
     const sourceId = this.getSymbolId(
       sourceSymbolInGraph,
-      sourceSymbolInGraph.filePath,
+      sourceSymbolInGraph.fileUri,
     );
     const results: ReferenceResult[] = [];
 
@@ -868,7 +726,7 @@ export class ApexSymbolGraph {
       const referenceResult: ReferenceResult = {
         symbolId: String(edge.dest),
         symbol: targetSymbol,
-        filePath: targetSymbol.filePath,
+        fileUri: targetSymbol.fileUri,
         referenceType: edge.value.type,
         location: targetSymbol.location,
         context: edge.value.context
@@ -907,6 +765,24 @@ export class ApexSymbolGraph {
     }
 
     return cycles;
+  }
+
+  /**
+   * Detect circular dependencies involving a specific symbol
+   */
+  detectCircularDependenciesForSymbol(symbol: ApexSymbol): string[][] {
+    const symbolId = this.getSymbolId(symbol, symbol.fileUri);
+    const cycles: string[][] = [];
+    const visited = new Set<string>();
+    const recursionStack = new Set<string>();
+
+    // Start DFS from the specific symbol
+    if (this.symbolToVertex.has(symbolId)) {
+      this.detectCyclesDFS(symbolId, visited, recursionStack, [], cycles);
+    }
+
+    // Filter cycles to only include those that contain the target symbol
+    return cycles.filter((cycle) => cycle.includes(symbolId));
   }
 
   /**
@@ -971,7 +847,8 @@ export class ApexSymbolGraph {
     }
 
     const impactScore = this.calculateImpactScore(dependents, dependencies);
-    const circularDependencies = this.detectCircularDependencies();
+    const circularDependencies =
+      this.detectCircularDependenciesForSymbol(symbol);
 
     return {
       dependencies,
@@ -1028,16 +905,16 @@ export class ApexSymbolGraph {
     const candidates = symbolIds
       .map((id) => {
         const symbol = this.getSymbol(id);
-        const filePath = this.symbolFileMap.get(id);
-        const symbolTable = filePath
-          ? this.fileToSymbolTable.get(filePath)
+        const fileUri = this.symbolFileMap.get(id);
+        const symbolTable = fileUri
+          ? this.fileToSymbolTable.get(fileUri)
           : undefined;
 
-        if (!symbol || !filePath || !symbolTable) return null;
+        if (!symbol || !fileUri || !symbolTable) return null;
 
         return {
           symbol,
-          filePath,
+          fileUri,
           symbolTable,
           lastUpdated: Date.now(),
         };
@@ -1056,7 +933,7 @@ export class ApexSymbolGraph {
       const candidate = candidates[0];
       return {
         symbol: candidate.symbol,
-        filePath: candidate.filePath,
+        fileUri: candidate.fileUri,
         confidence: 1.0,
         isAmbiguous: false,
       };
@@ -1070,7 +947,7 @@ export class ApexSymbolGraph {
     );
     return {
       symbol: resolved.symbol,
-      filePath: resolved.filePath,
+      fileUri: resolved.fileUri,
       confidence: resolved.confidence,
       isAmbiguous: true,
       candidates,
@@ -1080,28 +957,24 @@ export class ApexSymbolGraph {
   /**
    * Get SymbolTable for a file
    */
-  getSymbolTableForFile(filePath: string): SymbolTable | undefined {
-    return this.fileToSymbolTable.get(filePath);
+  getSymbolTableForFile(fileUri: string): SymbolTable | undefined {
+    return this.fileToSymbolTable.get(fileUri);
   }
 
   /**
    * Register SymbolTable for a file
    */
-  registerSymbolTable(symbolTable: SymbolTable, filePath: string): void {
-    this.fileToSymbolTable.set(filePath, symbolTable);
-    this.logger.debug(() => `Registered SymbolTable for file: ${filePath}`);
+  registerSymbolTable(symbolTable: SymbolTable, fileUri: string): void {
+    this.fileToSymbolTable.set(fileUri, symbolTable);
   }
 
   /**
    * Ensure a SymbolTable is registered for a file if it doesn't exist
    */
-  private ensureSymbolTableForFile(filePath: string): void {
-    if (!this.fileToSymbolTable.has(filePath)) {
+  private ensureSymbolTableForFile(fileUri: string): void {
+    if (!this.fileToSymbolTable.has(fileUri)) {
       const symbolTable = new SymbolTable();
-      this.fileToSymbolTable.set(filePath, symbolTable);
-      this.logger.debug(
-        () => `Created minimal SymbolTable for file: ${filePath}`,
-      );
+      this.fileToSymbolTable.set(fileUri, symbolTable);
     }
   }
 
@@ -1112,45 +985,117 @@ export class ApexSymbolGraph {
     symbolName: string,
     candidates: Array<{
       symbol: ApexSymbol;
-      filePath: string;
+      fileUri: string;
       symbolTable: SymbolTable;
       lastUpdated: number;
     }>,
     context?: ResolutionContext,
-  ): { symbol: ApexSymbol; filePath: string; confidence: number } {
+  ): { symbol: ApexSymbol; fileUri: string; confidence: number } {
     // If no context provided, return first candidate with medium confidence
     if (!context) {
       const candidate = candidates[0];
       return {
         symbol: candidate.symbol,
-        filePath: candidate.filePath,
+        fileUri: candidate.fileUri,
         confidence: 0.5,
       };
     }
 
-    // Try to match by source file first
-    if (context.sourceFile) {
-      const fileMatch = candidates.find(
-        (c) => c.filePath === context.sourceFile,
-      );
+    // Strategy 1: Try to match by source file first (highest priority)
+    if (context.fileUri) {
+      const fileMatch = candidates.find((c) => c.fileUri === context.fileUri);
       if (fileMatch) {
         return {
           symbol: fileMatch.symbol,
-          filePath: fileMatch.filePath,
+          fileUri: fileMatch.fileUri,
+          confidence: 0.9,
+        };
+      }
+    }
+
+    // Strategy 2: Handle method resolution based on context
+    // For qualified calls like System.debug, prefer the standard library method
+    // For unqualified calls like debug(), prefer local methods
+    const standardLibraryMethods = candidates.filter(
+      (c) =>
+        c.symbol.kind === 'method' && this.isStandardLibraryMethod(c.symbol),
+    );
+
+    const localMethods = candidates.filter(
+      (c) =>
+        // Check if this is a method from the same file/class as the context
+        c.fileUri === context.fileUri ||
+        (c.symbol.kind === 'method' && !this.isStandardLibraryMethod(c.symbol)),
+    );
+
+    // If we have both standard library and local methods, prefer based on context
+    if (standardLibraryMethods.length > 0 && localMethods.length > 0) {
+      // For qualified calls (when expectedNamespace is set), prefer standard library
+      if (context.expectedNamespace) {
+        const bestStandard = standardLibraryMethods[0];
+        return {
+          symbol: bestStandard.symbol,
+          fileUri: bestStandard.fileUri,
+          confidence: 0.8,
+        };
+      }
+      // For unqualified calls, prefer local methods
+      else {
+        const bestLocal = localMethods[0];
+        return {
+          symbol: bestLocal.symbol,
+          fileUri: bestLocal.fileUri,
           confidence: 0.8,
         };
       }
     }
 
-    // Try to match by scope if provided
+    // If only one type exists, use it
+    if (localMethods.length > 0) {
+      const bestLocal = localMethods[0];
+      return {
+        symbol: bestLocal.symbol,
+        fileUri: bestLocal.fileUri,
+        confidence: 0.8,
+      };
+    }
+
+    if (standardLibraryMethods.length > 0) {
+      const bestStandard = standardLibraryMethods[0];
+      return {
+        symbol: bestStandard.symbol,
+        fileUri: bestStandard.fileUri,
+        confidence: 0.8,
+      };
+    }
+
+    // Strategy 3: Prefer non-static methods for instance context, static for static context
+    if (context.isStatic !== undefined) {
+      const contextAwareMethods = candidates.filter((c) => {
+        if (c.symbol.kind !== 'method') return false;
+        const isStatic = c.symbol.modifiers?.isStatic ?? false;
+        return context.isStatic ? isStatic : !isStatic;
+      });
+
+      if (contextAwareMethods.length > 0) {
+        const bestMethod = contextAwareMethods[0];
+        return {
+          symbol: bestMethod.symbol,
+          fileUri: bestMethod.fileUri,
+          confidence: 0.7,
+        };
+      }
+    }
+
+    // Strategy 4: Try to match by scope if provided
     if (context.currentScope) {
       // For now, return first candidate with scope context
       // This can be enhanced with actual scope hierarchy matching
       const candidate = candidates[0];
       return {
         symbol: candidate.symbol,
-        filePath: candidate.filePath,
-        confidence: 0.7,
+        fileUri: candidate.fileUri,
+        confidence: 0.6,
       };
     }
 
@@ -1158,9 +1103,18 @@ export class ApexSymbolGraph {
     const candidate = candidates[0];
     return {
       symbol: candidate.symbol,
-      filePath: candidate.filePath,
+      fileUri: candidate.fileUri,
       confidence: 0.5,
     };
+  }
+
+  /**
+   * Check if a symbol is from a standard Apex library (like System, String, etc.)
+   */
+  private isStandardLibraryMethod(symbol: ApexSymbol): boolean {
+    // Use the existing isStandardApexUri function to check if the symbol's file URI
+    // is from the standard Apex library
+    return symbol.fileUri ? isStandardApexUri(symbol.fileUri) : false;
   }
 
   /**
@@ -1203,8 +1157,8 @@ export class ApexSymbolGraph {
   /**
    * Remove a file's symbols from the graph
    */
-  removeFile(filePath: string): void {
-    const symbolIds = this.fileIndex.get(filePath) || [];
+  removeFile(fileUri: string): void {
+    const symbolIds = this.fileIndex.get(fileUri) || [];
 
     for (const symbolId of symbolIds) {
       // Remove from graph
@@ -1234,33 +1188,62 @@ export class ApexSymbolGraph {
     }
 
     // Remove from file index
-    this.fileIndex.delete(filePath);
+    this.fileIndex.delete(fileUri);
 
     // Remove SymbolTable reference
-    this.fileToSymbolTable.delete(filePath);
+    this.fileToSymbolTable.delete(fileUri);
 
     this.memoryStats.totalSymbols -= symbolIds.length;
   }
 
   /**
-   * Generate a unique symbol ID
+   * Generate a unique symbol ID using URI-based format
    */
-  private getSymbolId(symbol: ApexSymbol, filePath: string): string {
-    // Ensure we have a valid filePath
-    const validFilePath = filePath || symbol.filePath || 'unknown';
-    // Include line number to make IDs unique for symbols with the same name
-    const lineInfo = symbol.location
-      ? `:${symbol.location.identifierRange.startLine}`
-      : '';
-    return `${validFilePath}:${symbol.name}${lineInfo}`;
+  private getSymbolId(symbol: ApexSymbol, fileUri: string): string {
+    // If the symbol already has an ID, use it
+    if (symbol.id) {
+      return symbol.id;
+    }
+
+    // Extract just the file path from the fileUri (remove symbol name and line number)
+    const theFileUri = this.extractFilePathFromUri(
+      fileUri || symbol.fileUri || 'unknown',
+    );
+    const lineNumber = symbol.location?.identifierRange.startLine;
+    return generateSymbolId(
+      symbol.name,
+      theFileUri,
+      undefined, // scopePath not available here
+      lineNumber,
+    );
+  }
+
+  /**
+   * Extract just the file path from a URI that may contain symbol name and line number
+   */
+  private extractFilePathFromUri(uri: string): string {
+    // If it's a built-in URI, return as-is
+    // TODO: remove once all apex classes are converted to use file uris
+    if (uri.startsWith('built-in://')) {
+      return uri;
+    }
+
+    // Remove symbol name and line number from the URI
+    // e.g., "file://TestClass.cls:TestClass:2" -> "file://TestClass.cls"
+    const parts = uri.split(':');
+    if (parts.length >= 3 && parts[0] === 'file') {
+      return `${parts[0]}://${parts[1]}`;
+    }
+
+    return uri;
   }
 
   /**
    * Find symbol ID for a symbol
    */
   private findSymbolId(symbol: ApexSymbol): string | null {
-    const filePath = symbol.filePath || 'unknown';
-    const symbolId = this.getSymbolId(symbol, filePath);
+    const fileUri = symbol.fileUri || 'unknown';
+    const symbolId = this.getSymbolId(symbol, fileUri);
     return this.symbolIds.has(symbolId) ? symbolId : null;
   }
 
@@ -1287,9 +1270,161 @@ export class ApexSymbolGraph {
       context,
     });
     this.deferredReferences.set(targetSymbolName, existing);
-    this.logger.debug(
-      () => `Added deferred reference with key: ${targetSymbolName}`,
+  }
+
+  /**
+   * Create a virtual symbol for built-in types and add the reference immediately
+   * TODO: remove once all apex classes are converted to use file uris
+   */
+  private createVirtualSymbolForBuiltInType(
+    targetSymbol: ApexSymbol,
+    sourceSymbol: ApexSymbol,
+    referenceType: EnumValue<typeof ReferenceType>,
+    location: SymbolLocation,
+    context?: {
+      methodName?: string;
+      parameterIndex?: number;
+      isStatic?: boolean;
+      namespace?: string;
+    },
+  ): void {
+    // Create a virtual symbol ID for the built-in type
+    const virtualSymbolId = `built-in://apex:${targetSymbol.name}`;
+
+    // Check if we already have this virtual symbol
+    if (this.symbolIds.has(virtualSymbolId)) {
+      // Symbol already exists, just add the reference
+      this.addReferenceToGraph(
+        sourceSymbol,
+        targetSymbol,
+        virtualSymbolId,
+        referenceType,
+        location,
+        context,
+      );
+      return;
+    }
+
+    // Create a virtual symbol for the built-in type
+    const virtualSymbol: ApexSymbol = {
+      ...targetSymbol,
+      id: virtualSymbolId,
+      fileUri: targetSymbol.fileUri,
+    };
+
+    // Add the virtual symbol to the graph
+    this.symbolIds.add(virtualSymbolId);
+    this.symbolFileMap.set(virtualSymbolId, virtualSymbol.fileUri);
+
+    // Add to name index
+    const existingNames = this.nameIndex.get(virtualSymbol.name) || [];
+    if (!existingNames.includes(virtualSymbolId)) {
+      existingNames.push(virtualSymbolId);
+      this.nameIndex.set(virtualSymbol.name, existingNames);
+    }
+
+    // Add to FQN index
+    if (virtualSymbol.fqn) {
+      this.fqnIndex.set(virtualSymbol.fqn, virtualSymbolId);
+    }
+
+    // Create a lightweight node for the graph
+    const referenceNode: ReferenceNode = {
+      symbolId: virtualSymbolId,
+      fileUri: virtualSymbol.fileUri,
+      lastUpdated: Date.now(),
+      referenceCount: 0,
+      nodeId: this.memoryStats.totalVertices + 1,
+    };
+
+    // Add vertex to graph
+    const vertexAdded = this.referenceGraph.addVertex(
+      virtualSymbolId,
+      referenceNode,
     );
+    if (!vertexAdded) {
+      return;
+    }
+
+    // Get the vertex from the graph
+    const vertex = this.referenceGraph.getVertex(virtualSymbolId);
+    if (vertex) {
+      this.symbolToVertex.set(virtualSymbolId, vertex);
+    }
+
+    // Now add the reference to the graph
+    this.addReferenceToGraph(
+      sourceSymbol,
+      targetSymbol,
+      virtualSymbolId,
+      referenceType,
+      location,
+      context,
+    );
+  }
+
+  /**
+   * Add a reference to the graph between two symbols
+   */
+  private addReferenceToGraph(
+    sourceSymbol: ApexSymbol,
+    targetSymbol: ApexSymbol,
+    targetSymbolId: string,
+    referenceType: EnumValue<typeof ReferenceType>,
+    location: SymbolLocation,
+    context?: {
+      methodName?: string;
+      parameterIndex?: number;
+      isStatic?: boolean;
+      namespace?: string;
+    },
+  ): void {
+    // Find the source symbol in the graph
+    const sourceSymbols = this.findSymbolByName(sourceSymbol.name);
+    const sourceSymbolInGraph = sourceSymbol.fileUri
+      ? sourceSymbols.find((s) => s.fileUri === sourceSymbol.fileUri)
+      : sourceSymbols[0];
+
+    if (!sourceSymbolInGraph) {
+      return;
+    }
+
+    const sourceId = this.getSymbolId(
+      sourceSymbolInGraph,
+      sourceSymbolInGraph.fileUri,
+    );
+    // Check if reference already exists
+    const existingEdge = this.referenceGraph.getEdge(sourceId, targetSymbolId);
+    if (existingEdge) {
+      return;
+    }
+
+    // Create optimized reference edge
+    const referenceEdge: ReferenceEdge = {
+      type: referenceType,
+      sourceFileUri: sourceSymbolInGraph.fileUri,
+      targetFileUri: targetSymbol.fileUri,
+      context: context
+        ? {
+            methodName: context.methodName,
+            parameterIndex: context.parameterIndex
+              ? toUint16(context.parameterIndex)
+              : undefined,
+            isStatic: context.isStatic,
+            namespace: context.namespace,
+          }
+        : undefined,
+    };
+
+    // Add edge to graph
+    const edgeAdded = this.referenceGraph.addEdge(
+      sourceId,
+      targetSymbolId,
+      1,
+      referenceEdge,
+    );
+    if (!edgeAdded) {
+    }
   }
 
   /**
@@ -1321,22 +1456,10 @@ export class ApexSymbolGraph {
    * Process deferred references for a symbol
    */
   private processDeferredReferences(symbolName: string): void {
-    this.logger.debug(
-      () => `Processing deferred references for symbol: ${symbolName}`,
-    );
-
     const deferred = this.deferredReferences.get(symbolName);
     if (!deferred) {
-      this.logger.debug(
-        () => `No deferred references found for symbol: ${symbolName}`,
-      );
       return;
     }
-
-    this.logger.debug(
-      () =>
-        `Found ${deferred.length} deferred references for symbol: ${symbolName}`,
-    );
 
     // Find the target symbol by name
     const targetSymbols = this.findSymbolByName(symbolName);
@@ -1350,26 +1473,16 @@ export class ApexSymbolGraph {
 
     // Use the first symbol with this name
     const targetSymbol = targetSymbols[0];
-    const targetId = this.getSymbolId(targetSymbol, targetSymbol.filePath);
+    const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
 
     for (const ref of deferred) {
       // Find the source symbol in the graph
       const sourceSymbols = this.findSymbolByName(ref.sourceSymbol.name);
-      this.logger.debug(
-        () =>
-          `processDeferredReferences: looking for source symbol ${ref.sourceSymbol.name} ` +
-          `with filePath ${ref.sourceSymbol.filePath}`,
-      );
-      this.logger.debug(
-        () =>
-          `processDeferredReferences: found ${sourceSymbols.length} source symbols ` +
-          `with name ${ref.sourceSymbol.name}`,
-      );
 
-      // If filePath is undefined, match any symbol with the same name
-      // Otherwise, require exact filePath match
-      const sourceSymbolInGraph = ref.sourceSymbol.filePath
-        ? sourceSymbols.find((s) => s.filePath === ref.sourceSymbol.filePath)
+      // If fileUri is undefined, match any symbol with the same name
+      // Otherwise, require exact fileUri match
+      const sourceSymbolInGraph = ref.sourceSymbol.fileUri
+        ? sourceSymbols.find((s) => s.fileUri === ref.sourceSymbol.fileUri)
         : sourceSymbols[0]; // Take the first symbol with matching name
 
       if (!sourceSymbolInGraph) {
@@ -1380,24 +1493,16 @@ export class ApexSymbolGraph {
         continue;
       }
 
-      this.logger.debug(
-        () =>
-          `processDeferredReferences: found matching source symbol with filePath ${sourceSymbolInGraph.filePath}`,
-      );
       const sourceId = this.getSymbolId(
         sourceSymbolInGraph,
-        sourceSymbolInGraph.filePath,
-      );
-      this.logger.debug(
-        () =>
-          `processDeferredReferences: adding edge ${sourceId} -> ${targetId}`,
+        sourceSymbolInGraph.fileUri,
       );
 
       // Create optimized reference edge
       const referenceEdge: ReferenceEdge = {
         type: ref.referenceType,
-        sourceFile: sourceSymbolInGraph.filePath,
-        targetFile: targetSymbol.filePath,
+        sourceFileUri: sourceSymbolInGraph.fileUri,
+        targetFileUri: targetSymbol.fileUri,
         context: ref.context
           ? {
               methodName: ref.context.methodName,
@@ -1425,10 +1530,6 @@ export class ApexSymbolGraph {
         continue;
       }
 
-      this.logger.debug(
-        () =>
-          `processDeferredReferences: successfully added edge ${sourceId} -> ${targetId}`,
-      );
       // Update reference count
       const targetVertex = this.symbolToVertex.get(targetId);
       if (targetVertex && targetVertex.value) {
@@ -1436,10 +1537,6 @@ export class ApexSymbolGraph {
       }
 
       this.memoryStats.totalEdges++;
-      this.logger.debug(
-        () =>
-          `Processed deferred reference: ${sourceId} -> ${targetId} (${String(ref.referenceType)})`,
-      );
     }
 
     this.deferredReferences.delete(symbolName); // Delete by symbol name
@@ -1464,12 +1561,5 @@ export class ApexSymbolGraph {
     const estimatedSymbolSize = 500; // bytes per symbol
     const savedBytes = this.memoryStats.totalSymbols * estimatedSymbolSize;
     return savedBytes;
-  }
-
-  /**
-   * Check if namespace is standard Apex using generated constant
-   */
-  private isStandardNamespace(namespace: string): boolean {
-    return isStdApexNamespace(namespace);
   }
 }

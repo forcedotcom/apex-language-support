@@ -18,6 +18,7 @@
     "isolatedModules": true,
     "noEmit": false,
     "incremental": true,
+    "downlevelIteration": true,
     "baseUrl": ".",
     "paths": {
       "@salesforce/apex-lsp-shared": ["packages/apex-lsp-shared/out"],
@@ -41,10 +42,8 @@
         "packages/custom-services/out/*"
       ],
 
-
       "@salesforce/apex-ls": ["packages/apex-ls/out"],
       "@salesforce/apex-ls/*": ["packages/apex-ls/out/*"],
-
 
       "@salesforce/apex-lsp-vscode-extension": [
         "packages/apex-lsp-vscode-extension/out"

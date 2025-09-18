@@ -123,11 +123,11 @@ export function getDiagnosticsFromErrors(
       severity: DiagnosticSeverity.Error,
       source: 'apex-parser',
       ...(code && { code }),
-      ...(error.filePath && {
+      ...(error.fileUri && {
         relatedInformation: [
           {
             location: {
-              uri: error.filePath,
+              uri: error.fileUri,
               range: {
                 start: {
                   line: startPosition.line,

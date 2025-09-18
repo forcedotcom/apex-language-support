@@ -27,6 +27,7 @@ import {
   inTypeSymbolGroup,
 } from '@salesforce/apex-lsp-parser-ast';
 import { ApexCapabilitiesManager } from '../capabilities/ApexCapabilitiesManager';
+import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 
 import {
   transformLspToParserPosition,
@@ -58,14 +59,20 @@ export class HoverProcessingService implements IHoverProcessor {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private readonly capabilitiesManager: ApexCapabilitiesManager;
+  private readonly missingArtifactUtils: MissingArtifactUtils;
 
   constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
-    // Use the real symbol manager from ApexSymbolProcessingManager, not the factory
+    // Use the passed symbol manager or fall back to the singleton
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
     this.capabilitiesManager = ApexCapabilitiesManager.getInstance();
+    // MissingArtifactUtils will create the service on-demand
+    this.missingArtifactUtils = new MissingArtifactUtils(
+      logger,
+      this.symbolManager,
+    );
   }
 
   /**
@@ -91,7 +98,7 @@ export class HoverProcessingService implements IHoverProcessor {
           )} to parser ${formatPosition(parserPosition, 'parser')}`,
       );
 
-      let symbol = this.symbolManager.getSymbolAtPosition(
+      let symbol = await this.symbolManager.getSymbolAtPosition(
         params.textDocument.uri,
         parserPosition,
         'precise',
@@ -102,6 +109,14 @@ export class HoverProcessingService implements IHoverProcessor {
           const parserPos = formatPosition(parserPosition, 'parser');
           return `No symbol found at parser position ${parserPos}`;
         });
+
+        // Initiate background resolution for missing artifact
+        this.missingArtifactUtils.tryResolveMissingArtifactBackground(
+          params.textDocument.uri,
+          params.position,
+          'hover',
+        );
+
         return null;
       }
 
@@ -169,6 +184,8 @@ export class HoverProcessingService implements IHoverProcessor {
         modifiers.push(symbol.modifiers.visibility);
       if (symbol.modifiers.isFinal) modifiers.push('final');
       if (symbol.modifiers.isAbstract) modifiers.push('abstract');
+      // TODO: Add support for sharing modifiers (with sharing, without sharing)
+      // This requires extending SymbolModifiers interface and updating symbol collector
       if (modifiers.length > 0) {
         content.push(`**Modifiers:** ${modifiers.join(', ')}`);
       }
@@ -237,9 +254,9 @@ export class HoverProcessingService implements IHoverProcessor {
     }
 
     // Add file location
-    if (symbol.filePath) {
+    if (symbol.fileUri) {
       content.push('');
-      content.push(`**File:** ${symbol.filePath}`);
+      content.push(`**File:** ${symbol.fileUri}`);
     }
 
     const markupContent: MarkupContent = {

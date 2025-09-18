@@ -5,89 +5,166 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-// HashMap replaced with native Map
+
+import { HashMap } from 'data-structure-typed';
+import type { HashMapOptions } from 'data-structure-typed';
+import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
+import { normalizeApexPath } from './PathUtils';
 
 /**
- * A Map implementation that uses case-insensitive string keys.
- * All keys are converted to lowercase before being stored or retrieved.
+ * A HashMap implementation that uses case-insensitive string keys.
+ * This provides a simpler and more reliable case-insensitive map implementation.
  */
-export class CaseInsensitiveMap<V> extends Map<string, V> {
-  constructor() {
-    super();
+export class CaseInsensitiveHashMap<V = any, R = [string, V]> extends HashMap<
+  string,
+  V,
+  R
+> {
+  private originalKeys: Map<string, string> = new Map(); // lowercase -> original case
+
+  constructor(
+    entryOrRawElements: Iterable<R | [string, V]> = [],
+    options?: HashMapOptions<string, V, R>,
+  ) {
+    // Override the hash function to always convert string keys to lowercase
+    const caseInsensitiveOptions: HashMapOptions<string, V, R> = {
+      ...options,
+      hashFn: (key: string) => String(key).toLowerCase(),
+    };
+
+    super(entryOrRawElements, caseInsensitiveOptions);
   }
 
   /**
-   * Override the get method to convert keys to lowercase
+   * Override _getNoObjKey to always use the hash function for string keys
+   * This ensures case-insensitive behavior for all string operations
    */
-  get(key: string): V | undefined {
-    return super.get(key.toLowerCase());
+  protected override _getNoObjKey(key: string): string {
+    // Always use the hash function for strings to ensure case-insensitive behavior
+    return this._hashFn(key);
   }
 
   /**
-   * Override the has method to convert keys to lowercase
+   * Override set to normalize the key before storage but preserve original case
    */
-  has(key: string): boolean {
-    return super.has(key.toLowerCase());
+  override set(key: string, value: V): boolean {
+    const normalizedKey = key.toLowerCase();
+    this.originalKeys.set(normalizedKey, key); // Store original case
+    return super.set(normalizedKey, value);
   }
 
   /**
-   * Override the delete method to convert keys to lowercase
+   * Override get to normalize the key before lookup
    */
-  delete(key: string): boolean {
-    return super.delete(key.toLowerCase());
+  override get(key: string): V | undefined {
+    const normalizedKey = key.toLowerCase();
+    return super.get(normalizedKey);
   }
 
   /**
-   * Override the set method to convert keys to lowercase
+   * Override has to normalize the key before checking
    */
-  set(key: string, value: V): this {
-    return super.set(key.toLowerCase(), value);
+  override has(key: string): boolean {
+    const normalizedKey = key.toLowerCase();
+    return super.has(normalizedKey);
+  }
+
+  /**
+   * Override delete to normalize the key before deletion
+   */
+  override delete(key: string): boolean {
+    const normalizedKey = key.toLowerCase();
+    const deleted = super.delete(normalizedKey);
+    if (deleted) {
+      this.originalKeys.delete(normalizedKey);
+    }
+    return deleted;
+  }
+
+  /**
+   * Override keys to return original case keys
+   */
+  override keys(): IterableIterator<string> {
+    return this.originalKeys.values();
   }
 }
 
 /**
  * A Map implementation that uses case-insensitive string keys and normalizes paths.
- * All keys are converted to lowercase and normalized to use dots as separators.
+ * All keys are converted to lowercase and normalized to use forward slashes as separators.
  * Paths are expected to end with .cls extension.
  */
-export class CaseInsensitivePathMap<V> extends CaseInsensitiveMap<V> {
-  constructor() {
-    super();
+export class CaseInsensitivePathMap<V> extends CaseInsensitiveHashMap<
+  V,
+  [string, V]
+> {
+  constructor(entries?: Iterable<[string, V]>) {
+    super(entries);
   }
 
   /**
-   * Normalizes a path by converting separators to dots and ensuring .cls extension
+   * Normalize path for consistent lookup
+   * @private
    */
   private normalizePath(path: string): string {
-    const normalized = path.replace(/[\/\\]/g, '.').toLowerCase();
-    return normalized.endsWith('.cls') ? normalized : `${normalized}.cls`;
+    return normalizeApexPath(path);
   }
 
   /**
-   * Override the get method to normalize paths
+   * Override methods to handle both string and CaseInsensitiveString keys for backward compatibility
    */
-  get(key: string): V | undefined {
-    return super.get(this.normalizePath(key));
+  get(key: string | CIS): V | undefined {
+    const keyStr = typeof key === 'string' ? key : key.value;
+    const normalizedKey = this.normalizePath(keyStr);
+    return super.get(normalizedKey);
+  }
+
+  has(key: string | CIS): boolean {
+    const keyStr = typeof key === 'string' ? key : key.value;
+    const normalizedKey = this.normalizePath(keyStr);
+    return super.has(normalizedKey);
+  }
+
+  delete(key: string | CIS): boolean {
+    const keyStr = typeof key === 'string' ? key : key.value;
+    const normalizedKey = this.normalizePath(keyStr);
+    return super.delete(normalizedKey);
+  }
+
+  set(key: string | CIS, value: V): boolean {
+    const keyStr = typeof key === 'string' ? key : key.value;
+    const normalizedKey = this.normalizePath(keyStr);
+    return super.set(normalizedKey, value);
   }
 
   /**
-   * Override the has method to normalize paths
+   * Override keys to ensure original case preservation
    */
-  has(key: string): boolean {
-    return super.has(this.normalizePath(key));
+  override keys(): IterableIterator<string> {
+    return super.keys();
   }
 
   /**
-   * Override the delete method to normalize paths
+   * Create a new map from an array of string-value pairs
    */
-  delete(key: string): boolean {
-    return super.delete(this.normalizePath(key));
+  static fromStringEntries<V>(
+    entries: [string, V][],
+  ): CaseInsensitivePathMap<V> {
+    return new CaseInsensitivePathMap<V>(entries);
   }
 
   /**
-   * Override the set method to normalize paths
+   * Create a new map from an object with string keys
    */
-  set(key: string, value: V): this {
-    return super.set(this.normalizePath(key), value);
+  static fromObject<V>(obj: Record<string, V>): CaseInsensitivePathMap<V> {
+    const entries = Object.entries(obj);
+    return new CaseInsensitivePathMap<V>(entries);
+  }
+
+  /**
+   * Get all keys as strings (blurring the line back to primitives)
+   */
+  getStringKeys(): string[] {
+    return Array.from(this.keys());
   }
 }

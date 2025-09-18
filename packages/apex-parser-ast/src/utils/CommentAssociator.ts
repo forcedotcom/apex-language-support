@@ -50,36 +50,13 @@ export class CommentAssociator {
         a.location.symbolRange.startLine - b.location.symbolRange.startLine,
     );
 
-    // Debug: Log symbol information
+    // Log basic association info
     this.logger.debug(
       `Associating ${sortedComments.length} comments with ${sortedSymbols.length} symbols`,
     );
 
-    // Debug: Log symbol details
-    symbols.forEach((symbol, index) => {
-      this.logger.debug(
-        () =>
-          `Symbol[${index}]: ${symbol.name} (${symbol.kind}) at lines ` +
-          `${symbol.location.symbolRange.startLine}-${symbol.location.symbolRange.endLine}, ` +
-          `identifier at line ${symbol.location.identifierRange.startLine}`,
-      );
-    });
-
-    // Debug: Log comment details
-    comments.forEach((comment, index) => {
-      this.logger.debug(
-        () =>
-          `Comment[${index}]: "${comment.text.substring(0, 30)}..." at line ${comment.range.startLine}`,
-      );
-    });
-
     // For each comment, find the best symbol association
     for (const comment of sortedComments) {
-      this.logger.debug(
-        () =>
-          `Processing comment at line ${comment.range.startLine}: "${comment.text.substring(0, 30)}..."`,
-      );
-
       const candidateAssociations = this.findCandidateAssociations(
         comment,
         sortedSymbols,
@@ -93,16 +70,6 @@ export class CommentAssociator {
         bestAssociation.confidence >= this.config.minConfidence
       ) {
         associations.push(bestAssociation);
-        this.logger.debug(
-          () =>
-            `Associated comment at line ${comment.range.startLine} with symbol '${bestAssociation.symbolKey}' ` +
-            `(${bestAssociation.associationType}, confidence: ${bestAssociation.confidence.toFixed(2)})`,
-        );
-      } else {
-        this.logger.debug(
-          () =>
-            `No suitable association found for comment at line ${comment.range.startLine}`,
-        );
       }
     }
 
@@ -119,31 +86,9 @@ export class CommentAssociator {
     const candidates: CommentAssociation[] = [];
 
     for (const symbol of symbols) {
-      // Debug: trace per-symbol analysis start
-      this.logger.debug(
-        () =>
-          `Analyze candidate → comment[L${comment.range.startLine}:${comment.range.startColumn}] ` +
-          `vs symbol '${symbol.name}' [kind=${symbol.kind}] ` +
-          `idLine=${symbol.location.identifierRange.startLine} ` +
-          `range=${symbol.location.symbolRange.startLine}-${symbol.location.symbolRange.endLine}`,
-      );
-
       const association = this.analyzeAssociation(comment, symbol);
       if (association) {
         candidates.push(association);
-        // Debug: log candidate association summary
-        this.logger.debug(
-          () =>
-            `Candidate ✓ symbol='${association.symbolKey}'` +
-            ` type=${association.associationType}` +
-            ` confidence=${association.confidence.toFixed(2)}` +
-            ` distance=${association.distance}`,
-        );
-      } else {
-        // Debug: no association for this symbol
-        this.logger.debug(
-          () => `Candidate ✗ No association for symbol '${symbol.name}'`,
-        );
       }
     }
 
@@ -162,15 +107,6 @@ export class CommentAssociator {
     const distance = Math.abs(commentLine - symbolLine);
     const isBlockComment = comment.type === CommentType.Block;
 
-    // Debug: initial analysis context
-    this.logger.debug(
-      () =>
-        `analyzeAssociation: commentLine=${commentLine} symbol='${symbol.name}'` +
-        ` idLine=${symbol.location.identifierRange.startLine}` +
-        ` range=${symbol.location.symbolRange.startLine}-${symbol.location.symbolRange.endLine}` +
-        ` distance=${distance}`,
-    );
-
     // Determine association type and calculate base confidence
     let associationType: CommentAssociationType;
     let baseConfidence: number;
@@ -179,19 +115,12 @@ export class CommentAssociator {
       // Inline comment (same line as symbol name)
       associationType = CommentAssociationType.Inline;
       baseConfidence = 0.9;
-      this.logger.debug(
-        () =>
-          `Association type resolved: inline comment for symbol '${symbol.name}'`,
-      );
     } else if (commentLine < symbolLine) {
       // Preceding comment
       // For block comments, allow a slightly larger preceding window since
       // documentation blocks commonly sit several lines above the symbol.
       const allowedPrecedingDistance = this.config.maxPrecedingDistance;
       if (distance > allowedPrecedingDistance) {
-        this.logger.debug(
-          `Comment too far preceding symbol ${symbol.name} (distance: ${distance})`,
-        );
         return null;
       }
       associationType = CommentAssociationType.Preceding;
@@ -199,19 +128,11 @@ export class CommentAssociator {
       baseConfidence = isBlockComment
         ? Math.max(0.8, 1.0 - (distance / allowedPrecedingDistance) * 0.2)
         : Math.max(0.6, 1.0 - (distance / allowedPrecedingDistance) * 0.3);
-      this.logger.debug(
-        () =>
-          `Association type resolved: preceding comment for symbol '${symbol.name}'`,
-      );
     } else {
       // Comment after or inside symbol
       if (this.isCommentInsideSymbol(comment, symbol)) {
         associationType = CommentAssociationType.Internal;
         baseConfidence = 0.7;
-        this.logger.debug(
-          () =>
-            `Association type resolved: internal comment for symbol '${symbol.name}'`,
-        );
       } else {
         // Trailing comment
         if (distance > this.config.maxTrailingDistance) {
@@ -220,10 +141,6 @@ export class CommentAssociator {
         associationType = CommentAssociationType.Trailing;
         // Penalize trailing associations for block comments to prefer following symbols
         baseConfidence = isBlockComment ? 0.2 : 0.4;
-        this.logger.debug(
-          () =>
-            `Association type resolved: trailing comment for symbol '${symbol.name}'`,
-        );
       }
     }
 
@@ -251,16 +168,6 @@ export class CommentAssociator {
       distance,
       symbolKind: symbol.kind,
     };
-
-    // Debug: final association for this symbol
-    this.logger.debug(
-      () =>
-        `Association result → symbol='${result.symbolKey}'` +
-        ` type=${result.associationType}` +
-        ` confidence=${result.confidence.toFixed(2)}` +
-        ` distance=${result.distance}` +
-        ` commentType=${comment.type}`,
-    );
 
     return result;
   }
@@ -361,14 +268,6 @@ export class CommentAssociator {
     });
 
     const best = candidates[0];
-    // Debug: chosen best association among candidates
-    this.logger.debug(
-      () =>
-        `Best association selected → symbol='${best.symbolKey}'` +
-        ` type=${best.associationType}` +
-        ` confidence=${best.confidence.toFixed(2)}` +
-        ` distance=${best.distance}`,
-    );
     return best;
   }
 

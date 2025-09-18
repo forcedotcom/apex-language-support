@@ -69,6 +69,14 @@ describe('LSPConfigurationManager', () => {
     resources: {
       loadMode: 'full',
     },
+    findMissingArtifact: {
+      enabled: true,
+      maxCandidatesToOpen: 3,
+      timeoutMsHint: 2000,
+      blockingWaitTimeoutMs: 5000,
+      indexingBarrierPollMs: 100,
+      enablePerfMarks: false,
+    },
   };
 
   beforeEach(() => {
@@ -244,6 +252,18 @@ describe('LSPConfigurationManager', () => {
       expect(settings).toEqual(mockSettings);
     });
 
+    it('should include findMissingArtifact settings in current settings', () => {
+      const settings = configurationManager.getSettings();
+
+      expect(settings.findMissingArtifact).toBeDefined();
+      expect(settings.findMissingArtifact.enabled).toBe(true);
+      expect(settings.findMissingArtifact.maxCandidatesToOpen).toBe(3);
+      expect(settings.findMissingArtifact.timeoutMsHint).toBe(2000);
+      expect(settings.findMissingArtifact.blockingWaitTimeoutMs).toBe(5000);
+      expect(settings.findMissingArtifact.indexingBarrierPollMs).toBe(100);
+      expect(settings.findMissingArtifact.enablePerfMarks).toBe(false);
+    });
+
     it('should update settings from LSP configuration', () => {
       const config = { apex: { logLevel: 'debug' } };
       const result = configurationManager.updateFromLSPConfiguration(config);
@@ -372,6 +392,18 @@ describe('LSPConfigurationManager', () => {
       expect(settings.performance).toBeDefined();
       expect(settings.environment).toBeDefined();
       expect(settings.resources).toBeDefined();
+      expect(settings.findMissingArtifact).toBeDefined();
+    });
+
+    it('should have correct findMissingArtifact settings', () => {
+      const settings = configurationManager.getDefaultSettings();
+
+      expect(settings.findMissingArtifact.enabled).toBe(true);
+      expect(settings.findMissingArtifact.maxCandidatesToOpen).toBe(3);
+      expect(settings.findMissingArtifact.timeoutMsHint).toBe(2000);
+      expect(settings.findMissingArtifact.blockingWaitTimeoutMs).toBe(5000);
+      expect(settings.findMissingArtifact.indexingBarrierPollMs).toBe(100);
+      expect(settings.findMissingArtifact.enablePerfMarks).toBe(false);
     });
   });
 

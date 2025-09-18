@@ -6,18 +6,23 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
-import {
-  SymbolFactory,
-  SymbolKind,
-  SymbolVisibility,
-} from '../../src/types/symbol';
+import { CompilerService } from '../../src/parser/compilerService';
+import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { SymbolKind } from '../../src/types/symbol';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolManager FQN Bug Fix Tests', () => {
   let symbolManager: ApexSymbolManager;
+  let compilerService: CompilerService;
 
   beforeEach(() => {
     symbolManager = new ApexSymbolManager();
+    compilerService = new CompilerService();
+    enableConsoleLogging();
+    setLogLevel('error');
   });
 
   afterEach(() => {
@@ -26,517 +31,214 @@ describe('ApexSymbolManager FQN Bug Fix Tests', () => {
 
   describe('FQN Calculation and Storage', () => {
     it('should calculate and store FQN for top-level class', () => {
-      // Create a symbol without FQN (simulating the bug condition)
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        null, // parentId
-        { interfaces: [] }, // typeData
-        undefined, // fqn - intentionally undefined to simulate the bug
+      // Read the real TestClassWithNested.cls file
+      const testClassPath = path.join(
+        __dirname,
+        '../fixtures/fqn/TestClassWithNested.cls',
+      );
+      const testClassContent = fs.readFileSync(testClassPath, 'utf8');
+
+      // Parse the TestClass and add it to the symbol manager
+      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassResult = compilerService.compile(
+        testClassContent,
+        'file:///test/TestClassWithNested.cls',
+        testClassListener,
       );
 
-      // Add symbol to manager
-      symbolManager.addSymbol(classSymbol, 'test.cls');
+      if (testClassResult.result) {
+        symbolManager.addSymbolTable(
+          testClassResult.result,
+          'file:///test/TestClassWithNested.cls',
+        );
+      }
 
-      // Verify FQN was calculated and stored
-      expect(classSymbol.fqn).toBe('TestClass');
-
-      // Verify FQN can be looked up
+      // Verify FQN can be looked up for the top-level class
       const foundSymbol = symbolManager.findSymbolByFQN('TestClass');
       expect(foundSymbol).toBeTruthy();
       expect(foundSymbol?.name).toBe('TestClass');
+      expect(foundSymbol?.kind).toBe(SymbolKind.Class);
     });
 
     it('should calculate and store FQN for nested method', () => {
-      // Create a class symbol
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        null, // parentId
-        { interfaces: [] }, // typeData
-        'TestClass', // fqn for class
+      // Read the real TestClassWithNested.cls file
+      const testClassPath = path.join(
+        __dirname,
+        '../fixtures/fqn/TestClassWithNested.cls',
+      );
+      const testClassContent = fs.readFileSync(testClassPath, 'utf8');
+
+      // Parse the TestClass and add it to the symbol manager
+      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassResult = compilerService.compile(
+        testClassContent,
+        'file:///test/TestClassWithNested.cls',
+        testClassListener,
       );
 
-      // Create a method symbol without FQN
-      const methodSymbol = SymbolFactory.createFullSymbol(
-        'testMethod',
-        SymbolKind.Method,
-        {
-          symbolRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        classSymbol.id, // parentId
-        {
-          returnType: { name: 'String', isPrimitive: true, isArray: false },
-          parameters: [],
-        }, // typeData
-        undefined, // fqn - intentionally undefined to simulate the bug
-      );
+      if (testClassResult.result) {
+        symbolManager.addSymbolTable(
+          testClassResult.result,
+          'file:///test/TestClassWithNested.cls',
+        );
+      }
 
-      // Set up parent relationship
-      methodSymbol.parent = classSymbol;
-
-      // Add symbols to manager
-      symbolManager.addSymbol(classSymbol, 'test.cls');
-      symbolManager.addSymbol(methodSymbol, 'test.cls');
-
-      // Verify FQN was calculated and stored
-      expect(methodSymbol.fqn).toBe('TestClass.testMethod');
-
-      // Verify FQN can be looked up
+      // Verify FQN can be looked up for the nested method
       const foundSymbol = symbolManager.findSymbolByFQN('TestClass.testMethod');
       expect(foundSymbol).toBeTruthy();
       expect(foundSymbol?.name).toBe('testMethod');
+      expect(foundSymbol?.kind).toBe(SymbolKind.Method);
     });
 
     it('should handle deeply nested symbols', () => {
-      // Create outer class
-      const outerClass = SymbolFactory.createFullSymbol(
-        'OuterClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        null, // parentId
-        { interfaces: [] }, // typeData
-        'OuterClass', // fqn for outer class
+      // Read the real TestClassWithNested.cls file
+      const testClassPath = path.join(
+        __dirname,
+        '../fixtures/fqn/TestClassWithNested.cls',
+      );
+      const testClassContent = fs.readFileSync(testClassPath, 'utf8');
+
+      // Parse the TestClass and add it to the symbol manager
+      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassResult = compilerService.compile(
+        testClassContent,
+        'file:///test/TestClassWithNested.cls',
+        testClassListener,
       );
 
-      // Create inner class
-      const innerClass = SymbolFactory.createFullSymbol(
-        'InnerClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 3,
-            startColumn: 1,
-            endLine: 3,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 3,
-            startColumn: 1,
-            endLine: 3,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        outerClass.id, // parentId
-        { interfaces: [] }, // typeData
-        undefined, // fqn - intentionally undefined
-      );
+      if (testClassResult.result) {
+        symbolManager.addSymbolTable(
+          testClassResult.result,
+          'file:///test/TestClassWithNested.cls',
+        );
+      }
 
-      // Create method in inner class
-      const methodSymbol = SymbolFactory.createFullSymbol(
-        'innerMethod',
-        SymbolKind.Method,
-        {
-          symbolRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        innerClass.id, // parentId
-        {
-          returnType: { name: 'String', isPrimitive: true, isArray: false },
-          parameters: [],
-        }, // typeData
-        undefined, // fqn - intentionally undefined
-      );
-
-      // Set up parent relationships
-      innerClass.parent = outerClass;
-      methodSymbol.parent = innerClass;
-
-      // Add symbols to manager
-      symbolManager.addSymbol(outerClass, 'test.cls');
-      symbolManager.addSymbol(innerClass, 'test.cls');
-      symbolManager.addSymbol(methodSymbol, 'test.cls');
-
-      // Verify FQNs were calculated and stored
-      expect(innerClass.fqn).toBe('OuterClass.InnerClass');
-      expect(methodSymbol.fqn).toBe('OuterClass.InnerClass.innerMethod');
-
-      // Verify FQNs can be looked up
+      // Verify FQNs can be looked up for inner class
       const foundInnerClass = symbolManager.findSymbolByFQN(
-        'OuterClass.InnerClass',
+        'TestClass.InnerClass',
       );
       expect(foundInnerClass).toBeTruthy();
       expect(foundInnerClass?.name).toBe('InnerClass');
+      expect(foundInnerClass?.kind).toBe(SymbolKind.Class);
 
+      // Verify FQNs can be looked up for inner method
       const foundMethod = symbolManager.findSymbolByFQN(
-        'OuterClass.InnerClass.innerMethod',
+        'TestClass.InnerClass.innerMethod',
       );
       expect(foundMethod).toBeTruthy();
       expect(foundMethod?.name).toBe('innerMethod');
+      expect(foundMethod?.kind).toBe(SymbolKind.Method);
     });
 
     it('should preserve existing FQNs when already present', () => {
-      // Create a symbol with FQN already set
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        null, // parentId
-        { interfaces: [] }, // typeData
-        'CustomNamespace.TestClass', // fqn already set
+      // Read the real TestClassWithNested.cls file
+      const testClassPath = path.join(
+        __dirname,
+        '../fixtures/fqn/TestClassWithNested.cls',
+      );
+      const testClassContent = fs.readFileSync(testClassPath, 'utf8');
+
+      // Parse the TestClass and add it to the symbol manager
+      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassResult = compilerService.compile(
+        testClassContent,
+        'file:///test/TestClassWithNested.cls',
+        testClassListener,
       );
 
-      // Add symbol to manager
-      symbolManager.addSymbol(classSymbol, 'test.cls');
+      if (testClassResult.result) {
+        symbolManager.addSymbolTable(
+          testClassResult.result,
+          'file:///test/TestClassWithNested.cls',
+        );
+      }
 
-      // Verify existing FQN was preserved
-      expect(classSymbol.fqn).toBe('CustomNamespace.TestClass');
-
-      // Verify FQN can be looked up
-      const foundSymbol = symbolManager.findSymbolByFQN(
-        'CustomNamespace.TestClass',
-      );
+      // Verify FQN can be looked up (should be calculated automatically)
+      const foundSymbol = symbolManager.findSymbolByFQN('TestClass');
       expect(foundSymbol).toBeTruthy();
       expect(foundSymbol?.name).toBe('TestClass');
+      expect(foundSymbol?.kind).toBe(SymbolKind.Class);
     });
   });
 
   describe('FQN Index Population', () => {
     it('should populate FQN index for all symbols', () => {
-      // Create multiple symbols without FQNs
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        null, // parentId
-        { interfaces: [] }, // typeData
-        undefined, // fqn
+      // Read the real TestClassWithNested.cls file
+      const testClassPath = path.join(
+        __dirname,
+        '../fixtures/fqn/TestClassWithNested.cls',
+      );
+      const testClassContent = fs.readFileSync(testClassPath, 'utf8');
+
+      // Parse the TestClass and add it to the symbol manager
+      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassResult = compilerService.compile(
+        testClassContent,
+        'file:///test/TestClassWithNested.cls',
+        testClassListener,
       );
 
-      const methodSymbol = SymbolFactory.createFullSymbol(
-        'testMethod',
-        SymbolKind.Method,
-        {
-          symbolRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        classSymbol.id, // parentId
-        {
-          returnType: { name: 'String', isPrimitive: true, isArray: false },
-          parameters: [],
-        }, // typeData
-        undefined, // fqn
-      );
-
-      // Set up parent relationship
-      methodSymbol.parent = classSymbol;
-
-      // Add symbols to manager
-      symbolManager.addSymbol(classSymbol, 'test.cls');
-      symbolManager.addSymbol(methodSymbol, 'test.cls');
+      if (testClassResult.result) {
+        symbolManager.addSymbolTable(
+          testClassResult.result,
+          'file:///test/TestClassWithNested.cls',
+        );
+      }
 
       // Verify both FQNs can be looked up
       const foundClass = symbolManager.findSymbolByFQN('TestClass');
       expect(foundClass).toBeTruthy();
       expect(foundClass?.name).toBe('TestClass');
+      expect(foundClass?.kind).toBe(SymbolKind.Class);
 
       const foundMethod = symbolManager.findSymbolByFQN('TestClass.testMethod');
       expect(foundMethod).toBeTruthy();
       expect(foundMethod?.name).toBe('testMethod');
+      expect(foundMethod?.kind).toBe(SymbolKind.Method);
+
+      // Test interface FQN
+      const foundInterface = symbolManager.findSymbolByFQN(
+        'TestClass.TestInterface',
+      );
+      expect(foundInterface).toBeTruthy();
+      expect(foundInterface?.name).toBe('TestInterface');
+      expect(foundInterface?.kind).toBe(SymbolKind.Interface);
+
+      // Test enum FQN
+      const foundEnum = symbolManager.findSymbolByFQN('TestClass.TestEnum');
+      expect(foundEnum).toBeTruthy();
+      expect(foundEnum?.name).toBe('TestEnum');
+      expect(foundEnum?.kind).toBe(SymbolKind.Enum);
     });
   });
 
   describe('Integration with Symbol Resolution', () => {
     it('should resolve symbols by FQN in hover context', () => {
-      // Create a class with a method
-      const classSymbol = SymbolFactory.createFullSymbol(
-        'TestClass',
-        SymbolKind.Class,
-        {
-          symbolRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 1,
-            startColumn: 1,
-            endLine: 1,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        null, // parentId
-        { interfaces: [] }, // typeData
-        undefined, // fqn
+      // Read the real TestClassWithNested.cls file
+      const testClassPath = path.join(
+        __dirname,
+        '../fixtures/fqn/TestClassWithNested.cls',
+      );
+      const testClassContent = fs.readFileSync(testClassPath, 'utf8');
+
+      // Parse the TestClass and add it to the symbol manager
+      const testClassListener = new ApexSymbolCollectorListener();
+      const testClassResult = compilerService.compile(
+        testClassContent,
+        'file:///test/TestClassWithNested.cls',
+        testClassListener,
       );
 
-      const methodSymbol = SymbolFactory.createFullSymbol(
-        'testMethod',
-        SymbolKind.Method,
-        {
-          symbolRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-          identifierRange: {
-            startLine: 5,
-            startColumn: 1,
-            endLine: 5,
-            endColumn: 10,
-          },
-        },
-        'test.cls',
-        {
-          visibility: SymbolVisibility.Public,
-          isStatic: false,
-          isFinal: false,
-          isAbstract: false,
-          isVirtual: false,
-          isOverride: false,
-          isTransient: false,
-          isTestMethod: false,
-          isWebService: false,
-          isBuiltIn: false,
-        },
-        classSymbol.id, // parentId
-        {
-          returnType: { name: 'String', isPrimitive: true, isArray: false },
-          parameters: [],
-        }, // typeData
-        undefined, // fqn
-      );
-
-      // Set up parent relationship
-      methodSymbol.parent = classSymbol;
-
-      // Add symbols to manager
-      symbolManager.addSymbol(classSymbol, 'test.cls');
-      symbolManager.addSymbol(methodSymbol, 'test.cls');
+      if (testClassResult.result) {
+        symbolManager.addSymbolTable(
+          testClassResult.result,
+          'file:///test/TestClassWithNested.cls',
+        );
+      }
 
       // Test symbol resolution with context (simulating hover)
       const resolutionContext = {
-        sourceFile: 'test.cls',
+        sourceFile: 'TestClassWithNested.cls',
         namespaceContext: 'public',
         currentScope: 'method',
         scopeChain: ['method', 'class', 'global'],

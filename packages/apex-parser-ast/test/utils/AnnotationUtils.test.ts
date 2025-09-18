@@ -19,10 +19,18 @@ import { AnnotationUtils } from '../../src/utils/AnnotationUtils';
 describe('AnnotationUtils', () => {
   // Create a sample location
   const sampleLocation: SymbolLocation = {
-    startLine: 1,
-    startColumn: 1,
-    endLine: 2,
-    endColumn: 1,
+    identifierRange: {
+      startLine: 1,
+      startColumn: 1,
+      endLine: 2,
+      endColumn: 1,
+    },
+    symbolRange: {
+      startLine: 1,
+      startColumn: 1,
+      endLine: 2,
+      endColumn: 1,
+    },
   };
 
   // Create sample modifiers
@@ -36,6 +44,7 @@ describe('AnnotationUtils', () => {
     isTransient: false,
     isTestMethod: false,
     isWebService: false,
+    isBuiltIn: false,
   };
 
   describe('hasAnnotation', () => {
@@ -60,6 +69,11 @@ describe('AnnotationUtils', () => {
             location: sampleLocation,
           },
         ],
+        id: '',
+        fileUri: '',
+        parentId: null,
+        _modifierFlags: 0,
+        _isLoaded: false,
       };
 
       expect(AnnotationUtils.hasAnnotation(classSymbol, 'isTest')).toBe(true);
@@ -80,6 +94,11 @@ describe('AnnotationUtils', () => {
           path: ['RegularClass'],
         },
         parentKey: null,
+        id: '',
+        fileUri: '',
+        parentId: null,
+        _modifierFlags: 0,
+        _isLoaded: false,
       };
 
       expect(AnnotationUtils.hasAnnotation(classSymbol, 'isTest')).toBe(false);
@@ -106,6 +125,11 @@ describe('AnnotationUtils', () => {
             location: sampleLocation,
           },
         ],
+        id: '',
+        fileUri: '',
+        parentId: null,
+        _modifierFlags: 0,
+        _isLoaded: false,
       };
 
       expect(AnnotationUtils.hasAnnotation(classSymbol, 'istest')).toBe(true);
@@ -141,6 +165,11 @@ describe('AnnotationUtils', () => {
         },
         parentKey: null,
         annotations: [restAnnotation],
+        id: '',
+        fileUri: '',
+        parentId: null,
+        _modifierFlags: 0,
+        _isLoaded: false,
       };
 
       const result = AnnotationUtils.getAnnotation(classSymbol, 'RestResource');
@@ -169,6 +198,11 @@ describe('AnnotationUtils', () => {
             location: sampleLocation,
           },
         ],
+        id: '',
+        fileUri: '',
+        parentId: null,
+        _modifierFlags: 0,
+        _isLoaded: false,
       };
 
       const result = AnnotationUtils.getAnnotation(classSymbol, 'RestResource');
@@ -274,6 +308,11 @@ describe('AnnotationUtils', () => {
             location: sampleLocation,
           },
         ],
+        id: '',
+        fileUri: '',
+        parentId: null,
+        _modifierFlags: 0,
+        _isLoaded: false,
       };
 
       expect(AnnotationUtils.isTestClass(classSymbol)).toBe(true);
@@ -302,6 +341,11 @@ describe('AnnotationUtils', () => {
             location: sampleLocation,
           },
         ],
+        id: '',
+        fileUri: '',
+        parentId: null,
+        _modifierFlags: 0,
+        _isLoaded: false,
       };
 
       expect(AnnotationUtils.isRestResource(classSymbol)).toBe(true);
@@ -336,6 +380,11 @@ describe('AnnotationUtils', () => {
             ],
           },
         ],
+        id: '',
+        fileUri: '',
+        parentId: null,
+        _modifierFlags: 0,
+        _isLoaded: false,
       };
 
       const result = AnnotationUtils.getRestResourceUrlMapping(classSymbol);

@@ -17,7 +17,7 @@ describe('PlatformUtils', () => {
       const versionUri = getSalesforceVersionUri();
 
       expect(versionUri).toBe(
-        'apex-resources:/resources/StandardApexLibrary/.version.json',
+        'apexlib://resources/StandardApexLibrary/.version.json',
       );
     });
   });

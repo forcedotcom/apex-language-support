@@ -8,7 +8,6 @@
     "tsBuildInfoFile": "./out/node/.tsbuildinfo"
   },
   "include": [
-    "src/node.ts",
     "src/index.ts",
     "src/**/*.node.ts",
     "src/server/ApexLanguageServer.ts",
@@ -28,12 +27,10 @@
     "src/utils/EnvironmentUtils.ts",
     "src/utils/Logging.ts",
     "src/utils/NodeLoggerFactory.ts",
-    "src/utils/EnvironmentDetector.node.ts",
     "src/types/**/*.ts",
     "src/polyfills/**/*.ts"
   ],
   "exclude": [
-    "src/browser.ts",
     "src/index.browser.ts",
     "src/worker.ts",
     "src/**/*.browser.ts",
@@ -59,7 +56,6 @@
     "src/utils/BrowserLogNotificationHandler.ts",
     "src/utils/BrowserUtils.ts",
     "src/utils/WorkerLoggerFactory.ts",
-    "src/utils/EnvironmentDetector.browser.ts",
     "node_modules",
     "out",
     "dist",

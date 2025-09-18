@@ -160,17 +160,6 @@ public class TestClass {
       expect(result.commentAssociations).toBeDefined();
       expect(result.commentAssociations.length).toBeGreaterThan(0);
 
-      // Debug: Log what comments were actually collected
-      console.log(
-        'Collected comments:',
-        result.commentAssociations.map((a) => ({
-          text: a.comment.text.substring(0, 30) + '...',
-          symbol: a.symbolKey,
-          type: a.associationType,
-          confidence: a.confidence,
-        })),
-      );
-
       // Check that the class documentation is associated with the class (block comments precede code)
       const classDocAssociation = result.commentAssociations.find(
         (assoc) =>
@@ -260,17 +249,6 @@ public class TestClass {
       expect(result.commentAssociations).toBeDefined();
       expect(result.commentAssociations.length).toBeGreaterThan(0);
 
-      // Debug: Log what comments were actually collected
-      console.log(
-        'Collected comments:',
-        result.commentAssociations.map((a) => ({
-          text: a.comment.text.substring(0, 30) + '...',
-          symbol: a.symbolKey,
-          type: a.associationType,
-          confidence: a.confidence,
-        })),
-      );
-
       const classDocAssociation = result.commentAssociations.find(
         (assoc) =>
           assoc.symbolKey === 'TestClass' &&
@@ -346,35 +324,6 @@ public class TestClass {
 
       expect(result.commentAssociations).toBeDefined();
       expect(result.commentAssociations.length).toBeGreaterThan(0);
-
-      // Debug: Log all symbols and comment associations
-      console.log('=== DEBUG INFO ===');
-      if (result.result) {
-        console.log(
-          'All symbols:',
-          result.result
-            .getAllSymbols()
-            .map((s) => ({ name: s.name, kind: s.kind, fqn: s.fqn })),
-        );
-
-        // Debug: Log detailed field symbol information
-        const fieldSymbol = result.result
-          .getAllSymbols()
-          .find((s) => s.name === 'testField');
-        if (fieldSymbol) {
-          console.log('Field symbol details:', {
-            name: fieldSymbol.name,
-            kind: fieldSymbol.kind,
-            symbolRange: fieldSymbol.location.symbolRange,
-            identifierRange: fieldSymbol.location.identifierRange,
-            filePath: fieldSymbol.filePath,
-          });
-        }
-      }
-      console.log(
-        'All comment associations:',
-        JSON.stringify(result.commentAssociations, null, 2),
-      );
 
       const trailingAssociation = result.commentAssociations.find((assoc) =>
         assoc.comment.text.includes('Trailing comment'),

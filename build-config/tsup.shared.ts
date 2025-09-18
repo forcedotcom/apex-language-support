@@ -15,7 +15,7 @@ export const COMMON_EXTERNAL = [
   'vscode',
   'vscode-languageserver',
   'vscode-languageserver/node',
-  'vscode-languageserver/browser',
+  'vscode-languageserver/browser', 
   'vscode-languageserver-protocol',
   'vscode-jsonrpc',
   'vscode-jsonrpc/node',
@@ -45,14 +45,17 @@ export const nodeBaseConfig: Partial<Options> = {
   minify: false,
   dts: false,
   splitting: false,
-  external: [...COMMON_EXTERNAL, 'crypto', 'fs', 'path', 'url', 'os', 'stream'],
+  external: [
+    ...COMMON_EXTERNAL,
+    'crypto', 'fs', 'path', 'url', 'os', 'stream',
+  ],
 };
 
 /**
  * Base configuration for browser/web builds
  */
 export const browserBaseConfig: Partial<Options> = {
-  platform: 'browser',
+  platform: 'browser', 
   target: 'es2022',
   format: ['esm'],
   sourcemap: true,

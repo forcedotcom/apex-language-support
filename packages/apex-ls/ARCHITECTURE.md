@@ -161,11 +161,6 @@ export { WorkerStorageFactory } from './storage/StorageImplementations';
 ### Main Entry (`src/index.ts`)
 
 ```typescript
-// Environment detection utilities
-export {
-  isWorkerEnvironment,
-  isBrowserEnvironment,
-} from './utils/EnvironmentDetector';
 // Factories and shared types
 export { StorageFactory } from './storage/StorageFactory';
 // + factory interfaces and common types

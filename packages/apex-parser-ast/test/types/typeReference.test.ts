@@ -9,16 +9,24 @@
 import {
   TypeReference,
   ReferenceContext,
-  Location,
   TypeReferenceFactory,
 } from '../../src/types/typeReference';
+import { SymbolLocation } from '../../src/types/symbol';
 
 describe('TypeReference Data Structures', () => {
-  const mockLocation: Location = {
-    startLine: 10,
-    startColumn: 5,
-    endLine: 10,
-    endColumn: 15,
+  const mockLocation: SymbolLocation = {
+    symbolRange: {
+      startLine: 10,
+      startColumn: 5,
+      endLine: 10,
+      endColumn: 15,
+    },
+    identifierRange: {
+      startLine: 10,
+      startColumn: 5,
+      endLine: 10,
+      endColumn: 15,
+    },
   };
 
   describe('ReferenceContext enum', () => {
@@ -30,22 +38,37 @@ describe('TypeReference Data Structures', () => {
       expect(ReferenceContext.CONSTRUCTOR_CALL).toBe(4);
       expect(ReferenceContext.VARIABLE_USAGE).toBe(5);
       expect(ReferenceContext.PARAMETER_TYPE).toBe(6);
+      expect(ReferenceContext.VARIABLE_DECLARATION).toBe(7);
+      expect(ReferenceContext.GENERIC_PARAMETER_TYPE).toBe(8);
+      expect(ReferenceContext.CAST_TYPE_REFERENCE).toBe(9);
+      expect(ReferenceContext.INSTANCEOF_TYPE_REFERENCE).toBe(10);
+      expect(ReferenceContext.CHAINED_TYPE).toBe(11);
+      expect(ReferenceContext.CHAIN_STEP).toBe(12);
+      expect(ReferenceContext.NAMESPACE).toBe(13);
     });
   });
 
-  describe('Location interface', () => {
+  describe('SymbolLocation interface', () => {
     it('should have correct structure', () => {
-      const location: Location = {
-        startLine: 1,
-        startColumn: 0,
-        endLine: 1,
-        endColumn: 10,
+      const location: SymbolLocation = {
+        symbolRange: {
+          startLine: 1,
+          startColumn: 0,
+          endLine: 1,
+          endColumn: 10,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 0,
+          endLine: 1,
+          endColumn: 10,
+        },
       };
 
-      expect(location.startLine).toBe(1);
-      expect(location.startColumn).toBe(0);
-      expect(location.endLine).toBe(1);
-      expect(location.endColumn).toBe(10);
+      expect(location.symbolRange.startLine).toBe(1);
+      expect(location.symbolRange.startColumn).toBe(0);
+      expect(location.symbolRange.endLine).toBe(1);
+      expect(location.symbolRange.endColumn).toBe(10);
     });
   });
 
@@ -87,14 +110,12 @@ describe('TypeReference Data Structures', () => {
         const reference = TypeReferenceFactory.createMethodCallReference(
           'createFile',
           mockLocation,
-          'FileUtilities',
           'testMethod',
         );
 
         expect(reference.name).toBe('createFile');
         expect(reference.location).toBe(mockLocation);
         expect(reference.context).toBe(ReferenceContext.METHOD_CALL);
-        expect(reference.qualifier).toBe('FileUtilities');
         expect(reference.parentContext).toBe('testMethod');
         expect(reference.isResolved).toBe(false);
       });
@@ -141,7 +162,6 @@ describe('TypeReference Data Structures', () => {
         expect(reference.name).toBe('Id');
         expect(reference.location).toBe(mockLocation);
         expect(reference.context).toBe(ReferenceContext.FIELD_ACCESS);
-        expect(reference.qualifier).toBe('property');
         expect(reference.parentContext).toBe('testMethod');
         expect(reference.isResolved).toBe(false);
       });
@@ -190,6 +210,57 @@ describe('TypeReference Data Structures', () => {
         expect(reference.name).toBe('String');
         expect(reference.location).toBe(mockLocation);
         expect(reference.context).toBe(ReferenceContext.PARAMETER_TYPE);
+        expect(reference.parentContext).toBe('testMethod');
+        expect(reference.isResolved).toBe(false);
+      });
+    });
+
+    describe('createInstanceOfTypeReference', () => {
+      it('should create instanceof type reference', () => {
+        const reference = TypeReferenceFactory.createInstanceOfTypeReference(
+          'String',
+          mockLocation,
+          'testMethod',
+        );
+
+        expect(reference.name).toBe('String');
+        expect(reference.location).toBe(mockLocation);
+        expect(reference.context).toBe(
+          ReferenceContext.INSTANCEOF_TYPE_REFERENCE,
+        );
+        expect(reference.parentContext).toBe('testMethod');
+        expect(reference.isResolved).toBe(false);
+      });
+    });
+
+    describe('createGenericParameterTypeReference', () => {
+      it('should create generic parameter type reference', () => {
+        const reference =
+          TypeReferenceFactory.createGenericParameterTypeReference(
+            'T',
+            mockLocation,
+            'testMethod',
+          );
+
+        expect(reference.name).toBe('T');
+        expect(reference.location).toBe(mockLocation);
+        expect(reference.context).toBe(ReferenceContext.GENERIC_PARAMETER_TYPE);
+        expect(reference.parentContext).toBe('testMethod');
+        expect(reference.isResolved).toBe(false);
+      });
+    });
+
+    describe('createCastTypeReference', () => {
+      it('should create cast type reference', () => {
+        const reference = TypeReferenceFactory.createCastTypeReference(
+          'Integer',
+          mockLocation,
+          'testMethod',
+        );
+
+        expect(reference.name).toBe('Integer');
+        expect(reference.location).toBe(mockLocation);
+        expect(reference.context).toBe(ReferenceContext.CAST_TYPE_REFERENCE);
         expect(reference.parentContext).toBe('testMethod');
         expect(reference.isResolved).toBe(false);
       });

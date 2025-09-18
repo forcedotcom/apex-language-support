@@ -71,13 +71,13 @@ export class ApexSymbolProcessingManager {
   /**
    * Queue a symbol table for background processing
    * @param symbolTable The symbol table to process
-   * @param filePath The file path associated with the symbol table
+   * @param fileUri The file path associated with the symbol table
    * @param options Processing options
    * @returns Task ID for tracking
    */
   processSymbolTable(
     symbolTable: SymbolTable,
-    filePath: string,
+    fileUri: string,
     options: SymbolProcessingOptions = {},
   ): string {
     if (!this.isInitialized) {
@@ -86,17 +86,17 @@ export class ApexSymbolProcessingManager {
           'ApexSymbolProcessingManager not initialized, processing synchronously',
       );
       // Fallback to synchronous processing
-      this.symbolManager.addSymbolTable(symbolTable, filePath);
+      this.symbolManager.addSymbolTable(symbolTable, fileUri);
       return 'sync_fallback';
     }
 
     const taskId = this.symbolIndexingService.processSymbolTable(
       symbolTable,
-      filePath,
+      fileUri,
       options,
     );
     this.logger.debug(
-      () => `Symbol processing queued: ${taskId} for ${filePath}`,
+      () => `Symbol processing queued: ${taskId} for ${fileUri}`,
     );
     return taskId;
   }

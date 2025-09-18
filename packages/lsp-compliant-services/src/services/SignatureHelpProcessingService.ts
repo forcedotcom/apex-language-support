@@ -20,6 +20,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
   ReferenceType,
   ApexSymbolProcessingManager,
+  ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 
@@ -57,11 +58,12 @@ export interface SignatureHelpContext {
  */
 export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
   private readonly logger: LoggerInterface;
-  private symbolManager: any;
+  private readonly symbolManager: ISymbolManager;
 
-  constructor(logger: LoggerInterface) {
+  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
+      symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 

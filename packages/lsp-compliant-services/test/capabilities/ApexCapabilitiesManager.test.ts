@@ -91,6 +91,7 @@ describe('ApexCapabilitiesManager', () => {
       // Production mode should have these disabled (not released)
       expect(manager.isCapabilityEnabled('completionProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('hoverProvider')).toBe(false);
+      expect(manager.isCapabilityEnabled('definitionProvider')).toBe(false);
     });
 
     it('should correctly identify enabled capabilities in development mode', () => {
@@ -106,6 +107,9 @@ describe('ApexCapabilitiesManager', () => {
 
       // Development mode should have hover provider enabled
       expect(manager.isCapabilityEnabled('hoverProvider')).toBe(true);
+
+      // Development mode should have goto definition enabled
+      expect(manager.isCapabilityEnabled('definitionProvider')).toBe(false);
     });
 
     it('should check capabilities for specific modes', () => {
@@ -167,10 +171,22 @@ describe('ApexCapabilitiesManager', () => {
       ).toBe(true);
     });
 
+    it('should have valid definitionProvider configuration in development mode', () => {
+      manager.setMode('development');
+      const capabilities = manager.getCapabilities();
+      expect(capabilities.definitionProvider).not.toBeDefined();
+    });
+
     it('should not have completionProvider in production mode', () => {
       manager.setMode('production');
       const capabilities = manager.getCapabilities();
       expect(capabilities.completionProvider).toBeUndefined();
+    });
+
+    it('should not have definitionProvider in production mode', () => {
+      manager.setMode('production');
+      const capabilities = manager.getCapabilities();
+      expect(capabilities.definitionProvider).toBeUndefined();
     });
 
     it('should have valid workspace configuration', () => {

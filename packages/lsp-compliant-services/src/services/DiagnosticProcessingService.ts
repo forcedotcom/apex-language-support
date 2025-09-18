@@ -13,6 +13,7 @@ import {
   SymbolTable,
   ApexSymbolCollectorListener,
   ApexSymbolProcessingManager,
+  ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
 
 import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
@@ -61,14 +62,15 @@ export interface IDiagnosticProcessor {
  */
 export class DiagnosticProcessingService implements IDiagnosticProcessor {
   private readonly logger: LoggerInterface;
-  private symbolManager: any;
+  private readonly symbolManager: ISymbolManager;
 
   /**
    * Creates a new DiagnosticProcessingService instance.
    */
-  constructor(logger: LoggerInterface) {
+  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
+      symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 

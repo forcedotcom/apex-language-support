@@ -13,7 +13,7 @@
   "include": ["src/**/*"],
   "exclude": [
     "node_modules",
-    "out",
+    "out", 
     "dist",
     "tsup.config.ts",
     "test/**/*",

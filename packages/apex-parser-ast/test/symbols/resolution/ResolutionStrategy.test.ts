@@ -1,41 +1,51 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
 import {
   canResolvePositionBasedRequest,
   resolveSymbolAtPosition,
 } from '../../../src/symbols/resolution/positionBasedResolution';
 import { SymbolResolutionContext } from '../../../src/types/ISymbolManager';
-import { ApexSymbol } from '../../../src/types/symbol';
+import { LSPRequestType } from '../../../src/symbols/resolution/types';
 
 describe('Position-Based Resolution Strategy', () => {
   let mockContext: SymbolResolutionContext;
-  let mockSymbol: ApexSymbol;
 
   beforeEach(() => {
     mockContext = {
       sourceFile: 'test.cls',
+      sourceSymbol: undefined,
+      importStatements: [],
       namespaceContext: 'test',
       currentScope: 'class',
-      imports: [],
-      usingStatements: [],
-      currentClass: 'TestClass',
-      currentMethod: 'testMethod',
-    } as SymbolResolutionContext;
-    mockSymbol = {
-      name: 'testSymbol',
-      type: 'class',
-      qname: 'test.testSymbol',
-      position: { line: 10, column: 5 },
-    } as ApexSymbol;
+      scopeChain: ['class'],
+      expectedType: undefined,
+      parameterTypes: [],
+      returnType: undefined,
+      accessModifier: 'public',
+      isStatic: false,
+      relationshipType: undefined,
+      inheritanceChain: [],
+      interfaceImplementations: [],
+    };
   });
 
   describe('canResolvePositionBasedRequest', () => {
     it('should return true for position-based resolution requests', () => {
-      const request = { type: 'hover', position: { line: 10, column: 5 } };
+      const request = {
+        type: 'hover' as LSPRequestType,
+        position: { line: 10, column: 5 },
+      };
       expect(canResolvePositionBasedRequest(request)).toBe(true);
     });
 
     it('should return true for definition requests', () => {
       const request = {
-        type: 'definition',
+        type: 'definition' as LSPRequestType,
         position: { line: 10, column: 5 },
       };
       expect(canResolvePositionBasedRequest(request)).toBe(true);
@@ -43,7 +53,7 @@ describe('Position-Based Resolution Strategy', () => {
 
     it('should return true for references requests', () => {
       const request = {
-        type: 'references',
+        type: 'references' as LSPRequestType,
         position: { line: 10, column: 5 },
       };
       expect(canResolvePositionBasedRequest(request)).toBe(true);
@@ -51,7 +61,7 @@ describe('Position-Based Resolution Strategy', () => {
 
     it('should return false for non-position-based requests', () => {
       const request = {
-        type: 'completion',
+        type: 'completion' as any,
         position: { line: 10, column: 5 },
       };
       expect(canResolvePositionBasedRequest(request)).toBe(false);
@@ -60,7 +70,10 @@ describe('Position-Based Resolution Strategy', () => {
 
   describe('resolveSymbolAtPosition', () => {
     it('should resolve symbol at exact position', async () => {
-      const request = { type: 'hover', position: { line: 10, column: 5 } };
+      const request = {
+        type: 'hover' as LSPRequestType,
+        position: { line: 10, column: 5 },
+      };
       const result = await resolveSymbolAtPosition(request, mockContext);
 
       expect(result.success).toBe(true);
@@ -69,7 +82,10 @@ describe('Position-Based Resolution Strategy', () => {
     });
 
     it('should return no match when no symbol at position', async () => {
-      const request = { type: 'hover', position: { line: 999, column: 999 } };
+      const request = {
+        type: 'hover' as LSPRequestType,
+        position: { line: 999, column: 999 },
+      };
       const result = await resolveSymbolAtPosition(request, mockContext);
 
       expect(result.success).toBe(false);
@@ -78,7 +94,10 @@ describe('Position-Based Resolution Strategy', () => {
     });
 
     it('should handle ambiguous symbols with context', async () => {
-      const request = { type: 'hover', position: { line: 10, column: 5 } };
+      const request = {
+        type: 'hover' as LSPRequestType,
+        position: { line: 10, column: 5 },
+      };
       const ambiguousContext = { ...mockContext, currentScope: 'method' };
       const result = await resolveSymbolAtPosition(request, ambiguousContext);
 

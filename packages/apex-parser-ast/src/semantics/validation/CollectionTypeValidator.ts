@@ -9,6 +9,7 @@
 import type { ValidationResult } from './ValidationResult';
 import type { TypeInfo } from './TypeValidator';
 import { SymbolVisibility } from '../../types/symbol';
+import { STANDARD_SOBJECT_TYPES } from '../../constants/constants';
 
 /**
  * Context for collection type validation
@@ -334,54 +335,7 @@ export class CollectionTypeValidator {
    */
   private static isValidSObjectTypeName(typeName: string): boolean {
     // Standard SObject types
-    const standardSObjects = new Set([
-      'Account',
-      'Contact',
-      'Lead',
-      'Opportunity',
-      'Case',
-      'User',
-      'Profile',
-      'Role',
-      'Group',
-      'Queue',
-      'Campaign',
-      'CampaignMember',
-      'Task',
-      'Event',
-      'Note',
-      'Attachment',
-      'ContentVersion',
-      'ContentDocument',
-      'FeedItem',
-      'FeedComment',
-      'Vote',
-      'Idea',
-      'IdeaComment',
-      'Solution',
-      'Article',
-      'KnowledgeArticleVersion',
-      'Topic',
-      'TopicAssignment',
-      'CollaborationGroup',
-      'CollaborationGroupMember',
-      'CollaborationGroupFeed',
-      'CollaborationGroupRecord',
-      'EntitySubscription',
-      'Vote',
-      'Idea',
-      'IdeaComment',
-      'Solution',
-      'Article',
-      'KnowledgeArticleVersion',
-      'Topic',
-      'TopicAssignment',
-      'CollaborationGroup',
-      'CollaborationGroupMember',
-      'CollaborationGroupFeed',
-      'CollaborationGroupRecord',
-      'EntitySubscription',
-    ]);
+    const standardSObjects = STANDARD_SOBJECT_TYPES;
 
     // Check if it's a standard SObject
     if (standardSObjects.has(typeName)) {

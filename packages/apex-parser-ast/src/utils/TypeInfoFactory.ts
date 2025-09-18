@@ -9,8 +9,8 @@
 import { TypeInfo } from '../types/typeInfo';
 import { Namespace, Namespaces } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from './BuiltInTypeTables';
-import { STD_APEX_NAMESPACES } from '../generated/stdApexNamespaces';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { ResourceLoader } from './resourceLoader';
 
 const logger = getLogger();
 const builtInTypes = BuiltInTypeTablesImpl.getInstance();
@@ -110,8 +110,16 @@ const createSimpleTypeInfo = (typeName: string): TypeInfo => {
  * Get built-in namespace for known namespaces
  */
 const getBuiltInNamespace = (namespace: string): Namespace | null => {
+  const resourceLoader = ResourceLoader.getInstance({
+    loadMode: 'lazy',
+    preloadStdClasses: true,
+  });
   // Check if it's a known standard Apex namespace
-  if (STD_APEX_NAMESPACES.includes(namespace as any)) {
+  if (
+    [...resourceLoader.getStandardNamespaces().keys()].includes(
+      namespace as any,
+    )
+  ) {
     // For all built-in namespaces, create a new namespace instance
     // The Namespaces class doesn't have predefined constants for these
     return Namespaces.create(namespace);

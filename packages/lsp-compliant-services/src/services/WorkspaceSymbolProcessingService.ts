@@ -14,7 +14,10 @@ import {
   Range,
 } from 'vscode-languageserver-protocol';
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
-import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
+import {
+  ApexSymbolProcessingManager,
+  ISymbolManager,
+} from '@salesforce/apex-lsp-parser-ast';
 import { transformParserToLspPosition } from '../utils/positionUtils';
 
 /**
@@ -50,11 +53,12 @@ export class WorkspaceSymbolProcessingService
   implements IWorkspaceSymbolProcessor
 {
   private readonly logger: LoggerInterface;
-  private symbolManager: any;
+  private readonly symbolManager: ISymbolManager;
 
-  constructor(logger: LoggerInterface) {
+  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
     this.logger = logger;
     this.symbolManager =
+      symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
   }
 

@@ -63,6 +63,16 @@ export abstract class BaseApexParserListener<T> implements ApexParserListener {
   }
 
   /**
+   * Set the current file path for this parser listener.
+   * Used for symbol creation and FQN calculation.
+   * @param fileUri The file URI to set
+   */
+  setCurrentFileUri(fileUri: string): void {
+    // This is a no-op in the base class, but subclasses can override
+    // to store the file path for symbol creation
+  }
+
+  /**
    * Get the project namespace for this parser listener
    */
   getProjectNamespace(): string | undefined {

@@ -10,6 +10,7 @@ import {
   ApexSymbolGraph,
   ReferenceType,
 } from '../../src/symbols/ApexSymbolGraph';
+import { generateSymbolId } from '../../src/types/UriBasedIdGenerator';
 import {
   ApexSymbol,
   SymbolKind,
@@ -31,54 +32,57 @@ describe('ApexSymbolGraph - Performance Tests', () => {
     name: string,
     kind: SymbolKind,
     fqn?: string,
-    filePath: string = 'TestFile.cls',
-  ): ApexSymbol => ({
-    id: `${filePath}:${name}`,
-    name,
-    kind,
-    filePath,
-    parentId: null,
-    key: {
-      prefix: 'symbol',
+    fileUri: string = 'file:///test/TestFile.cls',
+  ): ApexSymbol => {
+    const id = generateSymbolId(name, fileUri);
+    return {
+      id,
       name,
-      path: [filePath],
-      unifiedId: `${filePath}:${name}`,
-      filePath,
-      fqn: fqn || name,
       kind,
-    },
-    parentKey: null,
-    fqn: fqn || name,
-    _modifierFlags: 1, // PUBLIC flag
-    _isLoaded: true,
-    modifiers: {
-      visibility: SymbolVisibility.Public,
-      isStatic: false,
-      isFinal: false,
-      isAbstract: false,
-      isVirtual: false,
-      isOverride: false,
-      isTransient: false,
-      isTestMethod: false,
-      isWebService: false,
-      isBuiltIn: false,
-    },
-    annotations: [],
-    location: {
-      symbolRange: {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: name.length + 1,
+      fileUri,
+      parentId: null,
+      key: {
+        prefix: 'symbol',
+        name,
+        path: [fileUri],
+        unifiedId: id,
+        fileUri,
+        fqn: fqn || name,
+        kind,
       },
-      identifierRange: {
-        startLine: 1,
-        startColumn: 1,
-        endLine: 1,
-        endColumn: name.length + 1,
+      parentKey: null,
+      fqn: fqn || name,
+      _modifierFlags: 1, // PUBLIC flag
+      _isLoaded: true,
+      modifiers: {
+        visibility: SymbolVisibility.Public,
+        isStatic: false,
+        isFinal: false,
+        isAbstract: false,
+        isVirtual: false,
+        isOverride: false,
+        isTransient: false,
+        isTestMethod: false,
+        isWebService: false,
+        isBuiltIn: false,
       },
-    },
-  });
+      annotations: [],
+      location: {
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: name.length + 1,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: name.length + 1,
+        },
+      },
+    };
+  };
 
   const getMemoryUsage = () => {
     const memUsage = process.memoryUsage();
@@ -124,7 +128,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           `Class${i}`,
           `File${i}.cls`,
         );
-        graph.addSymbol(symbol, `File${i}.cls`);
+        graph.addSymbol(symbol, `file:///test/File${i}.cls`);
       }
 
       const addTime = performance.now() - startTime;
@@ -151,7 +155,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           `Class${i}`,
           SymbolKind.Class,
           `Class${i}`,
-          `File${i}.cls`,
+          `file:///test/File${i}.cls`,
         );
         graph.addSymbol(symbol, `File${i}.cls`);
       }
@@ -170,38 +174,50 @@ describe('ApexSymbolGraph - Performance Tests', () => {
     });
 
     it('should measure memory usage with references', () => {
-      // Add 1,000 symbols first
+      // Add 1,000 symbols first and store them for reference
+      const symbols: ApexSymbol[] = [];
       for (let i = 0; i < 1000; i++) {
         const symbol = createTestSymbol(
           `Class${i}`,
           SymbolKind.Class,
           `Class${i}`,
-          `File${i}.cls`,
+          `file:///test/File${i}.cls`,
         );
-        graph.addSymbol(symbol, `File${i}.cls`);
+        symbols.push(symbol);
+        graph.addSymbol(symbol, `file:///test/File${i}.cls`);
+
+        // Debug: Check if symbol was indexed properly
+        if (i < 5) {
+          console.log(
+            `Added symbol ${symbol.name} (${symbol.id}), findSymbolByName returns:`,
+            graph.findSymbolByName(symbol.name).length,
+          );
+        }
       }
 
       logMemoryUsage('After Adding 1,000 Symbols');
 
       const startTime = performance.now();
 
-      // Add 5,000 references
+      // Add 5,000 references using the stored symbols
       for (let i = 0; i < 5000; i++) {
         const sourceIndex = i % 1000;
         const targetIndex = (i + 1) % 1000;
 
-        const sourceSymbol = createTestSymbol(
-          `Class${sourceIndex}`,
-          SymbolKind.Class,
-          `Class${sourceIndex}`,
-          `File${sourceIndex}.cls`,
-        );
-        const targetSymbol = createTestSymbol(
-          `Class${targetIndex}`,
-          SymbolKind.Class,
-          `Class${targetIndex}`,
-          `File${targetIndex}.cls`,
-        );
+        const sourceSymbol = symbols[sourceIndex];
+        const targetSymbol = symbols[targetIndex];
+
+        // Debug: Check if symbols exist in graph
+        if (i < 5) {
+          console.log(
+            `Source symbol ${sourceSymbol.name} (${sourceSymbol.id}):`,
+            graph.findSymbolByName(sourceSymbol.name).length,
+          );
+          console.log(
+            `Target symbol ${targetSymbol.name} (${targetSymbol.id}):`,
+            graph.findSymbolByName(targetSymbol.name).length,
+          );
+        }
 
         graph.addReference(
           sourceSymbol,
@@ -246,7 +262,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           `Class${i}`,
           SymbolKind.Class,
           `Class${i}`,
-          `File${i}.cls`,
+          `file:///test/File${i}.cls`,
         );
         graph.addSymbol(symbol, `File${i}.cls`);
       }
@@ -278,7 +294,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           `Class${i}`,
           SymbolKind.Class,
           `Class${i}`,
-          `File${i}.cls`,
+          `file:///test/File${i}.cls`,
         );
         graph.addSymbol(symbol, `File${i}.cls`);
       }
@@ -292,13 +308,13 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           `Class${sourceIndex}`,
           SymbolKind.Class,
           `Class${sourceIndex}`,
-          `File${i}.cls`,
+          `file:///test/File${i}.cls`,
         );
         const targetSymbol = createTestSymbol(
           `Class${targetIndex}`,
           SymbolKind.Class,
           `Class${targetIndex}`,
-          `File${targetIndex}.cls`,
+          `file:///test/File${targetIndex}.cls`,
         );
 
         graph.addReference(
@@ -330,7 +346,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           `Class${i % 1000}`,
           SymbolKind.Class,
           `Class${i % 1000}`,
-          `File${i % 1000}.cls`,
+          `file:///test/File${i % 1000}.cls`,
         );
 
         const referencesTo = graph.findReferencesTo(symbol);
@@ -362,7 +378,7 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           `Class${i}`,
           SymbolKind.Class,
           `Class${i}`,
-          `File${i}.cls`,
+          `file:///test/File${i}.cls`,
         );
         graph.addSymbol(symbol, `File${i}.cls`);
       }
@@ -376,13 +392,13 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           `Class${sourceIndex}`,
           SymbolKind.Class,
           `Class${sourceIndex}`,
-          `File${sourceIndex}.cls`,
+          `file:///test/File${sourceIndex}.cls`,
         );
         const targetSymbol = createTestSymbol(
           `Class${targetIndex}`,
           SymbolKind.Class,
           `Class${targetIndex}`,
-          `File${targetIndex}.cls`,
+          `file:///test/File${targetIndex}.cls`,
         );
 
         graph.addReference(
@@ -427,9 +443,9 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           `Class${i}`,
           SymbolKind.Class,
           `Class${i}`,
-          `File${i}.cls`,
+          `file:///test/File${i}.cls`,
         );
-        graph.addSymbol(symbol, `File${i}.cls`);
+        graph.addSymbol(symbol, `file:///test/File${i}.cls`);
       }
 
       const memoryStats = graph.getMemoryStats();
@@ -453,9 +469,9 @@ describe('ApexSymbolGraph - Performance Tests', () => {
           `Class${i}`,
           SymbolKind.Class,
           `Class${i}`,
-          `File${i}.cls`,
+          `file:///test/File${i}.cls`,
         );
-        graph.addSymbol(symbol, `File${i}.cls`);
+        graph.addSymbol(symbol, `file:///test/File${i}.cls`);
       }
 
       const finalMem = getMemoryUsage();

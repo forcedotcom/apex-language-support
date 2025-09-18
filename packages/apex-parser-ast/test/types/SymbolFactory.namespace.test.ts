@@ -10,19 +10,28 @@ import {
   SymbolFactory,
   SymbolKind,
   SymbolModifiers,
+  SymbolVisibility,
 } from '../../src/types/symbol';
 import { Namespaces } from '../../src/namespace/NamespaceUtils';
 
 // Mock data for testing
 const mockLocation = {
-  startLine: 1,
-  startColumn: 1,
-  endLine: 1,
-  endColumn: 10,
+  symbolRange: {
+    startLine: 1,
+    startColumn: 1,
+    endLine: 1,
+    endColumn: 10,
+  },
+  identifierRange: {
+    startLine: 1,
+    startColumn: 1,
+    endLine: 1,
+    endColumn: 10,
+  },
 };
 
 const mockModifiers: SymbolModifiers = {
-  visibility: 'public',
+  visibility: SymbolVisibility.Public,
   isStatic: false,
   isFinal: false,
   isAbstract: false,
@@ -31,6 +40,7 @@ const mockModifiers: SymbolModifiers = {
   isTransient: false,
   isTestMethod: false,
   isWebService: false,
+  isBuiltIn: false,
 };
 
 describe('SymbolFactory with Namespace Support', () => {
@@ -49,7 +59,7 @@ describe('SymbolFactory with Namespace Support', () => {
       );
 
       expect(symbol.namespace).toBe(namespace);
-      expect(symbol.fqn).toBe('mynamespace/testclass');
+      expect(symbol.fqn).toBe('mynamespace.testclass');
     });
 
     it('should handle null namespace gracefully', () => {
@@ -95,7 +105,7 @@ describe('SymbolFactory with Namespace Support', () => {
       );
 
       expect(symbol.namespace?.toString()).toBe('Global__Module');
-      expect(symbol.fqn).toBe('global__module/testclass');
+      expect(symbol.fqn).toBe('global__module.testclass');
     });
 
     it('should generate correct symbol key with namespace', () => {
@@ -111,7 +121,7 @@ describe('SymbolFactory with Namespace Support', () => {
         namespace,
       );
 
-      expect(symbol.key.fqn).toBe('mynamespace/testclass');
+      expect(symbol.key.fqn).toBe('mynamespace.testclass');
       expect(symbol.key.prefix).toBe(SymbolKind.Class);
       expect(symbol.key.name).toBe('TestClass');
     });
@@ -190,7 +200,13 @@ describe('SymbolFactory with Namespace Support', () => {
 
     it('should handle annotations with namespace', () => {
       const namespace = Namespaces.create('MyNamespace');
-      const annotations = [{ name: 'TestAnnotation', parameters: [] }];
+      const annotations = [
+        {
+          name: 'TestAnnotation',
+          parameters: [],
+          location: mockLocation,
+        },
+      ];
 
       const symbol = SymbolFactory.createFullSymbolWithNamespace(
         'TestClass',
@@ -208,29 +224,39 @@ describe('SymbolFactory with Namespace Support', () => {
       expect(symbol.namespace).toBe(namespace);
     });
 
-    it('should handle identifier location with namespace', () => {
+    it('should handle location with both symbol and identifier ranges with namespace', () => {
       const namespace = Namespaces.create('MyNamespace');
-      const identifierLocation = {
-        startLine: 2,
-        startColumn: 5,
-        endLine: 2,
-        endColumn: 15,
+      const locationWithIdentifierRange = {
+        symbolRange: {
+          startLine: 1,
+          startColumn: 0,
+          endLine: 3,
+          endColumn: 20,
+        },
+        identifierRange: {
+          startLine: 2,
+          startColumn: 5,
+          endLine: 2,
+          endColumn: 15,
+        },
       };
 
       const symbol = SymbolFactory.createFullSymbolWithNamespace(
         'TestClass',
         SymbolKind.Class,
-        mockLocation,
+        locationWithIdentifierRange,
         'test.cls',
         mockModifiers,
         null,
         undefined,
         namespace,
         undefined,
-        identifierLocation,
       );
 
-      expect(symbol.identifierLocation).toEqual(identifierLocation);
+      expect(symbol.location).toEqual(locationWithIdentifierRange);
+      expect(symbol.location.identifierRange).toEqual(
+        locationWithIdentifierRange.identifierRange,
+      );
       expect(symbol.namespace).toBe(namespace);
     });
   });

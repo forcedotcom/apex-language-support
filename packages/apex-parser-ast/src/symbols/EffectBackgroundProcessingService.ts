@@ -47,7 +47,7 @@ export interface SymbolProcessingTask {
   readonly _tag: 'SymbolProcessingTask';
   readonly id: string;
   readonly symbolTable: SymbolTable;
-  readonly filePath: string;
+  readonly fileUri: string;
   readonly priority: TaskPriority;
   readonly options: SymbolProcessingOptions;
   readonly timestamp: number;
@@ -258,12 +258,10 @@ export class ApexSymbolIndexingService {
     try {
       this.taskRegistry.updateTaskStatus(task.id, 'RUNNING');
 
-      this.logger.debug(
-        () => `Processing task ${task.id} for ${task.filePath}`,
-      );
+      this.logger.debug(() => `Processing task ${task.id} for ${task.fileUri}`);
 
       // Delegate to the symbol manager to do the actual work
-      this.symbolManager.addSymbolTable(task.symbolTable, task.filePath);
+      this.symbolManager.addSymbolTable(task.symbolTable, task.fileUri);
 
       // If cross-file resolution is enabled, trigger it
       if (task.options.enableCrossFileResolution) {
@@ -369,10 +367,10 @@ export class ApexSymbolIndexingIntegration {
    */
   processSymbolTable(
     symbolTable: SymbolTable,
-    filePath: string,
+    fileUri: string,
     options: SymbolProcessingOptions = {},
   ): string {
-    const task = this.createTask(symbolTable, filePath, options);
+    const task = this.createTask(symbolTable, fileUri, options);
 
     // Enqueue the task
     this.indexingService.enqueue(task);
@@ -408,7 +406,7 @@ export class ApexSymbolIndexingIntegration {
    */
   private createTask(
     symbolTable: SymbolTable,
-    filePath: string,
+    fileUri: string,
     options: SymbolProcessingOptions,
   ): SymbolProcessingTask {
     const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -417,7 +415,7 @@ export class ApexSymbolIndexingIntegration {
       _tag: 'SymbolProcessingTask',
       id: taskId,
       symbolTable,
-      filePath,
+      fileUri,
       priority: options.priority || 'NORMAL',
       options: {
         priority: 'NORMAL',

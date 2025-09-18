@@ -18,3 +18,8 @@ export * from './CompletionProcessingService';
 
 // Export LSP queue system
 export * from '../queue';
+
+// Export new registry system
+export * from '../registry';
+export * from '../factories';
+export * from '../config';

@@ -56,6 +56,130 @@ export {
 
 // Export smaller numeric types for memory optimization
 export * from './smallNumericTypes';
+
+// Experimental protocol: Missing Artifact Resolution
+export type RequestKind =
+  | 'definition'
+  | 'typeDefinition'
+  | 'implementation'
+  | 'hover'
+  | 'references'
+  | 'completion'
+  | 'signatureHelp';
+
+// ReferenceContext enum values for type-safe context checking
+export enum ReferenceContext {
+  METHOD_CALL = 0,
+  CLASS_REFERENCE = 1,
+  TYPE_DECLARATION = 2,
+  FIELD_ACCESS = 3,
+  CONSTRUCTOR_CALL = 4,
+  VARIABLE_USAGE = 5,
+  PARAMETER_TYPE = 6,
+  VARIABLE_DECLARATION = 7,
+}
+
+// Enhanced search hints for client-side artifact resolution
+export interface SearchHint {
+  readonly searchPatterns: string[];
+  readonly priority: 'exact' | 'high' | 'medium' | 'low';
+  readonly reasoning: string;
+  readonly expectedFileType: 'class' | 'trigger';
+  readonly namespace?: string;
+  readonly fallbackPatterns?: string[];
+  readonly confidence: number; // 0.0 to 1.0
+}
+
+// TypeReference from apex-parser-ast (avoiding import to keep shared package lightweight)
+export interface TypeReference {
+  readonly name: string;
+  readonly location: {
+    readonly symbolRange: {
+      readonly startLine: number;
+      readonly startColumn: number;
+      readonly endLine: number;
+      readonly endColumn: number;
+    };
+    readonly identifierRange: {
+      readonly startLine: number;
+      readonly startColumn: number;
+      readonly endLine: number;
+      readonly endColumn: number;
+    };
+  };
+  readonly context: string | number; // ReferenceContext enum value
+  readonly qualifier?: string;
+  readonly qualifierLocation?: {
+    readonly symbolRange: {
+      readonly startLine: number;
+      readonly startColumn: number;
+      readonly endLine: number;
+      readonly endColumn: number;
+    };
+    readonly identifierRange: {
+      readonly startLine: number;
+      readonly startColumn: number;
+      readonly endLine: number;
+      readonly endColumn: number;
+    };
+  };
+  readonly memberLocation?: {
+    readonly symbolRange: {
+      readonly startLine: number;
+      readonly startColumn: number;
+      readonly endLine: number;
+      readonly endColumn: number;
+    };
+    readonly identifierRange: {
+      readonly startLine: number;
+      readonly startColumn: number;
+      readonly endLine: number;
+      readonly endColumn: number;
+    };
+  };
+  readonly parentContext?: string;
+  readonly isResolved?: boolean;
+  readonly access?: 'read' | 'write' | 'readwrite';
+}
+
+export interface FindMissingArtifactParams {
+  readonly identifier: string;
+  readonly origin: {
+    readonly uri: string;
+    readonly position?: { line: number; character: number };
+    readonly requestKind: RequestKind;
+  };
+  readonly mode: 'blocking' | 'background';
+  readonly maxCandidates?: number;
+  readonly maxCandidatesToOpen?: number;
+  readonly timeoutMsHint?: number;
+  readonly workDoneToken?: unknown;
+  readonly correlationId?: string;
+  // Simply pass the TypeReference object directly - much cleaner!
+  readonly typeReference?: TypeReference;
+  // Enhanced parent context - full parent symbol data when available
+  readonly parentContext?: {
+    readonly containingType?: any; // ApexSymbol of immediate containing type (class/interface/enum)
+    readonly ancestorChain?: any[]; // Array of ApexSymbol ancestors from top-level to closest parent
+    readonly parentSymbol?: any; // Direct parent ApexSymbol if available
+    readonly contextualHierarchy?: string; // Human-readable hierarchy like "MyClass.MyMethod.localVar"
+  };
+  // New: Pre-resolved search hints from LSP services
+  readonly searchHints?: SearchHint[];
+  // New: Resolved qualifier information
+  readonly resolvedQualifier?: {
+    readonly type: 'class' | 'interface' | 'enum' | 'variable' | 'unknown';
+    readonly name: string;
+    readonly namespace?: string;
+    readonly isStatic: boolean;
+    readonly filePath?: string; // If already known
+  };
+}
+
+export type FindMissingArtifactResult =
+  | { opened: string[] }
+  | { notFound: true }
+  | { accepted: true };
 /**
  * Priority mapping for log levels (higher number = higher priority)
  */
