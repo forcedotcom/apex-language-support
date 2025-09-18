@@ -118,7 +118,8 @@
   },
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "e2e-tests"
   ],
   "config": {
     "commitizen": {
