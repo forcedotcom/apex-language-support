@@ -29,7 +29,6 @@
     "src/server/ConnectionFactory.browser.ts",
     "src/server/ConnectionFactory.ts",
     "src/server/ConnectionFactoryInterface.ts",
-
     "src/storage/ApexStorageManager.ts",
     "src/storage/StorageInterface.ts",
     "src/storage/StorageImplementations.ts",
@@ -39,7 +38,6 @@
     "src/utils/Logging.ts",
     "src/utils/BrowserLogNotificationHandler.ts",
     "src/utils/BrowserUtils.ts",
-
     "src/types/**/*.ts"
   ],
   "exclude": [
@@ -64,7 +62,6 @@
     "src/storage/WebWorkerStorage.ts",
     "src/utils/NodeLoggerFactory.ts",
     "src/utils/WorkerLoggerFactory.ts",
-
     "node_modules",
     "out",
     "dist",

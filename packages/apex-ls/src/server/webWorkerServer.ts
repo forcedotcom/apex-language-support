@@ -22,7 +22,6 @@ import {
 } from '@salesforce/apex-lsp-shared';
 
 import { getWorkerSelf } from '../utils/EnvironmentUtils';
-import { LCSAdapter } from './LCSAdapter';
 
 /**
  * Shared web worker initialization for Apex Language Server.
@@ -51,12 +50,15 @@ export async function startApexWebWorker(): Promise<void> {
   // Set up logging with connection
   setLogLevel('info'); // Enable info level logs to see worker messages
   const loggerFactory = UniversalLoggerFactory.getInstance();
+  setLoggerFactory(loggerFactory); // Set factory BEFORE creating logger
   const logger = loggerFactory.createLogger(connection);
-  setLoggerFactory(loggerFactory);
 
   // Initial lifecycle logs
   logger.info('🚀 Worker script loading...');
   logger.info('🔧 Starting LCS integration...');
+
+  // Dynamically import LCSAdapter to ensure globals/polyfills are set first
+  const { LCSAdapter } = await import('./LCSAdapter'); // Load bearing await import. DO NOT REMOVE.
 
   // Create and initialize LCS adapter
   const lcsAdapter = new LCSAdapter({

@@ -12,7 +12,7 @@ import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfil
 import {
   nodeBaseConfig,
   browserBaseConfig,
-  BROWSER_ALIASES,
+  NODE_POLYFILLS,
 } from '../../build-config/tsup.shared';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -35,63 +35,29 @@ const EXTENSION_NO_EXTERNAL = [
  * Copy worker files from apex-ls dist to extension dist
  */
 function copyWorkerFiles() {
-  console.log('🔧 Copying worker files...');
-  const workerSrc = path.resolve(__dirname, '../apex-ls/dist/worker.global.js');
-  const workerMapSrc = path.resolve(
-    __dirname,
-    '../apex-ls/dist/worker.global.js.map',
-  );
-  const workerWebSrc = path.resolve(
-    __dirname,
-    '../apex-ls/dist/worker-web.global.js',
-  );
-  const workerWebMapSrc = path.resolve(
-    __dirname,
-    '../apex-ls/dist/worker-web.global.js.map',
-  );
   const distDir = path.resolve(__dirname, 'dist');
+  fs.mkdirSync(distDir, { recursive: true });
 
-  if (!fs.existsSync(distDir)) {
-    fs.mkdirSync(distDir, { recursive: true });
-  }
+  const workerFiles = [
+    { src: '../apex-ls/dist/worker.global.js', dest: 'worker.js' },
+    { src: '../apex-ls/dist/worker.global.js.map', dest: 'worker.js.map' },
+  ];
 
-  // Copy main worker
-  if (fs.existsSync(workerSrc)) {
-    fs.copyFileSync(workerSrc, path.join(distDir, 'worker.js'));
-    console.log('✅ Copied worker.js');
-  } else {
-    console.warn('⚠️ worker.js not found at:', workerSrc);
-  }
-
-  if (fs.existsSync(workerMapSrc)) {
-    fs.copyFileSync(workerMapSrc, path.join(distDir, 'worker.js.map'));
-    console.log('✅ Copied worker.js.map');
-  } else {
-    console.warn('⚠️ worker.js.map not found at:', workerMapSrc);
-  }
-
-  // Copy web worker variant
-  if (fs.existsSync(workerWebSrc)) {
-    fs.copyFileSync(workerWebSrc, path.join(distDir, 'worker-web.js'));
-    console.log('✅ Copied worker-web.js');
-  } else {
-    console.warn('⚠️ worker-web.js not found at:', workerWebSrc);
-  }
-
-  if (fs.existsSync(workerWebMapSrc)) {
-    fs.copyFileSync(workerWebMapSrc, path.join(distDir, 'worker-web.js.map'));
-    console.log('✅ Copied worker-web.js.map');
-  } else {
-    console.warn('⚠️ worker-web.js.map not found at:', workerWebMapSrc);
-  }
+  workerFiles.forEach(({ src, dest }) => {
+    const srcPath = path.resolve(__dirname, src);
+    const destPath = path.join(distDir, dest);
+    try {
+      fs.copyFileSync(srcPath, destPath);
+    } catch (error) {
+      console.warn(`Failed to copy ${dest}:`, (error as Error).message);
+    }
+  });
 }
 
 /**
  * Copy manifest and configuration files to dist
  */
 function copyManifestFiles() {
-  console.log('🔧 Copying manifest and configuration files...');
-  const packageSrcDir = __dirname;
   const distDir = path.resolve(__dirname, 'dist');
 
   const filesToCopy = [
@@ -104,21 +70,23 @@ function copyManifestFiles() {
 
   // Copy files
   filesToCopy.forEach((file) => {
-    const srcFile = path.join(packageSrcDir, file);
+    const srcFile = path.join(__dirname, file);
     const destFile = path.join(distDir, file);
-    if (fs.existsSync(srcFile)) {
+    try {
       fs.copyFileSync(srcFile, destFile);
-      console.log(`✅ Copied ${file}`);
+    } catch (error) {
+      console.warn(`Failed to copy ${file}:`, (error as Error).message);
     }
   });
 
   // Copy directories recursively
   dirsToCopy.forEach((dir) => {
-    const srcDirPath = path.join(packageSrcDir, dir);
+    const srcDirPath = path.join(__dirname, dir);
     const destDirPath = path.join(distDir, dir);
-    if (fs.existsSync(srcDirPath)) {
+    try {
       fs.cpSync(srcDirPath, destDirPath, { recursive: true });
-      console.log(`✅ Copied ${dir}/`);
+    } catch (error) {
+      console.warn(`Failed to copy ${dir}/:`, (error as Error).message);
     }
   });
 }
@@ -128,46 +96,32 @@ function copyManifestFiles() {
  */
 function fixPackagePaths() {
   const packagePath = path.resolve(__dirname, 'dist/package.json');
-  if (!fs.existsSync(packagePath)) {
-    console.log(
-      '⚠️ package.json not found in dist directory, skipping path fix',
-    );
-    return;
+  try {
+    const content = fs.readFileSync(packagePath, 'utf8');
+    const packageJson = JSON.parse(content);
+
+    // Fix main and browser paths
+    if (packageJson.main?.includes('./dist/')) {
+      packageJson.main = packageJson.main.replace('./dist/', './');
+    }
+
+    if (packageJson.browser?.includes('./dist/')) {
+      packageJson.browser = packageJson.browser.replace('./dist/', './');
+    }
+
+    fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
+  } catch (error) {
+    console.warn('Failed to fix package.json paths:', (error as Error).message);
   }
-
-  let content = fs.readFileSync(packagePath, 'utf8');
-  const packageJson = JSON.parse(content);
-
-  // Fix main and browser paths
-  if (packageJson.main && packageJson.main.includes('./dist/')) {
-    packageJson.main = packageJson.main.replace('./dist/', './');
-    console.log(`✅ Fixed main path: ${packageJson.main}`);
-  }
-
-  if (packageJson.browser && packageJson.browser.includes('./dist/')) {
-    packageJson.browser = packageJson.browser.replace('./dist/', './');
-    console.log(`✅ Fixed browser path: ${packageJson.browser}`);
-  }
-
-  // Write the updated package.json
-  fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
-  console.log('✅ Fixed package.json paths for VSCode extension loading');
 }
 
 /**
  * Execute all post-build tasks
  */
 async function executePostBuildTasks(): Promise<void> {
-  console.log('🚀 Running post-build tasks...');
-  try {
-    copyWorkerFiles();
-    copyManifestFiles();
-    fixPackagePaths();
-    console.log('✅ All post-build tasks completed successfully!');
-  } catch (error) {
-    console.error('❌ Error during post-build tasks:', error);
-    process.exit(1);
-  }
+  copyWorkerFiles();
+  copyManifestFiles();
+  fixPackagePaths();
 }
 
 export default defineConfig([
@@ -216,7 +170,7 @@ export default defineConfig([
       ];
 
       options.define = { global: 'globalThis' };
-      options.alias = BROWSER_ALIASES;
+      options.alias = NODE_POLYFILLS;
     },
   },
 ]);

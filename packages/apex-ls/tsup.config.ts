@@ -130,24 +130,4 @@ export default defineConfig([
     },
   },
 
-  // Full LCS Web Worker build for VS Code Web (no fallbacks)
-  {
-    name: 'worker-web',
-    entry: { 'worker-web': 'src/server-web.ts' },
-    outDir: 'dist',
-    platform: 'browser',
-    format: ['iife'],
-    target: 'es2022',
-    sourcemap: true,
-    minify: true,
-    metafile: true,
-    // Same externals as main worker since we want full LCS functionality
-    external: WORKER_EXTERNAL,
-    noExternal: APEX_LS_BUNDLE,
-    splitting: false,
-    esbuildOptions(options) {
-      // Apply comprehensive web worker polyfill configuration
-      configureWebWorkerPolyfills(options);
-    },
-  },
 ]);

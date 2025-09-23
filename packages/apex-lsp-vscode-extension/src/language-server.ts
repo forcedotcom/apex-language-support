@@ -288,7 +288,7 @@ export const createAndStartClient = async (
     );
     logToOutputChannel(`🔍 Extension path: ${context.extensionPath}`, 'debug');
 
-    const workerFile = environment === 'web' ? 'worker-web.js' : 'worker.js';
+    const workerFile = 'worker.js';
 
     const workerUri = vscode.Uri.joinPath(
       context.extensionUri,
@@ -299,108 +299,135 @@ export const createAndStartClient = async (
     logToOutputChannel(`🔍 Worker file: ${workerFile}`, 'debug');
     logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 
-    // Create worker using cross-platform web-worker package
-    logToOutputChannel('⚡ Creating web worker...', 'info');
-    const worker = new Worker(workerUri.toString(), {
-      type: 'classic',
-    });
-    logToOutputChannel('✅ Web worker created successfully', 'info');
-
-    // Create VS Code Language Client for web extension
-    logToOutputChannel('🔗 Creating Language Client...', 'info');
-    const languageClient = new LanguageClient(
-      'apex-language-server',
-      'Apex Language Server Extension (Worker/Server)',
-      {
-        documentSelector: [
-          { scheme: 'file', language: 'apex' },
-          { scheme: 'vscode-test-web', language: 'apex' },
-        ],
-        synchronize: {
-          fileEvents: vscode.workspace.createFileSystemWatcher(
-            '**/*.{cls,trigger,apex}',
-          ),
-          // Tell the client to synchronize configuration from this section
-          configurationSection: 'apex',
-        },
-        // Provide initial settings to the server
-        initializationOptions: getWorkspaceSettings(),
-        // Use our consolidated worker/server output channel if available
-        ...(getWorkerServerOutputChannel()
-          ? {
-              outputChannel: getWorkerServerOutputChannel(),
-              traceOutputChannel: getWorkerServerOutputChannel(),
-            }
-          : {}),
-      },
-      worker,
-    );
-    logToOutputChannel('✅ Language Client created successfully', 'info');
-
-    // Set up window/logMessage handler for worker/server logs
-    languageClient.onNotification('window/logMessage', (params) => {
-      const { message } = params;
-
-      // All messages from the worker/server go directly to the worker/server channel without additional formatting
-      const channel = getWorkerServerOutputChannel();
-      if (channel) {
-        channel.appendLine(message);
-      }
-    });
-
-    // Store client for disposal with ClientInterface wrapper
-    Client = {
-      languageClient,
-      initialize: async (params: InitializeParams) => {
-        await languageClient.start();
-        return { capabilities: {} }; // Return basic capabilities
-      },
-      sendRequest: async (method: string, params?: any) =>
-        languageClient.sendRequest(method, params),
-      sendNotification: (method: string, params?: any) => {
-        languageClient.sendNotification(method, params);
-      },
-      onRequest: (method: string, handler: (params: any) => any) => {
-        languageClient.onRequest(method, handler);
-      },
-      onNotification: (method: string, handler: (params: any) => void) => {
-        languageClient.onNotification(method, handler);
-      },
-      isDisposed: () => !languageClient.isRunning(),
-      dispose: () => {
-        languageClient.stop();
-      },
-    } as ClientInterface;
-
-    // Initialize the language server
-    logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
-    const initParams = createInitializeParams(context);
-    logToOutputChannel('🚀 Initializing client...', 'info');
-    await Client.initialize(initParams);
-
-    logToOutputChannel('✅ Client initialized successfully', 'info');
-
-    // Set up client state monitoring
-    // Note: UniversalExtensionClient doesn't have the same state change events as LanguageClient
-    // So we'll mark as ready immediately after successful initialization
-    logToOutputChannel('📊 Updating server status to ready...', 'debug');
-    updateApexServerStatusReady();
-    logToOutputChannel('🔄 Resetting retry counters...', 'debug');
-    resetServerStartRetries();
-    setStartingFlag(false);
-
-    // Register configuration change listener
-    // We'll adapt this to work with the client
-    if (Client) {
+    // Check if worker file exists/is accessible
+    try {
+      logToOutputChannel('🔍 Checking worker file accessibility...', 'debug');
+      // In web environment, we can't directly check file existence, but we can try to fetch it
+      const response = await fetch(workerUri.toString());
       logToOutputChannel(
-        '⚙️ Registering configuration change listener...',
+        `🔍 Worker file fetch status: ${response.status}`,
         'debug',
       );
-      registerConfigurationChangeListener(Client, context);
-      logToOutputChannel('✅ Configuration listener registered', 'debug');
+      if (!response.ok) {
+        logToOutputChannel(
+          `❌ Worker file not accessible: ${response.statusText}`,
+          'error',
+        );
+      }
+    } catch (error) {
+      logToOutputChannel(`❌ Error checking worker file: ${error}`, 'error');
     }
 
-    logToOutputChannel('🎉 Apex Language Server is ready!', 'info');
+    // Create worker using cross-platform web-worker package
+    logToOutputChannel('⚡ Creating web worker...', 'info');
+    try {
+      const worker = new Worker(workerUri.toString(), {
+        type: 'classic',
+      });
+      logToOutputChannel('✅ Web worker created successfully', 'info');
+
+      // Create VS Code Language Client for web extension
+      logToOutputChannel('🔗 Creating Language Client...', 'info');
+      const languageClient = new LanguageClient(
+        'apex-language-server',
+        'Apex Language Server Extension (Worker/Server)',
+        {
+          documentSelector: [
+            { scheme: 'file', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex' },
+          ],
+          synchronize: {
+            fileEvents: vscode.workspace.createFileSystemWatcher(
+              '**/*.{cls,trigger,apex}',
+            ),
+            // Tell the client to synchronize configuration from this section
+            configurationSection: 'apex',
+          },
+          // Provide initial settings to the server
+          initializationOptions: getWorkspaceSettings(),
+          // Use our consolidated worker/server output channel if available
+          ...(getWorkerServerOutputChannel()
+            ? {
+                outputChannel: getWorkerServerOutputChannel(),
+                traceOutputChannel: getWorkerServerOutputChannel(),
+              }
+            : {}),
+        },
+        worker,
+      );
+      logToOutputChannel('✅ Language Client created successfully', 'info');
+
+      // Set up window/logMessage handler for worker/server logs
+      languageClient.onNotification('window/logMessage', (params) => {
+        const { message } = params;
+
+        // All messages from the worker/server go directly to the worker/server channel without additional formatting
+        const channel = getWorkerServerOutputChannel();
+        if (channel) {
+          channel.appendLine(message);
+        }
+      });
+
+      // Store client for disposal with ClientInterface wrapper
+      Client = {
+        languageClient,
+        initialize: async (params: InitializeParams) => {
+          await languageClient.start();
+          return { capabilities: {} }; // Return basic capabilities
+        },
+        sendRequest: async (method: string, params?: any) =>
+          languageClient.sendRequest(method, params),
+        sendNotification: (method: string, params?: any) => {
+          languageClient.sendNotification(method, params);
+        },
+        onRequest: (method: string, handler: (params: any) => any) => {
+          languageClient.onRequest(method, handler);
+        },
+        onNotification: (method: string, handler: (params: any) => void) => {
+          languageClient.onNotification(method, handler);
+        },
+        isDisposed: () => !languageClient.isRunning(),
+        dispose: () => {
+          languageClient.stop();
+        },
+      } as ClientInterface;
+
+      // Initialize the language server
+      logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
+      const initParams = createInitializeParams(context);
+      logToOutputChannel('🚀 Initializing client...', 'info');
+      await Client.initialize(initParams);
+
+      logToOutputChannel('✅ Client initialized successfully', 'info');
+
+      // Set up client state monitoring
+      // Note: UniversalExtensionClient doesn't have the same state change events as LanguageClient
+      // So we'll mark as ready immediately after successful initialization
+      logToOutputChannel('📊 Updating server status to ready...', 'debug');
+      updateApexServerStatusReady();
+      logToOutputChannel('🔄 Resetting retry counters...', 'debug');
+      resetServerStartRetries();
+      setStartingFlag(false);
+
+      // Register configuration change listener
+      // We'll adapt this to work with the client
+      if (Client) {
+        logToOutputChannel(
+          '⚙️ Registering configuration change listener...',
+          'debug',
+        );
+        registerConfigurationChangeListener(Client, context);
+        logToOutputChannel('✅ Configuration listener registered', 'debug');
+      }
+
+      logToOutputChannel('🎉 Apex Language Server is ready!', 'info');
+    } catch (workerError) {
+      logToOutputChannel(
+        `❌ Failed to create web worker: ${workerError}`,
+        'error',
+      );
+      throw workerError;
+    }
   } catch (error) {
     logToOutputChannel(`❌ Failed to start language server: ${error}`, 'error');
     setStartingFlag(false);

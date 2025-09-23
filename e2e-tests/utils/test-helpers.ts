@@ -35,8 +35,7 @@ export const setupWorkerResponseHook = (page: Page): void => {
   workerDetectionStore.set(page, initial);
 
   const isWorkerUrl = (url: string): boolean =>
-    (url.includes('worker.js') || url.includes('worker-web.js')) &&
-    url.includes('devextensions');
+    url.includes('worker.js') && url.includes('devextensions');
 
   page.on('response', async (response) => {
     const url = response.url();
@@ -615,9 +614,7 @@ export const detectLCSIntegration = async (
     const perfWorker = await page.evaluate(() => {
       const entries = performance.getEntriesByType('resource') as any[];
       const workerEntry = entries.find(
-        (e) =>
-          (e.name.includes('worker.js') || e.name.includes('worker-web.js')) &&
-          e.name.includes('devextensions'),
+        (e) => e.name.includes('worker.js') && e.name.includes('devextensions'),
       );
       return workerEntry
         ? { url: workerEntry.name, size: workerEntry.transferSize || 0 }
