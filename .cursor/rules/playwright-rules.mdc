@@ -1,0 +1,23 @@
+---
+globs: **/e2e-tests/**
+alwaysApply: false
+---
+
+Never use `waitForTimeout`. Always wait for something specific on the page:
+
+- Use `page.waitForSelector()` to wait for elements to appear
+- Use `expect(locator).toBeVisible()` to wait for visibility
+- Use `page.waitForLoadState()` for page state changes
+- Use `page.waitForResponse()` for network requests
+
+Prefer `expect` assertions that will fail with clear messages instead of logging failures to the console.
+
+Use f1 to access commands, not meta-shift-P. Use `ControlOrMeta` so tests work across OSes.
+
+Use @https://playwright.dev/docs/api/class-locator#locator-inner-html on a known-good locator and use the result to get more accurate locators for stuff inside it.
+
+Fail early, avoid creating fallbacks.
+
+Use emojis infrequently.
+
+Read the playwright docs

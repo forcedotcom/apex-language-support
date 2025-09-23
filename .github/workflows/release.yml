@@ -70,8 +70,10 @@ on:
           - 'false'
 
   # schedule:
-  #   # Nightly pre-release build at 2 AM UTC
+  #   # Nightly pre-release build at 2 AM UTC for main branch
   #   - cron: '0 2 * * *'
+  #   # Nightly pre-release build at 2:30 AM UTC for td26/main branch
+  #   - cron: '30 2 * * *'
   # push:
   #   branches:
   #     - main
@@ -92,11 +94,20 @@ jobs:
     outputs:
       npm-packages: ${{ steps.packages.outputs.packages }}
       extensions: ${{ steps.extensions.outputs.extensions }}
+      target-branch: ${{ steps.determine-branch.outputs.branch }}
     steps:
+      - name: Determine target branch
+        id: determine-branch
+        run: |
+          # For manual dispatch, use input or default to main
+          TARGET_BRANCH="${{ github.event.inputs.branch || github.ref_name || 'main' }}"
+          echo "branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+          echo "Building from branch: $TARGET_BRANCH"
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
+          ref: ${{ steps.determine-branch.outputs.branch }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -121,7 +132,7 @@ jobs:
     if: (github.event.inputs.packages != 'none' && github.event.inputs.packages != '') || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (needs.get-packages.outputs.npm-packages != '')
     uses: ./.github/workflows/release-npm.yml
     with:
-      branch: ${{ github.event.inputs.branch || github.ref_name }}
+      branch: ${{ needs.get-packages.outputs.target-branch }}
       packages: ${{ github.event.inputs.packages || 'changed' }}
       available-packages: ${{ needs.get-packages.outputs.npm-packages }}
       dry-run: ${{ github.event.inputs.dry-run || 'false' }}
@@ -132,7 +143,7 @@ jobs:
     if: (github.event.inputs.extensions != 'none' && github.event.inputs.extensions != '') || (needs.get-packages.outputs.extensions != '')
     uses: ./.github/workflows/release-extensions.yml
     with:
-      branch: ${{ github.event.inputs.branch || github.ref_name }}
+      branch: ${{ needs.get-packages.outputs.target-branch }}
       registries: ${{ github.event.inputs.registries || 'all' }}
       dry-run: ${{ github.event.inputs.dry-run || 'false' }}
       pre-release: ${{ github.event.inputs.pre-release || 'false' }}
