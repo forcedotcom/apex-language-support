@@ -97,13 +97,13 @@ export class HoverProcessingService implements IHoverProcessor {
       );
 
       // TODO: remove this. Why doesn't the symbol manager have the symbol table?
-      // If still no symbol, try fallback to direct document parsing
+      /* If still no symbol, try fallback to direct document parsing
       if (!symbol) {
         symbol = await this.tryDirectDocumentParsing(
           params.textDocument.uri,
           parserPosition,
         );
-      }
+      }*/
       //end todo
 
       if (!symbol) {

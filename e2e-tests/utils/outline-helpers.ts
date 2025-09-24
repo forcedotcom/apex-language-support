@@ -7,6 +7,7 @@
  */
 
 import type { Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { OUTLINE_SELECTORS, type ExpectedApexSymbols } from './constants';
 
 /**
@@ -181,11 +182,35 @@ const ensureOutlineTreeFullyVisible = async (page: Page): Promise<void> => {
       // Scroll to the bottom of the outline tree to ensure all symbols are rendered
       await outlineTree.hover();
       await page.keyboard.press('End'); // Scroll to bottom
-      await page.waitForTimeout(500); // Wait for rendering
+
+      // Wait for rendering to complete by checking for outline rows
+      await page
+        .waitForFunction(
+          () => {
+            const tree = document.querySelector(
+              '.outline-tree, .monaco-tree, .tree-explorer',
+            );
+            return tree && tree.querySelector('.monaco-list-row');
+          },
+          { timeout: 2000 },
+        )
+        .catch(() => {});
 
       // Scroll back to top
       await page.keyboard.press('Home'); // Scroll to top
-      await page.waitForTimeout(500); // Wait for rendering
+
+      // Wait for scroll to complete
+      await page
+        .waitForFunction(
+          () => {
+            const tree = document.querySelector(
+              '.outline-tree, .monaco-tree, .tree-explorer',
+            );
+            return tree && tree.scrollTop === 0;
+          },
+          { timeout: 1000 },
+        )
+        .catch(() => {});
     }
   } catch (error) {
     console.log(`⚠️  Failed to fully expand outline tree: ${error}`);
@@ -286,7 +311,10 @@ export const validateApexSymbolsInOutline = async (
         // Scroll the found element into view to ensure it's visible
         try {
           await methodElements.first().scrollIntoViewIfNeeded();
-          await page.waitForTimeout(100); // Brief wait for scroll
+          // Wait for scroll to complete by checking element is in view
+          await expect(methodElements.first())
+            .toBeInViewport()
+            .catch(() => {});
         } catch (_error) {
           // Ignore scroll errors
         }

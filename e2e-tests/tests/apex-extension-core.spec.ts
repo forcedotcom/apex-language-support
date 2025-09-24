@@ -301,11 +301,20 @@ test.describe('Apex Extension with LCS Integration', () => {
 
     // Test different completion contexts within the constructor
     const completionScenarios = [
-      { text: 'System.', description: 'System class completion' },
-      { text: 'String.', description: 'String class completion' },
+      {
+        text: 'System.',
+        description: 'System class completion',
+        expectedItems: ['System.debug'],
+      },
+      {
+        text: 'String.',
+        description: 'String class completion',
+        expectedItems: ['String.valueOf'],
+      },
       {
         text: 'Account testAcc = new ',
         description: 'Constructor completion',
+        expectedItems: ['Account'],
       },
     ];
 
@@ -315,18 +324,57 @@ test.describe('Apex Extension with LCS Integration', () => {
       try {
         await positionCursorInConstructor(page);
         await page.keyboard.type(scenario.text);
-        await page.waitForTimeout(1500);
+
+        // Manually trigger completion if it didn't appear automatically
+        // Use ControlOrMeta for cross-platform compatibility
+        await page.keyboard.press('ControlOrMeta+Space');
+
+        // Wait for completion widget to appear or timeout
+        await page
+          .waitForSelector(
+            '.suggest-widget.visible, .monaco-list[aria-label*="suggest"], [aria-label*="IntelliSense"]',
+            {
+              timeout: 3000,
+              state: 'visible',
+            },
+          )
+          .catch(() => {});
 
         const completionWidget = page.locator(
-          '.suggest-widget, .monaco-list, [id*="suggest"]',
+          '.suggest-widget.visible, .monaco-list[aria-label*="suggest"], [aria-label*="IntelliSense"]',
         );
         const hasCompletion = await completionWidget
           .isVisible()
           .catch(() => false);
 
-        if (hasCompletion) {
+        // Additional check for completion items and content
+        const completionItems = page.locator('.monaco-list-row');
+        const itemCount = await completionItems.count();
+        const hasCompletionItems = hasCompletion && itemCount > 0;
+
+        // Look for specific expected completion items
+        let hasExpectedItems = false;
+        if (hasCompletionItems && scenario.expectedItems) {
+          for (const expectedItem of scenario.expectedItems) {
+            const itemExists =
+              (await page
+                .locator(`.monaco-list-row:has-text("${expectedItem}")`)
+                .count()) > 0;
+            if (itemExists) {
+              hasExpectedItems = true;
+              break;
+            }
+          }
+        }
+
+        if (hasCompletion || hasCompletionItems || hasExpectedItems) {
           advancedCompletionsWorking++;
-          console.log(`✅ ${scenario.description}: Working`);
+          const detail = hasExpectedItems
+            ? 'with expected items'
+            : hasCompletionItems
+              ? `with ${itemCount} items`
+              : 'detected';
+          console.log(`✅ ${scenario.description}: Working (${detail})`);
           await page.keyboard.press('Escape'); // Close completion
         } else {
           console.log(`ℹ️ ${scenario.description}: Not detected`);

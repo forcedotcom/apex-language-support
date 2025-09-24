@@ -19,7 +19,10 @@
 const { runTests } = require('@vscode/test-web');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
+const { promisify } = require('util');
+
+const execAsync = promisify(exec);
 
 async function captureExtensionLogs(outputPath) {
   const timestamp = new Date().toISOString();
@@ -59,8 +62,96 @@ Last check: ${timestamp}
   console.log(`3. Copy all content to: ${outputPath}`);
 }
 
+/**
+ * Kills any processes running on port 3000 to ensure the address is available
+ * for the web server. Works on macOS, Linux, and Windows.
+ */
+async function killProcessesOnPort3000() {
+  console.log('🔍 Checking for processes running on port 3000...');
+
+  try {
+    let command;
+    let killCommand;
+
+    // Determine the appropriate command based on the operating system
+    if (process.platform === 'win32') {
+      // Windows
+      command = 'netstat -ano | findstr :3000';
+      killCommand = (pid) => `taskkill /PID ${pid} /F`;
+    } else {
+      // macOS and Linux
+      command = 'lsof -ti:3000';
+      killCommand = (pid) => `kill -9 ${pid}`;
+    }
+
+    const { stdout } = await execAsync(command);
+
+    if (stdout.trim()) {
+      console.log(
+        '🛑 Found processes running on port 3000, terminating them...',
+      );
+
+      if (process.platform === 'win32') {
+        // Windows: Parse netstat output to extract PIDs
+        const lines = stdout.trim().split('\n');
+        const pids = lines
+          .map((line) => {
+            const parts = line.trim().split(/\s+/);
+            return parts[parts.length - 1]; // PID is the last column
+          })
+          .filter((pid) => pid && /^\d+$/.test(pid)); // Only valid PIDs
+
+        for (const pid of pids) {
+          try {
+            await execAsync(killCommand(pid));
+            console.log(`   ✅ Killed process ${pid}`);
+          } catch (error) {
+            console.warn(
+              `   ⚠️ Failed to kill process ${pid}: ${error.message}`,
+            );
+          }
+        }
+      } else {
+        // macOS/Linux: lsof returns PIDs directly
+        const pids = stdout
+          .trim()
+          .split('\n')
+          .filter((pid) => pid);
+
+        for (const pid of pids) {
+          try {
+            await execAsync(killCommand(pid));
+            console.log(`   ✅ Killed process ${pid}`);
+          } catch (error) {
+            console.warn(
+              `   ⚠️ Failed to kill process ${pid}: ${error.message}`,
+            );
+          }
+        }
+      }
+
+      // Wait a moment for processes to fully terminate
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      console.log('✅ Port 3000 cleanup completed');
+    } else {
+      console.log('✅ No processes found running on port 3000');
+    }
+  } catch (error) {
+    if (error.code === 1 || error.message.includes('No such process')) {
+      // Command returned exit code 1, which typically means no processes found
+      console.log('✅ No processes found running on port 3000');
+    } else {
+      console.warn(`⚠️ Error checking port 3000: ${error.message}`);
+      console.log('   Continuing with test execution...');
+    }
+  }
+}
+
 async function runWebExtensionTests() {
   try {
+    // Kill any processes running on port 3000 before starting the web server
+    await killProcessesOnPort3000();
+
     const extensionDevelopmentPath = path.resolve(
       __dirname,
       '../packages/apex-lsp-vscode-extension',

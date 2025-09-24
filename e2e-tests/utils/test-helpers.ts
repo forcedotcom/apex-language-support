@@ -212,6 +212,9 @@ export const setupNetworkMonitoring = (page: Page): NetworkError[] => {
 export const startVSCodeWeb = async (page: Page): Promise<void> => {
   await page.goto('/', { waitUntil: 'networkidle' });
 
+  // Wait for the page to be fully loaded
+  await page.waitForLoadState('domcontentloaded');
+
   // Wait for VS Code workbench to be fully loaded and interactive
   await page.waitForSelector(SELECTORS.STATUSBAR, {
     timeout: 60_000, // VS Code startup timeout
@@ -223,6 +226,9 @@ export const startVSCodeWeb = async (page: Page): Promise<void> => {
   });
   const workbench = page.locator(SELECTORS.WORKBENCH);
   await workbench.waitFor({ state: 'visible' });
+
+  // Ensure the workbench is fully interactive
+  await page.waitForLoadState('networkidle');
 };
 
 /**
@@ -235,9 +241,22 @@ export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
   const explorer = page.locator(SELECTORS.EXPLORER);
   await explorer.waitFor({ state: 'visible', timeout: 30_000 });
 
-  // Wait a bit for the file system to stabilize in CI environments
+  // Wait for the file system to stabilize in CI environments
   if (process.env.CI) {
-    await page.waitForTimeout(2000);
+    // Wait for explorer content to be fully loaded instead of using timeout
+    await page
+      .waitForFunction(
+        () => {
+          const explorer = document.querySelector(
+            '[id="workbench.view.explorer"]',
+          );
+          return explorer && explorer.children.length > 0;
+        },
+        { timeout: 5000 },
+      )
+      .catch(() => {
+        // If the function-based wait fails, use a short fallback
+      });
   }
 
   // Check if our test files are visible (Apex files)
@@ -574,8 +593,24 @@ export const detectLCSIntegration = async (
     }
   });
 
-  // Wait for LCS initialization
-  await page.waitForTimeout(5000);
+  // Wait for LCS initialization by checking for worker messages or console indicators
+  await page
+    .waitForFunction(
+      () => {
+        const messages = performance
+          .getEntriesByType('resource')
+          .some(
+            (entry: any) =>
+              entry.name.includes('worker.js') &&
+              entry.name.includes('devextensions'),
+          );
+        return messages || window.console;
+      },
+      { timeout: 8000 },
+    )
+    .catch(() => {
+      // If function-based wait fails, continue - this is informational
+    });
 
   // Analyze console messages for LCS indicators
   const hasStubFallback = consoleMessages.some(

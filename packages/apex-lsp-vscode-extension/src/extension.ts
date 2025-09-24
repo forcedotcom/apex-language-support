@@ -131,10 +131,19 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // Start the language server
-  handleStart(context).catch((error) => {
-    logToOutputChannel(`❌ Failed to start language server: ${error}`, 'error');
-    console.error('❌ [APEX-EXT] Failed to start language server:', error);
-  });
+  logToOutputChannel('🔧 About to start language server...', 'debug');
+  handleStart(context)
+    .then(() => {
+      logToOutputChannel('✅ Language server started successfully', 'info');
+    })
+    .catch((error) => {
+      logToOutputChannel(
+        `❌ Failed to start language server: ${error}`,
+        'error',
+      );
+      logToOutputChannel(`❌ Error stack: ${error.stack}`, 'error');
+      console.error('❌ [APEX-EXT] Failed to start language server:', error);
+    });
 
   console.log('✅ [APEX-EXT] Extension activation completed');
 }
