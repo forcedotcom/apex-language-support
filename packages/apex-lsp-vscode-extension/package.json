@@ -261,28 +261,24 @@
     },
     "commands": [
       {
-        "command": "apex.restart.server",
+        "command": "apex-ls-ts.restart.server",
         "title": "%commands.apex-ls-ts.restart.server.title%"
       },
       {
-        "command": "apex.setLogLevel.error",
+        "command": "apex-ls-ts.setLogLevel.error",
         "title": "%commands.apex-ls-ts.setLogLevel.error.title%"
       },
       {
-        "command": "apex.setLogLevel.warning",
+        "command": "apex-ls-ts.setLogLevel.warning",
         "title": "%commands.apex-ls-ts.setLogLevel.warning.title%"
       },
       {
-        "command": "apex.setLogLevel.info",
+        "command": "apex-ls-ts.setLogLevel.info",
         "title": "%commands.apex-ls-ts.setLogLevel.info.title%"
       },
       {
-        "command": "apex.setLogLevel.debug",
+        "command": "apex-ls-ts.setLogLevel.debug",
         "title": "%commands.apex-ls-ts.setLogLevel.debug.title%"
-      },
-      {
-        "command": "apex.restart.server",
-        "title": "Restart Apex Language Server"
       },
       {
         "command": "apex.showAggregatedLogs",

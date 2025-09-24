@@ -17,7 +17,6 @@ import {
 
 import {
   setLoggerFactory,
-  setLogLevel,
   UniversalLoggerFactory,
 } from '@salesforce/apex-lsp-shared';
 
@@ -48,7 +47,6 @@ export async function startApexWebWorker(): Promise<void> {
   );
 
   // Set up logging with connection
-  setLogLevel('info'); // Enable info level logs to see worker messages
   const loggerFactory = UniversalLoggerFactory.getInstance();
   setLoggerFactory(loggerFactory); // Set factory BEFORE creating logger
   const logger = loggerFactory.createLogger(connection);

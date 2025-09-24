@@ -373,6 +373,21 @@ async function runWebExtensionTests() {
         sampleApexClass,
       );
       console.log('✅ Created sample Apex class for testing');
+
+      // Create .vscode directory and settings.json
+      const vscodeDir = path.join(workspacePath, '.vscode');
+      fs.mkdirSync(vscodeDir, { recursive: true });
+
+      const vscodeSettings = {
+        'apex.logLevel': 'debug',
+        'apex.worker.logLevel': 'debug',
+      };
+
+      fs.writeFileSync(
+        path.join(vscodeDir, 'settings.json'),
+        JSON.stringify(vscodeSettings, null, 2),
+      );
+      console.log('✅ Created .vscode/settings.json with Apex debug settings');
     }
 
     // Check if extension is built

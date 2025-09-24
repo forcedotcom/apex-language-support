@@ -465,21 +465,20 @@ async function createWebLanguageClient(
         { scheme: 'vscode-test-web', language: 'apex' },
       ],
       synchronize: {
-        fileEvents: vscode.workspace.createFileSystemWatcher(
-          '**/*.{cls,trigger,apex}',
-        ),
         configurationSection: 'apex',
       },
-      initializationOptions: createEnhancedInitializationOptions(context),
-      ...(getWorkerServerOutputChannel()
-        ? {
-            outputChannel: getWorkerServerOutputChannel(),
-            traceOutputChannel: getWorkerServerOutputChannel(),
-          }
-        : {}),
+      initializationOptions: {
+        enableDocumentSymbols: true,
+        logLevel: 'info',
+        environment: 'web',
+      },
     },
     worker,
   );
+
+  // Note: Output channels are handled via the window/logMessage notification handler below
+  // The LanguageClient's outputChannel property is read-only, so we can't set it directly
+
   // Set up window/logMessage handler for worker/server logs
   languageClient.onNotification('window/logMessage', (params) => {
     const { message } = params;
