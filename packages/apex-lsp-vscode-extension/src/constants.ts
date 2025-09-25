@@ -28,7 +28,7 @@ export const EXTENSION_CONSTANTS = {
   /** Restart command ID (alternative for web compatibility) */
   WEB_RESTART_COMMAND_ID: 'apex.restart.server',
   /** Configuration section name */
-  CONFIG_SECTION: 'apex-ls-ts',
+  CONFIG_SECTION: 'apex',
   /** Log level command IDs */
   LOG_LEVEL_COMMANDS: {
     ERROR: 'apex-ls-ts.setLogLevel.error',

@@ -11,7 +11,7 @@
   "eslint.run": "onType",
   "prettier.requireConfig": true,
   "prettier.useEditorConfig": false,
-  "files.autoSave": "off",
+  "files.autoSave": "afterDelay",
   "jest.jestCommandLine": "node_modules/.bin/jest",
   "jest.debugMode": true,
   "jest.autoRun": {

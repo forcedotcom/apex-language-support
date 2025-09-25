@@ -25,11 +25,7 @@ import {
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import {
-  setLogLevel,
-  UniversalLoggerFactory,
-  Logger,
-} from '@salesforce/apex-lsp-shared';
+import { UniversalLoggerFactory, Logger } from '@salesforce/apex-lsp-shared';
 
 // LCS services and handlers
 import {
@@ -43,6 +39,7 @@ import {
   DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
+  LSPConfigurationManager,
 } from '@salesforce/apex-lsp-compliant-services';
 
 /**
@@ -119,7 +116,6 @@ export class LCSAdapter {
    * Create default logger if none provided
    */
   private createDefaultLogger(): Logger {
-    setLogLevel('info');
     const loggerFactory = UniversalLoggerFactory.getInstance();
     return loggerFactory.createLogger(this.connection) as Logger;
   }
@@ -351,13 +347,12 @@ export class LCSAdapter {
    * Handle configuration changes
    */
   private handleConfigurationChange(change: any): void {
-    // Update log level from configuration
-    const config = change.settings?.['apex-ls'];
-    if (config?.logLevel) {
-      setLogLevel(config.logLevel);
-      this.logger.info(`Log level updated to: ${config.logLevel}`);
-    }
+    this.logger.error(
+      () =>
+        `Updating Apex Language Server settings: ${JSON.stringify(change, null, 2)}`,
+    );
 
+    LSPConfigurationManager.getInstance().updateFromLSPConfiguration(change);
     // Revalidate all open text documents (basic implementation for now)
     this.documents.all().forEach(async (document) => {
       try {
