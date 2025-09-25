@@ -347,11 +347,6 @@ export class LCSAdapter {
    * Handle configuration changes
    */
   private handleConfigurationChange(change: any): void {
-    this.logger.error(
-      () =>
-        `Updating Apex Language Server settings: ${JSON.stringify(change, null, 2)}`,
-    );
-
     LSPConfigurationManager.getInstance().updateFromLSPConfiguration(change);
     // Revalidate all open text documents (basic implementation for now)
     this.documents.all().forEach(async (document) => {

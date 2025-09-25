@@ -61,6 +61,7 @@ export {
   getDebugConfig,
   getTraceServerConfig,
   registerConfigurationChangeListener,
+  sendInitialConfiguration,
 } from './configuration';
 
 // Export server configuration utilities

@@ -8,8 +8,8 @@
 
 import * as vscode from 'vscode';
 import { WorkspaceSettings, DebugConfig } from './types';
-import { updateLogLevel } from './logging';
 import { EXTENSION_CONSTANTS } from './constants';
+import { logToOutputChannel } from './logging';
 
 /**
  * Gets the current workspace settings for the Apex Language Server
@@ -17,17 +17,13 @@ import { EXTENSION_CONSTANTS } from './constants';
  */
 export const getWorkspaceSettings = (): WorkspaceSettings => {
   const config = vscode.workspace.getConfiguration(
-    EXTENSION_CONSTANTS.CONFIG_SECTION,
+    EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
   );
   const logLevel = config.get<string>('logLevel') ?? 'info';
-
-  // Update the log level for the extension's logging system
-  updateLogLevel(logLevel);
-
+  const workerLogLevel = config.get<string>('worker.logLevel') ?? 'info';
   // Map apex-ls-ts configuration to the apex format expected by the language server
-  const settings = {
+  const settings: WorkspaceSettings = {
     // Language server worker expects this format
-    maxNumberOfProblems: 1000, // Required by server.ts
     apex: {
       commentCollection: {
         enableCommentCollection: config.get<boolean>(
@@ -85,6 +81,9 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
           | 'full',
       },
       logLevel,
+      worker: {
+        logLevel: workerLogLevel,
+      },
       custom: config.get<Record<string, any>>('custom', {}),
     },
   };
@@ -103,7 +102,7 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
  */
 export const getDebugConfig = (): DebugConfig => {
   const config = vscode.workspace.getConfiguration(
-    EXTENSION_CONSTANTS.CONFIG_SECTION,
+    EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
   );
 
   return {
@@ -121,7 +120,7 @@ export const getDebugConfig = (): DebugConfig => {
  */
 export const getTraceServerConfig = (): string => {
   const config = vscode.workspace.getConfiguration(
-    EXTENSION_CONSTANTS.CONFIG_SECTION,
+    EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
   );
   const traceValue = config.get<string>('trace.server', 'off');
 
@@ -148,10 +147,17 @@ export const registerConfigurationChangeListener = (
 ): void => {
   // Listen for configuration changes
   const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
-    if (event.affectsConfiguration(EXTENSION_CONSTANTS.CONFIG_SECTION)) {
+    if (
+      event.affectsConfiguration(
+        EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
+      )
+    ) {
       // Get updated settings
       const settings = getWorkspaceSettings();
-
+      logToOutputChannel(
+        `🔍 Configuration changed: ${JSON.stringify(settings, null, 2)}`,
+        'debug',
+      );
       // Notify the server of the configuration change
       client.sendNotification('workspace/didChangeConfiguration', {
         settings,
@@ -161,4 +167,28 @@ export const registerConfigurationChangeListener = (
 
   // Store the listener in the context so it gets disposed properly
   context.subscriptions.push(configListener);
+};
+
+/**
+ * Sends initial configuration to the language server
+ * This should be called when the language server starts up
+ * @param client The client (any client with sendNotification method)
+ */
+export const sendInitialConfiguration = (client: {
+  sendNotification: (method: string, params?: any) => void;
+}): void => {
+  const settings = getWorkspaceSettings();
+  logToOutputChannel(
+    '🚀 Sending initial configuration to language server',
+    'debug',
+  );
+  logToOutputChannel(
+    `🔍 Initial settings: ${JSON.stringify(settings, null, 2)}`,
+    'debug',
+  );
+
+  // Send initial configuration to the server
+  client.sendNotification('workspace/didChangeConfiguration', {
+    settings,
+  });
 };

@@ -241,7 +241,6 @@ export class LSPConfigurationManager {
       () =>
         `Updating Apex Language Server settings: ${JSON.stringify(config, null, 2)}`,
     );
-
     return this.settingsManager.updateFromLSPConfiguration(config);
   }
 

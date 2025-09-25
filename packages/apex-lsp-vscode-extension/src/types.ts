@@ -50,6 +50,9 @@ export interface WorkspaceSettings {
     };
     custom: Record<string, any>;
     logLevel: string;
+    worker: {
+      logLevel: string;
+    };
   };
 }
 

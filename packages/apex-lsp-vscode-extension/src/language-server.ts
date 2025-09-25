@@ -16,7 +16,11 @@ import {
   updateApexServerStatusReady,
   updateApexServerStatusError,
 } from './status-bar';
-import { getWorkspaceSettings } from './configuration';
+import {
+  getWorkspaceSettings,
+  registerConfigurationChangeListener,
+} from './configuration';
+import { EXTENSION_CONSTANTS } from './constants';
 // Import getDebugOptions conditionally for Node.js environments
 // In web environments, this will be undefined since server-config has Node.js-specific imports
 
@@ -146,7 +150,6 @@ function createInitializeParams(
   context: vscode.ExtensionContext,
 ): InitializeParams {
   const workspaceFolders = vscode.workspace.workspaceFolders;
-  const settings = getWorkspaceSettings();
 
   // Determine extension mode for logging and debugging
   const extensionMode =
@@ -323,13 +326,7 @@ function createInitializeParams(
         },
       },
     },
-    initializationOptions: {
-      logLevel: settings.apex.logLevel,
-      extensionMode: extensionMode,
-      enableDocumentSymbols: true,
-      environment: detectEnvironment(),
-      custom: safeCloneForWorker(settings.apex.custom),
-    },
+    initializationOptions: createEnhancedInitializationOptions(context),
     workspaceFolders:
       workspaceFolders?.map((folder) => ({
         uri: folder.uri.toString(),
@@ -388,6 +385,14 @@ export const createAndStartClient = async (
       );
       registerConfigurationChangeListener(Client, context);
       logToOutputChannel('✅ Configuration listener registered', 'debug');
+
+      // Send initial configuration to the language server
+      // logToOutputChannel(
+      //   '📤 Sending initial configuration to language server...',
+      //   'debug',
+      // );
+      // sendInitialConfiguration(Client);
+      // logToOutputChannel('✅ Initial configuration sent', 'debug');
     }
 
     logToOutputChannel('🎉 Apex Language Server is ready!', 'info');
@@ -465,7 +470,7 @@ async function createWebLanguageClient(
         { scheme: 'vscode-test-web', language: 'apex' },
       ],
       synchronize: {
-        configurationSection: 'apex',
+        configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
       },
       initializationOptions: {
         enableDocumentSymbols: true,
@@ -542,42 +547,6 @@ async function createDesktopLanguageClient(
 
   // Use the web implementation for desktop too - this project doesn't use separate server processes
   await createWebLanguageClient(context);
-}
-
-/**
- * Register configuration change listener for client
- */
-function registerConfigurationChangeListener(
-  client: ClientInterface,
-  context: vscode.ExtensionContext,
-): void {
-  const configWatcher = vscode.workspace.onDidChangeConfiguration(
-    async (event) => {
-      if (event.affectsConfiguration('apex-ls-ts')) {
-        logToOutputChannel(
-          '⚙️ Configuration changed, notifying language server',
-          'debug',
-        );
-
-        try {
-          // Send configuration change notification to the server
-          const settings = getWorkspaceSettings();
-          client.sendNotification('workspace/didChangeConfiguration', {
-            settings: {
-              'apex-ls-ts': settings,
-            },
-          });
-        } catch (error) {
-          logToOutputChannel(
-            `Failed to send configuration change: ${error}`,
-            'error',
-          );
-        }
-      }
-    },
-  );
-
-  context.subscriptions.push(configWatcher);
 }
 
 /**
