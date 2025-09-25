@@ -16,7 +16,7 @@ import {
 } from 'vscode-languageclient/node';
 import { getDebugConfig, getWorkspaceSettings } from './configuration';
 import { logServerMessage, getWorkerServerOutputChannel } from './logging';
-import { DEBUG_CONFIG } from './constants';
+import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -151,7 +151,7 @@ export const createClientOptions = (
     synchronize: {
       fileEvents:
         vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
-      configurationSection: 'apex',
+      configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
     },
     // Use our consolidated worker/server output channel if available
     ...(getWorkerServerOutputChannel()

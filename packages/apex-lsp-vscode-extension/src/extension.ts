@@ -32,6 +32,7 @@ import {
   stopLanguageServer,
 } from './language-server';
 import { getWorkspaceSettings } from './configuration';
+import { EXTENSION_CONSTANTS } from './constants';
 
 /**
  * Wrapper function for restart that matches the expected signature
@@ -92,7 +93,9 @@ export function activate(context: vscode.ExtensionContext): void {
     context,
     () => getWorkspaceSettings().apex.logLevel,
     async (level: string) => {
-      const config = vscode.workspace.getConfiguration('apex-ls-ts');
+      const config = vscode.workspace.getConfiguration(
+        EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
+      );
       await config.update(
         'logLevel',
         level,

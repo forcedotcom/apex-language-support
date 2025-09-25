@@ -20,8 +20,8 @@
     "Linters",
     "Snippets"
   ],
-  "main": "./dist/extension.js",
-  "browser": "./dist/extension.web.js",
+  "main": "./out/extension.js",
+  "browser": "./out/extension.web.js",
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:apex",

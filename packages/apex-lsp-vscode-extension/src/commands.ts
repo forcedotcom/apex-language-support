@@ -126,7 +126,7 @@ export const registerLogLevelCommands = (
       try {
         // Update the workspace configuration
         const config = vscode.workspace.getConfiguration(
-          EXTENSION_CONSTANTS.CONFIG_SECTION,
+          EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
         );
         await config.update(
           'ls.logLevel',
