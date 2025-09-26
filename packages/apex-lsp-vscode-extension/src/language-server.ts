@@ -66,27 +66,70 @@ function detectEnvironment(): 'desktop' | 'web' {
  */
 function safeCloneForWorker(obj: any): any {
   try {
-    // Test if the object can be serialized
+    // First, try a direct JSON serialization test
     const testStr = JSON.stringify(obj);
     return JSON.parse(testStr);
-  } catch {
+  } catch (error) {
+    logToOutputChannel(
+      `⚠️ Object serialization failed, creating safe clone: ${error}`,
+      'debug',
+    );
+
     // If serialization fails, create a safe version
     if (typeof obj !== 'object' || obj === null) {
       return obj;
+    }
+
+    // Handle arrays
+    if (Array.isArray(obj)) {
+      return obj.map((item) => safeCloneForWorker(item));
     }
 
     const safe: any = {};
     for (const key in obj) {
       try {
         const value = obj[key];
+
+        // Skip functions, symbols, and other non-serializable types
         if (typeof value === 'function') continue;
         if (typeof value === 'symbol') continue;
+        if (typeof value === 'undefined') continue;
         if (value instanceof Node) continue; // DOM nodes
+        if (value instanceof Error) continue; // Error objects
 
-        // Recursively handle nested objects
-        safe[key] = safeCloneForWorker(value);
-      } catch {
+        // Skip VS Code objects that might not be serializable
+        if (
+          value &&
+          typeof value === 'object' &&
+          value.constructor &&
+          value.constructor.name &&
+          value.constructor.name.includes('Uri')
+        ) {
+          // Convert VS Code URI objects to strings
+          if (typeof value.toString === 'function') {
+            safe[key] = value.toString();
+            continue;
+          } else {
+            continue;
+          }
+        }
+
+        // Test if this specific value can be serialized
+        try {
+          JSON.stringify(value);
+          // Recursively handle nested objects
+          safe[key] = safeCloneForWorker(value);
+        } catch {
+          // If this value can't be serialized, skip it
+          logToOutputChannel(
+            `⚠️ Skipping non-serializable property: ${key}`,
+            'debug',
+          );
+          continue;
+        }
+      } catch (err) {
         // Skip any properties that can't be safely cloned
+        logToOutputChannel(`⚠️ Error cloning property ${key}: ${err}`, 'debug');
         continue;
       }
     }
@@ -131,16 +174,31 @@ function createEnhancedInitializationOptions(
   }
 
   // Enhanced initialization options with server-config benefits
-  return {
+  // Safely extract only serializable settings
+  const safeSettings = safeCloneForWorker(settings);
+  const debugOptions = getBrowserCompatibleDebugOptions();
+
+  const enhancedOptions = {
     enableDocumentSymbols: true,
     extensionMode: serverMode, // Pass extension mode to server (from server-config.ts)
     environment: detectEnvironment(),
-    ...settings,
-    // Add debug information if available
-    ...(getBrowserCompatibleDebugOptions() && {
-      debugOptions: getBrowserCompatibleDebugOptions(),
+    ...safeSettings,
+    // Add debug information if available and serializable
+    ...(debugOptions && {
+      debugOptions: safeCloneForWorker(debugOptions),
     }),
   };
+
+  // In development mode, ensure debug-level logging is enabled
+  if (serverMode === 'development') {
+    enhancedOptions.logLevel = 'debug';
+    logToOutputChannel(
+      '🔧 Development mode: enabling debug-level logging',
+      'debug',
+    );
+  }
+
+  return enhancedOptions;
 }
 
 /**
@@ -423,16 +481,32 @@ async function createWebLanguageClient(
   );
   logToOutputChannel(`🔍 Extension path: ${context.extensionPath}`, 'debug');
 
-  const workerFile = 'worker.js';
+  // The actual worker file is worker.global.js, not worker.js
+  const workerFile = 'worker.global.js';
 
-  // Use the worker file copied to the extension's dist directory by the build process
-  const workerUri = vscode.Uri.joinPath(
-    context.extensionUri,
-    'dist',
-    workerFile,
-  );
+  // In development mode, worker file is always in dist/ (from apex-ls build)
+  // In production mode, it's copied to extension's dist/ during bundle process
+  const isDevelopment =
+    context.extensionMode === vscode.ExtensionMode.Development;
+
+  let workerUri: vscode.Uri;
+  if (isDevelopment) {
+    // In development, use the worker file from apex-ls dist directory
+    workerUri = vscode.Uri.joinPath(
+      context.extensionUri,
+      '../apex-ls/dist',
+      workerFile,
+    );
+  } else {
+    // In production, use the worker file copied to extension's dist directory
+    workerUri = vscode.Uri.joinPath(context.extensionUri, 'dist', workerFile);
+  }
   logToOutputChannel(`🔍 Worker file: ${workerFile}`, 'debug');
   logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
+  logToOutputChannel(
+    `🔍 Extension mode: ${isDevelopment ? 'development' : 'production'}`,
+    'debug',
+  );
 
   // Check if worker file exists/is accessible
   try {
@@ -472,11 +546,7 @@ async function createWebLanguageClient(
       synchronize: {
         configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
       },
-      initializationOptions: {
-        enableDocumentSymbols: true,
-        logLevel: 'info',
-        environment: 'web',
-      },
+      initializationOptions: createEnhancedInitializationOptions(context),
     },
     worker,
   );
@@ -522,31 +592,90 @@ async function createWebLanguageClient(
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
   const initParams = createInitializeParams(context);
+
+  // Debug: log the serialized params to verify they're safe
+  try {
+    const serializedParams = JSON.stringify(initParams);
+    logToOutputChannel(
+      `🔍 Initialization params size: ${serializedParams.length} chars`,
+      'debug',
+    );
+  } catch (error) {
+    logToOutputChannel(
+      `❌ Initialization params are not serializable: ${error}`,
+      'error',
+    );
+    throw new Error(`Cannot serialize initialization parameters: ${error}`);
+  }
+
   logToOutputChannel('🚀 Initializing web client...', 'info');
   await Client.initialize(initParams);
 }
 
 /**
- * Creates a desktop-based language client using integrated approach
- * For desktop environments, we'll use the same integrated approach as web but with Node.js optimizations
+ * Creates a desktop-based language client using Node.js server
+ * For desktop environments, we use the native Node.js server without polyfills
  */
 async function createDesktopLanguageClient(
   context: vscode.ExtensionContext,
 ): Promise<void> {
   logToOutputChannel(
-    '🔧 Creating desktop-based language client using integrated approach...',
+    '🖥️ Creating desktop language client with Node.js server...',
     'info',
   );
 
-  // For now, we'll use the web approach for desktop as well since this project uses an integrated architecture
-  // This ensures we get the proper server config benefits while maintaining compatibility
+  // Import the server configuration
+  const { createServerOptions, createClientOptions } = await import(
+    './server-config'
+  );
+
+  // Create server and client options
+  const serverOptions = createServerOptions(context);
+  const clientOptions = createClientOptions(
+    createEnhancedInitializationOptions(context),
+  );
+
   logToOutputChannel(
-    '🔄 Using integrated approach for desktop environment (no separate server process)',
-    'info',
+    '⚙️ Using Node.js server (no polyfills needed)...',
+    'debug',
   );
 
-  // Use the web implementation for desktop too - this project doesn't use separate server processes
-  await createWebLanguageClient(context);
+  // Create the language client using Node.js server
+  const { LanguageClient } = await import('vscode-languageclient/node');
+
+  const nodeClient = new LanguageClient(
+    'apexLanguageServer',
+    'Apex Language Server Extension (Node.js)',
+    serverOptions,
+    clientOptions,
+  );
+
+  logToOutputChannel('🚀 Starting Node.js language client...', 'info');
+
+  // Start the client and language server
+  await nodeClient.start();
+
+  // Wrap in ClientInterface to match our global Client type
+  Client = {
+    languageClient: nodeClient,
+    initialize: async (params: InitializeParams) => {
+      // Node.js client handles initialization automatically during start()
+      logToOutputChannel('📋 Node.js client initialization completed', 'debug');
+      return { capabilities: {} }; // Return proper InitializeResult
+    },
+    sendNotification: (method: string, params?: any) =>
+      nodeClient.sendNotification(method, params),
+    sendRequest: (method: string, params?: any) =>
+      nodeClient.sendRequest(method, params),
+    onNotification: (method: string, handler: (...args: any[]) => void) =>
+      nodeClient.onNotification(method, handler),
+    onRequest: (method: string, handler: (...args: any[]) => any) =>
+      nodeClient.onRequest(method, handler),
+    isDisposed: () => !nodeClient.isRunning(),
+    dispose: () => nodeClient.stop(),
+  } as ClientInterface;
+
+  logToOutputChannel('✅ Node.js language client started successfully', 'info');
 }
 
 /**

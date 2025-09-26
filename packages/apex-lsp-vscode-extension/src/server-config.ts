@@ -14,7 +14,7 @@ import {
   CloseAction,
   ErrorAction,
 } from 'vscode-languageclient/node';
-import { getDebugConfig, getWorkspaceSettings } from './configuration';
+import { getDebugConfig } from './configuration';
 import { logServerMessage, getWorkerServerOutputChannel } from './logging';
 import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
 
@@ -24,6 +24,25 @@ import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
  */
 export const getDebugOptions = (): string[] | undefined => {
   const debugConfig = getDebugConfig();
+
+  // Temporary logging to verify debug config
+  logServerMessage(
+    `Debug config: mode=${debugConfig.mode}, port=${debugConfig.port}`,
+    'info',
+  );
+
+  // Force debug mode for development builds when in development environment
+  const isDevelopment =
+    process.env.APEX_LS_MODE === 'development' ||
+    process.env.NODE_ENV === 'development';
+
+  if (isDevelopment && debugConfig.mode === 'off') {
+    logServerMessage(
+      'Development mode detected - forcing debug mode on',
+      'info',
+    );
+    return [DEBUG_CONFIG.NOLAZY_FLAG, `--inspect=${debugConfig.port}`];
+  }
 
   if (debugConfig.mode === 'off') {
     return undefined;
@@ -61,12 +80,12 @@ export const createServerOptions = (
   const isDevelopment =
     context.extensionMode === vscode.ExtensionMode.Development;
 
-  // The server is bundled into 'server.js' within the VSIX.
-  // In development mode, it's in the 'out' directory (compiled)
-  // In production mode, it's in the extension root (bundled)
+  // The server is bundled into different files based on environment.
+  // In development mode, it's in the apex-ls dist directory
+  // In production mode, it's copied to the extension dist directory
   const serverModule = isDevelopment
-    ? context.asAbsolutePath('out/server.js')
-    : context.asAbsolutePath('server.js');
+    ? context.asAbsolutePath('../apex-ls/dist/server.node.js')
+    : context.asAbsolutePath('dist/server.node.js');
 
   logServerMessage(`Server module path: ${serverModule}`, 'debug');
   logServerMessage(
@@ -130,48 +149,31 @@ export const createServerOptions = (
 
 /**
  * Creates client options for the language server
- * @param context The extension context
+ * @param initializationOptions Enhanced initialization options containing all necessary configuration
  * @returns Client options configuration
  */
 export const createClientOptions = (
-  context: vscode.ExtensionContext,
-): LanguageClientOptions => {
-  const settings = getWorkspaceSettings();
-
-  // Map VS Code extension mode to server mode
-  const extensionMode = context.extensionMode;
-  const serverMode =
-    extensionMode === vscode.ExtensionMode.Development ||
-    extensionMode === vscode.ExtensionMode.Test
-      ? 'development'
-      : 'production';
-
-  return {
-    documentSelector: [{ scheme: 'file', language: 'apex' }],
-    synchronize: {
-      fileEvents:
-        vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
-      configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
-    },
-    // Use our consolidated worker/server output channel if available
-    ...(getWorkerServerOutputChannel()
-      ? { outputChannel: getWorkerServerOutputChannel() }
-      : {}),
-    // Add error handling with proper retry logic
-    errorHandler: {
-      error: handleClientError,
-      closed: () => handleClientClosed(),
-    },
-    // Include workspace settings and extension mode in initialization options
-    initializationOptions: {
-      enableDocumentSymbols: true,
-      extensionMode: serverMode, // Pass extension mode to server
-      ...settings,
-    },
-    // Explicitly enable workspace configuration capabilities
-    workspaceFolder: vscode.workspace.workspaceFolders?.[0],
-  };
-};
+  initializationOptions: any,
+): LanguageClientOptions => ({
+  documentSelector: [{ scheme: 'file', language: 'apex' }],
+  synchronize: {
+    fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
+    configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
+  },
+  // Use our consolidated worker/server output channel if available
+  ...(getWorkerServerOutputChannel()
+    ? { outputChannel: getWorkerServerOutputChannel() }
+    : {}),
+  // Add error handling with proper retry logic
+  errorHandler: {
+    error: handleClientError,
+    closed: () => handleClientClosed(),
+  },
+  // Use the enhanced initialization options that include all necessary configuration
+  initializationOptions,
+  // Explicitly enable workspace configuration capabilities
+  workspaceFolder: vscode.workspace.workspaceFolders?.[0],
+});
 
 /**
  * Handles errors from the language client

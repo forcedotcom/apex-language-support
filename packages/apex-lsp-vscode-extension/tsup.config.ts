@@ -32,15 +32,20 @@ const EXTENSION_NO_EXTERNAL = [
 ];
 
 /**
- * Copy worker files from apex-ls dist to extension dist
+ * Copy worker and server files from apex-ls dist to extension dist
  */
 function copyWorkerFiles() {
   const distDir = path.resolve(__dirname, 'dist');
   fs.mkdirSync(distDir, { recursive: true });
 
   const workerFiles = [
-    { src: '../apex-ls/dist/worker.global.js', dest: 'worker.js' },
-    { src: '../apex-ls/dist/worker.global.js.map', dest: 'worker.js.map' },
+    { src: '../apex-ls/dist/worker.global.js', dest: 'worker.global.js' },
+    {
+      src: '../apex-ls/dist/worker.global.js.map',
+      dest: 'worker.global.js.map',
+    },
+    { src: '../apex-ls/dist/server.node.js', dest: 'server.node.js' },
+    { src: '../apex-ls/dist/server.node.js.map', dest: 'server.node.js.map' },
   ];
 
   workerFiles.forEach(({ src, dest }) => {
@@ -132,6 +137,7 @@ export default defineConfig([
     entry: ['out/extension.js'],
     outDir: 'dist',
     outExtension: () => ({ js: '.js' }),
+    sourcemap: true,
     external: [
       ...nodeBaseConfig.external!,
       'vm',
@@ -151,6 +157,7 @@ export default defineConfig([
     outDir: 'dist',
     format: ['cjs'],
     outExtension: () => ({ js: '.web.js' }),
+    sourcemap: true,
     noExternal: [
       ...EXTENSION_NO_EXTERNAL,
       'vscode-languageclient',

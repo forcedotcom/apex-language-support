@@ -26,6 +26,14 @@
       "label": "npm: dev",
       "detail": "Run development mode",
       "isBackground": true
+    },
+    {
+      "type": "npm",
+      "script": "compile",
+      "group": "build",
+      "problemMatcher": ["$tsc"],
+      "label": "npm: compile",
+      "detail": "Compile all packages for development"
     }
   ]
 }

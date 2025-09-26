@@ -405,23 +405,26 @@ async function runWebExtensionTests() {
     }
 
     // Worker files should already be in the dist directory from the extension build
-    // Check if worker files exist in dist directory
-    const workerSrc = path.resolve(extensionDevelopmentPath, 'dist/worker.js');
+    // Check if worker files exist in dist directory (using correct filename)
+    const workerSrc = path.resolve(
+      extensionDevelopmentPath,
+      'dist/worker.global.js',
+    );
     const workerMapSrc = path.resolve(
       extensionDevelopmentPath,
-      'dist/worker.js.map',
+      'dist/worker.global.js.map',
     );
 
     if (fs.existsSync(workerSrc)) {
-      console.log('✅ worker.js found in dist directory');
+      console.log('✅ worker.global.js found in dist directory');
     } else {
-      console.warn('⚠️ worker.js not found in dist directory');
+      console.warn('⚠️ worker.global.js not found in dist directory');
     }
 
     if (fs.existsSync(workerMapSrc)) {
-      console.log('✅ worker.js.map found in dist directory');
+      console.log('✅ worker.global.js.map found in dist directory');
     } else {
-      console.warn('⚠️ worker.js.map not found in dist directory');
+      console.warn('⚠️ worker.global.js.map not found in dist directory');
     }
 
     // Create a dist directory in the extension root for URL resolution workaround
@@ -431,8 +434,8 @@ async function runWebExtensionTests() {
     }
 
     // Copy worker files to the root dist directory
-    const rootWorkerSrc = path.resolve(rootDistDir, 'worker.js');
-    const rootWorkerMapSrc = path.resolve(rootDistDir, 'worker.js.map');
+    const rootWorkerSrc = path.resolve(rootDistDir, 'worker.global.js');
+    const rootWorkerMapSrc = path.resolve(rootDistDir, 'worker.global.js.map');
     fs.copyFileSync(workerSrc, rootWorkerSrc);
     fs.copyFileSync(workerMapSrc, rootWorkerMapSrc);
 
@@ -446,10 +449,10 @@ async function runWebExtensionTests() {
 
     console.log('⚠️ VS Code Web extension URI resolution issue detected');
     console.log(
-      '   Extension is looking for worker at: /static/dist/worker.js',
+      '   Extension is looking for worker at: /static/dist/worker.global.js',
     );
     console.log(
-      '   But files are served from: /static/devextensions/dist/worker.js',
+      '   But files are served from: /static/devextensions/dist/worker.global.js',
     );
     console.log(
       '   This is a known limitation of VS Code Web extension testing',
@@ -461,7 +464,7 @@ async function runWebExtensionTests() {
     console.log('   2. Open Developer Tools → Console');
     console.log('   3. Look for worker loading errors');
     console.log(
-      '   4. Check if /static/devextensions/dist/worker.js loads correctly',
+      '   4. Check if /static/devextensions/dist/worker.global.js loads correctly',
     );
 
     console.log('🌐 Starting VS Code Web Extension Tests...');
