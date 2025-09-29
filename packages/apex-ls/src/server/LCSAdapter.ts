@@ -48,6 +48,7 @@ import {
 export interface LCSAdapterConfig {
   connection: Connection;
   logger?: Logger;
+  delegationMode?: boolean; // When true, don't set up connection listeners
 }
 
 /**
@@ -64,11 +65,13 @@ export class LCSAdapter {
   private initialized = false;
   private completionProcessor: CompletionProcessingService;
   private diagnosticProcessor: DiagnosticProcessingService;
+  private delegationMode: boolean;
 
   constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
     this.logger = config.logger || this.createDefaultLogger();
     this.documents = new TextDocuments(TextDocument);
+    this.delegationMode = config.delegationMode || false;
 
     // Initialize LCS services
     this.completionProcessor = new CompletionProcessingService(this.logger);
@@ -105,8 +108,10 @@ export class LCSAdapter {
     // Start listening for documents
     this.documents.listen(this.connection);
 
-    // Start listening on the connection
-    this.connection.listen();
+    // Only start listening on connection if not in delegation mode
+    if (!this.delegationMode) {
+      this.connection.listen();
+    }
 
     this.initialized = true;
     this.logger.info('✅ LCS Adapter initialized successfully');
