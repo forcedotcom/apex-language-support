@@ -405,23 +405,13 @@ async function createWebLanguageClient(
   // The actual worker file is worker.global.js, not worker.js
   const workerFile = 'worker.global.js';
 
-  // In development mode, worker file is always in dist/ (from apex-ls build)
-  // In production mode, it's copied to extension's dist/ during bundle process
-  const isDevelopment =
-    context.extensionMode === vscode.ExtensionMode.Development;
-
-  let workerUri: vscode.Uri;
-  if (isDevelopment) {
-    // In development, use the worker file from apex-ls dist directory
-    workerUri = vscode.Uri.joinPath(
-      context.extensionUri,
-      '../apex-ls/dist',
-      workerFile,
-    );
-  } else {
-    // In production, use the worker file copied to extension's dist directory
-    workerUri = vscode.Uri.joinPath(context.extensionUri, 'dist', workerFile);
-  }
+  // In web environment, worker file is always copied to extension's dist/ during bundle process
+  // This ensures consistent path resolution across development and production modes
+  const workerUri = vscode.Uri.joinPath(
+    context.extensionUri,
+    'dist',
+    workerFile,
+  );
   logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 
   // Check if worker file exists/is accessible
