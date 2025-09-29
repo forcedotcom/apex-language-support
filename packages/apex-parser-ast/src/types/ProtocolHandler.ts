@@ -9,7 +9,7 @@
 /**
  * Supported URI protocols in the Apex language server
  */
-export type UriProtocol = 'file' | 'apexlib' | 'builtin';
+export type UriProtocol = 'file' | 'apexlib' | 'builtin' | 'other';
 
 const PROTOCOL_PREFIXES = {
   file: 'file://',
@@ -22,8 +22,12 @@ export const APEXLIB_RESOURCE_PREFIX =
 
 /**
  * Determine the protocol type from a URI string
+ * Recognizes known protocols (file://, apexlib://, builtin://) and also
+ * detects any URI with a protocol scheme (e.g., vscode-test-web://, vscode-vfs://)
+ * to preserve VS Code web environment URIs.
+ *
  * @param uri The URI to analyze
- * @returns The protocol type or null if unrecognized
+ * @returns The protocol type or null if it's a plain path without protocol
  */
 export const getProtocolType = (uri: string): UriProtocol | null => {
   if (uri.startsWith(PROTOCOL_PREFIXES.file)) {
@@ -35,6 +39,11 @@ export const getProtocolType = (uri: string): UriProtocol | null => {
   if (uri.startsWith(PROTOCOL_PREFIXES.builtin)) {
     return 'builtin';
   }
+  // Check if this URI has any protocol scheme (e.g., vscode-test-web://, vscode-vfs://, etc.)
+  // This preserves VS Code web URIs and other non-standard schemes
+  if (uri.includes('://')) {
+    return 'other';
+  }
   return null;
 };
 
@@ -44,16 +53,34 @@ export const getProtocolType = (uri: string): UriProtocol | null => {
  * @param protocol The protocol to check for
  * @returns True if the URI uses the specified protocol
  */
-export const hasProtocol = (uri: string, protocol: UriProtocol): boolean =>
-  uri.startsWith(PROTOCOL_PREFIXES[protocol]);
+export const hasProtocol = (uri: string, protocol: UriProtocol): boolean => {
+  if (protocol === 'other') {
+    // For 'other', check if it has any protocol but not our known ones
+    return (
+      uri.includes('://') &&
+      !uri.startsWith(PROTOCOL_PREFIXES.file) &&
+      !uri.startsWith(PROTOCOL_PREFIXES.apexlib) &&
+      !uri.startsWith(PROTOCOL_PREFIXES.builtin)
+    );
+  }
+  return uri.startsWith(PROTOCOL_PREFIXES[protocol]);
+};
 
 /**
- * Create a file URI
- * @param fileUri The file path
+ * Create a file URI from a file path
+ * Only prepends file:// if the path doesn't already have a protocol.
+ * Preserves URIs with existing protocols (e.g., vscode-test-web://)
+ *
+ * @param fileUri The file path or URI
  * @returns The file URI
  */
-export const createFileUri = (fileUri: string): string =>
-  `${PROTOCOL_PREFIXES.file}${fileUri}`;
+export const createFileUri = (fileUri: string): string => {
+  // If it already has a protocol, return as-is to preserve VS Code web URIs
+  if (getProtocolType(fileUri) !== null) {
+    return fileUri;
+  }
+  return `${PROTOCOL_PREFIXES.file}${fileUri}`;
+};
 
 /**
  * Create an apexlib URI
@@ -153,8 +180,11 @@ export const convertToAppropriateUri = (
 
 /**
  * Get the file path from any supported URI type
+ * For VS Code web URIs and other non-standard protocols, returns the URI as-is
+ * since they should be treated as opaque identifiers.
+ *
  * @param uri The URI to extract path from
- * @returns The file path
+ * @returns The file path or the URI itself for non-standard protocols
  */
 export const getFilePathFromUri = (uri: string): string => {
   const protocol = getProtocolType(uri);
@@ -166,7 +196,12 @@ export const getFilePathFromUri = (uri: string): string => {
       return extractApexLibPath(uri);
     case 'builtin':
       return extractBuiltinType(uri);
+    case 'other':
+      // For VS Code web URIs and other non-standard protocols, return as-is
+      // These are opaque identifiers that should be preserved
+      return uri;
     default:
-      throw new Error(`Unsupported URI protocol: ${uri}`);
+      // Plain path without protocol - return as-is
+      return uri;
   }
 };

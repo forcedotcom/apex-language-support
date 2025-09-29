@@ -182,8 +182,9 @@ export class ApexSymbolGraph {
    * Key: File uri (e.g., "file:///path/MyClass.cls")
    * Value: Array of symbol IDs in that file
    * Used by: getSymbolsInFile(), file-based symbol enumeration, file removal
+   * FIXED: Using native Map for web worker compatibility
    */
-  private fileIndex: HashMap<string, string[]> = new HashMap();
+  private fileIndex: Map<string, string[]> = new Map();
 
   /**
    * Maps fully qualified names to symbol IDs for hierarchical lookups
@@ -194,7 +195,9 @@ export class ApexSymbolGraph {
   private fqnIndex: HashMap<string, string> = new HashMap();
 
   // OPTIMIZED: SymbolTable references for delegation
-  private fileToSymbolTable: HashMap<string, SymbolTable> = new HashMap();
+  // CRITICAL FIX: Replace HashMap with native Map due to web worker compatibility issues
+  // HashMap from data-structure-typed appears to have issues in web worker environment
+  private fileToSymbolTable: Map<string, SymbolTable> = new Map();
   private symbolToFiles: HashMap<string, string[]> = new HashMap();
 
   // OPTIMIZED: Simple cache for frequently accessed symbols
@@ -244,22 +247,34 @@ export class ApexSymbolGraph {
     symbolTable?: SymbolTable,
   ): void {
     const symbolId = this.getSymbolId(symbol, fileUri);
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] addSymbol called for: ${symbol.name}, ID: ${symbolId}`,
+    // );
 
     // Check if symbol already exists to prevent duplicates
     if (this.symbolIds.has(symbolId)) {
+      // console.log(
+      //   `⚠️ [ApexSymbolGraph] Symbol ${symbol.name} already exists with ID: ${symbolId}`,
+      // );
       return;
     }
 
     // OPTIMIZED: Register SymbolTable immediately for delegation
+    // CRITICAL FIX: Use the same URI normalization as getSymbolId for consistency
+    const normalizedFileUri = this.extractFilePathFromUri(fileUri);
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] Normalized fileUri: ${fileUri} -> ${normalizedFileUri}`,
+    // );
+
     let targetSymbolTable: SymbolTable;
     if (symbolTable) {
-      this.registerSymbolTable(symbolTable, fileUri);
+      this.registerSymbolTable(symbolTable, normalizedFileUri);
       targetSymbolTable = symbolTable;
     } else {
       // For backward compatibility, create a minimal SymbolTable if none provided
       // This ensures the symbol can be found later
-      this.ensureSymbolTableForFile(fileUri);
-      targetSymbolTable = this.fileToSymbolTable.get(fileUri)!;
+      this.ensureSymbolTableForFile(normalizedFileUri);
+      targetSymbolTable = this.fileToSymbolTable.get(normalizedFileUri)!;
     }
 
     // Add the symbol to the SymbolTable
@@ -267,53 +282,99 @@ export class ApexSymbolGraph {
 
     // OPTIMIZED: Only track existence, don't store full symbol
     this.symbolIds.add(symbolId);
+    // console.log(
+    //   `✅ [ApexSymbolGraph] Symbol ${symbol.name} successfully added with ID: ${symbolId}`,
+    // );
 
     // Add to indexes for fast lookups
     this.symbolFileMap.set(symbolId, fileUri);
 
     // BUG FIX: Calculate and store FQN if not already present
     let fqnToUse = symbol.fqn;
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] FQN calculation for ${symbol.name}, current fqn: ${fqnToUse}`,
+    // );
 
-    if (!fqnToUse) {
-      // Create a parent resolution function that works with the symbol's parent relationship
-      const getParent = (parentId: string): ApexSymbol | null => {
-        // First try to find by parentId in the symbol table
-        const allSymbols = targetSymbolTable.getAllSymbols();
-        const parentSymbol = allSymbols.find((s) => s.id === parentId);
-        if (parentSymbol) {
-          return parentSymbol;
-        }
+    try {
+      if (!fqnToUse) {
+        // console.log(`🔍 [ApexSymbolGraph] Calculating FQN for ${symbol.name}`);
+        // Create a parent resolution function that works with the symbol's parent relationship
+        const getParent = (parentId: string): ApexSymbol | null => {
+          // First try to find by parentId in the symbol table
+          const allSymbols = targetSymbolTable.getAllSymbols();
+          const parentSymbol = allSymbols.find((s) => s.id === parentId);
+          if (parentSymbol) {
+            return parentSymbol;
+          }
 
-        // If not found, try to find by name (for backward compatibility)
-        const symbolsByName = allSymbols.filter((s) => s.name === parentId);
-        if (symbolsByName.length > 0) {
-          return symbolsByName[0];
-        }
+          // If not found, try to find by name (for backward compatibility)
+          const symbolsByName = allSymbols.filter((s) => s.name === parentId);
+          if (symbolsByName.length > 0) {
+            return symbolsByName[0];
+          }
 
-        return null;
-      };
+          return null;
+        };
 
-      fqnToUse = calculateFQN(symbol, undefined, getParent);
-      // Store the calculated FQN on the symbol for consistency
-      symbol.fqn = fqnToUse;
-    } else {
-    }
+        fqnToUse = calculateFQN(symbol, undefined, getParent);
+        // console.log(
+        //   `🔍 [ApexSymbolGraph] Calculated FQN for ${symbol.name}: ${fqnToUse}`,
+        // );
+        // Store the calculated FQN on the symbol for consistency
+        symbol.fqn = fqnToUse;
+      } else {
+        // console.log(
+        //   `🔍 [ApexSymbolGraph] Using existing FQN for ${symbol.name}: ${fqnToUse}`,
+        // );
+      }
 
-    if (fqnToUse) {
-      this.fqnIndex.set(fqnToUse, symbolId);
+      if (fqnToUse) {
+        this.fqnIndex.set(fqnToUse, symbolId);
+        // console.log(
+        //   `✅ [ApexSymbolGraph] Added to fqnIndex: ${fqnToUse} -> ${symbolId}`,
+        // );
+      }
+    } catch (_error) {
+      // console.log(
+      //   `❌ [ApexSymbolGraph] Error in FQN calculation for ${symbol.name}: ${error}`,
+      // );
+      // Continue execution even if FQN calculation fails
     }
 
     // Add to name index for symbol resolution
     const existingNames = this.nameIndex.get(symbol.name) || [];
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] Adding to nameIndex: ${symbol.name} -> ${symbolId}`,
+    // );
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] Existing names for ${symbol.name}: [${existingNames.join(', ')}]`,
+    // );
     if (!existingNames.includes(symbolId)) {
       existingNames.push(symbolId);
       this.nameIndex.set(symbol.name, existingNames);
+      // console.log(
+      //   `✅ [ApexSymbolGraph] Added to nameIndex: ${symbol.name} -> [${existingNames.join(', ')}]`,
+      // );
+    } else {
+      // console.log(
+      //   `⚠️ [ApexSymbolGraph] Symbol ID ${symbolId} already in nameIndex for ${symbol.name}`,
+      // );
     }
 
     const fileSymbols = this.fileIndex.get(fileUri) || [];
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] Adding to fileIndex: ${fileUri} -> ${symbolId} (current count: ${fileSymbols.length})`,
+    // );
     if (!fileSymbols.includes(symbolId)) {
       fileSymbols.push(symbolId);
       this.fileIndex.set(fileUri, fileSymbols);
+      // console.log(
+      //   `✅ [ApexSymbolGraph] Added to fileIndex: ${fileUri} now has ${fileSymbols.length} symbols`,
+      // );
+    } else {
+      // console.log(
+      //   `⚠️ [ApexSymbolGraph] Symbol ID ${symbolId} already in fileIndex for ${fileUri}`,
+      // );
     }
 
     // OPTIMIZED: Add lightweight node to graph
@@ -387,18 +448,66 @@ export class ApexSymbolGraph {
    * Get symbol by delegating to SymbolTable
    */
   getSymbol(symbolId: string): ApexSymbol | null {
+    // console.log(`🔍 [ApexSymbolGraph] getSymbol called with ID: ${symbolId}`);
+
     // Parse URI-based ID
     const parsed = parseSymbolId(symbolId);
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] Parsed ID - URI: ${parsed.uri}, Name: ${parsed.name}`,
+    // );
+
     const symbolName = parsed.name;
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] Looking for SymbolTable with URI: ${parsed.uri}`,
+    // );
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] Available SymbolTable URIs: [${Array.from(this.fileToSymbolTable.keys()).join(', ')}]`,
+    // );
+
+    // CRITICAL DEBUG: Test HashMap behavior in web worker
     const symbolTable = this.fileToSymbolTable.get(parsed.uri);
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] HashMap.get() result: ${symbolTable ? 'FOUND' : 'NULL'}`,
+    // );
+
+    // Test key equality - this will tell us if it's a HashMap issue or string comparison issue
+    const availableKeys = Array.from(this.fileToSymbolTable.keys());
+    for (const key of availableKeys) {
+      const _isEqual = key === parsed.uri;
+      const _lengthMatch = key.length === parsed.uri.length;
+      // console.log(
+      //   `🔍 [ApexSymbolGraph] Key comparison: "${key}" === "${parsed.uri}" = ${isEqual}, lengths: ${key.length} vs ${parsed.uri.length} = ${lengthMatch}`,
+      // );
+      if (key === parsed.uri) {
+        const _testGet = this.fileToSymbolTable.get(key);
+        // console.log(
+        //   `🔍 [ApexSymbolGraph] Direct get with matching key: ${testGet ? 'FOUND' : 'NULL'}`,
+        // );
+      }
+    }
+
     if (!symbolTable) {
+      // console.log(
+      //   `❌ [ApexSymbolGraph] No SymbolTable found for URI: ${parsed.uri}`,
+      // );
       return null;
     }
 
     // Get all symbols from the SymbolTable and find by name
     const allSymbols = symbolTable.getAllSymbols();
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] SymbolTable.getAllSymbols() returned ${allSymbols.length} symbols`,
+    // );
+    if (allSymbols.length > 0) {
+      // console.log(
+      //   `🔍 [ApexSymbolGraph] Available symbol names: [${allSymbols.map((s) => s.name).join(', ')}]`,
+      // );
+    }
 
     const matchingSymbol = allSymbols.find((s) => s.name === symbolName);
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] Looking for symbol name: ${symbolName}, found: ${matchingSymbol ? 'YES' : 'NO'}`,
+    // );
     if (matchingSymbol) {
       // Always create a deep copy to avoid mutating the original symbol
       const symbolCopy = {
@@ -422,6 +531,7 @@ export class ApexSymbolGraph {
    * OPTIMIZED: Find symbols by name by delegating to SymbolTable
    */
   findSymbolByName(name: string): ApexSymbol[] {
+    // console.log(`🔍 [ApexSymbolGraph] findSymbolByName called for: ${name}`);
     // TEMPORARY: Disable symbolCache - always bypass cache
     // Check cache first
     // const cached = this.symbolCache.get(name);
@@ -430,13 +540,24 @@ export class ApexSymbolGraph {
     // }
 
     const symbolIds = this.nameIndex.get(name) || [];
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] Found ${symbolIds.length} symbol IDs for ${name}: [${symbolIds.join(', ')}]`,
+    // );
 
     const symbols: ApexSymbol[] = [];
 
     for (const symbolId of symbolIds) {
+      // console.log(`🔍 [ApexSymbolGraph] Getting symbol for ID: ${symbolId}`);
       const symbol = this.getSymbol(symbolId);
       if (symbol) {
+        // console.log(
+        //   `✅ [ApexSymbolGraph] Found symbol: ${symbol.name} (${symbol.kind})`,
+        // );
         symbols.push(symbol);
+      } else {
+        // console.log(
+        //   `❌ [ApexSymbolGraph] Could not retrieve symbol for ID: ${symbolId}`,
+        // );
       }
     }
 
@@ -447,6 +568,9 @@ export class ApexSymbolGraph {
     //   this.cacheSize++;
     // }
 
+    // console.log(
+    //   `📊 [ApexSymbolGraph] Returning ${symbols.length} symbols for ${name}`,
+    // );
     return symbols;
   }
 
@@ -495,9 +619,29 @@ export class ApexSymbolGraph {
 
   /**
    * OPTIMIZED: Get symbols in file by delegating to SymbolTable
+   * CRITICAL FIX: Bypass broken fileIndex and use SymbolTable directly
    */
   getSymbolsInFile(fileUri: string): ApexSymbol[] {
+    // console.log(`🔍 [ApexSymbolGraph] getSymbolsInFile called for: ${fileUri}`);
+
+    // FALLBACK: If fileIndex approach fails, use SymbolTable directly
+    const symbolTable = this.fileToSymbolTable.get(fileUri);
+    if (symbolTable) {
+      // console.log(
+      //   `🔍 [ApexSymbolGraph] Using SymbolTable fallback for ${fileUri}`,
+      // );
+      const allSymbols = symbolTable.getAllSymbols();
+      // console.log(
+      //   `✅ [ApexSymbolGraph] SymbolTable fallback returned ${allSymbols.length} symbols`,
+      // );
+      return allSymbols;
+    }
+
+    // ORIGINAL: Try fileIndex approach first (may be broken in web worker)
     const symbolIds = this.fileIndex.get(fileUri) || [];
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] fileIndex returned ${symbolIds.length} symbol IDs: [${symbolIds.slice(0, 5).join(', ')}${symbolIds.length > 5 ? '...' : ''}]`,
+    // );
 
     const symbols: ApexSymbol[] = [];
 
@@ -506,9 +650,15 @@ export class ApexSymbolGraph {
       if (symbol) {
         symbols.push(symbol);
       } else {
+        // console.log(
+        //   `⚠️ [ApexSymbolGraph] Could not retrieve symbol for ID: ${symbolId}`,
+        // );
       }
     }
 
+    // console.log(
+    //   `📊 [ApexSymbolGraph] Final result: ${symbols.length} symbols for ${fileUri}`,
+    // );
     return symbols;
   }
 
@@ -958,13 +1108,35 @@ export class ApexSymbolGraph {
    * Get SymbolTable for a file
    */
   getSymbolTableForFile(fileUri: string): SymbolTable | undefined {
-    return this.fileToSymbolTable.get(fileUri);
+    const result = this.fileToSymbolTable.get(fileUri);
+    // Debug logging to help diagnose symbol table lookup issues
+    if (!result) {
+      // Only log in debug mode - check if any keys are similar
+      const keys = Array.from(this.fileToSymbolTable.keys());
+      if (keys.length > 0 && keys.length < 10) {
+        this.logger.debug(
+          () =>
+            `[Symbol Table] No table found for URI: ${fileUri}. ` +
+            `Available keys: [${keys.join(', ')}]`,
+        );
+      } else if (!result) {
+        this.logger.debug(
+          () =>
+            `[Symbol Table] No table found for URI: ${fileUri}. ` +
+            `Total registered files: ${keys.length}`,
+        );
+      }
+    }
+    return result;
   }
 
   /**
    * Register SymbolTable for a file
    */
   registerSymbolTable(symbolTable: SymbolTable, fileUri: string): void {
+    this.logger.debug(
+      () => `[Symbol Table] Registering table for URI: ${fileUri}`,
+    );
     this.fileToSymbolTable.set(fileUri, symbolTable);
   }
 
@@ -1228,13 +1400,27 @@ export class ApexSymbolGraph {
       return uri;
     }
 
-    // Remove symbol name and line number from the URI
-    // e.g., "file://TestClass.cls:TestClass:2" -> "file://TestClass.cls"
-    const parts = uri.split(':');
-    if (parts.length >= 3 && parts[0] === 'file') {
-      return `${parts[0]}://${parts[1]}`;
+    // CRITICAL FIX: Handle complex URI formats like file://vscode-test-web://mount/path
+    // Remove symbol name and line number from the URI, but preserve complex protocol structures
+
+    // Check if this looks like a URI with symbol information appended
+    // Look for file extensions followed by colons (indicating symbol parts)
+    const fileExtensions = ['.cls', '.trigger', '.apex'];
+    for (const ext of fileExtensions) {
+      const extIndex = uri.lastIndexOf(ext + ':');
+      if (extIndex !== -1) {
+        // Found a file extension followed by colon - everything before + ext is the file URI
+        // console.log(
+        //   `🔍 [ApexSymbolGraph] extractFilePathFromUri: ${uri} -> ${uri.substring(0, extIndex + ext.length)}`,
+        // );
+        return uri.substring(0, extIndex + ext.length);
+      }
     }
 
+    // Fallback for simple formats or URIs without symbol parts
+    // console.log(
+    //   `🔍 [ApexSymbolGraph] extractFilePathFromUri: ${uri} -> ${uri} (no extraction needed)`,
+    // );
     return uri;
   }
 

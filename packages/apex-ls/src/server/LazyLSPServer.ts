@@ -40,6 +40,12 @@ export class LazyLSPServer {
     this.connection = connection;
     this.logger = logger;
     this.setupBasicHandlers();
+
+    // CRITICAL: Start listening for LSP messages from the client
+    this.connection.listen();
+    this.logger.info(
+      '🎧 LazyLSPServer connection started - listening for LSP messages',
+    );
   }
 
   /**
@@ -79,12 +85,22 @@ export class LazyLSPServer {
     // Handle text document sync (forward to LCS adapter when loaded)
     this.connection.onDidOpenTextDocument(async (params) => {
       this.logger.info(`📄 Document opened: ${params.textDocument.uri}`);
+      this.logger.info(
+        `📄 Document language: ${params.textDocument.languageId}`,
+      );
+      this.logger.info(`📄 Document version: ${params.textDocument.version}`);
+      this.logger.info(
+        `📄 Document content length: ${params.textDocument.text.length}`,
+      );
 
       // Load LCS adapter if not already loaded
       if (!this.isLCSLoaded) {
         this.logger.info('🔄 Loading LCS adapter for document open...');
         try {
           await this.ensureLcsAdapterLoaded();
+          this.logger.info(
+            '✅ LCS adapter loaded successfully for document open',
+          );
         } catch (error) {
           this.logger.error(
             `❌ Failed to load LCS adapter for document: ${error}`,
@@ -95,7 +111,11 @@ export class LazyLSPServer {
 
       // Forward to LCS adapter for proper document processing
       if (this.isLCSLoaded && this.lcsAdapter) {
+        this.logger.info('📤 Forwarding document open to LCS adapter...');
         await this.forwardDocumentEvent('open', params);
+        this.logger.info('✅ Document open forwarded successfully');
+      } else {
+        this.logger.warn('⚠️ LCS adapter not available for document open');
       }
     });
 
@@ -124,6 +144,80 @@ export class LazyLSPServer {
       if (this.isLCSLoaded && this.lcsAdapter) {
         await this.forwardDocumentEvent('save', params);
       }
+    });
+
+    // Handle workspace/configuration requests
+    this.connection.onRequest('workspace/configuration', async (params) => {
+      this.logger.info('⚙️ Configuration requested');
+
+      // Return empty configuration for now - this prevents the "Unhandled method" error
+      // The LCS adapter can provide more sophisticated configuration handling when loaded
+      return params.items.map(() => ({}));
+    });
+
+    // Handle document symbol requests (outline)
+    this.connection.onDocumentSymbol(async (params) => {
+      this.logger.info(
+        `🔍 Document symbols requested for: ${params.textDocument.uri}`,
+      );
+      this.logger.info(`🔍 Document symbols params: ${JSON.stringify(params)}`);
+
+      // Load LCS adapter if not already loaded
+      if (!this.isLCSLoaded) {
+        this.logger.info('🔄 Loading LCS adapter for document symbols...');
+        try {
+          await this.ensureLcsAdapterLoaded();
+          this.logger.info(
+            '✅ LCS adapter loaded successfully for document symbols',
+          );
+        } catch (error) {
+          this.logger.error(
+            `❌ Failed to load LCS adapter for symbols: ${error}`,
+          );
+          return [];
+        }
+      }
+
+      // Forward to LCS dispatch function for proper symbol processing
+      if (this.isLCSLoaded) {
+        this.logger.info('📤 Forwarding document symbol request to LCS...');
+        const result = await this.forwardLspRequest('documentSymbol', params);
+        this.logger.info(
+          `📥 LCS returned ${Array.isArray(result) ? result.length : 'null'} symbols`,
+        );
+        this.logger.info(`📥 Symbol result: ${JSON.stringify(result)}`);
+        return result;
+      }
+
+      // Return empty symbols array if LCS adapter not available
+      this.logger.warn('⚠️ LCS adapter not available, returning empty symbols');
+      return [];
+    });
+
+    // Handle hover requests
+    this.connection.onHover(async (params) => {
+      this.logger.info(`🔍 Hover requested for: ${params.textDocument.uri}`);
+
+      // Load LCS adapter if not already loaded
+      if (!this.isLCSLoaded) {
+        this.logger.info('🔄 Loading LCS adapter for hover...');
+        try {
+          await this.ensureLcsAdapterLoaded();
+        } catch (error) {
+          this.logger.error(
+            `❌ Failed to load LCS adapter for hover: ${error}`,
+          );
+          return null;
+        }
+      }
+
+      // Forward to LCS dispatch function for proper hover processing
+      if (this.isLCSLoaded) {
+        return await this.forwardLspRequest('hover', params);
+      }
+
+      // Return null if LCS adapter not available
+      return null;
     });
   }
 
@@ -194,21 +288,27 @@ export class LazyLSPServer {
    */
   private async ensureLcsAdapterLoaded(): Promise<void> {
     if (this.isLCSLoaded) {
+      this.logger.info('✅ LCS adapter already loaded, skipping...');
       return;
     }
 
     const self = this;
+
+    this.logger.info('🚀 Starting LCS adapter loading process...');
 
     // Use Effect-TS patterns internally while maintaining Promise interface
     const loadEffect = Effect.gen(function* (_) {
       self.logger.info('📦 Loading LCS Adapter...');
 
       // Dynamic import using Effect.promise
+      self.logger.info('📥 Importing LCSAdapter module...');
       const { LCSAdapter } = yield* _(
         Effect.promise(() => import('./LCSAdapter')),
       );
+      self.logger.info('✅ LCSAdapter module imported successfully');
 
       // Create and initialize LCS adapter instance using factory method
+      self.logger.info('🏗️ Creating LCS adapter instance...');
       const lcsAdapter = yield* _(
         Effect.promise(() =>
           LCSAdapter.create({
@@ -218,6 +318,7 @@ export class LazyLSPServer {
           }),
         ),
       );
+      self.logger.info('✅ LCS adapter instance created successfully');
 
       // Update state
       self.lcsAdapter = lcsAdapter;
@@ -228,6 +329,9 @@ export class LazyLSPServer {
       Effect.catchAll((error) =>
         Effect.gen(function* (_) {
           self.logger.error(`❌ Failed to load LCS Adapter: ${error}`);
+          self.logger.error(
+            `❌ Error stack: ${(error as Error)?.stack || 'No stack trace'}`,
+          );
           return yield* _(Effect.fail(error));
         }),
       ),
@@ -235,6 +339,7 @@ export class LazyLSPServer {
 
     // Convert Effect to Promise for backward compatibility
     await Effect.runPromise(loadEffect);
+    this.logger.info('🎉 LCS adapter loading process completed successfully');
   }
 
   /**
@@ -303,6 +408,52 @@ export class LazyLSPServer {
       }
     } catch (error) {
       this.logger.error(`❌ Error forwarding ${eventType} event: ${error}`);
+    }
+  }
+
+  /**
+   * Forward LSP requests to the LCS dispatch functions for processing
+   * @param requestType - Type of LSP request (documentSymbol, hover, etc.)
+   * @param params - Request parameters
+   * @returns The result from the LCS dispatch function
+   */
+  private async forwardLspRequest(
+    requestType: string,
+    params: any,
+  ): Promise<any> {
+    this.logger.info(`🔀 forwardLspRequest called with type: ${requestType}`);
+    try {
+      // Import LCS dispatch functions dynamically
+      this.logger.info('📦 Importing LCS dispatch functions...');
+      const { dispatchProcessOnDocumentSymbol, dispatchProcessOnHover } =
+        await import('@salesforce/apex-lsp-compliant-services');
+      this.logger.info('✅ LCS dispatch functions imported successfully');
+
+      switch (requestType) {
+        case 'documentSymbol':
+          this.logger.info('📋 Calling dispatchProcessOnDocumentSymbol...');
+          const symbolResult = await dispatchProcessOnDocumentSymbol(params);
+          this.logger.info(
+            `📋 dispatchProcessOnDocumentSymbol returned: ${Array.isArray(symbolResult) ? symbolResult.length : 'null'} symbols`,
+          );
+          return symbolResult;
+        case 'hover':
+          this.logger.info('🔍 Calling dispatchProcessOnHover...');
+          const hoverResult = await dispatchProcessOnHover(params);
+          this.logger.info(
+            `🔍 dispatchProcessOnHover returned: ${hoverResult ? 'result' : 'null'}`,
+          );
+          return hoverResult;
+        default:
+          this.logger.warn(`Unknown LSP request type: ${requestType}`);
+          return null;
+      }
+    } catch (error) {
+      this.logger.error(`❌ Error forwarding ${requestType} request: ${error}`);
+      this.logger.error(
+        `❌ Error stack: ${(error as Error)?.stack || 'No stack trace'}`,
+      );
+      return requestType === 'documentSymbol' ? [] : null;
     }
   }
 }

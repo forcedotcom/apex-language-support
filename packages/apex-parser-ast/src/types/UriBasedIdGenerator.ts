@@ -18,14 +18,17 @@ import {
 
 /**
  * Convert a file path to a proper URI
+ * Preserves existing URIs (including VS Code web URIs) and only converts plain paths.
+ *
  * @param fileUri The file URI to convert
  * @returns Proper URI string
  */
 const convertToUri = (fileUri: string): string => {
   // If the fileUri is already a URI (has protocol), return it as-is
+  // This preserves VS Code web URIs like vscode-test-web://, vscode-vfs://, etc.
   const protocol = getProtocolType(fileUri);
   if (protocol !== null) {
-    return fileUri; // Valid URI, return as-is
+    return fileUri; // Valid URI (including 'other' protocols), return as-is
   }
 
   // Normalize the path to ensure consistent standard Apex path detection
@@ -47,6 +50,7 @@ const convertToUri = (fileUri: string): string => {
     }
   }
 
+  // Only add file:// prefix to plain paths without any protocol
   return createFileUri(fileUri);
 };
 
@@ -163,21 +167,42 @@ export const parseSymbolId = (
   name: string;
   lineNumber?: number;
 } => {
-  // Find the first colon that separates the URI from the symbol part
-  // This works for all supported protocols (file://, apexlib://, builtin://)
-  const uriEnd = id.indexOf(':');
-  if (uriEnd === -1) {
-    throw new Error(`Invalid ID format - no URI separator found: ${id}`);
+  // CRITICAL FIX: Handle complex URI formats like file://vscode-test-web://mount/path
+  // We need to find where the URI ends and the symbol part begins
+  // The URI part will contain the file path and the symbol part starts after the filename
+
+  // Strategy: Find the last occurrence of a known file extension followed by a colon
+  // This separates the URI from the symbol part
+  const fileExtensions = ['.cls', '.trigger', '.apex'];
+  let uriEndIndex = -1;
+
+  for (const ext of fileExtensions) {
+    const extIndex = id.lastIndexOf(ext + ':');
+    if (extIndex !== -1) {
+      uriEndIndex = extIndex + ext.length;
+      break;
+    }
   }
 
-  // Find the second colon to determine where the URI ends
-  const secondColon = id.indexOf(':', uriEnd + 1);
-  if (secondColon === -1) {
+  // Fallback: if no file extension found, look for the pattern that separates URI from symbol
+  // Look for the pattern where we have a complete URI followed by a symbol identifier
+  if (uriEndIndex === -1) {
+    // Look for patterns like "://...:" to find where URI ends
+    const protocolPattern = /^[^:]+:\/\/[^:]+:/;
+    const match = id.match(protocolPattern);
+    if (match) {
+      uriEndIndex = match[0].length - 1; // Exclude the final colon
+    } else {
+      throw new Error(`Invalid ID format - could not parse URI from: ${id}`);
+    }
+  }
+
+  if (uriEndIndex === -1 || uriEndIndex >= id.length - 1) {
     throw new Error(`Invalid ID format - no symbol part found: ${id}`);
   }
 
-  const uri = id.substring(0, secondColon);
-  const symbolPart = id.substring(secondColon + 1); // Skip the colon
+  const uri = id.substring(0, uriEndIndex);
+  const symbolPart = id.substring(uriEndIndex + 1); // Skip the colon
 
   const parsed = parseSymbolPart(symbolPart);
   parsed.uri = uri;

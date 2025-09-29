@@ -38,31 +38,34 @@ const APEX_LS_EXTERNAL = [
   'path', // Path manipulation utilities
 ];
 
-// Worker-specific externals for browser/webworker compatibility
-// These dependencies are kept external to reduce initial bundle size and enable lazy loading
+// Worker-specific externals for dynamic loading architecture
+// These dependencies will be loaded on-demand to avoid bundling complexity
 const WORKER_EXTERNAL = [
-  // Parser engine - too large for initial bundle, loaded on demand when parsing needed
+  // Parser engine - dynamically loaded when parsing is needed
   '@apexdevtools/apex-parser',
-  // Grammar processing - loaded when syntax analysis is required
+  // Grammar processing - loaded with parser
   'antlr4ts',
 
-  // AST processing - complex symbol management, lazy loaded for performance
+  // AST processing - dynamically loaded for symbol analysis
   '@salesforce/apex-lsp-parser-ast',
-  // Custom services - specialized features loaded as needed
+  // Custom services - loaded when specific features are requested
   '@salesforce/apex-lsp-custom-services',
+  // Core LSP services - can be dynamically loaded for advanced features
+  '@salesforce/apex-lsp-compliant-services',
 
-  // Heavy utility libraries - externalized to keep worker bundle manageable
+  // Heavy utility libraries - dynamically loaded as needed
   'data-structure-typed', // Advanced data structures and algorithms
   'effect', // Functional programming utilities and effects
+
+  // Node.js modules - loaded when file operations are needed
+  'node-dir', // Directory scanning - loaded with file system bundle
 ];
 
-// Always bundle these for consistent behavior across all environments
-// These are core dependencies that must be available immediately for basic functionality
+// Always bundle these lightweight, essential dependencies
+// Core functionality needed for worker startup and basic LSP communication
 const APEX_LS_BUNDLE = [
   // Shared utilities - lightweight, essential for all language server operations
   '@salesforce/apex-lsp-shared',
-  // Core LSP services - main language server functionality and protocol handling
-  '@salesforce/apex-lsp-compliant-services',
 
   // VSCode LSP Protocol libraries - essential for LSP communication
   'vscode-languageserver-textdocument', // Document lifecycle management
@@ -147,7 +150,10 @@ export default defineConfig([
         setup(build: any) {
           // Intercept dynamic require() calls for Node.js modules
           build.onResolve(
-            { filter: /^(buffer|process|util|path)$/ },
+            {
+              filter:
+                /^(buffer|process|util|path|fs|crypto|stream|events|assert|os|url)$/,
+            },
             (args: any) => {
               // Map to the polyfill versions from NODE_POLYFILLS
               const polyfillMap: Record<string, string> = {
@@ -155,14 +161,44 @@ export default defineConfig([
                 process: 'process/browser',
                 util: 'util',
                 path: 'path-browserify',
+                fs: 'memfs-browser',
+                crypto: 'crypto-browserify',
+                stream: 'stream-browserify',
+                events: 'events',
+                assert: 'assert',
+                os: 'os-browserify/browser',
+                url: 'url-browserify',
               };
 
+              const replacement = polyfillMap[args.path];
+
+              // Debug logging for build process (can be enabled for troubleshooting)
+              // console.log(`[BUILD] Resolving Node.js module: ${args.path} -> ${replacement || args.path}`);
+
               return {
-                path: polyfillMap[args.path] || args.path,
+                path: replacement || args.path,
                 external: false, // Force bundling
               };
             },
           );
+
+          // Also handle require() calls that try to access Node.js internals
+          build.onLoad({ filter: /.*/ }, async (args: any) => {
+            // Skip if this is not a problematic file
+            if (
+              !args.path.includes('memfs') &&
+              !args.path.includes('node_modules')
+            ) {
+              return null;
+            }
+
+            // Debug logging for problematic files (can be enabled for troubleshooting)
+            // if (args.path.includes('memfs') || args.path.includes('buffer')) {
+            //   console.log(`[BUILD] Loading potentially problematic file: ${args.path}`);
+            // }
+
+            return null; // Let esbuild handle it normally
+          });
         },
       });
     },
