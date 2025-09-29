@@ -13,6 +13,8 @@ import {
   UniversalLoggerFactory,
 } from '@salesforce/apex-lsp-shared';
 
+import { LCSAdapter } from './LCSAdapter';
+
 /**
  * Node.js-specific Apex Language Server initialization.
  *
@@ -31,9 +33,6 @@ export async function startApexNodeServer(): Promise<void> {
   // Initial lifecycle logs
   logger.info('🚀 Node.js server starting...');
   logger.info('🔧 Starting LCS integration...');
-
-  // Dynamically import LCSAdapter
-  const { LCSAdapter } = await import('./LCSAdapter');
 
   // Create and initialize LCS adapter
   const lcsAdapter = new LCSAdapter({

@@ -96,16 +96,6 @@ export class HoverProcessingService implements IHoverProcessor {
         'precise',
       );
 
-      // TODO: remove this. Why doesn't the symbol manager have the symbol table?
-      /* If still no symbol, try fallback to direct document parsing
-      if (!symbol) {
-        symbol = await this.tryDirectDocumentParsing(
-          params.textDocument.uri,
-          parserPosition,
-        );
-      }*/
-      //end todo
-
       if (!symbol) {
         this.logger.debug(() => {
           const parserPos = formatPosition(parserPosition, 'parser');
@@ -137,67 +127,6 @@ export class HoverProcessingService implements IHoverProcessor {
     }
   }
 
-  /**
-   * Try to find a symbol by directly parsing the document when symbol manager doesn't have it
-   * This is a fallback mechanism for when symbol processing hasn't completed yet
-   */
-  private async tryDirectDocumentParsing(
-    uri: string,
-    position: { line: number; character: number },
-  ): Promise<ApexSymbol | null> {
-    try {
-      // Import ApexStorageManager to get the document
-      const { ApexStorageManager } = await import(
-        '../storage/ApexStorageManager'
-      );
-      const storageManager = ApexStorageManager.getInstance();
-      const storage = storageManager.getStorage();
-
-      // Get the document from storage
-      const document = await storage.getDocument(uri);
-      if (!document) {
-        return null;
-      }
-
-      // Import required classes for parsing
-      const { SymbolTable, CompilerService, ApexSymbolCollectorListener } =
-        await import('@salesforce/apex-lsp-parser-ast');
-
-      // Create parser components
-      const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
-      const compilerService = new CompilerService();
-
-      // Parse the document with minimal options for performance
-      const result = compilerService.compile(
-        document.getText(),
-        uri,
-        listener,
-        {},
-      );
-
-      if (result.errors.length > 0) {
-        return null;
-      }
-
-      // Get symbols from the parsed result
-      const symbolTable = listener.getResult();
-      const currentScope = symbolTable.getCurrentScope();
-
-      // Search for a symbol at the given position
-      const symbols = currentScope.getAllSymbols();
-      for (const symbol of symbols) {
-        if (symbol.name && symbol.name.length > 0) {
-          return symbol;
-        }
-      }
-
-      return null;
-    } catch (error) {
-      this.logger.error(() => `Error in direct document parsing: ${error}`);
-      return null;
-    }
-  }
   /**
    * Create hover information for a symbol
    */

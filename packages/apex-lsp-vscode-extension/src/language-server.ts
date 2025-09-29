@@ -21,28 +21,14 @@ import {
   registerConfigurationChangeListener,
 } from './configuration';
 import { EXTENSION_CONSTANTS } from './constants';
-// Import getDebugOptions conditionally for Node.js environments
-// In web environments, this will be undefined since server-config has Node.js-specific imports
 
 /**
  * Browser-compatible debug options getter
  * Returns undefined in web environments since debug options don't apply
  */
-function getBrowserCompatibleDebugOptions(): any {
-  // In web environments, debug options are not applicable
-  if (detectEnvironment() === 'web') {
-    return undefined;
-  }
-
-  // For Node.js environments, try to get debug options but handle import errors gracefully
-  try {
-    // Dynamic import to avoid issues in web environments
-    const { getDebugOptions } = require('./server-config');
-    return getDebugOptions();
-  } catch (_error) {
-    // If server-config can't be loaded (e.g., in web environment), return undefined
-    return undefined;
-  }
+function getBrowserCompatibleDebugOptions(environment: 'desktop' | 'web'): any {
+  // Debug options are only applicable in desktop environments
+  return environment === 'web' ? undefined : {};
 }
 
 /**
@@ -66,74 +52,15 @@ function detectEnvironment(): 'desktop' | 'web' {
  */
 function safeCloneForWorker(obj: any): any {
   try {
-    // First, try a direct JSON serialization test
-    const testStr = JSON.stringify(obj);
-    return JSON.parse(testStr);
+    // For simple objects, JSON stringify/parse is sufficient
+    return JSON.parse(JSON.stringify(obj));
   } catch (error) {
+    // If basic serialization fails, return a safe empty object
     logToOutputChannel(
-      `⚠️ Object serialization failed, creating safe clone: ${error}`,
+      `⚠️ Object serialization failed, using fallback: ${error}`,
       'debug',
     );
-
-    // If serialization fails, create a safe version
-    if (typeof obj !== 'object' || obj === null) {
-      return obj;
-    }
-
-    // Handle arrays
-    if (Array.isArray(obj)) {
-      return obj.map((item) => safeCloneForWorker(item));
-    }
-
-    const safe: any = {};
-    for (const key in obj) {
-      try {
-        const value = obj[key];
-
-        // Skip functions, symbols, and other non-serializable types
-        if (typeof value === 'function') continue;
-        if (typeof value === 'symbol') continue;
-        if (typeof value === 'undefined') continue;
-        if (value instanceof Node) continue; // DOM nodes
-        if (value instanceof Error) continue; // Error objects
-
-        // Skip VS Code objects that might not be serializable
-        if (
-          value &&
-          typeof value === 'object' &&
-          value.constructor &&
-          value.constructor.name &&
-          value.constructor.name.includes('Uri')
-        ) {
-          // Convert VS Code URI objects to strings
-          if (typeof value.toString === 'function') {
-            safe[key] = value.toString();
-            continue;
-          } else {
-            continue;
-          }
-        }
-
-        // Test if this specific value can be serialized
-        try {
-          JSON.stringify(value);
-          // Recursively handle nested objects
-          safe[key] = safeCloneForWorker(value);
-        } catch {
-          // If this value can't be serialized, skip it
-          logToOutputChannel(
-            `⚠️ Skipping non-serializable property: ${key}`,
-            'debug',
-          );
-          continue;
-        }
-      } catch (err) {
-        // Skip any properties that can't be safely cloned
-        logToOutputChannel(`⚠️ Error cloning property ${key}: ${err}`, 'debug');
-        continue;
-      }
-    }
-    return safe;
+    return {};
   }
 }
 
@@ -142,6 +69,7 @@ function safeCloneForWorker(obj: any): any {
  */
 function createEnhancedInitializationOptions(
   context: vscode.ExtensionContext,
+  environment: 'desktop' | 'web',
 ): any {
   const settings = getWorkspaceSettings();
 
@@ -176,12 +104,12 @@ function createEnhancedInitializationOptions(
   // Enhanced initialization options with server-config benefits
   // Safely extract only serializable settings
   const safeSettings = safeCloneForWorker(settings);
-  const debugOptions = getBrowserCompatibleDebugOptions();
+  const debugOptions = getBrowserCompatibleDebugOptions(environment);
 
   const enhancedOptions = {
     enableDocumentSymbols: true,
     extensionMode: serverMode, // Pass extension mode to server (from server-config.ts)
-    environment: detectEnvironment(),
+    environment,
     ...safeSettings,
     // Add debug information if available and serializable
     ...(debugOptions && {
@@ -206,6 +134,7 @@ function createEnhancedInitializationOptions(
  */
 function createInitializeParams(
   context: vscode.ExtensionContext,
+  environment: 'desktop' | 'web',
 ): InitializeParams {
   const workspaceFolders = vscode.workspace.workspaceFolders;
 
@@ -384,7 +313,10 @@ function createInitializeParams(
         },
       },
     },
-    initializationOptions: createEnhancedInitializationOptions(context),
+    initializationOptions: createEnhancedInitializationOptions(
+      context,
+      environment,
+    ),
     workspaceFolders:
       workspaceFolders?.map((folder) => ({
         uri: folder.uri.toString(),
@@ -420,18 +352,16 @@ export const createAndStartClient = async (
 
     if (environment === 'web') {
       // Web environment - use worker-based approach
-      await createWebLanguageClient(context);
+      await createWebLanguageClient(context, environment);
     } else {
       // Desktop environment - use Node.js server-based approach with proper server config
-      await createDesktopLanguageClient(context);
+      await createDesktopLanguageClient(context, environment);
     }
 
     logToOutputChannel('✅ Client initialized successfully', 'info');
 
     // Set up client state monitoring
-    logToOutputChannel('📊 Updating server status to ready...', 'debug');
     updateApexServerStatusReady();
-    logToOutputChannel('🔄 Resetting retry counters...', 'debug');
     resetServerStartRetries();
     setStartingFlag(false);
 
@@ -442,15 +372,6 @@ export const createAndStartClient = async (
         'debug',
       );
       registerConfigurationChangeListener(Client, context);
-      logToOutputChannel('✅ Configuration listener registered', 'debug');
-
-      // Send initial configuration to the language server
-      // logToOutputChannel(
-      //   '📤 Sending initial configuration to language server...',
-      //   'debug',
-      // );
-      // sendInitialConfiguration(Client);
-      // logToOutputChannel('✅ Initial configuration sent', 'debug');
     }
 
     logToOutputChannel('🎉 Apex Language Server is ready!', 'info');
@@ -467,6 +388,7 @@ export const createAndStartClient = async (
  */
 async function createWebLanguageClient(
   context: vscode.ExtensionContext,
+  environment: 'desktop' | 'web',
 ): Promise<void> {
   // Import web-worker package and browser language client dynamically
   const { default: Worker } = await import('web-worker');
@@ -479,7 +401,6 @@ async function createWebLanguageClient(
     `🔍 Extension URI: ${context.extensionUri.toString()}`,
     'debug',
   );
-  logToOutputChannel(`🔍 Extension path: ${context.extensionPath}`, 'debug');
 
   // The actual worker file is worker.global.js, not worker.js
   const workerFile = 'worker.global.js';
@@ -501,12 +422,7 @@ async function createWebLanguageClient(
     // In production, use the worker file copied to extension's dist directory
     workerUri = vscode.Uri.joinPath(context.extensionUri, 'dist', workerFile);
   }
-  logToOutputChannel(`🔍 Worker file: ${workerFile}`, 'debug');
   logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
-  logToOutputChannel(
-    `🔍 Extension mode: ${isDevelopment ? 'development' : 'production'}`,
-    'debug',
-  );
 
   // Check if worker file exists/is accessible
   try {
@@ -546,7 +462,10 @@ async function createWebLanguageClient(
       synchronize: {
         configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
       },
-      initializationOptions: createEnhancedInitializationOptions(context),
+      initializationOptions: createEnhancedInitializationOptions(
+        context,
+        environment,
+      ),
     },
     worker,
   );
@@ -591,15 +510,11 @@ async function createWebLanguageClient(
 
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
-  const initParams = createInitializeParams(context);
+  const initParams = createInitializeParams(context, environment);
 
-  // Debug: log the serialized params to verify they're safe
+  // Verify params are serializable
   try {
-    const serializedParams = JSON.stringify(initParams);
-    logToOutputChannel(
-      `🔍 Initialization params size: ${serializedParams.length} chars`,
-      'debug',
-    );
+    JSON.stringify(initParams);
   } catch (error) {
     logToOutputChannel(
       `❌ Initialization params are not serializable: ${error}`,
@@ -618,6 +533,7 @@ async function createWebLanguageClient(
  */
 async function createDesktopLanguageClient(
   context: vscode.ExtensionContext,
+  environment: 'desktop' | 'web',
 ): Promise<void> {
   logToOutputChannel(
     '🖥️ Creating desktop language client with Node.js server...',
@@ -632,7 +548,7 @@ async function createDesktopLanguageClient(
   // Create server and client options
   const serverOptions = createServerOptions(context);
   const clientOptions = createClientOptions(
-    createEnhancedInitializationOptions(context),
+    createEnhancedInitializationOptions(context, environment),
   );
 
   logToOutputChannel(

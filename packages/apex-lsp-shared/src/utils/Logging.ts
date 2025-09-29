@@ -100,19 +100,16 @@ export class UniversalLogger implements LoggerInterface {
 
     // Send via connection if available (worker or server context)
     if (this.connection) {
-      console.error('Sending log via connection');
       this.sendViaConnection(messageType, formattedMsg);
       return;
     }
 
     // Send via LSP notification handler (browser context)
     if (this.sendViaLsp(messageType, formattedMsg)) {
-      console.error('Sending log via LSP notification handler');
       return;
     }
 
     // Fallback to console only if no other method worked
-    console.error('Sending log via console');
     LoggingUtils.logToConsole(messageType, formattedMsg);
   }
 
