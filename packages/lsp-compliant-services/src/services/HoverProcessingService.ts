@@ -67,6 +67,15 @@ export class HoverProcessingService implements IHoverProcessor {
     this.symbolManager =
       symbolManager ||
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
+
+    // DEBUG: Log symbol manager instance info with unique ID
+    const stats = this.symbolManager.getStats();
+    const instanceId = (this.symbolManager as any)._instanceId || 'unknown';
+    this.logger.debug(
+      () =>
+        `🔧 [HoverProcessingService] Constructor - Symbol manager instance ${instanceId} has ${stats.totalFiles} files, ${stats.totalSymbols} symbols`,
+    );
+
     this.capabilitiesManager = ApexCapabilitiesManager.getInstance();
     // MissingArtifactUtils will create the service on-demand
     this.missingArtifactUtils = new MissingArtifactUtils(
@@ -81,6 +90,9 @@ export class HoverProcessingService implements IHoverProcessor {
    * @returns Hover information for the requested position
    */
   public async processHover(params: HoverParams): Promise<Hover | null> {
+    // console.log(
+    //   `🔧 [HoverProcessingService] processHover called for ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
+    // );
     this.logger.debug(
       () =>
         `Processing hover for ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
@@ -89,6 +101,13 @@ export class HoverProcessingService implements IHoverProcessor {
     try {
       // Transform LSP position (0-based) to parser-ast position (1-based line, 0-based column)
       const parserPosition = transformLspToParserPosition(params.position);
+
+      this.logger.debug(
+        () =>
+          `🔍 [HoverProcessingService] Looking for symbol at URI: ${params.textDocument.uri}, ` +
+          `LSP position: ${params.position.line}:${params.position.character}, ` +
+          `parser position: ${parserPosition.line}:${parserPosition.character}`,
+      );
 
       let symbol = await this.symbolManager.getSymbolAtPosition(
         params.textDocument.uri,

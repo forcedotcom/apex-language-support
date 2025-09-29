@@ -17,9 +17,6 @@ import {
 /**
  * Lightweight LSP server that starts immediately with basic capabilities
  * and lazy-loads advanced features on demand.
- *
- * This server architecture solves the debugging issue by separating
- * web worker connection management from desktop debugging capabilities.
  */
 export class LazyLSPServer {
   private connection: Connection;
@@ -125,166 +122,262 @@ export class LazyLSPServer {
 
     // Handle advanced requests by lazy-loading when needed
     this.connection.onHover(async (params) => {
+      // console.log(
+      //   `🔍 [LazyLSPServer] HOVER REQUEST: ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
+      // );
       this.logger.info(
-        `🔍 HOVER REQUEST: ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
+        `🔍 HOVER REQUEST RECEIVED in LazyLSPServer: ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
       );
-
-      // Load LCS adapter if not already loaded
-      if (!this.isLCSLoaded) {
-        try {
-          await this.loadLCSAdapter();
-        } catch (error) {
-          this.logger.error(`❌ Failed to load LCS for hover: ${error}`);
-          return null;
-        }
-      }
-
-      // Delegate to LCS adapter
-      if (this.lcsAdapter && this.lcsAdapter.onHover) {
-        return await this.lcsAdapter.onHover(params);
-      }
-
-      return null;
-    });
-
-    this.connection.onDocumentSymbol(async (params) => {
-      this.logger.info(`📋 Document symbols: ${params.textDocument.uri}`);
-
-      // Load LCS adapter if not already loaded
-      if (!this.isLCSLoaded) {
-        try {
-          await this.loadLCSAdapter();
-        } catch (error) {
-          this.logger.error(`❌ Failed to load LCS for symbols: ${error}`);
-          return [];
-        }
-      }
-
-      // Delegate to LCS adapter
-      if (this.lcsAdapter && this.lcsAdapter.onDocumentSymbol) {
-        return await this.lcsAdapter.onDocumentSymbol(params);
-      }
-
-      return [];
+      return this.withAdvancedFeatures('hover', params);
     });
 
     this.connection.onCompletion(async (params) => {
-      this.logger.info(`🔤 Completion: ${params.textDocument.uri}`);
-
-      // Load LCS adapter if not already loaded
-      if (!this.isLCSLoaded) {
-        try {
-          await this.loadLCSAdapter();
-        } catch (error) {
-          this.logger.error(`❌ Failed to load LCS for completion: ${error}`);
-          return [];
-        }
-      }
-
-      // Delegate to LCS adapter
-      if (this.lcsAdapter && this.lcsAdapter.onCompletion) {
-        return await this.lcsAdapter.onCompletion(params);
-      }
-
-      return [];
+      this.logger.info(
+        `💡 COMPLETION REQUEST RECEIVED: ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
+      );
+      return this.withAdvancedFeatures('completion', params);
     });
+
+    this.connection.onDefinition(async (params) => {
+      this.logger.info(
+        `🎯 DEFINITION REQUEST RECEIVED: ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
+      );
+      return this.withAdvancedFeatures('definition', params);
+    });
+
+    this.connection.onDocumentSymbol(async (params) => {
+      this.logger.info(
+        `📋 DOCUMENT SYMBOL REQUEST RECEIVED: ${params.textDocument.uri}`,
+      );
+      return this.withAdvancedFeatures('documentSymbol', params);
+    });
+
+    // Start listening
+    this.connection.listen();
   }
 
   /**
-   * Get basic server capabilities
+   * Get basic capabilities that don't require heavy dependencies
    */
   private getBasicCapabilities(): ServerCapabilities {
     return {
       textDocumentSync: TextDocumentSyncKind.Incremental,
+      // Advanced capabilities will be added dynamically
       hoverProvider: true,
-      documentSymbolProvider: true,
       completionProvider: {
         resolveProvider: false,
-        triggerCharacters: ['.', ' '],
+        triggerCharacters: ['.', '('],
       },
+      definitionProvider: true,
+      documentSymbolProvider: true,
     };
+  }
+
+  /**
+   * Handle requests that require advanced features by lazy-loading them
+   */
+  private async withAdvancedFeatures(
+    operation: string,
+    params: any,
+  ): Promise<any> {
+    // console.log(
+    //   `🎯 [LazyLSPServer] withAdvancedFeatures called for ${operation}`,
+    // );
+    this.logger.info(`🎯 LazyLSPServer received ${operation} request`);
+
+    try {
+      // Load LCS adapter if not already loaded
+      if (!this.isLCSLoaded) {
+        // console.log(
+        //   `🔄 [LazyLSPServer] Loading LCS adapter for ${operation}...`,
+        // );
+        this.logger.info(`🔄 Loading LCS adapter for ${operation}...`);
+        await this.loadLCSAdapter();
+      }
+
+      // Delegate to the full LCS adapter
+      if (this.lcsAdapter) {
+        // console.log(
+        //   `➡️ [LazyLSPServer] Delegating ${operation} to LCS adapter`,
+        // );
+        this.logger.info(`➡️ Delegating ${operation} to LCS adapter`);
+        return await this.delegateToLCS(operation, params);
+      }
+
+      // Fallback for when advanced features aren't available
+      // console.log(
+      //   `⚠️ [LazyLSPServer] LCS adapter not available for ${operation}, using basic response`,
+      // );
+      this.logger.warn(
+        `⚠️ LCS adapter not available for ${operation}, using basic response`,
+      );
+      return this.getBasicResponse(operation);
+    } catch (error) {
+      // console.log(
+      //   `❌ [LazyLSPServer] Advanced feature ${operation} failed:`,
+      //   error,
+      // );
+      this.logger.error(`❌ Advanced feature ${operation} failed:`, error);
+      return this.getBasicResponse(operation);
+    }
+  }
+
+  /**
+   * Load the LCS adapter with all heavy dependencies
+   */
+  private async loadLCSAdapter(): Promise<void> {
+    if (this.isLCSLoaded) return;
+
+    // console.log('🔄 [LazyLSPServer] Loading advanced LSP features...');
+    this.logger.info('🔄 Loading advanced LSP features...');
+
+    try {
+      // Load the LCS adapter dynamically
+      // console.log('📦 [LazyLSPServer] Importing LCSAdapter...');
+      const { LCSAdapter } = await import('./LCSAdapter');
+      // console.log('✅ [LazyLSPServer] LCSAdapter imported successfully');
+
+      // console.log('🔧 [LazyLSPServer] Creating LCSAdapter instance...');
+      this.lcsAdapter = new LCSAdapter({
+        connection: this.connection,
+        logger: this.logger,
+        delegationMode: true, // Don't set up connection listeners
+      });
+      // console.log('✅ [LazyLSPServer] LCSAdapter instance created');
+
+      // console.log('🚀 [LazyLSPServer] Initializing LCSAdapter...');
+      await this.lcsAdapter.initialize();
+      this.isLCSLoaded = true;
+      // console.log('✅ [LazyLSPServer] LCSAdapter initialized successfully');
+
+      this.logger.info('✅ Advanced LSP features loaded successfully!');
+    } catch (error) {
+      // console.log(
+      //   '❌ [LazyLSPServer] Failed to load advanced features:',
+      //   error,
+      // );
+      this.logger.error('❌ Failed to load advanced features:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delegate operation to the full LCS adapter
+   */
+  private async delegateToLCS(operation: string, params: any): Promise<any> {
+    // Map operation to LCS adapter method
+    const methodMap: { [key: string]: string } = {
+      hover: 'onHover',
+      completion: 'onCompletion',
+      definition: 'onDefinition',
+      documentSymbol: 'onDocumentSymbol',
+    };
+
+    const method = methodMap[operation];
+    // console.log(`🔄 [LazyLSPServer] Mapping ${operation} to method ${method}`);
+
+    if (method && typeof this.lcsAdapter[method] === 'function') {
+      // console.log(`✅ [LazyLSPServer] Calling ${method} on LCSAdapter`);
+      const result = await this.lcsAdapter[method](params);
+      // console.log(
+      //   `✅ [LazyLSPServer] ${method} returned:`,
+      //   result ? 'has result' : 'null/empty',
+      // );
+      return result;
+    }
+
+    // console.log(
+    //   `❌ [LazyLSPServer] No method ${method} found, using basic response`,
+    // );
+    return this.getBasicResponse(operation);
+  }
+
+  /**
+   * Get basic response when advanced features aren't available
+   */
+  private getBasicResponse(operation: string): any {
+    switch (operation) {
+      case 'hover':
+        return null; // No hover info available
+      case 'completion':
+        return []; // No completions available
+      case 'definition':
+        return null; // No definition available
+      case 'documentSymbol':
+        return []; // No symbols available
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Forward document events to the LCS adapter
+   */
+  private async forwardDocumentEvent(
+    eventType: string,
+    params: any,
+  ): Promise<void> {
+    try {
+      this.logger.debug(`Forwarding ${eventType} event to LCS adapter`);
+
+      // CRITICAL FIX: Actually forward document events to LCS adapter
+      // The assumption that TextDocuments will handle events automatically is incorrect
+      // when in delegation mode - we need to explicitly call the LCS adapter methods
+      if (this.lcsAdapter) {
+        switch (eventType) {
+          case 'open':
+            // console.log(
+            //   `🔄 [LazyLSPServer] Forwarding document open: ${params.textDocument.uri}`,
+            // );
+            await this.lcsAdapter.handleDocumentOpen?.(params);
+            break;
+          case 'change':
+            // console.log(
+            //   `🔄 [LazyLSPServer] Forwarding document change: ${params.textDocument.uri}`,
+            // );
+            await this.lcsAdapter.handleDocumentChange?.(params);
+            break;
+          case 'save':
+            // console.log(
+            //   `🔄 [LazyLSPServer] Forwarding document save: ${params.textDocument.uri}`,
+            // );
+            await this.lcsAdapter.handleDocumentSave?.(params);
+            break;
+          case 'close':
+            // console.log(
+            //   `🔄 [LazyLSPServer] Forwarding document close: ${params.textDocument.uri}`,
+            // );
+            await this.lcsAdapter.handleDocumentClose?.(params);
+            break;
+          default:
+            this.logger.warn(`Unknown document event type: ${eventType}`);
+        }
+      } else {
+        this.logger.warn(
+          `Cannot forward ${eventType} event - LCS adapter not available`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(`Error forwarding ${eventType} event:`, error);
+    }
   }
 
   /**
    * Preload advanced features in the background
    */
   private async preloadAdvancedFeatures(): Promise<void> {
-    try {
-      // Small delay to let basic initialization complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      this.logger.info('🔄 Preloading advanced LSP features...');
-      await this.loadLCSAdapter();
-    } catch (error) {
-      this.logger.error(`❌ Failed to preload advanced features: ${error}`);
-    }
-  }
-
-  /**
-   * Load the LCS adapter with delegation mode
-   */
-  private async loadLCSAdapter(): Promise<void> {
-    if (this.isLCSLoaded) {
-      return;
-    }
-
-    try {
-      this.logger.info('📦 Loading LCS Adapter...');
-
-      const { LCSAdapter } = await import('./LCSAdapter');
-
-      this.lcsAdapter = new LCSAdapter({
-        connection: this.connection,
-        logger: this.logger,
-        delegationMode: true, // Don't set up connection listeners
-      });
-
-      await this.lcsAdapter.initialize();
-      this.isLCSLoaded = true;
-
-      this.logger.info('✅ Advanced LSP features loaded successfully!');
-    } catch (error) {
-      this.logger.error(`❌ Failed to load LCS Adapter: ${error}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Forward document events to LCS adapter
-   */
-  private async forwardDocumentEvent(
-    eventType: string,
-    params: any,
-  ): Promise<void> {
-    if (!this.lcsAdapter) {
-      return;
-    }
-
-    try {
-      switch (eventType) {
-        case 'open':
-          if (this.lcsAdapter.handleDocumentOpen) {
-            await this.lcsAdapter.handleDocumentOpen(params);
-          }
-          break;
-        case 'change':
-          if (this.lcsAdapter.handleDocumentChange) {
-            await this.lcsAdapter.handleDocumentChange(params);
-          }
-          break;
-        case 'save':
-          if (this.lcsAdapter.handleDocumentSave) {
-            await this.lcsAdapter.handleDocumentSave(params);
-          }
-          break;
-        case 'close':
-          if (this.lcsAdapter.handleDocumentClose) {
-            await this.lcsAdapter.handleDocumentClose(params);
-          }
-          break;
+    // Don't block the main thread - load in background
+    setTimeout(async () => {
+      try {
+        this.logger.info('🔄 Preloading advanced features...');
+        await this.loadLCSAdapter();
+        this.logger.info('✅ Preloading complete!');
+      } catch (error) {
+        this.logger.warn(
+          '⚠️ Preloading failed - features will load on-demand:',
+          error,
+        );
       }
-    } catch (error) {
-      this.logger.error(`❌ Error forwarding ${eventType} event: ${error}`);
-    }
+    }, 1000); // Start after 1 second delay
   }
 }

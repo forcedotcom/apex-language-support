@@ -30,39 +30,55 @@ import { getWorkerSelf } from '../utils/EnvironmentUtils';
  * connection creation, and LCS adapter initialization.
  */
 export async function startApexWebWorker(): Promise<void> {
-  // Set up Node.js polyfills as globals immediately
-  (globalThis as any).process = processPolyfill;
-  (globalThis as any).Buffer = Buffer;
-  (globalThis as any).global = globalThis;
+  try {
+    // console.log('🔧 [WORKER] Starting web worker initialization...');
 
-  // Create a connection for the server using type-safe worker context
-  const workerSelf = getWorkerSelf();
-  if (!workerSelf) {
-    throw new Error('Worker context not available');
+    // Set up Node.js polyfills as globals immediately
+    (globalThis as any).process = processPolyfill;
+    (globalThis as any).Buffer = Buffer;
+    (globalThis as any).global = globalThis;
+    // console.log('✅ [WORKER] Polyfills set up');
+
+    // Create a connection for the server using type-safe worker context
+    const workerSelf = getWorkerSelf();
+    if (!workerSelf) {
+      throw new Error('Worker context not available');
+    }
+    // console.log('✅ [WORKER] Worker context obtained');
+
+    const connection = createConnection(
+      new BrowserMessageReader(workerSelf),
+      new BrowserMessageWriter(workerSelf),
+    );
+    // console.log('✅ [WORKER] Connection created');
+
+    // Set up logging with connection
+    const loggerFactory = UniversalLoggerFactory.getInstance();
+    setLoggerFactory(loggerFactory); // Set factory BEFORE creating logger
+    const logger = loggerFactory.createLogger(connection);
+    // console.log('✅ [WORKER] Logger created');
+
+    // Initial lifecycle logs
+    logger.info('🚀 Worker script loading...');
+    logger.info('🔧 Starting Lazy LSP Server...');
+    // console.log('📞 [WORKER] Logger created and sending first messages...');
+
+    // Use lazy loading server for faster startup
+    // console.log('🔄 [WORKER] Importing LazyLSPServer...');
+    const { LazyLSPServer } = await import('./LazyLSPServer');
+    // console.log('✅ [WORKER] LazyLSPServer imported');
+
+    // Create lazy LSP server (starts immediately with basic capabilities)
+    // console.log('🚀 [WORKER] Creating LazyLSPServer instance...');
+    const _lazyServer = new LazyLSPServer(connection, logger as any);
+    // console.log('✅ [WORKER] LazyLSPServer created');
+
+    logger.info(
+      '✅ Apex Language Server Worker ready! (Advanced features loading in background)',
+    );
+    // console.log('🎉 [WORKER] Web worker startup completed successfully');
+  } catch (error) {
+    console.error('❌ [WORKER] Error during startup:', error);
+    throw error;
   }
-
-  const connection = createConnection(
-    new BrowserMessageReader(workerSelf),
-    new BrowserMessageWriter(workerSelf),
-  );
-
-  // Set up logging with connection
-  const loggerFactory = UniversalLoggerFactory.getInstance();
-  setLoggerFactory(loggerFactory); // Set factory BEFORE creating logger
-  const logger = loggerFactory.createLogger(connection);
-
-  // Initial lifecycle logs
-  logger.info('🚀 Worker script loading...');
-  logger.info('🔧 Starting Lazy LSP Server...');
-
-  // Use lazy loading server for faster startup and proper connection management
-  const { LazyLSPServer } = await import('./LazyLSPServer');
-
-  // Create lazy LSP server (starts immediately with basic capabilities)
-  // This architecture prevents connection conflicts with desktop debugging
-  const _lazyServer = new LazyLSPServer(connection, logger as any);
-
-  logger.info(
-    '✅ Apex Language Server Worker ready! (Advanced features loading in background)',
-  );
 }

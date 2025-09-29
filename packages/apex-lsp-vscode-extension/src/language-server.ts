@@ -8,6 +8,7 @@
 
 import * as vscode from 'vscode';
 import type { ClientInterface } from '@salesforce/apex-lsp-shared';
+import { createWorker } from '@salesforce/apex-lsp-shared';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
@@ -390,8 +391,8 @@ async function createWebLanguageClient(
   context: vscode.ExtensionContext,
   environment: 'desktop' | 'web',
 ): Promise<void> {
-  // Import web-worker package and browser language client dynamically
-  const { default: Worker } = await import('web-worker');
+  // Import browser language client dynamically
+  // Note: Worker creation is now handled by createWorker utility
   const { LanguageClient } = await import('vscode-languageclient/browser');
 
   logToOutputChannel('🔧 Creating web-based language client...', 'info');
@@ -402,26 +403,16 @@ async function createWebLanguageClient(
     'debug',
   );
 
-  // The actual worker file is worker.global.js, not worker.js
-  const workerFile = 'worker.global.js';
+  const workerFileName = 'worker.global.js';
 
-  // In development mode, worker file is always in dist/ (from apex-ls build)
-  // In production mode, it's copied to extension's dist/ during bundle process
-  const isDevelopment =
-    context.extensionMode === vscode.ExtensionMode.Development;
-
+  let workerRelativePath: string;
   let workerUri: vscode.Uri;
-  if (isDevelopment) {
-    // In development, use the worker file from apex-ls dist directory
-    workerUri = vscode.Uri.joinPath(
-      context.extensionUri,
-      '../apex-ls/dist',
-      workerFile,
-    );
-  } else {
-    // In production, use the worker file copied to extension's dist directory
-    workerUri = vscode.Uri.joinPath(context.extensionUri, 'dist', workerFile);
-  }
+
+  // In both development and production, use the worker file copied to extension's dist directory
+  // The build process copies the worker file from apex-ls to extension's dist during bundle
+  workerRelativePath = `dist/${workerFileName}`;
+  workerUri = vscode.Uri.joinPath(context.extensionUri, 'dist', workerFileName);
+  logToOutputChannel(`🔍 Worker file: ${workerFileName}`, 'debug');
   logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
 
   // Check if worker file exists/is accessible
@@ -442,10 +433,14 @@ async function createWebLanguageClient(
     logToOutputChannel(`❌ Error checking worker file: ${error}`, 'error');
   }
 
-  // Create worker
+  // Create worker using the utility that handles VS Code web environment path mapping
   logToOutputChannel('⚡ Creating web worker...', 'info');
-  const worker = new Worker(workerUri.toString(), {
-    type: 'classic',
+  // Debug logging can be enabled for troubleshooting URL mapping issues
+  // logToOutputChannel(`🔍 Worker relative path: ${workerRelativePath}`, 'debug');
+  // logToOutputChannel(`🔍 Extension URI string: ${context.extensionUri.toString()}`, 'debug');
+
+  const worker = createWorker(workerRelativePath, {
+    extensionUri: context.extensionUri.toString(),
   });
   logToOutputChannel('✅ Web worker created successfully', 'info');
 

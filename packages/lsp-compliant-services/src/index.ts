@@ -146,6 +146,9 @@ export const dispatchProcessOnDocumentSymbol = async (
   return await handler.handleDocumentSymbol(params);
 };
 
+// Singleton HoverHandler instance to ensure consistent symbol manager usage
+let hoverHandlerInstance: any = null;
+
 /**
  * Dispatch function for hover requests
  * @param params The hover parameters
@@ -154,8 +157,17 @@ export const dispatchProcessOnDocumentSymbol = async (
 export const dispatchProcessOnHover = async (
   params: HoverParams,
 ): Promise<Hover | null> => {
-  const handler = HandlerFactory.createHoverHandler();
-  return await handler.handleHover(params);
+  // console.log(`🔧 [dispatchProcessOnHover] Called with URI: ${params.textDocument.uri}, position: ${params.position.line}:${params.position.character}`);
+  // CRITICAL FIX: Use singleton pattern to ensure same symbol manager instance
+  // Creating new handlers every time causes empty symbol managers
+  if (!hoverHandlerInstance) {
+    // console.log(`🔧 [dispatchProcessOnHover] Creating singleton HoverHandler instance`);
+    hoverHandlerInstance = HandlerFactory.createHoverHandler();
+  }
+
+  const result = await hoverHandlerInstance.handleHover(params);
+  // console.log(`🔧 [dispatchProcessOnHover] Result: ${result ? 'Found hover content' : 'null/empty'}`);
+  return result;
 };
 
 /**

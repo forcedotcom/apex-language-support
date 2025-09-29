@@ -42,6 +42,8 @@ import {
   LSPConfigurationManager,
 } from '@salesforce/apex-lsp-compliant-services';
 
+import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
+
 /**
  * Configuration for the LCS Adapter
  */
@@ -85,6 +87,33 @@ export class LCSAdapter {
    */
   async initialize(): Promise<void> {
     this.logger.info('🚀 LCS Adapter initializing...');
+
+    // Initialize ApexSymbolProcessingManager for web environment
+    // The web worker needs proper symbol processing to maintain symbol persistence
+    try {
+      // console.log(
+      //   '🔧 [LCSAdapter] Initializing ApexSymbolProcessingManager for web environment',
+      // );
+
+      const symbolProcessingManager = ApexSymbolProcessingManager.getInstance();
+      symbolProcessingManager.initialize();
+
+      const symbolManager = symbolProcessingManager.getSymbolManager();
+      const _stats = symbolManager.getStats();
+
+      // console.log(
+      //   '✅ [LCSAdapter] ApexSymbolProcessingManager initialized with ' +
+      //     `${stats.totalFiles} files, ${stats.totalSymbols} symbols`,
+      // );
+    } catch (error) {
+      // console.log('❌ [LCSAdapter] Error in symbol processing setup:', error);
+      this.logger.error('❌ Error in symbol processing setup:', error);
+
+      // Fallback: log the error but continue with sync processing
+      // console.log(
+      //   '🔄 [LCSAdapter] Continuing with synchronous symbol processing fallback',
+      // );
+    }
 
     // Initialize ApexStorageManager singleton with storage factory
     try {
@@ -143,10 +172,36 @@ export class LCSAdapter {
     // Document open events - process documents when they are first opened
     this.documents.onDidOpen(async (open) => {
       try {
+        // console.log(`📄 [LCSAdapter] Document opened: ${open.document.uri}`);
         this.logger.debug(`Document opened: ${open.document.uri}`);
         // Trigger processing for document open; diagnostics are provided via pull API
+        // console.log('🔄 [LCSAdapter] Calling dispatchProcessOnOpenDocument...');
         await dispatchProcessOnOpenDocument(open);
+        // console.log('✅ [LCSAdapter] dispatchProcessOnOpenDocument completed');
+
+        // Debug: Check if symbols were added to symbol manager after processing
+        try {
+          const manager = ApexSymbolProcessingManager.getInstance();
+          // console.log(
+          //   '🔧 [LCSAdapter] Symbol processing manager initialized after doc processing: ' +
+          //     `${(manager as any).isInitialized}`,
+          // );
+          const symbolManager = manager.getSymbolManager();
+          const _stats = symbolManager.getStats();
+          // console.log(
+          //   '📊 [LCSAdapter] After processing - Symbol manager has' +
+          //     ` ${stats.totalFiles} files, ${stats.totalSymbols} symbols`,
+          // );
+        } catch (_debugError) {
+          // console.log(
+          //   '❌ [LCSAdapter] Error checking post-processing stats:',
+          //   debugError,
+          // );
+        }
       } catch (error) {
+        // console.log(
+        //   `❌ [LCSAdapter] Error processing document open: ${error instanceof Error ? error.message : String(error)}`,
+        // );
         this.logger.error(
           `Error processing document open for ${open.document.uri}: ${
             error instanceof Error ? error.message : String(error)
@@ -203,45 +258,11 @@ export class LCSAdapter {
 
   /**
    * Set up LSP protocol handlers using LCS
+   * Note: When used with LazyLSPServer, most handlers are delegated via public methods
+   * rather than direct connection handlers to avoid conflicts. Only diagnostic handlers
+   * are set up directly since LazyLSPServer doesn't handle them yet.
    */
   private setupProtocolHandlers(): void {
-    // Document symbols
-    this.connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-      try {
-        return await dispatchProcessOnDocumentSymbol(params);
-      } catch (error) {
-        this.logger.error(
-          `Error processing document symbols for ${params.textDocument.uri}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-        this.logger.debug('Document symbols error details:', error);
-        return [];
-      }
-    });
-
-    // Hover support
-    this.connection.onHover(
-      async (params: HoverParams): Promise<Hover | null> => {
-        try {
-          this.logger.debug(`Hover request: ${params.textDocument.uri}`);
-          const result = await dispatchProcessOnHover(params);
-          this.logger.debug('Hover processed');
-          return result;
-        } catch (error) {
-          this.logger.error(
-            `Error processing hover for ${params.textDocument.uri} at ${
-              params.position.line
-            }:${params.position.character}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-          this.logger.debug('Hover error details:', error);
-          return null;
-        }
-      },
-    );
-
     // Enhanced diagnostics using LCS
     this.connection.languages.diagnostics.on(
       async (
@@ -270,14 +291,8 @@ export class LCSAdapter {
       },
     );
 
-    // Advanced completion support using LCS
-    this.connection.onCompletion(
-      async (params: CompletionParams): Promise<CompletionItem[]> => {
-        this.logger.debug('Processing completion request with LCS');
-        const result = await this.completionProcessor.processCompletion(params);
-        return result || [];
-      },
-    );
+    // Note: Document symbols, hover, completion, and definition are handled
+    // via delegation from LazyLSPServer to avoid conflicts
   }
 
   /**
@@ -383,5 +398,342 @@ export class LCSAdapter {
    */
   public getLogger(): Logger {
     return this.logger;
+  }
+
+  /**
+   * Public methods for delegation from LazyLSPServer
+   */
+
+  /**
+   * Handle hover requests
+   */
+  public async onHover(params: HoverParams): Promise<Hover | null> {
+    // console.log(
+    //   `🔍 [LCSAdapter] onHover called: ${params.textDocument.uri}` +
+    //     ` at ${params.position.line}:${params.position.character}`,
+    // );
+    try {
+      this.logger.info(
+        `🔍 Hover request received: ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
+      );
+
+      // Test if the basic dispatch function exists
+      // console.log('🧪 [LCSAdapter] Testing dispatchProcessOnHover function...');
+      if (typeof dispatchProcessOnHover !== 'function') {
+        // console.log('❌ [LCSAdapter] dispatchProcessOnHover is not a function');
+        this.logger.error('❌ dispatchProcessOnHover is not a function');
+        return null;
+      }
+      // console.log('✅ [LCSAdapter] dispatchProcessOnHover function exists');
+
+      // Test if core dependencies are available
+      // console.log('🧪 [LCSAdapter] Testing core dependencies...');
+      this.logger.info('🧪 Testing core dependencies...');
+      try {
+        const { ApexSymbolProcessingManager } = await import(
+          '@salesforce/apex-lsp-parser-ast'
+        );
+        // console.log(
+        //   '✅ [LCSAdapter] ApexSymbolProcessingManager import successful',
+        // );
+        this.logger.info('✅ ApexSymbolProcessingManager import successful');
+
+        const manager = ApexSymbolProcessingManager.getInstance();
+        // console.log(
+        //   `✅ [LCSAdapter] Symbol manager instance created: ${manager ? 'yes' : 'no'}`,
+        // );
+        this.logger.info(
+          `✅ Symbol manager instance created: ${manager ? 'yes' : 'no'}`,
+        );
+
+        const symbolManager = manager.getSymbolManager();
+        // console.log(
+        //   `✅ [LCSAdapter] Symbol manager obtained: ${symbolManager ? 'yes' : 'no'}`,
+        // );
+        this.logger.info(
+          `✅ Symbol manager obtained: ${symbolManager ? 'yes' : 'no'}`,
+        );
+      } catch (error) {
+        // console.log(`❌ [LCSAdapter] Core dependency test failed: ${error}`);
+        this.logger.error(`❌ Core dependency test failed: ${error}`);
+        return null;
+      }
+
+      // console.log('🚀 [LCSAdapter] Calling dispatchProcessOnHover...');
+      this.logger.info('🚀 Calling dispatchProcessOnHover...');
+
+      // Debug: Check if the document is in the symbol manager
+      try {
+        const manager = ApexSymbolProcessingManager.getInstance();
+
+        // Check if the symbol processing manager is initialized
+        // console.log(
+        //   `🔧 [LCSAdapter] Symbol processing manager initialized: ${(manager as any).isInitialized}`,
+        // );
+
+        const symbolManager = manager.getSymbolManager();
+        const _docSymbols = symbolManager.findSymbolsInFile(
+          params.textDocument.uri,
+        );
+        // console.log(
+        //   `🔍 [LCSAdapter] Document symbols for ${params.textDocument.uri}: ` +
+        //     `${docSymbols.length} symbols`,
+        // );
+
+        // Check if the symbol manager has any documents at all
+        const _stats = symbolManager.getStats();
+        // console.log(
+        //   `🔍 [LCSAdapter] Symbol manager has ${stats.totalFiles} total files`,
+        // );
+        // console.log(
+        //   `🔍 [LCSAdapter] Symbol manager has ${stats.totalSymbols} total symbols`,
+        // );
+      } catch (_debugError) {
+        // console.log(
+        //   '🔍 [LCSAdapter] Debug error checking symbol manager:',
+        //   debugError,
+        // );
+      }
+
+      const result = await dispatchProcessOnHover(params);
+      // console.log(
+      //   `✅ [LCSAdapter] Hover processed: ${result ? 'has content' : 'no content'}`,
+      // );
+      this.logger.info(
+        `✅ Hover processed successfully: ${result ? 'has content' : 'no content'}`,
+      );
+      return result;
+    } catch (error) {
+      // console.log(
+      //   `❌ [LCSAdapter] Error processing hover: ${error instanceof Error ? error.message : String(error)}`,
+      // );
+      // console.log('❌ [LCSAdapter] Error stack:', error);
+      this.logger.error(
+        `❌ Error processing hover for ${params.textDocument.uri} at ${
+          params.position.line
+        }:${params.position.character}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      this.logger.error('Hover error stack:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Handle completion requests
+   */
+  public async onCompletion(
+    params: CompletionParams,
+  ): Promise<CompletionItem[]> {
+    try {
+      this.logger.debug(`Completion request: ${params.textDocument.uri}`);
+      const result = await this.completionProcessor.processCompletion(params);
+      this.logger.debug('Completion processed');
+      return result || [];
+    } catch (error) {
+      this.logger.error(
+        `Error processing completion for ${params.textDocument.uri} at ${
+          params.position.line
+        }:${params.position.character}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      this.logger.debug('Completion error details:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Handle definition requests
+   */
+  public async onDefinition(params: any): Promise<any> {
+    try {
+      this.logger.debug(`Definition request: ${params.textDocument.uri}`);
+      // TODO: Implement definition provider using LCS when it's properly exported
+      this.logger.debug('Definition processed (not yet implemented)');
+      return null;
+    } catch (error) {
+      this.logger.error(
+        `Error processing definition for ${params.textDocument.uri} at ${
+          params.position.line
+        }:${params.position.character}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      this.logger.debug('Definition error details:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Handle document symbol requests
+   */
+  public async onDocumentSymbol(params: DocumentSymbolParams): Promise<any[]> {
+    try {
+      this.logger.info(
+        `📋 Document symbols request: ${params.textDocument.uri}`,
+      );
+
+      // Test if the basic dispatch function exists
+      if (typeof dispatchProcessOnDocumentSymbol !== 'function') {
+        this.logger.error(
+          '❌ dispatchProcessOnDocumentSymbol is not a function',
+        );
+        return [];
+      }
+
+      this.logger.info('🚀 Calling dispatchProcessOnDocumentSymbol...');
+      const result = await dispatchProcessOnDocumentSymbol(params);
+      this.logger.info(
+        `✅ Document symbols processed: ${result ? result.length : 0} symbols found`,
+      );
+      return result || [];
+    } catch (error) {
+      this.logger.error(
+        `❌ Error processing document symbols for ${params.textDocument.uri}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      this.logger.error('Document symbols error stack:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Document event handlers for delegation mode
+   * These methods are called by LazyLSPServer to forward document events
+   * when LCS adapter is loaded and delegation mode is enabled
+   */
+
+  /**
+   * Handle document open events
+   */
+  public async handleDocumentOpen(params: any): Promise<void> {
+    try {
+      // console.log(
+      //   `📂 [LCSAdapter] handleDocumentOpen: ${params.textDocument.uri}`,
+      // );
+      this.logger.info(`📂 Document open event: ${params.textDocument.uri}`);
+
+      // Create a synthetic document change event for LCS processing
+      let document = this.documents.get(params.textDocument.uri);
+      if (!document) {
+        // If document not in our TextDocuments manager, create one from params
+        document = TextDocument.create(
+          params.textDocument.uri,
+          params.textDocument.languageId,
+          params.textDocument.version,
+          params.textDocument.text,
+        );
+
+        // CRITICAL FIX: Manually add document to TextDocuments manager
+        // TextDocuments doesn't have a public way to add documents, so we'll skip this
+        // and rely on the document being passed directly to LCS processing
+      }
+
+      // Process through LCS dispatch
+      if (typeof dispatchProcessOnOpenDocument === 'function') {
+        const event = { document };
+        await dispatchProcessOnOpenDocument(event);
+        // console.log(
+        //   `✅ [LCSAdapter] Document open processed: ${params.textDocument.uri}`,
+        // );
+      } else {
+        // console.log(
+        //   '❌ [LCSAdapter] dispatchProcessOnOpenDocument not available',
+        // );
+      }
+    } catch (error) {
+      // console.log(`❌ [LCSAdapter] Error in handleDocumentOpen: ${error}`);
+      this.logger.error(`Error handling document open: ${error}`);
+    }
+  }
+
+  /**
+   * Handle document change events
+   */
+  public async handleDocumentChange(params: any): Promise<void> {
+    try {
+      // console.log(
+      //   `📝 [LCSAdapter] handleDocumentChange: ${params.textDocument.uri}`,
+      // );
+      this.logger.info(`📝 Document change event: ${params.textDocument.uri}`);
+
+      // Get the updated document
+      const document = this.documents.get(params.textDocument.uri);
+      if (document && typeof dispatchProcessOnChangeDocument === 'function') {
+        const event = { document };
+        await dispatchProcessOnChangeDocument(event);
+        // console.log(
+        //   `✅ [LCSAdapter] Document change processed: ${params.textDocument.uri}`,
+        // );
+      } else {
+        // console.log(
+        //   '❌ [LCSAdapter] Document not found or dispatch not available',
+        // );
+      }
+    } catch (error) {
+      // console.log(`❌ [LCSAdapter] Error in handleDocumentChange: ${error}`);
+      this.logger.error(`Error handling document change: ${error}`);
+    }
+  }
+
+  /**
+   * Handle document save events
+   */
+  public async handleDocumentSave(params: any): Promise<void> {
+    try {
+      // console.log(
+      //   `💾 [LCSAdapter] handleDocumentSave: ${params.textDocument.uri}`,
+      // );
+      this.logger.info(`💾 Document save event: ${params.textDocument.uri}`);
+
+      // Get the saved document
+      const document = this.documents.get(params.textDocument.uri);
+      if (document && typeof dispatchProcessOnSaveDocument === 'function') {
+        const event = { document };
+        await dispatchProcessOnSaveDocument(event);
+        // console.log(
+        //   `✅ [LCSAdapter] Document save processed: ${params.textDocument.uri}`,
+        // );
+      } else {
+        // console.log(
+        //   '❌ [LCSAdapter] Document not found or dispatch not available',
+        // );
+      }
+    } catch (error) {
+      // console.log(`❌ [LCSAdapter] Error in handleDocumentSave: ${error}`);
+      this.logger.error(`Error handling document save: ${error}`);
+    }
+  }
+
+  /**
+   * Handle document close events
+   */
+  public async handleDocumentClose(params: any): Promise<void> {
+    try {
+      // console.log(
+      //   `📄 [LCSAdapter] handleDocumentClose: ${params.textDocument.uri}`,
+      // );
+      this.logger.info(`📄 Document close event: ${params.textDocument.uri}`);
+
+      // Get the document before it's closed
+      const document = this.documents.get(params.textDocument.uri);
+      if (document && typeof dispatchProcessOnCloseDocument === 'function') {
+        const event = { document };
+        await dispatchProcessOnCloseDocument(event);
+        // console.log(
+        //   `✅ [LCSAdapter] Document close processed: ${params.textDocument.uri}`,
+        // );
+      } else {
+        // console.log(
+        //   '❌ [LCSAdapter] Document not found or dispatch not available',
+        // );
+      }
+    } catch (error) {
+      // console.log(`❌ [LCSAdapter] Error in handleDocumentClose: ${error}`);
+      this.logger.error(`Error handling document close: ${error}`);
+    }
   }
 }
