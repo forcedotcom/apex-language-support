@@ -38,6 +38,7 @@ jest.mock('vscode-languageclient/node', () => ({
 // Mock the logging module
 jest.mock('../src/logging', () => ({
   updateLogLevel: jest.fn(),
+  logToOutputChannel: jest.fn(),
 }));
 
 describe('Configuration Module', () => {
@@ -83,6 +84,7 @@ describe('Configuration Module', () => {
       mockGetConfiguration.mockImplementation(
         (key: string, defaultValue: any) => {
           if (key === 'logLevel') return 'info';
+          if (key === 'worker.logLevel') return 'info';
           if (key === 'commentCollection.enableCommentCollection') return true;
           if (key === 'commentCollection.includeSingleLineComments')
             return false;
@@ -106,7 +108,6 @@ describe('Configuration Module', () => {
       const settings = getWorkspaceSettings();
 
       expect(settings).toEqual({
-        maxNumberOfProblems: 1000,
         apex: {
           commentCollection: {
             enableCommentCollection: true,
@@ -128,21 +129,15 @@ describe('Configuration Module', () => {
           resources: {
             loadMode: 'lazy',
           },
+          worker: {
+            logLevel: 'info',
+          },
           logLevel: 'info',
           custom: {},
         },
       });
     });
 
-    it('should call updateLogLevel with the configured log level', () => {
-      const { updateLogLevel } = require('../src/logging');
-
-      mockGetConfiguration.mockReturnValue('debug');
-
-      getWorkspaceSettings();
-
-      expect(updateLogLevel).toHaveBeenCalledWith('debug');
-    });
 
     it('should use default values when configuration is not set', () => {
       // Mock to return the default values when configuration is not set
@@ -264,7 +259,11 @@ describe('Configuration Module', () => {
           resources: {
             loadMode: 'lazy',
           },
+          worker: {
+            logLevel: 'info',
+          },
           logLevel: 'info',
+          custom: {},
         },
       };
       jest

@@ -43,7 +43,6 @@ export class ApexSettingsManager {
       initialSettings || {},
       environment,
     );
-    console.error('ApexSettingsManager initialized');
     this.logger.debug(
       () => `ApexSettingsManager initialized for ${environment} environment`,
     );
