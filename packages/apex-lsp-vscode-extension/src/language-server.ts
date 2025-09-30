@@ -21,15 +21,19 @@ import {
   registerConfigurationChangeListener,
 } from './configuration';
 import { EXTENSION_CONSTANTS } from './constants';
+import { determineServerMode } from './utils/server-mode';
 
 /**
- * Browser-compatible debug options getter
- * Returns undefined in web environments since debug options don't apply
+ * Browser-compatible debug options getter.
+ * Returns undefined in web environments since debug options don't apply.
+ * @param environment - The detected environment (desktop or web)
+ * @returns Debug options object or undefined for web environments
  */
-function getBrowserCompatibleDebugOptions(environment: 'desktop' | 'web'): any {
+const getBrowserCompatibleDebugOptions = (
+  environment: 'desktop' | 'web',
+): Record<string, unknown> | undefined =>
   // Debug options are only applicable in desktop environments
-  return environment === 'web' ? undefined : {};
-}
+  environment === 'web' ? undefined : {};
 
 /**
  * Global language client instance
@@ -48,58 +52,35 @@ function detectEnvironment(): 'desktop' | 'web' {
 }
 
 /**
- * Safely clone an object for worker serialization, removing non-serializable properties
+ * Safely clone an object for worker serialization, removing non-serializable properties.
+ * @param obj - Object to clone
+ * @returns Cloned object safe for worker serialization
+ * @throws Error if serialization fails
  */
-function safeCloneForWorker(obj: any): any {
+const safeCloneForWorker = (obj: any): any => {
   try {
     // For simple objects, JSON stringify/parse is sufficient
     return JSON.parse(JSON.stringify(obj));
   } catch (error) {
-    // If basic serialization fails, return a safe empty object
-    logToOutputChannel(
-      `⚠️ Object serialization failed, using fallback: ${error}`,
-      'debug',
-    );
-    return {};
+    logToOutputChannel(`❌ Object serialization failed: ${error}`, 'error');
+    throw new Error(`Cannot serialize object for worker: ${error}`);
   }
-}
+};
 
 /**
- * Creates enhanced initialization options that incorporate benefits from server-config.ts
+ * Creates enhanced initialization options that incorporate benefits from server-config.ts.
+ * @param context - VS Code extension context
+ * @param environment - The detected environment (desktop or web)
+ * @returns Enhanced initialization options
  */
-function createEnhancedInitializationOptions(
+const createEnhancedInitializationOptions = (
   context: vscode.ExtensionContext,
   environment: 'desktop' | 'web',
-): any {
+): any => {
   const settings = getWorkspaceSettings();
 
-  // Determine server mode with environment variable override (from server-config.ts logic)
-  let serverMode: 'production' | 'development';
-
-  // Check for environment variables only if process is available (Node.js environment)
-  const processEnv = typeof process !== 'undefined' ? process.env : {};
-
-  if (
-    processEnv.APEX_LS_MODE === 'production' ||
-    processEnv.APEX_LS_MODE === 'development'
-  ) {
-    serverMode = processEnv.APEX_LS_MODE;
-    logToOutputChannel(
-      `Using server mode from environment variable: ${serverMode}`,
-      'info',
-    );
-  } else {
-    // Default to extension mode
-    serverMode =
-      context.extensionMode === vscode.ExtensionMode.Development ||
-      context.extensionMode === vscode.ExtensionMode.Test
-        ? 'development'
-        : 'production';
-    logToOutputChannel(
-      `Using server mode from extension mode: ${serverMode}`,
-      'debug',
-    );
-  }
+  // Determine server mode using shared utility
+  const serverMode = determineServerMode(context);
 
   // Enhanced initialization options with server-config benefits
   // Safely extract only serializable settings
@@ -127,15 +108,18 @@ function createEnhancedInitializationOptions(
   }
 
   return enhancedOptions;
-}
+};
 
 /**
- * Create initialization parameters
+ * Create initialization parameters.
+ * @param context - VS Code extension context
+ * @param environment - The detected environment (desktop or web)
+ * @returns LSP initialization parameters
  */
-function createInitializeParams(
+const createInitializeParams = (
   context: vscode.ExtensionContext,
   environment: 'desktop' | 'web',
-): InitializeParams {
+): InitializeParams => {
   const workspaceFolders = vscode.workspace.workspaceFolders;
 
   // Determine extension mode for logging and debugging
@@ -324,9 +308,10 @@ function createInitializeParams(
       })) || null,
   };
 
-  // Return safely cloned parameters for worker serialization
-  return safeCloneForWorker(baseParams);
-}
+  // Parameters are already built with safe values, return as-is
+  // The initializationOptions are already safely cloned in createEnhancedInitializationOptions
+  return baseParams as InitializeParams;
+};
 
 /**
  * Creates and starts the language client

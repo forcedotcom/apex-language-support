@@ -102,8 +102,11 @@ export class LCSAdapter {
     // Set up document event handlers
     this.setupDocumentHandlers();
 
-    // Set up LSP protocol handlers
-    this.setupProtocolHandlers();
+    // Only set up protocol handlers if NOT in delegation mode
+    // In delegation mode, LazyLSPServer handles the protocol and forwards to our public methods
+    if (!this.delegationMode) {
+      this.setupProtocolHandlers();
+    }
 
     // Start listening for documents
     this.documents.listen(this.connection);
@@ -383,5 +386,99 @@ export class LCSAdapter {
    */
   public getLogger(): Logger {
     return this.logger;
+  }
+
+  /**
+   * Public delegation methods for LazyLSPServer integration.
+   * These methods allow LazyLSPServer to forward events when in delegation mode.
+   */
+
+  /**
+   * Handle document open event (delegation mode).
+   * @param params - Document open parameters
+   */
+  public async handleDocumentOpen(params: any): Promise<void> {
+    const document = this.documents.get(params.textDocument.uri);
+    if (document) {
+      await dispatchProcessOnOpenDocument({ document });
+    }
+  }
+
+  /**
+   * Handle document change event (delegation mode).
+   * @param params - Document change parameters
+   */
+  public async handleDocumentChange(params: any): Promise<void> {
+    const document = this.documents.get(params.textDocument.uri);
+    if (document) {
+      await dispatchProcessOnChangeDocument({ document });
+    }
+  }
+
+  /**
+   * Handle document save event (delegation mode).
+   * @param params - Document save parameters
+   */
+  public async handleDocumentSave(params: any): Promise<void> {
+    const document = this.documents.get(params.textDocument.uri);
+    if (document) {
+      await dispatchProcessOnSaveDocument({ document });
+    }
+  }
+
+  /**
+   * Handle document close event (delegation mode).
+   * @param params - Document close parameters
+   */
+  public async handleDocumentClose(params: any): Promise<void> {
+    const document = this.documents.get(params.textDocument.uri);
+    if (document) {
+      await dispatchProcessOnCloseDocument({ document });
+    }
+  }
+
+  /**
+   * Handle hover request (delegation mode).
+   * @param params - Hover parameters
+   * @returns Hover information or null
+   */
+  public async onHover(params: HoverParams): Promise<Hover | null> {
+    try {
+      return await dispatchProcessOnHover(params);
+    } catch (error) {
+      this.logger.error(`Error processing hover: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Handle document symbol request (delegation mode).
+   * @param params - Document symbol parameters
+   * @returns Array of document symbols or null
+   */
+  public async onDocumentSymbol(params: DocumentSymbolParams): Promise<any> {
+    try {
+      const result = await dispatchProcessOnDocumentSymbol(params);
+      return result || [];
+    } catch (error) {
+      this.logger.error(`Error processing document symbols: ${error}`);
+      return [];
+    }
+  }
+
+  /**
+   * Handle completion request (delegation mode).
+   * @param params - Completion parameters
+   * @returns Array of completion items
+   */
+  public async onCompletion(
+    params: CompletionParams,
+  ): Promise<CompletionItem[]> {
+    try {
+      return await this.completionProcessor.processCompletion(params);
+    } catch (error) {
+      this.logger.error(`Error processing completion: ${error}`);
+      return [];
+    }
   }
 }

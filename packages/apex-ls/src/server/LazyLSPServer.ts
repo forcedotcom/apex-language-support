@@ -14,27 +14,39 @@ import {
   ServerCapabilities,
 } from 'vscode-languageserver/browser';
 
+import type { Logger } from '@salesforce/apex-lsp-shared';
+import type { LCSAdapter } from './LCSAdapter';
+
 /**
  * Lightweight LSP server that starts immediately with basic capabilities
  * and lazy-loads advanced features on demand.
  *
  * This server architecture solves the debugging issue by separating
  * web worker connection management from desktop debugging capabilities.
+ * It provides basic LSP handlers immediately and loads the full LCSAdapter
+ * in the background after initialization.
  */
 export class LazyLSPServer {
-  private connection: Connection;
-  private logger: any;
-  private lcsAdapter: any = null;
+  private readonly connection: Connection;
+  private readonly logger: Logger;
+  private lcsAdapter: LCSAdapter | null = null;
   private isLCSLoaded = false;
 
-  constructor(connection: Connection, logger: any) {
+  /**
+   * Delay in milliseconds to allow basic initialization to complete before loading heavy dependencies.
+   */
+  private static readonly LCS_PRELOAD_DELAY_MS = 100;
+
+  constructor(connection: Connection, logger: Logger) {
     this.connection = connection;
     this.logger = logger;
     this.setupBasicHandlers();
   }
 
   /**
-   * Set up basic LSP handlers that work without heavy dependencies
+   * Set up basic LSP handlers that work without heavy dependencies.
+   * These handlers provide immediate response to LSP requests while the
+   * full adapter is loading in the background.
    */
   private setupBasicHandlers(): void {
     // Handle initialization with basic capabilities
@@ -191,7 +203,10 @@ export class LazyLSPServer {
   }
 
   /**
-   * Get basic server capabilities
+   * Get basic server capabilities that are available immediately.
+   * These capabilities are advertised to the client before the full
+   * adapter is loaded.
+   * @returns Basic server capabilities
    */
   private getBasicCapabilities(): ServerCapabilities {
     return {
@@ -206,12 +221,16 @@ export class LazyLSPServer {
   }
 
   /**
-   * Preload advanced features in the background
+   * Preload advanced features in the background.
+   * This method is called after the server is initialized to load
+   * the full LCSAdapter without blocking the initial response.
    */
   private async preloadAdvancedFeatures(): Promise<void> {
     try {
       // Small delay to let basic initialization complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) =>
+        setTimeout(resolve, LazyLSPServer.LCS_PRELOAD_DELAY_MS),
+      );
 
       this.logger.info('🔄 Preloading advanced LSP features...');
       await this.loadLCSAdapter();
@@ -221,7 +240,10 @@ export class LazyLSPServer {
   }
 
   /**
-   * Load the LCS adapter with delegation mode
+   * Load the LCS adapter with delegation mode.
+   * In delegation mode, the adapter does not set up its own protocol handlers
+   * because this LazyLSPServer handles the protocol and forwards requests.
+   * @throws Error if adapter fails to load
    */
   private async loadLCSAdapter(): Promise<void> {
     if (this.isLCSLoaded) {
@@ -251,6 +273,8 @@ export class LazyLSPServer {
 
   /**
    * Forward document events to LCS adapter
+   * @param eventType - Type of document event (open, change, save, close)
+   * @param params - Event parameters
    */
   private async forwardDocumentEvent(
     eventType: string,

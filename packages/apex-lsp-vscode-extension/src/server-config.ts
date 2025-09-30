@@ -17,6 +17,7 @@ import {
 import { getDebugConfig } from './configuration';
 import { logServerMessage, getWorkerServerOutputChannel } from './logging';
 import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
+import { determineServerMode } from './utils/server-mode';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -96,29 +97,8 @@ export const createServerOptions = (
   // Get debug options
   const debugOptions = getDebugOptions();
 
-  // Determine server mode with environment variable override
-  let serverMode: 'production' | 'development';
-  if (
-    process.env.APEX_LS_MODE === 'production' ||
-    process.env.APEX_LS_MODE === 'development'
-  ) {
-    serverMode = process.env.APEX_LS_MODE;
-    logServerMessage(
-      `Using server mode from environment variable: ${serverMode}`,
-      'info',
-    );
-  } else {
-    // Default to extension mode
-    serverMode =
-      context.extensionMode === vscode.ExtensionMode.Development ||
-      context.extensionMode === vscode.ExtensionMode.Test
-        ? 'development'
-        : 'production';
-    logServerMessage(
-      `Using server mode from extension mode: ${serverMode}`,
-      'debug',
-    );
-  }
+  // Determine server mode using shared utility
+  const serverMode = determineServerMode(context);
 
   return {
     run: {
