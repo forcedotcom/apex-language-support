@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { startApexWebWorker } from './server/webWorkerServer';
+import { startApexWebWorker } from './environments/worker/WorkerServer';
 
 // Start the server
 startApexWebWorker().catch((_error) => {

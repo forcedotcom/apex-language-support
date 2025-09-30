@@ -12,7 +12,7 @@ import {
   createTransportMessageReader,
   createTransportMessageWriter,
 } from './CoreBridge';
-import { WorkerMessageTransport } from './MessageTransports';
+import { WorkerMessageTransport } from './MessageTransport';
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
 import type { BrowserConfig, Worker } from './Interfaces';
 import { isBrowserMainThread } from '../utils/EnvironmentUtils';

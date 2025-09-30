@@ -1,0 +1,501 @@
+APEX LANGUAGE SERVER ARCHITECTURE CLEANUP PLAN
+===============================================
+
+Date: September 30, 2025
+Author: AI Assistant
+Project: Apex Language Support - LSP Server Architecture Refactoring
+
+EXECUTIVE SUMMARY
+================
+
+This document outlines a comprehensive plan to clean up and improve the architecture 
+of the Apex Language Server (LSP) to make it more traceable, understandable, and 
+maintainable for other programmers. The current architecture has grown complex with 
+multiple overlapping patterns and inconsistent naming conventions that hinder 
+developer productivity and code maintainability.
+
+CURRENT ARCHITECTURE ANALYSIS
+=============================
+
+Strengths:
+----------
+1. Split Architecture: Properly separates browser, web worker, and Node.js environments
+2. Factory Pattern: Uses factory patterns for connection creation across environments
+3. Modular Extension: VSCode extension has clear separation of concerns
+4. Environment Detection: Robust environment detection and factory selection
+
+Key Issues Identified:
+---------------------
+
+1. COMPLEX CONNECTION FACTORY HIERARCHY
+   Problem: Multiple overlapping factory classes create confusion
+   - UnifiedConnectionFactory
+   - BrowserConnectionFactory  
+   - WorkerConnectionFactory
+   - NodeConnectionFactory
+   Impact: Developers must understand multiple factory patterns for similar functionality
+
+2. SCATTERED ENTRY POINTS
+   Problem: Multiple server entry points without clear naming conventions
+   - server.ts
+   - server.node.ts
+   - index.ts
+   - index.browser.ts
+   Impact: Unclear which entry point serves which purpose
+
+3. MIXED ABSTRACTION LEVELS
+   Problem: High-level classes mix environment detection with business logic
+   Example: ApexLanguageServer class handles both environment validation and service initialization
+   Impact: Violates single responsibility principle
+
+4. COMMUNICATION LAYER COMPLEXITY
+   Problem: Multiple bridge classes with overlapping responsibilities
+   - BrowserMessageBridge
+   - WorkerMessageBridge
+   - NodeBridge
+   Impact: Difficult to understand message flow and debug communication issues
+
+5. INCONSISTENT NAMING CONVENTIONS
+   Problem: Mixed naming patterns across the codebase
+   Examples:
+   - PlatformBridges.browser.ts vs BrowserConnectionFactory.ts
+   - server.ts vs server.node.ts vs nodeServer.ts
+   Impact: Inconsistent mental model for developers
+
+PROPOSED ARCHITECTURAL IMPROVEMENTS
+===================================
+
+1. SIMPLIFY CONNECTION FACTORY ARCHITECTURE
+   ==========================================
+
+   Current State:
+   UnifiedConnectionFactory
+   ├── BrowserConnectionFactory
+   ├── WorkerConnectionFactory  
+   └── NodeConnectionFactory
+
+   Proposed Improvement:
+   // Single, clear factory with environment-specific methods
+   export class LSPConnectionFactory {
+     static async createConnection(config: ConnectionConfig): Promise<MessageConnection> {
+       const environment = detectEnvironment();
+       
+       switch (environment) {
+         case 'browser': return this.createBrowserConnection(config);
+         case 'webworker': return this.createWorkerConnection(config);
+         case 'node': return this.createNodeConnection(config);
+       }
+     }
+     
+     private static createBrowserConnection(config: BrowserConnectionConfig) { /* ... */ }
+     private static createWorkerConnection(config: WorkerConnectionConfig) { /* ... */ }
+     private static createNodeConnection(config: NodeConnectionConfig) { /* ... */ }
+   }
+
+2. REORGANIZE DIRECTORY STRUCTURE
+   ===============================
+
+   Current Structure:
+   src/
+   ├── communication/     # 9 files, mixed responsibilities
+   ├── server/           # 10 files, unclear relationships
+   ├── storage/          # 3 files
+   ├── utils/            # 4 files
+   └── various entry points
+
+   Proposed Structure:
+   src/
+   ├── core/
+   │   ├── LSPServer.ts                    # Main server class
+   │   └── ServerConfig.ts                 # Configuration management
+   ├── environments/
+   │   ├── browser/
+   │   │   ├── BrowserServer.ts           # Browser-specific server
+   │   │   └── BrowserConnection.ts       # Browser connection logic
+   │   ├── worker/
+   │   │   ├── WorkerServer.ts            # Worker-specific server
+   │   │   └── WorkerConnection.ts        # Worker connection logic
+   │   └── node/
+   │       ├── NodeServer.ts              # Node-specific server
+   │       └── NodeConnection.ts          # Node connection logic
+   ├── communication/
+   │   ├── MessageTransport.ts            # Transport interface
+   │   ├── ConnectionFactory.ts           # Unified factory
+   │   └── MessageBridge.ts               # Message bridging logic
+   ├── storage/
+   │   ├── StorageInterface.ts            # Storage abstraction
+   │   ├── BrowserStorage.ts              # IndexedDB implementation
+   │   └── MemoryStorage.ts               # In-memory implementation
+   └── entry-points/
+       ├── browser.ts                     # Browser entry point
+       ├── worker.ts                      # Worker entry point
+       └── node.ts                        # Node entry point
+
+3. INTRODUCE CLEAR LAYERED ARCHITECTURE
+   ====================================
+
+   Layer 1: Core Abstractions
+   interface LSPServer {
+     initialize(): Promise<void>;
+     dispose(): Promise<void>;
+   }
+
+   interface ConnectionProvider {
+     createConnection(): Promise<MessageConnection>;
+   }
+
+   interface StorageProvider {
+     createStorage(): Promise<IStorage>;
+   }
+
+   Layer 2: Environment-Specific Implementations
+   class BrowserLSPServer implements LSPServer {
+     constructor(
+       private connectionProvider: ConnectionProvider,
+       private storageProvider: StorageProvider
+     ) {}
+   }
+
+   class WorkerLSPServer implements LSPServer { /* ... */ }
+   class NodeLSPServer implements LSPServer { /* ... */ }
+
+   Layer 3: Factory for Environment Detection
+   class LSPServerFactory {
+     static async createServer(): Promise<LSPServer> {
+       const environment = detectEnvironment();
+       const connectionProvider = this.createConnectionProvider(environment);
+       const storageProvider = this.createStorageProvider(environment);
+       
+       switch (environment) {
+         case 'browser': return new BrowserLSPServer(connectionProvider, storageProvider);
+         case 'webworker': return new WorkerLSPServer(connectionProvider, storageProvider);
+         case 'node': return new NodeLSPServer(connectionProvider, storageProvider);
+       }
+     }
+   }
+
+4. STANDARDIZE NAMING CONVENTIONS
+   ===============================
+
+   Current Inconsistencies:
+   - PlatformBridges.browser.ts vs BrowserConnectionFactory.ts
+   - server.ts vs server.node.ts vs nodeServer.ts
+   - Mixed use of Apex, LSP, and generic names
+
+   Proposed Conventions:
+   Naming Pattern: [Domain][Component][Environment?].[Type].ts
+
+   Examples:
+   - LSPServer.browser.ts
+   - LSPConnection.worker.ts  
+   - MessageBridge.node.ts
+   - StorageProvider.browser.ts
+
+5. IMPROVE EXTENSION ARCHITECTURE
+   ===============================
+
+   Current Extension Issues:
+   - Complex client creation logic in language-server.ts
+   - Mixed environment detection and business logic
+   - Duplicate configuration handling
+
+   Proposed Extension Structure:
+   // Simplified extension entry point
+   export async function activate(context: vscode.ExtensionContext) {
+     const extensionManager = new ApexExtensionManager(context);
+     await extensionManager.initialize();
+   }
+
+   class ApexExtensionManager {
+     private serverManager: LSPServerManager;
+     private configManager: ConfigurationManager;
+     private statusManager: StatusBarManager;
+     
+     async initialize() {
+       await this.configManager.initialize();
+       await this.statusManager.initialize();
+       await this.serverManager.start();
+     }
+   }
+
+   class LSPServerManager {
+     async start() {
+       const environment = this.detectEnvironment();
+       const serverFactory = new LSPServerFactory(environment);
+       this.server = await serverFactory.createServer();
+       await this.server.initialize();
+     }
+   }
+
+IMPLEMENTATION BENEFITS
+=======================
+
+Improved Traceability:
+---------------------
+1. Clear Entry Points: Each environment has a single, obvious entry point
+2. Layered Architecture: Easy to understand dependencies and data flow
+3. Consistent Naming: Predictable file locations and class relationships
+4. Separation of Concerns: Each class has a single, clear responsibility
+
+Enhanced Maintainability:
+------------------------
+1. Reduced Complexity: Fewer factory classes and clearer inheritance hierarchies
+2. Better Testing: Each layer can be tested independently
+3. Easier Debugging: Clear boundaries between environment-specific and shared code
+4. Simplified Onboarding: New developers can understand the architecture more quickly
+
+Better Extensibility:
+--------------------
+1. Plugin Architecture: Easy to add new environments or features
+2. Interface-Based Design: Easy to swap implementations
+3. Configuration-Driven: Behavior can be modified without code changes
+
+MIGRATION STRATEGY
+==================
+
+Phase 1: Directory Reorganization and Naming Standardization
+-----------------------------------------------------------
+Tasks:
+- Create new directory structure under src/
+- Move existing files to appropriate new locations
+- Standardize file naming conventions
+- Update import statements throughout codebase
+- Update build configuration files (tsconfig.json, tsup.config.ts)
+
+Deliverables:
+- Reorganized source code structure
+- Updated build scripts
+- Migration documentation
+
+Phase 2: Factory Class Consolidation
+------------------------------------
+Tasks:
+- Create unified LSPConnectionFactory
+- Deprecate existing factory classes
+- Update all factory usage throughout codebase
+- Add comprehensive unit tests for new factory
+
+Deliverables:
+- Consolidated connection factory
+- Updated factory usage
+- Comprehensive test coverage
+
+Phase 3: Layered Architecture Implementation
+-------------------------------------------
+Tasks:
+- Define core interfaces (LSPServer, ConnectionProvider, StorageProvider)
+- Implement environment-specific server classes
+- Create LSPServerFactory with environment detection
+- Refactor existing ApexLanguageServer to use new architecture
+- Update all server instantiation code
+
+Deliverables:
+- Core interface definitions
+- Environment-specific implementations
+- Updated server factory
+- Refactored server instantiation
+
+Phase 4: Extension Integration Simplification
+---------------------------------------------
+Tasks:
+- Create ApexExtensionManager class
+- Implement LSPServerManager for server lifecycle
+- Simplify extension activation logic
+- Update configuration management
+- Refactor status bar and command handling
+
+Deliverables:
+- Simplified extension architecture
+- Updated extension activation
+- Improved configuration management
+
+RISK ASSESSMENT AND MITIGATION
+==============================
+
+High Risk Items:
+---------------
+1. Breaking Changes to Public APIs
+   Risk: External consumers may depend on current factory patterns
+   Mitigation: Maintain backward compatibility wrappers during transition period
+
+2. Build System Complexity
+   Risk: Directory reorganization may break build processes
+   Mitigation: Update build configurations incrementally, test thoroughly
+
+3. Testing Coverage Gaps
+   Risk: Refactoring may introduce bugs in complex communication logic
+   Mitigation: Maintain comprehensive test coverage, add integration tests
+
+Medium Risk Items:
+-----------------
+ Developer Confusion During Transition
+   Risk: Mixed old/new patterns during migration
+   Mitigation: Clear migration documentation, team communication
+
+
+SUCCESS CRITERIA
+================
+
+Technical Metrics:
+-----------------
+1. Reduced cyclomatic complexity in factory classes (target: <10 per method)
+2. Improved test coverage (target: >90% for new architecture components)
+3. Reduced file count in communication/ directory (target: <5 files)
+4. Consistent naming conventions (target: 100% compliance with new standards)
+
+Maintainability Metrics:
+-----------------------
+1. Reduced coupling between environment-specific code
+2. Improved separation of concerns (single responsibility per class)
+3. Enhanced extensibility (ability to add new environments with minimal changes)
+
+CONCLUSION
+==========
+
+This architectural cleanup plan addresses the key issues in the current Apex Language 
+Server implementation while maintaining all existing functionality. The proposed changes 
+will significantly improve code traceability, maintainability, and developer experience.
+
+The phased approach ensures minimal disruption to ongoing development while providing 
+clear milestones and deliverables. The risk mitigation strategies address the main 
+concerns around breaking changes and build system complexity.
+
+Upon completion, the Apex Language Server will have a clean, understandable architecture 
+that enables faster development, easier debugging, and better extensibility for future 
+enhancements.
+
+APPENDIX A: CURRENT FILE INVENTORY
+==================================
+
+apex-ls package structure:
+src/
+├── client/
+│   └── UniversalExtensionClient.ts
+├── communication/
+│   ├── BrowserClient.ts
+│   ├── CoreBridge.ts
+│   ├── Interfaces.ts
+│   ├── MessageTransports.ts
+│   ├── NodeBridge.ts
+│   ├── NodeClient.ts
+│   ├── PlatformBridges.browser.ts
+│   ├── PlatformBridges.ts
+│   └── PlatformBridges.worker.ts
+├── server/
+│   ├── ApexLanguageServer.ts
+│   ├── BrowserConnectionFactory.ts
+│   ├── ConnectionFactoryInterface.ts
+│   ├── LazyLSPServer.ts
+│   ├── LCSAdapter.ts
+│   ├── NodeConnectionFactory.ts
+│   ├── nodeServer.ts
+│   ├── UnifiedConnectionFactory.ts
+│   ├── webWorkerServer.ts
+│   └── WorkerConnectionFactory.ts
+├── storage/
+│   ├── IndexedDBStorage.ts
+│   ├── StorageFactory.ts
+│   └── StorageImplementations.ts
+├── utils/
+│   ├── BrowserLogNotificationHandler.ts
+│   ├── CorrelatedMessage.ts
+│   ├── EnvironmentUtils.ts
+│   └── WorkerLogNotificationHandler.ts
+├── index.browser.ts
+├── index.ts
+├── server.node.ts
+└── server.ts
+
+apex-lsp-vscode-extension package structure:
+src/
+├── commands.ts
+├── configuration.ts
+├── constants.ts
+├── error-handling.ts
+├── extension.ts
+├── index.ts
+├── language-server.ts
+├── logging/
+│   └── VSCodeLogNotificationHandler.ts
+├── logging.ts
+├── polyfills.ts
+├── server-config.ts
+├── status-bar.ts
+├── types.ts
+└── utils.js
+
+APPENDIX B: DEPENDENCY ANALYSIS
+===============================
+
+Package Dependencies:
+--------------------
+apex-ls depends on:
+- @salesforce/apex-lsp-compliant-services
+- @salesforce/apex-lsp-custom-services  
+- @salesforce/apex-lsp-parser-ast
+- @salesforce/apex-lsp-shared
+- vscode-languageserver
+- vscode-languageserver-protocol
+- vscode-jsonrpc
+
+apex-lsp-vscode-extension depends on:
+- @salesforce/apex-ls
+- vscode-languageclient
+- vscode-languageserver-textdocument
+
+Circular Dependencies:
+---------------------
+No circular dependencies detected at package level.
+Potential circular dependencies within apex-ls communication layer require investigation.
+
+External Dependencies:
+---------------------
+Heavy dependencies externalized in worker builds:
+- @apexdevtools/apex-parser (~2MB)
+- antlr4ts (grammar processing)
+- @salesforce/apex-lsp-parser-ast (AST processing)
+
+APPENDIX C: TESTING STRATEGY
+============================
+
+Unit Testing:
+-------------
+- Test each layer independently
+- Mock dependencies at layer boundaries
+- Focus on factory pattern correctness
+- Validate environment detection logic
+
+Integration Testing:
+-------------------
+- Test complete message flow between client and server
+- Validate storage persistence and retrieval
+- Test server initialization across all environments
+
+End-to-End Testing:
+------------------
+- Test complete extension activation flow
+- Validate LSP features work in all environments
+- Performance testing for large codebases
+
+APPENDIX D: PERFORMANCE CONSIDERATIONS
+=====================================
+
+Current Performance Characteristics:
+-----------------------------------
+- Cold Build: ~1.4s
+- Incremental Build: ~0.9s
+- Parallel Compilation: Browser & worker compile simultaneously
+
+Expected Impact:
+---------------
+- Directory reorganization: Minimal impact on build time
+- Factory consolidation: Slight improvement in startup time
+- Layered architecture: Minimal runtime overhead
+- Documentation: No performance impact
+
+Monitoring Strategy:
+-------------------
+- Benchmark build times before and after each phase
+- Monitor extension activation time
+- Track memory usage in worker environments
+- Measure LSP response times for key operations

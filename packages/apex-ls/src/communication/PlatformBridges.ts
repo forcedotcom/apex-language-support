@@ -15,7 +15,7 @@ import {
 import {
   WorkerMessageTransport,
   SelfMessageTransport,
-} from './MessageTransports';
+} from './MessageTransport';
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
 import type { BrowserConfig, WorkerConfig, Worker } from './Interfaces';
 import {

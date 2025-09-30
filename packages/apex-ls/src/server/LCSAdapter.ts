@@ -21,7 +21,7 @@ import {
   DocumentDiagnosticParams,
   DocumentDiagnosticReport,
   DocumentDiagnosticReportKind,
-} from 'vscode-languageserver/browser';
+} from 'vscode-languageserver';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -163,6 +163,28 @@ export class LCSAdapter {
     this.connection.onDidChangeConfiguration(
       this.handleConfigurationChange.bind(this),
     );
+
+    // Set up LSP request handlers (only when not in delegation mode)
+    if (!this.delegationMode) {
+      this.setupLSPRequestHandlers();
+    }
+  }
+
+  /**
+   * Set up LSP request handlers
+   */
+  private setupLSPRequestHandlers(): void {
+    // Document symbol handler
+    this.connection.onDocumentSymbol(this.onDocumentSymbol.bind(this));
+
+    // Hover handler
+    this.connection.onHover(this.onHover.bind(this));
+
+    // Completion handler
+    this.connection.onCompletion(this.onCompletion.bind(this));
+
+    // Definition handler
+    this.connection.onDefinition(this.onDefinition.bind(this));
   }
 
   /**

@@ -12,7 +12,7 @@ import {
   createTransportMessageReader,
   createTransportMessageWriter,
 } from './CoreBridge';
-import { SelfMessageTransport } from './MessageTransports';
+import { SelfMessageTransport } from './MessageTransport';
 import type { MessageTransport } from '@salesforce/apex-lsp-shared';
 import type { WorkerConfig } from './Interfaces';
 import { isWorkerThread } from '../utils/EnvironmentUtils';

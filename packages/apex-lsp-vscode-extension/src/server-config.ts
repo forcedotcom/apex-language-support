@@ -81,10 +81,10 @@ export const createServerOptions = (
     context.extensionMode === vscode.ExtensionMode.Development;
 
   // The server is bundled into different files based on environment.
-  // In development mode, it's in the apex-ls dist directory
+  // In development mode, use compiled output from apex-ls with source maps
   // In production mode, it's copied to the extension dist directory
   const serverModule = isDevelopment
-    ? context.asAbsolutePath('../apex-ls/dist/server.node.js')
+    ? context.asAbsolutePath('../apex-ls/out/node/server.node.js')
     : context.asAbsolutePath('dist/server.node.js');
 
   logServerMessage(`Server module path: ${serverModule}`, 'debug');
@@ -126,7 +126,7 @@ export const createServerOptions = (
       transport: TransportKind.ipc,
       options: {
         env: {
-          NODE_OPTIONS: '--enable-source-maps',
+          NODE_OPTIONS: '--enable-source-maps --stack-trace-limit=100',
           APEX_LS_MODE: serverMode,
         },
       },

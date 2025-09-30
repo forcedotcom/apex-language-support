@@ -9,7 +9,7 @@
 import {
   WorkerMessageTransport,
   SelfMessageTransport,
-} from '../../src/communication/MessageTransports';
+} from '../../src/communication/MessageTransport';
 
 // Mock Worker
 class MockWorker {
@@ -26,7 +26,6 @@ class MockWorkerScope {
   removeEventListener = jest.fn();
 }
 
-
 describe('MessageTransports', () => {
   describe('WorkerMessageTransport', () => {
     let mockWorker: MockWorker;
@@ -41,7 +40,7 @@ describe('MessageTransports', () => {
       it('should send messages to worker', async () => {
         const testMessage = { jsonrpc: '2.0', method: 'test' };
         await transport.send(testMessage);
-        
+
         expect(mockWorker.postMessage).toHaveBeenCalledWith(testMessage);
       });
 
@@ -51,7 +50,9 @@ describe('MessageTransports', () => {
         });
 
         const testMessage = { jsonrpc: '2.0', method: 'test' };
-        await expect(transport.send(testMessage)).rejects.toThrow('PostMessage failed');
+        await expect(transport.send(testMessage)).rejects.toThrow(
+          'PostMessage failed',
+        );
       });
     });
 
@@ -59,10 +60,10 @@ describe('MessageTransports', () => {
       it('should set up message listeners', () => {
         const mockCallback = jest.fn();
         const disposable = transport.listen(mockCallback);
-        
+
         expect(mockWorker.addEventListener).toHaveBeenCalledWith(
           'message',
-          expect.any(Function)
+          expect.any(Function),
         );
         expect(disposable.dispose).toBeDefined();
       });
@@ -70,11 +71,12 @@ describe('MessageTransports', () => {
       it('should handle incoming messages', () => {
         const mockCallback = jest.fn();
         transport.listen(mockCallback);
-        
+
         // Get the message handler
-        const messageHandler = mockWorker.addEventListener.mock.calls
-          .find(([event]) => event === 'message')?.[1];
-        
+        const messageHandler = mockWorker.addEventListener.mock.calls.find(
+          ([event]) => event === 'message',
+        )?.[1];
+
         if (messageHandler) {
           const testMessage = { data: { jsonrpc: '2.0', method: 'test' } };
           messageHandler(testMessage);
@@ -85,12 +87,12 @@ describe('MessageTransports', () => {
       it('should clean up listeners when disposed', () => {
         const mockCallback = jest.fn();
         const disposable = transport.listen(mockCallback);
-        
+
         disposable.dispose();
-        
+
         expect(mockWorker.removeEventListener).toHaveBeenCalledWith(
           'message',
-          expect.any(Function)
+          expect.any(Function),
         );
       });
     });
@@ -99,10 +101,10 @@ describe('MessageTransports', () => {
       it('should set up error listeners', () => {
         const mockCallback = jest.fn();
         const disposable = transport.onError(mockCallback);
-        
+
         expect(mockWorker.addEventListener).toHaveBeenCalledWith(
           'error',
-          expect.any(Function)
+          expect.any(Function),
         );
         expect(disposable.dispose).toBeDefined();
       });
@@ -110,10 +112,11 @@ describe('MessageTransports', () => {
       it('should handle worker errors', () => {
         const mockCallback = jest.fn();
         transport.onError(mockCallback);
-        
-        const errorHandler = mockWorker.addEventListener.mock.calls
-          .find(([event]) => event === 'error')?.[1];
-        
+
+        const errorHandler = mockWorker.addEventListener.mock.calls.find(
+          ([event]) => event === 'error',
+        )?.[1];
+
         if (errorHandler) {
           const errorEvent = { message: 'Worker error' };
           errorHandler(errorEvent);
@@ -136,7 +139,7 @@ describe('MessageTransports', () => {
       it('should send messages to self', async () => {
         const testMessage = { jsonrpc: '2.0', method: 'test' };
         await transport.send(testMessage);
-        
+
         expect(mockSelf.postMessage).toHaveBeenCalledWith(testMessage);
       });
 
@@ -144,13 +147,13 @@ describe('MessageTransports', () => {
         // Mock global self
         const globalSelf = new MockWorkerScope();
         (global as any).self = globalSelf;
-        
+
         const globalTransport = new SelfMessageTransport();
         const testMessage = { jsonrpc: '2.0', method: 'test' };
         await globalTransport.send(testMessage);
-        
+
         expect(globalSelf.postMessage).toHaveBeenCalledWith(testMessage);
-        
+
         // Cleanup
         delete (global as any).self;
       });
@@ -160,10 +163,10 @@ describe('MessageTransports', () => {
       it('should set up message listeners on self', () => {
         const mockCallback = jest.fn();
         const disposable = transport.listen(mockCallback);
-        
+
         expect(mockSelf.addEventListener).toHaveBeenCalledWith(
           'message',
-          expect.any(Function)
+          expect.any(Function),
         );
         expect(disposable.dispose).toBeDefined();
       });
@@ -171,10 +174,11 @@ describe('MessageTransports', () => {
       it('should handle messages from main thread', () => {
         const mockCallback = jest.fn();
         transport.listen(mockCallback);
-        
-        const messageHandler = mockSelf.addEventListener.mock.calls
-          .find(([event]) => event === 'message')?.[1];
-        
+
+        const messageHandler = mockSelf.addEventListener.mock.calls.find(
+          ([event]) => event === 'message',
+        )?.[1];
+
         if (messageHandler) {
           const testMessage = { data: { jsonrpc: '2.0', method: 'test' } };
           messageHandler(testMessage);
@@ -183,5 +187,4 @@ describe('MessageTransports', () => {
       });
     });
   });
-
 });

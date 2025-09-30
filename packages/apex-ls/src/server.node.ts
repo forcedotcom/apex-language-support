@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { startApexNodeServer } from './server/nodeServer';
+import { startApexNodeServer } from './environments/node/NodeServer';
 
 // Start the Node.js server
 startApexNodeServer().catch((error) => {
