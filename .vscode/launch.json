@@ -8,13 +8,10 @@
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}/packages/apex-lsp-vscode-extension"
       ],
-      "outFiles": [
-        "${workspaceFolder}/**/dist/**/*.js",
-        "${workspaceFolder}/**/out/**/*.js"
-      ],
       "sourceMaps": true,
       "smartStep": true,
       "trace": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
       "resolveSourceMapLocations": [
         "${workspaceFolder}/**",
         "!**/node_modules/**"
@@ -25,8 +22,19 @@
         "APEX_LS_MODE": "development"
       },
       "sourceMapPathOverrides": {
+        // For lsp-compliant-services (always individual files)
         "../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
         "../../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
+        // For apex-lsp-shared
+        "../../apex-lsp-shared/src/*": "${workspaceFolder}/packages/apex-lsp-shared/src/*",
+        // For apex-ls individual files (CommonJS build in out/node/)
+        "../server.node.ts": "${workspaceFolder}/packages/apex-ls/src/server.node.ts",
+        "../server/nodeServer.ts": "${workspaceFolder}/packages/apex-ls/src/server/nodeServer.ts",
+        "../server/LCSAdapter.ts": "${workspaceFolder}/packages/apex-ls/src/server/LCSAdapter.ts",
+        "../server/*": "${workspaceFolder}/packages/apex-ls/src/server/*",
+        "../*": "${workspaceFolder}/packages/apex-ls/src/*",
+        // For apex-ls bundled files (dist/ directory)
+        "../src/server/LCSAdapter.ts": "${workspaceFolder}/packages/apex-ls/src/server/LCSAdapter.ts",
         "../src/server/*": "${workspaceFolder}/packages/apex-ls/src/server/*",
         "../src/*": "${workspaceFolder}/packages/apex-ls/src/*",
         "../../src/*": "${workspaceFolder}/packages/apex-ls/src/*"
@@ -112,6 +120,7 @@
       ],
       "sourceMaps": true,
       "smartStep": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
       "resolveSourceMapLocations": [
         "${workspaceFolder}/**",
         "!**/node_modules/**"
@@ -123,6 +132,7 @@
       },
       "sourceMapPathOverrides": {
         "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*",
+        "../src/server/LCSAdapter.ts": "${workspaceFolder}/packages/apex-ls/src/server/LCSAdapter.ts",
         "../../src/*": "${workspaceFolder}/packages/apex-ls/src/*",
         "../../apex-lsp-shared/src/*": "${workspaceFolder}/packages/apex-lsp-shared/src/*",
         "../../apex-parser-ast/src/*": "${workspaceFolder}/packages/apex-parser-ast/src/*",

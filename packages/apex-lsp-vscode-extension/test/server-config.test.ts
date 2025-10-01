@@ -92,11 +92,42 @@ describe('Server Config Module', () => {
     it('should create server options with correct module path', () => {
       const serverOptions = createServerOptions(mockContext) as any;
 
-      expect(mockContext.asAbsolutePath).toHaveBeenCalledWith('../apex-ls/dist/server.node.js');
-      expect(serverOptions.run.module).toBe('/mock/path/../apex-ls/dist/server.node.js');
+      expect(mockContext.asAbsolutePath).toHaveBeenCalledWith(
+        '../apex-ls/out/node/server.node.js',
+      );
+      expect(serverOptions.run.module).toBe(
+        '/mock/path/../apex-ls/out/node/server.node.js',
+      );
       expect(serverOptions.run.transport).toBe('ipc');
-      expect(serverOptions.debug.module).toBe('/mock/path/../apex-ls/dist/server.node.js');
+      expect(serverOptions.debug.module).toBe(
+        '/mock/path/../apex-ls/out/node/server.node.js',
+      );
       expect(serverOptions.debug.transport).toBe('ipc');
+    });
+
+    it('should use bundled files when APEX_LS_DEBUG_USE_INDIVIDUAL_FILES is false', () => {
+      // Save original environment
+      const originalEnv = process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES;
+
+      try {
+        // Set environment variable to disable individual files
+        process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES = 'false';
+
+        const serverOptions = createServerOptions(mockContext) as any;
+
+        expect(mockContext.asAbsolutePath).toHaveBeenCalledWith(
+          '../apex-ls/dist/server.node.js',
+        );
+        expect(serverOptions.run.module).toBe(
+          '/mock/path/../apex-ls/dist/server.node.js',
+        );
+        expect(serverOptions.debug.module).toBe(
+          '/mock/path/../apex-ls/dist/server.node.js',
+        );
+      } finally {
+        // Restore original environment
+        process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES = originalEnv;
+      }
     });
 
     it('should create server options for production mode', () => {
@@ -107,7 +138,9 @@ describe('Server Config Module', () => {
 
       const serverOptions = createServerOptions(productionContext) as any;
 
-      expect(productionContext.asAbsolutePath).toHaveBeenCalledWith('dist/server.node.js');
+      expect(productionContext.asAbsolutePath).toHaveBeenCalledWith(
+        'dist/server.node.js',
+      );
       expect(serverOptions.run.module).toBe('/mock/path/dist/server.node.js');
       expect(serverOptions.debug.module).toBe('/mock/path/dist/server.node.js');
     });

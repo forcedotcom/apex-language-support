@@ -8,12 +8,13 @@
     "types": ["node", "node/net", "node/stream", "node/buffer", "node/process"],
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "inlineSources": true
   },
   "include": ["src/**/*"],
   "exclude": [
     "node_modules",
-    "out", 
+    "out",
     "dist",
     "tsup.config.ts",
     "test/**/*",

@@ -84,9 +84,40 @@ export const createServerOptions = (
   // The server is bundled into different files based on environment.
   // In development mode, it's in the apex-ls dist directory
   // In production mode, it's copied to the extension dist directory
-  const serverModule = isDevelopment
-    ? context.asAbsolutePath('../apex-ls/dist/server.node.js')
-    : context.asAbsolutePath('dist/server.node.js');
+  // For debugging with individual files, use the compiled output instead of bundled
+  // In development mode, default to individual files for better debugging experience
+  // unless explicitly disabled
+  const useIndividualFiles =
+    isDevelopment && process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES !== 'false';
+
+  logServerMessage(
+    `🔍 [DEBUG] APEX_LS_DEBUG_USE_INDIVIDUAL_FILES = "${process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES}"`,
+    'info',
+  );
+  logServerMessage(`🔍 [DEBUG] isDevelopment = ${isDevelopment}`, 'info');
+  logServerMessage(
+    `🔍 [DEBUG] useIndividualFiles = ${useIndividualFiles}`,
+    'info',
+  );
+
+  let serverModule: string;
+  if (useIndividualFiles && isDevelopment) {
+    // Use individual compiled files for better debugging (CommonJS version)
+    serverModule = context.asAbsolutePath('../apex-ls/out/node/server.node.js');
+    logServerMessage(
+      `🔧 Using individual files for debugging: ${serverModule}`,
+      'info',
+    );
+  } else if (isDevelopment) {
+    serverModule = context.asAbsolutePath('../apex-ls/dist/server.node.js');
+    logServerMessage(
+      `📦 Using bundled files for development: ${serverModule}`,
+      'info',
+    );
+  } else {
+    serverModule = context.asAbsolutePath('dist/server.node.js');
+    logServerMessage(`🚀 Using production files: ${serverModule}`, 'info');
+  }
 
   logServerMessage(`Server module path: ${serverModule}`, 'debug');
   logServerMessage(
@@ -94,11 +125,11 @@ export const createServerOptions = (
     'debug',
   );
 
-  // Get debug options
-  const debugOptions = getDebugOptions();
-
   // Determine server mode using shared utility
   const serverMode = determineServerMode(context);
+
+  // Get debug options for the return value
+  const debugOptions = getDebugOptions();
 
   return {
     run: {
