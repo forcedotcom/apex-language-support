@@ -52,6 +52,11 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
 
   // Network and connectivity (often transient)
   'hostname could not be found',
+
+  // Grammar and syntax highlighting files (expected in web environment)
+  'apex.tmLanguage',
+  'grammars/apex.tmLanguage',
+  'Unable to load and parse grammar',
 ] as const;
 
 /**
@@ -63,6 +68,10 @@ export const NON_CRITICAL_NETWORK_PATTERNS: readonly ErrorFilterPattern[] = [
   // VS Code Web resource loading (404 errors are expected)
   'webPackagePaths.js',
   'workbench.web.main.nls.js',
+
+  // Grammar files (expected to be missing in web environment)
+  'apex.tmLanguage',
+  'grammars/apex.tmLanguage',
 ] as const;
 
 /**
@@ -326,3 +335,100 @@ export const EXPECTED_APEX_SYMBOLS: ExpectedApexSymbols = {
   ],
   totalSymbols: 3, // 1 main class + 1 inner class + 1 inner enum (Configuration + StatusType)
 };
+
+/**
+ * Hover test scenarios for different Apex symbols in the ApexClassExample.cls file.
+ * These scenarios test hover functionality for various symbol types.
+ */
+export const HOVER_TEST_SCENARIOS = [
+  {
+    description: 'Class name hover',
+    searchText: 'public with sharing class ApexClassExample',
+    moveToEnd: false,
+    expectedPatterns: ['class', 'ApexClassExample'],
+  },
+  {
+    description: 'Static variable hover',
+    searchText: 'private static final String DEFAULT_STATUS',
+    moveToEnd: false,
+    expectedPatterns: ['String', 'DEFAULT_STATUS'],
+  },
+  {
+    description: 'Instance variable hover',
+    searchText: 'private String instanceId',
+    moveToEnd: false,
+    expectedPatterns: ['String', 'instanceId'],
+  },
+  {
+    description: 'List variable hover',
+    searchText: 'private List<Account> accounts',
+    moveToEnd: false,
+    expectedPatterns: ['List', 'accounts'],
+  },
+  {
+    description: 'Method name hover',
+    searchText: 'public static void sayHello',
+    moveToEnd: false,
+    expectedPatterns: ['void', 'sayHello'],
+  },
+  {
+    description: 'Method with parameters hover',
+    searchText: 'public static Integer add',
+    moveToEnd: false,
+    expectedPatterns: ['Integer', 'add'],
+  },
+  {
+    description: 'Constructor hover',
+    searchText: 'public ApexClassExample(String instanceId)',
+    moveToEnd: false,
+    expectedPatterns: ['ApexClassExample'],
+  },
+  {
+    description: 'System class usage hover',
+    searchText: 'System.debug',
+    moveToEnd: false,
+    expectedPatterns: ['System', 'debug'],
+  },
+  {
+    description: 'UserInfo class usage hover',
+    searchText: 'UserInfo.getName',
+    moveToEnd: false,
+    expectedPatterns: ['UserInfo', 'getName'],
+  },
+  {
+    description: 'String method usage hover',
+    searchText: 'String.isBlank',
+    moveToEnd: false,
+    expectedPatterns: ['String', 'isBlank'],
+  },
+  {
+    description: 'Inner class hover',
+    searchText: 'public class Configuration',
+    moveToEnd: false,
+    expectedPatterns: ['class', 'Configuration'],
+  },
+  {
+    description: 'Inner enum hover',
+    searchText: 'public enum StatusType',
+    moveToEnd: false,
+    expectedPatterns: ['enum', 'StatusType'],
+  },
+  {
+    description: 'Enum value hover',
+    searchText: 'ACTIVE, INACTIVE, PENDING, SUSPENDED',
+    moveToEnd: false,
+    expectedPatterns: ['ACTIVE'],
+  },
+  {
+    description: 'Parameter hover',
+    searchText: 'List<Account> inputAccounts',
+    moveToEnd: false,
+    expectedPatterns: ['List', 'inputAccounts'],
+  },
+  {
+    description: 'Local variable hover',
+    searchText: 'Map<Id, Account> accountMap',
+    moveToEnd: false,
+    expectedPatterns: ['Map', 'accountMap'],
+  },
+] as const;

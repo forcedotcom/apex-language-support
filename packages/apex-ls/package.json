@@ -50,7 +50,7 @@
     "test": "jest",
     "test:web": "jest --config jest.config.browser.cjs",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
+    "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo || rm -rf out dist .turbo coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",

@@ -16,6 +16,8 @@ import {
   verifyApexFileContentLoaded,
   verifyVSCodeStability,
   positionCursorInConstructor,
+  testHoverScenario,
+  type HoverTestScenario,
 } from '../utils/test-helpers';
 
 import {
@@ -24,7 +26,11 @@ import {
   captureOutlineViewScreenshot,
 } from '../utils/outline-helpers';
 
-import { SELECTORS, EXPECTED_APEX_SYMBOLS } from '../utils/constants';
+import {
+  SELECTORS,
+  EXPECTED_APEX_SYMBOLS,
+  HOVER_TEST_SCENARIOS,
+} from '../utils/constants';
 
 /**
  * Comprehensive E2E tests for Apex Language Server Extension with LCS Integration.
@@ -364,6 +370,184 @@ test.describe('Apex Extension with LCS Integration', () => {
     console.log('🎉 Advanced LCS Language Services test PASSED');
     console.log(
       '   ✨ This test validates core LCS language service functionality without fallbacks',
+    );
+  });
+
+  /**
+   * Comprehensive hover functionality test with LCS integration.
+   *
+   * This test validates that hover functionality works correctly for various
+   * Apex symbols including classes, methods, variables, and built-in types.
+   *
+   * Verifies:
+   * - Hover functionality is active and responsive
+   * - Different symbol types provide appropriate hover information
+   * - Hover content includes type information and signatures
+   * - LCS integration provides rich hover data
+   * - No fallback to stub implementation for hovers
+   */
+  test('should provide comprehensive hover information for Apex symbols', async ({
+    page,
+  }) => {
+    // Setup complete test session
+    const { consoleErrors, networkErrors } = await setupFullTestSession(page);
+
+    // Verify that Apex file content is loaded in the editor
+    await verifyApexFileContentLoaded(page, 'ApexClassExample');
+
+    // Wait for LCS services to be ready
+    await waitForLCSReady(page);
+
+    console.log('🔍 Testing hover functionality for various Apex symbols...');
+
+    // Test hover scenarios
+    const hoverResults: Array<{
+      scenario: HoverTestScenario;
+      success: boolean;
+      hoverContent: string | null;
+    }> = [];
+
+    let successfulHovers = 0;
+    let totalHovers = 0;
+
+    // Test a subset of hover scenarios to keep test time reasonable
+    const testScenarios = HOVER_TEST_SCENARIOS.slice(0, 8); // Test first 8 scenarios
+
+    for (const scenario of testScenarios) {
+      totalHovers++;
+      const result = await testHoverScenario(page, scenario);
+
+      hoverResults.push({
+        scenario,
+        success: result.success,
+        hoverContent: result.hoverContent,
+      });
+
+      if (result.success) {
+        successfulHovers++;
+      }
+
+      // Small delay between hover tests to avoid interference
+      await page.waitForTimeout(200);
+    }
+
+    // Test additional hover scenarios for critical symbols
+    console.log('🎯 Testing critical hover scenarios...');
+    const criticalScenarios: HoverTestScenario[] = [
+      {
+        description: 'Built-in System class hover',
+        searchText: 'System.debug',
+        expectedPatterns: ['System'],
+      },
+      {
+        description: 'Built-in String class hover',
+        searchText: 'String.isBlank',
+        expectedPatterns: ['String'],
+      },
+      {
+        description: 'Variable type hover',
+        searchText: 'private String instanceId',
+        expectedPatterns: ['String'],
+      },
+    ];
+
+    for (const scenario of criticalScenarios) {
+      totalHovers++;
+      const result = await testHoverScenario(page, scenario);
+
+      hoverResults.push({
+        scenario,
+        success: result.success,
+        hoverContent: result.hoverContent,
+      });
+
+      if (result.success) {
+        successfulHovers++;
+      }
+
+      await page.waitForTimeout(200);
+    }
+
+    // Detect LCS integration
+    const lcsDetection = await detectLCSIntegration(page);
+    console.log(lcsDetection.summary);
+
+    // Perform validation
+    const validation = performStrictValidation(consoleErrors, networkErrors);
+    console.log(validation.summary);
+
+    // Verify system stability
+    await verifyVSCodeStability(page);
+
+    // Report comprehensive results
+    console.log('🎯 Hover Functionality Test Results:');
+    console.log(`   - Total hover tests: ${totalHovers}`);
+    console.log(`   - Successful hovers: ${successfulHovers}`);
+    console.log(
+      `   - Success rate: ${Math.round((successfulHovers / totalHovers) * 100)}%`,
+    );
+    console.log(
+      `   - LCS Integration: ${lcsDetection.lcsIntegrationActive ? '✅ ACTIVE' : '❌ INACTIVE'}`,
+    );
+
+    // Log details of failed hovers for debugging
+    const failedHovers = hoverResults.filter((r) => !r.success);
+    if (failedHovers.length > 0) {
+      console.log('❌ Failed hover scenarios:');
+      failedHovers.forEach((result, index) => {
+        console.log(`  ${index + 1}. ${result.scenario.description}`);
+        console.log(`     Search text: "${result.scenario.searchText}"`);
+        console.log(
+          `     Expected: ${result.scenario.expectedPatterns.join(', ')}`,
+        );
+        console.log(
+          `     Content: ${result.hoverContent ? result.hoverContent.substring(0, 50) + '...' : 'No content'}`,
+        );
+      });
+    }
+
+    // Log successful hovers for verification
+    const successfulHoverResults = hoverResults.filter((r) => r.success);
+    if (successfulHoverResults.length > 0) {
+      console.log('✅ Successful hover scenarios:');
+      successfulHoverResults.slice(0, 3).forEach((result, index) => {
+        console.log(`  ${index + 1}. ${result.scenario.description}`);
+        console.log(
+          `     Content preview: ${result.hoverContent?.substring(0, 60)}...`,
+        );
+      });
+    }
+
+    // Assert success criteria
+    expect(validation.consoleValidation.allErrorsAllowed).toBe(true);
+    expect(validation.networkValidation.allErrorsAllowed).toBe(true);
+    expect(lcsDetection.lcsIntegrationActive).toBe(true);
+    expect(lcsDetection.hasStubFallback).toBe(false); // Should not fall back to stub
+    expect(lcsDetection.hasErrorIndicators).toBe(false);
+
+    // Hover functionality assertions
+    expect(successfulHovers).toBeGreaterThan(0); // At least some hovers should work
+    expect(successfulHovers / totalHovers).toBeGreaterThan(0.3); // At least 30% success rate
+
+    // Verify that at least one critical hover works
+    const criticalHoverSuccess = hoverResults
+      .filter((r) =>
+        criticalScenarios.some(
+          (cs) => cs.description === r.scenario.description,
+        ),
+      )
+      .some((r) => r.success);
+    expect(criticalHoverSuccess).toBe(true);
+
+    console.log('🎉 Hover Functionality test COMPLETED');
+    console.log('   - File: ✅ ApexClassExample.cls opened and loaded');
+    console.log('   - Extension: ✅ Language features activated');
+    console.log('   - LCS Integration: ✅ Active and functional');
+    console.log(
+      `   - Hover Tests: ✅ ${successfulHovers}/${totalHovers} scenarios passed`,
+    );
+    console.log(
+      '   ✨ This test validates comprehensive hover functionality with LCS integration',
     );
   });
 });
