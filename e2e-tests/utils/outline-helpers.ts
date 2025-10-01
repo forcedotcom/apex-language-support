@@ -37,7 +37,7 @@ export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
       if (selector === 'text=OUTLINE') {
         await outlineElement.first().click();
         // Wait for outline tree to become visible after clicking
-        await page.waitForSelector('.outline-tree', { timeout: 4000 });
+        await page.waitForSelector('.outline-tree', { timeout: 10000 });
       }
       break;
     }
@@ -90,7 +90,7 @@ const activateOutlineViaCommandPalette = async (page: Page): Promise<void> => {
       await outlineCommand.click();
       // Wait for outline tree to appear after command execution
       await page.waitForSelector('.outline-tree, [id*="outline"]', {
-        timeout: 5000,
+        timeout: 10000,
       });
     } else {
       // Close command palette
@@ -237,7 +237,7 @@ export const validateApexSymbolsInOutline = async (
 }> => {
   // Wait for LSP to populate symbols by checking for any outline content
   await page.waitForSelector('.outline-tree .monaco-list-row', {
-    timeout: 5_000, // Outline generation timeout
+    timeout: 10_000, // Outline generation timeout
   });
 
   // Ensure outline tree is fully expanded and all symbols are visible

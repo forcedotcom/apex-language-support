@@ -65,11 +65,22 @@ export class LoggingUtils {
   }
 
   /**
-   * Gets the log message type for LSP
+   * Gets the log message type for LSP (numeric values per LSP protocol)
+   * LSP MessageType: Error = 1, Warning = 2, Info = 3, Log = 4
    */
-  static getLogMessageType(messageType: string): string {
-    // Map debug to log for LSP compatibility
-    return messageType === 'debug' ? 'log' : messageType;
+  static getLogMessageType(messageType: LogMessageType): number {
+    switch (messageType) {
+      case 'error':
+        return 1; // MessageType.Error
+      case 'warning':
+        return 2; // MessageType.Warning
+      case 'info':
+        return 3; // MessageType.Info
+      case 'debug':
+        return 4; // MessageType.Log (debug maps to log in LSP)
+      default:
+        return 3; // Default to Info
+    }
   }
 }
 
@@ -119,7 +130,7 @@ export class UniversalLogger implements LoggerInterface {
   ): void {
     try {
       this.connection!.sendNotification('window/logMessage', {
-        type: messageType,
+        type: LoggingUtils.getLogMessageType(messageType),
         message,
       });
     } catch (error) {
@@ -184,6 +195,8 @@ export class UniversalLogger implements LoggerInterface {
  */
 export class UniversalLoggerFactory implements ILoggerFactory {
   private static instance?: UniversalLoggerFactory;
+  private connection?: Connection;
+  private loggerCache = new Map<Connection, LoggerInterface>();
 
   private constructor() {}
 
@@ -195,17 +208,40 @@ export class UniversalLoggerFactory implements ILoggerFactory {
   }
 
   /**
+   * Set the connection for all loggers created by this factory
+   */
+  setConnection(connection: Connection): void {
+    this.connection = connection;
+  }
+
+  /**
    * Creates a logger instance appropriate for the current environment
+   * Uses caching to ensure the same logger instance is returned for the same connection
    */
   createLogger(connection?: Connection): LoggerInterface {
-    return new UniversalLogger(connection);
+    // Use provided connection or fall back to factory's connection
+    const loggerConnection = connection || this.connection;
+
+    // Return cached logger if available for this connection
+    if (loggerConnection && this.loggerCache.has(loggerConnection)) {
+      return this.loggerCache.get(loggerConnection)!;
+    }
+
+    // Create new logger and cache it
+    const logger = new UniversalLogger(loggerConnection);
+    if (loggerConnection) {
+      this.loggerCache.set(loggerConnection, logger);
+    }
+
+    return logger;
   }
 
   /**
    * Gets a logger instance (implements LoggerFactory interface)
    */
   getLogger(): LoggerInterface {
-    return new UniversalLogger();
+    // Use the factory's connection for loggers created via getLogger()
+    return this.createLogger(this.connection);
   }
 
   /**

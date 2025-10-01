@@ -461,23 +461,10 @@ async function createWebLanguageClient(
         context,
         environment,
       ),
+      outputChannel: getWorkerServerOutputChannel(), // Use our custom output channel
     },
     worker,
   );
-
-  // Note: Output channels are handled via the window/logMessage notification handler below
-  // The LanguageClient's outputChannel property is read-only, so we can't set it directly
-
-  // Set up window/logMessage handler for worker/server logs
-  languageClient.onNotification('window/logMessage', (params) => {
-    const { message } = params;
-
-    // All messages from the worker/server go directly to the worker/server channel without additional formatting
-    const channel = getWorkerServerOutputChannel();
-    if (channel) {
-      channel.appendLine(message);
-    }
-  });
 
   // Store client for disposal with ClientInterface wrapper
   Client = {

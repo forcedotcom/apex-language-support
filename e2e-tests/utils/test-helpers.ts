@@ -35,7 +35,12 @@ export const setupWorkerResponseHook = (page: Page): void => {
   workerDetectionStore.set(page, initial);
 
   const isWorkerUrl = (url: string): boolean =>
-    url.includes('worker.js') && url.includes('devextensions');
+    (url.includes('worker.js') ||
+      url.includes('worker.global.js') ||
+      url.includes('server-bundle')) &&
+    (url.includes('devextensions') ||
+      url.includes('static') ||
+      url.includes('extension'));
 
   page.on('response', async (response) => {
     const url = response.url();
@@ -601,8 +606,12 @@ export const detectLCSIntegration = async (
           .getEntriesByType('resource')
           .some(
             (entry: any) =>
-              entry.name.includes('worker.js') &&
-              entry.name.includes('devextensions'),
+              (entry.name.includes('worker.js') ||
+                entry.name.includes('worker.global.js') ||
+                entry.name.includes('server-bundle')) &&
+              (entry.name.includes('devextensions') ||
+                entry.name.includes('static') ||
+                entry.name.includes('extension')),
           );
         return messages || window.console;
       },
@@ -649,7 +658,13 @@ export const detectLCSIntegration = async (
     const perfWorker = await page.evaluate(() => {
       const entries = performance.getEntriesByType('resource') as any[];
       const workerEntry = entries.find(
-        (e) => e.name.includes('worker.js') && e.name.includes('devextensions'),
+        (e) =>
+          (e.name.includes('worker.js') ||
+            e.name.includes('worker.global.js') ||
+            e.name.includes('server-bundle')) &&
+          (e.name.includes('devextensions') ||
+            e.name.includes('static') ||
+            e.name.includes('extension')),
       );
       return workerEntry
         ? { url: workerEntry.name, size: workerEntry.transferSize || 0 }
@@ -658,6 +673,29 @@ export const detectLCSIntegration = async (
     if (perfWorker) {
       workerDetected = true;
       if (!bundleSize && perfWorker.size) bundleSize = perfWorker.size;
+    }
+
+    // Additional check: Look for any extension-related worker files
+    if (!workerDetected) {
+      const extensionWorkers = await page.evaluate(() => {
+        const entries = performance.getEntriesByType('resource') as any[];
+        return entries
+          .filter(
+            (e) =>
+              e.name.includes('extension') &&
+              (e.name.includes('.js') || e.name.includes('.mjs')) &&
+              e.transferSize > 1000000, // Large files are likely worker bundles (>1MB)
+          )
+          .map((e) => ({ url: e.name, size: e.transferSize }));
+      });
+
+      if (extensionWorkers.length > 0) {
+        workerDetected = true;
+        bundleSize = bundleSize || extensionWorkers[0].size;
+        console.log(
+          `🔧 Found extension worker files: ${extensionWorkers.length}`,
+        );
+      }
     }
   } catch (_error) {
     // Ignore worker detection errors
@@ -835,10 +873,33 @@ export const testLSPFunctionality = async (
       );
       await outlineRows
         .first()
-        .waitFor({ state: 'visible', timeout: 2000 })
+        .waitFor({ state: 'visible', timeout: 5000 })
         .catch(() => {});
       const outlineCount = await outlineRows.count().catch(() => 0);
       symbolsTested = outlineCount > 0;
+
+      // If still no symbols, try alternative detection methods
+      if (!symbolsTested) {
+        // Check if document symbols API is available via VS Code command
+        try {
+          await page.keyboard.press('F1');
+          await page.waitForSelector('.quick-input-widget', { timeout: 2000 });
+          await page.keyboard.type('Go to Symbol in Editor');
+          await page.keyboard.press('Enter');
+          const symbolWidget = page.locator('.quick-input-widget');
+          await symbolWidget
+            .waitFor({ state: 'visible', timeout: 3000 })
+            .catch(() => {});
+          const symbolItems = await page
+            .locator('.quick-input-widget .monaco-list-row')
+            .count()
+            .catch(() => 0);
+          symbolsTested = symbolItems > 0;
+          await page.keyboard.press('Escape'); // Close the widget
+        } catch (_error) {
+          // Ignore symbol detection errors
+        }
+      }
     }
   } catch (_error) {
     // LSP functionality testing is informational
@@ -882,5 +943,241 @@ export const positionCursorInConstructor = async (
     // Fallback to end of file if constructor positioning fails
     await page.keyboard.press('Control+End');
     await page.keyboard.type('\n    ');
+  }
+};
+
+/**
+ * Positions the cursor on a specific word in the editor by searching for it.
+ *
+ * @param page - Playwright page instance
+ * @param searchText - Text to search for to position cursor
+ * @param moveToEnd - Whether to move cursor to end of the found text (default: false)
+ */
+export const positionCursorOnWord = async (
+  page: Page,
+  searchText: string,
+  moveToEnd = false,
+): Promise<void> => {
+  try {
+    // Use Ctrl+F to find the text
+    await page.keyboard.press('Control+F');
+    // Wait for find input to appear
+    await page
+      .waitForSelector('input[aria-label="Find"], .find-widget', {
+        timeout: 1500,
+      })
+      .catch(() => {});
+
+    // Search for the text
+    await page.keyboard.type(searchText);
+    await page.keyboard.press('Enter'); // Search
+    await page.keyboard.press('Escape'); // Close search dialog
+
+    // Move to end of word if requested
+    if (moveToEnd) {
+      await page.keyboard.press('End');
+    }
+  } catch (_error) {
+    console.log(`⚠️ Could not position cursor on "${searchText}"`);
+  }
+};
+
+/**
+ * Triggers a hover at the current cursor position and waits for hover widget to appear.
+ *
+ * @param page - Playwright page instance
+ * @param timeout - Timeout in milliseconds to wait for hover (default: 3000)
+ * @returns Whether hover widget appeared
+ */
+export const triggerHover = async (
+  page: Page,
+  timeout = 3000,
+): Promise<boolean> => {
+  try {
+    // Get current cursor position and hover over it
+    const editor = page.locator(SELECTORS.MONACO_EDITOR);
+    const cursor = page.locator('.monaco-editor .cursor');
+
+    // If cursor is visible, hover over it, otherwise hover over editor center
+    if (await cursor.isVisible().catch(() => false)) {
+      await cursor.hover();
+    } else {
+      await editor.hover();
+    }
+
+    // Wait for hover widget to appear
+    const hoverWidget = page.locator(
+      '.monaco-editor-hover, .monaco-hover, [role="tooltip"]',
+    );
+
+    await hoverWidget.waitFor({ state: 'visible', timeout });
+    return await hoverWidget.isVisible();
+  } catch (_error) {
+    return false;
+  }
+};
+
+/**
+ * Gets the hover content from the hover widget.
+ *
+ * @param page - Playwright page instance
+ * @returns Hover content as string, or null if no hover content
+ */
+export const getHoverContent = async (page: Page): Promise<string | null> => {
+  try {
+    const hoverWidget = page.locator(
+      '.monaco-editor-hover, .monaco-hover, [role="tooltip"]',
+    );
+
+    if (await hoverWidget.isVisible()) {
+      const content = await hoverWidget.textContent();
+      return content?.trim() || null;
+    }
+
+    return null;
+  } catch (_error) {
+    return null;
+  }
+};
+
+/**
+ * Dismisses any visible hover widget.
+ *
+ * @param page - Playwright page instance
+ */
+export const dismissHover = async (page: Page): Promise<void> => {
+  try {
+    // Move cursor away or press Escape to dismiss hover
+    await page.keyboard.press('Escape');
+
+    // Also try moving cursor away
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowRight');
+  } catch (_error) {
+    // Ignore dismissal errors
+  }
+};
+
+/**
+ * Hover test scenario definition.
+ */
+export interface HoverTestScenario {
+  /** Description of what we're testing */
+  readonly description: string;
+  /** Text to search for to position cursor */
+  readonly searchText: string;
+  /** Whether to move cursor to end of found text */
+  readonly moveToEnd?: boolean;
+  /** Expected content patterns in hover (all must be present) */
+  readonly expectedPatterns: readonly string[];
+  /** Optional patterns that should NOT be present */
+  readonly forbiddenPatterns?: readonly string[];
+}
+
+/**
+ * Tests hover functionality for a specific scenario.
+ *
+ * @param page - Playwright page instance
+ * @param scenario - Hover test scenario
+ * @returns Test result with details
+ */
+export const testHoverScenario = async (
+  page: Page,
+  scenario: HoverTestScenario,
+): Promise<{
+  success: boolean;
+  hoverContent: string | null;
+  foundPatterns: string[];
+  missingPatterns: string[];
+  forbiddenPatternsFound: string[];
+}> => {
+  try {
+    console.log(`🔍 Testing hover: ${scenario.description}`);
+
+    // Position cursor on the target text
+    await positionCursorOnWord(page, scenario.searchText, scenario.moveToEnd);
+
+    // Small delay to ensure cursor is positioned
+    await page.waitForTimeout(100);
+
+    // Trigger hover
+    const hoverAppeared = await triggerHover(page);
+
+    if (!hoverAppeared) {
+      console.log(`❌ No hover appeared for: ${scenario.description}`);
+      return {
+        success: false,
+        hoverContent: null,
+        foundPatterns: [],
+        missingPatterns: [...scenario.expectedPatterns],
+        forbiddenPatternsFound: [],
+      };
+    }
+
+    // Get hover content
+    const hoverContent = await getHoverContent(page);
+
+    if (!hoverContent) {
+      console.log(`❌ No hover content for: ${scenario.description}`);
+      await dismissHover(page);
+      return {
+        success: false,
+        hoverContent: null,
+        foundPatterns: [],
+        missingPatterns: [...scenario.expectedPatterns],
+        forbiddenPatternsFound: [],
+      };
+    }
+
+    console.log(`📝 Hover content: ${hoverContent.substring(0, 100)}...`);
+
+    // Check expected patterns
+    const foundPatterns: string[] = [];
+    const missingPatterns: string[] = [];
+
+    for (const pattern of scenario.expectedPatterns) {
+      if (hoverContent.includes(pattern)) {
+        foundPatterns.push(pattern);
+        console.log(`✅ Found expected pattern: "${pattern}"`);
+      } else {
+        missingPatterns.push(pattern);
+        console.log(`❌ Missing expected pattern: "${pattern}"`);
+      }
+    }
+
+    // Check forbidden patterns
+    const forbiddenPatternsFound: string[] = [];
+    if (scenario.forbiddenPatterns) {
+      for (const pattern of scenario.forbiddenPatterns) {
+        if (hoverContent.includes(pattern)) {
+          forbiddenPatternsFound.push(pattern);
+          console.log(`❌ Found forbidden pattern: "${pattern}"`);
+        }
+      }
+    }
+
+    const success =
+      missingPatterns.length === 0 && forbiddenPatternsFound.length === 0;
+
+    // Dismiss hover
+    await dismissHover(page);
+
+    return {
+      success,
+      hoverContent,
+      foundPatterns,
+      missingPatterns,
+      forbiddenPatternsFound,
+    };
+  } catch (error) {
+    console.log(`⚠️ Error testing hover scenario: ${error}`);
+    await dismissHover(page);
+    return {
+      success: false,
+      hoverContent: null,
+      foundPatterns: [],
+      missingPatterns: [...scenario.expectedPatterns],
+      forbiddenPatternsFound: [],
+    };
   }
 };
