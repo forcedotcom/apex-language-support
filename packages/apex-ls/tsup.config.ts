@@ -57,11 +57,8 @@ const WORKER_EXTERNAL = [
   'data-structure-typed', // Advanced data structures and algorithms
   'effect', // Functional programming utilities and effects
 
-  // File system and Node.js modules - loaded when file operations are needed
-  'memfs', // Memory file system - loaded as separate bundle
+  // Node.js modules - loaded when file operations are needed
   'node-dir', // Directory scanning - loaded with file system bundle
-  'fs', // Will be handled by dynamic fs bundle
-  'path', // Will use polyfill in dynamic bundles
 ];
 
 // Always bundle these lightweight, essential dependencies
@@ -146,58 +143,6 @@ export default defineConfig([
       // Apply comprehensive web worker polyfill configuration
       configureWebWorkerPolyfills(options);
 
-      // Enhanced fs stub for web worker environments
-      // This is the canonical fs polyfill for all web worker builds.
-      // We use an inline stub instead of memfs to:
-      // 1. Reduce bundle size (memfs adds significant overhead)
-      // 2. Provide only the fs APIs we actually need
-      // 3. Avoid complex polyfill dependencies that can cause issues in web workers
-      //
-      // The stub provides an in-memory file system with basic operations.
-      // This is sufficient for the language server's needs as documents are
-      // managed through LSP's TextDocuments, not the file system.
-      if (!options.alias) options.alias = {};
-      options.alias.fs =
-        'data:text/javascript,' +
-        encodeURIComponent(`
-        // Enhanced fs stub with in-memory storage for web worker environment
-        const memoryFiles = new Map();
-        const memoryDirs = new Set(['/']);
-        
-        export const readFileSync = (path, encoding) => {
-          const content = memoryFiles.get(path);
-          if (content === undefined) throw new Error('ENOENT: no such file or directory');
-          return encoding ? content : Buffer.from(content);
-        };
-        
-        export const writeFileSync = (path, data) => {
-          memoryFiles.set(path, typeof data === 'string' ? data : data.toString());
-        };
-        
-        export const existsSync = (path) => memoryFiles.has(path) || memoryDirs.has(path);
-        
-        export const mkdirSync = (path) => { memoryDirs.add(path); };
-        
-        export const readdirSync = (path) => {
-          const files = [];
-          for (const [filePath] of memoryFiles) {
-            if (filePath.startsWith(path + '/')) {
-              const fileName = filePath.replace(path + '/', '').split('/')[0];
-              if (!files.includes(fileName)) files.push(fileName);
-            }
-          }
-          return files;
-        };
-        
-        export const statSync = (path) => ({
-          isDirectory: () => memoryDirs.has(path),
-          isFile: () => memoryFiles.has(path),
-          size: memoryFiles.get(path)?.length || 0
-        });
-        
-        export default { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync };
-      `);
-
       // Add plugin to handle dynamic requires at build time
       if (!options.plugins) options.plugins = [];
       options.plugins.push({
@@ -216,15 +161,7 @@ export default defineConfig([
                 process: 'process/browser',
                 util: 'util',
                 path: 'path-browserify',
-                // Simple fs stub for browser build (minimal implementation)
-                fs:
-                  'data:text/javascript,' +
-                  'export default {}; export const readFileSync = () => ""; ' +
-                  'export const writeFileSync = () => {}; ' +
-                  'export const existsSync = () => false; ' +
-                  'export const mkdirSync = () => {}; ' +
-                  'export const readdirSync = () => []; ' +
-                  'export const statSync = () => ({isDirectory: () => false, isFile: () => true});',
+                fs: 'memfs-browser',
                 crypto: 'crypto-browserify',
                 stream: 'stream-browserify',
                 events: 'events',

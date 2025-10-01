@@ -68,16 +68,13 @@ export const browserBaseConfig: Partial<Options> = {
  *
  * These aliases ensure Node.js modules are replaced with browser-compatible
  * implementations during the build process.
- *
- * Note: fs is NOT included here as it should be handled with a custom inline
- * stub in individual package configs (see apex-ls/tsup.config.ts for the
- * enhanced fs stub implementation that's used for web workers).
  */
 export const NODE_POLYFILLS = {
   // Core Node.js modules
   path: 'path-browserify',
   crypto: 'crypto-browserify',
   stream: 'stream-browserify',
+  fs: 'memfs-browser',
   url: 'url-browserify',
   os: 'os-browserify/browser',
   events: 'events',
