@@ -209,6 +209,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     const properUri =
       getProtocolType(fileUri) !== null ? fileUri : createFileUri(fileUri);
 
+    // Debug logging for URI conversion to help diagnose web extension issues
+    if (fileUri !== properUri) {
+      this.logger.debug(
+        () => `[URI] Converted path to URI: ${fileUri} -> ${properUri}`,
+      );
+    }
+
     // Generate unified ID for the symbol if not already present
     if (!symbol.key.unifiedId) {
       // Ensure the kind is set on the key for proper unified ID generation
@@ -1652,6 +1659,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position: Position,
   ): Promise<ApexSymbol | null> {
     try {
+      // Debug logging for symbol lookup to help diagnose hover issues
+      this.logger.debug(
+        () =>
+          `[Symbol Lookup] Searching for symbol at ${fileUri} ` +
+          `position ${position.line}:${position.character}`,
+      );
+
       // Step 1: Try to find TypeReferences at the position (parser-ast format already 1-based line, 0-based column)
       const typeReferences = this.getReferencesAtPosition(fileUri, position);
 

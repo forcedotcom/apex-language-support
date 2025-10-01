@@ -1108,20 +1108,36 @@ export class ApexSymbolGraph {
    * Get SymbolTable for a file
    */
   getSymbolTableForFile(fileUri: string): SymbolTable | undefined {
-    return this.fileToSymbolTable.get(fileUri);
+    const result = this.fileToSymbolTable.get(fileUri);
+    // Debug logging to help diagnose symbol table lookup issues
+    if (!result) {
+      // Only log in debug mode - check if any keys are similar
+      const keys = Array.from(this.fileToSymbolTable.keys());
+      if (keys.length > 0 && keys.length < 10) {
+        this.logger.debug(
+          () =>
+            `[Symbol Table] No table found for URI: ${fileUri}. ` +
+            `Available keys: [${keys.join(', ')}]`,
+        );
+      } else if (!result) {
+        this.logger.debug(
+          () =>
+            `[Symbol Table] No table found for URI: ${fileUri}. ` +
+            `Total registered files: ${keys.length}`,
+        );
+      }
+    }
+    return result;
   }
 
   /**
    * Register SymbolTable for a file
    */
   registerSymbolTable(symbolTable: SymbolTable, fileUri: string): void {
-    // console.log(
-    //   `🔍 [ApexSymbolGraph] registerSymbolTable: storing with key: ${fileUri}`,
-    // );
+    this.logger.debug(
+      () => `[Symbol Table] Registering table for URI: ${fileUri}`,
+    );
     this.fileToSymbolTable.set(fileUri, symbolTable);
-    // console.log(
-    //   `🔍 [ApexSymbolGraph] fileToSymbolTable now has keys: [${Array.from(this.fileToSymbolTable.keys()).join(', ')}]`,
-    // );
   }
 
   /**

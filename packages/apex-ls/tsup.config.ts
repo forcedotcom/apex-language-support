@@ -146,12 +146,21 @@ export default defineConfig([
       // Apply comprehensive web worker polyfill configuration
       configureWebWorkerPolyfills(options);
 
-      // Enhanced fs stub for web worker - more comprehensive than minimal stub but avoids memfs complexity
+      // Enhanced fs stub for web worker environments
+      // This is the canonical fs polyfill for all web worker builds.
+      // We use an inline stub instead of memfs to:
+      // 1. Reduce bundle size (memfs adds significant overhead)
+      // 2. Provide only the fs APIs we actually need
+      // 3. Avoid complex polyfill dependencies that can cause issues in web workers
+      //
+      // The stub provides an in-memory file system with basic operations.
+      // This is sufficient for the language server's needs as documents are
+      // managed through LSP's TextDocuments, not the file system.
       if (!options.alias) options.alias = {};
       options.alias.fs =
         'data:text/javascript,' +
         encodeURIComponent(`
-        // Enhanced fs stub with better functionality than minimal stub
+        // Enhanced fs stub with in-memory storage for web worker environment
         const memoryFiles = new Map();
         const memoryDirs = new Set(['/']);
         
@@ -207,7 +216,15 @@ export default defineConfig([
                 process: 'process/browser',
                 util: 'util',
                 path: 'path-browserify',
-                fs: 'data:text/javascript,export default {}; export const readFileSync = () => ""; export const writeFileSync = () => {}; export const existsSync = () => false; export const mkdirSync = () => {}; export const readdirSync = () => []; export const statSync = () => ({isDirectory: () => false, isFile: () => true});', // Use simple stub
+                // Simple fs stub for browser build (minimal implementation)
+                fs:
+                  'data:text/javascript,' +
+                  'export default {}; export const readFileSync = () => ""; ' +
+                  'export const writeFileSync = () => {}; ' +
+                  'export const existsSync = () => false; ' +
+                  'export const mkdirSync = () => {}; ' +
+                  'export const readdirSync = () => []; ' +
+                  'export const statSync = () => ({isDirectory: () => false, isFile: () => true});',
                 crypto: 'crypto-browserify',
                 stream: 'stream-browserify',
                 events: 'events',
