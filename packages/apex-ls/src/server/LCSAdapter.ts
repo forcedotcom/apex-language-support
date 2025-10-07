@@ -72,12 +72,14 @@ export class LCSAdapter {
   private hasConfigurationCapability = false;
   private hasWorkspaceFolderCapability = false;
   private hasDiagnosticRelatedInformationCapability = false;
-  private initialized = false;
-  private completionProcessor: CompletionProcessingService;
-  private diagnosticProcessor: DiagnosticProcessingService;
-  private delegationMode: boolean;
+  private readonly completionProcessor: CompletionProcessingService;
+  private readonly diagnosticProcessor: DiagnosticProcessingService;
+  private readonly delegationMode: boolean;
 
-  constructor(config: LCSAdapterConfig) {
+  /**
+   * Private constructor - use LCSAdapter.create() instead
+   */
+  private constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
     this.logger = config.logger ?? this.createDefaultLogger();
     this.documents = new TextDocuments(TextDocument);
@@ -91,9 +93,22 @@ export class LCSAdapter {
   }
 
   /**
-   * Initialize the LCS adapter
+   * Create and initialize a new LCS adapter instance.
+   * This is the single entry point for creating LCS adapters.
+   *
+   * @param config Configuration for the LCS adapter
+   * @returns Promise that resolves to a fully initialized LCSAdapter instance
    */
-  async initialize(): Promise<void> {
+  static async create(config: LCSAdapterConfig): Promise<LCSAdapter> {
+    const adapter = new LCSAdapter(config);
+    await adapter.initialize();
+    return adapter;
+  }
+
+  /**
+   * Initialize the LCS adapter - called internally by create()
+   */
+  private async initialize(): Promise<void> {
     this.logger.info('🚀 LCS Adapter initializing...');
 
     // Initialize ApexStorageManager singleton with storage factory
@@ -126,7 +141,6 @@ export class LCSAdapter {
       this.connection.listen();
     }
 
-    this.initialized = true;
     this.logger.info('✅ LCS Adapter initialized successfully');
   }
 
@@ -364,12 +378,12 @@ export class LCSAdapter {
   /**
    * Handle configuration changes
    */
-  private handleConfigurationChange(
+  private async handleConfigurationChange(
     change: DidChangeConfigurationParams,
-  ): void {
+  ): Promise<void> {
     LSPConfigurationManager.getInstance().updateFromLSPConfiguration(change);
     // Revalidate all open text documents (basic implementation for now)
-    this.documents.all().forEach(async (document) => {
+    const revalidationPromises = this.documents.all().map(async (document) => {
       try {
         // Basic revalidation - can be enhanced with LCS later
         this.connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
@@ -377,13 +391,8 @@ export class LCSAdapter {
         this.logger.error(`Error revalidating document: ${error}`);
       }
     });
-  }
 
-  /**
-   * Check if adapter is initialized
-   */
-  public isInitialized(): boolean {
-    return this.initialized;
+    await Promise.all(revalidationPromises);
   }
 
   /**

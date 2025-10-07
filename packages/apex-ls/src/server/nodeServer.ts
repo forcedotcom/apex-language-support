@@ -35,14 +35,11 @@ export async function startApexNodeServer(): Promise<void> {
   logger.info('🚀 Node.js server starting...');
   logger.info('🔧 Starting LCS integration...');
 
-  // Create and initialize LCS adapter
-  const lcsAdapter = new LCSAdapter({
+  // Create and initialize LCS adapter in one step
+  await LCSAdapter.create({
     connection,
     logger,
   });
-
-  // Initialize the adapter (this will set up all handlers including initialization)
-  await lcsAdapter.initialize();
 
   logger.info('✅ Apex Language Server (Node.js) ready!');
 }

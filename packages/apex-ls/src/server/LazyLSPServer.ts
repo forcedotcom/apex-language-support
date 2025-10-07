@@ -282,15 +282,16 @@ export class LazyLSPServer {
         Effect.promise(() => import('./LCSAdapter')),
       );
 
-      // Create LCS adapter instance
-      const lcsAdapter = new LCSAdapter({
-        connection: self.connection,
-        logger: self.logger,
-        delegationMode: true, // Don't set up connection listeners
-      });
-
-      // Initialize adapter using Effect.promise
-      yield* _(Effect.promise(() => lcsAdapter.initialize()));
+      // Create and initialize LCS adapter instance using factory method
+      const lcsAdapter = yield* _(
+        Effect.promise(() =>
+          LCSAdapter.create({
+            connection: self.connection,
+            logger: self.logger,
+            delegationMode: true, // Don't set up connection listeners
+          }),
+        ),
+      );
 
       // Update state
       self.lcsAdapter = lcsAdapter;
