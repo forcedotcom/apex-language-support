@@ -63,10 +63,11 @@ export function activate(context: vscode.ExtensionContext): void {
   initializeExtensionLogging(context);
 
   logToOutputChannel('🔧 Extension logging system initialized', 'info');
-  logToOutputChannel(
-    `📍 Extension context: ${context.extensionMode === vscode.ExtensionMode.Development ? 'Development' : 'Production'} mode`,
-    'info',
-  );
+  const extensionMode =
+    context.extensionMode === vscode.ExtensionMode.Development
+      ? 'Development'
+      : 'Production';
+  logToOutputChannel(`📍 Extension context: ${extensionMode} mode`, 'info');
   logToOutputChannel(`📂 Extension path: ${context.extensionPath}`, 'debug');
 
   // Initialize command state

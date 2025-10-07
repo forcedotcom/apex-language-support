@@ -89,12 +89,10 @@ export class UniversalLogger implements LoggerInterface {
   }
 
   log(messageType: LogMessageType, message: string | (() => string)): void {
-    const msg = typeof message === 'function' ? message() : message;
-
-    // Check if we should log based on level
     if (!shouldLog(messageType)) {
       return;
     }
+    const msg = typeof message === 'function' ? message() : message;
 
     const formattedMsg = LoggingUtils.formatMessage(msg);
 
@@ -118,17 +116,20 @@ export class UniversalLogger implements LoggerInterface {
     message: string,
   ): void {
     try {
-      this.connection!.sendNotification('window/logMessage', {
-        type: messageType,
-        message,
-      });
+      if (this.connection) {
+        this.connection.sendNotification('window/logMessage', {
+          type: messageType,
+          message,
+        });
+      } else {
+        LoggingUtils.logToConsole(messageType, message);
+      }
     } catch (error) {
       // Fallback to console if connection fails
-      console.warn(
+      console.error(
         'Failed to send log via connection, using console fallback:',
         error,
       );
-      LoggingUtils.logToConsole(messageType, message);
     }
   }
 
@@ -183,29 +184,29 @@ export class UniversalLogger implements LoggerInterface {
  * Universal logger factory that works across all environments
  */
 export class UniversalLoggerFactory implements ILoggerFactory {
-  private static instance?: UniversalLoggerFactory;
+  private static instance?: UniversalLogger;
 
   private constructor() {}
 
   static getInstance(): UniversalLoggerFactory {
-    if (!UniversalLoggerFactory.instance) {
-      UniversalLoggerFactory.instance = new UniversalLoggerFactory();
-    }
-    return UniversalLoggerFactory.instance;
+    return new UniversalLoggerFactory();
   }
 
   /**
    * Creates a logger instance appropriate for the current environment
    */
   createLogger(connection?: Connection): LoggerInterface {
-    return new UniversalLogger(connection);
+    if (!UniversalLoggerFactory.instance) {
+      UniversalLoggerFactory.instance = new UniversalLogger(connection);
+    }
+    return UniversalLoggerFactory.instance;
   }
 
   /**
    * Gets a logger instance (implements LoggerFactory interface)
    */
   getLogger(): LoggerInterface {
-    return new UniversalLogger();
+    return UniversalLoggerFactory.instance ?? new UniversalLogger();
   }
 
   /**
@@ -213,41 +214,5 @@ export class UniversalLoggerFactory implements ILoggerFactory {
    */
   static createLogger(connection?: Connection): LoggerInterface {
     return UniversalLoggerFactory.getInstance().createLogger(connection);
-  }
-}
-
-// =============================================================================
-// LEGACY ADAPTER
-// =============================================================================
-
-/**
- * Adapter for legacy logger interfaces
- */
-export class LoggerAdapter implements LoggerInterface {
-  constructor(private readonly logger: LoggerInterface) {}
-
-  log(messageType: LogMessageType, message: string | (() => string)): void {
-    const msg = typeof message === 'function' ? message() : message;
-    this.logger.log(messageType, msg);
-  }
-
-  debug(message: string | (() => string)): void {
-    const msg = typeof message === 'function' ? message() : message;
-    this.logger.debug(msg);
-  }
-
-  info(message: string | (() => string)): void {
-    const msg = typeof message === 'function' ? message() : message;
-    this.logger.info(msg);
-  }
-
-  warn(message: string | (() => string)): void {
-    const msg = typeof message === 'function' ? message() : message;
-    this.logger.warn(msg);
-  }
-
-  error(message: string | (() => string)): void {
-    const msg = typeof message === 'function' ? message() : message;
-    this.logger.error(msg);
   }
 }
