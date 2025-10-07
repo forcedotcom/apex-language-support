@@ -123,11 +123,15 @@ export function activate(context: vscode.ExtensionContext): void {
       logToOutputChannel('✅ Language server started successfully', 'info');
     })
     .catch((error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       logToOutputChannel(
-        `❌ Failed to start language server: ${error}`,
+        `❌ Failed to start language server: ${errorMessage}`,
         'error',
       );
-      logToOutputChannel(`❌ Error stack: ${error.stack}`, 'error');
+      if (error instanceof Error && error.stack) {
+        logToOutputChannel(`❌ Error stack: ${error.stack}`, 'error');
+      }
       console.error('❌ [APEX-EXT] Failed to start language server:', error);
     });
 

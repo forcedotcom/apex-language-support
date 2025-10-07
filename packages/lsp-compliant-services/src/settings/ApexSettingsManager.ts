@@ -332,7 +332,7 @@ export class ApexSettingsManager {
       currComment.associateCommentsWithSymbols
     ) {
       changes.push(
-        // eslint-disable-next-line max-len
+         
         `comment association: ${prevComment.associateCommentsWithSymbols} → ${currComment.associateCommentsWithSymbols}`,
       );
     }

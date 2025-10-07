@@ -11,6 +11,7 @@ import { createConnection, ProposedFeatures } from 'vscode-languageserver/node';
 import {
   setLoggerFactory,
   UniversalLoggerFactory,
+  LoggerInterface,
 } from '@salesforce/apex-lsp-shared';
 
 import { LCSAdapter } from './LCSAdapter';
@@ -28,7 +29,7 @@ export async function startApexNodeServer(): Promise<void> {
   // Set up logging with connection
   const loggerFactory = UniversalLoggerFactory.getInstance();
   setLoggerFactory(loggerFactory);
-  const logger = loggerFactory.createLogger(connection);
+  const logger: LoggerInterface = loggerFactory.createLogger(connection);
 
   // Initial lifecycle logs
   logger.info('🚀 Node.js server starting...');
@@ -37,7 +38,7 @@ export async function startApexNodeServer(): Promise<void> {
   // Create and initialize LCS adapter
   const lcsAdapter = new LCSAdapter({
     connection,
-    logger: logger as any,
+    logger,
   });
 
   // Initialize the adapter (this will set up all handlers including initialization)

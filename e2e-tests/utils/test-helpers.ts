@@ -7,7 +7,6 @@
  */
 
 import type { Page } from '@playwright/test';
-import { findAndActivateOutlineView } from './outline-helpers';
 import type { ConsoleError, NetworkError } from './constants';
 import {
   NON_CRITICAL_ERROR_PATTERNS,
@@ -42,13 +41,13 @@ export const setupWorkerResponseHook = (page: Page): void => {
     if (!isWorkerUrl(url)) return;
     try {
       const buffer = await response.body();
-      const state = workerDetectionStore.get(page) || { workerDetected: false };
+      const state = workerDetectionStore.get(page) ?? { workerDetected: false };
       state.workerDetected = true;
       state.bundleSize = buffer.length;
       workerDetectionStore.set(page, state);
     } catch (_error) {
       // Ignore size measurement errors
-      const state = workerDetectionStore.get(page) || { workerDetected: false };
+      const state = workerDetectionStore.get(page) ?? { workerDetected: false };
       state.workerDetected = true;
       workerDetectionStore.set(page, state);
     }
@@ -64,7 +63,7 @@ export const setupWorkerResponseHook = (page: Page): void => {
 export const filterCriticalErrors = (errors: ConsoleError[]): ConsoleError[] =>
   errors.filter((error) => {
     const text = error.text.toLowerCase();
-    const url = (error.url || '').toLowerCase();
+    const url = (error.url ?? '').toLowerCase();
 
     return !NON_CRITICAL_ERROR_PATTERNS.some(
       (pattern) =>
@@ -94,7 +93,7 @@ export const validateAllErrorsInAllowList = (
 
   errors.forEach((error) => {
     const text = error.text.toLowerCase();
-    const url = (error.url || '').toLowerCase();
+    const url = (error.url ?? '').toLowerCase();
 
     const isAllowed = NON_CRITICAL_ERROR_PATTERNS.some(
       (pattern) =>
@@ -551,7 +550,7 @@ export const performStrictValidation = (
   if (consoleValidation.nonAllowedErrors.length > 0) {
     summary += '\n❌ Non-allowed console errors:';
     consoleValidation.nonAllowedErrors.forEach((error, index) => {
-      summary += `\n  ${index + 1}. "${error.text}" (URL: ${error.url || 'no URL'})`;
+      summary += `\n  ${index + 1}. "${error.text}" (URL: ${error.url ?? 'no URL'})`;
     });
   }
 
@@ -641,8 +640,8 @@ export const detectLCSIntegration = async (
     // Read from early hook store if present
     const early = workerDetectionStore.get(page);
     if (early) {
-      workerDetected = workerDetected || early.workerDetected;
-      bundleSize = bundleSize || early.bundleSize;
+      workerDetected = workerDetected ?? early.workerDetected;
+      bundleSize = bundleSize ?? early.bundleSize;
     }
 
     // Inspect already-loaded resources via Performance API
@@ -652,7 +651,7 @@ export const detectLCSIntegration = async (
         (e) => e.name.includes('worker.js') && e.name.includes('devextensions'),
       );
       return workerEntry
-        ? { url: workerEntry.name, size: workerEntry.transferSize || 0 }
+        ? { url: workerEntry.name, size: workerEntry.transferSize ?? 0 }
         : null;
     });
     if (perfWorker) {
@@ -724,8 +723,8 @@ export const waitForLCSReady = async (page: Page): Promise<void> => {
 };
 
 /**
- * Tests LSP language services functionality (completion, symbols, etc.).
- * Consolidates LSP functionality testing from multiple files.
+ * Tests basic LSP language services functionality with simple, direct checks.
+ * No fallback mechanisms - fails clearly if functionality doesn't work.
  *
  * @param page - Playwright page instance
  * @returns Object indicating which LSP features are working
@@ -738,110 +737,54 @@ export const testLSPFunctionality = async (
   editorResponsive: boolean;
 }> => {
   const monacoEditor = page.locator(SELECTORS.MONACO_EDITOR);
+
+  // Test editor responsiveness
+  await monacoEditor.click();
+  const editorResponsive = await monacoEditor.isVisible();
+
+  // Test completion services - System.debug should always work in Apex
+  await positionCursorInConstructor(page);
+  await page.keyboard.type('System.');
+  await page.keyboard.press('ControlOrMeta+Space');
+
+  const completionWidget = page.locator(
+    '.suggest-widget.visible, .monaco-list[aria-label*="suggest"], [aria-label*="IntelliSense"]',
+  );
+
   let completionTested = false;
-  let symbolsTested = false;
-  let editorResponsive = false;
-
   try {
-    // Test editor responsiveness
-    await monacoEditor.click();
-    editorResponsive = await monacoEditor.isVisible();
-
-    // Test completion services
-    await positionCursorInConstructor(page);
-    await page.keyboard.type('System.');
-    const completionWidget = page.locator(
-      '.suggest-widget, .monaco-list, [id*="suggest"]',
-    );
-    await completionWidget
-      .waitFor({ state: 'visible', timeout: 3000 })
-      .catch(() => {});
-    completionTested = await completionWidget.isVisible().catch(() => false);
-
+    await completionWidget.waitFor({ state: 'visible', timeout: 3000 });
+    completionTested = await completionWidget.isVisible();
     if (completionTested) {
       await page.keyboard.press('Escape'); // Close completion
     }
+  } catch {
+    // Completion not available
+    completionTested = false;
+  }
 
-    // Clean up typed text
-    await page.keyboard.press('Control+Z');
+  // Clean up typed text
+  await page.keyboard.press('Control+Z');
 
-    // Test document symbols
-    const tryOpenSymbolPicker = async (): Promise<boolean> => {
-      const symbolPicker = page.locator(
-        '.quick-input-widget, [id*="quickInput"]',
-      );
+  // Test document symbols - use single approach, no fallbacks
+  let symbolsTested = false;
+  try {
+    await page.keyboard.press('ControlOrMeta+Shift+O');
+    const symbolPicker = page.locator(
+      '.quick-input-widget, [id*="quickInput"]',
+    );
+    await symbolPicker.waitFor({ state: 'visible', timeout: 2000 });
 
-      // Try macOS chord first, then Windows/Linux
-      await page.keyboard.press('Meta+Shift+O');
-      await symbolPicker
-        .waitFor({ state: 'visible', timeout: 600 })
-        .catch(() => {});
-      if (await symbolPicker.isVisible().catch(() => false)) {
-        // Consider success only if list has items
-        const itemCount = await page
-          .locator('.quick-input-widget .monaco-list-row')
-          .count()
-          .catch(() => 0);
-        if (itemCount > 0) return true;
-      }
+    const symbolItems = page.locator('.quick-input-widget .monaco-list-row');
+    const itemCount = await symbolItems.count();
+    symbolsTested = itemCount > 0;
 
-      await page.keyboard.press('Control+Shift+O');
-      await symbolPicker
-        .waitFor({ state: 'visible', timeout: 600 })
-        .catch(() => {});
-      if (await symbolPicker.isVisible().catch(() => false)) {
-        const itemCount = await page
-          .locator('.quick-input-widget .monaco-list-row')
-          .count()
-          .catch(() => 0);
-        if (itemCount > 0) return true;
-      }
-
-      // Fallback: Command Palette → '@' (Go to Symbol in Editor)
-      await page.keyboard.press('F1');
-      const quickInput = page.locator('.quick-input-widget');
-      await quickInput
-        .waitFor({ state: 'visible', timeout: 1000 })
-        .catch(() => {});
-      await page.keyboard.type('@');
-      await page.keyboard.press('Enter');
-      await symbolPicker
-        .waitFor({ state: 'visible', timeout: 1200 })
-        .catch(() => {});
-      if (await symbolPicker.isVisible().catch(() => false)) {
-        const itemCount = await page
-          .locator('.quick-input-widget .monaco-list-row')
-          .count()
-          .catch(() => 0);
-        if (itemCount > 0) return true;
-      }
-      return false;
-    };
-
-    symbolsTested = await tryOpenSymbolPicker();
     if (symbolsTested) {
       await page.keyboard.press('Escape'); // Close symbol picker
     }
-
-    // If picker approach failed, open Outline and accept outline as proof of symbol services
-    if (!symbolsTested) {
-      try {
-        await findAndActivateOutlineView(page);
-      } catch (_e) {
-        // ignore activation failure; we'll still try to detect rows
-      }
-      const outlineRows = page.locator(
-        '.outline-tree .monaco-list-row, .monaco-tree .monaco-list-row',
-      );
-      await outlineRows
-        .first()
-        .waitFor({ state: 'visible', timeout: 2000 })
-        .catch(() => {});
-      const outlineCount = await outlineRows.count().catch(() => 0);
-      symbolsTested = outlineCount > 0;
-    }
-  } catch (_error) {
-    // LSP functionality testing is informational
+  } catch {
+    // Document symbols not available
+    symbolsTested = false;
   }
 
   return { completionTested, symbolsTested, editorResponsive };

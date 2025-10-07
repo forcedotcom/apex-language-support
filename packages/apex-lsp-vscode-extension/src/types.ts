@@ -27,6 +27,7 @@ export interface ExtensionState {
  * Workspace settings interface
  */
 export interface WorkspaceSettings {
+  [key: string]: unknown;
   apex: {
     commentCollection: {
       enableCommentCollection: boolean;

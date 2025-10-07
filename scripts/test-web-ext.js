@@ -19,7 +19,7 @@
 const { runTests } = require('@vscode/test-web');
 const path = require('path');
 const fs = require('fs');
-const { spawn, exec } = require('child_process');
+const { exec } = require('child_process');
 const { promisify } = require('util');
 
 const execAsync = promisify(exec);

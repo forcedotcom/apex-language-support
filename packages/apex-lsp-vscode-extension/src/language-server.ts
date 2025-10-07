@@ -21,7 +21,19 @@ import {
   registerConfigurationChangeListener,
 } from './configuration';
 import { EXTENSION_CONSTANTS } from './constants';
-import { determineServerMode } from './utils/server-mode';
+import { determineServerMode, type ServerMode } from './utils/server-mode';
+import type { WorkspaceSettings } from './types';
+
+/**
+ * Enhanced initialization options interface
+ */
+interface EnhancedInitializationOptions extends WorkspaceSettings {
+  enableDocumentSymbols: boolean;
+  extensionMode: ServerMode;
+  environment: 'desktop' | 'web';
+  debugOptions?: Record<string, unknown>;
+  logLevel?: string;
+}
 
 /**
  * Browser-compatible debug options getter.
@@ -52,22 +64,6 @@ function detectEnvironment(): 'desktop' | 'web' {
 }
 
 /**
- * Safely clone an object for worker serialization, removing non-serializable properties.
- * @param obj - Object to clone
- * @returns Cloned object safe for worker serialization
- * @throws Error if serialization fails
- */
-const safeCloneForWorker = (obj: any): any => {
-  try {
-    // For simple objects, JSON stringify/parse is sufficient
-    return JSON.parse(JSON.stringify(obj));
-  } catch (error) {
-    logToOutputChannel(`❌ Object serialization failed: ${error}`, 'error');
-    throw new Error(`Cannot serialize object for worker: ${error}`);
-  }
-};
-
-/**
  * Creates enhanced initialization options that incorporate benefits from server-config.ts.
  * @param context - VS Code extension context
  * @param environment - The detected environment (desktop or web)
@@ -76,7 +72,7 @@ const safeCloneForWorker = (obj: any): any => {
 const createEnhancedInitializationOptions = (
   context: vscode.ExtensionContext,
   environment: 'desktop' | 'web',
-): any => {
+): EnhancedInitializationOptions => {
   const settings = getWorkspaceSettings();
 
   // Determine server mode using shared utility
@@ -84,17 +80,17 @@ const createEnhancedInitializationOptions = (
 
   // Enhanced initialization options with server-config benefits
   // Safely extract only serializable settings
-  const safeSettings = safeCloneForWorker(settings);
+  const safeSettings = structuredClone(settings);
   const debugOptions = getBrowserCompatibleDebugOptions(environment);
 
-  const enhancedOptions = {
+  const enhancedOptions: EnhancedInitializationOptions = {
     enableDocumentSymbols: true,
     extensionMode: serverMode, // Pass extension mode to server (from server-config.ts)
     environment,
     ...safeSettings,
     // Add debug information if available and serializable
     ...(debugOptions && {
-      debugOptions: safeCloneForWorker(debugOptions),
+      debugOptions: structuredClone(debugOptions),
     }),
   };
 
@@ -142,8 +138,8 @@ const createInitializeParams = (
       version: '1.0.0',
     },
     locale: vscode.env.language,
-    rootPath: workspaceFolders?.[0]?.uri.fsPath || null,
-    rootUri: workspaceFolders?.[0]?.uri.toString() || null,
+    rootPath: workspaceFolders?.[0]?.uri.fsPath ?? null,
+    rootUri: workspaceFolders?.[0]?.uri.toString() ?? null,
     capabilities: {
       workspace: {
         applyEdit: true,
@@ -305,7 +301,7 @@ const createInitializeParams = (
       workspaceFolders?.map((folder) => ({
         uri: folder.uri.toString(),
         name: folder.name,
-      })) || null,
+      })) ?? null,
   };
 
   // Parameters are already built with safe values, return as-is
@@ -375,9 +371,11 @@ async function createWebLanguageClient(
   context: vscode.ExtensionContext,
   environment: 'desktop' | 'web',
 ): Promise<void> {
-  // Import web-worker package and browser language client dynamically
-  const { default: Worker } = await import('web-worker');
-  const { LanguageClient } = await import('vscode-languageclient/browser');
+  // Import web-worker package and browser language client dynamically in parallel
+  const [{ default: Worker }, { LanguageClient }] = await Promise.all([
+    import('web-worker'),
+    import('vscode-languageclient/browser'),
+  ]);
 
   logToOutputChannel('🔧 Creating web-based language client...', 'info');
 
@@ -515,10 +513,12 @@ async function createDesktopLanguageClient(
     'info',
   );
 
-  // Import the server configuration
-  const { createServerOptions, createClientOptions } = await import(
-    './server-config'
-  );
+  // Import server configuration and language client in parallel
+  const [{ createServerOptions, createClientOptions }, { LanguageClient }] =
+    await Promise.all([
+      import('./server-config'),
+      import('vscode-languageclient/node'),
+    ]);
 
   // Create server and client options
   const serverOptions = createServerOptions(context);
@@ -532,8 +532,6 @@ async function createDesktopLanguageClient(
   );
 
   // Create the language client using Node.js server
-  const { LanguageClient } = await import('vscode-languageclient/node');
-
   const nodeClient = new LanguageClient(
     'apexLanguageServer',
     'Apex Language Server Extension (Node.js)',

@@ -141,7 +141,7 @@ export default defineConfig([
       configureWebWorkerPolyfills(options);
 
       // Add plugin to handle dynamic requires at build time
-      if (!options.plugins) options.plugins = [];
+      options.plugins = [...(options.plugins ?? [])];
       options.plugins.push({
         name: 'dynamic-require-resolver',
         setup(build: any) {

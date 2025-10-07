@@ -28,7 +28,7 @@ export const determineServerMode = (
   context: vscode.ExtensionContext,
 ): ServerMode => {
   // Check for environment variables only if process is available
-  const processEnv = typeof process !== 'undefined' ? process.env : {};
+  const processEnv = process?.env ?? {};
 
   // Validate and use APEX_LS_MODE if set
   if (processEnv.APEX_LS_MODE) {

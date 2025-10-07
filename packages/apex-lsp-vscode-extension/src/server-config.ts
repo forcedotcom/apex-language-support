@@ -26,16 +26,10 @@ import { determineServerMode } from './utils/server-mode';
 export const getDebugOptions = (): string[] | undefined => {
   const debugConfig = getDebugConfig();
 
-  // Temporary logging to verify debug config
-  logServerMessage(
-    `Debug config: mode=${debugConfig.mode}, port=${debugConfig.port}`,
-    'info',
-  );
-
   // Force debug mode for development builds when in development environment
   const isDevelopment =
-    process.env.APEX_LS_MODE === 'development' ||
-    process.env.NODE_ENV === 'development';
+    process?.env?.APEX_LS_MODE === 'development' ||
+    process?.env?.NODE_ENV === 'development';
 
   if (isDevelopment && debugConfig.mode === 'off') {
     logServerMessage(
@@ -199,7 +193,7 @@ const handleClientError = (
   _count: number | undefined,
 ): { action: ErrorAction } => {
   logServerMessage(
-    `LSP Error: ${message?.toString() || 'Unknown error'}`,
+    `LSP Error: ${message?.toString() ?? 'Unknown error'}`,
     'error',
   );
   if (error) {

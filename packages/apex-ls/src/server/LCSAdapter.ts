@@ -12,7 +12,14 @@ import {
   InitializeResult,
   TextDocuments,
   DocumentSymbolParams,
+  DocumentSymbol,
+  SymbolInformation,
   DidChangeConfigurationNotification,
+  DidChangeConfigurationParams,
+  DidOpenTextDocumentParams,
+  DidChangeTextDocumentParams,
+  DidSaveTextDocumentParams,
+  DidCloseTextDocumentParams,
   TextDocumentSyncKind,
   CompletionParams,
   CompletionItem,
@@ -25,7 +32,10 @@ import {
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { UniversalLoggerFactory, Logger } from '@salesforce/apex-lsp-shared';
+import {
+  UniversalLoggerFactory,
+  LoggerInterface,
+} from '@salesforce/apex-lsp-shared';
 
 // LCS services and handlers
 import {
@@ -47,7 +57,7 @@ import {
  */
 export interface LCSAdapterConfig {
   connection: Connection;
-  logger?: Logger;
+  logger?: LoggerInterface;
   delegationMode?: boolean; // When true, don't set up connection listeners
 }
 
@@ -57,7 +67,7 @@ export interface LCSAdapterConfig {
  */
 export class LCSAdapter {
   private readonly connection: Connection;
-  private readonly logger: Logger;
+  private readonly logger: LoggerInterface;
   private readonly documents: TextDocuments<TextDocument>;
   private hasConfigurationCapability = false;
   private hasWorkspaceFolderCapability = false;
@@ -69,9 +79,9 @@ export class LCSAdapter {
 
   constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
-    this.logger = config.logger || this.createDefaultLogger();
+    this.logger = config.logger ?? this.createDefaultLogger();
     this.documents = new TextDocuments(TextDocument);
-    this.delegationMode = config.delegationMode || false;
+    this.delegationMode = config.delegationMode ?? false;
 
     // Initialize LCS services
     this.completionProcessor = new CompletionProcessingService(this.logger);
@@ -96,7 +106,7 @@ export class LCSAdapter {
       await storageManager.initialize();
       this.logger.debug('✅ ApexStorageManager initialized successfully');
     } catch (error) {
-      this.logger.error('❌ Failed to initialize ApexStorageManager:', error);
+      this.logger.error(`❌ Failed to initialize ApexStorageManager: ${error}`);
     }
 
     // Set up document event handlers
@@ -123,9 +133,9 @@ export class LCSAdapter {
   /**
    * Create default logger if none provided
    */
-  private createDefaultLogger(): Logger {
+  private createDefaultLogger(): LoggerInterface {
     const loggerFactory = UniversalLoggerFactory.getInstance();
-    return loggerFactory.createLogger(this.connection) as Logger;
+    return loggerFactory.createLogger(this.connection);
   }
 
   /**
@@ -155,7 +165,7 @@ export class LCSAdapter {
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        this.logger.debug('Document open error details:', error);
+        this.logger.debug(`Document open error details: ${error}`);
       }
     });
 
@@ -171,7 +181,7 @@ export class LCSAdapter {
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        this.logger.debug('Document change error details:', error);
+        this.logger.debug(`Document change error details: ${error}`);
       }
     });
 
@@ -185,7 +195,7 @@ export class LCSAdapter {
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        this.logger.debug('Document save error details:', error);
+        this.logger.debug(`Document save error details: ${error}`);
       }
     });
 
@@ -199,7 +209,7 @@ export class LCSAdapter {
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        this.logger.debug('Document close error details:', error);
+        this.logger.debug(`Document close error details: ${error}`);
       }
     });
   }
@@ -218,7 +228,7 @@ export class LCSAdapter {
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        this.logger.debug('Document symbols error details:', error);
+        this.logger.debug(`Document symbols error details: ${error}`);
         return [];
       }
     });
@@ -239,7 +249,7 @@ export class LCSAdapter {
               error instanceof Error ? error.message : String(error)
             }`,
           );
-          this.logger.debug('Hover error details:', error);
+          this.logger.debug(`Hover error details: ${error}`);
           return null;
         }
       },
@@ -264,7 +274,7 @@ export class LCSAdapter {
               error instanceof Error ? error.message : String(error)
             }`,
           );
-          this.logger.debug('Diagnostics error details:', error);
+          this.logger.debug(`Diagnostics error details: ${error}`);
           return {
             kind: DocumentDiagnosticReportKind.Full,
             items: [],
@@ -354,7 +364,9 @@ export class LCSAdapter {
   /**
    * Handle configuration changes
    */
-  private handleConfigurationChange(change: any): void {
+  private handleConfigurationChange(
+    change: DidChangeConfigurationParams,
+  ): void {
     LSPConfigurationManager.getInstance().updateFromLSPConfiguration(change);
     // Revalidate all open text documents (basic implementation for now)
     this.documents.all().forEach(async (document) => {
@@ -362,7 +374,7 @@ export class LCSAdapter {
         // Basic revalidation - can be enhanced with LCS later
         this.connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
       } catch (error) {
-        this.logger.error('Error revalidating document:', error);
+        this.logger.error(`Error revalidating document: ${error}`);
       }
     });
   }
@@ -384,7 +396,7 @@ export class LCSAdapter {
   /**
    * Get logger instance
    */
-  public getLogger(): Logger {
+  public getLogger(): LoggerInterface {
     return this.logger;
   }
 
@@ -397,7 +409,9 @@ export class LCSAdapter {
    * Handle document open event (delegation mode).
    * @param params - Document open parameters
    */
-  public async handleDocumentOpen(params: any): Promise<void> {
+  public async handleDocumentOpen(
+    params: DidOpenTextDocumentParams,
+  ): Promise<void> {
     const document = this.documents.get(params.textDocument.uri);
     if (document) {
       await dispatchProcessOnOpenDocument({ document });
@@ -408,7 +422,9 @@ export class LCSAdapter {
    * Handle document change event (delegation mode).
    * @param params - Document change parameters
    */
-  public async handleDocumentChange(params: any): Promise<void> {
+  public async handleDocumentChange(
+    params: DidChangeTextDocumentParams,
+  ): Promise<void> {
     const document = this.documents.get(params.textDocument.uri);
     if (document) {
       await dispatchProcessOnChangeDocument({ document });
@@ -419,7 +435,9 @@ export class LCSAdapter {
    * Handle document save event (delegation mode).
    * @param params - Document save parameters
    */
-  public async handleDocumentSave(params: any): Promise<void> {
+  public async handleDocumentSave(
+    params: DidSaveTextDocumentParams,
+  ): Promise<void> {
     const document = this.documents.get(params.textDocument.uri);
     if (document) {
       await dispatchProcessOnSaveDocument({ document });
@@ -430,7 +448,9 @@ export class LCSAdapter {
    * Handle document close event (delegation mode).
    * @param params - Document close parameters
    */
-  public async handleDocumentClose(params: any): Promise<void> {
+  public async handleDocumentClose(
+    params: DidCloseTextDocumentParams,
+  ): Promise<void> {
     const document = this.documents.get(params.textDocument.uri);
     if (document) {
       await dispatchProcessOnCloseDocument({ document });
@@ -456,10 +476,12 @@ export class LCSAdapter {
    * @param params - Document symbol parameters
    * @returns Array of document symbols or null
    */
-  public async onDocumentSymbol(params: DocumentSymbolParams): Promise<any> {
+  public async onDocumentSymbol(
+    params: DocumentSymbolParams,
+  ): Promise<DocumentSymbol[] | SymbolInformation[] | null> {
     try {
       const result = await dispatchProcessOnDocumentSymbol(params);
-      return result || [];
+      return result ?? [];
     } catch (error) {
       this.logger.error(`Error processing document symbols: ${error}`);
       return [];

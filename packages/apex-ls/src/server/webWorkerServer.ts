@@ -60,7 +60,7 @@ export async function startApexWebWorker(): Promise<void> {
 
   // Create lazy LSP server (starts immediately with basic capabilities)
   // This architecture prevents connection conflicts with desktop debugging
-  const _lazyServer = new LazyLSPServer(connection, logger as any);
+  new LazyLSPServer(connection, logger as any);
 
   logger.info(
     '✅ Apex Language Server Worker ready! (Advanced features loading in background)',

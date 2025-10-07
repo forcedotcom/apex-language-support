@@ -96,7 +96,7 @@ setTimeout(() => {
   restoreOriginalGlobals();
   // Skip logging in test environment to avoid Jest exit code issues
   // Check if process is available (Node.js environment) before accessing env
-  const processEnv = typeof process !== 'undefined' ? process.env : {};
+  const processEnv = process?.env ?? {};
   if (processEnv.NODE_ENV !== 'test') {
     console.log('[APEX-EXT] Polyfills restored - other extensions protected');
   }

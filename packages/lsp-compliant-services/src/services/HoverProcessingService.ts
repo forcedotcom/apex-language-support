@@ -65,7 +65,7 @@ export class HoverProcessingService implements IHoverProcessor {
     this.logger = logger;
     // Use the passed symbol manager or fall back to the singleton
     this.symbolManager =
-      symbolManager ||
+      symbolManager ??
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
     this.capabilitiesManager = ApexCapabilitiesManager.getInstance();
     // MissingArtifactUtils will create the service on-demand
@@ -140,15 +140,15 @@ export class HoverProcessingService implements IHoverProcessor {
     content.push('');
     content.push('```apex');
     if (isMethodSymbol(symbol)) {
-      const returnType = symbol.returnType?.name || 'void';
-      const paramsSig = ((symbol as any).parameters || [])
-        .map((p: any) => `${p.type?.name || 'any'} ${p.name}`)
+      const returnType = symbol.returnType?.name ?? 'void';
+      const paramsSig = ((symbol as any).parameters ?? [])
+        .map((p: any) => `${p.type?.name ?? 'any'} ${p.name}`)
         .join(', ');
       const methodName = fqn || symbol.name;
       content.push(`${returnType} ${methodName}(${paramsSig})`);
     } else if (isConstructorSymbol(symbol)) {
-      const paramsSig = ((symbol as any).parameters || [])
-        .map((p: any) => `${p.type?.name || 'any'} ${p.name}`)
+      const paramsSig = ((symbol as any).parameters ?? [])
+        .map((p: any) => `${p.type?.name ?? 'any'} ${p.name}`)
         .join(', ');
       const ctorName = fqn || symbol.name;
       content.push(`${ctorName}(${paramsSig})`);
@@ -161,7 +161,7 @@ export class HoverProcessingService implements IHoverProcessor {
     } else if (isTriggerSymbol(symbol)) {
       content.push(`trigger ${fqn || symbol.name}`);
     } else if (isVariableSymbol(symbol)) {
-      const type = symbol._typeData?.type?.name || 'unknown';
+      const type = symbol._typeData?.type?.name ?? 'unknown';
       content.push(`${type} ${fqn || symbol.name}`);
     } else {
       content.push(fqn || symbol.name);

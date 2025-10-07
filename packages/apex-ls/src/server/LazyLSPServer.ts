@@ -12,7 +12,12 @@ import {
   InitializeResult,
   TextDocumentSyncKind,
   ServerCapabilities,
+  DidOpenTextDocumentParams,
+  DidChangeTextDocumentParams,
+  DidSaveTextDocumentParams,
+  DidCloseTextDocumentParams,
 } from 'vscode-languageserver/browser';
+import { Effect } from 'effect';
 
 import type { Logger } from '@salesforce/apex-lsp-shared';
 import type { LCSAdapter } from './LCSAdapter';
@@ -31,12 +36,6 @@ export class LazyLSPServer {
   private readonly logger: Logger;
   private lcsAdapter: LCSAdapter | null = null;
   private isLCSLoaded = false;
-
-  /**
-   * Delay in milliseconds to allow basic initialization to complete before loading heavy dependencies.
-   */
-  private static readonly LCS_PRELOAD_DELAY_MS = 100;
-
   constructor(connection: Connection, logger: Logger) {
     this.connection = connection;
     this.logger = logger;
@@ -85,7 +84,7 @@ export class LazyLSPServer {
       if (!this.isLCSLoaded) {
         this.logger.info('🔄 Loading LCS adapter for document open...');
         try {
-          await this.loadLCSAdapter();
+          await this.ensureLcsAdapterLoaded();
         } catch (error) {
           this.logger.error(
             `❌ Failed to load LCS adapter for document: ${error}`,
@@ -114,7 +113,7 @@ export class LazyLSPServer {
       // Load LCS adapter if not already loaded for save processing
       if (!this.isLCSLoaded) {
         try {
-          await this.loadLCSAdapter();
+          await this.ensureLcsAdapterLoaded();
         } catch (error) {
           this.logger.error(`❌ Failed to load LCS adapter for save: ${error}`);
           return;
@@ -144,7 +143,7 @@ export class LazyLSPServer {
       // Load LCS adapter if not already loaded
       if (!this.isLCSLoaded) {
         try {
-          await this.loadLCSAdapter();
+          await this.ensureLcsAdapterLoaded();
         } catch (error) {
           this.logger.error(`❌ Failed to load LCS for hover: ${error}`);
           return null;
@@ -165,7 +164,7 @@ export class LazyLSPServer {
       // Load LCS adapter if not already loaded
       if (!this.isLCSLoaded) {
         try {
-          await this.loadLCSAdapter();
+          await this.ensureLcsAdapterLoaded();
         } catch (error) {
           this.logger.error(`❌ Failed to load LCS for symbols: ${error}`);
           return [];
@@ -186,7 +185,7 @@ export class LazyLSPServer {
       // Load LCS adapter if not already loaded
       if (!this.isLCSLoaded) {
         try {
-          await this.loadLCSAdapter();
+          await this.ensureLcsAdapterLoaded();
         } catch (error) {
           this.logger.error(`❌ Failed to load LCS for completion: ${error}`);
           return [];
@@ -221,54 +220,94 @@ export class LazyLSPServer {
   }
 
   /**
-   * Preload advanced features in the background.
+   * Preload advanced features in the background using Effect.fork.
    * This method is called after the server is initialized to load
    * the full LCSAdapter without blocking the initial response.
    */
-  private async preloadAdvancedFeatures(): Promise<void> {
-    try {
-      // Small delay to let basic initialization complete
-      await new Promise((resolve) =>
-        setTimeout(resolve, LazyLSPServer.LCS_PRELOAD_DELAY_MS),
-      );
+  private preloadAdvancedFeatures(): void {
+    const self = this;
 
-      this.logger.info('🔄 Preloading advanced LSP features...');
-      await this.loadLCSAdapter();
-    } catch (error) {
-      this.logger.error(`❌ Failed to preload advanced features: ${error}`);
-    }
+    // Fork the preloading operation to run in the background
+    Effect.runFork(
+      Effect.gen(function* (_) {
+        self.logger.info('🔄 Preloading advanced LSP features...');
+
+        // Fork the LCS adapter loading to run concurrently
+        yield* _(
+          Effect.fork(Effect.promise(() => self.ensureLcsAdapterLoaded())),
+        );
+
+        self.logger.info('✅ Advanced LSP features preloaded successfully!');
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.sync(() => {
+            self.logger.error(
+              `❌ Failed to preload advanced features: ${error}`,
+            );
+          }),
+        ),
+      ),
+    );
+
+    this.logger.info(
+      '🚀 Background preloading of advanced LSP features started...',
+    );
   }
 
   /**
-   * Load the LCS adapter with delegation mode.
-   * In delegation mode, the adapter does not set up its own protocol handlers
-   * because this LazyLSPServer handles the protocol and forwards requests.
+   * Ensure the LCS adapter is loaded, loading it if not already loaded.
+   * This method is idempotent - it will only load the adapter once and
+   * subsequent calls will return immediately if already loaded.
+   *
+   * Uses Effect-TS patterns internally while maintaining Promise interface
+   * for backward compatibility. In delegation mode, the adapter does not
+   * set up its own protocol handlers because this LazyLSPServer handles
+   * the protocol and forwards requests.
+   *
    * @throws Error if adapter fails to load
    */
-  private async loadLCSAdapter(): Promise<void> {
+  private async ensureLcsAdapterLoaded(): Promise<void> {
     if (this.isLCSLoaded) {
       return;
     }
 
-    try {
-      this.logger.info('📦 Loading LCS Adapter...');
+    const self = this;
 
-      const { LCSAdapter } = await import('./LCSAdapter');
+    // Use Effect-TS patterns internally while maintaining Promise interface
+    const loadEffect = Effect.gen(function* (_) {
+      self.logger.info('📦 Loading LCS Adapter...');
 
-      this.lcsAdapter = new LCSAdapter({
-        connection: this.connection,
-        logger: this.logger,
+      // Dynamic import using Effect.promise
+      const { LCSAdapter } = yield* _(
+        Effect.promise(() => import('./LCSAdapter')),
+      );
+
+      // Create LCS adapter instance
+      const lcsAdapter = new LCSAdapter({
+        connection: self.connection,
+        logger: self.logger,
         delegationMode: true, // Don't set up connection listeners
       });
 
-      await this.lcsAdapter.initialize();
-      this.isLCSLoaded = true;
+      // Initialize adapter using Effect.promise
+      yield* _(Effect.promise(() => lcsAdapter.initialize()));
 
-      this.logger.info('✅ Advanced LSP features loaded successfully!');
-    } catch (error) {
-      this.logger.error(`❌ Failed to load LCS Adapter: ${error}`);
-      throw error;
-    }
+      // Update state
+      self.lcsAdapter = lcsAdapter;
+      self.isLCSLoaded = true;
+
+      self.logger.info('✅ LCS Adapter loaded successfully!');
+    }).pipe(
+      Effect.catchAll((error) =>
+        Effect.gen(function* (_) {
+          self.logger.error(`❌ Failed to load LCS Adapter: ${error}`);
+          return yield* _(Effect.fail(error));
+        }),
+      ),
+    );
+
+    // Convert Effect to Promise for backward compatibility
+    await Effect.runPromise(loadEffect);
   }
 
   /**
@@ -277,8 +316,28 @@ export class LazyLSPServer {
    * @param params - Event parameters
    */
   private async forwardDocumentEvent(
-    eventType: string,
-    params: any,
+    eventType: 'open',
+    params: DidOpenTextDocumentParams,
+  ): Promise<void>;
+  private async forwardDocumentEvent(
+    eventType: 'change',
+    params: DidChangeTextDocumentParams,
+  ): Promise<void>;
+  private async forwardDocumentEvent(
+    eventType: 'save',
+    params: DidSaveTextDocumentParams,
+  ): Promise<void>;
+  private async forwardDocumentEvent(
+    eventType: 'close',
+    params: DidCloseTextDocumentParams,
+  ): Promise<void>;
+  private async forwardDocumentEvent(
+    eventType: 'open' | 'change' | 'save' | 'close',
+    params:
+      | DidOpenTextDocumentParams
+      | DidChangeTextDocumentParams
+      | DidSaveTextDocumentParams
+      | DidCloseTextDocumentParams,
   ): Promise<void> {
     if (!this.lcsAdapter) {
       return;
@@ -288,22 +347,30 @@ export class LazyLSPServer {
       switch (eventType) {
         case 'open':
           if (this.lcsAdapter.handleDocumentOpen) {
-            await this.lcsAdapter.handleDocumentOpen(params);
+            await this.lcsAdapter.handleDocumentOpen(
+              params as DidOpenTextDocumentParams,
+            );
           }
           break;
         case 'change':
           if (this.lcsAdapter.handleDocumentChange) {
-            await this.lcsAdapter.handleDocumentChange(params);
+            await this.lcsAdapter.handleDocumentChange(
+              params as DidChangeTextDocumentParams,
+            );
           }
           break;
         case 'save':
           if (this.lcsAdapter.handleDocumentSave) {
-            await this.lcsAdapter.handleDocumentSave(params);
+            await this.lcsAdapter.handleDocumentSave(
+              params as DidSaveTextDocumentParams,
+            );
           }
           break;
         case 'close':
           if (this.lcsAdapter.handleDocumentClose) {
-            await this.lcsAdapter.handleDocumentClose(params);
+            await this.lcsAdapter.handleDocumentClose(
+              params as DidCloseTextDocumentParams,
+            );
           }
           break;
       }

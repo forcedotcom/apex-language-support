@@ -47,7 +47,7 @@ export const handleAutoRestart = async (
       10000,
     );
     logToOutputChannel(
-      // eslint-disable-next-line max-len
+       
       `Will retry server start (${getServerStartRetries()}/${EXTENSION_CONSTANTS.MAX_RETRIES}) after ${delay}ms delay...`,
       'info',
     );
