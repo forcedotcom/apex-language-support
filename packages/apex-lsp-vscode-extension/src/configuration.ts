@@ -20,7 +20,7 @@ export const getWorkspaceSettings = (): WorkspaceSettings => {
     EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
   );
   const logLevel = config.get<string>('logLevel') ?? 'info';
-  const workerLogLevel = config.get<string>('worker.logLevel') ?? 'info';
+  const workerLogLevel = config.get<string>('worker.logLevel') ?? 'error';
   // Map apex-ls-ts configuration to the apex format expected by the language server
   const settings: WorkspaceSettings = {
     // Language server worker expects this format

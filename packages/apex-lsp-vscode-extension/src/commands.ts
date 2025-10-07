@@ -129,7 +129,7 @@ export const registerLogLevelCommands = (
           EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
         );
         await config.update(
-          'ls.logLevel',
+          'logLevel',
           logLevel,
           vscode.ConfigurationTarget.Workspace,
         );
