@@ -125,80 +125,6 @@ export class LazyLSPServer {
         await this.forwardDocumentEvent('save', params);
       }
     });
-
-    this.connection.onDidCloseTextDocument(async (params) => {
-      this.logger.info(`📄 Document closed: ${params.textDocument.uri}`);
-      // Forward to LCS adapter for proper document processing
-      if (this.isLCSLoaded && this.lcsAdapter) {
-        await this.forwardDocumentEvent('close', params);
-      }
-    });
-
-    // Handle advanced requests by lazy-loading when needed
-    this.connection.onHover(async (params) => {
-      this.logger.info(
-        `🔍 HOVER REQUEST: ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
-      );
-
-      // Load LCS adapter if not already loaded
-      if (!this.isLCSLoaded) {
-        try {
-          await this.ensureLcsAdapterLoaded();
-        } catch (error) {
-          this.logger.error(`❌ Failed to load LCS for hover: ${error}`);
-          return null;
-        }
-      }
-
-      // Delegate to LCS adapter
-      if (this.lcsAdapter && this.lcsAdapter.onHover) {
-        return await this.lcsAdapter.onHover(params);
-      }
-
-      return null;
-    });
-
-    this.connection.onDocumentSymbol(async (params) => {
-      this.logger.info(`📋 Document symbols: ${params.textDocument.uri}`);
-
-      // Load LCS adapter if not already loaded
-      if (!this.isLCSLoaded) {
-        try {
-          await this.ensureLcsAdapterLoaded();
-        } catch (error) {
-          this.logger.error(`❌ Failed to load LCS for symbols: ${error}`);
-          return [];
-        }
-      }
-
-      // Delegate to LCS adapter
-      if (this.lcsAdapter && this.lcsAdapter.onDocumentSymbol) {
-        return await this.lcsAdapter.onDocumentSymbol(params);
-      }
-
-      return [];
-    });
-
-    this.connection.onCompletion(async (params) => {
-      this.logger.info(`🔤 Completion: ${params.textDocument.uri}`);
-
-      // Load LCS adapter if not already loaded
-      if (!this.isLCSLoaded) {
-        try {
-          await this.ensureLcsAdapterLoaded();
-        } catch (error) {
-          this.logger.error(`❌ Failed to load LCS for completion: ${error}`);
-          return [];
-        }
-      }
-
-      // Delegate to LCS adapter
-      if (this.lcsAdapter && this.lcsAdapter.onCompletion) {
-        return await this.lcsAdapter.onCompletion(params);
-      }
-
-      return [];
-    });
   }
 
   /**
@@ -209,7 +135,7 @@ export class LazyLSPServer {
    */
   private getBasicCapabilities(): ServerCapabilities {
     return {
-      textDocumentSync: TextDocumentSyncKind.Incremental,
+      textDocumentSync: TextDocumentSyncKind.Full,
       hoverProvider: true,
       documentSymbolProvider: true,
       completionProvider: {

@@ -22,22 +22,14 @@
         "APEX_LS_MODE": "development"
       },
       "sourceMapPathOverrides": {
-        // For lsp-compliant-services (always individual files)
-        "../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
-        "../../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
-        // For apex-lsp-shared
-        "../../apex-lsp-shared/src/*": "${workspaceFolder}/packages/apex-lsp-shared/src/*",
-        // For apex-ls individual files (CommonJS build in out/node/)
-        "../server.node.ts": "${workspaceFolder}/packages/apex-ls/src/server.node.ts",
-        "../server/nodeServer.ts": "${workspaceFolder}/packages/apex-ls/src/server/nodeServer.ts",
-        "../server/LCSAdapter.ts": "${workspaceFolder}/packages/apex-ls/src/server/LCSAdapter.ts",
-        "../server/*": "${workspaceFolder}/packages/apex-ls/src/server/*",
+        // Universal package patterns (handles all packages with different relative depths)
+        "../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "../../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        // General patterns for apex-ls source files (development mode specific)
         "../*": "${workspaceFolder}/packages/apex-ls/src/*",
-        // For apex-ls bundled files (dist/ directory)
-        "../src/server/LCSAdapter.ts": "${workspaceFolder}/packages/apex-ls/src/server/LCSAdapter.ts",
-        "../src/server/*": "${workspaceFolder}/packages/apex-ls/src/server/*",
-        "../src/*": "${workspaceFolder}/packages/apex-ls/src/*",
-        "../../src/*": "${workspaceFolder}/packages/apex-ls/src/*"
+        "../../src/*": "${workspaceFolder}/packages/apex-ls/src/*",
+        "../src/*": "${workspaceFolder}/packages/apex-ls/src/*"
       }
     },
     {
@@ -131,15 +123,13 @@
         "APEX_LS_MODE": "production"
       },
       "sourceMapPathOverrides": {
-        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*",
-        "../src/server/LCSAdapter.ts": "${workspaceFolder}/packages/apex-ls/src/server/LCSAdapter.ts",
-        "../../src/*": "${workspaceFolder}/packages/apex-ls/src/*",
-        "../../apex-lsp-shared/src/*": "${workspaceFolder}/packages/apex-lsp-shared/src/*",
-        "../../apex-parser-ast/src/*": "${workspaceFolder}/packages/apex-parser-ast/src/*",
-        "../../apex-ls/src/*": "${workspaceFolder}/packages/apex-ls/src/*",
-        "../../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
+        // Universal package patterns (handles all packages with different relative depths)
         "../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "*/src/*": "${workspaceFolder}/packages/*/src/*"
+        "../../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "*/src/*": "${workspaceFolder}/packages/*/src/*",
+        // Extension-specific patterns (production mode)
+        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*"
       }
     },
     {
@@ -154,15 +144,13 @@
         "!**/node_modules/**"
       ],
       "sourceMapPathOverrides": {
-        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*",
-        "../../src/*": "${workspaceFolder}/packages/apex-ls/src/*",
-        "../../apex-lsp-shared/src/*": "${workspaceFolder}/packages/apex-lsp-shared/src/*",
-        "../../apex-ls/src/*": "${workspaceFolder}/packages/apex-ls/src/*",
-        "../../apex-parser-ast/src/*": "${workspaceFolder}/packages/apex-parser-ast/src/*",
-        "../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
-        "../../../lsp-compliant-services/src/*": "${workspaceFolder}/packages/lsp-compliant-services/src/*",
+        // Universal package patterns (handles all packages with different relative depths)
         "../*/src/*": "${workspaceFolder}/packages/*/src/*",
-        "*/src/*": "${workspaceFolder}/packages/*/src/*"
+        "../../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "../../../*/src/*": "${workspaceFolder}/packages/*/src/*",
+        "*/src/*": "${workspaceFolder}/packages/*/src/*",
+        // Extension-specific patterns (attach mode)
+        "../src/*": "${workspaceFolder}/packages/apex-lsp-vscode-extension/src/*"
       }
     },
     {

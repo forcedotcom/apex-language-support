@@ -79,8 +79,7 @@ const createEnhancedInitializationOptions = (
   const serverMode = determineServerMode(context);
 
   // Enhanced initialization options with server-config benefits
-  // Safely extract only serializable settings
-  const safeSettings = structuredClone(settings);
+  const safeSettings = settings;
   const debugOptions = getBrowserCompatibleDebugOptions(environment);
 
   const enhancedOptions: EnhancedInitializationOptions = {
@@ -90,7 +89,7 @@ const createEnhancedInitializationOptions = (
     ...safeSettings,
     // Add debug information if available and serializable
     ...(debugOptions && {
-      debugOptions: structuredClone(debugOptions),
+      debugOptions,
     }),
   };
 

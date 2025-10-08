@@ -21,8 +21,6 @@ import {
   DidSaveTextDocumentParams,
   DidCloseTextDocumentParams,
   TextDocumentSyncKind,
-  CompletionParams,
-  CompletionItem,
   HoverParams,
   Hover,
   DocumentDiagnosticParams,
@@ -45,7 +43,6 @@ import {
   dispatchProcessOnCloseDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
-  CompletionProcessingService,
   DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
@@ -71,8 +68,6 @@ export class LCSAdapter {
   private readonly documents: TextDocuments<TextDocument>;
   private hasConfigurationCapability = false;
   private hasWorkspaceFolderCapability = false;
-  private hasDiagnosticRelatedInformationCapability = false;
-  private readonly completionProcessor: CompletionProcessingService;
   private readonly diagnosticProcessor: DiagnosticProcessingService;
   private readonly delegationMode: boolean;
 
@@ -86,7 +81,6 @@ export class LCSAdapter {
     this.delegationMode = config.delegationMode ?? false;
 
     // Initialize LCS services
-    this.completionProcessor = new CompletionProcessingService(this.logger);
     this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
 
     this.setupEventHandlers();
@@ -296,15 +290,6 @@ export class LCSAdapter {
         }
       },
     );
-
-    // Advanced completion support using LCS
-    this.connection.onCompletion(
-      async (params: CompletionParams): Promise<CompletionItem[]> => {
-        this.logger.debug('Processing completion request with LCS');
-        const result = await this.completionProcessor.processCompletion(params);
-        return result || [];
-      },
-    );
   }
 
   /**
@@ -321,11 +306,6 @@ export class LCSAdapter {
     );
     this.hasWorkspaceFolderCapability = !!(
       capabilities.workspace && !!capabilities.workspace.workspaceFolders
-    );
-    this.hasDiagnosticRelatedInformationCapability = !!(
-      capabilities.textDocument &&
-      capabilities.textDocument.publishDiagnostics &&
-      capabilities.textDocument.publishDiagnostics.relatedInformation
     );
 
     const result: InitializeResult = {
@@ -493,22 +473,6 @@ export class LCSAdapter {
       return result ?? [];
     } catch (error) {
       this.logger.error(`Error processing document symbols: ${error}`);
-      return [];
-    }
-  }
-
-  /**
-   * Handle completion request (delegation mode).
-   * @param params - Completion parameters
-   * @returns Array of completion items
-   */
-  public async onCompletion(
-    params: CompletionParams,
-  ): Promise<CompletionItem[]> {
-    try {
-      return await this.completionProcessor.processCompletion(params);
-    } catch (error) {
-      this.logger.error(`Error processing completion: ${error}`);
       return [];
     }
   }
