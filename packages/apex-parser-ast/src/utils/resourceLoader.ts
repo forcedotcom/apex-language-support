@@ -7,7 +7,7 @@
  */
 
 import { unzipSync } from 'fflate';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, detectEnvironment } from '@salesforce/apex-lsp-shared';
 
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
@@ -18,7 +18,6 @@ import type { CompilationResultWithAssociations } from '../parser/compilerServic
 import { SymbolTable } from '../types/symbol';
 import { UriUtils } from './ResourceUtils';
 import { ResourceResolver } from './ResourceResolver';
-import { ResourcePathResolver } from './ResourcePathResolver';
 
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
@@ -74,7 +73,6 @@ export class ResourceLoader {
   private accessCount: number = 0; // Simple access counter for statistics
   private zipBuffer!: Uint8Array; // Will be initialized in loadZipData
   private zipFiles!: CaseInsensitivePathMap<Uint8Array>; // Will be initialized in extractZipFiles
-  private resourcePathResolver: ResourcePathResolver;
 
   private constructor(options?: ResourceLoaderOptions) {
     if (options?.loadMode) {
@@ -85,7 +83,6 @@ export class ResourceLoader {
     }
 
     this.compilerService = new CompilerService();
-    this.resourcePathResolver = ResourcePathResolver.getInstance();
 
     // Load ZIP data synchronously for immediate availability
     this.loadZipDataSync();
@@ -100,8 +97,10 @@ export class ResourceLoader {
    */
   private loadZipDataSync(): void {
     try {
-      if (typeof window !== 'undefined') {
-        // Browser environment - load synchronously using fetch with synchronous approach
+      const environment = detectEnvironment();
+
+      if (environment === 'browser') {
+        // Browser environment - load synchronously using XMLHttpRequest
         this.loadZipForBrowserSync();
       } else {
         // Node.js environment - try to load synchronously
@@ -194,51 +193,24 @@ export class ResourceLoader {
     // In browser environment, we need to use a synchronous approach
     // Since fetch is async, we'll use XMLHttpRequest for synchronous loading
     try {
-      // Use simple resource path resolver with consistent paths
-      const possiblePaths = this.resourcePathResolver.getResourcePaths(
-        'StandardApexLibrary.zip',
-      );
+      // Use deterministic resource path
+      const zipPath = './resources/StandardApexLibrary.zip';
 
       this.logger.debug(
-        () =>
-          `Trying ${possiblePaths.length} resource paths for browser environment`,
+        () => `Loading ZIP from deterministic path: ${zipPath}`,
       );
 
-      let success = false;
-      let lastError: Error | null = null;
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', zipPath, false); // false = synchronous
+      xhr.responseType = 'arraybuffer';
+      xhr.send();
 
-      for (const zipPath of possiblePaths) {
-        try {
-          const xhr = new XMLHttpRequest();
-          xhr.open('GET', zipPath, false); // false = synchronous
-          xhr.responseType = 'arraybuffer';
-          xhr.send();
-
-          if (xhr.status === 200) {
-            this.zipBuffer = new Uint8Array(xhr.response);
-            this.extractZipFiles();
-            success = true;
-            this.logger.debug(() => `Successfully loaded ZIP from: ${zipPath}`);
-            break;
-          } else {
-            lastError = new Error(`HTTP ${xhr.status}: ${xhr.statusText}`);
-            this.logger.debug(
-              () => `Failed to load from ${zipPath}: ${lastError?.message}`,
-            );
-          }
-        } catch (error) {
-          lastError = error as Error;
-          this.logger.debug(
-            () => `Error loading from ${zipPath}: ${lastError?.message}`,
-          );
-          continue; // Try next path
-        }
-      }
-
-      if (!success) {
-        throw new Error(
-          `Failed to load ZIP resource from any path. Last error: ${lastError?.message}`,
-        );
+      if (xhr.status === 200) {
+        this.zipBuffer = new Uint8Array(xhr.response);
+        this.extractZipFiles();
+        this.logger.debug(() => `Successfully loaded ZIP from: ${zipPath}`);
+      } else {
+        throw new Error(`HTTP ${xhr.status}: ${xhr.statusText}`);
       }
     } catch (error) {
       this.logger.error(() => `Failed to load ZIP in browser: ${error}`);
