@@ -9,7 +9,6 @@
 import { unzipSync } from 'fflate';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
-import { zipData } from '../generated/apexSrcLoader';
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
@@ -18,6 +17,8 @@ import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolColle
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
 import { UriUtils } from './ResourceUtils';
+import { ResourceResolver } from './ResourceResolver';
+import { ResourcePathResolver } from './ResourcePathResolver';
 
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
@@ -71,8 +72,9 @@ export class ResourceLoader {
     new CaseInsensitivePathMap(); // Maps case-insensitive paths to original case paths
   private totalSize: number = 0; // Total size of all files
   private accessCount: number = 0; // Simple access counter for statistics
-  private zipBuffer: Uint8Array;
-  private zipFiles: CaseInsensitivePathMap<Uint8Array>; // Cache of unzipped files
+  private zipBuffer!: Uint8Array; // Will be initialized in loadZipData
+  private zipFiles!: CaseInsensitivePathMap<Uint8Array>; // Will be initialized in extractZipFiles
+  private resourcePathResolver: ResourcePathResolver;
 
   private constructor(options?: ResourceLoaderOptions) {
     if (options?.loadMode) {
@@ -83,11 +85,173 @@ export class ResourceLoader {
     }
 
     this.compilerService = new CompilerService();
+    this.resourcePathResolver = ResourcePathResolver.getInstance();
 
-    // Convert Buffer to Uint8Array for browser compatibility
-    this.zipBuffer = new Uint8Array(zipData);
+    // Load ZIP data synchronously for immediate availability
+    this.loadZipDataSync();
 
-    // Extract ZIP once during initialization
+    // Mark as initialized since we've done all the basic setup
+    this.initialized = true;
+  }
+
+  /**
+   * Load ZIP data synchronously for immediate availability
+   * @private
+   */
+  private loadZipDataSync(): void {
+    try {
+      if (typeof window !== 'undefined') {
+        // Browser environment - load synchronously using fetch with synchronous approach
+        this.loadZipForBrowserSync();
+      } else {
+        // Node.js environment - try to load synchronously
+        this.loadZipForNodeSync();
+      }
+    } catch (error) {
+      this.logger.error(() => `Failed to load ZIP resource: ${error}`);
+      // Initialize empty structure as fallback
+      this.initializeEmptyStructure();
+    }
+  }
+
+  /**
+   * Initialize empty structure as fallback
+   * @private
+   */
+  private initializeEmptyStructure(): void {
+    this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
+    this.fileIndex = new CaseInsensitivePathMap<boolean>();
+    this.originalPaths = new CaseInsensitivePathMap<string>();
+    this.namespaces = new Map<string, CIS[]>();
+    this.totalSize = 0;
+  }
+
+  /**
+   * Load ZIP data for Node.js environment synchronously
+   * @private
+   */
+  private loadZipForNodeSync(): void {
+    try {
+      // Try CJS approach first (more reliable)
+      const { loadZipDataSync } = require('../generated/zipResourceLoader.cjs');
+      const zipData = loadZipDataSync();
+      this.zipBuffer = new Uint8Array(zipData);
+      this.extractZipFiles();
+    } catch (cjsError) {
+      this.logger.debug(
+        () => 'CJS loading failed, trying direct require.resolve',
+      );
+
+      // Fallback - try multiple possible paths
+      const { readFileSync } = require('fs');
+      const { join } = require('path');
+
+      // Try different possible locations
+      const possiblePaths = [
+        '../resources/StandardApexLibrary.zip', // From src/utils/
+        '../out/resources/StandardApexLibrary.zip', // From src/utils/ to out/
+        '../../out/resources/StandardApexLibrary.zip', // From src/generated/
+        join(__dirname, '../resources/StandardApexLibrary.zip'), // Absolute path
+        join(__dirname, '../out/resources/StandardApexLibrary.zip'), // Absolute path to out/
+      ];
+
+      let zipData: Buffer | null = null;
+      let lastError: Error | null = null;
+
+      for (const zipPath of possiblePaths) {
+        try {
+          if (zipPath.startsWith('/') || zipPath.includes('\\')) {
+            // Absolute path
+            zipData = readFileSync(zipPath);
+          } else {
+            // Relative path - try require.resolve
+            const resolvedPath = require.resolve(zipPath);
+            zipData = readFileSync(resolvedPath);
+          }
+          break; // Success, exit loop
+        } catch (error) {
+          lastError = error as Error;
+          continue; // Try next path
+        }
+      }
+
+      if (!zipData) {
+        throw new Error(
+          `Could not find StandardApexLibrary.zip in any of the expected locations. Last error: ${lastError?.message}`,
+        );
+      }
+
+      this.zipBuffer = new Uint8Array(zipData);
+      this.extractZipFiles();
+    }
+  }
+
+  /**
+   * Load ZIP data for browser environment synchronously
+   * @private
+   */
+  private loadZipForBrowserSync(): void {
+    // In browser environment, we need to use a synchronous approach
+    // Since fetch is async, we'll use XMLHttpRequest for synchronous loading
+    try {
+      // Use simple resource path resolver with consistent paths
+      const possiblePaths = this.resourcePathResolver.getResourcePaths(
+        'StandardApexLibrary.zip',
+      );
+
+      this.logger.debug(
+        () =>
+          `Trying ${possiblePaths.length} resource paths for browser environment`,
+      );
+
+      let success = false;
+      let lastError: Error | null = null;
+
+      for (const zipPath of possiblePaths) {
+        try {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', zipPath, false); // false = synchronous
+          xhr.responseType = 'arraybuffer';
+          xhr.send();
+
+          if (xhr.status === 200) {
+            this.zipBuffer = new Uint8Array(xhr.response);
+            this.extractZipFiles();
+            success = true;
+            this.logger.debug(() => `Successfully loaded ZIP from: ${zipPath}`);
+            break;
+          } else {
+            lastError = new Error(`HTTP ${xhr.status}: ${xhr.statusText}`);
+            this.logger.debug(
+              () => `Failed to load from ${zipPath}: ${lastError?.message}`,
+            );
+          }
+        } catch (error) {
+          lastError = error as Error;
+          this.logger.debug(
+            () => `Error loading from ${zipPath}: ${lastError?.message}`,
+          );
+          continue; // Try next path
+        }
+      }
+
+      if (!success) {
+        throw new Error(
+          `Failed to load ZIP resource from any path. Last error: ${lastError?.message}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(() => `Failed to load ZIP in browser: ${error}`);
+      // Fallback to empty structure
+      this.initializeEmptyStructure();
+    }
+  }
+
+  /**
+   * Extract ZIP files and build file index
+   * @private
+   */
+  private extractZipFiles(): void {
     const extractedFiles = unzipSync(this.zipBuffer);
     this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
 
@@ -104,10 +268,6 @@ export class ResourceLoader {
 
     // Build lightweight file index from extracted files
     this.buildFileIndex();
-
-    // Mark as initialized since we've done all the basic setup
-    // The initialize() method will handle additional preloading and compilation
-    this.initialized = true;
   }
 
   /**
@@ -343,18 +503,11 @@ export class ResourceLoader {
       return;
     }
 
-    // Mark as initialized
-    this.initialized = true;
-
-    // Preload common classes if requested
-    if (this.preloadStdClasses) {
-      await this.preloadCommonClasses();
-    }
-
-    // Start compilation if in full mode
-    if (this.loadMode === 'full') {
-      this.compilationPromise = this.compileAllArtifacts();
-    }
+    // Should not reach here since we initialize synchronously in constructor
+    this.logger.warn(
+      () =>
+        'Initialize called but ResourceLoader should already be initialized',
+    );
   }
 
   /**
