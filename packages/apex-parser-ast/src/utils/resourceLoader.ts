@@ -7,9 +7,8 @@
  */
 
 import { unzipSync } from 'fflate';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, detectEnvironment } from '@salesforce/apex-lsp-shared';
 
-import { zipData } from '../generated/apexSrcLoader';
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
 import { normalizeApexPath } from './PathUtils';
@@ -30,26 +29,32 @@ interface CompiledArtifact {
 }
 
 /**
- * Enhanced ResourceLoader class for loading and compiling standard Apex classes from embedded zip data.
- * Uses memfs for efficient in-memory file storage and management.
+ * ResourceLoader class for loading and compiling standard Apex classes from distributed ZIP resources.
+ * Uses cross-platform resource loading with synchronous initialization for immediate availability.
  *
  * Core Responsibilities:
- * - Store all files in memfs during initialization
- * - Provide access to file contents via memfs
- * - Compile source code on-demand
- * - Provide access to source for goto definition
+ * - Load ZIP resources from './resources/StandardApexLibrary.zip' using environment-appropriate methods
+ * - Extract and index files using fflate for efficient in-memory storage
+ * - Provide lazy loading of file contents on-demand
+ * - Compile source code using CompilerService when needed
+ * - Support both browser (XMLHttpRequest) and Node.js (fs) environments
+ *
+ * Resource Loading Strategy:
+ * - Browser: Uses XMLHttpRequest for synchronous loading
+ * - Node.js: Uses require.resolve() with fallback paths for compatibility
+ * - Environment detection via shared detectEnvironment() function
  *
  * @example
  * ```typescript
  * const loader = ResourceLoader.getInstance({
  *   loadMode: 'lazy',
- *   preloadCommonClasses: true
+ *   preloadStdClasses: true
  * });
  *
- * // Files are immediately available via memfs
+ * // Files are immediately available after construction
  * const availableClasses = loader.getAvailableClasses();
  *
- * // Content loaded on-demand via memfs
+ * // Content loaded on-demand from ZIP
  * const source = await loader.getFile('System/System.cls');
  * ```
  */
@@ -71,8 +76,8 @@ export class ResourceLoader {
     new CaseInsensitivePathMap(); // Maps case-insensitive paths to original case paths
   private totalSize: number = 0; // Total size of all files
   private accessCount: number = 0; // Simple access counter for statistics
-  private zipBuffer: Uint8Array;
-  private zipFiles: CaseInsensitivePathMap<Uint8Array>; // Cache of unzipped files
+  private zipBuffer!: Uint8Array; // Will be initialized in loadZipData
+  private zipFiles!: CaseInsensitivePathMap<Uint8Array>; // Will be initialized in extractZipFiles
 
   private constructor(options?: ResourceLoaderOptions) {
     if (options?.loadMode) {
@@ -84,10 +89,164 @@ export class ResourceLoader {
 
     this.compilerService = new CompilerService();
 
-    // Convert Buffer to Uint8Array for browser compatibility
-    this.zipBuffer = new Uint8Array(zipData);
+    // Load ZIP data synchronously for immediate availability
+    this.loadZipDataSync();
 
-    // Extract ZIP once during initialization
+    // Mark as initialized since we've done all the basic setup
+    this.initialized = true;
+  }
+
+  /**
+   * Load ZIP data synchronously for immediate availability.
+   * Uses environment-appropriate loading methods with shared environment detection.
+   *
+   * Loading Strategy:
+   * - Browser: XMLHttpRequest with synchronous request to './resources/StandardApexLibrary.zip'
+   * - Node.js: require.resolve() with multiple fallback paths for test compatibility
+   *
+   * @private
+   */
+  private loadZipDataSync(): void {
+    try {
+      const environment = detectEnvironment();
+
+      if (environment === 'browser') {
+        // Browser environment - load synchronously using XMLHttpRequest
+        this.loadZipForBrowserSync();
+      } else {
+        // Node.js environment - try to load synchronously
+        this.loadZipForNodeSync();
+      }
+    } catch (error) {
+      this.logger.error(() => `Failed to load ZIP resource: ${error}`);
+      // Initialize empty structure as fallback
+      this.initializeEmptyStructure();
+    }
+  }
+
+  /**
+   * Initialize empty structure as fallback
+   * @private
+   */
+  private initializeEmptyStructure(): void {
+    this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
+    this.fileIndex = new CaseInsensitivePathMap<boolean>();
+    this.originalPaths = new CaseInsensitivePathMap<string>();
+    this.namespaces = new Map<string, CIS[]>();
+    this.totalSize = 0;
+  }
+
+  /**
+   * Load ZIP data for Node.js environment synchronously using require.resolve().
+   * Uses multiple fallback paths to handle different execution contexts (tests, deployment).
+   *
+   * Fallback Paths:
+   * - '../resources/StandardApexLibrary.zip' (from src/utils/)
+   * - '../out/resources/StandardApexLibrary.zip' (from src/utils/ to out/)
+   * - '../../out/resources/StandardApexLibrary.zip' (from src/generated/)
+   * - Absolute paths using __dirname
+   *
+   * @private
+   */
+  private loadZipForNodeSync(): void {
+    try {
+      // Try CJS approach first (more reliable)
+      const { loadZipDataSync } = require('../generated/zipResourceLoader.cjs');
+      const zipData = loadZipDataSync();
+      this.zipBuffer = new Uint8Array(zipData);
+      this.extractZipFiles();
+    } catch (cjsError) {
+      this.logger.debug(
+        () => 'CJS loading failed, trying direct require.resolve',
+      );
+
+      // Fallback - try multiple possible paths
+      const { readFileSync } = require('fs');
+      const { join } = require('path');
+
+      // Try different possible locations
+      const possiblePaths = [
+        '../resources/StandardApexLibrary.zip', // From src/utils/
+        '../out/resources/StandardApexLibrary.zip', // From src/utils/ to out/
+        '../../out/resources/StandardApexLibrary.zip', // From src/generated/
+        join(__dirname, '../resources/StandardApexLibrary.zip'), // Absolute path
+        join(__dirname, '../out/resources/StandardApexLibrary.zip'), // Absolute path to out/
+      ];
+
+      let zipData: Buffer | null = null;
+      let lastError: Error | null = null;
+
+      for (const zipPath of possiblePaths) {
+        try {
+          if (zipPath.startsWith('/') || zipPath.includes('\\')) {
+            // Absolute path
+            zipData = readFileSync(zipPath);
+          } else {
+            // Relative path - try require.resolve
+            const resolvedPath = require.resolve(zipPath);
+            zipData = readFileSync(resolvedPath);
+          }
+          break; // Success, exit loop
+        } catch (error) {
+          lastError = error as Error;
+          continue; // Try next path
+        }
+      }
+
+      if (!zipData) {
+        throw new Error(
+          `Could not find StandardApexLibrary.zip in any of the expected locations. Last error: ${lastError?.message}`,
+        );
+      }
+
+      this.zipBuffer = new Uint8Array(zipData);
+      this.extractZipFiles();
+    }
+  }
+
+  /**
+   * Load ZIP data for browser environment synchronously using XMLHttpRequest.
+   * Uses deterministic path './resources/StandardApexLibrary.zip' for consistent loading.
+   *
+   * @private
+   */
+  private loadZipForBrowserSync(): void {
+    // In browser environment, we need to use a synchronous approach
+    // Since fetch is async, we'll use XMLHttpRequest for synchronous loading
+    try {
+      // Use deterministic resource path
+      const zipPath = './resources/StandardApexLibrary.zip';
+
+      this.logger.debug(
+        () => `Loading ZIP from deterministic path: ${zipPath}`,
+      );
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', zipPath, false); // false = synchronous
+      xhr.responseType = 'arraybuffer';
+      xhr.send();
+
+      if (xhr.status === 200) {
+        this.zipBuffer = new Uint8Array(xhr.response);
+        this.extractZipFiles();
+        this.logger.debug(() => `Successfully loaded ZIP from: ${zipPath}`);
+      } else {
+        throw new Error(`HTTP ${xhr.status}: ${xhr.statusText}`);
+      }
+    } catch (error) {
+      this.logger.error(() => `Failed to load ZIP in browser: ${error}`);
+      // Fallback to empty structure
+      this.initializeEmptyStructure();
+    }
+  }
+
+  /**
+   * Extract ZIP files using fflate and build lightweight file index.
+   * Creates case-insensitive path mappings and namespace structure for efficient lookups.
+   *
+   * @private
+   */
+  private extractZipFiles(): void {
     const extractedFiles = unzipSync(this.zipBuffer);
     this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
 
@@ -104,15 +263,12 @@ export class ResourceLoader {
 
     // Build lightweight file index from extracted files
     this.buildFileIndex();
-
-    // Mark as initialized since we've done all the basic setup
-    // The initialize() method will handle additional preloading and compilation
-    this.initialized = true;
   }
 
   /**
-   * Build a lightweight file index from extracted files
-   * This gives us file existence and namespace information
+   * Build a lightweight file index from extracted ZIP files.
+   * Creates case-insensitive file existence index and namespace structure for efficient lookups.
+   *
    * @private
    */
   private buildFileIndex(): void {
@@ -176,7 +332,11 @@ export class ResourceLoader {
   }
 
   /**
-   * Extract a single file from the already extracted ZIP files
+   * Extract a single file from the already extracted ZIP files using case-insensitive lookup.
+   * Converts Uint8Array to string using TextDecoder for efficient content retrieval.
+   *
+   * @param path The file path to extract
+   * @returns Promise that resolves to the file content or undefined if not found
    * @private
    */
   private async extractFileFromZip(path: string): Promise<string | undefined> {
@@ -216,9 +376,11 @@ export class ResourceLoader {
   }
 
   /**
-   * Get file content with true lazy loading using streaming ZIP extraction
-   * @param path The file path
-   * @returns Promise that resolves to the file content
+   * Get file content with lazy loading from ZIP resources.
+   * Uses case-insensitive path lookup and efficient Uint8Array to string conversion.
+   *
+   * @param path The file path (case-insensitive)
+   * @returns Promise that resolves to the file content or undefined if not found
    */
   public async getFile(path: string): Promise<string | undefined> {
     if (!this.initialized) {
@@ -265,8 +427,10 @@ export class ResourceLoader {
   }
 
   /**
-   * Check if a class exists without loading content
-   * @param className The class name to check
+   * Check if a class exists without loading content using lightweight file index.
+   * Uses case-insensitive path lookup for efficient existence checking.
+   *
+   * @param className The class name to check (case-insensitive)
    * @returns true if the class exists
    */
   public hasClass(className: string): boolean {
@@ -275,8 +439,10 @@ export class ResourceLoader {
   }
 
   /**
-   * Get available class names without loading content
-   * @returns Array of available class names
+   * Get available class names without loading content using lightweight file index.
+   * Returns all files that were indexed during ZIP extraction.
+   *
+   * @returns Array of available class names (case-preserved)
    */
   public getAvailableClasses(): string[] {
     // This method works without initialization since it only returns the file list
@@ -284,14 +450,22 @@ export class ResourceLoader {
   }
 
   /**
-   * Get namespace structure
-   * @returns Map of namespaces to their class files
+   * Get namespace structure built from ZIP file organization.
+   * Returns a map of namespace names to their associated class files.
+   *
+   * @returns Map of namespaces to their class files (case-preserved)
    */
   public getStandardNamespaces(): Map<string, CIS[]> {
     // Return the namespaces map directly since it's already a regular Map
     return this.namespaces;
   }
 
+  /**
+   * Check if a namespace is a standard Apex namespace using case-insensitive lookup.
+   *
+   * @param namespace The namespace to check (string or CaseInsensitiveString)
+   * @returns true if the namespace exists in the standard library
+   */
   public isStdApexNamespace(namespace: string | CIS): boolean {
     // Check if any namespace matches case-insensitively
     const searchNamespace =
@@ -307,8 +481,10 @@ export class ResourceLoader {
   }
 
   /**
-   * Get all files with lazy loading using streaming ZIP extraction
-   * @returns Promise that resolves to all file contents
+   * Get all files with lazy loading from ZIP resources.
+   * Loads all files in parallel using efficient ZIP extraction.
+   *
+   * @returns Promise that resolves to all file contents as CaseInsensitivePathMap
    */
   public async getAllFiles(): Promise<CaseInsensitivePathMap<string>> {
     if (!this.initialized) {
@@ -332,7 +508,9 @@ export class ResourceLoader {
   }
 
   /**
-   * Initialize with optional preloading and compilation
+   * Initialize with optional preloading and compilation.
+   * Note: ResourceLoader is automatically initialized during construction for immediate availability.
+   * This method handles preloading of common classes if requested.
    */
   public async initialize(): Promise<void> {
     if (this.initialized) {
@@ -343,18 +521,11 @@ export class ResourceLoader {
       return;
     }
 
-    // Mark as initialized
-    this.initialized = true;
-
-    // Preload common classes if requested
-    if (this.preloadStdClasses) {
-      await this.preloadCommonClasses();
-    }
-
-    // Start compilation if in full mode
-    if (this.loadMode === 'full') {
-      this.compilationPromise = this.compileAllArtifacts();
-    }
+    // Should not reach here since we initialize synchronously in constructor
+    this.logger.warn(
+      () =>
+        'Initialize called but ResourceLoader should already be initialized',
+    );
   }
 
   /**
@@ -639,8 +810,11 @@ export class ResourceLoader {
   }
 
   /**
-   * Dynamically load and compile a single standard Apex class
-   * This enables lazy loading without full initialization
+   * Dynamically load and compile a single standard Apex class from ZIP resources.
+   * Enables lazy loading without full initialization, using efficient ZIP extraction.
+   *
+   * @param className The class name to load and compile
+   * @returns Promise that resolves to the compiled artifact or null if not found
    */
   public async loadAndCompileClass(
     className: string,
@@ -723,8 +897,11 @@ export class ResourceLoader {
   }
 
   /**
-   * Check if a class is available and optionally load it
-   * This is the main entry point for lazy loading
+   * Check if a class is available and optionally load it from ZIP resources.
+   * This is the main entry point for lazy loading of standard Apex classes.
+   *
+   * @param className The class name to ensure is loaded
+   * @returns Promise that resolves to true if the class was loaded successfully
    */
   public async ensureClassLoaded(className: string): Promise<boolean> {
     // If already compiled, return true
@@ -738,7 +915,11 @@ export class ResourceLoader {
   }
 
   /**
-   * Get compiled artifact for a class, loading it if necessary
+   * Get compiled artifact for a class, loading it from ZIP resources if necessary.
+   * Uses lazy loading to compile classes on-demand.
+   *
+   * @param className The class name to get the compiled artifact for
+   * @returns Promise that resolves to the compiled artifact or null if not found
    */
   public async getCompiledArtifact(
     className: string,
@@ -752,8 +933,11 @@ export class ResourceLoader {
   }
 
   /**
-   * Check if a symbol name could potentially be resolved from standard library
-   * This helps the symbol manager decide whether to attempt lazy loading
+   * Check if a symbol name could potentially be resolved from standard library.
+   * This helps the symbol manager decide whether to attempt lazy loading from ZIP resources.
+   *
+   * @param symbolName The symbol name to check
+   * @returns true if the symbol could potentially be resolved from standard library
    */
   public couldResolveSymbol(symbolName: string): boolean {
     // Check if this looks like a standard Apex class reference
@@ -787,8 +971,11 @@ export class ResourceLoader {
   }
 
   /**
-   * Get potential standard library matches for a symbol name
-   * This helps with fuzzy matching and suggestions
+   * Get potential standard library matches for a symbol name from ZIP resources.
+   * This helps with fuzzy matching and suggestions using case-insensitive lookup.
+   *
+   * @param symbolName The symbol name to find matches for
+   * @returns Array of potential matches (limited to 10 results)
    */
   public getPotentialMatches(symbolName: string): string[] {
     const matches: string[] = [];
@@ -804,21 +991,28 @@ export class ResourceLoader {
   }
 
   /**
-   * Check if a class is already compiled and available
+   * Check if a class is already compiled and available in memory.
+   *
+   * @param className The class name to check
+   * @returns true if the class is already compiled
    */
   public isClassCompiled(className: string): boolean {
     return this.compiledArtifacts.has(className);
   }
 
   /**
-   * Get all compiled class names
+   * Get all compiled class names currently in memory.
+   *
+   * @returns Array of compiled class names
    */
   public getCompiledClassNames(): string[] {
     return [...this.compiledArtifacts.keys()].map((key) => key.toString());
   }
 
   /**
-   * Find the namespace that contains a specific class
+   * Find the namespace that contains a specific class using case-insensitive lookup.
+   * Searches through the namespace structure built from ZIP resources.
+   *
    * @param className The class name to search for (case-insensitive)
    * @returns The namespace containing the class, or null if not found
    */
