@@ -6,7 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger, setLogLevel } from '@salesforce/apex-lsp-shared';
+import {
+  formattedError,
+  getLogger,
+  setLogLevel,
+} from '@salesforce/apex-lsp-shared';
 import type { CompilationOptions } from '@salesforce/apex-lsp-parser-ast';
 
 import {
@@ -127,7 +131,8 @@ export class ApexSettingsManager {
       );
 
       // Extract apex-specific settings from the configuration
-      const apexConfig = config.apex || config.apexLanguageServer || config;
+      const apexConfig =
+        config.settings?.apex || config.apexLanguageServer || config;
 
       // Log the extracted apex configuration
       this.logger.debug(
@@ -168,7 +173,15 @@ export class ApexSettingsManager {
         return true;
       }
     } catch (error) {
-      this.logger.error(() => `Error processing LSP configuration: ${error}`);
+      this.logger.error(
+        () =>
+          `Error processing LSP configuration: ${formattedError(error, {
+            includeStack: true,
+            includeProperties: true,
+            maxStackLines: 10,
+            context: 'LSPConfigurationManager',
+          })}`,
+      );
       return false;
     }
   }
@@ -332,7 +345,7 @@ export class ApexSettingsManager {
       currComment.associateCommentsWithSymbols
     ) {
       changes.push(
-        // eslint-disable-next-line max-len
+         
         `comment association: ${prevComment.associateCommentsWithSymbols} → ${currComment.associateCommentsWithSymbols}`,
       );
     }

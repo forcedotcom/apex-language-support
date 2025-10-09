@@ -12,10 +12,15 @@ import {
   InitializeResult,
   TextDocuments,
   DocumentSymbolParams,
+  DocumentSymbol,
+  SymbolInformation,
   DidChangeConfigurationNotification,
+  DidChangeConfigurationParams,
+  DidOpenTextDocumentParams,
+  DidChangeTextDocumentParams,
+  DidSaveTextDocumentParams,
+  DidCloseTextDocumentParams,
   TextDocumentSyncKind,
-  CompletionParams,
-  CompletionItem,
   HoverParams,
   Hover,
   DocumentDiagnosticParams,
@@ -26,9 +31,8 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import {
-  setLogLevel,
   UniversalLoggerFactory,
-  Logger,
+  LoggerInterface,
 } from '@salesforce/apex-lsp-shared';
 
 // LCS services and handlers
@@ -39,10 +43,10 @@ import {
   dispatchProcessOnCloseDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
-  CompletionProcessingService,
   DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
+  LSPConfigurationManager,
 } from '@salesforce/apex-lsp-compliant-services';
 
 /**
@@ -50,7 +54,8 @@ import {
  */
 export interface LCSAdapterConfig {
   connection: Connection;
-  logger?: Logger;
+  logger?: LoggerInterface;
+  delegationMode?: boolean; // When true, don't set up connection listeners
 }
 
 /**
@@ -59,31 +64,45 @@ export interface LCSAdapterConfig {
  */
 export class LCSAdapter {
   private readonly connection: Connection;
-  private readonly logger: Logger;
+  private readonly logger: LoggerInterface;
   private readonly documents: TextDocuments<TextDocument>;
   private hasConfigurationCapability = false;
   private hasWorkspaceFolderCapability = false;
-  private hasDiagnosticRelatedInformationCapability = false;
-  private initialized = false;
-  private completionProcessor: CompletionProcessingService;
-  private diagnosticProcessor: DiagnosticProcessingService;
+  private readonly diagnosticProcessor: DiagnosticProcessingService;
+  private readonly delegationMode: boolean;
 
-  constructor(config: LCSAdapterConfig) {
+  /**
+   * Private constructor - use LCSAdapter.create() instead
+   */
+  private constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
-    this.logger = config.logger || this.createDefaultLogger();
+    this.logger = config.logger ?? this.createDefaultLogger();
     this.documents = new TextDocuments(TextDocument);
+    this.delegationMode = config.delegationMode ?? false;
 
     // Initialize LCS services
-    this.completionProcessor = new CompletionProcessingService(this.logger);
     this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
 
     this.setupEventHandlers();
   }
 
   /**
-   * Initialize the LCS adapter
+   * Create and initialize a new LCS adapter instance.
+   * This is the single entry point for creating LCS adapters.
+   *
+   * @param config Configuration for the LCS adapter
+   * @returns Promise that resolves to a fully initialized LCSAdapter instance
    */
-  async initialize(): Promise<void> {
+  static async create(config: LCSAdapterConfig): Promise<LCSAdapter> {
+    const adapter = new LCSAdapter(config);
+    await adapter.initialize();
+    return adapter;
+  }
+
+  /**
+   * Initialize the LCS adapter - called internally by create()
+   */
+  private async initialize(): Promise<void> {
     this.logger.info('🚀 LCS Adapter initializing...');
 
     // Initialize ApexStorageManager singleton with storage factory
@@ -96,32 +115,35 @@ export class LCSAdapter {
       await storageManager.initialize();
       this.logger.debug('✅ ApexStorageManager initialized successfully');
     } catch (error) {
-      this.logger.error('❌ Failed to initialize ApexStorageManager:', error);
+      this.logger.error(`❌ Failed to initialize ApexStorageManager: ${error}`);
     }
 
     // Set up document event handlers
     this.setupDocumentHandlers();
 
-    // Set up LSP protocol handlers
-    this.setupProtocolHandlers();
+    // Only set up protocol handlers if NOT in delegation mode
+    // In delegation mode, LazyLSPServer handles the protocol and forwards to our public methods
+    if (!this.delegationMode) {
+      this.setupProtocolHandlers();
+    }
 
     // Start listening for documents
     this.documents.listen(this.connection);
 
-    // Start listening on the connection
-    this.connection.listen();
+    // Only start listening on connection if not in delegation mode
+    if (!this.delegationMode) {
+      this.connection.listen();
+    }
 
-    this.initialized = true;
     this.logger.info('✅ LCS Adapter initialized successfully');
   }
 
   /**
    * Create default logger if none provided
    */
-  private createDefaultLogger(): Logger {
-    setLogLevel('info');
+  private createDefaultLogger(): LoggerInterface {
     const loggerFactory = UniversalLoggerFactory.getInstance();
-    return loggerFactory.createLogger(this.connection) as Logger;
+    return loggerFactory.createLogger(this.connection);
   }
 
   /**
@@ -151,7 +173,7 @@ export class LCSAdapter {
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        this.logger.debug('Document open error details:', error);
+        this.logger.debug(`Document open error details: ${error}`);
       }
     });
 
@@ -167,7 +189,7 @@ export class LCSAdapter {
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        this.logger.debug('Document change error details:', error);
+        this.logger.debug(`Document change error details: ${error}`);
       }
     });
 
@@ -181,7 +203,7 @@ export class LCSAdapter {
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        this.logger.debug('Document save error details:', error);
+        this.logger.debug(`Document save error details: ${error}`);
       }
     });
 
@@ -195,7 +217,7 @@ export class LCSAdapter {
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        this.logger.debug('Document close error details:', error);
+        this.logger.debug(`Document close error details: ${error}`);
       }
     });
   }
@@ -214,7 +236,7 @@ export class LCSAdapter {
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        this.logger.debug('Document symbols error details:', error);
+        this.logger.debug(`Document symbols error details: ${error}`);
         return [];
       }
     });
@@ -235,7 +257,7 @@ export class LCSAdapter {
               error instanceof Error ? error.message : String(error)
             }`,
           );
-          this.logger.debug('Hover error details:', error);
+          this.logger.debug(`Hover error details: ${error}`);
           return null;
         }
       },
@@ -260,21 +282,12 @@ export class LCSAdapter {
               error instanceof Error ? error.message : String(error)
             }`,
           );
-          this.logger.debug('Diagnostics error details:', error);
+          this.logger.debug(`Diagnostics error details: ${error}`);
           return {
             kind: DocumentDiagnosticReportKind.Full,
             items: [],
           };
         }
-      },
-    );
-
-    // Advanced completion support using LCS
-    this.connection.onCompletion(
-      async (params: CompletionParams): Promise<CompletionItem[]> => {
-        this.logger.debug('Processing completion request with LCS');
-        const result = await this.completionProcessor.processCompletion(params);
-        return result || [];
       },
     );
   }
@@ -293,11 +306,6 @@ export class LCSAdapter {
     );
     this.hasWorkspaceFolderCapability = !!(
       capabilities.workspace && !!capabilities.workspace.workspaceFolders
-    );
-    this.hasDiagnosticRelatedInformationCapability = !!(
-      capabilities.textDocument &&
-      capabilities.textDocument.publishDiagnostics &&
-      capabilities.textDocument.publishDiagnostics.relatedInformation
     );
 
     const result: InitializeResult = {
@@ -350,30 +358,21 @@ export class LCSAdapter {
   /**
    * Handle configuration changes
    */
-  private handleConfigurationChange(change: any): void {
-    // Update log level from configuration
-    const config = change.settings?.['apex-ls'];
-    if (config?.logLevel) {
-      setLogLevel(config.logLevel);
-      this.logger.info(`Log level updated to: ${config.logLevel}`);
-    }
-
+  private async handleConfigurationChange(
+    change: DidChangeConfigurationParams,
+  ): Promise<void> {
+    LSPConfigurationManager.getInstance().updateFromLSPConfiguration(change);
     // Revalidate all open text documents (basic implementation for now)
-    this.documents.all().forEach(async (document) => {
+    const revalidationPromises = this.documents.all().map(async (document) => {
       try {
         // Basic revalidation - can be enhanced with LCS later
         this.connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
       } catch (error) {
-        this.logger.error('Error revalidating document:', error);
+        this.logger.error(`Error revalidating document: ${error}`);
       }
     });
-  }
 
-  /**
-   * Check if adapter is initialized
-   */
-  public isInitialized(): boolean {
-    return this.initialized;
+    await Promise.all(revalidationPromises);
   }
 
   /**
@@ -386,7 +385,95 @@ export class LCSAdapter {
   /**
    * Get logger instance
    */
-  public getLogger(): Logger {
+  public getLogger(): LoggerInterface {
     return this.logger;
+  }
+
+  /**
+   * Public delegation methods for LazyLSPServer integration.
+   * These methods allow LazyLSPServer to forward events when in delegation mode.
+   */
+
+  /**
+   * Handle document open event (delegation mode).
+   * @param params - Document open parameters
+   */
+  public async handleDocumentOpen(
+    params: DidOpenTextDocumentParams,
+  ): Promise<void> {
+    const document = this.documents.get(params.textDocument.uri);
+    if (document) {
+      await dispatchProcessOnOpenDocument({ document });
+    }
+  }
+
+  /**
+   * Handle document change event (delegation mode).
+   * @param params - Document change parameters
+   */
+  public async handleDocumentChange(
+    params: DidChangeTextDocumentParams,
+  ): Promise<void> {
+    const document = this.documents.get(params.textDocument.uri);
+    if (document) {
+      await dispatchProcessOnChangeDocument({ document });
+    }
+  }
+
+  /**
+   * Handle document save event (delegation mode).
+   * @param params - Document save parameters
+   */
+  public async handleDocumentSave(
+    params: DidSaveTextDocumentParams,
+  ): Promise<void> {
+    const document = this.documents.get(params.textDocument.uri);
+    if (document) {
+      await dispatchProcessOnSaveDocument({ document });
+    }
+  }
+
+  /**
+   * Handle document close event (delegation mode).
+   * @param params - Document close parameters
+   */
+  public async handleDocumentClose(
+    params: DidCloseTextDocumentParams,
+  ): Promise<void> {
+    const document = this.documents.get(params.textDocument.uri);
+    if (document) {
+      await dispatchProcessOnCloseDocument({ document });
+    }
+  }
+
+  /**
+   * Handle hover request (delegation mode).
+   * @param params - Hover parameters
+   * @returns Hover information or null
+   */
+  public async onHover(params: HoverParams): Promise<Hover | null> {
+    try {
+      return await dispatchProcessOnHover(params);
+    } catch (error) {
+      this.logger.error(`Error processing hover: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Handle document symbol request (delegation mode).
+   * @param params - Document symbol parameters
+   * @returns Array of document symbols or null
+   */
+  public async onDocumentSymbol(
+    params: DocumentSymbolParams,
+  ): Promise<DocumentSymbol[] | SymbolInformation[] | null> {
+    try {
+      const result = await dispatchProcessOnDocumentSymbol(params);
+      return result ?? [];
+    } catch (error) {
+      this.logger.error(`Error processing document symbols: ${error}`);
+      return [];
+    }
   }
 }

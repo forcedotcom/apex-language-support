@@ -8,10 +8,7 @@
 
 import * as vscode from 'vscode';
 import type { ClientInterface } from '@salesforce/apex-lsp-shared';
-import { LanguageClient } from 'vscode-languageclient/browser';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
-// Import web-worker package as per documentation
-import Worker from 'web-worker';
 import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import {
@@ -19,7 +16,36 @@ import {
   updateApexServerStatusReady,
   updateApexServerStatusError,
 } from './status-bar';
-import { getWorkspaceSettings } from './configuration';
+import {
+  getWorkspaceSettings,
+  registerConfigurationChangeListener,
+} from './configuration';
+import { EXTENSION_CONSTANTS } from './constants';
+import { determineServerMode, type ServerMode } from './utils/server-mode';
+import type { WorkspaceSettings } from './types';
+
+/**
+ * Enhanced initialization options interface
+ */
+interface EnhancedInitializationOptions extends WorkspaceSettings {
+  enableDocumentSymbols: boolean;
+  extensionMode: ServerMode;
+  environment: 'desktop' | 'web';
+  debugOptions?: Record<string, unknown>;
+  logLevel?: string;
+}
+
+/**
+ * Browser-compatible debug options getter.
+ * Returns undefined in web environments since debug options don't apply.
+ * @param environment - The detected environment (desktop or web)
+ * @returns Debug options object or undefined for web environments
+ */
+const getBrowserCompatibleDebugOptions = (
+  environment: 'desktop' | 'web',
+): Record<string, unknown> | undefined =>
+  // Debug options are only applicable in desktop environments
+  environment === 'web' ? undefined : {};
 
 /**
  * Global language client instance
@@ -38,46 +64,71 @@ function detectEnvironment(): 'desktop' | 'web' {
 }
 
 /**
- * Safely clone an object for worker serialization, removing non-serializable properties
+ * Creates enhanced initialization options that incorporate benefits from server-config.ts.
+ * @param context - VS Code extension context
+ * @param environment - The detected environment (desktop or web)
+ * @returns Enhanced initialization options
  */
-function safeCloneForWorker(obj: any): any {
-  try {
-    // Test if the object can be serialized
-    const testStr = JSON.stringify(obj);
-    return JSON.parse(testStr);
-  } catch {
-    // If serialization fails, create a safe version
-    if (typeof obj !== 'object' || obj === null) {
-      return obj;
-    }
+const createEnhancedInitializationOptions = (
+  context: vscode.ExtensionContext,
+  environment: 'desktop' | 'web',
+): EnhancedInitializationOptions => {
+  const settings = getWorkspaceSettings();
 
-    const safe: any = {};
-    for (const key in obj) {
-      try {
-        const value = obj[key];
-        if (typeof value === 'function') continue;
-        if (typeof value === 'symbol') continue;
-        if (value instanceof Node) continue; // DOM nodes
+  // Determine server mode using shared utility
+  const serverMode = determineServerMode(context);
 
-        // Recursively handle nested objects
-        safe[key] = safeCloneForWorker(value);
-      } catch {
-        // Skip any properties that can't be safely cloned
-        continue;
-      }
-    }
-    return safe;
+  // Enhanced initialization options with server-config benefits
+  const safeSettings = settings;
+  const debugOptions = getBrowserCompatibleDebugOptions(environment);
+
+  const enhancedOptions: EnhancedInitializationOptions = {
+    enableDocumentSymbols: true,
+    extensionMode: serverMode, // Pass extension mode to server (from server-config.ts)
+    environment,
+    ...safeSettings,
+    // Add debug information if available and serializable
+    ...(debugOptions && {
+      debugOptions,
+    }),
+  };
+
+  // In development mode, ensure debug-level logging is enabled
+  if (serverMode === 'development') {
+    enhancedOptions.logLevel = 'debug';
+    logToOutputChannel(
+      '🔧 Development mode: enabling debug-level logging',
+      'debug',
+    );
   }
-}
+
+  return enhancedOptions;
+};
 
 /**
- * Create initialization parameters
+ * Create initialization parameters.
+ * @param context - VS Code extension context
+ * @param environment - The detected environment (desktop or web)
+ * @returns LSP initialization parameters
  */
-function createInitializeParams(
+const createInitializeParams = (
   context: vscode.ExtensionContext,
-): InitializeParams {
+  environment: 'desktop' | 'web',
+): InitializeParams => {
   const workspaceFolders = vscode.workspace.workspaceFolders;
-  const settings = getWorkspaceSettings();
+
+  // Determine extension mode for logging and debugging
+  const extensionMode =
+    context.extensionMode === vscode.ExtensionMode.Development ||
+    context.extensionMode === vscode.ExtensionMode.Test
+      ? 'development'
+      : 'production';
+
+  // Log the extension mode for debugging
+  logToOutputChannel(
+    `🔧 Extension mode detected: ${extensionMode} (context.extensionMode: ${context.extensionMode})`,
+    'info',
+  );
 
   const baseParams = {
     processId: null, // Web environments don't have process IDs
@@ -86,8 +137,8 @@ function createInitializeParams(
       version: '1.0.0',
     },
     locale: vscode.env.language,
-    rootPath: workspaceFolders?.[0]?.uri.fsPath || null,
-    rootUri: workspaceFolders?.[0]?.uri.toString() || null,
+    rootPath: workspaceFolders?.[0]?.uri.fsPath ?? null,
+    rootUri: workspaceFolders?.[0]?.uri.toString() ?? null,
     capabilities: {
       workspace: {
         applyEdit: true,
@@ -241,24 +292,21 @@ function createInitializeParams(
         },
       },
     },
-    initializationOptions: {
-      logLevel: settings.apex.logLevel,
-      extensionMode:
-        vscode.env.machineId === 'someValue' ? 'development' : 'production',
-      enableDocumentSymbols: true,
-      environment: detectEnvironment(),
-      custom: safeCloneForWorker(settings.apex.custom),
-    },
+    initializationOptions: createEnhancedInitializationOptions(
+      context,
+      environment,
+    ),
     workspaceFolders:
       workspaceFolders?.map((folder) => ({
         uri: folder.uri.toString(),
         name: folder.name,
-      })) || null,
+      })) ?? null,
   };
 
-  // Return safely cloned parameters for worker serialization
-  return safeCloneForWorker(baseParams);
-}
+  // Parameters are already built with safe values, return as-is
+  // The initializationOptions are already safely cloned in createEnhancedInitializationOptions
+  return baseParams as InitializeParams;
+};
 
 /**
  * Creates and starts the language client
@@ -267,137 +315,43 @@ export const createAndStartClient = async (
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> => {
+  logToOutputChannel('🔥 createAndStartClient called!', 'info');
   try {
     setStartingFlag(true);
     updateApexServerStatusStarting();
 
     const environment = detectEnvironment();
-    logToOutputChannel(`🌍 Environment detected: ${environment} mode`, 'info');
+    logToOutputChannel(
+      `🌍 Environment detected: ${environment} mode (UIKind: ${vscode.env.uiKind})`,
+      'info',
+    );
     logToOutputChannel(
       `🚀 Starting language server in ${environment} mode`,
       'info',
     );
 
-    // Create logger for the universal client
-    logToOutputChannel('🔧 Creating universal language client...', 'info');
-
-    // Debug extension URI resolution
-    logToOutputChannel(
-      `🔍 Extension URI: ${context.extensionUri.toString()}`,
-      'debug',
-    );
-    logToOutputChannel(`🔍 Extension path: ${context.extensionPath}`, 'debug');
-
-    const workerFile = environment === 'web' ? 'worker-web.js' : 'worker.js';
-
-    const workerUri = vscode.Uri.joinPath(
-      context.extensionUri,
-      'dist',
-      workerFile,
-    );
-    logToOutputChannel(`🔍 Environment: ${environment}`, 'debug');
-    logToOutputChannel(`🔍 Worker file: ${workerFile}`, 'debug');
-    logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
-
-    // Create worker using cross-platform web-worker package
-    logToOutputChannel('⚡ Creating web worker...', 'info');
-    const worker = new Worker(workerUri.toString(), {
-      type: 'classic',
-    });
-    logToOutputChannel('✅ Web worker created successfully', 'info');
-
-    // Create VS Code Language Client for web extension
-    logToOutputChannel('🔗 Creating Language Client...', 'info');
-    const languageClient = new LanguageClient(
-      'apex-language-server',
-      'Apex Language Server Extension (Worker/Server)',
-      {
-        documentSelector: [
-          { scheme: 'file', language: 'apex' },
-          { scheme: 'vscode-test-web', language: 'apex' },
-        ],
-        synchronize: {
-          fileEvents: vscode.workspace.createFileSystemWatcher(
-            '**/*.{cls,trigger,apex}',
-          ),
-          // Tell the client to synchronize configuration from this section
-          configurationSection: 'apex',
-        },
-        // Provide initial settings to the server
-        initializationOptions: getWorkspaceSettings(),
-        // Use our consolidated worker/server output channel if available
-        ...(getWorkerServerOutputChannel()
-          ? {
-              outputChannel: getWorkerServerOutputChannel(),
-              traceOutputChannel: getWorkerServerOutputChannel(),
-            }
-          : {}),
-      },
-      worker,
-    );
-    logToOutputChannel('✅ Language Client created successfully', 'info');
-
-    // Set up window/logMessage handler for worker/server logs
-    languageClient.onNotification('window/logMessage', (params) => {
-      const { message } = params;
-
-      // All messages from the worker/server go directly to the worker/server channel without additional formatting
-      const channel = getWorkerServerOutputChannel();
-      if (channel) {
-        channel.appendLine(message);
-      }
-    });
-
-    // Store client for disposal with ClientInterface wrapper
-    Client = {
-      languageClient,
-      initialize: async (params: InitializeParams) => {
-        await languageClient.start();
-        return { capabilities: {} }; // Return basic capabilities
-      },
-      sendRequest: async (method: string, params?: any) =>
-        languageClient.sendRequest(method, params),
-      sendNotification: (method: string, params?: any) => {
-        languageClient.sendNotification(method, params);
-      },
-      onRequest: (method: string, handler: (params: any) => any) => {
-        languageClient.onRequest(method, handler);
-      },
-      onNotification: (method: string, handler: (params: any) => void) => {
-        languageClient.onNotification(method, handler);
-      },
-      isDisposed: () => !languageClient.isRunning(),
-      dispose: () => {
-        languageClient.stop();
-      },
-    } as ClientInterface;
-
-    // Initialize the language server
-    logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
-    const initParams = createInitializeParams(context);
-    logToOutputChannel('🚀 Initializing client...', 'info');
-    await Client.initialize(initParams);
+    if (environment === 'web') {
+      // Web environment - use worker-based approach
+      await createWebLanguageClient(context, environment);
+    } else {
+      // Desktop environment - use Node.js server-based approach with proper server config
+      await createDesktopLanguageClient(context, environment);
+    }
 
     logToOutputChannel('✅ Client initialized successfully', 'info');
 
     // Set up client state monitoring
-    // Note: UniversalExtensionClient doesn't have the same state change events as LanguageClient
-    // So we'll mark as ready immediately after successful initialization
-    logToOutputChannel('📊 Updating server status to ready...', 'debug');
     updateApexServerStatusReady();
-    logToOutputChannel('🔄 Resetting retry counters...', 'debug');
     resetServerStartRetries();
     setStartingFlag(false);
 
     // Register configuration change listener
-    // We'll adapt this to work with the client
     if (Client) {
       logToOutputChannel(
         '⚙️ Registering configuration change listener...',
         'debug',
       );
       registerConfigurationChangeListener(Client, context);
-      logToOutputChannel('✅ Configuration listener registered', 'debug');
     }
 
     logToOutputChannel('🎉 Apex Language Server is ready!', 'info');
@@ -410,39 +364,206 @@ export const createAndStartClient = async (
 };
 
 /**
- * Register configuration change listener for client
+ * Creates a web-based language client using a worker
  */
-function registerConfigurationChangeListener(
-  client: ClientInterface,
+async function createWebLanguageClient(
   context: vscode.ExtensionContext,
-): void {
-  const configWatcher = vscode.workspace.onDidChangeConfiguration(
-    async (event) => {
-      if (event.affectsConfiguration('apex-ls-ts')) {
-        logToOutputChannel(
-          '⚙️ Configuration changed, notifying language server',
-          'debug',
-        );
+  environment: 'desktop' | 'web',
+): Promise<void> {
+  // Import web-worker package and browser language client dynamically in parallel
+  const [{ default: Worker }, { LanguageClient }] = await Promise.all([
+    import('web-worker'),
+    import('vscode-languageclient/browser'),
+  ]);
 
-        try {
-          // Send configuration change notification to the server
-          const settings = getWorkspaceSettings();
-          client.sendNotification('workspace/didChangeConfiguration', {
-            settings: {
-              'apex-ls-ts': settings,
-            },
-          });
-        } catch (error) {
-          logToOutputChannel(
-            `Failed to send configuration change: ${error}`,
-            'error',
-          );
-        }
-      }
-    },
+  logToOutputChannel('🔧 Creating web-based language client...', 'info');
+
+  // Debug extension URI resolution
+  logToOutputChannel(
+    `🔍 Extension URI: ${context.extensionUri.toString()}`,
+    'debug',
   );
 
-  context.subscriptions.push(configWatcher);
+  // The actual worker file is worker.global.js, not worker.js
+  const workerFile = 'worker.global.js';
+
+  // In web environment, worker file is always copied to extension's dist/ during bundle process
+  // This ensures consistent path resolution across development and production modes
+  const workerUri = vscode.Uri.joinPath(
+    context.extensionUri,
+    'dist',
+    workerFile,
+  );
+  logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
+
+  // Check if worker file exists/is accessible
+  try {
+    logToOutputChannel('🔍 Checking worker file accessibility...', 'debug');
+    const response = await fetch(workerUri.toString());
+    logToOutputChannel(
+      `🔍 Worker file fetch status: ${response.status}`,
+      'debug',
+    );
+    if (!response.ok) {
+      logToOutputChannel(
+        `❌ Worker file not accessible: ${response.statusText}`,
+        'error',
+      );
+    }
+  } catch (error) {
+    logToOutputChannel(`❌ Error checking worker file: ${error}`, 'error');
+  }
+
+  // Create worker
+  logToOutputChannel('⚡ Creating web worker...', 'info');
+  const worker = new Worker(workerUri.toString(), {
+    type: 'classic',
+  });
+  logToOutputChannel('✅ Web worker created successfully', 'info');
+
+  // Create VS Code Language Client for web extension with enhanced configuration
+  logToOutputChannel('🔗 Creating Language Client for web...', 'info');
+  const languageClient = new LanguageClient(
+    'apex-language-server',
+    'Apex Language Server Extension (Worker/Server)',
+    {
+      documentSelector: [
+        { scheme: 'file', language: 'apex' },
+        { scheme: 'vscode-test-web', language: 'apex' },
+      ],
+      synchronize: {
+        configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
+      },
+      initializationOptions: createEnhancedInitializationOptions(
+        context,
+        environment,
+      ),
+    },
+    worker,
+  );
+
+  // Note: Output channels are handled via the window/logMessage notification handler below
+  // The LanguageClient's outputChannel property is read-only, so we can't set it directly
+
+  // Set up window/logMessage handler for worker/server logs
+  languageClient.onNotification('window/logMessage', (params) => {
+    const { message } = params;
+
+    // All messages from the worker/server go directly to the worker/server channel without additional formatting
+    const channel = getWorkerServerOutputChannel();
+    if (channel) {
+      channel.appendLine(message);
+    }
+  });
+
+  // Store client for disposal with ClientInterface wrapper
+  Client = {
+    languageClient,
+    initialize: async (params: InitializeParams) => {
+      await languageClient.start();
+      return { capabilities: {} }; // Return basic capabilities
+    },
+    sendRequest: async (method: string, params?: any) =>
+      languageClient.sendRequest(method, params),
+    sendNotification: (method: string, params?: any) => {
+      languageClient.sendNotification(method, params);
+    },
+    onRequest: (method: string, handler: (params: any) => any) => {
+      languageClient.onRequest(method, handler);
+    },
+    onNotification: (method: string, handler: (params: any) => void) => {
+      languageClient.onNotification(method, handler);
+    },
+    isDisposed: () => !languageClient.isRunning(),
+    dispose: () => {
+      languageClient.stop();
+    },
+  } as ClientInterface;
+
+  // Initialize the language server
+  logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
+  const initParams = createInitializeParams(context, environment);
+
+  // Verify params are serializable
+  try {
+    JSON.stringify(initParams);
+  } catch (error) {
+    logToOutputChannel(
+      `❌ Initialization params are not serializable: ${error}`,
+      'error',
+    );
+    throw new Error(`Cannot serialize initialization parameters: ${error}`);
+  }
+
+  logToOutputChannel('🚀 Initializing web client...', 'info');
+  await Client.initialize(initParams);
+}
+
+/**
+ * Creates a desktop-based language client using Node.js server
+ * For desktop environments, we use the native Node.js server without polyfills
+ */
+async function createDesktopLanguageClient(
+  context: vscode.ExtensionContext,
+  environment: 'desktop' | 'web',
+): Promise<void> {
+  logToOutputChannel(
+    '🖥️ Creating desktop language client with Node.js server...',
+    'info',
+  );
+
+  // Import server configuration and language client in parallel
+  const [{ createServerOptions, createClientOptions }, { LanguageClient }] =
+    await Promise.all([
+      import('./server-config'),
+      import('vscode-languageclient/node'),
+    ]);
+
+  // Create server and client options
+  const serverOptions = createServerOptions(context);
+  const clientOptions = createClientOptions(
+    createEnhancedInitializationOptions(context, environment),
+  );
+
+  logToOutputChannel(
+    '⚙️ Using Node.js server (no polyfills needed)...',
+    'debug',
+  );
+
+  // Create the language client using Node.js server
+  const nodeClient = new LanguageClient(
+    'apexLanguageServer',
+    'Apex Language Server Extension (Node.js)',
+    serverOptions,
+    clientOptions,
+  );
+
+  logToOutputChannel('🚀 Starting Node.js language client...', 'info');
+
+  // Start the client and language server
+  await nodeClient.start();
+
+  // Wrap in ClientInterface to match our global Client type
+  Client = {
+    languageClient: nodeClient,
+    initialize: async (params: InitializeParams) => {
+      // Node.js client handles initialization automatically during start()
+      logToOutputChannel('📋 Node.js client initialization completed', 'debug');
+      return { capabilities: {} }; // Return proper InitializeResult
+    },
+    sendNotification: (method: string, params?: any) =>
+      nodeClient.sendNotification(method, params),
+    sendRequest: (method: string, params?: any) =>
+      nodeClient.sendRequest(method, params),
+    onNotification: (method: string, handler: (...args: any[]) => void) =>
+      nodeClient.onNotification(method, handler),
+    onRequest: (method: string, handler: (...args: any[]) => any) =>
+      nodeClient.onRequest(method, handler),
+    isDisposed: () => !nodeClient.isRunning(),
+    dispose: () => nodeClient.stop(),
+  } as ClientInterface;
+
+  logToOutputChannel('✅ Node.js language client started successfully', 'info');
 }
 
 /**

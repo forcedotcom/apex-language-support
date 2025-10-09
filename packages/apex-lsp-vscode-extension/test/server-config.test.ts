@@ -92,11 +92,42 @@ describe('Server Config Module', () => {
     it('should create server options with correct module path', () => {
       const serverOptions = createServerOptions(mockContext) as any;
 
-      expect(mockContext.asAbsolutePath).toHaveBeenCalledWith('out/server.js');
-      expect(serverOptions.run.module).toBe('/mock/path/out/server.js');
+      expect(mockContext.asAbsolutePath).toHaveBeenCalledWith(
+        '../apex-ls/out/node/server.node.js',
+      );
+      expect(serverOptions.run.module).toBe(
+        '/mock/path/../apex-ls/out/node/server.node.js',
+      );
       expect(serverOptions.run.transport).toBe('ipc');
-      expect(serverOptions.debug.module).toBe('/mock/path/out/server.js');
+      expect(serverOptions.debug.module).toBe(
+        '/mock/path/../apex-ls/out/node/server.node.js',
+      );
       expect(serverOptions.debug.transport).toBe('ipc');
+    });
+
+    it('should use bundled files when APEX_LS_DEBUG_USE_INDIVIDUAL_FILES is false', () => {
+      // Save original environment
+      const originalEnv = process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES;
+
+      try {
+        // Set environment variable to disable individual files
+        process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES = 'false';
+
+        const serverOptions = createServerOptions(mockContext) as any;
+
+        expect(mockContext.asAbsolutePath).toHaveBeenCalledWith(
+          '../apex-ls/dist/server.node.js',
+        );
+        expect(serverOptions.run.module).toBe(
+          '/mock/path/../apex-ls/dist/server.node.js',
+        );
+        expect(serverOptions.debug.module).toBe(
+          '/mock/path/../apex-ls/dist/server.node.js',
+        );
+      } finally {
+        // Restore original environment
+        process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES = originalEnv;
+      }
     });
 
     it('should create server options for production mode', () => {
@@ -107,9 +138,11 @@ describe('Server Config Module', () => {
 
       const serverOptions = createServerOptions(productionContext) as any;
 
-      expect(mockContext.asAbsolutePath).toHaveBeenCalledWith('server.js');
-      expect(serverOptions.run.module).toBe('/mock/path/server.js');
-      expect(serverOptions.debug.module).toBe('/mock/path/server.js');
+      expect(productionContext.asAbsolutePath).toHaveBeenCalledWith(
+        'dist/server.node.js',
+      );
+      expect(serverOptions.run.module).toBe('/mock/path/dist/server.node.js');
+      expect(serverOptions.debug.module).toBe('/mock/path/dist/server.node.js');
     });
 
     it('should include debug options when debug is enabled', () => {
@@ -176,7 +209,11 @@ describe('Server Config Module', () => {
 
   describe('createClientOptions', () => {
     it('should create client options with correct document selector', () => {
-      const clientOptions = createClientOptions(mockContext);
+      const initializationOptions = {
+        enableDocumentSymbols: true,
+        extensionMode: 'development',
+      };
+      const clientOptions = createClientOptions(initializationOptions);
 
       expect(clientOptions.documentSelector).toEqual([
         { scheme: 'file', language: 'apex' },
@@ -184,7 +221,11 @@ describe('Server Config Module', () => {
     });
 
     it('should include error and close action handlers', () => {
-      const clientOptions = createClientOptions(mockContext);
+      const initializationOptions = {
+        enableDocumentSymbols: true,
+        extensionMode: 'development',
+      };
+      const clientOptions = createClientOptions(initializationOptions);
 
       expect(clientOptions.errorHandler).toBeDefined();
       expect(typeof clientOptions.errorHandler!.error).toBe('function');
@@ -192,7 +233,6 @@ describe('Server Config Module', () => {
     });
 
     it('should include workspace settings in initialization options', () => {
-      const { getWorkspaceSettings } = require('../src/configuration');
       const testSettings = {
         apex: {
           test: 'value',
@@ -200,27 +240,22 @@ describe('Server Config Module', () => {
             logLevel: 'error',
           },
         },
+        enableDocumentSymbols: true,
+        extensionMode: 'development',
       };
-      getWorkspaceSettings.mockReturnValue(testSettings);
 
-      const clientOptions = createClientOptions(mockContext);
+      const clientOptions = createClientOptions(testSettings);
 
-      expect(clientOptions.initializationOptions).toEqual(
-        expect.objectContaining({
-          enableDocumentSymbols: true,
-          extensionMode: 'development',
-          ...testSettings,
-        }),
-      );
+      expect(clientOptions.initializationOptions).toEqual(testSettings);
     });
 
     it('should map Test extension mode to development in client options', () => {
-      const testContext = {
-        ...mockContext,
-        extensionMode: vscode.ExtensionMode.Test,
-      } as vscode.ExtensionContext;
+      const testSettings = {
+        enableDocumentSymbols: true,
+        extensionMode: 'development',
+      };
 
-      const clientOptions = createClientOptions(testContext);
+      const clientOptions = createClientOptions(testSettings);
 
       expect(clientOptions.initializationOptions).toEqual(
         expect.objectContaining({

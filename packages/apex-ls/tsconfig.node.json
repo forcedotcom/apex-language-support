@@ -10,7 +10,10 @@
   "include": [
     "src/index.ts",
     "src/**/*.node.ts",
+    "src/server.node.ts",
     "src/server/ApexLanguageServer.ts",
+    "src/server/nodeServer.ts",
+    "src/server/LCSAdapter.ts",
     "src/communication/NodeClient.ts",
     "src/communication/NodeBridge.ts",
     "src/communication/Interfaces.ts",

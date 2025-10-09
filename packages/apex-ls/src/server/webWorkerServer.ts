@@ -17,12 +17,10 @@ import {
 
 import {
   setLoggerFactory,
-  setLogLevel,
   UniversalLoggerFactory,
 } from '@salesforce/apex-lsp-shared';
 
 import { getWorkerSelf } from '../utils/EnvironmentUtils';
-import { LCSAdapter } from './LCSAdapter';
 
 /**
  * Shared web worker initialization for Apex Language Server.
@@ -49,23 +47,22 @@ export async function startApexWebWorker(): Promise<void> {
   );
 
   // Set up logging with connection
-  setLogLevel('info'); // Enable info level logs to see worker messages
   const loggerFactory = UniversalLoggerFactory.getInstance();
+  setLoggerFactory(loggerFactory); // Set factory BEFORE creating logger
   const logger = loggerFactory.createLogger(connection);
-  setLoggerFactory(loggerFactory);
 
   // Initial lifecycle logs
   logger.info('🚀 Worker script loading...');
-  logger.info('🔧 Starting LCS integration...');
+  logger.info('🔧 Starting Lazy LSP Server...');
 
-  // Create and initialize LCS adapter
-  const lcsAdapter = new LCSAdapter({
-    connection,
-    logger: logger as any,
-  });
+  // Use lazy loading server for faster startup and proper connection management
+  const { LazyLSPServer } = await import('./LazyLSPServer');
 
-  // Initialize the adapter (this will set up all handlers and start listening)
-  await lcsAdapter.initialize();
+  // Create lazy LSP server (starts immediately with basic capabilities)
+  // This architecture prevents connection conflicts with desktop debugging
+  new LazyLSPServer(connection, logger as any);
 
-  logger.info('✅ Apex Language Server Worker ready!');
+  logger.info(
+    '✅ Apex Language Server Worker ready! (Advanced features loading in background)',
+  );
 }

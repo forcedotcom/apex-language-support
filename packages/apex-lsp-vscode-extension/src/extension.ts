@@ -22,6 +22,7 @@ import {
 } from './status-bar';
 import {
   initializeCommandState,
+  registerLogLevelCommands,
   registerRestartCommand,
   setRestartHandler,
 } from './commands';
@@ -31,6 +32,7 @@ import {
   stopLanguageServer,
 } from './language-server';
 import { getWorkspaceSettings } from './configuration';
+import { EXTENSION_CONSTANTS } from './constants';
 
 /**
  * Wrapper function for restart that matches the expected signature
@@ -61,10 +63,11 @@ export function activate(context: vscode.ExtensionContext): void {
   initializeExtensionLogging(context);
 
   logToOutputChannel('🔧 Extension logging system initialized', 'info');
-  logToOutputChannel(
-    `📍 Extension context: ${context.extensionMode === 1 ? 'Development' : 'Production'} mode`,
-    'info',
-  );
+  const extensionMode =
+    context.extensionMode === vscode.ExtensionMode.Development
+      ? 'Development'
+      : 'Production';
+  logToOutputChannel(`📍 Extension context: ${extensionMode} mode`, 'info');
   logToOutputChannel(`📂 Extension path: ${context.extensionPath}`, 'debug');
 
   // Initialize command state
@@ -83,33 +86,17 @@ export function activate(context: vscode.ExtensionContext): void {
   registerRestartCommand(context);
   logToOutputChannel('📝 Restart command registered', 'debug');
 
-  // Register log level commands for each log level
-  const logLevels = ['error', 'warning', 'info', 'debug'];
-  logLevels.forEach((level) => {
-    const commandId = `apex-ls-ts.setLogLevel.${level}`;
-    const disposable = vscode.commands.registerCommand(commandId, async () => {
-      const config = vscode.workspace.getConfiguration('apex-ls-ts');
-      await config.update(
-        'logLevel',
-        level,
-        vscode.ConfigurationTarget.Workspace,
-      );
-      updateLogLevel(level);
-      updateLogLevelStatusItems(level);
-    });
-    context.subscriptions.push(disposable);
-  });
-  logToOutputChannel(
-    `📋 Registered ${logLevels.length} log level commands`,
-    'debug',
-  );
+  registerLogLevelCommands(context);
+  logToOutputChannel('📝 Log level commands registered', 'debug');
 
   // Create language status actions for log levels and restart
   createApexLanguageStatusActions(
     context,
     () => getWorkspaceSettings().apex.logLevel,
     async (level: string) => {
-      const config = vscode.workspace.getConfiguration('apex-ls-ts');
+      const config = vscode.workspace.getConfiguration(
+        EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
+      );
       await config.update(
         'logLevel',
         level,
@@ -131,10 +118,23 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   // Start the language server
-  handleStart(context).catch((error) => {
-    logToOutputChannel(`❌ Failed to start language server: ${error}`, 'error');
-    console.error('❌ [APEX-EXT] Failed to start language server:', error);
-  });
+  logToOutputChannel('🔧 About to start language server...', 'debug');
+  handleStart(context)
+    .then(() => {
+      logToOutputChannel('✅ Language server started successfully', 'info');
+    })
+    .catch((error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logToOutputChannel(
+        `❌ Failed to start language server: ${errorMessage}`,
+        'error',
+      );
+      if (error instanceof Error && error.stack) {
+        logToOutputChannel(`❌ Error stack: ${error.stack}`, 'error');
+      }
+      console.error('❌ [APEX-EXT] Failed to start language server:', error);
+    });
 
   console.log('✅ [APEX-EXT] Extension activation completed');
 }

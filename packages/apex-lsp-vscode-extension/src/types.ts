@@ -27,6 +27,7 @@ export interface ExtensionState {
  * Workspace settings interface
  */
 export interface WorkspaceSettings {
+  [key: string]: unknown;
   apex: {
     commentCollection: {
       enableCommentCollection: boolean;
@@ -50,6 +51,9 @@ export interface WorkspaceSettings {
     };
     custom: Record<string, any>;
     logLevel: string;
+    worker: {
+      logLevel: string;
+    };
   };
 }
 

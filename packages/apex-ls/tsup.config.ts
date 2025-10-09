@@ -94,6 +94,18 @@ export default defineConfig([
     onSuccess: copyDtsFiles,
   },
 
+  // Node.js server build (no polyfills)
+  {
+    name: 'node-server',
+    ...nodeBaseConfig,
+    entry: { 'server.node': 'src/server.node.ts' },
+    format: ['cjs'],
+    outDir: 'dist',
+    external: APEX_LS_EXTERNAL,
+    noExternal: APEX_LS_BUNDLE,
+    sourcemap: true,
+  },
+
   // Browser library build
   {
     name: 'browser',
@@ -119,7 +131,7 @@ export default defineConfig([
     format: ['iife'],
     target: 'es2022',
     sourcemap: true,
-    minify: true,
+    minify: false, // Disable minification for better debugging
     metafile: true,
     external: WORKER_EXTERNAL,
     noExternal: APEX_LS_BUNDLE,
@@ -127,27 +139,32 @@ export default defineConfig([
     esbuildOptions(options) {
       // Apply comprehensive web worker polyfill configuration
       configureWebWorkerPolyfills(options);
-    },
-  },
 
-  // Full LCS Web Worker build for VS Code Web (no fallbacks)
-  {
-    name: 'worker-web',
-    entry: { 'worker-web': 'src/server-web.ts' },
-    outDir: 'dist',
-    platform: 'browser',
-    format: ['iife'],
-    target: 'es2022',
-    sourcemap: true,
-    minify: true,
-    metafile: true,
-    // Same externals as main worker since we want full LCS functionality
-    external: WORKER_EXTERNAL,
-    noExternal: APEX_LS_BUNDLE,
-    splitting: false,
-    esbuildOptions(options) {
-      // Apply comprehensive web worker polyfill configuration
-      configureWebWorkerPolyfills(options);
+      // Add plugin to handle dynamic requires at build time
+      options.plugins = [...(options.plugins ?? [])];
+      options.plugins.push({
+        name: 'dynamic-require-resolver',
+        setup(build: any) {
+          // Intercept dynamic require() calls for Node.js modules
+          build.onResolve(
+            { filter: /^(buffer|process|util|path)$/ },
+            (args: any) => {
+              // Map to the polyfill versions from NODE_POLYFILLS
+              const polyfillMap: Record<string, string> = {
+                buffer: 'buffer',
+                process: 'process/browser',
+                util: 'util',
+                path: 'path-browserify',
+              };
+
+              return {
+                path: polyfillMap[args.path] || args.path,
+                external: false, // Force bundling
+              };
+            },
+          );
+        },
+      });
     },
   },
 ]);

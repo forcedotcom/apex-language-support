@@ -14,9 +14,10 @@ import {
   CloseAction,
   ErrorAction,
 } from 'vscode-languageclient/node';
-import { getDebugConfig, getWorkspaceSettings } from './configuration';
+import { getDebugConfig } from './configuration';
 import { logServerMessage, getWorkerServerOutputChannel } from './logging';
-import { DEBUG_CONFIG } from './constants';
+import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
+import { determineServerMode } from './utils/server-mode';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -24,6 +25,19 @@ import { DEBUG_CONFIG } from './constants';
  */
 export const getDebugOptions = (): string[] | undefined => {
   const debugConfig = getDebugConfig();
+
+  // Force debug mode for development builds when in development environment
+  const isDevelopment =
+    process?.env?.APEX_LS_MODE === 'development' ||
+    process?.env?.NODE_ENV === 'development';
+
+  if (isDevelopment && debugConfig.mode === 'off') {
+    logServerMessage(
+      'Development mode detected - forcing debug mode on',
+      'info',
+    );
+    return [DEBUG_CONFIG.NOLAZY_FLAG, `--inspect=${debugConfig.port}`];
+  }
 
   if (debugConfig.mode === 'off') {
     return undefined;
@@ -61,12 +75,43 @@ export const createServerOptions = (
   const isDevelopment =
     context.extensionMode === vscode.ExtensionMode.Development;
 
-  // The server is bundled into 'server.js' within the VSIX.
-  // In development mode, it's in the 'out' directory (compiled)
-  // In production mode, it's in the extension root (bundled)
-  const serverModule = isDevelopment
-    ? context.asAbsolutePath('out/server.js')
-    : context.asAbsolutePath('server.js');
+  // The server is bundled into different files based on environment.
+  // In development mode, it's in the apex-ls dist directory
+  // In production mode, it's copied to the extension dist directory
+  // For debugging with individual files, use the compiled output instead of bundled
+  // In development mode, default to individual files for better debugging experience
+  // unless explicitly disabled
+  const useIndividualFiles =
+    isDevelopment && process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES !== 'false';
+
+  logServerMessage(
+    `🔍 [DEBUG] APEX_LS_DEBUG_USE_INDIVIDUAL_FILES = "${process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES}"`,
+    'info',
+  );
+  logServerMessage(`🔍 [DEBUG] isDevelopment = ${isDevelopment}`, 'info');
+  logServerMessage(
+    `🔍 [DEBUG] useIndividualFiles = ${useIndividualFiles}`,
+    'info',
+  );
+
+  let serverModule: string;
+  if (useIndividualFiles && isDevelopment) {
+    // Use individual compiled files for better debugging (CommonJS version)
+    serverModule = context.asAbsolutePath('../apex-ls/out/node/server.node.js');
+    logServerMessage(
+      `🔧 Using individual files for debugging: ${serverModule}`,
+      'info',
+    );
+  } else if (isDevelopment) {
+    serverModule = context.asAbsolutePath('../apex-ls/dist/server.node.js');
+    logServerMessage(
+      `📦 Using bundled files for development: ${serverModule}`,
+      'info',
+    );
+  } else {
+    serverModule = context.asAbsolutePath('dist/server.node.js');
+    logServerMessage(`🚀 Using production files: ${serverModule}`, 'info');
+  }
 
   logServerMessage(`Server module path: ${serverModule}`, 'debug');
   logServerMessage(
@@ -74,32 +119,11 @@ export const createServerOptions = (
     'debug',
   );
 
-  // Get debug options
-  const debugOptions = getDebugOptions();
+  // Determine server mode using shared utility
+  const serverMode = determineServerMode(context);
 
-  // Determine server mode with environment variable override
-  let serverMode: 'production' | 'development';
-  if (
-    process.env.APEX_LS_MODE === 'production' ||
-    process.env.APEX_LS_MODE === 'development'
-  ) {
-    serverMode = process.env.APEX_LS_MODE;
-    logServerMessage(
-      `Using server mode from environment variable: ${serverMode}`,
-      'info',
-    );
-  } else {
-    // Default to extension mode
-    serverMode =
-      context.extensionMode === vscode.ExtensionMode.Development ||
-      context.extensionMode === vscode.ExtensionMode.Test
-        ? 'development'
-        : 'production';
-    logServerMessage(
-      `Using server mode from extension mode: ${serverMode}`,
-      'debug',
-    );
-  }
+  // Get debug options for the return value
+  const debugOptions = getDebugOptions();
 
   return {
     run: {
@@ -130,48 +154,31 @@ export const createServerOptions = (
 
 /**
  * Creates client options for the language server
- * @param context The extension context
+ * @param initializationOptions Enhanced initialization options containing all necessary configuration
  * @returns Client options configuration
  */
 export const createClientOptions = (
-  context: vscode.ExtensionContext,
-): LanguageClientOptions => {
-  const settings = getWorkspaceSettings();
-
-  // Map VS Code extension mode to server mode
-  const extensionMode = context.extensionMode;
-  const serverMode =
-    extensionMode === vscode.ExtensionMode.Development ||
-    extensionMode === vscode.ExtensionMode.Test
-      ? 'development'
-      : 'production';
-
-  return {
-    documentSelector: [{ scheme: 'file', language: 'apex' }],
-    synchronize: {
-      fileEvents:
-        vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
-      configurationSection: 'apex',
-    },
-    // Use our consolidated worker/server output channel if available
-    ...(getWorkerServerOutputChannel()
-      ? { outputChannel: getWorkerServerOutputChannel() }
-      : {}),
-    // Add error handling with proper retry logic
-    errorHandler: {
-      error: handleClientError,
-      closed: () => handleClientClosed(),
-    },
-    // Include workspace settings and extension mode in initialization options
-    initializationOptions: {
-      enableDocumentSymbols: true,
-      extensionMode: serverMode, // Pass extension mode to server
-      ...settings,
-    },
-    // Explicitly enable workspace configuration capabilities
-    workspaceFolder: vscode.workspace.workspaceFolders?.[0],
-  };
-};
+  initializationOptions: any,
+): LanguageClientOptions => ({
+  documentSelector: [{ scheme: 'file', language: 'apex' }],
+  synchronize: {
+    fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
+    configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
+  },
+  // Use our consolidated worker/server output channel if available
+  ...(getWorkerServerOutputChannel()
+    ? { outputChannel: getWorkerServerOutputChannel() }
+    : {}),
+  // Add error handling with proper retry logic
+  errorHandler: {
+    error: handleClientError,
+    closed: () => handleClientClosed(),
+  },
+  // Use the enhanced initialization options that include all necessary configuration
+  initializationOptions,
+  // Explicitly enable workspace configuration capabilities
+  workspaceFolder: vscode.workspace.workspaceFolders?.[0],
+});
 
 /**
  * Handles errors from the language client
@@ -186,7 +193,7 @@ const handleClientError = (
   _count: number | undefined,
 ): { action: ErrorAction } => {
   logServerMessage(
-    `LSP Error: ${message?.toString() || 'Unknown error'}`,
+    `LSP Error: ${message?.toString() ?? 'Unknown error'}`,
     'error',
   );
   if (error) {

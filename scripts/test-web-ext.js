@@ -19,7 +19,10 @@
 const { runTests } = require('@vscode/test-web');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+
+const execAsync = promisify(exec);
 
 async function captureExtensionLogs(outputPath) {
   const timestamp = new Date().toISOString();
@@ -59,8 +62,96 @@ Last check: ${timestamp}
   console.log(`3. Copy all content to: ${outputPath}`);
 }
 
+/**
+ * Kills any processes running on port 3000 to ensure the address is available
+ * for the web server. Works on macOS, Linux, and Windows.
+ */
+async function killProcessesOnPort3000() {
+  console.log('🔍 Checking for processes running on port 3000...');
+
+  try {
+    let command;
+    let killCommand;
+
+    // Determine the appropriate command based on the operating system
+    if (process.platform === 'win32') {
+      // Windows
+      command = 'netstat -ano | findstr :3000';
+      killCommand = (pid) => `taskkill /PID ${pid} /F`;
+    } else {
+      // macOS and Linux
+      command = 'lsof -ti:3000';
+      killCommand = (pid) => `kill -9 ${pid}`;
+    }
+
+    const { stdout } = await execAsync(command);
+
+    if (stdout.trim()) {
+      console.log(
+        '🛑 Found processes running on port 3000, terminating them...',
+      );
+
+      if (process.platform === 'win32') {
+        // Windows: Parse netstat output to extract PIDs
+        const lines = stdout.trim().split('\n');
+        const pids = lines
+          .map((line) => {
+            const parts = line.trim().split(/\s+/);
+            return parts[parts.length - 1]; // PID is the last column
+          })
+          .filter((pid) => pid && /^\d+$/.test(pid)); // Only valid PIDs
+
+        for (const pid of pids) {
+          try {
+            await execAsync(killCommand(pid));
+            console.log(`   ✅ Killed process ${pid}`);
+          } catch (error) {
+            console.warn(
+              `   ⚠️ Failed to kill process ${pid}: ${error.message}`,
+            );
+          }
+        }
+      } else {
+        // macOS/Linux: lsof returns PIDs directly
+        const pids = stdout
+          .trim()
+          .split('\n')
+          .filter((pid) => pid);
+
+        for (const pid of pids) {
+          try {
+            await execAsync(killCommand(pid));
+            console.log(`   ✅ Killed process ${pid}`);
+          } catch (error) {
+            console.warn(
+              `   ⚠️ Failed to kill process ${pid}: ${error.message}`,
+            );
+          }
+        }
+      }
+
+      // Wait a moment for processes to fully terminate
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      console.log('✅ Port 3000 cleanup completed');
+    } else {
+      console.log('✅ No processes found running on port 3000');
+    }
+  } catch (error) {
+    if (error.code === 1 || error.message.includes('No such process')) {
+      // Command returned exit code 1, which typically means no processes found
+      console.log('✅ No processes found running on port 3000');
+    } else {
+      console.warn(`⚠️ Error checking port 3000: ${error.message}`);
+      console.log('   Continuing with test execution...');
+    }
+  }
+}
+
 async function runWebExtensionTests() {
   try {
+    // Kill any processes running on port 3000 before starting the web server
+    await killProcessesOnPort3000();
+
     const extensionDevelopmentPath = path.resolve(
       __dirname,
       '../packages/apex-lsp-vscode-extension',
@@ -282,6 +373,21 @@ async function runWebExtensionTests() {
         sampleApexClass,
       );
       console.log('✅ Created sample Apex class for testing');
+
+      // Create .vscode directory and settings.json
+      const vscodeDir = path.join(workspacePath, '.vscode');
+      fs.mkdirSync(vscodeDir, { recursive: true });
+
+      const vscodeSettings = {
+        'apex.logLevel': 'debug',
+        'apex.worker.logLevel': 'debug',
+      };
+
+      fs.writeFileSync(
+        path.join(vscodeDir, 'settings.json'),
+        JSON.stringify(vscodeSettings, null, 2),
+      );
+      console.log('✅ Created .vscode/settings.json with Apex debug settings');
     }
 
     // Check if extension is built
@@ -299,23 +405,26 @@ async function runWebExtensionTests() {
     }
 
     // Worker files should already be in the dist directory from the extension build
-    // Check if worker files exist in dist directory
-    const workerSrc = path.resolve(extensionDevelopmentPath, 'dist/worker.js');
+    // Check if worker files exist in dist directory (using correct filename)
+    const workerSrc = path.resolve(
+      extensionDevelopmentPath,
+      'dist/worker.global.js',
+    );
     const workerMapSrc = path.resolve(
       extensionDevelopmentPath,
-      'dist/worker.js.map',
+      'dist/worker.global.js.map',
     );
 
     if (fs.existsSync(workerSrc)) {
-      console.log('✅ worker.js found in dist directory');
+      console.log('✅ worker.global.js found in dist directory');
     } else {
-      console.warn('⚠️ worker.js not found in dist directory');
+      console.warn('⚠️ worker.global.js not found in dist directory');
     }
 
     if (fs.existsSync(workerMapSrc)) {
-      console.log('✅ worker.js.map found in dist directory');
+      console.log('✅ worker.global.js.map found in dist directory');
     } else {
-      console.warn('⚠️ worker.js.map not found in dist directory');
+      console.warn('⚠️ worker.global.js.map not found in dist directory');
     }
 
     // Create a dist directory in the extension root for URL resolution workaround
@@ -325,8 +434,8 @@ async function runWebExtensionTests() {
     }
 
     // Copy worker files to the root dist directory
-    const rootWorkerSrc = path.resolve(rootDistDir, 'worker.js');
-    const rootWorkerMapSrc = path.resolve(rootDistDir, 'worker.js.map');
+    const rootWorkerSrc = path.resolve(rootDistDir, 'worker.global.js');
+    const rootWorkerMapSrc = path.resolve(rootDistDir, 'worker.global.js.map');
     fs.copyFileSync(workerSrc, rootWorkerSrc);
     fs.copyFileSync(workerMapSrc, rootWorkerMapSrc);
 
@@ -340,10 +449,10 @@ async function runWebExtensionTests() {
 
     console.log('⚠️ VS Code Web extension URI resolution issue detected');
     console.log(
-      '   Extension is looking for worker at: /static/dist/worker.js',
+      '   Extension is looking for worker at: /static/dist/worker.global.js',
     );
     console.log(
-      '   But files are served from: /static/devextensions/dist/worker.js',
+      '   But files are served from: /static/devextensions/dist/worker.global.js',
     );
     console.log(
       '   This is a known limitation of VS Code Web extension testing',
@@ -355,7 +464,7 @@ async function runWebExtensionTests() {
     console.log('   2. Open Developer Tools → Console');
     console.log('   3. Look for worker loading errors');
     console.log(
-      '   4. Check if /static/devextensions/dist/worker.js loads correctly',
+      '   4. Check if /static/devextensions/dist/worker.global.js loads correctly',
     );
 
     console.log('🌐 Starting VS Code Web Extension Tests...');

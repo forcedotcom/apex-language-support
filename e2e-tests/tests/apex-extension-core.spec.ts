@@ -254,11 +254,11 @@ test.describe('Apex Extension with LCS Integration', () => {
   /**
    * Advanced LCS language services functionality test.
    *
-   * This test focuses on validating that LCS language services are working
-   * beyond basic integration, including completion, hover, and document symbols.
+   * This test validates that LCS language services are working correctly
+   * by testing a single, reliable completion scenario.
    *
    * Verifies:
-   * - LCS completion services work
+   * - LCS completion services work (System.debug completion)
    * - Document symbol functionality
    * - Editor remains responsive during LCS operations
    * - No fallback to stub implementation
@@ -267,78 +267,74 @@ test.describe('Apex Extension with LCS Integration', () => {
   test('should demonstrate advanced LCS language services functionality', async ({
     page,
   }) => {
-    // Intercept worker messages if possible
-    await page.addInitScript(() => {
-      // Override worker creation to intercept messages
-      const originalWorker = (window as any).Worker;
-      if (originalWorker) {
-        (window as any).Worker = class extends originalWorker {
-          constructor(scriptURL: string | URL, options?: WorkerOptions) {
-            super(scriptURL, options);
-            console.log('🔧 Worker created:', scriptURL);
-
-            this.addEventListener('message', (event: { data: any }) => {
-              console.log('📨 Worker message:', event.data);
-            });
-          }
-        };
-      }
-    });
-
     // Setup complete test session
     const { consoleErrors, networkErrors } = await setupFullTestSession(page);
 
     // Wait for LCS services to be ready
     await waitForLCSReady(page);
 
-    // Test advanced LSP functionality
-    const lspFunctionality = await testLSPFunctionality(page);
-
-    // Test additional completion scenarios
-    console.log('🔍 Testing advanced completion scenarios...');
+    // Test core completion functionality - System.debug should always work in Apex
+    console.log('🔍 Testing System.debug completion...');
     const editor = page.locator(SELECTORS.MONACO_EDITOR);
     await editor.click();
 
-    // Test different completion contexts within the constructor
-    const completionScenarios = [
-      { text: 'System.', description: 'System class completion' },
-      { text: 'String.', description: 'String class completion' },
+    // Position cursor and test System.debug completion
+    await positionCursorInConstructor(page);
+    await page.keyboard.type('System.');
+
+    // Trigger completion
+    await page.keyboard.press('ControlOrMeta+Space');
+
+    // Wait for completion widget to appear - fail if it doesn't
+    await page.waitForSelector(
+      '.suggest-widget.visible, .monaco-list[aria-label*="suggest"], [aria-label*="IntelliSense"]',
       {
-        text: 'Account testAcc = new ',
-        description: 'Constructor completion',
+        timeout: 5000,
+        state: 'visible',
       },
-    ];
+    );
 
-    let advancedCompletionsWorking = 0;
+    const completionWidget = page.locator(
+      '.suggest-widget.visible, .monaco-list[aria-label*="suggest"], [aria-label*="IntelliSense"]',
+    );
 
-    for (const scenario of completionScenarios) {
-      try {
-        await positionCursorInConstructor(page);
-        await page.keyboard.type(scenario.text);
-        await page.waitForTimeout(1500);
+    // Verify completion widget is visible
+    expect(completionWidget).toBeVisible();
 
-        const completionWidget = page.locator(
-          '.suggest-widget, .monaco-list, [id*="suggest"]',
-        );
-        const hasCompletion = await completionWidget
-          .isVisible()
-          .catch(() => false);
+    // Verify completion items exist
+    const completionItems = page.locator('.monaco-list-row');
+    const itemCount = await completionItems.count();
+    expect(itemCount).toBeGreaterThan(0);
 
-        if (hasCompletion) {
-          advancedCompletionsWorking++;
-          console.log(`✅ ${scenario.description}: Working`);
-          await page.keyboard.press('Escape'); // Close completion
-        } else {
-          console.log(`ℹ️ ${scenario.description}: Not detected`);
-        }
+    // Verify System.debug is available in completions
+    const systemDebugItem = page.locator('.monaco-list-row:has-text("debug")');
+    expect(systemDebugItem).toBeVisible();
 
-        // Clean up
-        await page.keyboard.press('Control+Z');
-      } catch (_error) {
-        console.log(`⚠️ ${scenario.description}: Error during test`);
-        await page.keyboard.press('Control+Z'); // Ensure cleanup
-      }
-    }
+    console.log(`✅ System.debug completion working with ${itemCount} items`);
+
+    // Close completion and clean up
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Control+Z'); // Undo typing
+
+    // Test document symbols functionality
+    console.log('🔍 Testing document symbols...');
+    await page.keyboard.press('ControlOrMeta+Shift+O');
+
+    const symbolPicker = page.locator(
+      '.quick-input-widget, [id*="quickInput"]',
+    );
+    await symbolPicker.waitFor({ state: 'visible', timeout: 3000 });
+    expect(symbolPicker).toBeVisible();
+
+    // Verify symbols are available
+    const symbolItems = page.locator('.quick-input-widget .monaco-list-row');
+    const symbolCount = await symbolItems.count();
+    expect(symbolCount).toBeGreaterThan(0);
+
+    console.log(`✅ Document symbols working with ${symbolCount} symbols`);
+
+    // Close symbol picker
+    await page.keyboard.press('Escape');
 
     // Detect LCS integration
     const lcsDetection = await detectLCSIntegration(page);
@@ -352,38 +348,22 @@ test.describe('Apex Extension with LCS Integration', () => {
     await verifyVSCodeStability(page);
 
     console.log('🔧 Advanced LCS Functionality Results:');
-    console.log(
-      `   - Basic Editor: ${lspFunctionality.editorResponsive ? '✅' : '❌'}`,
-    );
-    console.log(
-      `   - Completion Services: ${lspFunctionality.completionTested ? '✅' : '❌'}`,
-    );
-    console.log(
-      `   - Symbol Services: ${lspFunctionality.symbolsTested ? '✅' : '❌'}`,
-    );
-    console.log(
-      `   - Advanced Completions: ${advancedCompletionsWorking}/${completionScenarios.length} scenarios`,
-    );
+    console.log('   - System.debug Completion: ✅ WORKING');
+    console.log('   - Document Symbols: ✅ WORKING');
     console.log(
       `   - LCS Integration: ${lcsDetection.lcsIntegrationActive ? '✅ ACTIVE' : '❌ INACTIVE'}`,
     );
 
-    // Assert advanced functionality criteria
+    // Assert all functionality criteria - fail loudly if any component fails
     expect(validation.consoleValidation.allErrorsAllowed).toBe(true);
     expect(validation.networkValidation.allErrorsAllowed).toBe(true);
     expect(lcsDetection.lcsIntegrationActive).toBe(true);
-    expect(lcsDetection.hasStubFallback).toBe(false); // Should not fall back to stub
+    expect(lcsDetection.hasStubFallback).toBe(false); // Must not fall back to stub
     expect(lcsDetection.hasErrorIndicators).toBe(false);
-    expect(lspFunctionality.editorResponsive).toBe(true);
-
-    // At least basic completion should work
-    expect(
-      lspFunctionality.completionTested || advancedCompletionsWorking > 0,
-    ).toBe(true);
 
     console.log('🎉 Advanced LCS Language Services test PASSED');
     console.log(
-      '   ✨ This test validates comprehensive LCS language service functionality',
+      '   ✨ This test validates core LCS language service functionality without fallbacks',
     );
   });
 });

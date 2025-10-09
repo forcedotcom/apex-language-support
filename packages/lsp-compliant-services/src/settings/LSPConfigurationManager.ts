@@ -23,6 +23,7 @@ import {
   mergeWithDefaults,
   validateApexSettings,
 } from './ApexLanguageServerSettings';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 declare const self: any;
 
@@ -236,6 +237,10 @@ export class LSPConfigurationManager {
    * @returns True if the configuration was successfully applied
    */
   public updateFromLSPConfiguration(config: any): boolean {
+    getLogger().error(
+      () =>
+        `Updating Apex Language Server settings: ${JSON.stringify(config, null, 2)}`,
+    );
     return this.settingsManager.updateFromLSPConfiguration(config);
   }
 
