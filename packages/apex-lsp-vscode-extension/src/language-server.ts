@@ -467,6 +467,8 @@ async function createWebLanguageClient(
         context,
         environment,
       ),
+      // Use our existing worker/server output channel to prevent duplication
+      outputChannel: getWorkerServerOutputChannel(),
     },
     worker,
   );
