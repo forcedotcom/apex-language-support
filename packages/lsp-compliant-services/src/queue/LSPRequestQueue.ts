@@ -35,7 +35,8 @@ export type LSPRequestType =
   | 'documentSave'
   | 'documentChange'
   | 'documentClose'
-  | 'findMissingArtifact';
+  | 'findMissingArtifact'
+  | 'graphData';
 
 /**
  * Request priority levels
@@ -139,6 +140,7 @@ export class LSPRequestQueue {
       codeAction: 'LOW',
       rename: 'LOW',
       documentClose: 'IMMEDIATE',
+      graphData: 'LOW',
     };
 
   // Request timeouts (in milliseconds)

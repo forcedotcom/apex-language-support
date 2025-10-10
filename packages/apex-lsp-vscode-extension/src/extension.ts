@@ -24,6 +24,7 @@ import {
   initializeCommandState,
   registerLogLevelCommands,
   registerRestartCommand,
+  registerGraphCommand,
   setRestartHandler,
 } from './commands';
 import {
@@ -88,6 +89,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   registerLogLevelCommands(context);
   logToOutputChannel('📝 Log level commands registered', 'debug');
+
+  // Register graph command
+  registerGraphCommand(context);
+  logToOutputChannel('📝 Graph command registered', 'debug');
 
   // Create language status actions for log levels and restart
   createApexLanguageStatusActions(

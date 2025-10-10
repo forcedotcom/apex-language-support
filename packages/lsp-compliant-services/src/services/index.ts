@@ -15,6 +15,7 @@ export * from './DiagnosticProcessingService';
 export * from './HoverProcessingService';
 export * from './BackgroundProcessingInitializationService';
 export * from './CompletionProcessingService';
+export * from './GraphDataProcessingService';
 
 // Export LSP queue system
 export * from '../queue';

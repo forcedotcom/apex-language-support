@@ -258,4 +258,56 @@ export interface ISymbolManager {
     requestType?: string;
     position?: { line: number; character: number };
   };
+
+  /**
+   * Get all graph nodes (symbols) in the graph
+   * @returns Array of graph nodes
+   */
+  getAllGraphNodes(): import('./graph').GraphNode[];
+
+  /**
+   * Get all graph edges (references) in the graph
+   * @returns Array of graph edges
+   */
+  getAllGraphEdges(): import('./graph').GraphEdge[];
+
+  /**
+   * Get complete graph data with nodes, edges, and metadata
+   * @returns Complete graph data
+   */
+  getGraphData(): import('./graph').GraphData;
+
+  /**
+   * Get graph data filtered by file
+   * @param fileUri The file URI to filter by
+   * @returns File-specific graph data
+   */
+  getGraphDataForFile(fileUri: string): import('./graph').FileGraphData;
+
+  /**
+   * Get graph data filtered by symbol type
+   * @param symbolType The symbol type to filter by
+   * @returns Type-specific graph data
+   */
+  getGraphDataByType(symbolType: string): import('./graph').TypeGraphData;
+
+  /**
+   * Get complete graph data as JSON string
+   * @returns JSON string representation of graph data
+   */
+  getGraphDataAsJSON(): string;
+
+  /**
+   * Get file-specific graph data as JSON string
+   * @param fileUri The file URI to filter by
+   * @returns JSON string representation of file graph data
+   */
+  getGraphDataForFileAsJSON(fileUri: string): string;
+
+  /**
+   * Get type-specific graph data as JSON string
+   * @param symbolType The symbol type to filter by
+   * @returns JSON string representation of type graph data
+   */
+  getGraphDataByTypeAsJSON(symbolType: string): string;
 }

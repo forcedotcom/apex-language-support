@@ -59,6 +59,7 @@ export class GenericRequestHandler<T = any, R = any>
       documentChange: 'processDocumentChange',
       documentClose: 'processDocumentClose',
       findMissingArtifact: 'processFindMissingArtifact',
+      graphData: 'processGraphData',
     };
 
     return methodMap[requestType] || 'process';

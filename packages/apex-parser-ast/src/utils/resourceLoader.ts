@@ -7,7 +7,11 @@
  */
 
 import { unzipSync } from 'fflate';
-import { getLogger, detectEnvironment } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  detectEnvironment,
+  formattedError,
+} from '@salesforce/apex-lsp-shared';
 
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
@@ -157,7 +161,8 @@ export class ResourceLoader {
       this.extractZipFiles();
     } catch (cjsError) {
       this.logger.debug(
-        () => 'CJS loading failed, trying direct require.resolve',
+        () =>
+          `CJS loading failed, trying direct require.resolve: ${formattedError(cjsError)}`,
       );
 
       // Fallback - try multiple possible paths

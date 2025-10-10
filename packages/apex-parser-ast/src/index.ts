@@ -34,6 +34,7 @@ export * from './types/source';
 export * from './types/unitType';
 export * from './types/classInfo';
 export * from './types/ISymbolManager';
+export * from './types/graph';
 
 // Export namespace resolution types and components
 export * from './namespace/NamespaceUtils';

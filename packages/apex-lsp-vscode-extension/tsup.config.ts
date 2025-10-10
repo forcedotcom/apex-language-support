@@ -60,6 +60,36 @@ function copyWorkerFiles() {
 }
 
 /**
+ * Copy webview scripts to consistent webview directory
+ */
+function copyWebviewScripts() {
+  const distDir = path.resolve(__dirname, 'dist');
+  const webviewDir = path.join(distDir, 'webview');
+
+  // Ensure webview directory exists
+  fs.mkdirSync(webviewDir, { recursive: true });
+
+  // Copy webview scripts from dist/webview/ to webview/
+  const webviewFiles = ['graphScript.js', 'graphScript.js.map'];
+
+  webviewFiles.forEach((file) => {
+    const srcFile = path.join(distDir, 'webview', file);
+    const destFile = path.join(webviewDir, file);
+    try {
+      if (fs.existsSync(srcFile)) {
+        fs.copyFileSync(srcFile, destFile);
+        console.log(`✅ Copied webview script: ${file}`);
+      }
+    } catch (error) {
+      console.warn(
+        `Failed to copy webview script ${file}:`,
+        (error as Error).message,
+      );
+    }
+  });
+}
+
+/**
  * Copy manifest and configuration files to dist
  */
 function copyManifestFiles() {
@@ -125,6 +155,7 @@ function fixPackagePaths() {
  */
 async function executePostBuildTasks(): Promise<void> {
   copyWorkerFiles();
+  copyWebviewScripts();
   copyManifestFiles();
   fixPackagePaths();
 }
@@ -178,6 +209,22 @@ export default defineConfig([
 
       options.define = { global: 'globalThis' };
       options.alias = NODE_POLYFILLS;
+    },
+  },
+
+  // Webview Scripts Build - For the graph visualization
+  {
+    name: 'webview-scripts',
+    entry: ['src/webviews/graphScript.ts'],
+    outDir: 'dist/webview',
+    format: ['iife'],
+    outExtension: () => ({ js: '.js' }),
+    sourcemap: true,
+    globalName: 'GraphScript',
+    esbuildOptions(options) {
+      options.platform = 'browser';
+      options.conditions = ['browser', 'import', 'module', 'default'];
+      options.mainFields = ['browser', 'module', 'main'];
     },
   },
 ]);

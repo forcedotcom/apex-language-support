@@ -185,6 +185,16 @@ export const dispatchProcessOnFindMissingArtifact = async (
   return await processApexFindMissingArtifact(params);
 };
 
+/**
+ * Dispatch function for apex/graphData custom requests
+ * @param params The graph data parameters
+ * @returns Promise resolving to graph data response
+ */
+export const dispatchProcessOnGraphData = async (params: any): Promise<any> => {
+  const handler = HandlerFactory.createGraphDataHandler();
+  return await handler.handleGraphData(params);
+};
+
 // Re-export the existing dispatch functions
 export {
   dispatchProcessOnDiagnostic,

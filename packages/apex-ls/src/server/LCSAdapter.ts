@@ -43,11 +43,13 @@ import {
   dispatchProcessOnCloseDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
+  dispatchProcessOnGraphData,
   DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
   LSPConfigurationManager,
 } from '@salesforce/apex-lsp-compliant-services';
+import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Configuration for the LCS Adapter
@@ -116,6 +118,18 @@ export class LCSAdapter {
       this.logger.debug('✅ ApexStorageManager initialized successfully');
     } catch (error) {
       this.logger.error(`❌ Failed to initialize ApexStorageManager: ${error}`);
+    }
+
+    // Initialize ApexSymbolProcessingManager
+    try {
+      ApexSymbolProcessingManager.getInstance().initialize();
+      this.logger.debug(
+        '✅ ApexSymbolProcessingManager initialized successfully',
+      );
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to initialize ApexSymbolProcessingManager: ${error}`,
+      );
     }
 
     // Set up document event handlers
@@ -238,6 +252,34 @@ export class LCSAdapter {
         );
         this.logger.debug(`Document symbols error details: ${error}`);
         return [];
+      }
+    });
+
+    // Custom graph data request
+    this.connection.onRequest('apex/graphData', async (params: any) => {
+      try {
+        this.logger.info(
+          `Graph data request received: ${JSON.stringify(params)}`,
+        );
+        this.logger.info('About to call dispatchProcessOnGraphData...');
+        const result = await dispatchProcessOnGraphData(params);
+        this.logger.info(
+          `Graph data processed successfully, result type: ${typeof result}`,
+        );
+        this.logger.info(
+          `Graph data result keys: ${Object.keys(result || {}).join(', ')}`,
+        );
+        return result;
+      } catch (error) {
+        this.logger.error(
+          `Error processing graph data request: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        this.logger.error(
+          `Graph data error stack: ${error instanceof Error ? error.stack : 'No stack'}`,
+        );
+        throw error;
       }
     });
 

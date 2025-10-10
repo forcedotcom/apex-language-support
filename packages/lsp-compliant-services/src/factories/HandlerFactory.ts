@@ -40,6 +40,11 @@ import {
 } from '../services/DefinitionProcessingService';
 import { DidOpenDocumentHandler } from '../handlers/DidOpenDocumentHandler';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
+import { GraphDataHandler } from '../handlers/GraphDataHandler';
+import {
+  GraphDataProcessingService,
+  IGraphDataProcessor,
+} from '../services/GraphDataProcessingService';
 
 /**
  * Factory for creating handlers with proper dependency injection
@@ -197,5 +202,29 @@ export class HandlerFactory {
     definitionProcessor: IDefinitionProcessor,
   ): DefinitionHandler {
     return new DefinitionHandler(logger, definitionProcessor);
+  }
+
+  /**
+   * Create a GraphDataHandler with default dependencies
+   * @returns A configured GraphDataHandler instance
+   */
+  static createGraphDataHandler(): GraphDataHandler {
+    const logger = getLogger();
+    const graphDataProcessor = new GraphDataProcessingService(logger);
+
+    return new GraphDataHandler(logger, graphDataProcessor);
+  }
+
+  /**
+   * Create a GraphDataHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param graphDataProcessor Custom graph data processor implementation
+   * @returns A configured GraphDataHandler instance
+   */
+  static createGraphDataHandlerWithDependencies(
+    logger: LoggerInterface,
+    graphDataProcessor: IGraphDataProcessor,
+  ): GraphDataHandler {
+    return new GraphDataHandler(logger, graphDataProcessor);
   }
 }

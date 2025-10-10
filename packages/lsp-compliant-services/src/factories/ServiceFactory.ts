@@ -22,6 +22,7 @@ import { DocumentSymbolProcessingService } from '../services/DocumentSymbolProce
 import { WorkspaceSymbolProcessingService } from '../services/WorkspaceSymbolProcessingService';
 
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
+import { GraphDataProcessingService } from '../services/GraphDataProcessingService';
 
 /**
  * Service dependencies interface
@@ -142,5 +143,15 @@ export class ServiceFactory {
    */
   createMissingArtifactService(): MissingArtifactProcessingService {
     return new MissingArtifactProcessingService(this.dependencies.logger);
+  }
+
+  /**
+   * Create graph data processing service
+   */
+  createGraphDataService(): GraphDataProcessingService {
+    return new GraphDataProcessingService(
+      this.dependencies.logger,
+      this.dependencies.symbolManager,
+    );
   }
 }

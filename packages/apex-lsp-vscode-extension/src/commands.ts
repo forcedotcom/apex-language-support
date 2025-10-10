@@ -9,6 +9,7 @@
 import * as vscode from 'vscode';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel, updateLogLevel } from './logging';
+import { showGraph } from './graph/showGraph';
 
 /**
  * Global state for restart management
@@ -156,6 +157,19 @@ export const registerLogLevelCommands = (
   });
 };
 
+export const registerGraphCommand = (
+  context: vscode.ExtensionContext,
+): void => {
+  const graphCommand = vscode.commands.registerCommand(
+    'apex-ls-ts.showGraph',
+    () => {
+      console.log('Graph command executed');
+      showGraph(context);
+    },
+  );
+  context.subscriptions.push(graphCommand);
+  console.log('Graph command registered successfully');
+};
 /**
  * Sets the starting flag
  * @param starting Whether the server is starting

@@ -22,6 +22,15 @@
   ],
   "main": "./dist/extension.js",
   "browser": "./dist/extension.web.js",
+  "files": [
+    "dist",
+    "webview",
+    "grammars",
+    "snippets",
+    "resources",
+    "language-configuration.json",
+    "README.md"
+  ],
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:apex",
@@ -106,7 +115,7 @@
       }
     ],
     "configuration": {
-      "title": "Apex Language Server",
+      "title": "%configuration.title%",
       "properties": {
         "apex.enable": {
           "type": "boolean",
@@ -282,7 +291,11 @@
       },
       {
         "command": "apex.showAggregatedLogs",
-        "title": "Show All Apex Logs"
+        "title": "%commands.apex.showAggregatedLogs.title%"
+      },
+      {
+        "command": "apex-ls-ts.showGraph",
+        "title": "%commands.apex-ls-ts.showGraph.title%"
       }
     ],
     "viewsContainers": {

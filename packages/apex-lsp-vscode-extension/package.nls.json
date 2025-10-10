@@ -1,4 +1,5 @@
 {
+  "configuration.title": "Apex Language Server",
   "configuration.apex-ls-ts.enable.description": "Enable Apex-LS-TS language server",
   "configuration.apex-ls-ts.trace.server.description": "Traces the communication between VS Code and the Apex-LS-TS Language Server (Typescript)",
   "configuration.apex-ls-ts.debug.description": "Debug mode for the Apex-LS-TS language server. 'inspect' enables debugging without breaking, 'inspect-brk' enables debugging with break on start",
@@ -21,5 +22,7 @@
   "commands.apex-ls-ts.setLogLevel.warning.title": "Set Apex-LS-TS Log Level: Warning",
   "commands.apex-ls-ts.setLogLevel.info.title": "Set Apex-LS-TS Log Level: Info",
   "commands.apex-ls-ts.setLogLevel.debug.title": "Set Apex-LS-TS Log Level: Debug",
+  "commands.apex.showAggregatedLogs.title": "Show All Apex Logs",
+  "commands.apex-ls-ts.showGraph.title": "Show Symbol Graph",
   "viewsContainers.apex-explorer.title": "Apex-LS-TS Explorer"
 }

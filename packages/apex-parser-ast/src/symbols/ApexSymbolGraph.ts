@@ -1562,4 +1562,332 @@ export class ApexSymbolGraph {
     const savedBytes = this.memoryStats.totalSymbols * estimatedSymbolSize;
     return savedBytes;
   }
+
+  /**
+   * Get all nodes (symbols) in the graph as JSON-serializable data
+   * Leverages existing SymbolTable.toJSON() cleaning patterns
+   */
+  getAllNodes(): import('../types/graph').GraphNode[] {
+    const nodes: import('../types/graph').GraphNode[] = [];
+
+    // Iterate through all symbol IDs
+    for (const symbolId of this.symbolIds) {
+      const symbol = this.getSymbol(symbolId);
+      if (symbol) {
+        // Get graph-specific properties from ReferenceNode
+        const vertex = this.symbolToVertex.get(symbol.id);
+        const nodeId = vertex?.value?.nodeId || 0;
+        const referenceCount = vertex?.value?.referenceCount || 0;
+
+        // Create proper GraphNode structure
+        const graphNode: import('../types/graph').GraphNode = {
+          id: symbol.id,
+          name: symbol.name,
+          kind: symbol.kind,
+          fileUri: symbol.fileUri,
+          fqn: symbol.fqn,
+          location: symbol.location,
+          modifiers: symbol.modifiers,
+          parentId: symbol.parentId,
+          namespace:
+            typeof symbol.namespace === 'string'
+              ? symbol.namespace
+              : symbol.namespace?.toString() || null,
+          annotations: symbol.annotations?.map((ann) => ({
+            name: ann.name,
+            parameters: ann.parameters?.map((param) => ({
+              name: param.name || '',
+              value: param.value,
+            })),
+          })),
+          nodeId: nodeId,
+          referenceCount: referenceCount,
+        };
+
+        nodes.push(graphNode);
+      }
+    }
+
+    return nodes;
+  }
+
+  /**
+   * Get all edges (references) in the graph as JSON-serializable data
+   */
+  getAllEdges(): import('../types/graph').GraphEdge[] {
+    const edges: import('../types/graph').GraphEdge[] = [];
+
+    // First, add hierarchical relationships from SymbolTable structure
+    for (const [fileUri, symbolTable] of this.fileToSymbolTable.entries()) {
+      if (symbolTable) {
+        this.addHierarchicalEdges(symbolTable, fileUri, edges);
+      }
+    }
+
+    // Then, add reference relationships from the graph
+    const vertexEntries = Array.from(this.symbolToVertex.entries());
+
+    for (const [symbolId, vertex] of vertexEntries) {
+      if (!vertex) continue;
+
+      // Get outgoing edges for this vertex
+      const outgoingEdges = this.referenceGraph.outgoingEdgesOf(vertex.key);
+
+      for (const edge of outgoingEdges) {
+        if (!edge.value) continue;
+
+        edges.push({
+          id: `${edge.src}-${edge.dest}`,
+          source: String(edge.src),
+          target: String(edge.dest),
+          type: edge.value.type,
+          sourceFileUri: edge.value.sourceFileUri,
+          targetFileUri: edge.value.targetFileUri,
+          context: edge.value.context
+            ? {
+                methodName: edge.value.context.methodName,
+                parameterIndex: edge.value.context.parameterIndex
+                  ? Number(edge.value.context.parameterIndex)
+                  : undefined,
+                isStatic: edge.value.context.isStatic,
+                namespace: edge.value.context.namespace,
+              }
+            : undefined,
+        });
+      }
+    }
+
+    return edges;
+  }
+
+  /**
+   * Add hierarchical edges from SymbolTable structure
+   */
+  private addHierarchicalEdges(
+    symbolTable: SymbolTable,
+    fileUri: string,
+    edges: import('../types/graph').GraphEdge[],
+  ): void {
+    // Get all symbols from the SymbolTable
+    const allSymbols = symbolTable.getAllSymbols();
+
+    for (const symbol of allSymbols) {
+      // Find the parent symbol by looking for a symbol with matching ID
+      if (symbol.parentId) {
+        const parentSymbol = allSymbols.find((s) => s.id === symbol.parentId);
+        if (parentSymbol) {
+          // Create a "contains" relationship from parent to child
+          edges.push({
+            id: `contains-${symbol.parentId}-${symbol.id}`,
+            source: symbol.parentId,
+            target: symbol.id,
+            type: 9, // IMPORT_REFERENCE used as "contains" relationship
+            sourceFileUri: fileUri,
+            targetFileUri: fileUri,
+            context: {
+              methodName: symbol.kind === 'method' ? symbol.name : undefined,
+              isStatic: symbol.modifiers?.isStatic || false,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Get complete graph data (nodes + edges) as JSON-serializable data
+   */
+  getGraphData(): import('../types/graph').GraphData {
+    return {
+      nodes: this.getAllNodes(),
+      edges: this.getAllEdges(),
+      metadata: {
+        totalNodes: this.symbolIds.size,
+        totalEdges: this.memoryStats.totalEdges,
+        totalFiles: this.fileIndex.size,
+        lastUpdated: Date.now(),
+      },
+    };
+  }
+
+  /**
+   * Get graph data filtered by file as JSON-serializable data
+   */
+  getGraphDataForFile(fileUri: string): import('../types/graph').FileGraphData {
+    const fileSymbolIds = this.fileIndex.get(fileUri) || [];
+    const nodeIds = new Set(fileSymbolIds);
+
+    const nodes: import('../types/graph').GraphNode[] = [];
+    const edges: import('../types/graph').GraphEdge[] = [];
+
+    // Reuse the cleaning pattern
+    const cleanSymbol = (
+      symbol: ApexSymbol,
+    ): import('../types/graph').GraphNode => {
+      const { parent, ...rest } = symbol;
+      const cleaned = { ...rest } as any;
+
+      const vertex = this.symbolToVertex.get(symbol.id);
+      if (vertex?.value) {
+        cleaned.nodeId = vertex.value.nodeId;
+        cleaned.referenceCount = vertex.value.referenceCount;
+      }
+
+      return cleaned;
+    };
+
+    // Get nodes for this file
+    for (const symbolId of fileSymbolIds) {
+      const symbol = this.getSymbol(symbolId);
+      if (symbol) {
+        nodes.push(cleanSymbol(symbol));
+      }
+    }
+
+    // Get edges that involve symbols from this file
+    for (const symbolId of fileSymbolIds) {
+      const vertex = this.symbolToVertex.get(symbolId);
+      if (!vertex) continue;
+
+      const outgoingEdges = this.referenceGraph.outgoingEdgesOf(vertex.key);
+      const incomingEdges = this.referenceGraph.incomingEdgesOf(vertex.key);
+
+      // Process both outgoing and incoming edges
+      for (const edge of [...outgoingEdges, ...incomingEdges]) {
+        if (!edge.value) continue;
+        edges.push({
+          id: `${edge.src}-${edge.dest}`,
+          source: String(edge.src),
+          target: String(edge.dest),
+          type: edge.value.type,
+          sourceFileUri: edge.value.sourceFileUri,
+          targetFileUri: edge.value.targetFileUri,
+          context: edge.value.context
+            ? {
+                methodName: edge.value.context.methodName,
+                parameterIndex: edge.value.context.parameterIndex
+                  ? Number(edge.value.context.parameterIndex)
+                  : undefined,
+                isStatic: edge.value.context.isStatic,
+                namespace: edge.value.context.namespace,
+              }
+            : undefined,
+        });
+      }
+    }
+
+    return {
+      nodes,
+      edges,
+      fileUri,
+      metadata: {
+        totalNodes: nodes.length,
+        totalEdges: edges.length,
+        totalFiles: 1,
+        lastUpdated: Date.now(),
+      },
+    };
+  }
+
+  /**
+   * Get graph data filtered by symbol type as JSON-serializable data
+   */
+  getGraphDataByType(
+    symbolType: string,
+  ): import('../types/graph').TypeGraphData {
+    const filteredNodes: import('../types/graph').GraphNode[] = [];
+    const nodeIds = new Set<string>();
+
+    // Reuse the cleaning pattern
+    const cleanSymbol = (
+      symbol: ApexSymbol,
+    ): import('../types/graph').GraphNode => {
+      const { parent, ...rest } = symbol;
+      const cleaned = { ...rest } as any;
+
+      const vertex = this.symbolToVertex.get(symbol.id);
+      if (vertex?.value) {
+        cleaned.nodeId = vertex.value.nodeId;
+        cleaned.referenceCount = vertex.value.referenceCount;
+      }
+
+      return cleaned;
+    };
+
+    // Get all nodes of the specified type
+    for (const symbolId of this.symbolIds) {
+      const symbol = this.getSymbol(symbolId);
+      if (symbol && symbol.kind === symbolType) {
+        filteredNodes.push(cleanSymbol(symbol));
+        nodeIds.add(symbolId);
+      }
+    }
+
+    const edges: import('../types/graph').GraphEdge[] = [];
+
+    // Get edges that involve the filtered nodes
+    for (const symbolId of nodeIds) {
+      const vertex = this.symbolToVertex.get(symbolId);
+      if (!vertex) continue;
+
+      const outgoingEdges = this.referenceGraph.outgoingEdgesOf(vertex.key);
+      const incomingEdges = this.referenceGraph.incomingEdgesOf(vertex.key);
+
+      for (const edge of [...outgoingEdges, ...incomingEdges]) {
+        if (!edge.value) continue;
+        edges.push({
+          id: `${edge.src}-${edge.dest}`,
+          source: String(edge.src),
+          target: String(edge.dest),
+          type: edge.value.type,
+          sourceFileUri: edge.value.sourceFileUri,
+          targetFileUri: edge.value.targetFileUri,
+          context: edge.value.context
+            ? {
+                methodName: edge.value.context.methodName,
+                parameterIndex: edge.value.context.parameterIndex
+                  ? Number(edge.value.context.parameterIndex)
+                  : undefined,
+                isStatic: edge.value.context.isStatic,
+                namespace: edge.value.context.namespace,
+              }
+            : undefined,
+        });
+      }
+    }
+
+    return {
+      nodes: filteredNodes,
+      edges,
+      symbolType,
+      metadata: {
+        totalNodes: filteredNodes.length,
+        totalEdges: edges.length,
+        totalFiles: this.fileIndex.size,
+        lastUpdated: Date.now(),
+      },
+    };
+  }
+
+  /**
+   * Get graph data as a JSON string (for direct wire transmission)
+   * Leverages existing JSON.stringify patterns
+   */
+  getGraphDataAsJSON(): string {
+    return JSON.stringify(this.getGraphData());
+  }
+
+  /**
+   * Get graph data for a file as a JSON string
+   */
+  getGraphDataForFileAsJSON(fileUri: string): string {
+    return JSON.stringify(this.getGraphDataForFile(fileUri));
+  }
+
+  /**
+   * Get graph data by type as a JSON string
+   */
+  getGraphDataByTypeAsJSON(symbolType: string): string {
+    return JSON.stringify(this.getGraphDataByType(symbolType));
+  }
 }
