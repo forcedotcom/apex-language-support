@@ -73,22 +73,22 @@ export async function startApexWebWorker(): Promise<void> {
 
   // Initial lifecycle logs
   logger.info('🚀 Worker script loading...');
-  logger.info('🔧 Starting Lazy LSP Server...');
+  logger.info('🔧 Starting LCS integration...');
   console.log('🔧 DEBUG WORKER: Initial logs sent');
 
-  // Use lazy loading server for faster startup and proper connection management
-  console.log('🔧 DEBUG WORKER: Importing LazyLSPServer');
-  const { LazyLSPServer } = await import('./LazyLSPServer');
-  console.log('🔧 DEBUG WORKER: LazyLSPServer imported successfully');
+  // Create and initialize LCS adapter with blocking initialization
+  console.log('🔧 DEBUG WORKER: Importing LCSAdapter');
+  const { LCSAdapter } = await import('./LCSAdapter');
+  console.log('🔧 DEBUG WORKER: LCSAdapter imported successfully');
 
-  // Create lazy LSP server (starts immediately with basic capabilities)
-  // This architecture prevents connection conflicts with desktop debugging
-  console.log('🔧 DEBUG WORKER: Creating LazyLSPServer instance');
-  new LazyLSPServer(connection, logger as any);
-  console.log('🔧 DEBUG WORKER: LazyLSPServer instance created');
+  console.log('🔧 DEBUG WORKER: Creating LCSAdapter instance');
+  await LCSAdapter.create({
+    connection,
+    logger,
+    // No delegationMode needed - LCSAdapter handles everything
+  });
+  console.log('🔧 DEBUG WORKER: LCSAdapter instance created and initialized');
 
-  logger.info(
-    '✅ Apex Language Server Worker ready! (Advanced features loading in background)',
-  );
+  logger.info('✅ Apex Language Server Worker ready!');
   console.log('🔧 DEBUG WORKER: Worker initialization completed successfully');
 }

@@ -12,14 +12,8 @@ import {
   InitializeResult,
   TextDocuments,
   DocumentSymbolParams,
-  DocumentSymbol,
-  SymbolInformation,
   DidChangeConfigurationNotification,
   DidChangeConfigurationParams,
-  DidOpenTextDocumentParams,
-  DidChangeTextDocumentParams,
-  DidSaveTextDocumentParams,
-  DidCloseTextDocumentParams,
   TextDocumentSyncKind,
   HoverParams,
   Hover,
@@ -55,7 +49,6 @@ import {
 export interface LCSAdapterConfig {
   connection: Connection;
   logger?: LoggerInterface;
-  delegationMode?: boolean; // When true, don't set up connection listeners
 }
 
 /**
@@ -69,7 +62,6 @@ export class LCSAdapter {
   private hasConfigurationCapability = false;
   private hasWorkspaceFolderCapability = false;
   private readonly diagnosticProcessor: DiagnosticProcessingService;
-  private readonly delegationMode: boolean;
 
   /**
    * Private constructor - use LCSAdapter.create() instead
@@ -78,7 +70,6 @@ export class LCSAdapter {
     this.connection = config.connection;
     this.logger = config.logger ?? this.createDefaultLogger();
     this.documents = new TextDocuments(TextDocument);
-    this.delegationMode = config.delegationMode ?? false;
 
     // Initialize LCS services
     this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
@@ -121,19 +112,14 @@ export class LCSAdapter {
     // Set up document event handlers
     this.setupDocumentHandlers();
 
-    // Only set up protocol handlers if NOT in delegation mode
-    // In delegation mode, LazyLSPServer handles the protocol and forwards to our public methods
-    if (!this.delegationMode) {
-      this.setupProtocolHandlers();
-    }
+    // Set up protocol handlers for LSP requests
+    this.setupProtocolHandlers();
 
     // Start listening for documents
     this.documents.listen(this.connection);
 
-    // Only start listening on connection if not in delegation mode
-    if (!this.delegationMode) {
-      this.connection.listen();
-    }
+    // Start listening on connection for LSP protocol messages
+    this.connection.listen();
 
     this.logger.info('✅ LCS Adapter initialized successfully');
   }
@@ -387,93 +373,5 @@ export class LCSAdapter {
    */
   public getLogger(): LoggerInterface {
     return this.logger;
-  }
-
-  /**
-   * Public delegation methods for LazyLSPServer integration.
-   * These methods allow LazyLSPServer to forward events when in delegation mode.
-   */
-
-  /**
-   * Handle document open event (delegation mode).
-   * @param params - Document open parameters
-   */
-  public async handleDocumentOpen(
-    params: DidOpenTextDocumentParams,
-  ): Promise<void> {
-    const document = this.documents.get(params.textDocument.uri);
-    if (document) {
-      await dispatchProcessOnOpenDocument({ document });
-    }
-  }
-
-  /**
-   * Handle document change event (delegation mode).
-   * @param params - Document change parameters
-   */
-  public async handleDocumentChange(
-    params: DidChangeTextDocumentParams,
-  ): Promise<void> {
-    const document = this.documents.get(params.textDocument.uri);
-    if (document) {
-      await dispatchProcessOnChangeDocument({ document });
-    }
-  }
-
-  /**
-   * Handle document save event (delegation mode).
-   * @param params - Document save parameters
-   */
-  public async handleDocumentSave(
-    params: DidSaveTextDocumentParams,
-  ): Promise<void> {
-    const document = this.documents.get(params.textDocument.uri);
-    if (document) {
-      await dispatchProcessOnSaveDocument({ document });
-    }
-  }
-
-  /**
-   * Handle document close event (delegation mode).
-   * @param params - Document close parameters
-   */
-  public async handleDocumentClose(
-    params: DidCloseTextDocumentParams,
-  ): Promise<void> {
-    const document = this.documents.get(params.textDocument.uri);
-    if (document) {
-      await dispatchProcessOnCloseDocument({ document });
-    }
-  }
-
-  /**
-   * Handle hover request (delegation mode).
-   * @param params - Hover parameters
-   * @returns Hover information or null
-   */
-  public async onHover(params: HoverParams): Promise<Hover | null> {
-    try {
-      return await dispatchProcessOnHover(params);
-    } catch (error) {
-      this.logger.error(`Error processing hover: ${error}`);
-      return null;
-    }
-  }
-
-  /**
-   * Handle document symbol request (delegation mode).
-   * @param params - Document symbol parameters
-   * @returns Array of document symbols or null
-   */
-  public async onDocumentSymbol(
-    params: DocumentSymbolParams,
-  ): Promise<DocumentSymbol[] | SymbolInformation[] | null> {
-    try {
-      const result = await dispatchProcessOnDocumentSymbol(params);
-      return result ?? [];
-    } catch (error) {
-      this.logger.error(`Error processing document symbols: ${error}`);
-      return [];
-    }
   }
 }
