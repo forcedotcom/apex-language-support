@@ -95,29 +95,8 @@ export class ApexSymbolProcessingManager {
         () =>
           'ApexSymbolProcessingManager not initialized, processing synchronously',
       );
-
-      // Debug: Check symbol table contents before processing
-      const symbols = symbolTable.getAllSymbols
-        ? symbolTable.getAllSymbols()
-        : [];
-      // Fallback to synchronous processing with error handling
-      try {
-        this.symbolManager.addSymbolTable(symbolTable, fileUri);
-
-        // Debug: Check if symbols were actually added
-        const stats = this.symbolManager.getStats();
-
-        // Verify symbols are actually queryable
-        if (symbols.length > 0 && stats.totalSymbols === 0) {
-          // Force add symbols individually as a backup
-          for (const symbol of symbols) {
-            this.symbolManager.addSymbol(symbol, fileUri, symbolTable);
-          }
-        }
-      } catch (error) {
-        this.logger.error(`Error in synchronous symbol processing: ${error}`);
-      }
-
+      // Fallback to synchronous processing
+      this.symbolManager.addSymbolTable(symbolTable, fileUri);
       return 'sync_fallback';
     }
 
