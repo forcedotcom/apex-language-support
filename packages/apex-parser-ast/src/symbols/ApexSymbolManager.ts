@@ -227,6 +227,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     const symbolId = this.getSymbolId(symbol, fileUri);
 
+    // Get the count before adding
+    const symbolsBefore = this.symbolGraph.findSymbolByName(symbol.name).length;
+
     // If no SymbolTable provided, create or reuse a temporary one for backward compatibility
     let tempSymbolTable: SymbolTable | undefined = symbolTable;
     if (!tempSymbolTable) {
@@ -240,19 +243,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     // Always add symbol to the SymbolTable
+    // TODO: This is a hack to add the symbol to the SymbolTable
     tempSymbolTable!.addSymbol(symbol);
-    let symbolWasAdded = false;
 
     // Add to symbol graph (it has its own duplicate detection)
-    try {
-      this.symbolGraph.addSymbol(symbol, properUri, tempSymbolTable);
-      symbolWasAdded = true;
-    } catch (error) {
-      console.log(
-        `❌ [ApexSymbolManager] Error in addSymbol on graph for ${symbol.name}: ${error}`,
-      );
-      throw error;
-    }
+    this.symbolGraph.addSymbol(symbol, properUri, tempSymbolTable);
+
+    // Check if the symbol was actually added by comparing counts
+    const symbolsAfter = this.symbolGraph.findSymbolByName(symbol.name).length;
+    const symbolWasAdded = symbolsAfter > symbolsBefore;
 
     if (symbolWasAdded) {
       this.memoryStats.totalSymbols++;
@@ -1491,7 +1490,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       : [];
 
     // Update all symbols to use the proper URI
-    symbols.forEach((symbol: ApexSymbol, index: number) => {
+    symbols.forEach((symbol: ApexSymbol) => {
       // Update the symbol's fileUri to match the table's fileUri
       symbol.fileUri = properUri;
       this.addSymbol(symbol, properUri, symbolTable);
@@ -1595,13 +1594,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     position: Position,
   ): Promise<ApexSymbol | null> {
     try {
-      // Debug logging for symbol lookup to help diagnose hover issues
-      this.logger.debug(
-        () =>
-          `[Symbol Lookup] Searching for symbol at ${fileUri} ` +
-          `position ${position.line}:${position.character}`,
-      );
-
       // Step 1: Try to find TypeReferences at the position (parser-ast format already 1-based line, 0-based column)
       const typeReferences = this.getReferencesAtPosition(fileUri, position);
 
