@@ -225,9 +225,6 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
 
     // Queue symbol processing in the background for better performance
     const backgroundManager = ApexSymbolProcessingManager.getInstance();
-    const symbolManager = backgroundManager.getSymbolManager();
-    const _instanceId = (symbolManager as any)._instanceId || 'unknown';
-    // console.log(`🔧 [DocumentProcessingService] Using symbol manager instance ${instanceId} for document processing`);
     const taskId = backgroundManager.processSymbolTable(
       symbolTable,
       document.uri,

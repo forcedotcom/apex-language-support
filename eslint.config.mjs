@@ -90,7 +90,7 @@ export default [
       'import/named': 'error',
       'import/default': 'error',
       'import/no-duplicates': 'error',
-      'max-len': ['error', { code: 220 }],
+      'max-len': ['error', { code: 120 }],
     },
   },
   {

@@ -167,7 +167,7 @@ export const parseSymbolId = (
   name: string;
   lineNumber?: number;
 } => {
-  // CRITICAL FIX: Handle complex URI formats like file://vscode-test-web://mount/path
+  // Handle complex URI formats like file://vscode-test-web://mount/path
   // We need to find where the URI ends and the symbol part begins
   // The URI part will contain the file path and the symbol part starts after the filename
 

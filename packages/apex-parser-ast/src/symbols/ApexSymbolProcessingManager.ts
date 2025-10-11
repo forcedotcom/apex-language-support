@@ -41,9 +41,6 @@ export class ApexSymbolProcessingManager {
    */
   static getInstance(): ApexSymbolProcessingManager {
     if (!this.instance) {
-      // console.log(
-      //   '🔧 [ApexSymbolProcessingManager] Creating singleton instance',
-      // );
       this.instance = new ApexSymbolProcessingManager();
     }
     return this.instance;
@@ -68,10 +65,6 @@ export class ApexSymbolProcessingManager {
    * Get the symbol manager instance
    */
   getSymbolManager(): ApexSymbolManager {
-    const _instanceId = (this.symbolManager as any)._instanceId || 'unknown';
-    // console.log(
-    //   `🔧 [ApexSymbolProcessingManager] Returning symbol manager instance ${instanceId}`,
-    // );
     return this.symbolManager;
   }
 
@@ -107,40 +100,21 @@ export class ApexSymbolProcessingManager {
       const symbols = symbolTable.getAllSymbols
         ? symbolTable.getAllSymbols()
         : [];
-      // console.log(
-      //   `🔍 [ApexSymbolProcessingManager] Fallback: Processing ${symbols.length} symbols for ${fileUri}`,
-      // );
-
       // Fallback to synchronous processing with error handling
       try {
         this.symbolManager.addSymbolTable(symbolTable, fileUri);
 
         // Debug: Check if symbols were actually added
         const stats = this.symbolManager.getStats();
-        // console.log(
-        //   '📊 [ApexSymbolProcessingManager] After addSymbolTable: ' +
-        //     `${stats.totalFiles} files, ${stats.totalSymbols} symbols`,
-        // );
 
         // Verify symbols are actually queryable
         if (symbols.length > 0 && stats.totalSymbols === 0) {
-          // console.log(
-          //   '⚠️ [ApexSymbolProcessingManager] Warning: Symbols processed but not persisted!',
-          // );
           // Force add symbols individually as a backup
           for (const symbol of symbols) {
             this.symbolManager.addSymbol(symbol, fileUri, symbolTable);
           }
-          const _finalStats = this.symbolManager.getStats();
-          // console.log(
-          //   '🔄 [ApexSymbolProcessingManager] After individual add: ' +
-          //     `${finalStats.totalFiles} files, ${finalStats.totalSymbols} symbols`,
-          // );
         }
       } catch (error) {
-        // console.log(
-        //   `❌ [ApexSymbolProcessingManager] Error in synchronous processing: ${error}`,
-        // );
         this.logger.error(`Error in synchronous symbol processing: ${error}`);
       }
 

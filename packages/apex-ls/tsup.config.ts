@@ -169,36 +169,12 @@ export default defineConfig([
                 os: 'os-browserify/browser',
                 url: 'url-browserify',
               };
-
-              const replacement = polyfillMap[args.path];
-
-              // Debug logging for build process (can be enabled for troubleshooting)
-              // console.log(`[BUILD] Resolving Node.js module: ${args.path} -> ${replacement || args.path}`);
-
               return {
-                path: replacement || args.path,
+                path: polyfillMap[args.path] || args.path,
                 external: false, // Force bundling
               };
             },
           );
-
-          // Also handle require() calls that try to access Node.js internals
-          build.onLoad({ filter: /.*/ }, async (args: any) => {
-            // Skip if this is not a problematic file
-            if (
-              !args.path.includes('memfs') &&
-              !args.path.includes('node_modules')
-            ) {
-              return null;
-            }
-
-            // Debug logging for problematic files (can be enabled for troubleshooting)
-            // if (args.path.includes('memfs') || args.path.includes('buffer')) {
-            //   console.log(`[BUILD] Loading potentially problematic file: ${args.path}`);
-            // }
-
-            return null; // Let esbuild handle it normally
-          });
         },
       });
     },

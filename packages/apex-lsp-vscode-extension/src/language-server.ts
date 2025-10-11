@@ -420,20 +420,13 @@ async function createWebLanguageClient(
 
   // Create worker
   logToOutputChannel('⚡ Creating web worker...', 'info');
-  console.log(
-    '🔧 DEBUG: About to create web worker with URI:',
-    workerUri.toString(),
-  );
 
   const worker = new Worker(workerUri.toString(), {
     type: 'classic',
   });
 
-  console.log('🔧 DEBUG: Web worker created, setting up handlers');
-
   // Add worker error handling for debugging
   worker.onerror = (error) => {
-    console.log('❌ DEBUG: Worker error occurred:', error);
     logToOutputChannel(`❌ Worker error: ${error.message}`, 'error');
     logToOutputChannel(
       `❌ Worker error details: ${JSON.stringify(error)}`,
@@ -442,12 +435,10 @@ async function createWebLanguageClient(
   };
 
   worker.onmessageerror = (error) => {
-    console.log('❌ DEBUG: Worker message error:', error);
     logToOutputChannel(`❌ Worker message error: ${error}`, 'error');
   };
 
   // Remove custom message handling - let LSP handle all communication
-  console.log('✅ DEBUG: Web worker setup completed');
   logToOutputChannel('✅ Web worker created successfully', 'info');
 
   // Create VS Code Language Client for web extension with enhanced configuration
@@ -535,22 +526,17 @@ async function createWebLanguageClient(
   Client = {
     languageClient,
     initialize: async (params: InitializeParams) => {
-      console.log('🚀 DEBUG: Starting language client initialization');
       logToOutputChannel('🚀 Starting language client...', 'info');
       try {
-        console.log('🚀 DEBUG: Calling languageClient.start()');
         await languageClient.start();
-        console.log('✅ DEBUG: languageClient.start() completed successfully');
         logToOutputChannel('✅ Language client started successfully', 'info');
 
         // Test if the server is responding by sending a test request
         try {
-          console.log('🧪 DEBUG: Testing server responsiveness');
           logToOutputChannel('🧪 Testing server responsiveness...', 'debug');
 
           // Try a simple capabilities request first
           const capabilities = languageClient.initializeResult;
-          console.log('📋 DEBUG: Server capabilities:', capabilities);
           logToOutputChannel(
             `📋 Server capabilities: ${JSON.stringify(capabilities, null, 2)}`,
             'debug',
@@ -558,7 +544,6 @@ async function createWebLanguageClient(
 
           // Try sending a workspace/configuration request
           try {
-            console.log('⚙️ DEBUG: Sending workspace/configuration request');
             const configResult = await languageClient.sendRequest(
               'workspace/configuration',
               {
@@ -574,21 +559,17 @@ async function createWebLanguageClient(
               'debug',
             );
           } catch (configError) {
-            console.log('⚠️ DEBUG: Configuration request failed:', configError);
             logToOutputChannel(
               `⚠️ Configuration request failed: ${configError}`,
               'debug',
             );
           }
         } catch (testError) {
-          console.log('⚠️ DEBUG: Server test failed:', testError);
           logToOutputChannel(`⚠️ Server test failed: ${testError}`, 'warning');
         }
 
-        console.log('✅ DEBUG: Language client initialization completed');
         return { capabilities: {} }; // Return basic capabilities
       } catch (error) {
-        console.log('❌ DEBUG: Language client initialization failed:', error);
         logToOutputChannel(
           `❌ Failed to start language client: ${error}`,
           'error',
@@ -616,47 +597,6 @@ async function createWebLanguageClient(
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
   const initParams = createInitializeParams(context, environment);
-
-  // Verify params are serializable
-  try {
-    const serialized = JSON.stringify(initParams);
-    logToOutputChannel(
-      `✅ Initialization params are serializable (${serialized.length} characters)`,
-      'debug',
-    );
-  } catch (error) {
-    logToOutputChannel(
-      `❌ Initialization params are not serializable: ${error}`,
-      'error',
-    );
-
-    // Try to identify which part is not serializable
-    try {
-      JSON.stringify(initParams.capabilities);
-      logToOutputChannel('✅ capabilities are serializable', 'debug');
-    } catch (e) {
-      logToOutputChannel(`❌ capabilities not serializable: ${e}`, 'error');
-    }
-
-    try {
-      JSON.stringify(initParams.initializationOptions);
-      logToOutputChannel('✅ initializationOptions are serializable', 'debug');
-    } catch (e) {
-      logToOutputChannel(
-        `❌ initializationOptions not serializable: ${e}`,
-        'error',
-      );
-    }
-
-    try {
-      JSON.stringify(initParams.workspaceFolders);
-      logToOutputChannel('✅ workspaceFolders are serializable', 'debug');
-    } catch (e) {
-      logToOutputChannel(`❌ workspaceFolders not serializable: ${e}`, 'error');
-    }
-
-    throw new Error(`Cannot serialize initialization parameters: ${error}`);
-  }
 
   logToOutputChannel('🚀 Initializing web client...', 'info');
   await Client.initialize(initParams);

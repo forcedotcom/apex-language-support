@@ -27,6 +27,7 @@ import { HandlerFactory } from './factories/HandlerFactory';
 import { dispatchProcessOnDiagnostic } from './handlers/DiagnosticHandler';
 import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
 import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
+import { HoverHandler } from './handlers/HoverHandler';
 
 // Export storage interfaces and classes
 export * from './storage/ApexStorageBase';
@@ -147,7 +148,7 @@ export const dispatchProcessOnDocumentSymbol = async (
 };
 
 // Singleton HoverHandler instance to ensure consistent symbol manager usage
-let hoverHandlerInstance: any = null;
+let hoverHandlerInstance: HoverHandler | null = null;
 
 /**
  * Dispatch function for hover requests
@@ -157,16 +158,12 @@ let hoverHandlerInstance: any = null;
 export const dispatchProcessOnHover = async (
   params: HoverParams,
 ): Promise<Hover | null> => {
-  // console.log(`🔧 [dispatchProcessOnHover] Called with URI: ${params.textDocument.uri}, position: ${params.position.line}:${params.position.character}`);
-  // CRITICAL FIX: Use singleton pattern to ensure same symbol manager instance
+  // Use singleton pattern to ensure same symbol manager instance
   // Creating new handlers every time causes empty symbol managers
   if (!hoverHandlerInstance) {
-    // console.log(`🔧 [dispatchProcessOnHover] Creating singleton HoverHandler instance`);
     hoverHandlerInstance = HandlerFactory.createHoverHandler();
   }
-
   const result = await hoverHandlerInstance.handleHover(params);
-  // console.log(`🔧 [dispatchProcessOnHover] Result: ${result ? 'Found hover content' : 'null/empty'}`);
   return result;
 };
 

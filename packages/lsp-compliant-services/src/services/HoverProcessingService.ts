@@ -68,14 +68,6 @@ export class HoverProcessingService implements IHoverProcessor {
       symbolManager ??
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
 
-    // DEBUG: Log symbol manager instance info with unique ID
-    const stats = this.symbolManager.getStats();
-    const instanceId = (this.symbolManager as any)._instanceId || 'unknown';
-    this.logger.debug(
-      () =>
-        `🔧 [HoverProcessingService] Constructor - Symbol manager instance ${instanceId} has ${stats.totalFiles} files, ${stats.totalSymbols} symbols`,
-    );
-
     this.capabilitiesManager = ApexCapabilitiesManager.getInstance();
     // MissingArtifactUtils will create the service on-demand
     this.missingArtifactUtils = new MissingArtifactUtils(
@@ -90,9 +82,6 @@ export class HoverProcessingService implements IHoverProcessor {
    * @returns Hover information for the requested position
    */
   public async processHover(params: HoverParams): Promise<Hover | null> {
-    // console.log(
-    //   `🔧 [HoverProcessingService] processHover called for ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
-    // );
     this.logger.debug(
       () =>
         `Processing hover for ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
