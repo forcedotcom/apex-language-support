@@ -18,17 +18,15 @@ import {
 
 /**
  * Convert a file path to a proper URI
- * Preserves existing URIs (including VS Code web URIs) and only converts plain paths.
  *
  * @param fileUri The file URI to convert
  * @returns Proper URI string
  */
 const convertToUri = (fileUri: string): string => {
   // If the fileUri is already a URI (has protocol), return it as-is
-  // This preserves VS Code web URIs like vscode-test-web://, vscode-vfs://, etc.
   const protocol = getProtocolType(fileUri);
   if (protocol !== null) {
-    return fileUri; // Valid URI (including 'other' protocols), return as-is
+    return fileUri; // Valid URI, return as-is
   }
 
   // Normalize the path to ensure consistent standard Apex path detection
@@ -50,7 +48,6 @@ const convertToUri = (fileUri: string): string => {
     }
   }
 
-  // Only add file:// prefix to plain paths without any protocol
   return createFileUri(fileUri);
 };
 

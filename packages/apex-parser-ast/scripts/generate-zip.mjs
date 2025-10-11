@@ -113,7 +113,7 @@ function getZipResourcePath() {
       }
     }
     
-    // Fallback to __dirname approach for CJS (only available in Node.js environments)
+    // Fallback to __dirname approach for CJS
     if (typeof __dirname !== 'undefined') {
       return path.join(__dirname, '../resources/StandardApexLibrary.zip');
     }

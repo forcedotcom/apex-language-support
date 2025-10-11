@@ -90,7 +90,7 @@ const createEnhancedInitializationOptions = (
     ...safeSettings,
     // Add debug information if available and serializable
     ...(debugOptions && {
-      debugOptions: JSON.parse(JSON.stringify(debugOptions)),
+      debugOptions,
     }),
   };
 

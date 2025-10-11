@@ -32,22 +32,9 @@ export class HoverHandler {
    * @returns Hover information for the requested position
    */
   public async handleHover(params: HoverParams): Promise<Hover | null> {
-    //TODO: come back to see if we can use the queue system
     this.logger.debug(
       () => `Processing hover request: ${params.textDocument.uri}`,
     );
-    // The queue system might be using a different symbol manager instance
-    this.logger.debug(
-      () => 'Using direct hover processing to fix symbol manager issue',
-    );
-
-    const result = await dispatch(
-      this.hoverProcessor.processHover(params),
-      'Error processing hover request',
-    );
-    return result;
-
-    /*
     try {
       // Use the LSP queue system for immediate processing
       return await this.queueManager.submitHoverRequest(params);
@@ -64,7 +51,6 @@ export class HoverHandler {
         'Error processing hover request',
       );
     }
-    */
   }
 
   /**

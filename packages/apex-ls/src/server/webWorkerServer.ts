@@ -30,13 +30,12 @@ import { getWorkerSelf } from '../utils/EnvironmentUtils';
  * connection creation, and LCS adapter initialization.
  */
 export async function startApexWebWorker(): Promise<void> {
-  // Set up Node.js polyfills as globals immediately
+  // Set up some Node.js polyfills as globals immediately
   (globalThis as any).process = processPolyfill;
   (globalThis as any).Buffer = Buffer;
   (globalThis as any).global = globalThis;
 
   // Create a connection for the server using type-safe worker context
-
   const workerSelf = getWorkerSelf();
   if (!workerSelf) {
     console.error('🔧 DEBUG WORKER: Worker context not available!');
@@ -49,7 +48,6 @@ export async function startApexWebWorker(): Promise<void> {
   );
 
   // Set up logging with connection
-
   const loggerFactory = UniversalLoggerFactory.getInstance();
   setLoggerFactory(loggerFactory); // Set factory BEFORE creating logger
   const logger = loggerFactory.createLogger(connection);
@@ -58,14 +56,12 @@ export async function startApexWebWorker(): Promise<void> {
   logger.info('🚀 Worker script loading...');
   logger.info('🔧 Starting LCS integration...');
 
-  // Create and initialize LCS adapter with blocking initialization
-
+  // Create and initialize LCS adapter
   const { LCSAdapter } = await import('./LCSAdapter');
 
   await LCSAdapter.create({
     connection,
     logger,
-    // No delegationMode needed - LCSAdapter handles everything
   });
 
   logger.info('✅ Apex Language Server Worker ready!');

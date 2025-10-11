@@ -38,34 +38,34 @@ const APEX_LS_EXTERNAL = [
   'path', // Path manipulation utilities
 ];
 
-// Worker-specific externals for dynamic loading architecture
-// These dependencies will be loaded on-demand to avoid bundling complexity
+// Worker-specific externals for web worker builds
 const WORKER_EXTERNAL = [
-  // Parser engine - dynamically loaded when parsing is needed
+  // Parser engine - large Salesforce Apex grammar parser (~2MB)
   '@apexdevtools/apex-parser',
-  // Grammar processing - loaded with parser
+  // ANTLR4 TypeScript runtime - grammar processing engine
   'antlr4ts',
 
-  // AST processing - dynamically loaded for symbol analysis
+  // AST and symbol processing - complex analysis engine
   '@salesforce/apex-lsp-parser-ast',
-  // Custom services - loaded when specific features are requested
+  // Custom services - specialized language features
   '@salesforce/apex-lsp-custom-services',
-  // Core LSP services - can be dynamically loaded for advanced features
-  '@salesforce/apex-lsp-compliant-services',
 
-  // Heavy utility libraries - dynamically loaded as needed
+  // Heavy utility libraries that can be kept external
   'data-structure-typed', // Advanced data structures and algorithms
   'effect', // Functional programming utilities and effects
 
-  // Node.js modules - loaded when file operations are needed
-  'node-dir', // Directory scanning - loaded with file system bundle
+  // Node.js modules - not available in web worker context
+  'node-dir', // Directory scanning utilities
 ];
 
-// Always bundle these lightweight, essential dependencies
-// Core functionality needed for worker startup and basic LSP communication
+// Always bundle these essential dependencies
+// Core functionality needed for all language server operations
 const APEX_LS_BUNDLE = [
   // Shared utilities - lightweight, essential for all language server operations
   '@salesforce/apex-lsp-shared',
+
+  // Core LSP services - always needed since lazy loading was removed
+  '@salesforce/apex-lsp-compliant-services',
 
   // VSCode LSP Protocol libraries - essential for LSP communication
   'vscode-languageserver-textdocument', // Document lifecycle management
@@ -125,7 +125,7 @@ export default defineConfig([
     },
   },
 
-  // Full Web Worker build with LCS integration
+  // Full Web Worker build with direct LCS integration
   {
     name: 'worker',
     entry: { worker: 'src/server.ts' },
