@@ -530,44 +530,6 @@ async function createWebLanguageClient(
       try {
         await languageClient.start();
         logToOutputChannel('✅ Language client started successfully', 'info');
-
-        // Test if the server is responding by sending a test request
-        try {
-          logToOutputChannel('🧪 Testing server responsiveness...', 'debug');
-
-          // Try a simple capabilities request first
-          const capabilities = languageClient.initializeResult;
-          logToOutputChannel(
-            `📋 Server capabilities: ${JSON.stringify(capabilities, null, 2)}`,
-            'debug',
-          );
-
-          // Try sending a workspace/configuration request
-          try {
-            const configResult = await languageClient.sendRequest(
-              'workspace/configuration',
-              {
-                items: [{ section: 'apex-ls-ts' }],
-              },
-            );
-            console.log(
-              '⚙️ DEBUG: Configuration request result:',
-              configResult,
-            );
-            logToOutputChannel(
-              `⚙️ Configuration request result: ${JSON.stringify(configResult)}`,
-              'debug',
-            );
-          } catch (configError) {
-            logToOutputChannel(
-              `⚠️ Configuration request failed: ${configError}`,
-              'debug',
-            );
-          }
-        } catch (testError) {
-          logToOutputChannel(`⚠️ Server test failed: ${testError}`, 'warning');
-        }
-
         return { capabilities: {} }; // Return basic capabilities
       } catch (error) {
         logToOutputChannel(
@@ -597,6 +559,17 @@ async function createWebLanguageClient(
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
   const initParams = createInitializeParams(context, environment);
+
+  // Verify params are serializable
+  try {
+    JSON.stringify(initParams);
+  } catch (error) {
+    logToOutputChannel(
+      `❌ Initialization params are not serializable: ${error}`,
+      'error',
+    );
+    throw new Error(`Cannot serialize initialization parameters: ${error}`);
+  }
 
   logToOutputChannel('🚀 Initializing web client...', 'info');
   await Client.initialize(initParams);

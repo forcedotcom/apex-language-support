@@ -21,49 +21,6 @@ export function getWorkerGlobalScope(): typeof self | null {
 }
 
 /**
- * VS Code Web workaround patterns for fixing worker URL resolution
- * Each pattern contains a matcher and a replacement function
- */
-const VS_CODE_WEB_WORKAROUND_PATTERNS = [
-  {
-    // Pattern: /static/dist/worker.* -> /static/devextensions/dist/worker.*
-    matcher: (url: string) => url.includes('/static/dist/worker.'),
-    replacer: (url: string) =>
-      url.replace('/static/dist/', '/static/devextensions/dist/'),
-  },
-  {
-    // Pattern: /apex-ls/dist/worker.* -> /static/devextensions/dist/worker.*
-    matcher: (url: string) => url.includes('/apex-ls/dist/worker.'),
-    replacer: (url: string) =>
-      url.replace(/\/apex-ls\/dist\//, '/static/devextensions/dist/'),
-  },
-  {
-    // Pattern: http://localhost:3000/worker.global.js -> http://localhost:3000/static/devextensions/dist/worker.global.js
-    matcher: (url: string) =>
-      /^https?:\/\/[^\/]+\/[^\/]*worker\.global\.js/.test(url),
-    replacer: (url: string) =>
-      url.replace(
-        /^(https?:\/\/[^\/]+\/)([^\/]*worker\.global\.js)/,
-        '$1static/devextensions/dist/$2',
-      ),
-  },
-];
-
-/**
- * Applies VS Code Web environment workarounds to fix incorrect extension URI resolution
- * @param url - The original URL string to potentially fix
- * @returns The fixed URL string, or the original if no patterns match
- */
-function applyVSCodeWebWorkaround(url: string): string {
-  for (const pattern of VS_CODE_WEB_WORKAROUND_PATTERNS) {
-    if (pattern.matcher(url)) {
-      return pattern.replacer(url);
-    }
-  }
-  return url;
-}
-
-/**
  * Creates a web worker URL from a file name and context
  * @param workerFileName - The worker file name (can be absolute or relative)
  * @param context - Context containing the extension URI for relative URLs
@@ -82,12 +39,13 @@ export function createWorkerUrl(
     // Use relative URL with extension URI
     workerUrl = new URL(workerFileName, context.extensionUri);
 
-    // Apply VS Code Web workarounds if needed
-    const urlString = workerUrl.toString();
-    const fixedUrlString = applyVSCodeWebWorkaround(urlString);
-
-    if (fixedUrlString !== urlString) {
-      workerUrl = new URL(fixedUrlString);
+    // WORKAROUND: VS Code Web test environment has incorrect extension URI resolution
+    // It resolves to /static/ instead of /static/devextensions/
+    if (workerUrl.toString().includes('/static/dist/worker.mjs')) {
+      const fixedUrl = workerUrl
+        .toString()
+        .replace('/static/dist/', '/static/devextensions/dist/');
+      workerUrl = new URL(fixedUrl);
     }
   }
 
@@ -102,8 +60,5 @@ export function createWorker(
   context: { extensionUri: string },
 ): Worker {
   const workerUrl = createWorkerUrl(workerFileName, context);
-  // Debug logging can be enabled for troubleshooting
-  // console.log(`[BrowserUtils] Creating worker with URL: ${workerUrl.toString()}`,);
-  // console.log(`[BrowserUtils] Input - fileName: ${workerFileName}, extensionUri: ${context.extensionUri}`,);
   return new Worker(workerUrl.toString());
 }
