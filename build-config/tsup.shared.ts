@@ -74,7 +74,7 @@ export const NODE_POLYFILLS = {
   path: 'path-browserify',
   crypto: 'crypto-browserify',
   stream: 'stream-browserify',
-  fs: 'memfs',
+  fs: 'memfs-browser',
   url: 'url-browserify',
   os: 'os-browserify/browser',
   events: 'events',

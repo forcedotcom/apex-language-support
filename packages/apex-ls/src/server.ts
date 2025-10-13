@@ -7,8 +7,6 @@
  */
 
 import { startApexWebWorker } from './server/webWorkerServer';
-
-// Start the server
 startApexWebWorker().catch((_error) => {
   console.error('❌ Critical error starting server:', _error);
   // In web worker environment, we can't use process.exit, so we'll post an error message

@@ -13,7 +13,7 @@ import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolKind } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
-import { isChainedTypeReference } from '@salesforce/apex-lsp-parser-ast';
+import { isChainedTypeReference } from '../../src/utils/symbolNarrowing';
 
 describe('ApexSymbolManager Cross-File Resolution', () => {
   let symbolManager: ApexSymbolManager;

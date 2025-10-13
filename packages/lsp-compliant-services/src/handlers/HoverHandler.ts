@@ -35,7 +35,6 @@ export class HoverHandler {
     this.logger.debug(
       () => `Processing hover request: ${params.textDocument.uri}`,
     );
-
     try {
       // Use the LSP queue system for immediate processing
       return await this.queueManager.submitHoverRequest(params);

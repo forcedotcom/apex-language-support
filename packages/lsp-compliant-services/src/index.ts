@@ -27,6 +27,7 @@ import { HandlerFactory } from './factories/HandlerFactory';
 import { dispatchProcessOnDiagnostic } from './handlers/DiagnosticHandler';
 import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
 import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
+import { HoverHandler } from './handlers/HoverHandler';
 
 // Export storage interfaces and classes
 export * from './storage/ApexStorageBase';
@@ -146,6 +147,9 @@ export const dispatchProcessOnDocumentSymbol = async (
   return await handler.handleDocumentSymbol(params);
 };
 
+// Singleton HoverHandler instance to ensure consistent symbol manager usage
+let hoverHandlerInstance: HoverHandler | null = null;
+
 /**
  * Dispatch function for hover requests
  * @param params The hover parameters
@@ -154,8 +158,13 @@ export const dispatchProcessOnDocumentSymbol = async (
 export const dispatchProcessOnHover = async (
   params: HoverParams,
 ): Promise<Hover | null> => {
-  const handler = HandlerFactory.createHoverHandler();
-  return await handler.handleHover(params);
+  // Use singleton pattern to ensure same symbol manager instance
+  // Creating new handlers every time causes empty symbol managers
+  if (!hoverHandlerInstance) {
+    hoverHandlerInstance = HandlerFactory.createHoverHandler();
+  }
+  const result = await hoverHandlerInstance.handleHover(params);
+  return result;
 };
 
 /**

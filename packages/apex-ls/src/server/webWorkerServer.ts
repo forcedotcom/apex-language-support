@@ -30,7 +30,7 @@ import { getWorkerSelf } from '../utils/EnvironmentUtils';
  * connection creation, and LCS adapter initialization.
  */
 export async function startApexWebWorker(): Promise<void> {
-  // Set up Node.js polyfills as globals immediately
+  // Set up some Node.js polyfills as globals immediately
   (globalThis as any).process = processPolyfill;
   (globalThis as any).Buffer = Buffer;
   (globalThis as any).global = globalThis;
@@ -38,6 +38,7 @@ export async function startApexWebWorker(): Promise<void> {
   // Create a connection for the server using type-safe worker context
   const workerSelf = getWorkerSelf();
   if (!workerSelf) {
+    console.error('🔧 DEBUG WORKER: Worker context not available!');
     throw new Error('Worker context not available');
   }
 
@@ -53,16 +54,15 @@ export async function startApexWebWorker(): Promise<void> {
 
   // Initial lifecycle logs
   logger.info('🚀 Worker script loading...');
-  logger.info('🔧 Starting Lazy LSP Server...');
+  logger.info('🔧 Starting LCS integration...');
 
-  // Use lazy loading server for faster startup and proper connection management
-  const { LazyLSPServer } = await import('./LazyLSPServer');
+  // Create and initialize LCS adapter
+  const { LCSAdapter } = await import('./LCSAdapter');
 
-  // Create lazy LSP server (starts immediately with basic capabilities)
-  // This architecture prevents connection conflicts with desktop debugging
-  new LazyLSPServer(connection, logger as any);
+  await LCSAdapter.create({
+    connection,
+    logger,
+  });
 
-  logger.info(
-    '✅ Apex Language Server Worker ready! (Advanced features loading in background)',
-  );
+  logger.info('✅ Apex Language Server Worker ready!');
 }

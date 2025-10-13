@@ -79,7 +79,8 @@ const createEnhancedInitializationOptions = (
   const serverMode = determineServerMode(context);
 
   // Enhanced initialization options with server-config benefits
-  const safeSettings = settings;
+  // Deep clone settings to ensure no reference issues
+  const safeSettings = JSON.parse(JSON.stringify(settings));
   const debugOptions = getBrowserCompatibleDebugOptions(environment);
 
   const enhancedOptions: EnhancedInitializationOptions = {
@@ -137,7 +138,10 @@ const createInitializeParams = (
       version: '1.0.0',
     },
     locale: vscode.env.language,
-    rootPath: workspaceFolders?.[0]?.uri.fsPath ?? null,
+    rootPath:
+      environment === 'web'
+        ? null
+        : (workspaceFolders?.[0]?.uri.fsPath ?? null),
     rootUri: workspaceFolders?.[0]?.uri.toString() ?? null,
     capabilities: {
       workspace: {
@@ -297,7 +301,7 @@ const createInitializeParams = (
       environment,
     ),
     workspaceFolders:
-      workspaceFolders?.map((folder) => ({
+      workspaceFolders?.map((folder: vscode.WorkspaceFolder) => ({
         uri: folder.uri.toString(),
         name: folder.name,
       })) ?? null,
@@ -416,9 +420,25 @@ async function createWebLanguageClient(
 
   // Create worker
   logToOutputChannel('⚡ Creating web worker...', 'info');
+
   const worker = new Worker(workerUri.toString(), {
     type: 'classic',
   });
+
+  // Add worker error handling for debugging
+  worker.onerror = (error) => {
+    logToOutputChannel(`❌ Worker error: ${error.message}`, 'error');
+    logToOutputChannel(
+      `❌ Worker error details: ${JSON.stringify(error)}`,
+      'debug',
+    );
+  };
+
+  worker.onmessageerror = (error) => {
+    logToOutputChannel(`❌ Worker message error: ${error}`, 'error');
+  };
+
+  // Remove custom message handling - let LSP handle all communication
   logToOutputChannel('✅ Web worker created successfully', 'info');
 
   // Create VS Code Language Client for web extension with enhanced configuration
@@ -438,6 +458,8 @@ async function createWebLanguageClient(
         context,
         environment,
       ),
+      // Use our existing worker/server output channel to prevent duplication
+      outputChannel: getWorkerServerOutputChannel(),
     },
     worker,
   );
@@ -447,21 +469,75 @@ async function createWebLanguageClient(
 
   // Set up window/logMessage handler for worker/server logs
   languageClient.onNotification('window/logMessage', (params) => {
+    logToOutputChannel(
+      `📨 Received window/logMessage: ${JSON.stringify(params)}`,
+      'debug',
+    );
     const { message } = params;
 
     // All messages from the worker/server go directly to the worker/server channel without additional formatting
     const channel = getWorkerServerOutputChannel();
     if (channel) {
       channel.appendLine(message);
+    } else {
+      logToOutputChannel(
+        `❌ No worker/server output channel available for message: ${message}`,
+        'error',
+      );
     }
+  });
+
+  // Also listen for $/logMessage (alternative notification method)
+  languageClient.onNotification('$/logMessage', (params) => {
+    logToOutputChannel(
+      `📨 Received $/logMessage: ${JSON.stringify(params)}`,
+      'debug',
+    );
+    const { message } = params;
+
+    const channel = getWorkerServerOutputChannel();
+    if (channel) {
+      channel.appendLine(message);
+    } else {
+      logToOutputChannel(
+        `❌ No worker/server output channel available for $/logMessage: ${message}`,
+        'error',
+      );
+    }
+  });
+
+  // Add more notification handlers for debugging
+  languageClient.onNotification('$/logTrace', (params) => {
+    logToOutputChannel(
+      `📨 Received $/logTrace: ${JSON.stringify(params)}`,
+      'debug',
+    );
+  });
+
+  // Handle connection state changes
+  languageClient.onDidChangeState((event) => {
+    logToOutputChannel(
+      `🔄 Language client state changed: ${event.oldState} -> ${event.newState}`,
+      'info',
+    );
   });
 
   // Store client for disposal with ClientInterface wrapper
   Client = {
     languageClient,
     initialize: async (params: InitializeParams) => {
-      await languageClient.start();
-      return { capabilities: {} }; // Return basic capabilities
+      logToOutputChannel('🚀 Starting language client...', 'info');
+      try {
+        await languageClient.start();
+        logToOutputChannel('✅ Language client started successfully', 'info');
+        return { capabilities: {} }; // Return basic capabilities
+      } catch (error) {
+        logToOutputChannel(
+          `❌ Failed to start language client: ${error}`,
+          'error',
+        );
+        throw error;
+      }
     },
     sendRequest: async (method: string, params?: any) =>
       languageClient.sendRequest(method, params),

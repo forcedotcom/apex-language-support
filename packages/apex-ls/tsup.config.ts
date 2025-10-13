@@ -38,30 +38,33 @@ const APEX_LS_EXTERNAL = [
   'path', // Path manipulation utilities
 ];
 
-// Worker-specific externals for browser/webworker compatibility
-// These dependencies are kept external to reduce initial bundle size and enable lazy loading
+// Worker-specific externals for web worker builds
 const WORKER_EXTERNAL = [
-  // Parser engine - too large for initial bundle, loaded on demand when parsing needed
+  // Parser engine - large Salesforce Apex grammar parser (~2MB)
   '@apexdevtools/apex-parser',
-  // Grammar processing - loaded when syntax analysis is required
+  // ANTLR4 TypeScript runtime - grammar processing engine
   'antlr4ts',
 
-  // AST processing - complex symbol management, lazy loaded for performance
+  // AST and symbol processing - complex analysis engine
   '@salesforce/apex-lsp-parser-ast',
-  // Custom services - specialized features loaded as needed
+  // Custom services - specialized language features
   '@salesforce/apex-lsp-custom-services',
 
-  // Heavy utility libraries - externalized to keep worker bundle manageable
+  // Heavy utility libraries that can be kept external
   'data-structure-typed', // Advanced data structures and algorithms
   'effect', // Functional programming utilities and effects
+
+  // Node.js modules - not available in web worker context
+  'node-dir', // Directory scanning utilities
 ];
 
-// Always bundle these for consistent behavior across all environments
-// These are core dependencies that must be available immediately for basic functionality
+// Always bundle these essential dependencies
+// Core functionality needed for all language server operations
 const APEX_LS_BUNDLE = [
   // Shared utilities - lightweight, essential for all language server operations
   '@salesforce/apex-lsp-shared',
-  // Core LSP services - main language server functionality and protocol handling
+
+  // Core LSP services - always needed since lazy loading was removed
   '@salesforce/apex-lsp-compliant-services',
 
   // VSCode LSP Protocol libraries - essential for LSP communication
@@ -122,7 +125,7 @@ export default defineConfig([
     },
   },
 
-  // Full Web Worker build with LCS integration
+  // Full Web Worker build with direct LCS integration
   {
     name: 'worker',
     entry: { worker: 'src/server.ts' },
@@ -147,7 +150,10 @@ export default defineConfig([
         setup(build: any) {
           // Intercept dynamic require() calls for Node.js modules
           build.onResolve(
-            { filter: /^(buffer|process|util|path)$/ },
+            {
+              filter:
+                /^(buffer|process|util|path|fs|crypto|stream|events|assert|os|url)$/,
+            },
             (args: any) => {
               // Map to the polyfill versions from NODE_POLYFILLS
               const polyfillMap: Record<string, string> = {
@@ -155,8 +161,14 @@ export default defineConfig([
                 process: 'process/browser',
                 util: 'util',
                 path: 'path-browserify',
+                fs: 'memfs-browser',
+                crypto: 'crypto-browserify',
+                stream: 'stream-browserify',
+                events: 'events',
+                assert: 'assert',
+                os: 'os-browserify/browser',
+                url: 'url-browserify',
               };
-
               return {
                 path: polyfillMap[args.path] || args.path,
                 external: false, // Force bundling

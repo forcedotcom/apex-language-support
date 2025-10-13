@@ -110,7 +110,7 @@ export class ResourceLoader {
     try {
       const environment = detectEnvironment();
 
-      if (environment === 'browser') {
+      if (environment === 'webworker') {
         // Browser environment - load synchronously using XMLHttpRequest
         this.loadZipForBrowserSync();
       } else {
@@ -169,8 +169,13 @@ export class ResourceLoader {
         '../resources/StandardApexLibrary.zip', // From src/utils/
         '../out/resources/StandardApexLibrary.zip', // From src/utils/ to out/
         '../../out/resources/StandardApexLibrary.zip', // From src/generated/
-        join(__dirname, '../resources/StandardApexLibrary.zip'), // Absolute path
-        join(__dirname, '../out/resources/StandardApexLibrary.zip'), // Absolute path to out/
+        // Only add __dirname paths if available (not in web workers)
+        ...(typeof __dirname !== 'undefined'
+          ? [
+              join(__dirname, '../resources/StandardApexLibrary.zip'), // Absolute path
+              join(__dirname, '../out/resources/StandardApexLibrary.zip'), // Absolute path to out/
+            ]
+          : []),
       ];
 
       let zipData: Buffer | null = null;
@@ -206,36 +211,41 @@ export class ResourceLoader {
 
   /**
    * Load ZIP data for browser environment synchronously using XMLHttpRequest.
-   * Uses deterministic path './resources/StandardApexLibrary.zip' for consistent loading.
+   * In web worker environments, gracefully falls back to empty structure if resources aren't available.
    *
    * @private
    */
   private loadZipForBrowserSync(): void {
-    // In browser environment, we need to use a synchronous approach
-    // Since fetch is async, we'll use XMLHttpRequest for synchronous loading
+    // In web worker environment, the standard library resources may not be available
+    // We'll try to load them, but gracefully fall back if they're not accessible
     try {
-      // Use deterministic resource path
+      // Use relative path - this may not work in all web worker contexts
       const zipPath = './resources/StandardApexLibrary.zip';
 
-      this.logger.debug(
-        () => `Loading ZIP from deterministic path: ${zipPath}`,
-      );
+      this.logger.debug(() => `Attempting to load ZIP from path: ${zipPath}`);
 
       const xhr = new XMLHttpRequest();
       xhr.open('GET', zipPath, false); // false = synchronous
       xhr.responseType = 'arraybuffer';
       xhr.send();
 
-      if (xhr.status === 200) {
+      if (xhr.status === 200 && xhr.response) {
         this.zipBuffer = new Uint8Array(xhr.response);
         this.extractZipFiles();
         this.logger.debug(() => `Successfully loaded ZIP from: ${zipPath}`);
       } else {
-        throw new Error(`HTTP ${xhr.status}: ${xhr.statusText}`);
+        this.logger.debug(
+          () =>
+            `ZIP not available at ${zipPath} (HTTP ${xhr.status}), using empty structure`,
+        );
+        this.initializeEmptyStructure();
       }
     } catch (error) {
-      this.logger.error(() => `Failed to load ZIP in browser: ${error}`);
-      // Fallback to empty structure
+      this.logger.debug(
+        () => `ZIP resource not available in web worker context: ${error}`,
+      );
+      // This is expected in web worker environments where resources may not be accessible
+      // Initialize empty structure and continue - basic language server functionality will still work
       this.initializeEmptyStructure();
     }
   }
@@ -608,10 +618,6 @@ export class ResourceLoader {
             compilationResult,
           });
           compiledCount++;
-
-          // Update lazy file map
-          // This part is removed as per the new_code, as the lazyFileMap is removed.
-          // The memfsVolume is now directly used for file existence and content.
 
           if (result.errors.length > 0) {
             errorCount++;

@@ -22,6 +22,9 @@ export function getWorkerGlobalScope(): typeof self | null {
 
 /**
  * Creates a web worker URL from a file name and context
+ * @param workerFileName - The worker file name (can be absolute or relative)
+ * @param context - Context containing the extension URI for relative URLs
+ * @returns A properly resolved URL for the worker
  */
 export function createWorkerUrl(
   workerFileName: string,
