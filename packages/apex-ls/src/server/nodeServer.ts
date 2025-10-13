@@ -23,6 +23,8 @@ import { LCSAdapter } from './LCSAdapter';
  * without requiring polyfills since it runs in native Node.js.
  */
 export async function startApexNodeServer(): Promise<void> {
+  const standardApexLibraryPath =
+    process.env.APEX_LS_STANDARD_APEX_LIBRARY_PATH;
   // Create a connection for the server using Node.js IPC
   const connection = createConnection(ProposedFeatures.all);
 
@@ -34,6 +36,9 @@ export async function startApexNodeServer(): Promise<void> {
   // Initial lifecycle logs
   logger.info('🚀 Node.js server starting...');
   logger.info('🔧 Starting LCS integration...');
+  logger.info(
+    `Standard Apex Library path: ${standardApexLibraryPath?.toString()}`,
+  );
 
   // Create and initialize LCS adapter in one step
   await LCSAdapter.create({
@@ -41,5 +46,6 @@ export async function startApexNodeServer(): Promise<void> {
     logger,
   });
 
+  connection.listen();
   logger.info('✅ Apex Language Server (Node.js) ready!');
 }

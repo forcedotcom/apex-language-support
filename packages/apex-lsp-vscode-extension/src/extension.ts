@@ -32,7 +32,6 @@ import {
   stopLanguageServer,
 } from './language-server';
 import { getWorkspaceSettings } from './configuration';
-import { EXTENSION_CONSTANTS } from './constants';
 
 /**
  * Wrapper function for restart that matches the expected signature
@@ -58,6 +57,9 @@ const handleStart = async (context: vscode.ExtensionContext): Promise<void> => {
  */
 export function activate(context: vscode.ExtensionContext): void {
   console.log('🚀 [APEX-EXT] Extension activation started');
+  console.log(
+    '🔍 [DEBUG] Extension activation called - checking for existing client',
+  );
 
   // Initialize simple extension logging
   initializeExtensionLogging(context);
@@ -92,16 +94,8 @@ export function activate(context: vscode.ExtensionContext): void {
   // Create language status actions for log levels and restart
   createApexLanguageStatusActions(
     context,
-    () => getWorkspaceSettings().apex.logLevel,
+    () => getWorkspaceSettings().apex.logLevel ?? 'error',
     async (level: string) => {
-      const config = vscode.workspace.getConfiguration(
-        EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
-      );
-      await config.update(
-        'logLevel',
-        level,
-        vscode.ConfigurationTarget.Workspace,
-      );
       updateLogLevel(level);
       updateLogLevelStatusItems(level);
     },
@@ -117,11 +111,49 @@ export function activate(context: vscode.ExtensionContext): void {
     'info',
   );
 
+  // Check if client already exists before starting
+  const { getClient } = require('./language-server');
+  const existingClient = getClient();
+  if (existingClient) {
+    console.log('⚠️ [WARNING] Client already exists, skipping start');
+    logToOutputChannel(
+      '⚠️ [WARNING] Client already exists, skipping start',
+      'warning',
+    );
+    return;
+  }
+
   // Start the language server
+  console.log('🔧 About to start language server...');
   logToOutputChannel('🔧 About to start language server...', 'debug');
   handleStart(context)
-    .then(() => {
+    .then(async () => {
+      console.log('✅ Language server started successfully');
       logToOutputChannel('✅ Language server started successfully', 'info');
+
+      // Load workspace settings and send configuration change notification
+      try {
+        const _workspaceSettings = getWorkspaceSettings();
+        logToOutputChannel('📋 Workspace settings loaded', 'debug');
+
+        // Rely on VS Code's automatic configuration synchronization
+        // The LanguageClient is configured with synchronize: { configurationSection: 'apex' }
+        // which should automatically handle configuration changes
+        console.log(
+          '🔍 [DEBUG] Relying on VS Code automatic configuration synchronization',
+        );
+        logToOutputChannel(
+          '🔍 [DEBUG] Relying on VS Code automatic configuration synchronization',
+          'debug',
+        );
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logToOutputChannel(
+          `❌ Failed to send configuration notification: ${errorMessage}`,
+          'error',
+        );
+      }
     })
     .catch((error) => {
       const errorMessage =

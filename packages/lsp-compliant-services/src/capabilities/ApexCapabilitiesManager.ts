@@ -7,15 +7,11 @@
  */
 
 import {
-  CAPABILITIES_CONFIGURATION,
   CapabilitiesConfiguration,
   ExtendedServerCapabilities,
-} from './ApexLanguageServerCapabilities';
-
-/**
- * Server mode enumeration
- */
-export type ServerMode = 'production' | 'development';
+  ServerMode,
+} from '@salesforce/apex-lsp-shared';
+import { CAPABILITIES_CONFIGURATION } from './ApexLanguageServerCapabilities';
 
 /**
  * Capabilities manager for the Apex Language Server

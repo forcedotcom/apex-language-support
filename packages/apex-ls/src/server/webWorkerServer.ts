@@ -35,6 +35,9 @@ export async function startApexWebWorker(): Promise<void> {
   (globalThis as any).Buffer = Buffer;
   (globalThis as any).global = globalThis;
 
+  const standardApexLibraryPath =
+    process.env.APEX_LS_STANDARD_APEX_LIBRARY_PATH;
+
   // Create a connection for the server using type-safe worker context
   const workerSelf = getWorkerSelf();
   if (!workerSelf) {
@@ -55,6 +58,9 @@ export async function startApexWebWorker(): Promise<void> {
   // Initial lifecycle logs
   logger.info('🚀 Worker script loading...');
   logger.info('🔧 Starting LCS integration...');
+  logger.info(
+    `Standard Apex Library path: ${standardApexLibraryPath?.toString()}`,
+  );
 
   // Create and initialize LCS adapter
   const { LCSAdapter } = await import('./LCSAdapter');
@@ -63,6 +69,8 @@ export async function startApexWebWorker(): Promise<void> {
     connection,
     logger,
   });
+
+  connection.listen();
 
   logger.info('✅ Apex Language Server Worker ready!');
 }

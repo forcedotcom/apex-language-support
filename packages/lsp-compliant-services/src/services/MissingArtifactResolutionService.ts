@@ -83,7 +83,7 @@ export class EnhancedMissingArtifactResolutionService
 
     // Check if missing artifact resolution is enabled in settings
     const settings = ApexSettingsManager.getInstance().getSettings();
-    if (!settings.findMissingArtifact.enabled) {
+    if (!settings.apex.findMissingArtifact.enabled) {
       this.logger.debug(
         () => 'Missing artifact resolution is disabled in settings',
       );
@@ -133,7 +133,7 @@ export class EnhancedMissingArtifactResolutionService
 
     // Check if missing artifact resolution is enabled in settings
     const settings = ApexSettingsManager.getInstance().getSettings();
-    if (!settings.findMissingArtifact.enabled) {
+    if (!settings.apex.findMissingArtifact.enabled) {
       this.logger.debug(
         () => 'Missing artifact resolution is disabled in settings',
       );
