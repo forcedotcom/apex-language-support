@@ -106,12 +106,17 @@ function fixPackagePaths() {
     const packageJson = JSON.parse(content);
 
     // Fix main and browser paths
-    if (packageJson.main?.includes('./dist/')) {
-      packageJson.main = packageJson.main.replace('./dist/', './');
+    if (packageJson.main?.includes('./out/')) {
+      packageJson.main = packageJson.main.replace('./out/', './');
     }
 
-    if (packageJson.browser?.includes('./dist/')) {
-      packageJson.browser = packageJson.browser.replace('./dist/', './');
+    if (packageJson.browser?.includes('./out/')) {
+      packageJson.browser = packageJson.browser.replace('./out/', './');
+    }
+
+    if (packageJson.contributes?.standardApexLibrary?.includes('./out/')) {
+      packageJson.contributes.standardApexLibrary =
+        packageJson.contributes.standardApexLibrary.replace('./out/', './');
     }
 
     fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
@@ -121,11 +126,41 @@ function fixPackagePaths() {
 }
 
 /**
+ * Copy out/resources contents to dist/resources to match assets path
+ */
+function copyOutResources() {
+  const distDir = path.resolve(__dirname, 'dist');
+  const outResourcesDir = path.join(__dirname, 'out/resources');
+  const distResourcesDir = path.join(distDir, 'resources');
+
+  try {
+    // Ensure dist/resources directory exists
+    fs.mkdirSync(distResourcesDir, { recursive: true });
+
+    // Copy all files from out/resources to dist/resources
+    const files = fs.readdirSync(outResourcesDir);
+    files.forEach((file) => {
+      const srcFile = path.join(outResourcesDir, file);
+      const destFile = path.join(distResourcesDir, file);
+      fs.copyFileSync(srcFile, destFile);
+    });
+
+    console.log('✅ Copied out/resources contents to dist/resources');
+  } catch (error) {
+    console.warn(
+      'Failed to copy out/resources contents:',
+      (error as Error).message,
+    );
+  }
+}
+
+/**
  * Execute all post-build tasks
  */
 async function executePostBuildTasks(): Promise<void> {
   copyWorkerFiles();
   copyManifestFiles();
+  copyOutResources();
   fixPackagePaths();
 }
 
@@ -163,6 +198,7 @@ export default defineConfig([
       'vscode-languageclient',
       'web-worker',
     ],
+    onSuccess: executePostBuildTasks,
     esbuildOptions(options) {
       // Essential browser setup
       options.platform = 'browser';

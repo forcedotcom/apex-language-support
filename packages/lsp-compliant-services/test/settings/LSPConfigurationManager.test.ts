@@ -9,8 +9,8 @@
 import { LSPConfigurationManager } from '../../src/settings/LSPConfigurationManager';
 import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilitiesManager';
 import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
-import { ExtendedServerCapabilities } from '../../src/capabilities/ApexLanguageServerCapabilities';
-import { ApexLanguageServerSettings } from '../../src/settings/ApexLanguageServerSettings';
+import { ExtendedServerCapabilities } from '@salesforce/apex-lsp-shared';
+import { ApexLanguageServerSettings } from '@salesforce/apex-lsp-shared';
 
 // Mock the ApexCapabilitiesManager
 jest.mock('../../src/capabilities/ApexCapabilitiesManager');
@@ -296,14 +296,14 @@ describe('LSPConfigurationManager', () => {
 
   describe('Environment Management', () => {
     it('should get current environment', () => {
-      const environment = configurationManager.getEnvironment();
+      const environment = configurationManager.getRuntimePlatform();
       expect(environment).toBe('node'); // Default in test environment
     });
 
     it('should set environment and update configurations', () => {
       configurationManager.setEnvironment('browser');
 
-      expect(configurationManager.getEnvironment()).toBe('browser');
+      expect(configurationManager.getRuntimePlatform()).toBe('browser');
       expect(mockSettingsManager.updateSettings).toHaveBeenCalled();
     });
   });
@@ -424,7 +424,9 @@ describe('LSPConfigurationManager', () => {
 
   describe('Constructor Options', () => {
     it('should initialize with custom mode', () => {
-      const _manager = new LSPConfigurationManager({ mode: 'development' });
+      const _manager = new LSPConfigurationManager({
+        serverMode: 'development',
+      });
 
       expect(mockCapabilitiesManager.setMode).toHaveBeenCalledWith(
         'development',
@@ -440,9 +442,11 @@ describe('LSPConfigurationManager', () => {
     });
 
     it('should initialize with custom environment', () => {
-      const _manager = new LSPConfigurationManager({ environment: 'browser' });
+      const _manager = new LSPConfigurationManager({
+        runtimePlatform: 'browser',
+      });
 
-      expect(_manager.getEnvironment()).toBe('browser');
+      expect(_manager.getRuntimePlatform()).toBe('browser');
     });
 
     it('should initialize with initial settings', () => {

@@ -17,6 +17,7 @@ import {
   DefinitionParams,
   Location,
 } from 'vscode-languageserver';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 import type {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
@@ -158,12 +159,23 @@ let hoverHandlerInstance: HoverHandler | null = null;
 export const dispatchProcessOnHover = async (
   params: HoverParams,
 ): Promise<Hover | null> => {
+  const logger = getLogger();
+  logger.debug(
+    `🔍 [dispatchProcessOnHover] Dispatching hover request for ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
+  );
+
   // Use singleton pattern to ensure same symbol manager instance
   // Creating new handlers every time causes empty symbol managers
   if (!hoverHandlerInstance) {
+    logger.debug(
+      '🔧 [dispatchProcessOnHover] Creating new hover handler instance',
+    );
     hoverHandlerInstance = HandlerFactory.createHoverHandler();
   }
   const result = await hoverHandlerInstance.handleHover(params);
+  logger.debug(
+    `✅ [dispatchProcessOnHover] Hover dispatch completed for ${params.textDocument.uri}: ${result ? 'success' : 'null'}`,
+  );
   return result;
 };
 

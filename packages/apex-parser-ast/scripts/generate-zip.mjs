@@ -37,27 +37,6 @@ async function generateZip() {
     // Create resources directory for distribution
     await mkdir(path.join('out', 'resources'), { recursive: true });
 
-    // Clean up old zipLoader files
-    const oldLoaderPaths = [
-      path.join('src', 'generated', 'zipLoader.ts'),
-      path.join('out', 'generated', 'zipLoader.js'),
-      path.join('out', 'generated', 'zipLoader.d.ts'),
-      path.join('out', 'generated', 'zipLoader.js.map'),
-      path.join('src', 'generated', 'apexSrcLoader.ts'),
-    ];
-
-    for (const oldPath of oldLoaderPaths) {
-      try {
-        await unlink(oldPath);
-        console.log(`Cleaned up old file: ${oldPath}`);
-      } catch (error) {
-        // Ignore errors if file doesn't exist
-        if (error.code !== 'ENOENT') {
-          console.error(`Error cleaning up ${oldPath}:`, error);
-        }
-      }
-    }
-
     // Get all files from the StandardApexLibrary directory
     const files = await getAllFiles(
       path.join('src', 'resources', 'StandardApexLibrary'),
@@ -78,8 +57,8 @@ async function generateZip() {
     await writeFile(outZipPath, zipData);
     await writeFile(topLevelZipPath, zipData);
 
-    // Create CJS-compatible resource loader
-    const cjsContent = `/*
+    // Create TypeScript resource loader that works in both Node.js and browser environments
+    const tsContent = `/*
  * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
@@ -87,19 +66,39 @@ async function generateZip() {
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-const path = require('path');
-const fs = require('fs');
+// Conditional imports to avoid bundling issues in browser environments
+let readFile: any = null;
+let fileURLToPath: any = null;
+let path: any = null;
+
+// Only import Node.js modules in Node.js environments
+if (typeof process !== 'undefined' && process.versions?.node) {
+  try {
+    readFile = require('fs/promises').readFile;
+    fileURLToPath = require('url').fileURLToPath;
+    path = require('path');
+  } catch (error) {
+    // Fallback for environments where require doesn't work
+  }
+}
 
 /**
  * Get the path to the ZIP resource file
- * Works in both Node.js CJS and ESM environments
+ * Works in both Node.js and browser environments
  */
-function getZipResourcePath() {
-  try {
-    // Try require.resolve first (works in CJS and some ESM environments)
-    return require.resolve('../resources/StandardApexLibrary.zip');
-  } catch (error) {
-    // Try alternative paths
+function getZipResourcePath(): string {
+  // Check if we're in a Node.js environment
+  if (typeof process !== 'undefined' && process.versions?.node) {
+    try {
+      // Try require.resolve first (works in CJS and some ESM environments)
+      if (typeof require !== 'undefined' && require.resolve) {
+        return require.resolve('../resources/StandardApexLibrary.zip');
+      }
+    } catch (error) {
+      // Fallback to other methods
+    }
+
+    // Try alternative paths for Node.js
     const possiblePaths = [
       '../out/resources/StandardApexLibrary.zip',
       '../../out/resources/StandardApexLibrary.zip',
@@ -107,7 +106,9 @@ function getZipResourcePath() {
     
     for (const altPath of possiblePaths) {
       try {
-        return require.resolve(altPath);
+        if (typeof require !== 'undefined' && require.resolve) {
+          return require.resolve(altPath);
+        }
       } catch (altError) {
         // Continue to next path
       }
@@ -117,92 +118,63 @@ function getZipResourcePath() {
     if (typeof __dirname !== 'undefined') {
       return path.join(__dirname, '../resources/StandardApexLibrary.zip');
     }
-    throw new Error('Unable to resolve ZIP resource path');
+
+    // Note: import.meta usage removed due to TypeScript compilation issues
+    // ESM environments will fall back to browser path resolution
   }
+
+  // Browser environment fallback
+  return './resources/StandardApexLibrary.zip';
 }
 
 /**
  * Load ZIP data synchronously
+ * Note: This will only work in Node.js environments
  */
-function loadZipDataSync() {
+export function loadZipDataSync(): Buffer {
+  if (typeof process === 'undefined' || !process.versions?.node) {
+    throw new Error('loadZipDataSync is only available in Node.js environments');
+  }
+
+  const fs = require('fs');
   const zipPath = getZipResourcePath();
   return fs.readFileSync(zipPath);
 }
 
 /**
  * Load ZIP data asynchronously
+ * Works in both Node.js and browser environments
  */
-async function loadZipDataAsync() {
-  const zipPath = getZipResourcePath();
-  const { readFile } = await import('fs/promises');
-  return readFile(zipPath);
-}
-
-module.exports = {
-  getZipResourcePath,
-  loadZipDataSync,
-  loadZipDataAsync,
-};
-`;
-
-    await writeFile(
-      path.join('src', 'generated', 'zipResourceLoader.cjs'),
-      cjsContent,
-    );
-
-    // Create ESM-compatible resource loader
-    const esmContent = `/*
- * Copyright (c) 2025, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the
- * repo root or https://opensource.org/licenses/BSD-3-Clause
- */
-
-import { readFile } from 'fs/promises';
-import { fileURLToPath } from 'url';
-import path from 'path';
-
-/**
- * Get the path to the ZIP resource file
- * Works in ESM environments
- */
-function getZipResourcePath() {
-  try {
-    // Try import.meta.resolve if available (Node.js 20.6+)
-    if (typeof import.meta.resolve === 'function') {
-      return import.meta.resolve('../resources/StandardApexLibrary.zip');
-    }
-  } catch (error) {
-    // Fallback to fileURLToPath approach
+export async function loadZipDataAsync(): Promise<Buffer | ArrayBuffer> {
+  // Check if we're in a Node.js environment
+  if (typeof process !== 'undefined' && process.versions?.node && readFile) {
+    const zipPath = getZipResourcePath();
+    return readFile(zipPath);
   }
 
-  // Fallback to __dirname equivalent for ESM
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  return path.join(__dirname, '../resources/StandardApexLibrary.zip');
-}
-
-/**
- * Load ZIP data asynchronously
- */
-export async function loadZipDataAsync() {
+  // Browser environment - try to load via fetch
   const zipPath = getZipResourcePath();
-  return readFile(zipPath);
+  const response = await fetch(zipPath);
+  if (!response.ok) {
+    throw new Error(\`Failed to load ZIP resource: \${response.status} \${response.statusText}\`);
+  }
+  return response.arrayBuffer();
 }
 
 export { getZipResourcePath };
 `;
 
     await writeFile(
-      path.join('src', 'generated', 'zipResourceLoader.mjs'),
-      esmContent,
+      path.join('src', 'generated', 'zipResourceLoader.ts'),
+      tsContent,
     );
 
     console.log(`Zip file created: ${outZipPath}`);
     console.log(`Zip file copied to: ${topLevelZipPath}`);
     console.log(`Zip file size: ${zipData.length} bytes`);
-    console.log('Resource loaders created for CJS and ESM environments');
+    console.log(
+      'TypeScript resource loader created for Node.js and browser environments',
+    );
   } catch (error) {
     console.error('Error generating zip file:', error);
     process.exit(1);

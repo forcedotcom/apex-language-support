@@ -7,93 +7,95 @@
  */
 
 import * as vscode from 'vscode';
-import { WorkspaceSettings, DebugConfig } from './types';
+import { DebugConfig } from './types';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel } from './logging';
+import { ApexLanguageServerSettings } from 'packages/apex-lsp-shared/src/server/ApexLanguageServerSettings';
+
+/**
+ * Creates a clean, serializable notification object for workspace/didChangeConfiguration
+ * @param settings The settings object to send
+ * @returns A clean, serializable notification object
+ */
+const createSerializableNotification = (
+  settings: ApexLanguageServerSettings,
+) => {
+  try {
+    // Create a deep clone to ensure serializability
+    const cleanSettings = JSON.parse(JSON.stringify(settings));
+    return { settings: cleanSettings };
+  } catch (error) {
+    console.error('Failed to create serializable notification:', error);
+    // Return a minimal safe object
+    return { settings: {} };
+  }
+};
 
 /**
  * Gets the current workspace settings for the Apex Language Server
  * @returns The workspace settings object
  */
-export const getWorkspaceSettings = (): WorkspaceSettings => {
-  const config = vscode.workspace.getConfiguration(
-    EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
-  );
-  const logLevel = config.get<string>('logLevel') ?? 'info';
-  const workerLogLevel = config.get<string>('worker.logLevel') ?? 'error';
-  // Map apex-ls-ts configuration to the apex format expected by the language server
-  const settings: WorkspaceSettings = {
-    // Language server worker expects this format
-    apex: {
-      commentCollection: {
-        enableCommentCollection: config.get<boolean>(
-          'commentCollection.enableCommentCollection',
-          true,
-        ),
-        includeSingleLineComments: config.get<boolean>(
-          'commentCollection.includeSingleLineComments',
-          false,
-        ),
-        associateCommentsWithSymbols: config.get<boolean>(
-          'commentCollection.associateCommentsWithSymbols',
-          false,
-        ),
-        enableForDocumentChanges: config.get<boolean>(
-          'commentCollection.enableForDocumentChanges',
-          true,
-        ),
-        enableForDocumentOpen: config.get<boolean>(
-          'commentCollection.enableForDocumentOpen',
-          true,
-        ),
-        enableForDocumentSymbols: config.get<boolean>(
-          'commentCollection.enableForDocumentSymbols',
-          false,
-        ),
-        enableForFoldingRanges: config.get<boolean>(
-          'commentCollection.enableForFoldingRanges',
-          false,
-        ),
-      },
-      performance: {
-        commentCollectionMaxFileSize: config.get<number>(
-          'performance.commentCollectionMaxFileSize',
-          102400,
-        ),
-        useAsyncCommentProcessing: config.get<boolean>(
-          'performance.useAsyncCommentProcessing',
-          true,
-        ),
-        documentChangeDebounceMs: config.get<number>(
-          'performance.documentChangeDebounceMs',
-          300,
-        ),
-      },
-      environment: {
-        enablePerformanceLogging: config.get<boolean>(
-          'environment.enablePerformanceLogging',
-          false,
-        ),
-      },
-      resources: {
-        loadMode: config.get<string>('resources.loadMode', 'lazy') as
-          | 'lazy'
-          | 'full',
-      },
-      logLevel,
-      worker: {
-        logLevel: workerLogLevel,
-      },
-      custom: config.get<Record<string, any>>('custom', {}),
-    },
-  };
+export const getWorkspaceSettings = (): ApexLanguageServerSettings => {
+  const rawSettings =
+    vscode.workspace
+      .getConfiguration()
+      .get(EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION) ?? {};
 
-  // Ensure custom field exists
-  if (!settings.apex.custom) {
-    settings.apex.custom = {};
+  // Create a deep clone to ensure serializability
+  let settings: any = {};
+  try {
+    settings = JSON.parse(JSON.stringify(rawSettings));
+  } catch (error) {
+    console.error('Failed to clone settings, using defaults:', error);
+    settings = {};
   }
 
-  return settings;
+  const apexSettings = { apex: settings };
+
+  console.error(`🔍 found settings: ${settings ? 'true' : 'false'}`);
+
+  // Return default settings if no settings are configured
+  return (apexSettings ?? {
+    apex: {
+      commentCollection: {
+        enableCommentCollection: true,
+        includeSingleLineComments: false,
+        associateCommentsWithSymbols: false,
+        enableForDocumentChanges: true,
+        enableForDocumentOpen: true,
+        enableForDocumentSymbols: false,
+        enableForFoldingRanges: false,
+      },
+      performance: {
+        commentCollectionMaxFileSize: 102400,
+        useAsyncCommentProcessing: true,
+        documentChangeDebounceMs: 300,
+      },
+      environment: {
+        runtimePlatform: 'desktop',
+        serverMode: 'production',
+        enablePerformanceLogging: false,
+        commentCollectionLogLevel: 'info',
+      },
+      resources: {
+        loadMode: 'lazy',
+        standardApexLibraryPath: undefined,
+      },
+      findMissingArtifact: {
+        enabled: false,
+        blockingWaitTimeoutMs: 2000,
+        indexingBarrierPollMs: 100,
+        maxCandidatesToOpen: 3,
+        timeoutMsHint: 1500,
+        enablePerfMarks: false,
+      },
+      worker: {
+        logLevel: 'info',
+      },
+      version: undefined,
+      logLevel: 'info',
+    },
+  }) as ApexLanguageServerSettings;
 };
 
 /**
@@ -154,14 +156,49 @@ export const registerConfigurationChangeListener = (
     ) {
       // Get updated settings
       const settings = getWorkspaceSettings();
-      logToOutputChannel(
-        `🔍 Configuration changed: ${JSON.stringify(settings, null, 2)}`,
-        'debug',
-      );
+      try {
+        logToOutputChannel(
+          `🔍 Configuration changed: ${JSON.stringify(settings, null, 2)}`,
+          'debug',
+        );
+      } catch (_error) {
+        logToOutputChannel(
+          '🔍 Configuration changed: [unable to serialize settings]',
+          'debug',
+        );
+      }
       // Notify the server of the configuration change
-      client.sendNotification('workspace/didChangeConfiguration', {
-        settings,
-      });
+      try {
+        logToOutputChannel(
+          '🔍 [DEBUG] Sending configuration change notification',
+          'debug',
+        );
+        client.sendNotification(
+          'workspace/didChangeConfiguration',
+          createSerializableNotification(settings),
+        );
+        logToOutputChannel(
+          '✅ [DEBUG] Successfully sent configuration change notification',
+          'debug',
+        );
+      } catch (_error) {
+        logToOutputChannel(
+          `❌ [ERROR] Failed to send configuration change notification: ${_error}`,
+          'error',
+        );
+        try {
+          logToOutputChannel(
+            `❌ [ERROR] Configuration settings: ${JSON.stringify(settings, null, 2)}`,
+            'error',
+          );
+        } catch (_jsonError) {
+          logToOutputChannel(
+            '❌ [ERROR] Configuration settings: [unable to serialize settings]',
+            'error',
+          );
+        }
+        throw _error;
+      }
     }
   });
 
@@ -182,13 +219,48 @@ export const sendInitialConfiguration = (client: {
     '🚀 Sending initial configuration to language server',
     'debug',
   );
-  logToOutputChannel(
-    `🔍 Initial settings: ${JSON.stringify(settings, null, 2)}`,
-    'debug',
-  );
+  try {
+    logToOutputChannel(
+      `🔍 Initial settings: ${JSON.stringify(settings, null, 2)}`,
+      'debug',
+    );
+  } catch (_error) {
+    logToOutputChannel(
+      '🔍 Initial settings: [unable to serialize settings]',
+      'debug',
+    );
+  }
 
   // Send initial configuration to the server
-  client.sendNotification('workspace/didChangeConfiguration', {
-    settings,
-  });
+  try {
+    logToOutputChannel(
+      '🔍 [DEBUG] Sending initial configuration notification',
+      'debug',
+    );
+    client.sendNotification(
+      'workspace/didChangeConfiguration',
+      createSerializableNotification(settings),
+    );
+    logToOutputChannel(
+      '✅ [DEBUG] Successfully sent initial configuration notification',
+      'debug',
+    );
+  } catch (_error) {
+    logToOutputChannel(
+      `❌ [ERROR] Failed to send initial configuration notification: ${_error}`,
+      'error',
+    );
+    try {
+      logToOutputChannel(
+        `❌ [ERROR] Initial configuration settings: ${JSON.stringify(settings, null, 2)}`,
+        'error',
+      );
+    } catch (_jsonError) {
+      logToOutputChannel(
+        '❌ [ERROR] Initial configuration settings: [unable to serialize settings]',
+        'error',
+      );
+    }
+    throw _error;
+  }
 };

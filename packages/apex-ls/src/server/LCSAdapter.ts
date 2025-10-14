@@ -9,27 +9,25 @@
 import {
   Connection,
   InitializeParams,
-  InitializeResult,
   TextDocuments,
   DocumentSymbolParams,
   DidChangeConfigurationNotification,
   DidChangeConfigurationParams,
-  TextDocumentSyncKind,
   HoverParams,
   Hover,
   DocumentDiagnosticParams,
   DocumentDiagnosticReport,
   DocumentDiagnosticReportKind,
+  FoldingRangeParams,
 } from 'vscode-languageserver/browser';
-
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import {
   UniversalLoggerFactory,
   LoggerInterface,
+  InitializeResult,
 } from '@salesforce/apex-lsp-shared';
 
-// LCS services and handlers
 import {
   dispatchProcessOnOpenDocument,
   dispatchProcessOnChangeDocument,
@@ -37,6 +35,7 @@ import {
   dispatchProcessOnCloseDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
+  dispatchProcessOnFoldingRange,
   DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
@@ -53,7 +52,6 @@ export interface LCSAdapterConfig {
 
 /**
  * Adapter layer between webworker environment and LSP-Compliant-Services
- * Handles the integration challenges and provides a clean interface
  */
 export class LCSAdapter {
   private readonly connection: Connection;
@@ -62,27 +60,23 @@ export class LCSAdapter {
   private hasConfigurationCapability = false;
   private hasWorkspaceFolderCapability = false;
   private readonly diagnosticProcessor: DiagnosticProcessingService;
+  private hoverHandlerRegistered = false;
 
-  /**
-   * Private constructor - use LCSAdapter.create() instead
-   */
   private constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
     this.logger = config.logger ?? this.createDefaultLogger();
     this.documents = new TextDocuments(TextDocument);
 
-    // Initialize LCS services
     this.diagnosticProcessor = new DiagnosticProcessingService(this.logger);
+
+    // Detect development mode early and set server mode accordingly
+    this.detectAndSetDevelopmentMode();
 
     this.setupEventHandlers();
   }
 
   /**
    * Create and initialize a new LCS adapter instance.
-   * This is the single entry point for creating LCS adapters.
-   *
-   * @param config Configuration for the LCS adapter
-   * @returns Promise that resolves to a fully initialized LCSAdapter instance
    */
   static async create(config: LCSAdapterConfig): Promise<LCSAdapter> {
     const adapter = new LCSAdapter(config);
@@ -91,49 +85,39 @@ export class LCSAdapter {
   }
 
   /**
-   * Initialize the LCS adapter - called internally by create()
+   * Internal initialization (register handlers, prepare services)
    */
   private async initialize(): Promise<void> {
     this.logger.info('🚀 LCS Adapter initializing...');
 
-    // Initialize ApexStorageManager singleton with storage factory
     try {
       const storageManager = ApexStorageManager.getInstance({
         storageFactory: () => ApexStorage.getInstance(),
-        autoPersistIntervalMs: 30000, // Auto-persist every 30 seconds
+        autoPersistIntervalMs: 30000,
       });
-
       await storageManager.initialize();
       this.logger.debug('✅ ApexStorageManager initialized successfully');
     } catch (error) {
       this.logger.error(`❌ Failed to initialize ApexStorageManager: ${error}`);
     }
 
-    // Set up document event handlers
     this.setupDocumentHandlers();
 
-    // Set up protocol handlers for LSP requests
-    this.setupProtocolHandlers();
-
-    // Start listening for documents
+    // Document listener — safe now
     this.documents.listen(this.connection);
 
-    // Start listening on connection for LSP protocol messages
-    this.connection.listen();
-
-    this.logger.info('✅ LCS Adapter initialized successfully');
+    this.logger.info(
+      '✅ LCS Adapter setup complete (awaiting client initialize...)',
+    );
   }
 
-  /**
-   * Create default logger if none provided
-   */
   private createDefaultLogger(): LoggerInterface {
-    const loggerFactory = UniversalLoggerFactory.getInstance();
-    return loggerFactory.createLogger(this.connection);
+    const factory = UniversalLoggerFactory.getInstance();
+    return factory.createLogger(this.connection);
   }
 
   /**
-   * Set up basic event handlers
+   * Basic event handlers (initialize, initialized, config changes)
    */
   private setupEventHandlers(): void {
     this.connection.onInitialize(this.handleInitialize.bind(this));
@@ -144,194 +128,174 @@ export class LCSAdapter {
   }
 
   /**
-   * Set up document-related event handlers using LCS
+   * Document lifecycle handlers
    */
   private setupDocumentHandlers(): void {
-    // Document open events - process documents when they are first opened
     this.documents.onDidOpen(async (open) => {
       try {
         this.logger.debug(`Document opened: ${open.document.uri}`);
-        // Trigger processing for document open; diagnostics are provided via pull API
         await dispatchProcessOnOpenDocument(open);
       } catch (error) {
-        this.logger.error(
-          `Error processing document open for ${open.document.uri}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-        this.logger.debug(`Document open error details: ${error}`);
+        this.logger.error(`Error processing open: ${error}`);
       }
     });
 
-    // Document change events with enhanced processing
     this.documents.onDidChangeContent(async (change) => {
       try {
         this.logger.debug(`Document changed: ${change.document.uri}`);
-        // Trigger processing for document change; diagnostics are provided via pull API
         await dispatchProcessOnChangeDocument(change);
       } catch (error) {
-        this.logger.error(
-          `Error processing document change for ${change.document.uri}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-        this.logger.debug(`Document change error details: ${error}`);
+        this.logger.error(`Error processing change: ${error}`);
       }
     });
 
-    // Document save events
     this.documents.onDidSave(async (save) => {
       try {
         await dispatchProcessOnSaveDocument(save);
       } catch (error) {
-        this.logger.error(
-          `Error processing document save for ${save.document.uri}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-        this.logger.debug(`Document save error details: ${error}`);
+        this.logger.error(`Error processing save: ${error}`);
       }
     });
 
-    // Document close events
     this.documents.onDidClose(async (close) => {
       try {
         await dispatchProcessOnCloseDocument(close);
       } catch (error) {
-        this.logger.error(
-          `Error processing document close for ${close.document.uri}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-        this.logger.debug(`Document close error details: ${error}`);
+        this.logger.error(`Error processing close: ${error}`);
       }
     });
   }
 
   /**
-   * Set up LSP protocol handlers using LCS
+   * LSP protocol handlers (hover, diagnostics, etc.)
    */
   private setupProtocolHandlers(): void {
-    // Document symbols
-    this.connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
-      try {
-        return await dispatchProcessOnDocumentSymbol(params);
-      } catch (error) {
-        this.logger.error(
-          `Error processing document symbols for ${params.textDocument.uri}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-        this.logger.debug(`Document symbols error details: ${error}`);
-        return [];
-      }
-    });
+    const capabilities =
+      LSPConfigurationManager.getInstance().getCapabilities();
 
-    // Hover support
-    this.connection.onHover(
-      async (params: HoverParams): Promise<Hover | null> => {
+    // Only register document symbol handler if the capability is enabled
+    if (capabilities.documentSymbolProvider) {
+      this.connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
         try {
-          this.logger.debug(`Hover request: ${params.textDocument.uri}`);
-          const result = await dispatchProcessOnHover(params);
-          this.logger.debug('Hover processed');
-          return result;
+          return await dispatchProcessOnDocumentSymbol(params);
         } catch (error) {
-          this.logger.error(
-            `Error processing hover for ${params.textDocument.uri} at ${
-              params.position.line
-            }:${params.position.character}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-          this.logger.debug(`Hover error details: ${error}`);
-          return null;
+          this.logger.error(`Error processing document symbols: ${error}`);
+          return [];
         }
-      },
-    );
-
-    // Enhanced diagnostics using LCS
-    this.connection.languages.diagnostics.on(
-      async (
-        params: DocumentDiagnosticParams,
-      ): Promise<DocumentDiagnosticReport> => {
-        try {
-          this.logger.debug('Processing diagnostics request with LCS');
-          const diagnostics =
-            await this.diagnosticProcessor.processDiagnostic(params);
-          return {
-            kind: DocumentDiagnosticReportKind.Full,
-            items: diagnostics,
-          };
-        } catch (error) {
-          this.logger.error(
-            `Error processing diagnostics for ${params.textDocument.uri}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-          this.logger.debug(`Diagnostics error details: ${error}`);
-          return {
-            kind: DocumentDiagnosticReportKind.Full,
-            items: [],
-          };
-        }
-      },
-    );
-  }
-
-  /**
-   * Handle initialization request
-   */
-  private handleInitialize(params: InitializeParams): InitializeResult {
-    this.logger.info('🔧 Initialize request received');
-
-    const capabilities = params.capabilities;
-
-    // Capability detection
-    this.hasConfigurationCapability = !!(
-      capabilities.workspace && !!capabilities.workspace.configuration
-    );
-    this.hasWorkspaceFolderCapability = !!(
-      capabilities.workspace && !!capabilities.workspace.workspaceFolders
-    );
-
-    const result: InitializeResult = {
-      capabilities: {
-        textDocumentSync: TextDocumentSyncKind.Incremental,
-        completionProvider: {
-          resolveProvider: true,
-        },
-        diagnosticProvider: {
-          interFileDependencies: false,
-          workspaceDiagnostics: false,
-        },
-        documentSymbolProvider: true,
-        hoverProvider: true,
-      },
-    };
-
-    if (this.hasWorkspaceFolderCapability) {
-      result.capabilities.workspace = {
-        workspaceFolders: {
-          supported: true,
-        },
-      };
+      });
+      this.logger.debug('✅ Document symbol handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Document symbol handler not registered (capability disabled)',
+      );
     }
 
-    this.logger.info('✅ Initialize completed with LCS capabilities');
-    return result;
+    // Note: onHover will be registered after client configuration is received
+    // to ensure server mode is properly set before enabling hover support
+
+    // Only register diagnostics handler if the capability is enabled
+    if (capabilities.diagnosticProvider) {
+      this.connection.languages.diagnostics.on(
+        async (
+          params: DocumentDiagnosticParams,
+        ): Promise<DocumentDiagnosticReport> => {
+          try {
+            const diagnostics =
+              await this.diagnosticProcessor.processDiagnostic(params);
+            return {
+              kind: DocumentDiagnosticReportKind.Full,
+              items: diagnostics,
+            };
+          } catch (error) {
+            this.logger.error(`Error processing diagnostics: ${error}`);
+            return { kind: DocumentDiagnosticReportKind.Full, items: [] };
+          }
+        },
+      );
+      this.logger.debug('✅ Diagnostics handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Diagnostics handler not registered (capability disabled)',
+      );
+    }
+
+    // Only register folding range handler if the capability is enabled
+    if (capabilities.foldingRangeProvider) {
+      this.connection.languages.foldingRange.on(
+        async (params: FoldingRangeParams) => {
+          try {
+            const storage = ApexStorageManager.getInstance().getStorage();
+            return await dispatchProcessOnFoldingRange(params, storage);
+          } catch (error) {
+            this.logger.error(`Error processing folding ranges: ${error}`);
+            return [];
+          }
+        },
+      );
+      this.logger.debug('✅ Folding range handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Folding range handler not registered (capability disabled)',
+      );
+    }
+
+    if (capabilities.hoverProvider) {
+      this.registerHoverHandler();
+      this.logger.debug('✅ Hover handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Hover handler not registered (capability disabled)',
+      );
+    }
   }
 
   /**
-   * Handle initialized notification
+   * Handle client `initialize` request
    */
-  private handleInitialized(): void {
+  private handleInitialize(params: InitializeParams): InitializeResult {
+    console.debug(
+      `🔧 Initialize request received. Params: ${JSON.stringify(params, null, 2)}`,
+    );
+    this.logger.info(
+      () =>
+        `🔧 Initialize request received. Params: ${JSON.stringify(params, null, 2)}`,
+    );
+
+    this.hasConfigurationCapability =
+      !!params.capabilities.workspace?.configuration;
+    this.hasWorkspaceFolderCapability =
+      !!params.capabilities.workspace?.workspaceFolders;
+
+    const configManager = LSPConfigurationManager.getInstance();
+
+    configManager.setInitialSettings(params.initializationOptions);
+    // Get current capabilities (will be production by default)
+    const capabilities = configManager.getCapabilities();
+
+    console.debug(
+      `Server capabilities returned: ${JSON.stringify(capabilities, null, 2)}`,
+    );
+
+    return {
+      capabilities,
+    };
+  }
+
+  /**
+   * Handle client `initialized` notification
+   */
+  private async handleInitialized(): Promise<void> {
     this.logger.info('🎉 Server initialized');
 
     if (this.hasConfigurationCapability) {
-      this.connection.client.register(
+      this.logger.debug('Registering didChangeConfiguration notification');
+      await this.connection.client.register(
         DidChangeConfigurationNotification.type,
-        undefined,
       );
+
+      this.setupProtocolHandlers();
+
+      this.logger.debug('✅ Initial workspace configuration loaded');
     }
 
     if (this.hasWorkspaceFolderCapability) {
@@ -342,36 +306,188 @@ export class LCSAdapter {
   }
 
   /**
-   * Handle configuration changes
+   * Handle client configuration changes
    */
   private async handleConfigurationChange(
     change: DidChangeConfigurationParams,
   ): Promise<void> {
-    LSPConfigurationManager.getInstance().updateFromLSPConfiguration(change);
-    // Revalidate all open text documents (basic implementation for now)
+    this.logger.debug('📋 Configuration change received');
+
+    // Only log the settings part to avoid serialization issues
+    if (change?.settings) {
+      this.logger.debug(
+        `Configuration settings: ${JSON.stringify(change.settings, null, 2)}`,
+      );
+    } else {
+      this.logger.debug('Configuration change has no settings');
+    }
+
+    // Handle null or invalid configuration changes
+    if (!change || change.settings === null || change.settings === undefined) {
+      this.logger.warn(
+        '⚠️ Received null/undefined configuration change, skipping update',
+      );
+      return;
+    }
+
+    const success =
+      LSPConfigurationManager.getInstance().updateFromLSPConfiguration(change);
+    this.logger.debug(
+      `Configuration update ${success ? 'succeeded' : 'failed'}`,
+    );
+
+    // Check if we need to update server mode based on client configuration
+    this.updateServerModeIfNeeded(change);
+
     const revalidationPromises = this.documents.all().map(async (document) => {
       try {
-        // Basic revalidation - can be enhanced with LCS later
         this.connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
       } catch (error) {
-        this.logger.error(`Error revalidating document: ${error}`);
+        this.logger.error(`Error revalidating ${document.uri}: ${error}`);
       }
     });
-
     await Promise.all(revalidationPromises);
   }
 
-  /**
-   * Get connection instance
-   */
   public getConnection(): Connection {
     return this.connection;
   }
 
-  /**
-   * Get logger instance
-   */
   public getLogger(): LoggerInterface {
     return this.logger;
+  }
+
+  /**
+   * Update server mode if needed based on client configuration
+   */
+  private updateServerModeIfNeeded(change: DidChangeConfigurationParams): void {
+    try {
+      const settings = change.settings?.apex;
+      if (!settings) {
+        return;
+      }
+
+      this.updateServerModeFromSettings(settings);
+    } catch (error) {
+      this.logger.error(`Error updating server mode: ${error}`);
+    }
+  }
+
+  /**
+   * Update server mode from settings
+   */
+  private updateServerModeFromSettings(settings: any): void {
+    try {
+      // Get the server mode from the client settings
+      const clientServerMode = settings.environment?.serverMode;
+      if (!clientServerMode) {
+        return;
+      }
+
+      const configManager = LSPConfigurationManager.getInstance();
+      const currentMode = configManager.getCapabilitiesManager().getMode();
+
+      // Update server mode if it differs from the client's setting
+      if (currentMode !== clientServerMode) {
+        this.logger.info(
+          `🔄 Client server mode is '${clientServerMode}',` +
+            ` updating server from '${currentMode}' to '${clientServerMode}'`,
+        );
+        configManager.updateServerMode(clientServerMode);
+
+        // Register hover handler if we're now in development mode
+        if (clientServerMode === 'development') {
+          this.registerHoverHandler();
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error updating server mode from settings: ${error}`);
+    }
+  }
+
+  /**
+   * Detect development mode early and set server mode accordingly
+   */
+  private detectAndSetDevelopmentMode(): void {
+    try {
+      // Check for development mode indicators
+      const apexLsMode = process?.env?.APEX_LS_MODE;
+      const nodeEnv = process?.env?.NODE_ENV;
+
+      this.logger.debug(
+        `🔍 Environment variables: APEX_LS_MODE=${apexLsMode}, NODE_ENV=${nodeEnv}`,
+      );
+
+      const isDevelopment =
+        apexLsMode === 'development' || nodeEnv === 'development';
+
+      if (isDevelopment) {
+        this.logger.info(
+          '🔧 Development mode detected via environment variables, initializing server in development mode',
+        );
+
+        // Initialize LSPConfigurationManager (will auto-detect development mode)
+        const configManager = LSPConfigurationManager.getInstance();
+
+        // Verify the mode was set correctly
+        const currentMode = configManager.getCapabilitiesManager().getMode();
+        this.logger.debug(`✅ Server mode set to: ${currentMode}`);
+
+        // Register hover handler immediately for development mode
+        this.registerHoverHandler();
+      } else {
+        this.logger.debug(
+          '🔧 Production mode detected, server will use production capabilities',
+        );
+      }
+    } catch (error) {
+      this.logger.error(`Error detecting development mode: ${error}`);
+    }
+  }
+
+  /**
+   * Register the hover handler (only when capability is enabled)
+   */
+  private registerHoverHandler(): void {
+    console.debug('Registering hover handler');
+
+    // Check if hover handler is already registered
+    if (this.hoverHandlerRegistered) {
+      return;
+    }
+
+    // Check if hover capability is enabled
+    const capabilities =
+      LSPConfigurationManager.getInstance().getCapabilities();
+    if (!capabilities.hoverProvider) {
+      this.logger.debug(
+        '⚠️ Hover handler not registered (hoverProvider capability disabled)',
+      );
+      return;
+    }
+
+    this.connection.onHover(
+      async (params: HoverParams): Promise<Hover | null> => {
+        this.logger.debug(
+          `🔍 [LCSAdapter] Hover request received for ${params.textDocument.uri}` +
+            ` at ${params.position.line}:${params.position.character}`,
+        );
+        try {
+          const result = await dispatchProcessOnHover(params);
+          this.logger.debug(
+            `✅ [LCSAdapter] Hover request completed for ${params.textDocument.uri}: ${result ? 'success' : 'null'}`,
+          );
+          return result;
+        } catch (error) {
+          this.logger.error(`Error processing hover: ${error}`);
+          return null;
+        }
+      },
+    );
+
+    this.hoverHandlerRegistered = true;
+    this.logger.info(
+      '✅ Hover handler registered (hoverProvider capability enabled)',
+    );
   }
 }
