@@ -52,50 +52,50 @@ export const getWorkspaceSettings = (): ApexLanguageServerSettings => {
 
   const apexSettings = { apex: settings };
 
-  console.error(`🔍 found settings: ${settings ? 'true' : 'false'}`);
-
   // Return default settings if no settings are configured
-  return (apexSettings ?? {
-    apex: {
-      commentCollection: {
-        enableCommentCollection: true,
-        includeSingleLineComments: false,
-        associateCommentsWithSymbols: false,
-        enableForDocumentChanges: true,
-        enableForDocumentOpen: true,
-        enableForDocumentSymbols: false,
-        enableForFoldingRanges: false,
-      },
-      performance: {
-        commentCollectionMaxFileSize: 102400,
-        useAsyncCommentProcessing: true,
-        documentChangeDebounceMs: 300,
-      },
-      environment: {
-        runtimePlatform: 'desktop',
-        serverMode: 'production',
-        enablePerformanceLogging: false,
-        commentCollectionLogLevel: 'info',
-      },
-      resources: {
-        loadMode: 'lazy',
-        standardApexLibraryPath: undefined,
-      },
-      findMissingArtifact: {
-        enabled: false,
-        blockingWaitTimeoutMs: 2000,
-        indexingBarrierPollMs: 100,
-        maxCandidatesToOpen: 3,
-        timeoutMsHint: 1500,
-        enablePerfMarks: false,
-      },
-      worker: {
-        logLevel: 'info',
-      },
-      version: undefined,
-      logLevel: 'info',
-    },
-  }) as ApexLanguageServerSettings;
+  return Object.keys(settings).length === 0
+    ? {
+        apex: {
+          commentCollection: {
+            enableCommentCollection: true,
+            includeSingleLineComments: false,
+            associateCommentsWithSymbols: false,
+            enableForDocumentChanges: true,
+            enableForDocumentOpen: true,
+            enableForDocumentSymbols: false,
+            enableForFoldingRanges: false,
+          },
+          performance: {
+            commentCollectionMaxFileSize: 102400,
+            useAsyncCommentProcessing: true,
+            documentChangeDebounceMs: 300,
+          },
+          environment: {
+            runtimePlatform: 'desktop',
+            serverMode: 'production',
+            enablePerformanceLogging: false,
+            commentCollectionLogLevel: 'info',
+          },
+          resources: {
+            loadMode: 'lazy',
+            standardApexLibraryPath: undefined,
+          },
+          findMissingArtifact: {
+            enabled: false,
+            blockingWaitTimeoutMs: 2000,
+            indexingBarrierPollMs: 100,
+            maxCandidatesToOpen: 3,
+            timeoutMsHint: 1500,
+            enablePerfMarks: false,
+          },
+          worker: {
+            logLevel: 'info',
+          },
+          version: undefined,
+          logLevel: 'info',
+        },
+      }
+    : (apexSettings as ApexLanguageServerSettings);
 };
 
 /**

@@ -100,7 +100,6 @@ describe('Configuration Module', () => {
           if (key === 'performance.documentChangeDebounceMs') return 300;
           if (key === 'environment.enablePerformanceLogging') return false;
           if (key === 'resources.loadMode') return 'lazy';
-          if (key === 'custom') return {};
           return defaultValue;
         },
       );
@@ -124,20 +123,31 @@ describe('Configuration Module', () => {
             documentChangeDebounceMs: 300,
           },
           environment: {
+            runtimePlatform: 'desktop',
+            serverMode: 'production',
             enablePerformanceLogging: false,
+            commentCollectionLogLevel: 'info',
           },
           resources: {
             loadMode: 'lazy',
+            standardApexLibraryPath: undefined,
+          },
+          findMissingArtifact: {
+            enabled: false,
+            blockingWaitTimeoutMs: 2000,
+            indexingBarrierPollMs: 100,
+            maxCandidatesToOpen: 3,
+            timeoutMsHint: 1500,
+            enablePerfMarks: false,
           },
           worker: {
             logLevel: 'info',
           },
+          version: undefined,
           logLevel: 'info',
-          custom: {},
         },
       });
     });
-
 
     it('should use default values when configuration is not set', () => {
       // Mock to return the default values when configuration is not set

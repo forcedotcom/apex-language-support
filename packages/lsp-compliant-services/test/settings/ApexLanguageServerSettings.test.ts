@@ -189,27 +189,29 @@ describe('ApexLanguageServerSettings Validation', () => {
   describe('mergeWithDefaults', () => {
     it('should merge partial configuration with defaults', () => {
       const partialConfig = {
-        logLevel: 'debug',
-        performance: {
-          commentCollectionMaxFileSize: 50000,
+        apex: {
+          logLevel: 'debug',
+          performance: {
+            commentCollectionMaxFileSize: 50000,
+          },
         },
       } as Partial<ApexLanguageServerSettings>;
 
-      const result = mergeWithDefaults(partialConfig, 'node');
+      const result = mergeWithDefaults(partialConfig, 'desktop');
 
-      expect(result.logLevel).toBe('debug');
-      expect(result.performance.commentCollectionMaxFileSize).toBe(50000);
-      expect(result.performance.useAsyncCommentProcessing).toBe(true); // From defaults
-      expect(result.commentCollection.enableCommentCollection).toBe(true); // From defaults
-      expect(result.resources.loadMode).toBe('full'); // From defaults for node
+      expect(result.apex.logLevel).toBe('debug');
+      expect(result.apex.performance.commentCollectionMaxFileSize).toBe(50000);
+      expect(result.apex.performance.useAsyncCommentProcessing).toBe(true); // From defaults
+      expect(result.apex.commentCollection.enableCommentCollection).toBe(true); // From defaults
+      expect(result.apex.resources.loadMode).toBe('lazy'); // From defaults for desktop
     });
 
     it('should use browser defaults when environment is browser', () => {
-      const result = mergeWithDefaults({}, 'browser');
+      const result = mergeWithDefaults({}, 'web');
 
-      expect(result.environment.environment).toBe('browser');
-      expect(result.resources.loadMode).toBe('lazy'); // Browser default
-      expect(result.performance.commentCollectionMaxFileSize).toBe(51200); // Browser default
+      expect(result.apex.environment.runtimePlatform).toBe('web');
+      expect(result.apex.resources.loadMode).toBe('lazy'); // Browser default
+      expect(result.apex.performance.commentCollectionMaxFileSize).toBe(51200); // Browser default
     });
   });
 
@@ -217,47 +219,86 @@ describe('ApexLanguageServerSettings Validation', () => {
     it('should preserve existing settings not included in partial update', () => {
       const existingSettings = mergeWithDefaults(
         {
-          resources: { loadMode: 'lazy' },
-          logLevel: 'info',
-        },
-        'node',
-      );
-
-      const partialUpdate = {
-        logLevel: 'debug',
-      };
-
-      const result = mergeWithExisting(existingSettings, partialUpdate);
-
-      expect(result.logLevel).toBe('debug'); // Updated
-      expect(result.resources.loadMode).toBe('lazy'); // Preserved from existing
-      expect(result.commentCollection.enableCommentCollection).toBe(true); // From existing (which had defaults)
-    });
-
-    it('should update nested properties while preserving others', () => {
-      const existingSettings = mergeWithDefaults(
-        {
-          performance: {
-            commentCollectionMaxFileSize: 50000,
-            useAsyncCommentProcessing: false,
-            documentChangeDebounceMs: 300,
+          apex: {
+            resources: { loadMode: 'lazy' },
+            logLevel: 'info',
+            commentCollection: {
+              enableCommentCollection: true,
+              includeSingleLineComments: false,
+              associateCommentsWithSymbols: false,
+              enableForDocumentChanges: true,
+              enableForDocumentOpen: true,
+              enableForDocumentSymbols: false,
+              enableForFoldingRanges: false,
+            },
+            performance: {
+              commentCollectionMaxFileSize: 102400,
+              useAsyncCommentProcessing: true,
+              documentChangeDebounceMs: 300,
+            },
+            environment: {
+              runtimePlatform: 'desktop',
+              serverMode: 'production',
+              enablePerformanceLogging: false,
+              commentCollectionLogLevel: 'info',
+            },
+            findMissingArtifact: {
+              enabled: false,
+              blockingWaitTimeoutMs: 2000,
+              indexingBarrierPollMs: 100,
+              maxCandidatesToOpen: 3,
+              timeoutMsHint: 1500,
+              enablePerfMarks: false,
+            },
+            worker: {
+              logLevel: 'info',
+            },
           },
-          resources: { loadMode: 'lazy' },
-        } as Partial<ApexLanguageServerSettings>,
-        'node',
+        },
+        'desktop',
       );
 
       const partialUpdate = {
-        performance: {
-          commentCollectionMaxFileSize: 75000, // Only updating this one property
+        apex: {
+          logLevel: 'debug',
         },
       } as Partial<ApexLanguageServerSettings>;
 
       const result = mergeWithExisting(existingSettings, partialUpdate);
 
-      expect(result.performance.commentCollectionMaxFileSize).toBe(75000); // Updated
-      expect(result.performance.useAsyncCommentProcessing).toBe(false); // Preserved from existing
-      expect(result.resources.loadMode).toBe('lazy'); // Preserved from existing
+      expect(result.apex.logLevel).toBe('debug'); // Updated
+      expect(result.apex.resources.loadMode).toBe('lazy'); // Preserved from existing
+      expect(result.apex.commentCollection.enableCommentCollection).toBe(true); // From existing (which had defaults)
+    });
+
+    it('should update nested properties while preserving others', () => {
+      const existingSettings = mergeWithDefaults(
+        {
+          apex: {
+            performance: {
+              commentCollectionMaxFileSize: 50000,
+              useAsyncCommentProcessing: false,
+              documentChangeDebounceMs: 300,
+            },
+            resources: { loadMode: 'lazy' },
+          },
+        } as Partial<ApexLanguageServerSettings>,
+        'desktop',
+      );
+
+      const partialUpdate = {
+        apex: {
+          performance: {
+            commentCollectionMaxFileSize: 75000, // Only updating this one property
+          },
+        },
+      } as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithExisting(existingSettings, partialUpdate);
+
+      expect(result.apex.performance.commentCollectionMaxFileSize).toBe(75000); // Updated
+      expect(result.apex.performance.useAsyncCommentProcessing).toBe(false); // Preserved from existing
+      expect(result.apex.resources.loadMode).toBe('lazy'); // Preserved from existing
     });
   });
 
@@ -270,50 +311,95 @@ describe('ApexLanguageServerSettings Validation', () => {
     it('should preserve user settings during partial configuration updates', () => {
       // Initialize with user setting for lazy loading
       const initialSettings = {
-        resources: { loadMode: 'lazy' as const },
-        logLevel: 'info',
-      };
+        apex: {
+          resources: { loadMode: 'lazy' as const },
+          logLevel: 'info',
+          commentCollection: {
+            enableCommentCollection: true,
+            includeSingleLineComments: false,
+            associateCommentsWithSymbols: false,
+            enableForDocumentChanges: true,
+            enableForDocumentOpen: true,
+            enableForDocumentSymbols: false,
+            enableForFoldingRanges: false,
+          },
+          performance: {
+            commentCollectionMaxFileSize: 102400,
+            useAsyncCommentProcessing: true,
+            documentChangeDebounceMs: 300,
+          },
+          environment: {
+            runtimePlatform: 'desktop',
+            serverMode: 'production',
+            enablePerformanceLogging: false,
+            commentCollectionLogLevel: 'info',
+          },
+          findMissingArtifact: {
+            enabled: false,
+            blockingWaitTimeoutMs: 2000,
+            indexingBarrierPollMs: 100,
+            maxCandidatesToOpen: 3,
+            timeoutMsHint: 1500,
+            enablePerfMarks: false,
+          },
+          worker: {
+            logLevel: 'info',
+          },
+        },
+      } as Partial<ApexLanguageServerSettings>;
 
-      const manager = ApexSettingsManager.getInstance(initialSettings, 'node');
+      const manager = ApexSettingsManager.getInstance(
+        initialSettings,
+        'desktop',
+      );
 
       // Verify initial state
       expect(manager.getResourceLoadMode()).toBe('lazy');
-      expect(manager.getSettings().logLevel).toBe('info');
+      expect(manager.getSettings().apex.logLevel).toBe('info');
 
       // Simulate a partial configuration update (like changing only log level)
       manager.updateSettings({
-        logLevel: 'debug',
-      });
+        apex: {
+          logLevel: 'debug',
+        },
+      } as Partial<ApexLanguageServerSettings>);
 
       // The user's lazy loading setting should be preserved
       expect(manager.getResourceLoadMode()).toBe('lazy');
-      expect(manager.getSettings().logLevel).toBe('debug');
+      expect(manager.getSettings().apex.logLevel).toBe('debug');
     });
 
     it('should allow updating resource settings while preserving other user settings', () => {
       const initialSettings = {
-        resources: { loadMode: 'lazy' as const },
-        performance: {
-          commentCollectionMaxFileSize: 50000,
-          useAsyncCommentProcessing: true,
-          documentChangeDebounceMs: 300,
+        apex: {
+          resources: { loadMode: 'lazy' as const },
+          performance: {
+            commentCollectionMaxFileSize: 50000,
+            useAsyncCommentProcessing: true,
+            documentChangeDebounceMs: 300,
+          },
+          logLevel: 'info',
         },
-        logLevel: 'info',
       } as Partial<ApexLanguageServerSettings>;
 
-      const manager = ApexSettingsManager.getInstance(initialSettings, 'node');
+      const manager = ApexSettingsManager.getInstance(
+        initialSettings,
+        'desktop',
+      );
 
       // Update just the resource loading mode
       manager.updateSettings({
-        resources: { loadMode: 'full' },
+        apex: {
+          resources: { loadMode: 'full' },
+        },
       } as Partial<ApexLanguageServerSettings>);
 
       // Resource mode should be updated, but other user settings preserved
       expect(manager.getResourceLoadMode()).toBe('full');
       expect(
-        manager.getSettings().performance.commentCollectionMaxFileSize,
+        manager.getSettings().apex.performance.commentCollectionMaxFileSize,
       ).toBe(50000);
-      expect(manager.getSettings().logLevel).toBe('info');
+      expect(manager.getSettings().apex.logLevel).toBe('info');
     });
   });
 });
