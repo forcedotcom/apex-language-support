@@ -2,6 +2,8 @@ global class S3ConnectorInput {
 	global String accessKey;
 	global String bucketName;
 	global String folderName;
+	global String name;
+	global String outputFormat;
 	global String secretKey;
 	global S3ConnectorInput() { }
 	global Object clone() { }

@@ -1,0 +1,8 @@
+global enum BulkUpdateTargetStatusEnum {
+ACTIVE,
+DRAFT,
+PENDINGAPPROVAL,
+PUBLISHED,
+RETIRED,
+REVIEW
+}

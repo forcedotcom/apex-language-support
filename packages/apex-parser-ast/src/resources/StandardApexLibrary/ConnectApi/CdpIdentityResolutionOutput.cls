@@ -6,6 +6,7 @@ global class CdpIdentityResolutionOutput {
 	global String description;
 	global Boolean doesRunAutomatically;
 	global String id;
+	global Boolean isCaseSensitive;
 	global Long knownUnifiedProfiles;
 	global String label;
 	global Datetime lastJobCompleted;

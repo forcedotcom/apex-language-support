@@ -7,14 +7,18 @@ global class CdpSegmentOutput {
 	global String excludeCriteria;
 	global String includeCriteria;
 	global ConnectApi.CdpSegmentDbtPipeline includeDbt;
+	global Datetime lastPublishedEndDateTime;
+	global Long lastSegmentMemberCount;
 	global ConnectApi.CdpSegmentLookalike lookalikeCriteria;
 	global String lookbackPeriod;
 	global String marketSegmentDefinitionId;
 	global String marketSegmentId;
 	global String nextPublishDateTime;
+	global List<ConnectApi.Parameter> parameters;
 	global String publishInterval;
 	global String publishScheduleEndDate;
 	global String publishScheduleEndDateTime;
+	global ConnectApi.ScheduleOutput publishScheduleInfo;
 	global String publishScheduleStartDateTime;
 	global String publishStatus;
 	global ConnectApi.CdpSegmentMembershipTableOutput segmentMembershipDmo;

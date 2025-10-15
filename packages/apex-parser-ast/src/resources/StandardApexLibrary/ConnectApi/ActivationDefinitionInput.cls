@@ -1,17 +1,17 @@
 global class ActivationDefinitionInput {
 	global String activationTargetName;
 	global ConnectApi.ActivationTargetSubjectConfigInput activationTargetSubjectConfig;
+	global List<ConnectApi.AttributeLimitingExpressionInput> attributeLimitingExpressionConfig;
 	global List<ConnectApi.ActivationAdditionalAttributesConfigInput> attributesConfig;
 	global List<ConnectApi.ActivationContactPointInput> contactPointsConfig;
-	global String curatedEntityApiName;
-	global String curatedEntityId;
-	global String curatedEntityName;
+	global ConnectApi.CuratedEntityInput curatedEntity;
 	global ConnectApi.ActivationPlatformCustomerFileSource customerFileSource;
 	global String dataExportDefinitionId;
 	global List<ConnectApi.DataSourceNameConfigInput> dataSourcesConfig;
 	global String dataSpaceName;
 	global String description;
 	global List<ConnectApi.DMOFilterInput> directDmoFiltersConfig;
+	global Integer limitValue;
 	global String marketSegmentId;
 	global String name;
 	global String refreshType;

@@ -1,5 +1,6 @@
 global class PaymentMethodTokenizationRequest {
 	global ConnectApi.AddressRequest address;
+	global ConnectApi.BankPaymentMethodRequest bankPaymentMethod;
 	global ConnectApi.CardPaymentMethodRequest cardPaymentMethod;
 	global String paymentGatewayId;
 	global Boolean savedByMerchant;

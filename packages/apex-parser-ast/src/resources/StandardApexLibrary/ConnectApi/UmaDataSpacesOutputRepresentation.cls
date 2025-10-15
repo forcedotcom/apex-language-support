@@ -3,6 +3,7 @@ global class UmaDataSpacesOutputRepresentation {
 	global String dataSpaceDescription;
 	global String dataSpaceId;
 	global String dataSpaceName;
+	global String dataSpacePrefix;
 	global String dataSpaceStatus;
 	global UmaDataSpacesOutputRepresentation() { }
 	global Object clone() { }

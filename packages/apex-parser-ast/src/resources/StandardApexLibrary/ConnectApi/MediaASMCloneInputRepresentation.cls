@@ -1,4 +1,5 @@
 global class MediaASMCloneInputRepresentation {
+	global String correlationId;
 	global ConnectApi.SupportedCloneEntity entityName;
 	global List<String> ids;
 	global MediaASMCloneInputRepresentation() { }

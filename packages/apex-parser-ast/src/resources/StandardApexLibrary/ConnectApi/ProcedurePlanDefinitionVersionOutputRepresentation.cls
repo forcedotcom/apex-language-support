@@ -7,6 +7,7 @@ global class ProcedurePlanDefinitionVersionOutputRepresentation {
 	global ConnectApi.ProcedurePlanGenericErrorRepresentation error;
 	global String inheritedFrom;
 	global List<ConnectApi.ProcedurePlanSectionOutputRepresentation> procedurePlanSections;
+	global String processType;
 	global Integer rank;
 	global String readContextMapping;
 	global String recordId;

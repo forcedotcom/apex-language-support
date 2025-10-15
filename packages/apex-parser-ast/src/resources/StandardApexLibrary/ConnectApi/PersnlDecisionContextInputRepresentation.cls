@@ -3,6 +3,7 @@ global class PersnlDecisionContextInputRepresentation {
 	global String anchorType;
 	global String correlationId;
 	global String dataSpace;
+	global List<ConnectApi.PersnlRecommenderFilterDynamicValueInputRepresentation> filterDynamicValues;
 	global String individualId;
 	global String unifiedIndividualId;
 	global PersnlDecisionContextInputRepresentation() { }

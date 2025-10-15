@@ -1,4 +1,5 @@
 global class CdpDataTransformActionRunResponseRepresentation {
+	global Boolean shouldForceFullRun;
 	global CdpDataTransformActionRunResponseRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

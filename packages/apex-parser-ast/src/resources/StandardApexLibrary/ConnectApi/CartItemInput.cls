@@ -1,6 +1,7 @@
 global class CartItemInput {
 	global String cartDeliveryGroupId;
 	global List<SObject> customFields;
+	global String parentProductId;
 	global String productId;
 	global String productSellingModelId;
 	global String quantity;
@@ -11,6 +12,7 @@ global class CartItemInput {
 	global Boolean equals(Object obj) { }
 	global String getCartDeliveryGroupId() { }
 	global List<SObject> getCustomFields() { }
+	global String getParentProductId() { }
 	global String getProductId() { }
 	global String getProductSellingModelId() { }
 	global String getQuantity() { }
@@ -19,6 +21,7 @@ global class CartItemInput {
 	global Integer hashCode() { }
 	global void setCartDeliveryGroupId(String value) { }
 	global void setCustomFields(List<SObject> value) { }
+	global void setParentProductId(String value) { }
 	global void setProductId(String value) { }
 	global void setProductSellingModelId(String value) { }
 	global void setQuantity(String value) { }

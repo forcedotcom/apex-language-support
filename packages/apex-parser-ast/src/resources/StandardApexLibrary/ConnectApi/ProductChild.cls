@@ -1,6 +1,10 @@
 global class ProductChild {
+	global ConnectApi.ProductComponentGroup componentGroup;
 	global String defaultQuantity;
+	global Boolean isDefault;
 	global Boolean isEntitled;
+	global Boolean isPriceIncludedInParent;
+	global Boolean isRequired;
 	global ConnectApi.ProductDetail productInfo;
 	global ProductChild() { }
 	global Object clone() { }

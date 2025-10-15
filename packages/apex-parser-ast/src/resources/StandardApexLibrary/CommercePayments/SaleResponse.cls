@@ -2,6 +2,7 @@ global class SaleResponse {
 	global SaleResponse() { }
 	global Object clone() { }
 	global void setAmount(Double amount) { }
+	global void setAsync(Boolean async) { }
 	global void setGatewayAvsCode(String gatewayAvsCode) { }
 	global void setGatewayDate(Datetime gatewayDate) { }
 	global void setGatewayMessage(String gatewayMessage) { }

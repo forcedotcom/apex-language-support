@@ -2,6 +2,7 @@ global class TaxDetailsResponse {
 	global TaxDetailsResponse() { }
 	global Object clone() { }
 	global java:commerce.tax.impl.engine.integration.response.TaxDetailsEngineResponse getDelegate() { }
+	global void setCustomTaxAttributes(commercetax.CustomTaxAttributesResponse customTaxAttributes) { }
 	global void setExemptAmount(Double exemptAmount) { }
 	global void setExemptReason(String reason) { }
 	global void setImposition(commercetax.ImpositionResponse imposition) { }

@@ -1,6 +1,6 @@
 global class ClaimItemDetailOutputRep {
-	global ConnectApi.ClaimAttributeOutputRep attributes;
-	global String insurancePolicyId;
+	global ConnectApi.ClaimAttributeOutputs attributes;
+	global String participantInstanceKey;
 	global ConnectApi.ClaimItemRelatedObjectOutputs relatedObjects;
 	global ClaimItemDetailOutputRep() { }
 	global Object clone() { }

@@ -1,5 +1,5 @@
 global class ManagedContentProviderInput {
-	global String instanceUrl;
+	global String instanceKey;
 	global Boolean isDefault;
 	global String name;
 	global String providerLightningComponentId;

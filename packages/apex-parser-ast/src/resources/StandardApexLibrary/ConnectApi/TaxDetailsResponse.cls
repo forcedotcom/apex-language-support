@@ -1,4 +1,5 @@
 global class TaxDetailsResponse {
+	global ConnectApi.AdditionalDataResponse additionalData;
 	global Double exemptAmount;
 	global String exemptReason;
 	global ConnectApi.TaxImpositionResponse imposition;

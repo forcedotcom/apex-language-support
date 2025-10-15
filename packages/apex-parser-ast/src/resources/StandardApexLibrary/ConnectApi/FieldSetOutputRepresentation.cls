@@ -2,6 +2,7 @@ global class FieldSetOutputRepresentation {
 	global String description;
 	global String fieldSetApiName;
 	global String fieldSetName;
+	global String id;
 	global FieldSetOutputRepresentation() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

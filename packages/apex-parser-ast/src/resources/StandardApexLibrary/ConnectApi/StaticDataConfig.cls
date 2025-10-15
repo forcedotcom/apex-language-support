@@ -1,5 +1,5 @@
 global class StaticDataConfig {
-	global List<ConnectApi.StaticData> staticDataList;
+	global List<ConnectApi.StaticData> staticData;
 	global StaticDataConfig() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

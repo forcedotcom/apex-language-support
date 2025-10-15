@@ -15,6 +15,7 @@ global class CdpSegmentInput {
 	global ConnectApi.PublishSchedule publishSchedule;
 	global String publishScheduleEndDate;
 	global String publishScheduleEndDateTime;
+	global ConnectApi.CdpSegmentScheduleInput publishScheduleInfo;
 	global String publishScheduleStartDateTime;
 	global ConnectApi.SegmentCreationFlow segmentCreationFlow;
 	global String segmentOnApiName;

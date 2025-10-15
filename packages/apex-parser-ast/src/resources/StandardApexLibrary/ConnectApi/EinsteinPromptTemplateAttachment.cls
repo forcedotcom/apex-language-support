@@ -1,7 +1,9 @@
 global class EinsteinPromptTemplateAttachment {
+	global ConnectApi.EinsteinPromptTemplateAttachmentExclusionInfo exclusionInfo;
 	global String fileExtension;
 	global String id;
 	global String latestPublishedVersion;
+	global String parentName;
 	global String title;
 	global EinsteinPromptTemplateAttachment() { }
 	global Object clone() { }

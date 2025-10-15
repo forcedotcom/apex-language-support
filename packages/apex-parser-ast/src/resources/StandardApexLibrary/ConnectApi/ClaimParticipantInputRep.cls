@@ -1,7 +1,7 @@
 global class ClaimParticipantInputRep {
 	global String accountId;
 	global String action;
-	global List<ConnectApi.AdditionalFieldInputRep> additionalFields;
+	global List<ConnectApi.ClaimAdditionalFieldInputRep> additionalFields;
 	global String contactId;
 	global String instanceKey;
 	global String insurancePolicyParticipantId;

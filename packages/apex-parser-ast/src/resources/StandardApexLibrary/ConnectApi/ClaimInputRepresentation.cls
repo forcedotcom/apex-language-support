@@ -1,12 +1,11 @@
 global class ClaimInputRepresentation {
 	global String accountId;
 	global Object additionalFields;
-	global List<ConnectApi.AttributeInputRepresentation> attributes;
+	global List<ConnectApi.ClaimAttributeInputRepresentation> attributes;
 	global String claimReason;
 	global String claimReasonType;
 	global String claimType;
 	global String incidentTypeId;
-	global Datetime initiationDate;
 	global String insurancePolicyId;
 	global List<ConnectApi.ClaimItemInputRepresentation> items;
 	global Datetime lossDate;

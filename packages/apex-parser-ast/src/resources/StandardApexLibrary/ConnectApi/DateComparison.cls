@@ -1,5 +1,5 @@
 global class DateComparison {
-	global List<String> value;
+	global List<String> values;
 	global DateComparison() { }
 	global Object clone() { }
 	global Boolean equals(Object obj) { }

@@ -1,7 +1,8 @@
 global class MarketingCloudConnector {
-	global List<String> businessUnits;
+	global ConnectApi.BusinessUnitConfig businessUnitConfig;
 	global Long enterpriseId;
 	global String enterpriseName;
+	global String name;
 	global String targetSubType;
 	global MarketingCloudConnector() { }
 	global Object clone() { }
