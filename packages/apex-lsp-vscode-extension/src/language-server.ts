@@ -25,7 +25,10 @@ import {
   registerConfigurationChangeListener,
 } from './configuration';
 import { EXTENSION_CONSTANTS } from './constants';
-import { determineServerMode } from './utils/server-mode';
+import {
+  determineServerMode,
+  getStdApexClassesPathFromContext,
+} from './utils/serverUtils';
 
 /**
  * Global language client instance
@@ -54,10 +57,9 @@ const createEnhancedInitializationOptions = (
   runtimePlatform: RuntimePlatform,
 ): ApexLanguageServerSettings => {
   const settings = getWorkspaceSettings();
-  // Determine server mode using shared utility
   const serverMode = determineServerMode(context);
+  const standardApexLibraryPath = getStdApexClassesPathFromContext(context);
 
-  // Enhanced initialization options with server-config benefits
   // Use settings directly without deep cloning to avoid serialization issues
   const safeSettings = settings || {};
 
@@ -68,8 +70,16 @@ const createEnhancedInitializationOptions = (
         ...safeSettings.apex?.environment,
         runtimePlatform,
         serverMode,
-        enablePerformanceLogging: false,
-        commentCollectionLogLevel: 'error',
+      },
+      resources: {
+        ...safeSettings.apex?.resources,
+        standardApexLibraryPath: standardApexLibraryPath?.toString(),
+      },
+      performance: {
+        ...safeSettings.apex?.performance,
+      },
+      commentCollection: {
+        ...safeSettings.apex?.commentCollection,
       },
     },
   };

@@ -17,7 +17,7 @@ import {
 import { getDebugConfig } from './configuration';
 import { logServerMessage, getWorkerServerOutputChannel } from './logging';
 import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
-import { determineServerMode } from './utils/server-mode';
+import { determineServerMode } from './utils/serverUtils';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -119,14 +119,8 @@ export const createServerOptions = (
     'debug',
   );
 
-  const standardApexLibraryPath = getStdApexClassesPathFromContext(context);
-
   // Determine server mode using shared utility
   const serverMode = determineServerMode(context);
-  logServerMessage(
-    `Standard Apex Library path: ${standardApexLibraryPath?.toString()}`,
-    'debug',
-  );
 
   // Get debug options for the return value
   const debugOptions = getDebugOptions();
@@ -139,8 +133,6 @@ export const createServerOptions = (
         env: {
           NODE_OPTIONS: '--enable-source-maps',
           APEX_LS_MODE: serverMode,
-          APEX_LS_STANDARD_APEX_LIBRARY_PATH:
-            standardApexLibraryPath?.toString(),
         },
       },
     },
@@ -151,8 +143,6 @@ export const createServerOptions = (
         env: {
           NODE_OPTIONS: '--enable-source-maps',
           APEX_LS_MODE: serverMode,
-          APEX_LS_STANDARD_APEX_LIBRARY_PATH:
-            standardApexLibraryPath?.toString(),
         },
         ...(debugOptions && {
           execArgv: debugOptions,
@@ -225,13 +215,4 @@ const handleClientClosed = (): { action: CloseAction } => {
 
   // Always return DoNotRestart since we handle restart logic separately
   return { action: CloseAction.DoNotRestart };
-};
-
-const getStdApexClassesPathFromContext = (context: vscode.ExtensionContext) => {
-  const packageJson = context.extension.packageJSON;
-  const standardApexLibraryPath = packageJson.contributes?.standardApexLibrary;
-  const absolutePath = !standardApexLibraryPath
-    ? undefined
-    : vscode.Uri.joinPath(context.extensionUri, standardApexLibraryPath);
-  return absolutePath;
 };
