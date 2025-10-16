@@ -11,6 +11,10 @@
       "outputs": ["out/**", "*.tsbuildinfo"],
       "inputs": ["src/**/*.ts", "src/generated/**"]
     },
+    "postcompile": {
+      "dependsOn": ["compile", "^postcompile"],
+      "outputs": ["out/**"]
+    },
     "bundle": {
       "dependsOn": ["compile", "^bundle"],
       "outputs": ["dist/**", "out/**"]
@@ -50,6 +54,10 @@
       "dependsOn": ["compile"],
       "cache": false
     },
+    "test:web": {
+      "dependsOn": ["bundle"],
+      "cache": false
+    },
     "lint": {
       "dependsOn": [],
       "outputs": [],
@@ -70,11 +78,14 @@
       "cache": false
     },
     "apex-lsp-vscode-extension#precompile": {
-      "dependsOn": ["^precompile"],
+      "dependsOn": [
+        "^precompile",
+        "@salesforce/apex-lsp-parser-ast#precompile"
+      ],
       "outputs": ["grammars/**"]
     },
     "apex-lsp-vscode-extension#bundle": {
-      "dependsOn": ["compile", "@salesforce/apex-ls#bundle"],
+      "dependsOn": ["postcompile", "@salesforce/apex-ls#bundle"],
       "outputs": ["extension/**", "dist/**", "server-bundle/**"]
     },
     "apex-lsp-vscode-extension#compile": {
@@ -82,9 +93,14 @@
         "precompile",
         "^precompile",
         "^compile",
+        "@salesforce/apex-ls#compile",
         "@salesforce/apex-lsp-parser-ast#precompile"
       ],
       "outputs": ["out/**", "*.tsbuildinfo"]
+    },
+    "apex-lsp-vscode-extension#postcompile": {
+      "dependsOn": ["compile", "@salesforce/apex-lsp-parser-ast#compile"],
+      "outputs": ["out/**"]
     },
     "apex-lsp-vscode-extension#package": {
       "dependsOn": ["bundle", "^package"],

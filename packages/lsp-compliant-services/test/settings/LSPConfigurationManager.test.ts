@@ -9,8 +9,10 @@
 import { LSPConfigurationManager } from '../../src/settings/LSPConfigurationManager';
 import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilitiesManager';
 import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
-import { ExtendedServerCapabilities } from '../../src/capabilities/ApexLanguageServerCapabilities';
-import { ApexLanguageServerSettings } from '../../src/settings/ApexLanguageServerSettings';
+import {
+  ApexLanguageServerSettings,
+  ExtendedServerCapabilities,
+} from '@salesforce/apex-lsp-shared';
 
 // Mock the ApexCapabilitiesManager
 jest.mock('../../src/capabilities/ApexCapabilitiesManager');
@@ -47,35 +49,43 @@ describe('LSPConfigurationManager', () => {
   } as ExtendedServerCapabilities;
 
   const mockSettings: ApexLanguageServerSettings = {
-    commentCollection: {
-      enableCommentCollection: true,
-      includeSingleLineComments: false,
-      associateCommentsWithSymbols: false,
-      enableForDocumentChanges: true,
-      enableForDocumentOpen: true,
-      enableForDocumentSymbols: false,
-      enableForFoldingRanges: false,
-    },
-    performance: {
-      commentCollectionMaxFileSize: 102400,
-      useAsyncCommentProcessing: true,
-      documentChangeDebounceMs: 300,
-    },
-    environment: {
-      environment: 'node',
-      enablePerformanceLogging: false,
-      commentCollectionLogLevel: 'info',
-    },
-    resources: {
-      loadMode: 'full',
-    },
-    findMissingArtifact: {
-      enabled: true,
-      maxCandidatesToOpen: 3,
-      timeoutMsHint: 2000,
-      blockingWaitTimeoutMs: 5000,
-      indexingBarrierPollMs: 100,
-      enablePerfMarks: false,
+    apex: {
+      commentCollection: {
+        enableCommentCollection: true,
+        includeSingleLineComments: false,
+        associateCommentsWithSymbols: false,
+        enableForDocumentChanges: true,
+        enableForDocumentOpen: true,
+        enableForDocumentSymbols: false,
+        enableForFoldingRanges: false,
+      },
+      performance: {
+        commentCollectionMaxFileSize: 102400,
+        useAsyncCommentProcessing: true,
+        documentChangeDebounceMs: 300,
+      },
+      environment: {
+        runtimePlatform: 'desktop',
+        serverMode: 'production',
+        enablePerformanceLogging: false,
+        commentCollectionLogLevel: 'info',
+      },
+      resources: {
+        loadMode: 'full',
+      },
+      findMissingArtifact: {
+        enabled: true,
+        maxCandidatesToOpen: 3,
+        timeoutMsHint: 2000,
+        blockingWaitTimeoutMs: 5000,
+        indexingBarrierPollMs: 100,
+        enablePerfMarks: false,
+      },
+      worker: {
+        logLevel: 'info',
+      },
+      version: undefined,
+      logLevel: 'info',
     },
   };
 
@@ -109,6 +119,10 @@ describe('LSPConfigurationManager', () => {
         includeSingleLineComments: false,
         associateComments: false,
       }),
+      getServerMode: jest.fn().mockReturnValue('production'),
+      getEnablePerformanceLogging: jest.fn().mockReturnValue(false),
+      getRuntimePlatform: jest.fn().mockReturnValue('desktop'),
+      getDefaultSettings: jest.fn().mockReturnValue(mockSettings),
     } as unknown as jest.Mocked<ApexSettingsManager>;
 
     (ApexCapabilitiesManager.getInstance as jest.Mock).mockReturnValue(
@@ -255,27 +269,31 @@ describe('LSPConfigurationManager', () => {
     it('should include findMissingArtifact settings in current settings', () => {
       const settings = configurationManager.getSettings();
 
-      expect(settings.findMissingArtifact).toBeDefined();
-      expect(settings.findMissingArtifact.enabled).toBe(true);
-      expect(settings.findMissingArtifact.maxCandidatesToOpen).toBe(3);
-      expect(settings.findMissingArtifact.timeoutMsHint).toBe(2000);
-      expect(settings.findMissingArtifact.blockingWaitTimeoutMs).toBe(5000);
-      expect(settings.findMissingArtifact.indexingBarrierPollMs).toBe(100);
-      expect(settings.findMissingArtifact.enablePerfMarks).toBe(false);
+      expect(settings.apex.findMissingArtifact).toBeDefined();
+      expect(settings.apex.findMissingArtifact.enabled).toBe(true);
+      expect(settings.apex.findMissingArtifact.maxCandidatesToOpen).toBe(3);
+      expect(settings.apex.findMissingArtifact.timeoutMsHint).toBe(2000);
+      expect(settings.apex.findMissingArtifact.blockingWaitTimeoutMs).toBe(
+        5000,
+      );
+      expect(settings.apex.findMissingArtifact.indexingBarrierPollMs).toBe(100);
+      expect(settings.apex.findMissingArtifact.enablePerfMarks).toBe(false);
     });
 
     it('should update settings from LSP configuration', () => {
-      const config = { apex: { logLevel: 'debug' } };
+      const config = { settings: { apex: { logLevel: 'debug' } } };
       const result = configurationManager.updateFromLSPConfiguration(config);
 
       expect(
         mockSettingsManager.updateFromLSPConfiguration,
-      ).toHaveBeenCalledWith(config);
+      ).toHaveBeenCalledWith(config.settings);
       expect(result).toBe(true);
     });
 
     it('should update settings directly', () => {
-      const newSettings = { logLevel: 'debug' };
+      const newSettings = {
+        apex: { logLevel: 'debug' },
+      } as Partial<ApexLanguageServerSettings>;
       configurationManager.updateSettings(newSettings);
 
       expect(mockSettingsManager.updateSettings).toHaveBeenCalledWith(
@@ -296,14 +314,14 @@ describe('LSPConfigurationManager', () => {
 
   describe('Environment Management', () => {
     it('should get current environment', () => {
-      const environment = configurationManager.getEnvironment();
-      expect(environment).toBe('node'); // Default in test environment
+      const environment = configurationManager.getRuntimePlatform();
+      expect(environment).toBe('desktop'); // Default in test environment
     });
 
     it('should set environment and update configurations', () => {
-      configurationManager.setEnvironment('browser');
+      configurationManager.setEnvironment('web');
 
-      expect(configurationManager.getEnvironment()).toBe('browser');
+      expect(configurationManager.getRuntimePlatform()).toBe('web');
       expect(mockSettingsManager.updateSettings).toHaveBeenCalled();
     });
   });
@@ -375,7 +393,7 @@ describe('LSPConfigurationManager', () => {
 
   describe('Configuration Validation', () => {
     it('should validate configuration object', () => {
-      const config = { apex: { logLevel: 'debug' } };
+      const config = mockSettings;
       const result = configurationManager.validateConfiguration(config);
 
       expect(result).toBeDefined();
@@ -388,22 +406,24 @@ describe('LSPConfigurationManager', () => {
       const settings = configurationManager.getDefaultSettings();
 
       expect(settings).toBeDefined();
-      expect(settings.commentCollection).toBeDefined();
-      expect(settings.performance).toBeDefined();
-      expect(settings.environment).toBeDefined();
-      expect(settings.resources).toBeDefined();
-      expect(settings.findMissingArtifact).toBeDefined();
+      expect(settings.apex.commentCollection).toBeDefined();
+      expect(settings.apex.performance).toBeDefined();
+      expect(settings.apex.environment).toBeDefined();
+      expect(settings.apex.resources).toBeDefined();
+      expect(settings.apex.findMissingArtifact).toBeDefined();
     });
 
     it('should have correct findMissingArtifact settings', () => {
       const settings = configurationManager.getDefaultSettings();
 
-      expect(settings.findMissingArtifact.enabled).toBe(true);
-      expect(settings.findMissingArtifact.maxCandidatesToOpen).toBe(3);
-      expect(settings.findMissingArtifact.timeoutMsHint).toBe(2000);
-      expect(settings.findMissingArtifact.blockingWaitTimeoutMs).toBe(5000);
-      expect(settings.findMissingArtifact.indexingBarrierPollMs).toBe(100);
-      expect(settings.findMissingArtifact.enablePerfMarks).toBe(false);
+      expect(settings.apex.findMissingArtifact.enabled).toBe(true);
+      expect(settings.apex.findMissingArtifact.maxCandidatesToOpen).toBe(3);
+      expect(settings.apex.findMissingArtifact.timeoutMsHint).toBe(2000);
+      expect(settings.apex.findMissingArtifact.blockingWaitTimeoutMs).toBe(
+        5000,
+      );
+      expect(settings.apex.findMissingArtifact.indexingBarrierPollMs).toBe(100);
+      expect(settings.apex.findMissingArtifact.enablePerfMarks).toBe(false);
     });
   });
 
@@ -424,7 +444,10 @@ describe('LSPConfigurationManager', () => {
 
   describe('Constructor Options', () => {
     it('should initialize with custom mode', () => {
-      const _manager = new LSPConfigurationManager({ mode: 'development' });
+      // Mock getServerMode to return 'development' for this test
+      mockSettingsManager.getServerMode.mockReturnValue('development');
+
+      const _manager = new LSPConfigurationManager({});
 
       expect(mockCapabilitiesManager.setMode).toHaveBeenCalledWith(
         'development',
@@ -440,18 +463,19 @@ describe('LSPConfigurationManager', () => {
     });
 
     it('should initialize with custom environment', () => {
-      const _manager = new LSPConfigurationManager({ environment: 'browser' });
+      // The constructor doesn't accept runtimePlatform parameter
+      // Environment is auto-detected, so we test the default behavior
+      const _manager = new LSPConfigurationManager({});
 
-      expect(_manager.getEnvironment()).toBe('browser');
+      expect(_manager.getRuntimePlatform()).toBe('desktop');
     });
 
     it('should initialize with initial settings', () => {
-      const initialSettings = { logLevel: 'debug' };
-      const _manager = new LSPConfigurationManager({ initialSettings });
+      const _manager = new LSPConfigurationManager({});
 
       expect(ApexSettingsManager.getInstance).toHaveBeenCalledWith(
-        initialSettings,
-        'node',
+        undefined,
+        'desktop',
       );
     });
   });

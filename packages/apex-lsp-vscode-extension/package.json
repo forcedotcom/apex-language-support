@@ -20,8 +20,8 @@
     "Linters",
     "Snippets"
   ],
-  "main": "./dist/extension.js",
-  "browser": "./dist/extension.web.js",
+  "main": "./out/extension.js",
+  "browser": "./out/extension.web.js",
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:apex",
@@ -105,6 +105,7 @@
         "path": "./snippets/soql.json"
       }
     ],
+    "standardApexLibrary": "./out/resources/StandardApexLibrary.zip",
     "configuration": {
       "title": "Apex Language Server",
       "properties": {
@@ -298,8 +299,9 @@
   "scripts": {
     "precompile": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars . && shx mkdir -p out && shx cp package.nls*.json language-configuration.json out/",
     "compile": "tsc --build",
+    "postcompile": "shx mkdir -p out/resources && shx cp ../apex-parser-ast/out/resources/StandardApexLibrary.zip out/resources/",
     "bundle": "tsup",
-    "build": "npm run precompile && npm run compile && npm run bundle",
+    "build": "npm run precompile && npm run compile && npm run postcompile && npm run bundle",
     "rebuild": "npm run clean && npm run build",
     "copy:files": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars .",
     "package": "cd dist && vsce package --out ../",

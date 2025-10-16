@@ -9,6 +9,19 @@
 import * as vscode from 'vscode';
 import { createServerOptions, createClientOptions } from '../src/server-config';
 
+// Mock vscode.Uri.joinPath
+jest.mock('vscode', () => ({
+  ...jest.requireActual('vscode'),
+  Uri: {
+    ...jest.requireActual('vscode').Uri,
+    joinPath: jest.fn((baseUri: any, ...pathSegments: string[]) => {
+      const basePath = baseUri.fsPath || baseUri.path;
+      const joinedPath = [basePath, ...pathSegments].join('/');
+      return { fsPath: joinedPath, path: joinedPath };
+    }),
+  },
+}));
+
 // Mock the configuration module
 jest.mock('../src/configuration', () => ({
   getDebugConfig: jest.fn().mockReturnValue({ mode: 'off', port: 6009 }),
@@ -65,6 +78,14 @@ describe('Server Config Module', () => {
       subscriptions: [],
       asAbsolutePath: jest.fn((path: string) => `/mock/path/${path}`),
       extensionMode: vscode.ExtensionMode.Development,
+      extension: {
+        packageJSON: {
+          contributes: {
+            standardApexLibrary: 'path/to/standard/apex/library',
+          },
+        },
+      },
+      extensionUri: { fsPath: '/mock/extension/path' } as vscode.Uri,
     } as unknown as vscode.ExtensionContext;
 
     // Mock workspace configuration

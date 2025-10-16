@@ -17,6 +17,7 @@ jest.mock('../src/language-server', () => ({
   startLanguageServer: jest.fn().mockResolvedValue(undefined),
   restartLanguageServer: jest.fn().mockResolvedValue(undefined),
   stopLanguageServer: jest.fn().mockResolvedValue(undefined),
+  getClient: jest.fn().mockReturnValue(null), // Return null to simulate no existing client
 }));
 
 import * as vscode from 'vscode';
@@ -73,7 +74,6 @@ describe('Apex Language Server Extension ()', () => {
     });
 
     const originalGetConfiguration = vscode.workspace.getConfiguration;
-    // @ts-expect-error - override for test
     vscode.workspace.getConfiguration = mockGetConfiguration;
 
     try {
@@ -81,7 +81,6 @@ describe('Apex Language Server Extension ()', () => {
       await Promise.resolve();
       expect(mockGetConfiguration).toHaveBeenCalledWith('apex-ls-ts');
     } finally {
-      // @ts-expect-error - restore
       vscode.workspace.getConfiguration = originalGetConfiguration;
     }
   });

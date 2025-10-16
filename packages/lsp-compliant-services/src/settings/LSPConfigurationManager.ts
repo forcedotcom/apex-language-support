@@ -7,25 +7,30 @@
  */
 
 import { ServerCapabilities } from 'vscode-languageserver-protocol';
-import type { Connection } from 'vscode-languageserver';
+import type {
+  Connection,
+  DidChangeConfigurationParams,
+} from 'vscode-languageserver';
 
-import {
-  ApexCapabilitiesManager,
-  ServerMode,
-} from '../capabilities/ApexCapabilitiesManager';
-import { ExtendedServerCapabilities } from '../capabilities/ApexLanguageServerCapabilities';
+import { ApexCapabilitiesManager } from '../capabilities/ApexCapabilitiesManager';
 import {
   ApexSettingsManager,
   SettingsChangeListener,
 } from './ApexSettingsManager';
 import {
-  ApexLanguageServerSettings,
   mergeWithDefaults,
   validateApexSettings,
 } from './ApexLanguageServerSettings';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  ApexLanguageServerSettings,
+  ExtendedServerCapabilities,
+  ResourceLoadMode,
+  RuntimePlatform,
+  ServerMode,
+  getLogger,
+} from '@salesforce/apex-lsp-shared';
 
-declare const self: any;
+// declare const self: any;
 
 /**
  * Runtime dependencies that can be injected into the LSP server
@@ -42,17 +47,8 @@ export interface LSPRuntimeDependencies {
  * Configuration options for the LSP server
  */
 export interface LSPConfigurationOptions {
-  /** The server mode to use */
-  mode?: ServerMode;
-
   /** Custom capabilities to override defaults */
   customCapabilities?: Partial<ExtendedServerCapabilities>;
-
-  /** Initial settings for the language server */
-  initialSettings?: Partial<ApexLanguageServerSettings>;
-
-  /** Environment detection (node, browser, web-worker) */
-  environment?: 'node' | 'browser' | 'web-worker';
 
   /** Whether to auto-detect environment and mode */
   autoDetectEnvironment?: boolean;
@@ -74,30 +70,31 @@ export class LSPConfigurationManager {
   private capabilitiesManager: ApexCapabilitiesManager;
   private settingsManager: ApexSettingsManager;
   private customCapabilities?: Partial<ExtendedServerCapabilities>;
-  private environment: 'node' | 'browser' | 'web-worker';
+  private runtimePlatform: RuntimePlatform;
   private autoDetectEnvironment: boolean;
   private settingsChangeListener?: () => void;
   private runtimeDependencies?: LSPRuntimeDependencies;
+  private readonly logger = getLogger();
 
   constructor(options: LSPConfigurationOptions = {}) {
     this.capabilitiesManager = ApexCapabilitiesManager.getInstance();
-    this.environment = options.environment || this.detectEnvironment();
+    this.runtimePlatform = this.detectEnvironment();
     this.autoDetectEnvironment = options.autoDetectEnvironment ?? true;
 
     // Initialize settings manager
     this.settingsManager = ApexSettingsManager.getInstance(
-      options.initialSettings,
-      this.environment === 'browser' ? 'browser' : 'node',
+      undefined,
+      this.runtimePlatform === 'web' ? 'web' : 'desktop',
     );
 
     // Store runtime dependencies
     this.runtimeDependencies = options.runtime;
 
-    // Set the mode if provided, otherwise auto-detect
-    if (options.mode) {
-      this.capabilitiesManager.setMode(options.mode);
-    } else if (this.autoDetectEnvironment) {
+    // Auto-detect mode or use production default
+    if (this.autoDetectEnvironment) {
       this.autoDetectMode();
+    } else {
+      this.capabilitiesManager.setMode('production');
     }
 
     // Store custom capabilities if provided
@@ -175,6 +172,15 @@ export class LSPConfigurationManager {
   }
 
   /**
+   * Update server mode dynamically
+   * @param mode - The new server mode to set
+   */
+  public updateServerMode(mode: ServerMode): void {
+    this.capabilitiesManager.setMode(mode);
+    this.logger.debug(`Server mode updated to: ${mode}`);
+  }
+
+  /**
    * Set custom capabilities to override defaults
    * @param capabilities - The custom capabilities to apply
    */
@@ -224,11 +230,309 @@ export class LSPConfigurationManager {
   }
 
   /**
-   * Get current settings
+   * Get current settings (immutable copy)
    * @returns The current language server settings
    */
   public getSettings(): ApexLanguageServerSettings {
-    return this.settingsManager.getSettings();
+    return JSON.parse(JSON.stringify(this.settingsManager.getSettings()));
+  }
+
+  /**
+   * Get capabilities manager (read-only access)
+   * @returns The capabilities manager instance
+   */
+  public getCapabilitiesManager() {
+    return this.capabilitiesManager;
+  }
+
+  /**
+   * Get settings manager (read-only access)
+   * @returns The settings manager instance
+   */
+  public getSettingsManager() {
+    return this.settingsManager;
+  }
+
+  /**
+   * Get runtime platform
+   * @returns The current runtime platform
+   */
+  public getRuntimePlatform(): RuntimePlatform {
+    return this.runtimePlatform;
+  }
+
+  /**
+   * Check if auto-detect environment is enabled
+   * @returns True if auto-detect is enabled
+   */
+  public isAutoDetectEnabled(): boolean {
+    return this.autoDetectEnvironment;
+  }
+
+  /**
+   * Set initial settings for the language server
+   * @param settings - Partial ApexLanguageServerSettings to initialize with
+   * @returns True if the settings were set successfully
+   */
+  public setInitialSettings(
+    settings: Partial<ApexLanguageServerSettings>,
+  ): boolean {
+    try {
+      if (!settings || !settings.apex) {
+        this.logger.debug('No apex settings provided, u');
+        return true;
+      }
+
+      const apexSettings = settings.apex;
+      let hasChanges = false;
+
+      // Check and set environment settings
+      if (apexSettings.environment) {
+        const envSettings = apexSettings.environment;
+
+        // Server mode
+        if (envSettings.serverMode !== undefined) {
+          const changed = this.settingsManager.setServerMode(
+            envSettings.serverMode,
+          );
+          if (changed) {
+            this.capabilitiesManager.setMode(envSettings.serverMode);
+            hasChanges = true;
+          }
+        }
+
+        // Runtime platform
+        if (envSettings.runtimePlatform !== undefined) {
+          const changed = this.settingsManager.setRuntimePlatform(
+            envSettings.runtimePlatform,
+          );
+          if (changed) {
+            this.runtimePlatform = envSettings.runtimePlatform;
+            hasChanges = true;
+          }
+        }
+
+        // Enable performance logging
+        if (envSettings.enablePerformanceLogging !== undefined) {
+          const changed = this.settingsManager.setEnablePerformanceLogging(
+            envSettings.enablePerformanceLogging,
+          );
+          if (changed) {
+            hasChanges = true;
+          }
+        }
+
+        // Comment collection log level
+        if (envSettings.commentCollectionLogLevel !== undefined) {
+          const currentLevel =
+            this.settingsManager.getSettings().apex.environment
+              .commentCollectionLogLevel;
+          if (currentLevel !== envSettings.commentCollectionLogLevel) {
+            this.settingsManager.updateSettings({
+              apex: {
+                environment: {
+                  commentCollectionLogLevel:
+                    envSettings.commentCollectionLogLevel,
+                },
+              },
+            } as Partial<ApexLanguageServerSettings>);
+            hasChanges = true;
+          }
+        }
+      }
+
+      // Check and set resource settings
+      if (apexSettings.resources) {
+        const resourceSettings = apexSettings.resources;
+
+        // Standard Apex library path
+        if (resourceSettings.standardApexLibraryPath !== undefined) {
+          const changed = this.settingsManager.setStandardApexLibraryPath(
+            resourceSettings.standardApexLibraryPath,
+          );
+          if (changed) {
+            hasChanges = true;
+          }
+        }
+
+        // Load mode
+        if (resourceSettings.loadMode !== undefined) {
+          const currentMode =
+            this.settingsManager.getSettings().apex.resources.loadMode;
+          if (currentMode !== resourceSettings.loadMode) {
+            this.settingsManager.updateSettings({
+              apex: {
+                resources: {
+                  loadMode: resourceSettings.loadMode,
+                },
+              },
+            } as Partial<ApexLanguageServerSettings>);
+            hasChanges = true;
+          }
+        }
+      }
+
+      // Check and set log levels
+      if (apexSettings.logLevel !== undefined) {
+        const changed = this.settingsManager.setLogLevel(apexSettings.logLevel);
+        if (changed) {
+          hasChanges = true;
+        }
+      }
+
+      if (apexSettings.worker?.logLevel !== undefined) {
+        const changed = this.settingsManager.setWorkerLogLevel(
+          apexSettings.worker.logLevel,
+        );
+        if (changed) {
+          hasChanges = true;
+        }
+      }
+
+      // Check and set version
+      if (apexSettings.version !== undefined) {
+        const changed = this.settingsManager.setVersion(apexSettings.version);
+        if (changed) {
+          hasChanges = true;
+        }
+      }
+
+      // Check and set comment collection settings
+      if (apexSettings.commentCollection) {
+        const currentCommentCollection =
+          this.settingsManager.getSettings().apex.commentCollection;
+        const newCommentCollection = apexSettings.commentCollection;
+
+        // Check each property individually
+        const commentCollectionChanges: any = {};
+        let hasCommentChanges = false;
+
+        Object.keys(newCommentCollection).forEach((key) => {
+          const typedKey = key as keyof typeof newCommentCollection;
+          if (
+            currentCommentCollection[typedKey] !==
+            newCommentCollection[typedKey]
+          ) {
+            commentCollectionChanges[typedKey] = newCommentCollection[typedKey];
+            hasCommentChanges = true;
+          }
+        });
+
+        if (hasCommentChanges) {
+          this.settingsManager.updateSettings({
+            apex: {
+              commentCollection: commentCollectionChanges,
+            },
+          } as Partial<ApexLanguageServerSettings>);
+          hasChanges = true;
+        }
+      }
+
+      // Check and set performance settings
+      if (apexSettings.performance) {
+        const currentPerformance =
+          this.settingsManager.getSettings().apex.performance;
+        const newPerformance = apexSettings.performance;
+
+        const performanceChanges: any = {};
+        let hasPerformanceChanges = false;
+
+        Object.keys(newPerformance).forEach((key) => {
+          const typedKey = key as keyof typeof newPerformance;
+          if (currentPerformance[typedKey] !== newPerformance[typedKey]) {
+            performanceChanges[typedKey] = newPerformance[typedKey];
+            hasPerformanceChanges = true;
+          }
+        });
+
+        if (hasPerformanceChanges) {
+          this.settingsManager.updateSettings({
+            apex: {
+              performance: performanceChanges,
+            },
+          } as Partial<ApexLanguageServerSettings>);
+          hasChanges = true;
+        }
+      }
+
+      // Check and set missing artifact settings
+      if (apexSettings.findMissingArtifact) {
+        const currentMissingArtifact =
+          this.settingsManager.getSettings().apex.findMissingArtifact;
+        const newMissingArtifact = apexSettings.findMissingArtifact;
+
+        const missingArtifactChanges: any = {};
+        let hasMissingArtifactChanges = false;
+
+        Object.keys(newMissingArtifact).forEach((key) => {
+          const typedKey = key as keyof typeof newMissingArtifact;
+          if (
+            currentMissingArtifact[typedKey] !== newMissingArtifact[typedKey]
+          ) {
+            missingArtifactChanges[typedKey] = newMissingArtifact[typedKey];
+            hasMissingArtifactChanges = true;
+          }
+        });
+
+        if (hasMissingArtifactChanges) {
+          this.settingsManager.updateSettings({
+            apex: {
+              findMissingArtifact: missingArtifactChanges,
+            },
+          } as Partial<ApexLanguageServerSettings>);
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        this.logger.debug('Initial settings applied with changes detected');
+      } else {
+        this.logger.debug('Initial settings applied - no changes detected');
+      }
+
+      return true;
+    } catch (error) {
+      this.logger.error(`Failed to set initial settings: ${error}`);
+      return false;
+    }
+  }
+
+  /**
+   * Safely update a specific setting
+   * @param path - The setting path (e.g., 'apex.environment.serverMode')
+   * @param value - The new value
+   * @returns True if the setting was updated successfully
+   */
+  public updateSetting(path: string, value: any): boolean {
+    try {
+      // Use the existing updateSettings method with a nested object
+      const updateObj = this.createNestedObject(path, value);
+      this.settingsManager.updateSettings(updateObj);
+      return true;
+    } catch (error) {
+      this.logger.error(`Failed to update setting ${path}: ${error}`);
+      return false;
+    }
+  }
+
+  /**
+   * Create a nested object from a dot-notation path
+   * @param path - The dot-notation path (e.g., 'apex.environment.serverMode')
+   * @param value - The value to set
+   * @returns The nested object
+   */
+  private createNestedObject(path: string, value: any): any {
+    const keys = path.split('.');
+    const result: any = {};
+    let current = result;
+
+    for (let i = 0; i < keys.length - 1; i++) {
+      current[keys[i]] = {};
+      current = current[keys[i]];
+    }
+
+    current[keys[keys.length - 1]] = value;
+    return result;
   }
 
   /**
@@ -236,12 +540,18 @@ export class LSPConfigurationManager {
    * @param config - The LSP configuration object
    * @returns True if the configuration was successfully applied
    */
-  public updateFromLSPConfiguration(config: any): boolean {
-    getLogger().error(
-      () =>
-        `Updating Apex Language Server settings: ${JSON.stringify(config, null, 2)}`,
-    );
-    return this.settingsManager.updateFromLSPConfiguration(config);
+  public updateFromLSPConfiguration(
+    config: DidChangeConfigurationParams,
+  ): boolean {
+    getLogger().error('Updating Apex Language Server settings');
+
+    // Handle null or undefined settings
+    if (!config || config.settings === null || config.settings === undefined) {
+      getLogger().warn('Received null or undefined settings, skipping update');
+      return false;
+    }
+
+    return this.settingsManager.updateFromLSPConfiguration(config.settings);
   }
 
   /**
@@ -280,25 +590,17 @@ export class LSPConfigurationManager {
   }
 
   /**
-   * Get the current environment
-   * @returns The current environment
-   */
-  public getEnvironment(): 'node' | 'browser' | 'web-worker' {
-    return this.environment;
-  }
-
-  /**
    * Set the environment and update related configurations
-   * @param environment - The environment to set
+   * @param runtimePlatform - The environment to set
    */
-  public setEnvironment(environment: 'node' | 'browser' | 'web-worker'): void {
-    this.environment = environment;
+  public setEnvironment(runtimePlatform: RuntimePlatform): void {
+    this.runtimePlatform = runtimePlatform;
 
     // Update settings manager with new environment
     const currentSettings = this.settingsManager.getSettings();
     const newSettings = mergeWithDefaults(
       currentSettings,
-      environment === 'browser' ? 'browser' : 'node',
+      runtimePlatform === 'web' ? 'web' : 'desktop',
     );
     this.settingsManager.updateSettings(newSettings);
 
@@ -353,7 +655,7 @@ export class LSPConfigurationManager {
    * Get the resource loading mode
    * @returns The resource loading mode
    */
-  public getResourceLoadMode(): 'lazy' | 'full' {
+  public getResourceLoadMode(): ResourceLoadMode {
     return this.settingsManager.getResourceLoadMode();
   }
 
@@ -362,7 +664,7 @@ export class LSPConfigurationManager {
    * @param config - The configuration object to validate
    * @returns Validation result
    */
-  public validateConfiguration(config: any) {
+  public validateConfiguration(config: ApexLanguageServerSettings) {
     return validateApexSettings(config);
   }
 
@@ -372,7 +674,7 @@ export class LSPConfigurationManager {
    */
   public getDefaultSettings(): ApexLanguageServerSettings {
     return ApexSettingsManager.getDefaultSettings(
-      this.environment === 'browser' ? 'browser' : 'node',
+      this.runtimePlatform === 'web' ? 'web' : 'desktop',
     );
   }
 
@@ -399,54 +701,43 @@ export class LSPConfigurationManager {
    * Auto-detect the current environment
    * @returns The detected environment
    */
-  private detectEnvironment(): 'node' | 'browser' | 'web-worker' {
+  private detectEnvironment(): RuntimePlatform {
     // Check for browser environment
     if (typeof globalThis !== 'undefined' && 'window' in globalThis) {
-      return 'browser';
+      return 'web';
     }
-    // Check for web worker environment (both classic and ES module workers)
-    if (
-      typeof globalThis !== 'undefined' &&
-      'self' in globalThis &&
-      // Check for worker-specific properties that exist in both classic and ES module workers
-      ('DedicatedWorkerGlobalScope' in globalThis ||
-        'SharedWorkerGlobalScope' in globalThis ||
-        'ServiceWorkerGlobalScope' in globalThis ||
-        // For ES module workers, check if we're in a worker context
-        (typeof self !== 'undefined' && 'postMessage' in self))
-    ) {
-      return 'web-worker';
-    }
+    // TODO: check if we need to support web worker
+    // // Check for web worker environment (both classic and ES module workers)
+    // if (
+    //   typeof globalThis !== 'undefined' &&
+    //   'self' in globalThis &&
+    //   // Check for worker-specific properties that exist in both classic and ES module workers
+    //   ('DedicatedWorkerGlobalScope' in globalThis ||
+    //     'SharedWorkerGlobalScope' in globalThis ||
+    //     'ServiceWorkerGlobalScope' in globalThis ||
+    //     // For ES module workers, check if we're in a worker context
+    //     (typeof self !== 'undefined' && 'postMessage' in self))
+    // ) {
+    //   return 'desktop';
+    // }
     // Default to node environment
-    return 'node';
+    return 'desktop';
   }
 
   /**
    * Auto-detect the appropriate server mode based on environment and settings
    */
   private autoDetectMode(): void {
-    const settings = this.settingsManager.getSettings();
+    const serverMode = this.settingsManager.getServerMode();
 
     // Use development mode if performance logging is enabled
-    if (settings.environment.enablePerformanceLogging) {
+    if (this.settingsManager.getEnablePerformanceLogging()) {
       this.capabilitiesManager.setMode('development');
       return;
     }
 
-    // Use production mode for browser environments by default
-    if (this.environment === 'browser') {
-      this.capabilitiesManager.setMode('production');
-      return;
-    }
-
-    // Use development mode for node environments in development
-    if (this.environment === 'node' && process.env.NODE_ENV === 'development') {
-      this.capabilitiesManager.setMode('development');
-      return;
-    }
-
-    // Default to production mode
-    this.capabilitiesManager.setMode('production');
+    // Default to server mode from settings
+    this.capabilitiesManager.setMode(serverMode);
   }
 
   /**
@@ -456,13 +747,12 @@ export class LSPConfigurationManager {
     this.settingsChangeListener = this.settingsManager.onSettingsChange(
       (newSettings) => {
         // Handle settings changes that might affect capabilities
-        if (
-          newSettings.environment.enablePerformanceLogging &&
-          this.capabilitiesManager.getMode() === 'production'
-        ) {
+        if (this.settingsManager.getEnablePerformanceLogging()) {
           // Switch to development mode if performance logging is enabled
           this.capabilitiesManager.setMode('development');
         }
+        // Note: The settings are already updated when this listener is triggered
+        // We only need to react to the changes, not update the settings again
       },
     );
   }

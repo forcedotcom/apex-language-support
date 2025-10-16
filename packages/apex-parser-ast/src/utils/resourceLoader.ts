@@ -7,7 +7,11 @@
  */
 
 import { unzipSync } from 'fflate';
-import { getLogger, detectEnvironment } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  detectEnvironment,
+  formattedError,
+} from '@salesforce/apex-lsp-shared';
 
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
@@ -17,6 +21,8 @@ import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolColle
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
 import { UriUtils } from './ResourceUtils';
+// Dynamic import to handle generated file that may not exist during initial compilation
+let loadZipDataSync: (() => Buffer) | null = null;
 
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
@@ -150,32 +156,40 @@ export class ResourceLoader {
    */
   private loadZipForNodeSync(): void {
     try {
-      // Try CJS approach first (more reliable)
-      const { loadZipDataSync } = require('../generated/zipResourceLoader.cjs');
+      // Load the TypeScript loader dynamically if not already loaded
+      if (!loadZipDataSync) {
+        const loader = require('../generated/zipResourceLoader');
+        loadZipDataSync = loader.loadZipDataSync;
+      }
+
+      // Use the TypeScript loader
+      console.log('Loading ZIP data using TypeScript loader');
+      if (!loadZipDataSync) {
+        throw new Error('Failed to load TypeScript loader');
+      }
       const zipData = loadZipDataSync();
       this.zipBuffer = new Uint8Array(zipData);
       this.extractZipFiles();
-    } catch (cjsError) {
       this.logger.debug(
-        () => 'CJS loading failed, trying direct require.resolve',
+        () => 'Successfully loaded ZIP using TypeScript loader',
+      );
+    } catch (tsError) {
+      console.error(
+        `TypeScript loader failed, trying direct file access: ${formattedError(tsError, { includeStack: true })}`,
+      );
+      this.logger.debug(
+        () =>
+          `TypeScript loader failed, trying direct file access: ${formattedError(tsError, { includeStack: true })}`,
       );
 
       // Fallback - try multiple possible paths
       const { readFileSync } = require('fs');
-      const { join } = require('path');
 
       // Try different possible locations
       const possiblePaths = [
         '../resources/StandardApexLibrary.zip', // From src/utils/
         '../out/resources/StandardApexLibrary.zip', // From src/utils/ to out/
         '../../out/resources/StandardApexLibrary.zip', // From src/generated/
-        // Only add __dirname paths if available (not in web workers)
-        ...(typeof __dirname !== 'undefined'
-          ? [
-              join(__dirname, '../resources/StandardApexLibrary.zip'), // Absolute path
-              join(__dirname, '../out/resources/StandardApexLibrary.zip'), // Absolute path to out/
-            ]
-          : []),
       ];
 
       let zipData: Buffer | null = null;

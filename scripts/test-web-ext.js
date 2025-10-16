@@ -157,6 +157,9 @@ async function runWebExtensionTests() {
       '../packages/apex-lsp-vscode-extension',
     );
     const extensionDistPath = path.resolve(extensionDevelopmentPath, 'dist');
+
+    // Use the dist directory for VS Code Web since that's where the bundled files are
+    const extensionPath = extensionDistPath;
     const workspacePath = path.resolve(__dirname, './test-workspace');
 
     // Verify required paths exist
@@ -468,7 +471,7 @@ async function runWebExtensionTests() {
     );
 
     console.log('🌐 Starting VS Code Web Extension Tests...');
-    console.log(`📁 Extension path: ${extensionDevelopmentPath}`);
+    console.log(`📁 Extension path: ${extensionPath}`);
     console.log(`📂 Workspace path: ${workspacePath}`);
 
     // Setup output file for extension host logs
@@ -485,7 +488,7 @@ async function runWebExtensionTests() {
 
     // Run the web extension tests (without test files - just load the extension)
     const testResult = await runTests({
-      extensionDevelopmentPath,
+      extensionDevelopmentPath: extensionPath,
       // No extensionTestsPath - just test extension loading and activation
       headless: process.argv.includes('--headless'), // Browser visible by default
       browserType: 'chromium',

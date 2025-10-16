@@ -37,6 +37,7 @@ export const EXTENSION_CONSTANTS = {
     INFO: 'apex-ls-ts.setLogLevel.info',
     DEBUG: 'apex-ls-ts.setLogLevel.debug',
   },
+  EXTENSION_NAME: 'apex-language-server-extension',
 } as const;
 
 /**

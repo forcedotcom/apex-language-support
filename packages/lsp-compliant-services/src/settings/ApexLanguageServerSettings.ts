@@ -6,153 +6,53 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-/**
- * Comment collection settings for different LSP operations
- */
-export interface CommentCollectionSettings {
-  /** Whether to collect comments during document parsing (default: true) */
-  enableCommentCollection: boolean;
-
-  /** Whether to include single-line (//) comments (default: false) */
-  includeSingleLineComments: boolean;
-
-  /** Whether to associate comments with symbols for enhanced features (default: false) */
-  associateCommentsWithSymbols: boolean;
-
-  /** Enable comment collection for document change events (default: true) */
-  enableForDocumentChanges: boolean;
-
-  /** Enable comment collection for document open events (default: true) */
-  enableForDocumentOpen: boolean;
-
-  /** Enable comment collection for document symbols (default: false for performance) */
-  enableForDocumentSymbols: boolean;
-
-  /** Enable comment collection for folding ranges (default: false for performance) */
-  enableForFoldingRanges: boolean;
-}
-
-/**
- * Performance-related settings that may affect comment collection
- */
-export interface PerformanceSettings {
-  /** Maximum file size (in bytes) for enabling comment collection (default: 100KB) */
-  commentCollectionMaxFileSize: number;
-
-  /** Whether to use async comment processing for large files (default: true) */
-  useAsyncCommentProcessing: boolean;
-
-  /** Debounce delay for document change comment processing in ms (default: 300) */
-  documentChangeDebounceMs: number;
-}
-
-/**
- * Environment-specific settings
- */
-export interface EnvironmentSettings {
-  /** Current environment (node, browser, web-worker) */
-  environment: 'node' | 'browser' | 'web-worker';
-
-  /** Whether to log comment collection performance metrics (default: false) */
-  enablePerformanceLogging: boolean;
-
-  /** Log level for comment collection (default: 'info') */
-  commentCollectionLogLevel: 'debug' | 'info' | 'warn' | 'error';
-}
-
-/**
- * Resource loading settings
- */
-export interface ResourceSettings {
-  /** Resource loading mode (default: 'full' for Node.js, 'lazy' for browser) */
-  loadMode: 'lazy' | 'full';
-}
-
-/**
- * Missing artifact resolution settings
- */
-export interface MissingArtifactSettings {
-  /** Enable missing artifact resolution feature */
-  enabled: boolean;
-
-  /** Timeout for blocking resolution in milliseconds */
-  blockingWaitTimeoutMs: number;
-
-  /** Polling interval for indexing barrier in milliseconds */
-  indexingBarrierPollMs: number;
-
-  /** Maximum number of candidates to open per request */
-  maxCandidatesToOpen: number;
-
-  /** Default timeout hint to send to client in milliseconds */
-  timeoutMsHint: number;
-
-  /** Whether to enable performance marks for debugging */
-  enablePerfMarks: boolean;
-}
-
-/**
- * Complete Apex Language Server settings
- */
-export interface ApexLanguageServerSettings {
-  /** Comment collection configuration */
-  commentCollection: CommentCollectionSettings;
-
-  /** Performance-related settings */
-  performance: PerformanceSettings;
-
-  /** Environment-specific settings */
-  environment: EnvironmentSettings;
-
-  /** Resource loading settings */
-  resources: ResourceSettings;
-
-  /** Missing artifact resolution settings */
-  findMissingArtifact: MissingArtifactSettings;
-
-  /** Server version for compatibility checks */
-  version?: string;
-
-  /**
-   * General log level for the server (optional, from apex.logLevel)
-   * Accepts: 'error', 'warning', 'info', 'log', 'debug'
-   */
-  logLevel?: string;
-}
+import type {
+  ApexLanguageServerSettings,
+  RuntimePlatform,
+} from '@salesforce/apex-lsp-shared';
 
 /**
  * Default settings for the Apex Language Server
  */
 export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
-  commentCollection: {
-    enableCommentCollection: true,
-    includeSingleLineComments: false,
-    associateCommentsWithSymbols: false,
-    enableForDocumentChanges: true,
-    enableForDocumentOpen: true,
-    enableForDocumentSymbols: false, // Disabled for performance
-    enableForFoldingRanges: false, // Disabled for performance
-  },
-  performance: {
-    commentCollectionMaxFileSize: 102400, // 100KB
-    useAsyncCommentProcessing: true,
-    documentChangeDebounceMs: 300,
-  },
-  environment: {
-    environment: 'node', // Will be overridden by actual environment
-    enablePerformanceLogging: false,
-    commentCollectionLogLevel: 'info',
-  },
-  resources: {
-    loadMode: 'full',
-  },
-  findMissingArtifact: {
-    enabled: true,
-    blockingWaitTimeoutMs: 2000,
-    indexingBarrierPollMs: 100,
-    maxCandidatesToOpen: 3,
-    timeoutMsHint: 1500,
-    enablePerfMarks: false,
+  apex: {
+    commentCollection: {
+      enableCommentCollection: true,
+      includeSingleLineComments: false,
+      associateCommentsWithSymbols: false,
+      enableForDocumentChanges: true,
+      enableForDocumentOpen: true,
+      enableForDocumentSymbols: false, // Disabled for performance
+      enableForFoldingRanges: false, // Disabled for performance
+    },
+    performance: {
+      commentCollectionMaxFileSize: 102400, // 100KB
+      useAsyncCommentProcessing: true,
+      documentChangeDebounceMs: 300,
+    },
+    environment: {
+      runtimePlatform: 'desktop', // Will be overridden by actual environment
+      serverMode: 'production', // Will be overridden by actual environment
+      enablePerformanceLogging: false,
+      commentCollectionLogLevel: 'info',
+    },
+    resources: {
+      loadMode: 'lazy',
+      standardApexLibraryPath: undefined,
+    },
+    findMissingArtifact: {
+      enabled: false,
+      blockingWaitTimeoutMs: 2000,
+      indexingBarrierPollMs: 100,
+      maxCandidatesToOpen: 3,
+      timeoutMsHint: 1500,
+      enablePerfMarks: false,
+    },
+    worker: {
+      logLevel: 'info',
+    },
+    version: undefined,
+    logLevel: 'info',
   },
 };
 
@@ -160,34 +60,43 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
  * Browser-optimized default settings
  */
 export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
-  ...DEFAULT_APEX_SETTINGS,
-  commentCollection: {
-    ...DEFAULT_APEX_SETTINGS.commentCollection,
-    // More conservative defaults for browser environment
-    enableCommentCollection: true,
-    associateCommentsWithSymbols: false, // More expensive in browser
-  },
-  performance: {
-    ...DEFAULT_APEX_SETTINGS.performance,
-    commentCollectionMaxFileSize: 51200, // 50KB (smaller for browser)
-    useAsyncCommentProcessing: true,
-    documentChangeDebounceMs: 500, // Longer debounce for browser
-  },
-  environment: {
-    ...DEFAULT_APEX_SETTINGS.environment,
-    environment: 'browser',
-    enablePerformanceLogging: false, // Typically disabled in browser
-  },
-  resources: {
-    ...DEFAULT_APEX_SETTINGS.resources,
-    loadMode: 'lazy',
-  },
-  findMissingArtifact: {
-    ...DEFAULT_APEX_SETTINGS.findMissingArtifact,
-    // More conservative defaults for browser
-    blockingWaitTimeoutMs: 1500, // Shorter timeout in browser
-    maxCandidatesToOpen: 2, // Fewer files to open in browser
-    timeoutMsHint: 1000, // Shorter client timeout hint
+  apex: {
+    ...DEFAULT_APEX_SETTINGS,
+    commentCollection: {
+      ...DEFAULT_APEX_SETTINGS.apex.commentCollection,
+      // More conservative defaults for browser environment
+      enableCommentCollection: true,
+      associateCommentsWithSymbols: false, // More expensive in browser
+    },
+    performance: {
+      ...DEFAULT_APEX_SETTINGS.apex.performance,
+      commentCollectionMaxFileSize: 51200, // 50KB (smaller for browser)
+      useAsyncCommentProcessing: true,
+      documentChangeDebounceMs: 500, // Longer debounce for browser
+    },
+    environment: {
+      ...DEFAULT_APEX_SETTINGS.apex.environment,
+      runtimePlatform: 'web',
+      serverMode: 'production',
+      enablePerformanceLogging: false, // Typically disabled in browser
+    },
+    resources: {
+      ...DEFAULT_APEX_SETTINGS.apex.resources,
+      loadMode: 'lazy',
+      standardApexLibraryPath: undefined,
+    },
+    findMissingArtifact: {
+      ...DEFAULT_APEX_SETTINGS.apex.findMissingArtifact,
+      // More conservative defaults for browser
+      blockingWaitTimeoutMs: 1500, // Shorter timeout in browser
+      maxCandidatesToOpen: 2, // Fewer files to open in browser
+      timeoutMsHint: 1000, // Shorter client timeout hint
+    },
+    worker: {
+      ...DEFAULT_APEX_SETTINGS.apex.worker,
+    },
+    version: undefined,
+    logLevel: 'info',
   },
 };
 
@@ -273,37 +182,43 @@ export function isValidApexSettings(
  */
 export function mergeWithDefaults(
   userSettings: Partial<ApexLanguageServerSettings>,
-  environment: 'node' | 'browser' = 'node',
+  environment: RuntimePlatform = 'desktop',
 ): ApexLanguageServerSettings {
   const baseDefaults =
-    environment === 'browser'
+    environment === 'web'
       ? BROWSER_DEFAULT_APEX_SETTINGS
       : DEFAULT_APEX_SETTINGS;
 
   return {
-    commentCollection: {
-      ...baseDefaults.commentCollection,
-      ...userSettings.commentCollection,
+    apex: {
+      commentCollection: {
+        ...baseDefaults.apex.commentCollection,
+        ...userSettings.apex?.commentCollection,
+      },
+      performance: {
+        ...baseDefaults.apex.performance,
+        ...userSettings.apex?.performance,
+      },
+      environment: {
+        ...baseDefaults.apex.environment,
+        runtimePlatform: environment,
+        ...userSettings.apex?.environment,
+      },
+      resources: {
+        ...baseDefaults.apex.resources,
+        ...userSettings.apex?.resources,
+      },
+      findMissingArtifact: {
+        ...baseDefaults.apex.findMissingArtifact,
+        ...userSettings.apex?.findMissingArtifact,
+      },
+      worker: {
+        ...baseDefaults.apex.worker,
+        ...userSettings.apex?.worker,
+      },
+      version: userSettings.apex?.version || baseDefaults.apex.version,
+      logLevel: userSettings.apex?.logLevel || baseDefaults.apex.logLevel,
     },
-    performance: {
-      ...baseDefaults.performance,
-      ...userSettings.performance,
-    },
-    environment: {
-      ...baseDefaults.environment,
-      environment,
-      ...userSettings.environment,
-    },
-    resources: {
-      ...baseDefaults.resources,
-      ...userSettings.resources,
-    },
-    findMissingArtifact: {
-      ...baseDefaults.findMissingArtifact,
-      ...userSettings.findMissingArtifact,
-    },
-    version: userSettings.version || baseDefaults.version,
-    logLevel: userSettings.logLevel || baseDefaults.logLevel,
   };
 }
 
@@ -315,27 +230,34 @@ export function mergeWithExisting(
   partialSettings: Partial<ApexLanguageServerSettings>,
 ): ApexLanguageServerSettings {
   return {
-    commentCollection: {
-      ...existingSettings.commentCollection,
-      ...partialSettings.commentCollection,
+    apex: {
+      commentCollection: {
+        ...existingSettings.apex.commentCollection,
+        ...partialSettings.apex?.commentCollection,
+      },
+      performance: {
+        ...existingSettings.apex.performance,
+        ...partialSettings.apex?.performance,
+      },
+      environment: {
+        ...existingSettings.apex.environment,
+        ...partialSettings.apex?.environment,
+      },
+      resources: {
+        ...existingSettings.apex.resources,
+        ...partialSettings.apex?.resources,
+      },
+      findMissingArtifact: {
+        ...existingSettings.apex.findMissingArtifact,
+        ...partialSettings.apex?.findMissingArtifact,
+      },
+      worker: {
+        ...existingSettings.apex.worker,
+        ...partialSettings.apex?.worker,
+      },
+      version: partialSettings.apex?.version ?? existingSettings.apex.version,
+      logLevel:
+        partialSettings.apex?.logLevel ?? existingSettings.apex.logLevel,
     },
-    performance: {
-      ...existingSettings.performance,
-      ...partialSettings.performance,
-    },
-    environment: {
-      ...existingSettings.environment,
-      ...partialSettings.environment,
-    },
-    resources: {
-      ...existingSettings.resources,
-      ...partialSettings.resources,
-    },
-    findMissingArtifact: {
-      ...existingSettings.findMissingArtifact,
-      ...partialSettings.findMissingArtifact,
-    },
-    version: partialSettings.version ?? existingSettings.version,
-    logLevel: partialSettings.logLevel ?? existingSettings.logLevel,
   };
 }
