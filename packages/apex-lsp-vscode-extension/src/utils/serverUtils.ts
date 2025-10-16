@@ -58,3 +58,26 @@ export const determineServerMode = (
 
   return mode;
 };
+
+export const getStdApexClassesPathFromContext = (
+  context: vscode.ExtensionContext,
+) => {
+  const packageJson = context.extension.packageJSON;
+  const standardApexLibraryPath = packageJson.contributes?.standardApexLibrary;
+  const absolutePath = !standardApexLibraryPath
+    ? undefined
+    : vscode.Uri.joinPath(context.extensionUri, standardApexLibraryPath);
+
+  if (!absolutePath) {
+    logToOutputChannel(
+      'Standard Apex Library path not found in package.json',
+      'warning',
+    );
+    throw new Error('Standard Apex Library path not found in package.json');
+  }
+  logToOutputChannel(
+    `Standard Apex Library path: ${absolutePath?.toString()}`,
+    'debug',
+  );
+  return absolutePath;
+};
