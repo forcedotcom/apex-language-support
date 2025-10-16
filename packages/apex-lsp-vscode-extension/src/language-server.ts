@@ -12,6 +12,7 @@ import type {
   ClientInterface,
   RuntimePlatform,
 } from '@salesforce/apex-lsp-shared';
+import { getClientCapabilitiesForMode } from '@salesforce/apex-lsp-shared';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
@@ -93,22 +94,21 @@ const createEnhancedInitializationOptions = (
  * @param environment - The detected environment (desktop or web)
  * @returns LSP initialization parameters
  */
-const createInitializeParams = (
+export const createInitializeParams = (
   context: vscode.ExtensionContext,
   environment: 'desktop' | 'web',
 ): InitializeParams => {
   const workspaceFolders = vscode.workspace.workspaceFolders;
 
-  // Determine extension mode for logging and debugging
-  const extensionMode =
-    context.extensionMode === vscode.ExtensionMode.Development ||
-    context.extensionMode === vscode.ExtensionMode.Test
-      ? 'development'
-      : 'production';
+  // Determine server mode
+  const serverMode = determineServerMode(context);
 
-  // Log the extension mode for debugging
+  // Get mode-appropriate client capabilities
+  const clientCapabilities = getClientCapabilitiesForMode(serverMode);
+
+  // Log the server mode for debugging
   logToOutputChannel(
-    `🔧 Extension mode detected: ${extensionMode} (context.extensionMode: ${context.extensionMode})`,
+    `🔧 Server mode detected: ${serverMode} (context.extensionMode: ${context.extensionMode})`,
     'info',
   );
 
@@ -124,159 +124,7 @@ const createInitializeParams = (
         ? null
         : (workspaceFolders?.[0]?.uri.fsPath ?? null),
     rootUri: workspaceFolders?.[0]?.uri.toString() ?? null,
-    capabilities: {
-      workspace: {
-        applyEdit: true,
-        workspaceEdit: {
-          documentChanges: true,
-          resourceOperations: ['create', 'rename', 'delete'],
-          failureHandling: 'textOnlyTransactional',
-        },
-        didChangeConfiguration: {
-          dynamicRegistration: true,
-        },
-        didChangeWatchedFiles: {
-          dynamicRegistration: true,
-        },
-        symbol: {
-          dynamicRegistration: true,
-          symbolKind: {
-            valueSet: [
-              1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-              20, 21, 22, 23, 24, 25, 26,
-            ],
-          },
-        },
-        executeCommand: {
-          dynamicRegistration: true,
-        },
-        configuration: true,
-        workspaceFolders: true,
-      },
-      textDocument: {
-        publishDiagnostics: {
-          relatedInformation: true,
-          versionSupport: false,
-          tagSupport: {
-            valueSet: [1, 2],
-          },
-        },
-        synchronization: {
-          dynamicRegistration: true,
-          willSave: true,
-          willSaveWaitUntil: true,
-          didSave: true,
-        },
-        completion: {
-          dynamicRegistration: true,
-          contextSupport: true,
-          completionItem: {
-            snippetSupport: true,
-            commitCharactersSupport: true,
-            documentationFormat: ['markdown', 'plaintext'],
-            deprecatedSupport: true,
-            preselectSupport: true,
-          },
-          completionItemKind: {
-            valueSet: [
-              1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-              20, 21, 22, 23, 24, 25,
-            ],
-          },
-        },
-        hover: {
-          dynamicRegistration: true,
-          contentFormat: ['markdown', 'plaintext'],
-        },
-        signatureHelp: {
-          dynamicRegistration: true,
-          signatureInformation: {
-            documentationFormat: ['markdown', 'plaintext'],
-          },
-        },
-        definition: {
-          dynamicRegistration: true,
-        },
-        references: {
-          dynamicRegistration: true,
-        },
-        documentHighlight: {
-          dynamicRegistration: true,
-        },
-        documentSymbol: {
-          dynamicRegistration: true,
-          symbolKind: {
-            valueSet: [
-              1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-              20, 21, 22, 23, 24, 25, 26,
-            ],
-          },
-          hierarchicalDocumentSymbolSupport: true,
-        },
-        codeAction: {
-          dynamicRegistration: true,
-          codeActionLiteralSupport: {
-            codeActionKind: {
-              valueSet: [
-                '',
-                'quickfix',
-                'refactor',
-                'refactor.extract',
-                'refactor.inline',
-                'refactor.rewrite',
-                'source',
-                'source.organizeImports',
-              ],
-            },
-          },
-        },
-        codeLens: {
-          dynamicRegistration: true,
-        },
-        formatting: {
-          dynamicRegistration: true,
-        },
-        rangeFormatting: {
-          dynamicRegistration: true,
-        },
-        onTypeFormatting: {
-          dynamicRegistration: true,
-        },
-        rename: {
-          dynamicRegistration: true,
-        },
-        documentLink: {
-          dynamicRegistration: true,
-        },
-        typeDefinition: {
-          dynamicRegistration: true,
-        },
-        implementation: {
-          dynamicRegistration: true,
-        },
-        colorProvider: {
-          dynamicRegistration: true,
-        },
-        foldingRange: {
-          dynamicRegistration: true,
-          rangeLimit: 5000,
-          lineFoldingOnly: true,
-        },
-      },
-      window: {
-        workDoneProgress: true,
-      },
-      general: {
-        regularExpressions: {
-          engine: 'ECMAScript',
-          version: 'ES2020',
-        },
-        markdown: {
-          parser: 'marked',
-          version: '1.1.0',
-        },
-      },
-    },
+    capabilities: clientCapabilities, // Use mode-aware capabilities
     initializationOptions: createEnhancedInitializationOptions(
       context,
       environment,

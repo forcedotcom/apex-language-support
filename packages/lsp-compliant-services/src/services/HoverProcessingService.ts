@@ -26,7 +26,7 @@ import {
   isVariableSymbol,
   inTypeSymbolGroup,
 } from '@salesforce/apex-lsp-parser-ast';
-import { ApexCapabilitiesManager } from '../capabilities/ApexCapabilitiesManager';
+import { ApexCapabilitiesManager } from '@salesforce/apex-lsp-shared';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 
 import {

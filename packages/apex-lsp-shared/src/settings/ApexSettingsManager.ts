@@ -6,16 +6,18 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
+import { formattedError } from '../utils/ErrorUtils';
+import { getLogger, setLogLevel } from '../index';
+import type {
   ApexLanguageServerSettings,
-  formattedError,
-  getLogger,
   ResourceLoadMode,
   RuntimePlatform,
   ServerMode,
-  setLogLevel,
-} from '@salesforce/apex-lsp-shared';
-import type { CompilationOptions } from '@salesforce/apex-lsp-parser-ast';
+} from '../server/ApexLanguageServerSettings';
+// Local type definition to avoid dependency on parser-ast package
+export interface CompilationOptions {
+  [key: string]: any;
+}
 
 import {
   DEFAULT_APEX_SETTINGS,

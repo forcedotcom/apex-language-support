@@ -17,7 +17,6 @@ export * from './utils/Logging';
 export * from './factories/ConnectionFactory';
 export * from './communication/Interfaces';
 export * from './server/ApexLanguageServerSettings';
-export * from './server/ApexLanguageServerCapabilities';
 export {
   setLogNotificationHandler,
   getLogNotificationHandler,
@@ -59,6 +58,18 @@ export {
 
 // Export smaller numeric types for memory optimization
 export * from './smallNumericTypes';
+
+// Export capabilities management
+export * from './capabilities/ApexCapabilitiesManager';
+export * from './capabilities/ApexLanguageServerCapabilities';
+
+// Export settings management
+export * from './settings/ApexLanguageServerSettings';
+export * from './settings/ApexSettingsManager';
+export * from './settings/LSPConfigurationManager';
+
+// Export client capabilities
+export * from './client/ApexClientCapabilities';
 
 // Experimental protocol: Missing Artifact Resolution
 export type RequestKind =

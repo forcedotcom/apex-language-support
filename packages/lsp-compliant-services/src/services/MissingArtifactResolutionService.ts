@@ -9,8 +9,10 @@
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import type { FindMissingArtifactParams } from '@salesforce/apex-lsp-shared';
 import { LSPQueueManager } from '../queue/LSPQueueManager';
-import { LSPConfigurationManager } from '../settings/LSPConfigurationManager';
-import { ApexSettingsManager } from '../settings/ApexSettingsManager';
+import {
+  LSPConfigurationManager,
+  ApexSettingsManager,
+} from '@salesforce/apex-lsp-shared';
 import type { Connection } from 'vscode-languageserver';
 
 /**

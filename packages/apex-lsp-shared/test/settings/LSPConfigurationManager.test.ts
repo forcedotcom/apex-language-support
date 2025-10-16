@@ -6,18 +6,16 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LSPConfigurationManager } from '../../src/settings/LSPConfigurationManager';
-import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilitiesManager';
-import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 import {
+  LSPConfigurationManager,
   ApexLanguageServerSettings,
   ExtendedServerCapabilities,
-} from '@salesforce/apex-lsp-shared';
+} from '../../src/settings/LSPConfigurationManager';
+import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilitiesManager';
+import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 
 // Mock the ApexCapabilitiesManager
 jest.mock('../../src/capabilities/ApexCapabilitiesManager');
-
-// Mock the ApexSettingsManager
 jest.mock('../../src/settings/ApexSettingsManager');
 
 describe('LSPConfigurationManager', () => {

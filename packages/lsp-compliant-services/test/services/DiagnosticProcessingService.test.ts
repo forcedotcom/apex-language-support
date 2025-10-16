@@ -12,7 +12,7 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { DiagnosticProcessingService } from '../../src/services/DiagnosticProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
-import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
+import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 // Mock dependencies
 jest.mock('@salesforce/apex-lsp-parser-ast', () => {
@@ -141,7 +141,13 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   }),
 }));
 jest.mock('../../src/storage/ApexStorageManager');
-jest.mock('../../src/settings/ApexSettingsManager');
+jest.mock('@salesforce/apex-lsp-shared', () => ({
+  ...jest.requireActual('@salesforce/apex-lsp-shared'),
+  ApexSettingsManager: {
+    getInstance: jest.fn(),
+  },
+  getLogger: jest.fn(),
+}));
 jest.mock('../../src/utils/handlerUtil');
 
 describe('DiagnosticProcessingService', () => {

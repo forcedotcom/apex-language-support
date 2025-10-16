@@ -19,7 +19,20 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => {
   };
 });
 
-jest.mock('@salesforce/apex-lsp-shared');
+jest.mock('@salesforce/apex-lsp-shared', () => ({
+  ...jest.requireActual('@salesforce/apex-lsp-shared'),
+  ApexSettingsManager: {
+    getInstance: jest.fn(() => ({
+      getCompilationOptions: jest.fn(() => ({})),
+    })),
+  },
+  getLogger: jest.fn(() => ({
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  })),
+}));
 
 import { DocumentSymbolParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';

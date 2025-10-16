@@ -29,7 +29,8 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   },
 }));
 
-jest.mock('../../src/settings/ApexSettingsManager', () => ({
+jest.mock('@salesforce/apex-lsp-shared', () => ({
+  ...jest.requireActual('@salesforce/apex-lsp-shared'),
   ApexSettingsManager: {
     getInstance: jest.fn(() => ({
       getCompilationOptions: jest.fn(() => ({})),
@@ -306,9 +307,7 @@ describe('ApexFoldingRangeProvider', () => {
       );
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
-      const {
-        ApexSettingsManager,
-      } = require('../../src/settings/ApexSettingsManager');
+      const { ApexSettingsManager } = require('@salesforce/apex-lsp-shared');
       const mockGetCompilationOptions = jest.fn().mockReturnValue({});
       ApexSettingsManager.getInstance.mockReturnValue({
         getCompilationOptions: mockGetCompilationOptions,

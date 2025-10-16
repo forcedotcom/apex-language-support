@@ -9,7 +9,7 @@
 import type {
   ApexLanguageServerSettings,
   RuntimePlatform,
-} from '@salesforce/apex-lsp-shared';
+} from '../server/ApexLanguageServerSettings';
 
 /**
  * Default settings for the Apex Language Server

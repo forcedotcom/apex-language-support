@@ -56,11 +56,13 @@ jest.mock('../../src/storage/ApexStorageManager', () => ({
   },
 }));
 
-// Mock the settings manager
-jest.mock('../../src/settings/ApexSettingsManager', () => ({
+// Mock the settings manager and logger
+jest.mock('@salesforce/apex-lsp-shared', () => ({
+  ...jest.requireActual('@salesforce/apex-lsp-shared'),
   ApexSettingsManager: {
     getInstance: jest.fn(),
   },
+  getLogger: jest.fn(),
 }));
 
 // Mock the definition upserter
@@ -80,7 +82,7 @@ jest.mock('../../src/references/ApexReferencesUpserter', () => ({
 // Import the handler after the logger mock is set up
 import { DidOpenDocumentHandler } from '../../src/handlers/DidOpenDocumentHandler';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
-import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
+import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 describe('DidOpenDocumentHandler', () => {
   let handler: DidOpenDocumentHandler;

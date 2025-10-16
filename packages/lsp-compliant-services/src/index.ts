@@ -73,14 +73,7 @@ export * from './factories/HandlerFactory';
 export type { ApexReference } from './storage/ApexStorageInterface';
 export * from './storage/ApexStorageInterface';
 
-// Export settings management
-export * from './settings/ApexLanguageServerSettings';
-export * from './settings/ApexSettingsManager';
-export * from './settings/LSPConfigurationManager';
-
-// Export capabilities management
-export * from './capabilities/ApexLanguageServerCapabilities';
-export * from './capabilities/ApexCapabilitiesManager';
+// Settings and capabilities management are now exported from @salesforce/apex-lsp-shared
 
 // Export ApexLib
 export * from './apexlib';

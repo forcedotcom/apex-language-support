@@ -1,0 +1,221 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`LCSAdapter Capabilities Alignment Capability Registration Logic should correctly determine which capabilities to register dynamically: capability-registration-logic-development-mode-full-dynamic 1`] = `
+{
+  "clientCapabilities": {
+    "textDocument": {
+      "completion": {
+        "dynamicRegistration": true,
+      },
+      "diagnostic": {
+        "dynamicRegistration": true,
+      },
+      "documentSymbol": {
+        "dynamicRegistration": true,
+      },
+      "foldingRange": {
+        "dynamicRegistration": true,
+      },
+      "hover": {
+        "dynamicRegistration": true,
+      },
+    },
+    "workspace": {
+      "didChangeConfiguration": {
+        "dynamicRegistration": true,
+      },
+      "didChangeWatchedFiles": {
+        "dynamicRegistration": true,
+      },
+      "executeCommand": {
+        "dynamicRegistration": true,
+      },
+      "symbol": {
+        "dynamicRegistration": true,
+      },
+    },
+  },
+  "expectedDynamicRegistrations": 5,
+  "serverCapabilities": {
+    "completionProvider": {
+      "resolveProvider": false,
+      "triggerCharacters": [
+        ".",
+      ],
+    },
+    "diagnosticProvider": {
+      "identifier": "apex-ls-ts",
+      "interFileDependencies": true,
+      "workspaceDiagnostics": false,
+    },
+    "documentSymbolProvider": {
+      "resolveProvider": false,
+    },
+    "foldingRangeProvider": {
+      "lineFoldingOnly": true,
+      "rangeLimit": 5000,
+    },
+    "hoverProvider": true,
+  },
+  "testCase": "development-mode-full-dynamic",
+}
+`;
+
+exports[`LCSAdapter Capabilities Alignment Capability Registration Logic should correctly determine which capabilities to register dynamically: capability-registration-logic-production-mode-minimal-dynamic 1`] = `
+{
+  "clientCapabilities": {
+    "textDocument": {
+      "completion": {
+        "dynamicRegistration": false,
+      },
+      "diagnostic": {
+        "dynamicRegistration": false,
+      },
+      "documentSymbol": {
+        "dynamicRegistration": false,
+      },
+      "foldingRange": {
+        "dynamicRegistration": false,
+      },
+      "hover": {
+        "dynamicRegistration": false,
+      },
+    },
+    "workspace": {
+      "didChangeConfiguration": {
+        "dynamicRegistration": false,
+      },
+      "didChangeWatchedFiles": {
+        "dynamicRegistration": false,
+      },
+      "executeCommand": {
+        "dynamicRegistration": false,
+      },
+      "symbol": {
+        "dynamicRegistration": false,
+      },
+    },
+  },
+  "expectedDynamicRegistrations": 0,
+  "serverCapabilities": {
+    "completionProvider": {
+      "resolveProvider": false,
+      "triggerCharacters": [
+        ".",
+      ],
+    },
+    "diagnosticProvider": {
+      "identifier": "apex-ls-ts",
+      "interFileDependencies": true,
+      "workspaceDiagnostics": false,
+    },
+    "documentSymbolProvider": {
+      "resolveProvider": false,
+    },
+    "foldingRangeProvider": {
+      "lineFoldingOnly": true,
+      "rangeLimit": 5000,
+    },
+    "hoverProvider": true,
+  },
+  "testCase": "production-mode-minimal-dynamic",
+}
+`;
+
+exports[`LCSAdapter Capabilities Alignment Document Selector Consistency should maintain consistent document selectors across all dynamic registrations: consistent-document-selectors 1`] = `
+[
+  {
+    "language": "apex",
+    "scheme": "file",
+  },
+  {
+    "language": "apex",
+    "scheme": "vscode-test-web",
+  },
+]
+`;
+
+exports[`LCSAdapter Capabilities Alignment Dynamic Registration Document Selectors should handle development mode with full dynamic registration: development-client-capabilities-for-dynamic-registration 1`] = `
+{
+  "textDocument": {
+    "completion": {
+      "dynamicRegistration": true,
+    },
+    "diagnostic": {
+      "dynamicRegistration": true,
+    },
+    "documentSymbol": {
+      "dynamicRegistration": true,
+    },
+    "foldingRange": {
+      "dynamicRegistration": true,
+    },
+    "hover": {
+      "dynamicRegistration": true,
+    },
+  },
+  "workspace": {
+    "didChangeConfiguration": {
+      "dynamicRegistration": true,
+    },
+    "didChangeWatchedFiles": {
+      "dynamicRegistration": true,
+    },
+    "executeCommand": {
+      "dynamicRegistration": true,
+    },
+    "symbol": {
+      "dynamicRegistration": true,
+    },
+  },
+}
+`;
+
+exports[`LCSAdapter Capabilities Alignment Dynamic Registration Document Selectors should handle production mode with minimal dynamic registration: production-client-capabilities-for-dynamic-registration 1`] = `
+{
+  "textDocument": {
+    "completion": {
+      "dynamicRegistration": false,
+    },
+    "diagnostic": {
+      "dynamicRegistration": false,
+    },
+    "documentSymbol": {
+      "dynamicRegistration": false,
+    },
+    "foldingRange": {
+      "dynamicRegistration": false,
+    },
+    "hover": {
+      "dynamicRegistration": false,
+    },
+  },
+  "workspace": {
+    "didChangeConfiguration": {
+      "dynamicRegistration": false,
+    },
+    "didChangeWatchedFiles": {
+      "dynamicRegistration": false,
+    },
+    "executeCommand": {
+      "dynamicRegistration": false,
+    },
+    "symbol": {
+      "dynamicRegistration": false,
+    },
+  },
+}
+`;
+
+exports[`LCSAdapter Capabilities Alignment Dynamic Registration Document Selectors should use correct document selectors for dynamic registration: dynamic-registration-document-selectors 1`] = `
+[
+  {
+    "language": "apex",
+    "scheme": "file",
+  },
+  {
+    "language": "apex",
+    "scheme": "vscode-test-web",
+  },
+]
+`;

@@ -6,12 +6,12 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { ServerMode } from '../server/ApexLanguageServerSettings';
 import {
   CapabilitiesConfiguration,
   ExtendedServerCapabilities,
-  ServerMode,
-} from '@salesforce/apex-lsp-shared';
-import { CAPABILITIES_CONFIGURATION } from './ApexLanguageServerCapabilities';
+  CAPABILITIES_CONFIGURATION,
+} from './ApexLanguageServerCapabilities';
 
 /**
  * Capabilities manager for the Apex Language Server
