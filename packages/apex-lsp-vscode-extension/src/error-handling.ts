@@ -47,8 +47,9 @@ export const handleAutoRestart = async (
       10000,
     );
     logToOutputChannel(
-       
-      `Will retry server start (${getServerStartRetries()}/${EXTENSION_CONSTANTS.MAX_RETRIES}) after ${delay}ms delay...`,
+      `Will retry server start (${getServerStartRetries()}/${
+        EXTENSION_CONSTANTS.MAX_RETRIES
+      }) after ${delay}ms delay...`,
       'info',
     );
 

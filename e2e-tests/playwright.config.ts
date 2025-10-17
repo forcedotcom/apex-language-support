@@ -62,11 +62,11 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run test:e2e:server',
+    command: 'node test-server.js',
     port: 3000,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    cwd: process.cwd().endsWith('e2e-tests') ? '..' : '.',
+    cwd: process.cwd().endsWith('e2e-tests') ? '.' : './e2e-tests',
   },
 
   timeout: process.env.CI ? 120_000 : 60_000,

@@ -30,7 +30,7 @@
     "test": "jest",
     "test:one": "jest --testPathPattern=resourceLoader",
     "test:coverage": "jest --coverage --coverageDirectory=./coverage",
-    "clean": "rimraf out dist .turbo coverage src/generated resources tsconfig.tsbuildinfo",
+    "clean": "rimraf out dist .turbo coverage src/generated tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"

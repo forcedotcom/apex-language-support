@@ -161,7 +161,9 @@ export const dispatchProcessOnHover = async (
 ): Promise<Hover | null> => {
   const logger = getLogger();
   logger.debug(
-    `🔍 [dispatchProcessOnHover] Dispatching hover request for ${params.textDocument.uri} at ${params.position.line}:${params.position.character}`,
+    `🔍 [dispatchProcessOnHover] Dispatching hover request for ${
+      params.textDocument.uri
+    } at ${params.position.line}:${params.position.character}`,
   );
 
   // Use singleton pattern to ensure same symbol manager instance
@@ -174,7 +176,9 @@ export const dispatchProcessOnHover = async (
   }
   const result = await hoverHandlerInstance.handleHover(params);
   logger.debug(
-    `✅ [dispatchProcessOnHover] Hover dispatch completed for ${params.textDocument.uri}: ${result ? 'success' : 'null'}`,
+    `✅ [dispatchProcessOnHover] Hover dispatch completed for ${
+      params.textDocument.uri
+    }: ${result ? 'success' : 'null'}`,
   );
   return result;
 };
