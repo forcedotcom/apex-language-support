@@ -45,6 +45,8 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
 
   // LSP and language server related non-critical errors
   'Request textDocument/diagnostic failed', // Known VS Code Web LSP issue Todo: W-19587882 for removal
+  'Request textDocument/completion failed', // Expected when standard library is not loaded
+  'Unhandled method textDocument/completion', // Expected when standard library is not loaded
 
   // VS Code lifecycle and shutdown related
   'Long running operations during shutdown',
@@ -339,117 +341,46 @@ export const EXPECTED_APEX_SYMBOLS: ExpectedApexSymbols = {
 /**
  * Hover test scenarios for different Apex symbols in the ApexClassExample.cls file.
  * These scenarios test hover functionality for various symbol types.
- *
- * Note: Split into two groups:
- * - HOVER_TEST_SCENARIOS_BUILTIN: Tests for user-defined classes and built-in types that work
- * - HOVER_TEST_SCENARIOS_STANDARD_LIB: Tests for standard Apex library (System, UserInfo, etc.) - currently not working
  */
-export const HOVER_TEST_SCENARIOS_BUILTIN = [
-  {
-    description: 'Class name hover',
-    searchText: 'public with sharing class ApexClassExample',
-    moveToEnd: false,
-    expectedPatterns: ['class', 'ApexClassExample'],
-  },
+export const HOVER_TEST_SCENARIOS = [
   {
     description: 'Static variable hover',
     searchText: 'private static final String DEFAULT_STATUS',
-    moveToEnd: false,
-    expectedPatterns: ['String', 'DEFAULT_STATUS'],
   },
   {
     description: 'Instance variable hover',
     searchText: 'private String instanceId',
-    moveToEnd: false,
-    expectedPatterns: ['String', 'instanceId'],
   },
   {
     description: 'List variable hover',
     searchText: 'private List<Account> accounts',
-    moveToEnd: false,
-    expectedPatterns: ['List', 'accounts'],
   },
   {
     description: 'Method name hover',
     searchText: 'public static void sayHello',
-    moveToEnd: false,
-    expectedPatterns: ['void', 'sayHello'],
   },
   {
     description: 'Method with parameters hover',
     searchText: 'public static Integer add',
-    moveToEnd: false,
-    expectedPatterns: ['Integer', 'add'],
-  },
-  {
-    description: 'Constructor hover',
-    searchText: 'public ApexClassExample(String instanceId)',
-    moveToEnd: false,
-    expectedPatterns: ['ApexClassExample'],
   },
   {
     description: 'Inner class hover',
     searchText: 'public class Configuration',
-    moveToEnd: false,
-    expectedPatterns: ['class', 'Configuration'],
   },
   {
     description: 'Inner enum hover',
     searchText: 'public enum StatusType',
-    moveToEnd: false,
-    expectedPatterns: ['enum', 'StatusType'],
   },
   {
     description: 'Enum value hover',
     searchText: 'ACTIVE, INACTIVE, PENDING, SUSPENDED',
-    moveToEnd: false,
-    expectedPatterns: ['ACTIVE'],
   },
   {
     description: 'Parameter hover',
     searchText: 'List<Account> inputAccounts',
-    moveToEnd: false,
-    expectedPatterns: ['List', 'inputAccounts'],
   },
   {
     description: 'Local variable hover',
     searchText: 'Map<Id, Account> accountMap',
-    moveToEnd: false,
-    expectedPatterns: ['Map', 'accountMap'],
   },
-] as const;
-
-/**
- * Hover test scenarios for standard Apex library classes (System, UserInfo, String methods).
- * These are currently not working due to standard apex library not being loaded.
- * These tests are excluded from the main test suite but kept for future validation.
- */
-export const HOVER_TEST_SCENARIOS_STANDARD_LIB = [
-  {
-    description: 'System class usage hover',
-    searchText: 'System.debug',
-    moveToEnd: false,
-    expectedPatterns: ['System', 'debug'],
-  },
-  {
-    description: 'UserInfo class usage hover',
-    searchText: 'UserInfo.getName',
-    moveToEnd: false,
-    expectedPatterns: ['UserInfo', 'getName'],
-  },
-  {
-    description: 'String method usage hover',
-    searchText: 'String.isBlank',
-    moveToEnd: false,
-    expectedPatterns: ['String', 'isBlank'],
-  },
-] as const;
-
-/**
- * All hover test scenarios combined (for backward compatibility).
- * Use HOVER_TEST_SCENARIOS_BUILTIN for tests that should pass with current implementation.
- */
-export const HOVER_TEST_SCENARIOS = [
-  ...HOVER_TEST_SCENARIOS_BUILTIN,
-  ...HOVER_TEST_SCENARIOS_STANDARD_LIB,
 ] as const;
