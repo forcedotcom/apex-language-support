@@ -1,5 +1,6 @@
 global class CPQProductSellingModelOptionOutputRepresentation {
 	global String id;
+	global Boolean isDefault;
 	global String productId;
 	global ConnectApi.CPQProductSellingModelOutputRepresentation productSellingModel;
 	global String productSellingModelId;

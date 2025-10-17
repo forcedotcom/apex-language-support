@@ -9,6 +9,7 @@ global class TaxLineItemRequest {
 	global String productId;
 	global String productSKU;
 	global Double quantity;
+	global String referenceDocumentCode;
 	global String taxCode;
 	global Double unitPrice;
 	global TaxLineItemRequest() { }

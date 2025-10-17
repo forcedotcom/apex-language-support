@@ -1,5 +1,6 @@
 global class CPQSearchProductsOutputRepresentation {
 	global List<ConnectApi.CPQCategoryOutputRepresentation> categories;
+	global List<ConnectApi.CPQPromotionOutputRepresentation> eligiblePromotions;
 	global List<ConnectApi.CPQProductPricesOutputRepresentation> prices;
 	global CPQSearchProductsOutputRepresentation() { }
 	global Object clone() { }

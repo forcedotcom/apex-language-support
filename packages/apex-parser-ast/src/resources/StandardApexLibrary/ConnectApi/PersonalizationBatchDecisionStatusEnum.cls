@@ -1,4 +1,4 @@
 global enum PersonalizationBatchDecisionStatusEnum {
 ACTIVE,
-INACTIVE
+PAUSED
 }

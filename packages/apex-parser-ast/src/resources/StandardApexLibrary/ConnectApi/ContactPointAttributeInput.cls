@@ -1,6 +1,6 @@
 global class ContactPointAttributeInput {
-	global String attributeLabel;
-	global String attributeName;
+	global String label;
+	global String name;
 	global String preferredName;
 	global ContactPointAttributeInput() { }
 	global Object clone() { }

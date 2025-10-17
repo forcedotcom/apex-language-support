@@ -1,4 +1,5 @@
 global class TaxTransactionResponse {
+	global ConnectApi.AdditionalDataResponse additionalData;
 	global ConnectApi.TaxAddressesResponse addresses;
 	global ConnectApi.TaxAmountDetailsResponse amountDetails;
 	global String currencyIsoCode;

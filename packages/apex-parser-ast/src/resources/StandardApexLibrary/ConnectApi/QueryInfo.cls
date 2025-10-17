@@ -1,5 +1,6 @@
 global class QueryInfo {
-	global Map<String,ConnectApi.ObjectQueryInfo> objectQueryInfos;
+	global Map<String,ConnectApi.ObjectQueryInfo> sobjects;
+	global List<ConnectApi.SourceQueryInfo> sources;
 	global ConnectApi.SearchStatus status;
 	global QueryInfo() { }
 	global Object clone() { }

@@ -3,6 +3,7 @@ global class CdpIdentityResolutionConfigInput {
 	global String dataSpaceName;
 	global String description;
 	global Boolean doesRunAutomatically;
+	global Boolean isCaseSensitive;
 	global String label;
 	global List<ConnectApi.CdpIdentityResolutionMatchRule> matchRules;
 	global List<ConnectApi.CdpIdentityResolutionReconciliationRule> reconciliationRules;

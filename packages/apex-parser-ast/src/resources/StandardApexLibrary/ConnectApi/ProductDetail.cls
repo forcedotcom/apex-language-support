@@ -4,6 +4,7 @@ global class ProductDetail {
 	global ConnectApi.ProductEntitlement entitlement;
 	global Map<String,String> fields;
 	global String id;
+	global Boolean isConfigurationAllowed;
 	global List<ConnectApi.ProductMediaGroup> mediaGroups;
 	global ConnectApi.ProductCategoryPath primaryProductCategoryPath;
 	global ConnectApi.ProductClass productClass;
@@ -22,6 +23,7 @@ global class ProductDetail {
 	global ConnectApi.ProductEntitlement getEntitlement() { }
 	global Map<String,String> getFields() { }
 	global String getId() { }
+	global Boolean getIsConfigurationAllowed() { }
 	global List<ConnectApi.ProductMediaGroup> getMediaGroups() { }
 	global ConnectApi.ProductCategoryPath getPrimaryProductCategoryPath() { }
 	global ConnectApi.ProductClass getProductClass() { }
@@ -37,6 +39,7 @@ global class ProductDetail {
 	global void setEntitlement(ConnectApi.ProductEntitlement value) { }
 	global void setFields(Map<String,String> value) { }
 	global void setId(String value) { }
+	global void setIsConfigurationAllowed(Boolean value) { }
 	global void setMediaGroups(List<ConnectApi.ProductMediaGroup> value) { }
 	global void setPrimaryProductCategoryPath(ConnectApi.ProductCategoryPath value) { }
 	global void setProductClass(ConnectApi.ProductClass value) { }

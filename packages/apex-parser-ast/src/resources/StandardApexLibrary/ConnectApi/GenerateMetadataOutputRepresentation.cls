@@ -1,6 +1,4 @@
 global class GenerateMetadataOutputRepresentation {
-	global String code;
-	global Boolean isSuccess;
 	global String message;
 	global GenerateMetadataOutputRepresentation() { }
 	global Object clone() { }

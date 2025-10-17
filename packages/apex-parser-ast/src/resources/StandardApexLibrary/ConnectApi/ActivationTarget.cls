@@ -1,7 +1,8 @@
 global class ActivationTarget {
 	global ConnectApi.DataConnector connector;
-	global String dataSpace;
+	global String dataSpaceName;
 	global String description;
+	global ConnectApi.EgressPropertiesRepresentation egressProperties;
 	global String historyAudienceDmoApiName;
 	global String historyAudienceDmoLabel;
 	global Boolean isCappingEnabled;

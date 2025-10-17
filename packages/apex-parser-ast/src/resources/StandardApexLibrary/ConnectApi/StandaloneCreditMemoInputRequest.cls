@@ -8,6 +8,7 @@ global class StandaloneCreditMemoInputRequest {
 	global String effectiveDate;
 	global String externalReference;
 	global String externalReferenceDataSource;
+	global String legalEntityId;
 	global String taxEffectiveDate;
 	global ConnectApi.StandaloneTaxStrategyEnum taxStrategy;
 	global ConnectApi.CreditMemoTypeEnum type;

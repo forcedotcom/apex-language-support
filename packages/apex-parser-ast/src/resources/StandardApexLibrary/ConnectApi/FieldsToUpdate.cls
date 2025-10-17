@@ -1,4 +1,5 @@
 global class FieldsToUpdate {
+	global String adjustmentNote;
 	global String entityName;
 	global String fieldToUpdate;
 	global Boolean isPercentage;

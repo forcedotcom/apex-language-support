@@ -1,7 +1,5 @@
 global class MetadataContentOutputRepresentation {
-	global String code;
 	global String contentVersionId;
-	global Boolean isSuccess;
 	global String message;
 	global ConnectApi.MetadataContentVersionOutputRepresentation metadataContentVersionInfo;
 	global ConnectApi.UserSpecificPermissionOutputRepresentation userSpecificPermissions;

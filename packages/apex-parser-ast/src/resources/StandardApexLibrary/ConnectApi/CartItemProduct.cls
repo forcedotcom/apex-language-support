@@ -1,5 +1,6 @@
 global class CartItemProduct {
 	global Map<String,String> fields;
+	global Boolean isConfigurationAllowed;
 	global String name;
 	global ConnectApi.ProductClass productClass;
 	global String productId;

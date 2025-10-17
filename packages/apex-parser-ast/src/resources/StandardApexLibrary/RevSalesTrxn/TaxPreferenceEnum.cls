@@ -1,0 +1,3 @@
+global enum TaxPreferenceEnum {
+SKIP
+}

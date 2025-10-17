@@ -1,7 +1,7 @@
 global class GetClaimOutputRepresentation {
-	global String accountId;
 	global ConnectApi.ClaimDetailOutputRep claimDetails;
 	global String claimId;
+	global String contextId;
 	global String insurancePolicyId;
 	global String lossDate;
 	global String name;

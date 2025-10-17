@@ -5,6 +5,7 @@ global class EinsteinPromptTemplateGenerationsInput {
 	global Boolean isPreview;
 	global String outputLanguage;
 	global String provider;
+	global Boolean showGroundingMetadataInResolvedPrompt;
 	global Map<String,ConnectApi.WrappedValue> tags;
 	global EinsteinPromptTemplateGenerationsInput() { }
 	global Object clone() { }

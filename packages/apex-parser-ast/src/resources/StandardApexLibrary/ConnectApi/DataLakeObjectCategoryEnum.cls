@@ -1,0 +1,7 @@
+global enum DataLakeObjectCategoryEnum {
+DIRECTORY_TABLE,
+ENGAGEMENT,
+INSIGHTS,
+OTHER,
+PROFILE
+}

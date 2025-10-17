@@ -1,6 +1,7 @@
 global class CdpIdentityResolutionMatchCriterionOutput {
 	global Boolean caseSensitiveMatch;
 	global String entityName;
+	global ConnectApi.CdpIdentityResolutionMatchCriterionEntpUserIdentificationInfoOutput entpUserIdentificationInfo;
 	global String fieldName;
 	global String fieldValue;
 	global ConnectApi.CdpIdentityResolutionMatchMethodType matchMethodType;
