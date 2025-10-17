@@ -348,8 +348,9 @@ export const createJavaServerOptions = async (
       args.push(
         '-Dtrace.protocol=false',
         `-Dapex.lsp.root.log.level=${logLevel}`,
-         
-        `-agentlib:jdwp=transport=dt_socket,server=y,suspend=${suspendStartup ? 'y' : 'n'},address=*:${debugPort},quiet=y`,
+        `-agentlib:jdwp=transport=dt_socket,server=y,suspend=${
+          suspendStartup ? 'y' : 'n'
+        },address=*:${debugPort},quiet=y`,
       );
     }
 

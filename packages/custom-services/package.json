@@ -20,7 +20,7 @@
     "compile": "tsc --build",
     "bundle": "tsup",
     "test": "jest --passWithNoTests",
-    "test:coverage": "jest --coverage --coverageDirectory=./coverage",
+    "test:coverage": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
     "clean": "rimraf out dist .turbo coverage tsconfig.tsbuildinfo",
     "clean:all": "npm run clean && rimraf node_modules",
     "lint": "eslint src",
