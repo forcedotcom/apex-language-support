@@ -4,14 +4,20 @@
   "private": true,
   "description": "End-to-end tests for Apex Language Server Extension",
   "scripts": {
-    "test": "echo 'E2E tests temporarily disabled' && exit 0",
-    "test:debug": "echo 'E2E tests temporarily disabled' && exit 0",
-    "test:visual": "echo 'E2E tests temporarily disabled' && exit 0",
-    "server": "echo 'E2E server temporarily disabled' && exit 0"
+    "test": "playwright test",
+    "test:debug": "DEBUG_MODE=1 playwright test --debug",
+    "test:visual": "DEBUG_MODE=1 playwright test --ui",
+    "server": "node test-server.js",
+    "clean": "echo 'No artifacts to clean in e2e-tests'",
+    "clean:all": "npm run clean"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "@types/node": "^20.11.30",
     "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "http-proxy-middleware": "^3.0.5"
   }
 }

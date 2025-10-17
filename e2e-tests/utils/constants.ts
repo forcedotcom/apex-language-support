@@ -45,6 +45,8 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
 
   // LSP and language server related non-critical errors
   'Request textDocument/diagnostic failed', // Known VS Code Web LSP issue Todo: W-19587882 for removal
+  'Request textDocument/completion failed', // Expected when standard library is not loaded
+  'Unhandled method textDocument/completion', // Expected when standard library is not loaded
 
   // VS Code lifecycle and shutdown related
   'Long running operations during shutdown',
@@ -52,6 +54,11 @@ export const NON_CRITICAL_ERROR_PATTERNS: readonly ErrorFilterPattern[] = [
 
   // Network and connectivity (often transient)
   'hostname could not be found',
+
+  // Grammar and syntax highlighting files (expected in web environment)
+  'apex.tmLanguage',
+  'grammars/apex.tmLanguage',
+  'Unable to load and parse grammar',
 ] as const;
 
 /**
@@ -63,6 +70,10 @@ export const NON_CRITICAL_NETWORK_PATTERNS: readonly ErrorFilterPattern[] = [
   // VS Code Web resource loading (404 errors are expected)
   'webPackagePaths.js',
   'workbench.web.main.nls.js',
+
+  // Grammar files (expected to be missing in web environment)
+  'apex.tmLanguage',
+  'grammars/apex.tmLanguage',
 ] as const;
 
 /**
@@ -326,3 +337,50 @@ export const EXPECTED_APEX_SYMBOLS: ExpectedApexSymbols = {
   ],
   totalSymbols: 3, // 1 main class + 1 inner class + 1 inner enum (Configuration + StatusType)
 };
+
+/**
+ * Hover test scenarios for different Apex symbols in the ApexClassExample.cls file.
+ * These scenarios test hover functionality for various symbol types.
+ */
+export const HOVER_TEST_SCENARIOS = [
+  {
+    description: 'Static variable hover',
+    searchText: 'private static final String DEFAULT_STATUS',
+  },
+  {
+    description: 'Instance variable hover',
+    searchText: 'private String instanceId',
+  },
+  {
+    description: 'List variable hover',
+    searchText: 'private List<Account> accounts',
+  },
+  {
+    description: 'Method name hover',
+    searchText: 'public static void sayHello',
+  },
+  {
+    description: 'Method with parameters hover',
+    searchText: 'public static Integer add',
+  },
+  {
+    description: 'Inner class hover',
+    searchText: 'public class Configuration',
+  },
+  {
+    description: 'Inner enum hover',
+    searchText: 'public enum StatusType',
+  },
+  {
+    description: 'Enum value hover',
+    searchText: 'ACTIVE, INACTIVE, PENDING, SUSPENDED',
+  },
+  {
+    description: 'Parameter hover',
+    searchText: 'List<Account> inputAccounts',
+  },
+  {
+    description: 'Local variable hover',
+    searchText: 'Map<Id, Account> accountMap',
+  },
+] as const;

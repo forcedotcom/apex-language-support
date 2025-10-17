@@ -14,7 +14,7 @@ async function startTestServer() {
   try {
     const extensionDevelopmentPath = path.resolve(
       __dirname,
-      '../packages/apex-lsp-vscode-extension',
+      '../packages/apex-lsp-vscode-extension/dist',
     );
     const workspacePath = process.env.CI
       ? path.join(
@@ -31,14 +31,17 @@ async function startTestServer() {
     }
 
     // Verify extension is built (check for critical files)
-    const distPath = path.join(extensionDevelopmentPath, 'dist');
-    const packageJsonPath = path.join(distPath, 'package.json');
-    const extensionJsPath = path.join(distPath, 'extension.js');
-    const extensionWebJsPath = path.join(distPath, 'extension.web.js');
+    // extensionDevelopmentPath now points to the dist directory
+    const packageJsonPath = path.join(extensionDevelopmentPath, 'package.json');
+    const extensionJsPath = path.join(extensionDevelopmentPath, 'extension.js');
+    const extensionWebJsPath = path.join(
+      extensionDevelopmentPath,
+      'extension.web.js',
+    );
 
-    if (!fs.existsSync(distPath)) {
+    if (!fs.existsSync(extensionDevelopmentPath)) {
       throw new Error(
-        `Extension dist directory not found: ${distPath}. Run 'npm run build' in the extension directory first.`,
+        `Extension dist directory not found: ${extensionDevelopmentPath}. Run 'npm run build' in the extension directory first.`,
       );
     }
 
@@ -90,9 +93,9 @@ async function startTestServer() {
 
     // Log extension files for debugging
     console.log('📋 Extension files:');
-    const distFiles = fs.readdirSync(distPath);
+    const distFiles = fs.readdirSync(extensionDevelopmentPath);
     distFiles.forEach((file) => {
-      const filePath = path.join(distPath, file);
+      const filePath = path.join(extensionDevelopmentPath, file);
       const stats = fs.statSync(filePath);
       console.log(
         `   ${file} (${stats.isDirectory() ? 'dir' : stats.size + ' bytes'})`,
