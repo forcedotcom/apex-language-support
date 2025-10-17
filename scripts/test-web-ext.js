@@ -418,29 +418,42 @@ async function runWebExtensionTests() {
       'dist/worker.global.js.map',
     );
 
-    if (fs.existsSync(workerSrc)) {
+    // If worker files don't exist in extension dist, copy them from apex-ls dist
+    if (!fs.existsSync(workerSrc) || !fs.existsSync(workerMapSrc)) {
+      console.log(
+        '⚠️ Worker files not found in extension dist, copying from apex-ls...',
+      );
+      const apexLsWorkerSrc = path.resolve(
+        extensionDevelopmentPath,
+        '../apex-ls/dist/worker.global.js',
+      );
+      const apexLsWorkerMapSrc = path.resolve(
+        extensionDevelopmentPath,
+        '../apex-ls/dist/worker.global.js.map',
+      );
+
+      const extensionDistDir = path.resolve(extensionDevelopmentPath, 'dist');
+      if (!fs.existsSync(extensionDistDir)) {
+        fs.mkdirSync(extensionDistDir, { recursive: true });
+      }
+
+      if (fs.existsSync(apexLsWorkerSrc)) {
+        fs.copyFileSync(apexLsWorkerSrc, workerSrc);
+        console.log('✅ Copied worker.global.js from apex-ls');
+      } else {
+        throw new Error(`Worker file not found: ${apexLsWorkerSrc}`);
+      }
+
+      if (fs.existsSync(apexLsWorkerMapSrc)) {
+        fs.copyFileSync(apexLsWorkerMapSrc, workerMapSrc);
+        console.log('✅ Copied worker.global.js.map from apex-ls');
+      } else {
+        console.warn('⚠️ Worker source map not found, continuing without it');
+      }
+    } else {
       console.log('✅ worker.global.js found in dist directory');
-    } else {
-      console.warn('⚠️ worker.global.js not found in dist directory');
-    }
-
-    if (fs.existsSync(workerMapSrc)) {
       console.log('✅ worker.global.js.map found in dist directory');
-    } else {
-      console.warn('⚠️ worker.global.js.map not found in dist directory');
     }
-
-    // Create a dist directory in the extension root for URL resolution workaround
-    const rootDistDir = path.resolve(extensionDevelopmentPath, 'dist');
-    if (!fs.existsSync(rootDistDir)) {
-      fs.mkdirSync(rootDistDir, { recursive: true });
-    }
-
-    // Copy worker files to the root dist directory
-    const rootWorkerSrc = path.resolve(rootDistDir, 'worker.global.js');
-    const rootWorkerMapSrc = path.resolve(rootDistDir, 'worker.global.js.map');
-    fs.copyFileSync(workerSrc, rootWorkerSrc);
-    fs.copyFileSync(workerMapSrc, rootWorkerMapSrc);
 
     console.log('✅ Worker files found in extension dist directory');
     console.log(`   - Extension worker: ${workerSrc}`);
@@ -515,26 +528,24 @@ async function runWebExtensionTests() {
     });
 
     // Give the browser some time to load and generate logs
+    const waitTime = process.argv.includes('--headless') ? 5000 : 30000;
     console.log(
-      '⏳ Waiting for extension activation and logs (30s timeout)...',
+      `⏳ Waiting for extension activation and logs (${waitTime / 1000}s)...`,
     );
-    console.log('📋 WHILE WAITING:');
-    console.log('   1. Open VS Code Web that should have launched');
-    console.log('   2. Go to View → Output');
-    console.log(
-      '   3. Select "Apex Language Extension (Typescript)" from dropdown',
-    );
-    console.log('   4. Watch for any errors in the output');
+    if (!process.argv.includes('--headless')) {
+      console.log('📋 WHILE WAITING:');
+      console.log('   1. Open VS Code Web that should have launched');
+      console.log('   2. Go to View → Output');
+      console.log(
+        '   3. Select "Apex Language Extension (Typescript)" from dropdown',
+      );
+      console.log('   4. Watch for any errors in the output');
+    }
 
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Extension activation timed out after 30 seconds'));
-      }, 30000);
-
+    await new Promise((resolve) => {
       setTimeout(() => {
-        clearTimeout(timeout);
         resolve();
-      }, 30000);
+      }, waitTime);
     });
 
     // Try to capture browser console logs using Chrome DevTools Protocol

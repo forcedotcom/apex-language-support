@@ -96,6 +96,3 @@ export class LogNotificationHandler implements ILogNotificationHandler {
     }
   }
 }
-
-// Export convenience functions for backward compatibility
-export const BrowserLogNotificationHandler = LogNotificationHandler;

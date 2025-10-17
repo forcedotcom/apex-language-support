@@ -41,11 +41,9 @@
     "antlr4ts": "0.5.0-alpha.4",
     "data-structure-typed": "^2.0.4",
     "effect": "^3.17.6",
-    "fflate": "^0.8.1",
-    "memfs": "^4.30.1"
+    "fflate": "^0.8.1"
   },
   "devDependencies": {
-    "glob": "^10.3.10",
     "tsup": "^8.0.2"
   }
 }

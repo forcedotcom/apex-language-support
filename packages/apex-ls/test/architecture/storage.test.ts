@@ -11,10 +11,7 @@ import {
   BrowserStorageFactory,
   WorkerStorageFactory,
 } from '../../src/storage/StorageImplementations';
-import type {
-  IStorage,
-  StorageConfig,
-} from '../../src/storage/StorageInterface';
+import type { IStorage, StorageConfig } from '@salesforce/apex-lsp-shared';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 // Mock IndexedDB for browser storage tests
