@@ -24,7 +24,7 @@ import {
 } from '../../src/documentSymbol/ApexDocumentSymbolProvider';
 
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
-import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
+import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 // Use real ApexSettingsManager instead of mock
 // The real settings manager provides comprehensive configuration that the parser needs

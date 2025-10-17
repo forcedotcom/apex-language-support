@@ -6,10 +6,40 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type {
-  CapabilitiesConfiguration,
-  ExtendedServerCapabilities,
-} from '@salesforce/apex-lsp-shared';
+import {
+  ServerCapabilities,
+  ClientCapabilities,
+} from 'vscode-languageserver-protocol';
+
+export type ExtendedServerCapabilities = ServerCapabilities &
+  ImplicitCapabilties;
+
+/**
+ * Configuration for different server modes
+ */
+export interface CapabilitiesConfiguration {
+  /** Production mode capabilities - optimized for performance */
+  production: ExtendedServerCapabilities;
+
+  /** Development mode capabilities - full feature set */
+  development: ExtendedServerCapabilities;
+}
+
+export interface ImplicitCapabilties {
+  publishDiagnostics: boolean;
+}
+
+/**
+ * Configuration for client capabilities in different server modes
+ * Mirrors CapabilitiesConfiguration structure for the client side
+ */
+export interface ClientCapabilitiesConfiguration {
+  /** Production mode client capabilities */
+  production: ClientCapabilities;
+
+  /** Development mode client capabilities */
+  development: ClientCapabilities;
+}
 
 /**
  * Production capabilities - exposes which features are available in production

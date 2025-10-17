@@ -21,14 +21,14 @@ import {
   mergeWithDefaults,
   validateApexSettings,
 } from './ApexLanguageServerSettings';
-import {
+import { getLogger } from '../index';
+import type {
   ApexLanguageServerSettings,
-  ExtendedServerCapabilities,
   ResourceLoadMode,
   RuntimePlatform,
   ServerMode,
-  getLogger,
-} from '@salesforce/apex-lsp-shared';
+} from '../server/ApexLanguageServerSettings';
+import type { ExtendedServerCapabilities } from '../capabilities/ApexLanguageServerCapabilities';
 
 // declare const self: any;
 

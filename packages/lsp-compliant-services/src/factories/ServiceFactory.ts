@@ -9,7 +9,7 @@
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { ApexSettingsManager } from '../settings/ApexSettingsManager';
+import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import { HoverProcessingService } from '../services/HoverProcessingService';
 import { CompletionProcessingService } from '../services/CompletionProcessingService';
 import { DefinitionProcessingService } from '../services/DefinitionProcessingService';

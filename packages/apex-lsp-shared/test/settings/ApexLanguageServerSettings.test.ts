@@ -12,8 +12,8 @@ import {
   mergeWithDefaults,
   mergeWithExisting,
   ApexLanguageServerSettings,
-  ApexSettingsManager,
-} from '@salesforce/apex-lsp-shared';
+} from '../../src/settings/ApexLanguageServerSettings';
+import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 
 describe('ApexLanguageServerSettings Validation', () => {
   describe('validateApexSettings', () => {

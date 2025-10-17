@@ -6,11 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilitiesManager';
 import {
-  ApexCapabilitiesManager,
   PRODUCTION_CAPABILITIES,
   DEVELOPMENT_CAPABILITIES,
-} from '@salesforce/apex-lsp-shared';
+} from '../../src/capabilities/ApexLanguageServerCapabilities';
 
 describe('ApexCapabilitiesManager', () => {
   let manager: ApexCapabilitiesManager;

@@ -19,6 +19,9 @@ import {
   DocumentDiagnosticReport,
   DocumentDiagnosticReportKind,
   FoldingRangeParams,
+  ClientCapabilities,
+  Registration,
+  ServerCapabilities,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -26,6 +29,7 @@ import {
   UniversalLoggerFactory,
   LoggerInterface,
   InitializeResult,
+  LSPConfigurationManager,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -39,7 +43,6 @@ import {
   DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
-  LSPConfigurationManager,
 } from '@salesforce/apex-lsp-compliant-services';
 
 /**
@@ -61,6 +64,7 @@ export class LCSAdapter {
   private hasWorkspaceFolderCapability = false;
   private readonly diagnosticProcessor: DiagnosticProcessingService;
   private hoverHandlerRegistered = false;
+  private clientCapabilities?: ClientCapabilities;
 
   private constructor(config: LCSAdapterConfig) {
     this.connection = config.connection;
@@ -176,6 +180,9 @@ export class LCSAdapter {
     // Only register document symbol handler if the capability is enabled
     if (capabilities.documentSymbolProvider) {
       this.connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
+        this.logger.debug(
+          `🔍 Document symbol request for URI: ${params.textDocument.uri}`,
+        );
         try {
           return await dispatchProcessOnDocumentSymbol(params);
         } catch (error) {
@@ -223,6 +230,9 @@ export class LCSAdapter {
     if (capabilities.foldingRangeProvider) {
       this.connection.languages.foldingRange.on(
         async (params: FoldingRangeParams) => {
+          this.logger.debug(
+            `🔍 Folding range request for URI: ${params.textDocument.uri}`,
+          );
           try {
             const storage = ApexStorageManager.getInstance().getStorage();
             return await dispatchProcessOnFoldingRange(params, storage);
@@ -261,24 +271,103 @@ export class LCSAdapter {
         `🔧 Initialize request received. Params: ${JSON.stringify(params, null, 2)}`,
     );
 
+    // Store client capabilities for later dynamic registration
+    this.clientCapabilities = params.capabilities;
+
     this.hasConfigurationCapability =
       !!params.capabilities.workspace?.configuration;
     this.hasWorkspaceFolderCapability =
       !!params.capabilities.workspace?.workspaceFolders;
 
     const configManager = LSPConfigurationManager.getInstance();
-
     configManager.setInitialSettings(params.initializationOptions);
-    // Get current capabilities (will be production by default)
-    const capabilities = configManager.getCapabilities();
+
+    // Get all capabilities from manager based on mode
+    const allCapabilities = configManager.getCapabilities();
+
+    // Build static capabilities: baseline + non-dynamic capabilities
+    const staticCapabilities: ServerCapabilities = {
+      // Always return baseline capabilities statically
+      textDocumentSync: allCapabilities.textDocumentSync,
+      workspace: allCapabilities.workspace,
+    };
+
+    // Add capabilities that client doesn't support dynamic registration for
+    if (
+      allCapabilities.documentSymbolProvider &&
+      !params.capabilities.textDocument?.documentSymbol?.dynamicRegistration
+    ) {
+      staticCapabilities.documentSymbolProvider =
+        allCapabilities.documentSymbolProvider;
+    }
+
+    if (
+      allCapabilities.hoverProvider &&
+      !params.capabilities.textDocument?.hover?.dynamicRegistration
+    ) {
+      staticCapabilities.hoverProvider = allCapabilities.hoverProvider;
+    }
+
+    if (
+      allCapabilities.foldingRangeProvider &&
+      !params.capabilities.textDocument?.foldingRange?.dynamicRegistration
+    ) {
+      staticCapabilities.foldingRangeProvider =
+        allCapabilities.foldingRangeProvider;
+    }
+
+    if (
+      allCapabilities.diagnosticProvider &&
+      !params.capabilities.textDocument?.diagnostic?.dynamicRegistration
+    ) {
+      staticCapabilities.diagnosticProvider =
+        allCapabilities.diagnosticProvider;
+    }
+
+    if (
+      allCapabilities.completionProvider &&
+      !params.capabilities.textDocument?.completion?.dynamicRegistration
+    ) {
+      staticCapabilities.completionProvider =
+        allCapabilities.completionProvider;
+    }
 
     console.debug(
-      `Server capabilities returned: ${JSON.stringify(capabilities, null, 2)}`,
+      `Server capabilities returned: ${JSON.stringify(staticCapabilities, null, 2)}`,
     );
 
     return {
-      capabilities,
+      capabilities: staticCapabilities,
     };
+  }
+
+  /**
+   * Check if client supports dynamic registration for a specific capability
+   */
+  private supportsDynamicRegistration(capability: string): boolean {
+    if (!this.clientCapabilities) {
+      return false;
+    }
+
+    switch (capability) {
+      case 'documentSymbol':
+        return !!this.clientCapabilities.textDocument?.documentSymbol
+          ?.dynamicRegistration;
+      case 'hover':
+        return !!this.clientCapabilities.textDocument?.hover
+          ?.dynamicRegistration;
+      case 'foldingRange':
+        return !!this.clientCapabilities.textDocument?.foldingRange
+          ?.dynamicRegistration;
+      case 'diagnostic':
+        return !!this.clientCapabilities.textDocument?.diagnostic
+          ?.dynamicRegistration;
+      case 'completion':
+        return !!this.clientCapabilities.textDocument?.completion
+          ?.dynamicRegistration;
+      default:
+        return false;
+    }
   }
 
   /**
@@ -292,9 +381,15 @@ export class LCSAdapter {
       await this.connection.client.register(
         DidChangeConfigurationNotification.type,
       );
+    }
 
-      this.setupProtocolHandlers();
+    // NEW: Dynamically register feature capabilities
+    await this.registerDynamicCapabilities();
 
+    // Setup protocol handlers after registration
+    this.setupProtocolHandlers();
+
+    if (this.hasConfigurationCapability) {
       this.logger.debug('✅ Initial workspace configuration loaded');
     }
 
@@ -402,6 +497,131 @@ export class LCSAdapter {
       }
     } catch (error) {
       this.logger.error(`Error updating server mode from settings: ${error}`);
+    }
+  }
+
+  /**
+   * Dynamically register feature capabilities
+   */
+  private async registerDynamicCapabilities(): Promise<void> {
+    const capabilities =
+      LSPConfigurationManager.getInstance().getCapabilities();
+    const registrations: Registration[] = [];
+
+    this.logger.debug('🔧 Starting dynamic capability registration...');
+    this.logger.debug(
+      `Client capabilities: ${JSON.stringify(this.clientCapabilities, null, 2)}`,
+    );
+
+    // Only register if capability is enabled AND client supports dynamic registration
+
+    if (
+      capabilities.documentSymbolProvider &&
+      this.supportsDynamicRegistration('documentSymbol')
+    ) {
+      registrations.push({
+        id: 'apex-document-symbol',
+        method: 'textDocument/documentSymbol',
+        registerOptions: {
+          documentSelector: [
+            { scheme: 'file', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex' },
+          ],
+        },
+      });
+    }
+
+    if (
+      capabilities.hoverProvider &&
+      this.supportsDynamicRegistration('hover')
+    ) {
+      registrations.push({
+        id: 'apex-hover',
+        method: 'textDocument/hover',
+        registerOptions: {
+          documentSelector: [
+            { scheme: 'file', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex' },
+          ],
+        },
+      });
+    }
+
+    if (
+      capabilities.foldingRangeProvider &&
+      this.supportsDynamicRegistration('foldingRange')
+    ) {
+      registrations.push({
+        id: 'apex-folding-range',
+        method: 'textDocument/foldingRange',
+        registerOptions: {
+          documentSelector: [
+            { scheme: 'file', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex' },
+          ],
+        },
+      });
+    }
+
+    if (
+      capabilities.diagnosticProvider &&
+      this.supportsDynamicRegistration('diagnostic')
+    ) {
+      registrations.push({
+        id: 'apex-diagnostic',
+        method: 'textDocument/diagnostic',
+        registerOptions: {
+          documentSelector: [
+            { scheme: 'file', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex' },
+          ],
+          identifier: 'apex-ls-ts',
+          interFileDependencies:
+            capabilities.diagnosticProvider.interFileDependencies,
+          workspaceDiagnostics:
+            capabilities.diagnosticProvider.workspaceDiagnostics,
+        },
+      });
+    }
+
+    if (
+      capabilities.completionProvider &&
+      this.supportsDynamicRegistration('completion')
+    ) {
+      registrations.push({
+        id: 'apex-completion',
+        method: 'textDocument/completion',
+        registerOptions: {
+          documentSelector: [
+            { scheme: 'file', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex' },
+          ],
+          triggerCharacters: capabilities.completionProvider.triggerCharacters,
+          resolveProvider: capabilities.completionProvider.resolveProvider,
+        },
+      });
+    }
+
+    if (registrations.length > 0) {
+      this.logger.debug(
+        `📝 Preparing to register ${registrations.length}` +
+          ` capabilities: ${registrations.map((r) => r.method).join(', ')}`,
+      );
+      try {
+        await this.connection.sendRequest('client/registerCapability', {
+          registrations,
+        });
+        this.logger.info(
+          `✅ Dynamically registered ${registrations.length}` +
+            ` capabilities: ${registrations.map((r) => r.method).join(', ')}`,
+        );
+      } catch (error) {
+        this.logger.error(`❌ Failed to register capabilities: ${error}`);
+      }
+    } else {
+      this.logger.debug(
+        'No capabilities to dynamically register (all returned statically or disabled)',
+      );
     }
   }
 

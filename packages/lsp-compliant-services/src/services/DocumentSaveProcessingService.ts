@@ -17,7 +17,7 @@ import {
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { ApexSettingsManager } from '../settings/ApexSettingsManager';
+import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 /**
  * Interface for document save processing functionality

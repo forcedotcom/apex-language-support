@@ -11,7 +11,7 @@ import type {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
-import { LSPConfigurationManager } from '../settings/LSPConfigurationManager';
+import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 
 /**
  * Service for processing missing artifact requests in the queue system

@@ -20,7 +20,7 @@ import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
 import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
-import { ApexSettingsManager } from '../settings/ApexSettingsManager';
+import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import { IDocumentChangeProcessor } from './DocumentChangeProcessingService';
 
 /**

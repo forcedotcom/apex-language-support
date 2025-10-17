@@ -27,7 +27,7 @@ import {
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
-import { ApexSettingsManager } from '../settings/ApexSettingsManager';
+import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import { transformParserToLspPosition } from '../utils/positionUtils';
 
 /**
@@ -137,6 +137,15 @@ export class DefaultApexDocumentSymbolProvider
         documentUri,
         listener,
         options,
+      );
+
+      logger.debug(
+        () =>
+          `Compilation result: ${JSON.stringify({
+            hasResult: !!result.result,
+            errorCount: result.errors.length,
+            warningCount: result.warnings.length,
+          })}`,
       );
 
       // Get the symbol table from the compilation result
