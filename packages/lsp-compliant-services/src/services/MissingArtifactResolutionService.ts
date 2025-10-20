@@ -6,13 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
-import type { FindMissingArtifactParams } from '@salesforce/apex-lsp-shared';
-import { LSPQueueManager } from '../queue/LSPQueueManager';
 import {
+  LoggerInterface,
   LSPConfigurationManager,
   ApexSettingsManager,
 } from '@salesforce/apex-lsp-shared';
+import type { FindMissingArtifactParams } from '@salesforce/apex-lsp-shared';
+import { LSPQueueManager } from '../queue/LSPQueueManager';
 import type { Connection } from 'vscode-languageserver';
 
 /**

@@ -76,7 +76,7 @@
       ]
     },
     "e2e-tests": {
-      "entry": ["tests/**/*.spec.ts", "utils/**/*.ts", "test-server.js"]
+      "entry": ["tests/**/*.spec.ts", "utils/**/*.ts"]
     }
   },
   "ignoreBinaries": ["ovsx", "gh", "wait"],

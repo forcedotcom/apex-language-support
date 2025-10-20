@@ -12,7 +12,10 @@ import {
   MarkupContent,
   MarkupKind,
 } from 'vscode-languageserver';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  ApexCapabilitiesManager,
+} from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
@@ -26,7 +29,6 @@ import {
   isVariableSymbol,
   inTypeSymbolGroup,
 } from '@salesforce/apex-lsp-parser-ast';
-import { ApexCapabilitiesManager } from '@salesforce/apex-lsp-shared';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 
 import {

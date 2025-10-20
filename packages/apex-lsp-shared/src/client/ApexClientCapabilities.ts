@@ -161,6 +161,4 @@ export const CLIENT_CAPABILITIES_CONFIGURATION: ClientCapabilitiesConfiguration 
  */
 export const getClientCapabilitiesForMode = (
   mode: 'production' | 'development',
-): ClientCapabilities => {
-  return CLIENT_CAPABILITIES_CONFIGURATION[mode];
-};
+): ClientCapabilities => CLIENT_CAPABILITIES_CONFIGURATION[mode];
