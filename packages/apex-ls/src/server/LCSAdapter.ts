@@ -30,6 +30,8 @@ import {
   LoggerInterface,
   InitializeResult,
   LSPConfigurationManager,
+  FindMissingArtifactParams,
+  FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -40,6 +42,7 @@ import {
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
   dispatchProcessOnFoldingRange,
+  dispatchProcessOnFindMissingArtifact,
   DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
@@ -257,6 +260,25 @@ export class LCSAdapter {
         '⚠️ Hover handler not registered (capability disabled)',
       );
     }
+
+    // Register custom apex/findMissingArtifact handler
+    this.connection.onRequest(
+      'apex/findMissingArtifact',
+      async (
+        params: FindMissingArtifactParams,
+      ): Promise<FindMissingArtifactResult> => {
+        this.logger.debug(
+          `🔍 apex/findMissingArtifact request received for: ${params.identifier}`,
+        );
+        try {
+          return await dispatchProcessOnFindMissingArtifact(params);
+        } catch (error) {
+          this.logger.error(`Error processing findMissingArtifact: ${error}`);
+          return { notFound: true };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/findMissingArtifact handler registered');
   }
 
   /**
@@ -282,6 +304,12 @@ export class LCSAdapter {
     const configManager = LSPConfigurationManager.getInstance();
     configManager.setInitialSettings(params.initializationOptions);
 
+    // Set the LSP connection for missing artifact resolution
+    configManager.setConnection(this.connection);
+
+    // Sync capabilities with settings before returning
+    configManager.syncCapabilitiesWithSettings();
+
     // Get all capabilities from manager based on mode
     const allCapabilities = configManager.getCapabilities();
 
@@ -290,6 +318,8 @@ export class LCSAdapter {
       // Always return baseline capabilities statically
       textDocumentSync: allCapabilities.textDocumentSync,
       workspace: allCapabilities.workspace,
+      // Include experimental capabilities
+      experimental: allCapabilities.experimental,
     };
 
     // Add capabilities that client doesn't support dynamic registration for
@@ -425,11 +455,30 @@ export class LCSAdapter {
       return;
     }
 
-    const success =
-      LSPConfigurationManager.getInstance().updateFromLSPConfiguration(change);
+    const configManager = LSPConfigurationManager.getInstance();
+    const previousCapabilities = configManager.getCapabilities();
+
+    const success = configManager.updateFromLSPConfiguration(change);
     this.logger.debug(
       `Configuration update ${success ? 'succeeded' : 'failed'}`,
     );
+
+    if (success) {
+      const newCapabilities = configManager.getCapabilities();
+
+      // Check if findMissingArtifact capability changed
+      const previousEnabled =
+        previousCapabilities.experimental?.findMissingArtifactProvider?.enabled;
+      const newEnabled =
+        newCapabilities.experimental?.findMissingArtifactProvider?.enabled;
+
+      if (previousEnabled !== newEnabled) {
+        this.logger.info(
+          `Missing artifact capability changed: ${previousEnabled} → ${newEnabled}`,
+        );
+        // Could send custom notification to client here if needed
+      }
+    }
 
     // Check if we need to update server mode based on client configuration
     this.updateServerModeIfNeeded(change);

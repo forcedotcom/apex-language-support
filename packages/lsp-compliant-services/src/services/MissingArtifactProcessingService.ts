@@ -6,12 +6,14 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  LSPConfigurationManager,
+} from '@salesforce/apex-lsp-shared';
 import type {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
-import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 
 /**
  * Service for processing missing artifact requests in the queue system

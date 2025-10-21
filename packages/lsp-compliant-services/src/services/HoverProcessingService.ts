@@ -12,7 +12,12 @@ import {
   MarkupContent,
   MarkupKind,
 } from 'vscode-languageserver';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  ApexCapabilitiesManager,
+  LoggerInterface,
+  ApexSettingsManager,
+} from '@salesforce/apex-lsp-shared';
+import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
@@ -26,7 +31,6 @@ import {
   isVariableSymbol,
   inTypeSymbolGroup,
 } from '@salesforce/apex-lsp-parser-ast';
-import { ApexCapabilitiesManager } from '@salesforce/apex-lsp-shared';
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
 
 import {
@@ -110,13 +114,21 @@ export class HoverProcessingService implements IHoverProcessor {
           return `No symbol found at parser position ${parserPos}`;
         });
 
-        // Initiate background resolution for missing artifact
-        this.missingArtifactUtils.tryResolveMissingArtifactBackground(
-          params.textDocument.uri,
-          params.position,
-          'hover',
-        );
+        // Check if missing artifact resolution is enabled
+        const settings = ApexSettingsManager.getInstance().getSettings();
+        if (settings?.apex?.findMissingArtifact?.enabled) {
+          // Initiate background resolution for missing artifact
+          this.missingArtifactUtils.tryResolveMissingArtifactBackground(
+            params.textDocument.uri,
+            params.position,
+            'hover',
+          );
 
+          // Return immediate feedback to user that we're searching
+          return await this.createSearchingHover(params);
+        }
+
+        // If missing artifact resolution is disabled, return null
         return null;
       }
 
@@ -267,5 +279,80 @@ export class HoverProcessingService implements IHoverProcessor {
     return {
       contents: markupContent,
     };
+  }
+
+  /**
+   * Create a hover that shows the user we're searching for a missing artifact
+   */
+  private async createSearchingHover(params: HoverParams): Promise<Hover> {
+    const content: string[] = [];
+
+    // Extract the symbol name from the text at the hover position
+    const symbolName = await this.extractSymbolNameAtPosition(params);
+
+    content.push('🔍 **Searching for symbol...**');
+    content.push('');
+    content.push(`Looking for: \`${symbolName}\``);
+    content.push('');
+    content.push(
+      '*The Apex Language Server is searching for this symbol in your workspace and standard libraries.*',
+    );
+    content.push('');
+    content.push('⏳ *This may take a moment...*');
+
+    const markupContent: MarkupContent = {
+      kind: MarkupKind.Markdown,
+      value: content.join('\n'),
+    };
+
+    return {
+      contents: markupContent,
+    };
+  }
+
+  /**
+   * Extract the symbol name at the hover position for display purposes
+   */
+  private async extractSymbolNameAtPosition(
+    params: HoverParams,
+  ): Promise<string> {
+    try {
+      // Get the document from storage to extract the symbol name
+      const storage = ApexStorageManager.getInstance().getStorage();
+      const document = await storage.getDocument(params.textDocument.uri);
+
+      if (!document) {
+        return 'Unknown Symbol';
+      }
+
+      const position = params.position;
+      const line = document.getText().split('\n')[position.line] || '';
+
+      // Simple word extraction at the cursor position
+      const words = line.split(/\W+/);
+      const charIndex = position.character;
+
+      // Find the word that contains the cursor position
+      let currentPos = 0;
+      for (const word of words) {
+        const wordStart = line.indexOf(word, currentPos);
+        const wordEnd = wordStart + word.length;
+
+        if (charIndex >= wordStart && charIndex <= wordEnd && word.length > 0) {
+          return word;
+        }
+        currentPos = wordEnd;
+      }
+
+      // Fallback: try to extract a simple identifier
+      const match = line
+        .substring(Math.max(0, charIndex - 20), charIndex + 20)
+        .match(/([a-zA-Z_][a-zA-Z0-9_]*)/);
+
+      return match ? match[1] : 'Unknown Symbol';
+    } catch (error) {
+      this.logger.debug(() => `Error extracting symbol name: ${error}`);
+      return 'Unknown Symbol';
+    }
   }
 }

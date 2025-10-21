@@ -100,6 +100,12 @@ describe('Configuration Module', () => {
           if (key === 'performance.documentChangeDebounceMs') return 300;
           if (key === 'environment.enablePerformanceLogging') return false;
           if (key === 'resources.loadMode') return 'lazy';
+          if (key === 'findMissingArtifact.enabled') return false;
+          if (key === 'findMissingArtifact.blockingWaitTimeoutMs') return 2000;
+          if (key === 'findMissingArtifact.indexingBarrierPollMs') return 100;
+          if (key === 'findMissingArtifact.maxCandidatesToOpen') return 3;
+          if (key === 'findMissingArtifact.timeoutMsHint') return 1500;
+          if (key === 'findMissingArtifact.enablePerfMarks') return false;
           return defaultValue;
         },
       );
@@ -169,6 +175,34 @@ describe('Configuration Module', () => {
         102400,
       );
       expect(settings.apex.environment.enablePerformanceLogging).toBe(false);
+    });
+
+    it('should handle missing artifact configuration settings', () => {
+      // Mock configuration values for missing artifact settings
+      mockGetConfiguration.mockImplementation(
+        (key: string, defaultValue: any) => {
+          if (key === 'apex.findMissingArtifact.enabled') return true;
+          if (key === 'apex.findMissingArtifact.blockingWaitTimeoutMs')
+            return 5000;
+          if (key === 'apex.findMissingArtifact.indexingBarrierPollMs')
+            return 200;
+          if (key === 'apex.findMissingArtifact.maxCandidatesToOpen') return 5;
+          if (key === 'apex.findMissingArtifact.timeoutMsHint') return 3000;
+          if (key === 'apex.findMissingArtifact.enablePerfMarks') return true;
+          return defaultValue;
+        },
+      );
+
+      const settings = getWorkspaceSettings();
+
+      expect(settings.apex.findMissingArtifact.enabled).toBe(true);
+      expect(settings.apex.findMissingArtifact.blockingWaitTimeoutMs).toBe(
+        5000,
+      );
+      expect(settings.apex.findMissingArtifact.indexingBarrierPollMs).toBe(200);
+      expect(settings.apex.findMissingArtifact.maxCandidatesToOpen).toBe(5);
+      expect(settings.apex.findMissingArtifact.timeoutMsHint).toBe(3000);
+      expect(settings.apex.findMissingArtifact.enablePerfMarks).toBe(true);
     });
   });
 
@@ -274,6 +308,14 @@ describe('Configuration Module', () => {
           },
           logLevel: 'info',
           custom: {},
+          findMissingArtifact: {
+            enabled: false,
+            blockingWaitTimeoutMs: 2000,
+            indexingBarrierPollMs: 100,
+            maxCandidatesToOpen: 3,
+            timeoutMsHint: 1500,
+            enablePerfMarks: false,
+          },
         },
       };
       jest

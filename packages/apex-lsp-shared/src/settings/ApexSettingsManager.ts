@@ -510,6 +510,23 @@ export class ApexSettingsManager {
     });
   }
 
+  /**
+   * Check if findMissingArtifact settings changed
+   */
+  public hasFindMissingArtifactChanged(
+    previous: ApexLanguageServerSettings,
+    current: ApexLanguageServerSettings,
+  ): boolean {
+    return (
+      previous.apex.findMissingArtifact.enabled !==
+        current.apex.findMissingArtifact.enabled ||
+      previous.apex.findMissingArtifact.maxCandidatesToOpen !==
+        current.apex.findMissingArtifact.maxCandidatesToOpen ||
+      previous.apex.findMissingArtifact.timeoutMsHint !==
+        current.apex.findMissingArtifact.timeoutMsHint
+    );
+  }
+
   private logSettingsChanges(
     previous: ApexLanguageServerSettings,
     current: ApexLanguageServerSettings,

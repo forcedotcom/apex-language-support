@@ -77,6 +77,11 @@ export class MissingArtifactUtils {
       return;
     }
 
+    this.logger.debug(
+      () =>
+        `Trying to resolve missing artifact in background for ${uri} at ${position.line}:${position.character}`,
+    );
+
     try {
       // Extract reference information from the position
       const reference = this.extractReferenceAtPosition(uri, position);

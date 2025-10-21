@@ -36,10 +36,9 @@ const createSerializableNotification = (
  * @returns The workspace settings object
  */
 export const getWorkspaceSettings = (): ApexLanguageServerSettings => {
+  const config = vscode.workspace.getConfiguration();
   const rawSettings =
-    vscode.workspace
-      .getConfiguration()
-      .get(EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION) ?? {};
+    config.get(EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION) ?? {};
 
   // Create a deep clone to ensure serializability
   let settings: any = {};
@@ -81,12 +80,27 @@ export const getWorkspaceSettings = (): ApexLanguageServerSettings => {
             standardApexLibraryPath: undefined,
           },
           findMissingArtifact: {
-            enabled: false,
-            blockingWaitTimeoutMs: 2000,
-            indexingBarrierPollMs: 100,
-            maxCandidatesToOpen: 3,
-            timeoutMsHint: 1500,
-            enablePerfMarks: false,
+            enabled: config.get('apex.findMissingArtifact.enabled', false),
+            blockingWaitTimeoutMs: config.get(
+              'apex.findMissingArtifact.blockingWaitTimeoutMs',
+              2000,
+            ),
+            indexingBarrierPollMs: config.get(
+              'apex.findMissingArtifact.indexingBarrierPollMs',
+              100,
+            ),
+            maxCandidatesToOpen: config.get(
+              'apex.findMissingArtifact.maxCandidatesToOpen',
+              3,
+            ),
+            timeoutMsHint: config.get(
+              'apex.findMissingArtifact.timeoutMsHint',
+              1500,
+            ),
+            enablePerfMarks: config.get(
+              'apex.findMissingArtifact.enablePerfMarks',
+              false,
+            ),
           },
           worker: {
             logLevel: 'info',
