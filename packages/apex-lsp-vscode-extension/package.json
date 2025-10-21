@@ -314,26 +314,18 @@
     "lint:fix": "eslint src --fix"
   },
   "dependencies": {
-    "@salesforce/apex-ls": "1.0.0",
-    "os-browserify": "^0.3.0",
-    "url-browserify": "^2.0.0",
+    "@salesforce/apex-lsp-shared": "1.0.0",
     "vscode-languageclient": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.12",
-    "vscode-uri": "^3.0.8",
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
-    "@rollup/plugin-typescript": "^11.1.5",
     "@salesforce/apex-tmlanguage": "1.8.0",
     "@types/vscode": "^1.90.0",
-    "@vscode/test-electron": "^2.1.5",
     "@vscode/vsce": "^2.15.0",
     "buffer": "^6.0.3",
-    "crypto-browserify": "^3.12.1",
     "events": "^3.3.0",
-    "memfs": "^4.14.0",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
     "shx": "^0.3.4",

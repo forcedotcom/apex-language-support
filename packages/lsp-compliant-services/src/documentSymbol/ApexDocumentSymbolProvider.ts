@@ -24,10 +24,9 @@ import {
   isMethodSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
-import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import { transformParserToLspPosition } from '../utils/positionUtils';
 
 /**

@@ -26,8 +26,6 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix"
   },
-  "dependencies": {
-    "@salesforce/apex-lsp-parser-ast": "1.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {}
 }
