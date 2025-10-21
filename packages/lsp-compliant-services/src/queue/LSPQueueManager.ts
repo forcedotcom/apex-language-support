@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
@@ -22,7 +22,6 @@ import { ServiceFactory } from '../factories/ServiceFactory';
 import { DEFAULT_SERVICE_CONFIG } from '../config/ServiceConfiguration';
 import { GenericRequestHandler } from '../registry/GenericRequestHandler';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 /**
  * LSP Queue Manager

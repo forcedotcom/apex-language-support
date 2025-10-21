@@ -14,10 +14,12 @@ import {
   ApexSymbolCollectorListener,
   ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  ApexSettingsManager,
+} from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 /**
  * Interface for document save processing functionality

@@ -1,0 +1,113 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [".github/scripts/**/*.{js,ts,mjs}", "build-config/**/*.ts"]
+    },
+    "packages/apex-ls": {
+      "entry": [
+        "src/server.*.ts",
+        "src/communication/BrowserClient.ts",
+        "src/communication/PlatformBridges.ts",
+        "src/launcher/WorkerLauncher.ts",
+        "src/server/NodeConnectionFactory.ts",
+        "src/server/UnifiedConnectionFactory.ts",
+        "src/storage/IndexedDBStorage.ts",
+        "src/utils/WorkerLogNotificationHandler.ts"
+      ],
+      "ignoreDependencies": [
+        "assert",
+        "buffer",
+        "crypto-browserify",
+        "events",
+        "memfs",
+        "memfs-browser",
+        "node-dir",
+        "os-browserify",
+        "path-browserify",
+        "process",
+        "stream-browserify",
+        "util"
+      ]
+    },
+    "packages/apex-lsp-testbed": {
+      "entry": [
+        "src/cli.ts",
+        "examples/**/*.ts",
+        "scripts/**/*.{js,mjs}",
+        "mock-server.js",
+        "test-document-symbols.js",
+        "src/servers/**/*.ts",
+        "src/test-utils/**/*.ts",
+        "test/**/*.ts"
+      ]
+    },
+    "packages/apex-lsp-vscode-extension": {
+      "entry": [
+        "src/index.ts",
+        "src/utils.js",
+        "src/logging/VSCodeLogNotificationHandler.ts",
+        "test/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "@salesforce/apex-tmlanguage",
+        "buffer",
+        "events",
+        "process",
+        "util"
+      ]
+    },
+    "packages/apex-parser-ast": {
+      "entry": [
+        "scripts/**/*.{js,mjs}",
+        "src/semantics/sourceFile.ts",
+        "src/semantics/validation/index.ts",
+        "src/semantics/versions.ts",
+        "src/symbols/BackgroundProcessingManager.ts",
+        "src/symbols/EffectBackgroundProcessingService.ts",
+        "src/symbols/LazyReferenceResolver.ts",
+        "src/symbols/resolution/index.ts"
+      ]
+    },
+    "packages/lsp-compliant-services": {
+      "entry": [
+        "src/apexlib/manager.ts",
+        "src/handlers/WorkspaceSymbolHandler.ts"
+      ]
+    },
+    "e2e-tests": {
+      "entry": ["tests/**/*.spec.ts", "utils/**/*.ts"]
+    }
+  },
+  "ignoreBinaries": ["ovsx", "gh", "wait"],
+  "ignore": [
+    "**/*.d.ts",
+    "coverage/**",
+    "dist/**",
+    "out/**",
+    "node_modules/**",
+    ".turbo/**",
+    "**/*.tsbuildinfo",
+    "**/*.config.{js,cjs,mjs}",
+    "**/jest.config*.{js,cjs,mjs}",
+    ".releaserc.json",
+    "tsconfig*.json"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "devDependencies": "error",
+    "unlisted": "error",
+    "binaries": "error",
+    "unresolved": "error",
+    "exports": "off",
+    "nsExports": "off",
+    "types": "off",
+    "nsTypes": "off",
+    "duplicates": "error",
+    "enumMembers": "off"
+  },
+  "ignoreWorkspaces": [],
+  "includeEntryExports": false
+}
