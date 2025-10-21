@@ -15,6 +15,8 @@ import {
   DidChangeConfigurationParams,
   HoverParams,
   Hover,
+  DefinitionParams,
+  Location,
   DocumentDiagnosticParams,
   DocumentDiagnosticReport,
   DocumentDiagnosticReportKind,
@@ -41,6 +43,7 @@ import {
   dispatchProcessOnCloseDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
+  dispatchProcessOnDefinition,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnFindMissingArtifact,
   DiagnosticProcessingService,
@@ -197,6 +200,29 @@ export class LCSAdapter {
     } else {
       this.logger.debug(
         '⚠️ Document symbol handler not registered (capability disabled)',
+      );
+    }
+
+    // Only register definition handler if the capability is enabled
+    if (capabilities.definitionProvider) {
+      this.connection.onDefinition(
+        async (params: DefinitionParams): Promise<Location[] | null> => {
+          this.logger.debug(
+            `🔍 Definition request for URI: ${params.textDocument.uri} ` +
+              `at ${params.position.line}:${params.position.character}`,
+          );
+          try {
+            return await dispatchProcessOnDefinition(params);
+          } catch (error) {
+            this.logger.error(`Error processing definition: ${error}`);
+            return null;
+          }
+        },
+      );
+      this.logger.debug('✅ Definition handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Definition handler not registered (capability disabled)',
       );
     }
 
@@ -394,6 +420,9 @@ export class LCSAdapter {
           ?.dynamicRegistration;
       case 'completion':
         return !!this.clientCapabilities.textDocument?.completion
+          ?.dynamicRegistration;
+      case 'definition':
+        return !!this.clientCapabilities.textDocument?.definition
           ?.dynamicRegistration;
       default:
         return false;
@@ -647,6 +676,22 @@ export class LCSAdapter {
           ],
           triggerCharacters: capabilities.completionProvider.triggerCharacters,
           resolveProvider: capabilities.completionProvider.resolveProvider,
+        },
+      });
+    }
+
+    if (
+      capabilities.definitionProvider &&
+      this.supportsDynamicRegistration('definition')
+    ) {
+      registrations.push({
+        id: 'apex-definition',
+        method: 'textDocument/definition',
+        registerOptions: {
+          documentSelector: [
+            { scheme: 'file', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex' },
+          ],
         },
       });
     }

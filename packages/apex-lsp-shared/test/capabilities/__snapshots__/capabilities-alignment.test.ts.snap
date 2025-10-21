@@ -13,7 +13,7 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
     ],
   },
   "declarationProvider": undefined,
-  "definitionProvider": undefined,
+  "definitionProvider": true,
   "diagnosticProvider": {
     "identifier": "apex-ls-ts",
     "interFileDependencies": true,
@@ -1602,7 +1602,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
         ],
       },
       "declarationProvider": undefined,
-      "definitionProvider": undefined,
+      "definitionProvider": true,
       "diagnosticProvider": {
         "identifier": "apex-ls-ts",
         "interFileDependencies": true,
@@ -2332,7 +2332,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
           ],
         },
         "declarationProvider": undefined,
-        "definitionProvider": undefined,
+        "definitionProvider": true,
         "diagnosticProvider": {
           "identifier": "apex-ls-ts",
           "interFileDependencies": true,
@@ -2464,7 +2464,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         ],
       },
       "declarationProvider": undefined,
-      "definitionProvider": undefined,
+      "definitionProvider": true,
       "diagnosticProvider": {
         "identifier": "apex-ls-ts",
         "interFileDependencies": true,
@@ -2651,7 +2651,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
       ],
     },
     "declarationProvider": undefined,
-    "definitionProvider": undefined,
+    "definitionProvider": true,
     "diagnosticProvider": {
       "identifier": "apex-ls-ts",
       "interFileDependencies": true,
@@ -2784,7 +2784,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
     ],
   },
   "declarationProvider": undefined,
-  "definitionProvider": undefined,
+  "definitionProvider": true,
   "diagnosticProvider": {
     "identifier": "apex-ls-ts",
     "interFileDependencies": true,
