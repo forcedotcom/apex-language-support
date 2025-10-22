@@ -61,6 +61,12 @@ const BASE_CLIENT_CAPABILITIES: ClientCapabilities = {
     regularExpressions: { engine: 'ECMAScript', version: 'ES2020' },
     markdown: { parser: 'marked', version: '1.1.0' },
   },
+  experimental: {
+    findMissingArtifactHandler: {
+      enabled: true,
+      supportedModes: ['blocking', 'background'],
+    },
+  },
 };
 
 /**
@@ -89,6 +95,12 @@ export const PRODUCTION_CLIENT_CAPABILITIES: ClientCapabilities = {
     // Folding - disabled in production, don't advertise
     // Hover - disabled in production, don't advertise
     // Completion - disabled in production, don't advertise
+  },
+  experimental: {
+    findMissingArtifactHandler: {
+      enabled: true,
+      supportedModes: ['blocking', 'background'],
+    },
   },
 };
 
@@ -143,6 +155,12 @@ export const DEVELOPMENT_CLIENT_CAPABILITIES: ClientCapabilities = {
           21, 22, 23, 24, 25,
         ],
       },
+    },
+  },
+  experimental: {
+    findMissingArtifactHandler: {
+      enabled: true,
+      supportedModes: ['blocking', 'background'],
     },
   },
 };

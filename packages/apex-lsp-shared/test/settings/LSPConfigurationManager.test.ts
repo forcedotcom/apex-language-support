@@ -100,6 +100,7 @@ describe('LSPConfigurationManager', () => {
       getAllCapabilities: jest.fn(),
       isCapabilityEnabled: jest.fn(),
       isCapabilityEnabledForMode: jest.fn(),
+      updateExperimentalCapabilities: jest.fn(),
     } as unknown as jest.Mocked<ApexCapabilitiesManager>;
 
     // Create mock settings manager

@@ -16,6 +16,7 @@ import { getClientCapabilitiesForMode } from '@salesforce/apex-lsp-shared';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
 import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
+import { handleFindMissingArtifact } from './missing-artifact-handler';
 import {
   updateApexServerStatusStarting,
   updateApexServerStatusReady,
@@ -538,6 +539,29 @@ async function createWebLanguageClient(
     },
   } as ClientInterface;
 
+  // Register handler for server-to-client apex/findMissingArtifact requests
+  Client.onRequest('apex/findMissingArtifact', async (params: any) => {
+    logToOutputChannel(
+      `📨 Received apex/findMissingArtifact request for: ${params.identifier}`,
+      'debug',
+    );
+
+    try {
+      const result = await handleFindMissingArtifact(params, context);
+      logToOutputChannel(
+        `✅ Resolved missing artifact: ${params.identifier}`,
+        'debug',
+      );
+      return result;
+    } catch (error) {
+      logToOutputChannel(
+        `❌ Failed to resolve missing artifact ${params.identifier}: ${error}`,
+        'error',
+      );
+      return { notFound: true };
+    }
+  });
+
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
 
@@ -703,6 +727,29 @@ async function createDesktopLanguageClient(
     isDisposed: () => !nodeClient.isRunning(),
     dispose: () => nodeClient.stop(),
   } as ClientInterface;
+
+  // Register handler for server-to-client apex/findMissingArtifact requests
+  Client.onRequest('apex/findMissingArtifact', async (params: any) => {
+    logToOutputChannel(
+      `📨 Received apex/findMissingArtifact request for: ${params.identifier}`,
+      'debug',
+    );
+
+    try {
+      const result = await handleFindMissingArtifact(params, context);
+      logToOutputChannel(
+        `✅ Resolved missing artifact: ${params.identifier}`,
+        'debug',
+      );
+      return result;
+    } catch (error) {
+      logToOutputChannel(
+        `❌ Failed to resolve missing artifact ${params.identifier}: ${error}`,
+        'error',
+      );
+      return { notFound: true };
+    }
+  });
 
   logToOutputChannel('✅ Node.js language client started successfully', 'info');
 }

@@ -551,7 +551,13 @@ export class LSPConfigurationManager {
       return false;
     }
 
-    return this.settingsManager.updateFromLSPConfiguration(config.settings);
+    const result = this.settingsManager.updateFromLSPConfiguration(
+      config.settings,
+    );
+    if (result) {
+      this.syncCapabilitiesWithSettings();
+    }
+    return result;
   }
 
   /**
@@ -578,6 +584,18 @@ export class LSPConfigurationManager {
    */
   public getConnection(): Connection | undefined {
     return this.runtimeDependencies?.connection;
+  }
+
+  /**
+   * Set the LSP connection for client communication
+   * @param connection - The LSP connection
+   */
+  public setConnection(connection: Connection): void {
+    if (!this.runtimeDependencies) {
+      this.runtimeDependencies = {};
+    }
+    this.runtimeDependencies.connection = connection;
+    this.logger.debug('LSP connection set in configuration manager');
   }
 
   /**
@@ -768,5 +786,17 @@ export class LSPConfigurationManager {
     overrides: Partial<T>,
   ): T {
     return { ...base, ...overrides };
+  }
+
+  /**
+   * Synchronize server capabilities with current settings
+   */
+  public syncCapabilitiesWithSettings(): void {
+    this.capabilitiesManager.updateExperimentalCapabilities(
+      this.settingsManager,
+    );
+    this.logger.debug(
+      `Synchronized server capabilities with settings: ${JSON.stringify(this.getExtendedServerCapabilities())}`,
+    );
   }
 }

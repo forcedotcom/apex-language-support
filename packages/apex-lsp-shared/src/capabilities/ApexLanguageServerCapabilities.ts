@@ -12,7 +12,7 @@ import {
 } from 'vscode-languageserver-protocol';
 
 export type ExtendedServerCapabilities = ServerCapabilities &
-  ImplicitCapabilties;
+  ImplicitCapabilties & { experimental?: ExperimentalCapabilities };
 
 /**
  * Configuration for different server modes
@@ -27,6 +27,22 @@ export interface CapabilitiesConfiguration {
 
 export interface ImplicitCapabilties {
   publishDiagnostics: boolean;
+}
+
+export interface FindMissingArtifactCapability {
+  /** Whether the server/client supports finding missing artifacts */
+  enabled: boolean;
+  /** Supported resolution modes */
+  supportedModes: ('blocking' | 'background')[];
+  /** Maximum candidates to open per request */
+  maxCandidatesToOpen?: number;
+  /** Default timeout hint in milliseconds */
+  timeoutMsHint?: number;
+}
+
+export interface ExperimentalCapabilities {
+  /** Missing artifact resolution capability */
+  findMissingArtifactProvider?: FindMissingArtifactCapability;
 }
 
 /**
@@ -99,6 +115,14 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   inlineValueProvider: undefined,
   inlayHintProvider: undefined,
   inlineCompletionProvider: undefined,
+  experimental: {
+    findMissingArtifactProvider: {
+      enabled: false, // Disabled by default in production
+      supportedModes: ['blocking', 'background'],
+      maxCandidatesToOpen: 3,
+      timeoutMsHint: 1500,
+    },
+  },
 };
 
 /**
@@ -114,10 +138,19 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
   },
   foldingRangeProvider: true,
   hoverProvider: true,
+  definitionProvider: true,
   diagnosticProvider: {
     identifier: 'apex-ls-ts',
     interFileDependencies: true,
     workspaceDiagnostics: false,
+  },
+  experimental: {
+    findMissingArtifactProvider: {
+      enabled: true, // Enabled by default in development
+      supportedModes: ['blocking', 'background'],
+      maxCandidatesToOpen: 3,
+      timeoutMsHint: 2000,
+    },
   },
 };
 

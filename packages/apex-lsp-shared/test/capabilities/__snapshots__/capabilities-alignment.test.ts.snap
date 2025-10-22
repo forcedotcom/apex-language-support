@@ -13,7 +13,7 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
     ],
   },
   "declarationProvider": undefined,
-  "definitionProvider": undefined,
+  "definitionProvider": true,
   "diagnosticProvider": {
     "identifier": "apex-ls-ts",
     "interFileDependencies": true,
@@ -26,6 +26,17 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
   "documentRangeFormattingProvider": undefined,
   "documentSymbolProvider": true,
   "executeCommandProvider": undefined,
+  "experimental": {
+    "findMissingArtifactProvider": {
+      "enabled": true,
+      "maxCandidatesToOpen": 3,
+      "supportedModes": [
+        "blocking",
+        "background",
+      ],
+      "timeoutMsHint": 2000,
+    },
+  },
   "foldingRangeProvider": true,
   "hoverProvider": true,
   "implementationProvider": undefined,
@@ -80,6 +91,17 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
   "documentRangeFormattingProvider": undefined,
   "documentSymbolProvider": true,
   "executeCommandProvider": undefined,
+  "experimental": {
+    "findMissingArtifactProvider": {
+      "enabled": false,
+      "maxCandidatesToOpen": 3,
+      "supportedModes": [
+        "blocking",
+        "background",
+      ],
+      "timeoutMsHint": 1500,
+    },
+  },
   "foldingRangeProvider": false,
   "hoverProvider": undefined,
   "implementationProvider": undefined,
@@ -186,6 +208,15 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
 exports[`Capabilities Alignment Tests Client Capabilities Configuration should have consistent client capabilities configuration: client-capabilities-configuration 1`] = `
 {
   "development": {
+    "experimental": {
+      "findMissingArtifactHandler": {
+        "enabled": true,
+        "supportedModes": [
+          "blocking",
+          "background",
+        ],
+      },
+    },
     "general": {
       "markdown": {
         "parser": "marked",
@@ -367,6 +398,15 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
     },
   },
   "production": {
+    "experimental": {
+      "findMissingArtifactHandler": {
+        "enabled": true,
+        "supportedModes": [
+          "blocking",
+          "background",
+        ],
+      },
+    },
     "general": {
       "markdown": {
         "parser": "marked",
@@ -497,6 +537,15 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
 
 exports[`Capabilities Alignment Tests Client Capabilities Configuration should have consistent development client capabilities: development-client-capabilities 1`] = `
 {
+  "experimental": {
+    "findMissingArtifactHandler": {
+      "enabled": true,
+      "supportedModes": [
+        "blocking",
+        "background",
+      ],
+    },
+  },
   "general": {
     "markdown": {
       "parser": "marked",
@@ -681,6 +730,15 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
 
 exports[`Capabilities Alignment Tests Client Capabilities Configuration should have consistent production client capabilities: production-client-capabilities 1`] = `
 {
+  "experimental": {
+    "findMissingArtifactHandler": {
+      "enabled": true,
+      "supportedModes": [
+        "blocking",
+        "background",
+      ],
+    },
+  },
   "general": {
     "markdown": {
       "parser": "marked",
@@ -810,6 +868,15 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
 
 exports[`Capabilities Alignment Tests Client Capabilities Configuration should return correct capabilities for development mode: development-client-capabilities-via-function 1`] = `
 {
+  "experimental": {
+    "findMissingArtifactHandler": {
+      "enabled": true,
+      "supportedModes": [
+        "blocking",
+        "background",
+      ],
+    },
+  },
   "general": {
     "markdown": {
       "parser": "marked",
@@ -994,6 +1061,15 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should r
 
 exports[`Capabilities Alignment Tests Client Capabilities Configuration should return correct capabilities for production mode: production-client-capabilities-via-function 1`] = `
 {
+  "experimental": {
+    "findMissingArtifactHandler": {
+      "enabled": true,
+      "supportedModes": [
+        "blocking",
+        "background",
+      ],
+    },
+  },
   "general": {
     "markdown": {
       "parser": "marked",
@@ -1125,6 +1201,15 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
 [
   {
     "expectedClient": {
+      "experimental": {
+        "findMissingArtifactHandler": {
+          "enabled": true,
+          "supportedModes": [
+            "blocking",
+            "background",
+          ],
+        },
+      },
       "general": {
         "markdown": {
           "parser": "marked",
@@ -1270,6 +1355,17 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
       "documentRangeFormattingProvider": undefined,
       "documentSymbolProvider": true,
       "executeCommandProvider": undefined,
+      "experimental": {
+        "findMissingArtifactProvider": {
+          "enabled": false,
+          "maxCandidatesToOpen": 3,
+          "supportedModes": [
+            "blocking",
+            "background",
+          ],
+          "timeoutMsHint": 1500,
+        },
+      },
       "foldingRangeProvider": false,
       "hoverProvider": undefined,
       "implementationProvider": undefined,
@@ -1305,6 +1401,15 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
   },
   {
     "expectedClient": {
+      "experimental": {
+        "findMissingArtifactHandler": {
+          "enabled": true,
+          "supportedModes": [
+            "blocking",
+            "background",
+          ],
+        },
+      },
       "general": {
         "markdown": {
           "parser": "marked",
@@ -1497,7 +1602,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
         ],
       },
       "declarationProvider": undefined,
-      "definitionProvider": undefined,
+      "definitionProvider": true,
       "diagnosticProvider": {
         "identifier": "apex-ls-ts",
         "interFileDependencies": true,
@@ -1510,6 +1615,17 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
       "documentRangeFormattingProvider": undefined,
       "documentSymbolProvider": true,
       "executeCommandProvider": undefined,
+      "experimental": {
+        "findMissingArtifactProvider": {
+          "enabled": true,
+          "maxCandidatesToOpen": 3,
+          "supportedModes": [
+            "blocking",
+            "background",
+          ],
+          "timeoutMsHint": 2000,
+        },
+      },
       "foldingRangeProvider": true,
       "hoverProvider": true,
       "implementationProvider": undefined,
@@ -1550,6 +1666,15 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
 {
   "clientCapabilities": {
     "development": {
+      "experimental": {
+        "findMissingArtifactHandler": {
+          "enabled": true,
+          "supportedModes": [
+            "blocking",
+            "background",
+          ],
+        },
+      },
       "general": {
         "markdown": {
           "parser": "marked",
@@ -1731,6 +1856,15 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       },
     },
     "production": {
+      "experimental": {
+        "findMissingArtifactHandler": {
+          "enabled": true,
+          "supportedModes": [
+            "blocking",
+            "background",
+          ],
+        },
+      },
       "general": {
         "markdown": {
           "parser": "marked",
@@ -1860,6 +1994,15 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
   "configurations": {
     "client": {
       "development": {
+        "experimental": {
+          "findMissingArtifactHandler": {
+            "enabled": true,
+            "supportedModes": [
+              "blocking",
+              "background",
+            ],
+          },
+        },
         "general": {
           "markdown": {
             "parser": "marked",
@@ -2041,6 +2184,15 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         },
       },
       "production": {
+        "experimental": {
+          "findMissingArtifactHandler": {
+            "enabled": true,
+            "supportedModes": [
+              "blocking",
+              "background",
+            ],
+          },
+        },
         "general": {
           "markdown": {
             "parser": "marked",
@@ -2180,7 +2332,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
           ],
         },
         "declarationProvider": undefined,
-        "definitionProvider": undefined,
+        "definitionProvider": true,
         "diagnosticProvider": {
           "identifier": "apex-ls-ts",
           "interFileDependencies": true,
@@ -2193,6 +2345,17 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         "documentRangeFormattingProvider": undefined,
         "documentSymbolProvider": true,
         "executeCommandProvider": undefined,
+        "experimental": {
+          "findMissingArtifactProvider": {
+            "enabled": true,
+            "maxCandidatesToOpen": 3,
+            "supportedModes": [
+              "blocking",
+              "background",
+            ],
+            "timeoutMsHint": 2000,
+          },
+        },
         "foldingRangeProvider": true,
         "hoverProvider": true,
         "implementationProvider": undefined,
@@ -2244,6 +2407,17 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         "documentRangeFormattingProvider": undefined,
         "documentSymbolProvider": true,
         "executeCommandProvider": undefined,
+        "experimental": {
+          "findMissingArtifactProvider": {
+            "enabled": false,
+            "maxCandidatesToOpen": 3,
+            "supportedModes": [
+              "blocking",
+              "background",
+            ],
+            "timeoutMsHint": 1500,
+          },
+        },
         "foldingRangeProvider": false,
         "hoverProvider": undefined,
         "implementationProvider": undefined,
@@ -2290,7 +2464,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
         ],
       },
       "declarationProvider": undefined,
-      "definitionProvider": undefined,
+      "definitionProvider": true,
       "diagnosticProvider": {
         "identifier": "apex-ls-ts",
         "interFileDependencies": true,
@@ -2303,6 +2477,17 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       "documentRangeFormattingProvider": undefined,
       "documentSymbolProvider": true,
       "executeCommandProvider": undefined,
+      "experimental": {
+        "findMissingArtifactProvider": {
+          "enabled": true,
+          "maxCandidatesToOpen": 3,
+          "supportedModes": [
+            "blocking",
+            "background",
+          ],
+          "timeoutMsHint": 2000,
+        },
+      },
       "foldingRangeProvider": true,
       "hoverProvider": true,
       "implementationProvider": undefined,
@@ -2354,6 +2539,17 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       "documentRangeFormattingProvider": undefined,
       "documentSymbolProvider": true,
       "executeCommandProvider": undefined,
+      "experimental": {
+        "findMissingArtifactProvider": {
+          "enabled": false,
+          "maxCandidatesToOpen": 3,
+          "supportedModes": [
+            "blocking",
+            "background",
+          ],
+          "timeoutMsHint": 1500,
+        },
+      },
       "foldingRangeProvider": false,
       "hoverProvider": undefined,
       "implementationProvider": undefined,
@@ -2455,7 +2651,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
       ],
     },
     "declarationProvider": undefined,
-    "definitionProvider": undefined,
+    "definitionProvider": true,
     "diagnosticProvider": {
       "identifier": "apex-ls-ts",
       "interFileDependencies": true,
@@ -2468,6 +2664,17 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
     "documentRangeFormattingProvider": undefined,
     "documentSymbolProvider": true,
     "executeCommandProvider": undefined,
+    "experimental": {
+      "findMissingArtifactProvider": {
+        "enabled": true,
+        "maxCandidatesToOpen": 3,
+        "supportedModes": [
+          "blocking",
+          "background",
+        ],
+        "timeoutMsHint": 2000,
+      },
+    },
     "foldingRangeProvider": true,
     "hoverProvider": true,
     "implementationProvider": undefined,
@@ -2519,6 +2726,17 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
     "documentRangeFormattingProvider": undefined,
     "documentSymbolProvider": true,
     "executeCommandProvider": undefined,
+    "experimental": {
+      "findMissingArtifactProvider": {
+        "enabled": false,
+        "maxCandidatesToOpen": 3,
+        "supportedModes": [
+          "blocking",
+          "background",
+        ],
+        "timeoutMsHint": 1500,
+      },
+    },
     "foldingRangeProvider": false,
     "hoverProvider": undefined,
     "implementationProvider": undefined,
@@ -2566,7 +2784,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
     ],
   },
   "declarationProvider": undefined,
-  "definitionProvider": undefined,
+  "definitionProvider": true,
   "diagnosticProvider": {
     "identifier": "apex-ls-ts",
     "interFileDependencies": true,
@@ -2579,6 +2797,17 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   "documentRangeFormattingProvider": undefined,
   "documentSymbolProvider": true,
   "executeCommandProvider": undefined,
+  "experimental": {
+    "findMissingArtifactProvider": {
+      "enabled": true,
+      "maxCandidatesToOpen": 3,
+      "supportedModes": [
+        "blocking",
+        "background",
+      ],
+      "timeoutMsHint": 2000,
+    },
+  },
   "foldingRangeProvider": true,
   "hoverProvider": true,
   "implementationProvider": undefined,
@@ -2633,6 +2862,17 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   "documentRangeFormattingProvider": undefined,
   "documentSymbolProvider": true,
   "executeCommandProvider": undefined,
+  "experimental": {
+    "findMissingArtifactProvider": {
+      "enabled": false,
+      "maxCandidatesToOpen": 3,
+      "supportedModes": [
+        "blocking",
+        "background",
+      ],
+      "timeoutMsHint": 1500,
+    },
+  },
   "foldingRangeProvider": false,
   "hoverProvider": undefined,
   "implementationProvider": undefined,

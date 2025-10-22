@@ -16,6 +16,7 @@ import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
+  ApexSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   transformLspToParserPosition,
@@ -23,6 +24,20 @@ import {
 } from '../utils/positionUtils';
 
 import { MissingArtifactUtils } from '../utils/missingArtifactUtils';
+
+/**
+ * Context information for definition processing
+ */
+export interface DefinitionContext {
+  /** The symbol being resolved */
+  symbol: ApexSymbol;
+  /** The file URI where the definition request originated */
+  sourceUri: string;
+  /** Whether the symbol was found in the current file */
+  isLocalSymbol: boolean;
+  /** Whether missing artifact resolution was triggered */
+  wasResolvedFromMissingArtifact: boolean;
+}
 
 /**
  * Interface for definition processing functionality
@@ -88,6 +103,8 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         'precise',
       );
 
+      let wasResolvedFromMissingArtifact = false;
+
       if (!symbol) {
         this.logger.debug(
           () =>
@@ -113,6 +130,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
             parserPosition,
             'precise',
           );
+          wasResolvedFromMissingArtifact = true;
         }
 
         // If still no symbol found, return empty results
@@ -126,8 +144,16 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         () => `Symbol structure: ${JSON.stringify(symbol, null, 2)}`,
       );
 
+      // Create definition context
+      const context: DefinitionContext = {
+        symbol,
+        sourceUri: params.textDocument.uri,
+        isLocalSymbol: symbol.fileUri === params.textDocument.uri,
+        wasResolvedFromMissingArtifact,
+      };
+
       // Get definition locations
-      const locations = await this.getDefinitionLocations(symbol, params);
+      const locations = await this.getDefinitionLocations(symbol, context);
 
       this.logger.debug(
         () =>
@@ -148,8 +174,8 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
    * to avoid confusing the user with multiple locations
    */
   private async getDefinitionLocations(
-    symbol: any,
-    context: any,
+    symbol: ApexSymbol,
+    context: DefinitionContext,
   ): Promise<Location[]> {
     const locations: Location[] = [];
 
@@ -173,7 +199,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
   /**
    * Create location from symbol
    */
-  private createLocationFromSymbol(symbol: any): Location | null {
+  private createLocationFromSymbol(symbol: ApexSymbol): Location | null {
     if (!symbol.location) {
       this.logger.debug(
         () => `Symbol has no location: ${JSON.stringify(symbol)}`,
@@ -242,7 +268,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
   /**
    * Get related definitions through relationships
    */
-  private async getRelatedDefinitions(symbol: any): Promise<Location[]> {
+  private async getRelatedDefinitions(symbol: ApexSymbol): Promise<Location[]> {
     const locations: Location[] = [];
 
     try {
@@ -266,12 +292,17 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
   /**
    * Get interface definitions for a class
    */
-  private async getInterfaceDefinitions(symbol: any): Promise<Location[]> {
+  private async getInterfaceDefinitions(
+    symbol: ApexSymbol,
+  ): Promise<Location[]> {
     const locations: Location[] = [];
 
     try {
-      if (symbol.interfaces && Array.isArray(symbol.interfaces)) {
-        for (const interfaceName of symbol.interfaces) {
+      if (
+        symbol._typeData?.interfaces &&
+        Array.isArray(symbol._typeData.interfaces)
+      ) {
+        for (const interfaceName of symbol._typeData.interfaces) {
           const interfaceSymbol =
             this.symbolManager.findSymbolByFQN(interfaceName);
           if (interfaceSymbol) {
@@ -292,14 +323,16 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
   /**
    * Get inherited definitions for a class or interface
    */
-  private async getInheritedDefinitions(symbol: any): Promise<Location[]> {
+  private async getInheritedDefinitions(
+    symbol: ApexSymbol,
+  ): Promise<Location[]> {
     const locations: Location[] = [];
 
     try {
       // Get superclass definition
-      if (symbol.superClass) {
+      if (symbol._typeData?.superClass) {
         const superClassSymbol = this.symbolManager.findSymbolByFQN(
-          symbol.superClass,
+          symbol._typeData.superClass,
         );
         if (superClassSymbol) {
           const location = this.createLocationFromSymbol(superClassSymbol);
@@ -310,8 +343,8 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
       }
 
       // Get extended interface definitions
-      if (symbol.kind === 'interface' && symbol.interfaces) {
-        for (const interfaceName of symbol.interfaces) {
+      if (symbol.kind === 'interface' && symbol._typeData?.interfaces) {
+        for (const interfaceName of symbol._typeData.interfaces) {
           const interfaceSymbol =
             this.symbolManager.findSymbolByFQN(interfaceName);
           if (interfaceSymbol) {
@@ -332,17 +365,17 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
   /**
    * Get the file URI for a symbol
    */
-  private getSymbolFileUri(symbol: any): string | null {
-    // Try to get from symbol's file path
-    if (symbol.filePath) {
-      return `file://${symbol.filePath}`;
+  private getSymbolFileUri(symbol: ApexSymbol): string | null {
+    // Try to get from symbol's file URI
+    if (symbol.fileUri) {
+      return symbol.fileUri;
     }
 
     // Try to find in symbol manager
     try {
       const files = this.symbolManager.findFilesForSymbol(symbol.name);
       if (files.length > 0) {
-        return `file://${files[0]}`;
+        return files[0];
       }
     } catch (error) {
       this.logger.debug(() => `Error getting symbol file URI: ${error}`);

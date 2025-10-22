@@ -37,13 +37,16 @@ describe('DefinitionProcessingService', () => {
 
       // Mock symbol manager to return a symbol
       const mockSymbol = {
+        id: 'test-method-id',
         name: 'testMethod',
         kind: 'method',
         location: {
-          startLine: 5,
-          startColumn: 10,
-          endLine: 5,
-          endColumn: 20,
+          symbolRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 20,
+          },
           identifierRange: {
             startLine: 5,
             startColumn: 10,
@@ -51,7 +54,33 @@ describe('DefinitionProcessingService', () => {
             endColumn: 20,
           },
         },
-        filePath: '/test/TestClass.cls',
+        fileUri: 'file:///test/TestClass.cls',
+        parentId: null,
+        key: {
+          prefix: 'method',
+          name: 'testMethod',
+          path: ['file:///test/TestClass.cls', 'testMethod'],
+          unifiedId: 'test-method-id',
+          fileUri: 'file:///test/TestClass.cls',
+          kind: 'method',
+        },
+        parentKey: null,
+        _modifierFlags: 0,
+        _isLoaded: true,
+        modifiers: {
+          isPublic: true,
+          isPrivate: false,
+          isProtected: false,
+          isGlobal: false,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTest: false,
+        },
+        parent: null,
       };
       jest
         .spyOn(service['symbolManager'], 'getSymbolAtPosition')
@@ -131,15 +160,50 @@ describe('DefinitionProcessingService', () => {
 
       // Mock symbol manager to return a symbol quickly
       const mockSymbol = {
+        id: 'test-method-id',
         name: 'testMethod',
         kind: 'method',
         location: {
-          startLine: 5,
-          startColumn: 10,
-          endLine: 5,
-          endColumn: 20,
+          symbolRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 20,
+          },
+          identifierRange: {
+            startLine: 5,
+            startColumn: 10,
+            endLine: 5,
+            endColumn: 20,
+          },
         },
-        filePath: '/test/TestClass.cls',
+        fileUri: 'file:///test/TestClass.cls',
+        parentId: null,
+        key: {
+          prefix: 'method',
+          name: 'testMethod',
+          path: ['file:///test/TestClass.cls', 'testMethod'],
+          unifiedId: 'test-method-id',
+          fileUri: 'file:///test/TestClass.cls',
+          kind: 'method',
+        },
+        parentKey: null,
+        _modifierFlags: 0,
+        _isLoaded: true,
+        modifiers: {
+          isPublic: true,
+          isPrivate: false,
+          isProtected: false,
+          isGlobal: false,
+          isStatic: false,
+          isFinal: false,
+          isAbstract: false,
+          isVirtual: false,
+          isOverride: false,
+          isTransient: false,
+          isTest: false,
+        },
+        parent: null,
       };
       jest
         .spyOn(service['symbolManager'], 'getSymbolAtPosition')

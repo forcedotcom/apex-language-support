@@ -4,7 +4,7 @@
   "private": true,
   "description": "End-to-end tests for Apex Language Server Extension",
   "scripts": {
-    "test": "playwright test",
+    "test:e2e": "playwright test",
     "test:debug": "DEBUG_MODE=1 playwright test --debug",
     "test:visual": "DEBUG_MODE=1 playwright test --ui",
     "server": "node test-server.js",

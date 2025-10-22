@@ -15,6 +15,8 @@ import {
   DidChangeConfigurationParams,
   HoverParams,
   Hover,
+  DefinitionParams,
+  Location,
   DocumentDiagnosticParams,
   DocumentDiagnosticReport,
   DocumentDiagnosticReportKind,
@@ -30,6 +32,8 @@ import {
   LoggerInterface,
   InitializeResult,
   LSPConfigurationManager,
+  FindMissingArtifactParams,
+  FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -39,7 +43,9 @@ import {
   dispatchProcessOnCloseDocument,
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
+  dispatchProcessOnDefinition,
   dispatchProcessOnFoldingRange,
+  dispatchProcessOnFindMissingArtifact,
   DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
@@ -197,6 +203,29 @@ export class LCSAdapter {
       );
     }
 
+    // Only register definition handler if the capability is enabled
+    if (capabilities.definitionProvider) {
+      this.connection.onDefinition(
+        async (params: DefinitionParams): Promise<Location[] | null> => {
+          this.logger.debug(
+            `🔍 Definition request for URI: ${params.textDocument.uri} ` +
+              `at ${params.position.line}:${params.position.character}`,
+          );
+          try {
+            return await dispatchProcessOnDefinition(params);
+          } catch (error) {
+            this.logger.error(`Error processing definition: ${error}`);
+            return null;
+          }
+        },
+      );
+      this.logger.debug('✅ Definition handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Definition handler not registered (capability disabled)',
+      );
+    }
+
     // Note: onHover will be registered after client configuration is received
     // to ensure server mode is properly set before enabling hover support
 
@@ -257,6 +286,25 @@ export class LCSAdapter {
         '⚠️ Hover handler not registered (capability disabled)',
       );
     }
+
+    // Register custom apex/findMissingArtifact handler
+    this.connection.onRequest(
+      'apex/findMissingArtifact',
+      async (
+        params: FindMissingArtifactParams,
+      ): Promise<FindMissingArtifactResult> => {
+        this.logger.debug(
+          `🔍 apex/findMissingArtifact request received for: ${params.identifier}`,
+        );
+        try {
+          return await dispatchProcessOnFindMissingArtifact(params);
+        } catch (error) {
+          this.logger.error(`Error processing findMissingArtifact: ${error}`);
+          return { notFound: true };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/findMissingArtifact handler registered');
   }
 
   /**
@@ -282,6 +330,12 @@ export class LCSAdapter {
     const configManager = LSPConfigurationManager.getInstance();
     configManager.setInitialSettings(params.initializationOptions);
 
+    // Set the LSP connection for missing artifact resolution
+    configManager.setConnection(this.connection);
+
+    // Sync capabilities with settings before returning
+    configManager.syncCapabilitiesWithSettings();
+
     // Get all capabilities from manager based on mode
     const allCapabilities = configManager.getCapabilities();
 
@@ -290,6 +344,8 @@ export class LCSAdapter {
       // Always return baseline capabilities statically
       textDocumentSync: allCapabilities.textDocumentSync,
       workspace: allCapabilities.workspace,
+      // Include experimental capabilities
+      experimental: allCapabilities.experimental,
     };
 
     // Add capabilities that client doesn't support dynamic registration for
@@ -365,6 +421,9 @@ export class LCSAdapter {
       case 'completion':
         return !!this.clientCapabilities.textDocument?.completion
           ?.dynamicRegistration;
+      case 'definition':
+        return !!this.clientCapabilities.textDocument?.definition
+          ?.dynamicRegistration;
       default:
         return false;
     }
@@ -425,11 +484,30 @@ export class LCSAdapter {
       return;
     }
 
-    const success =
-      LSPConfigurationManager.getInstance().updateFromLSPConfiguration(change);
+    const configManager = LSPConfigurationManager.getInstance();
+    const previousCapabilities = configManager.getCapabilities();
+
+    const success = configManager.updateFromLSPConfiguration(change);
     this.logger.debug(
       `Configuration update ${success ? 'succeeded' : 'failed'}`,
     );
+
+    if (success) {
+      const newCapabilities = configManager.getCapabilities();
+
+      // Check if findMissingArtifact capability changed
+      const previousEnabled =
+        previousCapabilities.experimental?.findMissingArtifactProvider?.enabled;
+      const newEnabled =
+        newCapabilities.experimental?.findMissingArtifactProvider?.enabled;
+
+      if (previousEnabled !== newEnabled) {
+        this.logger.info(
+          `Missing artifact capability changed: ${previousEnabled} → ${newEnabled}`,
+        );
+        // Could send custom notification to client here if needed
+      }
+    }
 
     // Check if we need to update server mode based on client configuration
     this.updateServerModeIfNeeded(change);
@@ -598,6 +676,22 @@ export class LCSAdapter {
           ],
           triggerCharacters: capabilities.completionProvider.triggerCharacters,
           resolveProvider: capabilities.completionProvider.resolveProvider,
+        },
+      });
+    }
+
+    if (
+      capabilities.definitionProvider &&
+      this.supportsDynamicRegistration('definition')
+    ) {
+      registrations.push({
+        id: 'apex-definition',
+        method: 'textDocument/definition',
+        registerOptions: {
+          documentSelector: [
+            { scheme: 'file', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex' },
+          ],
         },
       });
     }

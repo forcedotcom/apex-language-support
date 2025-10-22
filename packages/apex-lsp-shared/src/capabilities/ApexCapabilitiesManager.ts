@@ -107,4 +107,29 @@ export class ApexCapabilitiesManager {
       modeCapabilities[capability] !== undefined
     );
   }
+
+  /**
+   * Update experimental capabilities based on settings
+   */
+  public updateExperimentalCapabilities(
+    settingsManager: any, // ApexSettingsManager - avoiding circular import
+  ): void {
+    const settings = settingsManager.getSettings();
+    const currentCapabilities = this.getCapabilities();
+
+    if (!currentCapabilities.experimental) {
+      currentCapabilities.experimental = {};
+    }
+
+    // Update findMissingArtifact capability based on settings
+    currentCapabilities.experimental.findMissingArtifactProvider = {
+      enabled: settings.apex.findMissingArtifact.enabled,
+      supportedModes: ['blocking', 'background'],
+      maxCandidatesToOpen:
+        settings.apex.findMissingArtifact.maxCandidatesToOpen,
+      timeoutMsHint: settings.apex.findMissingArtifact.timeoutMsHint,
+    };
+
+    this.capabilities[this.currentMode] = currentCapabilities;
+  }
 }

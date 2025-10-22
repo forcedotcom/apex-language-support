@@ -107,7 +107,7 @@
     ],
     "standardApexLibrary": "./out/resources/StandardApexLibrary.zip",
     "configuration": {
-      "title": "Apex Language Server",
+      "title": "%configuration.apex.title%",
       "properties": {
         "apex.enable": {
           "type": "boolean",
@@ -224,12 +224,12 @@
             "debug"
           ],
           "default": "info",
-          "description": "Log level for Apex worker"
+          "description": "%configuration.apex-ls-ts.worker.logLevel.description%"
         },
         "apex.worker.enablePerformanceLogs": {
           "type": "boolean",
           "default": false,
-          "description": "Enable performance timing logs"
+          "description": "%configuration.apex-ls-ts.worker.enablePerformanceLogs.description%"
         },
         "apex.worker.logCategories": {
           "type": "array",
@@ -251,12 +251,56 @@
             "COMPLETION",
             "DIAGNOSTICS"
           ],
-          "description": "Categories of worker logs to show"
+          "description": "%configuration.apex-ls-ts.worker.logCategories.description%"
         },
         "apex.custom": {
           "type": "object",
           "default": {},
-          "description": "Custom configuration for the Apex Language Server"
+          "description": "%configuration.apex-ls-ts.custom.description%"
+        },
+        "apex.findMissingArtifact": {
+          "type": "object",
+          "default": {
+            "enabled": false,
+            "blockingWaitTimeoutMs": 2000,
+            "indexingBarrierPollMs": 100,
+            "maxCandidatesToOpen": 3,
+            "timeoutMsHint": 1500,
+            "enablePerfMarks": false
+          },
+          "description": "%configuration.apex-ls-ts.findMissingArtifact.description%",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "%configuration.apex-ls-ts.findMissingArtifact.enabled.description%"
+            },
+            "blockingWaitTimeoutMs": {
+              "type": "number",
+              "default": 2000,
+              "description": "%configuration.apex-ls-ts.findMissingArtifact.blockingWaitTimeoutMs.description%"
+            },
+            "indexingBarrierPollMs": {
+              "type": "number",
+              "default": 100,
+              "description": "%configuration.apex-ls-ts.findMissingArtifact.indexingBarrierPollMs.description%"
+            },
+            "maxCandidatesToOpen": {
+              "type": "number",
+              "default": 3,
+              "description": "%configuration.apex-ls-ts.findMissingArtifact.maxCandidatesToOpen.description%"
+            },
+            "timeoutMsHint": {
+              "type": "number",
+              "default": 1500,
+              "description": "%configuration.apex-ls-ts.findMissingArtifact.timeoutMsHint.description%"
+            },
+            "enablePerfMarks": {
+              "type": "boolean",
+              "default": false,
+              "description": "%configuration.apex-ls-ts.findMissingArtifact.enablePerfMarks.description%"
+            }
+          }
         }
       }
     },
@@ -283,7 +327,7 @@
       },
       {
         "command": "apex.showAggregatedLogs",
-        "title": "Show All Apex Logs"
+        "title": "%commands.apex.showAggregatedLogs.title%"
       }
     ],
     "viewsContainers": {
