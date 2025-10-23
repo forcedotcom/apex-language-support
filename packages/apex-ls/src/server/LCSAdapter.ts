@@ -135,24 +135,12 @@ export class LCSAdapter {
    * - Requests ZIP from client via apex/provideStandardLibrary
    * - Client reads from virtual file system using vscode.workspace.fs
    * - Works uniformly in both web and desktop environments
-   *
-   * Note: Uses dynamic import to avoid breaking the worker bundle if there are
-   * dependency issues. The initialization is completely optional and failures are logged
-   * but don't prevent server startup.
    */
   private async initializeResourceLoader(): Promise<void> {
     try {
       this.logger.info(
         '📦 Initializing ResourceLoader singleton for standard library...',
       );
-
-      if (!ResourceLoader || typeof ResourceLoader.getInstance !== 'function') {
-        this.logger.warn(
-          '⚠️ ResourceLoader.getInstance not available - skipping initialization',
-        );
-        return;
-      }
-
       this.logger.debug('📦 Initializing ResourceLoader singleton...');
       const resourceLoader = ResourceLoader.getInstance({
         loadMode: 'lazy',
