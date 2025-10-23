@@ -51,6 +51,8 @@ import {
   ApexStorage,
 } from '@salesforce/apex-lsp-compliant-services';
 
+import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
+
 /**
  * Configuration for the LCS Adapter
  */
@@ -144,12 +146,6 @@ export class LCSAdapter {
         '📦 Initializing ResourceLoader singleton for standard library...',
       );
 
-      // Dynamic import to avoid circular dependencies and bundle issues
-      this.logger.debug('📦 Dynamically importing ResourceLoader...');
-
-      const parserAstModule = await import('@salesforce/apex-lsp-parser-ast');
-      const ResourceLoader = parserAstModule.ResourceLoader;
-
       if (!ResourceLoader || typeof ResourceLoader.getInstance !== 'function') {
         this.logger.warn(
           '⚠️ ResourceLoader.getInstance not available - skipping initialization',
@@ -157,42 +153,15 @@ export class LCSAdapter {
         return;
       }
 
-      this.logger.debug(
-        '📦 ResourceLoader imported, initializing singleton...',
-      );
-
-      // Initialize singleton with lazy loading
+      this.logger.debug('📦 Initializing ResourceLoader singleton...');
       const resourceLoader = ResourceLoader.getInstance({
         loadMode: 'lazy',
         preloadStdClasses: true,
       });
 
-      this.logger.info(
-        '📦 Requesting standard library ZIP from client via virtual file system...',
-      );
+      const zipBuffer = await this.requestStandardLibraryZip();
+      resourceLoader.setZipBuffer(zipBuffer);
 
-      // Request ZIP data from client using the new protocol
-      const result = (await this.connection.sendRequest(
-        'apex/provideStandardLibrary',
-        {},
-      )) as { zipData: string; size: number } | undefined;
-
-      if (!result || !result.zipData) {
-        throw new Error('Client did not provide ZIP data');
-      }
-
-      this.logger.info(
-        () => `📦 Received ZIP buffer from client (${result.size} bytes)`,
-      );
-
-      // Convert base64 to Uint8Array
-      const binaryString = Buffer.from(result.zipData, 'base64');
-      const zipBuffer = new Uint8Array(binaryString);
-
-      // Set the ZIP buffer directly on the ResourceLoader
-      (resourceLoader as any).setZipBuffer(zipBuffer);
-
-      // Get statistics to confirm loading
       const stats = resourceLoader.getDirectoryStatistics();
       this.logger.info(
         () =>
@@ -200,19 +169,49 @@ export class LCSAdapter {
           `${stats.totalFiles} files across ${stats.namespaces.length} namespaces`,
       );
 
-      // Call initialize to handle any additional preloading
       await resourceLoader.initialize();
       this.logger.debug('✅ ResourceLoader initialization complete');
     } catch (error) {
-      // Log the error but don't fail - this is an optional optimization
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `⚠️ Could not initialize ResourceLoader (will load on-demand instead): ${errorMsg}`,
-      );
-      this.logger.debug(
-        `Stack trace: ${error instanceof Error ? error.stack : 'N/A'}`,
-      );
+      this.handleResourceLoaderError(error);
     }
+  }
+
+  /**
+   * Request standard library ZIP from client
+   */
+  private async requestStandardLibraryZip(): Promise<Uint8Array> {
+    this.logger.info(
+      '📦 Requesting standard library ZIP from client via virtual file system...',
+    );
+
+    const result = (await this.connection.sendRequest(
+      'apex/provideStandardLibrary',
+      {},
+    )) as { zipData: string; size: number } | undefined;
+
+    if (!result || !result.zipData) {
+      throw new Error('Client did not provide ZIP data');
+    }
+
+    this.logger.info(
+      () => `📦 Received ZIP buffer from client (${result.size} bytes)`,
+    );
+
+    const binaryString = Buffer.from(result.zipData, 'base64');
+    return new Uint8Array(binaryString);
+  }
+
+  /**
+   * Handle ResourceLoader initialization errors
+   */
+  private handleResourceLoaderError(error: unknown): void {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    this.logger.warn(
+      `⚠️ Could not initialize ResourceLoader (will load on-demand instead): ${errorMsg}`,
+    );
+    this.logger.debug(
+      `Stack trace: ${error instanceof Error ? error.stack : 'N/A'}`,
+    );
   }
 
   /**
