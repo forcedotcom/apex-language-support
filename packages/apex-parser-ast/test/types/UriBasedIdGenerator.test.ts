@@ -17,8 +17,20 @@ import {
   createFileUri,
   createApexLibUri,
 } from '../../src/types/ProtocolHandler';
+import {
+  initializeResourceLoaderForTests,
+  resetResourceLoader,
+} from '../helpers/testHelpers';
 
 describe('UriBasedIdGenerator', () => {
+  beforeAll(async () => {
+    // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
+    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+  });
+
+  afterAll(() => {
+    resetResourceLoader();
+  });
   describe('generateSymbolId', () => {
     it('should generate file:// URIs for user code', () => {
       const id = generateSymbolId('MyClass', '/path/to/MyClass.cls');

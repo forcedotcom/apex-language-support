@@ -14,10 +14,19 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import { SymbolKind } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { isChainedTypeReference } from '../../src/utils/symbolNarrowing';
+import {
+  initializeResourceLoaderForTests,
+  resetResourceLoader,
+} from '../helpers/testHelpers';
 
 describe('ApexSymbolManager Cross-File Resolution', () => {
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
+
+  beforeAll(async () => {
+    // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
+    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+  });
 
   beforeEach(() => {
     symbolManager = new ApexSymbolManager();
@@ -28,6 +37,10 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
 
   afterEach(() => {
     symbolManager.clear();
+  });
+
+  afterAll(() => {
+    resetResourceLoader();
   });
 
   describe('Built-in Type Resolution', () => {

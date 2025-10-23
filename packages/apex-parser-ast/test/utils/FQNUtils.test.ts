@@ -18,8 +18,20 @@ import {
   SymbolVisibility,
   ApexSymbol,
 } from '../../src/types/symbol';
+import {
+  initializeResourceLoaderForTests,
+  resetResourceLoader,
+} from '../helpers/testHelpers';
 
 describe('FQN Utilities', () => {
+  beforeAll(async () => {
+    // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
+    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+  });
+
+  afterAll(() => {
+    resetResourceLoader();
+  });
   const createTestSymbol = (
     name: string,
     kind: SymbolKind,

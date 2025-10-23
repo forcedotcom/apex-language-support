@@ -14,6 +14,10 @@ import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymb
 import { SymbolKind } from '../../src/types/symbol';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { URI } from 'vscode-uri';
+import {
+  initializeResourceLoaderForTests,
+  resetResourceLoader,
+} from '../helpers/testHelpers';
 
 /**
  * Tests that System.URL chained expression resolution works correctly
@@ -25,6 +29,11 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
 
+  beforeAll(async () => {
+    // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
+    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+  });
+
   beforeEach(() => {
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
@@ -34,6 +43,10 @@ describe('ApexSymbolManager System URL Chained Expression Resolution (Real Sourc
 
   afterEach(() => {
     symbolManager.clear();
+  });
+
+  afterAll(() => {
+    resetResourceLoader();
   });
 
   const addTestClass = (fileUri?: string) => {
