@@ -60,7 +60,10 @@ const createEnhancedInitializationOptions = (
 ): ApexLanguageServerSettings => {
   const settings = getWorkspaceSettings();
   const serverMode = determineServerMode(context);
-  const standardApexLibraryPath = getStdApexClassesPathFromContext(context);
+
+  // Get standard Apex library path
+  const standardApexLibraryPath =
+    getStdApexClassesPathFromContext(context)?.toString();
 
   // Use settings directly without deep cloning to avoid serialization issues
   const safeSettings = settings || {};
@@ -75,7 +78,7 @@ const createEnhancedInitializationOptions = (
       },
       resources: {
         ...safeSettings.apex?.resources,
-        standardApexLibraryPath: standardApexLibraryPath?.toString(),
+        standardApexLibraryPath,
       },
       performance: {
         ...safeSettings.apex?.performance,
@@ -562,6 +565,41 @@ async function createWebLanguageClient(
     }
   });
 
+  // Register handler for server-to-client apex/provideStandardLibrary requests
+  Client.onRequest('apex/provideStandardLibrary', async (params: any) => {
+    logToOutputChannel(
+      '📦 Received apex/provideStandardLibrary request from server',
+      'info',
+    );
+
+    try {
+      // Use utility function to get ZIP URI from virtual file system
+      const zipUri = getStdApexClassesPathFromContext(context);
+
+      // Read file using virtual file system API
+      const zipBuffer = await vscode.workspace.fs.readFile(zipUri);
+
+      // Convert to base64 for transmission
+      const base64Data = Buffer.from(zipBuffer).toString('base64');
+
+      logToOutputChannel(
+        `✅ Standard library ZIP loaded: ${zipBuffer.length} bytes`,
+        'info',
+      );
+
+      return {
+        zipData: base64Data,
+        size: zipBuffer.length,
+      };
+    } catch (error) {
+      logToOutputChannel(
+        `❌ Failed to provide standard library: ${error}`,
+        'error',
+      );
+      throw error;
+    }
+  });
+
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
 
@@ -748,6 +786,41 @@ async function createDesktopLanguageClient(
         'error',
       );
       return { notFound: true };
+    }
+  });
+
+  // Register handler for server-to-client apex/provideStandardLibrary requests
+  Client.onRequest('apex/provideStandardLibrary', async (params: any) => {
+    logToOutputChannel(
+      '📦 Received apex/provideStandardLibrary request from server',
+      'info',
+    );
+
+    try {
+      // Use utility function to get ZIP URI from virtual file system
+      const zipUri = getStdApexClassesPathFromContext(context);
+
+      // Read file using virtual file system API
+      const zipBuffer = await vscode.workspace.fs.readFile(zipUri);
+
+      // Convert to base64 for transmission
+      const base64Data = Buffer.from(zipBuffer).toString('base64');
+
+      logToOutputChannel(
+        `✅ Standard library ZIP loaded: ${zipBuffer.length} bytes`,
+        'info',
+      );
+
+      return {
+        zipData: base64Data,
+        size: zipBuffer.length,
+      };
+    } catch (error) {
+      logToOutputChannel(
+        `❌ Failed to provide standard library: ${error}`,
+        'error',
+      );
+      throw error;
     }
   });
 

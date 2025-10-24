@@ -51,6 +51,8 @@ import {
   ApexStorage,
 } from '@salesforce/apex-lsp-compliant-services';
 
+import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
+
 /**
  * Configuration for the LCS Adapter
  */
@@ -124,6 +126,80 @@ export class LCSAdapter {
   private createDefaultLogger(): LoggerInterface {
     const factory = UniversalLoggerFactory.getInstance();
     return factory.createLogger(this.connection);
+  }
+
+  /**
+   * Initialize the ResourceLoader singleton with the standard library ZIP.
+   *
+   * Loading Strategy:
+   * - Requests ZIP from client via apex/provideStandardLibrary
+   * - Client reads from virtual file system using vscode.workspace.fs
+   * - Works uniformly in both web and desktop environments
+   */
+  private async initializeResourceLoader(): Promise<void> {
+    try {
+      this.logger.info(
+        '📦 Initializing ResourceLoader singleton for standard library...',
+      );
+      this.logger.debug('📦 Initializing ResourceLoader singleton...');
+      const resourceLoader = ResourceLoader.getInstance({
+        loadMode: 'lazy',
+        preloadStdClasses: true,
+      });
+
+      const zipBuffer = await this.requestStandardLibraryZip();
+      resourceLoader.setZipBuffer(zipBuffer);
+
+      const stats = resourceLoader.getDirectoryStatistics();
+      this.logger.info(
+        () =>
+          '✅ Standard library resources loaded successfully: ' +
+          `${stats.totalFiles} files across ${stats.namespaces.length} namespaces`,
+      );
+
+      await resourceLoader.initialize();
+      this.logger.debug('✅ ResourceLoader initialization complete');
+    } catch (error) {
+      this.handleResourceLoaderError(error);
+    }
+  }
+
+  /**
+   * Request standard library ZIP from client
+   */
+  private async requestStandardLibraryZip(): Promise<Uint8Array> {
+    this.logger.info(
+      '📦 Requesting standard library ZIP from client via virtual file system...',
+    );
+
+    const result = (await this.connection.sendRequest(
+      'apex/provideStandardLibrary',
+      {},
+    )) as { zipData: string; size: number } | undefined;
+
+    if (!result || !result.zipData) {
+      throw new Error('Client did not provide ZIP data');
+    }
+
+    this.logger.info(
+      () => `📦 Received ZIP buffer from client (${result.size} bytes)`,
+    );
+
+    const binaryString = Buffer.from(result.zipData, 'base64');
+    return new Uint8Array(binaryString);
+  }
+
+  /**
+   * Handle ResourceLoader initialization errors
+   */
+  private handleResourceLoaderError(error: unknown): void {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    this.logger.warn(
+      `⚠️ Could not initialize ResourceLoader (will load on-demand instead): ${errorMsg}`,
+    );
+    this.logger.debug(
+      `Stack trace: ${error instanceof Error ? error.stack : 'N/A'}`,
+    );
   }
 
   /**
@@ -457,6 +533,15 @@ export class LCSAdapter {
         this.logger.info('Workspace folder change event received.');
       });
     }
+
+    // Initialize ResourceLoader with standard library
+    // Requests ZIP from client via apex/provideStandardLibrary
+    // Client uses vscode.workspace.fs to read from virtual file system
+    this.initializeResourceLoader().catch((error) => {
+      this.logger.error(
+        `❌ Background ResourceLoader initialization failed: ${error}`,
+      );
+    });
   }
 
   /**

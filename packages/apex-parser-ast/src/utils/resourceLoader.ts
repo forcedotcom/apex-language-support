@@ -7,11 +7,7 @@
  */
 
 import { unzipSync } from 'fflate';
-import {
-  getLogger,
-  detectEnvironment,
-  formattedError,
-} from '@salesforce/apex-lsp-shared';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
@@ -21,12 +17,11 @@ import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolColle
 import type { CompilationResultWithAssociations } from '../parser/compilerService';
 import { SymbolTable } from '../types/symbol';
 import { UriUtils } from './ResourceUtils';
-// Dynamic import to handle generated file that may not exist during initial compilation
-let loadZipDataSync: (() => Buffer) | null = null;
 
 export interface ResourceLoaderOptions {
   loadMode?: 'lazy' | 'full';
   preloadStdClasses?: boolean;
+  zipBuffer?: Uint8Array; // Direct ZIP buffer to use
 }
 
 interface CompiledArtifact {
@@ -35,30 +30,26 @@ interface CompiledArtifact {
 }
 
 /**
- * ResourceLoader class for loading and compiling standard Apex classes from distributed ZIP resources.
- * Uses cross-platform resource loading with synchronous initialization for immediate availability.
+ * ResourceLoader class for loading and compiling standard Apex classes from ZIP resources.
  *
  * Core Responsibilities:
- * - Load ZIP resources from './resources/StandardApexLibrary.zip' using environment-appropriate methods
+ * - Receive ZIP buffer via setZipBuffer() method
  * - Extract and index files using fflate for efficient in-memory storage
  * - Provide lazy loading of file contents on-demand
  * - Compile source code using CompilerService when needed
- * - Support both browser (XMLHttpRequest) and Node.js (fs) environments
  *
  * Resource Loading Strategy:
- * - Browser: Uses XMLHttpRequest for synchronous loading
- * - Node.js: Uses require.resolve() with fallback paths for compatibility
- * - Environment detection via shared detectEnvironment() function
+ * - ZIP buffer is provided directly via setZipBuffer() method
+ * - Typically called by the language server after receiving data from client
+ * - Works uniformly across all environments (web and desktop)
  *
  * @example
  * ```typescript
- * const loader = ResourceLoader.getInstance({
- *   loadMode: 'lazy',
- *   preloadStdClasses: true
- * });
+ * const loader = ResourceLoader.getInstance({ loadMode: 'lazy' });
  *
- * // Files are immediately available after construction
- * const availableClasses = loader.getAvailableClasses();
+ * // Set ZIP buffer (typically from language server)
+ * const zipData = new Uint8Array([...]); // ZIP file bytes
+ * loader.setZipBuffer(zipData);
  *
  * // Content loaded on-demand from ZIP
  * const source = await loader.getFile('System/System.cls');
@@ -82,7 +73,7 @@ export class ResourceLoader {
     new CaseInsensitivePathMap(); // Maps case-insensitive paths to original case paths
   private totalSize: number = 0; // Total size of all files
   private accessCount: number = 0; // Simple access counter for statistics
-  private zipBuffer!: Uint8Array; // Will be initialized in loadZipData
+  private zipBuffer?: Uint8Array; // Will be initialized via setZipBuffer
   private zipFiles!: CaseInsensitivePathMap<Uint8Array>; // Will be initialized in extractZipFiles
 
   private constructor(options?: ResourceLoaderOptions) {
@@ -95,43 +86,26 @@ export class ResourceLoader {
 
     this.compilerService = new CompilerService();
 
-    // Load ZIP data synchronously for immediate availability
-    this.loadZipDataSync();
+    // Initialize empty structure initially
+    this.initializeEmptyStructure();
 
-    // Mark as initialized since we've done all the basic setup
-    this.initialized = true;
-  }
-
-  /**
-   * Load ZIP data synchronously for immediate availability.
-   * Uses environment-appropriate loading methods with shared environment detection.
-   *
-   * Loading Strategy:
-   * - Browser: XMLHttpRequest with synchronous request to './resources/StandardApexLibrary.zip'
-   * - Node.js: require.resolve() with multiple fallback paths for test compatibility
-   *
-   * @private
-   */
-  private loadZipDataSync(): void {
-    try {
-      const environment = detectEnvironment();
-
-      if (environment === 'webworker') {
-        // Browser environment - load synchronously using XMLHttpRequest
-        this.loadZipForBrowserSync();
-      } else {
-        // Node.js environment - try to load synchronously
-        this.loadZipForNodeSync();
-      }
-    } catch (error) {
-      this.logger.error(() => `Failed to load ZIP resource: ${error}`);
-      // Initialize empty structure as fallback
-      this.initializeEmptyStructure();
+    // If a ZIP buffer is provided directly, use it immediately
+    if (options?.zipBuffer) {
+      this.logger.debug(() => '📦 Using provided ZIP buffer directly');
+      this.zipBuffer = options.zipBuffer;
+      this.extractZipFiles();
+      this.initialized = true;
+    } else {
+      // Wait for setZipBuffer() to be called
+      this.logger.debug(
+        () => '📦 Waiting for ZIP buffer to be provided via setZipBuffer()',
+      );
+      this.initialized = true;
     }
   }
 
   /**
-   * Initialize empty structure as fallback
+   * Initialize empty structure
    * @private
    */
   private initializeEmptyStructure(): void {
@@ -143,134 +117,16 @@ export class ResourceLoader {
   }
 
   /**
-   * Load ZIP data for Node.js environment synchronously using require.resolve().
-   * Uses multiple fallback paths to handle different execution contexts (tests, deployment).
-   *
-   * Fallback Paths:
-   * - '../resources/StandardApexLibrary.zip' (from src/utils/)
-   * - '../out/resources/StandardApexLibrary.zip' (from src/utils/ to out/)
-   * - '../../out/resources/StandardApexLibrary.zip' (from src/generated/)
-   * - Absolute paths using __dirname
-   *
-   * @private
-   */
-  private loadZipForNodeSync(): void {
-    try {
-      // Load the TypeScript loader dynamically if not already loaded
-      if (!loadZipDataSync) {
-        const loader = require('../generated/zipResourceLoader');
-        loadZipDataSync = loader.loadZipDataSync;
-      }
-
-      // Use the TypeScript loader
-      console.log('Loading ZIP data using TypeScript loader');
-      if (!loadZipDataSync) {
-        throw new Error('Failed to load TypeScript loader');
-      }
-      const zipData = loadZipDataSync();
-      this.zipBuffer = new Uint8Array(zipData);
-      this.extractZipFiles();
-      this.logger.debug(
-        () => 'Successfully loaded ZIP using TypeScript loader',
-      );
-    } catch (tsError) {
-      console.error(
-        `TypeScript loader failed, trying direct file access: ${formattedError(tsError, { includeStack: true })}`,
-      );
-      this.logger.debug(
-        () =>
-          `TypeScript loader failed, trying direct file access: ${formattedError(tsError, { includeStack: true })}`,
-      );
-
-      // Fallback - try multiple possible paths
-      const { readFileSync } = require('fs');
-
-      // Try different possible locations
-      const possiblePaths = [
-        '../resources/StandardApexLibrary.zip', // From src/utils/
-        '../out/resources/StandardApexLibrary.zip', // From src/utils/ to out/
-        '../../out/resources/StandardApexLibrary.zip', // From src/generated/
-      ];
-
-      let zipData: Buffer | null = null;
-      let lastError: Error | null = null;
-
-      for (const zipPath of possiblePaths) {
-        try {
-          if (zipPath.startsWith('/') || zipPath.includes('\\')) {
-            // Absolute path
-            zipData = readFileSync(zipPath);
-          } else {
-            // Relative path - try require.resolve
-            const resolvedPath = require.resolve(zipPath);
-            zipData = readFileSync(resolvedPath);
-          }
-          break; // Success, exit loop
-        } catch (error) {
-          lastError = error as Error;
-          continue; // Try next path
-        }
-      }
-
-      if (!zipData) {
-        throw new Error(
-          `Could not find StandardApexLibrary.zip in any of the expected locations. Last error: ${lastError?.message}`,
-        );
-      }
-
-      this.zipBuffer = new Uint8Array(zipData);
-      this.extractZipFiles();
-    }
-  }
-
-  /**
-   * Load ZIP data for browser environment synchronously using XMLHttpRequest.
-   * In web worker environments, gracefully falls back to empty structure if resources aren't available.
-   *
-   * @private
-   */
-  private loadZipForBrowserSync(): void {
-    // In web worker environment, the standard library resources may not be available
-    // We'll try to load them, but gracefully fall back if they're not accessible
-    try {
-      // Use relative path - this may not work in all web worker contexts
-      const zipPath = './resources/StandardApexLibrary.zip';
-
-      this.logger.debug(() => `Attempting to load ZIP from path: ${zipPath}`);
-
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', zipPath, false); // false = synchronous
-      xhr.responseType = 'arraybuffer';
-      xhr.send();
-
-      if (xhr.status === 200 && xhr.response) {
-        this.zipBuffer = new Uint8Array(xhr.response);
-        this.extractZipFiles();
-        this.logger.debug(() => `Successfully loaded ZIP from: ${zipPath}`);
-      } else {
-        this.logger.debug(
-          () =>
-            `ZIP not available at ${zipPath} (HTTP ${xhr.status}), using empty structure`,
-        );
-        this.initializeEmptyStructure();
-      }
-    } catch (error) {
-      this.logger.debug(
-        () => `ZIP resource not available in web worker context: ${error}`,
-      );
-      // This is expected in web worker environments where resources may not be accessible
-      // Initialize empty structure and continue - basic language server functionality will still work
-      this.initializeEmptyStructure();
-    }
-  }
-
-  /**
    * Extract ZIP files using fflate and build lightweight file index.
    * Creates case-insensitive path mappings and namespace structure for efficient lookups.
    *
    * @private
    */
   private extractZipFiles(): void {
+    if (!this.zipBuffer) {
+      throw new Error('ZIP buffer not set. Call setZipBuffer() first.');
+    }
+
     const extractedFiles = unzipSync(this.zipBuffer);
     this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
 
@@ -400,6 +256,24 @@ export class ResourceLoader {
   }
 
   /**
+   * Set the ZIP buffer directly and extract files.
+   * This is the preferred method for providing the standard library ZIP data.
+   *
+   * @param buffer The ZIP file as a Uint8Array buffer
+   */
+  public setZipBuffer(buffer: Uint8Array): void {
+    this.logger.info(
+      () => `📦 Setting ZIP buffer directly (${buffer.length} bytes)`,
+    );
+    this.zipBuffer = buffer;
+    this.extractZipFiles();
+    this.logger.info(
+      () =>
+        `✅ ZIP buffer loaded: ${this.fileIndex.size} classes, ${this.namespaces.size} namespaces`,
+    );
+  }
+
+  /**
    * Get file content with lazy loading from ZIP resources.
    * Uses case-insensitive path lookup and efficient Uint8Array to string conversion.
    *
@@ -415,31 +289,6 @@ export class ResourceLoader {
 
     // Extract file on-demand from ZIP
     return this.extractFileFromZip(path);
-  }
-
-  /**
-   * Preload common classes for better performance
-   * @private
-   */
-  private async preloadCommonClasses(): Promise<void> {
-    const commonClasses = [
-      'System/System.cls',
-      'System/ApexPages.cls',
-      'System/Assert.cls',
-      'System/Callable.cls',
-      'Database/Batchable.cls',
-      'Database/Error.cls',
-    ];
-
-    this.logger.debug(() => 'Preloading common classes...');
-
-    for (const className of commonClasses) {
-      if (this.hasClass(className)) {
-        await this.getFile(className);
-      }
-    }
-
-    this.logger.debug(() => 'Common classes preloaded');
   }
 
   /**
@@ -532,24 +381,16 @@ export class ResourceLoader {
   }
 
   /**
-   * Initialize with optional preloading and compilation.
-   * Note: ResourceLoader is automatically initialized during construction for immediate availability.
-   * This method handles preloading of common classes if requested.
+   * Initialize method for compatibility.
+   * Note: ResourceLoader is automatically initialized during construction.
    */
   public async initialize(): Promise<void> {
-    if (this.initialized) {
-      // Even if already initialized, handle preloading if it was requested but not done yet
-      if (this.preloadStdClasses && this.accessCount === 0) {
-        await this.preloadCommonClasses();
-      }
-      return;
+    if (!this.initialized) {
+      this.logger.warn(
+        () =>
+          'Initialize called but ResourceLoader should already be initialized',
+      );
     }
-
-    // Should not reach here since we initialize synchronously in constructor
-    this.logger.warn(
-      () =>
-        'Initialize called but ResourceLoader should already be initialized',
-    );
   }
 
   /**
@@ -810,28 +651,32 @@ export class ResourceLoader {
     this.initialized = false;
     this.compilationPromise = null;
 
-    // Re-extract ZIP and rebuild file index
-    const extractedFiles = unzipSync(this.zipBuffer);
-    this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
+    // Re-extract ZIP and rebuild file index if buffer is available
+    if (this.zipBuffer) {
+      const buffer = this.zipBuffer; // Local variable for type narrowing
+      const extractedFiles = unzipSync(buffer);
+      this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
 
-    // Convert to CaseInsensitivePathMap and preserve original paths
-    for (const [originalPath, data] of Object.entries(extractedFiles)) {
-      this.zipFiles.set(originalPath, data);
+      // Convert to CaseInsensitivePathMap and preserve original paths
+      for (const [originalPath, data] of Object.entries(extractedFiles)) {
+        this.zipFiles.set(originalPath, data);
 
-      // Also preserve the relative path mapping for later use
-      const relativePath = originalPath
-        .replace(/^src\/resources\/StandardApexLibrary\//, '')
-        .replace(/\\/g, '/');
-      this.originalPaths.set(relativePath, relativePath);
+        // Also preserve the relative path mapping for later use
+        const relativePath = originalPath
+          .replace(/^src\/resources\/StandardApexLibrary\//, '')
+          .replace(/\\/g, '/');
+        this.originalPaths.set(relativePath, relativePath);
+      }
+
+      this.buildFileIndex();
     }
 
-    this.buildFileIndex();
     this.initialized = true;
   }
 
   /**
    * Dynamically load and compile a single standard Apex class from ZIP resources.
-   * Enables lazy loading without full initialization, using efficient ZIP extraction.
+   * Enables lazy loading using efficient ZIP extraction.
    *
    * @param className The class name to load and compile
    * @returns Promise that resolves to the compiled artifact or null if not found

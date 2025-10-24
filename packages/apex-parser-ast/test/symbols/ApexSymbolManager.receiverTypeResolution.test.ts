@@ -15,6 +15,10 @@ import { SymbolKind } from '../../src/types/symbol';
 import { ReferenceContext } from '../../src/types/typeReference';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { URI } from 'vscode-uri';
+import {
+  initializeResourceLoaderForTests,
+  resetResourceLoader,
+} from '../helpers/testHelpers';
 
 /**
  * Tests that instance member resolution via variable receivers works for hover/definition
@@ -26,6 +30,11 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
 
+  beforeAll(async () => {
+    // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
+    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+  });
+
   beforeEach(() => {
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
@@ -35,6 +44,10 @@ describe('ApexSymbolManager receiver-type member resolution', () => {
 
   afterEach(() => {
     symbolManager.clear();
+  });
+
+  afterAll(() => {
+    resetResourceLoader();
   });
 
   const addTestClass = (fileUri?: string) => {

@@ -18,12 +18,15 @@ import {
   CompilerService,
   ApexSymbolCollectorListener,
   SymbolTable,
+  ResourceLoader,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   enableConsoleLogging,
   setLogLevel,
   getLogger,
 } from '@salesforce/apex-lsp-shared';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Mock the storage manager
 jest.mock('../../src/storage/ApexStorageManager', () => ({
@@ -31,6 +34,19 @@ jest.mock('../../src/storage/ApexStorageManager', () => ({
     getInstance: jest.fn(),
   },
 }));
+
+/**
+ * Helper function to load the StandardApexLibrary.zip for testing.
+ * This simulates the client providing the ZIP buffer to the language server.
+ */
+const loadStandardLibraryZip = (): Uint8Array => {
+  const zipPath = path.join(
+    __dirname,
+    '../../../apex-parser-ast/resources/StandardApexLibrary.zip',
+  );
+  const zipBuffer = fs.readFileSync(zipPath);
+  return new Uint8Array(zipBuffer);
+};
 
 describe('HoverProcessingService Integration Tests', () => {
   let hoverService: HoverProcessingService;
@@ -42,12 +58,26 @@ describe('HoverProcessingService Integration Tests', () => {
   let fileUtilitiesTestDocument: TextDocument;
   let stdApexDocument: TextDocument;
   let complexTestClassDocument: TextDocument;
+  let resourceLoader: ResourceLoader;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     // Enable console logging for debugging
     enableConsoleLogging();
     setLogLevel('error');
 
+    // Initialize ResourceLoader for standard library classes once for all tests
+    // This ensures standard library classes are available for hover resolution
+    (ResourceLoader as any).instance = null;
+    const standardLibZip = loadStandardLibraryZip();
+    resourceLoader = ResourceLoader.getInstance({
+      loadMode: 'lazy',
+      preloadStdClasses: true,
+      zipBuffer: standardLibZip,
+    });
+    await resourceLoader.initialize();
+  });
+
+  beforeEach(async () => {
     // Create a real symbol manager for integration testing
     symbolManager = new ApexSymbolManager();
 
@@ -253,6 +283,11 @@ describe('HoverProcessingService Integration Tests', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    // Clean up ResourceLoader singleton after all tests
+    (ResourceLoader as any).instance = null;
   });
 
   describe('Apex Access Modifier Context Analysis', () => {

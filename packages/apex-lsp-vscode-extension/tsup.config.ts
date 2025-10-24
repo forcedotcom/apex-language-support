@@ -60,6 +60,37 @@ function copyWorkerFiles() {
 }
 
 /**
+ * Copy standard library resources for web extension
+ */
+function copyStandardLibraryResources() {
+  const distDir = path.resolve(__dirname, 'dist');
+  const resourcesDir = path.join(distDir, 'resources');
+
+  // Ensure resources directory exists
+  fs.mkdirSync(resourcesDir, { recursive: true });
+
+  // Copy StandardApexLibrary.zip from apex-parser-ast package
+  const standardLibZipSrc = path.resolve(
+    __dirname,
+    '../apex-parser-ast/resources/StandardApexLibrary.zip',
+  );
+  const standardLibZipDest = path.join(resourcesDir, 'StandardApexLibrary.zip');
+
+  try {
+    fs.copyFileSync(standardLibZipSrc, standardLibZipDest);
+    console.log('✅ Copied StandardApexLibrary.zip to web extension resources');
+  } catch (error) {
+    console.warn(
+      '⚠️ Failed to copy StandardApexLibrary.zip:',
+      (error as Error).message,
+    );
+    console.warn(
+      '   This will cause standard library hovers to fail in web extension',
+    );
+  }
+}
+
+/**
  * Copy manifest and configuration files to dist
  */
 function copyManifestFiles() {
@@ -161,6 +192,7 @@ async function executePostBuildTasks(): Promise<void> {
   copyWorkerFiles();
   copyManifestFiles();
   copyOutResources();
+  copyStandardLibraryResources();
   fixPackagePaths();
 }
 

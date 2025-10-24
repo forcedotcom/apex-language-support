@@ -131,3 +131,45 @@ The application we are working on uses the following tech stack:
 ## Apex class semantics
 
 - For a positive that defines Apex source, never use method "testMethod", as it is a reserved word
+
+# VS Code Web Extension Development Rules
+
+## Web Extension Runtime Environment
+
+- Web extensions run in a Browser WebWorker environment within the VS Code extension host, subject to browser worker sandbox restrictions. This environment has significant limitations compared to Node.js-based extensions.
+
+## Module Loading and Bundling
+
+- Web extensions do not support ES module imports, `require()` for external modules, or `importScripts()`. The ONLY exception is `require('vscode')`, which works via a special shim.
+- All web extension code MUST be bundled into a single file before deployment. Configure build tools (webpack, esbuild, tsup) to produce a single-file output.
+- Never attempt to dynamically load additional extension files or node modules at runtime in web extensions.
+
+## Node.js APIs and Globals
+
+- Node.js globals and built-in modules (`process`, `os`, `setImmediate`, `path`, `util`, `url`, `fs`, `crypto`, etc.) are NOT available at runtime in web extensions.
+- These APIs can be polyfilled at build time using webpack or similar bundlers with appropriate configuration, but the runtime will never have native Node.js support.
+- Always verify that any dependencies used in web extensions are browser-compatible or have browser builds available.
+
+## File System Access
+
+- Workspace files and folders are on a virtual file system in web extensions.
+- ALL file system operations MUST use the VS Code file system API: `vscode.workspace.fs` (methods: `readFile`, `writeFile`, `readDirectory`, `createDirectory`, `delete`, `rename`, `copy`, `stat`).
+- Never use Node.js `fs` module methods directly in web extension code, even if polyfilled.
+- Extension context locations (`ExtensionContext.extensionUri`) and storage locations (`ExtensionContext.storageUri`, `ExtensionContext.globalStorageUri`) are also on virtual file systems and require `vscode.workspace.fs`.
+
+## Network and Web Resources
+
+- Use the Fetch API (`fetch()`) for all HTTP/HTTPS requests to web resources in web extensions.
+- All accessed external resources MUST support Cross-Origin Resource Sharing (CORS). Resources without proper CORS headers will fail to load.
+- Never use Node.js-specific HTTP libraries like `http`, `https`, or `axios` (unless they have browser-compatible builds).
+
+## Process and Worker Management
+
+- Creating child processes or running executables is NOT possible in web extensions.
+- To run background work or language servers, use the Web Worker API (`new Worker()`) instead.
+- Language servers in web extensions must be packaged as browser-compatible workers and communicate via the Language Server Protocol over Web Worker messaging.
+
+## Extension Activation
+
+- Web extensions must export their lifecycle functions using CommonJS-style exports: `exports.activate = ...` and `exports.deactivate = ...`.
+- Do not use ES module `export` syntax for the main activation functions in web extension entry points.

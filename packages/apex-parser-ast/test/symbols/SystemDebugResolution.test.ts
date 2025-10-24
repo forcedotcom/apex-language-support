@@ -8,14 +8,27 @@
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
+import {
+  initializeResourceLoaderForTests,
+  resetResourceLoader,
+} from '../helpers/testHelpers';
 
 describe('System.debug Resolution Bug Fix', () => {
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
 
+  beforeAll(async () => {
+    // Initialize ResourceLoader with StandardApexLibrary.zip for standard library resolution
+    await initializeResourceLoaderForTests({ loadMode: 'lazy' });
+  });
+
   beforeEach(() => {
     symbolManager = new ApexSymbolManager();
     compilerService = new CompilerService();
+  });
+
+  afterAll(() => {
+    resetResourceLoader();
   });
 
   const compileAndAddToManager = async (
