@@ -16,7 +16,10 @@ import {
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
 
-import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
+import {
+  getDiagnosticsFromErrors,
+  shouldSuppressDiagnostics,
+} from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 
 /**
@@ -118,6 +121,15 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     this.logger.debug(
       () => `Processing diagnostic request for: ${params.textDocument.uri}`,
     );
+
+    // Suppress diagnostics for standard Apex library classes
+    if (shouldSuppressDiagnostics(params.textDocument.uri)) {
+      this.logger.debug(
+        () =>
+          `Suppressing diagnostics for standard Apex library: ${params.textDocument.uri}`,
+      );
+      return [];
+    }
 
     try {
       // Get the storage manager instance

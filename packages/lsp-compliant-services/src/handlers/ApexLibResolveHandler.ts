@@ -90,8 +90,11 @@ async function resolveFromEmbeddedResources(
     }
 
     // Extract the class name from the URI
-    // Format: apexlib://resources/StandardApexLibrary/System.cls -> StandardApexLibrary/System.cls
-    const className = uri.replace('apexlib://resources/', '');
+    // Format: apexlib://resources/StandardApexLibrary/System/System.cls -> System/System.cls
+    const className = uri.replace(
+      'apexlib://resources/StandardApexLibrary/',
+      '',
+    );
 
     // Import the ResourceLoader from the parser package
     const { ResourceLoader } = await import('@salesforce/apex-lsp-parser-ast');

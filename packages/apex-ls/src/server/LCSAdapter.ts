@@ -381,6 +381,26 @@ export class LCSAdapter {
       },
     );
     this.logger.debug('✅ apex/findMissingArtifact handler registered');
+
+    // Register apexlib/resolve handler for standard library content resolution
+    this.connection.onRequest(
+      'apexlib/resolve',
+      async (params: { uri: string }): Promise<{ content: string }> => {
+        this.logger.debug(
+          `🔍 apexlib/resolve request received for: ${params.uri}`,
+        );
+        try {
+          const { dispatchProcessOnResolve } = await import(
+            '@salesforce/apex-lsp-compliant-services'
+          );
+          return await dispatchProcessOnResolve(params);
+        } catch (error) {
+          this.logger.error(`Error processing apexlib/resolve: ${error}`);
+          throw error;
+        }
+      },
+    );
+    this.logger.debug('✅ apexlib/resolve handler registered');
   }
 
   /**
@@ -689,6 +709,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
         },
       });
@@ -705,6 +726,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
         },
       });
@@ -721,6 +743,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
         },
       });
@@ -737,6 +760,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
           identifier: 'apex-ls-ts',
           interFileDependencies:
@@ -758,6 +782,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
           triggerCharacters: capabilities.completionProvider.triggerCharacters,
           resolveProvider: capabilities.completionProvider.resolveProvider,
@@ -776,6 +801,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
         },
       });

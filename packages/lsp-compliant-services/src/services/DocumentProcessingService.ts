@@ -19,7 +19,10 @@ import {
   ApexSettingsManager,
 } from '@salesforce/apex-lsp-shared';
 
-import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
+import {
+  getDiagnosticsFromErrors,
+  shouldSuppressDiagnostics,
+} from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
 import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
@@ -52,6 +55,15 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
       () =>
         `Common Apex Language Server change document handler invoked with: ${event}`,
     );
+
+    // Suppress diagnostics for standard Apex library classes
+    if (shouldSuppressDiagnostics(event.document.uri)) {
+      this.logger.debug(
+        () =>
+          `Suppressing diagnostics for standard Apex library: ${event.document.uri}`,
+      );
+      return [];
+    }
 
     // Get the storage manager instance
     const storageManager = ApexStorageManager.getInstance();

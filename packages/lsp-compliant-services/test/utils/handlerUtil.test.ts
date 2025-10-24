@@ -9,6 +9,7 @@
 import {
   dispatch,
   getDiagnosticsFromErrors,
+  shouldSuppressDiagnostics,
 } from '../../src/utils/handlerUtil';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { DiagnosticSeverity } from 'vscode-languageserver';
@@ -253,6 +254,88 @@ describe('handlerUtil', () => {
       expect(diagnostics[0].severity).toBe(DiagnosticSeverity.Error);
       expect(diagnostics[1].severity).toBe(DiagnosticSeverity.Error);
       expect(diagnostics[2].severity).toBe(DiagnosticSeverity.Error);
+    });
+  });
+
+  describe('shouldSuppressDiagnostics', () => {
+    it('should return true for standard Apex library URIs', () => {
+      const standardApexUris = [
+        'apexlib://resources/StandardApexLibrary/System/System.cls',
+        'apexlib://resources/StandardApexLibrary/Database/Database.cls',
+        'apexlib://resources/StandardApexLibrary/Schema/Schema.cls',
+        'apexlib://resources/StandardApexLibrary/System/Assert.cls',
+        'apexlib://resources/StandardApexLibrary/System/Debug.cls',
+      ];
+
+      standardApexUris.forEach((uri) => {
+        expect(shouldSuppressDiagnostics(uri)).toBe(true);
+      });
+    });
+
+    it('should return false for user code URIs', () => {
+      const userCodeUris = [
+        'file:///Users/test/MyClass.cls',
+        'file:///workspace/TestClass.cls',
+        'file:///project/src/classes/MyClass.cls',
+        'vscode-test-web://file/Users/test/MyClass.cls',
+        'vscode-vfs://file/Users/test/MyClass.cls',
+      ];
+
+      userCodeUris.forEach((uri) => {
+        expect(shouldSuppressDiagnostics(uri)).toBe(false);
+      });
+    });
+
+    it('should return false for non-apexlib URIs', () => {
+      const nonApexlibUris = [
+        'https://example.com/file.cls',
+        'ftp://server/file.cls',
+        'data:text/plain,content',
+        'urn:example:file',
+        'custom://scheme/file.cls',
+      ];
+
+      nonApexlibUris.forEach((uri) => {
+        expect(shouldSuppressDiagnostics(uri)).toBe(false);
+      });
+    });
+
+    it('should handle edge cases', () => {
+      const edgeCases = [
+        '', // empty string - should return false
+        'apexlib://', // incomplete URI - should return true
+        'apexlib://resources/', // incomplete path - should return true
+        'apexlib://resources/StandardApexLibrary/', // incomplete class path - should return true
+        'apexlib://resources/StandardApexLibrary/System/', // incomplete class name - should return true
+      ];
+
+      edgeCases.forEach((uri, index) => {
+        if (index === 0) {
+          // Empty string should return false
+          expect(shouldSuppressDiagnostics(uri)).toBe(false);
+        } else {
+          // All other cases should return true because they start with apexlib://
+          expect(shouldSuppressDiagnostics(uri)).toBe(true);
+        }
+      });
+    });
+
+    it('should be case sensitive for URI scheme', () => {
+      const caseVariations = [
+        'APEXLIB://resources/StandardApexLibrary/System/System.cls', // uppercase scheme
+        'ApexLib://resources/StandardApexLibrary/System/System.cls', // mixed case scheme
+        'apexlib://RESOURCES/StandardApexLibrary/System/System.cls', // uppercase path
+      ];
+
+      caseVariations.forEach((uri) => {
+        // Only the first two should return false (case sensitive scheme)
+        // The third one should return true (lowercase scheme, uppercase path is OK)
+        if (uri.startsWith('APEXLIB://') || uri.startsWith('ApexLib://')) {
+          expect(shouldSuppressDiagnostics(uri)).toBe(false);
+        } else {
+          expect(shouldSuppressDiagnostics(uri)).toBe(true);
+        }
+      });
     });
   });
 });

@@ -70,3 +70,6 @@ export * from './symbols/ApexSymbolProcessingManager';
 // Export semantic validators
 export * from './semantics/modifiers/index';
 export * from './semantics/annotations/index';
+
+// Export protocol handler utilities
+export * from './types/ProtocolHandler';

@@ -319,6 +319,7 @@ async function createWebLanguageClient(
         documentSelector: [
           { scheme: 'file', language: 'apex' },
           { scheme: 'vscode-test-web', language: 'apex' },
+          { scheme: 'apexlib', language: 'apex' },
         ],
         synchronize: {
           configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
@@ -541,6 +542,39 @@ async function createWebLanguageClient(
       languageClient.stop();
     },
   } as ClientInterface;
+
+  // Initialize ApexLib for standard library support
+  try {
+    const { createApexLibManager } = await import(
+      '@salesforce/apex-lsp-compliant-services'
+    );
+    const { VSCodeLanguageClientAdapter, VSCodeEditorContextAdapter } =
+      await import('./apexlib/vscode-adapters');
+
+    // Create adapters
+    const languageClientAdapter = new VSCodeLanguageClientAdapter(Client);
+    const editorContextAdapter = new VSCodeEditorContextAdapter(context);
+
+    // Create and initialize ApexLib manager
+    const apexLibManager = createApexLibManager(
+      languageClientAdapter,
+      'apex', // languageId
+      'apexlib', // customScheme for standard library URIs
+      'cls', // fileExtension
+    );
+
+    // Register protocol handler with VS Code
+    await apexLibManager.initialize(editorContextAdapter);
+    logToOutputChannel(
+      '✅ ApexLib protocol handler registered for standard library support',
+      'info',
+    );
+  } catch (error) {
+    logToOutputChannel(
+      `⚠️ Failed to initialize ApexLib: ${error}. Standard library navigation may not work.`,
+      'warning',
+    );
+  }
 
   // Register handler for server-to-client apex/findMissingArtifact requests
   Client.onRequest('apex/findMissingArtifact', async (params: any) => {
@@ -765,6 +799,39 @@ async function createDesktopLanguageClient(
     isDisposed: () => !nodeClient.isRunning(),
     dispose: () => nodeClient.stop(),
   } as ClientInterface;
+
+  // Initialize ApexLib for standard library support
+  try {
+    const { createApexLibManager } = await import(
+      '@salesforce/apex-lsp-compliant-services'
+    );
+    const { VSCodeLanguageClientAdapter, VSCodeEditorContextAdapter } =
+      await import('./apexlib/vscode-adapters');
+
+    // Create adapters
+    const languageClientAdapter = new VSCodeLanguageClientAdapter(Client);
+    const editorContextAdapter = new VSCodeEditorContextAdapter(context);
+
+    // Create and initialize ApexLib manager
+    const apexLibManager = createApexLibManager(
+      languageClientAdapter,
+      'apex', // languageId
+      'apexlib', // customScheme for standard library URIs
+      'cls', // fileExtension
+    );
+
+    // Register protocol handler with VS Code
+    await apexLibManager.initialize(editorContextAdapter);
+    logToOutputChannel(
+      '✅ ApexLib protocol handler registered for standard library support',
+      'info',
+    );
+  } catch (error) {
+    logToOutputChannel(
+      `⚠️ Failed to initialize ApexLib: ${error}. Standard library navigation may not work.`,
+      'warning',
+    );
+  }
 
   // Register handler for server-to-client apex/findMissingArtifact requests
   Client.onRequest('apex/findMissingArtifact', async (params: any) => {

@@ -160,7 +160,10 @@ export const createServerOptions = (
 export const createClientOptions = (
   initializationOptions: any,
 ): LanguageClientOptions => ({
-  documentSelector: [{ scheme: 'file', language: 'apex' }],
+  documentSelector: [
+    { scheme: 'file', language: 'apex' },
+    { scheme: 'apexlib', language: 'apex' },
+  ],
   synchronize: {
     fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
     configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
