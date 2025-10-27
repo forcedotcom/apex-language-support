@@ -116,7 +116,7 @@ describe('ResourceUtils', () => {
     describe('createResourceUri', () => {
       it('should create correct resource URI', () => {
         expect(UriUtils.createResourceUri('test.cls')).toBe(
-          'apexlib://resources/test.cls',
+          'apexlib://resources/StandardApexLibrary/test.cls',
         );
       });
     });
