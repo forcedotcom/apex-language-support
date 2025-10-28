@@ -49,6 +49,7 @@ import {
   DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
+  dispatchProcessOnResolve,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
@@ -390,9 +391,6 @@ export class LCSAdapter {
           `🔍 apexlib/resolve request received for: ${params.uri}`,
         );
         try {
-          const { dispatchProcessOnResolve } = await import(
-            '@salesforce/apex-lsp-compliant-services'
-          );
           return await dispatchProcessOnResolve(params);
         } catch (error) {
           this.logger.error(`Error processing apexlib/resolve: ${error}`);
