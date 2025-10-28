@@ -58,6 +58,7 @@ export * from './handlers/MissingArtifactHandler';
 // Export services
 export * from './services/DocumentProcessingService';
 export * from './services/DocumentSaveProcessingService';
+export * from './services/ParseResultCache';
 export * from './services/DocumentCloseProcessingService';
 export * from './services/DocumentSymbolProcessingService';
 export * from './services/DefinitionProcessingService';

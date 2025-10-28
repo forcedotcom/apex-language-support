@@ -27,6 +27,7 @@ import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
 import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
 import { IDocumentChangeProcessor } from './DocumentChangeProcessingService';
+import { getParseResultCache } from './ParseResultCache';
 
 /**
  * Service for processing document changes
@@ -53,8 +54,23 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
   ): Promise<Diagnostic[] | undefined> {
     this.logger.debug(
       () =>
-        `Common Apex Language Server change document handler invoked with: ${event}`,
+        `Common Apex Language Server change document handler invoked for: ${event.document.uri} (version: ${event.document.version})`,
     );
+
+    // Check parse result cache first
+    const parseCache = getParseResultCache();
+    const cached = parseCache.getSymbolResult(
+      event.document.uri,
+      event.document.version,
+    );
+
+    if (cached) {
+      this.logger.debug(
+        () =>
+          `Using cached parse result for ${event.document.uri} (version ${event.document.version})`,
+      );
+      return cached.diagnostics;
+    }
 
     // Suppress diagnostics for standard Apex library classes
     if (shouldSuppressDiagnostics(event.document.uri)) {
@@ -165,6 +181,15 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
       this.logger.error(() => `Error upserting references: ${error}`);
     }
 
+    // Cache the parse result for future requests with same version
+    const diagnostics: Diagnostic[] = [];
+    parseCache.merge(event.document.uri, {
+      symbolTable,
+      diagnostics,
+      documentVersion: event.document.version,
+      documentLength: document.getText().length,
+    });
+
     return undefined; // No diagnostics to return
   }
 
@@ -178,8 +203,27 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
   ): Promise<Diagnostic[] | undefined> {
     this.logger.debug(
       () =>
-        `Common Apex Language Server open document handler invoked with: ${event}`,
+        `Common Apex Language Server open document handler invoked for: ${event.document.uri} (version: ${event.document.version})`,
     );
+
+    // Check parse result cache first
+    const parseCache = getParseResultCache();
+    const cached = parseCache.getSymbolResult(
+      event.document.uri,
+      event.document.version,
+    );
+
+    if (cached) {
+      this.logger.debug(
+        () =>
+          `Using cached parse result for ${event.document.uri} (version ${event.document.version})`,
+      );
+      // Store the document in storage (always needed, even with cache hit)
+      const storageManager = ApexStorageManager.getInstance();
+      const storage = storageManager.getStorage();
+      await storage.setDocument(event.document.uri, event.document);
+      return cached.diagnostics;
+    }
 
     // Get the storage manager instance
     const storageManager = ApexStorageManager.getInstance();
@@ -266,10 +310,26 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     );
 
     // Upsert the definitions and references in parallel
-    await Promise.all([
-      definitionUpserter.upsertDefinition(event),
-      referencesUpserter.upsertReferences(event),
-    ]);
+    try {
+      await Promise.all([
+        definitionUpserter.upsertDefinition(event),
+        referencesUpserter.upsertReferences(event),
+      ]);
+    } catch (error) {
+      // Log errors but don't throw - document processing should continue
+      this.logger.error(
+        () => `Error upserting definitions/references: ${error}`,
+      );
+    }
+
+    // Cache the parse result for future requests with same version
+    const diagnostics: Diagnostic[] = [];
+    parseCache.merge(event.document.uri, {
+      symbolTable,
+      diagnostics,
+      documentVersion: event.document.version,
+      documentLength: document.getText().length,
+    });
 
     return undefined;
   }

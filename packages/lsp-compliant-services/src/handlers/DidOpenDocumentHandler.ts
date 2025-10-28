@@ -35,7 +35,10 @@ export class DidOpenDocumentHandler {
   public async handleDocumentOpen(
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<Diagnostic[] | undefined> {
-    this.logger.debug(() => `Processing document open: ${event.document.uri}`);
+    this.logger.debug(
+      () =>
+        `Processing document open: ${event.document.uri} (version: ${event.document.version})`,
+    );
 
     try {
       return await dispatch(

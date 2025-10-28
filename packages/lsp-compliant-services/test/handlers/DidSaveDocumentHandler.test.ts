@@ -66,7 +66,9 @@ describe('DidSaveDocumentHandler', () => {
 
       // Verify the debug message function was called with correct content
       const debugCall = mockLogger.debug.mock.calls[0];
-      expect(debugCall[0]()).toBe('Processing document save: file:///test.cls');
+      expect(debugCall[0]()).toBe(
+        'Processing document save: file:///test.cls (version: 1)',
+      );
       expect(
         mockDocumentSaveProcessor.processDocumentSave,
       ).toHaveBeenCalledWith(mockEvent);

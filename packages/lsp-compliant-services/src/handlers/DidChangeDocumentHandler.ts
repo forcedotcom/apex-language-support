@@ -31,7 +31,8 @@ export class DidChangeDocumentHandler {
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<Diagnostic[] | undefined> {
     this.logger.debug(
-      () => `Processing document change: ${event.document.uri}`,
+      () =>
+        `Processing document change: ${event.document.uri} (version: ${event.document.version})`,
     );
 
     try {

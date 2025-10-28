@@ -17,6 +17,7 @@ import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { transformParserToLspPosition } from '../utils/positionUtils';
+import { getParseResultCache } from '../services/ParseResultCache';
 
 /**
  * Interface for AST folding range
@@ -62,6 +63,21 @@ export class ApexFoldingRangeProvider {
         return [];
       }
 
+      // Check cache first
+      const parseCache = getParseResultCache();
+      const cached = parseCache.getFoldingRangeResult(
+        documentUri,
+        document.version,
+      );
+
+      if (cached) {
+        logger.debug(
+          () =>
+            `Using cached folding ranges for ${documentUri} (version ${document.version})`,
+        );
+        return this.convertToLSPFoldingRanges(cached.foldingRanges);
+      }
+
       // Create and use the folding range listener
       const listener = new ApexFoldingRangeListener();
       const settingsManager = ApexSettingsManager.getInstance();
@@ -102,6 +118,20 @@ export class ApexFoldingRangeProvider {
 
       // Combine AST folding ranges with block comment ranges
       const allRanges = [...astFoldingRanges, ...blockCommentRanges];
+
+      // Cache the result (merge with existing cache entry)
+      parseCache.merge(documentUri, {
+        foldingRanges: allRanges.map((range) => ({
+          startLine: range.startLine,
+          startColumn: range.startColumn ?? 0,
+          endLine: range.endLine,
+          endColumn: range.endColumn ?? 0,
+          kind: (range.kind as any) ?? 'region',
+          level: range.level ?? 0,
+        })),
+        documentVersion: document.version,
+        documentLength: document.getText().length,
+      });
 
       // Convert to LSP folding ranges
       const lspFoldingRanges = this.convertToLSPFoldingRanges(allRanges);

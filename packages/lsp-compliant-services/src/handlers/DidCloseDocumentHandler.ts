@@ -30,7 +30,10 @@ export class DidCloseDocumentHandler {
   public async handleDocumentClose(
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<void> {
-    this.logger.debug(() => `Processing document close: ${event.document.uri}`);
+    this.logger.debug(
+      () =>
+        `Processing document close: ${event.document.uri} (version: ${event.document.version})`,
+    );
 
     try {
       return await dispatch(
