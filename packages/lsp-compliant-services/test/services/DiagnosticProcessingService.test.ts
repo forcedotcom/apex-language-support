@@ -182,6 +182,13 @@ describe('DiagnosticProcessingService', () => {
     const { getDiagnosticsFromErrors } = require('../../src/utils/handlerUtil');
     getDiagnosticsFromErrors.mockReset();
 
+    // Clear the parse result cache to avoid test interference
+    const {
+      getParseResultCache,
+    } = require('../../src/services/ParseResultCache');
+    const cache = getParseResultCache();
+    cache.clear();
+
     service = new DiagnosticProcessingService(mockLogger);
   });
 
@@ -206,6 +213,7 @@ describe('DiagnosticProcessingService', () => {
 
       const mockDocument = {
         uri: 'file:///test.cls',
+        version: 1,
         getText: () => 'public class TestClass { }',
       } as TextDocument;
 
@@ -263,6 +271,7 @@ describe('DiagnosticProcessingService', () => {
 
       const mockDocument = {
         uri: 'file:///test.cls',
+        version: 1,
         getText: () => 'public class TestClass { }',
       } as TextDocument;
 
@@ -297,6 +306,7 @@ describe('DiagnosticProcessingService', () => {
 
       const mockDocument = {
         uri: 'file:///test.cls',
+        version: 1,
         getText: () => 'public class TestClass { }',
       } as TextDocument;
 

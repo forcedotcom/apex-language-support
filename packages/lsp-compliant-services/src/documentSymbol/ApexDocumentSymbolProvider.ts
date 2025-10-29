@@ -28,6 +28,7 @@ import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { transformParserToLspPosition } from '../utils/positionUtils';
+import { getParseResultCache } from '../services/ParseResultCache';
 
 /**
  * Maps Apex symbol kinds to LSP symbol kinds
@@ -120,39 +121,57 @@ export class DefaultApexDocumentSymbolProvider
         () => `Document content preview: ${documentText.substring(0, 100)}...`,
       );
 
-      // Create a symbol collector listener to parse the document
-      const table = new SymbolTable();
-      const listener = new ApexSymbolCollectorListener(table);
+      // Check parse result cache first
+      // NOTE: Safe to use cached SymbolTable even with different compilation options
+      // because SymbolTable only contains structural symbols (classes, methods, fields)
+      // and is independent of comment collection settings
+      const parseCache = getParseResultCache();
+      const cached = parseCache.getSymbolResult(documentUri, document.version);
 
-      const settingsManager = ApexSettingsManager.getInstance();
-      const options = settingsManager.getCompilationOptions(
-        'documentSymbols',
-        documentText.length,
-      );
+      let symbolTable: SymbolTable;
 
-      // Parse the document using the compiler service
-      const result = this.compilerService.compile(
-        documentText,
-        documentUri,
-        listener,
-        options,
-      );
+      if (cached) {
+        logger.debug(
+          () =>
+            `Using cached parse result for document symbols ${documentUri} (version ${document.version})`,
+        );
+        // Use cached symbol table for document symbols
+        symbolTable = cached.symbolTable;
+      } else {
+        // Create a symbol collector listener to parse the document
+        const table = new SymbolTable();
+        const listener = new ApexSymbolCollectorListener(table);
 
-      logger.debug(
-        () =>
-          `Compilation result: ${JSON.stringify({
-            hasResult: !!result.result,
-            errorCount: result.errors.length,
-            warningCount: result.warnings.length,
-          })}`,
-      );
+        const settingsManager = ApexSettingsManager.getInstance();
+        const options = settingsManager.getCompilationOptions(
+          'documentSymbols',
+          documentText.length,
+        );
 
-      // Get the symbol table from the compilation result
-      const symbolTable = result.result;
+        // Parse the document using the compiler service
+        const result = this.compilerService.compile(
+          documentText,
+          documentUri,
+          listener,
+          options,
+        );
 
-      if (!symbolTable) {
-        logger.error(() => 'Symbol table is null from compilation result');
-        return null;
+        logger.debug(
+          () =>
+            `Compilation result: ${JSON.stringify({
+              hasResult: !!result.result,
+              errorCount: result.errors.length,
+              warningCount: result.warnings.length,
+            })}`,
+        );
+
+        // Get the symbol table from the compilation result
+        if (result.result) {
+          symbolTable = result.result;
+        } else {
+          logger.error(() => 'Symbol table is null from compilation result');
+          return null;
+        }
       }
 
       const symbols: DocumentSymbol[] = [];

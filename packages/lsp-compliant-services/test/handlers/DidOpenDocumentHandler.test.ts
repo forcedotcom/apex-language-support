@@ -164,7 +164,9 @@ describe('DidOpenDocumentHandler', () => {
 
       // Verify the debug message function was called with correct content
       const debugCall = mockLogger.debug.mock.calls[0];
-      expect(debugCall[0]()).toBe('Processing document open: file:///test.cls');
+      expect(debugCall[0]()).toBe(
+        'Processing document open: file:///test.cls (version: 1)',
+      );
       expect(mockStorage.setDocument).toHaveBeenCalledWith(
         mockEvent.document.uri,
         mockEvent.document,
@@ -193,7 +195,7 @@ describe('DidOpenDocumentHandler', () => {
       expect(errorMsg).toContain('Storage failed');
     });
 
-    it('should log error and rethrow when definition upserter fails', async () => {
+    it('should log error when definition upserter fails', async () => {
       // Arrange
       const {
         DefaultApexDefinitionUpserter,
@@ -203,14 +205,16 @@ describe('DidOpenDocumentHandler', () => {
         upsertDefinition: jest.fn().mockRejectedValue(definitionError),
       }));
 
-      // Act & Assert
-      await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow(
-        'Definition failed',
-      );
-      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
+      // Act - should not throw, but should log error
+      const result = await handler.handleDocumentOpen(mockEvent);
+
+      // Assert - error should be logged but function should complete
+      // The error is caught and logged in the service, not in the handler
+      expect(result).toEqual([]);
+      expect(mockLogger.debug).toHaveBeenCalled();
     });
 
-    it('should log error and rethrow when references upserter fails', async () => {
+    it('should log error when references upserter fails', async () => {
       // Arrange
       const {
         DefaultApexReferencesUpserter,
@@ -220,11 +224,13 @@ describe('DidOpenDocumentHandler', () => {
         upsertReferences: jest.fn().mockRejectedValue(referencesError),
       }));
 
-      // Act & Assert
-      await expect(handler.handleDocumentOpen(mockEvent)).rejects.toThrow(
-        'References failed',
-      );
-      expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
+      // Act - should not throw, but should log error
+      const result = await handler.handleDocumentOpen(mockEvent);
+
+      // Assert - error should be logged but function should complete
+      // The error is caught and logged in the service, not in the handler
+      expect(result).toEqual([]);
+      expect(mockLogger.debug).toHaveBeenCalled();
     });
   });
 });

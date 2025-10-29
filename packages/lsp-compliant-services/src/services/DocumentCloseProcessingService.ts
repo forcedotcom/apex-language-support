@@ -53,7 +53,8 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<void> {
     this.logger.debug(
-      () => `Processing document close for: ${event.document.uri}`,
+      () =>
+        `Processing document close for: ${event.document.uri} (version: ${event.document.version})`,
     );
 
     // Get the storage manager instance
@@ -86,6 +87,9 @@ export class DocumentCloseProcessingService implements IDocumentCloseProcessor {
       );
     }
 
-    this.logger.debug(() => `Document close processed: ${event.document.uri}`);
+    this.logger.debug(
+      () =>
+        `Document close processed: ${event.document.uri} (version: ${event.document.version})`,
+    );
   }
 }
