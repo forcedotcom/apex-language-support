@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, tdx26/main]
   pull_request:
-    branches: [main]
+    branches: [main, tdx26/main]
   workflow_dispatch:
 
 # Add explicit permissions for security
