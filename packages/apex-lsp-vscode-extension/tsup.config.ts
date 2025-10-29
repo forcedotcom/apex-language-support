@@ -32,34 +32,6 @@ const EXTENSION_NO_EXTERNAL = [
 ];
 
 /**
- * Copy worker and server files from apex-ls dist to extension dist
- */
-function copyWorkerFiles() {
-  const distDir = path.resolve(__dirname, 'dist');
-  fs.mkdirSync(distDir, { recursive: true });
-
-  const workerFiles = [
-    { src: '../apex-ls/dist/worker.global.js', dest: 'worker.global.js' },
-    {
-      src: '../apex-ls/dist/worker.global.js.map',
-      dest: 'worker.global.js.map',
-    },
-    { src: '../apex-ls/dist/server.node.js', dest: 'server.node.js' },
-    { src: '../apex-ls/dist/server.node.js.map', dest: 'server.node.js.map' },
-  ];
-
-  workerFiles.forEach(({ src, dest }) => {
-    const srcPath = path.resolve(__dirname, src);
-    const destPath = path.join(distDir, dest);
-    try {
-      fs.copyFileSync(srcPath, destPath);
-    } catch (error) {
-      console.warn(`Failed to copy ${dest}:`, (error as Error).message);
-    }
-  });
-}
-
-/**
  * Copy standard library resources for web extension
  */
 function copyStandardLibraryResources() {
@@ -100,6 +72,7 @@ function copyManifestFiles() {
     'package.json',
     'package.nls.json',
     'language-configuration.json',
+    'LICENSE.txt',
   ];
 
   const dirsToCopy = ['grammars', 'snippets', 'resources'];
@@ -128,7 +101,7 @@ function copyManifestFiles() {
 }
 
 /**
- * Fix package.json paths for dist directory
+ * Fix package.json paths for dist directory and remove bundled dependencies
  */
 function fixPackagePaths() {
   const packagePath = path.resolve(__dirname, 'dist/package.json');
@@ -148,6 +121,24 @@ function fixPackagePaths() {
     if (packageJson.contributes?.standardApexLibrary?.includes('./out/')) {
       packageJson.contributes.standardApexLibrary =
         packageJson.contributes.standardApexLibrary.replace('./out/', './');
+    }
+
+    // Remove bundled dependencies from package.json
+    // These are bundled into the extension and not needed as separate dependencies
+    const bundledDependencies = [
+      '@salesforce/apex-lsp-shared',
+      'vscode-languageclient',
+      'web-worker',
+    ];
+
+    if (packageJson.dependencies) {
+      bundledDependencies.forEach((dep) => {
+        delete packageJson.dependencies[dep];
+      });
+      // Remove dependencies if empty
+      if (Object.keys(packageJson.dependencies).length === 0) {
+        delete packageJson.dependencies;
+      }
     }
 
     fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2), 'utf8');
@@ -186,10 +177,10 @@ function copyOutResources() {
 }
 
 /**
- * Execute all post-build tasks
+ * Execute immediate post-build tasks (non-dependent on other packages)
+ * Worker file copying is done in a separate postbundle script that Turbo can track
  */
-async function executePostBuildTasks(): Promise<void> {
-  copyWorkerFiles();
+function executePostBuildTasks(): void {
   copyManifestFiles();
   copyOutResources();
   copyStandardLibraryResources();

@@ -132,15 +132,30 @@ export async function createClientOptions(
       };
     }
     case 'nodeServer': {
+      // Try bundled version first, fallback to compiled version
+      const bundledPath = path.join(
+        repoRoot,
+        'packages',
+        'apex-ls',
+        'dist',
+        'server.node.js',
+      );
+      const compiledPath = path.join(
+        repoRoot,
+        'packages',
+        'apex-ls',
+        'out',
+        'node',
+        'server.node.js',
+      );
+      const fs = require('fs');
+      const serverPath = fs.existsSync(bundledPath)
+        ? bundledPath
+        : compiledPath;
+
       return {
         serverType: 'nodeServer',
-        serverPath: path.join(
-          repoRoot,
-          'packages',
-          'apex-ls',
-          'out',
-          'index.js',
-        ),
+        serverPath,
         nodeArgs: verbose ? ['--nolazy'] : [],
         serverArgs: ['--stdio'],
         env: {

@@ -15,14 +15,14 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 7,
-          "name": "pageSize",
+          "name": "pageSize : Integer",
           "range": {
             "end": {
               "character": 41,
               "line": 2,
             },
             "start": {
-              "character": 19,
+              "character": 11,
               "line": 2,
             },
           },
@@ -40,14 +40,14 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 7,
-          "name": "pageNumber",
+          "name": "pageNumber : Integer",
           "range": {
             "end": {
               "character": 43,
               "line": 5,
             },
             "start": {
-              "character": 19,
+              "character": 11,
               "line": 5,
             },
           },
@@ -65,14 +65,14 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 7,
-          "name": "totalItemCount",
+          "name": "totalItemCount : Integer",
           "range": {
             "end": {
               "character": 47,
               "line": 8,
             },
             "start": {
-              "character": 19,
+              "character": 11,
               "line": 8,
             },
           },
@@ -90,14 +90,14 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 7,
-          "name": "records",
+          "name": "records : Object[]",
           "range": {
             "end": {
               "character": 41,
               "line": 11,
             },
             "start": {
-              "character": 20,
+              "character": 11,
               "line": 11,
             },
           },
@@ -121,7 +121,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 12,
         },
         "start": {
-          "character": 26,
+          "character": 20,
           "line": 0,
         },
       },
@@ -344,7 +344,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 75,
             },
             "start": {
-              "character": 30,
+              "character": 18,
               "line": 15,
             },
           },
@@ -369,7 +369,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 110,
             },
             "start": {
-              "character": 39,
+              "character": 18,
               "line": 83,
             },
           },
@@ -393,7 +393,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 111,
         },
         "start": {
-          "character": 26,
+          "character": 20,
           "line": 0,
         },
       },
@@ -566,7 +566,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 31,
             },
             "start": {
-              "character": 25,
+              "character": 18,
               "line": 2,
             },
           },
@@ -590,7 +590,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 34,
         },
         "start": {
-          "character": 26,
+          "character": 20,
           "line": 0,
         },
       },
@@ -691,7 +691,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 15,
             },
             "start": {
-              "character": 16,
+              "character": 11,
               "line": 3,
             },
           },
@@ -715,7 +715,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 16,
         },
         "start": {
-          "character": 14,
+          "character": 8,
           "line": 1,
         },
       },
@@ -841,7 +841,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 17,
             },
             "start": {
-              "character": 23,
+              "character": 18,
               "line": 4,
             },
           },
@@ -866,7 +866,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 71,
             },
             "start": {
-              "character": 16,
+              "character": 11,
               "line": 20,
             },
           },
@@ -891,7 +891,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 85,
             },
             "start": {
-              "character": 16,
+              "character": 11,
               "line": 74,
             },
           },
@@ -916,7 +916,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 119,
             },
             "start": {
-              "character": 16,
+              "character": 11,
               "line": 88,
             },
           },
@@ -940,7 +940,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 120,
         },
         "start": {
-          "character": 14,
+          "character": 8,
           "line": 1,
         },
       },
@@ -1130,7 +1130,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 8,
-          "name": "BASE_URL",
+          "name": "BASE_URL : String",
           "range": {
             "end": {
               "character": 99,
@@ -1162,7 +1162,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 50,
             },
             "start": {
-              "character": 36,
+              "character": 18,
               "line": 4,
             },
           },
@@ -1257,7 +1257,6 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
             {
               "children": [],
               "kind": 8,
-              "name": "country",
               "name": "country : String",
               "range": {
                 "end": {
@@ -1314,7 +1313,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 63,
             },
             "start": {
-              "character": 17,
+              "character": 11,
               "line": 52,
             },
           },
@@ -1390,7 +1389,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 70,
             },
             "start": {
-              "character": 17,
+              "character": 11,
               "line": 65,
             },
           },
@@ -1414,7 +1413,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 71,
         },
         "start": {
-          "character": 26,
+          "character": 20,
           "line": 0,
         },
       },
@@ -1426,6 +1425,56 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         "start": {
           "character": 26,
           "line": 0,
+        },
+      },
+    },
+    {
+      "children": [],
+      "kind": 5,
+      "name": "GeocodingAddress",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 63,
+        },
+        "start": {
+          "character": 11,
+          "line": 52,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 33,
+          "line": 52,
+        },
+        "start": {
+          "character": 17,
+          "line": 52,
+        },
+      },
+    },
+    {
+      "children": [],
+      "kind": 5,
+      "name": "Coordinates",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 70,
+        },
+        "start": {
+          "character": 11,
+          "line": 65,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 28,
+          "line": 65,
+        },
+        "start": {
+          "character": 17,
+          "line": 65,
         },
       },
     },
@@ -1759,7 +1808,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 11,
             },
             "start": {
-              "character": 23,
+              "character": 18,
               "line": 2,
             },
           },
@@ -1784,7 +1833,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 25,
             },
             "start": {
-              "character": 24,
+              "character": 19,
               "line": 13,
             },
           },
@@ -1809,7 +1858,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 40,
             },
             "start": {
-              "character": 24,
+              "character": 19,
               "line": 27,
             },
           },
@@ -1834,7 +1883,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 54,
             },
             "start": {
-              "character": 24,
+              "character": 19,
               "line": 42,
             },
           },
@@ -1859,7 +1908,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 61,
             },
             "start": {
-              "character": 24,
+              "character": 19,
               "line": 56,
             },
           },
@@ -1883,7 +1932,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 62,
         },
         "start": {
-          "character": 26,
+          "character": 20,
           "line": 0,
         },
       },
@@ -2255,7 +2304,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 34,
             },
             "start": {
-              "character": 16,
+              "character": 11,
               "line": 11,
             },
           },
@@ -2280,7 +2329,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 54,
             },
             "start": {
-              "character": 16,
+              "character": 11,
               "line": 36,
             },
           },
@@ -2305,7 +2354,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 79,
             },
             "start": {
-              "character": 16,
+              "character": 11,
               "line": 56,
             },
           },
@@ -2332,7 +2381,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
                   "line": 88,
                 },
                 "start": {
-                  "character": 28,
+                  "character": 15,
                   "line": 82,
                 },
               },
@@ -2356,7 +2405,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 89,
             },
             "start": {
-              "character": 17,
+              "character": 11,
               "line": 81,
             },
           },
@@ -2383,7 +2432,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
                   "line": 97,
                 },
                 "start": {
-                  "character": 28,
+                  "character": 15,
                   "line": 92,
                 },
               },
@@ -2407,7 +2456,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 98,
             },
             "start": {
-              "character": 17,
+              "character": 11,
               "line": 91,
             },
           },
@@ -2431,7 +2480,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 99,
         },
         "start": {
-          "character": 27,
+          "character": 21,
           "line": 1,
         },
       },
@@ -2443,6 +2492,56 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         "start": {
           "character": 27,
           "line": 1,
+        },
+      },
+    },
+    {
+      "children": [],
+      "kind": 5,
+      "name": "OpenStreetMapHttpCalloutMockImpl",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 89,
+        },
+        "start": {
+          "character": 11,
+          "line": 81,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 49,
+          "line": 81,
+        },
+        "start": {
+          "character": 17,
+          "line": 81,
+        },
+      },
+    },
+    {
+      "children": [],
+      "kind": 5,
+      "name": "OpenStreetMapHttpCalloutMockImplError",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 98,
+        },
+        "start": {
+          "character": 11,
+          "line": 91,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 54,
+          "line": 91,
+        },
+        "start": {
+          "character": 17,
+          "line": 91,
         },
       },
     },
@@ -2848,7 +2947,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 2,
             },
             "start": {
-              "character": 11,
+              "character": 4,
               "line": 2,
             },
           },
@@ -2872,7 +2971,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 3,
         },
         "start": {
-          "character": 17,
+          "character": 7,
           "line": 0,
         },
       },
@@ -3016,7 +3115,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         {
           "children": [],
           "kind": 9,
-          "name": "MyWebService() : void",
+          "name": "MyWebService",
           "range": {
             "end": {
               "character": 5,
@@ -3047,7 +3146,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 14,
         },
         "start": {
-          "character": 26,
+          "character": 20,
           "line": 0,
         },
       },
@@ -3196,7 +3295,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 21,
             },
             "start": {
-              "character": 16,
+              "character": 11,
               "line": 3,
             },
           },
@@ -3221,7 +3320,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 42,
             },
             "start": {
-              "character": 16,
+              "character": 11,
               "line": 24,
             },
           },
@@ -3246,7 +3345,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 66,
             },
             "start": {
-              "character": 16,
+              "character": 11,
               "line": 45,
             },
           },
@@ -3271,7 +3370,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 90,
             },
             "start": {
-              "character": 16,
+              "character": 11,
               "line": 69,
             },
           },
@@ -3295,7 +3394,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 91,
         },
         "start": {
-          "character": 27,
+          "character": 21,
           "line": 1,
         },
       },
@@ -3468,7 +3567,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 31,
             },
             "start": {
-              "character": 25,
+              "character": 18,
               "line": 2,
             },
           },
@@ -3492,7 +3591,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 34,
         },
         "start": {
-          "character": 26,
+          "character": 20,
           "line": 0,
         },
       },
@@ -3591,7 +3690,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 31,
             },
             "start": {
-              "character": 25,
+              "character": 18,
               "line": 2,
             },
           },
@@ -3615,7 +3714,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 34,
         },
         "start": {
-          "character": 26,
+          "character": 20,
           "line": 0,
         },
       },
@@ -3642,6 +3741,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
   },
 }
 `;
+
 exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {
   type: 'request',
   method: 'textDocument/documentSymbol',
@@ -3664,7 +3764,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 3,
             },
             "start": {
-              "character": 25,
+              "character": 18,
               "line": 2,
             },
           },
@@ -3689,7 +3789,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 7,
             },
             "start": {
-              "character": 25,
+              "character": 18,
               "line": 6,
             },
           },
@@ -3714,7 +3814,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 10,
             },
             "start": {
-              "character": 26,
+              "character": 18,
               "line": 9,
             },
           },
@@ -3842,7 +3942,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
                   "line": 32,
                 },
                 "start": {
-                  "character": 20,
+                  "character": 14,
                   "line": 29,
                 },
               },
@@ -3885,7 +3985,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
             {
               "children": [],
               "kind": 9,
-              "name": "SomeFactory(Map<Type,Type>) : void",
+              "name": "SomeFactory",
               "range": {
                 "end": {
                   "character": 7,
@@ -3917,7 +4017,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
                   "line": 41,
                 },
                 "start": {
-                  "character": 29,
+                  "character": 22,
                   "line": 40,
                 },
               },
@@ -3941,7 +4041,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 42,
             },
             "start": {
-              "character": 18,
+              "character": 12,
               "line": 28,
             },
           },
@@ -3961,7 +4061,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
             {
               "children": [],
               "kind": 9,
-              "name": "AnotherFactory(Map<SObjectType,Type>) : void",
+              "name": "AnotherFactory",
               "range": {
                 "end": {
                   "character": 7,
@@ -3993,7 +4093,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
                   "line": 51,
                 },
                 "start": {
-                  "character": 45,
+                  "character": 22,
                   "line": 48,
                 },
               },
@@ -4017,7 +4117,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 52,
             },
             "start": {
-              "character": 17,
+              "character": 11,
               "line": 44,
             },
           },
@@ -4044,7 +4144,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
                   "line": 55,
                 },
                 "start": {
-                  "character": 17,
+                  "character": 6,
                   "line": 55,
                 },
               },
@@ -4068,7 +4168,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 56,
             },
             "start": {
-              "character": 14,
+              "character": 4,
               "line": 54,
             },
           },
@@ -4169,7 +4269,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
               "line": 62,
             },
             "start": {
-              "character": 9,
+              "character": 4,
               "line": 58,
             },
           },
@@ -4193,7 +4293,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
           "line": 63,
         },
         "start": {
-          "character": 26,
+          "character": 20,
           "line": 0,
         },
       },
@@ -4205,6 +4305,131 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
         "start": {
           "character": 26,
           "line": 0,
+        },
+      },
+    },
+    {
+      "children": [],
+      "kind": 5,
+      "name": "SomeFactory",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 42,
+        },
+        "start": {
+          "character": 12,
+          "line": 28,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 29,
+          "line": 28,
+        },
+        "start": {
+          "character": 18,
+          "line": 28,
+        },
+      },
+    },
+    {
+      "children": [],
+      "kind": 5,
+      "name": "OverrideSettings",
+      "range": {
+        "end": {
+          "character": 7,
+          "line": 32,
+        },
+        "start": {
+          "character": 14,
+          "line": 29,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 36,
+          "line": 29,
+        },
+        "start": {
+          "character": 20,
+          "line": 29,
+        },
+      },
+    },
+    {
+      "children": [],
+      "kind": 5,
+      "name": "AnotherFactory",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 52,
+        },
+        "start": {
+          "character": 11,
+          "line": 44,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 31,
+          "line": 44,
+        },
+        "start": {
+          "character": 17,
+          "line": 44,
+        },
+      },
+    },
+    {
+      "children": [],
+      "kind": 11,
+      "name": "IProjectService",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 56,
+        },
+        "start": {
+          "character": 4,
+          "line": 54,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 29,
+          "line": 54,
+        },
+        "start": {
+          "character": 14,
+          "line": 54,
+        },
+      },
+    },
+    {
+      "children": [],
+      "kind": 10,
+      "name": "ProjectType",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 62,
+        },
+        "start": {
+          "character": 4,
+          "line": 58,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 20,
+          "line": 58,
+        },
+        "start": {
+          "character": 9,
+          "line": 58,
         },
       },
     },

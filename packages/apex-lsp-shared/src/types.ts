@@ -75,6 +75,15 @@ export interface ApexServerInitializationOptions {
   [key: string]: any;
 }
 
+/**
+ * Response type for $/ping health check requests
+ */
+export interface PingResponse {
+  message: string;
+  timestamp: string;
+  server: string;
+}
+
 // Re-export the actual LSP types from vscode-languageserver for convenience
 export type {
   InitializeParams,

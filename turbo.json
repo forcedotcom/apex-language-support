@@ -16,7 +16,7 @@
       "outputs": ["out/**"]
     },
     "bundle": {
-      "dependsOn": ["compile", "^bundle"],
+      "dependsOn": ["compile", "^compile", "^bundle"],
       "outputs": ["dist/**", "out/**"]
     },
     "package": {
@@ -38,7 +38,7 @@
       "inputs": ["src/**/*.ts", "test/**/*.perf.ts", "jest.config.cjs"]
     },
     "test:quality": {
-      "dependsOn": ["compile"],
+      "dependsOn": ["compile", "^bundle"],
       "outputs": [],
       "inputs": ["src/**/*.ts", "test/**/*.ts", "jest.config.cjs"]
     },
@@ -85,8 +85,16 @@
       "outputs": ["grammars/**"]
     },
     "apex-lsp-vscode-extension#bundle": {
-      "dependsOn": ["postcompile", "@salesforce/apex-ls#bundle"],
+      "dependsOn": [
+        "postcompile",
+        "@salesforce/apex-ls#compile",
+        "@salesforce/apex-lsp-compliant-services#compile"
+      ],
       "outputs": ["extension/**", "dist/**", "server-bundle/**"]
+    },
+    "apex-lsp-vscode-extension#copy-worker-files": {
+      "dependsOn": ["bundle", "@salesforce/apex-ls#bundle"],
+      "outputs": ["dist/**"]
     },
     "apex-lsp-vscode-extension#compile": {
       "dependsOn": [
@@ -103,7 +111,7 @@
       "outputs": ["out/**"]
     },
     "apex-lsp-vscode-extension#package": {
-      "dependsOn": ["bundle", "^package"],
+      "dependsOn": ["copy-worker-files", "^package"],
       "outputs": ["*.vsix"]
     },
     "@salesforce/apex-ls#rebuild": {
