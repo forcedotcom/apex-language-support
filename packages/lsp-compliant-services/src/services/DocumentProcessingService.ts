@@ -54,7 +54,8 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
   ): Promise<Diagnostic[] | undefined> {
     this.logger.debug(
       () =>
-        `Common Apex Language Server change document handler invoked for: ${event.document.uri} (version: ${event.document.version})`,
+        'Common Apex Language Server change document handler invoked ' +
+        `for: ${event.document.uri} (version: ${event.document.version})`,
     );
 
     // Check parse result cache first
@@ -203,7 +204,8 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
   ): Promise<Diagnostic[] | undefined> {
     this.logger.debug(
       () =>
-        `Common Apex Language Server open document handler invoked for: ${event.document.uri} (version: ${event.document.version})`,
+        'Common Apex Language Server open document handler invoked ' +
+        `for: ${event.document.uri} (version: ${event.document.version})`,
     );
 
     // Check parse result cache first

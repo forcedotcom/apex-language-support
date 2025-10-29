@@ -59,10 +59,7 @@ import type { SymbolProvider } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 
 import { ResourceLoader } from '../utils/resourceLoader';
-import {
-  BASE_RESOURCES_URI,
-  STANDARD_APEX_LIBRARY_URI,
-} from '../utils/ResourceUtils';
+import { STANDARD_APEX_LIBRARY_URI } from '../utils/ResourceUtils';
 import type {
   ApexComment,
   CommentAssociation,

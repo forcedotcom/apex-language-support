@@ -50,7 +50,8 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
   ): Promise<void> {
     this.logger.debug(
       () =>
-        `Common Apex Language Server save document handler invoked for: ${event.document.uri} (version: ${event.document.version})`,
+        'Common Apex Language Server save document handler invoked ' +
+        `for: ${event.document.uri} (version: ${event.document.version})`,
     );
 
     try {
@@ -86,7 +87,8 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
         );
         this.logger.debug(
           () =>
-            `Document save symbol processing queued (cached): ${taskId} for ${document.uri} (version: ${document.version})`,
+            'Document save symbol processing queued (cached): ' +
+            `${taskId} for ${document.uri} (version: ${document.version})`,
         );
         return;
       }

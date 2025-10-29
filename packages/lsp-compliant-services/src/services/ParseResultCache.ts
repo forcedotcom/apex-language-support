@@ -168,7 +168,8 @@ export class ParseResultCache {
       this.cache.set(uri, merged);
       this.logger.debug(
         () =>
-          `Merged parse result for ${uri} (version ${merged.documentVersion}) - size: ${this.cache.size}/${this.maxSize}`,
+          'Merged parse result for ' +
+          `${uri} (version ${merged.documentVersion}) - size: ${this.cache.size}/${this.maxSize}`,
       );
     } else {
       // No existing entry, create new one
