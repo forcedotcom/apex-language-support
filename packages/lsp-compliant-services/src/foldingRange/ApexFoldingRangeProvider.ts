@@ -12,24 +12,13 @@ import {
   ApexFoldingRangeListener,
   ApexComment,
   CommentType,
+  FoldingRange,
 } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { transformParserToLspPosition } from '../utils/positionUtils';
 import { getParseResultCache } from '../services/ParseResultCache';
-
-/**
- * Interface for AST folding range
- */
-interface ASTFoldingRange {
-  startLine: number;
-  startColumn?: number;
-  endLine: number;
-  endColumn?: number;
-  kind?: string;
-  level?: number;
-}
 
 const logger = getLogger();
 
@@ -106,7 +95,7 @@ export class ApexFoldingRangeProvider {
       );
 
       // Extract block comments and convert them to folding ranges if comments are available
-      let blockCommentRanges: ASTFoldingRange[] = [];
+      let blockCommentRanges: FoldingRange[] = [];
       if ('comments' in result && result.comments) {
         blockCommentRanges = this.convertBlockCommentsToFoldingRanges(
           result.comments,
@@ -121,14 +110,7 @@ export class ApexFoldingRangeProvider {
 
       // Cache the result (merge with existing cache entry)
       parseCache.merge(documentUri, {
-        foldingRanges: allRanges.map((range) => ({
-          startLine: range.startLine,
-          startColumn: range.startColumn ?? 0,
-          endLine: range.endLine,
-          endColumn: range.endColumn ?? 0,
-          kind: (range.kind as any) ?? 'region',
-          level: range.level ?? 0,
-        })),
+        foldingRanges: allRanges,
         documentVersion: document.version,
         documentLength: document.getText().length,
       });
@@ -152,15 +134,15 @@ export class ApexFoldingRangeProvider {
   }
 
   /**
-   * Convert block comments to AST folding ranges.
+   * Convert block comments to folding ranges.
    *
    * @param comments - Comments collected during compilation
    * @returns Array of folding ranges for block comments
    */
   private convertBlockCommentsToFoldingRanges(
     comments: ApexComment[],
-  ): ASTFoldingRange[] {
-    const blockCommentRanges: ASTFoldingRange[] = [];
+  ): FoldingRange[] {
+    const blockCommentRanges: FoldingRange[] = [];
 
     for (const comment of comments) {
       // Only process block comments that span multiple lines
@@ -194,7 +176,7 @@ export class ApexFoldingRangeProvider {
    * @returns LSP-compliant folding ranges
    */
   private convertToLSPFoldingRanges(
-    astRanges: ASTFoldingRange[],
+    astRanges: FoldingRange[],
   ): LSPFoldingRange[] {
     return astRanges
       .filter(this.isValidFoldingRange)
@@ -208,7 +190,7 @@ export class ApexFoldingRangeProvider {
    * @param range - The AST folding range to validate
    * @returns True if the range is valid
    */
-  private isValidFoldingRange(range: ASTFoldingRange): boolean {
+  private isValidFoldingRange(range: FoldingRange): boolean {
     // LSP folding ranges must have start line less than end line
     // and both must be non-negative
     const isValidRange =
@@ -234,17 +216,17 @@ export class ApexFoldingRangeProvider {
    * @returns LSP folding range or null if invalid
    */
   private convertToLSPFoldingRange(
-    astRange: ASTFoldingRange,
+    astRange: FoldingRange,
   ): LSPFoldingRange | null {
     try {
       const startPosition = transformParserToLspPosition({
         line: astRange.startLine,
-        character: astRange.startColumn ?? 0,
+        character: astRange.startColumn,
       });
 
       const endPosition = transformParserToLspPosition({
         line: astRange.endLine,
-        character: astRange.endColumn ?? 0,
+        character: astRange.endColumn,
       });
 
       const lspRange: LSPFoldingRange = {
