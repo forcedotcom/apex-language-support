@@ -81,8 +81,8 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    * @returns Array of code lenses for the document
    */
   public async processCodeLens(params: CodeLensParams): Promise<CodeLens[]> {
-    this.logger.info(
-      () => `🔍 [CodeLens] Processing code lens for ${params.textDocument.uri}`,
+    this.logger.debug(
+      () => `Processing code lens for ${params.textDocument.uri}`,
     );
 
     const codeLenses: CodeLens[] = [];
@@ -92,34 +92,23 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
 
       // Check if this is an anonymous Apex file
       if (this.isAnonymousApex(uri)) {
-        this.logger.info(
-          () => `🔍 [CodeLens] Detected anonymous Apex file: ${uri}`,
-        );
+        this.logger.debug(() => `Detected anonymous Apex file: ${uri}`);
         codeLenses.push(...this.provideAnonymousCodeLenses());
-        this.logger.info(
-          () =>
-            `🔍 [CodeLens] Generated ${codeLenses.length} anonymous code lenses`,
-        );
         return codeLenses;
       }
 
       // Get symbol table for this file to find test classes/methods
-      this.logger.info(
-        () => `🔍 [CodeLens] Looking for test symbols in ${uri}`,
-      );
+      this.logger.debug(() => `Looking for test symbols in ${uri}`);
       const testLenses = await this.provideTestCodeLenses(uri);
       codeLenses.push(...testLenses);
 
-      this.logger.info(
-        () =>
-          `🔍 [CodeLens] Generated ${codeLenses.length} code lenses for ${uri}`,
+      this.logger.debug(
+        () => `Generated ${codeLenses.length} code lenses for ${uri}`,
       );
 
       return codeLenses;
     } catch (error) {
-      this.logger.error(
-        () => `❌ [CodeLens] Error processing code lens: ${error}`,
-      );
+      this.logger.error(() => `Error processing code lens: ${error}`);
       return [];
     }
   }
@@ -179,30 +168,19 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
     const codeLenses: CodeLens[] = [];
 
     try {
-      this.logger.info(
-        () => `🔍 [CodeLens] Accessing symbol manager for ${fileUri}`,
-      );
-      this.logger.info(
-        () => `🔍 [CodeLens] Symbol manager type: ${typeof this.symbolManager}`,
-      );
-      this.logger.info(
-        () =>
-          `🔍 [CodeLens] Symbol manager has symbolGraph: ${!!(this.symbolManager as any).symbolGraph}`,
-      );
+      this.logger.debug(() => `Accessing symbol manager for ${fileUri}`);
 
       // Get the symbol table for this file
       const symbolTable = (
         this.symbolManager as any
       ).symbolGraph?.getSymbolTableForFile?.(fileUri);
 
-      this.logger.info(
-        () => `🔍 [CodeLens] Symbol table found: ${!!symbolTable}`,
-      );
+      this.logger.debug(() => `Symbol table found: ${!!symbolTable}`);
 
       if (!symbolTable) {
-        this.logger.warn(
+        this.logger.debug(
           () =>
-            `⚠️ [CodeLens] No symbol table found for ${fileUri} - file may not be parsed yet`,
+            `No symbol table found for ${fileUri} - file may not be parsed yet`,
         );
         return codeLenses;
       }
@@ -210,8 +188,8 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
       // Get all symbols in the file
       const allSymbols = symbolTable.getAllSymbols();
 
-      this.logger.info(
-        () => `🔍 [CodeLens] Found ${allSymbols.length} symbols in ${fileUri}`,
+      this.logger.debug(
+        () => `Found ${allSymbols.length} symbols in ${fileUri}`,
       );
 
       // Find test classes and methods
@@ -225,38 +203,24 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
           const isTest = this.isTestClass(symbol);
           if (isTest) {
             const classLenses = this.createTestClassCodeLenses(symbol);
-            this.logger.info(
-              () =>
-                `🔍 [CodeLens] Created ${classLenses.length} code lenses for test class ${symbol.name}`,
-            );
             codeLenses.push(...classLenses);
           }
         } else if (isMethodSymbol(symbol)) {
           const isTest = this.isTestMethod(symbol);
           if (isTest) {
             const methodLenses = this.createTestMethodCodeLenses(symbol);
-            this.logger.info(
-              () =>
-                `🔍 [CodeLens] Created ${methodLenses.length} code lenses for test method ${symbol.name}`,
-            );
             codeLenses.push(...methodLenses);
           }
         }
       }
 
-      this.logger.info(
-        () =>
-          `🔍 [CodeLens] Total test code lenses created: ${codeLenses.length}`,
+      this.logger.debug(
+        () => `Total test code lenses created: ${codeLenses.length}`,
       );
 
       return codeLenses;
     } catch (error) {
-      this.logger.error(
-        () => `❌ [CodeLens] Error providing test code lenses: ${error}`,
-      );
-      this.logger.error(
-        () => `❌ [CodeLens] Error stack: ${(error as Error).stack}`,
-      );
+      this.logger.error(() => `Error providing test code lenses: ${error}`);
       return [];
     }
   }

@@ -368,29 +368,24 @@ export class LCSAdapter {
     // Only register code lens handler if the capability is enabled
     if (capabilities.codeLensProvider) {
       this.connection.onCodeLens(async (params: CodeLensParams) => {
-        this.logger.info(
-          `🔍 [CodeLens] Request received for URI: ${params.textDocument.uri}`,
+        this.logger.debug(
+          `CodeLens request received for URI: ${params.textDocument.uri}`,
         );
         try {
           const result = await dispatchProcessOnCodeLens(params);
-          this.logger.info(
-            `🔍 [CodeLens] Returning ${result.length} code lenses for ${params.textDocument.uri}`,
+          this.logger.debug(
+            `Returning ${result.length} code lenses for ${params.textDocument.uri}`,
           );
           return result;
         } catch (error) {
-          this.logger.error(
-            `❌ [CodeLens] Error processing code lens: ${error}`,
-          );
+          this.logger.error(`Error processing code lens: ${error}`);
           return [];
         }
       });
-      this.logger.info('✅ CodeLens handler registered successfully');
-      this.logger.info(
-        `✅ CodeLens capability: ${JSON.stringify(capabilities.codeLensProvider)}`,
-      );
+      this.logger.debug('CodeLens handler registered');
     } else {
-      this.logger.warn(
-        '⚠️ CodeLens handler not registered (capability disabled)',
+      this.logger.debug(
+        'CodeLens handler not registered (capability disabled)',
       );
     }
 
@@ -418,16 +413,13 @@ export class LCSAdapter {
    * Handle client `initialize` request
    */
   private handleInitialize(params: InitializeParams): InitializeResult {
-    console.debug(
-      `🔧 Initialize request received. Params: ${JSON.stringify(params, null, 2)}`,
-    );
-    this.logger.info(
+    this.logger.debug(
       () =>
-        `🔧 Initialize request received. Params: ${JSON.stringify(params, null, 2)}`,
+        `Initialize request received. Params: ${JSON.stringify(params, null, 2)}`,
     );
-    this.logger.info(
+    this.logger.debug(
       () =>
-        `🔧 [Initialize] Client supports CodeLens: ${!!params.capabilities.textDocument?.codeLens}`,
+        `Client supports CodeLens: ${!!params.capabilities.textDocument?.codeLens}`,
     );
 
     // Store client capabilities for later dynamic registration
@@ -504,29 +496,26 @@ export class LCSAdapter {
       !params.capabilities.textDocument?.codeLens?.dynamicRegistration
     ) {
       staticCapabilities.codeLensProvider = allCapabilities.codeLensProvider;
-      this.logger.info(
+      this.logger.debug(
         () =>
-          `🔧 [Initialize] Adding CodeLens to static capabilities: ${JSON.stringify(allCapabilities.codeLensProvider)}`,
+          `Adding CodeLens to static capabilities: ${JSON.stringify(allCapabilities.codeLensProvider)}`,
       );
     } else {
-      this.logger.info(() => {
+      this.logger.debug(() => {
         const clientSupports =
           !!params.capabilities.textDocument?.codeLens?.dynamicRegistration;
         const capabilityEnabled = !!allCapabilities.codeLensProvider;
         return (
-          '🔧 [Initialize] CodeLens will be dynamically registered ' +
+          'CodeLens will be dynamically registered ' +
           `(client supports: ${clientSupports}, ` +
           `capability enabled: ${capabilityEnabled})`
         );
       });
     }
 
-    console.debug(
-      `Server capabilities returned: ${JSON.stringify(staticCapabilities, null, 2)}`,
-    );
-    this.logger.info(
+    this.logger.debug(
       () =>
-        `🔧 [Initialize] Returning static capabilities: ${JSON.stringify(staticCapabilities, null, 2)}`,
+        `Returning static capabilities: ${JSON.stringify(staticCapabilities, null, 2)}`,
     );
 
     return {
@@ -861,10 +850,7 @@ export class LCSAdapter {
       capabilities.codeLensProvider &&
       this.supportsDynamicRegistration('codeLens')
     ) {
-      this.logger.info(
-        () =>
-          '🔧 [RegisterDynamic] Registering CodeLens capability dynamically',
-      );
+      this.logger.debug(() => 'Registering CodeLens capability dynamically');
       registrations.push({
         id: 'apex-codeLens',
         method: 'textDocument/codeLens',

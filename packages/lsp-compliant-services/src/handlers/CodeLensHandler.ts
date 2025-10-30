@@ -27,32 +27,20 @@ export class CodeLensHandler {
    * @returns Array of code lenses for the document
    */
   public async handleCodeLens(params: CodeLensParams): Promise<CodeLens[]> {
-    this.logger.info(
-      () =>
-        `🔍 [CodeLensHandler] Handling code lens request: ${params.textDocument.uri}`,
-    );
-    this.logger.info(
-      () => `🔍 [CodeLensHandler] Params: ${JSON.stringify(params, null, 2)}`,
+    this.logger.debug(
+      () => `Handling code lens request: ${params.textDocument.uri}`,
     );
     try {
       const result = await dispatch(
         this.codeLensProcessor.processCodeLens(params),
         'Error processing code lens request',
       );
-      this.logger.info(
-        () => `🔍 [CodeLensHandler] Returning ${result.length} code lenses`,
-      );
-      this.logger.info(
-        () => `🔍 [CodeLensHandler] Result: ${JSON.stringify(result, null, 2)}`,
-      );
+      this.logger.debug(() => `Returning ${result.length} code lenses`);
       return result;
     } catch (error) {
       this.logger.error(
         () =>
-          `❌ [CodeLensHandler] Error processing code lens request for ${params.textDocument.uri}: ${error}`,
-      );
-      this.logger.error(
-        () => `❌ [CodeLensHandler] Error stack: ${(error as Error).stack}`,
+          `Error processing code lens request for ${params.textDocument.uri}: ${error}`,
       );
       // Return empty array on error instead of throwing
       return [];

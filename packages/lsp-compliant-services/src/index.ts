@@ -218,19 +218,12 @@ export const dispatchProcessOnCodeLens = async (
   params: CodeLensParams,
 ): Promise<CodeLens[]> => {
   const logger = getLogger();
-  logger.info(
-    () =>
-      `🔍 [dispatchProcessOnCodeLens] Dispatching code lens request for ${params.textDocument.uri}`,
+  logger.debug(
+    () => `Dispatching code lens request for ${params.textDocument.uri}`,
   );
   const handler = HandlerFactory.createCodeLensHandler();
-  logger.info(
-    () => '🔍 [dispatchProcessOnCodeLens] Handler created successfully',
-  );
   const result = await handler.handleCodeLens(params);
-  logger.info(
-    () =>
-      `🔍 [dispatchProcessOnCodeLens] Handler returned ${result.length} code lenses`,
-  );
+  logger.debug(() => `Handler returned ${result.length} code lenses`);
   return result;
 };
 
