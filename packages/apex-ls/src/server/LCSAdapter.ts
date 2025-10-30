@@ -21,6 +21,7 @@ import {
   DocumentDiagnosticReport,
   DocumentDiagnosticReportKind,
   FoldingRangeParams,
+  CodeLensParams,
   ClientCapabilities,
   Registration,
   ServerCapabilities,
@@ -46,6 +47,7 @@ import {
   dispatchProcessOnDefinition,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnFindMissingArtifact,
+  dispatchProcessOnCodeLens,
   DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
@@ -363,6 +365,35 @@ export class LCSAdapter {
       );
     }
 
+    // Only register code lens handler if the capability is enabled
+    if (capabilities.codeLensProvider) {
+      this.connection.onCodeLens(async (params: CodeLensParams) => {
+        this.logger.info(
+          `🔍 [CodeLens] Request received for URI: ${params.textDocument.uri}`,
+        );
+        try {
+          const result = await dispatchProcessOnCodeLens(params);
+          this.logger.info(
+            `🔍 [CodeLens] Returning ${result.length} code lenses for ${params.textDocument.uri}`,
+          );
+          return result;
+        } catch (error) {
+          this.logger.error(
+            `❌ [CodeLens] Error processing code lens: ${error}`,
+          );
+          return [];
+        }
+      });
+      this.logger.info('✅ CodeLens handler registered successfully');
+      this.logger.info(
+        `✅ CodeLens capability: ${JSON.stringify(capabilities.codeLensProvider)}`,
+      );
+    } else {
+      this.logger.warn(
+        '⚠️ CodeLens handler not registered (capability disabled)',
+      );
+    }
+
     // Register custom apex/findMissingArtifact handler
     this.connection.onRequest(
       'apex/findMissingArtifact',
@@ -393,6 +424,10 @@ export class LCSAdapter {
     this.logger.info(
       () =>
         `🔧 Initialize request received. Params: ${JSON.stringify(params, null, 2)}`,
+    );
+    this.logger.info(
+      () =>
+        `🔧 [Initialize] Client supports CodeLens: ${!!params.capabilities.textDocument?.codeLens}`,
     );
 
     // Store client capabilities for later dynamic registration
@@ -464,8 +499,34 @@ export class LCSAdapter {
         allCapabilities.completionProvider;
     }
 
+    if (
+      allCapabilities.codeLensProvider &&
+      !params.capabilities.textDocument?.codeLens?.dynamicRegistration
+    ) {
+      staticCapabilities.codeLensProvider = allCapabilities.codeLensProvider;
+      this.logger.info(
+        () =>
+          `🔧 [Initialize] Adding CodeLens to static capabilities: ${JSON.stringify(allCapabilities.codeLensProvider)}`,
+      );
+    } else {
+      this.logger.info(() => {
+        const clientSupports =
+          !!params.capabilities.textDocument?.codeLens?.dynamicRegistration;
+        const capabilityEnabled = !!allCapabilities.codeLensProvider;
+        return (
+          '🔧 [Initialize] CodeLens will be dynamically registered ' +
+          `(client supports: ${clientSupports}, ` +
+          `capability enabled: ${capabilityEnabled})`
+        );
+      });
+    }
+
     console.debug(
       `Server capabilities returned: ${JSON.stringify(staticCapabilities, null, 2)}`,
+    );
+    this.logger.info(
+      () =>
+        `🔧 [Initialize] Returning static capabilities: ${JSON.stringify(staticCapabilities, null, 2)}`,
     );
 
     return {
@@ -499,6 +560,9 @@ export class LCSAdapter {
           ?.dynamicRegistration;
       case 'definition':
         return !!this.clientCapabilities.textDocument?.definition
+          ?.dynamicRegistration;
+      case 'codeLens':
+        return !!this.clientCapabilities.textDocument?.codeLens
           ?.dynamicRegistration;
       default:
         return false;
@@ -688,7 +752,9 @@ export class LCSAdapter {
         registerOptions: {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
+            { scheme: 'file', language: 'apex-anon' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex-anon' },
           ],
         },
       });
@@ -704,7 +770,9 @@ export class LCSAdapter {
         registerOptions: {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
+            { scheme: 'file', language: 'apex-anon' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex-anon' },
           ],
         },
       });
@@ -720,7 +788,9 @@ export class LCSAdapter {
         registerOptions: {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
+            { scheme: 'file', language: 'apex-anon' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex-anon' },
           ],
         },
       });
@@ -736,7 +806,9 @@ export class LCSAdapter {
         registerOptions: {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
+            { scheme: 'file', language: 'apex-anon' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex-anon' },
           ],
           identifier: 'apex-ls-ts',
           interFileDependencies:
@@ -757,7 +829,9 @@ export class LCSAdapter {
         registerOptions: {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
+            { scheme: 'file', language: 'apex-anon' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex-anon' },
           ],
           triggerCharacters: capabilities.completionProvider.triggerCharacters,
           resolveProvider: capabilities.completionProvider.resolveProvider,
@@ -775,8 +849,33 @@ export class LCSAdapter {
         registerOptions: {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
+            { scheme: 'file', language: 'apex-anon' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex-anon' },
           ],
+        },
+      });
+    }
+
+    if (
+      capabilities.codeLensProvider &&
+      this.supportsDynamicRegistration('codeLens')
+    ) {
+      this.logger.info(
+        () =>
+          '🔧 [RegisterDynamic] Registering CodeLens capability dynamically',
+      );
+      registrations.push({
+        id: 'apex-codeLens',
+        method: 'textDocument/codeLens',
+        registerOptions: {
+          documentSelector: [
+            { scheme: 'file', language: 'apex' },
+            { scheme: 'file', language: 'apex-anon' },
+            { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'vscode-test-web', language: 'apex-anon' },
+          ],
+          resolveProvider: capabilities.codeLensProvider.resolveProvider,
         },
       });
     }

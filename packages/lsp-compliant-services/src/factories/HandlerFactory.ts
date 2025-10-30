@@ -40,6 +40,11 @@ import {
 } from '../services/DefinitionProcessingService';
 import { DidOpenDocumentHandler } from '../handlers/DidOpenDocumentHandler';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
+import { CodeLensHandler } from '../handlers/CodeLensHandler';
+import {
+  CodeLensProcessingService,
+  ICodeLensProcessor,
+} from '../services/CodeLensProcessingService';
 
 /**
  * Factory for creating handlers with proper dependency injection
@@ -197,5 +202,29 @@ export class HandlerFactory {
     definitionProcessor: IDefinitionProcessor,
   ): DefinitionHandler {
     return new DefinitionHandler(logger, definitionProcessor);
+  }
+
+  /**
+   * Create a CodeLensHandler with default dependencies
+   * @returns A configured CodeLensHandler instance
+   */
+  static createCodeLensHandler(): CodeLensHandler {
+    const logger = getLogger();
+    const codeLensProcessor = new CodeLensProcessingService(logger);
+
+    return new CodeLensHandler(logger, codeLensProcessor);
+  }
+
+  /**
+   * Create a CodeLensHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param codeLensProcessor Custom code lens processor implementation
+   * @returns A configured CodeLensHandler instance
+   */
+  static createCodeLensHandlerWithDependencies(
+    logger: LoggerInterface,
+    codeLensProcessor: ICodeLensProcessor,
+  ): CodeLensHandler {
+    return new CodeLensHandler(logger, codeLensProcessor);
   }
 }

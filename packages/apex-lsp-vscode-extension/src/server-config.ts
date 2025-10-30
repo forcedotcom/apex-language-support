@@ -160,9 +160,14 @@ export const createServerOptions = (
 export const createClientOptions = (
   initializationOptions: any,
 ): LanguageClientOptions => ({
-  documentSelector: [{ scheme: 'file', language: 'apex' }],
+  documentSelector: [
+    { scheme: 'file', language: 'apex' },
+    { scheme: 'file', language: 'apex-anon' },
+  ],
   synchronize: {
-    fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
+    fileEvents: vscode.workspace.createFileSystemWatcher(
+      '**/*.{cls,trigger,apex}',
+    ),
     configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
   },
   // Use our consolidated worker/server output channel if available
