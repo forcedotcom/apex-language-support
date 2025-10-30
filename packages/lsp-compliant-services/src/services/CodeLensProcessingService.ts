@@ -25,12 +25,12 @@ import {
  * Command IDs that match the VSCode extension commands
  * These must match the commands registered in salesforcedx-vscode-core
  */
-const TEST_CLASS_RUN = 'CMD_RUN_TEST_CLASS_PLACEHOLDER';
-const TEST_CLASS_DEBUG = 'CMD_RUN_TEST_CLASS_DEBUG_PLACEHOLDER';
-const TEST_METHOD_RUN = 'CMD_RUN_TEST_METHOD_PLACEHOLDER';
-const TEST_METHOD_DEBUG = 'CMD_RUN_TEST_METHOD_DEBUG_PLACEHOLDER';
-const ANON_RUN = 'CMD_RUN_ANON_APEX';
-const ANON_DEBUG = 'CMD_RUN_ANON_DEBUG';
+const TEST_CLASS_RUN = 'sf.apex.test.class.run.delegate';
+const TEST_CLASS_DEBUG = 'sf.apex.test.class.debug.delegate';
+const TEST_METHOD_RUN = 'sf.apex.test.method.run.delegate';
+const TEST_METHOD_DEBUG = 'sf.apex.test.method.debug.delegate';
+const ANON_RUN = 'sf.anon.apex.run.delegate';
+const ANON_DEBUG = 'sf.anon.apex.debug.delegate';
 
 /**
  * Labels for code lens commands
@@ -131,12 +131,10 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    */
   private isAnonymousApex(uri: string): boolean {
     const lowerUri = uri.toLowerCase();
-    // Check for standard anonymous Apex file extension (.apex)
+    // Check for standard anonymous Apex file extensions (.apex or .anonymous.cls)
     // This matches the VS Code language definition for 'apex-anon' language ID
-    const isAnon = lowerUri.endsWith('.apex');
-    this.logger.info(
-      `[CodeLensProcessingService] isAnonymousApex check - URI: "${uri}", lowerUri: "${lowerUri}", endsWith('.apex'): ${isAnon}`,
-    );
+    const isAnon =
+      lowerUri.endsWith('.apex') || lowerUri.endsWith('.anonymous.cls');
     return isAnon;
   }
 
@@ -225,10 +223,6 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
 
         if (isClassSymbol(symbol)) {
           const isTest = this.isTestClass(symbol);
-          this.logger.info(
-            () =>
-              `🔍 [CodeLens] Class ${symbol.name} isTest: ${isTest}, annotations: ${JSON.stringify(symbol.annotations?.map((a) => a.name))}, modifiers.isTestMethod: ${symbol.modifiers?.isTestMethod}`,
-          );
           if (isTest) {
             const classLenses = this.createTestClassCodeLenses(symbol);
             this.logger.info(
@@ -239,10 +233,6 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
           }
         } else if (isMethodSymbol(symbol)) {
           const isTest = this.isTestMethod(symbol);
-          this.logger.info(
-            () =>
-              `🔍 [CodeLens] Method ${symbol.name} isTest: ${isTest}, annotations: ${JSON.stringify(symbol.annotations?.map((a) => a.name))}, modifiers.isTestMethod: ${symbol.modifiers?.isTestMethod}`,
-          );
           if (isTest) {
             const methodLenses = this.createTestMethodCodeLenses(symbol);
             this.logger.info(
