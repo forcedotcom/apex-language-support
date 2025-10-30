@@ -4,7 +4,9 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
 {
   "callHierarchyProvider": undefined,
   "codeActionProvider": undefined,
-  "codeLensProvider": undefined,
+  "codeLensProvider": {
+    "resolveProvider": false,
+  },
   "colorProvider": undefined,
   "completionProvider": {
     "resolveProvider": false,
@@ -74,7 +76,9 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
 {
   "callHierarchyProvider": undefined,
   "codeActionProvider": undefined,
-  "codeLensProvider": undefined,
+  "codeLensProvider": {
+    "resolveProvider": false,
+  },
   "colorProvider": undefined,
   "completionProvider": undefined,
   "declarationProvider": undefined,
@@ -1338,7 +1342,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
     "expectedServer": {
       "callHierarchyProvider": undefined,
       "codeActionProvider": undefined,
-      "codeLensProvider": undefined,
+      "codeLensProvider": {
+        "resolveProvider": false,
+      },
       "colorProvider": undefined,
       "completionProvider": undefined,
       "declarationProvider": undefined,
@@ -1593,7 +1599,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
     "expectedServer": {
       "callHierarchyProvider": undefined,
       "codeActionProvider": undefined,
-      "codeLensProvider": undefined,
+      "codeLensProvider": {
+        "resolveProvider": false,
+      },
       "colorProvider": undefined,
       "completionProvider": {
         "resolveProvider": false,
@@ -2323,7 +2331,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       "development": {
         "callHierarchyProvider": undefined,
         "codeActionProvider": undefined,
-        "codeLensProvider": undefined,
+        "codeLensProvider": {
+          "resolveProvider": false,
+        },
         "colorProvider": undefined,
         "completionProvider": {
           "resolveProvider": false,
@@ -2390,7 +2400,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
       "production": {
         "callHierarchyProvider": undefined,
         "codeActionProvider": undefined,
-        "codeLensProvider": undefined,
+        "codeLensProvider": {
+          "resolveProvider": false,
+        },
         "colorProvider": undefined,
         "completionProvider": undefined,
         "declarationProvider": undefined,
@@ -2455,7 +2467,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
     "development": {
       "callHierarchyProvider": undefined,
       "codeActionProvider": undefined,
-      "codeLensProvider": undefined,
+      "codeLensProvider": {
+        "resolveProvider": false,
+      },
       "colorProvider": undefined,
       "completionProvider": {
         "resolveProvider": false,
@@ -2522,7 +2536,9 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
     "production": {
       "callHierarchyProvider": undefined,
       "codeActionProvider": undefined,
-      "codeLensProvider": undefined,
+      "codeLensProvider": {
+        "resolveProvider": false,
+      },
       "colorProvider": undefined,
       "completionProvider": undefined,
       "declarationProvider": undefined,
@@ -2642,7 +2658,9 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   "development": {
     "callHierarchyProvider": undefined,
     "codeActionProvider": undefined,
-    "codeLensProvider": undefined,
+    "codeLensProvider": {
+      "resolveProvider": false,
+    },
     "colorProvider": undefined,
     "completionProvider": {
       "resolveProvider": false,
@@ -2709,7 +2727,9 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
   "production": {
     "callHierarchyProvider": undefined,
     "codeActionProvider": undefined,
-    "codeLensProvider": undefined,
+    "codeLensProvider": {
+      "resolveProvider": false,
+    },
     "colorProvider": undefined,
     "completionProvider": undefined,
     "declarationProvider": undefined,
@@ -2775,7 +2795,9 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
 {
   "callHierarchyProvider": undefined,
   "codeActionProvider": undefined,
-  "codeLensProvider": undefined,
+  "codeLensProvider": {
+    "resolveProvider": false,
+  },
   "colorProvider": undefined,
   "completionProvider": {
     "resolveProvider": false,
@@ -2845,7 +2867,9 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
 {
   "callHierarchyProvider": undefined,
   "codeActionProvider": undefined,
-  "codeLensProvider": undefined,
+  "codeLensProvider": {
+    "resolveProvider": false,
+  },
   "colorProvider": undefined,
   "completionProvider": undefined,
   "declarationProvider": undefined,

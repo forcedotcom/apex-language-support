@@ -239,6 +239,7 @@ describe('Server Config Module', () => {
       expect(clientOptions.documentSelector).toEqual([
         { scheme: 'file', language: 'apex' },
         { scheme: 'apexlib', language: 'apex' },
+        { scheme: 'file', language: 'apex-anon' },
       ]);
     });
 
