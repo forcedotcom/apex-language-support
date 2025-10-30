@@ -11,6 +11,7 @@ import {
   ApexLexer,
   ApexParser,
   CaseInsensitiveInputStream,
+  BlockContext,
   CompilationUnitContext,
   ParseTreeWalker,
   TriggerUnitContext,
@@ -64,7 +65,7 @@ export interface CompilationResultWithAssociations<T>
  */
 export interface ParseTreeResult {
   fileName: string;
-  parseTree: CompilationUnitContext | TriggerUnitContext;
+  parseTree: CompilationUnitContext | TriggerUnitContext | BlockContext;
   errorListener: ApexErrorListener;
   lexer: ApexLexer;
   tokenStream: CommonTokenStream;
@@ -122,8 +123,18 @@ export class CompilerService {
     // Create error listener
     const errorListener = new ApexErrorListener(fileName);
 
+    // Determine file type
+    const isTrigger = fileName.endsWith('.trigger');
+    const isAnonymous = fileName.endsWith('.apex') || fileName.endsWith('.anonymous.cls');
+    
+    // For anonymous Apex, wrap content in curly braces since block() expects them
+    let contentToParse = fileContent;
+    if (isAnonymous) {
+      contentToParse = `{\n${fileContent}\n}`;
+    }
+
     // Set up parsing infrastructure
-    const inputStream = CharStreams.fromString(fileContent);
+    const inputStream = CharStreams.fromString(contentToParse);
     const lexer = new ApexLexer(new CaseInsensitiveInputStream(inputStream));
     const tokenStream = new CommonTokenStream(lexer);
     const parser = new ApexParser(tokenStream);
@@ -136,11 +147,15 @@ export class CompilerService {
     const lexerErrorListener = new ApexLexerErrorListener(errorListener);
     lexer.addErrorListener(lexerErrorListener);
 
-    // Parse the compilation unit
-    const isTrigger = fileName.endsWith('.trigger');
-    const parseTree = isTrigger
-      ? parser.triggerUnit()
-      : parser.compilationUnit();
+    // Parse based on file type
+    let parseTree: CompilationUnitContext | TriggerUnitContext | BlockContext;
+    if (isTrigger) {
+      parseTree = parser.triggerUnit();
+    } else if (isAnonymous) {
+      parseTree = parser.block();
+    } else {
+      parseTree = parser.compilationUnit();
+    }
 
     return {
       fileName,
