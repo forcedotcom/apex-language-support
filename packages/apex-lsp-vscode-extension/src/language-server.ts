@@ -318,8 +318,10 @@ async function createWebLanguageClient(
       {
         documentSelector: [
           { scheme: 'file', language: 'apex' },
+          { scheme: 'file', language: 'apex-anon' },
           { scheme: 'vscode-test-web', language: 'apex' },
           { scheme: 'apexlib', language: 'apex' },
+          { scheme: 'vscode-test-web', language: 'apex-anon' },
         ],
         synchronize: {
           configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,

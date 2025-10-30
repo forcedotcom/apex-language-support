@@ -1,0 +1,450 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+import {
+  CodeLens,
+  CodeLensParams,
+  Position,
+  Range,
+} from 'vscode-languageserver';
+import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  ApexSymbolProcessingManager,
+  ISymbolManager,
+  ApexSymbol,
+  isClassSymbol,
+  isMethodSymbol,
+} from '@salesforce/apex-lsp-parser-ast';
+
+/**
+ * Command IDs that match the VSCode extension commands
+ * These must match the commands registered in salesforcedx-vscode-core
+ */
+const TEST_CLASS_RUN = 'CMD_RUN_TEST_CLASS_PLACEHOLDER';
+const TEST_CLASS_DEBUG = 'CMD_RUN_TEST_CLASS_DEBUG_PLACEHOLDER';
+const TEST_METHOD_RUN = 'CMD_RUN_TEST_METHOD_PLACEHOLDER';
+const TEST_METHOD_DEBUG = 'CMD_RUN_TEST_METHOD_DEBUG_PLACEHOLDER';
+const ANON_RUN = 'CMD_RUN_ANON_APEX';
+const ANON_DEBUG = 'CMD_RUN_ANON_DEBUG';
+
+/**
+ * Labels for code lens commands
+ */
+const LABELS = {
+  TEST_CLASS_RUN: 'Run All Tests',
+  TEST_CLASS_DEBUG: 'Debug All Tests',
+  TEST_METHOD_RUN: 'Run Test',
+  TEST_METHOD_DEBUG: 'Debug Test',
+  ANON_RUN: 'Execute',
+  ANON_DEBUG: 'Debug',
+};
+
+/**
+ * Interface for code lens processing functionality
+ */
+export interface ICodeLensProcessor {
+  /**
+   * Process a code lens request
+   * @param params The code lens parameters
+   * @returns Array of code lenses for the document
+   */
+  processCodeLens(params: CodeLensParams): Promise<CodeLens[]>;
+}
+
+/**
+ * Service for processing code lens requests
+ *
+ * Provides code lenses for:
+ * - Test classes and methods (@isTest annotation)
+ * - Anonymous Apex files (Execute/Debug)
+ */
+export class CodeLensProcessingService implements ICodeLensProcessor {
+  private readonly logger: LoggerInterface;
+  private readonly symbolManager: ISymbolManager;
+
+  constructor(logger: LoggerInterface, symbolManager?: ISymbolManager) {
+    this.logger = logger;
+    // Use the passed symbol manager or fall back to the singleton
+    this.symbolManager =
+      symbolManager ??
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
+  }
+
+  /**
+   * Process a code lens request
+   * @param params The code lens parameters
+   * @returns Array of code lenses for the document
+   */
+  public async processCodeLens(params: CodeLensParams): Promise<CodeLens[]> {
+    this.logger.info(
+      () => `🔍 [CodeLens] Processing code lens for ${params.textDocument.uri}`,
+    );
+
+    const codeLenses: CodeLens[] = [];
+
+    try {
+      const uri = params.textDocument.uri;
+
+      // Check if this is an anonymous Apex file
+      if (this.isAnonymousApex(uri)) {
+        this.logger.info(
+          () => `🔍 [CodeLens] Detected anonymous Apex file: ${uri}`,
+        );
+        codeLenses.push(...this.provideAnonymousCodeLenses());
+        this.logger.info(
+          () =>
+            `🔍 [CodeLens] Generated ${codeLenses.length} anonymous code lenses`,
+        );
+        return codeLenses;
+      }
+
+      // Get symbol table for this file to find test classes/methods
+      this.logger.info(
+        () => `🔍 [CodeLens] Looking for test symbols in ${uri}`,
+      );
+      const testLenses = await this.provideTestCodeLenses(uri);
+      codeLenses.push(...testLenses);
+
+      this.logger.info(
+        () =>
+          `🔍 [CodeLens] Generated ${codeLenses.length} code lenses for ${uri}`,
+      );
+
+      return codeLenses;
+    } catch (error) {
+      this.logger.error(
+        () => `❌ [CodeLens] Error processing code lens: ${error}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Check if a URI represents an anonymous Apex file
+   * @param uri The file URI
+   * @returns True if the file is anonymous Apex
+   */
+  private isAnonymousApex(uri: string): boolean {
+    const lowerUri = uri.toLowerCase();
+    // Check for standard anonymous Apex file extension (.apex)
+    // This matches the VS Code language definition for 'apex-anon' language ID
+    const isAnon = lowerUri.endsWith('.apex');
+    this.logger.info(
+      `[CodeLensProcessingService] isAnonymousApex check - URI: "${uri}", lowerUri: "${lowerUri}", endsWith('.apex'): ${isAnon}`,
+    );
+    return isAnon;
+  }
+
+  /**
+   * Provide code lenses for anonymous Apex files
+   * @returns Array of code lenses for Execute and Debug commands
+   */
+  private provideAnonymousCodeLenses(): CodeLens[] {
+    const codeLenses: CodeLens[] = [];
+
+    // Both Execute and Debug code lenses appear at position (0, 0)
+    const position = Position.create(0, 0);
+    const range = Range.create(position, position);
+
+    // Execute command (no arguments needed for anonymous Apex)
+    codeLenses.push({
+      range,
+      command: {
+        title: LABELS.ANON_RUN,
+        command: ANON_RUN,
+      },
+    });
+
+    // Debug command (no arguments needed for anonymous Apex)
+    codeLenses.push({
+      range,
+      command: {
+        title: LABELS.ANON_DEBUG,
+        command: ANON_DEBUG,
+      },
+    });
+
+    return codeLenses;
+  }
+
+  /**
+   * Provide code lenses for test classes and methods
+   * @param fileUri The file URI
+   * @returns Array of code lenses for test-related commands
+   */
+  private async provideTestCodeLenses(fileUri: string): Promise<CodeLens[]> {
+    const codeLenses: CodeLens[] = [];
+
+    try {
+      this.logger.info(
+        () => `🔍 [CodeLens] Accessing symbol manager for ${fileUri}`,
+      );
+      this.logger.info(
+        () => `🔍 [CodeLens] Symbol manager type: ${typeof this.symbolManager}`,
+      );
+      this.logger.info(
+        () =>
+          `🔍 [CodeLens] Symbol manager has symbolGraph: ${!!(this.symbolManager as any).symbolGraph}`,
+      );
+
+      // Get the symbol table for this file
+      const symbolTable = (
+        this.symbolManager as any
+      ).symbolGraph?.getSymbolTableForFile?.(fileUri);
+
+      this.logger.info(
+        () => `🔍 [CodeLens] Symbol table found: ${!!symbolTable}`,
+      );
+
+      if (!symbolTable) {
+        this.logger.warn(
+          () =>
+            `⚠️ [CodeLens] No symbol table found for ${fileUri} - file may not be parsed yet`,
+        );
+        return codeLenses;
+      }
+
+      // Get all symbols in the file
+      const allSymbols = symbolTable.getAllSymbols();
+
+      this.logger.info(
+        () => `🔍 [CodeLens] Found ${allSymbols.length} symbols in ${fileUri}`,
+      );
+
+      // Find test classes and methods
+      for (const symbol of allSymbols) {
+        this.logger.debug(
+          () =>
+            `🔍 [CodeLens] Checking symbol: ${symbol.name} (kind: ${symbol.kind})`,
+        );
+
+        if (isClassSymbol(symbol)) {
+          const isTest = this.isTestClass(symbol);
+          this.logger.info(
+            () =>
+              `🔍 [CodeLens] Class ${symbol.name} isTest: ${isTest}, annotations: ${JSON.stringify(symbol.annotations?.map((a) => a.name))}, modifiers.isTestMethod: ${symbol.modifiers?.isTestMethod}`,
+          );
+          if (isTest) {
+            const classLenses = this.createTestClassCodeLenses(symbol);
+            this.logger.info(
+              () =>
+                `🔍 [CodeLens] Created ${classLenses.length} code lenses for test class ${symbol.name}`,
+            );
+            codeLenses.push(...classLenses);
+          }
+        } else if (isMethodSymbol(symbol)) {
+          const isTest = this.isTestMethod(symbol);
+          this.logger.info(
+            () =>
+              `🔍 [CodeLens] Method ${symbol.name} isTest: ${isTest}, annotations: ${JSON.stringify(symbol.annotations?.map((a) => a.name))}, modifiers.isTestMethod: ${symbol.modifiers?.isTestMethod}`,
+          );
+          if (isTest) {
+            const methodLenses = this.createTestMethodCodeLenses(symbol);
+            this.logger.info(
+              () =>
+                `🔍 [CodeLens] Created ${methodLenses.length} code lenses for test method ${symbol.name}`,
+            );
+            codeLenses.push(...methodLenses);
+          }
+        }
+      }
+
+      this.logger.info(
+        () =>
+          `🔍 [CodeLens] Total test code lenses created: ${codeLenses.length}`,
+      );
+
+      return codeLenses;
+    } catch (error) {
+      this.logger.error(
+        () => `❌ [CodeLens] Error providing test code lenses: ${error}`,
+      );
+      this.logger.error(
+        () => `❌ [CodeLens] Error stack: ${(error as Error).stack}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Check if a class is a test class
+   * @param symbol The class symbol
+   * @returns True if the class has @isTest annotation
+   */
+  private isTestClass(symbol: ApexSymbol): boolean {
+    // Check annotations
+    if (symbol.annotations) {
+      const hasIsTest = symbol.annotations.some(
+        (ann) => ann.name.toLowerCase() === 'istest',
+      );
+      if (hasIsTest) {
+        return true;
+      }
+    }
+
+    // Check modifiers (fallback)
+    if (symbol.modifiers) {
+      return symbol.modifiers.isTestMethod === true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if a method is a test method
+   * @param symbol The method symbol
+   * @returns True if the method has @isTest annotation
+   */
+  private isTestMethod(symbol: ApexSymbol): boolean {
+    // Check annotations
+    if (symbol.annotations) {
+      const hasIsTest = symbol.annotations.some(
+        (ann) => ann.name.toLowerCase() === 'istest',
+      );
+      if (hasIsTest) {
+        return true;
+      }
+    }
+
+    // Check modifiers (fallback)
+    if (symbol.modifiers) {
+      return symbol.modifiers.isTestMethod === true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Create code lenses for a test class
+   * @param classSymbol The test class symbol
+   * @returns Array of code lenses for Run All Tests and Debug All Tests
+   */
+  private createTestClassCodeLenses(classSymbol: ApexSymbol): CodeLens[] {
+    const codeLenses: CodeLens[] = [];
+
+    if (!classSymbol.location) {
+      return codeLenses;
+    }
+
+    // Convert AST position (1-based line) to LSP position (0-based line)
+    const line = Math.max(0, classSymbol.location.symbolRange.startLine - 1);
+    const position = Position.create(line, 0);
+    const range = Range.create(position, position);
+
+    const className = classSymbol.name;
+
+    // Run All Tests command
+    codeLenses.push({
+      range,
+      command: {
+        title: LABELS.TEST_CLASS_RUN,
+        command: TEST_CLASS_RUN,
+        arguments: [className],
+      },
+    });
+
+    // Debug All Tests command
+    codeLenses.push({
+      range,
+      command: {
+        title: LABELS.TEST_CLASS_DEBUG,
+        command: TEST_CLASS_DEBUG,
+        arguments: [className],
+      },
+    });
+
+    return codeLenses;
+  }
+
+  /**
+   * Create code lenses for a test method
+   * @param methodSymbol The test method symbol
+   * @returns Array of code lenses for Run Test and Debug Test
+   */
+  private createTestMethodCodeLenses(methodSymbol: ApexSymbol): CodeLens[] {
+    const codeLenses: CodeLens[] = [];
+
+    if (!methodSymbol.location) {
+      return codeLenses;
+    }
+
+    // Convert AST position (1-based line) to LSP position (0-based line)
+    const line = Math.max(0, methodSymbol.location.symbolRange.startLine - 1);
+    const position = Position.create(line, 0);
+    const range = Range.create(position, position);
+
+    // Get the qualified method name (ClassName.methodName)
+    const methodName = this.getQualifiedMethodName(methodSymbol);
+
+    if (!methodName) {
+      this.logger.warn(
+        () =>
+          `Could not determine qualified name for method ${methodSymbol.name}`,
+      );
+      return codeLenses;
+    }
+
+    // Run Test command
+    codeLenses.push({
+      range,
+      command: {
+        title: LABELS.TEST_METHOD_RUN,
+        command: TEST_METHOD_RUN,
+        arguments: [methodName],
+      },
+    });
+
+    // Debug Test command
+    codeLenses.push({
+      range,
+      command: {
+        title: LABELS.TEST_METHOD_DEBUG,
+        command: TEST_METHOD_DEBUG,
+        arguments: [methodName],
+      },
+    });
+
+    return codeLenses;
+  }
+
+  /**
+   * Get the qualified method name (ClassName.methodName)
+   * @param methodSymbol The method symbol
+   * @returns Qualified method name or null if it cannot be determined
+   */
+  private getQualifiedMethodName(methodSymbol: ApexSymbol): string | null {
+    try {
+      // Get the parent class symbol
+      const parentSymbol = methodSymbol.parent;
+
+      if (parentSymbol && isClassSymbol(parentSymbol)) {
+        return `${parentSymbol.name}.${methodSymbol.name}`;
+      }
+
+      // Fallback: try to get parent by ID
+      if (methodSymbol.parentId) {
+        const parent = (this.symbolManager as any).getSymbol?.(
+          methodSymbol.parentId,
+        );
+        if (parent && isClassSymbol(parent)) {
+          return `${parent.name}.${methodSymbol.name}`;
+        }
+      }
+
+      // If we can't find the parent, just return the method name
+      // This might not work for the extension, but it's better than nothing
+      this.logger.warn(
+        () => `Could not find parent class for method ${methodSymbol.name}`,
+      );
+      return methodSymbol.name;
+    } catch (error) {
+      this.logger.error(() => `Error getting qualified method name: ${error}`);
+      return null;
+    }
+  }
+}
