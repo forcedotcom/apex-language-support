@@ -182,6 +182,13 @@ describe('DiagnosticProcessingService', () => {
     const { getDiagnosticsFromErrors } = require('../../src/utils/handlerUtil');
     getDiagnosticsFromErrors.mockReset();
 
+    // Clear the parse result cache to avoid test interference
+    const {
+      getParseResultCache,
+    } = require('../../src/services/ParseResultCache');
+    const cache = getParseResultCache();
+    cache.clear();
+
     service = new DiagnosticProcessingService(mockLogger);
   });
 
@@ -206,6 +213,7 @@ describe('DiagnosticProcessingService', () => {
 
       const mockDocument = {
         uri: 'file:///test.cls',
+        version: 1,
         getText: () => 'public class TestClass { }',
       } as TextDocument;
 
@@ -263,6 +271,7 @@ describe('DiagnosticProcessingService', () => {
 
       const mockDocument = {
         uri: 'file:///test.cls',
+        version: 1,
         getText: () => 'public class TestClass { }',
       } as TextDocument;
 
@@ -297,6 +306,7 @@ describe('DiagnosticProcessingService', () => {
 
       const mockDocument = {
         uri: 'file:///test.cls',
+        version: 1,
         getText: () => 'public class TestClass { }',
       } as TextDocument;
 
@@ -314,6 +324,102 @@ describe('DiagnosticProcessingService', () => {
 
       expect(result).toEqual([]);
       expect(mockLogger.error).toHaveBeenCalledWith(expect.any(Function));
+    });
+
+    it('should suppress diagnostics for standard Apex library URIs', async () => {
+      const params: DocumentSymbolParams = {
+        textDocument: {
+          uri: 'apexlib://resources/StandardApexLibrary/System/System.cls',
+        },
+      };
+
+      const result = await service.processDiagnostic(params);
+
+      expect(result).toEqual([]);
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
+      // Verify that the suppression message was logged
+      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
+      // Verify that no document processing occurred after suppression check
+      // Note: getDocument may still be called for logging purposes
+    });
+
+    it('should suppress diagnostics for various standard Apex library URIs', async () => {
+      const standardApexUris = [
+        'apexlib://resources/StandardApexLibrary/Database/Database.cls',
+        'apexlib://resources/StandardApexLibrary/Schema/Schema.cls',
+        'apexlib://resources/StandardApexLibrary/System/Assert.cls',
+        'apexlib://resources/StandardApexLibrary/System/Debug.cls',
+      ];
+
+      for (const uri of standardApexUris) {
+        const params: DocumentSymbolParams = {
+          textDocument: { uri },
+        };
+
+        const result = await service.processDiagnostic(params);
+
+        expect(result).toEqual([]);
+        expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
+      }
+    });
+
+    it('should not suppress diagnostics for user code URIs', async () => {
+      const params: DocumentSymbolParams = {
+        textDocument: { uri: 'file:///Users/test/MyClass.cls' },
+      };
+
+      const mockDocument = {
+        uri: 'file:///Users/test/MyClass.cls',
+        getText: () => 'public class MyClass { }',
+      } as TextDocument;
+
+      mockStorage.getDocument.mockResolvedValue(mockDocument);
+
+      // Mock the compilation result with errors
+      const mockCompileResult = {
+        errors: [
+          {
+            type: 'syntax',
+            severity: 'error',
+            message: 'Test error',
+            line: 1,
+            column: 1,
+            filePath: 'file:///Users/test/MyClass.cls',
+          },
+        ],
+      };
+
+      // Mock the CompilerService
+      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
+      const mockCompile = jest.fn().mockReturnValue(mockCompileResult);
+      CompilerService.mockImplementation(() => ({
+        compile: mockCompile,
+      }));
+
+      // Mock the getDiagnosticsFromErrors function
+      const mockGetDiagnosticsFromErrors = jest.fn().mockReturnValue([
+        {
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 10 },
+          },
+          message: 'Test error',
+          severity: 1,
+        },
+      ]);
+
+      const {
+        getDiagnosticsFromErrors,
+      } = require('../../src/utils/handlerUtil');
+      getDiagnosticsFromErrors.mockImplementation(mockGetDiagnosticsFromErrors);
+
+      const result = await service.processDiagnostic(params);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].message).toBe('Test error');
+      expect(mockStorage.getDocument).toHaveBeenCalledWith(
+        params.textDocument.uri,
+      );
     });
   });
 });

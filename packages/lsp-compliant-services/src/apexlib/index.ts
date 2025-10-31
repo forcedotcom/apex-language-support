@@ -7,47 +7,40 @@
  */
 
 import { ApexLibConfig, LanguageServerClient } from './types';
-import { createProtocolHandler } from './protocol-handler';
-import {
-  createDocumentSupport,
-  createLanguageConfig,
-} from './document-support';
+import { ApexLibManagerImpl } from './manager';
 
 /**
  * Interface for the ApexLib manager
  */
 export interface ApexLibManager {
   /** Protocol handler for LSP operations */
-  protocolHandler: ReturnType<typeof createProtocolHandler>;
+  protocolHandler: any;
   /** Document support for file operations */
-  documentSupport: ReturnType<typeof createDocumentSupport>;
+  documentSupport: any;
   /** Configuration for ApexLib */
   config: ApexLibConfig;
+  /** Initialize the system in the given editor context */
+  initialize(editorContext: any): Promise<void>;
 }
 
 /**
  * Creates a new ApexLib manager
+ * @param client The language server client
  * @param languageId The language identifier
  * @param customScheme The custom URI scheme
  * @param fileExtension The file extension
- * @param client The language server client
  * @returns A new ApexLibManager instance
  */
 export function createApexLibManager(
-  languageId: string,
-  customScheme: string,
-  fileExtension: string,
   client: LanguageServerClient,
+  languageId: string = 'apex',
+  customScheme: string = 'apexlib',
+  fileExtension: string = 'cls',
 ): ApexLibManager {
+  const { createLanguageConfig } = require('./document-support');
   const config = createLanguageConfig(languageId, customScheme, fileExtension);
-  const protocolHandler = createProtocolHandler(client, config);
-  const documentSupport = createDocumentSupport(config);
 
-  return {
-    protocolHandler,
-    documentSupport,
-    config,
-  };
+  return new ApexLibManagerImpl(client, config);
 }
 
 // Export types

@@ -34,6 +34,7 @@ import {
   LSPConfigurationManager,
   FindMissingArtifactParams,
   FindMissingArtifactResult,
+  PingResponse,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -49,6 +50,7 @@ import {
   DiagnosticProcessingService,
   ApexStorageManager,
   ApexStorage,
+  dispatchProcessOnResolve,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
@@ -85,6 +87,7 @@ export class LCSAdapter {
     this.detectAndSetDevelopmentMode();
 
     this.setupEventHandlers();
+    this.setupUtilityHandlers();
   }
 
   /**
@@ -211,6 +214,26 @@ export class LCSAdapter {
     this.connection.onDidChangeConfiguration(
       this.handleConfigurationChange.bind(this),
     );
+  }
+
+  /**
+   * Utility handlers (shutdown, exit)
+   * These are registered early for proper lifecycle management
+   */
+  private setupUtilityHandlers(): void {
+    // Register shutdown handler
+    this.connection.onRequest('shutdown', (): null => {
+      this.logger.info('Shutdown request received');
+      return null;
+    });
+
+    // Register exit notification handler
+    this.connection.onNotification('exit', (): void => {
+      this.logger.info('Exit notification received');
+      process.exit(0);
+    });
+
+    this.logger.debug('✅ Utility handlers (shutdown, exit) registered');
   }
 
   /**
@@ -381,6 +404,23 @@ export class LCSAdapter {
       },
     );
     this.logger.debug('✅ apex/findMissingArtifact handler registered');
+
+    // Register apexlib/resolve handler for standard library content resolution
+    this.connection.onRequest(
+      'apexlib/resolve',
+      async (params: { uri: string }): Promise<{ content: string }> => {
+        this.logger.debug(
+          `🔍 apexlib/resolve request received for: ${params.uri}`,
+        );
+        try {
+          return await dispatchProcessOnResolve(params);
+        } catch (error) {
+          this.logger.error(`Error processing apexlib/resolve: ${error}`);
+          throw error;
+        }
+      },
+    );
+    this.logger.debug('✅ apexlib/resolve handler registered');
   }
 
   /**
@@ -510,6 +550,20 @@ export class LCSAdapter {
    */
   private async handleInitialized(): Promise<void> {
     this.logger.info('🎉 Server initialized');
+    // Register $/ping handler for health checks (must be after initialization)
+    this.connection.onRequest('$/ping', async (): Promise<PingResponse> => {
+      this.logger.debug('[SERVER] Received $/ping request');
+      const result: PingResponse = {
+        message: 'pong',
+        timestamp: new Date().toISOString(),
+        server: 'apex-ls',
+      };
+      this.logger.debug(
+        `[SERVER] Responding to $/ping with: ${JSON.stringify(result)}`,
+      );
+      return result;
+    });
+    this.logger.debug('✅ $/ping handler registered');
 
     if (this.hasConfigurationCapability) {
       this.logger.debug('Registering didChangeConfiguration notification');
@@ -689,6 +743,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
         },
       });
@@ -705,6 +760,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
         },
       });
@@ -721,6 +777,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
         },
       });
@@ -737,6 +794,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
           identifier: 'apex-ls-ts',
           interFileDependencies:
@@ -758,6 +816,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
           triggerCharacters: capabilities.completionProvider.triggerCharacters,
           resolveProvider: capabilities.completionProvider.resolveProvider,
@@ -776,6 +835,7 @@ export class LCSAdapter {
           documentSelector: [
             { scheme: 'file', language: 'apex' },
             { scheme: 'vscode-test-web', language: 'apex' },
+            { scheme: 'apexlib', language: 'apex' },
           ],
         },
       });

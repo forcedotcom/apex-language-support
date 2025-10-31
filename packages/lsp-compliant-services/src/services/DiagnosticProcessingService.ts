@@ -16,8 +16,12 @@ import {
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
 
-import { getDiagnosticsFromErrors } from '../utils/handlerUtil';
+import {
+  getDiagnosticsFromErrors,
+  shouldSuppressDiagnostics,
+} from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
+import { getParseResultCache } from './ParseResultCache';
 
 /**
  * Interface for diagnostic processing functionality to make handlers more testable.
@@ -119,6 +123,15 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       () => `Processing diagnostic request for: ${params.textDocument.uri}`,
     );
 
+    // Suppress diagnostics for standard Apex library classes
+    if (shouldSuppressDiagnostics(params.textDocument.uri)) {
+      this.logger.debug(
+        () =>
+          `Suppressing diagnostics for standard Apex library: ${params.textDocument.uri}`,
+      );
+      return [];
+    }
+
     try {
       // Get the storage manager instance
       const storageManager = ApexStorageManager.getInstance();
@@ -134,6 +147,23 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         return [];
       }
 
+      // Check parse result cache first
+      const parseCache = getParseResultCache();
+      const cached = parseCache.getSymbolResult(document.uri, document.version);
+
+      if (cached) {
+        this.logger.debug(
+          () =>
+            `Using cached parse result for diagnostics ${document.uri} (version ${document.version})`,
+        );
+        // Convert cached errors to diagnostics and enhance
+        return this.enhanceDiagnosticsWithGraphAnalysis(
+          cached.diagnostics,
+          params.textDocument.uri,
+          [],
+        );
+      }
+
       // Create a symbol collector listener
       const table = new SymbolTable();
       const listener = new ApexSymbolCollectorListener(table);
@@ -147,10 +177,20 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         {},
       );
 
-      // Convert parsing errors to diagnostics
+      // Get diagnostics from errors
+      const diagnostics = getDiagnosticsFromErrors(result.errors);
+
+      // Cache the parse result
+      parseCache.merge(document.uri, {
+        symbolTable: table,
+        diagnostics,
+        documentVersion: document.version,
+        documentLength: document.getText().length,
+      });
+
       // Enhance diagnostics with cross-file analysis using ApexSymbolManager
       return this.enhanceDiagnosticsWithGraphAnalysis(
-        getDiagnosticsFromErrors(result.errors),
+        diagnostics,
         params.textDocument.uri,
         result.errors,
       ).then((enhancedDiagnostics) => {

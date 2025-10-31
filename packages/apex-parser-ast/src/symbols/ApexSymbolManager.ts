@@ -59,7 +59,7 @@ import type { SymbolProvider } from '../namespace/NamespaceUtils';
 import { BuiltInTypeTablesImpl } from '../utils/BuiltInTypeTables';
 
 import { ResourceLoader } from '../utils/resourceLoader';
-import { BASE_RESOURCES_URI } from '../utils/ResourceUtils';
+import { STANDARD_APEX_LIBRARY_URI } from '../utils/ResourceUtils';
 import type {
   ApexComment,
   CommentAssociation,
@@ -372,11 +372,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Convert a standard Apex library class path to the proper URI scheme
    * @param classPath The class path (e.g., "System/Assert.cls")
-   * @returns The proper URI with BASE_RESOURCES_URI scheme
+   * @returns The proper URI with STANDARD_APEX_LIBRARY_URI scheme
    */
   private convertToStandardLibraryUri(classPath: string): string {
     if (this.isStandardApexLibraryPath(classPath)) {
-      return `${BASE_RESOURCES_URI}/${classPath}`;
+      return `${STANDARD_APEX_LIBRARY_URI}/${classPath}`;
     }
     return classPath;
   }
@@ -3263,14 +3263,19 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // Extract namespace and class name
       const parts = name.split('.');
 
-      if (parts.length < 2) {
-        // Only handle fully qualified names like "System.assert"
-        // Namespace-only names like "System" should not be resolved
-        return null;
-      }
+      let namespace: string;
+      let className: string;
 
-      const namespace = parts[0];
-      const className = parts[1];
+      if (parts.length < 2) {
+        // Handle single names like "System" - treat as both namespace and class
+        // This is needed for standard Apex classes where namespace and class have the same name
+        namespace = parts[0];
+        className = parts[0];
+      } else {
+        // Handle fully qualified names like "System.assert"
+        namespace = parts[0];
+        className = parts[1];
+      }
 
       // Check if the class exists in ResourceLoader (case-insensitive)
       // Always try to find the correct case from the namespace structure
@@ -3304,7 +3309,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           await this.resourceLoader.loadAndCompileClass(classPath);
         if (artifact?.compilationResult?.result) {
           // Convert classPath to proper URI scheme for standard Apex library classes
-          const fileUri = `${BASE_RESOURCES_URI}/${classPath}`;
+          const fileUri = `${STANDARD_APEX_LIBRARY_URI}/${classPath}`;
 
           // Add the symbol table to the symbol manager to get all symbols including methods
           await this.addSymbolTable(artifact.compilationResult.result, fileUri);

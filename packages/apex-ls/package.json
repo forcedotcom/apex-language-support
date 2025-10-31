@@ -42,7 +42,7 @@
     "directory": "packages/apex-ls"
   },
   "scripts": {
-    "compile": "npm run compile:browser & npm run compile:worker & npm run compile:node & wait",
+    "compile": "npm-run-all --parallel compile:browser compile:worker compile:node",
     "compile:browser": "tsc --build tsconfig.browser.json",
     "compile:worker": "tsc --build tsconfig.worker.json",
     "compile:node": "tsc --build tsconfig.node.json",
@@ -68,6 +68,7 @@
     "@types/node": "^20.19.4",
     "@types/vscode": "^1.90.0",
     "assert": "^2.1.0",
+    "npm-run-all": "^4.1.5",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "events": "^3.3.0",

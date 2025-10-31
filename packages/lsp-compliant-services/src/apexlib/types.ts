@@ -19,7 +19,7 @@ export interface TextDocumentContentProvider {
    * @param uri The URI to resolve content for
    * @returns Promise resolving to the document content
    */
-  provideTextDocumentContent(uri: UriLike): Promise<string>;
+  provideTextDocumentContent(uri: string): Promise<string>;
 }
 
 /**
@@ -65,18 +65,6 @@ export interface EditorContext {
    * @returns File system watcher instance
    */
   createFileSystemWatcher(pattern: string): any;
-}
-
-/**
- * Interface for URI-like objects
- * Abstracts URI representation across different environments
- */
-export interface UriLike {
-  /**
-   * Get the string representation of the URI
-   * @returns The URI as a string
-   */
-  toString(): string;
 }
 
 /**

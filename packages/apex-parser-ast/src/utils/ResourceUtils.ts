@@ -124,7 +124,7 @@ export const UriUtils = {
    * Creates a resource URI for the given path
    */
   createResourceUri(path: string): string {
-    return `${BASE_RESOURCES_URI}/${path}`;
+    return `${STANDARD_APEX_LIBRARY_URI}/${path}`;
   },
 
   /**

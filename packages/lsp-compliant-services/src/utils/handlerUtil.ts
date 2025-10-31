@@ -9,7 +9,7 @@
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
-import { ApexError } from '@salesforce/apex-lsp-parser-ast';
+import { ApexError, isStandardApexUri } from '@salesforce/apex-lsp-parser-ast';
 import { transformParserToLspPosition } from './positionUtils';
 
 /**
@@ -147,4 +147,13 @@ export function getDiagnosticsFromErrors(
 
     return diagnostic;
   });
+}
+
+/**
+ * Check if diagnostics should be suppressed for a given URI
+ * @param uri The document URI to check
+ * @returns True if diagnostics should be suppressed
+ */
+export function shouldSuppressDiagnostics(uri: string): boolean {
+  return isStandardApexUri(uri);
 }

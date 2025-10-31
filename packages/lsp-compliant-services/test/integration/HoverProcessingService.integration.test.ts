@@ -659,7 +659,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('void system.isnotnull(');
+        expect(content).toContain('void standardapexlibrary.isnotnull(');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -688,7 +688,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('void system.isnotnull');
+        expect(content).toContain('void standardapexlibrary.isnotnull');
         expect(content).toMatch(/static/);
       }
     });
@@ -717,7 +717,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('void system.debug');
+        expect(content).toContain('void standardapexlibrary.debug');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*static.*global/);
       }
     });
@@ -1003,7 +1003,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('void system.debug(');
+        expect(content).toContain('void standardapexlibrary.debug(');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -1031,7 +1031,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('void system.debug');
+        expect(content).toContain('void standardapexlibrary.debug');
         expect(content).toMatch(/static/);
       }
     });
@@ -1062,7 +1062,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('String system.urlencode(');
+        expect(content).toContain('String standardapexlibrary.urlencode(');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -1092,7 +1092,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('String system.urlencode');
+        expect(content).toContain('String standardapexlibrary.urlencode');
         expect(content).toMatch(/static/);
       }
     });
@@ -1123,7 +1123,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('String system.urldecode(');
+        expect(content).toContain('String standardapexlibrary.urldecode(');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -1153,7 +1153,7 @@ describe('HoverProcessingService Integration Tests', () => {
             ? result.contents.value
             : '';
         expect(content).toContain('```apex');
-        expect(content).toContain('String system.urldecode');
+        expect(content).toContain('String standardapexlibrary.urldecode');
         expect(content).toMatch(/static/);
       }
     });
@@ -1184,7 +1184,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('class system.http');
+        expect(content).toContain('class standardapexlibrary.http');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -1215,7 +1215,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('class system.httprequest');
+        expect(content).toContain('class standardapexlibrary.httprequest');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });
@@ -1246,7 +1246,7 @@ describe('HoverProcessingService Integration Tests', () => {
             : '';
         expect(content).toContain('```apex');
         // TODO: Revisit hover data quality - should include clear class labels for system classes
-        expect(content).toContain('class system.httpresponse');
+        expect(content).toContain('class standardapexlibrary.httpresponse');
         expect(content).toMatch(/\*\*Modifiers:\*\* .*global/);
       }
     });

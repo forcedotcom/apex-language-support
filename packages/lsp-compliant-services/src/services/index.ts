@@ -9,6 +9,7 @@
 // Export services
 export * from './DocumentProcessingService';
 export * from './DocumentSaveProcessingService';
+export * from './ParseResultCache';
 export * from './DocumentCloseProcessingService';
 export * from './DocumentSymbolProcessingService';
 export * from './DiagnosticProcessingService';

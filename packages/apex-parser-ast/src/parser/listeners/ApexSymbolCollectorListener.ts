@@ -3677,6 +3677,15 @@ export class ApexSymbolCollectorListener
       );
 
       this.symbolTable.addTypeReference(rootRef);
+
+      // Also capture the base expression as a TypeReference for hover resolution
+      // This is needed for qualified references like System.debug where the base (System) needs to be resolvable
+      const baseRef = TypeReferenceFactory.createVariableUsageReference(
+        baseExpression,
+        baseExpressionLocation,
+        this.getCurrentMethodName(),
+      );
+      this.symbolTable.addTypeReference(baseRef);
     } catch (error) {
       this.logger.warn(() => `Error finalizing chain scope: ${error}`);
     }

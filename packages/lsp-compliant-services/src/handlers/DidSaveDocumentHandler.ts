@@ -28,7 +28,10 @@ export class DidSaveDocumentHandler {
   public async handleDocumentSave(
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<void> {
-    this.logger.debug(() => `Processing document save: ${event.document.uri}`);
+    this.logger.debug(
+      () =>
+        `Processing document save: ${event.document.uri} (version: ${event.document.version})`,
+    );
 
     try {
       await dispatch(

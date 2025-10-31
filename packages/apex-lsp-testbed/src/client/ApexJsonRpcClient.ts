@@ -289,17 +289,46 @@ export class ApexJsonRpcClient {
       throw new Error('Server process failed to start with proper pipes');
     }
 
+    // Store references to stdout/stdin before they can become null via cleanup()
+    const stdout = this.childProcess.stdout;
+    const stdin = this.childProcess.stdin;
+
+    // Capture stderr early to see any startup errors
+    let stderrBuffer = '';
+    this.childProcess.stderr?.on('data', (data) => {
+      stderrBuffer += data.toString();
+      this.logger.error(`Server stderr: ${data.toString()}`);
+    });
+
     // Set up process error handling first
     this.childProcess.on('error', (error) => {
       this.logger.error(`Server process error: ${error.message}`);
+      if (stderrBuffer) {
+        this.logger.error(`Server stderr output before error: ${stderrBuffer}`);
+      }
       this.cleanup();
       this.eventEmitter.emit('error', error);
     });
 
     this.childProcess.on('exit', (code, signal) => {
-      this.logger.info(
-        `Server process exited with code ${code}, signal ${signal}`,
-      );
+      if (code !== null && code !== 0) {
+        this.logger.error(
+          `Server process exited with code ${code}, signal ${signal}`,
+        );
+        if (stderrBuffer) {
+          this.logger.error(`Server stderr output: ${stderrBuffer}`);
+        }
+      } else {
+        this.logger.info(
+          `Server process exited with code ${code}, signal ${signal}`,
+        );
+        if (stderrBuffer && code === 0) {
+          // Exit code 0 but had stderr - might indicate an issue
+          this.logger.warn(
+            `Server exited with code 0 but had stderr: ${stderrBuffer}`,
+          );
+        }
+      }
       this.cleanup();
       this.eventEmitter.emit('exit', code);
     });
@@ -307,9 +336,16 @@ export class ApexJsonRpcClient {
     // Wait for process to be ready
     await this.waitForProcessReady();
 
-    // Create message reader and writer
-    const reader = new StreamMessageReader(this.childProcess.stdout);
-    const writer = new StreamMessageWriter(this.childProcess.stdin);
+    // Verify process is still alive before proceeding
+    if (!this.isProcessAlive() || !stdout || !stdin) {
+      throw new Error(
+        'Server process exited before message connection could be established',
+      );
+    }
+
+    // Create message reader and writer using stored references
+    const reader = new StreamMessageReader(stdout);
+    const writer = new StreamMessageWriter(stdin);
 
     // Create the message connection
     this.connection = createMessageConnection(reader, writer, this.logger);
@@ -903,6 +939,19 @@ export class ApexJsonRpcClient {
     // Log the working directory being used
     this.logger.debug(`Using working directory: ${workspacePath}`);
 
+    // Verify server file exists for nodeServer and webServer types
+    if (
+      (this.serverType === 'nodeServer' || this.serverType === 'webServer') &&
+      serverPath !== 'demo-mode'
+    ) {
+      const fs = require('fs');
+      if (!fs.existsSync(serverPath)) {
+        throw new Error(
+          `Server file does not exist: ${serverPath}. Make sure to compile apex-ls first.`,
+        );
+      }
+    }
+
     switch (this.serverType) {
       case 'demo':
         return cp.spawn(
@@ -920,26 +969,151 @@ export class ApexJsonRpcClient {
           stdio: ['pipe', 'pipe', 'pipe'],
           cwd: workspacePath, // Set the current working directory
         });
-      case 'nodeServer':
+      case 'nodeServer': {
+        // Filter out inspect flags from NODE_OPTIONS to prevent debugger from attaching
+        // This is critical because Jest/VS Code may run with --inspect, which gets inherited
+        const filteredEnv: NodeJS.ProcessEnv = { ...process.env };
+
+        // Helper function to clean NODE_OPTIONS
+        const cleanNodeOptions = (
+          options: string | undefined,
+        ): string | undefined => {
+          if (!options) return undefined;
+          const cleaned = options
+            .replace(/--inspect(?:-brk)?(?:=[\w:.-]+)?/g, '')
+            .trim();
+          return cleaned || undefined;
+        };
+
+        // Remove inspect flags from process.env NODE_OPTIONS
+        if (filteredEnv.NODE_OPTIONS) {
+          const originalOptions = filteredEnv.NODE_OPTIONS;
+          const cleaned = cleanNodeOptions(originalOptions);
+          if (cleaned !== originalOptions) {
+            if (cleaned) {
+              filteredEnv.NODE_OPTIONS = cleaned;
+            } else {
+              delete filteredEnv.NODE_OPTIONS;
+            }
+            this.logger.debug(
+              `Filtered NODE_OPTIONS from process.env: "${originalOptions}" -> "${cleaned || '(removed)'}"`,
+            );
+          }
+        }
+
+        // Merge with provided env, but also filter NODE_OPTIONS from env if present
+        if (env) {
+          const cleanedEnv = { ...env };
+          if (cleanedEnv.NODE_OPTIONS) {
+            const originalEnvOptions = cleanedEnv.NODE_OPTIONS;
+            const cleaned = cleanNodeOptions(originalEnvOptions);
+            if (cleaned !== originalEnvOptions) {
+              if (cleaned) {
+                cleanedEnv.NODE_OPTIONS = cleaned;
+              } else {
+                delete cleanedEnv.NODE_OPTIONS;
+              }
+              this.logger.debug(
+                `Filtered NODE_OPTIONS from provided env: "${originalEnvOptions}" -> "${cleaned || '(removed)'}"`,
+              );
+            }
+          }
+          Object.assign(filteredEnv, cleanedEnv);
+        }
+
+        // Also filter inspect flags from nodeArgs
+        const filteredNodeArgs = (nodeArgs || []).filter(
+          (arg) => !arg.match(/^--inspect(?:-brk)?(?:=[\w:.-]+)?$/),
+        );
+
+        if (filteredNodeArgs.length !== (nodeArgs || []).length) {
+          this.logger.debug(
+            `Filtered inspect flags from nodeArgs: ${JSON.stringify(nodeArgs)} -> ${JSON.stringify(filteredNodeArgs)}`,
+          );
+        }
+
         return cp.spawn(
           nodePath as string,
-          [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
+          [...filteredNodeArgs, serverPath, ...(serverArgs || [])],
           {
-            env: { ...process.env, ...env },
+            env: filteredEnv,
             stdio: ['pipe', 'pipe', 'pipe'],
             cwd: workspacePath, // Set the current working directory
           },
         );
-      case 'webServer':
+      }
+      case 'webServer': {
+        // Filter out inspect flags from NODE_OPTIONS to prevent debugger from attaching
+        const filteredEnv: NodeJS.ProcessEnv = { ...process.env };
+
+        // Helper function to clean NODE_OPTIONS
+        const cleanNodeOptions = (
+          options: string | undefined,
+        ): string | undefined => {
+          if (!options) return undefined;
+          const cleaned = options
+            .replace(/--inspect(?:-brk)?(?:=[\w:.-]+)?/g, '')
+            .trim();
+          return cleaned || undefined;
+        };
+
+        // Remove inspect flags from process.env NODE_OPTIONS
+        if (filteredEnv.NODE_OPTIONS) {
+          const originalOptions = filteredEnv.NODE_OPTIONS;
+          const cleaned = cleanNodeOptions(originalOptions);
+          if (cleaned !== originalOptions) {
+            if (cleaned) {
+              filteredEnv.NODE_OPTIONS = cleaned;
+            } else {
+              delete filteredEnv.NODE_OPTIONS;
+            }
+            this.logger.debug(
+              `Filtered NODE_OPTIONS from process.env: "${originalOptions}" -> "${cleaned || '(removed)'}"`,
+            );
+          }
+        }
+
+        // Merge with provided env, but also filter NODE_OPTIONS from env if present
+        if (env) {
+          const cleanedEnv = { ...env };
+          if (cleanedEnv.NODE_OPTIONS) {
+            const originalEnvOptions = cleanedEnv.NODE_OPTIONS;
+            const cleaned = cleanNodeOptions(originalEnvOptions);
+            if (cleaned !== originalEnvOptions) {
+              if (cleaned) {
+                cleanedEnv.NODE_OPTIONS = cleaned;
+              } else {
+                delete cleanedEnv.NODE_OPTIONS;
+              }
+              this.logger.debug(
+                `Filtered NODE_OPTIONS from provided env: "${originalEnvOptions}" -> "${cleaned || '(removed)'}"`,
+              );
+            }
+          }
+          Object.assign(filteredEnv, cleanedEnv);
+        }
+
+        // Also filter inspect flags from nodeArgs
+        const filteredNodeArgs = (nodeArgs || []).filter(
+          (arg) => !arg.match(/^--inspect(?:-brk)?(?:=[\w:.-]+)?$/),
+        );
+
+        if (filteredNodeArgs.length !== (nodeArgs || []).length) {
+          this.logger.debug(
+            `Filtered inspect flags from nodeArgs: ${JSON.stringify(nodeArgs)} -> ${JSON.stringify(filteredNodeArgs)}`,
+          );
+        }
+
         return cp.spawn(
           nodePath as string,
-          [...(nodeArgs || []), serverPath, ...(serverArgs || [])],
+          [...filteredNodeArgs, serverPath, ...(serverArgs || [])],
           {
-            env: { ...process.env, ...env },
+            env: filteredEnv,
             stdio: ['pipe', 'pipe', 'pipe'],
             cwd: workspacePath, // Set the current working directory
           },
         );
+      }
       default:
         throw new Error(`unknown serverType: ${this.serverType}`);
     }

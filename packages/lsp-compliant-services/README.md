@@ -8,7 +8,7 @@ This package implements services that conform to the standard Language Server Pr
 
 ## Features
 
-- Text document synchronization
+- Text document synchronization with intelligent caching
 - Code completion
 - Hover information
 - Document symbols
@@ -18,6 +18,7 @@ This package implements services that conform to the standard Language Server Pr
 - Platform-agnostic capabilities system with mode-based optimization
 - Server mode configuration (Production/Development/Test)
 - Environment-specific feature enablement
+- Per-listener parse result caching for optimal performance
 
 ## Dependencies
 
@@ -25,6 +26,227 @@ This package implements services that conform to the standard Language Server Pr
 - `@salesforce/apex-lsp-custom-services`: Custom services from this monorepo
 - `vscode-languageserver`: VSCode Language Server implementation
 - `vscode-languageserver-protocol`: LSP protocol definitions
+
+## Document Synchronization
+
+The Apex Language Server implements comprehensive document synchronization with intelligent caching to provide optimal performance for LSP document lifecycle events.
+
+### Document Lifecycle Events
+
+The server handles all standard LSP document synchronization events:
+
+- **`textDocument/didOpen`**: Document opened in the editor
+- **`textDocument/didChange`**: Document content modified
+- **`textDocument/didSave`**: Document saved to disk
+- **`textDocument/didClose`**: Document closed in the editor
+
+### Intelligent Parse Result Caching
+
+The server implements a sophisticated caching system that dramatically improves performance by avoiding redundant parsing operations:
+
+#### Cache Architecture
+
+- **Unified Cache Structure**: Single cache supporting multiple listener types
+- **Version-Based Invalidation**: Cache entries are invalidated when document versions change
+- **LRU Eviction**: Least recently used entries are evicted when cache is full
+- **Type-Safe Retrieval**: Specialized getter methods for different data types
+
+#### Supported Cache Types
+
+1. **Symbol Table Cache** (`ApexSymbolCollectorListener` results):
+   - Symbol tables for document structure analysis
+   - Diagnostic information for error reporting
+   - Used by: document symbols, diagnostics, document lifecycle events
+
+2. **Folding Range Cache** (`ApexFoldingRangeListener` results):
+   - Code folding range information
+   - Block comment folding ranges
+   - Used by: folding range provider
+
+#### Cache Integration Points
+
+The following services automatically benefit from caching:
+
+- **DocumentProcessingService**: Handles `didOpen` and `didChange` events
+- **DocumentSaveProcessingService**: Handles `didSave` events
+- **DiagnosticProcessingService**: Provides diagnostic information
+- **ApexDocumentSymbolProvider**: Provides document outline/symbols
+- **ApexFoldingRangeProvider**: Provides code folding ranges
+
+#### Cache Performance Benefits
+
+- **Reduced Compilation**: Avoids re-parsing unchanged documents
+- **Faster Response Times**: Cache hits provide near-instant responses
+- **Lower CPU Usage**: Eliminates redundant parsing operations
+- **Better User Experience**: Smoother editor interactions
+
+#### Cache Statistics
+
+The cache provides detailed statistics for monitoring:
+
+```typescript
+interface CacheStats {
+  hits: number; // Number of cache hits
+  misses: number; // Number of cache misses
+  invalidations: number; // Number of version-based invalidations
+  evictions: number; // Number of LRU evictions
+  hitRate: number; // Cache hit rate percentage
+}
+```
+
+### Document Processing Pipeline
+
+1. **Event Reception**: LSP document event received
+2. **Cache Check**: Check for existing cached parse results
+3. **Cache Hit**: Return cached data immediately (fast path)
+4. **Cache Miss**: Perform full compilation with appropriate listener
+5. **Cache Storage**: Store results for future requests
+6. **Symbol Table Updates**: Apply changes to global symbol table
+7. **Graph Analysis**: Update cross-file reference graph
+8. **Response**: Return processed results to client
+
+### Symbol Table and Graph Management
+
+The document synchronization system maintains a global symbol table and cross-file reference graph that gets updated with each document change:
+
+#### Symbol Table Updates
+
+When documents are processed, the system:
+
+1. **Parse Document**: Extract symbols using `ApexSymbolCollectorListener`
+2. **Remove Old Symbols**: Clear existing symbols for the file from global table
+3. **Add New Symbols**: Insert updated symbols into global symbol table
+4. **Cross-File Resolution**: Resolve references to symbols in other files
+5. **Reference Processing**: Update bidirectional reference relationships
+
+#### Graph Analysis
+
+The system maintains a comprehensive reference graph that tracks:
+
+- **Definition References**: Where symbols are defined
+- **Usage References**: Where symbols are used
+- **Type Relationships**: Inheritance and interface implementations
+- **Method Calls**: Cross-file method invocations
+- **Variable References**: Field and variable usage across files
+
+#### Background Processing
+
+Symbol table and graph updates are processed asynchronously for optimal performance:
+
+```typescript
+// Document save processing with background symbol updates
+const backgroundManager = ApexSymbolProcessingManager.getInstance();
+const taskId = backgroundManager.processSymbolTable(symbolTable, document.uri, {
+  priority: 'HIGH', // Document save is high priority
+  enableCrossFileResolution: true,
+  enableReferenceProcessing: true,
+});
+```
+
+#### Processing Priorities
+
+Different document events have different processing priorities:
+
+- **Document Save**: `HIGH` priority - immediate symbol processing
+- **Document Change**: `NORMAL` priority - standard processing
+- **Document Open**: `NORMAL` priority - initial symbol loading
+
+#### Cross-File Resolution
+
+The system automatically resolves references across files:
+
+1. **Type Resolution**: Resolve class, interface, and enum references
+2. **Method Resolution**: Find method definitions and overloads
+3. **Variable Resolution**: Resolve field and variable references
+4. **Namespace Resolution**: Handle namespace conflicts and imports
+
+#### Reference Graph Benefits
+
+The maintained reference graph enables:
+
+- **Go-to-Definition**: Navigate to symbol definitions across files
+- **Find References**: Locate all usages of a symbol
+- **Rename Refactoring**: Safe symbol renaming across the codebase
+- **Code Completion**: Context-aware suggestions
+- **Hover Information**: Rich symbol information
+- **Diagnostic Analysis**: Cross-file error detection
+
+### Configuration
+
+Cache behavior can be configured through the server settings:
+
+```json
+{
+  "apex": {
+    "cache": {
+      "maxSize": 100,
+      "enableStatistics": true,
+      "logLevel": "debug"
+    }
+  }
+}
+```
+
+#### Cache Configuration Options
+
+- **`maxSize`** (number, default: `100`): Maximum number of documents to cache
+- **`enableStatistics`** (boolean, default: `true`): Enable cache performance statistics
+- **`logLevel`** (string, default: `"debug"`): Logging level for cache operations
+
+### Performance Monitoring
+
+The server logs detailed cache performance information:
+
+```
+[NODE] Cache HIT for file:///path/to/FileUtilities.cls (version 1) - 75.50% hit rate
+[NODE] Cache MISS for file:///path/to/NewFile.cls (not cached)
+[NODE] Merged parse result for file:///path/to/FileUtilities.cls (version 1) - size: 1/100
+```
+
+### Symbol Processing Architecture
+
+The document synchronization system uses a sophisticated architecture for managing symbols and references:
+
+#### ApexSymbolProcessingManager
+
+Central manager for all symbol processing operations:
+
+- **Task Queue**: Manages background symbol processing tasks
+- **Priority Handling**: Different priorities for different document events
+- **Cross-File Resolution**: Resolves references across multiple files
+- **Reference Processing**: Maintains bidirectional reference relationships
+
+#### Symbol Processing Flow
+
+1. **Document Event**: LSP document event received
+2. **Parse & Extract**: Extract symbols using appropriate listener
+3. **Cache Check**: Check for cached parse results
+4. **Symbol Removal**: Remove old symbols for the file
+5. **Background Processing**: Queue symbol processing task
+6. **Cross-File Resolution**: Resolve references to other files
+7. **Graph Update**: Update reference graph with new relationships
+8. **Storage Persistence**: Persist changes to storage backend
+
+#### Storage Integration
+
+The system integrates with persistent storage for:
+
+- **AST Persistence**: Store parsed abstract syntax trees
+- **Symbol Table Persistence**: Persist global symbol table
+- **Reference Graph Persistence**: Store cross-file reference relationships
+- **Session Recovery**: Restore state across server restarts
+
+### Error Handling
+
+The caching and symbol processing systems include robust error handling:
+
+- **Graceful Degradation**: Cache failures don't break document processing
+- **Version Mismatch Handling**: Automatic cache invalidation on version changes
+- **Memory Management**: LRU eviction prevents memory leaks
+- **Type Safety**: Compile-time validation of cache data types
+- **Symbol Processing Errors**: Failed symbol processing doesn't break document sync
+- **Cross-File Resolution Errors**: Partial resolution continues with available data
+- **Storage Failures**: In-memory fallback when persistent storage fails
 
 ## Usage
 
@@ -427,6 +649,21 @@ connection.onShutdown(async () => {
 ```
 
 ## Recent Changes
+
+- **Per-Listener Parse Result Cache:**  
+  Implemented a unified caching system that supports multiple listener types (ApexSymbolCollectorListener and ApexFoldingRangeListener) in a single cache structure. This dramatically improves performance by avoiding redundant parsing operations across document lifecycle events.
+
+- **Intelligent Cache Merging:**  
+  Added cache merge functionality that allows different listener results to coexist in the same cache entry, preventing cache key collisions and ensuring optimal cache utilization.
+
+- **Type-Safe Cache Access:**  
+  Introduced specialized getter methods (`getSymbolResult()`, `getFoldingRangeResult()`) for type-safe cache retrieval, eliminating runtime type errors and improving code reliability.
+
+- **Enhanced Document Synchronization:**  
+  All document lifecycle events (didOpen, didChange, didSave, didClose) now benefit from intelligent caching, providing faster response times and reduced CPU usage. The system maintains a global symbol table and cross-file reference graph that gets updated with each document change, enabling advanced language features like go-to-definition, find-references, and cross-file code completion.
+
+- **Cache Performance Monitoring:**  
+  Added comprehensive cache statistics tracking including hit rates, misses, invalidations, and evictions for performance monitoring and optimization.
 
 - **Removed Babel References:**  
   All references to Babel have been removed from the project. The project now uses `ts-jest` exclusively for testing.

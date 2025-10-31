@@ -45,11 +45,12 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const references = symbolTable.getAllReferences();
 
       // With new chained expression approach, we now get:
-      // 1. CHAINED_EXPRESSION for FileUtilities.createFile
-      // 2. VARIABLE_USAGE for base64Data (parameter)
-      // 3. VARIABLE_USAGE for fileName (parameter)
-      // 4. VARIABLE_USAGE for recordId (parameter)
-      expect(references).toHaveLength(4);
+      // 1. TYPE_REFERENCE for FileUtilities (class)
+      // 2. CHAINED_EXPRESSION for FileUtilities.createFile
+      // 3. VARIABLE_USAGE for base64Data (parameter)
+      // 4. VARIABLE_USAGE for fileName (parameter)
+      // 5. VARIABLE_USAGE for recordId (parameter)
+      expect(references).toHaveLength(5);
 
       // Check for CHAINED_EXPRESSION (FileUtilities.createFile)
       const chainedRef = references.find(
@@ -458,11 +459,12 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       const references = symbolTable.getAllReferences();
 
       // With new chained expression approach, we now get:
-      // 1. CHAINED_EXPRESSION for FileUtilities.createFile
-      // 2. VARIABLE_USAGE for data (parameter)
-      // 3. VARIABLE_USAGE for name (parameter)
-      // 4. VARIABLE_USAGE for id (parameter)
-      expect(references).toHaveLength(4);
+      // 1. TYPE_REFERENCE for FileUtilities (class)
+      // 2. CHAINED_EXPRESSION for FileUtilities.createFile
+      // 3. VARIABLE_USAGE for data (parameter)
+      // 4. VARIABLE_USAGE for name (parameter)
+      // 5. VARIABLE_USAGE for id (parameter)
+      expect(references).toHaveLength(5);
 
       // Check CHAINED_EXPRESSION location accuracy
       const chainedRef = references.find(

@@ -238,7 +238,39 @@ describe('Server Config Module', () => {
 
       expect(clientOptions.documentSelector).toEqual([
         { scheme: 'file', language: 'apex' },
+        { scheme: 'apexlib', language: 'apex' },
       ]);
+    });
+
+    it('should include apexlib scheme in document selector for standard library support', () => {
+      const initializationOptions = {
+        enableDocumentSymbols: true,
+        extensionMode: 'development',
+      };
+      const clientOptions = createClientOptions(initializationOptions);
+
+      expect(clientOptions.documentSelector).toContainEqual({
+        scheme: 'apexlib',
+        language: 'apex',
+      });
+    });
+
+    it('should support both file and apexlib schemes for comprehensive Apex support', () => {
+      const initializationOptions = {
+        enableDocumentSymbols: true,
+        extensionMode: 'development',
+      };
+      const clientOptions = createClientOptions(initializationOptions);
+
+      const expectedSchemes = [
+        { scheme: 'file', language: 'apex' },
+        { scheme: 'apexlib', language: 'apex' },
+      ];
+
+      expect(clientOptions.documentSelector).toEqual(
+        expect.arrayContaining(expectedSchemes),
+      );
+      expect(clientOptions.documentSelector).toHaveLength(2);
     });
 
     it('should include error and close action handlers', () => {

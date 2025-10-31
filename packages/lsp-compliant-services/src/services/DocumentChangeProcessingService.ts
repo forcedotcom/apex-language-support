@@ -55,7 +55,8 @@ export class DocumentChangeProcessingService
     event: TextDocumentChangeEvent<TextDocument>,
   ): Promise<Diagnostic[] | undefined> {
     this.logger.debug(
-      () => `Processing document change for: ${event.document.uri}`,
+      () =>
+        `Processing document change for: ${event.document.uri} (version: ${event.document.version})`,
     );
 
     try {
@@ -70,7 +71,8 @@ export class DocumentChangeProcessingService
       // In a full implementation, this would re-parse the document
       // and return any parsing errors as diagnostics
       this.logger.debug(
-        () => `Document change processed: ${event.document.uri}`,
+        () =>
+          `Document change processed: ${event.document.uri} (version: ${event.document.version})`,
       );
 
       return [];

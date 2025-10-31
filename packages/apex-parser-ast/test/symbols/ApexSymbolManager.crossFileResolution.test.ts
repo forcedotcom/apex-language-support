@@ -86,7 +86,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       expect(foundSymbol?.name).toBeDefined();
       // Confirm it points at the std lib path
       expect(foundSymbol?.fileUri).toContain(
-        'apexlib://resources/System/EncodingUtil.cls',
+        'apexlib://resources/StandardApexLibrary/System/EncodingUtil.cls',
       );
     });
 
@@ -124,7 +124,7 @@ describe('ApexSymbolManager Cross-File Resolution', () => {
       expect(foundSymbol?.kind).toBe(SymbolKind.Method);
       expect(foundSymbol?.name).toBe('urlDecode');
       expect(foundSymbol?.fileUri).toContain(
-        'apexlib://resources/System/EncodingUtil.cls',
+        'apexlib://resources/StandardApexLibrary/System/EncodingUtil.cls',
       );
     });
     it('should resolve System.debug() reference', async () => {
