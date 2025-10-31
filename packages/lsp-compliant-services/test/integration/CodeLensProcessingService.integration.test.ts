@@ -182,18 +182,6 @@ public class ApexTestExample {
       expect(result[1].command?.title).toBe('Debug');
       expect(result[1].command?.command).toBe('sf.anon.apex.debug.delegate');
     });
-
-    it('should generate code lenses for .anonymous.cls files', async () => {
-      const params: CodeLensParams = {
-        textDocument: { uri: 'file:///test/example.anonymous.cls' },
-      };
-
-      const result = await codeLensService.processCodeLens(params);
-
-      expect(result.length).toBe(2);
-      expect(result[0].command?.title).toBe('Execute');
-      expect(result[1].command?.title).toBe('Debug');
-    });
   });
 
   describe('Non-Test Class CodeLens', () => {

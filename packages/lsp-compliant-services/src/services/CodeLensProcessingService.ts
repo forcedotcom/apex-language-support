@@ -91,7 +91,7 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
       const uri = params.textDocument.uri;
 
       // Check if this is an anonymous Apex file
-      if (this.isAnonymousApex(uri)) {
+      if (uri.toLowerCase().endsWith('.apex')) {
         this.logger.debug(() => `Detected anonymous Apex file: ${uri}`);
         codeLenses.push(...this.provideAnonymousCodeLenses());
         return codeLenses;
@@ -111,20 +111,6 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
       this.logger.error(() => `Error processing code lens: ${error}`);
       return [];
     }
-  }
-
-  /**
-   * Check if a URI represents an anonymous Apex file
-   * @param uri The file URI
-   * @returns True if the file is anonymous Apex
-   */
-  private isAnonymousApex(uri: string): boolean {
-    const lowerUri = uri.toLowerCase();
-    // Check for standard anonymous Apex file extensions (.apex or .anonymous.cls)
-    // This matches the VS Code language definition for 'apex-anon' language ID
-    const isAnon =
-      lowerUri.endsWith('.apex') || lowerUri.endsWith('.anonymous.cls');
-    return isAnon;
   }
 
   /**
@@ -199,17 +185,11 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
             `🔍 [CodeLens] Checking symbol: ${symbol.name} (kind: ${symbol.kind})`,
         );
 
-        if (isClassSymbol(symbol)) {
-          const isTest = this.isTestClass(symbol);
-          if (isTest) {
-            const classLenses = this.createTestClassCodeLenses(symbol);
-            codeLenses.push(...classLenses);
-          }
-        } else if (isMethodSymbol(symbol)) {
-          const isTest = this.isTestMethod(symbol);
-          if (isTest) {
-            const methodLenses = this.createTestMethodCodeLenses(symbol);
-            codeLenses.push(...methodLenses);
+        if (this.isTest(symbol)) {
+          if (isClassSymbol(symbol)) {
+            codeLenses.push(...this.createTestClassCodeLenses(symbol));
+          } else if (isMethodSymbol(symbol)) {
+            codeLenses.push(...this.createTestMethodCodeLenses(symbol));
           }
         }
       }
@@ -230,46 +210,11 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    * @param symbol The class symbol
    * @returns True if the class has @isTest annotation
    */
-  private isTestClass(symbol: ApexSymbol): boolean {
-    // Check annotations
-    if (symbol.annotations) {
-      const hasIsTest = symbol.annotations.some(
-        (ann) => ann.name.toLowerCase() === 'istest',
-      );
-      if (hasIsTest) {
-        return true;
-      }
-    }
-
-    // Check modifiers (fallback)
+  private isTest(symbol: ApexSymbol): boolean {
+    // Check modifiers
     if (symbol.modifiers) {
       return symbol.modifiers.isTestMethod === true;
     }
-
-    return false;
-  }
-
-  /**
-   * Check if a method is a test method
-   * @param symbol The method symbol
-   * @returns True if the method has @isTest annotation
-   */
-  private isTestMethod(symbol: ApexSymbol): boolean {
-    // Check annotations
-    if (symbol.annotations) {
-      const hasIsTest = symbol.annotations.some(
-        (ann) => ann.name.toLowerCase() === 'istest',
-      );
-      if (hasIsTest) {
-        return true;
-      }
-    }
-
-    // Check modifiers (fallback)
-    if (symbol.modifiers) {
-      return symbol.modifiers.isTestMethod === true;
-    }
-
     return false;
   }
 

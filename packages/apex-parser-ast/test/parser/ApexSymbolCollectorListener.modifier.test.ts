@@ -433,4 +433,80 @@ public class ResetTestClass {
       expect(finalField?.modifiers.isStatic).toBe(false);
     });
   });
+
+  describe('@isTest Annotation to Modifier Conversion', () => {
+    it('should convert @isTest annotation to isTestMethod modifier for classes and methods', () => {
+      const apexCode = `
+@isTest
+public class TestClass {
+  public static void normalMethod() {
+    // Normal method
+  }
+  
+  @isTest
+  static void myTestMethod() {
+    // Test method
+  }
+}`;
+
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+
+      const result = compilerService.compile(apexCode, 'test.cls', listener);
+      expect(result.errors).toHaveLength(0);
+
+      const symbolTable = listener.getResult();
+      const symbols = symbolTable.getAllSymbols();
+
+      // Find the class and methods
+      const testClass = symbols.find((s) => s.name === 'TestClass');
+      const normalMethod = symbols.find((s) => s.name === 'normalMethod');
+      const testMethod = symbols.find((s) => s.name === 'myTestMethod');
+
+      expect(testClass).toBeDefined();
+      expect(normalMethod).toBeDefined();
+      expect(testMethod).toBeDefined();
+
+      // Verify class has @isTest annotation converted to modifier
+      expect(testClass?.annotations?.[0]?.name).toBe('isTest');
+      expect(testClass?.modifiers.isTestMethod).toBe(true);
+
+      // Verify normal method does NOT have isTestMethod modifier
+      expect(normalMethod?.modifiers.isTestMethod).toBe(false);
+
+      // Verify test method has @isTest annotation converted to modifier
+      expect(testMethod?.annotations?.[0]?.name).toBe('isTest');
+      expect(testMethod?.modifiers.isTestMethod).toBe(true);
+    });
+
+    it('should handle case-insensitive @isTest annotation', () => {
+      const apexCode = `
+@IsTest
+public class TestClass {
+  @ISTEST
+  static void myTestMethod() {
+    // Test method with uppercase annotation
+  }
+}`;
+
+      const compilerService = new CompilerService();
+      const listener = new ApexSymbolCollectorListener();
+
+      const result = compilerService.compile(apexCode, 'test.cls', listener);
+      expect(result.errors).toHaveLength(0);
+
+      const symbolTable = listener.getResult();
+      const symbols = symbolTable.getAllSymbols();
+
+      const testClass = symbols.find((s) => s.name === 'TestClass');
+      const testMethod = symbols.find((s) => s.name === 'myTestMethod');
+
+      expect(testClass).toBeDefined();
+      expect(testMethod).toBeDefined();
+
+      // Verify case-insensitive annotation detection
+      expect(testClass?.modifiers.isTestMethod).toBe(true);
+      expect(testMethod?.modifiers.isTestMethod).toBe(true);
+    });
+  });
 });
