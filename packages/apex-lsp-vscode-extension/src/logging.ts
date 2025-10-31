@@ -35,8 +35,9 @@ export const initializeExtensionLogging = (
   context.subscriptions.push(clientOutputChannel, workerServerOutputChannel);
 
   // Set initial log level from workspace settings
-  const config = vscode.workspace.getConfiguration('apex-ls-ts');
-  const logLevel = config.get<string>('logLevel') ?? 'info';
+  // Use the full config path 'apex.logLevel' to match package.json definition
+  const config = vscode.workspace.getConfiguration();
+  const logLevel = config.get<string>('apex.logLevel') ?? 'info';
   setLogLevel(logLevel);
 };
 
@@ -51,10 +52,7 @@ export const logToOutputChannel = (
 ): void => {
   if (!shouldLog(messageType)) return;
 
-  const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
-  const typeString = messageType.toUpperCase();
-  const formattedMessage = `[${timestamp}] [${typeString}] ${message}`;
-
+  const formattedMessage = formatLogMessageWithTimestamp(message, messageType);
   clientOutputChannel.appendLine(formattedMessage);
 };
 
@@ -92,10 +90,7 @@ export const logToWorkerServerOutputChannel = (
 ): void => {
   if (!shouldLog(messageType)) return;
 
-  const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
-  const typeString = messageType.toUpperCase();
-  const formattedMessage = `[${timestamp}] [${typeString}] ${message}`;
-
+  const formattedMessage = formatLogMessageWithTimestamp(message, messageType);
   workerServerOutputChannel.appendLine(formattedMessage);
 };
 
@@ -110,10 +105,7 @@ export const logWorkerMessage = (
 ): void => {
   if (!shouldLog(messageType)) return;
 
-  const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
-  const typeString = messageType.toUpperCase();
-  const formattedMessage = `[${timestamp}] [${typeString}] [WORKER] ${message}`;
-
+  const formattedMessage = formatLogMessageWithTimestamp(message, messageType);
   workerServerOutputChannel.appendLine(formattedMessage);
 };
 
@@ -128,9 +120,152 @@ export const logServerMessage = (
 ): void => {
   if (!shouldLog(messageType)) return;
 
-  const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
-  const typeString = messageType.toUpperCase();
-  const formattedMessage = `[${timestamp}] [${typeString}] [SERVER] ${message}`;
-
+  const formattedMessage = formatLogMessageWithTimestamp(message, messageType);
   workerServerOutputChannel.appendLine(formattedMessage);
 };
+
+/**
+ * Formats a timestamp in ISO format (local timezone)
+ * @returns Formatted timestamp string in format YYYY-MM-DDTHH:mm:ss.SSS
+ */
+const formatTimestampISO = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}`;
+};
+
+/**
+ * Maps log message type to display string
+ * @param messageType The log message type
+ * @returns Uppercase log level string
+ */
+const getLogLevelString = (messageType: LogMessageType): string => {
+  switch (messageType) {
+    case 'error':
+      return 'ERROR';
+    case 'warning':
+      return 'WARNING';
+    case 'info':
+      return 'INFO';
+    case 'log':
+      return 'TRACE';
+    case 'debug':
+      return 'DEBUG';
+    default:
+      return 'INFO';
+  }
+};
+
+/**
+ * Formats a log message with timestamp and log level prefix
+ * Format: [<ISO timestamp>][<log level>] <message>
+ * @param message The message to format
+ * @param messageType The log message type
+ * @returns Formatted message string
+ */
+export const formatLogMessageWithTimestamp = (
+  message: string,
+  messageType: LogMessageType,
+): string => {
+  const timestamp = formatTimestampISO();
+  const logLevel = getLogLevelString(messageType);
+  return `[${timestamp}][${logLevel}] ${message}`;
+};
+
+/**
+ * Cleans a message by removing [NODE] or [BROWSER] prefixes
+ * Also removes old-format timestamps like [5:56:44 AM] [INFO] [SERVER]
+ * @param message The message to clean
+ * @returns Cleaned message without environment prefix and old format timestamps
+ */
+const cleanMessagePrefix = (message: string): string => {
+  // Remove [NODE] or [BROWSER] prefix
+  if (message.startsWith('[NODE] ')) {
+    message = message.substring(7); // Remove '[NODE] '
+  } else if (message.startsWith('[BROWSER] ')) {
+    message = message.substring(10); // Remove '[BROWSER] '
+  }
+
+  // Remove old format timestamps like [5:56:44 AM] [INFO] [SERVER] or [5:56:44 AM] [INFO]
+  // Pattern: [HH:MM:SS AM/PM] [LEVEL] [SERVER/WORKER]? <actual message>
+  const oldFormatPattern =
+    /^\[\d{1,2}:\d{2}:\d{2}\s(AM|PM)\]\s\[(ERROR|WARNING|INFO|DEBUG|TRACE)\]\s(\[SERVER\]|\[WORKER\])?\s*/i;
+  message = message.replace(oldFormatPattern, '');
+
+  return message;
+};
+
+/**
+ * Detects log level from a message line
+ * Attempts to infer log level from common patterns
+ * @param message The message to analyze
+ * @returns Detected log level or 'info' as default
+ */
+const detectLogLevelFromMessage = (message: string): LogMessageType => {
+  const upperMessage = message.toUpperCase();
+  if (upperMessage.includes('ERROR') || upperMessage.includes('❌')) {
+    return 'error';
+  }
+  if (
+    upperMessage.includes('WARNING') ||
+    upperMessage.includes('WARN') ||
+    upperMessage.includes('⚠️')
+  ) {
+    return 'warning';
+  }
+  if (upperMessage.includes('DEBUG') || upperMessage.includes('🔍')) {
+    return 'debug';
+  }
+  return 'info';
+};
+
+/**
+ * Creates a formatted output channel wrapper that intercepts messages
+ * and formats them with timestamps
+ * @param baseChannel The base output channel to wrap
+ * @returns A new OutputChannel that formats messages
+ */
+export const createFormattedOutputChannel = (
+  baseChannel: vscode.OutputChannel,
+): vscode.OutputChannel => ({
+  name: baseChannel.name,
+  append: (value: string) => {
+    // For append, we don't format individual chunks
+    // Only format on appendLine
+    baseChannel.append(value);
+  },
+  appendLine: (value: string) => {
+    // Clean message of [NODE] or [BROWSER] prefix
+    const cleanMessage = cleanMessagePrefix(value);
+    // Detect log level from message content
+    const logLevel = detectLogLevelFromMessage(cleanMessage);
+    // Check if message should be logged based on current log level
+    if (!shouldLog(logLevel)) {
+      return; // Don't log if below current log level
+    }
+    // Format with timestamp
+    const formatted = formatLogMessageWithTimestamp(cleanMessage, logLevel);
+    baseChannel.appendLine(formatted);
+  },
+  replace: (value: string) => baseChannel.replace(value),
+  clear: () => baseChannel.clear(),
+  show: (
+    columnOrPreserveFocus?: vscode.ViewColumn | boolean,
+    preserveFocus?: boolean,
+  ) => {
+    // Handle both overloads: show(preserveFocus?) and show(column?, preserveFocus?)
+    if (typeof columnOrPreserveFocus === 'boolean') {
+      baseChannel.show(columnOrPreserveFocus);
+    } else {
+      baseChannel.show(columnOrPreserveFocus, preserveFocus);
+    }
+  },
+  hide: () => baseChannel.hide(),
+  dispose: () => baseChannel.dispose(),
+});

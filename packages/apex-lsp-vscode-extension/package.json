@@ -301,6 +301,32 @@
               "description": "%configuration.apex-ls-ts.findMissingArtifact.enablePerfMarks.description%"
             }
           }
+        },
+        "apex.loadWorkspace": {
+          "type": "object",
+          "description": "%configuration.apex-ls-ts.loadWorkspace.description%",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "%configuration.apex-ls-ts.loadWorkspace.enabled.description%"
+            },
+            "maxConcurrency": {
+              "type": "number",
+              "default": 50,
+              "description": "%configuration.apex-ls-ts.loadWorkspace.maxConcurrency.description%"
+            },
+            "yieldInterval": {
+              "type": "number",
+              "default": 50,
+              "description": "%configuration.apex-ls-ts.loadWorkspace.yieldInterval.description%"
+            },
+            "yieldDelayMs": {
+              "type": "number",
+              "default": 25,
+              "description": "%configuration.apex-ls-ts.loadWorkspace.yieldDelayMs.description%"
+            }
+          }
         }
       }
     },

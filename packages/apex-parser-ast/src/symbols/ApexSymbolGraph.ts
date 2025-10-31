@@ -218,6 +218,23 @@ export class ApexSymbolGraph {
     }>
   > = new HashMap();
 
+  // Pending deferred references that failed resolution (source symbol not found)
+  // These are retried when new symbols are added, keyed by source symbol name
+  private pendingDeferredReferences: HashMap<
+    string,
+    Array<{
+      targetSymbolName: string;
+      referenceType: EnumValue<typeof ReferenceType>;
+      location: SymbolLocation;
+      context?: {
+        methodName?: string;
+        parameterIndex?: number;
+        isStatic?: boolean;
+        namespace?: string;
+      };
+    }>
+  > = new HashMap();
+
   private memoryStats = {
     totalSymbols: 0,
     totalVertices: 0,
@@ -230,7 +247,6 @@ export class ApexSymbolGraph {
 
   constructor() {
     this.resourceLoader = ResourceLoader.getInstance({
-      loadMode: 'lazy',
       preloadStdClasses: false,
     });
   }
@@ -354,6 +370,11 @@ export class ApexSymbolGraph {
     // Only process if there are actually deferred references to avoid unnecessary work
     if (this.deferredReferences.has(symbol.name)) {
       this.processDeferredReferences(symbol.name);
+    }
+
+    // Retry pending deferred references that were waiting for this source symbol
+    if (this.pendingDeferredReferences.has(symbol.name)) {
+      this.retryPendingDeferredReferences(symbol);
     }
 
     // If this is a standard Apex class, ensure it's properly registered
@@ -1136,6 +1157,7 @@ export class ApexSymbolGraph {
     this.fileIndex.clear();
     this.fqnIndex.clear();
     this.deferredReferences.clear();
+    this.pendingDeferredReferences.clear();
 
     // Clear SymbolTable references
     this.fileToSymbolTable.clear();
@@ -1486,9 +1508,19 @@ export class ApexSymbolGraph {
         : sourceSymbols[0]; // Take the first symbol with matching name
 
       if (!sourceSymbolInGraph) {
-        this.logger.warn(
+        // Source symbol not found - keep for retry later when source symbol is added
+        const pending = this.pendingDeferredReferences.get(ref.sourceSymbol.name) || [];
+        pending.push({
+          targetSymbolName: symbolName,
+          referenceType: ref.referenceType,
+          location: ref.location,
+          context: ref.context,
+        });
+        this.pendingDeferredReferences.set(ref.sourceSymbol.name, pending);
+        
+        this.logger.debug(
           () =>
-            `Source symbol not found for deferred reference: ${ref.sourceSymbol.name}`,
+            `Source symbol not found for deferred reference: ${ref.sourceSymbol.name}, will retry when source symbol is added`,
         );
         continue;
       }
@@ -1540,6 +1572,82 @@ export class ApexSymbolGraph {
     }
 
     this.deferredReferences.delete(symbolName); // Delete by symbol name
+  }
+
+  /**
+   * Retry pending deferred references when source symbol is added
+   */
+  private retryPendingDeferredReferences(sourceSymbol: ApexSymbol): void {
+    const pending = this.pendingDeferredReferences.get(sourceSymbol.name);
+    if (!pending || pending.length === 0) {
+      return;
+    }
+
+    const sourceId = this.getSymbolId(sourceSymbol, sourceSymbol.fileUri);
+
+    for (const ref of pending) {
+      // Find the target symbol by name
+      const targetSymbols = this.findSymbolByName(ref.targetSymbolName);
+      if (targetSymbols.length === 0) {
+        // Target symbol still not found - keep for later retry
+        this.logger.debug(
+          () =>
+            `Target symbol not found for pending deferred reference: ${ref.targetSymbolName}, will retry when target symbol is added`,
+        );
+        continue;
+      }
+
+      const targetSymbol = targetSymbols[0];
+      const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
+
+      // Create optimized reference edge
+      const referenceEdge: ReferenceEdge = {
+        type: ref.referenceType,
+        sourceFileUri: sourceSymbol.fileUri,
+        targetFileUri: targetSymbol.fileUri,
+        context: ref.context
+          ? {
+              methodName: ref.context.methodName,
+              parameterIndex: ref.context.parameterIndex
+                ? toUint16(ref.context.parameterIndex)
+                : undefined,
+              isStatic: ref.context.isStatic,
+              namespace: ref.context.namespace,
+            }
+          : undefined,
+      };
+
+      // Add edge to graph
+      const edgeAdded = this.referenceGraph.addEdge(
+        sourceId,
+        targetId,
+        1,
+        referenceEdge,
+      );
+      if (!edgeAdded) {
+        this.logger.warn(
+          () =>
+            `Failed to add pending deferred reference edge: ${sourceId} -> ${targetId}`,
+        );
+        continue;
+      }
+
+      // Update reference count
+      const targetVertex = this.symbolToVertex.get(targetId);
+      if (targetVertex && targetVertex.value) {
+        targetVertex.value.referenceCount++;
+      }
+
+      this.memoryStats.totalEdges++;
+
+      this.logger.debug(
+        () =>
+          `Retried pending deferred reference: ${sourceSymbol.name} -> ${ref.targetSymbolName}`,
+      );
+    }
+
+    // Clear pending references for this source symbol
+    this.pendingDeferredReferences.delete(sourceSymbol.name);
   }
 
   /**

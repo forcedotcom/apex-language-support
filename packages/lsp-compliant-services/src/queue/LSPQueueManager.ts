@@ -6,16 +6,16 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  ApexSettingsManager,
+  RequestPriority,
+} from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
 } from '@salesforce/apex-lsp-parser-ast';
-import {
-  LSPRequestType,
-  RequestPriority,
-  LSPQueueStats,
-} from './LSPRequestQueue';
+import { LSPRequestType, LSPQueueStats } from './LSPRequestQueue';
 import { ServiceRegistry } from '../registry/ServiceRegistry';
 import { GenericLSPRequestQueue } from './GenericLSPRequestQueue';
 import { ServiceFactory } from '../factories/ServiceFactory';
@@ -42,8 +42,17 @@ export class LSPQueueManager {
     // Initialize the service registry
     this.serviceRegistry = new ServiceRegistry();
 
-    // Initialize the generic queue with the service registry
-    this.requestQueue = new GenericLSPRequestQueue(this.serviceRegistry);
+    // Get settings from ApexSettingsManager
+    const settingsManager = ApexSettingsManager.getInstance();
+    const serverSettings = settingsManager.getSettings();
+    const queueSettings = serverSettings.apex.queueProcessing;
+
+    // Initialize the generic queue with the service registry and settings
+    this.requestQueue = new GenericLSPRequestQueue(this.serviceRegistry, {
+      maxConcurrency: queueSettings.maxConcurrency,
+      yieldInterval: queueSettings.yieldInterval,
+      yieldDelayMs: queueSettings.yieldDelayMs,
+    });
 
     this.symbolManager =
       ApexSymbolProcessingManager.getInstance().getSymbolManager();
@@ -52,7 +61,8 @@ export class LSPQueueManager {
     this.registerServices();
 
     this.logger.debug(
-      () => 'LSP Queue Manager initialized with service registry',
+      () =>
+        'LSP Queue Manager initialized with service registry and Effect-TS queue',
     );
   }
 

@@ -8,4 +8,6 @@
 
 // Export LSP queue components
 export * from './LSPRequestQueue';
+export * from './GenericLSPRequestQueue';
 export * from './LSPQueueManager';
+

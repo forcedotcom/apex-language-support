@@ -12,8 +12,12 @@ import {
   Range,
   Position,
 } from 'vscode-languageserver-protocol';
+import { Connection } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  LSPConfigurationManager,
+} from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
 import {
@@ -22,6 +26,7 @@ import {
   ReferenceType,
 } from '@salesforce/apex-lsp-parser-ast';
 import { transformParserToLspPosition } from '../utils/positionUtils';
+import { WorkspaceLoadCoordinator } from './WorkspaceLoadCoordinator';
 
 /**
  * Interface for references processing functionality
@@ -50,6 +55,30 @@ export class ReferencesProcessingService implements IReferencesProcessor {
   }
 
   /**
+   * Get LSP connection from configuration manager
+   */
+  private getConnection(): Connection | undefined {
+    try {
+      const configManager = LSPConfigurationManager.getInstance();
+      const connection = configManager.getConnection();
+
+      if (!connection) {
+        this.logger.debug(
+          () => 'LSP connection not available in configuration manager',
+        );
+      }
+
+      return connection;
+    } catch (error) {
+      this.logger.error(
+        () =>
+          `Failed to get LSP connection from configuration manager: ${error}`,
+      );
+      return undefined;
+    }
+  }
+
+  /**
    * Process a references request
    * @param params The references parameters
    * @returns Reference locations for the requested symbol
@@ -60,49 +89,49 @@ export class ReferencesProcessingService implements IReferencesProcessor {
     );
 
     try {
-      // Get the storage manager instance
-      const storageManager = ApexStorageManager.getInstance();
-      const storage = storageManager.getStorage();
-
-      // Get the document
-      const document = await storage.getDocument(params.textDocument.uri);
-      if (!document) {
-        this.logger.warn(
-          () => `Document not found: ${params.textDocument.uri}`,
+      // Always ensure workspace is loaded before searching for references
+      // Finding some references doesn't mean we have the complete picture
+      const connection = this.getConnection();
+      if (connection) {
+        this.logger.debug(
+          () => 'Ensuring workspace is loaded before searching for references',
         );
-        return [];
+
+        try {
+          const coordinator = WorkspaceLoadCoordinator.getInstance(this.logger);
+          const loadResult = await coordinator.ensureWorkspaceLoaded(
+            connection,
+            params.workDoneToken,
+          );
+
+          if (loadResult.status !== 'loaded') {
+            this.logger.debug(
+              () =>
+                `Workspace load status: ${loadResult.status}, continuing with reference search`,
+            );
+          } else {
+            this.logger.debug(
+              () => 'Workspace loaded, searching for references',
+            );
+          }
+        } catch (error) {
+          this.logger.error(
+            () => `Error during workspace load coordination: ${error}`,
+          );
+          // Continue with reference search even if workspace load coordination fails
+        }
+      } else {
+        this.logger.debug(
+          () =>
+            'No connection available for workspace load coordination, continuing with reference search',
+        );
       }
 
-      // Extract symbol name at position
-      const symbolName = this.extractSymbolNameAtPosition(
-        document,
-        params.position,
-      );
-      if (!symbolName) {
-        this.logger.debug(() => 'No symbol found at position');
-        return [];
-      }
-
-      // Create resolution context
-      const context = this.createResolutionContext(document, params);
-
-      // Use ApexSymbolManager for context-aware symbol resolution
-      const result = this.symbolManager.resolveSymbol(symbolName, context);
-
-      if (!result.symbol) {
-        this.logger.debug(() => `No symbol found for: ${symbolName}`);
-        return [];
-      }
-
-      // Get reference locations
-      const locations = await this.getReferenceLocations(
-        result.symbol,
-        params.context?.includeDeclaration,
-      );
+      // Now search for references with the workspace loaded (or loading)
+      const locations = await this.findReferences(params);
 
       this.logger.debug(
-        () =>
-          `Returning ${locations.length} reference locations for: ${symbolName}`,
+        () => `Returning ${locations.length} reference locations`,
       );
 
       return locations;
@@ -110,6 +139,57 @@ export class ReferencesProcessingService implements IReferencesProcessor {
       this.logger.error(() => `Error processing references: ${error}`);
       return [];
     }
+  }
+
+  /**
+   * Find references for the given parameters
+   * @param params The references parameters
+   * @returns Reference locations for the requested symbol
+   */
+  private async findReferences(params: ReferenceParams): Promise<Location[]> {
+    // Get the storage manager instance
+    const storageManager = ApexStorageManager.getInstance();
+    const storage = storageManager.getStorage();
+
+    // Get the document
+    const document = await storage.getDocument(params.textDocument.uri);
+    if (!document) {
+      this.logger.warn(() => `Document not found: ${params.textDocument.uri}`);
+      return [];
+    }
+
+    // Extract symbol name at position
+    const symbolName = this.extractSymbolNameAtPosition(
+      document,
+      params.position,
+    );
+    if (!symbolName) {
+      this.logger.debug(() => 'No symbol found at position');
+      return [];
+    }
+
+    // Create resolution context
+    const context = this.createResolutionContext(document, params);
+
+    // Use ApexSymbolManager for context-aware symbol resolution
+    const result = this.symbolManager.resolveSymbol(symbolName, context);
+
+    if (!result.symbol) {
+      this.logger.debug(() => `No symbol found for: ${symbolName}`);
+      return [];
+    }
+
+    // Get reference locations
+    const locations = await this.getReferenceLocations(
+      result.symbol,
+      params.context?.includeDeclaration,
+    );
+
+    this.logger.debug(
+      () => `Found ${locations.length} reference locations for: ${symbolName}`,
+    );
+
+    return locations;
   }
 
   /**

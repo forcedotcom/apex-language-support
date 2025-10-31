@@ -25,7 +25,7 @@ import {
   mergeWithDefaults,
   mergeWithExisting,
   validateApexSettings,
-} from './ApexLanguageServerSettings';
+} from './ApexSettingsUtilities';
 
 /**
  * Event listener for settings changes

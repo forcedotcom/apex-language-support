@@ -110,6 +110,42 @@ export interface MissingArtifactSettings {
 }
 
 /**
+ * Workspace loading settings
+ */
+export interface LoadWorkspaceSettings {
+  /** Whether to enable automatic workspace loading at startup */
+  enabled: boolean;
+
+  /** Maximum number of concurrent file operations during workspace loading */
+  maxConcurrency: number;
+
+  /** Number of file operations before yielding control to prevent UI blocking */
+  yieldInterval: number;
+
+  /** Delay in milliseconds when yielding control during workspace loading */
+  yieldDelayMs: number;
+}
+
+/**
+ * Request priority levels for queue processing
+ */
+export type RequestPriority = 'IMMEDIATE' | 'HIGH' | 'NORMAL' | 'LOW';
+
+/**
+ * Queue processing settings
+ */
+export interface QueueProcessingSettings {
+  /** Maximum number of concurrent tasks per priority level */
+  maxConcurrency: Record<RequestPriority, number>;
+
+  /** Number of tasks processed before yielding control to prevent blocking */
+  yieldInterval: number;
+
+  /** Delay in milliseconds when yielding control during queue processing */
+  yieldDelayMs: number;
+}
+
+/**
  * Complete Apex Language Server settings
  */
 export interface ApexLanguageServerSettings {
@@ -128,6 +164,12 @@ export interface ApexLanguageServerSettings {
 
     /** Missing artifact resolution settings */
     findMissingArtifact: MissingArtifactSettings;
+
+    /** Workspace loading settings */
+    loadWorkspace: LoadWorkspaceSettings;
+
+    /** Queue processing settings */
+    queueProcessing: QueueProcessingSettings;
 
     /** Server version for compatibility checks */
     version?: string;

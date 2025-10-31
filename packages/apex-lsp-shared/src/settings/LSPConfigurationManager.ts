@@ -20,7 +20,7 @@ import {
 import {
   mergeWithDefaults,
   validateApexSettings,
-} from './ApexLanguageServerSettings';
+} from './ApexSettingsUtilities';
 import { getLogger } from '../index';
 import type {
   ApexLanguageServerSettings,

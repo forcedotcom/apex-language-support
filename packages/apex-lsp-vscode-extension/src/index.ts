@@ -87,3 +87,6 @@ export {
   stopLanguageServer,
   getClient,
 } from './language-server';
+
+// Export workspace loader utilities
+export { deriveFilePatternsFromDocumentSelector, EXCLUDE_GLOB } from './workspace-loader';

@@ -10,9 +10,11 @@ import * as vscode from 'vscode';
 import {
   LogNotificationHandler,
   LogMessageParams,
-  LogMessageType,
 } from '@salesforce/apex-lsp-shared';
-import { getWorkerServerOutputChannel } from '../logging';
+import {
+  getWorkerServerOutputChannel,
+  formatLogMessageWithTimestamp,
+} from '../logging';
 
 /**
  * VSCode-specific implementation of LogNotificationHandler
@@ -26,20 +28,23 @@ export class VSCodeLogNotificationHandler implements LogNotificationHandler {
   }
 
   /**
-   * Format a log message with timestamp and SERVER prefix
-   */
-  private formatMessage(type: LogMessageType, message: string): string {
-    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: true });
-    const typeString = type.toUpperCase();
-    return `[${timestamp}] [${typeString}] [SERVER] ${message}`;
-  }
-
-  /**
    * Send a log message to the VSCode output channel
    */
   public sendLogMessage(params: LogMessageParams): void {
     if (this.outputChannel) {
-      const formattedMessage = this.formatMessage(params.type, params.message);
+      // Remove [NODE] or [BROWSER] prefix if present, then format
+      let cleanMessage = params.message;
+      if (cleanMessage.startsWith('[NODE] ')) {
+        cleanMessage = cleanMessage.substring(7); // Remove '[NODE] '
+      } else if (cleanMessage.startsWith('[BROWSER] ')) {
+        cleanMessage = cleanMessage.substring(10); // Remove '[BROWSER] '
+      }
+
+      // Format with timestamp and log level
+      const formattedMessage = formatLogMessageWithTimestamp(
+        cleanMessage,
+        params.type,
+      );
       this.outputChannel.appendLine(formattedMessage);
     }
   }

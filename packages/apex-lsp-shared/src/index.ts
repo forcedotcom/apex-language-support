@@ -64,7 +64,7 @@ export * from './capabilities/ApexCapabilitiesManager';
 export * from './capabilities/ApexLanguageServerCapabilities';
 
 // Export settings management
-export * from './settings/ApexLanguageServerSettings';
+export * from './settings/ApexSettingsUtilities';
 export * from './settings/ApexSettingsManager';
 export * from './settings/LSPConfigurationManager';
 
@@ -194,6 +194,54 @@ export type FindMissingArtifactResult =
   | { opened: string[] }
   | { notFound: true }
   | { accepted: true };
+
+export type ProgressToken = number | string;
+
+export interface LoadWorkspaceParams {
+  readonly workDoneToken?: ProgressToken;
+  readonly queryOnly?: boolean; // NEW: Query state without triggering load
+}
+
+export type LoadWorkspaceResult =
+  | {
+      accepted: true;
+      alreadyLoaded?: boolean;
+      inProgress?: boolean;
+      retryable?: boolean;
+    }
+  | { loaded: true } // NEW: For queryOnly responses
+  | { loading: true } // NEW: For queryOnly responses
+  | { failed: true } // NEW: For queryOnly responses
+  | { loaded: false } // NEW: For queryOnly responses when not loaded and not loading
+  | { error: string };
+
+/**
+ * LSP Work Done Progress interfaces
+ */
+export interface WorkDoneProgressBegin {
+  kind: 'begin';
+  title: string;
+  cancellable?: boolean;
+  message?: string;
+  percentage?: number;
+}
+
+export interface WorkDoneProgressReport {
+  kind: 'report';
+  cancellable?: boolean;
+  message?: string;
+  percentage?: number;
+}
+
+export interface WorkDoneProgressEnd {
+  kind: 'end';
+  message?: string;
+}
+
+export type WorkDoneProgress =
+  | WorkDoneProgressBegin
+  | WorkDoneProgressReport
+  | WorkDoneProgressEnd;
 /**
  * Priority mapping for log levels (higher number = higher priority)
  */
