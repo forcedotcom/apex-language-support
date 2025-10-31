@@ -125,13 +125,10 @@ export class CompilerService {
 
     // Determine file type
     const isTrigger = fileName.endsWith('.trigger');
-    const isAnonymous = fileName.endsWith('.apex') || fileName.endsWith('.anonymous.cls');
-    
+    const isAnonymous = fileName.endsWith('.apex');
+
     // For anonymous Apex, wrap content in curly braces since block() expects them
-    let contentToParse = fileContent;
-    if (isAnonymous) {
-      contentToParse = `{\n${fileContent}\n}`;
-    }
+    const contentToParse = isAnonymous ? `{${fileContent}}` : fileContent;
 
     // Set up parsing infrastructure
     const inputStream = CharStreams.fromString(contentToParse);
