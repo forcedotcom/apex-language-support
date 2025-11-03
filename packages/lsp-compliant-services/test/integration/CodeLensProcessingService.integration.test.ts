@@ -79,16 +79,6 @@ public class ApexTestExample {
     if (parseResult) {
       // Add the symbol table to the symbol manager
       symbolManager.addSymbolTable(symbolTable, testClassUri);
-
-      // Get symbols from the table for logging
-      const symbols = symbolTable.getAllSymbols();
-      console.log(`\n🔍 Collected ${symbols.length} symbols from test class`);
-
-      for (const symbol of symbols) {
-        console.log(
-          `   - Symbol: ${symbol.name} (${symbol.kind}), annotations: ${symbol.annotations?.map((a) => a.name).join(', ') || 'none'}, modifiers.isTestMethod: ${symbol.modifiers?.isTestMethod}`,
-        );
-      }
     }
 
     // Create the code lens service with the populated symbol manager

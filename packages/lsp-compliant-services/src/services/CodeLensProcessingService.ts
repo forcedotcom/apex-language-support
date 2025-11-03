@@ -12,7 +12,7 @@ import {
   Position,
   Range,
 } from 'vscode-languageserver';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { LoggerInterface, formattedError } from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
@@ -85,28 +85,12 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
       () => `Processing code lens for ${params.textDocument.uri}`,
     );
 
-    const codeLenses: CodeLens[] = [];
-
     try {
       const uri = params.textDocument.uri;
-
-      // Check if this is an anonymous Apex file
-      if (uri.toLowerCase().endsWith('.apex')) {
-        this.logger.debug(() => `Detected anonymous Apex file: ${uri}`);
-        codeLenses.push(...this.provideAnonymousCodeLenses());
-        return codeLenses;
-      }
-
-      // Get symbol table for this file to find test classes/methods
-      this.logger.debug(() => `Looking for test symbols in ${uri}`);
-      const testLenses = await this.provideTestCodeLenses(uri);
-      codeLenses.push(...testLenses);
-
-      this.logger.debug(
-        () => `Generated ${codeLenses.length} code lenses for ${uri}`,
-      );
-
-      return codeLenses;
+      return [
+        ...this.provideAnonymousCodeLenses(uri),
+        ...(await this.provideTestCodeLenses(uri)),
+      ];
     } catch (error) {
       this.logger.error(() => `Error processing code lens: ${error}`);
       return [];
@@ -117,32 +101,34 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    * Provide code lenses for anonymous Apex files
    * @returns Array of code lenses for Execute and Debug commands
    */
-  private provideAnonymousCodeLenses(): CodeLens[] {
-    const codeLenses: CodeLens[] = [];
+  private provideAnonymousCodeLenses(uri: string): CodeLens[] {
+    if (!uri.toLowerCase().endsWith('.apex')) {
+      return [];
+    }
 
     // Both Execute and Debug code lenses appear at position (0, 0)
     const position = Position.create(0, 0);
     const range = Range.create(position, position);
 
     // Execute command (no arguments needed for anonymous Apex)
-    codeLenses.push({
-      range,
-      command: {
-        title: LABELS.ANON_RUN,
-        command: ANON_RUN,
+    return [
+      {
+        range,
+        command: {
+          title: LABELS.ANON_RUN,
+          command: ANON_RUN,
+        },
       },
-    });
 
-    // Debug command (no arguments needed for anonymous Apex)
-    codeLenses.push({
-      range,
-      command: {
-        title: LABELS.ANON_DEBUG,
-        command: ANON_DEBUG,
+      // Debug command (no arguments needed for anonymous Apex)
+      {
+        range,
+        command: {
+          title: LABELS.ANON_DEBUG,
+          command: ANON_DEBUG,
+        },
       },
-    });
-
-    return codeLenses;
+    ];
   }
 
   /**
@@ -151,35 +137,20 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    * @returns Array of code lenses for test-related commands
    */
   private async provideTestCodeLenses(fileUri: string): Promise<CodeLens[]> {
-    const codeLenses: CodeLens[] = [];
-
     try {
       this.logger.debug(() => `Accessing symbol manager for ${fileUri}`);
 
-      // Get the symbol table for this file
-      const symbolTable = (
-        this.symbolManager as any
-      ).symbolGraph?.getSymbolTableForFile?.(fileUri);
+      // Get the symbols for this file
+      const symbols = this.symbolManager.findSymbolsInFile(fileUri);
 
-      this.logger.debug(() => `Symbol table found: ${!!symbolTable}`);
-
-      if (!symbolTable) {
+      if (!symbols.length) {
         this.logger.debug(
-          () =>
-            `No symbol table found for ${fileUri} - file may not be parsed yet`,
+          () => `No symbols found for ${fileUri} - file may not be parsed yet`,
         );
-        return codeLenses;
+        return [];
       }
-
-      // Get all symbols in the file
-      const allSymbols = symbolTable.getAllSymbols();
-
-      this.logger.debug(
-        () => `Found ${allSymbols.length} symbols in ${fileUri}`,
-      );
-
       // Find test classes and methods
-      for (const symbol of allSymbols) {
+      const codeLenses: CodeLens[] = symbols.flatMap((symbol) => {
         this.logger.debug(
           () =>
             `🔍 [CodeLens] Checking symbol: ${symbol.name} (kind: ${symbol.kind})`,
@@ -187,12 +158,13 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
 
         if (this.isTest(symbol)) {
           if (isClassSymbol(symbol)) {
-            codeLenses.push(...this.createTestClassCodeLenses(symbol));
+            return this.createTestClassCodeLenses(symbol);
           } else if (isMethodSymbol(symbol)) {
-            codeLenses.push(...this.createTestMethodCodeLenses(symbol));
+            return this.createTestMethodCodeLenses(symbol);
           }
         }
-      }
+        return [];
+      });
 
       this.logger.debug(
         () => `Total test code lenses created: ${codeLenses.length}`,
@@ -200,7 +172,10 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
 
       return codeLenses;
     } catch (error) {
-      this.logger.error(() => `Error providing test code lenses: ${error}`);
+      this.logger.error(
+        () =>
+          `Error providing test code lenses: ${formattedError(error, { includeStack: true })}`,
+      );
       return [];
     }
   }
@@ -224,10 +199,8 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    * @returns Array of code lenses for Run All Tests and Debug All Tests
    */
   private createTestClassCodeLenses(classSymbol: ApexSymbol): CodeLens[] {
-    const codeLenses: CodeLens[] = [];
-
     if (!classSymbol.location) {
-      return codeLenses;
+      return [];
     }
 
     // Convert AST position (1-based line) to LSP position (0-based line)
@@ -238,26 +211,25 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
     const className = classSymbol.name;
 
     // Run All Tests command
-    codeLenses.push({
-      range,
-      command: {
-        title: LABELS.TEST_CLASS_RUN,
-        command: TEST_CLASS_RUN,
-        arguments: [className],
+    return [
+      {
+        range,
+        command: {
+          title: LABELS.TEST_CLASS_RUN,
+          command: TEST_CLASS_RUN,
+          arguments: [className],
+        },
       },
-    });
-
-    // Debug All Tests command
-    codeLenses.push({
-      range,
-      command: {
-        title: LABELS.TEST_CLASS_DEBUG,
-        command: TEST_CLASS_DEBUG,
-        arguments: [className],
+      // Debug All Tests command
+      {
+        range,
+        command: {
+          title: LABELS.TEST_CLASS_DEBUG,
+          command: TEST_CLASS_DEBUG,
+          arguments: [className],
+        },
       },
-    });
-
-    return codeLenses;
+    ];
   }
 
   /**
@@ -266,10 +238,8 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    * @returns Array of code lenses for Run Test and Debug Test
    */
   private createTestMethodCodeLenses(methodSymbol: ApexSymbol): CodeLens[] {
-    const codeLenses: CodeLens[] = [];
-
     if (!methodSymbol.location) {
-      return codeLenses;
+      return [];
     }
 
     // Convert AST position (1-based line) to LSP position (0-based line)
@@ -285,30 +255,29 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
         () =>
           `Could not determine qualified name for method ${methodSymbol.name}`,
       );
-      return codeLenses;
+      return [];
     }
 
     // Run Test command
-    codeLenses.push({
-      range,
-      command: {
-        title: LABELS.TEST_METHOD_RUN,
-        command: TEST_METHOD_RUN,
-        arguments: [methodName],
+    return [
+      {
+        range,
+        command: {
+          title: LABELS.TEST_METHOD_RUN,
+          command: TEST_METHOD_RUN,
+          arguments: [methodName],
+        },
       },
-    });
-
-    // Debug Test command
-    codeLenses.push({
-      range,
-      command: {
-        title: LABELS.TEST_METHOD_DEBUG,
-        command: TEST_METHOD_DEBUG,
-        arguments: [methodName],
+      // Debug Test command
+      {
+        range,
+        command: {
+          title: LABELS.TEST_METHOD_DEBUG,
+          command: TEST_METHOD_DEBUG,
+          arguments: [methodName],
+        },
       },
-    });
-
-    return codeLenses;
+    ];
   }
 
   /**
