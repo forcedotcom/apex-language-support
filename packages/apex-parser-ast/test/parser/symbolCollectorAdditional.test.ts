@@ -62,6 +62,53 @@ describe('ApexSymbolCollectorListener Additional Tests', () => {
       expect(m1?.annotations?.[0].name).toBe('isTest');
     });
 
+    it('should convert @isTest annotation to isTestMethod modifier for classes', () => {
+      const fileContent = `@isTest
+public class TestClass {
+  public static void normalMethod() {
+    // Normal method
+  }
+  
+  @isTest
+  public static void myTestMethod() {
+    // Test method implementation
+  }
+}`;
+
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        fileContent,
+        'TestClass.cls',
+        listener,
+      );
+
+      if (result.errors.length > 0) {
+        console.log('Compilation errors:', result.errors);
+      }
+      expect(result.errors.length).toBe(0);
+      const symbolTable = result.result;
+      const globalScope = symbolTable?.getCurrentScope();
+      const classSymbol = globalScope?.getAllSymbols()[0];
+
+      // Verify class has @isTest annotation AND isTestMethod modifier
+      expect(classSymbol?.annotations?.[0].name).toBe('isTest');
+      expect(classSymbol?.modifiers?.isTestMethod).toBe(true);
+
+      const classScope = globalScope?.getChildren()[0];
+      const normalMethod = classScope
+        ?.getAllSymbols()
+        .find((s) => s.name === 'normalMethod') as MethodSymbol;
+      const testMethod = classScope
+        ?.getAllSymbols()
+        .find((s) => s.name === 'myTestMethod') as MethodSymbol;
+
+      // Verify normal method does NOT have isTestMethod modifier
+      expect(normalMethod?.modifiers?.isTestMethod).toBe(false);
+
+      // Verify test method has @isTest annotation AND isTestMethod modifier
+      expect(testMethod?.annotations?.[0].name).toBe('isTest');
+      expect(testMethod?.modifiers?.isTestMethod).toBe(true);
+    });
+
     it('should allow @isTest annotation on private class', () => {
       // This test expects that @isTest annotation acts as an exception to the general
       // rule that private classes are not allowed. Test classes with @isTest should

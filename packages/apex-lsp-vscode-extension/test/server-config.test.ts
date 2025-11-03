@@ -239,6 +239,7 @@ describe('Server Config Module', () => {
       expect(clientOptions.documentSelector).toEqual([
         { scheme: 'file', language: 'apex' },
         { scheme: 'apexlib', language: 'apex' },
+        { scheme: 'file', language: 'apex-anon' },
       ]);
     });
 
@@ -265,12 +266,13 @@ describe('Server Config Module', () => {
       const expectedSchemes = [
         { scheme: 'file', language: 'apex' },
         { scheme: 'apexlib', language: 'apex' },
+        { scheme: 'file', language: 'apex-anon' },
       ];
 
       expect(clientOptions.documentSelector).toEqual(
         expect.arrayContaining(expectedSchemes),
       );
-      expect(clientOptions.documentSelector).toHaveLength(2);
+      expect(clientOptions.documentSelector).toHaveLength(3);
     });
 
     it('should include error and close action handlers', () => {
