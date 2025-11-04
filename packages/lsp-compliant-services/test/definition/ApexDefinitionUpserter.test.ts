@@ -51,7 +51,7 @@ describe('DefaultApexDefinitionPopulator', () => {
     // Arrange
     const event: TextDocumentChangeEvent<TextDocument> = {
       document: {
-        uri: 'file:///test.apex',
+        uri: 'file:///test.cls',
         getText: () => 'class TestClass {}',
         version: 1,
         languageId: 'apex',
@@ -90,7 +90,7 @@ describe('DefaultApexDefinitionPopulator', () => {
     // Arrange
     const event: TextDocumentChangeEvent<TextDocument> = {
       document: {
-        uri: 'file:///test.apex',
+        uri: 'file:///test.cls',
         getText: () => 'class TestClass { void testMethod() { } }',
         version: 1,
         languageId: 'apex',
@@ -134,7 +134,7 @@ describe('DefaultApexDefinitionPopulator', () => {
     // Arrange
     const event: TextDocumentChangeEvent<TextDocument> = {
       document: {
-        uri: 'file:///test.apex',
+        uri: 'file:///test.cls',
         getText: () => 'class UpdatedClass {}',
         version: 2,
         languageId: 'apex',
@@ -170,7 +170,7 @@ describe('DefaultApexDefinitionPopulator', () => {
     const events = [
       {
         document: {
-          uri: 'file:///test.apex',
+          uri: 'file:///test.cls',
           getText: () => 'class FirstClass {}',
           version: 1,
           languageId: 'apex',
@@ -181,7 +181,7 @@ describe('DefaultApexDefinitionPopulator', () => {
       },
       {
         document: {
-          uri: 'file:///test.apex',
+          uri: 'file:///test.cls',
           getText: () => 'class SecondClass {}',
           version: 2,
           languageId: 'apex',

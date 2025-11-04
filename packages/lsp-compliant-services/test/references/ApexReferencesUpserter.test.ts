@@ -52,7 +52,7 @@ describe('DefaultApexReferencesUpserter', () => {
     // Arrange
     const event: TextDocumentChangeEvent<TextDocument> = {
       document: {
-        uri: 'file:///test.apex',
+        uri: 'file:///test.cls',
         getText: () => 'class TestClass {}',
         version: 1,
         languageId: 'apex',
@@ -94,7 +94,7 @@ describe('DefaultApexReferencesUpserter', () => {
     // Arrange
     const event: TextDocumentChangeEvent<TextDocument> = {
       document: {
-        uri: 'file:///test.apex',
+        uri: 'file:///test.cls',
         getText: () => 'class TestClass { void testMethod() { TestClass t; } }',
         version: 1,
         languageId: 'apex',

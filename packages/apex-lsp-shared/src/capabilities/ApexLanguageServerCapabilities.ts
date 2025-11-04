@@ -73,6 +73,9 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   // Released features only
   documentSymbolProvider: true,
   foldingRangeProvider: false,
+  codeLensProvider: {
+    resolveProvider: false,
+  },
   diagnosticProvider: {
     identifier: 'apex-ls-ts',
     interFileDependencies: false,
@@ -98,7 +101,6 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   typeDefinitionProvider: undefined,
   implementationProvider: undefined,
   documentHighlightProvider: undefined,
-  codeLensProvider: undefined,
   documentLinkProvider: undefined,
   colorProvider: undefined,
   workspaceSymbolProvider: undefined,
@@ -140,6 +142,9 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
   hoverProvider: true,
   definitionProvider: true,
   referencesProvider: true, // ENABLED: References implementation
+  codeLensProvider: {
+    resolveProvider: false,
+  },
   diagnosticProvider: {
     identifier: 'apex-ls-ts',
     interFileDependencies: true,

@@ -172,12 +172,10 @@ export const createAndStartClient = async (
   context: vscode.ExtensionContext,
   restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> => {
-  console.log('🔥 createAndStartClient called!');
-  logToOutputChannel('🔥 createAndStartClient called!', 'info');
+  logToOutputChannel('createAndStartClient called!', 'info');
 
   // Check if a client is already running
   if (Client) {
-    console.log('⚠️ Client already exists, skipping creation');
     logToOutputChannel('Client already exists, skipping creation', 'warning');
     return;
   }
@@ -187,32 +185,24 @@ export const createAndStartClient = async (
     updateApexServerStatusStarting();
 
     const environment = detectEnvironment();
-    console.log(
-      `🌍 Environment detected: ${environment} mode (UIKind: ${vscode.env.uiKind})`,
-    );
-    console.log(`🚀 Starting language server in ${environment} mode`);
     logToOutputChannel(
-      `🌍 Environment detected: ${environment} mode (UIKind: ${vscode.env.uiKind})`,
+      `Environment detected: ${environment} mode (UIKind: ${vscode.env.uiKind})`,
       'info',
     );
     logToOutputChannel(
-      `🚀 Starting language server in ${environment} mode`,
+      `Starting language server in ${environment} mode`,
       'info',
     );
 
     if (environment === 'web') {
       // Web environment - use worker-based approach
-      console.log('🌐 Creating WEB language client');
       logToOutputChannel('Creating WEB language client', 'debug');
       await createWebLanguageClient(context, environment);
-      console.log('✅ WEB language client created successfully');
       logToOutputChannel('WEB language client created successfully', 'debug');
     } else {
       // Desktop environment - use Node.js server-based approach with proper server config
-      console.log('🖥️ Creating DESKTOP language client');
       logToOutputChannel('Creating DESKTOP language client', 'debug');
       await createDesktopLanguageClient(context, environment);
-      console.log('✅ DESKTOP language client created successfully');
       logToOutputChannel(
         'DESKTOP language client created successfully',
         'debug',
@@ -329,8 +319,10 @@ async function createWebLanguageClient(
       {
         documentSelector: [
           { scheme: 'file', language: 'apex' },
+          { scheme: 'file', language: 'apex-anon' },
           { scheme: 'vscode-test-web', language: 'apex' },
           { scheme: 'apexlib', language: 'apex' },
+          { scheme: 'vscode-test-web', language: 'apex-anon' },
         ],
         synchronize: {
           configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
@@ -467,7 +459,6 @@ async function createWebLanguageClient(
   });
 
   // Store client for disposal with ClientInterface wrapper
-  console.log('Setting global Client to web client');
   logToOutputChannel('Setting global Client to web client', 'debug');
   Client = {
     languageClient,
@@ -546,11 +537,17 @@ async function createWebLanguageClient(
     },
     sendNotification: (method: string, params?: any) => {
       try {
-        console.log(`Sending notification: ${method}`);
+        logToOutputChannel(`Sending notification: ${method}`, 'debug');
         try {
-          console.log('Notification params:', JSON.stringify(params, null, 2));
+          logToOutputChannel(
+            `Notification params: ${JSON.stringify(params, null, 2)}`,
+            'debug',
+          );
         } catch (_error) {
-          console.log('Notification params: [unable to serialize]');
+          logToOutputChannel(
+            'Notification params: [unable to serialize]',
+            'debug',
+          );
         }
         logToOutputChannel(`Sending notification: ${method}`, 'debug');
 
@@ -560,16 +557,20 @@ async function createWebLanguageClient(
           try {
             cleanParams = JSON.parse(JSON.stringify(params));
           } catch (error) {
-            console.error('Failed to clean params for notification:', error);
+            logToOutputChannel(
+              `Failed to clean params for notification: ${error}`,
+              'error',
+            );
             cleanParams = {};
           }
         }
 
         languageClient.sendNotification(method, cleanParams);
-        console.log(`✅ Successfully sent notification: ${method}`);
-        logToOutputChannel(`Successfully sent notification: ${method}`, 'debug');
+        logToOutputChannel(
+          `Successfully sent notification: ${method}`,
+          'debug',
+        );
       } catch (error) {
-        console.log(`Failed to send notification ${method}:`, error);
         logToOutputChannel(
           `Failed to send notification ${method}: ${error}`,
           'error',
@@ -580,8 +581,10 @@ async function createWebLanguageClient(
             'error',
           );
         } catch (_jsonError) {
-          console.log('Failed to stringify params:', _jsonError);
-          logToOutputChannel('Failed to stringify notification params', 'error');
+          logToOutputChannel(
+            'Failed to stringify notification params',
+            'error',
+          );
         }
         throw error;
       }
@@ -801,7 +804,6 @@ async function createDesktopLanguageClient(
   await nodeClient.start();
 
   // Wrap in ClientInterface to match our global Client type
-  console.log('Setting global Client to desktop client');
   logToOutputChannel('Setting global Client to desktop client', 'debug');
   Client = {
     languageClient: nodeClient,

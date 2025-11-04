@@ -2962,6 +2962,12 @@ export class ApexSymbolCollectorListener
     // Determine namespace based on context
     const namespace = this.determineNamespaceForType(name, kind);
 
+    // Convert @isTest annotation to isTestMethod modifier for classes
+    const annotations = this.getCurrentAnnotations();
+    if (annotations.some((ann) => ann.name.toLowerCase() === 'istest')) {
+      modifiers = { ...modifiers, isTestMethod: true };
+    }
+
     // Get current scope path for unique symbol ID
     const scopePath = this.symbolTable.getCurrentScopePath();
     const typeSymbol = SymbolFactory.createFullSymbolWithNamespace(
@@ -3040,6 +3046,12 @@ export class ApexSymbolCollectorListener
 
     // Get current scope path for unique symbol ID
     const scopePath = this.symbolTable.getCurrentScopePath();
+
+    // Convert @isTest annotation to isTestMethod modifier
+    const annotations = this.getCurrentAnnotations();
+    if (annotations.some((ann) => ann.name.toLowerCase() === 'istest')) {
+      modifiers = { ...modifiers, isTestMethod: true };
+    }
 
     const methodSymbol = SymbolFactory.createFullSymbolWithNamespace(
       name,
