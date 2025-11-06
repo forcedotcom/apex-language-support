@@ -1,9 +1,7 @@
 ---
-description:
-globs:
-alwaysApply: true
+description: Complete Effect-TS Documentation
+alwaysApply: false
 ---
-
 ---
 
 description: "Expert guidelines for TypeScript and Node.js development, including tech stack (Lodash, Zod), shortcuts for pair programming and prompt improvement, core principles, coding standards (naming, functions, types), code review checklist, documentation standards (Google Style Guide, TypeDoc), and Git commit rules."

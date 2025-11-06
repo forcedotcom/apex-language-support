@@ -128,6 +128,16 @@ describe('Configuration Module', () => {
             useAsyncCommentProcessing: true,
             documentChangeDebounceMs: 300,
           },
+          queueProcessing: {
+            maxConcurrency: {
+              HIGH: 50,
+              IMMEDIATE: 50,
+              LOW: 10,
+              NORMAL: 25,
+            },
+            yieldDelayMs: 25,
+            yieldInterval: 50,
+          },
           environment: {
             runtimePlatform: 'desktop',
             serverMode: 'production',
