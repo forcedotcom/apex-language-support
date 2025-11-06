@@ -1,0 +1,77 @@
+# GitHub Labels Configuration
+# These labels are synced with git2gus config.json
+# To sync these labels to GitHub, use a tool like github-label-sync or a GitHub Action
+
+# Area labels (from productTagLabels)
+- name: area:codecompletion
+  color: "0E8A16"
+  description: "Code completion related issues"
+
+- name: area:debugger
+  color: "0E8A16"
+  description: "Debugger related issues"
+
+- name: area:doc
+  color: "0E8A16"
+  description: "Documentation related issues"
+
+- name: area:localization
+  color: "0E8A16"
+  description: "Localization and internationalization issues"
+
+- name: area:namespaces
+  color: "0E8A16"
+  description: "Namespace related issues"
+
+- name: area:performance
+  color: "0E8A16"
+  description: "Performance related issues"
+
+- name: area:quality
+  color: "0E8A16"
+  description: "Code quality related issues"
+
+- name: area:setup
+  color: "0E8A16"
+  description: "Setup and configuration issues"
+
+- name: area:templates
+  color: "0E8A16"
+  description: "Template related issues"
+
+- name: area:tests
+  color: "0E8A16"
+  description: "Test related issues"
+
+- name: area:usability
+  color: "0E8A16"
+  description: "Usability and UX related issues"
+
+- name: area:apex
+  color: "0E8A16"
+  description: "Apex language related issues"
+
+# Issue type labels (from issueTypeLabels)
+- name: feature
+  color: "0C8ED9"
+  description: "Feature request or enhancement"
+
+- name: type:bug
+  color: "D73A4A"
+  description: "Bug report"
+
+- name: type:security
+  color: "B60205"
+  description: "Security vulnerability"
+
+- name: type:feedback
+  color: "D876E3"
+  description: "User feedback"
+
+- name: status:duplicate
+  color: "C2E0C6"
+  description: "Duplicate issue"
+
+- name: type:community-contrib
+  color: "0C8ED9"
+  description: "Community contribution"

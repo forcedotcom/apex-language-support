@@ -1,0 +1,28 @@
+{
+  "productTag": "a1aB000000005G3IAI",
+  "productTagLabels": {
+    "area:codecompletion": "a1aB0000000JglYIAS",
+    "area:debugger": "a1aB00000000v2YIAQ",
+    "area:doc": "a1aB0000000BPyKIAW",
+    "area:localization": "a1aB0000000BPyKIAW",
+    "area:namespaces": "a1aB0000000BPyKIAW",
+    "area:performance": "a1aB000000005G3IAI",
+    "area:quality": "a1aB0000000BPyKIAW",
+    "area:setup": "a1aB0000000BPyKIAW",
+    "area:templates": "a1aB0000000BPyKIAW",
+    "area:tests": "a1aB0000000BPyKIAW",
+    "area:usability": "a1aB0000000BPyKIAW",
+    "area:apex": "a1aB0000000JglYIAS"
+  },
+  "issueTypeLabels": {
+    "feature": "USER STORY",
+    "type:bug": "BUG P3",
+    "type:security": "BUG P2",
+    "type:feedback": "",
+    "status:duplicate": "",
+    "type:community-contrib": "USER STORY"
+  },
+  "defaultBuild": "offcore.tooling.65",
+  "hideWorkItemUrl": "true",
+  "statusWhenClosed": "CLOSED"
+}
