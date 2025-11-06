@@ -50,8 +50,13 @@ describe('Workspace Load Handler', () => {
   let mockLanguageClient: ClientInterface;
   let mockLoadWorkspaceForServer: jest.Mock;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+
+    // Reset workspace state before each test
+    await Effect.runPromise(
+      Effect.provide(resetWorkspaceLoadingState, WorkspaceStateLive),
+    );
 
     // Mock language client
     mockLanguageClient = {

@@ -46,6 +46,14 @@ jest.mock('../src/logging', () => ({
   getOutputChannel: jest.fn().mockReturnValue({
     appendLine: jest.fn(),
   }),
+  createFormattedOutputChannel: jest.fn().mockReturnValue({
+    appendLine: jest.fn(),
+    replace: jest.fn(),
+    clear: jest.fn(),
+    show: jest.fn(),
+    hide: jest.fn(),
+    dispose: jest.fn(),
+  }),
 }));
 
 // Mock vscode-languageclient types
