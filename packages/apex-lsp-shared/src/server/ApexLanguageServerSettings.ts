@@ -68,8 +68,11 @@ export interface EnvironmentSettings {
   /** Current server mode */
   serverMode: ServerMode;
 
-  /** Whether to log comment collection performance metrics (default: false) */
-  enablePerformanceLogging: boolean;
+  /** Whether to enable performance profiling (default: false) */
+  enablePerformanceProfiling: boolean;
+
+  /** Type of profiling to perform when enablePerformanceProfiling is true (default: 'cpu') */
+  profilingType: 'cpu' | 'heap' | 'both';
 
   /** Log level for comment collection (default: 'info') */
   commentCollectionLogLevel: 'debug' | 'info' | 'warn' | 'error';

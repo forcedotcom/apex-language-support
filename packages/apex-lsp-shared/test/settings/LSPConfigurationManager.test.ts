@@ -65,7 +65,8 @@ describe('LSPConfigurationManager', () => {
       environment: {
         runtimePlatform: 'desktop',
         serverMode: 'production',
-        enablePerformanceLogging: false,
+        enablePerformanceProfiling: false,
+        profilingType: 'cpu',
         commentCollectionLogLevel: 'info',
       },
       resources: {
@@ -109,7 +110,7 @@ describe('LSPConfigurationManager', () => {
       updateSettings: jest.fn(),
       updateFromLSPConfiguration: jest.fn().mockReturnValue(true),
       onSettingsChange: jest.fn().mockReturnValue(jest.fn()),
-      isPerformanceLoggingEnabled: jest.fn().mockReturnValue(false),
+      isPerformanceProfilingEnabled: jest.fn().mockReturnValue(false),
       getDocumentChangeDebounceMs: jest.fn().mockReturnValue(300),
       shouldUseAsyncCommentProcessing: jest.fn().mockReturnValue(true),
       getResourceLoadMode: jest.fn().mockReturnValue('full'),
@@ -119,7 +120,10 @@ describe('LSPConfigurationManager', () => {
         associateComments: false,
       }),
       getServerMode: jest.fn().mockReturnValue('production'),
-      getEnablePerformanceLogging: jest.fn().mockReturnValue(false),
+      getEnablePerformanceProfiling: jest.fn().mockReturnValue(false),
+      setEnablePerformanceProfiling: jest.fn().mockReturnValue(true),
+      getProfilingType: jest.fn().mockReturnValue('cpu'),
+      setProfilingType: jest.fn().mockReturnValue(true),
       getRuntimePlatform: jest.fn().mockReturnValue('desktop'),
       getDefaultSettings: jest.fn().mockReturnValue(mockSettings),
     } as unknown as jest.Mocked<ApexSettingsManager>;
@@ -355,11 +359,11 @@ describe('LSPConfigurationManager', () => {
   });
 
   describe('Performance and Resource Settings', () => {
-    it('should check if performance logging is enabled', () => {
-      const enabled = configurationManager.isPerformanceLoggingEnabled();
+    it('should check if performance profiling is enabled', () => {
+      const enabled = configurationManager.isPerformanceProfilingEnabled();
 
       expect(
-        mockSettingsManager.isPerformanceLoggingEnabled,
+        mockSettingsManager.isPerformanceProfilingEnabled,
       ).toHaveBeenCalled();
       expect(enabled).toBe(false);
     });

@@ -189,10 +189,20 @@
           "default": 300,
           "description": "%configuration.apex-ls-ts.performance.documentChangeDebounceMs.description%"
         },
-        "apex.environment.enablePerformanceLogging": {
+        "apex.environment.enablePerformanceProfiling": {
           "type": "boolean",
           "default": false,
-          "description": "%configuration.apex-ls-ts.environment.enablePerformanceLogging.description%"
+          "description": "%configuration.apex-ls-ts.environment.enablePerformanceProfiling.description%"
+        },
+        "apex.environment.profilingType": {
+          "type": "string",
+          "enum": [
+            "cpu",
+            "heap",
+            "both"
+          ],
+          "default": "cpu",
+          "description": "%configuration.apex-ls-ts.environment.profilingType.description%"
         },
         "apex.resources.loadMode": {
           "type": "string",

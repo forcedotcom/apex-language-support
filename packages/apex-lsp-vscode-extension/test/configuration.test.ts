@@ -98,7 +98,8 @@ describe('Configuration Module', () => {
           if (key === 'performance.commentCollectionMaxFileSize') return 102400;
           if (key === 'performance.useAsyncCommentProcessing') return true;
           if (key === 'performance.documentChangeDebounceMs') return 300;
-          if (key === 'environment.enablePerformanceLogging') return false;
+          if (key === 'environment.enablePerformanceProfiling') return false;
+          if (key === 'environment.profilingType') return 'cpu';
           if (key === 'resources.loadMode') return 'lazy';
           if (key === 'findMissingArtifact.enabled') return false;
           if (key === 'findMissingArtifact.blockingWaitTimeoutMs') return 2000;
@@ -141,7 +142,8 @@ describe('Configuration Module', () => {
           environment: {
             runtimePlatform: 'desktop',
             serverMode: 'production',
-            enablePerformanceLogging: false,
+            enablePerformanceProfiling: false,
+            profilingType: 'cpu',
             commentCollectionLogLevel: 'info',
           },
           resources: {
@@ -190,7 +192,8 @@ describe('Configuration Module', () => {
       expect(settings.apex.performance.commentCollectionMaxFileSize).toBe(
         102400,
       );
-      expect(settings.apex.environment.enablePerformanceLogging).toBe(false);
+      expect(settings.apex.environment.enablePerformanceProfiling).toBe(false);
+      expect(settings.apex.environment.profilingType).toBe('cpu');
     });
 
     it('should handle missing artifact configuration settings', () => {
@@ -343,7 +346,8 @@ describe('Configuration Module', () => {
             documentChangeDebounceMs: 300,
           },
           environment: {
-            enablePerformanceLogging: false,
+            enablePerformanceProfiling: false,
+            profilingType: 'cpu',
           },
           resources: {
             loadMode: 'lazy',

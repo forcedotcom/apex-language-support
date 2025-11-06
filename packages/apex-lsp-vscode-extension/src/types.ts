@@ -44,7 +44,8 @@ export interface WorkspaceSettings {
       documentChangeDebounceMs: number;
     };
     environment: {
-      enablePerformanceLogging: boolean;
+      enablePerformanceProfiling: boolean;
+      profilingType: 'cpu' | 'heap' | 'both';
     };
     resources: {
       loadMode: 'lazy' | 'full';

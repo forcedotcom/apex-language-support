@@ -7,6 +7,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as os from 'os';
 import {
   LanguageClientOptions,
   ServerOptions,
@@ -14,7 +15,7 @@ import {
   CloseAction,
   ErrorAction,
 } from 'vscode-languageclient/node';
-import { getDebugConfig } from './configuration';
+import { getDebugConfig, getWorkspaceSettings } from './configuration';
 import {
   logServerMessage,
   getWorkerServerOutputChannel,
@@ -65,6 +66,64 @@ export const getDebugOptions = (): string[] | undefined => {
   }
 
   return debugFlags;
+};
+
+/**
+ * Gets profiling flags based on settings
+ * @param runtimePlatform The runtime platform (desktop or web)
+ * @param context The extension context to get workspace path
+ * @returns Array of profiling flags or empty array if profiling is disabled
+ */
+const getProfilingFlags = (
+  runtimePlatform: 'desktop' | 'web',
+  context: vscode.ExtensionContext,
+): string[] => {
+  // Profiling is only available on desktop
+  if (runtimePlatform !== 'desktop') {
+    return [];
+  }
+
+  const settings = getWorkspaceSettings();
+  const enableProfiling =
+    settings?.apex?.environment?.enablePerformanceProfiling ?? false;
+  const profilingType = settings?.apex?.environment?.profilingType ?? 'cpu';
+
+  if (!enableProfiling) {
+    return [];
+  }
+
+  // Determine output directory - use workspace root if available, otherwise use temp
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  const outputDir = workspaceFolder
+    ? workspaceFolder.uri.fsPath
+    : os.tmpdir();
+
+  const flags: string[] = [];
+  if (profilingType === 'cpu' || profilingType === 'both') {
+    flags.push('--cpu-prof');
+    flags.push(`--cpu-prof-dir=${outputDir}`);
+  }
+  if (profilingType === 'heap' || profilingType === 'both') {
+    flags.push('--heap-prof');
+    flags.push(`--heap-prof-dir=${outputDir}`);
+  }
+
+  if (flags.length > 0) {
+    logServerMessage(
+      `Profiling enabled: ${profilingType} (flags: ${flags.join(', ')})`,
+      'info',
+    );
+    logServerMessage(
+      `Profile files will be written to: ${outputDir}`,
+      'info',
+    );
+    logServerMessage(
+      `CPU profiles: CPU.*.cpuprofile, Heap profiles: *.heapsnapshot`,
+      'info',
+    );
+  }
+
+  return flags;
 };
 
 /**
@@ -126,6 +185,28 @@ export const createServerOptions = (
   // Get debug options for the return value
   const debugOptions = getDebugOptions();
 
+  // Detect runtime platform (desktop or web)
+  const runtimePlatform: 'desktop' | 'web' =
+    vscode.env.uiKind === vscode.UIKind.Web ? 'web' : 'desktop';
+
+  // Get profiling flags
+  const profilingFlags = getProfilingFlags(runtimePlatform, context);
+
+  // Combine debug options and profiling flags
+  const runExecArgv: string[] = [];
+  const debugExecArgv: string[] = [];
+
+  // Add profiling flags to both run and debug
+  if (profilingFlags.length > 0) {
+    runExecArgv.push(...profilingFlags);
+    debugExecArgv.push(...profilingFlags);
+  }
+
+  // Add debug flags only to debug
+  if (debugOptions) {
+    debugExecArgv.push(...debugOptions);
+  }
+
   return {
     run: {
       module: serverModule,
@@ -135,6 +216,9 @@ export const createServerOptions = (
           NODE_OPTIONS: '--enable-source-maps',
           APEX_LS_MODE: serverMode,
         },
+        ...(runExecArgv.length > 0 && {
+          execArgv: runExecArgv,
+        }),
       },
     },
     debug: {
@@ -145,8 +229,8 @@ export const createServerOptions = (
           NODE_OPTIONS: '--enable-source-maps',
           APEX_LS_MODE: serverMode,
         },
-        ...(debugOptions && {
-          execArgv: debugOptions,
+        ...(debugExecArgv.length > 0 && {
+          execArgv: debugExecArgv,
         }),
       },
     },

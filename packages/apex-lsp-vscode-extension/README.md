@@ -91,14 +91,18 @@ Control logging and debugging:
 
 ```json
 {
-  "apex-ls-ts.environment.enablePerformanceLogging": false
+  "apex-ls-ts.environment.enablePerformanceProfiling": false,
+  "apex-ls-ts.environment.profilingType": "cpu"
 }
 ```
 
 #### Environment Options
 
-- **`enablePerformanceLogging`** (boolean, default: `false`)
-  - Enable performance logging for the language server.
+- **`enablePerformanceProfiling`** (boolean, default: `false`)
+  - Enable performance profiling for the language server (desktop only).
+- **`profilingType`** (string, default: `"cpu"`)
+  - Type of profiling to perform when enablePerformanceProfiling is true (desktop only).
+  - Options: `"cpu"` for CPU profiling, `"heap"` for heap profiling, or `"both"` for both.
 
 ### Debug Settings
 
@@ -208,7 +212,8 @@ Configure global settings in VSCode user settings:
   "apex-ls-ts.commentCollection.enableCommentCollection": true,
   "apex-ls-ts.performance.useAsyncCommentProcessing": true,
   "apex-ls-ts.performance.documentChangeDebounceMs": 500,
-  "apex-ls-ts.environment.enablePerformanceLogging": false
+  "apex-ls-ts.environment.enablePerformanceProfiling": false,
+  "apex-ls-ts.environment.profilingType": "cpu"
 }
 ```
 
@@ -242,10 +247,11 @@ For optimal performance, especially with large codebases:
    }
    ```
 
-4. **Enable performance logging** to identify bottlenecks:
+4. **Enable performance profiling** to identify bottlenecks (desktop only):
    ```json
    {
-     "apex-ls-ts.environment.enablePerformanceLogging": true
+     "apex-ls-ts.environment.enablePerformanceProfiling": true,
+     "apex-ls-ts.environment.profilingType": "both"
    }
    ```
 
@@ -263,7 +269,7 @@ For optimal performance, especially with large codebases:
 1. Reduce `commentCollectionMaxFileSize` for large files.
 2. Disable `associateCommentsWithSymbols` if not needed.
 3. Increase `documentChangeDebounceMs` for busy editing environments.
-4. Enable performance logging to identify bottlenecks.
+4. Enable performance profiling to identify bottlenecks (desktop only).
 
 ### Configuration Not Applying
 
@@ -275,6 +281,6 @@ For optimal performance, especially with large codebases:
 
 For extension development and debugging:
 
-1. Enable performance logging: `"apex-ls-ts.environment.enablePerformanceLogging": true`
+1. Enable performance profiling: `"apex-ls-ts.environment.enablePerformanceProfiling": true`
 2. Set the trace level: `"apex-ls-ts.trace.server": "verbose"`
 3. Enable debugging: `

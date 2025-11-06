@@ -26,7 +26,8 @@ describe('ApexLanguageServerSettings Validation', () => {
           commentCollectionMaxFileSize: 102400,
         },
         environment: {
-          enablePerformanceLogging: false,
+          enablePerformanceProfiling: false,
+          profilingType: 'cpu',
         },
         resources: {
           loadMode: 'lazy' as const,
@@ -154,7 +155,7 @@ describe('ApexLanguageServerSettings Validation', () => {
       const validConfig = {
         commentCollection: { enableCommentCollection: true },
         performance: { commentCollectionMaxFileSize: 100 },
-        environment: { enablePerformanceLogging: false },
+        environment: { enablePerformanceProfiling: false, profilingType: 'cpu' },
         resources: { loadMode: 'full' },
         version: '1.0.0',
         logLevel: 'debug',
@@ -239,7 +240,8 @@ describe('ApexLanguageServerSettings Validation', () => {
             environment: {
               runtimePlatform: 'desktop',
               serverMode: 'production',
-              enablePerformanceLogging: false,
+              enablePerformanceProfiling: false,
+              profilingType: 'cpu',
               commentCollectionLogLevel: 'info',
             },
             findMissingArtifact: {
@@ -331,7 +333,8 @@ describe('ApexLanguageServerSettings Validation', () => {
           environment: {
             runtimePlatform: 'desktop',
             serverMode: 'production',
-            enablePerformanceLogging: false,
+            enablePerformanceProfiling: false,
+            profilingType: 'cpu',
             commentCollectionLogLevel: 'info',
           },
           findMissingArtifact: {

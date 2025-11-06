@@ -424,7 +424,8 @@ The server looks for configuration in these sections (in order of precedence):
 {
   "apex": {
     "environment": {
-      "enablePerformanceLogging": false,
+      "enablePerformanceProfiling": false,
+      "profilingType": "cpu",
       "commentCollectionLogLevel": "info"
     }
   }
@@ -433,8 +434,11 @@ The server looks for configuration in these sections (in order of precedence):
 
 ##### Options:
 
-- **`enablePerformanceLogging`** (boolean, default: `false`)
-  - Enable detailed performance logging for comment collection operations.
+- **`enablePerformanceProfiling`** (boolean, default: `false`)
+  - Enable performance profiling for the language server (desktop only).
+- **`profilingType`** (string, default: `"cpu"`)
+  - Type of profiling to perform when enablePerformanceProfiling is true (desktop only).
+  - Options: `"cpu"` for CPU profiling, `"heap"` for heap profiling, or `"both"` for both.
 
 - **`commentCollectionLogLevel`** (string, default: `"info"`)
   - Log level for comment collection operations.
@@ -487,7 +491,8 @@ The language server automatically applies different defaults based on the runtim
   "apex.commentCollection.includeSingleLineComments": false,
   "apex.commentCollection.associateCommentsWithSymbols": true,
   "apex.performance.commentCollectionMaxFileSize": 200000,
-  "apex.environment.enablePerformanceLogging": true,
+  "apex.environment.enablePerformanceProfiling": true,
+  "apex.environment.profilingType": "both",
   "apex.resources.loadMode": "full"
 }
 ```

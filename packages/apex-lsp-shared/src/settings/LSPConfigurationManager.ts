@@ -312,10 +312,20 @@ export class LSPConfigurationManager {
           }
         }
 
-        // Enable performance logging
-        if (envSettings.enablePerformanceLogging !== undefined) {
-          const changed = this.settingsManager.setEnablePerformanceLogging(
-            envSettings.enablePerformanceLogging,
+        // Enable performance profiling
+        if (envSettings.enablePerformanceProfiling !== undefined) {
+          const changed = this.settingsManager.setEnablePerformanceProfiling(
+            envSettings.enablePerformanceProfiling,
+          );
+          if (changed) {
+            hasChanges = true;
+          }
+        }
+
+        // Profiling type
+        if (envSettings.profilingType !== undefined) {
+          const changed = this.settingsManager.setProfilingType(
+            envSettings.profilingType,
           );
           if (changed) {
             hasChanges = true;
@@ -646,11 +656,11 @@ export class LSPConfigurationManager {
   }
 
   /**
-   * Check if performance logging is enabled
-   * @returns True if performance logging is enabled
+   * Check if performance profiling is enabled
+   * @returns True if performance profiling is enabled
    */
-  public isPerformanceLoggingEnabled(): boolean {
-    return this.settingsManager.isPerformanceLoggingEnabled();
+  public isPerformanceProfilingEnabled(): boolean {
+    return this.settingsManager.isPerformanceProfilingEnabled();
   }
 
   /**
@@ -748,8 +758,8 @@ export class LSPConfigurationManager {
   private autoDetectMode(): void {
     const serverMode = this.settingsManager.getServerMode();
 
-    // Use development mode if performance logging is enabled
-    if (this.settingsManager.getEnablePerformanceLogging()) {
+    // Use development mode if performance profiling is enabled
+    if (this.settingsManager.getEnablePerformanceProfiling()) {
       this.capabilitiesManager.setMode('development');
       return;
     }
@@ -765,8 +775,8 @@ export class LSPConfigurationManager {
     this.settingsChangeListener = this.settingsManager.onSettingsChange(
       (newSettings) => {
         // Handle settings changes that might affect capabilities
-        if (this.settingsManager.getEnablePerformanceLogging()) {
-          // Switch to development mode if performance logging is enabled
+        if (this.settingsManager.getEnablePerformanceProfiling()) {
+          // Switch to development mode if performance profiling is enabled
           this.capabilitiesManager.setMode('development');
         }
         // Note: The settings are already updated when this listener is triggered
