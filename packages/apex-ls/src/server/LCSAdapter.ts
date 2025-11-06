@@ -484,6 +484,151 @@ export class LCSAdapter {
       },
     );
     this.logger.debug('✅ apex/loadWorkspace handler registered');
+
+    // Register profiling handlers (only in desktop/Node.js environment)
+    this.registerProfilingHandlers();
+  }
+
+  /**
+   * Register profiling request handlers (only in desktop environment)
+   */
+  private registerProfilingHandlers(): void {
+    // Only register if runtime platform is desktop (Node.js)
+    const runtimePlatform =
+      LSPConfigurationManager.getInstance().getRuntimePlatform();
+    if (runtimePlatform !== 'desktop') {
+      this.logger.debug(
+        '⚠️ Profiling handlers not registered (not in desktop environment)',
+      );
+      return;
+    }
+
+    // Lazy-load ProfilingService to avoid bundling issues
+    let profilingService: any = null;
+    const getProfilingService = async () => {
+      if (!profilingService) {
+        const { ProfilingService } = await import('../profiling/ProfilingService');
+        profilingService = ProfilingService.getInstance();
+        
+        // Initialize with logger and output directory
+        // Get workspace folder from initialization params or use current working directory
+        let outputDir = process.cwd();
+        try {
+          // Try to get workspace folder from connection
+          // Note: workspaceFolders may not be available at this point, so we use a fallback
+          if (typeof process !== 'undefined' && process.cwd) {
+            outputDir = process.cwd();
+          }
+        } catch (error) {
+          // Fallback to current working directory
+          outputDir = process.cwd();
+        }
+        
+        profilingService.initialize(this.logger, outputDir);
+      }
+      return profilingService;
+    };
+
+    // Register apex/profiling/start
+    this.connection.onRequest(
+      'apex/profiling/start',
+      async (params: { type?: 'cpu' | 'heap' | 'both' }): Promise<{
+        success: boolean;
+        message: string;
+        type?: 'cpu' | 'heap' | 'both';
+      }> => {
+        this.logger.debug('🔍 apex/profiling/start request received');
+        try {
+          const service = await getProfilingService();
+          
+          if (!service.isAvailable()) {
+            return {
+              success: false,
+              message: 'Profiling is not available in this environment (Node.js required)',
+            };
+          }
+
+          // Get profiling type from params or settings
+          const settings = LSPConfigurationManager.getInstance().getSettings();
+          const profilingType = params.type ?? settings.apex.environment.profilingType ?? 'cpu';
+
+          const result = await service.startProfiling(profilingType);
+          this.logger.info(`Profiling started: ${result.message}`);
+          return result;
+        } catch (error) {
+          this.logger.error(`Error starting profiling: ${error}`);
+          return {
+            success: false,
+            message: `Failed to start profiling: ${error}`,
+          };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/profiling/start handler registered');
+
+    // Register apex/profiling/stop
+    this.connection.onRequest(
+      'apex/profiling/stop',
+      async (): Promise<{
+        success: boolean;
+        message: string;
+        files?: string[];
+      }> => {
+        this.logger.debug('🔍 apex/profiling/stop request received');
+        try {
+          const service = await getProfilingService();
+          
+          if (!service.isAvailable()) {
+            return {
+              success: false,
+              message: 'Profiling is not available in this environment',
+            };
+          }
+
+          const result = await service.stopProfiling();
+          if (result.success && result.files) {
+            this.logger.info(
+              `Profiling stopped: ${result.message}, files: ${result.files.join(', ')}`,
+            );
+          } else {
+            this.logger.info(`Profiling stop: ${result.message}`);
+          }
+          return result;
+        } catch (error) {
+          this.logger.error(`Error stopping profiling: ${error}`);
+          return {
+            success: false,
+            message: `Failed to stop profiling: ${error}`,
+          };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/profiling/stop handler registered');
+
+    // Register apex/profiling/status
+    this.connection.onRequest(
+      'apex/profiling/status',
+      async (): Promise<{
+        isProfiling: boolean;
+        type: 'idle' | 'cpu' | 'heap' | 'both';
+        available: boolean;
+      }> => {
+        this.logger.debug('🔍 apex/profiling/status request received');
+        try {
+          const service = await getProfilingService();
+          const status = service.getStatus();
+          return status;
+        } catch (error) {
+          this.logger.error(`Error getting profiling status: ${error}`);
+          return {
+            isProfiling: false,
+            type: 'idle',
+            available: false,
+          };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/profiling/status handler registered');
   }
 
   /**

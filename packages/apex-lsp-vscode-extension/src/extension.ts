@@ -19,11 +19,17 @@ import {
   createApexLanguageStatusActions,
   updateLogLevelStatusItems,
   createApexServerStatusItem,
+  createProfilingStatusItem,
+  registerProfilingStatusMenu,
+  updateProfilingStatus,
+  showProfilingStatusItem,
+  hideProfilingStatusItem,
 } from './status-bar';
 import {
   initializeCommandState,
   registerLogLevelCommands,
   registerRestartCommand,
+  registerProfilingCommands,
   setRestartHandler,
 } from './commands';
 import {
@@ -89,6 +95,50 @@ export function activate(context: vscode.ExtensionContext): void {
 
   registerLogLevelCommands(context);
   logToOutputChannel('📝 Log level commands registered', 'debug');
+
+  // Register profiling commands (only in desktop environment)
+  if (vscode.env.uiKind !== vscode.UIKind.Web) {
+    registerProfilingCommands(context);
+    logToOutputChannel('📝 Profiling commands registered', 'debug');
+
+    // Create profiling status item
+    createProfilingStatusItem(context);
+    logToOutputChannel('📊 Profiling status item created', 'debug');
+
+    // Register profiling status menu
+    registerProfilingStatusMenu(context);
+    logToOutputChannel('📝 Profiling status menu registered', 'debug');
+
+    // Check if profiling is enabled and show/hide status item accordingly
+    const config = vscode.workspace.getConfiguration('apex.environment');
+    const enableProfiling = config.get<boolean>(
+      'enablePerformanceProfiling',
+      false,
+    );
+    if (enableProfiling) {
+      showProfilingStatusItem();
+    }
+
+    // Listen for configuration changes to show/hide profiling status item
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (
+          event.affectsConfiguration('apex.environment.enablePerformanceProfiling')
+        ) {
+          const newConfig = vscode.workspace.getConfiguration('apex.environment');
+          const newEnableProfiling = newConfig.get<boolean>(
+            'enablePerformanceProfiling',
+            false,
+          );
+          if (newEnableProfiling) {
+            showProfilingStatusItem();
+          } else {
+            hideProfilingStatusItem();
+          }
+        }
+      }),
+    );
+  }
 
   // Create language status actions for log levels and restart
   createApexLanguageStatusActions(

@@ -364,6 +364,18 @@
       {
         "command": "apex.showAggregatedLogs",
         "title": "%commands.apex.showAggregatedLogs.title%"
+      },
+      {
+        "command": "apex.profiling.start",
+        "title": "%commands.apex.profiling.start.title%"
+      },
+      {
+        "command": "apex.profiling.stop",
+        "title": "%commands.apex.profiling.stop.title%"
+      },
+      {
+        "command": "apex.profiling.status",
+        "title": "%commands.apex.profiling.status.title%"
       }
     ],
     "viewsContainers": {

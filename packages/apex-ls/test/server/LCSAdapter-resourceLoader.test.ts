@@ -93,6 +93,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       getCapabilities: jest.fn(),
       setInitialSettings: jest.fn(),
       getSettingsManager: jest.fn().mockReturnValue(mockSettingsManager),
+      getRuntimePlatform: jest.fn().mockReturnValue('desktop'),
     } as any;
 
     // Mock the getInstance method

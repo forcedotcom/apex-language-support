@@ -19,6 +19,7 @@ import {
   ApexSymbolCollectorListener,
   SymbolTable,
   ResourceLoader,
+  ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   enableConsoleLogging,
@@ -288,6 +289,13 @@ describe('HoverProcessingService Integration Tests', () => {
   afterAll(() => {
     // Clean up ResourceLoader singleton after all tests
     (ResourceLoader as any).instance = null;
+    
+    // Clean up ApexSymbolProcessingManager to stop any running intervals
+    try {
+      ApexSymbolProcessingManager.reset();
+    } catch (error) {
+      // Ignore errors during cleanup
+    }
   });
 
   describe('Apex Access Modifier Context Analysis', () => {

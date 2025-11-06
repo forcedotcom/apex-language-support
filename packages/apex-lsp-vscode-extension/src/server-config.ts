@@ -94,9 +94,7 @@ const getProfilingFlags = (
 
   // Determine output directory - use workspace root if available, otherwise use temp
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  const outputDir = workspaceFolder
-    ? workspaceFolder.uri.fsPath
-    : os.tmpdir();
+  const outputDir = workspaceFolder ? workspaceFolder.uri.fsPath : os.tmpdir();
 
   const flags: string[] = [];
   if (profilingType === 'cpu' || profilingType === 'both') {
@@ -113,12 +111,9 @@ const getProfilingFlags = (
       `Profiling enabled: ${profilingType} (flags: ${flags.join(', ')})`,
       'info',
     );
+    logServerMessage(`Profile files will be written to: ${outputDir}`, 'info');
     logServerMessage(
-      `Profile files will be written to: ${outputDir}`,
-      'info',
-    );
-    logServerMessage(
-      `CPU profiles: CPU.*.cpuprofile, Heap profiles: *.heapsnapshot`,
+      'CPU profiles: CPU.*.cpuprofile, Heap profiles: *.heapsnapshot',
       'info',
     );
   }

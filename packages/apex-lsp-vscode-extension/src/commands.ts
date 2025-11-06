@@ -12,6 +12,7 @@ import { logToOutputChannel, updateLogLevel } from './logging';
 import {
   updateLogLevelStatusItems,
   refreshApexServerStatusLogLevel,
+  updateProfilingStatus,
 } from './status-bar';
 
 /**
@@ -219,3 +220,177 @@ export const setLastRestartTime = (time: number): void => {
  * @returns The extension context
  */
 export const getGlobalContext = (): vscode.ExtensionContext => globalContext;
+
+/**
+ * Registers profiling commands (start/stop/status)
+ * Only registers if running in desktop environment
+ * @param context The extension context
+ */
+export const registerProfilingCommands = (
+  context: vscode.ExtensionContext,
+): void => {
+  // Only register in desktop environment
+  if (vscode.env.uiKind === vscode.UIKind.Web) {
+    logToOutputChannel(
+      'Profiling commands not registered (web environment)',
+      'debug',
+    );
+    return;
+  }
+
+  // Get client from language-server module
+  const getClient = () => {
+    try {
+      const { getClient } = require('./language-server');
+      return getClient();
+    } catch (error) {
+      return undefined;
+    }
+  };
+
+  // Register apex.profiling.start
+  const startCommand = vscode.commands.registerCommand(
+    'apex.profiling.start',
+    async (params?: { type?: 'cpu' | 'heap' | 'both' }) => {
+      try {
+        const client = getClient();
+        if (!client) {
+          vscode.window.showErrorMessage(
+            'Language server is not available. Please wait for it to start.',
+          );
+          return;
+        }
+
+        // Get profiling type from params or settings
+        const config = vscode.workspace.getConfiguration('apex.environment');
+        const profilingType =
+          params?.type ??
+          config.get<'cpu' | 'heap' | 'both'>('profilingType', 'cpu');
+
+        logToOutputChannel(
+          `Starting profiling (type: ${profilingType})...`,
+          'info',
+        );
+
+        const result = await client.languageClient.sendRequest(
+          'apex/profiling/start',
+          { type: profilingType },
+        );
+
+        if (result.success) {
+          vscode.window.showInformationMessage(
+            `Profiling started: ${result.message}`,
+          );
+          logToOutputChannel(`Profiling started: ${result.message}`, 'info');
+          // Update profiling status item
+          await updateProfilingStatus();
+        } else {
+          vscode.window.showErrorMessage(
+            `Failed to start profiling: ${result.message}`,
+          );
+          logToOutputChannel(
+            `Failed to start profiling: ${result.message}`,
+            'error',
+          );
+        }
+      } catch (error) {
+        const errorMessage = `Error starting profiling: ${error}`;
+        vscode.window.showErrorMessage(errorMessage);
+        logToOutputChannel(errorMessage, 'error');
+      }
+    },
+  );
+
+  // Register apex.profiling.stop
+  const stopCommand = vscode.commands.registerCommand(
+    'apex.profiling.stop',
+    async () => {
+      try {
+        const client = getClient();
+        if (!client) {
+          vscode.window.showErrorMessage(
+            'Language server is not available. Please wait for it to start.',
+          );
+          return;
+        }
+
+        logToOutputChannel('Stopping profiling...', 'info');
+
+        const result = await client.languageClient.sendRequest(
+          'apex/profiling/stop',
+          {},
+        );
+
+        if (result.success) {
+          const filesMessage = result.files
+            ? `\nFiles saved:\n${result.files.join('\n')}`
+            : '';
+          vscode.window.showInformationMessage(
+            `Profiling stopped: ${result.message}${filesMessage}`,
+          );
+          logToOutputChannel(
+            `Profiling stopped: ${result.message}${filesMessage}`,
+            'info',
+          );
+          // Update profiling status item
+          await updateProfilingStatus();
+        } else {
+          vscode.window.showErrorMessage(
+            `Failed to stop profiling: ${result.message}`,
+          );
+          logToOutputChannel(
+            `Failed to stop profiling: ${result.message}`,
+            'error',
+          );
+        }
+      } catch (error) {
+        const errorMessage = `Error stopping profiling: ${error}`;
+        vscode.window.showErrorMessage(errorMessage);
+        logToOutputChannel(errorMessage, 'error');
+      }
+    },
+  );
+
+  // Register apex.profiling.status
+  const statusCommand = vscode.commands.registerCommand(
+    'apex.profiling.status',
+    async () => {
+      try {
+        const client = getClient();
+        if (!client) {
+          vscode.window.showErrorMessage(
+            'Language server is not available. Please wait for it to start.',
+          );
+          return;
+        }
+
+        const status = await client.languageClient.sendRequest(
+          'apex/profiling/status',
+          {},
+        );
+
+        const statusMessage = status.isProfiling
+          ? `Profiling is active (type: ${status.type})`
+          : 'Profiling is not active';
+        const availableMessage = status.available
+          ? 'Profiling is available'
+          : 'Profiling is not available in this environment';
+
+        vscode.window.showInformationMessage(
+          `${statusMessage}. ${availableMessage}.`,
+        );
+        logToOutputChannel(
+          `Profiling status: ${statusMessage}. ${availableMessage}.`,
+          'info',
+        );
+      } catch (error) {
+        const errorMessage = `Error getting profiling status: ${error}`;
+        vscode.window.showErrorMessage(errorMessage);
+        logToOutputChannel(errorMessage, 'error');
+      }
+    },
+  );
+
+  context.subscriptions.push(startCommand, stopCommand, statusCommand);
+  logToOutputChannel('Profiling commands registered', 'debug');
+};
