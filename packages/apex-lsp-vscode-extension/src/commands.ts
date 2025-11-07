@@ -12,7 +12,8 @@ import { logToOutputChannel, updateLogLevel } from './logging';
 import {
   updateLogLevelStatusItems,
   refreshApexServerStatusLogLevel,
-  updateProfilingStatus,
+  updateProfilingToggleItem,
+  getProfilingTag,
 } from './status-bar';
 
 /**
@@ -251,7 +252,7 @@ export const registerProfilingCommands = (
   // Register apex.profiling.start
   const startCommand = vscode.commands.registerCommand(
     'apex.profiling.start',
-    async (params?: { type?: 'cpu' | 'heap' | 'both' }) => {
+    async () => {
       try {
         const client = getClient();
         if (!client) {
@@ -261,11 +262,12 @@ export const registerProfilingCommands = (
           return;
         }
 
-        // Get profiling type from params or settings
+        // Get profiling type from workspace settings
         const config = vscode.workspace.getConfiguration('apex.environment');
-        const profilingType =
-          params?.type ??
-          config.get<'cpu' | 'heap' | 'both'>('profilingType', 'cpu');
+        const profilingType = config.get<'cpu' | 'heap' | 'both'>(
+          'profilingType',
+          'cpu',
+        );
 
         logToOutputChannel(
           `Starting profiling (type: ${profilingType})...`,
@@ -282,8 +284,8 @@ export const registerProfilingCommands = (
             `Profiling started: ${result.message}`,
           );
           logToOutputChannel(`Profiling started: ${result.message}`, 'info');
-          // Update profiling status item
-          await updateProfilingStatus();
+          // Update profiling toggle item
+          await updateProfilingToggleItem();
         } else {
           vscode.window.showErrorMessage(
             `Failed to start profiling: ${result.message}`,
@@ -316,26 +318,8 @@ export const registerProfilingCommands = (
 
         logToOutputChannel('Stopping profiling...', 'info');
 
-        // Get last tag from global state
-        const lastTag = context.globalState.get<string>('apex.profiling.lastTag', '');
-
-        // Prompt for optional tag
-        const tag = await vscode.window.showInputBox({
-          prompt: 'Enter a tag for this profile (optional, will be added to filename)',
-          placeHolder: 'e.g., hover-test, completion-perf',
-          value: lastTag, // Use last tag as default
-          ignoreFocusOut: true,
-        });
-
-        // If user cancelled, don't stop profiling
-        if (tag === undefined) {
-          return;
-        }
-
-        // Store the tag (even if empty) for next time
-        if (tag !== null) {
-          await context.globalState.update('apex.profiling.lastTag', tag);
-        }
+        // Get tag from workspace settings (no prompt)
+        const tag = getProfilingTag();
 
         const result = await client.languageClient.sendRequest(
           'apex/profiling/stop',
@@ -353,8 +337,8 @@ export const registerProfilingCommands = (
             `Profiling stopped: ${result.message}${filesMessage}`,
             'info',
           );
-          // Update profiling status item
-          await updateProfilingStatus();
+          // Update profiling toggle item
+          await updateProfilingToggleItem();
         } else {
           vscode.window.showErrorMessage(
             `Failed to stop profiling: ${result.message}`,

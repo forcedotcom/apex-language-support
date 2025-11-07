@@ -209,6 +209,11 @@
           "default": "cpu",
           "description": "%configuration.apex-ls-ts.environment.profilingType.description%"
         },
+        "apex.environment.profilingTag": {
+          "type": "string",
+          "default": "",
+          "description": "%configuration.apex-ls-ts.environment.profilingTag.description%"
+        },
         "apex.resources.loadMode": {
           "type": "string",
           "enum": [

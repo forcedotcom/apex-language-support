@@ -19,11 +19,10 @@ import {
   createApexLanguageStatusActions,
   updateLogLevelStatusItems,
   createApexServerStatusItem,
-  createProfilingStatusItem,
-  registerProfilingStatusMenu,
-  updateProfilingStatus,
-  showProfilingStatusItem,
-  hideProfilingStatusItem,
+  createProfilingToggleItem,
+  registerProfilingToggleCommand,
+  hideProfilingToggleItem,
+  updateProfilingToggleItem,
 } from './status-bar';
 import {
   initializeCommandState,
@@ -101,15 +100,15 @@ export function activate(context: vscode.ExtensionContext): void {
     registerProfilingCommands(context);
     logToOutputChannel('📝 Profiling commands registered', 'debug');
 
-    // Register profiling status menu
-    registerProfilingStatusMenu(context);
-    logToOutputChannel('📝 Profiling status menu registered', 'debug');
+    // Register profiling toggle command
+    registerProfilingToggleCommand(context);
+    logToOutputChannel('📝 Profiling toggle command registered', 'debug');
 
-    // Create profiling status item if interactive profiling is enabled
-    createProfilingStatusItem(context);
-    logToOutputChannel('📊 Profiling status item checked', 'debug');
+    // Create profiling toggle item if interactive profiling is enabled
+    createProfilingToggleItem(context);
+    logToOutputChannel('📊 Profiling toggle item checked', 'debug');
 
-    // Listen for configuration changes to show/hide profiling status item
+    // Listen for configuration changes to show/hide profiling toggle item
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (
@@ -124,12 +123,21 @@ export function activate(context: vscode.ExtensionContext): void {
             false,
           );
           if (newEnableInteractiveProfiling) {
-            // Create/show the status item
-            createProfilingStatusItem(context);
+            // Create/show the toggle item
+            createProfilingToggleItem(context);
           } else {
-            // Hide/dispose the status item
-            hideProfilingStatusItem();
+            // Hide/dispose the toggle item
+            hideProfilingToggleItem();
           }
+        }
+        // Update toggle item when profilingType changes
+        if (event.affectsConfiguration('apex.environment.profilingType')) {
+          updateProfilingToggleItem().catch((error) => {
+            console.error(
+              'Error updating profiling toggle item after setting change:',
+              error,
+            );
+          });
         }
       }),
     );
