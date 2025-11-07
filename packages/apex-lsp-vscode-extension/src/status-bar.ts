@@ -8,6 +8,7 @@
 
 import * as vscode from 'vscode';
 import { getLogLevel } from '@salesforce/apex-lsp-shared';
+import { logToOutputChannel } from './logging';
 
 /**
  * Language status items for log levels and restart
@@ -24,6 +25,27 @@ const LOG_LEVELS = ['debug', 'info', 'warning', 'error'] as const;
 
 let apexServerStatusItem: vscode.LanguageStatusItem | undefined;
 let profilingStatusItem: vscode.LanguageStatusItem | undefined;
+let profilingContext: vscode.ExtensionContext | undefined;
+
+/**
+ * Get the last profiling tag from global state
+ */
+function getLastProfilingTag(): string {
+  if (!profilingContext) {
+    return '';
+  }
+  return profilingContext.globalState.get<string>('apex.profiling.lastTag', '');
+}
+
+/**
+ * Store the last profiling tag in global state
+ */
+async function setLastProfilingTag(tag: string): Promise<void> {
+  if (!profilingContext) {
+    return;
+  }
+  await profilingContext.globalState.update('apex.profiling.lastTag', tag);
+}
 
 /**
  * Creates LanguageStatusItems for log levels and restart
@@ -203,6 +225,16 @@ export const updateApexServerStatusReady = () => {
     apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Information;
     apexServerStatusItem.busy = false;
   }
+  // Update profiling status when server becomes ready
+  // Add a small delay to ensure handlers are registered
+  setTimeout(() => {
+    updateProfilingStatus().catch((error) => {
+      console.error(
+        'Error updating profiling status after server ready:',
+        error,
+      );
+    });
+  }, 500);
 };
 
 export const updateApexServerStatusStopped = () => {
@@ -242,7 +274,7 @@ export const refreshApexServerStatusLogLevel = () => {
 
 /**
  * Creates the LanguageStatusItem for profiling status
- * Only creates if environment is desktop
+ * Only creates if environment is desktop and interactive profiling is enabled
  * @param context The extension context
  */
 export const createProfilingStatusItem = (
@@ -250,6 +282,23 @@ export const createProfilingStatusItem = (
 ): void => {
   // Only create in desktop environment
   if (vscode.env.uiKind === vscode.UIKind.Web) {
+    return;
+  }
+
+  // Only create if interactive profiling is enabled
+  const config = vscode.workspace.getConfiguration('apex.environment');
+  const enableInteractiveProfiling = config.get<boolean>(
+    'enableInteractiveProfiling',
+    false,
+  );
+
+  if (!enableInteractiveProfiling) {
+    return;
+  }
+
+  if (profilingStatusItem) {
+    // Already created, just show it
+    showProfilingStatusItem();
     return;
   }
 
@@ -261,16 +310,9 @@ export const createProfilingStatusItem = (
     },
   );
   profilingStatusItem.name = 'Apex-LS-TS Profiling';
-  profilingStatusItem.text = '$(circle-outline) Profiling: Inactive';
-  profilingStatusItem.detail = 'Click to start profiling';
-  profilingStatusItem.severity = vscode.LanguageStatusSeverity.Information;
-  profilingStatusItem.command = {
-    title: 'Profiling Options',
-    command: 'apex-ls-ts.profiling.menu',
-  };
-  // Initially hidden - will be shown when profiling is enabled
-  profilingStatusItem.text = '';
   context.subscriptions.push(profilingStatusItem);
+  // Show the status item
+  showProfilingStatusItem();
 };
 
 /**
@@ -278,17 +320,22 @@ export const createProfilingStatusItem = (
  */
 export const showProfilingStatusItem = (): void => {
   if (!profilingStatusItem) return;
+  // Set command so the item is interactive
+  profilingStatusItem.command = {
+    title: 'Profiling Options',
+    command: 'apex-ls-ts.profiling.menu',
+  };
   // Status item will be visible when text is set
   updateProfilingStatus();
 };
 
 /**
- * Hides the profiling status item
+ * Hides and disposes the profiling status item
  */
 export const hideProfilingStatusItem = (): void => {
   if (!profilingStatusItem) return;
-  profilingStatusItem.text = '';
-  profilingStatusItem.detail = undefined;
+  profilingStatusItem.dispose();
+  profilingStatusItem = undefined;
 };
 
 /**
@@ -298,14 +345,14 @@ export const hideProfilingStatusItem = (): void => {
 export const updateProfilingStatus = async (): Promise<void> => {
   if (!profilingStatusItem) return;
 
-  // Check if profiling is enabled in settings
+  // Check if interactive profiling is enabled in settings
   const config = vscode.workspace.getConfiguration('apex.environment');
-  const enableProfiling = config.get<boolean>(
-    'enablePerformanceProfiling',
+  const enableInteractiveProfiling = config.get<boolean>(
+    'enableInteractiveProfiling',
     false,
   );
 
-  if (!enableProfiling) {
+  if (!enableInteractiveProfiling) {
     hideProfilingStatusItem();
     return;
   }
@@ -316,8 +363,8 @@ export const updateProfilingStatus = async (): Promise<void> => {
     const { getClient } = require('./language-server');
     const client = getClient();
 
-    if (!client) {
-      // Server not available - show inactive state
+    if (!client || client.isDisposed()) {
+      // Server not available or disposed - show inactive state
       profilingStatusItem.text = '$(circle-outline) Profiling: Inactive';
       profilingStatusItem.detail = 'Server not available';
       profilingStatusItem.severity = vscode.LanguageStatusSeverity.Warning;
@@ -331,6 +378,15 @@ export const updateProfilingStatus = async (): Promise<void> => {
         {},
       );
 
+      // Check if profiling is available
+      if (!status.available) {
+        profilingStatusItem.text = '$(circle-outline) Profiling: Unavailable';
+        profilingStatusItem.detail =
+          'Profiling not available in this environment';
+        profilingStatusItem.severity = vscode.LanguageStatusSeverity.Warning;
+        return;
+      }
+
       if (status.isProfiling) {
         // Profiling is active
         const typeLabel =
@@ -341,18 +397,42 @@ export const updateProfilingStatus = async (): Promise<void> => {
               : 'Both';
         profilingStatusItem.text = `$(circle-filled) Profiling: ${typeLabel}`;
         profilingStatusItem.detail = 'Click to stop profiling';
-        profilingStatusItem.severity = vscode.LanguageStatusSeverity.Information;
+        profilingStatusItem.severity =
+          vscode.LanguageStatusSeverity.Information;
       } else {
         // Profiling is inactive
         profilingStatusItem.text = '$(circle-outline) Profiling: Inactive';
         profilingStatusItem.detail = 'Click to start profiling';
-        profilingStatusItem.severity = vscode.LanguageStatusSeverity.Information;
+        profilingStatusItem.severity =
+          vscode.LanguageStatusSeverity.Information;
       }
-    } catch (error) {
-      // Error querying status - show unavailable
-      profilingStatusItem.text = '$(circle-outline) Profiling: Unavailable';
-      profilingStatusItem.detail = 'Profiling not available in this environment';
-      profilingStatusItem.severity = vscode.LanguageStatusSeverity.Warning;
+    } catch (error: any) {
+      // Error querying status - check if it's a method not found error
+      const errorMessage = error?.message || String(error);
+      const errorCode = error?.code;
+      const isMethodNotFound =
+        errorMessage.includes('Method not found') ||
+        errorMessage.includes('Unknown method') ||
+        errorCode === -32601; // LSP MethodNotFound error code
+
+      if (isMethodNotFound) {
+        // Handler not registered - profiling not available
+        profilingStatusItem.text = '$(circle-outline) Profiling: Unavailable';
+        profilingStatusItem.detail =
+          'Profiling not available in this environment';
+        profilingStatusItem.severity = vscode.LanguageStatusSeverity.Warning;
+      } else {
+        // Other error - log and show unavailable
+        const errorDetails = error?.message || String(error);
+        logToOutputChannel(
+          `Error querying profiling status: ${errorDetails}`,
+          'error',
+        );
+        console.error('Error querying profiling status:', error);
+        profilingStatusItem.text = '$(circle-outline) Profiling: Unavailable';
+        profilingStatusItem.detail = `Error: ${errorDetails.substring(0, 50)}`;
+        profilingStatusItem.severity = vscode.LanguageStatusSeverity.Warning;
+      }
     }
   } catch (error) {
     // Error getting client - show inactive
@@ -374,6 +454,9 @@ export const registerProfilingStatusMenu = (
     return;
   }
 
+  // Store context for tag persistence
+  profilingContext = context;
+
   const menuCommand = vscode.commands.registerCommand(
     'apex-ls-ts.profiling.menu',
     async () => {
@@ -382,7 +465,7 @@ export const registerProfilingStatusMenu = (
         const { getClient } = require('./language-server');
         const client = getClient();
 
-        if (!client) {
+        if (!client || client.isDisposed()) {
           vscode.window.showErrorMessage(
             'Language server is not available. Please wait for it to start.',
           );
@@ -484,9 +567,31 @@ export const registerProfilingStatusMenu = (
         } else if (pick.label === 'Stop Profiling') {
           // Stop profiling directly via LSP request
           try {
+            // Get last tag from global state (need to get context from extension)
+            // We'll use a workaround: store it in a module-level variable
+            const lastTag = getLastProfilingTag();
+
+            // Prompt for optional tag
+            const tag = await vscode.window.showInputBox({
+              prompt: 'Enter a tag for this profile (optional, will be added to filename)',
+              placeHolder: 'e.g., hover-test, completion-perf',
+              value: lastTag, // Use last tag as default
+              ignoreFocusOut: true,
+            });
+
+            // If user cancelled, don't stop profiling
+            if (tag === undefined) {
+              return;
+            }
+
+            // Store the tag for next time
+            if (tag !== null) {
+              await setLastProfilingTag(tag);
+            }
+
             const result = await client.languageClient.sendRequest(
               'apex/profiling/stop',
-              {},
+              { tag: tag || undefined },
             );
 
             if (result.success) {
@@ -502,7 +607,9 @@ export const registerProfilingStatusMenu = (
               );
             }
           } catch (error) {
-            vscode.window.showErrorMessage(`Error stopping profiling: ${error}`);
+            vscode.window.showErrorMessage(
+              `Error stopping profiling: ${error}`,
+            );
           }
 
           // Update status after stopping

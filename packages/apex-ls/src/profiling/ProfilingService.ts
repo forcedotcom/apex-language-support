@@ -39,6 +39,21 @@ export interface StopProfilingResult {
 }
 
 /**
+ * Sanitize a tag for use in filenames
+ * Removes invalid characters and limits length
+ */
+function sanitizeTag(tag: string): string {
+  // Remove invalid filename characters: < > : " / \ | ? *
+  // Replace spaces and other special chars with underscores
+  // Limit length to 50 characters
+  return tag
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+    .replace(/\s+/g, '_')
+    .substring(0, 50)
+    .trim();
+}
+
+/**
  * Profiling status
  */
 export interface ProfilingStatus {
@@ -49,7 +64,7 @@ export interface ProfilingStatus {
 
 /**
  * Service for managing Node.js CPU and heap profiling using the inspector API
- * 
+ *
  * This service dynamically loads the Node.js inspector module to avoid bundling
  * issues in browser/webworker environments. Profiling is only available in
  * Node.js (desktop) environments.
@@ -62,6 +77,8 @@ export class ProfilingService {
   private currentState: ProfilingState = 'idle';
   private outputDir: string | null = null;
   private logger: LoggerInterface | null = null;
+  private cpuProfileSequence = 1; // Sequence counter for CPU profiles
+  private heapProfileSequence = 1; // Sequence counter for heap profiles
 
   private constructor() {
     // Private constructor for singleton pattern
@@ -168,8 +185,9 @@ export class ProfilingService {
 
   /**
    * Stop CPU profiling and save to file
+   * @param tag Optional tag to include in filename
    */
-  public async stopCPUProfiling(): Promise<string> {
+  public async stopCPUProfiling(tag?: string): Promise<string> {
     if (!this.isConnected || !this.session) {
       throw new Error('Inspector session not connected');
     }
@@ -204,7 +222,9 @@ export class ProfilingService {
       const seconds = String(now.getSeconds()).padStart(2, '0');
       const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
       const timestamp = `${year}${month}${day}.${hours}${minutes}${seconds}.${milliseconds}`;
-      const filename = `CPU.${pid}.${timestamp}.0.001.cpuprofile`;
+      const tagSuffix = tag ? `.${sanitizeTag(tag)}` : '';
+      const sequence = String(this.cpuProfileSequence++).padStart(3, '0');
+      const filename = `CPU.${pid}.${timestamp}${tagSuffix}.0.${sequence}.cpuprofile`;
       const filepath = path.join(this.outputDir || process.cwd(), filename);
 
       // Write profile to file
@@ -255,8 +275,9 @@ export class ProfilingService {
 
   /**
    * Stop heap profiling and save snapshot
+   * @param tag Optional tag to include in filename
    */
-  public async stopHeapProfiling(): Promise<string> {
+  public async stopHeapProfiling(tag?: string): Promise<string> {
     if (!this.isConnected || !this.session) {
       throw new Error('Inspector session not connected');
     }
@@ -273,7 +294,9 @@ export class ProfilingService {
       const seconds = String(now.getSeconds()).padStart(2, '0');
       const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
       const timestamp = `${year}${month}${day}.${hours}${minutes}${seconds}.${milliseconds}`;
-      const filename = `Heap.${pid}.${timestamp}.0.002.heapsnapshot`;
+      const tagSuffix = tag ? `.${sanitizeTag(tag)}` : '';
+      const sequence = String(this.heapProfileSequence++).padStart(3, '0');
+      const filename = `Heap.${pid}.${timestamp}${tagSuffix}.0.${sequence}.heapsnapshot`;
       const filepath = path.join(this.outputDir || process.cwd(), filename);
 
       // Create write stream for snapshot
@@ -291,7 +314,10 @@ export class ProfilingService {
             clearTimeout(timeoutHandle);
             timeoutHandle = null;
           }
-          this.session.removeListener('HeapProfiler.addHeapSnapshotChunk', chunkHandler);
+          this.session.removeListener(
+            'HeapProfiler.addHeapSnapshotChunk',
+            chunkHandler,
+          );
         };
 
         // Listen for chunk events
@@ -330,7 +356,7 @@ export class ProfilingService {
               resolve();
             }
           }, 5000); // 5 second timeout as fallback
-          
+
           // Use unref() to prevent the timeout from keeping the process alive
           if (timeoutHandle) {
             timeoutHandle.unref();
@@ -349,11 +375,14 @@ export class ProfilingService {
   /**
    * Start profiling based on type
    */
-  public async startProfiling(type: ProfilingType): Promise<StartProfilingResult> {
+  public async startProfiling(
+    type: ProfilingType,
+  ): Promise<StartProfilingResult> {
     if (!this.isAvailable()) {
       return {
         success: false,
-        message: 'Profiling is not available in this environment (Node.js required)',
+        message:
+          'Profiling is not available in this environment (Node.js required)',
       };
     }
 
@@ -393,8 +422,9 @@ export class ProfilingService {
 
   /**
    * Stop profiling and save files
+   * @param tag Optional tag to include in filenames
    */
-  public async stopProfiling(): Promise<StopProfilingResult> {
+  public async stopProfiling(tag?: string): Promise<StopProfilingResult> {
     if (this.currentState === 'idle') {
       return {
         success: false,
@@ -406,12 +436,12 @@ export class ProfilingService {
       const files: string[] = [];
 
       if (this.currentState === 'cpu' || this.currentState === 'both') {
-        const cpuFile = await this.stopCPUProfiling();
+        const cpuFile = await this.stopCPUProfiling(tag);
         files.push(cpuFile);
       }
 
       if (this.currentState === 'heap' || this.currentState === 'both') {
-        const heapFile = await this.stopHeapProfiling();
+        const heapFile = await this.stopHeapProfiling(tag);
         files.push(heapFile);
       }
 
@@ -475,4 +505,3 @@ export class ProfilingService {
     this.currentState = 'idle';
   }
 }
-

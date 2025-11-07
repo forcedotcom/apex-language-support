@@ -33,7 +33,8 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
     environment: {
       runtimePlatform: 'desktop', // Will be overridden by actual environment
       serverMode: 'production', // Will be overridden by actual environment
-      enablePerformanceProfiling: false,
+      enableStartupProfiling: false,
+      enableInteractiveProfiling: false,
       profilingType: 'cpu',
       commentCollectionLogLevel: 'info',
     },
@@ -95,7 +96,8 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       ...DEFAULT_APEX_SETTINGS.apex.environment,
       runtimePlatform: 'web',
       serverMode: 'production',
-      enablePerformanceProfiling: false, // Typically disabled in browser
+      enableStartupProfiling: false, // Typically disabled in browser
+      enableInteractiveProfiling: false, // Typically disabled in browser
       profilingType: 'cpu',
     },
     resources: {

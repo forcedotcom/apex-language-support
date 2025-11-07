@@ -246,29 +246,81 @@ export class ApexSettingsManager {
   }
 
   /**
-   * Get enable performance profiling setting
-   * @returns The current enable performance profiling setting
+   * Get enable startup profiling setting
+   * @returns The current enable startup profiling setting
    */
-  public getEnablePerformanceProfiling(): boolean {
-    return this.currentSettings.apex.environment.enablePerformanceProfiling;
+  public getEnableStartupProfiling(): boolean {
+    return this.currentSettings.apex.environment.enableStartupProfiling;
   }
 
   /**
-   * Set enable performance profiling setting
-   * @param enabled - The enable performance profiling setting to set
+   * Set enable startup profiling setting
+   * @param enabled - The enable startup profiling setting to set
    * @returns True if the value changed
    */
-  public setEnablePerformanceProfiling(enabled: boolean): boolean {
-    const currentEnabled = this.getEnablePerformanceProfiling();
+  public setEnableStartupProfiling(enabled: boolean): boolean {
+    const currentEnabled = this.getEnableStartupProfiling();
     if (currentEnabled !== enabled) {
-      this.currentSettings.apex.environment.enablePerformanceProfiling = enabled;
+      this.currentSettings.apex.environment.enableStartupProfiling = enabled;
+      // Ensure mutual exclusivity
+      if (enabled) {
+        this.currentSettings.apex.environment.enableInteractiveProfiling = false;
+      }
+      this.validateProfilingSettings();
       this.logger.debug(
-        `Enable performance profiling changed from ${currentEnabled} to ${enabled}`,
+        `Enable startup profiling changed from ${currentEnabled} to ${enabled}`,
       );
       this.notifyListeners(this.currentSettings);
       return true;
     }
     return false;
+  }
+
+  /**
+   * Get enable interactive profiling setting
+   * @returns The current enable interactive profiling setting
+   */
+  public getEnableInteractiveProfiling(): boolean {
+    return this.currentSettings.apex.environment.enableInteractiveProfiling;
+  }
+
+  /**
+   * Set enable interactive profiling setting
+   * @param enabled - The enable interactive profiling setting to set
+   * @returns True if the value changed
+   */
+  public setEnableInteractiveProfiling(enabled: boolean): boolean {
+    const currentEnabled = this.getEnableInteractiveProfiling();
+    if (currentEnabled !== enabled) {
+      this.currentSettings.apex.environment.enableInteractiveProfiling = enabled;
+      // Ensure mutual exclusivity
+      if (enabled) {
+        this.currentSettings.apex.environment.enableStartupProfiling = false;
+      }
+      this.validateProfilingSettings();
+      this.logger.debug(
+        `Enable interactive profiling changed from ${currentEnabled} to ${enabled}`,
+      );
+      this.notifyListeners(this.currentSettings);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Validate profiling settings to ensure mutual exclusivity
+   * If both are enabled, disable startup profiling (interactive takes precedence)
+   */
+  private validateProfilingSettings(): void {
+    const startupEnabled = this.currentSettings.apex.environment.enableStartupProfiling;
+    const interactiveEnabled = this.currentSettings.apex.environment.enableInteractiveProfiling;
+    
+    if (startupEnabled && interactiveEnabled) {
+      this.logger.warn(
+        'Both startup and interactive profiling are enabled. Disabling startup profiling (interactive takes precedence).',
+      );
+      this.currentSettings.apex.environment.enableStartupProfiling = false;
+    }
   }
 
   /**
@@ -319,6 +371,9 @@ export class ApexSettingsManager {
 
     // Merge with existing settings to preserve user configuration that isn't being updated
     this.currentSettings = mergeWithExisting(this.currentSettings, newSettings);
+
+    // Validate profiling settings to ensure mutual exclusivity
+    this.validateProfilingSettings();
 
     // Log significant changes
     this.logSettingsChanges(previousSettings, this.currentSettings);
@@ -497,10 +552,13 @@ export class ApexSettingsManager {
   }
 
   /**
-   * Check if performance profiling is enabled
+   * Check if performance profiling is enabled (either startup or interactive)
    */
   public isPerformanceProfilingEnabled(): boolean {
-    return this.currentSettings.apex.environment.enablePerformanceProfiling;
+    return (
+      this.currentSettings.apex.environment.enableStartupProfiling ||
+      this.currentSettings.apex.environment.enableInteractiveProfiling
+    );
   }
 
   /**

@@ -101,38 +101,33 @@ export function activate(context: vscode.ExtensionContext): void {
     registerProfilingCommands(context);
     logToOutputChannel('📝 Profiling commands registered', 'debug');
 
-    // Create profiling status item
-    createProfilingStatusItem(context);
-    logToOutputChannel('📊 Profiling status item created', 'debug');
-
     // Register profiling status menu
     registerProfilingStatusMenu(context);
     logToOutputChannel('📝 Profiling status menu registered', 'debug');
 
-    // Check if profiling is enabled and show/hide status item accordingly
-    const config = vscode.workspace.getConfiguration('apex.environment');
-    const enableProfiling = config.get<boolean>(
-      'enablePerformanceProfiling',
-      false,
-    );
-    if (enableProfiling) {
-      showProfilingStatusItem();
-    }
+    // Create profiling status item if interactive profiling is enabled
+    createProfilingStatusItem(context);
+    logToOutputChannel('📊 Profiling status item checked', 'debug');
 
     // Listen for configuration changes to show/hide profiling status item
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (
-          event.affectsConfiguration('apex.environment.enablePerformanceProfiling')
+          event.affectsConfiguration(
+            'apex.environment.enableInteractiveProfiling',
+          )
         ) {
-          const newConfig = vscode.workspace.getConfiguration('apex.environment');
-          const newEnableProfiling = newConfig.get<boolean>(
-            'enablePerformanceProfiling',
+          const newConfig =
+            vscode.workspace.getConfiguration('apex.environment');
+          const newEnableInteractiveProfiling = newConfig.get<boolean>(
+            'enableInteractiveProfiling',
             false,
           );
-          if (newEnableProfiling) {
-            showProfilingStatusItem();
+          if (newEnableInteractiveProfiling) {
+            // Create/show the status item
+            createProfilingStatusItem(context);
           } else {
+            // Hide/dispose the status item
             hideProfilingStatusItem();
           }
         }

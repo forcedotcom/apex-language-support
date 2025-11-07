@@ -316,9 +316,30 @@ export const registerProfilingCommands = (
 
         logToOutputChannel('Stopping profiling...', 'info');
 
+        // Get last tag from global state
+        const lastTag = context.globalState.get<string>('apex.profiling.lastTag', '');
+
+        // Prompt for optional tag
+        const tag = await vscode.window.showInputBox({
+          prompt: 'Enter a tag for this profile (optional, will be added to filename)',
+          placeHolder: 'e.g., hover-test, completion-perf',
+          value: lastTag, // Use last tag as default
+          ignoreFocusOut: true,
+        });
+
+        // If user cancelled, don't stop profiling
+        if (tag === undefined) {
+          return;
+        }
+
+        // Store the tag (even if empty) for next time
+        if (tag !== null) {
+          await context.globalState.update('apex.profiling.lastTag', tag);
+        }
+
         const result = await client.languageClient.sendRequest(
           'apex/profiling/stop',
-          {},
+          { tag: tag || undefined },
         );
 
         if (result.success) {

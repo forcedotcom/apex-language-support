@@ -84,11 +84,11 @@ const getProfilingFlags = (
   }
 
   const settings = getWorkspaceSettings();
-  const enableProfiling =
-    settings?.apex?.environment?.enablePerformanceProfiling ?? false;
+  const enableStartupProfiling =
+    settings?.apex?.environment?.enableStartupProfiling ?? false;
   const profilingType = settings?.apex?.environment?.profilingType ?? 'cpu';
 
-  if (!enableProfiling) {
+  if (!enableStartupProfiling) {
     return [];
   }
 

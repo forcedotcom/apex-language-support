@@ -424,7 +424,8 @@ The server looks for configuration in these sections (in order of precedence):
 {
   "apex": {
     "environment": {
-      "enablePerformanceProfiling": false,
+      "enableStartupProfiling": false,
+      "enableInteractiveProfiling": false,
       "profilingType": "cpu",
       "commentCollectionLogLevel": "info"
     }
@@ -434,11 +435,19 @@ The server looks for configuration in these sections (in order of precedence):
 
 ##### Options:
 
-- **`enablePerformanceProfiling`** (boolean, default: `false`)
-  - Enable performance profiling for the language server (desktop only).
+- **`enableStartupProfiling`** (boolean, default: `false`)
+  - Enable continuous profiling from server startup using Node.js flags (desktop only).
+  - Best for performance testing over a test suite of events.
+  - Mutually exclusive with interactive profiling.
+- **`enableInteractiveProfiling`** (boolean, default: `false`)
+  - Enable interactive profiling with manual start/stop control via inspector API (desktop only).
+  - Best for studying particular events where it's convenient to isolate profile collection manually.
+  - Automatically starts profiling when enabled to capture server initialization.
+  - Mutually exclusive with startup profiling.
 - **`profilingType`** (string, default: `"cpu"`)
-  - Type of profiling to perform when enablePerformanceProfiling is true (desktop only).
+  - Type of profiling to perform when profiling is enabled (desktop only).
   - Options: `"cpu"` for CPU profiling, `"heap"` for heap profiling, or `"both"` for both.
+  - Shared between both profiling modes.
 
 - **`commentCollectionLogLevel`** (string, default: `"info"`)
   - Log level for comment collection operations.
@@ -491,7 +500,7 @@ The language server automatically applies different defaults based on the runtim
   "apex.commentCollection.includeSingleLineComments": false,
   "apex.commentCollection.associateCommentsWithSymbols": true,
   "apex.performance.commentCollectionMaxFileSize": 200000,
-  "apex.environment.enablePerformanceProfiling": true,
+  "apex.environment.enableStartupProfiling": true,
   "apex.environment.profilingType": "both",
   "apex.resources.loadMode": "full"
 }

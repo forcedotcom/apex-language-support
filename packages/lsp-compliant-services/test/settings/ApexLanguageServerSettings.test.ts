@@ -26,7 +26,8 @@ describe('ApexLanguageServerSettings Validation', () => {
           commentCollectionMaxFileSize: 102400,
         },
         environment: {
-          enablePerformanceProfiling: false,
+          enableStartupProfiling: false,
+          enableInteractiveProfiling: false,
           profilingType: 'cpu',
         },
         resources: {
@@ -155,7 +156,7 @@ describe('ApexLanguageServerSettings Validation', () => {
       const validConfig = {
         commentCollection: { enableCommentCollection: true },
         performance: { commentCollectionMaxFileSize: 100 },
-        environment: { enablePerformanceProfiling: false, profilingType: 'cpu' },
+        environment: { enableStartupProfiling: false, enableInteractiveProfiling: false, profilingType: 'cpu' },
         resources: { loadMode: 'full' },
         version: '1.0.0',
         logLevel: 'debug',
@@ -240,7 +241,8 @@ describe('ApexLanguageServerSettings Validation', () => {
             environment: {
               runtimePlatform: 'desktop',
               serverMode: 'production',
-              enablePerformanceProfiling: false,
+              enableStartupProfiling: false,
+          enableInteractiveProfiling: false,
               profilingType: 'cpu',
               commentCollectionLogLevel: 'info',
             },
@@ -333,7 +335,8 @@ describe('ApexLanguageServerSettings Validation', () => {
           environment: {
             runtimePlatform: 'desktop',
             serverMode: 'production',
-            enablePerformanceProfiling: false,
+            enableStartupProfiling: false,
+          enableInteractiveProfiling: false,
             profilingType: 'cpu',
             commentCollectionLogLevel: 'info',
           },

@@ -68,10 +68,13 @@ export interface EnvironmentSettings {
   /** Current server mode */
   serverMode: ServerMode;
 
-  /** Whether to enable performance profiling (default: false) */
-  enablePerformanceProfiling: boolean;
+  /** Whether to enable startup profiling using Node.js flags (default: false) */
+  enableStartupProfiling: boolean;
 
-  /** Type of profiling to perform when enablePerformanceProfiling is true (default: 'cpu') */
+  /** Whether to enable interactive profiling using inspector API (default: false) */
+  enableInteractiveProfiling: boolean;
+
+  /** Type of profiling to perform when profiling is enabled (default: 'cpu') */
   profilingType: 'cpu' | 'heap' | 'both';
 
   /** Log level for comment collection (default: 'info') */

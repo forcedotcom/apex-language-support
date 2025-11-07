@@ -189,10 +189,15 @@
           "default": 300,
           "description": "%configuration.apex-ls-ts.performance.documentChangeDebounceMs.description%"
         },
-        "apex.environment.enablePerformanceProfiling": {
+        "apex.environment.enableStartupProfiling": {
           "type": "boolean",
           "default": false,
-          "description": "%configuration.apex-ls-ts.environment.enablePerformanceProfiling.description%"
+          "description": "%configuration.apex-ls-ts.environment.enableStartupProfiling.description%"
+        },
+        "apex.environment.enableInteractiveProfiling": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.apex-ls-ts.environment.enableInteractiveProfiling.description%"
         },
         "apex.environment.profilingType": {
           "type": "string",
