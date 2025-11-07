@@ -44,8 +44,7 @@ export interface WorkspaceSettings {
       documentChangeDebounceMs: number;
     };
     environment: {
-      enableStartupProfiling: boolean;
-      enableInteractiveProfiling: boolean;
+      profilingMode: 'none' | 'full' | 'interactive';
       profilingType: 'cpu' | 'heap' | 'both';
     };
     resources: {

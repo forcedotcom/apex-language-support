@@ -317,12 +317,12 @@ export const createProfilingToggleItem = (
 
   // Only create if interactive profiling is enabled
   const config = vscode.workspace.getConfiguration('apex.environment');
-  const enableInteractiveProfiling = config.get<boolean>(
-    'enableInteractiveProfiling',
-    false,
+  const profilingMode = config.get<'none' | 'full' | 'interactive'>(
+    'profilingMode',
+    'none',
   );
 
-  if (!enableInteractiveProfiling) {
+  if (profilingMode !== 'interactive') {
     return;
   }
 
@@ -376,12 +376,12 @@ export const updateProfilingToggleItem = async (): Promise<void> => {
 
   // Check if interactive profiling is enabled in settings
   const config = vscode.workspace.getConfiguration('apex.environment');
-  const enableInteractiveProfiling = config.get<boolean>(
-    'enableInteractiveProfiling',
-    false,
+  const profilingMode = config.get<'none' | 'full' | 'interactive'>(
+    'profilingMode',
+    'none',
   );
 
-  if (!enableInteractiveProfiling) {
+  if (profilingMode !== 'interactive') {
     hideProfilingToggleItem();
     return;
   }

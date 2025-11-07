@@ -111,18 +111,14 @@ export function activate(context: vscode.ExtensionContext): void {
     // Listen for configuration changes to show/hide profiling toggle item
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration((event) => {
-        if (
-          event.affectsConfiguration(
-            'apex.environment.enableInteractiveProfiling',
-          )
-        ) {
+        if (event.affectsConfiguration('apex.environment.profilingMode')) {
           const newConfig =
             vscode.workspace.getConfiguration('apex.environment');
-          const newEnableInteractiveProfiling = newConfig.get<boolean>(
-            'enableInteractiveProfiling',
-            false,
+          const newProfilingMode = newConfig.get<'none' | 'full' | 'interactive'>(
+            'profilingMode',
+            'none',
           );
-          if (newEnableInteractiveProfiling) {
+          if (newProfilingMode === 'interactive') {
             // Create/show the toggle item
             createProfilingToggleItem(context);
           } else {

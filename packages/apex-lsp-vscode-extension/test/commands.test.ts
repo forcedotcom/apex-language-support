@@ -27,6 +27,21 @@ jest.mock('../src/logging', () => ({
   logToOutputChannel: jest.fn(),
 }));
 
+// Mock the language-server module
+jest.mock('../src/language-server', () => ({
+  getClient: jest.fn(),
+}));
+
+// Mock the status-bar module
+jest.mock('../src/status-bar', () => {
+  const actual = jest.requireActual('../src/status-bar');
+  return {
+    ...actual,
+    getProfilingTag: jest.fn(),
+    updateProfilingToggleItem: jest.fn().mockResolvedValue(undefined),
+  };
+});
+
 describe('Commands Module', () => {
   let mockContext: vscode.ExtensionContext;
   let mockRestartHandler: jest.Mock;
@@ -222,6 +237,258 @@ describe('Commands Module', () => {
       initializeCommandState(mockContext);
 
       expect(getGlobalContext()).toBe(mockContext);
+    });
+  });
+
+  describe('Profiling Commands', () => {
+    let mockClient: any;
+    let mockLanguageClient: any;
+    let mockConfig: any;
+
+    beforeEach(() => {
+      // Mock language client
+      mockLanguageClient = {
+        sendRequest: jest.fn(),
+      };
+
+      mockClient = {
+        isDisposed: jest.fn().mockReturnValue(false),
+        languageClient: mockLanguageClient,
+      };
+
+      // Mock getClient from language-server module
+      const languageServerModule = require('../src/language-server');
+      languageServerModule.getClient.mockReturnValue(mockClient);
+
+      // Mock workspace configuration
+      mockConfig = {
+        get: jest.fn(),
+      };
+
+      jest
+        .spyOn(vscode.workspace, 'getConfiguration')
+        .mockReturnValue(mockConfig as any);
+
+      // Mock vscode.window methods
+      jest
+        .spyOn(vscode.window, 'showErrorMessage')
+        .mockResolvedValue(undefined);
+    });
+
+    describe('apex.profiling.start', () => {
+      it('should start profiling with type from settings', async () => {
+        mockConfig.get.mockReturnValue('cpu');
+        const { registerProfilingCommands } = require('../src/commands');
+        registerProfilingCommands(mockContext);
+
+        const startCommand = (vscode.commands.registerCommand as jest.Mock)
+          .mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
+
+        mockLanguageClient.sendRequest.mockResolvedValue({
+          success: true,
+          message: 'Profiling started',
+        });
+
+        await startCommand();
+
+        expect(mockConfig.get).toHaveBeenCalledWith('profilingType', 'cpu');
+        expect(mockLanguageClient.sendRequest).toHaveBeenCalledWith(
+          'apex/profiling/start',
+          { type: 'cpu' },
+        );
+        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+          'Profiling started: Profiling started',
+        );
+      });
+
+      it('should use heap type from settings', async () => {
+        mockConfig.get.mockReturnValue('heap');
+        const { registerProfilingCommands } = require('../src/commands');
+        registerProfilingCommands(mockContext);
+
+        const startCommand = (vscode.commands.registerCommand as jest.Mock)
+          .mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
+
+        mockLanguageClient.sendRequest.mockResolvedValue({
+          success: true,
+          message: 'Profiling started',
+        });
+
+        await startCommand();
+
+        expect(mockLanguageClient.sendRequest).toHaveBeenCalledWith(
+          'apex/profiling/start',
+          { type: 'heap' },
+        );
+      });
+
+      it('should handle client not available', async () => {
+        const languageServerModule = require('../src/language-server');
+        languageServerModule.getClient.mockReturnValue(null);
+
+        const { registerProfilingCommands } = require('../src/commands');
+        registerProfilingCommands(mockContext);
+
+        const startCommand = (vscode.commands.registerCommand as jest.Mock)
+          .mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
+
+        await startCommand();
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          'Language server is not available. Please wait for it to start.',
+        );
+      });
+
+      it('should handle start failure', async () => {
+        mockConfig.get.mockReturnValue('cpu');
+        mockLanguageClient.sendRequest.mockResolvedValue({
+          success: false,
+          message: 'Failed to start',
+        });
+
+        const { registerProfilingCommands } = require('../src/commands');
+        registerProfilingCommands(mockContext);
+
+        const startCommand = (vscode.commands.registerCommand as jest.Mock)
+          .mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
+
+        await startCommand();
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          'Failed to start profiling: Failed to start',
+        );
+      });
+
+      it('should handle start error', async () => {
+        mockConfig.get.mockReturnValue('cpu');
+        mockLanguageClient.sendRequest.mockRejectedValue(
+          new Error('Network error'),
+        );
+
+        const { registerProfilingCommands } = require('../src/commands');
+        registerProfilingCommands(mockContext);
+
+        const startCommand = (vscode.commands.registerCommand as jest.Mock)
+          .mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
+
+        await startCommand();
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining('Error starting profiling'),
+        );
+      });
+    });
+
+    describe('apex.profiling.stop', () => {
+      it('should stop profiling with tag from settings', async () => {
+        const { getProfilingTag } = require('../src/status-bar');
+        getProfilingTag.mockReturnValue('test-tag');
+
+        const { registerProfilingCommands } = require('../src/commands');
+        registerProfilingCommands(mockContext);
+
+        const stopCommand = (vscode.commands.registerCommand as jest.Mock)
+          .mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
+
+        mockLanguageClient.sendRequest.mockResolvedValue({
+          success: true,
+          message: 'Profiling stopped',
+          files: ['profile.cpuprofile'],
+        });
+
+        await stopCommand();
+
+        expect(getProfilingTag).toHaveBeenCalled();
+        expect(mockLanguageClient.sendRequest).toHaveBeenCalledWith(
+          'apex/profiling/stop',
+          { tag: 'test-tag' },
+        );
+        expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+          expect.stringContaining('Profiling stopped'),
+        );
+      });
+
+      it('should use undefined tag when not set', async () => {
+        const { getProfilingTag } = require('../src/status-bar');
+        getProfilingTag.mockReturnValue('');
+
+        const { registerProfilingCommands } = require('../src/commands');
+        registerProfilingCommands(mockContext);
+
+        const stopCommand = (vscode.commands.registerCommand as jest.Mock)
+          .mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
+
+        mockLanguageClient.sendRequest.mockResolvedValue({
+          success: true,
+          message: 'Profiling stopped',
+        });
+
+        await stopCommand();
+
+        expect(mockLanguageClient.sendRequest).toHaveBeenCalledWith(
+          'apex/profiling/stop',
+          { tag: undefined },
+        );
+      });
+
+      it('should handle client not available', async () => {
+        const languageServerModule = require('../src/language-server');
+        languageServerModule.getClient.mockReturnValue(null);
+
+        const { registerProfilingCommands } = require('../src/commands');
+        registerProfilingCommands(mockContext);
+
+        const stopCommand = (vscode.commands.registerCommand as jest.Mock)
+          .mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
+
+        await stopCommand();
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          'Language server is not available. Please wait for it to start.',
+        );
+      });
+
+      it('should handle stop failure', async () => {
+        const { getProfilingTag } = require('../src/status-bar');
+        getProfilingTag.mockReturnValue('');
+
+        mockLanguageClient.sendRequest.mockResolvedValue({
+          success: false,
+          message: 'Failed to stop',
+        });
+
+        const { registerProfilingCommands } = require('../src/commands');
+        registerProfilingCommands(mockContext);
+
+        const stopCommand = (vscode.commands.registerCommand as jest.Mock)
+          .mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
+
+        await stopCommand();
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          'Failed to stop profiling: Failed to stop',
+        );
+      });
+
+      it('should handle stop error', async () => {
+        const { getProfilingTag } = require('../src/status-bar');
+        getProfilingTag.mockReturnValue('');
+        mockLanguageClient.sendRequest.mockRejectedValue(
+          new Error('Network error'),
+        );
+
+        const { registerProfilingCommands } = require('../src/commands');
+        registerProfilingCommands(mockContext);
+
+        const stopCommand = (vscode.commands.registerCommand as jest.Mock)
+          .mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
+
+        await stopCommand();
+
+        expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+          expect.stringContaining('Error stopping profiling'),
+        );
+      });
     });
   });
 });

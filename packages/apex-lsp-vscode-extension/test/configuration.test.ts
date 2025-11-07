@@ -98,7 +98,7 @@ describe('Configuration Module', () => {
           if (key === 'performance.commentCollectionMaxFileSize') return 102400;
           if (key === 'performance.useAsyncCommentProcessing') return true;
           if (key === 'performance.documentChangeDebounceMs') return 300;
-          if (key === 'environment.enableStartupProfiling' || key === 'environment.enableInteractiveProfiling') return false;
+          if (key === 'environment.profilingMode') return 'none';
           if (key === 'environment.profilingType') return 'cpu';
           if (key === 'resources.loadMode') return 'lazy';
           if (key === 'findMissingArtifact.enabled') return false;
@@ -142,8 +142,7 @@ describe('Configuration Module', () => {
           environment: {
             runtimePlatform: 'desktop',
             serverMode: 'production',
-            enableStartupProfiling: false,
-            enableInteractiveProfiling: false,
+            profilingMode: 'none',
             profilingType: 'cpu',
             commentCollectionLogLevel: 'info',
           },
@@ -193,8 +192,7 @@ describe('Configuration Module', () => {
       expect(settings.apex.performance.commentCollectionMaxFileSize).toBe(
         102400,
       );
-      expect(settings.apex.environment.enableStartupProfiling).toBe(false);
-      expect(settings.apex.environment.enableInteractiveProfiling).toBe(false);
+      expect(settings.apex.environment.profilingMode).toBe('none');
       expect(settings.apex.environment.profilingType).toBe('cpu');
     });
 
@@ -348,8 +346,7 @@ describe('Configuration Module', () => {
             documentChangeDebounceMs: 300,
           },
           environment: {
-            enableStartupProfiling: false,
-            enableInteractiveProfiling: false,
+            profilingMode: 'none',
             profilingType: 'cpu',
           },
           resources: {

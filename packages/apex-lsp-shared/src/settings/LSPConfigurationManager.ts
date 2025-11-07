@@ -312,20 +312,10 @@ export class LSPConfigurationManager {
           }
         }
 
-        // Enable startup profiling
-        if (envSettings.enableStartupProfiling !== undefined) {
-          const changed = this.settingsManager.setEnableStartupProfiling(
-            envSettings.enableStartupProfiling,
-          );
-          if (changed) {
-            hasChanges = true;
-          }
-        }
-
-        // Enable interactive profiling
-        if (envSettings.enableInteractiveProfiling !== undefined) {
-          const changed = this.settingsManager.setEnableInteractiveProfiling(
-            envSettings.enableInteractiveProfiling,
+        // Set profiling mode
+        if (envSettings.profilingMode !== undefined) {
+          const changed = this.settingsManager.setProfilingMode(
+            envSettings.profilingMode,
           );
           if (changed) {
             hasChanges = true;
@@ -769,10 +759,7 @@ export class LSPConfigurationManager {
     const serverMode = this.settingsManager.getServerMode();
 
     // Use development mode if any profiling is enabled
-    if (
-      this.settingsManager.getEnableStartupProfiling() ||
-      this.settingsManager.getEnableInteractiveProfiling()
-    ) {
+    if (this.settingsManager.getProfilingMode() !== 'none') {
       this.capabilitiesManager.setMode('development');
       return;
     }
@@ -788,10 +775,7 @@ export class LSPConfigurationManager {
     this.settingsChangeListener = this.settingsManager.onSettingsChange(
       (newSettings) => {
         // Handle settings changes that might affect capabilities
-        if (
-          this.settingsManager.getEnableStartupProfiling() ||
-          this.settingsManager.getEnableInteractiveProfiling()
-        ) {
+        if (this.settingsManager.getProfilingMode() !== 'none') {
           // Switch to development mode if any profiling is enabled
           this.capabilitiesManager.setMode('development');
         }

@@ -505,7 +505,7 @@ export class LCSAdapter {
 
     // Only register if interactive profiling is enabled
     const settings = LSPConfigurationManager.getInstance().getSettings();
-    if (!settings.apex.environment.enableInteractiveProfiling) {
+    if (settings.apex.environment.profilingMode !== 'interactive') {
       this.logger.debug(
         '⚠️ Profiling handlers not registered (interactive profiling not enabled)',
       );
@@ -516,9 +516,11 @@ export class LCSAdapter {
     let profilingService: any = null;
     const getProfilingService = async () => {
       if (!profilingService) {
-        const { ProfilingService } = await import('../profiling/ProfilingService');
+        const { ProfilingService } = await import(
+          '../profiling/ProfilingService'
+        );
         profilingService = ProfilingService.getInstance();
-        
+
         // Initialize with logger and output directory
         // Get workspace folder from initialization params or use current working directory
         let outputDir = process.cwd();
@@ -532,7 +534,7 @@ export class LCSAdapter {
           // Fallback to current working directory
           outputDir = process.cwd();
         }
-        
+
         profilingService.initialize(this.logger, outputDir);
       }
       return profilingService;
@@ -541,7 +543,9 @@ export class LCSAdapter {
     // Register apex/profiling/start
     this.connection.onRequest(
       'apex/profiling/start',
-      async (params: { type?: 'cpu' | 'heap' | 'both' }): Promise<{
+      async (params: {
+        type?: 'cpu' | 'heap' | 'both';
+      }): Promise<{
         success: boolean;
         message: string;
         type?: 'cpu' | 'heap' | 'both';
@@ -549,17 +553,19 @@ export class LCSAdapter {
         this.logger.debug('🔍 apex/profiling/start request received');
         try {
           const service = await getProfilingService();
-          
+
           if (!service.isAvailable()) {
             return {
               success: false,
-              message: 'Profiling is not available in this environment (Node.js required)',
+              message:
+                'Profiling is not available in this environment (Node.js required)',
             };
           }
 
           // Get profiling type from params or settings
           const settings = LSPConfigurationManager.getInstance().getSettings();
-          const profilingType = params.type ?? settings.apex.environment.profilingType ?? 'cpu';
+          const profilingType =
+            params.type ?? settings.apex.environment.profilingType ?? 'cpu';
 
           const result = await service.startProfiling(profilingType);
           this.logger.info(`Profiling started: ${result.message}`);
@@ -578,7 +584,9 @@ export class LCSAdapter {
     // Register apex/profiling/stop
     this.connection.onRequest(
       'apex/profiling/stop',
-      async (params: { tag?: string }): Promise<{
+      async (params: {
+        tag?: string;
+      }): Promise<{
         success: boolean;
         message: string;
         files?: string[];
@@ -586,7 +594,7 @@ export class LCSAdapter {
         this.logger.debug('🔍 apex/profiling/stop request received');
         try {
           const service = await getProfilingService();
-          
+
           if (!service.isAvailable()) {
             return {
               success: false,
@@ -654,13 +662,15 @@ export class LCSAdapter {
 
     // Check if interactive profiling is enabled
     const settings = LSPConfigurationManager.getInstance().getSettings();
-    if (!settings.apex.environment.enableInteractiveProfiling) {
+    if (settings.apex.environment.profilingMode !== 'interactive') {
       return;
     }
 
     try {
       // Lazy-load ProfilingService
-      const { ProfilingService } = await import('../profiling/ProfilingService');
+      const { ProfilingService } = await import(
+        '../profiling/ProfilingService'
+      );
       const profilingService = ProfilingService.getInstance();
 
       // Initialize with logger and output directory
@@ -692,9 +702,7 @@ export class LCSAdapter {
         `🚀 Auto-started interactive profiling: ${result.message}`,
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to auto-start interactive profiling: ${error}`,
-      );
+      this.logger.error(`Failed to auto-start interactive profiling: ${error}`);
       // Don't throw - allow server to continue without profiling
     }
   }
