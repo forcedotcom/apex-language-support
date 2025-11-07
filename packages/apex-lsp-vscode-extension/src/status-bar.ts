@@ -436,6 +436,9 @@ export const updateProfilingToggleItem = async (): Promise<void> => {
           vscode.LanguageStatusSeverity.Information;
       }
     } catch (error: any) {
+      // Check if item still exists (might have been disposed)
+      if (!profilingToggleItem) return;
+
       // Error querying status - check if it's a method not found error
       const errorMessage = error?.message || String(error);
       const errorCode = error?.code;
@@ -463,6 +466,9 @@ export const updateProfilingToggleItem = async (): Promise<void> => {
       }
     }
   } catch (error) {
+    // Check if item still exists (might have been disposed)
+    if (!profilingToggleItem) return;
+
     // Error getting client - show inactive
     profilingToggleItem.text = '$(record) Profiling';
     profilingToggleItem.detail = 'Server not available';

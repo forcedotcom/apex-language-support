@@ -101,11 +101,8 @@ describe('Profiling Status Bar', () => {
     } as unknown as vscode.ExtensionContext;
 
     // Reset env to Desktop for each test
-    Object.defineProperty(vscode, 'env', {
-      value: { uiKind: vscode.UIKind.Desktop },
-      writable: true,
-      configurable: true,
-    });
+    // Directly assign since the mock already defines it
+    (vscode.env as any).uiKind = vscode.UIKind.Desktop;
 
     // Mock window methods
     jest
@@ -118,6 +115,8 @@ describe('Profiling Status Bar', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    // Reset module state by hiding the toggle item
+    hideProfilingToggleItem();
   });
 
   describe('getProfilingTag', () => {
@@ -191,11 +190,7 @@ describe('Profiling Status Bar', () => {
     });
 
     it('should not create toggle item in web environment', () => {
-      Object.defineProperty(vscode, 'env', {
-        value: { uiKind: vscode.UIKind.Web },
-        writable: true,
-        configurable: true,
-      });
+      (vscode.env as any).uiKind = vscode.UIKind.Web;
       mockConfig.get.mockReturnValue('interactive');
 
       createProfilingToggleItem(mockContext);
@@ -217,7 +212,10 @@ describe('Profiling Status Bar', () => {
 
   describe('hideProfilingToggleItem', () => {
     it('should dispose toggle item', () => {
-      mockConfig.get.mockReturnValue(true);
+      mockConfig.get.mockImplementation((key: string) => {
+        if (key === 'profilingMode') return 'interactive';
+        return '';
+      });
       createProfilingToggleItem(mockContext);
 
       hideProfilingToggleItem();
@@ -359,6 +357,14 @@ describe('Profiling Status Bar', () => {
     });
 
     it('should handle method not found error', async () => {
+      // Ensure status item exists (it should from beforeEach, but ensure it)
+      if (!mockStatusItem.name) {
+        mockConfig.get.mockImplementation((key: string) => {
+          if (key === 'profilingMode') return 'interactive';
+          return '';
+        });
+        createProfilingToggleItem(mockContext);
+      }
       mockConfig.get.mockImplementation((key: string) => {
         if (key === 'profilingMode') return 'interactive';
         return '';
@@ -524,11 +530,7 @@ describe('Profiling Status Bar', () => {
     });
 
     it('should not register in web environment', () => {
-      Object.defineProperty(vscode, 'env', {
-        value: { uiKind: vscode.UIKind.Web },
-        writable: true,
-        configurable: true,
-      });
+      (vscode.env as any).uiKind = vscode.UIKind.Web;
 
       registerProfilingToggleCommand(mockContext);
 

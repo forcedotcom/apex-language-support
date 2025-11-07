@@ -8,7 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { LoggerInterface, formattedError } from '@salesforce/apex-lsp-shared';
 
 /**
  * Profiling type
@@ -120,7 +120,7 @@ export class ProfilingService {
       // Use require() for dynamic loading (not at module level)
       this.inspector = require('inspector');
       return true;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }
@@ -143,8 +143,12 @@ export class ProfilingService {
       this.isConnected = true;
       this.logger?.debug('Inspector session connected');
     } catch (error) {
-      this.logger?.error(`Failed to connect inspector session: ${error}`);
-      throw new Error(`Failed to connect inspector session: ${error}`);
+      this.logger?.error(
+        `Failed to connect inspector session: ${formattedError(error)}`,
+      );
+      throw new Error(
+        `Failed to connect inspector session: ${formattedError(error)}`,
+      );
     }
   }
 
@@ -304,7 +308,7 @@ export class ProfilingService {
 
       // Take heap snapshot - the data is streamed via chunks
       await new Promise<void>((resolve, reject) => {
-        let chunkCount = 0;
+        let _chunkCount = 0;
         let isComplete = false;
         let timeoutHandle: NodeJS.Timeout | null = null;
 
@@ -322,15 +326,8 @@ export class ProfilingService {
 
         // Listen for chunk events
         const chunkHandler = (chunk: { chunk: string }) => {
-          chunkCount++;
+          _chunkCount++;
           writeStream.write(chunk.chunk);
-        };
-
-        const endHandler = () => {
-          isComplete = true;
-          writeStream.end();
-          cleanup();
-          resolve();
         };
 
         this.session.on('HeapProfiler.addHeapSnapshotChunk', chunkHandler);
@@ -394,8 +391,6 @@ export class ProfilingService {
     }
 
     try {
-      const files: string[] = [];
-
       if (type === 'cpu' || type === 'both') {
         await this.startCPUProfiling();
         this.currentState = type === 'cpu' ? 'cpu' : 'both';

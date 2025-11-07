@@ -94,6 +94,14 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       setInitialSettings: jest.fn(),
       getSettingsManager: jest.fn().mockReturnValue(mockSettingsManager),
       getRuntimePlatform: jest.fn().mockReturnValue('desktop'),
+      getSettings: jest.fn().mockReturnValue({
+        apex: {
+          environment: {
+            profilingMode: 'none',
+            profilingType: 'cpu',
+          },
+        },
+      }),
     } as any;
 
     // Mock the getInstance method

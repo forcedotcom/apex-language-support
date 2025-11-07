@@ -6,6 +6,24 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+// Mock vscode
+jest.mock('vscode', () => ({
+  ...jest.requireActual('vscode'),
+  env: {
+    uiKind: 1, // UIKind.Desktop (1), UIKind.Web (2)
+    language: 'en',
+  },
+  UIKind: {
+    Desktop: 1,
+    Web: 2,
+  },
+  ConfigurationTarget: {
+    Global: 1,
+    Workspace: 2,
+    WorkspaceFolder: 3,
+  },
+}));
+
 import * as vscode from 'vscode';
 import {
   initializeCommandState,
