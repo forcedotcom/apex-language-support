@@ -40,21 +40,6 @@ function getPreferredProfilingType(): 'cpu' | 'heap' | 'both' {
 }
 
 /**
- * Set the preferred profiling type in workspace settings
- * @param type The profiling type to set
- */
-async function setPreferredProfilingType(
-  type: 'cpu' | 'heap' | 'both',
-): Promise<void> {
-  const config = vscode.workspace.getConfiguration('apex.environment');
-  await config.update(
-    'profilingType',
-    type,
-    vscode.ConfigurationTarget.Workspace,
-  );
-}
-
-/**
  * Get the profiling tag from workspace settings
  * Returns empty string if not set
  */
@@ -465,7 +450,7 @@ export const updateProfilingToggleItem = async (): Promise<void> => {
         profilingToggleItem.severity = vscode.LanguageStatusSeverity.Warning;
       }
     }
-  } catch (error) {
+  } catch (_error) {
     // Check if item still exists (might have been disposed)
     if (!profilingToggleItem) return;
 
@@ -519,7 +504,7 @@ export const registerProfilingToggleCommand = (
             'apex/profiling/status',
             {},
           );
-        } catch (error) {
+        } catch (_error) {
           // Status not available
           vscode.window.showErrorMessage(
             'Unable to query profiling status. Please try again.',

@@ -114,10 +114,9 @@ export function activate(context: vscode.ExtensionContext): void {
         if (event.affectsConfiguration('apex.environment.profilingMode')) {
           const newConfig =
             vscode.workspace.getConfiguration('apex.environment');
-          const newProfilingMode = newConfig.get<'none' | 'full' | 'interactive'>(
-            'profilingMode',
-            'none',
-          );
+          const newProfilingMode = newConfig.get<
+            'none' | 'full' | 'interactive'
+          >('profilingMode', 'none');
           if (newProfilingMode === 'interactive') {
             // Create/show the toggle item
             createProfilingToggleItem(context);

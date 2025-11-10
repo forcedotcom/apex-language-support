@@ -567,7 +567,10 @@ async function createWebLanguageClient(
 
         languageClient.sendNotification(method, cleanParams);
         console.log(`✅ Successfully sent notification: ${method}`);
-        logToOutputChannel(`Successfully sent notification: ${method}`, 'debug');
+        logToOutputChannel(
+          `Successfully sent notification: ${method}`,
+          'debug',
+        );
       } catch (error) {
         console.log(`Failed to send notification ${method}:`, error);
         logToOutputChannel(
@@ -581,7 +584,10 @@ async function createWebLanguageClient(
           );
         } catch (_jsonError) {
           console.log('Failed to stringify params:', _jsonError);
-          logToOutputChannel('Failed to stringify notification params', 'error');
+          logToOutputChannel(
+            'Failed to stringify notification params',
+            'error',
+          );
         }
         throw error;
       }
@@ -740,10 +746,7 @@ async function createWebLanguageClient(
   logToOutputChannel('🚀 Initializing web client...', 'info');
   try {
     await Client.initialize(initParams);
-    logToOutputChannel(
-      'Web client initialized successfully',
-      'debug',
-    );
+    logToOutputChannel('Web client initialized successfully', 'debug');
   } catch (error) {
     logToOutputChannel(`Failed to initialize web client: ${error}`, 'error');
     logToOutputChannel(
@@ -841,7 +844,10 @@ async function createDesktopLanguageClient(
       try {
         logToOutputChannel(`Sending desktop request: ${method}`, 'debug');
         const result = nodeClient.sendRequest(method, params);
-        logToOutputChannel(`Successfully sent desktop request: ${method}`, 'debug');
+        logToOutputChannel(
+          `Successfully sent desktop request: ${method}`,
+          'debug',
+        );
         return result;
       } catch (error) {
         logToOutputChannel(
@@ -854,7 +860,10 @@ async function createDesktopLanguageClient(
             'error',
           );
         } catch (_jsonError) {
-          logToOutputChannel('Failed to stringify desktop request params', 'error');
+          logToOutputChannel(
+            'Failed to stringify desktop request params',
+            'error',
+          );
         }
         throw error;
       }
@@ -991,10 +1000,10 @@ async function createDesktopLanguageClient(
   // If configured, trigger workspace load on startup via service
   try {
     const settings = getWorkspaceSettings();
-      logToOutputChannel(
-        `Workspace load settings: ${JSON.stringify(settings?.apex?.loadWorkspace)}`,
-        'debug',
-      );
+    logToOutputChannel(
+      `Workspace load settings: ${JSON.stringify(settings?.apex?.loadWorkspace)}`,
+      'debug',
+    );
     if (settings?.apex?.loadWorkspace?.enabled && Client) {
       logToOutputChannel('🚀 Triggering workspace load on startup...', 'info');
       await Effect.runPromise(
@@ -1045,10 +1054,7 @@ export async function restartLanguageServer(
     await stopLanguageServer();
     await startLanguageServer(context, restartHandler);
   } catch (error) {
-    logToOutputChannel(
-      `Failed to restart language server: ${error}`,
-      'error',
-    );
+    logToOutputChannel(`Failed to restart language server: ${error}`, 'error');
     throw error;
   }
 }

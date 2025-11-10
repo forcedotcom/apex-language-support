@@ -68,7 +68,14 @@ export interface EnvironmentSettings {
   /** Current server mode */
   serverMode: ServerMode;
 
-  /** Profiling mode: 'none' = disabled, 'full' = continuous profiling from startup using Node.js flags, 'interactive' = manual start/stop using inspector API (default: 'none') */
+  /** Profiling mode:
+   * 'none' = disabled,
+   * 'full' = continuous profiling from startup using Node.js
+   * flags,
+   * 'interactive' = manual start/stop using inspector API
+   * 'none' = disabled by default
+   * (default: 'none')
+   */
   profilingMode: 'none' | 'full' | 'interactive';
 
   /** Type of profiling to perform when profiling is enabled (default: 'cpu') */

@@ -38,6 +38,7 @@ import {
   LoadWorkspaceParams,
   LoadWorkspaceResult,
   PingResponse,
+  formattedError,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -530,7 +531,7 @@ export class LCSAdapter {
           if (typeof process !== 'undefined' && process.cwd) {
             outputDir = process.cwd();
           }
-        } catch (error) {
+        } catch (_error) {
           // Fallback to current working directory
           outputDir = process.cwd();
         }
@@ -571,10 +572,12 @@ export class LCSAdapter {
           this.logger.info(`Profiling started: ${result.message}`);
           return result;
         } catch (error) {
-          this.logger.error(`Error starting profiling: ${error}`);
+          this.logger.error(
+            `Error starting profiling: ${formattedError(error)}`,
+          );
           return {
             success: false,
-            message: `Failed to start profiling: ${error}`,
+            message: `Failed to start profiling: ${formattedError(error)}`,
           };
         }
       },
@@ -679,7 +682,7 @@ export class LCSAdapter {
         if (typeof process !== 'undefined' && process.cwd) {
           outputDir = process.cwd();
         }
-      } catch (error) {
+      } catch (_error) {
         // Fallback to current working directory
         outputDir = process.cwd();
       }

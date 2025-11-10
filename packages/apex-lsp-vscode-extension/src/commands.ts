@@ -244,7 +244,7 @@ export const registerProfilingCommands = (
     try {
       const { getClient } = require('./language-server');
       return getClient();
-    } catch (error) {
+    } catch (_error) {
       return undefined;
     }
   };

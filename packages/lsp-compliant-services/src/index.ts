@@ -224,7 +224,6 @@ export const dispatchProcessOnFindMissingArtifact = async (
   return await processApexFindMissingArtifact(params);
 };
 
-
 // Re-export the existing dispatch functions
 export {
   dispatchProcessOnDiagnostic,

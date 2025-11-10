@@ -190,10 +190,7 @@ export const sendInitialConfiguration = (client: {
 
   // Send initial configuration to the server
   try {
-    logToOutputChannel(
-      'Sending initial configuration notification',
-      'debug',
-    );
+    logToOutputChannel('Sending initial configuration notification', 'debug');
     client.sendNotification(
       'workspace/didChangeConfiguration',
       createSerializableNotification(settings),

@@ -234,7 +234,6 @@ export class GenericLSPRequestQueue {
     });
   }
 
-
   /**
    * Execute the actual LSP request using the service registry
    */
