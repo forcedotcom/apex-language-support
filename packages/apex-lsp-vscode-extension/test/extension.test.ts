@@ -66,11 +66,13 @@ describe('Apex Language Server Extension ()', () => {
   });
 
   it('sets log level from workspace settings', async () => {
+    const mockGet = jest.fn((key: string, def: any) => {
+      if (key === 'apex.logLevel') return 'debug';
+      if (key === 'apex') return {};
+      return def;
+    });
     const mockGetConfiguration = jest.fn().mockReturnValue({
-      get: jest.fn((key: string, def: any) => {
-        if (key === 'ls.logLevel') return 'debug';
-        return def;
-      }),
+      get: mockGet,
     });
 
     const originalGetConfiguration = vscode.workspace.getConfiguration;
@@ -79,7 +81,12 @@ describe('Apex Language Server Extension ()', () => {
     try {
       activate(mockContext);
       await Promise.resolve();
-      expect(mockGetConfiguration).toHaveBeenCalledWith('apex-ls-ts');
+      // getConfiguration is called with no arguments
+      expect(mockGetConfiguration).toHaveBeenCalled();
+      // config.get('apex.logLevel') is called for logging initialization
+      expect(mockGet).toHaveBeenCalledWith('apex.logLevel');
+      // config.get('apex') is called for workspace settings
+      expect(mockGet).toHaveBeenCalledWith('apex');
     } finally {
       vscode.workspace.getConfiguration = originalGetConfiguration;
     }

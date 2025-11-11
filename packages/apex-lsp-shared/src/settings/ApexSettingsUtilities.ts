@@ -48,6 +48,22 @@ export const DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       timeoutMsHint: 1500,
       enablePerfMarks: false,
     },
+    loadWorkspace: {
+      enabled: true,
+      maxConcurrency: 50,
+      yieldInterval: 50,
+      yieldDelayMs: 25,
+    },
+    queueProcessing: {
+      maxConcurrency: {
+        IMMEDIATE: 50,
+        HIGH: 50,
+        NORMAL: 25,
+        LOW: 10,
+      },
+      yieldInterval: 50,
+      yieldDelayMs: 25,
+    },
     worker: {
       logLevel: 'info',
     },
@@ -89,8 +105,24 @@ export const BROWSER_DEFAULT_APEX_SETTINGS: ApexLanguageServerSettings = {
       ...DEFAULT_APEX_SETTINGS.apex.findMissingArtifact,
       // More conservative defaults for browser
       blockingWaitTimeoutMs: 1500, // Shorter timeout in browser
-      maxCandidatesToOpen: 2, // Fewer files to open in browser
-      timeoutMsHint: 1000, // Shorter client timeout hint
+    },
+    loadWorkspace: {
+      ...DEFAULT_APEX_SETTINGS.apex.loadWorkspace,
+      // More conservative defaults for browser
+      maxConcurrency: 25, // Lower concurrency in browser
+      yieldInterval: 25, // More frequent yielding in browser
+    },
+    queueProcessing: {
+      ...DEFAULT_APEX_SETTINGS.apex.queueProcessing,
+      // More conservative defaults for browser
+      maxConcurrency: {
+        IMMEDIATE: 25,
+        HIGH: 25,
+        NORMAL: 10,
+        LOW: 5,
+      },
+      yieldInterval: 25, // More frequent yielding in browser
+      yieldDelayMs: 25,
     },
     worker: {
       ...DEFAULT_APEX_SETTINGS.apex.worker,
@@ -212,6 +244,14 @@ export function mergeWithDefaults(
         ...baseDefaults.apex.findMissingArtifact,
         ...userSettings.apex?.findMissingArtifact,
       },
+      loadWorkspace: {
+        ...baseDefaults.apex.loadWorkspace,
+        ...userSettings.apex?.loadWorkspace,
+      },
+      queueProcessing: {
+        ...baseDefaults.apex.queueProcessing,
+        ...userSettings.apex?.queueProcessing,
+      },
       worker: {
         ...baseDefaults.apex.worker,
         ...userSettings.apex?.worker,
@@ -250,6 +290,14 @@ export function mergeWithExisting(
       findMissingArtifact: {
         ...existingSettings.apex.findMissingArtifact,
         ...partialSettings.apex?.findMissingArtifact,
+      },
+      loadWorkspace: {
+        ...existingSettings.apex.loadWorkspace,
+        ...partialSettings.apex?.loadWorkspace,
+      },
+      queueProcessing: {
+        ...existingSettings.apex.queueProcessing,
+        ...partialSettings.apex?.queueProcessing,
       },
       worker: {
         ...existingSettings.apex.worker,

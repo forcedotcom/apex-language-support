@@ -146,10 +146,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     );
     this.builtInTypeTables = BuiltInTypeTablesImpl.getInstance();
 
-    // Initialize ResourceLoader for standard Apex classes (prefer lazy with preload)
+    // Initialize ResourceLoader for standard Apex classes (loadMode controlled by settings via LCSAdapter)
     try {
       this.resourceLoader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
         preloadStdClasses: true,
       });
     } catch (error) {

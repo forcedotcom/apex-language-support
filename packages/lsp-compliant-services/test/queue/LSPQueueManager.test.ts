@@ -6,17 +6,73 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
+import { ISymbolManager, ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
+import { LSPQueueManager } from '../../src/queue/LSPQueueManager';
+import { ServiceRegistry } from '../../src/registry/ServiceRegistry';
+import { LSPRequestType } from '../../src/queue/LSPRequestQueue';
+import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService';
 
-// Mock the logger
+// Mock the logger and settings manager
 jest.mock('@salesforce/apex-lsp-shared', () => ({
   getLogger: jest.fn(),
+  ApexSettingsManager: {
+    getInstance: jest.fn(),
+  },
 }));
 
-describe('LSPQueueManager', () => {
+// Mock BackgroundProcessingInitializationService
+jest.mock('../../src/services/BackgroundProcessingInitializationService', () => ({
+  BackgroundProcessingInitializationService: {
+    getInstance: jest.fn(),
+    reset: jest.fn(),
+  },
+}));
+
+// Mock ApexSymbolProcessingManager
+jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
+  ISymbolManager: {},
+  ApexSymbolProcessingManager: {
+    getInstance: jest.fn(),
+  },
+}));
+
+// Mock ServiceFactory and related dependencies
+jest.mock('../../src/factories/ServiceFactory', () => ({
+  ServiceFactory: jest.fn().mockImplementation(() => ({
+    createHoverService: jest.fn(),
+    createCompletionService: jest.fn(),
+    createDefinitionService: jest.fn(),
+    createReferencesService: jest.fn(),
+    createDocumentSymbolService: jest.fn(),
+    createWorkspaceSymbolService: jest.fn(),
+    createDiagnosticService: jest.fn(),
+    createCodeActionService: jest.fn(),
+    createSignatureHelpService: jest.fn(),
+    createRenameService: jest.fn(),
+    createDocumentProcessingService: jest.fn(),
+    createMissingArtifactService: jest.fn(),
+  })),
+}));
+
+jest.mock('../../src/storage/ApexStorageManager', () => ({
+  ApexStorageManager: {
+    getInstance: jest.fn().mockReturnValue({
+      getStorage: jest.fn(),
+    }),
+  },
+}));
+
+jest.mock('../../src/config/ServiceConfiguration', () => ({
+  DEFAULT_SERVICE_CONFIG: [],
+}));
+
+describe('LSPQueueManager - New Effect-TS Implementation', () => {
   let mockLogger: any;
   let mockSymbolManager: jest.Mocked<ISymbolManager>;
+  let mockSettingsManager: jest.Mocked<typeof ApexSettingsManager>;
+  let mockSymbolProcessingManager: jest.Mocked<typeof ApexSymbolProcessingManager>;
+  let mockBackgroundService: jest.Mocked<typeof BackgroundProcessingInitializationService>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -54,284 +110,323 @@ describe('LSPQueueManager', () => {
       getReferencesAtPosition: jest.fn(),
       getSymbolAtPosition: jest.fn(),
     };
-  });
 
-  describe('Request Type Configuration', () => {
-    it('should have correct request type mappings', () => {
-      // Test the business logic configuration without Effect
-      const requestTypeMappings = {
-        hover: 'IMMEDIATE' as const,
-        completion: 'IMMEDIATE' as const,
-        definition: 'HIGH' as const,
-        references: 'NORMAL' as const,
-        documentSymbol: 'HIGH' as const,
-        workspaceSymbol: 'NORMAL' as const,
-        diagnostics: 'NORMAL' as const,
-        codeAction: 'NORMAL' as const,
-        signatureHelp: 'IMMEDIATE' as const,
-        rename: 'LOW' as const,
-        documentOpen: 'IMMEDIATE' as const,
-        documentSave: 'NORMAL' as const,
-        documentChange: 'NORMAL' as const,
-        documentClose: 'NORMAL' as const,
-      };
+    // Mock ApexSettingsManager
+    mockSettingsManager = ApexSettingsManager as jest.Mocked<
+      typeof ApexSettingsManager
+    >;
+    mockSettingsManager.getInstance.mockReturnValue({
+      getSettings: jest.fn().mockReturnValue({
+        apex: {
+          queueProcessing: {
+            maxConcurrency: {
+              IMMEDIATE: 50,
+              HIGH: 50,
+              NORMAL: 25,
+              LOW: 10,
+            },
+            yieldInterval: 50,
+            yieldDelayMs: 25,
+          },
+        },
+      }),
+    } as any);
 
-      expect(requestTypeMappings.hover).toBe('IMMEDIATE');
-      expect(requestTypeMappings.completion).toBe('IMMEDIATE');
-      expect(requestTypeMappings.definition).toBe('HIGH');
-      expect(requestTypeMappings.references).toBe('NORMAL');
-      expect(requestTypeMappings.documentSymbol).toBe('HIGH');
-      expect(requestTypeMappings.workspaceSymbol).toBe('NORMAL');
-    });
+    // Mock ApexSymbolProcessingManager
+    mockSymbolProcessingManager = ApexSymbolProcessingManager as jest.Mocked<
+      typeof ApexSymbolProcessingManager
+    >;
+    mockSymbolProcessingManager.getInstance.mockReturnValue({
+      getSymbolManager: jest.fn().mockReturnValue(mockSymbolManager),
+    } as any);
 
-    it('should have appropriate method signatures', () => {
-      // Test that the expected methods exist and have correct signatures
-      const expectedMethods = [
-        'submitHoverRequest',
-        'submitCompletionRequest',
-        'submitDefinitionRequest',
-        'submitReferencesRequest',
-        'submitDocumentSymbolRequest',
-        'submitWorkspaceSymbolRequest',
-        'submitDiagnosticsRequest',
-        'submitCodeActionRequest',
-        'submitSignatureHelpRequest',
-        'submitRenameRequest',
-        'submitDocumentOpenRequest',
-        'submitDocumentSaveRequest',
-        'submitDocumentChangeRequest',
-        'submitDocumentCloseRequest',
-      ];
+    // Mock BackgroundProcessingInitializationService
+    mockBackgroundService =
+      BackgroundProcessingInitializationService as jest.Mocked<
+        typeof BackgroundProcessingInitializationService
+      >;
+    mockBackgroundService.getInstance.mockReturnValue({
+      isBackgroundProcessingInitialized: jest.fn().mockReturnValue(true),
+    } as any);
 
-      expectedMethods.forEach((methodName) => {
-        expect(typeof methodName).toBe('string');
-        expect(methodName.startsWith('submit')).toBe(true);
-        expect(methodName.endsWith('Request')).toBe(true);
-      });
-    });
+    // Reset singleton instance
+    (LSPQueueManager as any).instance = undefined;
   });
 
   describe('Singleton Pattern', () => {
-    it('should implement singleton pattern correctly', () => {
-      // Test singleton pattern logic without instantiating
-      const singletonPattern = {
-        instance: null as any,
-        getInstance() {
-          if (!this.instance) {
-            this.instance = {};
-          }
-          return this.instance;
-        },
-        clearInstance() {
-          this.instance = null;
-        },
-      };
-
-      const instance1 = singletonPattern.getInstance();
-      const instance2 = singletonPattern.getInstance();
+    it('should return the same instance on multiple calls', () => {
+      const instance1 = LSPQueueManager.getInstance();
+      const instance2 = LSPQueueManager.getInstance();
 
       expect(instance1).toBe(instance2);
-      expect(singletonPattern.instance).toBe(instance1);
-
-      singletonPattern.clearInstance();
-      const instance3 = singletonPattern.getInstance();
-      expect(instance3).not.toBe(instance1);
     });
 
-    it('should handle shutdown state correctly', () => {
-      // Test shutdown state logic
-      const shutdownState = {
-        isShutdown: false,
-        shutdown() {
-          this.isShutdown = true;
-        },
-        isShutdownState() {
-          return this.isShutdown;
-        },
-        reset() {
-          this.isShutdown = false;
-        },
-      };
+    it('should initialize with default settings', () => {
+      const manager = LSPQueueManager.getInstance();
+      expect(manager).toBeDefined();
+    });
 
-      expect(shutdownState.isShutdownState()).toBe(false);
-      shutdownState.shutdown();
-      expect(shutdownState.isShutdownState()).toBe(true);
-      shutdownState.reset();
-      expect(shutdownState.isShutdownState()).toBe(false);
+    it('should allow reinitialization after shutdown', async () => {
+      const manager1 = LSPQueueManager.getInstance();
+      await manager1.shutdown();
+
+      // Get a new instance after shutdown
+      const manager2 = LSPQueueManager.getInstance();
+      expect(manager2).toBeDefined();
+      expect(manager2).not.toBe(manager1);
     });
   });
 
-  describe('Request Priority Logic', () => {
-    it('should map request types to priorities correctly', () => {
-      const requestPriorities = {
-        hover: 'IMMEDIATE',
-        completion: 'IMMEDIATE',
-        definition: 'HIGH',
-        references: 'NORMAL',
-        documentSymbol: 'HIGH',
-        workspaceSymbol: 'NORMAL',
-        diagnostics: 'NORMAL',
-        codeAction: 'NORMAL',
-        signatureHelp: 'IMMEDIATE',
-        rename: 'LOW',
-        documentOpen: 'IMMEDIATE',
-        documentSave: 'NORMAL',
-        documentChange: 'NORMAL',
-        documentClose: 'NORMAL',
+  describe('Request Submission Methods', () => {
+    beforeEach(() => {
+      // Register mock handlers for all request types
+      const serviceRegistry = (LSPQueueManager.getInstance() as any)
+        .serviceRegistry as ServiceRegistry;
+
+      const mockHandler = {
+        requestType: 'hover' as LSPRequestType,
+        priority: 'IMMEDIATE' as const,
+        timeout: 100,
+        maxRetries: 0,
+        process: jest.fn().mockResolvedValue({ result: 'test' }),
       };
 
-      // Test immediate requests
-      const immediateRequests = [
+      // Register handlers for all request types
+      [
         'hover',
         'completion',
-        'signatureHelp',
-        'documentOpen',
-      ];
-      immediateRequests.forEach((type) => {
-        expect(requestPriorities[type as keyof typeof requestPriorities]).toBe(
-          'IMMEDIATE',
-        );
-      });
-
-      // Test high priority requests
-      const highPriorityRequests = ['definition', 'documentSymbol'];
-      highPriorityRequests.forEach((type) => {
-        expect(requestPriorities[type as keyof typeof requestPriorities]).toBe(
-          'HIGH',
-        );
-      });
-
-      // Test normal priority requests
-      const normalPriorityRequests = [
+        'definition',
         'references',
+        'documentSymbol',
         'workspaceSymbol',
         'diagnostics',
         'codeAction',
+        'signatureHelp',
+        'rename',
+        'documentOpen',
         'documentSave',
         'documentChange',
         'documentClose',
-      ];
-      normalPriorityRequests.forEach((type) => {
-        expect(requestPriorities[type as keyof typeof requestPriorities]).toBe(
-          'NORMAL',
-        );
-      });
-
-      // Test low priority requests
-      const lowPriorityRequests = ['rename'];
-      lowPriorityRequests.forEach((type) => {
-        expect(requestPriorities[type as keyof typeof requestPriorities]).toBe(
-          'LOW',
-        );
+      ].forEach((type) => {
+        serviceRegistry.register({
+          ...mockHandler,
+          requestType: type as LSPRequestType,
+        });
       });
     });
 
-    it('should have consistent timeout configurations', () => {
-      const timeoutConfigs = {
-        IMMEDIATE: 100,
-        HIGH: 5000,
-        NORMAL: 15000,
-        LOW: 30000,
-      };
+    it('should submit hover request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitHoverRequest(
+        { textDocument: { uri: 'test' }, position: { line: 0, character: 0 } },
+        mockSymbolManager,
+      );
 
-      expect(timeoutConfigs.IMMEDIATE).toBeLessThan(timeoutConfigs.HIGH);
-      expect(timeoutConfigs.HIGH).toBeLessThan(timeoutConfigs.NORMAL);
-      expect(timeoutConfigs.NORMAL).toBeLessThan(timeoutConfigs.LOW);
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit completion request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitCompletionRequest(
+        { textDocument: { uri: 'test' }, position: { line: 0, character: 0 } },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit definition request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitDefinitionRequest(
+        { textDocument: { uri: 'test' }, position: { line: 0, character: 0 } },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit references request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitReferencesRequest(
+        { textDocument: { uri: 'test' }, position: { line: 0, character: 0 } },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit document symbol request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitDocumentSymbolRequest(
+        { textDocument: { uri: 'test' } },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit workspace symbol request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitWorkspaceSymbolRequest(
+        { query: 'test' },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit diagnostics request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitDiagnosticsRequest(
+        { textDocument: { uri: 'test' } },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit code action request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitCodeActionRequest(
+        {
+          textDocument: { uri: 'test' },
+          range: {
+            start: { line: 0, character: 0 },
+            end: { line: 0, character: 0 },
+          },
+          context: { diagnostics: [] },
+        },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit signature help request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitSignatureHelpRequest(
+        { textDocument: { uri: 'test' }, position: { line: 0, character: 0 } },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit rename request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitRenameRequest(
+        {
+          textDocument: { uri: 'test' },
+          position: { line: 0, character: 0 },
+          newName: 'newName',
+        },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit document open request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitDocumentOpenRequest(
+        { textDocument: { uri: 'test', text: 'content' } },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit document save request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitDocumentSaveRequest(
+        { textDocument: { uri: 'test' } },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit document change request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitDocumentChangeRequest(
+        {
+          textDocument: { uri: 'test', version: 1 },
+          contentChanges: [],
+        },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
+    });
+
+    it('should submit document close request', async () => {
+      const manager = LSPQueueManager.getInstance();
+      const result = await manager.submitDocumentCloseRequest(
+        { textDocument: { uri: 'test' } },
+        mockSymbolManager,
+      );
+
+      expect(result).toEqual({ result: 'test' });
     });
   });
 
-  describe('Error Handling Logic', () => {
-    it('should handle shutdown state errors correctly', () => {
-      const errorHandler = {
-        isShutdown: false,
-        submitRequest(type: string, params: any) {
-          if (this.isShutdown) {
-            throw new Error('LSP Queue Manager is shutdown');
-          }
-          return Promise.resolve('success');
-        },
-        shutdown() {
-          this.isShutdown = true;
-        },
-      };
+  describe('Statistics', () => {
+    it('should get queue statistics', () => {
+      const manager = LSPQueueManager.getInstance();
+      const stats = manager.getStats();
 
-      // Should succeed when not shutdown
-      expect(() => {
-        errorHandler.submitRequest('hover', {});
-      }).not.toThrow();
-
-      // Should fail when shutdown
-      errorHandler.shutdown();
-      expect(() => {
-        errorHandler.submitRequest('hover', {});
-      }).toThrow('LSP Queue Manager is shutdown');
-    });
-
-    it('should handle request submission errors', () => {
-      const requestHandler = {
-        async submitRequest(type: string, params: any) {
-          if (type === 'error') {
-            throw new Error('Submission failed');
-          }
-          return 'success';
-        },
-      };
-
-      // Should succeed for valid requests
-      expect(requestHandler.submitRequest('hover', {})).resolves.toBe(
-        'success',
-      );
-
-      // Should fail for error requests
-      expect(requestHandler.submitRequest('error', {})).rejects.toThrow(
-        'Submission failed',
-      );
-    });
-  });
-
-  describe('Statistics Structure', () => {
-    it('should have correct stats structure', () => {
-      const stats = {
-        immediateQueueSize: 0,
-        highPriorityQueueSize: 2,
-        normalPriorityQueueSize: 5,
-        lowPriorityQueueSize: 1,
-        totalProcessed: 150,
-        totalFailed: 3,
-        averageProcessingTime: 45.2,
-        activeWorkers: 4,
-      };
-
-      expect(stats).toHaveProperty('immediateQueueSize');
-      expect(stats).toHaveProperty('highPriorityQueueSize');
-      expect(stats).toHaveProperty('normalPriorityQueueSize');
-      expect(stats).toHaveProperty('lowPriorityQueueSize');
       expect(stats).toHaveProperty('totalProcessed');
       expect(stats).toHaveProperty('totalFailed');
       expect(stats).toHaveProperty('averageProcessingTime');
       expect(stats).toHaveProperty('activeWorkers');
+      expect(stats).toHaveProperty('immediateQueueSize');
+      expect(stats).toHaveProperty('highPriorityQueueSize');
+      expect(stats).toHaveProperty('normalPriorityQueueSize');
+      expect(stats).toHaveProperty('lowPriorityQueueSize');
+    });
+  });
+
+  describe('Shutdown', () => {
+    it('should shutdown gracefully', async () => {
+      const manager = LSPQueueManager.getInstance();
+      await manager.shutdown();
+
+      // Shutdown should complete without errors
+      expect(manager).toBeDefined();
     });
 
-    it('should have valid stat values', () => {
-      const stats = {
-        immediateQueueSize: 0,
-        highPriorityQueueSize: 2,
-        normalPriorityQueueSize: 5,
-        lowPriorityQueueSize: 1,
-        totalProcessed: 150,
-        totalFailed: 3,
-        averageProcessingTime: 45.2,
-        activeWorkers: 4,
+    it('should handle shutdown when already shutdown', async () => {
+      const manager = LSPQueueManager.getInstance();
+      await manager.shutdown();
+      await manager.shutdown(); // Second shutdown should not throw
+
+      expect(manager).toBeDefined();
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle errors during request submission', async () => {
+      const serviceRegistry = (LSPQueueManager.getInstance() as any)
+        .serviceRegistry as ServiceRegistry;
+
+      const errorHandler = {
+        requestType: 'hover' as LSPRequestType,
+        priority: 'IMMEDIATE' as const,
+        timeout: 100,
+        maxRetries: 0,
+        process: jest.fn().mockRejectedValue(new Error('Handler error')),
       };
 
-      expect(stats.immediateQueueSize).toBeGreaterThanOrEqual(0);
-      expect(stats.highPriorityQueueSize).toBeGreaterThanOrEqual(0);
-      expect(stats.normalPriorityQueueSize).toBeGreaterThanOrEqual(0);
-      expect(stats.lowPriorityQueueSize).toBeGreaterThanOrEqual(0);
-      expect(stats.totalProcessed).toBeGreaterThanOrEqual(0);
-      expect(stats.totalFailed).toBeGreaterThanOrEqual(0);
-      expect(stats.averageProcessingTime).toBeGreaterThanOrEqual(0);
-      expect(stats.activeWorkers).toBeGreaterThan(0);
+      serviceRegistry.register(errorHandler);
+
+      const manager = LSPQueueManager.getInstance();
+      await expect(
+        manager.submitHoverRequest(
+          { textDocument: { uri: 'test' }, position: { line: 0, character: 0 } },
+          mockSymbolManager,
+        ),
+      ).rejects.toThrow('Handler error');
     });
   });
 });
+

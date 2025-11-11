@@ -15,7 +15,11 @@ import {
   ErrorAction,
 } from 'vscode-languageclient/node';
 import { getDebugConfig } from './configuration';
-import { logServerMessage, getWorkerServerOutputChannel } from './logging';
+import {
+  logServerMessage,
+  getWorkerServerOutputChannel,
+  createFormattedOutputChannel,
+} from './logging';
 import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
 import { determineServerMode } from './utils/serverUtils';
 
@@ -168,9 +172,14 @@ export const createClientOptions = (
     ),
     configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
   },
-  // Use our consolidated worker/server output channel if available
+  // Use our consolidated worker/server output channel with formatting wrapper
+  // This intercepts server stdout/stderr and formats messages with timestamps
   ...(getWorkerServerOutputChannel()
-    ? { outputChannel: getWorkerServerOutputChannel() }
+    ? {
+        outputChannel: createFormattedOutputChannel(
+          getWorkerServerOutputChannel()!,
+        ),
+      }
     : {}),
   // Add error handling with proper retry logic
   errorHandler: {

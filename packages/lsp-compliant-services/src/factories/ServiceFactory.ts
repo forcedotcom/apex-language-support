@@ -21,6 +21,7 @@ import { SignatureHelpProcessingService } from '../services/SignatureHelpProcess
 import { RenameProcessingService } from '../services/RenameProcessingService';
 import { DiagnosticProcessingService } from '../services/DiagnosticProcessingService';
 import { DocumentSymbolProcessingService } from '../services/DocumentSymbolProcessingService';
+import { DocumentProcessingService } from '../services/DocumentProcessingService';
 import { WorkspaceSymbolProcessingService } from '../services/WorkspaceSymbolProcessingService';
 
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
@@ -144,5 +145,12 @@ export class ServiceFactory {
    */
   createMissingArtifactService(): MissingArtifactProcessingService {
     return new MissingArtifactProcessingService(this.dependencies.logger);
+  }
+
+  /**
+   * Create document processing service
+   */
+  createDocumentProcessingService(): DocumentProcessingService {
+    return new DocumentProcessingService(this.dependencies.logger);
   }
 }

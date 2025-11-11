@@ -112,7 +112,9 @@ exports[`VSCode Extension Capabilities Alignment Capability Feature Alignment sh
       "versionSupport": false,
     },
     "rangeFormatting": undefined,
-    "references": undefined,
+    "references": {
+      "dynamicRegistration": true,
+    },
     "rename": undefined,
     "signatureHelp": undefined,
     "synchronization": {
@@ -473,6 +475,9 @@ exports[`VSCode Extension Capabilities Alignment Client Capabilities Configurati
       },
       "versionSupport": false,
     },
+    "references": {
+      "dynamicRegistration": true,
+    },
     "synchronization": {
       "didSave": true,
       "dynamicRegistration": true,
@@ -829,6 +834,9 @@ exports[`VSCode Extension Capabilities Alignment Mode Detection and Capabilities
         ],
       },
       "versionSupport": false,
+    },
+    "references": {
+      "dynamicRegistration": true,
     },
     "synchronization": {
       "didSave": true,

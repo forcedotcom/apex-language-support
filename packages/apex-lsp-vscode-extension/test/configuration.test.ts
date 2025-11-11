@@ -128,6 +128,16 @@ describe('Configuration Module', () => {
             useAsyncCommentProcessing: true,
             documentChangeDebounceMs: 300,
           },
+          queueProcessing: {
+            maxConcurrency: {
+              HIGH: 50,
+              IMMEDIATE: 50,
+              LOW: 10,
+              NORMAL: 25,
+            },
+            yieldDelayMs: 25,
+            yieldInterval: 50,
+          },
           environment: {
             runtimePlatform: 'desktop',
             serverMode: 'production',
@@ -145,6 +155,12 @@ describe('Configuration Module', () => {
             maxCandidatesToOpen: 3,
             timeoutMsHint: 1500,
             enablePerfMarks: false,
+          },
+          loadWorkspace: {
+            enabled: true,
+            maxConcurrency: 50,
+            yieldDelayMs: 25,
+            yieldInterval: 50,
           },
           worker: {
             logLevel: 'info',
@@ -178,31 +194,60 @@ describe('Configuration Module', () => {
     });
 
     it('should handle missing artifact configuration settings', () => {
-      // Mock configuration values for missing artifact settings
+      // Mock configuration to return empty settings (no apex config)
       mockGetConfiguration.mockImplementation(
         (key: string, defaultValue: any) => {
-          if (key === 'apex.findMissingArtifact.enabled') return true;
-          if (key === 'apex.findMissingArtifact.blockingWaitTimeoutMs')
-            return 5000;
-          if (key === 'apex.findMissingArtifact.indexingBarrierPollMs')
-            return 200;
-          if (key === 'apex.findMissingArtifact.maxCandidatesToOpen') return 5;
-          if (key === 'apex.findMissingArtifact.timeoutMsHint') return 3000;
-          if (key === 'apex.findMissingArtifact.enablePerfMarks') return true;
+          // Return empty object for apex config section
+          if (key === 'apex') return {};
           return defaultValue;
         },
       );
 
       const settings = getWorkspaceSettings();
 
-      expect(settings.apex.findMissingArtifact.enabled).toBe(true);
+      // Should use default values from mergeWithDefaults
+      expect(settings.apex.findMissingArtifact.enabled).toBe(false); // Default from DEFAULT_APEX_SETTINGS
       expect(settings.apex.findMissingArtifact.blockingWaitTimeoutMs).toBe(
-        5000,
+        2000, // Default from DEFAULT_APEX_SETTINGS
       );
-      expect(settings.apex.findMissingArtifact.indexingBarrierPollMs).toBe(200);
-      expect(settings.apex.findMissingArtifact.maxCandidatesToOpen).toBe(5);
-      expect(settings.apex.findMissingArtifact.timeoutMsHint).toBe(3000);
-      expect(settings.apex.findMissingArtifact.enablePerfMarks).toBe(true);
+      expect(settings.apex.findMissingArtifact.indexingBarrierPollMs).toBe(100); // Default
+      expect(settings.apex.findMissingArtifact.maxCandidatesToOpen).toBe(3); // Default
+      expect(settings.apex.findMissingArtifact.timeoutMsHint).toBe(1500); // Default
+      expect(settings.apex.findMissingArtifact.enablePerfMarks).toBe(false); // Default
+      
+      // Should also have loadWorkspace defaults
+      expect(settings.apex.loadWorkspace.enabled).toBe(true); // Default
+      expect(settings.apex.loadWorkspace.maxConcurrency).toBe(50); // Default
+      expect(settings.apex.loadWorkspace.yieldInterval).toBe(50); // Default
+      expect(settings.apex.loadWorkspace.yieldDelayMs).toBe(25); // Default
+    });
+
+    it('should merge user loadWorkspace settings with defaults', () => {
+      // Mock configuration to return partial loadWorkspace settings
+      mockGetConfiguration.mockImplementation(
+        (key: string, defaultValue: any) => {
+          if (key === 'apex') {
+            return {
+              loadWorkspace: {
+                enabled: false, // User overrides default
+                maxConcurrency: 25, // User overrides default
+                // yieldInterval and yieldDelayMs not provided, should use defaults
+              }
+            };
+          }
+          return defaultValue;
+        },
+      );
+
+      const settings = getWorkspaceSettings();
+
+      // Should use user overrides where provided
+      expect(settings.apex.loadWorkspace.enabled).toBe(false); // User override
+      expect(settings.apex.loadWorkspace.maxConcurrency).toBe(25); // User override
+      
+      // Should use defaults where not provided
+      expect(settings.apex.loadWorkspace.yieldInterval).toBe(50); // Default
+      expect(settings.apex.loadWorkspace.yieldDelayMs).toBe(25); // Default
     });
   });
 

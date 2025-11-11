@@ -75,7 +75,7 @@ describe('Logging Module', () => {
 
       initializeExtensionLogging(mockContext);
 
-      expect(mockGet).toHaveBeenCalledWith('logLevel');
+      expect(mockGet).toHaveBeenCalledWith('apex.logLevel');
     });
   });
 
@@ -93,7 +93,7 @@ describe('Logging Module', () => {
 
       expect(mockOutputChannel.appendLine).toHaveBeenCalledWith(
         expect.stringMatching(
-          /\[\d{1,2}:\d{2}:\d{2} [AP]M\] \[INFO\] Test message/,
+          /\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\]\[INFO\] Test message/,
         ),
       );
     });

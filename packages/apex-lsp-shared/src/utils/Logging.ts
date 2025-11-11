@@ -13,7 +13,6 @@ import type {
 } from '../index';
 import { getLogNotificationHandler, shouldLog } from '../index';
 import type { Connection } from 'vscode-languageserver';
-import { detectEnvironment } from './Environment';
 
 // =============================================================================
 // LOGGING UTILITIES
@@ -57,11 +56,12 @@ export class LoggingUtils {
 
   /**
    * Formats message with environment context
+   * @deprecated Environment prefixes are now handled by the client-side formatter.
+   * This method now returns the message unchanged for backward compatibility.
    */
   static formatMessage(message: string, context?: string): string {
-    const env = detectEnvironment().toUpperCase();
-    const prefix = context ? `[${env}-${context}]` : `[${env}]`;
-    return `${prefix} ${message}`;
+    // No longer add environment prefixes - formatting is handled by client
+    return message;
   }
 
   /**
@@ -94,21 +94,20 @@ export class UniversalLogger implements LoggerInterface {
     }
     const msg = typeof message === 'function' ? message() : message;
 
-    const formattedMsg = LoggingUtils.formatMessage(msg);
-
+    // Send raw message - formatting will be handled by client-side handler
     // Send via connection if available (worker or server context)
     if (this.connection) {
-      this.sendViaConnection(messageType, formattedMsg);
+      this.sendViaConnection(messageType, msg);
       return;
     }
 
     // Send via LSP notification handler (browser context)
-    if (this.sendViaLsp(messageType, formattedMsg)) {
+    if (this.sendViaLsp(messageType, msg)) {
       return;
     }
 
     // Fallback to console only if no other method worked
-    LoggingUtils.logToConsole(messageType, formattedMsg);
+    LoggingUtils.logToConsole(messageType, msg);
   }
 
   private sendViaConnection(

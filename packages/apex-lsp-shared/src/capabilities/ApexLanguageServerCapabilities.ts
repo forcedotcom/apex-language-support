@@ -91,7 +91,7 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   completionProvider: undefined,
   hoverProvider: undefined,
   definitionProvider: undefined,
-  referencesProvider: undefined,
+  referencesProvider: true, // ENABLED: References implementation
   codeActionProvider: undefined,
   renameProvider: undefined,
 
@@ -141,6 +141,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
   foldingRangeProvider: true,
   hoverProvider: true,
   definitionProvider: true,
+  referencesProvider: true, // ENABLED: References implementation
   codeLensProvider: {
     resolveProvider: false,
   },

@@ -204,7 +204,6 @@ export function isBuiltInType(symbol: any): boolean {
   // Check if this is a type from a built-in namespace
   const namespace = symbol.namespace || extractNamespace(symbol.name);
   const resourceLoader = ResourceLoader.getInstance({
-    loadMode: 'lazy',
     preloadStdClasses: true,
   });
   return namespace
@@ -251,7 +250,6 @@ export function extractNamespace(
 ): string {
   if (!name) return '';
   const resourceLoader = ResourceLoader.getInstance({
-    loadMode: 'lazy',
     preloadStdClasses: true,
   });
   // If it's a built-in namespace, return the name itself
@@ -304,7 +302,6 @@ export function isGlobalSymbol(symbol: any): boolean {
 export function isBuiltInFQN(fqn: string): boolean {
   if (!fqn) return false;
   const resourceLoader = ResourceLoader.getInstance({
-    loadMode: 'lazy',
     preloadStdClasses: true,
   });
   // Check if the FQN starts with a built-in namespace

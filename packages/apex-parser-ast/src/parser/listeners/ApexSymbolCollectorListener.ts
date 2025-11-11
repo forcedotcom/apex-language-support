@@ -3762,7 +3762,6 @@ export class ApexSymbolCollectorListener
    */
   private isStandardLibraryClassName(name: string): boolean {
     const resourceLoader = ResourceLoader.getInstance({
-      loadMode: 'lazy',
       preloadStdClasses: true,
     });
 

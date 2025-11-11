@@ -9,6 +9,10 @@
 import * as vscode from 'vscode';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel, updateLogLevel } from './logging';
+import {
+  updateLogLevelStatusItems,
+  refreshApexServerStatusLogLevel,
+} from './status-bar';
 
 /**
  * Global state for restart management
@@ -98,16 +102,12 @@ export const registerRestartCommand = (
 export const registerLogLevelCommands = (
   context: vscode.ExtensionContext,
 ): void => {
+  // Order from lowest to highest priority (most verbose to least verbose): Debug → Info → Warning → Error
   const logLevelCommands = [
     {
-      commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.ERROR,
-      logLevel: 'error',
-      title: 'Set Log Level: Error',
-    },
-    {
-      commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.WARNING,
-      logLevel: 'warning',
-      title: 'Set Log Level: Warning',
+      commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.DEBUG,
+      logLevel: 'debug',
+      title: 'Set Log Level: Debug',
     },
     {
       commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.INFO,
@@ -115,9 +115,14 @@ export const registerLogLevelCommands = (
       title: 'Set Log Level: Info',
     },
     {
-      commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.DEBUG,
-      logLevel: 'debug',
-      title: 'Set Log Level: Debug',
+      commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.WARNING,
+      logLevel: 'warning',
+      title: 'Set Log Level: Warning',
+    },
+    {
+      commandId: EXTENSION_CONSTANTS.LOG_LEVEL_COMMANDS.ERROR,
+      logLevel: 'error',
+      title: 'Set Log Level: Error',
     },
   ];
 
@@ -125,17 +130,22 @@ export const registerLogLevelCommands = (
     const command = vscode.commands.registerCommand(commandId, async () => {
       try {
         // Update the workspace configuration
-        const config = vscode.workspace.getConfiguration(
-          EXTENSION_CONSTANTS.APEX_LS_EXTENSION_CONFIG_SECTION,
-        );
+        // Use the full config path 'apex.logLevel' to match package.json definition
+        const config = vscode.workspace.getConfiguration();
         await config.update(
-          'logLevel',
+          'apex.logLevel',
           logLevel,
           vscode.ConfigurationTarget.Workspace,
         );
 
         // Update the log level immediately
         updateLogLevel(logLevel);
+
+        // Update status bar items to reflect the new log level
+        updateLogLevelStatusItems(logLevel);
+
+        // Update server status item to show current log level
+        refreshApexServerStatusLogLevel();
 
         logToOutputChannel(`Log level set to: ${logLevel}`, 'info');
         vscode.window.showInformationMessage(

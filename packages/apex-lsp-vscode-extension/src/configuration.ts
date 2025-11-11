@@ -11,6 +11,7 @@ import { DebugConfig } from './types';
 import { EXTENSION_CONSTANTS } from './constants';
 import { logToOutputChannel } from './logging';
 import { ApexLanguageServerSettings } from 'packages/apex-lsp-shared/src/server/ApexLanguageServerSettings';
+import { mergeWithDefaults } from '@salesforce/apex-lsp-shared';
 
 /**
  * Creates a clean, serializable notification object for workspace/didChangeConfiguration
@@ -49,67 +50,9 @@ export const getWorkspaceSettings = (): ApexLanguageServerSettings => {
     settings = {};
   }
 
-  const apexSettings = { apex: settings };
-
-  // Return default settings if no settings are configured
-  return Object.keys(settings).length === 0
-    ? {
-        apex: {
-          commentCollection: {
-            enableCommentCollection: true,
-            includeSingleLineComments: false,
-            associateCommentsWithSymbols: false,
-            enableForDocumentChanges: true,
-            enableForDocumentOpen: true,
-            enableForDocumentSymbols: false,
-            enableForFoldingRanges: false,
-          },
-          performance: {
-            commentCollectionMaxFileSize: 102400,
-            useAsyncCommentProcessing: true,
-            documentChangeDebounceMs: 300,
-          },
-          environment: {
-            runtimePlatform: 'desktop',
-            serverMode: 'production',
-            enablePerformanceLogging: false,
-            commentCollectionLogLevel: 'info',
-          },
-          resources: {
-            loadMode: 'lazy',
-            standardApexLibraryPath: undefined,
-          },
-          findMissingArtifact: {
-            enabled: config.get('apex.findMissingArtifact.enabled', false),
-            blockingWaitTimeoutMs: config.get(
-              'apex.findMissingArtifact.blockingWaitTimeoutMs',
-              2000,
-            ),
-            indexingBarrierPollMs: config.get(
-              'apex.findMissingArtifact.indexingBarrierPollMs',
-              100,
-            ),
-            maxCandidatesToOpen: config.get(
-              'apex.findMissingArtifact.maxCandidatesToOpen',
-              3,
-            ),
-            timeoutMsHint: config.get(
-              'apex.findMissingArtifact.timeoutMsHint',
-              1500,
-            ),
-            enablePerfMarks: config.get(
-              'apex.findMissingArtifact.enablePerfMarks',
-              false,
-            ),
-          },
-          worker: {
-            logLevel: 'info',
-          },
-          version: undefined,
-          logLevel: 'info',
-        },
-      }
-    : (apexSettings as ApexLanguageServerSettings);
+  // Merge user settings with defaults, ensuring all required properties exist
+  const userSettings = { apex: settings };
+  return mergeWithDefaults(userSettings, 'desktop');
 };
 
 /**
@@ -184,7 +127,7 @@ export const registerConfigurationChangeListener = (
       // Notify the server of the configuration change
       try {
         logToOutputChannel(
-          '🔍 [DEBUG] Sending configuration change notification',
+          'Sending configuration change notification',
           'debug',
         );
         client.sendNotification(
@@ -192,22 +135,22 @@ export const registerConfigurationChangeListener = (
           createSerializableNotification(settings),
         );
         logToOutputChannel(
-          '✅ [DEBUG] Successfully sent configuration change notification',
+          'Successfully sent configuration change notification',
           'debug',
         );
       } catch (_error) {
         logToOutputChannel(
-          `❌ [ERROR] Failed to send configuration change notification: ${_error}`,
+          `Failed to send configuration change notification: ${_error}`,
           'error',
         );
         try {
           logToOutputChannel(
-            `❌ [ERROR] Configuration settings: ${JSON.stringify(settings, null, 2)}`,
+            `Configuration settings: ${JSON.stringify(settings, null, 2)}`,
             'error',
           );
         } catch (_jsonError) {
           logToOutputChannel(
-            '❌ [ERROR] Configuration settings: [unable to serialize settings]',
+            'Configuration settings: [unable to serialize settings]',
             'error',
           );
         }
@@ -247,31 +190,28 @@ export const sendInitialConfiguration = (client: {
 
   // Send initial configuration to the server
   try {
-    logToOutputChannel(
-      '🔍 [DEBUG] Sending initial configuration notification',
-      'debug',
-    );
+    logToOutputChannel('Sending initial configuration notification', 'debug');
     client.sendNotification(
       'workspace/didChangeConfiguration',
       createSerializableNotification(settings),
     );
     logToOutputChannel(
-      '✅ [DEBUG] Successfully sent initial configuration notification',
+      'Successfully sent initial configuration notification',
       'debug',
     );
   } catch (_error) {
     logToOutputChannel(
-      `❌ [ERROR] Failed to send initial configuration notification: ${_error}`,
+      `Failed to send initial configuration notification: ${_error}`,
       'error',
     );
     try {
       logToOutputChannel(
-        `❌ [ERROR] Initial configuration settings: ${JSON.stringify(settings, null, 2)}`,
+        `Initial configuration settings: ${JSON.stringify(settings, null, 2)}`,
         'error',
       );
     } catch (_jsonError) {
       logToOutputChannel(
-        '❌ [ERROR] Initial configuration settings: [unable to serialize settings]',
+        'Initial configuration settings: [unable to serialize settings]',
         'error',
       );
     }

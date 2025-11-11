@@ -8,7 +8,6 @@
 
 import type { LogMessageParams } from '@salesforce/apex-lsp-shared';
 import type { Connection } from 'vscode-languageserver/browser';
-import { LoggingUtils } from '@salesforce/apex-lsp-shared';
 
 /**
  * Handles log notifications in worker environments
@@ -42,28 +41,25 @@ export class WorkerLogNotificationHandler {
    * Sends a log message to the client
    */
   sendLogMessage(params: LogMessageParams): void {
-    const formattedMessage = LoggingUtils.formatMessage(
-      this.name,
-      params.message,
-    );
+    // Send raw message - formatting will be handled by client-side handler
     if (this.connection) {
       this.connection.sendNotification('$/logMessage', {
         type: params.type,
-        message: formattedMessage,
+        message: params.message,
       });
     }
     switch (params.type) {
       case 'error':
-        console.error(formattedMessage);
+        console.error(params.message);
         break;
       case 'warning':
-        console.warn(formattedMessage);
+        console.warn(params.message);
         break;
       case 'info':
-        console.info(formattedMessage);
+        console.info(params.message);
         break;
       default:
-        console.log(formattedMessage);
+        console.log(params.message);
     }
   }
 }

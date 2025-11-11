@@ -111,7 +111,6 @@ const createSimpleTypeInfo = (typeName: string): TypeInfo => {
  */
 const getBuiltInNamespace = (namespace: string): Namespace | null => {
   const resourceLoader = ResourceLoader.getInstance({
-    loadMode: 'lazy',
     preloadStdClasses: true,
   });
   // Check if it's a known standard Apex namespace

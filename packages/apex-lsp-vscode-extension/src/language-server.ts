@@ -14,9 +14,20 @@ import type {
 } from '@salesforce/apex-lsp-shared';
 import { getClientCapabilitiesForMode } from '@salesforce/apex-lsp-shared';
 import type { InitializeParams } from 'vscode-languageserver-protocol';
-import { logToOutputChannel, getWorkerServerOutputChannel } from './logging';
+import {
+  logToOutputChannel,
+  getWorkerServerOutputChannel,
+  formatLogMessageWithTimestamp,
+} from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import { handleFindMissingArtifact } from './missing-artifact-handler';
+import {
+  handleLoadWorkspace,
+  startWorkspaceLoad,
+  WorkspaceLoaderServiceLive,
+  WorkspaceStateLive,
+} from './workspace-load-handler';
+import { Effect, Layer } from 'effect';
 import {
   updateApexServerStatusStarting,
   updateApexServerStatusReady,
@@ -36,6 +47,15 @@ import {
  * Global language client instance
  */
 let Client: ClientInterface | undefined;
+
+/**
+ * Shared workspace load layer - created once and reused across all requests
+ * to ensure state is shared between query-only and load requests
+ */
+const sharedWorkspaceLoadLayer = Layer.mergeAll(
+  WorkspaceLoaderServiceLive,
+  WorkspaceStateLive,
+);
 
 /**
  * Environment detection
@@ -289,7 +309,7 @@ async function createWebLanguageClient(
 
   // Create initialization options with debugging
   const initOptions = createEnhancedInitializationOptions(context, environment);
-  logToOutputChannel('🔍 [DEBUG] Initialization options created', 'debug');
+  logToOutputChannel('Initialization options created', 'debug');
 
   let languageClient: any;
   try {
@@ -313,23 +333,19 @@ async function createWebLanguageClient(
       },
       worker,
     );
-    logToOutputChannel(
-      '✅ [DEBUG] Language Client created successfully',
-      'debug',
-    );
+    logToOutputChannel('Language Client created successfully', 'debug');
+
+    // Workspace state is now managed via Effect Context/Layer
   } catch (error) {
-    logToOutputChannel(
-      `❌ [ERROR] Failed to create Language Client: ${error}`,
-      'error',
-    );
+    logToOutputChannel(`Failed to create Language Client: ${error}`, 'error');
     try {
       logToOutputChannel(
-        `❌ [ERROR] Init options: ${JSON.stringify(initOptions, null, 2)}`,
+        `Init options: ${JSON.stringify(initOptions, null, 2)}`,
         'error',
       );
     } catch (_jsonError) {
       logToOutputChannel(
-        '❌ [ERROR] Init options: [unable to serialize init options]',
+        'Init options: [unable to serialize init options]',
         'error',
       );
     }
@@ -345,12 +361,26 @@ async function createWebLanguageClient(
       `📨 Received window/logMessage: ${params.message || 'No message'}`,
       'debug',
     );
-    const { message } = params;
+    const { message, type } = params;
 
-    // All messages from the worker/server go directly to the worker/server channel without additional formatting
+    // Format message with timestamp and log level prefix
+    // Remove [NODE] or [BROWSER] prefix if present, then format
+    let cleanMessage = message;
+    if (cleanMessage.startsWith('[NODE] ')) {
+      cleanMessage = cleanMessage.substring(7); // Remove '[NODE] '
+    } else if (cleanMessage.startsWith('[BROWSER] ')) {
+      cleanMessage = cleanMessage.substring(10); // Remove '[BROWSER] '
+    }
+
+    // Format with timestamp and log level
+    const formattedMessage = formatLogMessageWithTimestamp(
+      cleanMessage,
+      type || 'info',
+    );
+
     const channel = getWorkerServerOutputChannel();
     if (channel) {
-      channel.appendLine(message);
+      channel.appendLine(formattedMessage);
     } else {
       logToOutputChannel(
         `❌ No worker/server output channel available for message: ${message}`,
@@ -384,11 +414,26 @@ async function createWebLanguageClient(
       `📨 Received $/logMessage: ${params.message || 'No message'}`,
       'debug',
     );
-    const { message } = params;
+    const { message, type } = params;
+
+    // Format message with timestamp and log level prefix
+    // Remove [NODE] or [BROWSER] prefix if present, then format
+    let cleanMessage = message;
+    if (cleanMessage.startsWith('[NODE] ')) {
+      cleanMessage = cleanMessage.substring(7); // Remove '[NODE] '
+    } else if (cleanMessage.startsWith('[BROWSER] ')) {
+      cleanMessage = cleanMessage.substring(10); // Remove '[BROWSER] '
+    }
+
+    // Format with timestamp and log level
+    const formattedMessage = formatLogMessageWithTimestamp(
+      cleanMessage,
+      type || 'info',
+    );
 
     const channel = getWorkerServerOutputChannel();
     if (channel) {
-      channel.appendLine(message);
+      channel.appendLine(formattedMessage);
     } else {
       logToOutputChannel(
         `❌ No worker/server output channel available for $/logMessage: ${message}`,
@@ -422,6 +467,43 @@ async function createWebLanguageClient(
       try {
         await languageClient.start();
         logToOutputChannel('✅ Language client started successfully', 'info');
+
+        // If configured, trigger workspace load on startup via service (web)
+        try {
+          const settings = getWorkspaceSettings();
+          logToOutputChannel(
+            `Workspace load settings (web): ${JSON.stringify(settings?.apex?.loadWorkspace)}`,
+            'debug',
+          );
+          if (settings?.apex?.loadWorkspace?.enabled && Client) {
+            logToOutputChannel(
+              '🚀 Triggering workspace load on startup (web)...',
+              'info',
+            );
+            await Effect.runPromise(
+              Effect.provide(
+                startWorkspaceLoad(Client),
+                sharedWorkspaceLoadLayer,
+              ),
+            );
+            logToOutputChannel(
+              '✅ Workspace load on startup completed (web)',
+              'info',
+            );
+          } else {
+            logToOutputChannel(
+              '⚠️ Workspace load on startup skipped (web) (disabled or no client)',
+              'debug',
+            );
+          }
+        } catch (err) {
+          logToOutputChannel(
+            `⚠️ Workspace load on startup failed or skipped (web): ${String(
+              err,
+            )}`,
+            'warning',
+          );
+        }
         return { capabilities: {} }; // Return basic capabilities
       } catch (error) {
         logToOutputChannel(
@@ -433,28 +515,22 @@ async function createWebLanguageClient(
     },
     sendRequest: async (method: string, params?: any) => {
       try {
-        logToOutputChannel(`🔍 [DEBUG] Sending request: ${method}`, 'debug');
+        logToOutputChannel(`Sending request: ${method}`, 'debug');
         const result = await languageClient.sendRequest(method, params);
-        logToOutputChannel(
-          `✅ [DEBUG] Successfully sent request: ${method}`,
-          'debug',
-        );
+        logToOutputChannel(`Successfully sent request: ${method}`, 'debug');
         return result;
       } catch (error) {
         logToOutputChannel(
-          `❌ [ERROR] Failed to send request ${method}: ${error}`,
+          `Failed to send request ${method}: ${error}`,
           'error',
         );
         try {
           logToOutputChannel(
-            `❌ [ERROR] Request params: ${JSON.stringify(params, null, 2)}`,
+            `Request params: ${JSON.stringify(params, null, 2)}`,
             'error',
           );
         } catch (_jsonError) {
-          logToOutputChannel(
-            '❌ [ERROR] Failed to stringify request params',
-            'error',
-          );
+          logToOutputChannel('Failed to stringify request params', 'error');
         }
         throw error;
       }
@@ -473,10 +549,7 @@ async function createWebLanguageClient(
             'debug',
           );
         }
-        logToOutputChannel(
-          `🔍 [DEBUG] Sending notification: ${method}`,
-          'debug',
-        );
+        logToOutputChannel(`Sending notification: ${method}`, 'debug');
 
         // Ensure params are serializable before sending
         let cleanParams = params;
@@ -619,6 +692,34 @@ async function createWebLanguageClient(
     }
   });
 
+  // Register handler for server-to-client apex/loadWorkspace requests
+  Client.onRequest('apex/loadWorkspace', async (params: any) => {
+    logToOutputChannel(
+      '📨 Received apex/loadWorkspace request from server',
+      'debug',
+    );
+
+    try {
+      const result = await Effect.runPromise(
+        Effect.provide(
+          handleLoadWorkspace(params, Client!),
+          sharedWorkspaceLoadLayer,
+        ),
+      );
+      logToOutputChannel(
+        `✅ Load workspace acknowledged: ${JSON.stringify(result)}`,
+        'debug',
+      );
+      return result;
+    } catch (error) {
+      logToOutputChannel(
+        `❌ Failed to handle loadWorkspace request: ${error}`,
+        'error',
+      );
+      return { error: `Failed to handle loadWorkspace request: ${error}` };
+    }
+  });
+
   // Initialize the language server
   logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
 
@@ -626,12 +727,12 @@ async function createWebLanguageClient(
   try {
     initParams = createInitializeParams(context, environment);
     logToOutputChannel(
-      '✅ [DEBUG] Initialization parameters created successfully',
+      'Initialization parameters created successfully',
       'debug',
     );
   } catch (error) {
     logToOutputChannel(
-      `❌ [ERROR] Failed to create initialization parameters: ${error}`,
+      `Failed to create initialization parameters: ${error}`,
       'error',
     );
     throw error;
@@ -642,17 +743,11 @@ async function createWebLanguageClient(
   logToOutputChannel('🚀 Initializing web client...', 'info');
   try {
     await Client.initialize(initParams);
-    logToOutputChannel(
-      '✅ [DEBUG] Web client initialized successfully',
-      'debug',
-    );
+    logToOutputChannel('Web client initialized successfully', 'debug');
   } catch (error) {
+    logToOutputChannel(`Failed to initialize web client: ${error}`, 'error');
     logToOutputChannel(
-      `❌ [ERROR] Failed to initialize web client: ${error}`,
-      'error',
-    );
-    logToOutputChannel(
-      `❌ [ERROR] Init params: ${JSON.stringify(initParams, null, 2)}`,
+      `Init params: ${JSON.stringify(initParams, null, 2)}`,
       'error',
     );
     throw error;
@@ -698,6 +793,8 @@ async function createDesktopLanguageClient(
     clientOptions,
   );
 
+  // Workspace state is now managed via Effect Context/Layer
+
   logToOutputChannel('🚀 Starting Node.js language client...', 'info');
 
   // Start the client and language server
@@ -714,28 +811,25 @@ async function createDesktopLanguageClient(
     },
     sendNotification: (method: string, params?: any) => {
       try {
-        logToOutputChannel(
-          `🔍 [DEBUG] Sending desktop notification: ${method}`,
-          'debug',
-        );
+        logToOutputChannel(`Sending desktop notification: ${method}`, 'debug');
         nodeClient.sendNotification(method, params);
         logToOutputChannel(
-          `✅ [DEBUG] Successfully sent desktop notification: ${method}`,
+          `Successfully sent desktop notification: ${method}`,
           'debug',
         );
       } catch (error) {
         logToOutputChannel(
-          `❌ [ERROR] Failed to send desktop notification ${method}: ${error}`,
+          `Failed to send desktop notification ${method}: ${error}`,
           'error',
         );
         try {
           logToOutputChannel(
-            `❌ [ERROR] Desktop notification params: ${JSON.stringify(params, null, 2)}`,
+            `Desktop notification params: ${JSON.stringify(params, null, 2)}`,
             'error',
           );
         } catch (_jsonError) {
           logToOutputChannel(
-            '❌ [ERROR] Failed to stringify desktop notification params',
+            'Failed to stringify desktop notification params',
             'error',
           );
         }
@@ -744,29 +838,26 @@ async function createDesktopLanguageClient(
     },
     sendRequest: (method: string, params?: any) => {
       try {
-        logToOutputChannel(
-          `🔍 [DEBUG] Sending desktop request: ${method}`,
-          'debug',
-        );
+        logToOutputChannel(`Sending desktop request: ${method}`, 'debug');
         const result = nodeClient.sendRequest(method, params);
         logToOutputChannel(
-          `✅ [DEBUG] Successfully sent desktop request: ${method}`,
+          `Successfully sent desktop request: ${method}`,
           'debug',
         );
         return result;
       } catch (error) {
         logToOutputChannel(
-          `❌ [ERROR] Failed to send desktop request ${method}: ${error}`,
+          `Failed to send desktop request ${method}: ${error}`,
           'error',
         );
         try {
           logToOutputChannel(
-            `❌ [ERROR] Desktop request params: ${JSON.stringify(params, null, 2)}`,
+            `Desktop request params: ${JSON.stringify(params, null, 2)}`,
             'error',
           );
         } catch (_jsonError) {
           logToOutputChannel(
-            '❌ [ERROR] Failed to stringify desktop request params',
+            'Failed to stringify desktop request params',
             'error',
           );
         }
@@ -872,7 +963,61 @@ async function createDesktopLanguageClient(
     }
   });
 
+  // Register handler for server-to-client apex/loadWorkspace requests
+  Client.onRequest('apex/loadWorkspace', async (params: any) => {
+    logToOutputChannel(
+      '📨 Received apex/loadWorkspace request from server',
+      'debug',
+    );
+
+    try {
+      const result = await Effect.runPromise(
+        Effect.provide(
+          handleLoadWorkspace(params, Client!),
+          sharedWorkspaceLoadLayer,
+        ),
+      );
+      logToOutputChannel(
+        `✅ Load workspace acknowledged: ${JSON.stringify(result)}`,
+        'debug',
+      );
+      return result;
+    } catch (error) {
+      logToOutputChannel(
+        `❌ Failed to handle loadWorkspace request: ${error}`,
+        'error',
+      );
+      return { error: `Failed to handle loadWorkspace request: ${error}` };
+    }
+  });
+
   logToOutputChannel('✅ Node.js language client started successfully', 'info');
+
+  // If configured, trigger workspace load on startup via service
+  try {
+    const settings = getWorkspaceSettings();
+    logToOutputChannel(
+      `Workspace load settings: ${JSON.stringify(settings?.apex?.loadWorkspace)}`,
+      'debug',
+    );
+    if (settings?.apex?.loadWorkspace?.enabled && Client) {
+      logToOutputChannel('🚀 Triggering workspace load on startup...', 'info');
+      await Effect.runPromise(
+        Effect.provide(startWorkspaceLoad(Client), sharedWorkspaceLoadLayer),
+      );
+      logToOutputChannel('✅ Workspace load on startup completed', 'info');
+    } else {
+      logToOutputChannel(
+        '⚠️ Workspace load on startup skipped (disabled or no client)',
+        'debug',
+      );
+    }
+  } catch (err) {
+    logToOutputChannel(
+      `⚠️ Workspace load on startup failed or skipped: ${String(err)}`,
+      'warning',
+    );
+  }
 }
 
 /**
@@ -905,10 +1050,7 @@ export async function restartLanguageServer(
     await stopLanguageServer();
     await startLanguageServer(context, restartHandler);
   } catch (error) {
-    logToOutputChannel(
-      `❌ Failed to restart language server: ${error}`,
-      'error',
-    );
+    logToOutputChannel(`Failed to restart language server: ${error}`, 'error');
     throw error;
   }
 }

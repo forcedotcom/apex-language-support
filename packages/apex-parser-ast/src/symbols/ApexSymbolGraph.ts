@@ -7,6 +7,7 @@
  */
 
 import { HashMap, DirectedGraph, DirectedVertex } from 'data-structure-typed';
+import { Effect, Queue, Fiber } from 'effect';
 import {
   getLogger,
   type EnumValue,
@@ -141,6 +142,26 @@ export interface ReferenceNode {
 }
 
 /**
+ * Task for processing deferred references with retry tracking
+ */
+type DeferredProcessingTask = {
+  readonly _tag: 'DeferredProcessingTask';
+  readonly symbolName: string;
+  readonly taskType: 'processDeferred' | 'retryPending';
+  readonly retryCount: number;
+  readonly firstAttemptTime: number;
+};
+
+/**
+ * Result of batch processing deferred references
+ */
+interface BatchProcessingResult {
+  needsRetry: boolean;
+  reason: string;
+  remainingCount?: number;
+}
+
+/**
  * OPTIMIZED: ApexSymbolGraph with SymbolTable as primary storage
  * Eliminates duplicate symbol storage and delegates to SymbolTable
  */
@@ -218,6 +239,23 @@ export class ApexSymbolGraph {
     }>
   > = new HashMap();
 
+  // Pending deferred references that failed resolution (source symbol not found)
+  // These are retried when new symbols are added, keyed by source symbol name
+  private pendingDeferredReferences: HashMap<
+    string,
+    Array<{
+      targetSymbolName: string;
+      referenceType: EnumValue<typeof ReferenceType>;
+      location: SymbolLocation;
+      context?: {
+        methodName?: string;
+        parameterIndex?: number;
+        isStatic?: boolean;
+        namespace?: string;
+      };
+    }>
+  > = new HashMap();
+
   private memoryStats = {
     totalSymbols: 0,
     totalVertices: 0,
@@ -226,13 +264,166 @@ export class ApexSymbolGraph {
     estimatedMemorySavings: 0,
   };
 
+  // Effect-TS Queue infrastructure for deferred reference processing
+  private deferredQueue: Queue.Queue<DeferredProcessingTask>;
+  private workerFiber: any = null;
+  private readonly DEFERRED_BATCH_SIZE = 50;
+  private readonly DEFERRED_QUEUE_CAPACITY = 1000;
+  private readonly MAX_RETRY_ATTEMPTS = 10;
+  private readonly RETRY_DELAY_MS = 100;
+  private failedReferences: Map<string, DeferredProcessingTask> = new Map();
+  private activeRetryTimers: Set<NodeJS.Timeout> = new Set();
+
   private resourceLoader: ResourceLoader;
 
   constructor() {
     this.resourceLoader = ResourceLoader.getInstance({
-      loadMode: 'lazy',
       preloadStdClasses: false,
     });
+
+    // Initialize Effect-TS queue for deferred reference processing
+    try {
+      this.deferredQueue = Effect.runSync(
+        Queue.bounded<DeferredProcessingTask>(this.DEFERRED_QUEUE_CAPACITY),
+      );
+      this.startDeferredWorker();
+    } catch (error) {
+      // If queue initialization fails, log and continue without deferred processing
+      this.logger.warn(
+        () => `Failed to initialize deferred reference queue: ${error}`,
+      );
+      // Create a dummy queue to prevent null reference errors
+      // This should not happen in normal operation
+      this.deferredQueue = Effect.runSync(
+        Queue.bounded<DeferredProcessingTask>(1),
+      );
+    }
+  }
+
+  /**
+   * Start the background worker that processes deferred reference tasks from the queue
+   */
+  private startDeferredWorker(): void {
+    if (this.workerFiber) {
+      this.logger.warn(() => 'Deferred worker already running');
+      return;
+    }
+
+    const self = this;
+    const workerProgram = Effect.gen(function* () {
+      while (true) {
+        const task = yield* Queue.take(self.deferredQueue).pipe(
+          Effect.catchAll((error: unknown) => {
+            // Queue shutdown or interruption - exit the loop
+            const errorMsg =
+              error instanceof Error ? error.message : String(error);
+            if (
+              errorMsg.includes('shutdown') ||
+              errorMsg.includes('interrupt')
+            ) {
+              return Effect.fail(error as Error);
+            }
+            // Other errors - log and continue
+            self.logger.debug(() => `Queue.take error (will retry): ${error}`);
+            return Effect.fail(error as Error);
+          }),
+        );
+        yield* Effect.try({
+          try: () => self.processDeferredTask(task),
+          catch: (error) => new Error(`Deferred processing failed: ${error}`),
+        });
+      }
+    }).pipe(
+      Effect.catchAll((error: unknown) => {
+        // Worker is shutting down - this is expected
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        if (errorMsg.includes('shutdown') || errorMsg.includes('interrupt')) {
+          self.logger.debug(() => 'Deferred worker exiting (shutdown)');
+          return Effect.succeed(undefined);
+        }
+        // Unexpected error - log it
+        self.logger.error(() => `Deferred worker error: ${error}`);
+        return Effect.succeed(undefined);
+      }),
+    );
+
+    this.workerFiber = Effect.runFork(workerProgram);
+    this.logger.debug(() => 'Deferred reference worker started');
+  }
+
+  /**
+   * Process a deferred reference task with retry logic
+   */
+  private processDeferredTask(task: DeferredProcessingTask): void {
+    try {
+      if (task.taskType === 'processDeferred') {
+        const result = this.processDeferredReferencesBatch(task.symbolName);
+        if (result.needsRetry) {
+          this.requeueTask(task, result.reason);
+        }
+      } else {
+        const result = this.retryPendingDeferredReferencesBatch(
+          task.symbolName,
+        );
+        if (result.needsRetry) {
+          this.requeueTask(task, result.reason);
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        () => `Error processing deferred task for ${task.symbolName}: ${error}`,
+      );
+      this.requeueTask(task, 'processing_error');
+    }
+  }
+
+  /**
+   * Re-queue a failed task with incremented retry count, or move to dead letters if max retries exceeded
+   */
+  private requeueTask(task: DeferredProcessingTask, reason: string): void {
+    if (task.retryCount >= this.MAX_RETRY_ATTEMPTS) {
+      // Move to dead letter tracking
+      this.failedReferences.set(`${task.taskType}:${task.symbolName}`, task);
+      this.logger.warn(
+        () =>
+          `Deferred reference task exceeded max retries: ${task.symbolName} ` +
+          `(${task.retryCount} attempts, reason: ${reason})`,
+      );
+      return;
+    }
+
+    // Re-queue with incremented retry count
+    const retryTask: DeferredProcessingTask = {
+      ...task,
+      retryCount: task.retryCount + 1,
+    };
+
+    // Use setTimeout for retry delay to avoid async Effect issues
+    // This schedules the re-queue after the delay without blocking
+    // Track the timer so it can be cleared on shutdown
+    // Use .unref() to prevent the timer from keeping the process alive
+    const timer = setTimeout(() => {
+      this.activeRetryTimers.delete(timer);
+      try {
+        Effect.runSync(Queue.offer(this.deferredQueue, retryTask));
+      } catch (error) {
+        // Queue might be shutdown, ignore errors during shutdown
+        if (
+          !(error instanceof Error && error.message.includes('shutdown')) &&
+          !(error instanceof Error && error.message.includes('interrupt'))
+        ) {
+          this.logger.error(
+            () =>
+              `Failed to re-queue deferred task for ${task.symbolName}: ${error}`,
+          );
+        }
+      }
+    }, this.RETRY_DELAY_MS);
+    // Use .unref() to prevent timer from keeping Node.js process alive
+    if (typeof timer.unref === 'function') {
+      timer.unref();
+    }
+    this.activeRetryTimers.add(timer);
   }
 
   /**
@@ -350,10 +541,45 @@ export class ApexSymbolGraph {
     // Invalidate cache for this symbol name (cache might become stale)
     this.symbolCache.delete(symbol.name);
 
-    // Process any deferred references for this symbol
-    // Only process if there are actually deferred references to avoid unnecessary work
+    // Queue deferred reference processing instead of executing synchronously
+    // This prevents event loop blocking when many symbols are added
     if (this.deferredReferences.has(symbol.name)) {
-      this.processDeferredReferences(symbol.name);
+      const task: DeferredProcessingTask = {
+        _tag: 'DeferredProcessingTask',
+        symbolName: symbol.name,
+        taskType: 'processDeferred',
+        retryCount: 0,
+        firstAttemptTime: Date.now(),
+      };
+      try {
+        Effect.runSync(Queue.offer(this.deferredQueue, task));
+      } catch (error) {
+        // If queue offer fails, log and continue - deferred processing will retry later
+        this.logger.debug(
+          () =>
+            `Failed to enqueue deferred processing task for ${symbol.name}: ${error}`,
+        );
+      }
+    }
+
+    // Queue retry of pending deferred references that were waiting for this source symbol
+    if (this.pendingDeferredReferences.has(symbol.name)) {
+      const task: DeferredProcessingTask = {
+        _tag: 'DeferredProcessingTask',
+        symbolName: symbol.name,
+        taskType: 'retryPending',
+        retryCount: 0,
+        firstAttemptTime: Date.now(),
+      };
+      try {
+        Effect.runSync(Queue.offer(this.deferredQueue, task));
+      } catch (error) {
+        // If queue offer fails, log and continue - retry will happen later
+        this.logger.debug(
+          () =>
+            `Failed to enqueue pending retry task for ${symbol.name}: ${error}`,
+        );
+      }
     }
 
     // If this is a standard Apex class, ensure it's properly registered
@@ -367,20 +593,8 @@ export class ApexSymbolGraph {
       }
     }
 
-    // Update fileUri for any symbols in deferred references that match this symbol
-    // This ensures that when deferred references are processed, they can find the source symbols
-    for (const [_targetName, refs] of this.deferredReferences.entries()) {
-      if (refs) {
-        for (const ref of refs) {
-          if (
-            ref.sourceSymbol.name === symbol.name &&
-            ref.sourceSymbol.fileUri !== fileUri
-          ) {
-            ref.sourceSymbol.fileUri = fileUri;
-          }
-        }
-      }
-    }
+    // OPTIMIZED: Remove expensive iteration - fileUri updates are now handled lazily
+    // during batch processing when deferred references are actually processed
   }
 
   /**
@@ -882,7 +1096,75 @@ export class ApexSymbolGraph {
       totalVertices: this.memoryStats.totalVertices,
       totalEdges: this.memoryStats.totalEdges,
       deferredReferences: this.deferredReferences.size,
+      deferredQueueSize: this.getDeferredQueueSize(),
+      failedReferencesCount: this.getFailedReferencesCount(),
     };
+  }
+
+  /**
+   * Get the current size of the deferred reference processing queue
+   */
+  getDeferredQueueSize(): number {
+    try {
+      const size = Effect.runSync(Queue.size(this.deferredQueue));
+      // Queue.size can return -1 if queue is shutdown or in invalid state
+      return size >= 0 ? size : 0;
+    } catch (error) {
+      // If queue operations fail, return 0
+      this.logger.debug(() => `Failed to get queue size: ${error}`);
+      return 0;
+    }
+  }
+
+  /**
+   * Get the count of failed references that exceeded max retry attempts
+   */
+  getFailedReferencesCount(): number {
+    return this.failedReferences.size;
+  }
+
+  /**
+   * Get all failed references that exceeded max retry attempts (for debugging/monitoring)
+   */
+  getFailedReferences(): DeferredProcessingTask[] {
+    return Array.from(this.failedReferences.values());
+  }
+
+  /**
+   * Shutdown the deferred reference worker and queue
+   */
+  private shutdownDeferredWorker(): void {
+    try {
+      // Clear all active retry timers first
+      for (const timer of this.activeRetryTimers) {
+        clearTimeout(timer);
+      }
+      this.activeRetryTimers.clear();
+
+      // Shutdown the queue first (this will cause Queue.take to fail and exit the loop)
+      try {
+        Effect.runSync(Queue.shutdown(this.deferredQueue));
+      } catch (error) {
+        // Queue might already be shutdown, ignore
+        this.logger.debug(() => `Error shutting down queue: ${error}`);
+      }
+
+      // Then interrupt the worker fiber (in case it's still running)
+      if (this.workerFiber) {
+        try {
+          Effect.runSync(Fiber.interrupt(this.workerFiber));
+        } catch (error) {
+          // Fiber might already be interrupted, ignore
+          this.logger.debug(() => `Error interrupting worker fiber: ${error}`);
+        }
+        this.workerFiber = null;
+      }
+
+      this.logger.debug(() => 'Deferred reference worker shutdown complete');
+    } catch (error) {
+      // Ignore errors during shutdown - queue might already be shutdown
+      this.logger.debug(() => `Error during worker shutdown: ${error}`);
+    }
   }
 
   /**
@@ -1128,6 +1410,9 @@ export class ApexSymbolGraph {
    * Clear all data
    */
   clear(): void {
+    // Shutdown deferred worker and queue before clearing
+    this.shutdownDeferredWorker();
+
     this.referenceGraph.clear();
     this.symbolIds.clear();
     this.symbolToVertex.clear();
@@ -1136,6 +1421,7 @@ export class ApexSymbolGraph {
     this.fileIndex.clear();
     this.fqnIndex.clear();
     this.deferredReferences.clear();
+    this.pendingDeferredReferences.clear();
 
     // Clear SymbolTable references
     this.fileToSymbolTable.clear();
@@ -1145,6 +1431,9 @@ export class ApexSymbolGraph {
     this.symbolCache.clear();
     this.cacheSize = 0;
 
+    // Clear failed references
+    this.failedReferences.clear();
+
     this.memoryStats = {
       totalSymbols: 0,
       totalVertices: 0,
@@ -1152,6 +1441,28 @@ export class ApexSymbolGraph {
       memoryOptimizationLevel: 'OPTIMAL',
       estimatedMemorySavings: 0,
     };
+
+    // Reinitialize queue and worker
+    try {
+      this.deferredQueue = Effect.runSync(
+        Queue.bounded<DeferredProcessingTask>(this.DEFERRED_QUEUE_CAPACITY),
+      );
+      this.startDeferredWorker();
+    } catch (error) {
+      // If reinitialization fails, log and continue
+      this.logger.warn(
+        () => `Failed to reinitialize deferred reference queue: ${error}`,
+      );
+      // Create a minimal queue to prevent null reference errors
+      try {
+        this.deferredQueue = Effect.runSync(
+          Queue.bounded<DeferredProcessingTask>(1),
+        );
+      } catch (e) {
+        // If even minimal queue creation fails, we're in a bad state
+        this.logger.error(() => `Critical: Cannot create deferred queue: ${e}`);
+      }
+    }
   }
 
   /**
@@ -1453,29 +1764,46 @@ export class ApexSymbolGraph {
   }
 
   /**
-   * Process deferred references for a symbol
+   * Process deferred references for a symbol in batches with retry tracking
+   * Returns result indicating if retry is needed and why
    */
-  private processDeferredReferences(symbolName: string): void {
+  private processDeferredReferencesBatch(
+    symbolName: string,
+  ): BatchProcessingResult {
     const deferred = this.deferredReferences.get(symbolName);
-    if (!deferred) {
-      return;
+    if (!deferred || deferred.length === 0) {
+      return { needsRetry: false, reason: 'success' };
     }
 
     // Find the target symbol by name
     const targetSymbols = this.findSymbolByName(symbolName);
     if (targetSymbols.length === 0) {
-      this.logger.warn(
-        () =>
-          `Target symbol not found for deferred reference processing: ${symbolName}`,
-      );
-      return;
+      // Target symbol not found - re-queue for retry
+      return { needsRetry: true, reason: 'target_not_found' };
     }
 
     // Use the first symbol with this name
     const targetSymbol = targetSymbols[0];
     const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
 
-    for (const ref of deferred) {
+    // Process in batches to avoid blocking
+    const batchSize = Math.min(this.DEFERRED_BATCH_SIZE, deferred.length);
+    const processed: typeof deferred = [];
+    let hasFailures = false;
+
+    for (let i = 0; i < batchSize; i++) {
+      const ref = deferred[i];
+      if (!ref) continue;
+
+      // Update fileUri lazily if needed (replaces expensive iteration from addSymbol)
+      if (!ref.sourceSymbol.fileUri) {
+        // Find source symbol to get fileUri
+        const sourceSymbols = this.findSymbolByName(ref.sourceSymbol.name);
+        if (sourceSymbols.length > 0) {
+          ref.sourceSymbol.fileUri = sourceSymbols[0].fileUri;
+        }
+      }
+
       // Find the source symbol in the graph
       const sourceSymbols = this.findSymbolByName(ref.sourceSymbol.name);
 
@@ -1486,10 +1814,24 @@ export class ApexSymbolGraph {
         : sourceSymbols[0]; // Take the first symbol with matching name
 
       if (!sourceSymbolInGraph) {
-        this.logger.warn(
+        // Source symbol not found - keep for retry later when source symbol is added
+        const pending =
+          this.pendingDeferredReferences.get(ref.sourceSymbol.name) || [];
+        pending.push({
+          targetSymbolName: symbolName,
+          referenceType: ref.referenceType,
+          location: ref.location,
+          context: ref.context,
+        });
+        this.pendingDeferredReferences.set(ref.sourceSymbol.name, pending);
+
+        this.logger.debug(
           () =>
-            `Source symbol not found for deferred reference: ${ref.sourceSymbol.name}`,
+            `Source symbol not found for deferred reference: ${ref.sourceSymbol.name}, ` +
+            'will retry when source symbol is added',
         );
+        processed.push(ref);
+        hasFailures = true;
         continue;
       }
 
@@ -1527,6 +1869,8 @@ export class ApexSymbolGraph {
           () =>
             `Failed to add deferred reference edge: ${sourceId} -> ${targetId}`,
         );
+        processed.push(ref);
+        hasFailures = true;
         continue;
       }
 
@@ -1537,9 +1881,172 @@ export class ApexSymbolGraph {
       }
 
       this.memoryStats.totalEdges++;
+      processed.push(ref);
     }
 
-    this.deferredReferences.delete(symbolName); // Delete by symbol name
+    // Remove processed references
+    const remaining = deferred.filter((ref) => !processed.includes(ref));
+    if (remaining.length === 0) {
+      this.deferredReferences.delete(symbolName);
+      return { needsRetry: false, reason: 'success' };
+    } else {
+      // Update with remaining references
+      this.deferredReferences.set(symbolName, remaining);
+      return {
+        needsRetry: true,
+        reason: hasFailures
+          ? 'source_not_found_or_edge_failed'
+          : 'batch_incomplete',
+        remainingCount: remaining.length,
+      };
+    }
+  }
+
+  /**
+   * Process deferred references for a symbol (legacy method, kept for backward compatibility)
+   * @deprecated Use processDeferredReferencesBatch instead
+   */
+  private processDeferredReferences(symbolName: string): void {
+    const result = this.processDeferredReferencesBatch(symbolName);
+    if (result.needsRetry && result.remainingCount === undefined) {
+      // If it needs retry but no remaining count, it means target not found
+      // This is handled by the queue system now
+      this.logger.debug(
+        () =>
+          `Deferred reference processing queued for retry: ${symbolName} (${result.reason})`,
+      );
+    }
+  }
+
+  /**
+   * Retry pending deferred references when source symbol is added (batch version)
+   * Returns result indicating if retry is needed and why
+   */
+  private retryPendingDeferredReferencesBatch(
+    symbolName: string,
+  ): BatchProcessingResult {
+    const pending = this.pendingDeferredReferences.get(symbolName);
+    if (!pending || pending.length === 0) {
+      return { needsRetry: false, reason: 'success' };
+    }
+
+    // Find the source symbol
+    const sourceSymbols = this.findSymbolByName(symbolName);
+    if (sourceSymbols.length === 0) {
+      // Source symbol not found - re-queue for retry
+      return { needsRetry: true, reason: 'source_not_found' };
+    }
+
+    const sourceSymbol = sourceSymbols[0];
+    const sourceId = this.getSymbolId(sourceSymbol, sourceSymbol.fileUri);
+
+    // Process in batches to avoid blocking
+    const batchSize = Math.min(this.DEFERRED_BATCH_SIZE, pending.length);
+    const processed: typeof pending = [];
+    let hasFailures = false;
+
+    for (let i = 0; i < batchSize; i++) {
+      const ref = pending[i];
+      if (!ref) continue;
+
+      // Find the target symbol by name
+      const targetSymbols = this.findSymbolByName(ref.targetSymbolName);
+      if (targetSymbols.length === 0) {
+        // Target symbol still not found - keep for later retry
+        this.logger.debug(
+          () =>
+            `Target symbol not found for pending deferred reference: ${ref.targetSymbolName}, ` +
+            'will retry when target symbol is added',
+        );
+        processed.push(ref);
+        hasFailures = true;
+        continue;
+      }
+
+      const targetSymbol = targetSymbols[0];
+      const targetId = this.getSymbolId(targetSymbol, targetSymbol.fileUri);
+
+      // Create optimized reference edge
+      const referenceEdge: ReferenceEdge = {
+        type: ref.referenceType,
+        sourceFileUri: sourceSymbol.fileUri,
+        targetFileUri: targetSymbol.fileUri,
+        context: ref.context
+          ? {
+              methodName: ref.context.methodName,
+              parameterIndex: ref.context.parameterIndex
+                ? toUint16(ref.context.parameterIndex)
+                : undefined,
+              isStatic: ref.context.isStatic,
+              namespace: ref.context.namespace,
+            }
+          : undefined,
+      };
+
+      // Add edge to graph
+      const edgeAdded = this.referenceGraph.addEdge(
+        sourceId,
+        targetId,
+        1,
+        referenceEdge,
+      );
+      if (!edgeAdded) {
+        this.logger.warn(
+          () =>
+            `Failed to add pending deferred reference edge: ${sourceId} -> ${targetId}`,
+        );
+        processed.push(ref);
+        hasFailures = true;
+        continue;
+      }
+
+      // Update reference count
+      const targetVertex = this.symbolToVertex.get(targetId);
+      if (targetVertex && targetVertex.value) {
+        targetVertex.value.referenceCount++;
+      }
+
+      this.memoryStats.totalEdges++;
+      processed.push(ref);
+
+      this.logger.debug(
+        () =>
+          `Retried pending deferred reference: ${symbolName} -> ${ref.targetSymbolName}`,
+      );
+    }
+
+    // Remove processed references
+    const remaining = pending.filter((ref) => !processed.includes(ref));
+    if (remaining.length === 0) {
+      this.pendingDeferredReferences.delete(symbolName);
+      return { needsRetry: false, reason: 'success' };
+    } else {
+      // Update with remaining references
+      this.pendingDeferredReferences.set(symbolName, remaining);
+      return {
+        needsRetry: true,
+        reason: hasFailures
+          ? 'target_not_found_or_edge_failed'
+          : 'batch_incomplete',
+        remainingCount: remaining.length,
+      };
+    }
+  }
+
+  /**
+   * Retry pending deferred references when source symbol is added (legacy method)
+   * @deprecated Use retryPendingDeferredReferencesBatch instead
+   */
+  private retryPendingDeferredReferences(sourceSymbol: ApexSymbol): void {
+    const result = this.retryPendingDeferredReferencesBatch(sourceSymbol.name);
+    if (result.needsRetry && result.remainingCount === undefined) {
+      // If it needs retry but no remaining count, it means source not found
+      // This is handled by the queue system now
+      this.logger.debug(
+        () =>
+          `Pending deferred reference retry queued: ${sourceSymbol.name} (${result.reason})`,
+      );
+    }
   }
 
   /**

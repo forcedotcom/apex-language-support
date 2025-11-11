@@ -83,10 +83,16 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       },
     } as any;
 
+    // Create mock settings manager
+    const mockSettingsManager = {
+      getResourceLoadMode: jest.fn().mockReturnValue('lazy'),
+    };
+
     // Create mock configuration manager
     mockConfigManager = {
       getCapabilities: jest.fn(),
       setInitialSettings: jest.fn(),
+      getSettingsManager: jest.fn().mockReturnValue(mockSettingsManager),
     } as any;
 
     // Mock the getInstance method

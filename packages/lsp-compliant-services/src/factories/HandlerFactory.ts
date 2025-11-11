@@ -38,6 +38,11 @@ import {
   DefinitionProcessingService,
   IDefinitionProcessor,
 } from '../services/DefinitionProcessingService';
+import { ReferencesHandler } from '../handlers/ReferencesHandler';
+import {
+  ReferencesProcessingService,
+  IReferencesProcessor,
+} from '../services/ReferencesProcessingService';
 import { DidOpenDocumentHandler } from '../handlers/DidOpenDocumentHandler';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
 import { CodeLensHandler } from '../handlers/CodeLensHandler';
@@ -202,6 +207,30 @@ export class HandlerFactory {
     definitionProcessor: IDefinitionProcessor,
   ): DefinitionHandler {
     return new DefinitionHandler(logger, definitionProcessor);
+  }
+
+  /**
+   * Create a ReferencesHandler with default dependencies
+   * @returns A configured ReferencesHandler instance
+   */
+  static createReferencesHandler(): ReferencesHandler {
+    const logger = getLogger();
+    const referencesProcessor = new ReferencesProcessingService(logger);
+
+    return new ReferencesHandler(logger, referencesProcessor);
+  }
+
+  /**
+   * Create a ReferencesHandler with custom dependencies (for testing)
+   * @param logger Custom logger implementation
+   * @param referencesProcessor Custom references processor implementation
+   * @returns A configured ReferencesHandler instance
+   */
+  static createReferencesHandlerWithDependencies(
+    logger: LoggerInterface,
+    referencesProcessor: IReferencesProcessor,
+  ): ReferencesHandler {
+    return new ReferencesHandler(logger, referencesProcessor);
   }
 
   /**

@@ -138,6 +138,10 @@ export const DEVELOPMENT_CLIENT_CAPABILITIES: ClientCapabilities = {
       dynamicRegistration: true,
       contentFormat: ['markdown', 'plaintext'],
     },
+    // References
+    references: {
+      dynamicRegistration: true,
+    },
     // Completion
     completion: {
       dynamicRegistration: true,

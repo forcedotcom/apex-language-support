@@ -15,6 +15,7 @@ import {
   HoverParams,
   Hover,
   DefinitionParams,
+  ReferenceParams,
   Location,
   CodeLensParams,
   CodeLens,
@@ -31,6 +32,7 @@ import { dispatchProcessOnDiagnostic } from './handlers/DiagnosticHandler';
 import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
 import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
 import { HoverHandler } from './handlers/HoverHandler';
+import { LSPQueueManager } from './queue/LSPQueueManager';
 
 // Export storage interfaces and classes
 export * from './storage/ApexStorageBase';
@@ -50,6 +52,7 @@ export * from './handlers/DidSaveDocumentHandler';
 export * from './handlers/DidCloseDocumentHandler';
 export * from './handlers/DocumentSymbolHandler';
 export * from './handlers/DefinitionHandler';
+export * from './handlers/ReferencesHandler';
 export * from './handlers/FoldingRangeHandler';
 export * from './handlers/ApexLibResolveHandler';
 export * from './handlers/LogNotificationHandler';
@@ -69,6 +72,8 @@ export * from './services/DiagnosticProcessingService';
 export * from './services/HoverProcessingService';
 export * from './services/BackgroundProcessingInitializationService';
 export * from './services/CompletionProcessingService';
+export * from './services/ReferencesProcessingService';
+export * from './services/WorkspaceLoadCoordinator';
 export * from './services/MissingArtifactResolutionService';
 export * from './services/IndexingObserver';
 export * from './services/SymbolManagerExtensions';
@@ -90,14 +95,15 @@ export * from './queue';
 
 /**
  * Dispatch function for document open events
+ * Routes through LSPQueueManager for throttled processing during workspace load
  * @param event The document open event
  * @returns Promise resolving to diagnostics or undefined
  */
 export const dispatchProcessOnOpenDocument = async (
   event: TextDocumentChangeEvent<TextDocument>,
 ): Promise<Diagnostic[] | undefined> => {
-  const handler = HandlerFactory.createDidOpenDocumentHandler();
-  return await handler.handleDocumentOpen(event);
+  const queueManager = LSPQueueManager.getInstance();
+  return await queueManager.submitDocumentOpenRequest(event);
 };
 
 /**
@@ -193,6 +199,18 @@ export const dispatchProcessOnDefinition = async (
 ): Promise<Location[] | null> => {
   const handler = HandlerFactory.createDefinitionHandler();
   return await handler.handleDefinition(params);
+};
+
+/**
+ * Dispatch function for references requests
+ * @param params The references parameters
+ * @returns Promise resolving to reference locations or null
+ */
+export const dispatchProcessOnReferences = async (
+  params: ReferenceParams,
+): Promise<Location[] | null> => {
+  const handler = HandlerFactory.createReferencesHandler();
+  return await handler.handleReferences(params);
 };
 
 /**

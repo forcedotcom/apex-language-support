@@ -16,6 +16,7 @@ import {
   HoverParams,
   Hover,
   DefinitionParams,
+  ReferenceParams,
   Location,
   DocumentDiagnosticParams,
   DocumentDiagnosticReport,
@@ -35,6 +36,8 @@ import {
   LSPConfigurationManager,
   FindMissingArtifactParams,
   FindMissingArtifactResult,
+  LoadWorkspaceParams,
+  LoadWorkspaceResult,
   PingResponse,
 } from '@salesforce/apex-lsp-shared';
 
@@ -46,6 +49,7 @@ import {
   dispatchProcessOnDocumentSymbol,
   dispatchProcessOnHover,
   dispatchProcessOnDefinition,
+  dispatchProcessOnReferences,
   dispatchProcessOnFoldingRange,
   dispatchProcessOnFindMissingArtifact,
   dispatchProcessOnCodeLens,
@@ -53,6 +57,7 @@ import {
   ApexStorageManager,
   ApexStorage,
   dispatchProcessOnResolve,
+  BackgroundProcessingInitializationService,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
@@ -140,15 +145,23 @@ export class LCSAdapter {
    * - Requests ZIP from client via apex/provideStandardLibrary
    * - Client reads from virtual file system using vscode.workspace.fs
    * - Works uniformly in both web and desktop environments
+   * - Load mode determined from settings (apex.resources.loadMode)
    */
   private async initializeResourceLoader(): Promise<void> {
     try {
-      this.logger.info(
-        '📦 Initializing ResourceLoader singleton for standard library...',
-      );
       this.logger.debug('📦 Initializing ResourceLoader singleton...');
+
+      // Get load mode from settings
+      const configManager = LSPConfigurationManager.getInstance();
+      const settingsManager = configManager.getSettingsManager();
+      const loadMode = settingsManager.getResourceLoadMode();
+
+      this.logger.debug(
+        () => `📦 Using ResourceLoader loadMode: ${loadMode} (from settings)`,
+      );
+
       const resourceLoader = ResourceLoader.getInstance({
-        loadMode: 'lazy',
+        loadMode,
         preloadStdClasses: true,
       });
 
@@ -327,6 +340,29 @@ export class LCSAdapter {
       );
     }
 
+    // Only register references handler if the capability is enabled
+    if (capabilities.referencesProvider) {
+      this.connection.onReferences(
+        async (params: ReferenceParams): Promise<Location[] | null> => {
+          this.logger.debug(
+            `🔍 References request for URI: ${params.textDocument.uri} ` +
+              `at ${params.position.line}:${params.position.character}`,
+          );
+          try {
+            return await dispatchProcessOnReferences(params);
+          } catch (error) {
+            this.logger.error(`Error processing references: ${error}`);
+            return null;
+          }
+        },
+      );
+      this.logger.debug('✅ References handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ References handler not registered (capability disabled)',
+      );
+    }
+
     // Note: onHover will be registered after client configuration is received
     // to ensure server mode is properly set before enabling hover support
 
@@ -447,6 +483,33 @@ export class LCSAdapter {
       },
     );
     this.logger.debug('✅ apexlib/resolve handler registered');
+
+    // Register custom apex/loadWorkspace handler
+    this.connection.onRequest(
+      'apex/loadWorkspace',
+      async (params: LoadWorkspaceParams): Promise<LoadWorkspaceResult> => {
+        this.logger.debug('🔍 apex/loadWorkspace request received');
+        try {
+          // Forward the request to the client
+          const result = await this.connection.sendRequest(
+            'apex/loadWorkspace',
+            params,
+          );
+          this.logger.debug(
+            `✅ apex/loadWorkspace client response: ${JSON.stringify(result)}`,
+          );
+          return result as LoadWorkspaceResult;
+        } catch (error) {
+          this.logger.error(
+            `Error forwarding loadWorkspace to client: ${error}`,
+          );
+          return {
+            error: `Failed to forward loadWorkspace request to client: ${error}`,
+          };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/loadWorkspace handler registered');
   }
 
   /**
@@ -531,6 +594,19 @@ export class LCSAdapter {
         allCapabilities.completionProvider;
     }
 
+    // Always include referencesProvider in static capabilities for VS Code context menu
+    // Even if dynamic registration is supported, VS Code needs it in initial response
+    if (allCapabilities.referencesProvider) {
+      staticCapabilities.referencesProvider =
+        allCapabilities.referencesProvider;
+    }
+
+    // Always include definitionProvider in static capabilities for VS Code context menu
+    if (allCapabilities.definitionProvider) {
+      staticCapabilities.definitionProvider =
+        allCapabilities.definitionProvider;
+    }
+
     if (
       allCapabilities.codeLensProvider &&
       !params.capabilities.textDocument?.codeLens?.dynamicRegistration
@@ -590,6 +666,9 @@ export class LCSAdapter {
       case 'definition':
         return !!this.clientCapabilities.textDocument?.definition
           ?.dynamicRegistration;
+      case 'references':
+        return !!this.clientCapabilities.textDocument?.references
+          ?.dynamicRegistration;
       case 'codeLens':
         return !!this.clientCapabilities.textDocument?.codeLens
           ?.dynamicRegistration;
@@ -603,6 +682,19 @@ export class LCSAdapter {
    */
   private async handleInitialized(): Promise<void> {
     this.logger.info('🎉 Server initialized');
+
+    // Initialize symbol processing early, before protocol handlers
+    try {
+      this.logger.debug('🔧 Initializing background symbol processing...');
+      BackgroundProcessingInitializationService.getInstance().initialize();
+      this.logger.info('✅ Background symbol processing initialized');
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to initialize background symbol processing: ${error}`,
+      );
+      // Don't throw - allow server to continue without background processing
+    }
+
     // Register $/ping handler for health checks (must be after initialization)
     this.connection.onRequest('$/ping', async (): Promise<PingResponse> => {
       this.logger.debug('[SERVER] Received $/ping request');

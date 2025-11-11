@@ -23,13 +23,13 @@ import {
 export class GenericLSPRequestQueue {
   private readonly logger = getLogger();
 
-  // Priority-based queues using simple arrays (safer than Effect queues in constructor)
+  // Priority-based queues using simple arrays
   private readonly immediateQueue: LSPRequestTask[] = [];
   private readonly highPriorityQueue: LSPRequestTask[] = [];
   private readonly normalPriorityQueue: LSPRequestTask[] = [];
   private readonly lowPriorityQueue: LSPRequestTask[] = [];
 
-  // Simple processing interval (replaces Effect worker fibers)
+  // Simple processing interval
   private processingInterval: NodeJS.Timeout | null = null;
 
   // Statistics tracking
@@ -41,8 +41,7 @@ export class GenericLSPRequestQueue {
   };
 
   constructor(private readonly serviceRegistry: ServiceRegistry) {
-    // Initialize with simple arrays to avoid Effect.js runtime issues in constructor
-    // Queues are now simple arrays initialized above
+    // Initialize with simple arrays
 
     this.logger.debug(
       () =>
@@ -76,7 +75,7 @@ export class GenericLSPRequestQueue {
   }
 
   /**
-   * Start simple processing loop instead of Effect workers
+   * Start simple processing loop
    */
   private startProcessing(): void {
     // Process queues every 10ms
@@ -234,10 +233,6 @@ export class GenericLSPRequestQueue {
       );
     });
   }
-
-  // Old Effect-based workers removed - using simple processing loop instead
-
-  // Old createWorker method removed - using simple processing loop instead
 
   /**
    * Execute the actual LSP request using the service registry

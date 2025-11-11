@@ -12,7 +12,7 @@ import {
   mergeWithDefaults,
   mergeWithExisting,
   ApexLanguageServerSettings,
-} from '../../src/settings/ApexLanguageServerSettings';
+} from '../../src/settings/ApexSettingsUtilities';
 import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 
 describe('ApexLanguageServerSettings Validation', () => {

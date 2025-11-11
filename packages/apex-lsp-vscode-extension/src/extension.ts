@@ -32,6 +32,7 @@ import {
   stopLanguageServer,
 } from './language-server';
 import { getWorkspaceSettings } from './configuration';
+import { formattedError } from '@salesforce/apex-lsp-shared';
 
 /**
  * Wrapper function for restart that matches the expected signature
@@ -57,9 +58,7 @@ const handleStart = async (context: vscode.ExtensionContext): Promise<void> => {
  */
 export function activate(context: vscode.ExtensionContext): void {
   console.log('🚀 [APEX-EXT] Extension activation started');
-  console.log(
-    '🔍 [DEBUG] Extension activation called - checking for existing client',
-  );
+  console.log('Extension activation called - checking for existing client');
 
   // Initialize simple extension logging
   initializeExtensionLogging(context);
@@ -115,11 +114,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const { getClient } = require('./language-server');
   const existingClient = getClient();
   if (existingClient) {
-    console.log('⚠️ [WARNING] Client already exists, skipping start');
-    logToOutputChannel(
-      '⚠️ [WARNING] Client already exists, skipping start',
-      'warning',
-    );
+    console.log('⚠️ Client already exists, skipping start');
+    logToOutputChannel('Client already exists, skipping start', 'warning');
     return;
   }
 
@@ -128,47 +124,16 @@ export function activate(context: vscode.ExtensionContext): void {
   logToOutputChannel('🔧 About to start language server...', 'debug');
   handleStart(context)
     .then(async () => {
-      console.log('✅ Language server started successfully');
       logToOutputChannel('✅ Language server started successfully', 'info');
-
-      // Load workspace settings and send configuration change notification
-      try {
-        const _workspaceSettings = getWorkspaceSettings();
-        logToOutputChannel('📋 Workspace settings loaded', 'debug');
-
-        // Rely on VS Code's automatic configuration synchronization
-        // The LanguageClient is configured with synchronize: { configurationSection: 'apex' }
-        // which should automatically handle configuration changes
-        console.log(
-          '🔍 [DEBUG] Relying on VS Code automatic configuration synchronization',
-        );
-        logToOutputChannel(
-          '🔍 [DEBUG] Relying on VS Code automatic configuration synchronization',
-          'debug',
-        );
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        logToOutputChannel(
-          `❌ Failed to send configuration notification: ${errorMessage}`,
-          'error',
-        );
-      }
     })
     .catch((error) => {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
       logToOutputChannel(
-        `❌ Failed to start language server: ${errorMessage}`,
+        `❌ Failed to start language server: ${formattedError(error, {
+          includeStack: true,
+        })}`,
         'error',
       );
-      if (error instanceof Error && error.stack) {
-        logToOutputChannel(`❌ Error stack: ${error.stack}`, 'error');
-      }
-      console.error('❌ [APEX-EXT] Failed to start language server:', error);
     });
-
-  console.log('✅ [APEX-EXT] Extension activation completed');
 }
 
 /**

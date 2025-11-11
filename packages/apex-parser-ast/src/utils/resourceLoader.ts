@@ -7,7 +7,7 @@
  */
 
 import { unzipSync } from 'fflate';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
 import { CaseInsensitiveString as CIS } from './CaseInsensitiveString';
@@ -71,12 +71,24 @@ export class ResourceLoader {
     new CaseInsensitivePathMap(); // Lightweight existence index with case-insensitive keys
   private originalPaths: CaseInsensitivePathMap<string> =
     new CaseInsensitivePathMap(); // Maps case-insensitive paths to original case paths
+  private normalizedToZipPath: CaseInsensitivePathMap<string> =
+    new CaseInsensitivePathMap(); // Maps normalized paths to ZIP file paths for O(1) lookup
+  private decodedContentCache: CaseInsensitivePathMap<string> =
+    new CaseInsensitivePathMap(); // Cache for decoded file contents
+  private namespaceIndex: CaseInsensitivePathMap<string> =
+    new CaseInsensitivePathMap(); // Case-insensitive namespace index for O(1) lookups
+  private classNameToNamespace: CaseInsensitivePathMap<string> =
+    new CaseInsensitivePathMap(); // Reverse index: className -> namespace
   private totalSize: number = 0; // Total size of all files
   private accessCount: number = 0; // Simple access counter for statistics
   private zipBuffer?: Uint8Array; // Will be initialized via setZipBuffer
-  private zipFiles!: CaseInsensitivePathMap<Uint8Array>; // Will be initialized in extractZipFiles
+  private zipFiles: CaseInsensitivePathMap<Uint8Array> | null = null; // Will be initialized in extractZipFiles
 
   private constructor(options?: ResourceLoaderOptions) {
+    this.logger.debug(
+      () =>
+        `🚀 ResourceLoader constructor called with options: ${JSON.stringify(options)}`,
+    );
     if (options?.loadMode) {
       this.loadMode = options.loadMode;
     }
@@ -95,6 +107,12 @@ export class ResourceLoader {
       this.zipBuffer = options.zipBuffer;
       this.extractZipFiles();
       this.initialized = true;
+
+      // Start compilation if loadMode is 'full'
+      if (this.loadMode === 'full') {
+        this.logger.info(() => '🚀 Starting full compilation mode...');
+        this.compilationPromise = this.compileAllArtifacts();
+      }
     } else {
       // Wait for setZipBuffer() to be called
       this.logger.debug(
@@ -112,6 +130,10 @@ export class ResourceLoader {
     this.zipFiles = new CaseInsensitivePathMap<Uint8Array>();
     this.fileIndex = new CaseInsensitivePathMap<boolean>();
     this.originalPaths = new CaseInsensitivePathMap<string>();
+    this.normalizedToZipPath = new CaseInsensitivePathMap<string>();
+    this.decodedContentCache = new CaseInsensitivePathMap<string>();
+    this.namespaceIndex = new CaseInsensitivePathMap<string>();
+    this.classNameToNamespace = new CaseInsensitivePathMap<string>();
     this.namespaces = new Map<string, CIS[]>();
     this.totalSize = 0;
   }
@@ -139,6 +161,10 @@ export class ResourceLoader {
         .replace(/^src\/resources\/StandardApexLibrary\//, '')
         .replace(/\\/g, '/');
       this.originalPaths.set(relativePath, relativePath);
+
+      // Build normalized path to ZIP path mapping for O(1) lookups
+      const normalizedPath = this.normalizePath(relativePath);
+      this.normalizedToZipPath.set(normalizedPath, originalPath);
     }
 
     // Build lightweight file index from extracted files
@@ -168,17 +194,33 @@ export class ResourceLoader {
       if (namespace) {
         // Find existing namespace with case-insensitive lookup, but preserve original case
         let existingNamespaceKey = namespace;
-        for (const existingKey of this.namespaces.keys()) {
-          if (existingKey.toLowerCase() === namespace.toLowerCase()) {
-            existingNamespaceKey = existingKey;
-            break;
-          }
+        const namespaceLower = namespace.toLowerCase();
+
+        // Use namespaceIndex for O(1) lookup instead of iteration
+        if (this.namespaceIndex.has(namespaceLower)) {
+          existingNamespaceKey = this.namespaceIndex.get(namespaceLower)!;
+        } else {
+          // First time seeing this namespace (case-insensitively)
+          this.namespaceIndex.set(namespaceLower, namespace);
         }
 
         if (!this.namespaces.has(existingNamespaceKey)) {
           this.namespaces.set(existingNamespaceKey, []);
         }
         this.namespaces.get(existingNamespaceKey)!.push(CIS.from(fileName));
+
+        // Build reverse index: className -> namespace for O(1) lookup
+        const normalizedClassName = this.normalizePath(originalPath);
+        this.classNameToNamespace.set(
+          normalizedClassName,
+          existingNamespaceKey,
+        );
+
+        // Also map just the class name (without path) to namespace
+        const classNameOnly = fileName.replace(/\.cls$/i, '');
+        if (classNameOnly) {
+          this.classNameToNamespace.set(classNameOnly, existingNamespaceKey);
+        }
       }
 
       // Store in lightweight index for existence checks
@@ -187,7 +229,7 @@ export class ResourceLoader {
     }
 
     // Calculate total size from zipFiles directly
-    for (const [_zipPath, data] of this.zipFiles.entries()) {
+    for (const [_zipPath, data] of this.zipFiles!.entries()) {
       totalSize += data?.length || 0;
     }
 
@@ -214,6 +256,7 @@ export class ResourceLoader {
   /**
    * Extract a single file from the already extracted ZIP files using case-insensitive lookup.
    * Converts Uint8Array to string using TextDecoder for efficient content retrieval.
+   * Uses cached content when available to avoid repeated decoding.
    *
    * @param path The file path to extract
    * @returns Promise that resolves to the file content or undefined if not found
@@ -227,30 +270,91 @@ export class ResourceLoader {
       return undefined;
     }
 
-    // Use CaseInsensitivePathMap to find the file directly
-    // We need to find the original zip path that corresponds to our normalized path
-    for (const [zipPath, data] of this.zipFiles.entries()) {
-      const relativePath = zipPath
-        .replace(/^src\/resources\/StandardApexLibrary\//, '')
-        .replace(/\\/g, '/');
-
-      if (relativePath.toLowerCase() === normalizedPath.toLowerCase()) {
-        // Convert Uint8Array to string
-        const content = new TextDecoder('utf-8').decode(data);
-
-        // Update access statistics
-        this.accessCount++;
-
-        return content;
-      }
+    // Check cache first to avoid repeated decoding
+    if (this.decodedContentCache.has(normalizedPath)) {
+      this.accessCount++;
+      return this.decodedContentCache.get(normalizedPath);
     }
 
-    return undefined;
+    // Use normalizedToZipPath map for O(1) lookup instead of iteration
+    const zipPath = this.normalizedToZipPath.get(normalizedPath);
+    if (!zipPath || !this.zipFiles) {
+      return undefined;
+    }
+
+    const data = this.zipFiles.get(zipPath);
+    if (!data) {
+      return undefined;
+    }
+
+    // Convert Uint8Array to string
+    const content = new TextDecoder('utf-8').decode(data);
+
+    // Cache the decoded content for future access
+    this.decodedContentCache.set(normalizedPath, content);
+
+    // Update access statistics
+    this.accessCount++;
+
+    return content;
+  }
+
+  private static loadModeUpdateLogged = false;
+
+  /**
+   * Get loadMode from settings if not explicitly provided in options.
+   * Falls back to 'full' if settings are not available.
+   */
+  private static getLoadModeFromSettings(): 'lazy' | 'full' {
+    try {
+      const settingsManager = ApexSettingsManager.getInstance();
+      return settingsManager.getResourceLoadMode();
+    } catch (_error) {
+      // Settings not available yet - use default
+      return 'full';
+    }
   }
 
   public static getInstance(options?: ResourceLoaderOptions): ResourceLoader {
+    // If loadMode not provided, fetch from settings
+    const effectiveOptions: ResourceLoaderOptions | undefined = options
+      ? {
+          ...options,
+          loadMode:
+            options.loadMode ?? ResourceLoader.getLoadModeFromSettings(),
+        }
+      : {
+          loadMode: ResourceLoader.getLoadModeFromSettings(),
+        };
+
     if (!ResourceLoader.instance) {
-      ResourceLoader.instance = new ResourceLoader(options);
+      ResourceLoader.instance = new ResourceLoader(effectiveOptions);
+    } else if (effectiveOptions) {
+      // Instance already exists - warn if options differ and update loadMode if ZIP buffer not set yet
+      const instance = ResourceLoader.instance;
+      if (
+        effectiveOptions.loadMode &&
+        effectiveOptions.loadMode !== instance.loadMode
+      ) {
+        // Only log once to avoid spam during parallel compilation
+        if (!ResourceLoader.loadModeUpdateLogged) {
+          instance.logger.debug(
+            () =>
+              `ResourceLoader instance already exists with loadMode: ${instance.loadMode}. ` +
+              `Requested loadMode: ${effectiveOptions.loadMode}. ` +
+              'Will use existing loadMode unless ZIP buffer not yet set.',
+          );
+        }
+        // Allow updating loadMode if ZIP buffer hasn't been set yet
+        if (!instance.zipBuffer) {
+          instance.logger.info(
+            () =>
+              `Updating loadMode from ${instance.loadMode} to ${effectiveOptions.loadMode} before ZIP buffer is set`,
+          );
+          instance.loadMode = effectiveOptions.loadMode;
+          ResourceLoader.loadModeUpdateLogged = true;
+        }
+      }
     }
     return ResourceLoader.instance;
   }
@@ -265,12 +369,28 @@ export class ResourceLoader {
     this.logger.info(
       () => `📦 Setting ZIP buffer directly (${buffer.length} bytes)`,
     );
+    this.logger.debug(
+      () =>
+        `📦 Current loadMode when setting ZIP buffer: ${this.loadMode} ` +
+        `(will ${this.loadMode === 'full' ? 'start' : 'skip'} full compilation)`,
+    );
     this.zipBuffer = buffer;
     this.extractZipFiles();
     this.logger.info(
       () =>
         `✅ ZIP buffer loaded: ${this.fileIndex.size} classes, ${this.namespaces.size} namespaces`,
     );
+
+    // Start compilation if loadMode is 'full'
+    if (this.loadMode === 'full') {
+      this.logger.info(() => '🚀 Starting full compilation mode...');
+      this.compilationPromise = this.compileAllArtifacts();
+    } else {
+      this.logger.debug(
+        () =>
+          `⏭️ Skipping full compilation (loadMode is '${this.loadMode}', not 'full')`,
+      );
+    }
   }
 
   /**
@@ -335,27 +455,23 @@ export class ResourceLoader {
 
   /**
    * Check if a namespace is a standard Apex namespace using case-insensitive lookup.
+   * Uses namespaceIndex for O(1) lookup instead of iteration.
    *
    * @param namespace The namespace to check (string or CaseInsensitiveString)
    * @returns true if the namespace exists in the standard library
    */
   public isStdApexNamespace(namespace: string | CIS): boolean {
-    // Check if any namespace matches case-insensitively
+    // Check if any namespace matches case-insensitively using O(1) lookup
     const searchNamespace =
       typeof namespace === 'string' ? namespace : namespace.value;
 
-    for (const existingNamespace of this.namespaces.keys()) {
-      if (existingNamespace.toLowerCase() === searchNamespace.toLowerCase()) {
-        return true;
-      }
-    }
-
-    return false;
+    return this.namespaceIndex.has(searchNamespace.toLowerCase());
   }
 
   /**
    * Get all files with lazy loading from ZIP resources.
    * Loads all files in parallel using efficient ZIP extraction.
+   * Uses cached content when available to avoid redundant decoding.
    *
    * @returns Promise that resolves to all file contents as CaseInsensitivePathMap
    */
@@ -368,8 +484,9 @@ export class ResourceLoader {
 
     const result = new CaseInsensitivePathMap<string>();
 
-    // Load all files in parallel using streaming ZIP extraction
+    // Load all files in parallel, using cached content when available
     const loadPromises = [...this.originalPaths.values()].map(async (path) => {
+      // getFile() will use cached content if available
       const content = await this.getFile(path);
       if (content) {
         result.set(path, content);
@@ -414,17 +531,19 @@ export class ResourceLoader {
     }> = [];
 
     // Get all files for compilation
-    const allFiles = await this.getAllFiles();
+    // Use originalPaths directly to preserve namespace structure
+    const pathsToCompile = [...this.originalPaths.values()];
 
-    for (const [path, content] of allFiles.entries()) {
+    for (const originalPath of pathsToCompile) {
+      const content = await this.getFile(originalPath);
       if (content) {
         // Extract namespace from parent folder path
-        const pathParts = path.split(/[\/\\]/);
+        const pathParts = originalPath.split(/[\/\\]/);
         const namespace = pathParts.length > 1 ? pathParts[0] : undefined;
 
         filesToCompile.push({
           content,
-          fileName: path.toString(),
+          fileName: originalPath, // Use original path to preserve namespace structure
           listener: new ApexSymbolCollectorListener(),
           options: {
             projectNamespace: namespace,
@@ -464,12 +583,15 @@ export class ResourceLoader {
           const compilationResult =
             result as CompilationResultWithAssociations<SymbolTable>;
 
-          // Convert dot notation back to path notation for consistency
-          const originalPath = this.normalizePath(result.fileName);
+          // Use result.fileName directly - it should match what we passed in filesToCompile
+          // which comes from originalPaths, preserving namespace structure
+          const storedPath = result.fileName;
 
           // Store in compiledArtifacts for backward compatibility
-          this.compiledArtifacts.set(originalPath, {
-            path: originalPath,
+          // Normalize the key for lookup, but preserve the original path in the artifact
+          const normalizedKey = this.normalizePath(storedPath);
+          this.compiledArtifacts.set(normalizedKey, {
+            path: storedPath, // Preserve namespace structure (e.g., "System/System.cls")
             compilationResult,
           });
           compiledCount++;
@@ -646,6 +768,10 @@ export class ResourceLoader {
   public reset(): void {
     this.fileIndex.clear();
     this.originalPaths.clear();
+    this.normalizedToZipPath.clear();
+    this.decodedContentCache.clear();
+    this.namespaceIndex.clear();
+    this.classNameToNamespace.clear();
     this.namespaces.clear();
     this.compiledArtifacts.clear();
     this.initialized = false;
@@ -666,6 +792,10 @@ export class ResourceLoader {
           .replace(/^src\/resources\/StandardApexLibrary\//, '')
           .replace(/\\/g, '/');
         this.originalPaths.set(relativePath, relativePath);
+
+        // Rebuild normalized path to ZIP path mapping
+        const normalizedPath = this.normalizePath(relativePath);
+        this.normalizedToZipPath.set(normalizedPath, originalPath);
       }
 
       this.buildFileIndex();
@@ -677,6 +807,7 @@ export class ResourceLoader {
   /**
    * Dynamically load and compile a single standard Apex class from ZIP resources.
    * Enables lazy loading using efficient ZIP extraction.
+   * Optimized with early returns and cached lookups for improved performance.
    *
    * @param className The class name to load and compile
    * @returns Promise that resolves to the compiled artifact or null if not found
@@ -684,8 +815,20 @@ export class ResourceLoader {
   public async loadAndCompileClass(
     className: string,
   ): Promise<CompiledArtifact | null> {
+    // Normalize path once at the start to avoid redundant normalizations
+    const normalizedPath = this.normalizePath(className);
+
+    // Early return: Check if already compiled using normalized path
+    if (this.compiledArtifacts.has(normalizedPath)) {
+      const cachedArtifact = this.compiledArtifacts.get(normalizedPath);
+      if (cachedArtifact) {
+        this.logger.debug(() => `Returning cached artifact for ${className}`);
+        return cachedArtifact;
+      }
+    }
+
     // Check if class exists in our known structure
-    if (!this.hasClass(className)) {
+    if (!this.fileIndex.has(normalizedPath)) {
       this.logger.debug(
         () => `Class ${className} not found in standard library`,
       );
@@ -693,13 +836,24 @@ export class ResourceLoader {
     }
 
     try {
-      // Load the file content from ZIP using our private method (this works without initialization)
-      const content = await this.extractFileFromZip(className);
+      // Check decodedContentCache directly before calling extractFileFromZip
+      // This avoids method call overhead when content is already cached
+      let content: string | undefined;
+      if (this.decodedContentCache.has(normalizedPath)) {
+        content = this.decodedContentCache.get(normalizedPath);
+        this.accessCount++;
+      } else {
+        // Load the file content from ZIP using our private method
+        content = await this.extractFileFromZip(className);
+      }
 
       if (!content) {
         this.logger.warn(() => `Failed to load content for ${className}`);
         return null;
       }
+
+      // Get namespace using O(1) lookup from classNameToNamespace index
+      const namespace = this.classNameToNamespace.get(normalizedPath);
 
       // Compile the single class
       const symbolTable = new SymbolTable();
@@ -713,6 +867,7 @@ export class ResourceLoader {
         fileUri, // Use proper URI scheme for standard Apex library classes
         listener,
         {
+          projectNamespace: namespace,
           includeComments: false,
           includeSingleLineComments: false,
           associateComments: false,
@@ -733,7 +888,7 @@ export class ResourceLoader {
       if ('commentAssociations' in result && 'comments' in result) {
         // This is a CompilationResultWithAssociations
         artifact = {
-          path: className,
+          path: className, // Preserve original className for backward compatibility
           compilationResult:
             result as CompilationResultWithAssociations<SymbolTable>,
         };
@@ -741,7 +896,7 @@ export class ResourceLoader {
         // This is a regular CompilationResult - we need to convert it
         // For now, we'll create a minimal artifact
         artifact = {
-          path: className,
+          path: className, // Preserve original className for backward compatibility
           compilationResult: {
             ...result,
             commentAssociations: [],
@@ -750,8 +905,8 @@ export class ResourceLoader {
         };
       }
 
-      // Store in compiled artifacts map
-      this.compiledArtifacts.set(className, artifact);
+      // Store in compiled artifacts map using normalized key for consistent lookups
+      this.compiledArtifacts.set(normalizedPath, artifact);
 
       this.logger.debug(() => `Successfully loaded and compiled ${className}`);
       return artifact;
@@ -764,13 +919,17 @@ export class ResourceLoader {
   /**
    * Check if a class is available and optionally load it from ZIP resources.
    * This is the main entry point for lazy loading of standard Apex classes.
+   * Uses normalized path for consistent lookups.
    *
    * @param className The class name to ensure is loaded
    * @returns Promise that resolves to true if the class was loaded successfully
    */
   public async ensureClassLoaded(className: string): Promise<boolean> {
+    // Normalize path for consistent lookup
+    const normalizedPath = this.normalizePath(className);
+
     // If already compiled, return true
-    if (this.compiledArtifacts.has(className)) {
+    if (this.compiledArtifacts.has(normalizedPath)) {
       return true;
     }
 
@@ -782,6 +941,7 @@ export class ResourceLoader {
   /**
    * Get compiled artifact for a class, loading it from ZIP resources if necessary.
    * Uses lazy loading to compile classes on-demand.
+   * Uses normalized path for consistent lookups.
    *
    * @param className The class name to get the compiled artifact for
    * @returns Promise that resolves to the compiled artifact or null if not found
@@ -789,12 +949,15 @@ export class ResourceLoader {
   public async getCompiledArtifact(
     className: string,
   ): Promise<CompiledArtifact | null> {
+    // Normalize path for consistent lookup
+    const normalizedPath = this.normalizePath(className);
+
     // If not compiled, try to load it
-    if (!this.compiledArtifacts.has(className)) {
+    if (!this.compiledArtifacts.has(normalizedPath)) {
       await this.ensureClassLoaded(className);
     }
 
-    return this.compiledArtifacts.get(className) || null;
+    return this.compiledArtifacts.get(normalizedPath) || null;
   }
 
   /**
@@ -866,6 +1029,15 @@ export class ResourceLoader {
   }
 
   /**
+   * Clear the decoded content cache to free memory.
+   * Useful when memory pressure is a concern.
+   */
+  public clearCache(): void {
+    this.decodedContentCache.clear();
+    this.logger.debug(() => 'Decoded content cache cleared');
+  }
+
+  /**
    * Get all compiled class names currently in memory.
    *
    * @returns Array of compiled class names
@@ -876,23 +1048,22 @@ export class ResourceLoader {
 
   /**
    * Find the namespace that contains a specific class using case-insensitive lookup.
-   * Searches through the namespace structure built from ZIP resources.
+   * Uses classNameToNamespace reverse index for O(1) lookup instead of nested iteration.
    *
    * @param className The class name to search for (case-insensitive)
    * @returns The namespace containing the class, or null if not found
    */
   public findNamespaceForClass(className: string): string | null {
-    const target = className.toLowerCase();
+    // Use reverse index for O(1) lookup
+    const normalizedClassName = className.replace(/\.cls$/i, '');
+    const namespace = this.classNameToNamespace.get(normalizedClassName);
 
-    for (const [namespaceName, classes] of this.namespaces) {
-      for (const classFile of classes) {
-        const cleanClassName = classFile.value.replace(/\.cls$/, '');
-        if (cleanClassName.toLowerCase() === target) {
-          return namespaceName;
-        }
-      }
+    if (namespace) {
+      return namespace;
     }
 
-    return null;
+    // Fallback: try with normalized path if it looks like a path
+    const normalizedPath = this.normalizePath(className);
+    return this.classNameToNamespace.get(normalizedPath) || null;
   }
 }
