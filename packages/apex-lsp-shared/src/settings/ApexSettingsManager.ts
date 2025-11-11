@@ -246,24 +246,50 @@ export class ApexSettingsManager {
   }
 
   /**
-   * Get enable performance logging setting
-   * @returns The current enable performance logging setting
+   * Get profiling mode setting
+   * @returns The current profiling mode setting
    */
-  public getEnablePerformanceLogging(): boolean {
-    return this.currentSettings.apex.environment.enablePerformanceLogging;
+  public getProfilingMode(): 'none' | 'full' | 'interactive' {
+    return this.currentSettings.apex.environment.profilingMode;
   }
 
   /**
-   * Set enable performance logging setting
-   * @param enabled - The enable performance logging setting to set
+   * Set profiling mode setting
+   * @param mode - The profiling mode to set ('none' | 'full' | 'interactive')
    * @returns True if the value changed
    */
-  public setEnablePerformanceLogging(enabled: boolean): boolean {
-    const currentEnabled = this.getEnablePerformanceLogging();
-    if (currentEnabled !== enabled) {
-      this.currentSettings.apex.environment.enablePerformanceLogging = enabled;
+  public setProfilingMode(mode: 'none' | 'full' | 'interactive'): boolean {
+    const currentMode = this.getProfilingMode();
+    if (currentMode !== mode) {
+      this.currentSettings.apex.environment.profilingMode = mode;
       this.logger.debug(
-        `Enable performance logging changed from ${currentEnabled} to ${enabled}`,
+        `Profiling mode changed from ${currentMode} to ${mode}`,
+      );
+      this.notifyListeners(this.currentSettings);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Get profiling type setting
+   * @returns The current profiling type setting
+   */
+  public getProfilingType(): 'cpu' | 'heap' | 'both' {
+    return this.currentSettings.apex.environment.profilingType;
+  }
+
+  /**
+   * Set profiling type setting
+   * @param type - The profiling type to set
+   * @returns True if the value changed
+   */
+  public setProfilingType(type: 'cpu' | 'heap' | 'both'): boolean {
+    const currentType = this.getProfilingType();
+    if (currentType !== type) {
+      this.currentSettings.apex.environment.profilingType = type;
+      this.logger.debug(
+        `Profiling type changed from ${currentType} to ${type}`,
       );
       this.notifyListeners(this.currentSettings);
       return true;
@@ -471,10 +497,10 @@ export class ApexSettingsManager {
   }
 
   /**
-   * Check if performance logging is enabled
+   * Check if performance profiling is enabled (either startup or interactive)
    */
-  public isPerformanceLoggingEnabled(): boolean {
-    return this.currentSettings.apex.environment.enablePerformanceLogging;
+  public isPerformanceProfilingEnabled(): boolean {
+    return this.currentSettings.apex.environment.profilingMode !== 'none';
   }
 
   /**

@@ -19,11 +19,16 @@ import {
   createApexLanguageStatusActions,
   updateLogLevelStatusItems,
   createApexServerStatusItem,
+  createProfilingToggleItem,
+  registerProfilingToggleCommand,
+  hideProfilingToggleItem,
+  updateProfilingToggleItem,
 } from './status-bar';
 import {
   initializeCommandState,
   registerLogLevelCommands,
   registerRestartCommand,
+  registerProfilingCommands,
   setRestartHandler,
 } from './commands';
 import {
@@ -89,6 +94,49 @@ export function activate(context: vscode.ExtensionContext): void {
 
   registerLogLevelCommands(context);
   logToOutputChannel('📝 Log level commands registered', 'debug');
+
+  // Register profiling commands (only in desktop environment)
+  if (vscode.env.uiKind !== vscode.UIKind.Web) {
+    registerProfilingCommands(context);
+    logToOutputChannel('📝 Profiling commands registered', 'debug');
+
+    // Register profiling toggle command
+    registerProfilingToggleCommand(context);
+    logToOutputChannel('📝 Profiling toggle command registered', 'debug');
+
+    // Create profiling toggle item if interactive profiling is enabled
+    createProfilingToggleItem(context);
+    logToOutputChannel('📊 Profiling toggle item checked', 'debug');
+
+    // Listen for configuration changes to show/hide profiling toggle item
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('apex.environment.profilingMode')) {
+          const newConfig =
+            vscode.workspace.getConfiguration('apex.environment');
+          const newProfilingMode = newConfig.get<
+            'none' | 'full' | 'interactive'
+          >('profilingMode', 'none');
+          if (newProfilingMode === 'interactive') {
+            // Create/show the toggle item
+            createProfilingToggleItem(context);
+          } else {
+            // Hide/dispose the toggle item
+            hideProfilingToggleItem();
+          }
+        }
+        // Update toggle item when profilingType changes
+        if (event.affectsConfiguration('apex.environment.profilingType')) {
+          updateProfilingToggleItem().catch((error) => {
+            console.error(
+              'Error updating profiling toggle item after setting change:',
+              error,
+            );
+          });
+        }
+      }),
+    );
+  }
 
   // Create language status actions for log levels and restart
   createApexLanguageStatusActions(

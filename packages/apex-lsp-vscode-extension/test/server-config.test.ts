@@ -20,6 +20,13 @@ jest.mock('vscode', () => ({
       return { fsPath: joinedPath, path: joinedPath };
     }),
   },
+  env: {
+    uiKind: 1, // UIKind.Desktop (1), UIKind.Web (2)
+  },
+  UIKind: {
+    Desktop: 1,
+    Web: 2,
+  },
 }));
 
 // Mock the configuration module

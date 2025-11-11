@@ -91,14 +91,22 @@ Control logging and debugging:
 
 ```json
 {
-  "apex-ls-ts.environment.enablePerformanceLogging": false
+  "apex-ls-ts.environment.profilingMode": "none",
+  "apex-ls-ts.environment.profilingType": "cpu"
 }
 ```
 
 #### Environment Options
 
-- **`enablePerformanceLogging`** (boolean, default: `false`)
-  - Enable performance logging for the language server.
+- **`profilingMode`** (string, enum: `"none"`, `"full"`, `"interactive"`, default: `"none"`)
+  - Profiling mode for the language server (desktop only).
+  - **`"none"`**: Profiling disabled (default).
+  - **`"full"`**: Continuous profiling from server startup using Node.js flags. Best for performance testing over a test suite of events.
+  - **`"interactive"`**: Manual start/stop control via inspector API. Best for studying particular events where it's convenient to isolate profile collection manually. Automatically starts profiling when enabled to capture server initialization.
+- **`profilingType`** (string, default: `"cpu"`)
+  - Type of profiling to perform when profiling is enabled (desktop only).
+  - Options: `"cpu"` for CPU profiling, `"heap"` for heap profiling, or `"both"` for both.
+  - Shared between both profiling modes.
 
 ### Debug Settings
 
@@ -208,7 +216,8 @@ Configure global settings in VSCode user settings:
   "apex-ls-ts.commentCollection.enableCommentCollection": true,
   "apex-ls-ts.performance.useAsyncCommentProcessing": true,
   "apex-ls-ts.performance.documentChangeDebounceMs": 500,
-  "apex-ls-ts.environment.enablePerformanceLogging": false
+  "apex-ls-ts.environment.profilingMode": "none",
+  "apex-ls-ts.environment.profilingType": "cpu"
 }
 ```
 
@@ -242,10 +251,23 @@ For optimal performance, especially with large codebases:
    }
    ```
 
-4. **Enable performance logging** to identify bottlenecks:
+4. **Enable performance profiling** to identify bottlenecks (desktop only):
+
+   For continuous profiling from startup (best for performance testing):
+
    ```json
    {
-     "apex-ls-ts.environment.enablePerformanceLogging": true
+     "apex-ls-ts.environment.profilingMode": "full",
+     "apex-ls-ts.environment.profilingType": "both"
+   }
+   ```
+
+   For interactive profiling with manual control (best for studying specific events):
+
+   ```json
+   {
+     "apex-ls-ts.environment.profilingMode": "interactive",
+     "apex-ls-ts.environment.profilingType": "both"
    }
    ```
 
@@ -263,7 +285,7 @@ For optimal performance, especially with large codebases:
 1. Reduce `commentCollectionMaxFileSize` for large files.
 2. Disable `associateCommentsWithSymbols` if not needed.
 3. Increase `documentChangeDebounceMs` for busy editing environments.
-4. Enable performance logging to identify bottlenecks.
+4. Enable performance profiling to identify bottlenecks (desktop only).
 
 ### Configuration Not Applying
 
@@ -275,6 +297,8 @@ For optimal performance, especially with large codebases:
 
 For extension development and debugging:
 
-1. Enable performance logging: `"apex-ls-ts.environment.enablePerformanceLogging": true`
+1. Enable performance profiling:
+   - For full profiling: `"apex-ls-ts.environment.profilingMode": "full"`
+   - For interactive profiling: `"apex-ls-ts.environment.profilingMode": "interactive"`
 2. Set the trace level: `"apex-ls-ts.trace.server": "verbose"`
 3. Enable debugging: `

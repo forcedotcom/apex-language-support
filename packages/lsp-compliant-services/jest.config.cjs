@@ -11,10 +11,10 @@ module.exports = {
     '^@salesforce/apex-lsp-compliant-services$': '<rootDir>/src/index.ts',
     '^@salesforce/apex-lsp-custom-services$':
       '<rootDir>/../custom-services/src/index.ts',
-    '^@salesforce/apex-ls$':
-      '<rootDir>/../apex-ls/src/index.ts',
+    '^@salesforce/apex-ls$': '<rootDir>/../apex-ls/src/index.ts',
     '^@salesforce/apex-lsp-testbed$':
       '<rootDir>/../apex-lsp-testbed/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+  globalTeardown: '<rootDir>/test/teardown.js',
 };

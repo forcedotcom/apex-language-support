@@ -8,6 +8,7 @@
 
 import * as vscode from 'vscode';
 import { getLogLevel } from '@salesforce/apex-lsp-shared';
+import { logToOutputChannel } from './logging';
 
 /**
  * Language status items for log levels and restart
@@ -23,6 +24,43 @@ let logLevelStatusItems: {
 const LOG_LEVELS = ['debug', 'info', 'warning', 'error'] as const;
 
 let apexServerStatusItem: vscode.LanguageStatusItem | undefined;
+let profilingToggleItem: vscode.LanguageStatusItem | undefined;
+
+/**
+ * Get the preferred profiling type from workspace settings
+ * Defaults to 'cpu' if not set
+ */
+function getPreferredProfilingType(): 'cpu' | 'heap' | 'both' {
+  const config = vscode.workspace.getConfiguration('apex.environment');
+  const profilingType = config.get<'cpu' | 'heap' | 'both'>(
+    'profilingType',
+    'cpu',
+  );
+  return profilingType;
+}
+
+/**
+ * Get the profiling tag from workspace settings
+ * Returns empty string if not set
+ */
+export function getProfilingTag(): string {
+  const config = vscode.workspace.getConfiguration('apex.environment');
+  const tag = config.get<string>('profilingTag', '');
+  return tag || '';
+}
+
+/**
+ * Set the profiling tag in workspace settings
+ * @param tag The tag to set (empty string to clear)
+ */
+export async function setProfilingTag(tag: string): Promise<void> {
+  const config = vscode.workspace.getConfiguration('apex.environment');
+  await config.update(
+    'profilingTag',
+    tag || undefined, // Store undefined to clear the setting
+    vscode.ConfigurationTarget.Workspace,
+  );
+}
 
 /**
  * Creates LanguageStatusItems for log levels and restart
@@ -202,6 +240,16 @@ export const updateApexServerStatusReady = () => {
     apexServerStatusItem.severity = vscode.LanguageStatusSeverity.Information;
     apexServerStatusItem.busy = false;
   }
+  // Update profiling toggle item when server becomes ready
+  // Add a small delay to ensure handlers are registered
+  setTimeout(() => {
+    updateProfilingToggleItem().catch((error) => {
+      console.error(
+        'Error updating profiling toggle item after server ready:',
+        error,
+      );
+    });
+  }, 500);
 };
 
 export const updateApexServerStatusStopped = () => {
@@ -237,4 +285,301 @@ export const refreshApexServerStatusLogLevel = () => {
     apexServerStatusItem.detail?.replace(/\s*\(Log Level: [^)]+\)/, '') || '';
 
   apexServerStatusItem.detail = `${baseDetail} (Log Level: ${currentLogLevel})`;
+};
+
+/**
+ * Creates the LanguageStatusItem for profiling toggle
+ * Only creates if environment is desktop and interactive profiling is enabled
+ * @param context The extension context
+ */
+export const createProfilingToggleItem = (
+  context: vscode.ExtensionContext,
+): void => {
+  // Only create in desktop environment
+  if (vscode.env.uiKind === vscode.UIKind.Web) {
+    return;
+  }
+
+  // Only create if interactive profiling is enabled
+  const config = vscode.workspace.getConfiguration('apex.environment');
+  const profilingMode = config.get<'none' | 'full' | 'interactive'>(
+    'profilingMode',
+    'none',
+  );
+
+  if (profilingMode !== 'interactive') {
+    return;
+  }
+
+  if (profilingToggleItem) {
+    // Already created, just show it
+    showProfilingToggleItem();
+    return;
+  }
+
+  profilingToggleItem = vscode.languages.createLanguageStatusItem(
+    'apex-ls-ts.profiling.toggle',
+    {
+      language: 'apex',
+      scheme: 'file',
+    },
+  );
+  profilingToggleItem.name = 'Apex-LS-TS Profiling Toggle';
+  profilingToggleItem.command = {
+    title: 'Toggle Profiling',
+    command: 'apex-ls-ts.profiling.toggle',
+  };
+  context.subscriptions.push(profilingToggleItem);
+  // Show the status item
+  showProfilingToggleItem();
+};
+
+/**
+ * Shows the profiling toggle status item
+ */
+export const showProfilingToggleItem = (): void => {
+  if (!profilingToggleItem) return;
+  // Status item will be visible when text is set
+  updateProfilingToggleItem();
+};
+
+/**
+ * Hides and disposes the profiling toggle status item
+ */
+export const hideProfilingToggleItem = (): void => {
+  if (!profilingToggleItem) return;
+  profilingToggleItem.dispose();
+  profilingToggleItem = undefined;
+};
+
+/**
+ * Updates the profiling toggle status item based on current state
+ * Queries server for profiling status if client is available
+ */
+export const updateProfilingToggleItem = async (): Promise<void> => {
+  if (!profilingToggleItem) return;
+
+  // Check if interactive profiling is enabled in settings
+  const config = vscode.workspace.getConfiguration('apex.environment');
+  const profilingMode = config.get<'none' | 'full' | 'interactive'>(
+    'profilingMode',
+    'none',
+  );
+
+  if (profilingMode !== 'interactive') {
+    hideProfilingToggleItem();
+    return;
+  }
+
+  // Show status item
+  try {
+    // Get client from language-server module
+    const { getClient } = require('./language-server');
+    const client = getClient();
+
+    if (!client || client.isDisposed()) {
+      // Server not available or disposed - show inactive state
+      profilingToggleItem.text = '$(record) Profiling';
+      profilingToggleItem.detail = 'Server not available';
+      profilingToggleItem.severity = vscode.LanguageStatusSeverity.Warning;
+      return;
+    }
+
+    // Query server for profiling status
+    try {
+      const status = await client.languageClient.sendRequest(
+        'apex/profiling/status',
+        {},
+      );
+
+      // Check if profiling is available
+      if (!status.available) {
+        profilingToggleItem.text = '$(record) Profiling';
+        profilingToggleItem.detail = 'Profiling not available';
+        profilingToggleItem.severity = vscode.LanguageStatusSeverity.Warning;
+        return;
+      }
+
+      if (status.isProfiling) {
+        // Profiling is active - show stop icon
+        profilingToggleItem.text = '$(stop) Profiling';
+        profilingToggleItem.detail = 'Click to stop profiling';
+        profilingToggleItem.severity =
+          vscode.LanguageStatusSeverity.Information;
+      } else {
+        // Profiling is inactive - show record icon
+        const preferredType = getPreferredProfilingType();
+        const typeLabel =
+          preferredType === 'cpu'
+            ? 'CPU'
+            : preferredType === 'heap'
+              ? 'Heap'
+              : 'Both';
+        profilingToggleItem.text = '$(record) Profiling';
+        profilingToggleItem.detail = `Click to start ${typeLabel} profiling`;
+        profilingToggleItem.severity =
+          vscode.LanguageStatusSeverity.Information;
+      }
+    } catch (error: any) {
+      // Check if item still exists (might have been disposed)
+      if (!profilingToggleItem) return;
+
+      // Error querying status - check if it's a method not found error
+      const errorMessage = error?.message || String(error);
+      const errorCode = error?.code;
+      const isMethodNotFound =
+        errorMessage.includes('Method not found') ||
+        errorMessage.includes('Unknown method') ||
+        errorCode === -32601; // LSP MethodNotFound error code
+
+      if (isMethodNotFound) {
+        // Handler not registered - profiling not available
+        profilingToggleItem.text = '$(record) Profiling';
+        profilingToggleItem.detail = 'Profiling not available';
+        profilingToggleItem.severity = vscode.LanguageStatusSeverity.Warning;
+      } else {
+        // Other error - log and show unavailable
+        const errorDetails = error?.message || String(error);
+        logToOutputChannel(
+          `Error querying profiling toggle status: ${errorDetails}`,
+          'error',
+        );
+        console.error('Error querying profiling toggle status:', error);
+        profilingToggleItem.text = '$(record) Profiling';
+        profilingToggleItem.detail = `Error: ${errorDetails.substring(0, 50)}`;
+        profilingToggleItem.severity = vscode.LanguageStatusSeverity.Warning;
+      }
+    }
+  } catch (_error) {
+    // Check if item still exists (might have been disposed)
+    if (!profilingToggleItem) return;
+
+    // Error getting client - show inactive
+    profilingToggleItem.text = '$(record) Profiling';
+    profilingToggleItem.detail = 'Server not available';
+    profilingToggleItem.severity = vscode.LanguageStatusSeverity.Warning;
+  }
+};
+
+/**
+ * Registers the profiling toggle command
+ * @param context The extension context
+ */
+export const registerProfilingToggleCommand = (
+  context: vscode.ExtensionContext,
+): void => {
+  // Only register in desktop environment
+  if (vscode.env.uiKind === vscode.UIKind.Web) {
+    return;
+  }
+
+  const toggleCommand = vscode.commands.registerCommand(
+    'apex-ls-ts.profiling.toggle',
+    async () => {
+      try {
+        // Get client from language-server module
+        const { getClient } = require('./language-server');
+        const client = getClient();
+
+        if (!client || client.isDisposed()) {
+          vscode.window.showErrorMessage(
+            'Language server is not available. Please wait for it to start.',
+          );
+          return;
+        }
+
+        // Get current profiling status
+        let currentStatus: {
+          isProfiling: boolean;
+          type: 'idle' | 'cpu' | 'heap' | 'both';
+          available: boolean;
+        } = {
+          isProfiling: false,
+          type: 'idle',
+          available: false,
+        };
+
+        try {
+          currentStatus = await client.languageClient.sendRequest(
+            'apex/profiling/status',
+            {},
+          );
+        } catch (_error) {
+          // Status not available
+          vscode.window.showErrorMessage(
+            'Unable to query profiling status. Please try again.',
+          );
+          return;
+        }
+
+        if (currentStatus.isProfiling) {
+          // Profiling is active - stop it
+          // Use tag from workspace settings (no prompt for seamless toggle)
+          try {
+            const tag = getProfilingTag();
+
+            const result = await client.languageClient.sendRequest(
+              'apex/profiling/stop',
+              { tag: tag || undefined },
+            );
+
+            if (result.success) {
+              const filesMessage = result.files
+                ? `\nFiles saved:\n${result.files.join('\n')}`
+                : '';
+              vscode.window.showInformationMessage(
+                `Profiling stopped: ${result.message}${filesMessage}`,
+              );
+            } else {
+              vscode.window.showErrorMessage(
+                `Failed to stop profiling: ${result.message}`,
+              );
+            }
+          } catch (error) {
+            vscode.window.showErrorMessage(
+              `Error stopping profiling: ${error}`,
+            );
+          }
+        } else {
+          // Profiling is stopped - start it with preferred type
+          const preferredType = getPreferredProfilingType();
+
+          try {
+            const result = await client.languageClient.sendRequest(
+              'apex/profiling/start',
+              { type: preferredType },
+            );
+
+            if (result.success) {
+              const typeLabel =
+                preferredType === 'cpu'
+                  ? 'CPU'
+                  : preferredType === 'heap'
+                    ? 'Heap'
+                    : 'Both';
+              vscode.window.showInformationMessage(
+                `${typeLabel} profiling started: ${result.message}`,
+              );
+            } else {
+              vscode.window.showErrorMessage(
+                `Failed to start profiling: ${result.message}`,
+              );
+            }
+          } catch (error) {
+            vscode.window.showErrorMessage(
+              `Error starting profiling: ${error}`,
+            );
+          }
+        }
+
+        // Update toggle item after action
+        await updateProfilingToggleItem();
+      } catch (error) {
+        const errorMessage = `Error in profiling toggle: ${error}`;
+        vscode.window.showErrorMessage(errorMessage);
+      }
+    },
+  );
+
+  context.subscriptions.push(toggleCommand);
 };

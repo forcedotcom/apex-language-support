@@ -13,6 +13,7 @@ import {
   CompilerService,
   ApexSymbolCollectorListener,
   SymbolTable,
+  ApexSymbolProcessingManager,
 } from '@salesforce/apex-lsp-parser-ast';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -151,6 +152,15 @@ describe('ApexSymbolManager Integration Tests', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    // Clean up ApexSymbolProcessingManager to stop any running intervals
+    try {
+      ApexSymbolProcessingManager.reset();
+    } catch (error) {
+      // Ignore errors during cleanup
+    }
   });
 
   describe.skip('Completion Service Integration', () => {

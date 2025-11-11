@@ -424,7 +424,8 @@ The server looks for configuration in these sections (in order of precedence):
 {
   "apex": {
     "environment": {
-      "enablePerformanceLogging": false,
+      "profilingMode": "none",
+      "profilingType": "cpu",
       "commentCollectionLogLevel": "info"
     }
   }
@@ -433,8 +434,15 @@ The server looks for configuration in these sections (in order of precedence):
 
 ##### Options:
 
-- **`enablePerformanceLogging`** (boolean, default: `false`)
-  - Enable detailed performance logging for comment collection operations.
+- **`profilingMode`** (string, enum: `"none"`, `"full"`, `"interactive"`, default: `"none"`)
+  - Profiling mode for the language server (desktop only).
+  - **`"none"`**: Profiling disabled (default).
+  - **`"full"`**: Continuous profiling from server startup using Node.js flags. Best for performance testing over a test suite of events.
+  - **`"interactive"`**: Manual start/stop control via inspector API. Best for studying particular events where it's convenient to isolate profile collection manually. Automatically starts profiling when enabled to capture server initialization.
+- **`profilingType`** (string, default: `"cpu"`)
+  - Type of profiling to perform when profiling is enabled (desktop only).
+  - Options: `"cpu"` for CPU profiling, `"heap"` for heap profiling, or `"both"` for both.
+  - Shared between both profiling modes.
 
 - **`commentCollectionLogLevel`** (string, default: `"info"`)
   - Log level for comment collection operations.
@@ -487,7 +495,8 @@ The language server automatically applies different defaults based on the runtim
   "apex.commentCollection.includeSingleLineComments": false,
   "apex.commentCollection.associateCommentsWithSymbols": true,
   "apex.performance.commentCollectionMaxFileSize": 200000,
-  "apex.environment.enablePerformanceLogging": true,
+  "apex.environment.profilingMode": "full",
+  "apex.environment.profilingType": "both",
   "apex.resources.loadMode": "full"
 }
 ```

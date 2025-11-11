@@ -68,8 +68,18 @@ export interface EnvironmentSettings {
   /** Current server mode */
   serverMode: ServerMode;
 
-  /** Whether to log comment collection performance metrics (default: false) */
-  enablePerformanceLogging: boolean;
+  /** Profiling mode:
+   * 'none' = disabled,
+   * 'full' = continuous profiling from startup using Node.js
+   * flags,
+   * 'interactive' = manual start/stop using inspector API
+   * 'none' = disabled by default
+   * (default: 'none')
+   */
+  profilingMode: 'none' | 'full' | 'interactive';
+
+  /** Type of profiling to perform when profiling is enabled (default: 'cpu') */
+  profilingType: 'cpu' | 'heap' | 'both';
 
   /** Log level for comment collection (default: 'info') */
   commentCollectionLogLevel: 'debug' | 'info' | 'warn' | 'error';

@@ -39,6 +39,7 @@ import {
   LoadWorkspaceParams,
   LoadWorkspaceResult,
   PingResponse,
+  formattedError,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -510,6 +511,229 @@ export class LCSAdapter {
       },
     );
     this.logger.debug('✅ apex/loadWorkspace handler registered');
+
+    // Register profiling handlers (only in desktop/Node.js environment)
+    this.registerProfilingHandlers();
+  }
+
+  /**
+   * Register profiling request handlers (only in desktop environment)
+   */
+  private registerProfilingHandlers(): void {
+    // Only register if runtime platform is desktop (Node.js)
+    const runtimePlatform =
+      LSPConfigurationManager.getInstance().getRuntimePlatform();
+    if (runtimePlatform !== 'desktop') {
+      this.logger.debug(
+        '⚠️ Profiling handlers not registered (not in desktop environment)',
+      );
+      return;
+    }
+
+    // Only register if interactive profiling is enabled
+    const settings = LSPConfigurationManager.getInstance().getSettings();
+    if (settings.apex.environment.profilingMode !== 'interactive') {
+      this.logger.debug(
+        '⚠️ Profiling handlers not registered (interactive profiling not enabled)',
+      );
+      return;
+    }
+
+    // Lazy-load ProfilingService to avoid bundling issues
+    let profilingService: any = null;
+    const getProfilingService = async () => {
+      if (!profilingService) {
+        const { ProfilingService } = await import(
+          '../profiling/ProfilingService'
+        );
+        profilingService = ProfilingService.getInstance();
+
+        // Initialize with logger and output directory
+        // Get workspace folder from initialization params or use current working directory
+        let outputDir = process.cwd();
+        try {
+          // Try to get workspace folder from connection
+          // Note: workspaceFolders may not be available at this point, so we use a fallback
+          if (typeof process !== 'undefined' && process.cwd) {
+            outputDir = process.cwd();
+          }
+        } catch (_error) {
+          // Fallback to current working directory
+          outputDir = process.cwd();
+        }
+
+        profilingService.initialize(this.logger, outputDir);
+      }
+      return profilingService;
+    };
+
+    // Register apex/profiling/start
+    this.connection.onRequest(
+      'apex/profiling/start',
+      async (params: {
+        type?: 'cpu' | 'heap' | 'both';
+      }): Promise<{
+        success: boolean;
+        message: string;
+        type?: 'cpu' | 'heap' | 'both';
+      }> => {
+        this.logger.debug('🔍 apex/profiling/start request received');
+        try {
+          const service = await getProfilingService();
+
+          if (!service.isAvailable()) {
+            return {
+              success: false,
+              message:
+                'Profiling is not available in this environment (Node.js required)',
+            };
+          }
+
+          // Get profiling type from params or settings
+          const settings = LSPConfigurationManager.getInstance().getSettings();
+          const profilingType =
+            params.type ?? settings.apex.environment.profilingType ?? 'cpu';
+
+          const result = await service.startProfiling(profilingType);
+          this.logger.info(`Profiling started: ${result.message}`);
+          return result;
+        } catch (error) {
+          this.logger.error(
+            `Error starting profiling: ${formattedError(error)}`,
+          );
+          return {
+            success: false,
+            message: `Failed to start profiling: ${formattedError(error)}`,
+          };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/profiling/start handler registered');
+
+    // Register apex/profiling/stop
+    this.connection.onRequest(
+      'apex/profiling/stop',
+      async (params: {
+        tag?: string;
+      }): Promise<{
+        success: boolean;
+        message: string;
+        files?: string[];
+      }> => {
+        this.logger.debug('🔍 apex/profiling/stop request received');
+        try {
+          const service = await getProfilingService();
+
+          if (!service.isAvailable()) {
+            return {
+              success: false,
+              message: 'Profiling is not available in this environment',
+            };
+          }
+
+          const result = await service.stopProfiling(params?.tag);
+          if (result.success && result.files) {
+            this.logger.info(
+              `Profiling stopped: ${result.message}, files: ${result.files.join(', ')}`,
+            );
+          } else {
+            this.logger.info(`Profiling stop: ${result.message}`);
+          }
+          return result;
+        } catch (error) {
+          this.logger.error(`Error stopping profiling: ${error}`);
+          return {
+            success: false,
+            message: `Failed to stop profiling: ${error}`,
+          };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/profiling/stop handler registered');
+
+    // Register apex/profiling/status
+    this.connection.onRequest(
+      'apex/profiling/status',
+      async (): Promise<{
+        isProfiling: boolean;
+        type: 'idle' | 'cpu' | 'heap' | 'both';
+        available: boolean;
+      }> => {
+        this.logger.debug('🔍 apex/profiling/status request received');
+        try {
+          const service = await getProfilingService();
+          const status = service.getStatus();
+          return status;
+        } catch (error) {
+          this.logger.error(`Error getting profiling status: ${error}`);
+          return {
+            isProfiling: false,
+            type: 'idle',
+            available: false,
+          };
+        }
+      },
+    );
+    this.logger.debug('✅ apex/profiling/status handler registered');
+  }
+
+  /**
+   * Auto-start interactive profiling if enabled
+   * This ensures profiling captures server initialization
+   */
+  private async autoStartInteractiveProfiling(): Promise<void> {
+    // Only start if runtime platform is desktop (Node.js)
+    const runtimePlatform =
+      LSPConfigurationManager.getInstance().getRuntimePlatform();
+    if (runtimePlatform !== 'desktop') {
+      return;
+    }
+
+    // Check if interactive profiling is enabled
+    const settings = LSPConfigurationManager.getInstance().getSettings();
+    if (settings.apex.environment.profilingMode !== 'interactive') {
+      return;
+    }
+
+    try {
+      // Lazy-load ProfilingService
+      const { ProfilingService } = await import(
+        '../profiling/ProfilingService'
+      );
+      const profilingService = ProfilingService.getInstance();
+
+      // Initialize with logger and output directory
+      let outputDir = process.cwd();
+      try {
+        if (typeof process !== 'undefined' && process.cwd) {
+          outputDir = process.cwd();
+        }
+      } catch (_error) {
+        // Fallback to current working directory
+        outputDir = process.cwd();
+      }
+
+      profilingService.initialize(this.logger, outputDir);
+
+      if (!profilingService.isAvailable()) {
+        this.logger.warn(
+          'Interactive profiling enabled but inspector API is not available',
+        );
+        return;
+      }
+
+      // Get profiling type from settings
+      const profilingType = settings.apex.environment.profilingType ?? 'cpu';
+
+      // Start profiling
+      const result = await profilingService.startProfiling(profilingType);
+      this.logger.info(
+        `🚀 Auto-started interactive profiling: ${result.message}`,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to auto-start interactive profiling: ${error}`);
+      // Don't throw - allow server to continue without profiling
+    }
   }
 
   /**
@@ -722,6 +946,9 @@ export class LCSAdapter {
 
     // Setup protocol handlers after registration
     this.setupProtocolHandlers();
+
+    // Auto-start interactive profiling if enabled
+    await this.autoStartInteractiveProfiling();
 
     if (this.hasConfigurationCapability) {
       this.logger.debug('✅ Initial workspace configuration loaded');

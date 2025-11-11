@@ -5,6 +5,19 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+// Mock vscode
+jest.mock('vscode', () => ({
+  ...jest.requireActual('vscode'),
+  env: {
+    uiKind: 1, // UIKind.Desktop (1), UIKind.Web (2)
+    language: 'en',
+  },
+  UIKind: {
+    Desktop: 1,
+    Web: 2,
+  },
+}));
+
 // Provide a lightweight mock for vscode-languageclient to avoid runtime deps
 jest.mock('vscode-languageclient/node', () => ({
   Trace: { Off: 0, Messages: 1, Verbose: 2 },
