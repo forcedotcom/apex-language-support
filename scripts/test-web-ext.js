@@ -24,6 +24,255 @@ const { promisify } = require('util');
 
 const execAsync = promisify(exec);
 
+/**
+ * Creates a test Apex class with @isTest annotations for testing CodeLens functionality
+ * @param {string} workspacePath Path to the test workspace
+ */
+function createTestApexClass(workspacePath) {
+  const testClassPath = path.join(workspacePath, 'TestApexClass.cls');
+
+  if (fs.existsSync(testClassPath)) {
+    console.log('✅ TestApexClass.cls already exists');
+    return;
+  }
+
+  const testApexClass = `@isTest
+public class TestApexClass {
+    @isTest
+    static void testAddition() {
+        Integer result = 2 + 2;
+        System.assertEquals(4, result, 'Addition should work correctly');
+    }
+    
+    @isTest
+    static void testSubtraction() {
+        Integer result = 10 - 5;
+        System.assertEquals(5, result, 'Subtraction should work correctly');
+    }
+    
+    @isTest
+    static void testStringOperations() {
+        String greeting = 'Hello';
+        String name = 'World';
+        String result = greeting + ' ' + name;
+        System.assertEquals('Hello World', result, 'String concatenation should work');
+    }
+    
+    @isTest
+    static void testListOperations() {
+        List<Integer> numbers = new List<Integer>{1, 2, 3, 4, 5};
+        System.assertEquals(5, numbers.size(), 'List should have 5 elements');
+        System.assertEquals(1, numbers[0], 'First element should be 1');
+        System.assertEquals(5, numbers[4], 'Last element should be 5');
+    }
+    
+    @isTest
+    static void testMapOperations() {
+        Map<String, Integer> scoreMap = new Map<String, Integer>();
+        scoreMap.put('Alice', 95);
+        scoreMap.put('Bob', 87);
+        scoreMap.put('Charlie', 92);
+        
+        System.assertEquals(3, scoreMap.size(), 'Map should have 3 entries');
+        System.assertEquals(95, scoreMap.get('Alice'), 'Alice score should be 95');
+        System.assertTrue(scoreMap.containsKey('Bob'), 'Map should contain Bob');
+    }
+    
+    @isTest
+    static void testAccountCreation() {
+        Test.startTest();
+        
+        Account testAccount = new Account(
+            Name = 'Test Account',
+            Type = 'Customer'
+        );
+        insert testAccount;
+        
+        System.assertNotEquals(null, testAccount.Id, 'Account should have an ID after insert');
+        
+        Account retrievedAccount = [SELECT Id, Name, Type FROM Account WHERE Id = :testAccount.Id];
+        System.assertEquals('Test Account', retrievedAccount.Name, 'Account name should match');
+        System.assertEquals('Customer', retrievedAccount.Type, 'Account type should match');
+        
+        Test.stopTest();
+    }
+    
+    @isTest
+    static void testExceptionHandling() {
+        Boolean exceptionCaught = false;
+        
+        try {
+            Integer result = 10 / 0;
+        } catch (MathException e) {
+            exceptionCaught = true;
+            System.assertEquals('Divide by 0', e.getMessage(), 'Exception message should be correct');
+        }
+        
+        System.assertTrue(exceptionCaught, 'Exception should have been caught');
+    }
+    
+    @TestSetup
+    static void setupTestData() {
+        List<Account> testAccounts = new List<Account>();
+        
+        for (Integer i = 0; i < 5; i++) {
+            testAccounts.add(new Account(
+                Name = 'Test Account ' + i,
+                Type = 'Prospect'
+            ));
+        }
+        
+        insert testAccounts;
+    }
+    
+    @isTest
+    static void testBulkOperations() {
+        List<Account> accounts = [SELECT Id, Name FROM Account WHERE Name LIKE 'Test Account%'];
+        System.assertEquals(5, accounts.size(), 'Should have 5 test accounts from setup');
+        
+        for (Account acc : accounts) {
+            acc.Type = 'Customer';
+        }
+        
+        update accounts;
+        
+        List<Account> updatedAccounts = [SELECT Id, Type FROM Account WHERE Id IN :accounts];
+        for (Account acc : updatedAccounts) {
+            System.assertEquals('Customer', acc.Type, 'Account type should be updated to Customer');
+        }
+    }
+}`;
+
+  fs.writeFileSync(testClassPath, testApexClass);
+  console.log('✅ Created TestApexClass.cls for @isTest functionality testing');
+}
+
+/**
+ * Creates an anonymous Apex file for testing anonymous execution functionality
+ * @param {string} workspacePath Path to the test workspace
+ */
+function createAnonymousApexFile(workspacePath) {
+  const anonymousApexPath = path.join(workspacePath, 'AnonymousExample.apex');
+
+  if (fs.existsSync(anonymousApexPath)) {
+    console.log('✅ AnonymousExample.apex already exists');
+    return;
+  }
+
+  const anonymousApex = `// Anonymous Apex example for testing
+System.debug('Starting anonymous Apex execution...');
+
+// Test basic variable declarations
+String greeting = 'Hello from Anonymous Apex!';
+Integer count = 42;
+Boolean isActive = true;
+
+System.debug('Greeting: ' + greeting);
+System.debug('Count: ' + count);
+System.debug('Is Active: ' + isActive);
+
+// Test list operations
+List<String> fruits = new List<String>{'Apple', 'Banana', 'Orange'};
+System.debug('Fruits list size: ' + fruits.size());
+
+for (String fruit : fruits) {
+    System.debug('Fruit: ' + fruit);
+}
+
+// Test map operations
+Map<String, Integer> fruitCounts = new Map<String, Integer>();
+fruitCounts.put('Apple', 10);
+fruitCounts.put('Banana', 15);
+fruitCounts.put('Orange', 8);
+
+System.debug('Fruit counts: ' + fruitCounts);
+
+// Test conditional logic
+if (count > 40) {
+    System.debug('Count is greater than 40');
+} else {
+    System.debug('Count is 40 or less');
+}
+
+// Test loop
+for (Integer i = 1; i <= 3; i++) {
+    System.debug('Loop iteration: ' + i);
+}
+
+// Test SOQL query (commented out to avoid DML in anonymous context)
+// List<User> users = [SELECT Id, Name FROM User LIMIT 1];
+// if (!users.isEmpty()) {
+//     System.debug('Current user: ' + users[0].Name);
+// }
+
+// Test exception handling
+try {
+    Integer result = count / 2;
+    System.debug('Division result: ' + result);
+} catch (Exception e) {
+    System.debug('Error occurred: ' + e.getMessage());
+}
+
+// Test string manipulation
+String upperGreeting = greeting.toUpperCase();
+String lowerGreeting = greeting.toLowerCase();
+System.debug('Upper: ' + upperGreeting);
+System.debug('Lower: ' + lowerGreeting);
+
+// Test date/time operations
+DateTime now = DateTime.now();
+Date today = Date.today();
+System.debug('Current DateTime: ' + now);
+System.debug('Today: ' + today);
+
+System.debug('Anonymous Apex execution completed successfully!');`;
+
+  fs.writeFileSync(anonymousApexPath, anonymousApex);
+  console.log(
+    '✅ Created AnonymousExample.apex for anonymous execution testing',
+  );
+}
+
+/**
+ * Ensures all required test files exist in the workspace, creating them if missing
+ * @param {string} workspacePath Path to the test workspace
+ */
+function ensureTestFilesExist(workspacePath) {
+  console.log('🔍 Checking for missing test files...');
+
+  const requiredFiles = [
+    { name: 'ApexClassExample.cls', creator: null }, // This is created in the main logic
+    { name: 'TestApexClass.cls', creator: createTestApexClass },
+    { name: 'AnonymousExample.apex', creator: createAnonymousApexFile },
+  ];
+
+  let missingFiles = [];
+
+  for (const file of requiredFiles) {
+    const filePath = path.join(workspacePath, file.name);
+    if (!fs.existsSync(filePath)) {
+      missingFiles.push(file);
+    }
+  }
+
+  if (missingFiles.length === 0) {
+    console.log('✅ All test files are present');
+    return;
+  }
+
+  console.log(
+    `📝 Found ${missingFiles.length} missing test file(s), creating them...`,
+  );
+
+  for (const file of missingFiles) {
+    if (file.creator) {
+      file.creator(workspacePath);
+    } else {
+      console.log(`⚠️  ${file.name} is missing but has no creator function`);
+    }
+  }
+}
+
 async function captureExtensionLogs(outputPath) {
   const timestamp = new Date().toISOString();
   const instructionMessage = `# Apex Language Extension Output - ${timestamp}
@@ -377,6 +626,12 @@ async function runWebExtensionTests() {
       );
       console.log('✅ Created sample Apex class for testing');
 
+      // Create test class for testing @isTest functionality
+      createTestApexClass(workspacePath);
+
+      // Create anonymous Apex file for testing anonymous execution
+      createAnonymousApexFile(workspacePath);
+
       // Create .vscode directory and settings.json
       const vscodeDir = path.join(workspacePath, '.vscode');
       fs.mkdirSync(vscodeDir, { recursive: true });
@@ -391,6 +646,9 @@ async function runWebExtensionTests() {
         JSON.stringify(vscodeSettings, null, 2),
       );
       console.log('✅ Created .vscode/settings.json with Apex debug settings');
+    } else {
+      // Workspace exists, but check if all test files are present
+      ensureTestFilesExist(workspacePath);
     }
 
     // Check if extension is built

@@ -153,18 +153,18 @@ export const createServerOptions = (
     // Use individual compiled files for better debugging (CommonJS version)
     serverModule = context.asAbsolutePath('../apex-ls/out/node/server.node.js');
     logServerMessage(
-      `🔧 Using individual files for debugging: ${serverModule}`,
-      'info',
+      `Using individual files for debugging: ${serverModule}`,
+      'debug',
     );
   } else if (isDevelopment) {
     serverModule = context.asAbsolutePath('../apex-ls/dist/server.node.js');
     logServerMessage(
-      `📦 Using bundled files for development: ${serverModule}`,
-      'info',
+      `Using bundled files for development: ${serverModule}`,
+      'debug',
     );
   } else {
     serverModule = context.asAbsolutePath('dist/server.node.js');
-    logServerMessage(`🚀 Using production files: ${serverModule}`, 'info');
+    logServerMessage(`Using production files: ${serverModule}`, 'debug');
   }
 
   logServerMessage(`Server module path: ${serverModule}`, 'debug');
@@ -242,9 +242,12 @@ export const createClientOptions = (
   documentSelector: [
     { scheme: 'file', language: 'apex' },
     { scheme: 'apexlib', language: 'apex' },
+    { scheme: 'file', language: 'apex-anon' },
   ],
   synchronize: {
-    fileEvents: vscode.workspace.createFileSystemWatcher('**/*.{cls,trigger}'),
+    fileEvents: vscode.workspace.createFileSystemWatcher(
+      '**/*.{cls,trigger,apex}',
+    ),
     configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
   },
   // Use our consolidated worker/server output channel with formatting wrapper

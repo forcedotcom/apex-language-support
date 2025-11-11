@@ -17,6 +17,8 @@ import {
   DefinitionParams,
   ReferenceParams,
   Location,
+  CodeLensParams,
+  CodeLens,
 } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import type {
@@ -57,6 +59,7 @@ export * from './handlers/LogNotificationHandler';
 export * from './handlers/DiagnosticHandler';
 export * from './handlers/HoverHandler';
 export * from './handlers/MissingArtifactHandler';
+export * from './handlers/CodeLensHandler';
 
 // Export services
 export * from './services/DocumentProcessingService';
@@ -74,6 +77,7 @@ export * from './services/WorkspaceLoadCoordinator';
 export * from './services/MissingArtifactResolutionService';
 export * from './services/IndexingObserver';
 export * from './services/SymbolManagerExtensions';
+export * from './services/CodeLensProcessingService';
 
 // Export factories
 export * from './factories/HandlerFactory';
@@ -222,6 +226,24 @@ export const dispatchProcessOnFindMissingArtifact = async (
     './handlers/MissingArtifactHandler'
   );
   return await processApexFindMissingArtifact(params);
+};
+
+/**
+ * Dispatch function for code lens requests
+ * @param params The code lens parameters
+ * @returns Promise resolving to array of code lenses
+ */
+export const dispatchProcessOnCodeLens = async (
+  params: CodeLensParams,
+): Promise<CodeLens[]> => {
+  const logger = getLogger();
+  logger.debug(
+    () => `Dispatching code lens request for ${params.textDocument.uri}`,
+  );
+  const handler = HandlerFactory.createCodeLensHandler();
+  const result = await handler.handleCodeLens(params);
+  logger.debug(() => `Handler returned ${result.length} code lenses`);
+  return result;
 };
 
 // Re-export the existing dispatch functions
