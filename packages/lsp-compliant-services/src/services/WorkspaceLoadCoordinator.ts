@@ -7,7 +7,11 @@
  */
 
 import { Connection, ProgressToken } from 'vscode-languageserver';
-import { LoggerInterface, LoadWorkspaceParams, LoadWorkspaceResult } from '@salesforce/apex-lsp-shared';
+import {
+  LoggerInterface,
+  LoadWorkspaceParams,
+  LoadWorkspaceResult,
+} from '@salesforce/apex-lsp-shared';
 
 /**
  * Result of workspace load operation
@@ -48,10 +52,10 @@ export class WorkspaceLoadCoordinator {
    * Ensure workspace is loaded before processing request.
    * If already loading, wait for that operation to complete.
    * If not loaded, trigger load with progress reporting.
-   * 
+   *
    * Multiple concurrent calls share the same load operation.
    * Only the first caller's progress token is used for reporting.
-   * 
+   *
    * @param connection Connection for server-client communication
    * @param workDoneToken Optional progress token from client
    * @returns Promise that resolves when workspace is loaded
@@ -62,20 +66,24 @@ export class WorkspaceLoadCoordinator {
   ): Promise<LoadResult> {
     // If load is already in progress, return the existing promise
     if (this.loadPromise) {
-      this.logger.debug(() => 'Workspace load already in progress, waiting for completion');
+      this.logger.debug(
+        () => 'Workspace load already in progress, waiting for completion',
+      );
       return this.loadPromise;
     }
 
     // Check current workspace state
     const stateResult = await this.queryWorkspaceState(connection);
-    
+
     if ('loaded' in stateResult && stateResult.loaded) {
       this.logger.debug(() => 'Workspace already loaded');
       return { status: 'loaded' };
     }
 
     if ('loading' in stateResult && stateResult.loading) {
-      this.logger.debug(() => 'Workspace currently loading on client, creating wait promise');
+      this.logger.debug(
+        () => 'Workspace currently loading on client, creating wait promise',
+      );
       // Client is loading, create a polling promise to wait for completion
       this.loadPromise = this.waitForClientLoad(connection);
       return this.loadPromise;
@@ -90,20 +98,24 @@ export class WorkspaceLoadCoordinator {
     this.logger.debug(() => 'Triggering workspace load');
     this.loadInProgress = true;
     this.loadPromise = this.triggerWorkspaceLoad(connection, workDoneToken);
-    
+
     return this.loadPromise;
   }
 
   /**
    * Query workspace state without triggering load
    */
-  private async queryWorkspaceState(connection: Connection): Promise<LoadWorkspaceResult> {
+  private async queryWorkspaceState(
+    connection: Connection,
+  ): Promise<LoadWorkspaceResult> {
     try {
       const result = await connection.sendRequest('apex/loadWorkspace', {
         queryOnly: true,
       } as LoadWorkspaceParams);
-      
-      this.logger.debug(() => `Workspace state query result: ${JSON.stringify(result)}`);
+
+      this.logger.debug(
+        () => `Workspace state query result: ${JSON.stringify(result)}`,
+      );
       return result as LoadWorkspaceResult;
     } catch (error) {
       this.logger.error(() => `Failed to query workspace state: ${error}`);
@@ -120,22 +132,22 @@ export class WorkspaceLoadCoordinator {
     const startTime = Date.now();
 
     while (Date.now() - startTime < maxWaitTime) {
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-      
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
       const stateResult = await this.queryWorkspaceState(connection);
-      
+
       if ('loaded' in stateResult && stateResult.loaded) {
         this.logger.debug(() => 'Client workspace load completed');
         this.clearLoadPromise();
         return { status: 'loaded' };
       }
-      
+
       if ('failed' in stateResult && stateResult.failed) {
         this.logger.debug(() => 'Client workspace load failed');
         this.clearLoadPromise();
         return { status: 'failed' };
       }
-      
+
       // Continue polling if still loading
     }
 
@@ -152,30 +164,36 @@ export class WorkspaceLoadCoordinator {
     workDoneToken?: ProgressToken,
   ): Promise<LoadResult> {
     try {
-      const result = await connection.sendRequest('apex/loadWorkspace', {
+      const result = (await connection.sendRequest('apex/loadWorkspace', {
         workDoneToken,
-      } as LoadWorkspaceParams) as LoadWorkspaceResult;
-      
-      this.logger.debug(() => `Workspace load result: ${JSON.stringify(result)}`);
-      
+      } as LoadWorkspaceParams)) as LoadWorkspaceResult;
+
+      this.logger.debug(
+        () => `Workspace load result: ${JSON.stringify(result)}`,
+      );
+
       if ('accepted' in result && result.accepted) {
         if (result.alreadyLoaded) {
           this.logger.debug(() => 'Workspace was already loaded');
           this.clearLoadPromise();
           return { status: 'loaded' };
         }
-        
+
         if (result.inProgress) {
-          this.logger.debug(() => 'Workspace load initiated, waiting for completion');
+          this.logger.debug(
+            () => 'Workspace load initiated, waiting for completion',
+          );
           // Load was initiated, wait for completion
           return await this.waitForClientLoad(connection);
         }
-        
+
         // Load was accepted, wait for completion
         return await this.waitForClientLoad(connection);
       }
-      
-      this.logger.error(() => `Workspace load not accepted: ${JSON.stringify(result)}`);
+
+      this.logger.error(
+        () => `Workspace load not accepted: ${JSON.stringify(result)}`,
+      );
       this.clearLoadPromise();
       return { status: 'failed' };
     } catch (error) {

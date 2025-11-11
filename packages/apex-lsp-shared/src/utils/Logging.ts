@@ -13,7 +13,6 @@ import type {
 } from '../index';
 import { getLogNotificationHandler, shouldLog } from '../index';
 import type { Connection } from 'vscode-languageserver';
-import { detectEnvironment } from './Environment';
 
 // =============================================================================
 // LOGGING UTILITIES

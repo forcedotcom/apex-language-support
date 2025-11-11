@@ -63,7 +63,8 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
     priority: 'HIGH',
     timeout: 1000,
     maxRetries: 1,
-    serviceFactory: (deps) => deps.serviceFactory.createDocumentProcessingService(),
+    serviceFactory: (deps) =>
+      deps.serviceFactory.createDocumentProcessingService(),
   },
 
   {
