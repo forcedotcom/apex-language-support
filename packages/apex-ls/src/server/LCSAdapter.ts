@@ -1312,7 +1312,7 @@ export class LCSAdapter {
    * Register the hover handler (only when capability is enabled)
    */
   private registerHoverHandler(): void {
-    console.debug('Registering hover handler');
+    this.logger.debug('Registering hover handler');
 
     // Check if hover handler is already registered
     if (this.hoverHandlerRegistered) {

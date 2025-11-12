@@ -17,6 +17,8 @@ import {
   TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
+import * as os from 'os';
 
 import { BaseApexParserListener } from './listeners/BaseApexParserListener';
 import {
@@ -84,6 +86,8 @@ export interface CompilationOptions {
   includeSingleLineComments?: boolean;
   /** Whether to associate comments with symbols (default: false) */
   associateComments?: boolean;
+  /** Maximum number of concurrent compilations (default: CPU core count or 4) */
+  maxConcurrency?: number;
 }
 
 /**
@@ -409,78 +413,125 @@ export class CompilerService {
 
     const startTime = Date.now();
 
-    // Use Promise.allSettled to capture compilation rejections
-    const settledResults = await Promise.allSettled(
-      fileCompilationConfigs.map(async (config) =>
-        // Use the listener as provided - assume it's already properly prepared
-        this.compile(
-          config.content,
-          config.fileName,
-          config.listener,
-          config.options || {},
+    // Calculate max concurrency from options or default to CPU core count
+    const maxConcurrency = this.calculateMaxConcurrency(fileCompilationConfigs);
+    this.logger.debug(
+      () => `Using concurrency limit of ${maxConcurrency} for compilation`,
+    );
+
+    // Convert each compilation to an Effect, using Effect.either to capture both success and failure
+    // and transform the result into the final format within the Effect pipeline
+    const compileEffects = fileCompilationConfigs.map((config, index) =>
+      Effect.either(
+        Effect.sync(() =>
+          this.compile(
+            config.content,
+            config.fileName,
+            config.listener,
+            config.options || {},
+          ),
         ),
+      ).pipe(
+        Effect.map((either) => {
+          if (either._tag === 'Right') {
+            // Successful compilation
+            return {
+              index,
+              result: either.right,
+            };
+          } else {
+            // Failed compilation - create error result (matching Promise.allSettled behavior)
+            this.logger.debug(
+              () => `Compilation failed for ${config.fileName}`,
+            );
+
+            const error = either.left;
+            const errorObject: ApexError = {
+              type: 'semantic' as any,
+              severity: 'error' as any,
+              message: String(error),
+              line: 0,
+              column: 0,
+              fileUri: config.fileName,
+            };
+
+            const errorResult = {
+              fileName: config.fileName,
+              result: null,
+              errors: [errorObject],
+              warnings: [],
+            };
+
+            // Add comments array if comments are enabled
+            const includeComments = config.options?.includeComments !== false;
+            return {
+              index,
+              result: includeComments
+                ? ({
+                    ...errorResult,
+                    comments: [],
+                  } as CompilationResultWithComments<T>)
+                : (errorResult as CompilationResult<T>),
+            };
+          }
+        }),
       ),
     );
 
-    // Process the settled results and handle any rejections
-    const results: (CompilationResult<T> | CompilationResultWithComments<T>)[] =
-      [];
-    let rejectedCount = 0;
+    // Run all compilations with concurrency control and process results in the pipeline
+    const { results, completedCount, rejectedCount } = await Effect.runPromise(
+      Effect.all(compileEffects, { concurrency: maxConcurrency }).pipe(
+        Effect.map((indexedResults) => {
+          // Sort results by original index to preserve order
+          indexedResults.sort((a, b) => a.index - b.index);
 
-    for (let i = 0; i < settledResults.length; i++) {
-      const settledResult = settledResults[i];
-      const config = fileCompilationConfigs[i];
+          // Extract results and calculate statistics
+          const results = indexedResults.map((item) => item.result);
+          const completedCount = indexedResults.filter(
+            (item) => item.result.errors.length === 0,
+          ).length;
+          const rejectedCount = indexedResults.length - completedCount;
 
-      if (settledResult.status === 'fulfilled') {
-        results.push(settledResult.value);
-      } else {
-        // Handle rejection by creating an error result
-        rejectedCount++;
-        this.logger.debug(() => `Compilation failed for ${config.fileName}`);
-
-        // Create an error object for the rejection
-        const errorObject: ApexError = {
-          type: 'semantic' as any,
-          severity: 'error' as any,
-          message:
-            settledResult.reason instanceof Error
-              ? settledResult.reason.message
-              : String(settledResult.reason),
-          line: 0,
-          column: 0,
-          fileUri: config.fileName,
-        };
-
-        const errorResult = {
-          fileName: config.fileName,
-          result: null,
-          errors: [errorObject],
-          warnings: [],
-        };
-
-        // Add comments array if comments are enabled
-        const includeComments = config.options?.includeComments !== false;
-        if (includeComments) {
-          results.push({
-            ...errorResult,
-            comments: [],
-          });
-        } else {
-          results.push(errorResult);
-        }
-      }
-    }
+          return { results, completedCount, rejectedCount };
+        }),
+      ),
+    );
 
     const endTime = Date.now();
     const duration = (endTime - startTime) / 1000;
     this.logger.debug(
       () =>
-        `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed` +
-        (rejectedCount > 0
-          ? `, ${rejectedCount} compilation rejections captured`
-          : ''),
+        `Parallel compilation completed in ${duration.toFixed(2)}s: ${completedCount} files compiled successfully, ` +
+        `${rejectedCount} files failed, ${results.length} total results`,
     );
     return results;
+  }
+
+  /**
+   * Calculate the maximum concurrency for compilation.
+   * Uses the maxConcurrency from options if provided, otherwise defaults to CPU core count or 4.
+   * @private
+   */
+  private calculateMaxConcurrency(
+    fileCompilationConfigs: Array<{
+      options?: CompilationOptions;
+    }>,
+  ): number {
+    // Check if any config specifies maxConcurrency
+    for (const config of fileCompilationConfigs) {
+      if (config.options?.maxConcurrency !== undefined) {
+        return Math.max(1, config.options.maxConcurrency);
+      }
+    }
+
+    // Default to CPU core count or 4
+    try {
+      const cpuCount = os.cpus().length;
+      return Math.max(1, Math.floor(cpuCount || 4));
+    } catch {
+      // Fallback if os.cpus() fails
+      return 4;
+    }
   }
 
   /**

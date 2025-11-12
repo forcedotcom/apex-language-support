@@ -153,6 +153,20 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
     (LSPQueueManager as any).instance = undefined;
   });
 
+  afterEach(async () => {
+    // Shutdown any existing singleton instance to prevent hanging intervals
+    const instance = (LSPQueueManager as any).instance;
+    if (instance) {
+      try {
+        await instance.shutdown();
+      } catch (_error) {
+        // Ignore shutdown errors
+      }
+    }
+    // Reset singleton instance
+    (LSPQueueManager as any).instance = undefined;
+  });
+
   describe('Singleton Pattern', () => {
     it('should return the same instance on multiple calls', () => {
       const instance1 = LSPQueueManager.getInstance();
