@@ -39,7 +39,30 @@ describe('ResourceLoader', () => {
     setLogLevel('error');
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Wait for any ongoing compilation to complete before resetting
+    // Use a timeout to prevent hanging if compilation is stuck
+    const instance = (ResourceLoader as any).instance;
+    if (instance) {
+      let timeoutId: NodeJS.Timeout | null = null;
+      try {
+        await Promise.race([
+          instance.waitForCompilation(),
+          new Promise<void>((resolve) => {
+            timeoutId = setTimeout(resolve, 5000); // 5 second timeout
+          }),
+        ]);
+      } catch (_error) {
+        // Ignore errors during cleanup
+      } finally {
+        // Clear the timeout if it's still pending
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        // Interrupt any remaining compilation to ensure clean shutdown
+        instance.interruptCompilation();
+      }
+    }
     (ResourceLoader as any).instance = null;
   });
 
@@ -347,6 +370,28 @@ describe('ResourceLoader Compilation', () => {
   });
 
   afterAll(async () => {
+    // Wait for any ongoing compilation to complete before cleanup
+    // Use a timeout to prevent hanging if compilation is stuck
+    if (sharedCompiledLoader) {
+      let timeoutId: NodeJS.Timeout | null = null;
+      try {
+        await Promise.race([
+          sharedCompiledLoader.waitForCompilation(),
+          new Promise<void>((resolve) => {
+            timeoutId = setTimeout(resolve, 10000); // 10 second timeout
+          }),
+        ]);
+      } catch (_error) {
+        // Ignore errors during cleanup
+      } finally {
+        // Clear the timeout if it's still pending
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        // Interrupt any remaining compilation to ensure clean shutdown
+        sharedCompiledLoader.interruptCompilation();
+      }
+    }
     // Clean up the shared instance
     (ResourceLoader as any).instance = null;
     sharedCompiledLoader = null;
@@ -484,7 +529,16 @@ describe('ResourceLoader Lazy Loading', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Wait for any ongoing compilation to complete before resetting
+    const instance = (ResourceLoader as any).instance;
+    if (instance) {
+      try {
+        await instance.waitForCompilation();
+      } catch (_error) {
+        // Ignore errors during cleanup
+      }
+    }
     (ResourceLoader as any).instance = null;
   });
 
@@ -710,6 +764,28 @@ describe('ResourceLoader Compilation Quality Analysis', () => {
   });
 
   afterAll(async () => {
+    // Wait for any ongoing compilation to complete before cleanup
+    // Use a timeout to prevent hanging if compilation is stuck
+    if (singleClassLoader) {
+      let timeoutId: NodeJS.Timeout | null = null;
+      try {
+        await Promise.race([
+          singleClassLoader.waitForCompilation(),
+          new Promise<void>((resolve) => {
+            timeoutId = setTimeout(resolve, 10000); // 10 second timeout
+          }),
+        ]);
+      } catch (_error) {
+        // Ignore errors during cleanup
+      } finally {
+        // Clear the timeout if it's still pending
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        // Interrupt any remaining compilation to ensure clean shutdown
+        singleClassLoader.interruptCompilation();
+      }
+    }
     (ResourceLoader as any).instance = null;
     singleClassLoader = null;
   });
