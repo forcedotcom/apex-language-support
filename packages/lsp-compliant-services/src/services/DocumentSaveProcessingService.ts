@@ -20,7 +20,7 @@ import {
 } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { getParseResultCache } from './ParseResultCache';
+import { getDocumentStateCache } from './DocumentStateCache';
 
 /**
  * Interface for document save processing functionality
@@ -56,7 +56,7 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
 
     try {
       // Check parse result cache first
-      const parseCache = getParseResultCache();
+      const parseCache = getDocumentStateCache();
       const cached = parseCache.getSymbolResult(
         event.document.uri,
         event.document.version,
@@ -84,12 +84,15 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
             enableCrossFileResolution: true,
             enableReferenceProcessing: true,
           },
+          document.version,
         );
         this.logger.debug(
           () =>
             'Document save symbol processing queued (cached): ' +
             `${taskId} for ${document.uri} (version: ${document.version})`,
         );
+        // Monitor task completion and update cache
+        this.monitorTaskCompletion(taskId, document.uri, document.version);
         return;
       }
 
@@ -149,6 +152,7 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
           enableCrossFileResolution: true,
           enableReferenceProcessing: true,
         },
+        document.version,
       );
 
       this.logger.debug(
@@ -156,12 +160,17 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
           `Document save symbol processing queued: ${taskId} for ${document.uri} (version: ${document.version})`,
       );
 
+      // Monitor task completion and update cache
+      this.monitorTaskCompletion(taskId, document.uri, document.version);
+
       // Cache the parse result for future requests with same version
+      // symbolsIndexed defaults to false for new entries
       parseCache.merge(document.uri, {
         symbolTable,
         diagnostics: [],
         documentVersion: document.version,
         documentLength: document.getText().length,
+        symbolsIndexed: false, // Will be set to true when indexing completes
       });
     } catch (error) {
       this.logger.error(
@@ -169,5 +178,55 @@ export class DocumentSaveProcessingService implements IDocumentSaveProcessor {
           `Error processing document save for ${event.document.uri}: ${error}`,
       );
     }
+  }
+
+  /**
+   * Monitor task completion and update cache when indexing completes
+   * @param taskId The task ID to monitor
+   * @param fileUri The file URI
+   * @param documentVersion The document version
+   */
+  private monitorTaskCompletion(
+    taskId: string,
+    fileUri: string,
+    documentVersion: number,
+  ): void {
+    // Skip monitoring for special task IDs
+    if (taskId === 'sync_fallback' || taskId === 'deduplicated') {
+      return;
+    }
+
+    // Check task status after a short delay and periodically
+    const checkTask = async (): Promise<void> => {
+      try {
+        const backgroundManager = ApexSymbolProcessingManager.getInstance();
+        const status = backgroundManager.getTaskStatus(taskId);
+
+        if (status === 'COMPLETED') {
+          // Update cache to mark symbols as indexed
+          const parseCache = getDocumentStateCache();
+          const cached = parseCache.get(fileUri, documentVersion);
+          if (cached && cached.documentVersion === documentVersion) {
+            parseCache.merge(fileUri, { symbolsIndexed: true });
+            this.logger.debug(
+              () =>
+                `Marked symbols as indexed for ${fileUri} (version ${documentVersion}) after task ${taskId} completed`,
+            );
+          }
+        } else if (status === 'PENDING' || status === 'RUNNING') {
+          // Task still in progress, check again after a delay
+          setTimeout(checkTask, 100);
+        }
+        // If status is FAILED or CANCELLED, don't update cache
+      } catch (error) {
+        // Best-effort; log but don't throw
+        this.logger.debug(
+          () => `Error monitoring task ${taskId} completion: ${error}`,
+        );
+      }
+    };
+
+    // Start checking after a short delay
+    setTimeout(checkTask, 100);
   }
 }

@@ -970,7 +970,7 @@ export class SymbolTable {
 
   /**
    * Get type references at a specific position
-   * @param position The position to search for references (0-based)
+   * @param position The position to search for references (1-based line, 0-based column)
    * @returns Array of type references at the position
    */
   getReferencesAtPosition(position: {

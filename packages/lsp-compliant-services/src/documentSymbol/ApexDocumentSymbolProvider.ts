@@ -28,7 +28,7 @@ import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { transformParserToLspPosition } from '../utils/positionUtils';
-import { getParseResultCache } from '../services/ParseResultCache';
+import { getDocumentStateCache } from '../services/DocumentStateCache';
 
 /**
  * Maps Apex symbol kinds to LSP symbol kinds
@@ -125,7 +125,7 @@ export class DefaultApexDocumentSymbolProvider
       // NOTE: Safe to use cached SymbolTable even with different compilation options
       // because SymbolTable only contains structural symbols (classes, methods, fields)
       // and is independent of comment collection settings
-      const parseCache = getParseResultCache();
+      const parseCache = getDocumentStateCache();
       const cached = parseCache.getSymbolResult(documentUri, document.version);
 
       let symbolTable: SymbolTable;

@@ -18,7 +18,7 @@ import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 import { ApexStorageInterface } from '../storage/ApexStorageInterface';
 import { transformParserToLspPosition } from '../utils/positionUtils';
-import { getParseResultCache } from '../services/ParseResultCache';
+import { getDocumentStateCache } from '../services/DocumentStateCache';
 
 const logger = getLogger();
 
@@ -53,7 +53,7 @@ export class ApexFoldingRangeProvider {
       }
 
       // Check cache first
-      const parseCache = getParseResultCache();
+      const parseCache = getDocumentStateCache();
       const cached = parseCache.getFoldingRangeResult(
         documentUri,
         document.version,

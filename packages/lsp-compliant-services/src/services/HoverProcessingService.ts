@@ -102,6 +102,24 @@ export class HoverProcessingService implements IHoverProcessor {
           `parser position: ${parserPosition.line}:${parserPosition.character}`,
       );
 
+      // Check if FileUtilities class exists in symbol manager (for debugging)
+      const fileUtilitiesCandidates =
+        this.symbolManager.findSymbolByName('FileUtilities');
+      this.logger.debug(
+        () =>
+          `[HoverProcessingService] FileUtilities candidates in symbol manager: ${fileUtilitiesCandidates.length}`,
+      );
+      if (fileUtilitiesCandidates.length > 0) {
+        fileUtilitiesCandidates.forEach((candidate, idx) => {
+          const candidatePath = candidate.key.path[0];
+          this.logger.debug(
+            () =>
+              `[HoverProcessingService] FileUtilities candidate ${idx}: ` +
+              `${candidate.name} (kind: ${candidate.kind}) from ${candidatePath}`,
+          );
+        });
+      }
+
       let symbol = await this.symbolManager.getSymbolAtPosition(
         params.textDocument.uri,
         parserPosition,
@@ -132,7 +150,10 @@ export class HoverProcessingService implements IHoverProcessor {
         return null;
       }
 
-      this.logger.debug(() => `Found symbol: ${symbol.name} (${symbol.kind})`);
+      this.logger.debug(
+        () =>
+          `Found symbol: ${symbol?.name ?? 'Unknown'} (${symbol?.kind ?? 'Unknown'})`,
+      );
 
       const hover = await this.createHoverInformation(symbol);
 
