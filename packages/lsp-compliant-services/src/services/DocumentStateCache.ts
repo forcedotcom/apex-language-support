@@ -146,10 +146,12 @@ export class DocumentStateCache {
     }
 
     this.cache.set(uri, result);
-      this.logger.debug(
-        () =>
-          `Cached document state for ${uri} (version ${result.documentVersion}) - size: ${this.cache.size}/${this.maxSize}`,
-      );
+    this.logger.debug(
+      () =>
+        `Cached document state for ${uri} (version ${result.documentVersion}) - ` +
+        `size: ${this.cache.size}/${this.maxSize} - ` +
+        `symbolsIndexed: ${result.symbolsIndexed}`,
+    );
   }
 
   /**
@@ -179,7 +181,9 @@ export class DocumentStateCache {
       this.logger.debug(
         () =>
           'Merged document state for ' +
-          `${uri} (version ${merged.documentVersion}) - size: ${this.cache.size}/${this.maxSize}`,
+          `${uri} (version ${merged.documentVersion}) - ` +
+          `size: ${this.cache.size}/${this.maxSize} - ` +
+          `symbolsIndexed: ${merged.symbolsIndexed}`,
       );
     } else {
       // No existing entry, create new one with defaults

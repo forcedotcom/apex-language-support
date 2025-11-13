@@ -160,10 +160,7 @@ class TaskRegistry {
    * @param documentVersion Optional document version to match
    * @returns True if there's a pending or running task for the file/version
    */
-  hasPendingTaskForFile(
-    fileUri: string,
-    documentVersion?: number,
-  ): boolean {
+  hasPendingTaskForFile(fileUri: string, documentVersion?: number): boolean {
     return this.findPendingTaskIdForFile(fileUri, documentVersion) !== null;
   }
 
@@ -468,7 +465,8 @@ export class ApexSymbolIndexingService {
       // Queue might be shutdown or full, or worker fiber might be suspended
       // Check for AsyncFiberException by error name or message
       const errorName = error?.constructor?.name || '';
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       const isAsyncFiberError =
         errorName === 'AsyncFiberException' ||
         errorMessage.includes('cannot be resolved synchronously') ||
@@ -485,7 +483,9 @@ export class ApexSymbolIndexingService {
         // In production, this indicates the queue is full or worker is suspended
       } else {
         // Re-throw unexpected errors
-        this.logger.error(() => `Unexpected error enqueueing task ${task.id}: ${error}`);
+        this.logger.error(
+          () => `Unexpected error enqueueing task ${task.id}: ${error}`,
+        );
         throw error;
       }
     }
@@ -534,7 +534,9 @@ export class ApexSymbolIndexingService {
   /**
    * Get task information by task ID
    */
-  getTaskInfo(taskId: string): { fileUri: string; documentVersion?: number } | null {
+  getTaskInfo(
+    taskId: string,
+  ): { fileUri: string; documentVersion?: number } | null {
     const entry = this.taskRegistry.getTaskEntry(taskId);
     if (!entry || entry.task._tag !== 'SymbolProcessingTask') {
       return null;
@@ -618,12 +620,19 @@ export class ApexSymbolIndexingIntegration {
     if (existingTaskId) {
       this.logger.debug(
         () =>
-          `Deduplication: skipping symbol processing for ${fileUri} (version ${documentVersion ?? 'unknown'}) - task ${existingTaskId} already pending/running`,
+          `Deduplication: skipping symbol processing for ${fileUri} ` +
+          `(version ${documentVersion ?? 'unknown'}) - ` +
+          `task ${existingTaskId} already pending/running`,
       );
       return existingTaskId;
     }
 
-    const task = this.createTask(symbolTable, fileUri, options, documentVersion);
+    const task = this.createTask(
+      symbolTable,
+      fileUri,
+      options,
+      documentVersion,
+    );
 
     // Enqueue the task
     this.indexingService.enqueue(task);
@@ -642,7 +651,9 @@ export class ApexSymbolIndexingIntegration {
   /**
    * Get task information by task ID
    */
-  getTaskInfo(taskId: string): { fileUri: string; documentVersion?: number } | null {
+  getTaskInfo(
+    taskId: string,
+  ): { fileUri: string; documentVersion?: number } | null {
     return this.indexingService.getTaskInfo(taskId);
   }
 

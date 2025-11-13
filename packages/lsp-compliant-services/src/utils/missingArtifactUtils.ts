@@ -333,7 +333,9 @@ export class MissingArtifactUtils {
 
       this.logger.debug(
         () =>
-          `[extractReferenceAtPosition] LSP position: ${position.line}:${position.character} → parser position: ${parserPosition.line}:${parserPosition.character}`,
+          `[extractReferenceAtPosition] LSP position: ${position.line}:${position.character} → ` +
+          `parser position: ${parserPosition.line}:${parserPosition.character} - ` +
+          `uri: ${uri}`,
       );
 
       // Get all references in file for debugging
@@ -343,7 +345,8 @@ export class MissingArtifactUtils {
 
       this.logger.debug(
         () =>
-          `[extractReferenceAtPosition] Total references in file: ${allReferences.length}`,
+          `[extractReferenceAtPosition] Total references in file: ${allReferences.length} - ` +
+          `uri: ${uri}`,
       );
 
       // Log references near the target position for debugging
@@ -357,7 +360,9 @@ export class MissingArtifactUtils {
         );
         this.logger.debug(
           () =>
-            `[extractReferenceAtPosition] References within 2 lines of position ${parserPosition.line}: ${nearbyRefs.length}`,
+            '[extractReferenceAtPosition] References within 2 lines of position ' +
+            `${parserPosition.line}: ${nearbyRefs.length} - ` +
+            `uri: ${uri}`,
         );
         if (nearbyRefs.length > 0) {
           nearbyRefs.slice(0, 5).forEach((ref: any, idx: number) => {
@@ -365,7 +370,10 @@ export class MissingArtifactUtils {
             if (range) {
               this.logger.debug(
                 () =>
-                  `[extractReferenceAtPosition] Nearby ref ${idx + 1}: ${ref.name} at ${range.startLine}:${range.startColumn}-${range.endLine}:${range.endColumn} (context: ${ref.context})`,
+                  `[extractReferenceAtPosition] Nearby ref ${idx + 1}: ${ref.name} at ` +
+                  `${range.startLine}:${range.startColumn}-${range.endLine}:${range.endColumn} ` +
+                  `(context: ${ref.context}) - ` +
+                  `uri: ${uri}`,
               );
             }
           });
@@ -381,7 +389,9 @@ export class MissingArtifactUtils {
 
       this.logger.debug(
         () =>
-          `[extractReferenceAtPosition] getReferencesAtPosition returned ${references?.length || 0} references at parser position ${parserPosition.line}:${parserPosition.character}`,
+          `[extractReferenceAtPosition] getReferencesAtPosition returned ${references?.length || 0} ` +
+          ` references at parser position ${parserPosition.line}:${parserPosition.character} - ` +
+          `uri: ${uri}`,
       );
 
       if (references && references.length > 0) {
@@ -390,7 +400,10 @@ export class MissingArtifactUtils {
         const range = reference.location?.identifierRange;
         this.logger.debug(
           () =>
-            `[extractReferenceAtPosition] Found reference: ${reference.name} (context: ${reference.context}) at ${range?.startLine}:${range?.startColumn}-${range?.endLine}:${range?.endColumn}`,
+            `[extractReferenceAtPosition] Found reference: ${reference.name} ` +
+            `(context: ${reference.context}) at ` +
+            `${range?.startLine}:${range?.startColumn}-${range?.endLine}:${range?.endColumn} - ` +
+            `uri: ${uri}`,
         );
         return reference;
       }
@@ -398,7 +411,9 @@ export class MissingArtifactUtils {
       // No references found at precise position - log detailed debug info
       this.logger.debug(
         () =>
-          `[extractReferenceAtPosition] No precise references found at parser position ${parserPosition.line}:${parserPosition.character} for missing artifact resolution`,
+          '[extractReferenceAtPosition] No precise references found at parser position ' +
+          `${parserPosition.line}:${parserPosition.character} for missing artifact resolution - ` +
+          `uri: ${uri}`,
       );
 
       // Check if any references exist on the same line
@@ -411,14 +426,18 @@ export class MissingArtifactUtils {
         if (sameLineRefs.length > 0) {
           this.logger.debug(
             () =>
-              `[extractReferenceAtPosition] Found ${sameLineRefs.length} references on line ${parserPosition.line}, but none match character position ${parserPosition.character}`,
+              `[extractReferenceAtPosition] Found ${sameLineRefs.length} references on line ` +
+              `${parserPosition.line}, but none match character position ${parserPosition.character} - ` +
+              `uri: ${uri}`,
           );
           sameLineRefs.slice(0, 3).forEach((ref: any, idx: number) => {
             const range = ref.location?.identifierRange;
             if (range) {
               this.logger.debug(
                 () =>
-                  `[extractReferenceAtPosition] Same-line ref ${idx + 1}: ${ref.name} at columns ${range.startColumn}-${range.endColumn} (position ${parserPosition.character} not in range)`,
+                  `[extractReferenceAtPosition] Same-line ref ${idx + 1}: ${ref.name} at columns ` +
+                  `${range.startColumn}-${range.endColumn} (position ${parserPosition.character} not in range) - ` +
+                  `uri: ${uri}`,
               );
             }
           });
