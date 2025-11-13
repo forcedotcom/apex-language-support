@@ -18,7 +18,6 @@ import {
 } from '@apexdevtools/apex-parser';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
-import * as os from 'os';
 
 import { BaseApexParserListener } from './listeners/BaseApexParserListener';
 import {
@@ -86,8 +85,6 @@ export interface CompilationOptions {
   includeSingleLineComments?: boolean;
   /** Whether to associate comments with symbols (default: false) */
   associateComments?: boolean;
-  /** Maximum number of concurrent compilations (default: CPU core count or 4) */
-  maxConcurrency?: number;
 }
 
 /**
@@ -395,6 +392,12 @@ export class CompilerService {
 
   /**
    * Parse and compile multiple Apex files with individual settings using parallel processing.
+   *
+   * Uses Effect-TS fibers with a concurrency limit of 50. While fibers are cooperative
+   * and each compilation yields to the event loop after completion, having too many active
+   * effects simultaneously causes excessive memory pressure and scheduler overhead.
+   * A limit of 50 provides good throughput while keeping resource usage reasonable.
+   *
    * @param fileCompilationConfigs Array of file compilation configurations
    * @returns Promise that resolves to array of compilation results
    */
@@ -413,14 +416,9 @@ export class CompilerService {
 
     const startTime = Date.now();
 
-    // Calculate max concurrency from options or default to CPU core count
-    const maxConcurrency = this.calculateMaxConcurrency(fileCompilationConfigs);
-    this.logger.debug(
-      () => `Using concurrency limit of ${maxConcurrency} for compilation`,
-    );
-
     // Convert each compilation to an Effect, using Effect.either to capture both success and failure
     // and transform the result into the final format within the Effect pipeline
+    // Yield to event loop after each compilation to prevent blocking
     const compileEffects = fileCompilationConfigs.map((config, index) =>
       Effect.either(
         Effect.sync(() =>
@@ -432,6 +430,11 @@ export class CompilerService {
           ),
         ),
       ).pipe(
+        // Yield to event loop after each compilation completes
+        // This allows other tasks to run and prevents blocking the main event loop
+        Effect.flatMap((either) =>
+          Effect.sleep(0).pipe(Effect.map(() => either)),
+        ),
         Effect.map((either) => {
           if (either._tag === 'Right') {
             // Successful compilation
@@ -478,9 +481,11 @@ export class CompilerService {
       ),
     );
 
-    // Run all compilations with concurrency control and process results in the pipeline
+    // Run all compilations with a reasonable concurrency limit
+    // While fibers are cooperative and yield to the event loop, having too many
+    // active effects simultaneously causes excessive memory pressure and scheduler overhead.
     const { results, completedCount, rejectedCount } = await Effect.runPromise(
-      Effect.all(compileEffects, { concurrency: maxConcurrency }).pipe(
+      Effect.all(compileEffects, { concurrency: Infinity }).pipe(
         Effect.map((indexedResults) => {
           // Sort results by original index to preserve order
           indexedResults.sort((a, b) => a.index - b.index);
@@ -505,33 +510,6 @@ export class CompilerService {
         `${rejectedCount} files failed, ${results.length} total results`,
     );
     return results;
-  }
-
-  /**
-   * Calculate the maximum concurrency for compilation.
-   * Uses the maxConcurrency from options if provided, otherwise defaults to CPU core count or 4.
-   * @private
-   */
-  private calculateMaxConcurrency(
-    fileCompilationConfigs: Array<{
-      options?: CompilationOptions;
-    }>,
-  ): number {
-    // Check if any config specifies maxConcurrency
-    for (const config of fileCompilationConfigs) {
-      if (config.options?.maxConcurrency !== undefined) {
-        return Math.max(1, config.options.maxConcurrency);
-      }
-    }
-
-    // Default to CPU core count or 4
-    try {
-      const cpuCount = os.cpus().length;
-      return Math.max(1, Math.floor(cpuCount || 4));
-    } catch {
-      // Fallback if os.cpus() fails
-      return 4;
-    }
   }
 
   /**
