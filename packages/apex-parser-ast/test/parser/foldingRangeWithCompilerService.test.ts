@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { Effect } from 'effect/index';
 import { CompilerService } from '../../src/parser/compilerService';
 import {
   ApexFoldingRangeListener,
@@ -205,7 +206,9 @@ describe('CompilerService Folding Range Integration', () => {
         },
       ];
 
-      const results = await service.compileMultiple(files, listener);
+      const results = await Effect.runPromise(
+        service.compileMultiple(files, listener),
+      );
 
       // Both compilations should succeed
       expect(results.length).toBe(2);

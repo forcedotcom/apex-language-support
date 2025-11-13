@@ -569,8 +569,9 @@ export class ResourceLoader {
         () => 'Calling compileMultipleWithConfigs with parallel processing',
       );
 
-      const results =
-        await this.compilerService.compileMultipleWithConfigs(filesToCompile);
+      const results = await Effect.runPromise(
+        this.compilerService.compileMultipleWithConfigs(filesToCompile, 50),
+      );
 
       this.logger.debug(
         () => `CompileMultipleWithConfigs returned ${results.length} results`,
