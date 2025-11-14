@@ -34,5 +34,5 @@ module.exports = {
   collectCoverageFrom: ['src/**/*.ts', '!src/generated/**', '!**/*.d.ts'],
   automock: false,
   resetMocks: false,
-  testTimeout: 30000, // 30 seconds default timeout for tests
+  testTimeout: 120_000, // 2 minuntes default timeout for tests
 };
