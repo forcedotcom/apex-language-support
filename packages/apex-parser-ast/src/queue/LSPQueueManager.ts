@@ -93,9 +93,12 @@ export class LSPQueueManager {
 
   /**
    * Get the singleton instance
-   * @param dependencies Optional dependencies for initialization (required on first call if services need to be registered)
+   * @param dependencies Optional dependencies for initialization
+   * (required on first call if services need to be registered)
    */
-  static getInstance(dependencies?: LSPQueueManagerDependencies): LSPQueueManager {
+  static getInstance(
+    dependencies?: LSPQueueManagerDependencies,
+  ): LSPQueueManager {
     if (!LSPQueueManager.instance) {
       LSPQueueManager.instance = new LSPQueueManager(dependencies);
     }

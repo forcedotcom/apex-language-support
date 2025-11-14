@@ -20,27 +20,26 @@ import {
   CodeLensParams,
   CodeLens,
 } from 'vscode-languageserver';
-import { getLogger } from '@salesforce/apex-lsp-shared';
 import type {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
+import { ApexSettingsManager, getLogger } from '@salesforce/apex-lsp-shared';
 import { HandlerFactory } from './factories/HandlerFactory';
 import { dispatchProcessOnDiagnostic } from './handlers/DiagnosticHandler';
 import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
 import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
 import { HoverHandler } from './handlers/HoverHandler';
 import {
+  ISymbolManager,
   LSPQueueManager,
   LSPQueueManagerDependencies,
 } from '@salesforce/apex-lsp-parser-ast';
 import { ServiceFactory } from './factories/ServiceFactory';
 import { DEFAULT_SERVICE_CONFIG } from './config/ServiceConfiguration';
 import { ApexStorageManager } from './storage/ApexStorageManager';
-import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
 
 // Export storage interfaces and classes
 export * from './storage/ApexStorageBase';
