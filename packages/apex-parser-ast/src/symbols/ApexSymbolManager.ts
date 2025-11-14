@@ -1503,7 +1503,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Get TypeReference data at a specific position in a file
    * This provides precise AST-based position data for enhanced symbol resolution
    * @param fileUri The file path to search in
-   * @param position The position to search for references (0-based)
+   * @param position The position to search for references (1-based line index, 0-based column index)
    * @returns Array of TypeReference objects at the position
    */
   getReferencesAtPosition(
@@ -3698,8 +3698,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       await this.findAllPossibleResolutionPaths(chainNodes);
 
     if (resolutionPaths.length === 0) {
-      this.logger.warn(() => 'No valid resolution paths found for chain');
-
       return null;
     }
 
@@ -4219,7 +4217,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         // Resolve the entire chain
         const resolvedChain = await this.resolveEntireChain(chainNodes);
         if (!resolvedChain) {
-          this.logger.warn(() => 'Failed to resolve entire chain');
           return null;
         }
 

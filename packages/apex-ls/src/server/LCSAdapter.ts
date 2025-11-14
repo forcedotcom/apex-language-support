@@ -127,6 +127,9 @@ export class LCSAdapter {
     this.setupDocumentHandlers();
 
     // Document listener — safe now
+    this.logger.info(
+      'TextDocuments manager listening for notifications on connection',
+    );
     this.documents.listen(this.connection);
 
     this.logger.info(
@@ -230,6 +233,22 @@ export class LCSAdapter {
     this.connection.onDidChangeConfiguration(
       this.handleConfigurationChange.bind(this),
     );
+
+    // Register connection-level handler for textDocument/didOpen to log when notifications are received
+    this.connection.onNotification('textDocument/didOpen', (params: any) => {
+      try {
+        const uri = params.textDocument?.uri;
+        const languageId = params.textDocument?.languageId;
+        const version = params.textDocument?.version;
+        this.logger.info(
+          `Received textDocument/didOpen notification for: ${uri} (language: ${languageId}, version: ${version})`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Error logging textDocument/didOpen notification: ${error}`,
+        );
+      }
+    });
   }
 
   /**
@@ -258,19 +277,27 @@ export class LCSAdapter {
   private setupDocumentHandlers(): void {
     this.documents.onDidOpen(async (open) => {
       try {
-        this.logger.debug(`Document opened: ${open.document.uri}`);
+        this.logger.debug(
+          () =>
+            `Processing textDocument/didOpen for: ${open.document.uri} ` +
+            `(version: ${open.document.version}, language: ${open.document.languageId})`,
+        );
         await dispatchProcessOnOpenDocument(open);
       } catch (error) {
-        this.logger.error(`Error processing open: ${error}`);
+        this.logger.error(
+          () => `Error processing open: ${formattedError(error)}`,
+        );
       }
     });
 
     this.documents.onDidChangeContent(async (change) => {
       try {
-        this.logger.debug(`Document changed: ${change.document.uri}`);
+        this.logger.debug(() => `Document changed: ${change.document.uri}`);
         await dispatchProcessOnChangeDocument(change);
       } catch (error) {
-        this.logger.error(`Error processing change: ${error}`);
+        this.logger.error(
+          () => `Error processing change: ${formattedError(error)}`,
+        );
       }
     });
 
@@ -278,7 +305,9 @@ export class LCSAdapter {
       try {
         await dispatchProcessOnSaveDocument(save);
       } catch (error) {
-        this.logger.error(`Error processing save: ${error}`);
+        this.logger.error(
+          () => `Error processing save: ${formattedError(error)}`,
+        );
       }
     });
 
@@ -286,7 +315,9 @@ export class LCSAdapter {
       try {
         await dispatchProcessOnCloseDocument(close);
       } catch (error) {
-        this.logger.error(`Error processing close: ${error}`);
+        this.logger.error(
+          () => `Error processing close: ${formattedError(error)}`,
+        );
       }
     });
   }
@@ -302,12 +333,15 @@ export class LCSAdapter {
     if (capabilities.documentSymbolProvider) {
       this.connection.onDocumentSymbol(async (params: DocumentSymbolParams) => {
         this.logger.debug(
-          `🔍 Document symbol request for URI: ${params.textDocument.uri}`,
+          () =>
+            `🔍 Document symbol request for URI: ${params.textDocument.uri}`,
         );
         try {
           return await dispatchProcessOnDocumentSymbol(params);
         } catch (error) {
-          this.logger.error(`Error processing document symbols: ${error}`);
+          this.logger.error(
+            () => `Error processing document symbols: ${formattedError(error)}`,
+          );
           return [];
         }
       });
@@ -323,13 +357,16 @@ export class LCSAdapter {
       this.connection.onDefinition(
         async (params: DefinitionParams): Promise<Location[] | null> => {
           this.logger.debug(
-            `🔍 Definition request for URI: ${params.textDocument.uri} ` +
+            () =>
+              `🔍 Definition request for URI: ${params.textDocument.uri} ` +
               `at ${params.position.line}:${params.position.character}`,
           );
           try {
             return await dispatchProcessOnDefinition(params);
           } catch (error) {
-            this.logger.error(`Error processing definition: ${error}`);
+            this.logger.error(
+              () => `Error processing definition: ${formattedError(error)}`,
+            );
             return null;
           }
         },
@@ -346,13 +383,16 @@ export class LCSAdapter {
       this.connection.onReferences(
         async (params: ReferenceParams): Promise<Location[] | null> => {
           this.logger.debug(
-            `🔍 References request for URI: ${params.textDocument.uri} ` +
+            () =>
+              `🔍 References request for URI: ${params.textDocument.uri} ` +
               `at ${params.position.line}:${params.position.character}`,
           );
           try {
             return await dispatchProcessOnReferences(params);
           } catch (error) {
-            this.logger.error(`Error processing references: ${error}`);
+            this.logger.error(
+              () => `Error processing references: ${formattedError(error)}`,
+            );
             return null;
           }
         },
@@ -381,7 +421,9 @@ export class LCSAdapter {
               items: diagnostics,
             };
           } catch (error) {
-            this.logger.error(`Error processing diagnostics: ${error}`);
+            this.logger.error(
+              () => `Error processing diagnostics: ${formattedError(error)}`,
+            );
             return { kind: DocumentDiagnosticReportKind.Full, items: [] };
           }
         },
@@ -398,13 +440,16 @@ export class LCSAdapter {
       this.connection.languages.foldingRange.on(
         async (params: FoldingRangeParams) => {
           this.logger.debug(
-            `🔍 Folding range request for URI: ${params.textDocument.uri}`,
+            () =>
+              `🔍 Folding range request for URI: ${params.textDocument.uri}`,
           );
           try {
             const storage = ApexStorageManager.getInstance().getStorage();
             return await dispatchProcessOnFoldingRange(params, storage);
           } catch (error) {
-            this.logger.error(`Error processing folding ranges: ${error}`);
+            this.logger.error(
+              () => `Error processing folding ranges: ${formattedError(error)}`,
+            );
             return [];
           }
         },
@@ -429,7 +474,7 @@ export class LCSAdapter {
     if (capabilities.codeLensProvider) {
       this.connection.onCodeLens(async (params: CodeLensParams) => {
         this.logger.debug(
-          `CodeLens request received for URI: ${params.textDocument.uri}`,
+          () => `CodeLens request received for URI: ${params.textDocument.uri}`,
         );
         try {
           const result = await dispatchProcessOnCodeLens(params);
@@ -438,7 +483,9 @@ export class LCSAdapter {
           );
           return result;
         } catch (error) {
-          this.logger.error(`Error processing code lens: ${error}`);
+          this.logger.error(
+            () => `Error processing code lens: ${formattedError(error)}`,
+          );
           return [];
         }
       });
@@ -456,12 +503,16 @@ export class LCSAdapter {
         params: FindMissingArtifactParams,
       ): Promise<FindMissingArtifactResult> => {
         this.logger.debug(
-          `🔍 apex/findMissingArtifact request received for: ${params.identifier}`,
+          () =>
+            `🔍 apex/findMissingArtifact request received for: ${params.identifier}`,
         );
         try {
           return await dispatchProcessOnFindMissingArtifact(params);
         } catch (error) {
-          this.logger.error(`Error processing findMissingArtifact: ${error}`);
+          this.logger.error(
+            () =>
+              `Error processing findMissingArtifact: ${formattedError(error)}`,
+          );
           return { notFound: true };
         }
       },
@@ -473,12 +524,14 @@ export class LCSAdapter {
       'apexlib/resolve',
       async (params: { uri: string }): Promise<{ content: string }> => {
         this.logger.debug(
-          `🔍 apexlib/resolve request received for: ${params.uri}`,
+          () => `🔍 apexlib/resolve request received for: ${params.uri}`,
         );
         try {
           return await dispatchProcessOnResolve(params);
         } catch (error) {
-          this.logger.error(`Error processing apexlib/resolve: ${error}`);
+          this.logger.error(
+            () => `Error processing apexlib/resolve: ${formattedError(error)}`,
+          );
           throw error;
         }
       },
@@ -489,7 +542,10 @@ export class LCSAdapter {
     this.connection.onRequest(
       'apex/loadWorkspace',
       async (params: LoadWorkspaceParams): Promise<LoadWorkspaceResult> => {
-        this.logger.debug('🔍 apex/loadWorkspace request received');
+        this.logger.debug(
+          () =>
+            `🔍 apex/loadWorkspace request received for: ${JSON.stringify(params)}`,
+        );
         try {
           // Forward the request to the client
           const result = await this.connection.sendRequest(
@@ -497,21 +553,23 @@ export class LCSAdapter {
             params,
           );
           this.logger.debug(
-            `✅ apex/loadWorkspace client response: ${JSON.stringify(result)}`,
+            () =>
+              `✅ apex/loadWorkspace client response: ${JSON.stringify(result)}`,
           );
           return result as LoadWorkspaceResult;
         } catch (error) {
           this.logger.error(
-            `Error forwarding loadWorkspace to client: ${error}`,
+            () =>
+              `Error forwarding loadWorkspace to client: ${formattedError(error)}`,
           );
           return {
-            error: `Failed to forward loadWorkspace request to client: ${error}`,
+            error: `Failed to forward loadWorkspace request to client: ${formattedError(error)}`,
           };
         }
       },
     );
-    this.logger.debug('✅ apex/loadWorkspace handler registered');
 
+    this.logger.debug('✅ apex/loadWorkspace handler registered');
     // Register profiling handlers (only in desktop/Node.js environment)
     this.registerProfilingHandlers();
   }
@@ -577,7 +635,10 @@ export class LCSAdapter {
         message: string;
         type?: 'cpu' | 'heap' | 'both';
       }> => {
-        this.logger.debug('🔍 apex/profiling/start request received');
+        this.logger.debug(
+          () =>
+            `🔍 apex/profiling/start request received for: ${JSON.stringify(params)}`,
+        );
         try {
           const service = await getProfilingService();
 
@@ -595,15 +656,17 @@ export class LCSAdapter {
             params.type ?? settings.apex.environment.profilingType ?? 'cpu';
 
           const result = await service.startProfiling(profilingType);
-          this.logger.info(`Profiling started: ${result.message}`);
+          this.logger.info(() => `Profiling started: ${result.message}`);
           return result;
         } catch (error) {
           this.logger.error(
-            `Error starting profiling: ${formattedError(error)}`,
+            () => `Error starting profiling: ${formattedError(error)}`,
           );
           return {
             success: false,
-            message: `Failed to start profiling: ${formattedError(error)}`,
+            message: `Failed to start profiling: ${formattedError(error, {
+              includeStack: false,
+            })}`,
           };
         }
       },
@@ -620,7 +683,10 @@ export class LCSAdapter {
         message: string;
         files?: string[];
       }> => {
-        this.logger.debug('🔍 apex/profiling/stop request received');
+        this.logger.debug(
+          () =>
+            `🔍 apex/profiling/stop request received for: ${JSON.stringify(params)}`,
+        );
         try {
           const service = await getProfilingService();
 
@@ -634,17 +700,22 @@ export class LCSAdapter {
           const result = await service.stopProfiling(params?.tag);
           if (result.success && result.files) {
             this.logger.info(
-              `Profiling stopped: ${result.message}, files: ${result.files.join(', ')}`,
+              () =>
+                `Profiling stopped: ${result.message}, files: ${result.files.join(', ')}`,
             );
           } else {
-            this.logger.info(`Profiling stop: ${result.message}`);
+            this.logger.info(() => `Profiling stop: ${result.message}`);
           }
           return result;
         } catch (error) {
-          this.logger.error(`Error stopping profiling: ${error}`);
+          this.logger.error(
+            () => `Error stopping profiling: ${formattedError(error)}`,
+          );
           return {
             success: false,
-            message: `Failed to stop profiling: ${error}`,
+            message: `Failed to stop profiling: ${formattedError(error, {
+              includeStack: false,
+            })}`,
           };
         }
       },
@@ -665,7 +736,9 @@ export class LCSAdapter {
           const status = service.getStatus();
           return status;
         } catch (error) {
-          this.logger.error(`Error getting profiling status: ${error}`);
+          this.logger.error(
+            () => `Error getting profiling status: ${formattedError(error)}`,
+          );
           return {
             isProfiling: false,
             type: 'idle',
@@ -777,6 +850,12 @@ export class LCSAdapter {
       // Include experimental capabilities
       experimental: allCapabilities.experimental,
     };
+
+    // Log textDocumentSync capabilities being negotiated
+    this.logger.info(
+      () =>
+        `Negotiating textDocumentSync capabilities: ${JSON.stringify(allCapabilities.textDocumentSync)}`,
+    );
 
     // Add capabilities that client doesn't support dynamic registration for
     if (
@@ -914,7 +993,8 @@ export class LCSAdapter {
       this.logger.info('✅ Background symbol processing initialized');
     } catch (error) {
       this.logger.error(
-        `❌ Failed to initialize background symbol processing: ${error}`,
+        () =>
+          `❌ Failed to initialize background symbol processing: ${formattedError(error)}`,
       );
       // Don't throw - allow server to continue without background processing
     }
@@ -928,7 +1008,7 @@ export class LCSAdapter {
         server: 'apex-ls',
       };
       this.logger.debug(
-        `[SERVER] Responding to $/ping with: ${JSON.stringify(result)}`,
+        () => `[SERVER] Responding to $/ping with: ${JSON.stringify(result)}`,
       );
       return result;
     });
@@ -965,7 +1045,8 @@ export class LCSAdapter {
     // Client uses vscode.workspace.fs to read from virtual file system
     this.initializeResourceLoader().catch((error) => {
       this.logger.error(
-        `❌ Background ResourceLoader initialization failed: ${error}`,
+        () =>
+          `❌ Background ResourceLoader initialization failed: ${formattedError(error)}`,
       );
     });
   }
@@ -981,7 +1062,8 @@ export class LCSAdapter {
     // Only log the settings part to avoid serialization issues
     if (change?.settings) {
       this.logger.debug(
-        `Configuration settings: ${JSON.stringify(change.settings, null, 2)}`,
+        () =>
+          `Configuration settings: ${JSON.stringify(change.settings, null, 2)}`,
       );
     } else {
       this.logger.debug('Configuration change has no settings');
@@ -1000,7 +1082,7 @@ export class LCSAdapter {
 
     const success = configManager.updateFromLSPConfiguration(change);
     this.logger.debug(
-      `Configuration update ${success ? 'succeeded' : 'failed'}`,
+      () => `Configuration update ${success ? 'succeeded' : 'failed'}`,
     );
 
     if (success) {
@@ -1014,7 +1096,8 @@ export class LCSAdapter {
 
       if (previousEnabled !== newEnabled) {
         this.logger.info(
-          `Missing artifact capability changed: ${previousEnabled} → ${newEnabled}`,
+          () =>
+            `Missing artifact capability changed: ${previousEnabled} → ${newEnabled}`,
         );
         // Could send custom notification to client here if needed
       }
@@ -1027,7 +1110,9 @@ export class LCSAdapter {
       try {
         this.connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
       } catch (error) {
-        this.logger.error(`Error revalidating ${document.uri}: ${error}`);
+        this.logger.error(
+          () => `Error revalidating ${document.uri}: ${formattedError(error)}`,
+        );
       }
     });
     await Promise.all(revalidationPromises);
@@ -1053,7 +1138,9 @@ export class LCSAdapter {
 
       this.updateServerModeFromSettings(settings);
     } catch (error) {
-      this.logger.error(`Error updating server mode: ${error}`);
+      this.logger.error(
+        () => `Error updating server mode: ${formattedError(error)}`,
+      );
     }
   }
 
@@ -1074,7 +1161,8 @@ export class LCSAdapter {
       // Update server mode if it differs from the client's setting
       if (currentMode !== clientServerMode) {
         this.logger.info(
-          `🔄 Client server mode is '${clientServerMode}',` +
+          () =>
+            `🔄 Client server mode is '${clientServerMode}',` +
             ` updating server from '${currentMode}' to '${clientServerMode}'`,
         );
         configManager.updateServerMode(clientServerMode);
@@ -1085,7 +1173,10 @@ export class LCSAdapter {
         }
       }
     } catch (error) {
-      this.logger.error(`Error updating server mode from settings: ${error}`);
+      this.logger.error(
+        () =>
+          `Error updating server mode from settings: ${formattedError(error)}`,
+      );
     }
   }
 
@@ -1099,7 +1190,12 @@ export class LCSAdapter {
 
     this.logger.debug('🔧 Starting dynamic capability registration...');
     this.logger.debug(
-      `Client capabilities: ${JSON.stringify(this.clientCapabilities, null, 2)}`,
+      () =>
+        `Client capabilities: ${JSON.stringify(
+          this.clientCapabilities,
+          null,
+          2,
+        )}`,
     );
 
     // Only register if capability is enabled AND client supports dynamic registration
@@ -1247,7 +1343,8 @@ export class LCSAdapter {
 
     if (registrations.length > 0) {
       this.logger.debug(
-        `📝 Preparing to register ${registrations.length}` +
+        () =>
+          `📝 Preparing to register ${registrations.length}` +
           ` capabilities: ${registrations.map((r) => r.method).join(', ')}`,
       );
       try {
@@ -1255,11 +1352,14 @@ export class LCSAdapter {
           registrations,
         });
         this.logger.info(
-          `✅ Dynamically registered ${registrations.length}` +
+          () =>
+            `✅ Dynamically registered ${registrations.length}` +
             ` capabilities: ${registrations.map((r) => r.method).join(', ')}`,
         );
       } catch (error) {
-        this.logger.error(`❌ Failed to register capabilities: ${error}`);
+        this.logger.error(
+          () => `❌ Failed to register capabilities: ${formattedError(error)}`,
+        );
       }
     } else {
       this.logger.debug(
@@ -1278,7 +1378,8 @@ export class LCSAdapter {
       const nodeEnv = process?.env?.NODE_ENV;
 
       this.logger.debug(
-        `🔍 Environment variables: APEX_LS_MODE=${apexLsMode}, NODE_ENV=${nodeEnv}`,
+        () =>
+          `🔍 Environment variables: APEX_LS_MODE=${apexLsMode}, NODE_ENV=${nodeEnv}`,
       );
 
       const isDevelopment =
@@ -1294,7 +1395,7 @@ export class LCSAdapter {
 
         // Verify the mode was set correctly
         const currentMode = configManager.getCapabilitiesManager().getMode();
-        this.logger.debug(`✅ Server mode set to: ${currentMode}`);
+        this.logger.debug(() => `✅ Server mode set to: ${currentMode}`);
 
         // Register hover handler immediately for development mode
         this.registerHoverHandler();
@@ -1312,7 +1413,7 @@ export class LCSAdapter {
    * Register the hover handler (only when capability is enabled)
    */
   private registerHoverHandler(): void {
-    console.debug('Registering hover handler');
+    this.logger.debug('Registering hover handler');
 
     // Check if hover handler is already registered
     if (this.hoverHandlerRegistered) {

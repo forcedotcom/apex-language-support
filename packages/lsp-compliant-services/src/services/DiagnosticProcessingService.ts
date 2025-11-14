@@ -21,7 +21,7 @@ import {
   shouldSuppressDiagnostics,
 } from '../utils/handlerUtil';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
-import { getParseResultCache } from './ParseResultCache';
+import { getDocumentStateCache } from './DocumentStateCache';
 
 /**
  * Interface for diagnostic processing functionality to make handlers more testable.
@@ -148,7 +148,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       }
 
       // Check parse result cache first
-      const parseCache = getParseResultCache();
+      const parseCache = getDocumentStateCache();
       const cached = parseCache.getSymbolResult(document.uri, document.version);
 
       if (cached) {

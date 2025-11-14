@@ -27,7 +27,7 @@ import { ApexStorageManager } from '../storage/ApexStorageManager';
 import { DefaultApexDefinitionUpserter } from '../definition/ApexDefinitionUpserter';
 import { DefaultApexReferencesUpserter } from '../references/ApexReferencesUpserter';
 import { IDocumentChangeProcessor } from './DocumentChangeProcessingService';
-import { getParseResultCache } from './ParseResultCache';
+import { getDocumentStateCache } from './DocumentStateCache';
 
 /**
  * Service for processing document changes
@@ -59,7 +59,7 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     );
 
     // Check parse result cache first
-    const parseCache = getParseResultCache();
+    const parseCache = getDocumentStateCache();
     const cached = parseCache.getSymbolResult(
       event.document.uri,
       event.document.version,
@@ -150,11 +150,15 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
         enableCrossFileResolution: true,
         enableReferenceProcessing: true,
       },
+      document.version,
     );
 
     this.logger.debug(
       () => `Document change symbol processing queued: ${taskId}`,
     );
+
+    // Monitor task completion and update cache
+    this.monitorTaskCompletion(taskId, document.uri, document.version);
 
     // Create the definition provider
     const definitionUpserter = new DefaultApexDefinitionUpserter(
@@ -183,12 +187,14 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     }
 
     // Cache the parse result for future requests with same version
+    // symbolsIndexed defaults to false for new entries
     const diagnostics: Diagnostic[] = [];
     parseCache.merge(event.document.uri, {
       symbolTable,
       diagnostics,
       documentVersion: event.document.version,
       documentLength: document.getText().length,
+      symbolsIndexed: false, // Will be set to true when indexing completes
     });
 
     return undefined; // No diagnostics to return
@@ -209,7 +215,7 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     );
 
     // Check parse result cache first
-    const parseCache = getParseResultCache();
+    const parseCache = getDocumentStateCache();
     const cached = parseCache.getSymbolResult(
       event.document.uri,
       event.document.version,
@@ -224,6 +230,46 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
       const storageManager = ApexStorageManager.getInstance();
       const storage = storageManager.getStorage();
       await storage.setDocument(event.document.uri, event.document);
+
+      // Check if symbols need to be indexed
+      const fullCached = parseCache.get(
+        event.document.uri,
+        event.document.version,
+      );
+      if (fullCached && !fullCached.symbolsIndexed && cached.symbolTable) {
+        // Queue symbol processing if not already queued/in-progress
+        const backgroundManager = ApexSymbolProcessingManager.getInstance();
+        const taskId = backgroundManager.processSymbolTable(
+          cached.symbolTable,
+          event.document.uri,
+          {
+            priority: 'HIGH', // Document open is high priority
+            enableCrossFileResolution: true,
+            enableReferenceProcessing: true,
+          },
+          event.document.version,
+        );
+
+        if (taskId === 'deduplicated') {
+          this.logger.debug(
+            () =>
+              `Symbol processing already queued for ${event.document.uri} (version ${event.document.version})`,
+          );
+        } else {
+          this.logger.debug(
+            () =>
+              `Document open symbol processing queued from cache: ${taskId} ` +
+              `for ${event.document.uri} (version ${event.document.version})`,
+          );
+          // Monitor task completion and update cache
+          this.monitorTaskCompletion(
+            taskId,
+            event.document.uri,
+            event.document.version,
+          );
+        }
+      }
+
       return cached.diagnostics;
     }
 
@@ -293,11 +339,15 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
         enableCrossFileResolution: true,
         enableReferenceProcessing: true,
       },
+      document.version,
     );
 
     this.logger.debug(
       () => `Document open symbol processing queued: ${taskId}`,
     );
+
+    // Monitor task completion and update cache
+    this.monitorTaskCompletion(taskId, document.uri, document.version);
 
     // Create the definition provider
     const definitionUpserter = new DefaultApexDefinitionUpserter(
@@ -325,14 +375,66 @@ export class DocumentProcessingService implements IDocumentChangeProcessor {
     }
 
     // Cache the parse result for future requests with same version
+    // symbolsIndexed defaults to false for new entries
     const diagnostics: Diagnostic[] = [];
     parseCache.merge(event.document.uri, {
       symbolTable,
       diagnostics,
       documentVersion: event.document.version,
       documentLength: document.getText().length,
+      symbolsIndexed: false, // Will be set to true when indexing completes
     });
 
     return undefined;
+  }
+
+  /**
+   * Monitor task completion and update cache when indexing completes
+   * @param taskId The task ID to monitor
+   * @param fileUri The file URI
+   * @param documentVersion The document version
+   */
+  private monitorTaskCompletion(
+    taskId: string,
+    fileUri: string,
+    documentVersion: number,
+  ): void {
+    // Skip monitoring for special task IDs
+    if (taskId === 'sync_fallback' || taskId === 'deduplicated') {
+      return;
+    }
+
+    // Check task status after a short delay and periodically
+    const checkTask = async (): Promise<void> => {
+      try {
+        const backgroundManager = ApexSymbolProcessingManager.getInstance();
+        const status = backgroundManager.getTaskStatus(taskId);
+
+        if (status === 'COMPLETED') {
+          // Update cache to mark symbols as indexed
+          const parseCache = getDocumentStateCache();
+          const cached = parseCache.get(fileUri, documentVersion);
+          if (cached && cached.documentVersion === documentVersion) {
+            parseCache.merge(fileUri, { symbolsIndexed: true });
+            this.logger.debug(
+              () =>
+                `Marked symbols as indexed for ${fileUri} (version ${documentVersion}) after task ${taskId} completed`,
+            );
+          }
+        } else if (status === 'PENDING' || status === 'RUNNING') {
+          // Task still in progress, check again after a delay
+          setTimeout(checkTask, 100);
+        }
+        // If status is FAILED or CANCELLED, don't update cache
+      } catch (error) {
+        // Best-effort; log but don't throw
+        this.logger.debug(
+          () => `Error monitoring task ${taskId} completion: ${error}`,
+        );
+      }
+    };
+
+    // Start checking after a short delay
+    setTimeout(checkTask, 100);
   }
 }

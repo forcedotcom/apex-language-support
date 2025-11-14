@@ -12,7 +12,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Diagnostic } from 'vscode-languageserver-protocol';
 
 /**
- * Cached parse result with document version tracking
+ * Document state with version tracking and indexing status
  *
  * This cache supports results from different listener types using optional fields.
  * Callers should check which fields are present before use.
@@ -20,8 +20,10 @@ import { Diagnostic } from 'vscode-languageserver-protocol';
  * - ApexSymbolCollectorListener results: symbolTable and diagnostics fields
  * - ApexFoldingRangeListener results: foldingRanges field
  * - Future listeners can add their own optional fields
+ *
+ * The cache acts as a "todo list" for each file/version, tracking what work has been done.
  */
-export interface CachedParseResult {
+export interface DocumentState {
   // ApexSymbolCollectorListener results (optional)
   symbolTable?: SymbolTable;
   diagnostics?: Diagnostic[];
@@ -33,15 +35,18 @@ export interface CachedParseResult {
   documentVersion: number;
   timestamp: number;
   documentLength: number;
+
+  // Symbol indexing state
+  symbolsIndexed: boolean;
 }
 
 /**
- * Parse result cache with version-based invalidation
+ * Document state cache with version-based invalidation
  * Uses document.version as the cache key for perfect cache hit/miss detection
  */
-export class ParseResultCache {
+export class DocumentStateCache {
   private readonly logger = getLogger();
-  private readonly cache = new HashMap<string, CachedParseResult>();
+  private readonly cache = new HashMap<string, DocumentState>();
   private readonly maxSize: number;
   private stats = {
     hits: 0,
@@ -60,7 +65,7 @@ export class ParseResultCache {
    * @param version Document version number
    * @returns Cached result if version matches, null otherwise
    */
-  get(uri: string, version: number): CachedParseResult | null {
+  get(uri: string, version: number): DocumentState | null {
     const cached = this.cache.get(uri);
 
     // Version-based invalidation: only return if versions match
@@ -130,7 +135,7 @@ export class ParseResultCache {
    * @param uri Document URI
    * @param result Parse result to cache
    */
-  set(uri: string, result: CachedParseResult): void {
+  set(uri: string, result: DocumentState): void {
     // If cache is full and this URI is not already cached, evict oldest entry
     if (this.cache.size >= this.maxSize && !this.cache.has(uri)) {
       this.logger.debug(
@@ -143,7 +148,9 @@ export class ParseResultCache {
     this.cache.set(uri, result);
     this.logger.debug(
       () =>
-        `Cached parse result for ${uri} (version ${result.documentVersion}) - size: ${this.cache.size}/${this.maxSize}`,
+        `Cached document state for ${uri} (version ${result.documentVersion}) - ` +
+        `size: ${this.cache.size}/${this.maxSize} - ` +
+        `symbolsIndexed: ${result.symbolsIndexed}`,
     );
   }
 
@@ -153,30 +160,38 @@ export class ParseResultCache {
    * @param uri Document URI
    * @param newData New data to merge into existing cache entry
    */
-  merge(uri: string, newData: Partial<CachedParseResult>): void {
+  merge(uri: string, newData: Partial<DocumentState>): void {
     const existing = this.cache.get(uri);
 
     if (existing) {
       // Merge with existing data
-      const merged: CachedParseResult = {
+      const merged: DocumentState = {
         ...existing,
         ...newData,
         // Always update timestamp when merging
         timestamp: Date.now(),
+        // Preserve symbolsIndexed unless explicitly overridden
+        symbolsIndexed:
+          newData.symbolsIndexed !== undefined
+            ? newData.symbolsIndexed
+            : existing.symbolsIndexed,
       };
 
       this.cache.set(uri, merged);
       this.logger.debug(
         () =>
-          'Merged parse result for ' +
-          `${uri} (version ${merged.documentVersion}) - size: ${this.cache.size}/${this.maxSize}`,
+          'Merged document state for ' +
+          `${uri} (version ${merged.documentVersion}) - ` +
+          `size: ${this.cache.size}/${this.maxSize} - ` +
+          `symbolsIndexed: ${merged.symbolsIndexed}`,
       );
     } else {
-      // No existing entry, create new one
-      const newEntry: CachedParseResult = {
+      // No existing entry, create new one with defaults
+      const newEntry: DocumentState = {
         documentVersion: newData.documentVersion!,
         timestamp: Date.now(),
         documentLength: newData.documentLength!,
+        symbolsIndexed: newData.symbolsIndexed ?? false, // Default to false for new entries
         ...newData,
       };
 
@@ -267,18 +282,18 @@ export class ParseResultCache {
 }
 
 /**
- * Singleton instance of parse result cache
+ * Singleton instance of document state cache
  */
-let parseCacheInstance: ParseResultCache | null = null;
+let documentStateCacheInstance: DocumentStateCache | null = null;
 
 /**
- * Get or create the singleton parse result cache instance
+ * Get or create the singleton document state cache instance
  * @param maxSize Maximum number of entries to cache (default: 100)
- * @returns Parse result cache instance
+ * @returns Document state cache instance
  */
-export function getParseResultCache(maxSize?: number): ParseResultCache {
-  if (!parseCacheInstance) {
-    parseCacheInstance = new ParseResultCache(maxSize || 100);
+export function getDocumentStateCache(maxSize?: number): DocumentStateCache {
+  if (!documentStateCacheInstance) {
+    documentStateCacheInstance = new DocumentStateCache(maxSize || 100);
   }
-  return parseCacheInstance;
+  return documentStateCacheInstance;
 }

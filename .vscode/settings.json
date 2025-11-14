@@ -18,7 +18,7 @@
     "watch": false,
     "onSave": false
   },
-  "debug.javascript.autoAttachFilter": "smart",
+  "debug.javascript.autoAttachFilter": "onlyWithFlag",
   "debug.javascript.terminalOptions": {
     "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
   },

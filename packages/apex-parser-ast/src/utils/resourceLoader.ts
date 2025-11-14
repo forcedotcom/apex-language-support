@@ -7,6 +7,7 @@
  */
 
 import { unzipSync } from 'fflate';
+import { Effect, Fiber } from 'effect';
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 import { CaseInsensitivePathMap } from './CaseInsensitiveMap';
@@ -62,6 +63,7 @@ export class ResourceLoader {
     new CaseInsensitivePathMap();
   private initialized = false;
   private compilationPromise: Promise<void> | null = null;
+  private compilationFiber: Fiber.RuntimeFiber<void, Error> | null = null;
   private loadMode: 'lazy' | 'full' = 'full';
   private preloadStdClasses: boolean = false;
   private readonly logger = getLogger();
@@ -567,43 +569,68 @@ export class ResourceLoader {
         () => 'Calling compileMultipleWithConfigs with parallel processing',
       );
 
-      const results =
-        await this.compilerService.compileMultipleWithConfigs(filesToCompile);
+      const results = await Effect.runPromise(
+        this.compilerService.compileMultipleWithConfigs(filesToCompile, 50),
+      );
 
       this.logger.debug(
         () => `CompileMultipleWithConfigs returned ${results.length} results`,
       );
 
-      // Process and store results
+      // Process and store results using Effect fiber with yielding
       let compiledCount = 0;
       let errorCount = 0;
 
-      results.forEach((result) => {
-        if (result.result) {
-          const compilationResult =
-            result as CompilationResultWithAssociations<SymbolTable>;
+      const self = this;
+      const processResultsEffect = Effect.gen(function* () {
+        for (const result of results) {
+          // Process the result
+          if (result.result) {
+            const compilationResult =
+              result as CompilationResultWithAssociations<SymbolTable>;
 
-          // Use result.fileName directly - it should match what we passed in filesToCompile
-          // which comes from originalPaths, preserving namespace structure
-          const storedPath = result.fileName;
+            // Use result.fileName directly - it should match what we passed in filesToCompile
+            // which comes from originalPaths, preserving namespace structure
+            const storedPath = result.fileName;
 
-          // Store in compiledArtifacts for backward compatibility
-          // Normalize the key for lookup, but preserve the original path in the artifact
-          const normalizedKey = this.normalizePath(storedPath);
-          this.compiledArtifacts.set(normalizedKey, {
-            path: storedPath, // Preserve namespace structure (e.g., "System/System.cls")
-            compilationResult,
-          });
-          compiledCount++;
+            // Store in compiledArtifacts for backward compatibility
+            // Normalize the key for lookup, but preserve the original path in the artifact
+            const normalizedKey = self.normalizePath(storedPath);
+            self.compiledArtifacts.set(normalizedKey, {
+              path: storedPath, // Preserve namespace structure (e.g., "System/System.cls")
+              compilationResult,
+            });
+            compiledCount++;
 
-          if (result.errors.length > 0) {
+            if (result.errors.length > 0) {
+              errorCount++;
+            }
+          } else {
             errorCount++;
+            self.logger.debug(
+              () => `Compilation failed for ${result.fileName}:`,
+            );
           }
-        } else {
-          errorCount++;
-          this.logger.debug(() => `Compilation failed for ${result.fileName}:`);
+
+          // Yield after processing each result to allow other tasks to run
+          // Use sleep with 0ms to yield control without adding delay
+          yield* Effect.sleep(0);
         }
       });
+
+      // Run the Effect as a fiber so we can interrupt it if needed
+      this.compilationFiber = Effect.runFork(processResultsEffect);
+
+      // Wait for the fiber to complete and handle any errors
+      try {
+        await Effect.runPromise(Fiber.await(this.compilationFiber));
+      } catch (error) {
+        // Re-throw compilation errors
+        throw error;
+      } finally {
+        // Clear the fiber reference after completion
+        this.compilationFiber = null;
+      }
 
       const endTime = Date.now();
       const duration = (endTime - startTime) / 1000;
@@ -641,6 +668,11 @@ export class ResourceLoader {
     if (this.compilationPromise) {
       await this.compilationPromise;
     }
+    // Also wait for the fiber if it exists
+    if (this.compilationFiber) {
+      await Effect.runPromise(Fiber.await(this.compilationFiber));
+      this.compilationFiber = null;
+    }
   }
 
   /**
@@ -648,7 +680,23 @@ export class ResourceLoader {
    * @returns true if compilation is currently running
    */
   public isCompiling(): boolean {
-    return this.compilationPromise !== null;
+    return this.compilationPromise !== null || this.compilationFiber !== null;
+  }
+
+  /**
+   * Interrupt any ongoing compilation
+   * Useful for cleanup and preventing resource leaks
+   */
+  public interruptCompilation(): void {
+    if (this.compilationFiber) {
+      try {
+        Effect.runSync(Fiber.interrupt(this.compilationFiber));
+      } catch (_error) {
+        // Fiber might already be interrupted, ignore
+      }
+      this.compilationFiber = null;
+    }
+    this.compilationPromise = null;
   }
 
   /**
@@ -766,6 +814,9 @@ export class ResourceLoader {
    * Reset the ResourceLoader and clear all data
    */
   public reset(): void {
+    // Interrupt any ongoing compilation fiber
+    this.interruptCompilation();
+
     this.fileIndex.clear();
     this.originalPaths.clear();
     this.normalizedToZipPath.clear();

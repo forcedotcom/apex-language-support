@@ -182,11 +182,11 @@ describe('DiagnosticProcessingService', () => {
     const { getDiagnosticsFromErrors } = require('../../src/utils/handlerUtil');
     getDiagnosticsFromErrors.mockReset();
 
-    // Clear the parse result cache to avoid test interference
+    // Clear the document state cache to avoid test interference
     const {
-      getParseResultCache,
-    } = require('../../src/services/ParseResultCache');
-    const cache = getParseResultCache();
+      getDocumentStateCache,
+    } = require('../../src/services/DocumentStateCache');
+    const cache = getDocumentStateCache();
     cache.clear();
 
     service = new DiagnosticProcessingService(mockLogger);

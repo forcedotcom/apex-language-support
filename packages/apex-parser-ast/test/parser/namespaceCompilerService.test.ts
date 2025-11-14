@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { Effect } from 'effect/index';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
 import { SymbolTable, SymbolKind, MethodSymbol } from '../../src/types/symbol';
@@ -154,7 +155,9 @@ describe('CompilerService Namespace Integration', () => {
         },
       ];
 
-      const results = await service.compileMultiple(files, listener);
+      const results = await Effect.runPromise(
+        service.compileMultiple(files, listener),
+      );
 
       // Both compilations should succeed
       expect(results.length).toBe(2);

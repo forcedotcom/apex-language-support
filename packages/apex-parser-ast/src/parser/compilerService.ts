@@ -17,6 +17,7 @@ import {
   TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { Effect } from 'effect';
 
 import { BaseApexParserListener } from './listeners/BaseApexParserListener';
 import {
@@ -35,9 +36,6 @@ import { NamespaceResolutionService } from '../namespace/NamespaceResolutionServ
 import { ApexSymbolCollectorListener } from './listeners/ApexSymbolCollectorListener';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../constants/constants';
 
-/**
- * Result of a compilation process, containing any errors, warnings, and the final result.
- */
 export interface CompilationResult<T> {
   fileName: string;
   result: T | null;
@@ -45,24 +43,15 @@ export interface CompilationResult<T> {
   warnings: string[];
 }
 
-/**
- * Result of a compilation process with comments included
- */
 export interface CompilationResultWithComments<T> extends CompilationResult<T> {
   comments: ApexComment[];
 }
 
-/**
- * Result with comments and associations included
- */
 export interface CompilationResultWithAssociations<T>
   extends CompilationResultWithComments<T> {
   commentAssociations: CommentAssociation[];
 }
 
-/**
- * Result of creating a parse tree.
- */
 export interface ParseTreeResult {
   fileName: string;
   parseTree: CompilationUnitContext | TriggerUnitContext | BlockContext;
@@ -72,33 +61,19 @@ export interface ParseTreeResult {
   parser: ApexParser;
 }
 
-/**
- * Options for compilation behavior
- */
 export interface CompilationOptions {
-  /** Optional namespace override for this compilation */
   projectNamespace?: string;
-  /** Whether to collect comments during parsing (default: true) */
   includeComments?: boolean;
-  /** Whether to include single-line (//) comments (default: false) */
   includeSingleLineComments?: boolean;
-  /** Whether to associate comments with symbols (default: false) */
   associateComments?: boolean;
 }
 
-/**
- * Service for parsing and compiling Apex code.
- */
 export class CompilerService {
   private projectNamespace?: string;
   private readonly logger = getLogger();
   private readonly namespaceResolutionService =
     new NamespaceResolutionService();
 
-  /**
-   * Create a new CompilerService instance
-   * @param projectNamespace Optional namespace for the current project, used in FQN calculation
-   */
   constructor(projectNamespace?: string) {
     this.projectNamespace = projectNamespace;
     this.logger.debug(
@@ -107,44 +82,27 @@ export class CompilerService {
     );
   }
 
-  /**
-   * Creates a parse tree from the given file content.
-   * This method handles the setup of the lexer, parser, and error listeners.
-   * @param fileContent The content of the Apex file.
-   * @param fileName The name of the file, used for error reporting and trigger detection.
-   * @returns A ParseTreeResult containing the parse tree and related objects.
-   */
   private createParseTree(
     fileContent: string,
     fileName: string = 'unknown.cls',
   ): ParseTreeResult {
     this.logger.debug(() => `Creating parse tree for ${fileName}`);
-
-    // Create error listener
     const errorListener = new ApexErrorListener(fileName);
-
-    // Determine file type
     const isTrigger = fileName.endsWith('.trigger');
     const isAnonymous = fileName.endsWith('.apex');
-
-    // For anonymous Apex, wrap content in curly braces since block() expects them
     const contentToParse = isAnonymous ? `{${fileContent}}` : fileContent;
 
-    // Set up parsing infrastructure
     const inputStream = CharStreams.fromString(contentToParse);
     const lexer = new ApexLexer(new CaseInsensitiveInputStream(inputStream));
     const tokenStream = new CommonTokenStream(lexer);
     const parser = new ApexParser(tokenStream);
     parser.errorHandler = new DefaultErrorStrategy();
 
-    // Set up error listeners
     parser.removeErrorListeners();
     lexer.removeErrorListeners();
     parser.addErrorListener(errorListener);
-    const lexerErrorListener = new ApexLexerErrorListener(errorListener);
-    lexer.addErrorListener(lexerErrorListener);
+    lexer.addErrorListener(new ApexLexerErrorListener(errorListener));
 
-    // Parse based on file type
     let parseTree: CompilationUnitContext | TriggerUnitContext | BlockContext;
     if (isTrigger) {
       parseTree = parser.triggerUnit();
@@ -154,24 +112,9 @@ export class CompilerService {
       parseTree = parser.compilationUnit();
     }
 
-    return {
-      fileName,
-      parseTree,
-      errorListener,
-      lexer,
-      tokenStream,
-      parser,
-    };
+    return { fileName, parseTree, errorListener, lexer, tokenStream, parser };
   }
 
-  /**
-   * Parse and compile a single Apex file.
-   * @param fileContent The content of the Apex file to parse
-   * @param fileName Optional filename for error reporting
-   * @param listener The listener to use during parsing
-   * @param options Optional compilation options
-   * @returns CompilationResult with the parsed result or errors, optionally including comments
-   */
   public compile<T>(
     fileContent: string,
     fileName: string = 'unknown.cls',
@@ -182,15 +125,12 @@ export class CompilerService {
     | CompilationResultWithComments<T>
     | CompilationResultWithAssociations<T> {
     this.logger.debug(() => `Starting compilation of ${fileName}`);
-
     try {
-      // Create parse tree and get associated components
       const { parseTree, errorListener, tokenStream } = this.createParseTree(
         fileContent,
         fileName,
       );
 
-      // Create comment collector by default (opt-out behavior)
       let commentCollector: ApexCommentCollectorListener | null = null;
       if (options.includeComments !== false) {
         commentCollector = new ApexCommentCollectorListener(
@@ -198,10 +138,7 @@ export class CompilerService {
         );
       }
 
-      // Set up the main listener
       listener.setErrorListener(errorListener);
-
-      // Set the current file path for the listener
       if (typeof listener.setCurrentFileUri === 'function') {
         listener.setCurrentFileUri(fileName);
       }
@@ -212,29 +149,20 @@ export class CompilerService {
         listener.setProjectNamespace(namespace);
       }
 
-      // Set up the comment collector with the token stream if requested
       if (commentCollector) {
         commentCollector.setTokenStream(tokenStream);
       }
 
-      // Walk the tree with the main listener
       const walker = new ParseTreeWalker();
       walker.walk(listener, parseTree);
 
-      // Phase 4: Deferred namespace resolution
       if (listener instanceof ApexSymbolCollectorListener) {
         const symbolTable = listener.getResult();
-
-        // Create compilation context for namespace resolution
         const compilationContext = this.createCompilationContext(
           namespace,
           fileName,
         );
-
-        // Create symbol provider for namespace resolution
         const symbolProvider = this.createSymbolProvider();
-
-        // Perform deferred namespace resolution
         this.namespaceResolutionService.resolveDeferredReferences(
           symbolTable,
           compilationContext,
@@ -242,7 +170,6 @@ export class CompilerService {
         );
       }
 
-      // Build the result
       const baseResult = {
         fileName,
         result: listener.getResult(),
@@ -250,7 +177,6 @@ export class CompilerService {
         warnings: listener.getWarnings(),
       };
 
-      // Walk the tree with comment collector if requested
       let comments: ApexComment[] = [];
       if (commentCollector) {
         walker.walk(commentCollector, parseTree);
@@ -258,15 +184,12 @@ export class CompilerService {
       }
 
       if (options.includeComments !== false) {
-        // Handle comment association if requested
         if (
           options.associateComments &&
           baseResult.result instanceof SymbolTable
         ) {
           const symbolTable = baseResult.result as SymbolTable;
-          // Use all symbols in the file, not just the current scope
           const symbols = symbolTable.getAllSymbols();
-
           const associator = new CommentAssociator();
           const commentAssociations = associator.associateComments(
             comments,
@@ -278,27 +201,23 @@ export class CompilerService {
             comments,
             commentAssociations,
           };
-
           this.logger.debug(
             () =>
               `Compilation completed for ${fileName}. Found ${comments.length} comments, ` +
               `${commentAssociations.length} associations, ${resultWithAssociations.errors.length} errors, ` +
               `${resultWithAssociations.warnings.length} warnings`,
           );
-
           return resultWithAssociations;
         } else {
           const resultWithComments: CompilationResultWithComments<T> = {
             ...baseResult,
             comments,
           };
-
           this.logger.debug(
             () =>
               `Compilation completed for ${fileName}. Found ${comments.length} comments, ` +
               `${resultWithComments.errors.length} errors, ${resultWithComments.warnings.length} warnings`,
           );
-
           return resultWithComments;
         }
       } else {
@@ -317,15 +236,12 @@ export class CompilerService {
             () => `Compilation completed successfully for ${fileName}`,
           );
         }
-
         return baseResult;
       }
     } catch (error) {
       this.logger.error(
         () => `Unexpected error during compilation of ${fileName}`,
       );
-
-      // Create an error object for any unexpected errors
       const errorObject: ApexError = {
         type: 'semantic' as any,
         severity: 'error' as any,
@@ -334,164 +250,140 @@ export class CompilerService {
         column: 0,
         fileUri: fileName,
       };
-
       const baseErrorResult = {
         fileName,
         result: null,
         errors: [errorObject],
         warnings: [],
       };
-
-      // Return with comments array by default, otherwise without
       if (options.includeComments !== false) {
-        return {
-          ...baseErrorResult,
-          comments: [],
-        };
+        return { ...baseErrorResult, comments: [] };
       }
-
       return baseErrorResult;
     }
   }
 
-  /**
-   * Parse and compile multiple Apex files using parallel processing.
-   * @param files An array of file objects containing content and name
-   * @param listener The listener to use during parsing
-   * @param options Optional compilation options
-   * @returns Promise that resolves to array of compilation results
-   */
-  public async compileMultiple<T>(
+  public compileMultiple<T>(
     files: { content: string; fileName: string }[],
     listener: BaseApexParserListener<T>,
     options: CompilationOptions = {},
-  ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
-    this.logger.debug(
-      () => `Starting parallel compilation of ${files.length} files`,
-    );
-
-    // Transform the files array into the structure needed by compileMultipleWithConfigs
-    const fileCompilationConfigs = files.map((file) => {
-      // Create a fresh listener for each file if needed
-      const fileListener = listener.createNewInstance
+  ): Effect.Effect<
+    (CompilationResult<T> | CompilationResultWithComments<T>)[],
+    never,
+    never
+  > {
+    // Create configs for each file
+    const configs = files.map((file) => ({
+      content: file.content,
+      fileName: file.fileName,
+      listener: listener.createNewInstance
         ? listener.createNewInstance()
-        : listener;
-
-      return {
-        content: file.content,
-        fileName: file.fileName,
-        listener: fileListener,
-        options,
-      };
-    });
-
-    // Delegate to the more flexible method
-    return this.compileMultipleWithConfigs(fileCompilationConfigs);
+        : listener,
+      options,
+    }));
+    return this.compileMultipleWithConfigs(configs);
   }
 
-  /**
-   * Parse and compile multiple Apex files with individual settings using parallel processing.
-   * @param fileCompilationConfigs Array of file compilation configurations
-   * @returns Promise that resolves to array of compilation results
-   */
-  public async compileMultipleWithConfigs<T>(
-    fileCompilationConfigs: Array<{
+  public compileMultipleWithConfigs<T>(
+    fileCompilationConfigs: ReadonlyArray<{
       content: string;
       fileName: string;
       listener: BaseApexParserListener<T>;
       options?: CompilationOptions;
     }>,
-  ): Promise<(CompilationResult<T> | CompilationResultWithComments<T>)[]> {
-    this.logger.debug(
-      () =>
-        `Starting parallel compilation of ${fileCompilationConfigs.length} files with individual configurations`,
-    );
+    _concurrency = 50, // Parameter kept for API compatibility but not used
+  ): Effect.Effect<
+    (CompilationResult<T> | CompilationResultWithComments<T>)[],
+    never,
+    never
+  > {
+    const self = this;
+    return Effect.gen(function* () {
+      const startTime = Date.now();
+      const results: {
+        index: number;
+        result: CompilationResult<T> | CompilationResultWithComments<T>;
+      }[] = [];
 
-    const startTime = Date.now();
+      // Process files sequentially with yielding to avoid CPU issues
+      // This approach avoids Effect.all overhead while still allowing event loop to process other tasks
+      for (let i = 0; i < fileCompilationConfigs.length; i++) {
+        const config = fileCompilationConfigs[i];
 
-    // Use Promise.allSettled to capture compilation rejections
-    const settledResults = await Promise.allSettled(
-      fileCompilationConfigs.map(async (config) =>
-        // Use the listener as provided - assume it's already properly prepared
-        this.compile(
-          config.content,
-          config.fileName,
-          config.listener,
-          config.options || {},
-        ),
-      ),
-    );
+        // Compile single file with error handling
+        const compileResult = yield* Effect.either(
+          Effect.sync(() =>
+            self.compile(
+              config.content,
+              config.fileName,
+              config.listener,
+              config.options || {},
+            ),
+          ),
+        );
 
-    // Process the settled results and handle any rejections
-    const results: (CompilationResult<T> | CompilationResultWithComments<T>)[] =
-      [];
-    let rejectedCount = 0;
-
-    for (let i = 0; i < settledResults.length; i++) {
-      const settledResult = settledResults[i];
-      const config = fileCompilationConfigs[i];
-
-      if (settledResult.status === 'fulfilled') {
-        results.push(settledResult.value);
-      } else {
-        // Handle rejection by creating an error result
-        rejectedCount++;
-        this.logger.debug(() => `Compilation failed for ${config.fileName}`);
-
-        // Create an error object for the rejection
-        const errorObject: ApexError = {
-          type: 'semantic' as any,
-          severity: 'error' as any,
-          message:
-            settledResult.reason instanceof Error
-              ? settledResult.reason.message
-              : String(settledResult.reason),
-          line: 0,
-          column: 0,
-          fileUri: config.fileName,
-        };
-
-        const errorResult = {
-          fileName: config.fileName,
-          result: null,
-          errors: [errorObject],
-          warnings: [],
-        };
-
-        // Add comments array if comments are enabled
-        const includeComments = config.options?.includeComments !== false;
-        if (includeComments) {
+        // Process result
+        if (compileResult._tag === 'Right') {
           results.push({
-            ...errorResult,
-            comments: [],
+            index: i,
+            result: compileResult.right,
           });
         } else {
-          results.push(errorResult);
+          const error = compileResult.left;
+          const errorObject: ApexError = {
+            type: 'semantic' as any,
+            severity: 'error' as any,
+            message: String(error),
+            line: 0,
+            column: 0,
+            fileUri: config.fileName,
+          };
+          const errorResult = {
+            fileName: config.fileName,
+            result: null,
+            errors: [errorObject],
+            warnings: [],
+          };
+          const includeComments = config.options?.includeComments !== false;
+          results.push({
+            index: i,
+            result: includeComments
+              ? ({
+                  ...errorResult,
+                  comments: [],
+                } as CompilationResultWithComments<T>)
+              : (errorResult as CompilationResult<T>),
+          });
         }
-      }
-    }
 
-    const endTime = Date.now();
-    const duration = (endTime - startTime) / 1000;
-    this.logger.debug(
-      () =>
-        `Parallel compilation completed in ${duration.toFixed(2)}s: ${results.length} files processed` +
-        (rejectedCount > 0
-          ? `, ${rejectedCount} compilation rejections captured`
-          : ''),
-    );
-    return results;
+        // Yield to event loop after each compilation to prevent blocking
+        yield* Effect.sleep(0);
+      }
+
+      // Results are already in order, just extract them
+      const compiled = results.map((r) => r.result);
+      const completedCount = results.filter(
+        (item) => item.result.errors.length === 0,
+      ).length;
+      const rejectedCount = results.length - completedCount;
+
+      const endTime = Date.now();
+      const duration = (endTime - startTime) / 1000;
+      self.logger.debug(
+        () =>
+          `Sequential compilation completed in ${duration.toFixed(2)}s: ` +
+          `${completedCount} files compiled successfully, ` +
+          `${rejectedCount} files failed, ${compiled.length} total results`,
+      );
+
+      return compiled;
+    });
   }
 
-  /**
-   * Create compilation context for namespace resolution
-   */
   private createCompilationContext(
     namespace: string | undefined,
     fileName: string,
   ): any {
-    // For now, create a basic compilation context
-    // This will be enhanced when we have full CompilationContext type support
     return {
       namespace: namespace ? { toString: () => namespace } : null,
       version: DEFAULT_SALESFORCE_API_VERSION,
@@ -503,12 +395,7 @@ export class CompilerService {
     };
   }
 
-  /**
-   * Create symbol provider for namespace resolution
-   */
   private createSymbolProvider(): any {
-    // For now, create a basic symbol provider
-    // This will be enhanced when we have full SymbolProvider type support
     return {
       find: (referencingType: any, fullName: string) => null,
       findBuiltInType: (name: string) => null,

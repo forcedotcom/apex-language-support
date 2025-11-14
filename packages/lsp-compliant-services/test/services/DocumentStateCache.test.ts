@@ -9,10 +9,10 @@
 import { SymbolTable } from '@salesforce/apex-lsp-parser-ast';
 import { Diagnostic } from 'vscode-languageserver-protocol';
 import {
-  ParseResultCache,
-  CachedParseResult,
-  getParseResultCache,
-} from '../../src/services/ParseResultCache';
+  DocumentStateCache,
+  DocumentState,
+  getDocumentStateCache,
+} from '../../src/services/DocumentStateCache';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 // Mock getLogger to avoid console output during tests
@@ -26,23 +26,23 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   })),
 }));
 
-describe('ParseResultCache', () => {
-  let cache: ParseResultCache;
+describe('DocumentStateCache', () => {
+  let cache: DocumentStateCache;
 
   beforeEach(() => {
-    cache = new ParseResultCache(10); // Small cache for testing
+    cache = new DocumentStateCache(10); // Small cache for testing
     jest.clearAllMocks();
   });
 
   describe('constructor', () => {
     it('should create a cache with default size when no size specified', () => {
-      const defaultCache = new ParseResultCache();
+      const defaultCache = new DocumentStateCache();
       expect(defaultCache).toBeDefined();
       expect(defaultCache.size()).toBe(0);
     });
 
     it('should create a cache with specified max size', () => {
-      const sizedCache = new ParseResultCache(50);
+      const sizedCache = new DocumentStateCache(50);
       expect(sizedCache).toBeDefined();
       expect(sizedCache.size()).toBe(0);
     });
@@ -52,12 +52,13 @@ describe('ParseResultCache', () => {
     it('should cache and retrieve parse results', () => {
       const uri = 'file:///test.cls';
       const version = 1;
-      const result: CachedParseResult = {
+      const result: DocumentState = {
         symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: version,
         timestamp: Date.now(),
         documentLength: 100,
+        symbolsIndexed: false,
       };
 
       cache.set(uri, result);
@@ -94,16 +95,17 @@ describe('ParseResultCache', () => {
       const maxSize = 3;
 
       // Create a cache with size 3 for this test
-      const testCache = new ParseResultCache(3);
+      const testCache = new DocumentStateCache(3);
 
       // Fill cache to capacity
       for (let i = 0; i < maxSize; i++) {
-        const result: CachedParseResult = {
+        const result: DocumentState = {
           symbolTable: new SymbolTable(),
           diagnostics: [],
           documentVersion: 1,
           timestamp: Date.now() - (maxSize - i) * 1000, // Different timestamps
           documentLength: 100,
+          symbolsIndexed: false,
         };
         testCache.set(`file:///test${i}.cls`, result);
       }
@@ -114,12 +116,13 @@ describe('ParseResultCache', () => {
       expect(testCache.has('file:///test0.cls')).toBe(true);
 
       // Add another entry - should evict oldest
-      const newResult: CachedParseResult = {
+      const newResult: DocumentState = {
         symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 1,
         timestamp: Date.now(),
         documentLength: 100,
+        symbolsIndexed: false,
       };
 
       const evictionsBefore = testCache.getStats().evictions;
@@ -149,12 +152,13 @@ describe('ParseResultCache', () => {
       cache.set(uri, result1);
       expect(cache.size()).toBe(1);
 
-      const result2: CachedParseResult = {
+      const result2: DocumentState = {
         symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 2,
         timestamp: Date.now(),
         documentLength: 100,
+        symbolsIndexed: false,
       };
 
       cache.set(uri, result2);
@@ -303,16 +307,16 @@ describe('ParseResultCache', () => {
     });
   });
 
-  describe('getParseResultCache singleton', () => {
+  describe('getDocumentStateCache singleton', () => {
     it('should return the same instance on multiple calls', () => {
-      const instance1 = getParseResultCache();
-      const instance2 = getParseResultCache();
+      const instance1 = getDocumentStateCache();
+      const instance2 = getDocumentStateCache();
 
       expect(instance1).toBe(instance2);
     });
 
     it('should use default max size when not specified', () => {
-      const instance = getParseResultCache();
+      const instance = getDocumentStateCache();
       const stats = instance.getStats();
 
       expect(stats.maxSize).toBe(100);
@@ -320,10 +324,10 @@ describe('ParseResultCache', () => {
 
     it('should use default max size on first call', () => {
       // Singleton instance is created with default size
-      const instance = getParseResultCache();
+      const instance = getDocumentStateCache();
       const stats = instance.getStats();
 
-      // Default size is 100 per the getParseResultCache implementation
+      // Default size is 100 per the getDocumentStateCache implementation
       expect(stats.maxSize).toBe(100);
     });
   });
@@ -349,12 +353,13 @@ describe('ParseResultCache', () => {
       expect(cache.get(uri, 2)).toBeNull();
 
       // Update to version 2
-      const result2: CachedParseResult = {
+      const result2: DocumentState = {
         symbolTable: new SymbolTable(),
         diagnostics: [],
         documentVersion: 2,
         timestamp: Date.now(),
         documentLength: 150,
+        symbolsIndexed: false,
       };
       cache.set(uri, result2);
 
@@ -388,6 +393,103 @@ describe('ParseResultCache', () => {
       const stats = cache.getStats();
       expect(stats.hits).toBe(5);
       expect(stats.misses).toBeGreaterThanOrEqual(4); // At least version mismatches
+    });
+  });
+
+  describe('symbolsIndexed field', () => {
+    it('should default symbolsIndexed to false for new entries', () => {
+      const uri = 'file:///test.cls';
+      const result: DocumentState = {
+        symbolTable: new SymbolTable(),
+        diagnostics: [],
+        documentVersion: 1,
+        timestamp: Date.now(),
+        documentLength: 100,
+        symbolsIndexed: false,
+      };
+
+      cache.set(uri, result);
+      const retrieved = cache.get(uri, 1);
+
+      expect(retrieved).not.toBeNull();
+      expect(retrieved?.symbolsIndexed).toBe(false);
+    });
+
+    it('should preserve symbolsIndexed when merging if not explicitly overridden', () => {
+      const uri = 'file:///test.cls';
+      const initial: DocumentState = {
+        symbolTable: new SymbolTable(),
+        diagnostics: [],
+        documentVersion: 1,
+        timestamp: Date.now(),
+        documentLength: 100,
+        symbolsIndexed: true,
+      };
+
+      cache.set(uri, initial);
+
+      // Merge without specifying symbolsIndexed
+      cache.merge(uri, {
+        diagnostics: [],
+      });
+
+      const retrieved = cache.get(uri, 1);
+      expect(retrieved).not.toBeNull();
+      expect(retrieved?.symbolsIndexed).toBe(true); // Should preserve true
+    });
+
+    it('should update symbolsIndexed when explicitly set in merge', () => {
+      const uri = 'file:///test.cls';
+      const initial: DocumentState = {
+        symbolTable: new SymbolTable(),
+        diagnostics: [],
+        documentVersion: 1,
+        timestamp: Date.now(),
+        documentLength: 100,
+        symbolsIndexed: false,
+      };
+
+      cache.set(uri, initial);
+
+      // Merge with explicit symbolsIndexed: true
+      cache.merge(uri, {
+        symbolsIndexed: true,
+      });
+
+      const retrieved = cache.get(uri, 1);
+      expect(retrieved).not.toBeNull();
+      expect(retrieved?.symbolsIndexed).toBe(true);
+    });
+
+    it('should default symbolsIndexed to false for new entries created via merge', () => {
+      const uri = 'file:///test.cls';
+
+      // Merge into non-existent entry
+      cache.merge(uri, {
+        documentVersion: 1,
+        documentLength: 100,
+        symbolTable: new SymbolTable(),
+      });
+
+      const retrieved = cache.get(uri, 1);
+      expect(retrieved).not.toBeNull();
+      expect(retrieved?.symbolsIndexed).toBe(false); // Should default to false
+    });
+
+    it('should allow setting symbolsIndexed to true in new entry via merge', () => {
+      const uri = 'file:///test.cls';
+
+      // Merge into non-existent entry with explicit symbolsIndexed
+      cache.merge(uri, {
+        documentVersion: 1,
+        documentLength: 100,
+        symbolTable: new SymbolTable(),
+        symbolsIndexed: true,
+      });
+
+      const retrieved = cache.get(uri, 1);
+      expect(retrieved).not.toBeNull();
+      expect(retrieved?.symbolsIndexed).toBe(true);
     });
   });
 });

@@ -83,12 +83,14 @@ export class ApexSymbolProcessingManager {
    * @param symbolTable The symbol table to process
    * @param fileUri The file path associated with the symbol table
    * @param options Processing options
+   * @param documentVersion Optional document version for deduplication
    * @returns Task ID for tracking
    */
   processSymbolTable(
     symbolTable: SymbolTable,
     fileUri: string,
     options: SymbolProcessingOptions = {},
+    documentVersion?: number,
   ): string {
     if (!this.isInitialized) {
       this.logger.warn(
@@ -104,6 +106,7 @@ export class ApexSymbolProcessingManager {
       symbolTable,
       fileUri,
       options,
+      documentVersion,
     );
     this.logger.debug(
       () => `Symbol processing queued: ${taskId} for ${fileUri}`,
@@ -133,10 +136,24 @@ export class ApexSymbolProcessingManager {
    * @returns Task status
    */
   getTaskStatus(taskId: string): TaskStatus {
-    if (taskId === 'sync_fallback') {
+    if (taskId === 'sync_fallback' || taskId === 'deduplicated') {
       return 'COMPLETED';
     }
     return this.symbolIndexingService.getTaskStatus(taskId);
+  }
+
+  /**
+   * Get task information by task ID
+   * @param taskId The task ID
+   * @returns Task information or null if not found
+   */
+  getTaskInfo(
+    taskId: string,
+  ): { fileUri: string; documentVersion?: number } | null {
+    if (taskId === 'sync_fallback' || taskId === 'deduplicated') {
+      return null;
+    }
+    return this.symbolIndexingService.getTaskInfo(taskId);
   }
 
   /**

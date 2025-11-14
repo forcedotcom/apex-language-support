@@ -952,6 +952,14 @@ export class SymbolTable {
     return Array.from(this.symbolMap.values());
   }
 
+  findSymbolWith(
+    predicate: (entry: ApexSymbol) => boolean,
+  ): ApexSymbol | undefined {
+    const symbolEntry: [_: string, value: ApexSymbol] | undefined =
+      this.symbolMap.find((_, value) => predicate(value));
+    return symbolEntry ? symbolEntry[1] : undefined;
+  }
+
   /**
    * Add a type reference to the symbol table
    * @param ref The type reference to add
@@ -970,7 +978,7 @@ export class SymbolTable {
 
   /**
    * Get type references at a specific position
-   * @param position The position to search for references (0-based)
+   * @param position The position to search for references (1-based line, 0-based column)
    * @returns Array of type references at the position
    */
   getReferencesAtPosition(position: {
@@ -1016,7 +1024,7 @@ export class SymbolTable {
    * @returns Array of all hierarchical references
    */
   getAllHierarchicalReferences(): HierarchicalReference[] {
-    return [...this.hierarchicalReferences]; // Return a copy to prevent external modification
+    return structuredClone(this.hierarchicalReferences); // Return a copy to prevent external modification
   }
 
   /**

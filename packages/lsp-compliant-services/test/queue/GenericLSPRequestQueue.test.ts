@@ -56,6 +56,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
     typeof BackgroundProcessingInitializationService
   >;
   let mockSettingsManager: jest.Mocked<typeof ApexSettingsManager>;
+  const queues: GenericLSPRequestQueue[] = [];
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -126,9 +127,22 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
     } as any);
   });
 
+  afterEach(async () => {
+    // Clean up all queue instances to prevent hanging intervals
+    for (const queue of queues) {
+      try {
+        queue.shutdown();
+      } catch (_error) {
+        // Ignore shutdown errors
+      }
+    }
+    queues.length = 0;
+  });
+
   describe('Effect.Service Pattern', () => {
     it('should create queue instance with service registry', () => {
       const queue = new GenericLSPRequestQueue(serviceRegistry);
+      queues.push(queue);
       expect(queue).toBeDefined();
     });
 
@@ -145,6 +159,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
       };
 
       const queue = new GenericLSPRequestQueue(serviceRegistry, customSettings);
+      queues.push(queue);
       expect(queue).toBeDefined();
     });
   });
@@ -162,6 +177,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
       serviceRegistry.register(handler);
 
       const queue = new GenericLSPRequestQueue(serviceRegistry);
+      queues.push(queue);
       const result = await queue.submitRequest(
         'hover',
         { textDocument: { uri: 'test' }, position: { line: 0, character: 0 } },
@@ -184,6 +200,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
       serviceRegistry.register(handler);
 
       const queue = new GenericLSPRequestQueue(serviceRegistry);
+      queues.push(queue);
       await expect(
         queue.submitRequest(
           'hover',
@@ -198,6 +215,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
 
     it('should handle missing handler gracefully', async () => {
       const queue = new GenericLSPRequestQueue(serviceRegistry);
+      queues.push(queue);
       await expect(
         queue.submitRequest(
           'hover',
@@ -250,6 +268,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
         yieldInterval: 100,
         yieldDelayMs: 10,
       });
+      queues.push(queue);
 
       // Submit requests in reverse priority order
       const normalPromise = queue.submitRequest(
@@ -298,6 +317,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
         yieldInterval: 100,
         yieldDelayMs: 10,
       });
+      queues.push(queue);
 
       // Submit more requests than concurrency limit
       const promises = Array.from({ length: 5 }, () =>
@@ -331,6 +351,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
       serviceRegistry.register(handler);
 
       const queue = new GenericLSPRequestQueue(serviceRegistry);
+      queues.push(queue);
       await queue.submitRequest(
         'hover',
         { textDocument: { uri: 'test' }, position: { line: 0, character: 0 } },
@@ -364,6 +385,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
       serviceRegistry.register(handler);
 
       const queue = new GenericLSPRequestQueue(serviceRegistry);
+      queues.push(queue);
 
       const initialStats = queue.getStats();
       expect(initialStats.totalProcessed).toBe(0);
@@ -409,6 +431,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
         yieldInterval: 100,
         yieldDelayMs: 10,
       });
+      queues.push(queue);
 
       await expect(
         queue.submitRequest(
@@ -437,6 +460,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
       serviceRegistry.register(handler);
 
       const queue = new GenericLSPRequestQueue(serviceRegistry);
+      queues.push(queue);
 
       await queue.submitRequest(
         'hover',
@@ -457,6 +481,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
   describe('Context.Tag Dependencies', () => {
     it('should provide all required Context.Tag dependencies', () => {
       const queue = new GenericLSPRequestQueue(serviceRegistry);
+      queues.push(queue);
 
       // Queue should be created successfully with all dependencies
       expect(queue).toBeDefined();
@@ -485,6 +510,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
         yieldInterval: 1, // Yield after every task
         yieldDelayMs: 10,
       });
+      queues.push(queue);
 
       // Submit multiple requests
       const promises = Array.from({ length: 3 }, () =>
@@ -533,6 +559,7 @@ describe('GenericLSPRequestQueue - Effect-TS Implementation', () => {
       serviceRegistry.register(definitionHandler);
 
       const queue = new GenericLSPRequestQueue(serviceRegistry);
+      queues.push(queue);
 
       const hoverResult = await queue.submitRequest(
         'hover',

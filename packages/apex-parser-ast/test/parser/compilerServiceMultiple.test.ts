@@ -18,6 +18,7 @@ import {
 } from '../../src/parser/listeners/ApexFoldingRangeListener';
 import { SymbolTable } from '../../src/types/symbol';
 import { TestLogger } from '../utils/testLogger';
+import { Effect } from 'effect/index';
 
 describe('CompilerService Multiple Files Compilation', () => {
   // Set up debug logging for all tests in this suite
@@ -48,7 +49,9 @@ describe('CompilerService Multiple Files Compilation', () => {
         },
       ];
 
-      const results = await service.compileMultiple(files, listener);
+      const results = await Effect.runPromise(
+        service.compileMultiple(files, listener),
+      );
 
       // Both compilations should succeed
       expect(results.length).toBe(2);
@@ -95,9 +98,9 @@ describe('CompilerService Multiple Files Compilation', () => {
         options: { includeComments: true } as CompilationOptions,
       };
 
-      const symbolResults = await service.compileMultipleWithConfigs([
-        symbolConfig,
-      ]);
+      const symbolResults = await Effect.runPromise(
+        service.compileMultipleWithConfigs([symbolConfig]),
+      );
       expect(symbolResults.length).toBe(1);
       expect(symbolResults[0].errors.length).toBe(0);
       expect(symbolResults[0].result).toBeInstanceOf(SymbolTable);
@@ -127,9 +130,9 @@ describe('CompilerService Multiple Files Compilation', () => {
         options: { includeComments: false } as CompilationOptions,
       };
 
-      const foldingResults = await service.compileMultipleWithConfigs([
-        foldingConfig,
-      ]);
+      const foldingResults = await Effect.runPromise(
+        service.compileMultipleWithConfigs([foldingConfig]),
+      );
       expect(foldingResults.length).toBe(1);
       expect(foldingResults[0].errors.length).toBe(0);
       expect(Array.isArray(foldingResults[0].result)).toBe(true);
@@ -187,8 +190,8 @@ describe('CompilerService Multiple Files Compilation', () => {
         },
       ];
 
-      const results = await service.compileMultipleWithConfigs(
-        fileCompilationConfigs,
+      const results = await Effect.runPromise(
+        service.compileMultipleWithConfigs(fileCompilationConfigs),
       );
 
       // Both compilations should succeed
@@ -254,8 +257,8 @@ describe('CompilerService Multiple Files Compilation', () => {
         },
       ];
 
-      const results = await service.compileMultipleWithConfigs(
-        fileCompilationConfigs,
+      const results = await Effect.runPromise(
+        service.compileMultipleWithConfigs(fileCompilationConfigs),
       );
 
       // Both compilations should complete

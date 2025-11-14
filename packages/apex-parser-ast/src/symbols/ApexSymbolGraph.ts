@@ -610,9 +610,10 @@ export class ApexSymbolGraph {
     }
 
     // Get all symbols from the SymbolTable and find by name
-    const allSymbols = symbolTable.getAllSymbols();
+    const matchingSymbol = symbolTable.findSymbolWith(
+      (s) => s.name === symbolName,
+    );
 
-    const matchingSymbol = allSymbols.find((s) => s.name === symbolName);
     if (matchingSymbol) {
       // Always create a deep copy to avoid mutating the original symbol
       const symbolCopy = {
